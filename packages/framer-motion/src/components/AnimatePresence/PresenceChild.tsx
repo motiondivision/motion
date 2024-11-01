@@ -18,6 +18,7 @@ interface PresenceChildProps {
     custom?: any
     presenceAffectsLayout: boolean
     mode: "sync" | "popLayout" | "wait"
+    parentDom?: HTMLElement | ShadowRoot
 }
 
 export const PresenceChild = ({
@@ -28,6 +29,7 @@ export const PresenceChild = ({
     custom,
     presenceAffectsLayout,
     mode,
+    parentDom
 }: PresenceChildProps) => {
     const presenceChildren = useConstant(newChildrenMap)
     const id = useId()
@@ -83,7 +85,7 @@ export const PresenceChild = ({
     }, [isPresent])
 
     if (mode === "popLayout") {
-        children = <PopChild isPresent={isPresent}>{children}</PopChild>
+        children = <PopChild isPresent={isPresent} parentDom={parentDom}>{children}</PopChild>
     }
 
     return (

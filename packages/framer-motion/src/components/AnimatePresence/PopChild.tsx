@@ -15,6 +15,7 @@ interface Size {
 interface Props {
     children: React.ReactElement
     isPresent: boolean
+    parentDom?: HTMLElement | ShadowRoot
 }
 
 interface MeasureProps extends Props {
@@ -50,7 +51,7 @@ class PopChildMeasure extends React.Component<MeasureProps> {
     }
 }
 
-export function PopChild({ children, isPresent }: Props) {
+export function PopChild({ children, isPresent, parentDom }: Props) {
     const id = useId()
     const ref = useRef<HTMLElement>(null)
     const size = useRef<Size>({
@@ -78,7 +79,8 @@ export function PopChild({ children, isPresent }: Props) {
 
         const style = document.createElement("style")
         if (nonce) style.nonce = nonce
-        document.head.appendChild(style)
+        const parent = parentDom ?? document.head;
+        parent.appendChild(style)
         if (style.sheet) {
             style.sheet.insertRule(`
           [data-motion-pop-id="${id}"] {
@@ -92,7 +94,7 @@ export function PopChild({ children, isPresent }: Props) {
         }
 
         return () => {
-            document.head.removeChild(style)
+            parent.removeChild(style)
         }
     }, [isPresent])
 

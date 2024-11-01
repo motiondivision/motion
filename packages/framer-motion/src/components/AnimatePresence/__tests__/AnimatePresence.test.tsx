@@ -346,6 +346,39 @@ describe("AnimatePresence", () => {
         return await expect(promise).resolves.toBe(3)
     })
 
+    test("Can cycle through multiple components with mode === 'popLayout' and dom", async () => {
+        const promise = new Promise<number>((resolve) => {
+            const Component = ({ i }: { i: number }) => {
+                const testDom = document.createElement('div')
+                document.body.appendChild(testDom)
+                return (
+                    <AnimatePresence mode="popLayout" parentDom={testDom}>
+                        <motion.div
+                            key={i}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.5 }}
+                        />
+                    </AnimatePresence>
+                )
+            }
+
+            const { container, rerender } = render(<Component i={0} />)
+            rerender(<Component i={0} />)
+            setTimeout(() => {
+                rerender(<Component i={1} />)
+                rerender(<Component i={1} />)
+            }, 50)
+            setTimeout(() => {
+                rerender(<Component i={2} />)
+                rerender(<Component i={2} />)
+                resolve(container.childElementCount)
+            }, 400)
+        })
+
+        return await expect(promise).resolves.toBe(3)
+    })
+
     test("Only renders one child at a time if mode === 'wait'", async () => {
         const promise = new Promise<number>((resolve) => {
             const Component = ({ i }: { i: number }) => {
