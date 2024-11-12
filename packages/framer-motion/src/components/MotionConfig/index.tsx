@@ -59,6 +59,7 @@ export function MotionConfig({
             JSON.stringify(config.transition),
             config.transformPagePoint,
             config.reducedMotion,
+            config.skipAnimations
         ]
     )
 

@@ -229,6 +229,11 @@ export abstract class VisualElement<
     blockInitialAnimation: boolean
 
     /**
+     * Decides whether this Visual element should skip its animations.
+     */
+    skipAnimations: boolean = false
+
+    /**
      * A reference to this VisualElement's projection node, used in layout animations.
      */
     projection?: IProjectionNode
@@ -326,6 +331,7 @@ export abstract class VisualElement<
             props,
             presenceContext,
             reducedMotionConfig,
+            skipAnimations,
             blockInitialAnimation,
             visualState,
         }: VisualElementOptions<Instance, RenderState>,
@@ -341,6 +347,7 @@ export abstract class VisualElement<
         this.presenceContext = presenceContext
         this.depth = parent ? parent.depth + 1 : 0
         this.reducedMotionConfig = reducedMotionConfig
+        this.skipAnimations = skipAnimations ?? false
         this.options = options
         this.blockInitialAnimation = Boolean(blockInitialAnimation)
 
