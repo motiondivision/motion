@@ -1,5 +1,5 @@
 <p align="center">
-  <img width="100" height="100" alt="Motion logo" src="https://user-images.githubusercontent.com/7850794/164965523-3eced4c4-6020-467e-acde-f11b7900ad62.png" alt="Motion logo" />
+  <img width="100" height="100" alt="Motion logo" src="https://user-images.githubusercontent.com/7850794/164965523-3eced4c4-6020-467e-acde-f11b7900ad62.png" />
 </p>
 <h1 align="center">Motion</h1>
 <h3 align="center">
