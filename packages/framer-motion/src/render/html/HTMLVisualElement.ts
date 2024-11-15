@@ -11,7 +11,6 @@ import { MotionProps } from "../../motion/types"
 import type { Box } from "../../projection/geometry/types"
 import { DOMVisualElement } from "../dom/DOMVisualElement"
 import { MotionConfigContext } from "../../context/MotionConfigContext"
-import { isMotionValue } from "../../value/utils/is-motion-value"
 import type { ResolvedValues } from "../types"
 import { VisualElement } from "../VisualElement"
 
@@ -65,21 +64,6 @@ export class HTMLVisualElement extends DOMVisualElement<
         visualElement: VisualElement
     ) {
         return scrapeMotionValuesFromProps(props, prevProps, visualElement)
-    }
-
-    childSubscription?: VoidFunction
-    handleChildMotionValue() {
-        if (this.childSubscription) {
-            this.childSubscription()
-            delete this.childSubscription
-        }
-
-        const { children } = this.props
-        if (isMotionValue(children)) {
-            this.childSubscription = children.on("change", (latest) => {
-                if (this.current) this.current.textContent = `${latest}`
-            })
-        }
     }
 
     renderInstance = renderHTML

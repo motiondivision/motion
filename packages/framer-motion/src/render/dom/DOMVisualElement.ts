@@ -4,6 +4,7 @@ import { MotionProps, MotionStyle } from "../../motion/types"
 import { MotionValue } from "../../value"
 import { HTMLRenderState } from "../html/types"
 import { DOMKeyframesResolver } from "./DOMKeyframesResolver"
+import { isMotionValue } from "../../value/utils/is-motion-value"
 
 export abstract class DOMVisualElement<
     Instance extends HTMLElement | SVGElement = HTMLElement,
@@ -37,4 +38,21 @@ export abstract class DOMVisualElement<
     }
 
     KeyframeResolver = DOMKeyframesResolver
+
+    childSubscription?: VoidFunction
+    handleChildMotionValue() {
+        if (this.childSubscription) {
+            this.childSubscription()
+            delete this.childSubscription
+        }
+
+        const { children } = this.props
+        if (isMotionValue(children)) {
+            this.childSubscription = children.on("change", (latest) => {
+                if (this.current) {
+                    this.current.textContent = `${latest}`;
+                }
+            })
+        }
+    }
 }

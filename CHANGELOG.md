@@ -4,6 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [11.11.17] 2024-10-26
+
+### Fixed
+
+- SVG elements (like `motion.text`) now update when given a `MotionValue` as children, matching HTML element behavior.
+
 ## [11.11.16] 2024-11-14
 
 ### Fixed
