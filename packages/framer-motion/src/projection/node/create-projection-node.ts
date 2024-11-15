@@ -613,8 +613,10 @@ export function createProjectionNode<I>({
 
         // Note: currently only running on root node
         startUpdate() {
+            console.log("update blocked")
             if (this.isUpdateBlocked()) return
 
+            console.log("start update")
             this.isUpdating = true
 
             this.nodes && this.nodes.forEach(resetSkewAndRotation)
@@ -628,6 +630,7 @@ export function createProjectionNode<I>({
 
         willUpdate(shouldNotifyListeners = true) {
             this.root.hasTreeAnimated = true
+
             if (this.root.isUpdateBlocked()) {
                 this.options.onExitComplete && this.options.onExitComplete()
                 return
@@ -699,26 +702,27 @@ export function createProjectionNode<I>({
 
             if (!this.isUpdating) {
                 this.nodes!.forEach(clearIsLayoutDirty)
+            } else {
+                this.isUpdating = false
+
+                /**
+                 * Write
+                 */
+                this.nodes!.forEach(resetTransformStyle)
+
+                /**
+                 * Read ==================
+                 */
+                // Update layout measurements of updated children
+                this.nodes!.forEach(updateLayout)
+
+                /**
+                 * Write
+                 */
+                // Notify listeners that the layout is updated
+                this.nodes!.forEach(notifyLayoutUpdate)
             }
 
-            this.isUpdating = false
-
-            /**
-             * Write
-             */
-            this.nodes!.forEach(resetTransformStyle)
-
-            /**
-             * Read ==================
-             */
-            // Update layout measurements of updated children
-            this.nodes!.forEach(updateLayout)
-
-            /**
-             * Write
-             */
-            // Notify listeners that the layout is updated
-            this.nodes!.forEach(notifyLayoutUpdate)
             this.clearAllSnapshots()
 
             /**
@@ -821,7 +825,6 @@ export function createProjectionNode<I>({
         updateLayout() {
             if (!this.instance) return
 
-            // TODO: Incorporate into a forwarded scroll offset
             this.updateScroll()
 
             if (
