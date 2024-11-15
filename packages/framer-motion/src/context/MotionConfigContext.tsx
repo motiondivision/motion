@@ -37,6 +37,11 @@ export interface MotionConfigContext {
     reducedMotion?: ReducedMotionConfig
 
     /**
+     * If true, will disable all motion component animations within the `MotionContext`.
+     */
+    skipAnimations?: boolean
+
+    /**
      * A custom `nonce` attribute used when wanting to enforce a Content Security Policy (CSP).
      * For more details see:
      * https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Security-Policy/style-src#unsafe_inline_styles
@@ -53,4 +58,5 @@ export const MotionConfigContext = createContext<MotionConfigContext>({
     transformPagePoint: (p) => p,
     isStatic: false,
     reducedMotion: "never",
+    skipAnimations: false,
 })
