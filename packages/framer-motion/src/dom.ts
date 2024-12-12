@@ -46,6 +46,14 @@ export { wrap } from "./utils/wrap"
 export * from "./frameloop"
 
 /**
+ * Types
+ */
+
+export * from "./animation/types"
+export * from "./animation/sequence/types"
+export * from "./projection/geometry/types"
+
+/**
  * Deprecated
  */
 export { sync, cancelSync } from "./frameloop/index-legacy"
