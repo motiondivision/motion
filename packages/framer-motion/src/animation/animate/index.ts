@@ -1,7 +1,10 @@
-import { AnimationScope, ElementOrSelector } from "motion-dom"
+import {
+    AnimationScope,
+    ElementOrSelector,
+    GroupPlaybackControls,
+} from "motion-dom"
 import { GenericKeyframesTarget } from "../../types"
 import type { MotionValue } from "../../value"
-import { GroupPlaybackControls } from "../GroupPlaybackControls"
 import {
     AnimationSequence,
     ObjectTarget,

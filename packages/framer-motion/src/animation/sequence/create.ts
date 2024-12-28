@@ -1,35 +1,32 @@
-import { AnimationScope } from "motion-dom"
+import { AnimationScope, createGeneratorEasing, isGenerator } from "motion-dom"
+import { invariant, progress, secondsToMilliseconds } from "motion-utils"
 import { Easing } from "../../easing/types"
-import { createGeneratorEasing } from "../../easing/utils/create-generator-easing"
+import { getEasingForSegment } from "../../easing/utils/get-easing-for-segment"
 import { defaultOffset } from "../../utils/offsets/default"
 import { fillOffset } from "../../utils/offsets/fill"
-import { progress } from "../../utils/progress"
-import { secondsToMilliseconds } from "../../utils/time-conversion"
 import type { MotionValue } from "../../value"
 import { isMotionValue } from "../../value/utils/is-motion-value"
 import { resolveSubjects } from "../animate/resolve-subjects"
-import { isGenerator } from "../generators/utils/is-generator"
-import { DynamicAnimationOptions, GeneratorFactory } from "../types"
 import {
     DOMKeyframesDefinition,
+    DynamicAnimationOptions,
+    GeneratorFactory,
     Transition,
     UnresolvedValueKeyframe,
 } from "../types"
 import {
     AnimationSequence,
     At,
-    SequenceMap,
     ResolvedAnimationDefinitions,
+    SequenceMap,
     SequenceOptions,
     ValueSequence,
 } from "./types"
+import { calculateRepeatDuration } from "./utils/calc-repeat-duration"
 import { calcNextTime } from "./utils/calc-time"
 import { addKeyframes } from "./utils/edit"
-import { compareByTime } from "./utils/sort"
-import { invariant } from "motion-utils"
 import { normalizeTimes } from "./utils/normalize-times"
-import { calculateRepeatDuration } from "./utils/calc-repeat-duration"
-import { getEasingForSegment } from "../../easing/utils/get-easing-for-segment"
+import { compareByTime } from "./utils/sort"
 
 const defaultSegmentEasing = "easeInOut"
 

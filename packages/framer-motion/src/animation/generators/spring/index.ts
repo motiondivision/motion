@@ -1,16 +1,15 @@
-import { generateLinearEasing } from "../../animators/waapi/utils/linear"
 import {
-    millisecondsToSeconds,
-    secondsToMilliseconds,
-} from "../../../utils/time-conversion"
-import { ValueAnimationOptions, SpringOptions } from "../../types"
+    calcGeneratorDuration,
+    generateLinearEasing,
+    maxGeneratorDuration,
+} from "motion-dom"
+import { millisecondsToSeconds, secondsToMilliseconds } from "motion-utils"
+import { clamp } from "../../../utils/clamp"
+import { SpringOptions, ValueAnimationOptions } from "../../types"
 import { AnimationState, KeyframeGenerator } from "../types"
 import { calcGeneratorVelocity } from "../utils/velocity"
-import { calcAngularFreq, findSpring } from "./find"
-import { calcGeneratorDuration } from "../utils/calc-duration"
-import { maxGeneratorDuration } from "../utils/calc-duration"
-import { clamp } from "../../../utils/clamp"
 import { springDefaults } from "./defaults"
+import { calcAngularFreq, findSpring } from "./find"
 
 const durationKeys = ["duration", "bounce"]
 const physicsKeys = ["stiffness", "damping", "mass"]
@@ -38,7 +37,9 @@ function getSpringOptions(options: SpringOptions) {
             const root = (2 * Math.PI) / (visualDuration * 1.2)
             const stiffness = root * root
             const damping =
-                2 * clamp(0.05, 1, 1 - options.bounce!) * Math.sqrt(stiffness)
+                2 *
+                clamp(0.05, 1, 1 - (options.bounce || 0)) *
+                Math.sqrt(stiffness)
 
             springOptions = {
                 ...springOptions,

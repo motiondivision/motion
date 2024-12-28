@@ -1,4 +1,4 @@
-import { mapEasingToNativeEasing } from "./easing"
+import { mapEasingToNativeEasing } from "motion-dom"
 import { NativeAnimationOptions } from "./types"
 
 export function startWaapiAnimation(

@@ -1,29 +1,28 @@
+import { calcGeneratorDuration, isGenerator } from "motion-dom"
+import {
+    invariant,
+    millisecondsToSeconds,
+    secondsToMilliseconds,
+} from "motion-utils"
 import {
     KeyframeResolver as DefaultKeyframeResolver,
     ResolvedKeyframes,
 } from "../../render/utils/KeyframesResolver"
-import { spring } from "../generators/spring/index"
+import { clamp } from "../../utils/clamp"
+import { mix } from "../../utils/mix"
+import { pipe } from "../../utils/pipe"
 import { inertia } from "../generators/inertia"
 import { keyframes as keyframesGeneratorFactory } from "../generators/keyframes"
+import { spring } from "../generators/spring/index"
+import { AnimationState, KeyframeGenerator } from "../generators/types"
 import {
     ValueAnimationOptions,
     ValueAnimationOptionsWithRenderContext,
 } from "../types"
 import { BaseAnimation } from "./BaseAnimation"
-import { AnimationState, KeyframeGenerator } from "../generators/types"
-import { pipe } from "../../utils/pipe"
-import { mix } from "../../utils/mix"
-import { calcGeneratorDuration } from "../generators/utils/calc-duration"
-import { DriverControls } from "./drivers/types"
-import {
-    millisecondsToSeconds,
-    secondsToMilliseconds,
-} from "../../utils/time-conversion"
-import { clamp } from "../../utils/clamp"
-import { invariant } from "motion-utils"
 import { frameloopDriver } from "./drivers/driver-frameloop"
+import { DriverControls } from "./drivers/types"
 import { getFinalKeyframe } from "./waapi/utils/get-final-keyframe"
-import { isGenerator } from "../generators/utils/is-generator"
 
 type GeneratorFactory = (
     options: ValueAnimationOptions<any>

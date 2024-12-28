@@ -1,4 +1,4 @@
-import { BezierDefinition, Easing } from "../types"
+import { BezierDefinition, Easing } from "../animation/types"
 
 export const isBezierDefinition = (
     easing: Easing | Easing[]

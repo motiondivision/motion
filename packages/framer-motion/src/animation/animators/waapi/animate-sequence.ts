@@ -1,4 +1,4 @@
-import { GroupPlaybackControls } from "../../GroupPlaybackControls"
+import { GroupPlaybackControls } from "motion-dom"
 import { createAnimationsFromSequence } from "../../sequence/create"
 import { AnimationSequence, SequenceOptions } from "../../sequence/types"
 import { AnimationPlaybackControls } from "../../types"

@@ -1,5 +1,5 @@
-import { EasingFunction } from "../../../../easing/types"
-import { progress } from "../../../../utils/progress"
+import { progress } from "motion-utils"
+import { EasingFunction } from "../../types"
 
 export const generateLinearEasing = (
     easing: EasingFunction,

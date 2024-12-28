@@ -1,5 +1,5 @@
-import { memo } from "../../../../utils/memo"
-import { supportsFlags } from "./supports-flags"
+import { memo } from "motion-utils"
+import { supportsFlags } from "./flags"
 
 export function memoSupports<T extends any>(
     callback: () => T,

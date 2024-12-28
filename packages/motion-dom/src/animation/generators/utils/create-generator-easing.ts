@@ -1,9 +1,6 @@
-import {
-    calcGeneratorDuration,
-    maxGeneratorDuration,
-} from "../../animation/generators/utils/calc-duration"
-import { GeneratorFactory, Transition } from "../../animation/types"
-import { millisecondsToSeconds } from "../../utils/time-conversion"
+import { millisecondsToSeconds } from "motion-utils"
+import { GeneratorFactory, Transition } from "../../types"
+import { calcGeneratorDuration, maxGeneratorDuration } from "./calc-duration"
 
 /**
  * Create a progress => progress easing function from a generator.
@@ -21,8 +18,9 @@ export function createGeneratorEasing(
 
     return {
         type: "keyframes",
-        ease: (progress: number) =>
-            generator.next(duration * progress).value / scale,
+        ease: (progress: number) => {
+            return generator.next(duration * progress).value / scale
+        },
         duration: millisecondsToSeconds(duration),
     }
 }

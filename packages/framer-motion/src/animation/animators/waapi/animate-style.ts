@@ -1,5 +1,8 @@
-import { AnimationScope, ElementOrSelector } from "motion-dom"
-import { GroupPlaybackControls } from "../../GroupPlaybackControls"
+import {
+    AnimationScope,
+    GroupPlaybackControls,
+    ElementOrSelector,
+} from "motion-dom"
 import {
     AnimationPlaybackControls,
     DOMKeyframesDefinition,

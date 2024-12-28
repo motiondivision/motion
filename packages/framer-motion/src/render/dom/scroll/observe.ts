@@ -1,12 +1,7 @@
+import { ProgressTimeline } from "motion-dom"
 import { cancelFrame, frame } from "../../../frameloop"
 
 type Update = (progress: number) => void
-
-export interface ProgressTimeline {
-    currentTime: null | { value: number }
-
-    cancel?: VoidFunction
-}
 
 export function observeTimeline(update: Update, timeline: ProgressTimeline) {
     let prevProgress: number

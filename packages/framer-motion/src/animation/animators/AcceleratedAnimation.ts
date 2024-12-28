@@ -1,16 +1,21 @@
+import {
+    attachTimeline,
+    isGenerator,
+    isWaapiSupportedEasing,
+    supportsLinearEasing,
+} from "motion-dom"
+import {
+    millisecondsToSeconds,
+    noop,
+    secondsToMilliseconds,
+} from "motion-utils"
 import { anticipate } from "../../easing/anticipate"
 import { backInOut } from "../../easing/back"
 import { circInOut } from "../../easing/circ"
 import { EasingDefinition } from "../../easing/types"
 import { DOMKeyframesResolver } from "../../render/dom/DOMKeyframesResolver"
 import { ResolvedKeyframes } from "../../render/utils/KeyframesResolver"
-import { noop } from "motion-utils"
-import {
-    millisecondsToSeconds,
-    secondsToMilliseconds,
-} from "../../utils/time-conversion"
 import { MotionValue } from "../../value"
-import { isGenerator } from "../generators/utils/is-generator"
 import {
     ValueAnimationOptions,
     ValueAnimationOptionsWithRenderContext,
@@ -22,10 +27,7 @@ import {
 import { MainThreadAnimation } from "./MainThreadAnimation"
 import { acceleratedValues } from "./utils/accelerated-values"
 import { startWaapiAnimation } from "./waapi"
-import { isWaapiSupportedEasing } from "./waapi/easing"
-import { attachTimeline } from "./waapi/utils/attach-timeline"
 import { getFinalKeyframe } from "./waapi/utils/get-final-keyframe"
-import { supportsLinearEasing } from "./waapi/utils/supports-linear-easing"
 import { supportsWaapi } from "./waapi/utils/supports-waapi"
 
 /**

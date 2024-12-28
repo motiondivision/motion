@@ -1,4 +1,4 @@
-import { progress as calcProgress } from "../../../utils/progress"
+import { progress as calcProgress } from "motion-utils"
 import { calcLength } from "../../../projection/geometry/delta-calc"
 import {
     Axis,

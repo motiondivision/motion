@@ -15,6 +15,9 @@
             "default": "./dist/cjs/index.js"
         }
     },
+    "dependencies": {
+        "motion-utils": "^11.14.3"
+    },
     "scripts": {
         "clean": "rm -rf types dist lib",
         "build": "yarn clean && tsc -p . && rollup -c",

@@ -1,7 +1,7 @@
-import { BezierDefinition, Easing } from "../../../easing/types"
-import { isBezierDefinition } from "../../../easing/utils/is-bezier-definition"
-import { generateLinearEasing } from "./utils/linear"
-import { supportsLinearEasing } from "./utils/supports-linear-easing"
+import { isBezierDefinition } from "../../../utils/is-bezier-definition"
+import { supportsLinearEasing } from "../../../utils/supports/linear-easing"
+import { BezierDefinition, Easing } from "../../types"
+import { generateLinearEasing } from "./linear"
 
 export function isWaapiSupportedEasing(easing?: Easing | Easing[]): boolean {
     return Boolean(

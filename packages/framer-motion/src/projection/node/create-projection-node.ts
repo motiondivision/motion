@@ -1,10 +1,36 @@
-import { frame, cancelFrame } from "../../frameloop"
-import { AnimationPlaybackControls } from "../../animation/types"
+import { getValueTransition } from "motion-dom"
+import { noop } from "motion-utils"
+import { animateSingleValue } from "../../animation/animate/single-value"
+import { getOptimisedAppearId } from "../../animation/optimized-appear/get-appear-id"
+import {
+    AnimationPlaybackControls,
+    ValueAnimationOptions,
+} from "../../animation/types"
+import { frameData } from "../../dom"
+import { cancelFrame, frame } from "../../frameloop"
+import { frameSteps } from "../../frameloop/frame"
+import { microtask } from "../../frameloop/microtask"
+import { time } from "../../frameloop/sync-time"
+import { Process } from "../../frameloop/types"
+import { MotionStyle } from "../../motion/types"
+import { isSVGElement } from "../../render/dom/utils/is-svg-element"
 import { ResolvedValues } from "../../render/types"
+import { FlatTree } from "../../render/utils/flat-tree"
+import { VisualElement } from "../../render/VisualElement"
+import { Transition } from "../../types"
+import { clamp } from "../../utils/clamp"
+import { delay } from "../../utils/delay"
+import { mixNumber } from "../../utils/mix/number"
 import { SubscriptionManager } from "../../utils/subscription-manager"
+import { resolveMotionValue } from "../../value/utils/resolve-motion-value"
 import { mixValues } from "../animation/mix-values"
 import { copyAxisDeltaInto, copyBoxInto } from "../geometry/copy"
-import { applyBoxDelta, applyTreeDeltas } from "../geometry/delta-apply"
+import {
+    applyBoxDelta,
+    applyTreeDeltas,
+    transformBox,
+    translateAxis,
+} from "../geometry/delta-apply"
 import {
     calcBoxDelta,
     calcLength,
@@ -13,10 +39,8 @@ import {
     isNear,
 } from "../geometry/delta-calc"
 import { removeBoxTransforms } from "../geometry/delta-remove"
-import { Axis, AxisDelta, Box, Delta } from "../geometry/types"
-import { transformBox, translateAxis } from "../geometry/delta-apply"
-import { Point } from "../geometry/types"
-import { getValueTransition } from "../../animation/utils/get-value-transition"
+import { createBox, createDelta } from "../geometry/models"
+import { Axis, AxisDelta, Box, Delta, Point } from "../geometry/types"
 import {
     aspectRatio,
     axisDeltaEquals,
@@ -29,36 +53,17 @@ import { scaleCorrectors } from "../styles/scale-correction"
 import { buildProjectionTransform } from "../styles/transform"
 import { eachAxis } from "../utils/each-axis"
 import { has2DTranslate, hasScale, hasTransform } from "../utils/has-transform"
+import { globalProjectionState } from "./state"
 import {
     IProjectionNode,
     LayoutEvents,
     LayoutUpdateData,
+    Measurements,
+    Phase,
     ProjectionNodeConfig,
     ProjectionNodeOptions,
-    Measurements,
     ScrollMeasurements,
-    Phase,
 } from "./types"
-import { FlatTree } from "../../render/utils/flat-tree"
-import { Transition } from "../../types"
-import { resolveMotionValue } from "../../value/utils/resolve-motion-value"
-import { MotionStyle } from "../../motion/types"
-import { globalProjectionState } from "./state"
-import { delay } from "../../utils/delay"
-import { mixNumber } from "../../utils/mix/number"
-import { Process } from "../../frameloop/types"
-import { ValueAnimationOptions } from "../../animation/types"
-import { frameData } from "../../dom"
-import { isSVGElement } from "../../render/dom/utils/is-svg-element"
-import { animateSingleValue } from "../../animation/animate/single-value"
-import { clamp } from "../../utils/clamp"
-import { frameSteps } from "../../frameloop/frame"
-import { noop } from "motion-utils"
-import { time } from "../../frameloop/sync-time"
-import { microtask } from "../../frameloop/microtask"
-import { VisualElement } from "../../render/VisualElement"
-import { getOptimisedAppearId } from "../../animation/optimized-appear/get-appear-id"
-import { createBox, createDelta } from "../geometry/models"
 
 const metrics = {
     type: "projectionFrame",

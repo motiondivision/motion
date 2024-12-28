@@ -1,6 +1,6 @@
-import { ResolvedKeyframes } from "../../../render/utils/KeyframesResolver"
+import { isGenerator } from "motion-dom"
 import { warning } from "motion-utils"
-import { isGenerator } from "../../generators/utils/is-generator"
+import { ResolvedKeyframes } from "../../../render/utils/KeyframesResolver"
 import { AnimationGeneratorType } from "../../types"
 import { isAnimatable } from "../../utils/is-animatable"
 

@@ -1,54 +1,78 @@
 import { TargetAndTransition, TargetResolver } from "../types"
 import type { VisualElement } from "../render/VisualElement"
-import { Easing } from "../easing/types"
-import { Driver } from "./animators/drivers/types"
-import { SVGPathProperties, VariantLabels } from "../motion/types"
-import { SVGAttributes } from "../render/svg/types-attributes"
-import { ProgressTimeline } from "../render/dom/scroll/observe"
+import { VariantLabels } from "../motion/types"
 import type { MotionValue } from "../value"
 import {
     KeyframeResolver,
     OnKeyframesResolved,
 } from "../render/utils/KeyframesResolver"
-import { KeyframeGenerator } from "./generators/types"
 
-export interface AnimationPlaybackLifecycles<V> {
-    onUpdate?: (latest: V) => void
-    onPlay?: () => void
-    onComplete?: () => void
-    onRepeat?: () => void
-    onStop?: () => void
+import {
+    AnimationPlaybackControls,
+    SVGPathProperties,
+    SVGTransitions,
+    VariableTransitions,
+    StyleTransitions,
+    AnimationOptionsWithValueOverrides,
+    DynamicOption,
+    AnimationOptions as DynamicAnimationOptions,
+    AnimationPlaybackLifecycles,
+    Transition,
+    GeneratorFactory,
+    ValueAnimationTransition,
+    ValueAnimationOptions,
+    RepeatType,
+    AnimationPlaybackOptions,
+    KeyframeOptions,
+    InertiaOptions,
+    DecayOptions,
+    SpringOptions,
+    DurationSpringOptions,
+    VelocityOptions,
+    CSSStyleDeclarationWithTransform,
+    ValueKeyframe,
+    UnresolvedValueKeyframe,
+    ValueKeyframesDefinition,
+    StyleKeyframesDefinition,
+    SVGKeyframesDefinition,
+    SVGPathKeyframesDefinition,
+    VariableKeyframesDefinition,
+    DOMKeyframesDefinition,
+    AnimationGeneratorType,
+} from "motion-dom"
+export {
+    AnimationPlaybackControls,
+    SVGPathProperties,
+    SVGTransitions,
+    VariableTransitions,
+    StyleTransitions,
+    AnimationOptionsWithValueOverrides,
+    DynamicOption,
+    DynamicAnimationOptions,
+    AnimationPlaybackLifecycles,
+    Transition,
+    GeneratorFactory,
+    ValueAnimationTransition,
+    ValueAnimationOptions,
+    RepeatType,
+    AnimationPlaybackOptions,
+    KeyframeOptions,
+    InertiaOptions,
+    DecayOptions,
+    SpringOptions,
+    DurationSpringOptions,
+    VelocityOptions,
+    CSSStyleDeclarationWithTransform,
+    ValueKeyframe,
+    UnresolvedValueKeyframe,
+    ValueKeyframesDefinition,
+    StyleKeyframesDefinition,
+    SVGKeyframesDefinition,
+    SVGPathKeyframesDefinition,
+    VariableKeyframesDefinition,
+    DOMKeyframesDefinition,
+    AnimationGeneratorType,
 }
-
-export type GeneratorFactory = (
-    options: ValueAnimationOptions<any>
-) => KeyframeGenerator<any>
-
-export type AnimationGeneratorType =
-    | GeneratorFactory
-    | "decay"
-    | "spring"
-    | "keyframes"
-    | "tween"
-    | "inertia"
-
-export interface Transition
-    extends AnimationPlaybackOptions,
-        Omit<SpringOptions, "keyframes">,
-        Omit<InertiaOptions, "keyframes">,
-        KeyframeOptions {
-    delay?: number
-    elapsed?: number
-    driver?: Driver
-    type?: AnimationGeneratorType
-    duration?: number
-    autoplay?: boolean
-    startTime?: number
-}
-
-export interface ValueAnimationTransition<V = any>
-    extends Transition,
-        AnimationPlaybackLifecycles<V> {}
 
 export type ResolveKeyframes<V extends string | number> = (
     keyframes: V[],
@@ -57,171 +81,12 @@ export type ResolveKeyframes<V extends string | number> = (
     motionValue?: any
 ) => KeyframeResolver<V>
 
-export interface ValueAnimationOptions<V extends string | number = number>
-    extends ValueAnimationTransition {
-    keyframes: V[]
-    name?: string
-    from?: V
-    isGenerator?: boolean
-}
-
 export interface ValueAnimationOptionsWithRenderContext<
     V extends string | number = number
 > extends ValueAnimationOptions<V> {
     KeyframeResolver?: typeof KeyframeResolver
     motionValue?: MotionValue<V>
     element?: VisualElement
-}
-
-export type StyleTransitions = {
-    [K in keyof CSSStyleDeclarationWithTransform]?: Transition
-}
-
-export type SVGPathTransitions = {
-    [K in keyof SVGPathProperties]: Transition
-}
-
-export type SVGTransitions = {
-    [K in keyof SVGAttributes]: Transition
-}
-
-export type VariableTransitions = {
-    [key: `--${string}`]: Transition
-}
-
-export type AnimationOptionsWithValueOverrides<V = any> = StyleTransitions &
-    SVGPathTransitions &
-    SVGTransitions &
-    VariableTransitions &
-    ValueAnimationTransition<V>
-
-export interface DynamicAnimationOptions
-    extends Omit<AnimationOptionsWithValueOverrides, "delay"> {
-    delay?: number | DynamicOption<number>
-}
-
-/**
- * @public
- */
-export interface AnimationPlaybackControls {
-    time: number
-    speed: number
-    startTime: number | null
-    state?: AnimationPlayState
-
-    /*
-     * The duration is the duration of time calculated for the active part
-     * of the animation without delay or repeat,
-     * which may be added as an extra prop at a later date.
-     */
-    duration: number
-
-    stop: () => void
-    play: () => void
-    pause: () => void
-    complete: () => void
-    cancel: () => void
-    then: (onResolve: VoidFunction, onReject?: VoidFunction) => Promise<void>
-    attachTimeline?: (
-        timeline: ProgressTimeline,
-        fallback?: (animation: AnimationPlaybackControls) => VoidFunction
-    ) => VoidFunction
-    flatten: () => void
-}
-
-export type DynamicOption<T> = (i: number, total: number) => T
-
-export interface CSSStyleDeclarationWithTransform
-    extends Omit<
-        CSSStyleDeclaration,
-        "direction" | "transition" | "x" | "y" | "z"
-    > {
-    x: number | string
-    y: number | string
-    z: number | string
-    rotateX: number | string
-    rotateY: number | string
-    rotateZ: number | string
-    scaleX: number
-    scaleY: number
-    scaleZ: number
-    skewX: number | string
-    skewY: number | string
-}
-
-export type ValueKeyframe = string | number
-
-export type UnresolvedValueKeyframe = ValueKeyframe | null
-
-export type ValueKeyframesDefinition =
-    | ValueKeyframe
-    | ValueKeyframe[]
-    | UnresolvedValueKeyframe[]
-
-export type StyleKeyframesDefinition = {
-    [K in keyof CSSStyleDeclarationWithTransform]?: ValueKeyframesDefinition
-}
-
-export type SVGKeyframesDefinition = {
-    [K in keyof SVGAttributes]?: ValueKeyframesDefinition
-}
-
-export type VariableKeyframesDefinition = {
-    [key: `--${string}`]: ValueKeyframesDefinition
-}
-
-export type SVGPathKeyframesDefinition = {
-    [K in keyof SVGPathProperties]?: ValueKeyframesDefinition
-}
-
-export type DOMKeyframesDefinition = StyleKeyframesDefinition &
-    SVGKeyframesDefinition &
-    SVGPathKeyframesDefinition &
-    VariableKeyframesDefinition
-
-export interface VelocityOptions {
-    velocity?: number
-    restSpeed?: number
-    restDelta?: number
-}
-
-export type RepeatType = "loop" | "reverse" | "mirror"
-
-export interface AnimationPlaybackOptions {
-    repeat?: number
-    repeatType?: RepeatType
-    repeatDelay?: number
-}
-
-export interface DurationSpringOptions {
-    duration?: number
-    visualDuration?: number
-    bounce?: number
-}
-
-export interface SpringOptions extends DurationSpringOptions, VelocityOptions {
-    stiffness?: number
-    damping?: number
-    mass?: number
-}
-
-export interface DecayOptions extends VelocityOptions {
-    keyframes?: number[]
-    power?: number
-    timeConstant?: number
-    modifyTarget?: (v: number) => number
-}
-
-export interface InertiaOptions extends DecayOptions {
-    bounceStiffness?: number
-    bounceDamping?: number
-    min?: number
-    max?: number
-}
-
-export interface KeyframeOptions {
-    ease?: Easing | Easing[]
-    times?: number[]
 }
 
 export type AnimationDefinition =

@@ -1,9 +1,8 @@
+import { progress as calcProgress, noop } from "motion-utils"
 import { circOut } from "../../easing/circ"
 import { EasingFunction } from "../../easing/types"
 import { ResolvedValues } from "../../render/types"
-import { progress as calcProgress } from "../../utils/progress"
 import { mixNumber } from "../../utils/mix/number"
-import { noop } from "motion-utils"
 import { percent, px } from "../../value/types/numbers/units"
 
 const borders = ["TopLeft", "TopRight", "BottomLeft", "BottomRight"]

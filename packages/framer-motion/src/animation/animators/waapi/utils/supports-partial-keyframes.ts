@@ -1,4 +1,4 @@
-import { memo } from "../../../../utils/memo"
+import { memo } from "motion-utils"
 
 export const supportsPartialKeyframes = /*@__PURE__*/ memo(() => {
     try {

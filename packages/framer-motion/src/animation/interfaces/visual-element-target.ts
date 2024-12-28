@@ -1,15 +1,15 @@
+import { getValueTransition } from "motion-dom"
+import { frame } from "../../frameloop"
 import { transformProps } from "../../render/html/utils/transform"
 import type { AnimationTypeState } from "../../render/utils/animation-state"
+import { setTarget } from "../../render/utils/setters"
 import type { VisualElement } from "../../render/VisualElement"
 import type { TargetAndTransition } from "../../types"
-import type { VisualElementAnimationOptions } from "./types"
-import { animateMotionValue } from "./motion-value"
-import { setTarget } from "../../render/utils/setters"
-import { AnimationPlaybackControls } from "../types"
-import { getValueTransition } from "../utils/get-value-transition"
-import { frame } from "../../frameloop"
-import { getOptimisedAppearId } from "../optimized-appear/get-appear-id"
 import { addValueToWillChange } from "../../value/use-will-change/add-will-change"
+import { getOptimisedAppearId } from "../optimized-appear/get-appear-id"
+import { AnimationPlaybackControls } from "../types"
+import { animateMotionValue } from "./motion-value"
+import type { VisualElementAnimationOptions } from "./types"
 
 /**
  * Decide whether we should block this animation. Previously, we achieved this

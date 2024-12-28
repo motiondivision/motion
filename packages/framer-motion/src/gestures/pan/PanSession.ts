@@ -1,16 +1,12 @@
-import { EventInfo } from "../../events/types"
-import { extractEventInfo } from "../../events/event-info"
-import { frame, cancelFrame } from "../../frameloop"
-import {
-    millisecondsToSeconds,
-    secondsToMilliseconds,
-} from "../../utils/time-conversion"
-import { addPointerEvent } from "../../events/add-pointer-event"
-import { Point, TransformPoint } from "../../projection/geometry/types"
-import { pipe } from "../../utils/pipe"
-import { distance2D } from "../../utils/distance"
-import { frameData } from "../../frameloop"
 import { isPrimaryPointer } from "motion-dom"
+import { millisecondsToSeconds, secondsToMilliseconds } from "motion-utils"
+import { addPointerEvent } from "../../events/add-pointer-event"
+import { extractEventInfo } from "../../events/event-info"
+import { EventInfo } from "../../events/types"
+import { cancelFrame, frame, frameData } from "../../frameloop"
+import { Point, TransformPoint } from "../../projection/geometry/types"
+import { distance2D } from "../../utils/distance"
+import { pipe } from "../../utils/pipe"
 
 /**
  * Passed in to pan event handlers like `onPan` the `PanInfo` object contains

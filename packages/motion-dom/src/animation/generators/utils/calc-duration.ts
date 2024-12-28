@@ -1,4 +1,4 @@
-import { KeyframeGenerator } from "../types"
+import { KeyframeGenerator } from "../../types"
 
 /**
  * Implement a practical max duration for keyframe generation

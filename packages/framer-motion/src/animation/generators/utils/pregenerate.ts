@@ -1,4 +1,4 @@
-import { millisecondsToSeconds } from "../../../utils/time-conversion"
+import { millisecondsToSeconds } from "motion-utils"
 import { KeyframeGenerator } from "../types"
 
 export interface KeyframesMetadata {

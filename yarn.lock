@@ -10691,6 +10691,8 @@ __metadata:
 "motion-dom@^11.14.3, motion-dom@workspace:packages/motion-dom":
   version: 0.0.0-use.local
   resolution: "motion-dom@workspace:packages/motion-dom"
+  dependencies:
+    motion-utils: ^11.14.3
   languageName: unknown
   linkType: soft
 

@@ -1,13 +1,12 @@
-import { startWaapiAnimation } from "."
-import { createGeneratorEasing } from "../../../easing/utils/create-generator-easing"
-import { ProgressTimeline } from "../../../render/dom/scroll/observe"
-import { browserNumberValueTypes } from "../../../render/dom/value-types/number-browser"
-import { noop, invariant } from "motion-utils"
 import {
-    millisecondsToSeconds,
-    secondsToMilliseconds,
-} from "../../../utils/time-conversion"
-import { isGenerator } from "../../generators/utils/is-generator"
+    createGeneratorEasing,
+    isGenerator,
+    NativeAnimationControls,
+    supportsLinearEasing,
+} from "motion-dom"
+import { invariant, secondsToMilliseconds } from "motion-utils"
+import { startWaapiAnimation } from "."
+import { browserNumberValueTypes } from "../../../render/dom/value-types/number-browser"
 import {
     AnimationPlaybackControls,
     UnresolvedValueKeyframe,
@@ -15,10 +14,8 @@ import {
     ValueKeyframe,
     ValueKeyframesDefinition,
 } from "../../types"
-import { attachTimeline } from "./utils/attach-timeline"
 import { getFinalKeyframe } from "./utils/get-final-keyframe"
 import { setCSSVar, setStyle } from "./utils/style"
-import { supportsLinearEasing } from "./utils/supports-linear-easing"
 import { supportsPartialKeyframes } from "./utils/supports-partial-keyframes"
 import { supportsWaapi } from "./utils/supports-waapi"
 
@@ -58,26 +55,23 @@ function getElementAnimationState(element: Element) {
     return state.get(element)!
 }
 
-export class NativeAnimation implements AnimationPlaybackControls {
-    animation: Animation
-
-    options: ValueAnimationOptions
-
-    private pendingTimeline: ProgressTimeline | undefined
-
+export class NativeAnimation
+    extends NativeAnimationControls
+    implements AnimationPlaybackControls
+{
     // Resolve the current finished promise
     private resolveFinishedPromise: VoidFunction
 
     // A promise that resolves when the animation is complete
     private currentFinishedPromise: Promise<void>
 
+    private removeAnimation: VoidFunction
+
     private setValue: (
         element: HTMLElement,
         name: string,
         value: string
     ) => void
-
-    removeAnimation: VoidFunction
 
     constructor(
         element: Element,
@@ -86,9 +80,6 @@ export class NativeAnimation implements AnimationPlaybackControls {
         options: ValueAnimationOptions
     ) {
         const isCSSVar = valueName.startsWith("--")
-        this.setValue = isCSSVar ? setCSSVar : setStyle
-        this.options = options
-        this.updateFinishedPromise()
 
         invariant(
             typeof options.type !== "string",
@@ -128,121 +119,42 @@ export class NativeAnimation implements AnimationPlaybackControls {
             options.ease = options.ease || defaultEasing
         }
 
-        this.removeAnimation = () => state.get(element)?.delete(valueName)
-
         const onFinish = () => {
             this.setValue(
                 element as HTMLElement,
                 valueName,
-                getFinalKeyframe(valueKeyframes as string[], this.options)
+                getFinalKeyframe(valueKeyframes as string[], options)
             )
             this.cancel()
             this.resolveFinishedPromise()
         }
 
         if (!supportsWaapi()) {
+            super()
             onFinish()
         } else {
-            this.animation = startWaapiAnimation(
-                element,
-                valueName,
-                valueKeyframes as string[],
-                options
+            super(
+                startWaapiAnimation(
+                    element,
+                    valueName,
+                    valueKeyframes as string[],
+                    options
+                )
             )
 
             if (options.autoplay === false) {
-                this.animation.pause()
+                this.animation!.pause()
             }
 
-            this.animation.onfinish = onFinish
-
-            if (this.pendingTimeline) {
-                attachTimeline(this.animation, this.pendingTimeline)
-            }
+            this.animation!.onfinish = onFinish
 
             getElementAnimationState(element).set(valueName, this)
         }
-    }
 
-    get duration() {
-        return millisecondsToSeconds(this.options.duration || 300)
-    }
-
-    get time() {
-        if (this.animation) {
-            return millisecondsToSeconds(
-                (this.animation?.currentTime as number) || 0
-            )
-        }
-        return 0
-    }
-
-    set time(newTime: number) {
-        if (this.animation) {
-            this.animation.currentTime = secondsToMilliseconds(newTime)
-        }
-    }
-
-    get speed() {
-        return this.animation ? this.animation.playbackRate : 1
-    }
-
-    set speed(newSpeed: number) {
-        if (this.animation) {
-            this.animation.playbackRate = newSpeed
-        }
-    }
-
-    get state() {
-        return this.animation ? this.animation.playState : "finished"
-    }
-
-    get startTime() {
-        return this.animation ? (this.animation.startTime as number) : null
-    }
-
-    flatten() {
-        if (!this.animation) return
-
-        this.animation.effect?.updateTiming({ easing: "linear" })
-    }
-
-    play() {
-        if (this.state === "finished") {
-            this.updateFinishedPromise()
-        }
-
-        this.animation && this.animation.play()
-    }
-
-    pause() {
-        this.animation && this.animation.pause()
-    }
-
-    stop() {
-        if (
-            !this.animation ||
-            this.state === "idle" ||
-            this.state === "finished"
-        ) {
-            return
-        }
-
-        if (this.animation.commitStyles) {
-            this.animation.commitStyles()
-        }
-        this.cancel()
-    }
-
-    complete() {
-        this.animation && this.animation.finish()
-    }
-
-    cancel() {
-        this.removeAnimation()
-        try {
-            this.animation && this.animation.cancel()
-        } catch (e) {}
+        this.setValue = isCSSVar ? setCSSVar : setStyle
+        this.options = options
+        this.updateFinishedPromise()
+        this.removeAnimation = () => state.get(element)?.delete(valueName)
     }
 
     /**
@@ -260,13 +172,16 @@ export class NativeAnimation implements AnimationPlaybackControls {
         })
     }
 
-    attachTimeline(timeline: any) {
-        if (!this.animation) {
-            this.pendingTimeline = timeline
-        } else {
-            attachTimeline(this.animation, timeline)
+    play() {
+        if (this.state === "finished") {
+            this.updateFinishedPromise()
         }
 
-        return noop<void>
+        super.play()
+    }
+
+    cancel() {
+        this.removeAnimation()
+        super.cancel()
     }
 }

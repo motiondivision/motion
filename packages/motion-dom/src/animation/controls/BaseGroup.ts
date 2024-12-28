@@ -1,19 +1,33 @@
-import { supportsScrollTimeline } from "../render/dom/scroll/supports"
-import { AnimationPlaybackControls } from "./types"
+import { supportsScrollTimeline } from "../../utils/supports/scroll-timeline"
+import {
+    AnimationPlaybackControls,
+    AnimationPlaybackControlsWithFinished,
+} from "../types"
 
 type PropNames = "time" | "speed" | "duration" | "attachTimeline" | "startTime"
 
-export class GroupPlaybackControls implements AnimationPlaybackControls {
-    animations: AnimationPlaybackControls[]
+export type AcceptedAnimations =
+    | AnimationPlaybackControls
+    | AnimationPlaybackControlsWithFinished
 
-    constructor(animations: Array<AnimationPlaybackControls | undefined>) {
-        this.animations = animations.filter(
-            Boolean
-        ) as AnimationPlaybackControls[]
+export type GroupedAnimations = AcceptedAnimations[]
+
+export class BaseGroupPlaybackControls
+    implements AnimationPlaybackControlsWithFinished
+{
+    animations: GroupedAnimations
+
+    constructor(animations: Array<AcceptedAnimations | undefined>) {
+        this.animations = animations.filter(Boolean) as GroupedAnimations
     }
 
-    then(onResolve: VoidFunction, onReject?: VoidFunction) {
-        return Promise.all(this.animations).then(onResolve).catch(onReject)
+    get finished() {
+        // Support for new finished Promise and legacy thennable API
+        return Promise.all(
+            this.animations.map((animation) =>
+                "finished" in animation ? animation.finished : animation
+            )
+        )
     }
 
     /**
@@ -31,7 +45,11 @@ export class GroupPlaybackControls implements AnimationPlaybackControls {
 
     attachTimeline(
         timeline: any,
-        fallback: (animation: AnimationPlaybackControls) => VoidFunction
+        fallback: (
+            animation:
+                | AnimationPlaybackControls
+                | AnimationPlaybackControlsWithFinished
+        ) => VoidFunction
     ) {
         const subscriptions = this.animations.map((animation) => {
             if (supportsScrollTimeline() && animation.attachTimeline) {
