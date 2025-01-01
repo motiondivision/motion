@@ -228,6 +228,27 @@ describe("Drag", () => {
             })
     })
 
+    it("reset drag constraints (ref-based), when click after dragging", () => {
+        cy.visit("?test=drag-ref-constraints&elastic=1")
+            .wait(200)
+            .get("[data-testid='draggable']")
+            .trigger("pointerdown", 10, 10)
+            .wait(200)
+            .trigger("pointermove", 300, 300, { force: true })
+            .wait(200)
+            .trigger("pointerup", { force: true })
+            .trigger("pointerdown", { force: true })
+            .trigger("pointerup", { force: true })
+            .wait(1000)
+            .should(($draggable: any) => {
+                const draggable = $draggable[0] as HTMLDivElement
+                const { left, top } = draggable.getBoundingClientRect()
+
+                expect(left).to.equal(150)
+                expect(top).to.equal(150)
+            })
+    })
+
     it("doesn't reset drag constraints (ref-based), while dragging, on unrelated parent component updates", () => {
         cy.visit("?test=drag-ref-constraints")
             .wait(200)
@@ -242,8 +263,8 @@ describe("Drag", () => {
                 const draggable = $draggable[0] as HTMLDivElement
                 const { left, top } = draggable.getBoundingClientRect()
 
-                expect(left).to.equal(150)
-                expect(top).to.equal(150)
+                expect(left).to.equal(200)
+                expect(top).to.equal(200)
             })
     })
 
