@@ -44,6 +44,33 @@ export interface Transition
     duration?: number
     autoplay?: boolean
     startTime?: number
+
+    /**
+     * If set to `true`, when the animated value leaves its current
+     * state, this transition will be used.
+     *
+     * For example:
+     *
+     * ```jsx
+     * <motion.div
+     *   animate={{
+     *     opacity: 0,
+     *     transition: { delay: 1 }
+     *   }}
+     *   whileHover={{
+     *     opacity: 1,
+     *     transition: { out: true, duration: 1 }
+     *   }}
+     * />
+     * ```
+     *
+     * Because `whileHover` has a `transition` where `out` is `true`,
+     * when the hover ends, the `duration: 1` transition will be used,
+     * with no `delay`.
+     *
+     * @default false
+     */
+    out?: boolean
 }
 
 export interface ValueAnimationTransition<V = any>

@@ -2,7 +2,7 @@ import { frame } from "../frameloop"
 import { SubscriptionManager } from "../utils/subscription-manager"
 import { velocityPerSecond } from "../utils/velocity-per-second"
 import { warnOnce } from "../utils/warn-once"
-import { AnimationPlaybackControls } from "../animation/types"
+import { AnimationPlaybackControls, Transition } from "../animation/types"
 import { time } from "../frameloop/sync-time"
 
 export type Transformer<T> = (v: T) => T
@@ -98,6 +98,12 @@ export class MotionValue<V = any> {
      * The time `prevFrameValue` was updated.
      */
     prevUpdatedAt: number | undefined
+
+    /**
+     * A transition that should be applied to the next animation.
+     * This is used to handle the `out` transition option.
+     */
+    nextTransition?: Transition
 
     /**
      * Add a passive effect to this `MotionValue`.

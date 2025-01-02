@@ -5,7 +5,7 @@ import type { TargetAndTransition } from "../../types"
 import type { VisualElementAnimationOptions } from "./types"
 import { animateMotionValue } from "./motion-value"
 import { setTarget } from "../../render/utils/setters"
-import { AnimationPlaybackControls } from "../types"
+import { AnimationPlaybackControls, Transition } from "../types"
 import { getValueTransition } from "../utils/get-value-transition"
 import { frame } from "../../frameloop"
 import { getOptimisedAppearId } from "../optimized-appear/get-appear-id"
@@ -63,9 +63,25 @@ export function animateTarget(
             continue
         }
 
-        const valueTransition = {
+        let valueTransition = {
             delay,
             ...getValueTransition(transition || {}, key),
+        }
+
+        let outTransition: Transition | undefined
+
+        if (type && value.nextTransition) {
+            outTransition = value.nextTransition
+        }
+
+        value.nextTransition = undefined
+
+        if (valueTransition.out) {
+            value.nextTransition = valueTransition
+        }
+
+        if (outTransition) {
+            valueTransition = outTransition
         }
 
         /**
