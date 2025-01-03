@@ -1,15 +1,13 @@
 import {
+    AnimationPlaybackControls,
     AnimationScope,
+    DOMKeyframesDefinition,
+    AnimationOptions as DynamicAnimationOptions,
     ElementOrSelector,
     getValueTransition,
     resolveElements,
 } from "motion-dom"
 import { invariant, secondsToMilliseconds } from "motion-utils"
-import {
-    AnimationPlaybackControls,
-    DOMKeyframesDefinition,
-    DynamicAnimationOptions,
-} from "../../types"
 import { NativeAnimation } from "./NativeAnimation"
 
 export function animateElements(

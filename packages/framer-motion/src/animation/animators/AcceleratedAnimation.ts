@@ -3,6 +3,7 @@ import {
     isGenerator,
     isWaapiSupportedEasing,
     supportsLinearEasing,
+    ValueAnimationOptions,
 } from "motion-dom"
 import {
     millisecondsToSeconds,
@@ -16,10 +17,7 @@ import { EasingDefinition } from "../../easing/types"
 import { DOMKeyframesResolver } from "../../render/dom/DOMKeyframesResolver"
 import { ResolvedKeyframes } from "../../render/utils/KeyframesResolver"
 import { MotionValue } from "../../value"
-import {
-    ValueAnimationOptions,
-    ValueAnimationOptionsWithRenderContext,
-} from "../types"
+import { ValueAnimationOptionsWithRenderContext } from "../types"
 import {
     BaseAnimation,
     ValueAnimationOptionsWithDefaults,

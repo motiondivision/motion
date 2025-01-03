@@ -2,10 +2,11 @@ import {
     calcGeneratorDuration,
     generateLinearEasing,
     maxGeneratorDuration,
+    SpringOptions,
+    ValueAnimationOptions,
 } from "motion-dom"
 import { millisecondsToSeconds, secondsToMilliseconds } from "motion-utils"
 import { clamp } from "../../../utils/clamp"
-import { SpringOptions, ValueAnimationOptions } from "../../types"
 import { AnimationState, KeyframeGenerator } from "../types"
 import { calcGeneratorVelocity } from "../utils/velocity"
 import { springDefaults } from "./defaults"

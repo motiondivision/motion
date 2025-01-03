@@ -1,3 +1,8 @@
+import {
+    AnimationPlaybackControls,
+    RepeatType,
+    ValueAnimationOptions,
+} from "motion-dom"
 import { time } from "../../frameloop/sync-time"
 import {
     KeyframeResolver,
@@ -5,12 +10,7 @@ import {
     flushKeyframeResolvers,
 } from "../../render/utils/KeyframesResolver"
 import { instantAnimationState } from "../../utils/use-instant-transition-state"
-import {
-    AnimationPlaybackControls,
-    RepeatType,
-    ValueAnimationOptions,
-    ValueAnimationOptionsWithRenderContext,
-} from "../types"
+import { ValueAnimationOptionsWithRenderContext } from "../types"
 import { canAnimate } from "./utils/can-animate"
 import { getFinalKeyframe } from "./waapi/utils/get-final-keyframe"
 

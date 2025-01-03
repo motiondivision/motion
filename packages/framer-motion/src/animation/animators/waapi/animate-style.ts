@@ -1,13 +1,11 @@
 import {
-    AnimationScope,
-    GroupPlaybackControls,
-    ElementOrSelector,
-} from "motion-dom"
-import {
     AnimationPlaybackControls,
+    AnimationScope,
     DOMKeyframesDefinition,
-    DynamicAnimationOptions,
-} from "../../types"
+    AnimationOptions as DynamicAnimationOptions,
+    ElementOrSelector,
+    GroupPlaybackControls,
+} from "motion-dom"
 import { animateElements } from "./animate-elements"
 
 export const createScopedWaapiAnimate = (scope?: AnimationScope) => {

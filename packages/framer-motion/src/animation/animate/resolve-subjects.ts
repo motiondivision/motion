@@ -1,6 +1,10 @@
-import { AnimationScope, SelectorCache, resolveElements } from "motion-dom"
+import {
+    AnimationScope,
+    DOMKeyframesDefinition,
+    SelectorCache,
+    resolveElements,
+} from "motion-dom"
 import { ObjectTarget } from "../sequence/types"
-import { DOMKeyframesDefinition } from "../types"
 import { isDOMKeyframes } from "../utils/is-dom-keyframes"
 
 export function resolveSubjects<O extends {}>(

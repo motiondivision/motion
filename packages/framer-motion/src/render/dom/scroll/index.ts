@@ -1,6 +1,9 @@
-import { ProgressTimeline, supportsScrollTimeline } from "motion-dom"
+import {
+    AnimationPlaybackControls,
+    ProgressTimeline,
+    supportsScrollTimeline,
+} from "motion-dom"
 import { noop } from "motion-utils"
-import { AnimationPlaybackControls } from "../../../animation/types"
 import { observeTimeline } from "./observe"
 import { scrollInfo } from "./track"
 import { OnScroll, OnScrollWithInfo, ScrollOptions } from "./types"

@@ -1,5 +1,5 @@
+import { ValueKeyframesDefinition } from "motion-dom"
 import { complex } from "../../value/types/complex"
-import { ValueKeyframesDefinition } from "../types"
 
 /**
  * Check if a value is animatable. Examples:

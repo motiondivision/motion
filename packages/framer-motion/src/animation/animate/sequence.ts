@@ -1,8 +1,7 @@
-import { AnimationScope } from "motion-dom"
+import { AnimationPlaybackControls, AnimationScope } from "motion-dom"
 import { spring } from "../generators/spring"
 import { createAnimationsFromSequence } from "../sequence/create"
 import { AnimationSequence, SequenceOptions } from "../sequence/types"
-import { AnimationPlaybackControls } from "../types"
 import { animateSubject } from "./subject"
 
 export function animateSequence(

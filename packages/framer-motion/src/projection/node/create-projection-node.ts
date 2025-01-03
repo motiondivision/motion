@@ -1,11 +1,11 @@
-import { getValueTransition } from "motion-dom"
+import {
+    AnimationPlaybackControls,
+    getValueTransition,
+    ValueAnimationOptions,
+} from "motion-dom"
 import { noop } from "motion-utils"
 import { animateSingleValue } from "../../animation/animate/single-value"
 import { getOptimisedAppearId } from "../../animation/optimized-appear/get-appear-id"
-import {
-    AnimationPlaybackControls,
-    ValueAnimationOptions,
-} from "../../animation/types"
 import { frameData } from "../../dom"
 import { cancelFrame, frame } from "../../frameloop"
 import { frameSteps } from "../../frameloop/frame"

@@ -1,4 +1,13 @@
-import { AnimationScope, createGeneratorEasing, isGenerator } from "motion-dom"
+import {
+    AnimationScope,
+    createGeneratorEasing,
+    DOMKeyframesDefinition,
+    AnimationOptions as DynamicAnimationOptions,
+    GeneratorFactory,
+    isGenerator,
+    Transition,
+    UnresolvedValueKeyframe,
+} from "motion-dom"
 import { invariant, progress, secondsToMilliseconds } from "motion-utils"
 import { Easing } from "../../easing/types"
 import { getEasingForSegment } from "../../easing/utils/get-easing-for-segment"
@@ -7,13 +16,6 @@ import { fillOffset } from "../../utils/offsets/fill"
 import type { MotionValue } from "../../value"
 import { isMotionValue } from "../../value/utils/is-motion-value"
 import { resolveSubjects } from "../animate/resolve-subjects"
-import {
-    DOMKeyframesDefinition,
-    DynamicAnimationOptions,
-    GeneratorFactory,
-    Transition,
-    UnresolvedValueKeyframe,
-} from "../types"
 import {
     AnimationSequence,
     At,

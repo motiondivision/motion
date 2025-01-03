@@ -1,10 +1,10 @@
+import { SpringOptions } from "motion-dom"
 import {
     millisecondsToSeconds,
     secondsToMilliseconds,
     warning,
 } from "motion-utils"
 import { clamp } from "../../../utils/clamp"
-import { SpringOptions } from "../../types"
 import { springDefaults } from "./defaults"
 
 /**

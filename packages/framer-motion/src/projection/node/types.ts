@@ -1,12 +1,12 @@
-import { Transition } from "../../types"
-import { ResolvedValues } from "../../render/types"
-import { Point, Box, Delta } from "../geometry/types"
-import { NodeStack } from "../shared/stack"
-import { AnimationPlaybackControls } from "../../animation/types"
-import { FlatTree } from "../../render/utils/flat-tree"
+import { AnimationPlaybackControls } from "motion-dom"
 import { InitialPromotionConfig } from "../../context/SwitchLayoutGroupContext"
 import { MotionStyle } from "../../motion/types"
+import { ResolvedValues } from "../../render/types"
+import { FlatTree } from "../../render/utils/flat-tree"
 import type { VisualElement } from "../../render/VisualElement"
+import { Transition } from "../../types"
+import { Box, Delta, Point } from "../geometry/types"
+import { NodeStack } from "../shared/stack"
 
 export interface Measurements {
     animationId: number

@@ -1,8 +1,8 @@
-import { animateMotionValue } from "../interfaces/motion-value"
+import { AnimationPlaybackControls, ValueAnimationTransition } from "motion-dom"
+import { GenericKeyframesTarget } from "../../types"
 import { motionValue as createMotionValue, MotionValue } from "../../value"
 import { isMotionValue } from "../../value/utils/is-motion-value"
-import { GenericKeyframesTarget } from "../../types"
-import { AnimationPlaybackControls, ValueAnimationTransition } from "../types"
+import { animateMotionValue } from "../interfaces/motion-value"
 
 export function animateSingleValue<V extends string | number>(
     value: MotionValue<V> | V,

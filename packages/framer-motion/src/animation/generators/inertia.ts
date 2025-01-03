@@ -1,6 +1,6 @@
-import { AnimationState, KeyframeGenerator } from "./types"
+import { ValueAnimationOptions } from "motion-dom"
 import { spring as createSpring } from "./spring"
-import { ValueAnimationOptions } from "../types"
+import { AnimationState, KeyframeGenerator } from "./types"
 import { calcGeneratorVelocity } from "./utils/velocity"
 
 export function inertia({

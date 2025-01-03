@@ -1,12 +1,12 @@
 export { isDragActive } from "motion-dom"
 export { invariant, noop, progress } from "motion-utils"
 
-export { animate, createScopedAnimate } from "./animation/animate"
-export { animateMini } from "./animation/animators/waapi/animate-style"
 export type {
     DOMKeyframesDefinition,
-    DynamicAnimationOptions,
-} from "./animation/types"
+    AnimationOptions as DynamicAnimationOptions,
+} from "motion-dom"
+export { animate, createScopedAnimate } from "./animation/animate"
+export { animateMini } from "./animation/animators/waapi/animate-style"
 export { scroll } from "./render/dom/scroll"
 export { scrollInfo } from "./render/dom/scroll/track"
 export { inView } from "./render/dom/viewport"

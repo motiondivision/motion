@@ -1,11 +1,11 @@
+import { VariableKeyframesDefinition } from "motion-dom"
 import { CSSProperties, SVGAttributes } from "react"
 import { Easing } from "./easing/types"
 import {
-    TransformProperties,
     CustomStyles,
     SVGPathProperties,
+    TransformProperties,
 } from "./motion/types"
-import { VariableKeyframesDefinition } from "./animation/types"
 
 export type GenericKeyframesTarget<V> = V[] | Array<null | V>
 

@@ -1,4 +1,4 @@
-import { getValueTransition } from "motion-dom"
+import { AnimationPlaybackControls, getValueTransition } from "motion-dom"
 import { frame } from "../../frameloop"
 import { transformProps } from "../../render/html/utils/transform"
 import type { AnimationTypeState } from "../../render/utils/animation-state"
@@ -7,7 +7,6 @@ import type { VisualElement } from "../../render/VisualElement"
 import type { TargetAndTransition } from "../../types"
 import { addValueToWillChange } from "../../value/use-will-change/add-will-change"
 import { getOptimisedAppearId } from "../optimized-appear/get-appear-id"
-import { AnimationPlaybackControls } from "../types"
 import { animateMotionValue } from "./motion-value"
 import type { VisualElementAnimationOptions } from "./types"
 

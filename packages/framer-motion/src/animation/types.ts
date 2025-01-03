@@ -1,78 +1,12 @@
-import { TargetAndTransition, TargetResolver } from "../types"
-import type { VisualElement } from "../render/VisualElement"
+import { Transition, ValueAnimationOptions } from "motion-dom"
 import { VariantLabels } from "../motion/types"
-import type { MotionValue } from "../value"
 import {
     KeyframeResolver,
     OnKeyframesResolved,
 } from "../render/utils/KeyframesResolver"
-
-import {
-    AnimationPlaybackControls,
-    SVGPathProperties,
-    SVGTransitions,
-    VariableTransitions,
-    StyleTransitions,
-    AnimationOptionsWithValueOverrides,
-    DynamicOption,
-    AnimationOptions as DynamicAnimationOptions,
-    AnimationPlaybackLifecycles,
-    Transition,
-    GeneratorFactory,
-    ValueAnimationTransition,
-    ValueAnimationOptions,
-    RepeatType,
-    AnimationPlaybackOptions,
-    KeyframeOptions,
-    InertiaOptions,
-    DecayOptions,
-    SpringOptions,
-    DurationSpringOptions,
-    VelocityOptions,
-    CSSStyleDeclarationWithTransform,
-    ValueKeyframe,
-    UnresolvedValueKeyframe,
-    ValueKeyframesDefinition,
-    StyleKeyframesDefinition,
-    SVGKeyframesDefinition,
-    SVGPathKeyframesDefinition,
-    VariableKeyframesDefinition,
-    DOMKeyframesDefinition,
-    AnimationGeneratorType,
-} from "motion-dom"
-export {
-    AnimationPlaybackControls,
-    SVGPathProperties,
-    SVGTransitions,
-    VariableTransitions,
-    StyleTransitions,
-    AnimationOptionsWithValueOverrides,
-    DynamicOption,
-    DynamicAnimationOptions,
-    AnimationPlaybackLifecycles,
-    Transition,
-    GeneratorFactory,
-    ValueAnimationTransition,
-    ValueAnimationOptions,
-    RepeatType,
-    AnimationPlaybackOptions,
-    KeyframeOptions,
-    InertiaOptions,
-    DecayOptions,
-    SpringOptions,
-    DurationSpringOptions,
-    VelocityOptions,
-    CSSStyleDeclarationWithTransform,
-    ValueKeyframe,
-    UnresolvedValueKeyframe,
-    ValueKeyframesDefinition,
-    StyleKeyframesDefinition,
-    SVGKeyframesDefinition,
-    SVGPathKeyframesDefinition,
-    VariableKeyframesDefinition,
-    DOMKeyframesDefinition,
-    AnimationGeneratorType,
-}
+import type { VisualElement } from "../render/VisualElement"
+import { TargetAndTransition, TargetResolver } from "../types"
+import type { MotionValue } from "../value"
 
 export type ResolveKeyframes<V extends string | number> = (
     keyframes: V[],

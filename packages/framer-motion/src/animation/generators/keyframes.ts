@@ -1,3 +1,4 @@
+import { ValueAnimationOptions } from "motion-dom"
 import { easeInOut } from "../../easing/ease"
 import { EasingFunction } from "../../easing/types"
 import { isEasingArray } from "../../easing/utils/is-easing-array"
@@ -5,7 +6,6 @@ import { easingDefinitionToFunction } from "../../easing/utils/map"
 import { interpolate } from "../../utils/interpolate"
 import { defaultOffset } from "../../utils/offsets/default"
 import { convertOffsetToTimes } from "../../utils/offsets/time"
-import { ValueAnimationOptions } from "../types"
 import { AnimationState, KeyframeGenerator } from "./types"
 
 export function defaultEasing(

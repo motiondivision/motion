@@ -1,15 +1,15 @@
-import { useRef, useContext, useInsertionEffect } from "react"
-import { MotionValue } from "../value"
-import { isMotionValue } from "./utils/is-motion-value"
-import { useMotionValue } from "./use-motion-value"
-import { MotionConfigContext } from "../context/MotionConfigContext"
-import { SpringOptions } from "../animation/types"
-import { useIsomorphicLayoutEffect } from "../utils/use-isomorphic-effect"
-import { frame, frameData } from "../frameloop"
+import { SpringOptions } from "motion-dom"
+import { useContext, useInsertionEffect, useRef } from "react"
 import {
     MainThreadAnimation,
     animateValue,
 } from "../animation/animators/MainThreadAnimation"
+import { MotionConfigContext } from "../context/MotionConfigContext"
+import { frame, frameData } from "../frameloop"
+import { useIsomorphicLayoutEffect } from "../utils/use-isomorphic-effect"
+import { MotionValue } from "../value"
+import { useMotionValue } from "./use-motion-value"
+import { isMotionValue } from "./utils/is-motion-value"
 
 function toNumber(v: string | number) {
     if (typeof v === "number") return v

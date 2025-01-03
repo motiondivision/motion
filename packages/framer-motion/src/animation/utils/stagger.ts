@@ -1,6 +1,6 @@
+import { DynamicOption } from "motion-dom"
 import { Easing } from "../../easing/types"
 import { easingDefinitionToFunction } from "../../easing/utils/map"
-import { DynamicOption } from "../types"
 
 export type StaggerOrigin = "first" | "last" | "center" | number
 

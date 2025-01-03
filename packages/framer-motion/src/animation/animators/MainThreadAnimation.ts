@@ -1,4 +1,8 @@
-import { calcGeneratorDuration, isGenerator } from "motion-dom"
+import {
+    calcGeneratorDuration,
+    isGenerator,
+    ValueAnimationOptions,
+} from "motion-dom"
 import {
     invariant,
     millisecondsToSeconds,
@@ -15,10 +19,7 @@ import { inertia } from "../generators/inertia"
 import { keyframes as keyframesGeneratorFactory } from "../generators/keyframes"
 import { spring } from "../generators/spring/index"
 import { AnimationState, KeyframeGenerator } from "../generators/types"
-import {
-    ValueAnimationOptions,
-    ValueAnimationOptionsWithRenderContext,
-} from "../types"
+import { ValueAnimationOptionsWithRenderContext } from "../types"
 import { BaseAnimation } from "./BaseAnimation"
 import { frameloopDriver } from "./drivers/driver-frameloop"
 import { DriverControls } from "./drivers/types"

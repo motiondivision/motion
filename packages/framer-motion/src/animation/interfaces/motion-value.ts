@@ -1,4 +1,9 @@
-import { getValueTransition, GroupPlaybackControls } from "motion-dom"
+import {
+    AnimationPlaybackControls,
+    getValueTransition,
+    GroupPlaybackControls,
+    ValueAnimationOptions,
+} from "motion-dom"
 import { secondsToMilliseconds } from "motion-utils"
 import { frame } from "../../frameloop/frame"
 import type { UnresolvedKeyframes } from "../../render/utils/KeyframesResolver"
@@ -10,7 +15,6 @@ import type { MotionValue, StartAnimation } from "../../value"
 import { AcceleratedAnimation } from "../animators/AcceleratedAnimation"
 import { MainThreadAnimation } from "../animators/MainThreadAnimation"
 import { getFinalKeyframe } from "../animators/waapi/utils/get-final-keyframe"
-import { AnimationPlaybackControls, ValueAnimationOptions } from "../types"
 import { getDefaultTransition } from "../utils/default-transitions"
 import { isTransitionDefined } from "../utils/is-transition-defined"
 

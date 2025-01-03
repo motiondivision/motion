@@ -1,19 +1,17 @@
 import {
+    AnimationPlaybackControls,
     createGeneratorEasing,
     isGenerator,
     NativeAnimationControls,
     supportsLinearEasing,
-} from "motion-dom"
-import { invariant, secondsToMilliseconds } from "motion-utils"
-import { startWaapiAnimation } from "."
-import { browserNumberValueTypes } from "../../../render/dom/value-types/number-browser"
-import {
-    AnimationPlaybackControls,
     UnresolvedValueKeyframe,
     ValueAnimationOptions,
     ValueKeyframe,
     ValueKeyframesDefinition,
-} from "../../types"
+} from "motion-dom"
+import { invariant, secondsToMilliseconds } from "motion-utils"
+import { startWaapiAnimation } from "."
+import { browserNumberValueTypes } from "../../../render/dom/value-types/number-browser"
 import { getFinalKeyframe } from "./utils/get-final-keyframe"
 import { setCSSVar, setStyle } from "./utils/style"
 import { supportsPartialKeyframes } from "./utils/supports-partial-keyframes"
