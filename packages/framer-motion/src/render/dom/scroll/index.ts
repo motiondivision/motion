@@ -116,8 +116,6 @@ function scrollAnimation(
                 valueAnimation.pause()
 
                 return observeTimeline((progress) => {
-                    console.log({ progress })
-
                     valueAnimation.time = valueAnimation.duration * progress
                 }, timeline)
             })

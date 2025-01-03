@@ -71,7 +71,6 @@ export class NativeAnimationControls
     }
 
     pause() {
-        console.log("pause", this.animation)
         this.animation && this.animation.pause()
     }
 
