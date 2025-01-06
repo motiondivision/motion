@@ -24,8 +24,7 @@
         "lib": ["es2017", "dom"],
         "skipLibCheck": true,
         "downlevelIteration": true,
-        "stripInternal": true,
-        "noEmitOnError": true
+        "stripInternal": true
     },
     "compileOnSave": false,
     "buildOnSave": false

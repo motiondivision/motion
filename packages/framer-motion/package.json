@@ -70,14 +70,14 @@
     "scripts": {
         "eslint": "yarn run lint",
         "lint": "yarn eslint src/**/*.ts",
-        "build": "yarn clean && tsc -p . && rollup -c && node ./scripts/check-bundle.js",
+        "build": "yarn clean && tsc --noEmitOnError -p . && rollup -c && node ./scripts/check-bundle.js",
         "dev": "yarn watch",
         "clean": "rm -rf types dist lib",
         "test": "yarn test-server && yarn test-client",
         "test-client": "jest --config jest.config.json --max-workers=2",
         "test-server": "jest --config jest.config.ssr.json",
         "prettier": "prettier ./src/* --write",
-        "watch": "concurrently -c blue,red -n tsc,rollup --kill-others \"tsc --watch -p . --preserveWatchOutput\" \"rollup --config --watch --no-watch.clearScreen\"",
+        "watch": "concurrently -c blue,red -n tsc --noEmitOnError ,rollup --kill-others \"tsc  --noEmitOnError --watch -p . --preserveWatchOutput\" \"rollup --config --watch --no-watch.clearScreen\"",
         "prepack": "yarn build",
         "postpublish": "git push --tags",
         "measure": "rollup -c ./rollup.size.config.mjs"
