@@ -20,6 +20,7 @@ export * from "./render/svg/types"
 
 export * from "./utils/is-bezier-definition"
 export * from "./utils/resolve-elements"
+export * from "./utils/supports/flags"
 export * from "./utils/supports/linear-easing"
 export * from "./utils/supports/scroll-timeline"
 

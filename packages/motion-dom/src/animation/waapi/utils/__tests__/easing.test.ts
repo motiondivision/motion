@@ -1,5 +1,5 @@
+import { supportsFlags } from "../../../../utils/supports/flags"
 import { isWaapiSupportedEasing } from "../easing"
-import { supportsFlags } from "../utils/supports-flags"
 
 test("isWaapiSupportedEasing", () => {
     expect(isWaapiSupportedEasing()).toEqual(true)

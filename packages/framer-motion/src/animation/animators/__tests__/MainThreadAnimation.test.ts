@@ -1,10 +1,10 @@
-import { MainThreadAnimation, animateValue } from "../MainThreadAnimation"
+import { ValueAnimationOptions } from "motion-dom"
+import { noop } from "motion-utils"
 import { reverseEasing } from "../../../easing/modifiers/reverse"
 import { nextFrame } from "../../../gestures/__tests__/utils"
-import { noop } from "motion-utils"
-import { ValueAnimationOptions } from "../../types"
-import { syncDriver } from "./utils"
 import { KeyframeResolver } from "../../../render/utils/KeyframesResolver"
+import { MainThreadAnimation, animateValue } from "../MainThreadAnimation"
+import { syncDriver } from "./utils"
 
 const linear = noop
 

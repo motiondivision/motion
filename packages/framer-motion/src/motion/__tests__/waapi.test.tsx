@@ -1,3 +1,6 @@
+import { supportsFlags } from "motion-dom"
+import { act, createRef, useState } from "react"
+import { motion, spring, useMotionValue } from "../../"
 import {
     pointerDown,
     pointerEnter,
@@ -5,11 +8,8 @@ import {
     pointerUp,
     render,
 } from "../../../jest.setup"
-import { motion, spring, useMotionValue } from "../../"
-import { act, useState, createRef } from "react"
-import { nextFrame } from "../../gestures/__tests__/utils"
 import "../../animation/animators/waapi/__tests__/setup"
-import { supportsFlags } from "../../animation/animators/waapi/utils/supports-flags"
+import { nextFrame } from "../../gestures/__tests__/utils"
 
 describe("WAAPI animations", () => {
     test("opacity animates with WAAPI at default settings", async () => {

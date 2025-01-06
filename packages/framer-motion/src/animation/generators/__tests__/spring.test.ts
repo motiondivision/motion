@@ -1,7 +1,6 @@
-import { ValueAnimationOptions } from "../../types"
-import { spring } from "../spring"
+import { calcGeneratorDuration, ValueAnimationOptions } from "motion-dom"
 import { animateSync } from "../../animators/__tests__/utils"
-import { calcGeneratorDuration } from "../utils/calc-duration"
+import { spring } from "../spring"
 
 describe("spring", () => {
     test("Runs animations with default values ", () => {

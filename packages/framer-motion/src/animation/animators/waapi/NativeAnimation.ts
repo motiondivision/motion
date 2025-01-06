@@ -127,8 +127,16 @@ export class NativeAnimation
             this.resolveFinishedPromise()
         }
 
+        const init = () => {
+            this.setValue = isCSSVar ? setCSSVar : setStyle
+            this.options = options
+            this.updateFinishedPromise()
+            this.removeAnimation = () => state.get(element)?.delete(valueName)
+        }
+
         if (!supportsWaapi()) {
             super()
+            init()
             onFinish()
         } else {
             super(
@@ -140,6 +148,8 @@ export class NativeAnimation
                 )
             )
 
+            init()
+
             if (options.autoplay === false) {
                 this.animation!.pause()
             }
@@ -148,11 +158,6 @@ export class NativeAnimation
 
             getElementAnimationState(element).set(valueName, this)
         }
-
-        this.setValue = isCSSVar ? setCSSVar : setStyle
-        this.options = options
-        this.updateFinishedPromise()
-        this.removeAnimation = () => state.get(element)?.delete(valueName)
     }
 
     /**
