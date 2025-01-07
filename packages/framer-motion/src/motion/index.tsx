@@ -130,7 +130,7 @@ export function createRendererMotionComponent<
 
     const ForwardRefMotionComponent = forwardRef(MotionComponent as any)
     ;(ForwardRefMotionComponent as any)[motionComponentSymbol] = Component
-    console.log(ForwardRefMotionComponent.displayName)
+
     return ForwardRefMotionComponent
 }
 
