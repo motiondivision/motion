@@ -1,12 +1,12 @@
 import { ElementOrSelector } from "../../utils/resolve-elements"
 import { isDragActive } from "../drag/state/is-active"
 import { EventOptions } from "../types"
+import { isNodeOrChild } from "../utils/is-node-or-child"
 import { isPrimaryPointer } from "../utils/is-primary-pointer"
 import { setupGesture } from "../utils/setup"
-import { enableKeyboardPress } from "./utils/keyboard"
 import { OnPressStartEvent } from "./types"
 import { isElementKeyboardAccessible } from "./utils/is-keyboard-accessible"
-import { isNodeOrChild } from "../utils/is-node-or-child"
+import { enableKeyboardPress } from "./utils/keyboard"
 import { isPressing } from "./utils/state"
 
 /**
@@ -91,7 +91,10 @@ export function press(
     }
 
     elements.forEach((element: HTMLElement) => {
-        if (!isElementKeyboardAccessible(element)) {
+        if (
+            !isElementKeyboardAccessible(element) &&
+            element.getAttribute("tabindex") === null
+        ) {
             element.tabIndex = 0
         }
 

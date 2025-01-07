@@ -20,6 +20,10 @@
         <div class="box" id="press-div">press</div>
         <div class="box" id="press-div-cancel">press</div>
         <button class="box" id="press-button">press</button>
+        <button tabindex="-1" class="box" id="press-no-tab-index-1">
+            press
+        </button>
+        <div tabindex="-1" class="box" id="press-no-tab-index-2">press</div>
         <script type="module" src="/src/inc.js"></script>
         <script type="module">
             const { press } = window.MotionDOM
@@ -45,6 +49,10 @@
             })
 
             press("#press-button", () => {})
+
+            // Ensure elements with tabindex explicitly set to -1 are not reset to 0
+            press("#press-no-tab-index-1", () => {})
+            press("#press-no-tab-index-2", () => {})
         </script>
     </body>
 </html>

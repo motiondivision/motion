@@ -1,10 +1,10 @@
-import { test, expect } from "@playwright/test"
+import { expect, test } from "@playwright/test"
 
 test.beforeEach(async ({ page }) => {
     await page.goto("gestures/press.html")
 })
 
-test.describe("press", () => {
+test.describe("press events", () => {
     // CI pointers not working well
     if (process.env.CI) {
         test.skip()
@@ -148,5 +148,22 @@ test.describe("press", () => {
 
         // Text should still not have changed
         await expect(pressDiv).not.toHaveText("end")
+    })
+})
+test.describe("press accessibility", () => {
+    test("button", async ({ page }) => {
+        const button = page.locator("#press-no-tab-index-1")
+
+        // Check button tabindex remains -1
+        const buttonTabIndex = await button.evaluate((el) => el.tabIndex)
+        expect(buttonTabIndex).toBe(-1)
+    })
+
+    test("div", async ({ page }) => {
+        const div = page.locator("#press-no-tab-index-2")
+
+        // Check div tabindex remains -1
+        const divTabIndex = await div.evaluate((el) => el.tabIndex)
+        expect(divTabIndex).toBe(-1)
     })
 })
