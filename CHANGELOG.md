@@ -4,6 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [11.16.3] 2024-01-09
+
+### Fixed
+
+-   Checking return of `press`, `hover`, and `inView` callbacks before calling.
+
 ## [11.16.2] 2024-01-09
 
 ### Fixed

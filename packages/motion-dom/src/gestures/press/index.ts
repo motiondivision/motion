@@ -69,7 +69,7 @@ export function press(
 
             isPressing.delete(element)
 
-            if (onPressEnd) {
+            if (typeof onPressEnd === "function") {
                 onPressEnd(endEvent, { success })
             }
         }

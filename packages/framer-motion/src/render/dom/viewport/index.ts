@@ -46,7 +46,7 @@ export function inView(
                 } else {
                     observer.unobserve(entry.target)
                 }
-            } else if (onEnd) {
+            } else if (typeof onEnd === "function") {
                 onEnd(entry)
                 activeIntersections.delete(entry.target)
             }

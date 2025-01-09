@@ -52,7 +52,7 @@ export function hover(
         const { target } = enterEvent
         const onHoverEnd = onHoverStart(enterEvent)
 
-        if (!onHoverEnd || !target) return
+        if (typeof onHoverEnd !== "function" || !target) return
 
         const onPointerLeave = filterEvents((leaveEvent: PointerEvent) => {
             onHoverEnd(leaveEvent)
