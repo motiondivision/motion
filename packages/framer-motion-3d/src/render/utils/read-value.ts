@@ -4,7 +4,7 @@ import { Color } from "three"
 const readVector =
     (name: string, defaultValue: number) =>
     (axis: "x" | "y" | "z") =>
-    (instance: Object3DNode<any, any>) => {
+    (instance: Record<string, any>) => {
         const value = instance[name]
         return value ? value[axis] : defaultValue
     }
@@ -42,7 +42,7 @@ function readAnimatableValue(value?: Color) {
     }
 }
 
-export function readThreeValue(instance: Object3DNode<any, any>, name: string) {
+export function readThreeValue(instance: Record<string, any>, name: string) {
     return name in readers
         ? readers[name](instance)
         : readAnimatableValue(instance[name]) || 0

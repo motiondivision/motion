@@ -5,7 +5,7 @@ import { ThreeRenderState } from "../../types"
 const setVector =
     (name: string, defaultValue: number) =>
     (i: number) =>
-    (instance: Object3DNode<any, any>, value: number) => {
+    (instance: Record<string, any>, value: number) => {
         if (instance[name] === undefined) {
             instance[name] = new Vector3(defaultValue)
         }
@@ -16,7 +16,7 @@ const setVector =
 const setEuler =
     (name: string, defaultValue: number) =>
     (axis: "x" | "y" | "z") =>
-    (instance: Object3DNode<any, any>, value: number) => {
+    (instance: Record<string, any>, value: number) => {
         if (instance[name] === undefined) {
             instance[name] = new Euler(defaultValue)
         }
@@ -25,7 +25,7 @@ const setEuler =
     }
 
 const setColor =
-    (name: string) => (instance: Object3DNode<any, any>, value: string) => {
+    (name: string) => (instance: Record<string, any>, value: string) => {
         if (instance[name] === undefined) {
             instance[name] = new Color(value)
         }
