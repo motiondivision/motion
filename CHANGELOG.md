@@ -4,11 +4,23 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
-## [11.16.2] 2025-01-09
+## [11.16.4] 2025-01-09
 
 ### Fixed
 
 -   Allowing custom DOM element for injecting styles when using AnimatePresence with mode === `popLayout`. Fixes shadow DOM issue [#2508](https://github.com/framer/motion/issues/2508) by passing the shadow root into the new `root` prop.
+
+## [11.16.3] 2024-01-09
+
+### Fixed
+
+-   Checking return of `press`, `hover`, and `inView` callbacks before calling.
+
+## [11.16.2] 2024-01-09
+
+### Fixed
+
+-   Restoring missing type exports.
 
 ## [11.16.1] 2024-01-08
 

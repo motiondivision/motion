@@ -1,10 +1,7 @@
 export { isDragActive } from "motion-dom"
 export { invariant, noop, progress } from "motion-utils"
 
-export type {
-    DOMKeyframesDefinition,
-    AnimationOptions as DynamicAnimationOptions,
-} from "motion-dom"
+export type * from "motion-dom"
 export { animate, createScopedAnimate } from "./animation/animate"
 export { animateMini } from "./animation/animators/waapi/animate-style"
 export { scroll } from "./render/dom/scroll"
