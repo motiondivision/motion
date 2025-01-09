@@ -1,6 +1,6 @@
 import "../../../../../jest.setup"
 import { buildTransform } from "../build-transform"
-import { transformProps } from "../transform"
+import { transformProps } from "../keys-transform"
 
 describe("transformProps.has", () => {
     it("Correctly identifies only transformPerspective as a transform prop", () => {
