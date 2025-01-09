@@ -1,23 +1,10 @@
-import { MotionValue } from "../../../value"
-import { transformPropOrder } from "../../html/utils/transform"
 import type { Box } from "../../../projection/geometry/types"
-import type { VisualElement } from "../../VisualElement"
-import { ValueType } from "../../../value/types/types"
+import { MotionValue } from "../../../value"
 import { number } from "../../../value/types/numbers"
 import { px } from "../../../value/types/numbers/units"
-
-export const positionalKeys = new Set([
-    "width",
-    "height",
-    "top",
-    "left",
-    "right",
-    "bottom",
-    "x",
-    "y",
-    "translateX",
-    "translateY",
-])
+import { ValueType } from "../../../value/types/types"
+import { transformPropOrder } from "../../html/utils/keys-transform"
+import type { VisualElement } from "../../VisualElement"
 
 export const isNumOrPxType = (v?: ValueType): v is ValueType =>
     v === number || v === px

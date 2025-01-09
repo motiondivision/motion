@@ -1,20 +1,17 @@
 import { isNone } from "../../animation/utils/is-none"
-import { getVariableValue } from "./utils/css-variables-conversion"
-import { isCSSVariableToken } from "./utils/is-css-variable"
-import {
-    isNumOrPxType,
-    positionalKeys,
-    positionalValues,
-} from "./utils/unit-conversion"
-import { findDimensionValueType } from "./value-types/dimensions"
+import { MotionValue } from "../../value"
+import { positionalKeys } from "../html/utils/keys-position"
+import { makeNoneKeyframesAnimatable } from "../html/utils/make-none-animatable"
 import {
     KeyframeResolver,
     OnKeyframesResolved,
     UnresolvedKeyframes,
 } from "../utils/KeyframesResolver"
-import { makeNoneKeyframesAnimatable } from "../html/utils/make-none-animatable"
 import { VisualElement } from "../VisualElement"
-import { MotionValue } from "../../value"
+import { getVariableValue } from "./utils/css-variables-conversion"
+import { isCSSVariableToken } from "./utils/is-css-variable"
+import { isNumOrPxType, positionalValues } from "./utils/unit-conversion"
+import { findDimensionValueType } from "./value-types/dimensions"
 
 export class DOMKeyframesResolver<
     T extends string | number
