@@ -1,8 +1,8 @@
 import { Easing } from "../../../easing/types"
 import { motionValue } from "../../../value"
+import { spring } from "../../generators/spring"
 import { stagger } from "../../utils/stagger"
 import { createAnimationsFromSequence } from "../create"
-import { spring } from "../../generators/spring"
 
 describe("createAnimationsFromSequence", () => {
     const a = document.createElement("div")
@@ -328,6 +328,33 @@ describe("createAnimationsFromSequence", () => {
             duration: 2,
             ease: ["easeInOut", "easeOut", "easeOut"],
             times: [0, 0.5, 1],
+        })
+    })
+
+    test("Can set label as first item in sequence", () => {
+        const animations = createAnimationsFromSequence(
+            [
+                "my label",
+                [a, { opacity: 0 }, { duration: 1 }],
+                [b, { y: 500 }, { duration: 1, at: "my label" }],
+            ],
+            undefined,
+            undefined,
+            { spring }
+        )
+
+        expect(animations.get(a)!.keyframes.opacity).toEqual([null, 0])
+        expect(animations.get(a)!.transition.opacity).toEqual({
+            duration: 1,
+            ease: ["easeOut", "easeOut"],
+            times: [0, 1],
+        })
+
+        expect(animations.get(b)!.keyframes.y).toEqual([null, 500])
+        expect(animations.get(b)!.transition.y).toEqual({
+            duration: 1,
+            ease: ["easeOut", "easeOut"],
+            times: [0, 1],
         })
     })
 

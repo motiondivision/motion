@@ -160,6 +160,7 @@ describe("animate() with WAAPI", () => {
         const b = document.createElement("div")
 
         animate([
+            "label",
             [
                 [a, b],
                 { opacity: [0, 1], transform: ["scale(0)", "scale(1)"] },
