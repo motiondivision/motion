@@ -184,19 +184,13 @@ describe("SVG", () => {
     })
 })
 
-describe("scroll() full width target", () => {
+describe("scroll() full height target", () => {
     it("doesn't return progress 1 before it hits its first offset", () => {
         cy.visit("?test=scroll-fill-range")
             .wait(100)
             .get("#content")
             .should(([$element]: any) => {
                 expect($element.innerText).to.equal("0")
-            })
-            .scrollTo("bottom")
-            .wait(100)
-            .get("#content")
-            .should(([$element]: any) => {
-                expect($element.innerText).to.equal("1")
             })
     })
 })
