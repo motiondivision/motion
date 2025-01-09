@@ -56,14 +56,25 @@ export function hover(
 
         const onPointerLeave = filterEvents((leaveEvent: PointerEvent) => {
             onHoverEnd(leaveEvent)
-            target.removeEventListener("pointerleave", onPointerLeave)
+            target.removeEventListener(
+                "pointerleave",
+                onPointerLeave as EventListener
+            )
         })
 
-        target.addEventListener("pointerleave", onPointerLeave, eventOptions)
+        target.addEventListener(
+            "pointerleave",
+            onPointerLeave as EventListener,
+            eventOptions
+        )
     })
 
     elements.forEach((element) => {
-        element.addEventListener("pointerenter", onPointerEnter, eventOptions)
+        element.addEventListener(
+            "pointerenter",
+            onPointerEnter as EventListener,
+            eventOptions
+        )
     })
 
     return cancel

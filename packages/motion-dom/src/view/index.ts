@@ -1,3 +1,4 @@
+import { noop } from "motion-utils"
 import type { BaseGroupPlaybackControls } from "../animation/controls/BaseGroup"
 import { AnimationOptions, DOMKeyframesDefinition } from "../animation/types"
 import { startViewAnimation } from "./start"
@@ -15,7 +16,7 @@ export class ViewTransitionBuilder {
 
     private targets = new Map<Target, ViewTransitionTarget>()
 
-    private notifyReady: (value: BaseGroupPlaybackControls) => void
+    private notifyReady: (value: BaseGroupPlaybackControls) => void = noop
 
     private readyPromise = new Promise<BaseGroupPlaybackControls>((resolve) => {
         this.notifyReady = resolve

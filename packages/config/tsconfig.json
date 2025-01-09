@@ -2,6 +2,7 @@
     "compilerOptions": {
         "target": "es2018",
         "module": "esnext",
+        "strict": true,
         "moduleResolution": "bundler",
         "isolatedModules": false,
         "importHelpers": true,
