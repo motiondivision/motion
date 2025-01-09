@@ -1,5 +1,6 @@
 {
     "baseUrl": "http://localhost:9990",
+    "experimentalShadowDomSupport": true,
     "video": true,
     "screenshots": false,
     "retries": 2,
