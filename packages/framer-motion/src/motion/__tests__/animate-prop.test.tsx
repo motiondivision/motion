@@ -1,12 +1,12 @@
-import { render } from "../../../jest.setup"
+import { createRef, useRef } from "react"
 import {
+    frame,
     motion,
     motionValue,
-    frame,
     useMotionValue,
     useMotionValueEvent,
 } from "../../"
-import { useRef, createRef } from "react"
+import { render } from "../../../jest.setup"
 import { nextFrame } from "../../gestures/__tests__/utils"
 
 describe("animate prop as object", () => {
@@ -983,7 +983,7 @@ describe("animate prop as object", () => {
             rerender(<Component />)
         })
 
-        return expect(promise).resolves.toBe("#000")
+        return expect(promise).resolves.toBe("rgba(0, 0, 0, 1)")
     })
 
     test("forces an animation to fallback if has been set to `null`", async () => {
