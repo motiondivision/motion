@@ -35,12 +35,16 @@ export interface HTMLRenderState {
     vars: ResolvedValues
 }
 
+type PropsWithRefAttributes<T, P> = PropsWithoutRef<P> & RefAttributes<T>
+interface ReactTypeofSymbol {
+    readonly $$typeof: symbol
+}
+type ForwardRefFn<T, P> = (props: PropsWithRefAttributes<T, P>) => JSX.Element
+
 /**
  * @public
  */
-export type ForwardRefComponent<T, P> = { readonly $$typeof: symbol } & ((
-    props: PropsWithoutRef<P> & RefAttributes<T>
-) => JSX.Element)
+export type ForwardRefComponent<T, P> = ForwardRefFn<T, P> & ReactTypeofSymbol
 
 type AttributesWithoutMotionProps<Attributes> = {
     [K in Exclude<keyof Attributes, keyof MotionProps>]?: Attributes[K]

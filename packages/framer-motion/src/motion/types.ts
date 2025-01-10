@@ -71,13 +71,16 @@ export interface CustomStyles {
     image?: string
 }
 
-export type MakeMotion<T> = MakeCustomValueType<{
-    [K in keyof T]:
-        | T[K]
-        | MotionValue<number>
-        | MotionValue<string>
-        | MotionValue<any> // A permissive type for Custom value types
-}>
+type MotionValueString = MotionValue<string>
+type MotionValueNumber = MotionValue<number>
+// type MotionValueAny = MotionValue<any>
+// type AMotionValue = MotionValueNumber | MotionValueString | MotionValueAny // any creates a permissive type for Custom value types
+
+type MakeMotionHelper<T> = {
+    [K in keyof T]: T[K] | MotionValue<T[K]>
+}
+
+export type MakeMotion<T> = MakeCustomValueType<MakeMotionHelper<T>>
 
 export type MotionCSS = MakeMotion<
     Omit<CSSProperties, "rotate" | "scale" | "perspective">
@@ -92,10 +95,10 @@ export type MotionTransform = MakeMotion<TransformProperties>
  * TODO: Currently unused, would like to reimplement with the ability
  * to still accept React.CSSProperties.
  */
-export type MotionCSSVariables = {
+export interface MotionCSSVariables {
     [key: `--${string}`]:
-        | MotionValue<number>
-        | MotionValue<string>
+        | MotionValueNumber
+        | MotionValueString
         | string
         | number
 }
@@ -103,10 +106,11 @@ export type MotionCSSVariables = {
 /**
  * @public
  */
-export type MotionStyle = MotionCSS &
-    MotionTransform &
-    MakeMotion<SVGPathProperties> &
-    MakeCustomValueType<CustomStyles>
+export interface MotionStyle
+    extends MotionCSS,
+        MotionTransform,
+        MakeMotion<SVGPathProperties>,
+        MakeCustomValueType<CustomStyles> {}
 
 export type OnUpdate = (v: Target) => void
 
@@ -261,8 +265,8 @@ export interface MotionAdvancedProps {
     ignoreStrict?: boolean
 }
 
-type ExternalMotionValues = {
-    [key: string]: MotionValue<number> | MotionValue<string>
+interface ExternalMotionValues {
+    [key: string]: MotionValueNumber | MotionValueString
 }
 
 /**
