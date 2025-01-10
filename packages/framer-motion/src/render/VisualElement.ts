@@ -9,6 +9,7 @@ import { featureDefinitions } from "../motion/features/definitions"
 import { Feature } from "../motion/features/Feature"
 import { FeatureDefinitions } from "../motion/features/types"
 import { MotionProps, MotionStyle } from "../motion/types"
+import { OnUpdateSettings } from "../motion/utils/use-visual-state"
 import { createBox } from "../projection/geometry/models"
 import type { Box } from "../projection/geometry/types"
 import { IProjectionNode } from "../projection/node/types"
@@ -320,6 +321,10 @@ export abstract class VisualElement<
         [key: string]: VoidFunction
     } = {}
 
+    private onUpdate?: (
+        settings: OnUpdateSettings<Instance, RenderState>
+    ) => void
+
     constructor(
         {
             parent,
@@ -331,7 +336,8 @@ export abstract class VisualElement<
         }: VisualElementOptions<Instance, RenderState>,
         options: Options = {} as any
     ) {
-        const { latestValues, renderState } = visualState
+        const { latestValues, renderState, onUpdate } = visualState
+        this.onUpdate = onUpdate
         this.latestValues = latestValues
         this.baseTarget = { ...latestValues }
         this.initialValues = props.initial ? { ...latestValues } : {}
@@ -613,6 +619,8 @@ export abstract class VisualElement<
         if (this.handleChildMotionValue) {
             this.handleChildMotionValue()
         }
+
+        this.onUpdate && this.onUpdate(this)
     }
 
     getProps() {

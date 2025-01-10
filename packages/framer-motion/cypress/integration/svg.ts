@@ -82,3 +82,25 @@ describe("SVG", () => {
             })
     })
 })
+
+describe("SVG origin", () => {
+    it("Correctly animates origin", () => {
+        cy.visit("?test=svg-origin")
+            .wait(500)
+            .get("circle")
+            .should(([$circle]: any) => {
+                expect($circle.style.transformOrigin).to.equal("100px 100px")
+                expect($circle.style.transform).to.equal("scale(0.5)")
+            })
+            .get("rect")
+            .should(([$rect]: any) => {
+                expect($rect.style.transformOrigin).to.equal("300px 150px")
+                expect($rect.style.transform).to.equal("scale(0.5)")
+            })
+            .get("#new-transform")
+            .should(([$circle]: any) => {
+                expect($circle.style.transformOrigin).to.equal("400px 100px")
+                expect($circle.style.transform).to.equal("scale(0.5)")
+            })
+    })
+})

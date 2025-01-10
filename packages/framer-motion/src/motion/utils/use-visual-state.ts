@@ -1,24 +1,33 @@
 import { useContext } from "react"
 import { isAnimationControls } from "../../animation/utils/is-animation-controls"
+import { MotionContext, MotionContextProps } from "../../context/MotionContext"
 import {
     PresenceContext,
     PresenceContextProps,
 } from "../../context/PresenceContext"
 import { ResolvedValues, ScrapeMotionValuesFromProps } from "../../render/types"
-import { resolveVariantFromProps } from "../../render/utils/resolve-variants"
-import { useConstant } from "../../utils/use-constant"
-import { resolveMotionValue } from "../../value/utils/resolve-motion-value"
-import { MotionContext, MotionContextProps } from "../../context/MotionContext"
-import { MotionProps } from "../types"
 import {
     isControllingVariants as checkIsControllingVariants,
     isVariantNode as checkIsVariantNode,
 } from "../../render/utils/is-controlling-variants"
+import { resolveVariantFromProps } from "../../render/utils/resolve-variants"
+import { useConstant } from "../../utils/use-constant"
+import { resolveMotionValue } from "../../value/utils/resolve-motion-value"
+import { MotionProps } from "../types"
+
+export interface OnUpdateSettings<Instance, RenderState> {
+    props: MotionProps
+    prevProps?: MotionProps
+    current: Instance | null
+    renderState: RenderState
+    latestValues: ResolvedValues
+}
 
 export interface VisualState<Instance, RenderState> {
     renderState: RenderState
     latestValues: ResolvedValues
-    mount?: (instance: Instance) => void
+    onUpdate?: (settings: OnUpdateSettings<Instance, RenderState>) => void
+    onMount?: (instance: Instance) => void
 }
 
 export type UseVisualState<Instance, RenderState> = (
@@ -29,18 +38,14 @@ export type UseVisualState<Instance, RenderState> = (
 export interface UseVisualStateConfig<Instance, RenderState> {
     scrapeMotionValuesFromProps: ScrapeMotionValuesFromProps
     createRenderState: () => RenderState
-    onMount?: (
-        props: MotionProps,
-        instance: Instance,
-        visualState: VisualState<Instance, RenderState>
-    ) => void
+    onUpdate?: (settings: OnUpdateSettings<Instance, RenderState>) => void
 }
 
 function makeState<I, RS>(
     {
         scrapeMotionValuesFromProps,
         createRenderState,
-        onMount,
+        onUpdate,
     }: UseVisualStateConfig<I, RS>,
     props: MotionProps,
     context: MotionContextProps,
@@ -56,8 +61,15 @@ function makeState<I, RS>(
         renderState: createRenderState(),
     }
 
-    if (onMount) {
-        state.mount = (instance: I) => onMount(props, instance, state)
+    if (onUpdate) {
+        /**
+         * onMount works without the VisualElement because it could be
+         * called before the VisualElement payload has been hydrated.
+         * (e.g. if someone is using m components <m.circle />)
+         */
+        state.onMount = (instance) =>
+            onUpdate({ props, current: instance, ...state })
+        state.onUpdate = (visualElement) => onUpdate(visualElement)
     }
 
     return state

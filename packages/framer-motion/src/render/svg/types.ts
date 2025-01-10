@@ -1,8 +1,8 @@
-import { ResolvedValues } from "../types"
-import { SVGAttributes, JSX } from "react"
+import { JSX, SVGAttributes } from "react"
 import { MakeMotion, MotionProps } from "../../motion/types"
-import { SVGElements } from "./supported-elements"
 import { ForwardRefComponent, HTMLRenderState } from "../html/types"
+import { ResolvedValues } from "../types"
+import { SVGElements } from "./supported-elements"
 
 export interface SVGRenderState extends HTMLRenderState {
     /**
@@ -15,6 +15,19 @@ export interface SVGRenderState extends HTMLRenderState {
      * every frame. We use a mutable data structure to reduce GC during animations.
      */
     attrs: ResolvedValues
+
+    /**
+     * A record of the previous layout values provided by props.
+     */
+    prevLayoutProps?: {
+        x?: number
+        y?: number
+        width?: number
+        height?: number
+        cx?: number
+        cy?: number
+        r?: number
+    }
 }
 
 export type SVGDimensions = {

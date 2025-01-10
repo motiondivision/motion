@@ -1,23 +1,23 @@
 import { CSSProperties } from "react"
-import { MotionValue } from "../value"
 import { AnimationControls } from "../animation/types"
-import {
-    Variants,
-    Target,
-    Transition,
-    TargetAndTransition,
-    Omit,
-    MakeCustomValueType,
-} from "../types"
 import { DraggableProps } from "../gestures/drag/types"
-import { LayoutProps } from "./features/layout/types"
-import { EventProps } from "../render/types"
 import {
+    FocusHandlers,
+    HoverHandlers,
     PanHandlers,
     TapHandlers,
-    HoverHandlers,
-    FocusHandlers,
 } from "../gestures/types"
+import { EventProps } from "../render/types"
+import {
+    MakeCustomValueType,
+    Omit,
+    Target,
+    TargetAndTransition,
+    Transition,
+    Variants,
+} from "../types"
+import { MotionValue } from "../value"
+import { LayoutProps } from "./features/layout/types"
 import { ViewportProps } from "./features/viewport/types"
 
 /**
@@ -26,8 +26,8 @@ import { ViewportProps } from "./features/viewport/types"
  */
 export type VariantLabels = string | string[]
 
-import { TransformProperties, SVGPathProperties } from "motion-dom"
-export { TransformProperties, SVGPathProperties }
+import { SVGPathProperties, TransformProperties } from "motion-dom"
+export { SVGPathProperties, TransformProperties }
 
 export interface CustomStyles {
     /**
