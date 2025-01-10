@@ -1,9 +1,9 @@
-import { transformPropOrder } from "./transform"
 import { MotionProps } from "../../../motion/types"
 import { getValueAsType } from "../../dom/value-types/get-as-type"
 import { numberValueTypes } from "../../dom/value-types/number"
 import { ResolvedValues } from "../../types"
 import { HTMLRenderState } from "../types"
+import { transformPropOrder } from "./keys-transform"
 
 const translateAlias = {
     x: "translateX",

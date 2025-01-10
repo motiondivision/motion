@@ -1,10 +1,10 @@
-import { ScrollInfo } from "../types"
-import { calcInset } from "./inset"
-import { ScrollOffset } from "./presets"
-import { ScrollInfoOptions } from "../types"
-import { resolveOffset } from "./offset"
+import { clamp } from "../../../../utils/clamp"
 import { interpolate } from "../../../../utils/interpolate"
 import { defaultOffset } from "../../../../utils/offsets/default"
+import { ScrollInfo, ScrollInfoOptions } from "../types"
+import { calcInset } from "./inset"
+import { resolveOffset } from "./offset"
+import { ScrollOffset } from "./presets"
 
 const point = { x: 0, y: 0 }
 
@@ -75,10 +75,16 @@ export function resolveOffsets(
     if (hasChanged) {
         info[axis].interpolate = interpolate(
             info[axis].offset,
-            defaultOffset(offsetDefinition)
+            defaultOffset(offsetDefinition),
+            { clamp: false }
         )
 
         info[axis].interpolatorOffsets = [...info[axis].offset]
     }
-    info[axis].progress = info[axis].interpolate!(info[axis].current)
+
+    info[axis].progress = clamp(
+        0,
+        1,
+        info[axis].interpolate!(info[axis].current)
+    )
 }

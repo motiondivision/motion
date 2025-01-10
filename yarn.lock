@@ -7178,7 +7178,7 @@ __metadata:
     "@react-three/fiber": 8.2.2
     "@react-three/test-renderer": ^9.0.0
     "@rollup/plugin-commonjs": ^22.0.1
-    framer-motion: ^11.16.3
+    framer-motion: ^11.16.6
     react-merge-refs: ^2.0.1
     three: ^0.137.0
   peerDependencies:
@@ -7189,12 +7189,12 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"framer-motion@^11.16.3, framer-motion@workspace:packages/framer-motion":
+"framer-motion@^11.16.6, framer-motion@workspace:packages/framer-motion":
   version: 0.0.0-use.local
   resolution: "framer-motion@workspace:packages/framer-motion"
   dependencies:
     "@types/three": 0.137.0
-    motion-dom: ^11.16.3
+    motion-dom: ^11.16.4
     motion-utils: ^11.16.0
     three: 0.137.0
     tslib: ^2.4.0
@@ -7935,9 +7935,9 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "html-env@workspace:dev/html"
   dependencies:
-    framer-motion: ^11.16.3
-    motion: ^11.16.3
-    motion-dom: ^11.16.3
+    framer-motion: ^11.16.6
+    motion: ^11.16.6
+    motion-dom: ^11.16.4
     vite: ^5.2.0
   languageName: unknown
   linkType: soft
@@ -10688,7 +10688,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"motion-dom@^11.16.3, motion-dom@workspace:packages/motion-dom":
+"motion-dom@^11.16.4, motion-dom@workspace:packages/motion-dom":
   version: 0.0.0-use.local
   resolution: "motion-dom@workspace:packages/motion-dom"
   dependencies:
@@ -10764,11 +10764,11 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"motion@^11.16.3, motion@workspace:packages/motion":
+"motion@^11.16.6, motion@workspace:packages/motion":
   version: 0.0.0-use.local
   resolution: "motion@workspace:packages/motion"
   dependencies:
-    framer-motion: ^11.16.3
+    framer-motion: ^11.16.6
     tslib: ^2.4.0
   peerDependencies:
     "@emotion/is-prop-valid": "*"
@@ -10878,7 +10878,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "next-env@workspace:dev/next"
   dependencies:
-    framer-motion: ^11.16.3
+    framer-motion: ^11.16.6
     next: 14.x
     react: ^18.3.1
     react-dom: ^18.3.1
@@ -12335,7 +12335,7 @@ __metadata:
     "@typescript-eslint/parser": ^7.2.0
     "@vitejs/plugin-react-swc": ^3.5.0
     eslint-plugin-react-refresh: ^0.4.6
-    motion: ^11.16.3
+    motion: ^11.16.6
     react: ^19.0.0
     react-dom: ^19.0.0
     vite: ^5.2.0
@@ -12407,7 +12407,7 @@ __metadata:
     "@typescript-eslint/parser": ^7.2.0
     "@vitejs/plugin-react-swc": ^3.5.0
     eslint-plugin-react-refresh: ^0.4.6
-    framer-motion: ^11.16.3
+    framer-motion: ^11.16.6
     react: ^18.3.1
     react-dom: ^18.3.1
     styled-components: ^6.1.11

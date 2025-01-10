@@ -90,20 +90,24 @@ export function press(
         window.addEventListener("pointercancel", onPointerCancel, eventOptions)
     }
 
-    elements.forEach((element: HTMLElement) => {
+    elements.forEach((element: Element) => {
         if (
             !isElementKeyboardAccessible(element) &&
             element.getAttribute("tabindex") === null
         ) {
-            element.tabIndex = 0
+            ;(element as HTMLElement).tabIndex = 0
         }
 
         const target = options.useGlobalTarget ? window : element
-        target.addEventListener("pointerdown", startPress, eventOptions)
+        target.addEventListener(
+            "pointerdown",
+            startPress as EventListener,
+            eventOptions
+        )
 
         element.addEventListener(
             "focus",
-            (event) => enableKeyboardPress(event, eventOptions),
+            (event) => enableKeyboardPress(event as FocusEvent, eventOptions),
             eventOptions
         )
     })

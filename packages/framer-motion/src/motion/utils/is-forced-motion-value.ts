@@ -1,6 +1,6 @@
-import { scaleCorrectors } from "../../projection/styles/scale-correction"
 import { MotionProps } from "../.."
-import { transformProps } from "../../render/html/utils/transform"
+import { scaleCorrectors } from "../../projection/styles/scale-correction"
+import { transformProps } from "../../render/html/utils/keys-transform"
 
 export function isForcedMotionValue(
     key: string,

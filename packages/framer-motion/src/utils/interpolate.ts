@@ -72,7 +72,9 @@ export function interpolate<T>(
      * that returns the output.
      */
     if (inputLength === 1) return () => output[0]
-    if (inputLength === 2 && input[0] === input[1]) return () => output[1]
+    if (inputLength === 2 && output[0] === output[1]) return () => output[1]
+
+    const isZeroDeltaRange = input[0] === input[1]
 
     // If input runs highest -> lowest, reverse both arrays
     if (input[0] > input[inputLength - 1]) {
@@ -84,7 +86,10 @@ export function interpolate<T>(
     const numMixers = mixers.length
 
     const interpolator = (v: number): T => {
+        if (isZeroDeltaRange && v < input[0]) return output[0]
+
         let i = 0
+
         if (numMixers > 1) {
             for (; i < input.length - 2; i++) {
                 if (v < input[i + 1]) break

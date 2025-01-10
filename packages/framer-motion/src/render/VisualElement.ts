@@ -1,21 +1,33 @@
-import { frame, cancelFrame } from "../frameloop"
 import {
     MotionConfigContext,
     ReducedMotionConfig,
 } from "../context/MotionConfigContext"
+import type { PresenceContextProps } from "../context/PresenceContext"
+import { cancelFrame, frame } from "../frameloop"
+import { time } from "../frameloop/sync-time"
+import { featureDefinitions } from "../motion/features/definitions"
+import { Feature } from "../motion/features/Feature"
 import { FeatureDefinitions } from "../motion/features/types"
 import { MotionProps, MotionStyle } from "../motion/types"
+import { createBox } from "../projection/geometry/models"
 import type { Box } from "../projection/geometry/types"
 import { IProjectionNode } from "../projection/node/types"
+import { isNumericalString } from "../utils/is-numerical-string"
+import { isZeroValueString } from "../utils/is-zero-value-string"
 import { initPrefersReducedMotion } from "../utils/reduced-motion"
 import {
     hasReducedMotionListener,
     prefersReducedMotion,
 } from "../utils/reduced-motion/state"
 import { SubscriptionManager } from "../utils/subscription-manager"
+import { warnOnce } from "../utils/warn-once"
 import { motionValue, MotionValue } from "../value"
+import { complex } from "../value/types/complex"
 import { isMotionValue } from "../value/utils/is-motion-value"
-import { transformProps } from "./html/utils/transform"
+import { getAnimatableNone } from "./dom/value-types/animatable-none"
+import { findValueType } from "./dom/value-types/find"
+import { transformProps } from "./html/utils/keys-transform"
+import { visualElementStore } from "./store"
 import {
     ResolvedValues,
     VisualElementEventCallbacks,
@@ -26,21 +38,9 @@ import {
     isControllingVariants as checkIsControllingVariants,
     isVariantNode as checkIsVariantNode,
 } from "./utils/is-controlling-variants"
+import { KeyframeResolver } from "./utils/KeyframesResolver"
 import { updateMotionValuesFromProps } from "./utils/motion-values"
 import { resolveVariantFromProps } from "./utils/resolve-variants"
-import { warnOnce } from "../utils/warn-once"
-import { featureDefinitions } from "../motion/features/definitions"
-import { Feature } from "../motion/features/Feature"
-import type { PresenceContextProps } from "../context/PresenceContext"
-import { visualElementStore } from "./store"
-import { KeyframeResolver } from "./utils/KeyframesResolver"
-import { isNumericalString } from "../utils/is-numerical-string"
-import { isZeroValueString } from "../utils/is-zero-value-string"
-import { findValueType } from "./dom/value-types/find"
-import { complex } from "../value/types/complex"
-import { getAnimatableNone } from "./dom/value-types/animatable-none"
-import { createBox } from "../projection/geometry/models"
-import { time } from "../frameloop/sync-time"
 
 const propEventHandlers = [
     "AnimationStart",

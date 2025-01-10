@@ -6,6 +6,9 @@ const focusableElements = new Set([
     "A",
 ])
 
-export function isElementKeyboardAccessible(element: HTMLElement) {
-    return focusableElements.has(element.tagName) || element.tabIndex !== -1
+export function isElementKeyboardAccessible(element: Element) {
+    return (
+        focusableElements.has(element.tagName) ||
+        (element as HTMLElement).tabIndex !== -1
+    )
 }

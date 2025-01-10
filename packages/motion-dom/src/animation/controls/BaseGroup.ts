@@ -45,7 +45,7 @@ export class BaseGroupPlaybackControls
 
     attachTimeline(
         timeline: any,
-        fallback: (
+        fallback?: (
             animation:
                 | AnimationPlaybackControls
                 | AnimationPlaybackControlsWithFinished
@@ -54,7 +54,7 @@ export class BaseGroupPlaybackControls
         const subscriptions = this.animations.map((animation) => {
             if (supportsScrollTimeline() && animation.attachTimeline) {
                 return animation.attachTimeline(timeline)
-            } else {
+            } else if (typeof fallback === "function") {
                 return fallback(animation)
             }
         })

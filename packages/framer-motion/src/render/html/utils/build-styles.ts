@@ -1,11 +1,11 @@
 import { MotionProps } from "../../../motion/types"
-import { HTMLRenderState } from "../types"
-import { ResolvedValues } from "../../types"
-import { buildTransform } from "./build-transform"
 import { isCSSVariableName } from "../../dom/utils/is-css-variable"
-import { transformProps } from "./transform"
 import { getValueAsType } from "../../dom/value-types/get-as-type"
 import { numberValueTypes } from "../../dom/value-types/number"
+import { ResolvedValues } from "../../types"
+import { HTMLRenderState } from "../types"
+import { buildTransform } from "./build-transform"
+import { transformProps } from "./keys-transform"
 
 export function buildHTMLStyles(
     state: HTMLRenderState,

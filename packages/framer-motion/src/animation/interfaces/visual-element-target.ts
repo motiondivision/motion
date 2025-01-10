@@ -1,6 +1,6 @@
 import { AnimationPlaybackControls, getValueTransition } from "motion-dom"
 import { frame } from "../../frameloop"
-import { transformProps } from "../../render/html/utils/transform"
+import { positionalKeys } from "../../render/html/utils/keys-position"
 import type { AnimationTypeState } from "../../render/utils/animation-state"
 import { setTarget } from "../../render/utils/setters"
 import type { VisualElement } from "../../render/VisualElement"
@@ -96,7 +96,7 @@ export function animateTarget(
                 key,
                 value,
                 valueTarget,
-                visualElement.shouldReduceMotion && transformProps.has(key)
+                visualElement.shouldReduceMotion && positionalKeys.has(key)
                     ? { type: false }
                     : valueTransition,
                 visualElement,

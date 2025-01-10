@@ -79,7 +79,11 @@ export interface AnimationPlaybackControls {
      */
     attachTimeline?: (
         timeline: ProgressTimeline,
-        fallback?: (animation: AnimationPlaybackControls) => VoidFunction
+        fallback?: (
+            animation:
+                | AnimationPlaybackControls
+                | AnimationPlaybackControlsWithFinished
+        ) => VoidFunction
     ) => VoidFunction
 
     /**

@@ -17,6 +17,13 @@ test("interpolate - ease", () => {
     expect(f(50)).toBe(-50)
 })
 
+test("interpolate - 0-width input", () => {
+    const f = interpolate([2, 2], [0, 1], { clamp: false })
+    expect(f(0)).toBe(0)
+    expect(f(1)).toBe(0)
+    expect(f(2)).toBe(1)
+})
+
 test("interpolate - negative", () => {
     const f = interpolate([-500, 500], [0, 1])
     expect(f(-250)).toBe(0.25)
