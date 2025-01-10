@@ -1,13 +1,13 @@
 "use client"
 
-import { useContext, useState, useMemo, useRef } from "react"
 import * as React from "react"
-import { AnimatePresenceProps } from "./types"
-import { PresenceChild } from "./PresenceChild"
+import { useContext, useMemo, useRef, useState } from "react"
 import { LayoutGroupContext } from "../../context/LayoutGroupContext"
-import { invariant } from "motion-utils"
 import { useIsomorphicLayoutEffect } from "../../three-entry"
 import { useConstant } from "../../utils/use-constant"
+import { PresenceChild } from "./PresenceChild"
+import { AnimatePresenceProps } from "./types"
+import { usePresence } from "./use-presence"
 import { ComponentKey, getChildKey, onlyElements } from "./utils"
 
 /**
@@ -47,14 +47,14 @@ export const AnimatePresence: React.FunctionComponent<
     React.PropsWithChildren<AnimatePresenceProps>
 > = ({
     children,
-    exitBeforeEnter,
     custom,
     initial = true,
     onExitComplete,
     presenceAffectsLayout = true,
     mode = "sync",
+    propagate,
 }) => {
-    invariant(!exitBeforeEnter, "Replace exitBeforeEnter with mode='wait'")
+    const [isParentPresent, safeToRemove] = usePresence()
 
     /**
      * Filter any children that aren't ReactElements. We can only track components
@@ -66,7 +66,8 @@ export const AnimatePresence: React.FunctionComponent<
      * Track the keys of the currently rendered children. This is used to
      * determine which children are exiting.
      */
-    const presentKeys = presentChildren.map(getChildKey)
+    const presentKeys =
+        propagate && !isParentPresent ? [] : presentChildren.map(getChildKey)
 
     /**
      * If `initial={false}` we only want to pass this to components in the first render.
@@ -172,8 +173,10 @@ export const AnimatePresence: React.FunctionComponent<
                 const key = getChildKey(child)
 
                 const isPresent =
-                    presentChildren === renderedChildren ||
-                    presentKeys.includes(key)
+                    propagate && !isParentPresent
+                        ? false
+                        : presentChildren === renderedChildren ||
+                          presentKeys.includes(key)
 
                 const onExit = () => {
                     if (exitComplete.has(key)) {
@@ -190,6 +193,8 @@ export const AnimatePresence: React.FunctionComponent<
                     if (isEveryExitComplete) {
                         forceRender?.()
                         setRenderedChildren(pendingPresentChildren.current)
+
+                        propagate && safeToRemove?.()
 
                         onExitComplete && onExitComplete()
                     }

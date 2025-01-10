@@ -4,6 +4,16 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [11.17.0] Unreleased
+
+### Added
+
+-   Added `propagate` to `AnimatePresence`. This prop allows parent exit animations to be propagated to children.
+
+### Removed
+
+-   Removed `exitBeforeEnter` from `AnimatePresence`.
+
 ## [11.16.7] 2024-01-10
 
 ### Fixed

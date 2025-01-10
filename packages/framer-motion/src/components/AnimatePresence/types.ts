@@ -40,15 +40,6 @@ export interface AnimatePresenceProps {
     onExitComplete?: () => void
 
     /**
-     * Replace with `mode="wait"`
-     *
-     * @deprecated
-     *
-     * Replace with `mode="wait"`
-     */
-    exitBeforeEnter?: boolean
-
-    /**
      * Determines how to handle entering and exiting elements.
      *
      * - `"sync"`: Default. Elements animate in and out as soon as they're added/removed.
@@ -66,4 +57,10 @@ export interface AnimatePresenceProps {
      * child being removed.
      */
     presenceAffectsLayout?: boolean
+
+    /**
+     * If true, the `AnimatePresence` component will propagate parent exit animations
+     * to its children.
+     */
+    propagate?: boolean
 }
