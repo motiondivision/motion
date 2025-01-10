@@ -46,11 +46,13 @@ export const svgMotionConfig: Partial<
         }) => {
             if (!current) return
 
-            let hasTransform = false
-            for (const key in latestValues) {
-                if (transformProps.has(key)) {
-                    hasTransform = true
-                    break
+            let hasTransform = !!props.drag
+            if (!hasTransform) {
+                for (const key in latestValues) {
+                    if (transformProps.has(key)) {
+                        hasTransform = true
+                        break
+                    }
                 }
             }
 
