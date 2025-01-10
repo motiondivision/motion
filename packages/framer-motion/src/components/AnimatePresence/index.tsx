@@ -52,9 +52,9 @@ export const AnimatePresence: React.FunctionComponent<
     onExitComplete,
     presenceAffectsLayout = true,
     mode = "sync",
-    propagate,
+    propagate = false,
 }) => {
-    const [isParentPresent, safeToRemove] = usePresence()
+    const [isParentPresent, safeToRemove] = usePresence(propagate)
 
     /**
      * Filter any children that aren't ReactElements. We can only track components

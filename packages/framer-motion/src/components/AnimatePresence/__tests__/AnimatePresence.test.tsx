@@ -1,17 +1,17 @@
-import { render } from "../../../../jest.setup"
+import { waitFor } from "@testing-library/dom"
 import { act, createRef } from "react"
 import {
     AnimatePresence,
+    frame,
+    LayoutGroup,
     motion,
     MotionConfig,
-    LayoutGroup,
     useAnimation,
-    frame,
 } from "../../.."
-import { motionValue } from "../../../value"
-import { ResolvedValues } from "../../../render/types"
+import { render } from "../../../../jest.setup"
 import { nextFrame } from "../../../gestures/__tests__/utils"
-import { waitFor } from "@testing-library/dom"
+import { ResolvedValues } from "../../../render/types"
+import { motionValue } from "../../../value"
 
 describe("AnimatePresence", () => {
     test("Allows initial animation if no `initial` prop defined", async () => {
@@ -1040,6 +1040,98 @@ describe("AnimatePresence with custom components", () => {
                 expect(queryByTestId("b")).toBe(null)
                 resolve()
             }, 50)
+        })
+    })
+
+    test("AnimatePresence - nested AnimatePresence should not animate exit", async () => {
+        const outerOpacity = motionValue(1)
+        const innerOpacity = motionValue(1)
+
+        await new Promise<void>(async (resolve) => {
+            async function complete() {
+                await nextFrame()
+
+                expect(outerOpacity.get()).toBe(0)
+                expect(innerOpacity.get()).toBe(1)
+                expect(queryByTestId("outer")).toBe(null)
+                expect(queryByTestId("inner")).toBe(null)
+                resolve()
+            }
+
+            const Component = ({ isVisible }: { isVisible: boolean }) => {
+                return (
+                    <AnimatePresence onExitComplete={complete}>
+                        {isVisible ? (
+                            <motion.div
+                                data-testid="outer"
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 0.1 }}
+                                style={{ opacity: outerOpacity }}
+                            >
+                                <AnimatePresence>
+                                    <motion.div
+                                        data-testid="inner"
+                                        exit={{ opacity: 0 }}
+                                        transition={{ duration: 0.1 }}
+                                        style={{ opacity: innerOpacity }}
+                                    />
+                                </AnimatePresence>
+                            </motion.div>
+                        ) : null}
+                    </AnimatePresence>
+                )
+            }
+            const { rerender, queryByTestId } = render(<Component isVisible />)
+
+            await act(async () => {
+                rerender(<Component isVisible={false} />)
+            })
+        })
+    })
+
+    test("AnimatePresence - nested AnimatePresence should animate exit when propagate is true", async () => {
+        const outerOpacity = motionValue(1)
+        const innerOpacity = motionValue(1)
+
+        await new Promise<void>(async (resolve) => {
+            async function complete() {
+                await nextFrame()
+
+                expect(outerOpacity.get()).toBe(0)
+                expect(innerOpacity.get()).toBe(0)
+                expect(queryByTestId("outer")).toBe(null)
+                expect(queryByTestId("inner")).toBe(null)
+                resolve()
+            }
+
+            const Component = ({ isVisible }: { isVisible: boolean }) => {
+                return (
+                    <AnimatePresence onExitComplete={complete}>
+                        {isVisible ? (
+                            <motion.div
+                                data-testid="outer"
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 0.1 }}
+                                style={{ opacity: outerOpacity }}
+                            >
+                                <AnimatePresence propagate>
+                                    <motion.div
+                                        data-testid="inner"
+                                        exit={{ opacity: 0 }}
+                                        transition={{ duration: 0.1 }}
+                                        style={{ opacity: innerOpacity }}
+                                    />
+                                </AnimatePresence>
+                            </motion.div>
+                        ) : null}
+                    </AnimatePresence>
+                )
+            }
+            const { rerender, queryByTestId } = render(<Component isVisible />)
+
+            await act(async () => {
+                rerender(<Component isVisible={false} />)
+            })
         })
     })
 })
