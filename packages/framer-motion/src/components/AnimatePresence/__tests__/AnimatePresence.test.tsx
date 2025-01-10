@@ -1096,6 +1096,7 @@ describe("AnimatePresence with custom components", () => {
         await new Promise<void>(async (resolve) => {
             async function complete() {
                 await nextFrame()
+                await nextFrame()
 
                 expect(outerOpacity.get()).toBe(0)
                 expect(innerOpacity.get()).toBe(0)
