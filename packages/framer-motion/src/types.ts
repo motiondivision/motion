@@ -43,7 +43,9 @@ export type ValueTarget = SingleTarget | KeyframesTarget
 /**
  * @public
  */
-export type Props = { [key: string]: any }
+export interface Props {
+    [key: string]: any
+}
 
 /**
  * Options for orchestrating the timing of animations.
@@ -950,7 +952,7 @@ export type PopmotionTransitionProps = Tween | Spring | Keyframes | Inertia
 /**
  * @public
  */
-export type PermissiveTransitionDefinition = {
+export interface PermissiveTransitionDefinition {
     [key: string]: any
 }
 
@@ -970,14 +972,16 @@ export type TransitionMap = Orchestration &
         [key: string]: TransitionDefinition
     }
 
+interface TransitionTypeStaticallyKnown extends Orchestration, Repeat {}
+
 /**
  * Transition props
  *
  * @public
  */
 export type Transition =
-    | (Orchestration & Repeat & TransitionDefinition)
-    | (Orchestration & Repeat & TransitionMap)
+    | (TransitionTypeStaticallyKnown & TransitionDefinition)
+    | (TransitionTypeStaticallyKnown & TransitionMap)
 
 export type Omit<T, K extends keyof T> = Pick<T, Exclude<keyof T, K>>
 type CSSPropertiesWithoutTransitionOrSingleTransforms = Omit<
@@ -985,7 +989,7 @@ type CSSPropertiesWithoutTransitionOrSingleTransforms = Omit<
     "transition" | "rotate" | "scale" | "perspective"
 >
 
-type SVGTransformAttributes = {
+interface SVGTransformAttributes {
     attrX?: number
     attrY?: number
     attrScale?: number
@@ -1002,7 +1006,9 @@ type TargetProperties = CSSPropertiesWithoutTransitionOrSingleTransforms &
 /**
  * @public
  */
-export type MakeCustomValueType<T> = { [K in keyof T]: T[K] | CustomValueType }
+export type MakeCustomValueType<T> = {
+    [K in keyof T]: T[K] | CustomValueType
+}
 
 /**
  * @public
@@ -1060,7 +1066,7 @@ export type Variant = TargetAndTransition | TargetResolver
 /**
  * @public
  */
-export type Variants = {
+export interface Variants {
     [key: string]: Variant
 }
 

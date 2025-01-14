@@ -7,7 +7,7 @@ import { PresenceContextProps } from "../context/PresenceContext"
 import { MotionProps } from "../motion/types"
 import { AnimationDefinition } from "../animation/types"
 
-export type GenericValues = {
+export interface GenericValues {
     [key: string]: string | number
 }
 
@@ -26,7 +26,7 @@ export type ScrapeMotionValuesFromProps = (
 
 export type UseRenderState<RenderState = any> = () => RenderState
 
-export type VisualElementOptions<Instance, RenderState = any> = {
+export interface VisualElementOptions<Instance, RenderState = any> {
     visualState: VisualState<Instance, RenderState>
     parent?: VisualElement<unknown>
     variantParent?: VisualElement<unknown>
