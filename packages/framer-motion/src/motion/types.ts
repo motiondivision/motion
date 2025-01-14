@@ -8,6 +8,7 @@ import {
     TargetAndTransition,
     Omit,
     MakeCustomValueType,
+    stringOrNumber,
 } from "../types"
 import { DraggableProps } from "../gestures/drag/types"
 import { LayoutProps } from "./features/layout/types"
@@ -27,28 +28,28 @@ import { ViewportProps } from "./features/viewport/types"
 export type VariantLabels = string | string[]
 
 export interface TransformProperties {
-    x?: string | number
-    y?: string | number
-    z?: string | number
-    translateX?: string | number
-    translateY?: string | number
-    translateZ?: string | number
-    rotate?: string | number
-    rotateX?: string | number
-    rotateY?: string | number
-    rotateZ?: string | number
-    scale?: string | number
-    scaleX?: string | number
-    scaleY?: string | number
-    scaleZ?: string | number
-    skew?: string | number
-    skewX?: string | number
-    skewY?: string | number
-    originX?: string | number
-    originY?: string | number
-    originZ?: string | number
-    perspective?: string | number
-    transformPerspective?: string | number
+    x?: stringOrNumber
+    y?: stringOrNumber
+    z?: stringOrNumber
+    translateX?: stringOrNumber
+    translateY?: stringOrNumber
+    translateZ?: stringOrNumber
+    rotate?: stringOrNumber
+    rotateX?: stringOrNumber
+    rotateY?: stringOrNumber
+    rotateZ?: stringOrNumber
+    scale?: stringOrNumber
+    scaleX?: stringOrNumber
+    scaleY?: stringOrNumber
+    scaleZ?: stringOrNumber
+    skew?: stringOrNumber
+    skewX?: stringOrNumber
+    skewY?: stringOrNumber
+    originX?: stringOrNumber
+    originY?: stringOrNumber
+    originZ?: stringOrNumber
+    perspective?: stringOrNumber
+    transformPerspective?: stringOrNumber
 }
 
 /**
@@ -65,22 +66,24 @@ export interface CustomStyles {
      * Framer Library custom prop types. These are not actually supported in Motion - preferably
      * we'd have a way of external consumers injecting supported styles into this library.
      */
-    size?: string | number
-    radius?: string | number
+    size?: stringOrNumber
+    radius?: stringOrNumber
     shadow?: string
     image?: string
 }
 
 type MotionValueString = MotionValue<string>
 type MotionValueNumber = MotionValue<number>
-// type MotionValueAny = MotionValue<any>
-// type AMotionValue = MotionValueNumber | MotionValueString | MotionValueAny // any creates a permissive type for Custom value types
+type MotionValueAny = MotionValue<any>
+type AMotionValue = MotionValueNumber | MotionValueString | MotionValueAny // any creates a permissive type for Custom value types
 
+type MotionValueHelper<T> = T | AMotionValue
 type MakeMotionHelper<T> = {
-    [K in keyof T]: T[K] | MotionValue<T[K]>
+    [K in keyof T]: MotionValueHelper<T[K]>
 }
 
-export type MakeMotion<T> = MakeCustomValueType<MakeMotionHelper<T>>
+type MakeCustomValueTypeHelper<T> = MakeMotionHelper<T>
+export type MakeMotion<T> = MakeCustomValueTypeHelper<T>
 
 export type MotionCSS = MakeMotion<
     Omit<CSSProperties, "rotate" | "scale" | "perspective">
@@ -91,17 +94,18 @@ export type MotionCSS = MakeMotion<
  */
 export type MotionTransform = MakeMotion<TransformProperties>
 
+type MotionCSSVariablesHelper = MotionValueNumber | MotionValueString | stringOrNumber
+
 /**
  * TODO: Currently unused, would like to reimplement with the ability
  * to still accept React.CSSProperties.
  */
 export interface MotionCSSVariables {
-    [key: `--${string}`]:
-        | MotionValueNumber
-        | MotionValueString
-        | string
-        | number
+    [key: `--${string}`]: MotionCSSVariablesHelper
 }
+
+type CustomStylesValueType = MakeCustomValueType<CustomStyles>
+type MotionSVGProps = MakeMotion<SVGPathProperties>
 
 /**
  * @public
@@ -109,8 +113,8 @@ export interface MotionCSSVariables {
 export interface MotionStyle
     extends MotionCSS,
         MotionTransform,
-        MakeMotion<SVGPathProperties>,
-        MakeCustomValueType<CustomStyles> {}
+        MotionSVGProps,
+        CustomStylesValueType {}
 
 export type OnUpdate = (v: Target) => void
 
@@ -265,8 +269,10 @@ export interface MotionAdvancedProps {
     ignoreStrict?: boolean
 }
 
+type MotionStringOrNumber = MotionValueNumber | MotionValueString
+
 interface ExternalMotionValues {
-    [key: string]: MotionValueNumber | MotionValueString
+    [key: string]: MotionStringOrNumber
 }
 
 /**
@@ -329,7 +335,7 @@ export interface MotionProps
         generatedTransform: string
     ): string
 
-    children?: React.ReactNode | MotionValue<number> | MotionValue<string>
+    children?: React.ReactNode | MotionStringOrNumber
 
     "data-framer-appear-id"?: string
 }

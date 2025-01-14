@@ -9,24 +9,30 @@ import { VariableKeyframesDefinition } from "./animation/types"
 
 export type GenericKeyframesTarget<V> = V[] | Array<null | V>
 
+export type stringOrNumber = string | number
+type GenericKeyframesTargetNumber = GenericKeyframesTarget<number>
+type GenericKeyframesTargetString = GenericKeyframesTarget<string>
+
 /**
  * @public
  */
 export type ResolvedKeyframesTarget =
-    | GenericKeyframesTarget<number>
-    | GenericKeyframesTarget<string>
+    | GenericKeyframesTargetNumber
+    | GenericKeyframesTargetString
+
+type KeyframesTargetCustomValueType = GenericKeyframesTarget<CustomValueType>
 
 /**
  * @public
  */
 export type KeyframesTarget =
     | ResolvedKeyframesTarget
-    | GenericKeyframesTarget<CustomValueType>
+    | KeyframesTargetCustomValueType
 
 /**
  * @public
  */
-export type ResolvedSingleTarget = string | number
+export type ResolvedSingleTarget = stringOrNumber
 /**
  * @public
  */
@@ -396,12 +402,12 @@ export interface Tween extends Repeat {
      *
      * @public
      */
-    from?: number | string
+    from?: stringOrNumber
 
     /**
      * @internal
      */
-    to?: number | string | ValueTarget
+    to?: stringOrNumber | ValueTarget
 
     /**
      * @internal
@@ -583,12 +589,12 @@ export interface Spring extends Repeat {
      *
      * @public
      */
-    from?: number | string
+    from?: stringOrNumber
 
     /**
      * @internal
      */
-    to?: number | string | ValueTarget
+    to?: stringOrNumber | ValueTarget
 
     /**
      * The initial velocity of the spring. By default this is the current velocity of the component.
@@ -785,7 +791,7 @@ export interface Inertia {
      *
      * @public
      */
-    from?: number | string
+    from?: stringOrNumber
 
     /**
      * The initial velocity of the animation.
@@ -899,12 +905,12 @@ export interface Keyframes {
     /**
      * @internal
      */
-    from?: number | string
+    from?: stringOrNumber
 
     /**
      * @internal
      */
-    to?: number | string | ValueTarget
+    to?: stringOrNumber | ValueTarget
 
     /**
      * @internal
@@ -931,7 +937,7 @@ export interface None {
     /**
      * @internal
      */
-    from?: number | string
+    from?: stringOrNumber
 
     /**
      * @internal
@@ -995,19 +1001,23 @@ interface SVGTransformAttributes {
     attrScale?: number
 }
 
+type SVGElementAttributes = SVGAttributes<SVGElement>
+
 type TargetProperties = CSSPropertiesWithoutTransitionOrSingleTransforms &
-    SVGAttributes<SVGElement> &
+    SVGElementAttributes &
     SVGTransformAttributes &
     TransformProperties &
     CustomStyles &
     SVGPathProperties &
     VariableKeyframesDefinition
 
+type MakeCustomValueTypeHelper<T> = T | CustomValueType
+
 /**
  * @public
  */
 export type MakeCustomValueType<T> = {
-    [K in keyof T]: T[K] | CustomValueType
+    [K in keyof T]: MakeCustomValueTypeHelper<T[K]>
 }
 
 /**
@@ -1015,11 +1025,13 @@ export type MakeCustomValueType<T> = {
  */
 export type Target = MakeCustomValueType<TargetProperties>
 
+type MakeKeyframesHelper<T> = T | T[] | [null, ...T[]]
+
 /**
  * @public
  */
 export type MakeKeyframes<T> = {
-    [K in keyof T]: T[K] | T[K][] | [null, ...T[K][]]
+    [K in keyof T]: MakeKeyframesHelper<T[K]>
 }
 
 /**
@@ -1047,7 +1059,7 @@ export type TargetWithKeyframes = MakeKeyframes<Target>
  *
  * @public
  */
-export type TargetAndTransition = TargetWithKeyframes & {
+export interface TargetAndTransition extends TargetWithKeyframes {
     transition?: Transition
     transitionEnd?: Target
 }
@@ -1074,6 +1086,6 @@ export interface Variants {
  * @public
  */
 export interface CustomValueType {
-    mix: (from: any, to: any) => (p: number) => number | string
-    toValue: () => number | string
+    mix: (from: any, to: any) => (p: number) => stringOrNumber
+    toValue: () => stringOrNumber
 }
