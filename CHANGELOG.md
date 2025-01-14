@@ -4,13 +4,13 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
-## [11.17.1] 2024-01-13
+## [11.17.1] 2025-01-13
 
 ### Fixed
 
 -   Remeasure SVG when size/position changes to ensure correct `transform-origin`.
 
-## [11.17.0] 2024-01-10
+## [11.17.0] 2025-01-10
 
 ### Added
 
@@ -20,50 +20,50 @@ Undocumented APIs should be considered internal and may change without warning.
 
 -   Removed `exitBeforeEnter` from `AnimatePresence`.
 
-## [11.16.7] 2024-01-10
+## [11.16.7] 2025-01-10
 
 ### Fixed
 
 -   Fixing timelines where a string label is used as the first segment.
 
-## [11.16.6] 2024-01-10
+## [11.16.6] 2025-01-10
 
 ### Changed
 
 -   More movement values like `height` and `top` are now blocked by reduced motion.
 
-## [11.16.5] 2024-01-09
+## [11.16.5] 2025-01-09
 
 ### Fixed
 
 -   Fixed `scroll` progress being stuck at `1` when a `target` is `100vh`.
 
-## [11.16.4] 2024-01-09
+## [11.16.4] 2025-01-09
 
 ### Fixed
 
 -   Fix type of `attachTimeline` when `skipLibCheck` is disabled.
 
-## [11.16.3] 2024-01-09
+## [11.16.3] 2025-01-09
 
 ### Fixed
 
 -   Checking return of `press`, `hover`, and `inView` callbacks before calling.
 
-## [11.16.2] 2024-01-09
+## [11.16.2] 2025-01-09
 
 ### Fixed
 
 -   Restoring missing type exports.
 
-## [11.16.1] 2024-01-08
+## [11.16.1] 2025-01-08
 
 ### Fixed
 
 -   Adding `displayName` to `motion` components.
 -   Ensure `press` doesn't override `tabindex` when explicitly set.
 
-## [11.16.0] 2024-01-06
+## [11.16.0] 2025-01-06
 
 ### Added
 
