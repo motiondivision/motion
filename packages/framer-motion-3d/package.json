@@ -49,16 +49,16 @@
         "react-merge-refs": "^2.0.1"
     },
     "peerDependencies": {
-        "@react-three/fiber": "8.2.2",
+        "@react-three/fiber": ">=8.17.12",
         "react": ">=18.0",
         "react-dom": ">=18.0",
-        "three": ">=0.133"
+        "three": ">=0.139.0"
     },
     "devDependencies": {
-        "@react-three/fiber": "8.2.2",
+        "@react-three/fiber": "^8.17.12",
         "@react-three/test-renderer": "^9.0.0",
         "@rollup/plugin-commonjs": "^22.0.1",
-        "three": "^0.137.0"
+        "three": "^0.139.0"
     },
     "gitHead": "9c70b0208d6492d195ce5fdb60ded6cae1a3245c"
 }

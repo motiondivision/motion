@@ -14,6 +14,10 @@ import { scrapeMotionValuesFromProps } from "./utils/scrape-motion-value"
 
 export const createRenderState = () => ({})
 
+function hasId(obj: any): obj is { id: number } {
+    return "id" in obj && typeof obj.id === "number"
+}
+
 export class ThreeVisualElement extends VisualElement<
     Object3DNode<any, any>,
     ThreeRenderState,
@@ -33,7 +37,10 @@ export class ThreeVisualElement extends VisualElement<
         a: Object3DNode<any, any>,
         b: Object3DNode<any, any>
     ) {
-        return a.id - b.id
+        if (hasId(a) && hasId(b)) {
+            return a.id - b.id
+        }
+        return 0
     }
 
     removeValueFromRenderState() {}
