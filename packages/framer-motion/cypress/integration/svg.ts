@@ -104,3 +104,17 @@ describe("SVG origin", () => {
             })
     })
 })
+
+describe("SVG measures", () => {
+    it("Correctly measures SVG and renders on mount in React 19", () => {
+        cy.visit("http://localhost:9991/?example=svg-initial-render")
+            .wait(200)
+            .get("path")
+            .should(([$path]: any) => {
+                expect($path.style.transform).to.equal(
+                    "translateX(5px) translateY(5px)"
+                )
+                expect($path.style.transformOrigin).to.equal("20px 20px")
+            })
+    })
+})

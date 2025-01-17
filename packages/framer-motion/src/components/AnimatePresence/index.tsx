@@ -43,9 +43,7 @@ import { ComponentKey, getChildKey, onlyElements } from "./utils"
  *
  * @public
  */
-export const AnimatePresence: React.FunctionComponent<
-    React.PropsWithChildren<AnimatePresenceProps>
-> = ({
+export const AnimatePresence = ({
     children,
     custom,
     initial = true,
@@ -53,7 +51,7 @@ export const AnimatePresence: React.FunctionComponent<
     presenceAffectsLayout = true,
     mode = "sync",
     propagate = false,
-}) => {
+}: React.PropsWithChildren<AnimatePresenceProps>) => {
     const [isParentPresent, safeToRemove] = usePresence(propagate)
 
     /**
