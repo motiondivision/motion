@@ -51,8 +51,6 @@ export function buildSVGAttrs(
         delete attrs.transform
     }
 
-    console.log({ dimensions, transform: style.transform })
-
     // Parse transformOrigin
     if (
         dimensions &&
