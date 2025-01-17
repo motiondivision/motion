@@ -1,7 +1,7 @@
 {
     "name": "react-env",
     "private": true,
-    "version": "11.17.1",
+    "version": "11.18.1",
     "type": "module",
     "scripts": {
         "dev": "vite",
@@ -11,7 +11,7 @@
         "preview": "vite preview"
     },
     "dependencies": {
-        "framer-motion": "^11.17.1",
+        "framer-motion": "^11.18.1",
         "react": "^18.3.1",
         "react-dom": "^18.3.1"
     },

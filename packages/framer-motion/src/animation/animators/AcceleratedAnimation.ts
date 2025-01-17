@@ -168,7 +168,7 @@ export class AcceleratedAnimation<
          * If element has since been unmounted, return false to indicate
          * the animation failed to initialised.
          */
-        if (!motionValue.owner?.current) {
+        if (!motionValue.owner || !motionValue.owner.current) {
             return false
         }
 
@@ -427,18 +427,26 @@ export class AcceleratedAnimation<
         const { motionValue, name, repeatDelay, repeatType, damping, type } =
             options
 
+        if (
+            !motionValue ||
+            !motionValue.owner ||
+            !(motionValue.owner.current instanceof HTMLElement)
+        ) {
+            return false
+        }
+
+        const { onUpdate, transformTemplate } = motionValue.owner.getProps()
+
         return (
             supportsWaapi() &&
             name &&
             acceleratedValues.has(name) &&
-            motionValue &&
-            motionValue.owner &&
-            motionValue.owner.current instanceof HTMLElement &&
             /**
              * If we're outputting values to onUpdate then we can't use WAAPI as there's
              * no way to read the value from WAAPI every frame.
              */
-            !motionValue.owner.getProps().onUpdate &&
+            !onUpdate &&
+            !transformTemplate &&
             !repeatDelay &&
             repeatType !== "mirror" &&
             damping !== 0 &&

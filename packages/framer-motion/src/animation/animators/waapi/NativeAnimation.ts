@@ -131,7 +131,10 @@ export class NativeAnimation
             this.setValue = isCSSVar ? setCSSVar : setStyle
             this.options = options
             this.updateFinishedPromise()
-            this.removeAnimation = () => state.get(element)?.delete(valueName)
+            this.removeAnimation = () => {
+                const elementState = state.get(element)
+                elementState && elementState.delete(valueName)
+            }
         }
 
         if (!supportsWaapi()) {

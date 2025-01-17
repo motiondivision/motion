@@ -1,4 +1,4 @@
-import { AnimationPlaybackControls } from "motion-dom"
+import { AnimationPlaybackControls, TransformProperties } from "motion-dom"
 import { frame } from "../frameloop"
 import { time } from "../frameloop/sync-time"
 import { SubscriptionManager } from "../utils/subscription-manager"
@@ -45,7 +45,13 @@ interface ResolvedValues {
 
 export interface Owner {
     current: HTMLElement | unknown
-    getProps: () => { onUpdate?: (latest: ResolvedValues) => void }
+    getProps: () => {
+        onUpdate?: (latest: ResolvedValues) => void
+        transformTemplate?: (
+            transform: TransformProperties,
+            generatedTransform: string
+        ) => string
+    }
 }
 
 export interface MotionValueOptions {

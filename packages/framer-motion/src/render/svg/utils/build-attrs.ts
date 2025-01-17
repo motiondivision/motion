@@ -1,9 +1,9 @@
+import { MotionProps } from "../../../motion/types"
 import { buildHTMLStyles } from "../../html/utils/build-styles"
 import { ResolvedValues } from "../../types"
-import { calcSVGTransformOrigin } from "./transform-origin"
-import { buildSVGPath } from "./path"
-import { MotionProps } from "../../../motion/types"
 import { SVGRenderState } from "../types"
+import { buildSVGPath } from "./path"
+import { calcSVGTransformOrigin } from "./transform-origin"
 
 /**
  * Build SVG visual attrbutes, like cx and style.transform
@@ -41,6 +41,7 @@ export function buildSVGAttrs(
     state.attrs = state.style
     state.style = {}
     const { attrs, style, dimensions } = state
+
     /**
      * However, we apply transforms as CSS transforms. So if we detect a transform we take it from attrs
      * and copy it into style.

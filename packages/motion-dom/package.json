@@ -1,6 +1,6 @@
 {
     "name": "motion-dom",
-    "version": "11.16.4",
+    "version": "11.18.1",
     "author": "Matt Perry",
     "license": "MIT",
     "repository": "https://github.com/motiondivision/motion",
@@ -16,7 +16,7 @@
         }
     },
     "dependencies": {
-        "motion-utils": "^11.16.0"
+        "motion-utils": "^11.18.1"
     },
     "scripts": {
         "clean": "rm -rf types dist lib",

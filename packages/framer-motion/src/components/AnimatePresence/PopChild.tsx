@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { useRef, useInsertionEffect, useId, useContext } from "react"
+import { useContext, useId, useInsertionEffect, useRef } from "react"
 
 import { MotionConfigContext } from "../../context/MotionConfigContext"
 
@@ -18,7 +18,7 @@ interface Props {
 }
 
 interface MeasureProps extends Props {
-    childRef: React.RefObject<HTMLElement>
+    childRef: React.RefObject<HTMLElement | null>
     sizeRef: React.RefObject<Size>
 }
 
@@ -98,7 +98,7 @@ export function PopChild({ children, isPresent }: Props) {
 
     return (
         <PopChildMeasure isPresent={isPresent} childRef={ref} sizeRef={size}>
-            {React.cloneElement(children, { ref })}
+            {React.cloneElement(children as any, { ref })}
         </PopChildMeasure>
     )
 }

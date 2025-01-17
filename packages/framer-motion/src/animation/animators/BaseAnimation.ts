@@ -166,10 +166,11 @@ export abstract class BaseAnimation<T extends string | number, Resolved>
         if (!isGenerator && !canAnimate(keyframes, name, type, velocity)) {
             // Finish immediately
             if (instantAnimationState.current || !delay) {
-                onUpdate?.(
-                    getFinalKeyframe(keyframes, this.options, finalKeyframe)
-                )
-                onComplete?.()
+                onUpdate &&
+                    onUpdate(
+                        getFinalKeyframe(keyframes, this.options, finalKeyframe)
+                    )
+                onComplete && onComplete()
                 this.resolveFinishedPromise()
 
                 return

@@ -10,7 +10,7 @@ export { MotionConfig } from "./components/MotionConfig"
 export { Reorder } from "./components/Reorder"
 export { m } from "./render/components/m/proxy"
 export { motion } from "./render/components/motion/proxy"
-
+export * from "./animation/types"
 export * from "./dom"
 export * from "./three-entry"
 

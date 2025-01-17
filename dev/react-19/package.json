@@ -1,7 +1,7 @@
 {
     "name": "react-19-env",
     "private": true,
-    "version": "11.17.1",
+    "version": "11.18.1",
     "type": "module",
     "scripts": {
         "dev": "vite",
@@ -11,7 +11,7 @@
         "preview": "vite preview"
     },
     "dependencies": {
-        "motion": "^11.17.1",
+        "motion": "^11.18.1",
         "react": "^19.0.0",
         "react-dom": "^19.0.0"
     },
@@ -23,5 +23,11 @@
         "@vitejs/plugin-react-swc": "^3.5.0",
         "eslint-plugin-react-refresh": "^0.4.6",
         "vite": "^5.2.0"
+    },
+    "resolutions": {
+        "@types/react": "^19.0.0",
+        "@types/react-dom": "^19.0.0",
+        "react": "^19.0.0",
+        "react-dom": "^19.0.0"
     }
 }

@@ -79,17 +79,19 @@ export const svgMotionConfig: Partial<
 
             if (!needsMeasure) return
 
-            frame.read(() => updateSVGDimensions(current, renderState))
+            frame.read(() => {
+                updateSVGDimensions(current, renderState)
 
-            frame.render(() => {
-                buildSVGAttrs(
-                    renderState,
-                    latestValues,
-                    isSVGTag(current.tagName),
-                    props.transformTemplate
-                )
+                frame.render(() => {
+                    buildSVGAttrs(
+                        renderState,
+                        latestValues,
+                        isSVGTag(current.tagName),
+                        props.transformTemplate
+                    )
 
-                renderSVG(current, renderState)
+                    renderSVG(current, renderState)
+                })
             })
         },
     }),

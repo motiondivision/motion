@@ -10,6 +10,7 @@
   @param [number]: Value to find progress within given range
   @return [number]: Progress of value within range as expressed 0-1
 */
+/*#__NO_SIDE_EFFECTS__*/
 export const progress = (from: number, to: number, value: number) => {
     const toFromDifference = to - from
 

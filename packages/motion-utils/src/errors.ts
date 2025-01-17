@@ -19,4 +19,4 @@ if (process.env.NODE_ENV !== "production") {
     }
 }
 
-export { warning, invariant }
+export { invariant, warning }
