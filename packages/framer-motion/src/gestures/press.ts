@@ -1,8 +1,8 @@
-import { Feature } from "../motion/features/Feature"
 import { press } from "motion-dom"
-import { VisualElement } from "../render/VisualElement"
-import { frame } from "../frameloop"
 import { extractEventInfo } from "../events/event-info"
+import { frame } from "../frameloop"
+import { Feature } from "../motion/features/Feature"
+import { VisualElement } from "../render/VisualElement"
 
 function handlePressEvent(
     node: VisualElement<Element>,
@@ -33,7 +33,7 @@ export class PressGesture extends Feature<Element> {
 
         this.unmount = press(
             current,
-            (startEvent) => {
+            (_element, startEvent) => {
                 handlePressEvent(this.node, startEvent, "Start")
 
                 return (endEvent, { success }) =>

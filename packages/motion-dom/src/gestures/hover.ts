@@ -11,7 +11,10 @@ import { setupGesture } from "./utils/setup"
  *
  * @public
  */
-export type OnHoverStartEvent = (event: PointerEvent) => void | OnHoverEndEvent
+export type OnHoverStartEvent = (
+    element: Element,
+    event: PointerEvent
+) => void | OnHoverEndEvent
 
 /**
  * A function to be called when a hover gesture ends.
@@ -20,15 +23,8 @@ export type OnHoverStartEvent = (event: PointerEvent) => void | OnHoverEndEvent
  */
 export type OnHoverEndEvent = (event: PointerEvent) => void
 
-/**
- * Filter out events that are not pointer events, or are triggering
- * while a Motion gesture is active.
- */
-function filterEvents(callback: OnHoverStartEvent) {
-    return (event: PointerEvent) => {
-        if (event.pointerType === "touch" || isDragActive()) return
-        callback(event)
-    }
+function isValidHover(event: PointerEvent) {
+    return !(event.pointerType === "touch" || isDragActive())
 }
 
 /**
@@ -48,26 +44,30 @@ export function hover(
         options
     )
 
-    const onPointerEnter = filterEvents((enterEvent: PointerEvent) => {
+    const onPointerEnter = (enterEvent: PointerEvent) => {
+        if (!isValidHover(enterEvent)) return
+
         const { target } = enterEvent
-        const onHoverEnd = onHoverStart(enterEvent)
+        const onHoverEnd = onHoverStart(target as Element, enterEvent)
 
         if (typeof onHoverEnd !== "function" || !target) return
 
-        const onPointerLeave = filterEvents((leaveEvent: PointerEvent) => {
+        const onPointerLeave = (leaveEvent: PointerEvent) => {
+            if (!isValidHover(leaveEvent)) return
+
             onHoverEnd(leaveEvent)
             target.removeEventListener(
                 "pointerleave",
                 onPointerLeave as EventListener
             )
-        })
+        }
 
         target.addEventListener(
             "pointerleave",
             onPointerLeave as EventListener,
             eventOptions
         )
-    })
+    }
 
     elements.forEach((element) => {
         element.addEventListener(

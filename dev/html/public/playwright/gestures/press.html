@@ -28,7 +28,7 @@
         <script type="module">
             const { press } = window.MotionDOM
 
-            press("#press-div", ({ target }, info, originalEvent) => {
+            press("#press-div", (target) => {
                 console.log("pointer down")
                 target.innerHTML = "start"
 
@@ -38,12 +38,10 @@
                 }
             })
 
-            press("#press-div-cancel", ({ target }, info) => {
-                console.log(target, info)
+            press("#press-div-cancel", (target) => {
                 target.innerHTML = "start"
 
                 return (event, { success }) => {
-                    console.log(event, success)
                     target.innerHTML = success ? "end" : "cancel"
                 }
             })

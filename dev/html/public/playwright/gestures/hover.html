@@ -20,7 +20,7 @@
         <script type="module">
             const { hover } = window.MotionDOM
 
-            hover("#hover", ({ target }) => {
+            hover("#hover", (target) => {
                 target.innerHTML = "start"
 
                 return () => {
@@ -29,7 +29,7 @@
             })
 
             let multiCount = 0
-            hover("#multi", ({ target }) => {
+            hover("#multi", (target) => {
                 target.innerHTML = multiCount
                 multiCount++
 
@@ -42,7 +42,7 @@
             let onceCount = 0
             hover(
                 "#once",
-                ({ target }) => {
+                (target) => {
                     target.innerHTML = onceCount
                     onceCount++
 

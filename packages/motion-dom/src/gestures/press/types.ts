@@ -7,4 +7,7 @@ export type OnPressEndEvent = (
     info: PressGestureInfo
 ) => void
 
-export type OnPressStartEvent = (event: PointerEvent) => OnPressEndEvent | void
+export type OnPressStartEvent = (
+    element: Element,
+    event: PointerEvent
+) => OnPressEndEvent | void

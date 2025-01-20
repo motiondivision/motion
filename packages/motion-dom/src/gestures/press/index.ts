@@ -57,7 +57,7 @@ export function press(
 
         isPressing.add(element)
 
-        const onPressEnd = onPressStart(startEvent)
+        const onPressEnd = onPressStart(element, startEvent)
 
         const onPointerEnd = (endEvent: PointerEvent, success: boolean) => {
             window.removeEventListener("pointerup", onPointerUp)
