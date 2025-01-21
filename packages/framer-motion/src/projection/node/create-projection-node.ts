@@ -17,6 +17,7 @@ import { isSVGElement } from "../../render/dom/utils/is-svg-element"
 import { ResolvedValues } from "../../render/types"
 import { FlatTree } from "../../render/utils/flat-tree"
 import { VisualElement } from "../../render/VisualElement"
+import { statsBuffer } from "../../stats/buffer"
 import { Transition } from "../../types"
 import { clamp } from "../../utils/clamp"
 import { delay } from "../../utils/delay"
@@ -66,22 +67,10 @@ import {
 } from "./types"
 
 const metrics = {
-    type: "projectionFrame",
-    totalNodes: 0,
-    resolvedTargetDeltas: 0,
-    recalculatedProjection: 0,
+    nodes: 0,
+    calculatedTargetDeltas: 0,
+    calculatedProjections: 0,
 }
-
-declare global {
-    interface Window {
-        MotionDebug?: {
-            record: (data: typeof metrics) => void
-        }
-    }
-}
-
-const isDebug =
-    typeof window !== "undefined" && window.MotionDebug !== undefined
 
 const transformAxes = ["", "X", "Y", "Z"]
 
@@ -802,10 +791,10 @@ export function createProjectionNode<I>({
              * Reset debug counts. Manually resetting rather than creating a new
              * object each frame.
              */
-            if (isDebug) {
-                metrics.totalNodes =
-                    metrics.resolvedTargetDeltas =
-                    metrics.recalculatedProjection =
+            if (statsBuffer.value) {
+                metrics.nodes =
+                    metrics.calculatedTargetDeltas =
+                    metrics.calculatedProjections =
                         0
             }
 
@@ -814,8 +803,15 @@ export function createProjectionNode<I>({
             this.nodes!.forEach(calcProjection)
             this.nodes!.forEach(cleanDirtyNodes)
 
-            if (isDebug) {
-                window.MotionDebug!.record(metrics)
+            if (statsBuffer.value) {
+                const { layoutProjection } = statsBuffer.value
+                layoutProjection.nodes.push(metrics.nodes)
+                layoutProjection.calculatedTargetDeltas.push(
+                    metrics.calculatedTargetDeltas
+                )
+                layoutProjection.calculatedProjections.push(
+                    metrics.calculatedProjections
+                )
             }
         }
 
@@ -1261,8 +1257,8 @@ export function createProjectionNode<I>({
             /**
              * Increase debug counter for resolved target deltas
              */
-            if (isDebug) {
-                metrics.resolvedTargetDeltas++
+            if (statsBuffer.value) {
+                metrics.calculatedTargetDeltas++
             }
         }
 
@@ -1445,8 +1441,8 @@ export function createProjectionNode<I>({
             /**
              * Increase debug counter for recalculated projections
              */
-            if (isDebug) {
-                metrics.recalculatedProjection++
+            if (statsBuffer.value) {
+                metrics.calculatedProjections++
             }
         }
 
@@ -2132,8 +2128,8 @@ export function propagateDirtyNodes(node: IProjectionNode) {
     /**
      * Increase debug counter for nodes encountered this frame
      */
-    if (isDebug) {
-        metrics.totalNodes++
+    if (statsBuffer.value) {
+        metrics.nodes++
     }
 
     if (!node.parent) return

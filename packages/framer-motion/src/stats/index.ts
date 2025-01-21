@@ -2,21 +2,12 @@ import { cancelFrame, frame, frameData } from "../frameloop"
 import { statsBuffer } from "./buffer"
 import { StatsSummary, Summary } from "./types"
 
-// TODO:
-// - Convert MotionDebug to use stats
-// - Start tracking animations
-// - Add tests for stats
-
 function recordFrameRate() {
     statsBuffer.value?.frameloop.rate.push(frameData.delta)
 }
 
 function mean(values: number[]) {
     return values.reduce((acc, value) => acc + value, 0) / values.length
-}
-
-function harmonicMean(values: number[]) {
-    return values.length / values.reduce((acc, value) => acc + 1 / value, 0)
 }
 
 function summarise(
@@ -34,7 +25,7 @@ function summarise(
     return {
         min: Math.min(...values),
         max: Math.max(...values),
-        avg: Math.round(calcAverage(values)),
+        avg: calcAverage(values),
     }
 }
 
@@ -52,7 +43,7 @@ function reportStats(): StatsSummary {
 
     const summary = {
         frameloop: {
-            rate: summarise(value.frameloop.rate.map(msToFps), harmonicMean),
+            rate: summarise(value.frameloop.rate),
             read: summarise(value.frameloop.read),
             resolveKeyframes: summarise(value.frameloop.resolveKeyframes),
             update: summarise(value.frameloop.update),
@@ -76,6 +67,16 @@ function reportStats(): StatsSummary {
             ),
         },
     }
+
+    /**
+     * Convert the rate to FPS
+     */
+    const { rate } = summary.frameloop
+    rate.min = msToFps(rate.min)
+    rate.max = msToFps(rate.max)
+    rate.avg = msToFps(rate.avg)
+    // Swap these as the min and max are inverted when converted to FPS
+    ;[rate.min, rate.max] = [rate.max, rate.min]
 
     return summary
 }
