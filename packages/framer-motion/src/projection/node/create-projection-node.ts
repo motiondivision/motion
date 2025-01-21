@@ -490,7 +490,7 @@ export function createProjectionNode<I>({
                     ({
                         delta,
                         hasLayoutChanged,
-                        hasRelativeTargetChanged,
+                        hasRelativeLayoutChanged,
                         layout: newLayout,
                     }: LayoutUpdateData) => {
                         if (this.isTreeAnimationBlocked()) {
@@ -514,10 +514,15 @@ export function createProjectionNode<I>({
                          * The target layout of the element might stay the same,
                          * but its position relative to its parent has changed.
                          */
-                        const targetChanged =
+                        const hasTargetChanged =
                             !this.targetLayout ||
-                            !boxEqualsRounded(this.targetLayout, newLayout) ||
-                            hasRelativeTargetChanged
+                            !boxEqualsRounded(this.targetLayout, newLayout)
+                        /*
+                         * Note: Disabled to fix relative animations always triggering new
+                         * layout animations. If this causes further issues, we can try
+                         * a different approach to detecting relative target changes.
+                         */
+                        // || hasRelativeLayoutChanged
 
                         /**
                          * If the layout hasn't seemed to have changed, it might be that the
@@ -525,14 +530,14 @@ export function createProjectionNode<I>({
                          * relative to its parent has indeed changed. So here we check for that.
                          */
                         const hasOnlyRelativeTargetChanged =
-                            !hasLayoutChanged && hasRelativeTargetChanged
+                            !hasLayoutChanged && hasRelativeLayoutChanged
 
                         if (
                             this.options.layoutRoot ||
                             (this.resumeFrom && this.resumeFrom.instance) ||
                             hasOnlyRelativeTargetChanged ||
                             (hasLayoutChanged &&
-                                (targetChanged || !this.currentAnimation))
+                                (hasTargetChanged || !this.currentAnimation))
                         ) {
                             if (this.resumeFrom) {
                                 this.resumingFrom = this.resumeFrom
@@ -2061,7 +2066,7 @@ function notifyLayoutUpdate(node: IProjectionNode) {
         }
 
         const hasLayoutChanged = !isDeltaZero(layoutDelta)
-        let hasRelativeTargetChanged = false
+        let hasRelativeLayoutChanged = false
 
         if (!node.resumeFrom) {
             const relativeParent = node.getClosestProjectingParent()
@@ -2090,7 +2095,7 @@ function notifyLayoutUpdate(node: IProjectionNode) {
                     )
 
                     if (!boxEqualsRounded(relativeSnapshot, relativeLayout)) {
-                        hasRelativeTargetChanged = true
+                        hasRelativeLayoutChanged = true
                     }
 
                     if (relativeParent.options.layoutRoot) {
@@ -2108,7 +2113,7 @@ function notifyLayoutUpdate(node: IProjectionNode) {
             delta: visualDelta,
             layoutDelta,
             hasLayoutChanged,
-            hasRelativeTargetChanged,
+            hasRelativeLayoutChanged,
         })
     } else if (node.isLead()) {
         const { onExitComplete } = node.options

@@ -143,7 +143,7 @@ export interface LayoutUpdateData {
     delta: Delta
     layoutDelta: Delta
     hasLayoutChanged: boolean
-    hasRelativeTargetChanged: boolean
+    hasRelativeLayoutChanged: boolean
 }
 
 export type LayoutUpdateHandler = (data: LayoutUpdateData) => void
