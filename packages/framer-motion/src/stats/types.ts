@@ -6,11 +6,11 @@ export interface Summary {
     avg: number
 }
 
-type FrameLoopStatNames = "rate" | StepNames
+type FrameloopStatNames = "rate" | StepNames
 
 export interface Stats<T> {
     frameloop: {
-        [key in FrameLoopStatNames]: T
+        [key in FrameloopStatNames]: T
     }
     animations: {
         total: T
