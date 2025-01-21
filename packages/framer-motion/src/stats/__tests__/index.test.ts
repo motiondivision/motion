@@ -1,20 +1,20 @@
-import { measureStats } from ".."
+import { recordStats } from ".."
 import { frame, frameData } from "../../frameloop"
 import { MotionGlobalConfig } from "../../utils/GlobalConfig"
 
 MotionGlobalConfig.useManualTiming = true
 
-describe("measureStats", () => {
+describe("recordStats", () => {
     it("should throw an error if stats are already being measured", () => {
         expect(() => {
-            measureStats()
-            measureStats()
+            recordStats()
+            recordStats()
         }).toThrow()
     })
 
     it("should return the correct stats", async () => {
         return new Promise<void>((resolve) => {
-            const record = measureStats()
+            const record = recordStats()
 
             frameData.timestamp = 15
             frameData.delta = 1000 / 60
@@ -67,7 +67,7 @@ describe("measureStats", () => {
 
     it("should return the correct stats across multiple frames", async () => {
         return new Promise<void>((resolve) => {
-            const record = measureStats()
+            const record = recordStats()
 
             frameData.timestamp = 15
             frameData.delta = 1000 / 60

@@ -57,9 +57,9 @@
         <script type="module">
             const { createNode, relativeEase } = window.Animate
             const { matchViewportBox, checkFrame } = window.Assert
-            const { frame, measureStats } = window.Projection
+            const { frame, recordStats } = window.Projection
 
-            measureStats()
+            recordStats()
 
             const parent = document.getElementById("parent")
             const parentProjection = createNode(

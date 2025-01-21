@@ -81,7 +81,7 @@ function reportStats(): StatsSummary {
     return summary
 }
 
-export function measureStats() {
+export function recordStats() {
     if (statsBuffer.value) {
         statsBuffer.value = null
         throw new Error("Stats are already being measured")
