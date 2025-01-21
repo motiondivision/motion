@@ -1,16 +1,16 @@
+import { StepNames } from "../frameloop/order"
+
 export interface Summary {
     min: number
     max: number
     avg: number
 }
 
+type FrameLoopStatNames = "rate" | StepNames
+
 export interface Stats<T> {
     frameloop: {
-        rate: T
-        jobs: T
-        readJobs: T
-        updateJobs: T
-        renderJobs: T
+        [key in FrameLoopStatNames]: T
     }
     animations: {
         total: T
@@ -25,8 +25,10 @@ export interface Stats<T> {
     }
 }
 
+export type StatsBuffer = number[]
+
 export type FrameStats = Stats<number>
 
-export type StatsBuffer = FrameStats[]
+export type StatsRecording = Stats<StatsBuffer>
 
 export type StatsSummary = Stats<Summary>

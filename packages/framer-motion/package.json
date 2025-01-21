@@ -11,6 +11,12 @@
             "import": "./dist/es/index.mjs",
             "default": "./dist/cjs/index.js"
         },
+        "./debug": {
+            "types": "./dist/debug.d.ts",
+            "require": "./dist/cjs/debug.js",
+            "import": "./dist/es/debug.mjs",
+            "default": "./dist/cjs/debug.js"
+        },
         "./dom/mini": {
             "types": "./dist/dom-mini.d.ts",
             "require": "./dist/cjs/dom-mini.js",
@@ -74,7 +80,7 @@
         "dev": "yarn watch",
         "clean": "rm -rf types dist lib",
         "test": "yarn test-server && yarn test-client",
-        "test-client": "jest --config jest.config.json --max-workers=2",
+        "test-client": "jest --config jest.config.json --max-workers=2 stats/__tests__/index.test.ts",
         "test-server": "jest --config jest.config.ssr.json",
         "prettier": "prettier ./src/* --write",
         "watch": "concurrently -c blue,red -n tsc --noEmitOnError ,rollup --kill-others \"tsc  --noEmitOnError --watch -p . --preserveWatchOutput\" \"rollup --config --watch --no-watch.clearScreen\"",

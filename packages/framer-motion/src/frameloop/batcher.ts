@@ -1,15 +1,7 @@
 import { MotionGlobalConfig } from "../utils/GlobalConfig"
+import { stepsOrder } from "./order"
 import { createRenderStep } from "./render-step"
-import { Batcher, Process, StepId, Steps, FrameData } from "./types"
-
-export const stepsOrder: StepId[] = [
-    "read", // Read
-    "resolveKeyframes", // Write/Read/Write/Read
-    "update", // Compute
-    "preRender", // Compute
-    "render", // Write
-    "postRender", // Compute
-]
+import { Batcher, FrameData, Process, Steps } from "./types"
 
 const maxElapsed = 40
 
@@ -29,7 +21,10 @@ export function createRenderBatcher(
     const flagRunNextFrame = () => (runNextFrame = true)
 
     const steps = stepsOrder.reduce((acc, key) => {
-        acc[key] = createRenderStep(flagRunNextFrame)
+        acc[key] = createRenderStep(
+            flagRunNextFrame,
+            allowKeepAlive ? key : undefined
+        )
         return acc
     }, {} as Steps)
 
@@ -42,9 +37,11 @@ export function createRenderBatcher(
             : performance.now()
         runNextFrame = false
 
-        state.delta = useDefaultElapsed
-            ? 1000 / 60
-            : Math.max(Math.min(timestamp - state.timestamp, maxElapsed), 1)
+        if (!MotionGlobalConfig.useManualTiming) {
+            state.delta = useDefaultElapsed
+                ? 1000 / 60
+                : Math.max(Math.min(timestamp - state.timestamp, maxElapsed), 1)
+        }
 
         state.timestamp = timestamp
         state.isProcessing = true

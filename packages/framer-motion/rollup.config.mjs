@@ -1,13 +1,13 @@
-import resolve from "@rollup/plugin-node-resolve"
-import { terser } from "rollup-plugin-terser"
-import replace from "@rollup/plugin-replace"
-import dts from "rollup-plugin-dts"
 import alias from "@rollup/plugin-alias"
+import resolve from "@rollup/plugin-node-resolve"
+import replace from "@rollup/plugin-replace"
 import path from "node:path"
+import dts from "rollup-plugin-dts"
+import preserveDirectives from "rollup-plugin-preserve-directives"
+import { terser } from "rollup-plugin-terser"
 import { fileURLToPath } from 'url'
-import pkg from "./package.json" with { type: "json"}
+import pkg from "./package.json" with { type: "json" }
 import tsconfig from "./tsconfig.json" with { type: "json" }
-import preserveDirectives from "rollup-plugin-preserve-directives";
 
 const config = {
     input: "lib/index.js",
@@ -135,6 +135,7 @@ const cjs = Object.assign({}, config, {
 /**
  * Bundle seperately so bundles don't share common modules
  */
+const cjsDebug = Object.assign({}, cjs, { input : "lib/debug.js" })
 const cjsDom = Object.assign({}, cjs, { input : "lib/dom.js" })
 const cjsMini = Object.assign({}, cjs, { input : "lib/mini.js" })
 const cjsDomMini = Object.assign({}, cjs, { input : "lib/dom-mini.js" })
@@ -142,7 +143,7 @@ const cjsClient = Object.assign({}, cjs, { input : "lib/client.js" })
 const cjsM = Object.assign({}, cjs, { input : "lib/m.js" })
 
 export const es = Object.assign({}, config, {
-    input: ["lib/index.js", "lib/mini.js", "lib/dom.js", "lib/dom-mini.js", "lib/client.js", "lib/m.js","lib/projection.js"],
+    input: ["lib/index.js", "lib/mini.js", "lib/debug.js", "lib/dom.js", "lib/dom-mini.js", "lib/client.js", "lib/m.js","lib/projection.js"],
     output: {
         entryFileNames: "[name].mjs",
         format: "es",
@@ -176,6 +177,7 @@ function createTypes(input, file) {
 
 const types = createTypes("types/index.d.ts", "dist/index.d.ts")
 const miniTypes = createTypes("types/mini.d.ts", "dist/mini.d.ts")
+const debugTypes = createTypes("types/debug.d.ts", "dist/debug.d.ts")
 const animateTypes = createTypes("types/dom.d.ts", "dist/dom.d.ts")
 const animateMiniTypes = createTypes("types/dom-mini.d.ts", "dist/dom-mini.d.ts")
 const mTypes = createTypes("types/m.d.ts", "dist/m.d.ts")
@@ -190,6 +192,7 @@ export default [
     umdDomProd,
     umdDomMiniProd,
     cjs,
+    cjsDebug,
     cjsMini,
     cjsDom,
     cjsDomMini,
@@ -197,6 +200,7 @@ export default [
     cjsM,
     es,
     types,
+    debugTypes,
     mTypes,
     miniTypes,
     clientTypes,
