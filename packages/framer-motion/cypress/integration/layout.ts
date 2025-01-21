@@ -300,4 +300,28 @@ describe("Layout animation", () => {
                 })
             })
     })
+
+    it("A new layout animation isn't started if the target doesn't change", () => {
+        cy.visit("?test=layout-rerender")
+            .wait(50)
+            .get("button")
+            .trigger("click")
+            .wait(200)
+            .get("#render-count")
+            .should(([$count]: any) => {
+                expect($count.textContent).to.equal("1")
+            })
+    })
+
+    it("A new layout animation isn't started if the target doesn't change, even if parent starts layout animation", () => {
+        cy.visit("?test=layout-rerender&parent=true")
+            .wait(50)
+            .get("button")
+            .trigger("click")
+            .wait(200)
+            .get("#render-count")
+            .should(([$count]: any) => {
+                expect($count.textContent).to.equal("1")
+            })
+    })
 })
