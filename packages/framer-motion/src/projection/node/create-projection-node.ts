@@ -534,7 +534,7 @@ export function createProjectionNode<I>({
 
                         if (
                             this.options.layoutRoot ||
-                            (this.resumeFrom && this.resumeFrom.instance) ||
+                            this.resumeFrom ||
                             hasOnlyRelativeTargetChanged ||
                             (hasLayoutChanged &&
                                 (hasTargetChanged || !this.currentAnimation))
