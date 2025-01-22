@@ -17,6 +17,7 @@ import { isSVGElement } from "../../render/dom/utils/is-svg-element"
 import { ResolvedValues } from "../../render/types"
 import { FlatTree } from "../../render/utils/flat-tree"
 import { VisualElement } from "../../render/VisualElement"
+import { activeAnimations } from "../../stats/animation-count"
 import { statsBuffer } from "../../stats/buffer"
 import { Transition } from "../../types"
 import { clamp } from "../../utils/clamp"
@@ -1602,13 +1603,18 @@ export function createProjectionNode<I>({
             this.pendingAnimation = frame.update(() => {
                 globalProjectionState.hasAnimatedSinceResize = true
 
+                activeAnimations.layout++
                 this.currentAnimation = animateSingleValue(0, animationTarget, {
                     ...(options as any),
                     onUpdate: (latest: number) => {
                         this.mixTargetDelta(latest)
                         options.onUpdate && options.onUpdate(latest)
                     },
+                    onStop: () => {
+                        activeAnimations.layout--
+                    },
                     onComplete: () => {
+                        activeAnimations.layout--
                         options.onComplete && options.onComplete()
                         this.completeAnimation()
                     },

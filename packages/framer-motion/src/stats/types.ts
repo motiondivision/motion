@@ -13,7 +13,6 @@ export interface Stats<T> {
         [key in FrameloopStatNames]: T
     }
     animations: {
-        total: T
         mainThread: T
         waapi: T
         layout: T

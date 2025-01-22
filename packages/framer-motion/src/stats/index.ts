@@ -1,9 +1,20 @@
 import { cancelFrame, frame, frameData } from "../frameloop"
+import { activeAnimations } from "./animation-count"
 import { statsBuffer } from "./buffer"
 import { StatsSummary, Summary } from "./types"
 
-function recordFrameRate() {
-    statsBuffer.value?.frameloop.rate.push(frameData.delta)
+function record() {
+    const { value } = statsBuffer
+
+    if (value === null) {
+        cancelFrame(record)
+        return
+    }
+
+    value.frameloop.rate.push(frameData.delta)
+    value.animations.mainThread.push(activeAnimations.mainThread)
+    value.animations.waapi.push(activeAnimations.waapi)
+    value.animations.layout.push(activeAnimations.layout)
 }
 
 function mean(values: number[]) {
@@ -39,7 +50,7 @@ function reportStats(): StatsSummary {
     }
 
     statsBuffer.value = null
-    cancelFrame(recordFrameRate)
+    cancelFrame(record)
 
     const summary = {
         frameloop: {
@@ -52,7 +63,6 @@ function reportStats(): StatsSummary {
             postRender: summarise(value.frameloop.postRender),
         },
         animations: {
-            total: summarise(value.animations.total),
             mainThread: summarise(value.animations.mainThread),
             waapi: summarise(value.animations.waapi),
             layout: summarise(value.animations.layout),
@@ -98,7 +108,6 @@ export function recordStats() {
             postRender: [],
         },
         animations: {
-            total: [],
             mainThread: [],
             waapi: [],
             layout: [],
@@ -110,7 +119,7 @@ export function recordStats() {
         },
     }
 
-    frame.postRender(recordFrameRate, true)
+    frame.postRender(record, true)
 
     return reportStats
 }
