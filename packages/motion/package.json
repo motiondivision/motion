@@ -11,6 +11,12 @@
             "import": "./dist/es/motion/lib/index.mjs",
             "default": "./dist/cjs/index.js"
         },
+        "./debug": {
+            "types": "./dist/debug.d.ts",
+            "require": "./dist/cjs/debug.js",
+            "import": "./dist/es/motion/lib/debug.mjs",
+            "default": "./dist/cjs/debug.js"
+        },
         "./mini": {
             "types": "./dist/mini.d.ts",
             "require": "./dist/cjs/mini.js",

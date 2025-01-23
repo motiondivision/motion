@@ -804,15 +804,8 @@ export function createProjectionNode<I>({
             this.nodes!.forEach(calcProjection)
             this.nodes!.forEach(cleanDirtyNodes)
 
-            if (statsBuffer.value) {
-                const { layoutProjection } = statsBuffer.value
-                layoutProjection.nodes.push(metrics.nodes)
-                layoutProjection.calculatedTargetDeltas.push(
-                    metrics.calculatedTargetDeltas
-                )
-                layoutProjection.calculatedProjections.push(
-                    metrics.calculatedProjections
-                )
+            if (statsBuffer.addProjectionMetrics) {
+                statsBuffer.addProjectionMetrics(metrics)
             }
         }
 

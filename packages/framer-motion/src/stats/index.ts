@@ -1,6 +1,6 @@
 import { cancelFrame, frame, frameData } from "../frameloop"
 import { activeAnimations } from "./animation-count"
-import { statsBuffer } from "./buffer"
+import { ActiveStatsBuffer, statsBuffer } from "./buffer"
 import { StatsSummary, Summary } from "./types"
 
 function record() {
@@ -42,6 +42,11 @@ function summarise(
 
 const msToFps = (ms: number) => Math.round(1000 / ms)
 
+function clearStatsBuffer() {
+    statsBuffer.value = null
+    statsBuffer.addProjectionMetrics = null
+}
+
 function reportStats(): StatsSummary {
     const { value } = statsBuffer
 
@@ -49,7 +54,7 @@ function reportStats(): StatsSummary {
         throw new Error("Stats are not being measured")
     }
 
-    statsBuffer.value = null
+    clearStatsBuffer()
     cancelFrame(record)
 
     const summary = {
@@ -93,11 +98,13 @@ function reportStats(): StatsSummary {
 
 export function recordStats() {
     if (statsBuffer.value) {
-        statsBuffer.value = null
+        clearStatsBuffer()
         throw new Error("Stats are already being measured")
     }
 
-    statsBuffer.value = {
+    const newStatsBuffer = statsBuffer as unknown as ActiveStatsBuffer
+
+    newStatsBuffer.value = {
         frameloop: {
             rate: [],
             read: [],
@@ -117,6 +124,17 @@ export function recordStats() {
             calculatedTargetDeltas: [],
             calculatedProjections: [],
         },
+    }
+
+    newStatsBuffer.addProjectionMetrics = (metrics) => {
+        const { layoutProjection } = newStatsBuffer.value
+        layoutProjection.nodes.push(metrics.nodes)
+        layoutProjection.calculatedTargetDeltas.push(
+            metrics.calculatedTargetDeltas
+        )
+        layoutProjection.calculatedProjections.push(
+            metrics.calculatedProjections
+        )
     }
 
     frame.postRender(record, true)
