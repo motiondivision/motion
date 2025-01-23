@@ -20,7 +20,6 @@ export const App = () => {
     const params = new URLSearchParams(window.location.search)
     const position = params.get("position") || ("static" as any)
     const anchorX = params.get("anchor-x") || ("left" as any)
-    const anchorY = params.get("anchor-y") || ("top" as any)
     const itemStyle =
         position === "relative" ? { position, top: 100, left: 100 } : {}
 
@@ -35,11 +34,7 @@ export const App = () => {
 
     return (
         <Container onClick={() => setState(!state)}>
-            <AnimatePresence
-                anchorX={anchorX}
-                anchorY={anchorY}
-                mode="popLayout"
-            >
+            <AnimatePresence anchorX={anchorX} mode="popLayout">
                 <motion.div
                     key="a"
                     id="a"
