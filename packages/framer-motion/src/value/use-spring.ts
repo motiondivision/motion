@@ -5,7 +5,7 @@ import {
     animateValue,
 } from "../animation/animators/MainThreadAnimation"
 import { MotionConfigContext } from "../context/MotionConfigContext"
-import { frame, frameData } from "../frameloop"
+import { frame } from "../frameloop"
 import { useIsomorphicLayoutEffect } from "../utils/use-isomorphic-effect"
 import { MotionValue } from "../value"
 import { useMotionValue } from "./use-motion-value"
@@ -50,15 +50,6 @@ export function useSpring(
     const latestSetter = useRef<(v: number) => void>(() => {})
 
     const startAnimation = () => {
-        /**
-         * If the previous animation hasn't had the chance to even render a frame, render it now.
-         */
-        const animation = activeSpringAnimation.current
-
-        if (animation && animation.time === 0) {
-            animation.sample(frameData.delta)
-        }
-
         stopAnimation()
 
         activeSpringAnimation.current = animateValue({
@@ -89,7 +80,7 @@ export function useSpring(
             latestValue.current = v
             latestSetter.current = set
 
-            frame.update(startAnimation)
+            frame.postRender(startAnimation)
 
             return value.get()
         }, stopAnimation)

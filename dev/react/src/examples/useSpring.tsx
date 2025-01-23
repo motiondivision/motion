@@ -1,5 +1,5 @@
-import { frame, motion, useMotionValue, useSpring } from "framer-motion"
-import { useEffect, useRef, useState } from "react"
+import { motion, useMotionValue, useSpring } from "framer-motion"
+import { useRef, useState } from "react"
 
 const spring = {
     stiffness: 300,
@@ -13,9 +13,10 @@ function DragExample() {
     const dragY = useMotionValue(0)
     const x = useSpring(dragX, spring)
     const y = useSpring(dragY, spring)
+
     return (
         <motion.div
-            drag="x"
+            drag
             dragMomentum={false}
             _dragX={dragX}
             _dragY={dragY}
@@ -98,7 +99,7 @@ function MouseEventExample() {
     return (
         <motion.div
             ref={ref}
-            style={{ width: 100, height: 100, background: "yellow", x }}
+            style={{ width: 100, height: 100, background: "yellow", x, y }}
             onTapStart={startPointer}
             onTapCancel={cancelPointer}
             onTap={cancelPointer}
