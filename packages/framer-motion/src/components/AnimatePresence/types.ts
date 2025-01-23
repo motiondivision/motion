@@ -63,4 +63,10 @@ export interface AnimatePresenceProps {
      * to its children.
      */
     propagate?: boolean
+
+    /**
+     * Internal. Set whether to anchor the x position of the exiting element to the left or right
+     * when using `mode="popLayout"`.
+     */
+    anchorX?: "left" | "right"
 }

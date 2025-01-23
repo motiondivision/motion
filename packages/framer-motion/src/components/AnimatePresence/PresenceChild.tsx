@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { useId, useMemo, useCallback } from "react"
+import { useCallback, useId, useMemo } from "react"
 import {
     PresenceContext,
     PresenceContextProps,
@@ -18,6 +18,7 @@ interface PresenceChildProps {
     custom?: any
     presenceAffectsLayout: boolean
     mode: "sync" | "popLayout" | "wait"
+    anchorX?: "left" | "right"
 }
 
 export const PresenceChild = ({
@@ -28,6 +29,7 @@ export const PresenceChild = ({
     custom,
     presenceAffectsLayout,
     mode,
+    anchorX,
 }: PresenceChildProps) => {
     const presenceChildren = useConstant(newChildrenMap)
     const id = useId()
@@ -83,7 +85,11 @@ export const PresenceChild = ({
     }, [isPresent])
 
     if (mode === "popLayout") {
-        children = <PopChild isPresent={isPresent}>{children}</PopChild>
+        children = (
+            <PopChild isPresent={isPresent} anchorX={anchorX}>
+                {children}
+            </PopChild>
+        )
     }
 
     return (

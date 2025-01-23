@@ -1,5 +1,5 @@
-import { AnimatePresence, motion, animate } from "framer-motion"
-import { useState, useRef, useEffect } from "react"
+import { animate, AnimatePresence, motion } from "framer-motion"
+import { useEffect, useRef, useState } from "react"
 import styled from "styled-components"
 
 const Container = styled.section`
@@ -19,6 +19,8 @@ export const App = () => {
     const [state, setState] = useState(true)
     const params = new URLSearchParams(window.location.search)
     const position = params.get("position") || ("static" as any)
+    const anchorX = params.get("anchor-x") || ("left" as any)
+    const anchorY = params.get("anchor-y") || ("top" as any)
     const itemStyle =
         position === "relative" ? { position, top: 100, left: 100 } : {}
 
@@ -33,7 +35,11 @@ export const App = () => {
 
     return (
         <Container onClick={() => setState(!state)}>
-            <AnimatePresence mode="popLayout">
+            <AnimatePresence
+                anchorX={anchorX}
+                anchorY={anchorY}
+                mode="popLayout"
+            >
                 <motion.div
                     key="a"
                     id="a"

@@ -51,6 +51,7 @@ export const AnimatePresence = ({
     presenceAffectsLayout = true,
     mode = "sync",
     propagate = false,
+    anchorX = "left",
 }: React.PropsWithChildren<AnimatePresenceProps>) => {
     const [isParentPresent, safeToRemove] = usePresence(propagate)
 
@@ -211,6 +212,7 @@ export const AnimatePresence = ({
                         presenceAffectsLayout={presenceAffectsLayout}
                         mode={mode}
                         onExitComplete={isPresent ? undefined : onExit}
+                        anchorX={anchorX}
                     >
                         {child}
                     </PresenceChild>

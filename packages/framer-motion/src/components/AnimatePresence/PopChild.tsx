@@ -10,11 +10,13 @@ interface Size {
     height: number
     top: number
     left: number
+    right: number
 }
 
 interface Props {
     children: React.ReactElement
     isPresent: boolean
+    anchorX?: "left" | "right"
 }
 
 interface MeasureProps extends Props {
@@ -30,11 +32,16 @@ class PopChildMeasure extends React.Component<MeasureProps> {
     getSnapshotBeforeUpdate(prevProps: MeasureProps) {
         const element = this.props.childRef.current
         if (element && prevProps.isPresent && !this.props.isPresent) {
+            const parent = element.offsetParent
+            const parentWidth =
+                parent instanceof HTMLElement ? parent.offsetWidth || 0 : 0
+
             const size = this.props.sizeRef.current!
             size.height = element.offsetHeight || 0
             size.width = element.offsetWidth || 0
             size.top = element.offsetTop
             size.left = element.offsetLeft
+            size.right = parentWidth - size.width - size.left
         }
 
         return null
@@ -50,7 +57,7 @@ class PopChildMeasure extends React.Component<MeasureProps> {
     }
 }
 
-export function PopChild({ children, isPresent }: Props) {
+export function PopChild({ children, isPresent, anchorX }: Props) {
     const id = useId()
     const ref = useRef<HTMLElement>(null)
     const size = useRef<Size>({
@@ -58,6 +65,7 @@ export function PopChild({ children, isPresent }: Props) {
         height: 0,
         top: 0,
         left: 0,
+        right: 0,
     })
     const { nonce } = useContext(MotionConfigContext)
 
@@ -71,8 +79,10 @@ export function PopChild({ children, isPresent }: Props) {
      * styles set via the style prop.
      */
     useInsertionEffect(() => {
-        const { width, height, top, left } = size.current
+        const { width, height, top, left, right } = size.current
         if (isPresent || !ref.current || !width || !height) return
+
+        const x = anchorX === "left" ? `left: ${left}` : `right: ${right}`
 
         ref.current.dataset.motionPopId = id
 
@@ -85,8 +95,8 @@ export function PopChild({ children, isPresent }: Props) {
             position: absolute !important;
             width: ${width}px !important;
             height: ${height}px !important;
+            ${x}px !important;
             top: ${top}px !important;
-            left: ${left}px !important;
           }
         `)
         }
