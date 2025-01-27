@@ -8,6 +8,10 @@ export function setCSSVar(
     name: string,
     value: string | number
 ) {
+    if (name.startsWith("--")) {
+        name = name.slice(2);
+    }
+
     element.style.setProperty(`--${name}`, value as string)
 }
 
