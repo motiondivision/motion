@@ -827,6 +827,14 @@ export function createProjectionNode<I>({
             if (this.snapshot || !this.instance) return
 
             this.snapshot = this.measure()
+
+            if (
+                this.snapshot &&
+                !calcLength(this.snapshot.measuredBox.x) &&
+                !calcLength(this.snapshot.measuredBox.y)
+            ) {
+                this.snapshot = undefined
+            }
         }
 
         updateLayout() {
