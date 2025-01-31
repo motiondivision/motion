@@ -146,7 +146,7 @@ export const AnimatePresence = ({
          * Early return to ensure once we've set state with the latest diffed
          * children, we can immediately re-render.
          */
-        return
+        return null
     }
 
     if (
