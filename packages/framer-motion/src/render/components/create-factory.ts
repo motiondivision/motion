@@ -2,17 +2,23 @@ import {
     createRendererMotionComponent,
     MotionComponentProps,
 } from "../../motion"
-import { DOMMotionComponents } from "../dom/types"
-import { CreateVisualElement } from "../types"
 import { FeaturePackages } from "../../motion/features/types"
-import { isSVGComponent } from "../dom/utils/is-svg-component"
-import { svgMotionConfig } from "../svg/config-motion"
-import { htmlMotionConfig } from "../html/config-motion"
+import { DOMMotionComponents } from "../dom/types"
 import { createUseRender } from "../dom/use-render"
+import { isSVGComponent } from "../dom/utils/is-svg-component"
+import { htmlMotionConfig } from "../html/config-motion"
+import { svgMotionConfig } from "../svg/config-motion"
+import { CreateVisualElement } from "../types"
 
 type MotionComponent<T, P> = T extends keyof DOMMotionComponents
     ? DOMMotionComponents[T]
-    : React.ComponentType<MotionComponentProps<React.PropsWithChildren<P>>>
+    : React.ComponentType<
+          Omit<MotionComponentProps<P>, "children"> & {
+              children?: P extends { children: infer C }
+                  ? C | MotionComponentProps<P>["children"]
+                  : MotionComponentProps<P>["children"]
+          }
+      >
 
 export function createMotionComponentFactory(
     preloadedFeatures?: FeaturePackages,
