@@ -4,7 +4,7 @@ import * as React from "react"
 import { useCallback, useId, useMemo } from "react"
 import {
     PresenceContext,
-    PresenceContextProps,
+    type PresenceContextProps,
 } from "../../context/PresenceContext"
 import { VariantLabels } from "../../motion/types"
 import { useConstant } from "../../utils/use-constant"
