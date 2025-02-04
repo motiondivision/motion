@@ -35,6 +35,10 @@ export function useSpring(
     config?: SpringOptions
 ): MotionValue<string>
 export function useSpring(
+    source: string,
+    config?: SpringOptions
+): MotionValue<string>
+export function useSpring(
     source: MotionValue<number>,
     config?: SpringOptions
 ): MotionValue<number>
@@ -43,7 +47,7 @@ export function useSpring(
     config?: SpringOptions
 ): MotionValue<number>
 export function useSpring(
-    source: MotionValue<string> | MotionValue<number> | number,
+    source: MotionValue<string> | MotionValue<number> | string | number,
     config: SpringOptions = {}
 ) {
     const { isStatic } = useContext(MotionConfigContext)
