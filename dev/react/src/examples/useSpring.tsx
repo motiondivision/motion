@@ -1,4 +1,10 @@
-import { motion, useMotionValue, useSpring } from "framer-motion"
+import {
+    frame,
+    motion,
+    useMotionValue,
+    useSpring,
+    useTransform,
+} from "framer-motion"
 import { useRef, useState } from "react"
 
 const spring = {
@@ -11,8 +17,10 @@ const spring = {
 function DragExample() {
     const dragX = useMotionValue(0)
     const dragY = useMotionValue(0)
-    const x = useSpring(dragX, spring)
-    const y = useSpring(dragY, spring)
+    const dragXPX = useTransform(dragX, (v) => `${v}%`)
+    const dragYPX = useTransform(dragY, (v) => `${v}%`)
+    const x = useSpring(dragXPX, spring)
+    const y = useSpring(dragYPX, spring)
 
     return (
         <motion.div
@@ -28,10 +36,10 @@ function DragExample() {
 }
 
 function RerenderExample() {
-    const [{ x, y }, setMousePosition] = useState({ x: null, y: null })
+    const [{ x, y }, setMousePosition] = useState({ x: 0, y: 0 })
 
     const updateMousePosition = useRef((e) => {
-        setMousePosition({ x: e.clientX, y: e.clientY })
+        frame.postRender(() => setMousePosition({ x: e.clientX, y: e.clientY }))
     })
 
     const size = 40

@@ -62,7 +62,7 @@ export function useSpring(
     )
     const unit = useConstant(() =>
         typeof initialValue === "string"
-            ? String(initialValue).replace(/[\d.-]/g, "")
+            ? initialValue.replace(/[\d.-]/g, "")
             : undefined
     )
 
