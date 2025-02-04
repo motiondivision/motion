@@ -107,7 +107,7 @@ describe("SVG origin", () => {
 
 describe("SVG measures", () => {
     it("Correctly measures SVG and renders on mount in React 19", () => {
-        cy.visit("http://localhost:9991/?example=svg-initial-render")
+        cy.visit("?test=svg-initial-render")
             .wait(200)
             .get("path")
             .should(([$path]: any) => {
