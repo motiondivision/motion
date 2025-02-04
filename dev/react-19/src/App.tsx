@@ -1,8 +1,13 @@
-const examples = import.meta.glob("./examples/*.tsx", {
+import { StrictMode } from "react"
+
+const examples = import.meta.glob("../../react/src/examples/*.tsx", {
     eager: true,
     import: "App",
 })
-const tests = import.meta.glob("./tests/*.tsx", { eager: true, import: "App" })
+const tests = import.meta.glob("../../react/src/tests/*.tsx", {
+    eager: true,
+    import: "App",
+})
 
 function App() {
     const url = new URL(window.location.href)
@@ -10,13 +15,17 @@ function App() {
     const testId = url.searchParams.get("test")
 
     const Module = exampleId
-        ? examples[`./examples/${exampleId}.tsx`]
+        ? examples[`../../react/src/examples/${exampleId}.tsx`]
         : testId
-        ? tests[`./tests/${testId}.tsx`]
+        ? tests[`../../react/src/tests/${testId}.tsx`]
         : null
 
     if (Module) {
-        return <Module />
+        return (
+            <StrictMode>
+                <Module />
+            </StrictMode>
+        )
     } else {
         return <ExampleList />
     }

@@ -81,6 +81,9 @@ test-jest: bootstrap test-mkdir
 test-react: build test-mkdir
 	yarn start-server-and-test "yarn dev-server" http://localhost:9990 "cd packages/framer-motion && cypress run --headless $(if $(CI), --spec $(shell cd packages/framer-motion && circleci tests glob "cypress/integration/*.ts" | circleci tests split), --reporter spec)"
 
+test-react-19: build test-mkdir
+	yarn start-server-and-test "yarn dev-server" http://localhost:9991 "cd packages/framer-motion && cypress run --config-file=cypress.react-19.json --headless $(if $(CI), --spec $(shell cd packages/framer-motion && circleci tests glob "cypress/integration/*.ts" | circleci tests split), --reporter spec)"
+
 test-html: build test-mkdir
 	node dev/inc/collect-html-tests.js
 	yarn start-server-and-test "yarn dev-server" http://localhost:8000 "cd packages/framer-motion && cypress run --config-file=cypress.html.json $(if $(CI), --config video=false, --reporter spec)"
@@ -88,7 +91,7 @@ test-html: build test-mkdir
 test-nextjs: build test-mkdir
 	yarn start-server-and-test "yarn dev-server || true" http://localhost:3000 "cd packages/framer-motion && cypress run --headless --config-file=cypress.rsc.json $(if $(CI), --config video=false, --reporter spec)"
 
-test-e2e: test-nextjs test-html test-react
+test-e2e: test-nextjs test-html test-react test-react-19
 	yarn test-playwright
 
 test-single: build test-mkdir

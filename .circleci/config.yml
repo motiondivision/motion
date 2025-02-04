@@ -60,6 +60,37 @@ jobs:
                       - node_modules
                   key: v1-dependencies-{{ checksum "package.json" }}
 
+    test-react-19:
+        docker:
+            - image: cimg/node:lts-browsers
+
+        working_directory: ~/repo
+        parallelism: 6
+        resource_class: large
+        steps:
+            - checkout
+
+            # Download and cache dependencies
+            - restore_cache:
+                  keys:
+                      - v1-dependencies-{{ checksum "package.json" }}
+                      # fallback to using the latest cache if no exact match is found
+                      - v1-dependencies-
+
+            - run:
+                  name: React tests
+                  command: make test-react-19
+                  environment:
+                      JEST_JUNIT_OUTPUT: test_reports/framer-motion-react-19.xml
+
+            - store_test_results:
+                  path: test_reports
+
+            - save_cache:
+                  paths:
+                      - node_modules
+                  key: v1-dependencies-{{ checksum "package.json" }}
+
     test-html:
         docker:
             - image: cimg/node:lts-browsers
