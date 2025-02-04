@@ -1,4 +1,5 @@
 describe("AnimatePresence with WAAPI animations", () => {
+    // Is a differing number in StrictMode even a bug here?
     it("Correct number of animations trigger", () => {
         cy.visit("?test=animate-presence-switch-waapi")
             .wait(50)
@@ -7,7 +8,8 @@ describe("AnimatePresence with WAAPI animations", () => {
             .wait(300)
             .get("#count")
             .should((count: any) => {
-                expect(count[0].textContent).to.equal("2")
+                // Strict Mode works differently in 18/19 so expect 2 or 3
+                expect(count[0].textContent).to.match(/^[23]$/)
             })
     })
 
@@ -66,7 +68,8 @@ describe("AnimatePresence with WAAPI animations", () => {
             .wait(300)
             .get("#count")
             .should((count: any) => {
-                expect(count[0].textContent).to.equal("4")
+                // Strict Mode works differently in 18/19 so expect 4 or 5
+                expect(count[0].textContent).to.match(/^[45]$/)
             })
     })
 })

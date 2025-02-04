@@ -274,6 +274,8 @@ describe("Drag", () => {
             .trigger("pointermove", 100, 100, { force: true })
             .wait(50)
             .trigger("pointerup", { force: true })
+            .trigger("pointermove", 500, 500, { force: true })
+            .wait(100)
             .get("#box")
             .should(([$box]: any) => {
                 const { left, top, right, bottom } =

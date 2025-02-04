@@ -1,6 +1,6 @@
 import { scroll } from "framer-motion"
 import * as React from "react"
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 
 const width = 400
 
@@ -10,7 +10,13 @@ export const App = () => {
 
     useEffect(() => {
         if (!ref.current) return
-        return scroll(setProgress, { source: ref.current, axis: "x" })
+        return scroll(
+            (latest: number) => {
+                console.log(latest)
+                setProgress(latest)
+            },
+            { source: ref.current, axis: "x" }
+        )
     }, [])
 
     return (
