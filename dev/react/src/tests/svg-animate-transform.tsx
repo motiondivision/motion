@@ -41,6 +41,10 @@ export function App() {
                             fill="none"
                             strokeWidth="2"
                             stroke="rgb(68, 0, 255)"
+                            style={{
+                                x: 5,
+                                y: 5,
+                            }}
                             d="M 0, 20 a 20, 20 0 1,0 40,0 a 20, 20 0 1,0 -40,0"
                         />
                     </svg>
