@@ -424,7 +424,6 @@ export abstract class VisualElement<
     }
 
     unmount() {
-        visualElementStore.delete(this.current)
         this.projection && this.projection.unmount()
         cancelFrame(this.notifyUpdate)
         cancelFrame(this.render)

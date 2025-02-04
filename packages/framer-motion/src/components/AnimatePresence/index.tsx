@@ -112,7 +112,7 @@ export const AnimatePresence = ({
         }
     }, [renderedChildren, presentKeys.length, presentKeys.join("-")])
 
-    const exitingChildren = []
+    const exitingChildren: any[] = []
 
     if (presentChildren !== diffedChildren) {
         let nextChildren = [...presentChildren]

@@ -21,12 +21,18 @@ export class ExitAnimationFeature extends Feature<unknown> {
         )
 
         if (onExitComplete && !isPresent) {
-            exitAnimation.then(() => onExitComplete(this.id))
+            exitAnimation.then(() => {
+                onExitComplete(this.id)
+            })
         }
     }
 
     mount() {
-        const { register } = this.node.presenceContext || {}
+        const { register, onExitComplete } = this.node.presenceContext || {}
+
+        if (onExitComplete) {
+            onExitComplete(this.id)
+        }
 
         if (register) {
             this.unmount = register(this.id)

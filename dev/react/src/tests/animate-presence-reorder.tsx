@@ -1,17 +1,13 @@
 import { AnimatePresence, motion } from "framer-motion"
 import { useState } from "react"
 
-const color = ["red", "green", "blue"]
+const color = ["red", "green"]
 
-const shortPoems = [
-    "A silly cat named Fred, danced on his head",
-    "A rubber duck quacks wise, but only tells me lies",
-    "The dishes in my sink, started to wink",
-]
+const shortPoems = ["1", "2"]
 
 export function App() {
     const [items, setItems] = useState(() =>
-        Array.from({ length: 3 }, (_, i) => ({
+        Array.from({ length: 2 }, (_, i) => ({
             color: color[i],
             poem: shortPoems[i],
             key: i,
@@ -20,11 +16,8 @@ export function App() {
 
     return (
         <>
-            <p>
-                <strong>Goal:</strong> A poem should only be visible when it is
-                at the top of the list.
-            </p>
             <button
+                id="move"
                 style={{
                     marginBottom: "2rem",
                 }}
@@ -36,7 +29,7 @@ export function App() {
                     })
                 }}
             >
-                Move top item to bottom
+                Move
             </button>
 
             {items.map(({ color, poem, key }, i) => (
@@ -60,15 +53,10 @@ function ListItem({
     poem: string
     isOpen: boolean
 }) {
-    console.log("[ListItem] render", { isOpen, poem })
-
-    const transition = {
-        opacity: { duration: 0.2 },
-        height: { type: "spring", mass: 0.8 },
-    }
+    const transition = { duration: 0.2 }
 
     return (
-        <div style={{ backgroundColor: color }}>
+        <div className="item" style={{ backgroundColor: color }}>
             <AnimatePresence mode="wait" initial={false}>
                 {isOpen ? (
                     <motion.div
@@ -79,27 +67,21 @@ function ListItem({
                         variants={{
                             show: {
                                 opacity: 1,
-                                height: "auto",
                                 transition,
                             },
                             hide: {
                                 opacity: 0,
-                                height: "3rem",
                                 transition,
                             },
                         }}
+                        style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            color: "white",
+                        }}
                     >
-                        <div
-                            style={{
-                                height: "5rem",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                color: "white",
-                            }}
-                        >
-                            {poem}
-                        </div>
+                        {poem}
                     </motion.div>
                 ) : (
                     <div key="spacer" style={{ height: "3rem" }} />

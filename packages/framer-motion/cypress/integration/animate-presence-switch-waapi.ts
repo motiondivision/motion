@@ -1,4 +1,16 @@
 describe("AnimatePresence with WAAPI animations", () => {
+    it("Correct number of animations trigger", () => {
+        cy.visit("?test=animate-presence-switch-waapi")
+            .wait(50)
+            .get("#switch")
+            .trigger("click", 10, 10, { force: true })
+            .wait(300)
+            .get("#count")
+            .should((count: any) => {
+                expect(count[0].textContent).to.equal("2")
+            })
+    })
+
     it("Interrupting exiting animation doesn't break exit", () => {
         cy.visit("?test=animate-presence-switch-waapi")
             .wait(50)
