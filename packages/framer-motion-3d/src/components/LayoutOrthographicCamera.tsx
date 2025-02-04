@@ -1,13 +1,13 @@
 "use client"
 
+import { extend } from "@react-three/fiber"
 import { forwardRef, JSX } from "react"
-import { OrthographicCamera as OrthographicCameraImpl } from "three"
 import { mergeRefs } from "react-merge-refs"
+import { OrthographicCamera as OrthographicCameraImpl } from "three"
 import { motion } from "../render/motion"
+import { ThreeMotionProps } from "../types"
 import { LayoutCameraProps } from "./types"
 import { useLayoutCamera } from "./use-layout-camera"
-import { ThreeMotionProps } from "../types"
-import { extend } from "@react-three/fiber"
 
 extend({ OrthographicCamera: OrthographicCameraImpl })
 
@@ -15,6 +15,9 @@ type Props = JSX.IntrinsicElements["orthographicCamera"] &
     LayoutCameraProps &
     ThreeMotionProps
 
+/**
+ * @deprecated Motion 3D is deprecated.
+ */
 export const LayoutOrthographicCamera = forwardRef((props: Props, ref) => {
     const { size, cameraRef } = useLayoutCamera<OrthographicCameraImpl>(
         props,

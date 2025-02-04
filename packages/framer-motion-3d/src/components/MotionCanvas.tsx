@@ -1,30 +1,30 @@
 "use client"
 
-import * as React from "react"
 import {
-    useContext,
-    useLayoutEffect,
-    useRef,
-    forwardRef,
-    MutableRefObject,
-} from "react"
+    Camera,
+    events as createPointerEvents,
+    createRoot,
+    Dpr,
+    Props,
+    ReconcilerRoot,
+    unmountComponentAtNode,
+} from "@react-three/fiber"
 import {
     clamp,
-    MotionContext,
     MotionConfigContext,
+    MotionContext,
     useForceUpdate,
     useIsomorphicLayoutEffect,
 } from "framer-motion"
-import { mergeRefs } from "react-merge-refs"
+import * as React from "react"
 import {
-    createRoot,
-    unmountComponentAtNode,
-    events as createPointerEvents,
-    Props,
-    Camera,
-    Dpr,
-    ReconcilerRoot,
-} from "@react-three/fiber"
+    forwardRef,
+    MutableRefObject,
+    useContext,
+    useLayoutEffect,
+    useRef,
+} from "react"
+import { mergeRefs } from "react-merge-refs"
 import { DimensionsState, MotionCanvasContext } from "./MotionCanvasContext"
 
 export interface MotionCanvasProps extends Omit<Props, "resize"> {}
@@ -187,4 +187,7 @@ function CanvasComponent(
     )
 }
 
+/**
+ * @deprecated Motion 3D is deprecated.
+ */
 export const MotionCanvas = forwardRef(CanvasComponent)

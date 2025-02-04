@@ -1,14 +1,14 @@
 "use client"
 
 import {
+    animations,
     createRendererMotionComponent,
     FeatureBundle,
-    animations,
     makeUseVisualState,
 } from "framer-motion"
+import type { ThreeMotionComponents, ThreeRenderState } from "../types"
+import { createRenderState, createVisualElement } from "./create-visual-element"
 import { useRender } from "./use-render"
-import type { ThreeRenderState, ThreeMotionComponents } from "../types"
-import { createVisualElement, createRenderState } from "./create-visual-element"
 import { scrapeMotionValuesFromProps } from "./utils/scrape-motion-value"
 
 const useVisualState = makeUseVisualState({
@@ -31,6 +31,10 @@ function custom<Props extends {}>(Component: string) {
 }
 
 const componentCache = new Map<string, any>()
+
+/**
+ * @deprecated Motion 3D is deprecated.
+ */
 export const motion = new Proxy(custom, {
     get: (_, key: string) => {
         !componentCache.has(key) && componentCache.set(key, custom(key))
