@@ -1,4 +1,5 @@
 import { SpringOptions } from "motion-dom"
+import { noop } from "motion-utils"
 import { useContext, useInsertionEffect, useRef } from "react"
 import {
     MainThreadAnimation,
@@ -6,6 +7,7 @@ import {
 } from "../animation/animators/MainThreadAnimation"
 import { MotionConfigContext } from "../context/MotionConfigContext"
 import { frame } from "../frameloop"
+import { useConstant } from "../utils/use-constant"
 import { useIsomorphicLayoutEffect } from "../utils/use-isomorphic-effect"
 import { MotionValue } from "../value"
 import { useMotionValue } from "./use-motion-value"
@@ -55,15 +57,18 @@ export function useSpring(
         null
     )
 
-    const initialValue = isMotionValue(source) ? source.get() : source
-    const isNumber = typeof initialValue === "number"
-    const unit = !isNumber
-        ? String(initialValue).replace(/[\d.-]/g, "")
-        : undefined
+    const initialValue = useConstant(() =>
+        isMotionValue(source) ? source.get() : source
+    )
+    const unit = useConstant(() =>
+        typeof initialValue === "string"
+            ? String(initialValue).replace(/[\d.-]/g, "")
+            : undefined
+    )
 
     const value = useMotionValue(initialValue)
-    const latestValue = useRef<number | string>(parseValue(value.get(), unit))
-    const latestSetter = useRef<(v: number) => void>(() => {})
+    const latestValue = useRef<number | string>(initialValue)
+    const latestSetter = useRef<(v: number) => void>(noop)
 
     const startAnimation = () => {
         stopAnimation()
@@ -87,10 +92,6 @@ export function useSpring(
 
     useInsertionEffect(() => {
         return value.attach((v, set) => {
-            /**
-             * A more hollistic approach to this might be to use isStatic to fix VisualElement animations
-             * at that level, but this will work for now
-             */
             if (isStatic) return set(v)
 
             latestValue.current = v
