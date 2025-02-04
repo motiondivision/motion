@@ -11,11 +11,6 @@ import { MotionValue } from "../value"
 import { useMotionValue } from "./use-motion-value"
 import { isMotionValue } from "./utils/is-motion-value"
 
-function toNumber(v: string | number) {
-    if (typeof v === "number") return v
-    return parseFloat(v)
-}
-
 /**
  * Creates a `MotionValue` that, when `set`, will use a spring animation to animate to its new state.
  *
@@ -36,6 +31,18 @@ function toNumber(v: string | number) {
  * @public
  */
 export function useSpring(
+    source: MotionValue<string>,
+    config?: SpringOptions
+): MotionValue<string>
+export function useSpring(
+    source: MotionValue<number>,
+    config?: SpringOptions
+): MotionValue<number>
+export function useSpring(
+    source: number,
+    config?: SpringOptions
+): MotionValue<number>
+export function useSpring(
     source: MotionValue<string> | MotionValue<number> | number,
     config: SpringOptions = {}
 ) {
@@ -43,17 +50,22 @@ export function useSpring(
     const activeSpringAnimation = useRef<MainThreadAnimation<number> | null>(
         null
     )
-    const value = useMotionValue(
-        isMotionValue(source) ? toNumber(source.get()) : source
-    )
-    const latestValue = useRef<number>(value.get())
+
+    const initialValue = isMotionValue(source) ? source.get() : source
+    const isNumber = typeof initialValue === "number"
+    const unit = !isNumber
+        ? String(initialValue).replace(/[\d.-]/g, "")
+        : undefined
+
+    const value = useMotionValue(initialValue)
+    const latestValue = useRef<number | string>(parseValue(value.get(), unit))
     const latestSetter = useRef<(v: number) => void>(() => {})
 
     const startAnimation = () => {
         stopAnimation()
 
         activeSpringAnimation.current = animateValue({
-            keyframes: [value.get(), latestValue.current],
+            keyframes: [asNumber(value.get()), asNumber(latestValue.current)],
             velocity: value.getVelocity(),
             type: "spring",
             restDelta: 0.001,
@@ -78,7 +90,7 @@ export function useSpring(
             if (isStatic) return set(v)
 
             latestValue.current = v
-            latestSetter.current = set
+            latestSetter.current = (latest) => set(parseValue(latest, unit))
 
             frame.postRender(startAnimation)
 
@@ -88,9 +100,17 @@ export function useSpring(
 
     useIsomorphicLayoutEffect(() => {
         if (isMotionValue(source)) {
-            return source.on("change", (v) => value.set(toNumber(v)))
+            return source.on("change", (v) => value.set(parseValue(v, unit)))
         }
-    }, [value])
+    }, [value, unit])
 
     return value
+}
+
+function parseValue(v: string | number, unit?: string) {
+    return unit ? v + unit : v
+}
+
+function asNumber(v: string | number) {
+    return typeof v === "number" ? v : parseFloat(v)
 }
