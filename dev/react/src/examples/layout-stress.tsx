@@ -1,114 +1,119 @@
 import { motion, MotionConfig } from "framer-motion"
 import * as React from "react"
 import { useState } from "react"
-import styled from "styled-components"
 
-const Container = styled.div`
-    display: flex;
-    flex-wrap: wrap;
-    --width: 200px;
-    --height: 200px;
-    --offset: 10px;
-    width: 1000px;
-    height: 4000px;
-    overflow: hidden;
-    justify-content: flex-start;
-    align-items: flex-start;
+const containerStyles = {
+    display: "flex",
+    flexWrap: "wrap",
+    width: "1000px",
+    height: "4000px",
+    overflow: "hidden",
+    justifyContent: "flex-start",
+    alignItems: "flex-start",
+}
 
-    &.expanded {
-        --width: 500px;
-        --height: 500px;
-        --offset: 100px;
-    }
+const baseStyles = {
+    width: "200px",
+    height: "200px",
+}
 
-    .a {
-        background-color: hsla(0, 50%, 50%);
-        position: relative;
-        width: var(--width);
-        height: var(--height);
-        display: flex;
-    }
+const expandedStyles = {
+    width: "500px",
+    height: "500px",
+}
 
-    .b {
-        background-color: hsla(20, 50%, 50%);
-        width: var(--width);
-        height: var(--height);
-        position: absolute;
-        top: var(--offset);
-        left: var(--offset);
-    }
-
-    .c {
-        background-color: hsla(60, 50%, 50%);
-        width: var(--offset);
-        height: var(--offset);
-    }
-
-    .d {
-        background-color: hsla(90, 50%, 50%);
-        width: var(--offset);
-        height: var(--offset);
-    }
-
-    .e {
-        background-color: hsla(120, 50%, 50%);
-        width: var(--width);
-        height: var(--height);
-        position: absolute;
-        top: var(--offset);
-        left: var(--offset);
-    }
-
-    .f {
-        background-color: hsla(170, 50%, 50%);
-        width: var(--width);
-        height: var(--height);
-        position: absolute;
-        top: var(--offset);
-        left: var(--offset);
-    }
-
-    .g {
-        background-color: hsla(220, 50%, 50%);
-        width: var(--width);
-        height: var(--height);
-        position: absolute;
-        top: var(--offset);
-        left: var(--offset);
-    }
-
-    .h {
-        background-color: hsla(260, 50%, 50%);
-        width: var(--width);
-        height: var(--height);
-        position: absolute;
-        top: var(--offset);
-        left: var(--offset);
-    }
-
-    .i {
-        background-color: hsla(300, 50%, 50%);
-        width: var(--width);
-        height: var(--height);
-        position: absolute;
-        top: var(--offset);
-        left: var(--offset);
-    }
-`
+const baseOffset = "10px"
+const expandedOffset = "100px"
 
 function Group({ children }: React.PropsWithChildren) {
     return (
-        <motion.div layout className="a">
-            <motion.div layout className="b"></motion.div>
-            <motion.div layout className="c"></motion.div>
-            <motion.div layout className="d">
+        <motion.div
+            layout
+            style={{
+                ...baseStyles,
+                backgroundColor: "hsla(0, 50%, 50%)",
+                position: "relative",
+                display: "flex",
+            }}
+        >
+            <motion.div
+                layout
+                style={{
+                    ...baseStyles,
+                    backgroundColor: "hsla(20, 50%, 50%)",
+                    position: "absolute",
+                    top: baseOffset,
+                    left: baseOffset,
+                }}
+            />
+            <motion.div
+                layout
+                style={{
+                    width: baseOffset,
+                    height: baseOffset,
+                    backgroundColor: "hsla(60, 50%, 50%)",
+                }}
+            />
+            <motion.div
+                layout
+                style={{
+                    width: baseOffset,
+                    height: baseOffset,
+                    backgroundColor: "hsla(90, 50%, 50%)",
+                }}
+            >
                 {children}
             </motion.div>
-            <motion.div layout className="e"></motion.div>
-            <motion.div layout className="f">
-                <motion.div layout className="g"></motion.div>
-                <motion.div layout className="h">
-                    <motion.div layout className="i"></motion.div>
+            <motion.div
+                layout
+                style={{
+                    ...baseStyles,
+                    backgroundColor: "hsla(120, 50%, 50%)",
+                    position: "absolute",
+                    top: baseOffset,
+                    left: baseOffset,
+                }}
+            />
+            <motion.div
+                layout
+                style={{
+                    ...baseStyles,
+                    backgroundColor: "hsla(170, 50%, 50%)",
+                    position: "absolute",
+                    top: baseOffset,
+                    left: baseOffset,
+                }}
+            >
+                <motion.div
+                    layout
+                    style={{
+                        ...baseStyles,
+                        backgroundColor: "hsla(220, 50%, 50%)",
+                        position: "absolute",
+                        top: baseOffset,
+                        left: baseOffset,
+                    }}
+                />
+                <motion.div
+                    layout
+                    style={{
+                        ...baseStyles,
+                        backgroundColor: "hsla(260, 50%, 50%)",
+                        position: "absolute",
+                        top: baseOffset,
+                        left: baseOffset,
+                    }}
+                >
+                    <motion.div
+                        layout
+                        style={{
+                            ...baseStyles,
+                            backgroundColor: "hsla(300, 50%, 50%)",
+                            position: "absolute",
+                            top: baseOffset,
+                            left: baseOffset,
+                        }}
+                    />
                 </motion.div>
             </motion.div>
         </motion.div>
@@ -120,9 +125,22 @@ export const App = () => {
 
     return (
         <MotionConfig transition={{ duration: 10, ease: "linear" }}>
-            <Container
+            <div
                 data-layout
-                className={expanded ? "expanded" : ""}
+                style={{
+                    ...containerStyles,
+                    ...(expanded
+                        ? {
+                              "--width": "500px",
+                              "--height": "500px",
+                              "--offset": "100px",
+                          }
+                        : {
+                              "--width": "200px",
+                              "--height": "200px",
+                              "--offset": "10px",
+                          }),
+                }}
                 onClick={() => {
                     setExpanded(!expanded)
                 }}
@@ -379,7 +397,7 @@ export const App = () => {
                 <Group>
                     <Group />
                 </Group>
-            </Container>
+            </div>
         </MotionConfig>
     )
 }

@@ -23,7 +23,7 @@ function Target({ onProjectionUpdate }: TargetProps) {
                 drag
                 dragConstraints={{ top: 0, left: 0, right: 0, bottom: 0 }}
                 dragElastic={1}
-                onLayoutMeasure={onProjectionUpdate}
+                onProjectionUpdate={onProjectionUpdate}
                 layoutId="a"
                 style={{
                     background: "white",
