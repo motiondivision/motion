@@ -1,32 +1,54 @@
+import { motion } from "framer-motion"
 import * as React from "react"
 import { useState } from "react"
-import { motion } from "framer-motion"
-import styled from "styled-components"
 
-class Underline extends React.Component {
+class Underline extends React.Component<{ color: string }> {
     render() {
         return (
             <motion.div
                 layoutId="underline"
-                className="underline"
                 initial={false}
                 animate={{ backgroundColor: this.props.color }}
+                style={{
+                    width: "100%",
+                    height: "8px",
+                    borderRadius: "4px",
+                    position: "absolute",
+                    bottom: "-4px",
+                }}
             />
         )
     }
 }
 
-class Item extends React.Component {
+interface ItemProps {
+    i: number
+    title: string
+    selected: number
+    color: string
+    setSelected: (i: number) => void
+}
+
+class Item extends React.Component<ItemProps> {
     render() {
         const { i, title, selected, color, setSelected } = this.props
 
         return (
             <motion.li
                 key={i}
-                id={i}
+                id={i.toString()}
                 layout
-                className={`title ${i === selected && "selected"}`}
-                animate={{ color: i === selected ? color : "#333" }}
+                style={{
+                    listStyle: "none",
+                    padding: 0,
+                    margin: 0,
+                    userSelect: "none",
+                    fontSize: i === selected ? "64px" : "32px",
+                    marginLeft: "20px",
+                    position: "relative",
+                    cursor: "pointer",
+                    color: i === selected ? color : "#333",
+                }}
                 onClick={() => setSelected(i)}
             >
                 {i === selected && <Underline color={color} />}
@@ -40,8 +62,25 @@ const Component = () => {
     const [selected, setSelected] = useState(0)
 
     return (
-        <Container>
-            <ol>
+        <div
+            style={{
+                boxSizing: "border-box",
+                fontFamily: "Montserrat, sans-serif",
+                fontWeight: 800,
+            }}
+        >
+            <ol
+                style={{
+                    listStyle: "none",
+                    padding: 0,
+                    margin: 0,
+                    userSelect: "none",
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    transform: "translateZ(0)",
+                }}
+            >
                 {screens.map((screen, i) => (
                     <Item
                         {...screen}
@@ -51,7 +90,7 @@ const Component = () => {
                     />
                 ))}
             </ol>
-        </Container>
+        </div>
     )
 }
 
@@ -74,48 +113,6 @@ export const App = () => {
         </div>
     )
 }
-
-const Container = styled.div`
-    * {
-        box-sizing: border-box;
-        font-family: Montserrat, sans-serif;
-        font-weight: 800;
-    }
-
-    ol,
-    li {
-        list-style: none;
-        padding: 0;
-        margin: 0;
-        user-select: none;
-    }
-
-    ol {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        transform: translateZ(0);
-    }
-
-    .title {
-        font-size: 32px;
-        margin-left: 20px;
-        position: relative;
-        cursor: pointer;
-    }
-
-    .title.selected {
-        font-size: 64px;
-    }
-
-    .underline {
-        width: 100%;
-        height: 8px;
-        border-radius: 4px;
-        position: absolute;
-        bottom: -4px;
-    }
-`
 
 export const screens = [
     {

@@ -1,23 +1,13 @@
-import { motionValue, AcceleratedAnimation } from "framer-motion"
+import { AcceleratedAnimation, motionValue } from "framer-motion"
 import { useEffect, useRef } from "react"
-import styled from "styled-components"
 
-const Container = styled.section`
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    padding: 100px;
+interface ExtendedMotionValue {
+    owner: { current: HTMLDivElement | undefined }
+}
 
-    #box {
-        width: 100px;
-        height: 100px;
-        position: relative;
-        top: 100px;
-        left: 100px;
-        background-color: red;
-        opacity: 1;
-    }
-`
+interface ExtendedAnimation extends AcceleratedAnimation<number> {
+    _resolved: boolean
+}
 
 export const App = () => {
     const ref = useRef<HTMLDivElement>(null)
@@ -25,9 +15,11 @@ export const App = () => {
     useEffect(() => {
         if (!ref.current) return
         const opacity = motionValue(0)
-        ;(opacity as any).owner = { current: ref.current }
+        const extendedOpacity = opacity as unknown as ExtendedMotionValue
+        extendedOpacity.owner = { current: ref.current }
+
         const animation = new AcceleratedAnimation({
-            keyframes: [null, 1],
+            keyframes: [0, 1],
             motionValue: opacity,
             name: "opacity",
         })
@@ -35,7 +27,8 @@ export const App = () => {
         animation.stop()
 
         // If this animation resolved, that is incorrect
-        if (animation._resolved) {
+        const extendedAnimation = animation as unknown as ExtendedAnimation
+        if (extendedAnimation._resolved) {
             ref.current.textContent = "Error"
         }
 
@@ -46,14 +39,33 @@ export const App = () => {
         })
 
         // Animation shouldn't fail if element is removed before keyframes resolve
-        ;(opacity as any).owner.current = undefined
+        extendedOpacity.owner.current = undefined
     }, [])
 
     return (
-        <Container>
-            <div ref={ref} id="box">
+        <section
+            style={{
+                position: "relative",
+                display: "flex",
+                flexDirection: "column",
+                padding: "100px",
+            }}
+        >
+            <div
+                ref={ref}
+                id="box"
+                style={{
+                    width: "100px",
+                    height: "100px",
+                    position: "relative",
+                    top: "100px",
+                    left: "100px",
+                    backgroundColor: "red",
+                    opacity: 1,
+                }}
+            >
                 Content
             </div>
-        </Container>
+        </section>
     )
 }

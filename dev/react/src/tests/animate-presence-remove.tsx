@@ -1,25 +1,25 @@
 import { AnimatePresence, motion } from "framer-motion"
 import { useState } from "react"
-import styled from "styled-components"
 
-const Container = styled.section`
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    padding: 100px;
+const containerStyles = {
+    position: "relative" as const,
+    display: "flex",
+    flexDirection: "column" as const,
+    padding: "100px",
+}
 
-    div {
-        width: 100px;
-        height: 100px;
-        background-color: red;
-    }
-`
+const boxStyles = {
+    width: "100px",
+    height: "100px",
+    backgroundColor: "red",
+}
 
 const Box = ({ id }: { id: number }) => {
     return (
         <motion.div
             id={`box-${id}`}
             className="box"
+            style={boxStyles}
             transition={{ duration: 0.5 }}
             exit={{ opacity: 0.5 }}
         />
@@ -30,7 +30,7 @@ export const App = () => {
     const [range, setRange] = useState([0, 1, 2])
 
     return (
-        <Container>
+        <div style={containerStyles}>
             <button id="remove" onClick={() => setRange(range.slice(0, -1))}>
                 Remove
             </button>
@@ -39,6 +39,6 @@ export const App = () => {
                     <Box key={i} id={i} />
                 ))}
             </AnimatePresence>
-        </Container>
+        </div>
     )
 }

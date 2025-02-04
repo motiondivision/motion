@@ -1,29 +1,18 @@
-import { motion, animate } from "framer-motion"
-import { useEffect, useState } from "react"
-import styled from "styled-components"
-
-const Container = styled.section`
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    padding: 100px;
-
-    #box {
-        width: 100px;
-        height: 100px;
-        position: relative;
-        top: 100px;
-        left: 100px;
-        background-color: red;
-        opacity: 1;
-    }
-`
+import { motion } from "framer-motion"
+import { useState } from "react"
 
 export const App = () => {
     const [state, setState] = useState(false)
 
     return (
-        <Container>
+        <section
+            style={{
+                position: "relative",
+                display: "flex",
+                flexDirection: "column",
+                padding: "100px",
+            }}
+        >
             <motion.div
                 id="box"
                 transition={{ duration: 1 }}
@@ -33,9 +22,18 @@ export const App = () => {
                     opacity: state ? 1 : 0,
                 }}
                 onClick={() => setState(!state)}
+                style={{
+                    width: "100px",
+                    height: "100px",
+                    position: "relative",
+                    top: "100px",
+                    left: "100px",
+                    backgroundColor: "red",
+                    opacity: 1,
+                }}
             >
                 Content
             </motion.div>
-        </Container>
+        </section>
     )
 }

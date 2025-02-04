@@ -1,20 +1,19 @@
 import { animateMini, stagger } from "framer-motion"
 import { useEffect } from "react"
-import styled from "styled-components"
 
-const Container = styled.section`
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    padding: 100px;
+const containerStyles = {
+    position: "relative" as const,
+    display: "flex",
+    flexDirection: "column" as const,
+    padding: "100px",
+}
 
-    #box {
-        width: 100px;
-        height: 100px;
-        background-color: red;
-        opacity: 0;
-    }
-`
+const boxStyles = {
+    width: "100px",
+    height: "100px",
+    backgroundColor: "red",
+    opacity: 0,
+}
 
 export const App = () => {
     useEffect(() => {
@@ -28,8 +27,8 @@ export const App = () => {
     }, [])
 
     return (
-        <Container>
-            <div id="box" />
-        </Container>
+        <div style={containerStyles}>
+            <div id="box" style={boxStyles} />
+        </div>
     )
 }

@@ -5,21 +5,6 @@ import {
     ValueAnimationTransition,
 } from "framer-motion"
 import { useEffect, useRef } from "react"
-import styled from "styled-components"
-
-const Container = styled.section`
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    padding: 100px;
-
-    .box {
-        width: 100px;
-        height: 100px;
-        background-color: red;
-        opacity: 0;
-    }
-`
 
 export const App = () => {
     const opacity = useMotionValue(0)
@@ -94,17 +79,32 @@ export const App = () => {
     }, [])
 
     return (
-        <Container>
+        <section
+            style={{
+                position: "relative",
+                display: "flex",
+                flexDirection: "column",
+                padding: "100px",
+            }}
+        >
             <motion.div
                 ref={waapiRef}
-                className="box"
-                initial={{ opacity: 0 }}
+                style={{
+                    width: "100px",
+                    height: "100px",
+                    backgroundColor: "red",
+                    opacity: 0,
+                }}
             />
             <motion.div
                 ref={syncRef}
-                className="box"
-                initial={{ opacity: 0, y: 0 }}
-                style={{ opacity }}
+                style={{
+                    width: "100px",
+                    height: "100px",
+                    backgroundColor: "red",
+                    opacity,
+                    y: 0,
+                }}
             />
             <motion.pre
                 id="waapi-start-time"
@@ -127,6 +127,6 @@ export const App = () => {
             >
                 {syncExplicitStartTime}
             </motion.pre>
-        </Container>
+        </section>
     )
 }

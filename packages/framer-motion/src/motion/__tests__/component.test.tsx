@@ -1,8 +1,7 @@
-import { render } from "../../../jest.setup"
 import { fireEvent } from "@testing-library/react"
 import { motion } from "framer-motion"
 import * as React from "react"
-import styled from "styled-components"
+import { render } from "../../../jest.setup"
 
 describe("motion component rendering and styles", () => {
     it("renders", () => {
@@ -254,13 +253,8 @@ describe("motion component rendering and styles", () => {
     })
 
     it("renders styled component and overwrites style", () => {
-        const Box = styled.div`
-            background-color: #fff;
-        `
-
-        const MotionBox = motion.create(Box)
         const { container } = render(
-            <MotionBox style={{ backgroundColor: "#f00" }} />
+            <motion.div style={{ backgroundColor: "#f00" }} />
         )
         expect(container.firstChild).toHaveStyle("background-color: #f00")
     })

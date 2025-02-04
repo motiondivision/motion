@@ -22,7 +22,6 @@
         "@typescript-eslint/parser": "^7.2.0",
         "@vitejs/plugin-react-swc": "^3.5.0",
         "eslint-plugin-react-refresh": "^0.4.6",
-        "styled-components": "^6.1.11",
         "vite": "^5.2.0"
     }
 }

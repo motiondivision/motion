@@ -71,7 +71,6 @@
         "rollup-plugin-terser": "^5.3.0",
         "rollup-plugin-visualizer": "^5.7.1",
         "start-server-and-test": "^1.14.0",
-        "styled-components": "^4.1.1",
         "ts-jest": "^29.1.2",
         "ts-loader": "^9.5.1",
         "turbo": "1.x",
