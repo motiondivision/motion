@@ -1196,6 +1196,8 @@ describe("Shared layout: Border radius", () => {
             .should(([$boxA, $boxB]: any) => {
                 const boxAStyle = window.getComputedStyle($boxA)
                 const boxBStyle = window.getComputedStyle($boxB)
+                expect(boxAStyle.borderRadius).not.to.equal("0%")
+                expect(boxBStyle.borderRadius).not.to.equal("0%")
                 expect(boxBStyle.borderRadius).to.equal(boxAStyle.borderRadius)
             })
     })

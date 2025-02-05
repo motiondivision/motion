@@ -2,7 +2,7 @@ import { motion, MotionConfig } from "framer-motion"
 import { useState } from "react"
 
 const transition = {
-    ease: () => 0.5,
+    // ease: () => 0.5,
     duration: 10,
 }
 
@@ -31,12 +31,14 @@ function BoxB({ isOpen }: { isOpen: boolean }) {
         <div style={container}>
             {!isOpen ? (
                 <motion.div
+                    key="a"
                     style={{ ...a, borderRadius: 24 }}
                     transition={transition}
                     layoutId="boxB"
                 />
             ) : (
                 <motion.div
+                    key="b"
                     className="measure-box"
                     style={{ ...b, borderRadius: 0 }}
                     transition={transition}
