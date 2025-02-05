@@ -20,7 +20,7 @@ export const App = () => {
 
         const animation = animate(
             ref.current,
-            { "--x": "500px" },
+            { "--x": ["0px", "500px"] },
             { duration: 0.1 }
         )
 
