@@ -57,7 +57,9 @@
         <script type="module">
             const { createNode, relativeEase } = window.Animate
             const { matchViewportBox, checkFrame } = window.Assert
-            const { frame } = window.Projection
+            const { frame, recordStats } = window.Projection
+
+            recordStats()
 
             const parent = document.getElementById("parent")
 
@@ -76,7 +78,6 @@
 
             requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
-                    console.log(window.ProjectionFrames)
                     checkFrame(parent, 1, {
                         totalNodes: 2,
                         resolvedTargetDeltas: 1,

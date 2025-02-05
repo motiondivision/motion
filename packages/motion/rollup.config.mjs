@@ -1,13 +1,13 @@
-import resolve from "@rollup/plugin-node-resolve"
-import { terser } from "rollup-plugin-terser"
-import replace from "@rollup/plugin-replace"
-import dts from "rollup-plugin-dts"
 import alias from "@rollup/plugin-alias"
+import resolve from "@rollup/plugin-node-resolve"
+import replace from "@rollup/plugin-replace"
 import path from "node:path"
+import dts from "rollup-plugin-dts"
+import preserveDirectives from "rollup-plugin-preserve-directives"
+import { terser } from "rollup-plugin-terser"
 import { fileURLToPath } from 'url'
 import pkg from "./package.json" with { type: "json" }
 import tsconfig from "./tsconfig.json" with { type: "json" }
-import preserveDirectives from "rollup-plugin-preserve-directives";
 
 const config = {
     input: "lib/index.js",
@@ -111,12 +111,13 @@ const cjs = Object.assign({}, config, {
  */
 const cjsReact = Object.assign({}, cjs, { input : "lib/react.js" })
 const cjsMini = Object.assign({}, cjs, { input : "lib/mini.js" })
+const cjsDebug = Object.assign({}, cjs, { input : "lib/debug.js" })
 const cjsReactMini = Object.assign({}, cjs, { input : "lib/react-mini.js" })
 const cjsClient = Object.assign({}, cjs, { input : "lib/react-client.js" })
 const cjsM = Object.assign({}, cjs, { input : "lib/react-m.js" })
 
 export const es = Object.assign({}, config, {
-    input: ["lib/index.js", "lib/mini.js", "lib/react.js", "lib/react-mini.js",  "lib/react-client.js", "lib/react-m.js"],
+    input: ["lib/index.js", "lib/mini.js", "lib/react.js", "lib/react-mini.js",  "lib/react-client.js", "lib/react-m.js", "lib/debug.js"],
     output: {
         entryFileNames: "[name].mjs",
         format: "es",
@@ -141,6 +142,15 @@ const types = {
     output: {
         format: "es",
         file: "dist/index.d.ts",
+    },
+    plugins: typePlugins,
+}
+
+const debugTypes = {
+    input: "types/debug.d.ts",
+    output: {
+        format: "es",
+        file: "dist/debug.d.ts",
     },
     plugins: typePlugins,
 }
@@ -196,12 +206,14 @@ export default [
     umdProd,
     cjs,
     cjsClient,
+    cjsDebug,
     cjsReact,
     cjsMini,
     cjsReactMini,
     cjsM,
     es,
     types,
+    debugTypes,
     reactTypes,
     reactMiniTypes,
     mTypes,

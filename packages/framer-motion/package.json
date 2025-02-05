@@ -11,6 +11,12 @@
             "import": "./dist/es/index.mjs",
             "default": "./dist/cjs/index.js"
         },
+        "./debug": {
+            "types": "./dist/debug.d.ts",
+            "require": "./dist/cjs/debug.js",
+            "import": "./dist/es/debug.mjs",
+            "default": "./dist/cjs/debug.js"
+        },
         "./dom/mini": {
             "types": "./dist/dom-mini.d.ts",
             "require": "./dist/cjs/dom-mini.js",

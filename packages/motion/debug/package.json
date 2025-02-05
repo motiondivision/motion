@@ -1,0 +1,6 @@
+{
+    "private": true,
+    "types": "../dist/debug.d.ts",
+    "main": "../dist/cjs/debug.js",
+    "module": "../dist/es/motion/lib/debug.mjs"
+}
