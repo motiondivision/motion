@@ -1184,3 +1184,21 @@ describe("Shared layout: Measures rotated elements correctly when animation is i
             })
     })
 })
+
+describe("Shared layout: Border radius", () => {
+    it("Should animate border radius", () => {
+        cy.visit("?test=layout-shared-border-radius")
+            .wait(50)
+            .get("#next")
+            .click()
+            .wait(200)
+            .get(".measure-box")
+            .should(([$boxA, $boxB]: any) => {
+                const boxAStyle = window.getComputedStyle($boxA)
+                const boxBStyle = window.getComputedStyle($boxB)
+                expect(boxAStyle.borderRadius).not.to.equal("0%")
+                expect(boxBStyle.borderRadius).not.to.equal("0%")
+                expect(boxBStyle.borderRadius).to.equal(boxAStyle.borderRadius)
+            })
+    })
+})
