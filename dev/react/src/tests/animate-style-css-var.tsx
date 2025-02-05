@@ -9,13 +9,13 @@ export const App = () => {
 
         try {
             CSS.registerProperty({
-                name: "--test",
+                name: "--x",
                 syntax: "<length>",
                 inherits: false,
                 initialValue: "0px",
             })
         } catch (e) {
-            console.error(e)
+            // console.error(e)
         }
 
         const animation = animate(
