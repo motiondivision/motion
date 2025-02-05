@@ -86,4 +86,14 @@ describe("animateMini()", () => {
                 expect($element.style.opacity).to.equal("1")
             })
     })
+
+    it("works correctly with CSS variables", () => {
+        cy.visit("?test=animate-style-css-var")
+            .wait(500)
+            .get("#box")
+            .should(([$element]: any) => {
+                expect($element.style.getPropertyValue("--x")).to.equal("500px")
+                expect($element.getBoundingClientRect().left).to.equal(500)
+            })
+    })
 })
