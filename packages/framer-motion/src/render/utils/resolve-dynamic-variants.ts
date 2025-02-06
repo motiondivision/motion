@@ -7,7 +7,7 @@ import { resolveVariantFromProps } from "./resolve-variants"
  */
 export function resolveVariant(
     visualElement: VisualElement,
-    definition: TargetAndTransition | TargetResolver,
+    definition?: TargetAndTransition | TargetResolver,
     custom?: any
 ): TargetAndTransition
 export function resolveVariant(

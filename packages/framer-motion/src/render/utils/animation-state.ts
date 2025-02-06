@@ -6,7 +6,6 @@ import { isKeyframesTarget } from "../../animation/utils/is-keyframes-target"
 import { VariantLabels } from "../../motion/types"
 import { TargetAndTransition } from "../../types"
 import { shallowCompare } from "../../utils/shallow-compare"
-import { ResolvedValues } from "../types"
 import type { VisualElement } from "../VisualElement"
 import { getVariantContext } from "./get-variant-context"
 import { isVariantLabel } from "./is-variant-label"
@@ -336,7 +335,25 @@ export function createAnimationState(
          * defined in the style prop, or the last read value.
          */
         if (removedKeys.size) {
-            const fallbackAnimation: ResolvedValues = {}
+            const fallbackAnimation: TargetAndTransition = {}
+
+            /**
+             * If the initial prop contains a transition we can use that, otherwise
+             * allow the animation function to use the visual element's default.
+             */
+            if (typeof props.initial !== "boolean") {
+                const initialTransition = resolveVariant(
+                    visualElement,
+                    Array.isArray(props.initial)
+                        ? props.initial[0]
+                        : props.initial
+                )
+
+                if (initialTransition && initialTransition.transition) {
+                    fallbackAnimation.transition = initialTransition.transition
+                }
+            }
+
             removedKeys.forEach((key) => {
                 const fallbackTarget = visualElement.getBaseTarget(key)
 

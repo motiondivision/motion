@@ -1,6 +1,6 @@
+import { fireEvent } from "@testing-library/dom"
 import { useState } from "react"
 import { motion } from "../.."
-import { motionValue } from "../../value"
 import {
     pointerDown,
     pointerEnter,
@@ -8,8 +8,8 @@ import {
     pointerUp,
     render,
 } from "../../../jest.setup"
+import { motionValue } from "../../value"
 import { drag, MockDrag } from "../drag/__tests__/utils"
-import { fireEvent } from "@testing-library/dom"
 import { nextFrame } from "./utils"
 
 const enterKey = {
