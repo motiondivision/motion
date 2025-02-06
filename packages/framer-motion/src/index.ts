@@ -3,15 +3,15 @@
 /**
  * Components
  */
+export * from "./animation/types"
 export { AnimatePresence } from "./components/AnimatePresence"
 export { LayoutGroup } from "./components/LayoutGroup"
 export { LazyMotion } from "./components/LazyMotion"
 export { MotionConfig } from "./components/MotionConfig"
 export { Reorder } from "./components/Reorder"
+export * from "./dom"
 export { m } from "./render/components/m/proxy"
 export { motion } from "./render/components/motion/proxy"
-export * from "./animation/types"
-export * from "./dom"
 export * from "./three-entry"
 
 /**
@@ -60,6 +60,7 @@ export {
     useIsPresent,
     usePresence,
 } from "./components/AnimatePresence/use-presence"
+export { usePresenceData } from "./components/AnimatePresence/use-presence-data"
 export { useDomEvent } from "./events/use-dom-event"
 export {
     DragControls,

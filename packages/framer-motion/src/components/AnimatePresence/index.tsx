@@ -208,7 +208,7 @@ export const AnimatePresence = ({
                                 ? undefined
                                 : false
                         }
-                        custom={isPresent ? undefined : custom}
+                        custom={custom}
                         presenceAffectsLayout={presenceAffectsLayout}
                         mode={mode}
                         onExitComplete={isPresent ? undefined : onExit}
