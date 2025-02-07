@@ -21,6 +21,7 @@ export class DOMKeyframesResolver<
 
     private removedTransforms?: [string, string | number][]
     private measuredOrigin?: string | number
+    private currentDisplay?: string
 
     constructor(
         unresolvedKeyframes: UnresolvedKeyframes<string | number>,
@@ -152,10 +153,9 @@ export class DOMKeyframesResolver<
             element.getValue(name, measureKeyframe).jump(measureKeyframe, false)
 
             // If display is "none", we need to set it to "block" before measuring
-            // TODO: Reset display after measurement in case it has a delay
-            const display = computedStyle.display
+            this.currentDisplay = computedStyle.display
             const displayMotionValue = element.getValue("display")
-            if (displayMotionValue && display === "none") {
+            if (displayMotionValue && this.currentDisplay === "none") {
                 // TODO: We need to determine what the pending display value actually
                 // is, as this will affect the measurement.
                 displayMotionValue.jump("block", false)
@@ -170,6 +170,12 @@ export class DOMKeyframesResolver<
 
         const value = element.getValue(name)
         value && value.jump(this.measuredOrigin, false)
+
+        const displayMotionValue = element.getValue("display")
+        if (this.currentDisplay && displayMotionValue) {
+            displayMotionValue.jump(this.currentDisplay, false)
+        }
+        this.currentDisplay = undefined
 
         const finalKeyframeIndex = unresolvedKeyframes.length - 1
         const finalKeyframe = unresolvedKeyframes[finalKeyframeIndex]
