@@ -721,4 +721,19 @@ describe("press", () => {
             0.5, 0.75, 1, 1, 1, 1, 1, 1, 1,
         ])
     })
+
+    test("ignore press event when button is disabled", async () => {
+        const press = jest.fn()
+        const Component = () => <motion.button onTap={() => press()} disabled />
+
+        const { container, rerender } = render(<Component />)
+        rerender(<Component />)
+
+        pointerDown(container.firstChild as Element)
+        pointerUp(container.firstChild as Element)
+
+        await nextFrame()
+
+        expect(press).toBeCalledTimes(0)
+    })
 })

@@ -11,6 +11,10 @@ function handlePressEvent(
 ) {
     const { props } = node
 
+    if (node.current instanceof HTMLButtonElement && node.current.disabled) {
+        return
+    }
+
     if (node.animationState && props.whileTap) {
         node.animationState.setActive("whileTap", lifecycle === "Start")
     }
