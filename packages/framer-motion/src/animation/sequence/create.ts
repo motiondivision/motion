@@ -129,6 +129,13 @@ export function createAnimationsFromSequence(
                 ? type
                 : generators?.[type]
 
+            if (process.env.NODE_ENV !== "production" && createGenerator) {
+                invariant(
+                    numKeyframes > 2,
+                    `Only two keyframes currently supported with spring and inertia animations. Trying to animate ${keyframes}`
+                )
+            }
+
             if (numKeyframes <= 2 && createGenerator) {
                 /**
                  * As we're creating an easing function from a spring,
