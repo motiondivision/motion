@@ -20,8 +20,8 @@ export const App = () => {
 
     return (
         <motion.div
-            animate={{ x: state ? 0 : 100 }}
-            transition={{ duration: 1 }}
+            animate={{ scale: [1, 1.25, 0.67, 1] }}
+            transition={{ duration: 1, type: "spring" }}
             style={style}
         />
     )

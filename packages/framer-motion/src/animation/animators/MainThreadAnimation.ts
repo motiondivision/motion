@@ -166,16 +166,19 @@ export class MainThreadAnimation<
         let mirroredGenerator: KeyframeGenerator<T> | undefined
 
         if (
+            process.env.NODE_ENV !== "production" &&
+            generatorFactory !== keyframesGeneratorFactory
+        ) {
+            invariant(
+                keyframes.length <= 2,
+                `Only two keyframes currently supported with spring and inertia animations. Trying to animate ${keyframes}`
+            )
+        }
+
+        if (
             generatorFactory !== keyframesGeneratorFactory &&
             typeof keyframes[0] !== "number"
         ) {
-            if (process.env.NODE_ENV !== "production") {
-                invariant(
-                    keyframes.length === 2,
-                    `Only two keyframes currently supported with spring and inertia animations. Trying to animate ${keyframes}`
-                )
-            }
-
             mapPercentToKeyframes = pipe(
                 percentToProgress,
                 mix(keyframes[0], keyframes[1])

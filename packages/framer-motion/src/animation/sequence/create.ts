@@ -128,7 +128,7 @@ export function createAnimationsFromSequence(
             const createGenerator = isGenerator(type)
                 ? type
                 : generators?.[type]
-
+            console.log(process.env.NODE_ENV, createGenerator)
             if (process.env.NODE_ENV !== "production" && createGenerator) {
                 invariant(
                     numKeyframes > 2,
