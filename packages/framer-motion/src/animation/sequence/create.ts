@@ -128,13 +128,6 @@ export function createAnimationsFromSequence(
             const createGenerator = isGenerator(type)
                 ? type
                 : generators?.[type]
-            console.log(process.env.NODE_ENV, createGenerator)
-            if (process.env.NODE_ENV !== "production" && createGenerator) {
-                invariant(
-                    numKeyframes > 2,
-                    `Only two keyframes currently supported with spring and inertia animations. Trying to animate ${keyframes}`
-                )
-            }
 
             if (numKeyframes <= 2 && createGenerator) {
                 /**
