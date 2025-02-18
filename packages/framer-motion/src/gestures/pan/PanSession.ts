@@ -172,15 +172,7 @@ export class PanSession {
         onSessionStart &&
             onSessionStart(event, getPanInfo(initialInfo, this.history))
 
-        if (
-            event.currentTarget instanceof Element &&
-            event.currentTarget.setPointerCapture &&
-            event.pointerId !== undefined
-        ) {
-            try {
-                event.currentTarget.setPointerCapture(event.pointerId)
-            } catch (e) {}
-        }
+        capturePointer(event, "set")
 
         this.removeListeners = pipe(
             addPointerEvent(
@@ -255,15 +247,7 @@ export class PanSession {
     }
 
     private handlePointerUp = (event: PointerEvent, info: EventInfo) => {
-        if (
-            event.currentTarget instanceof Element &&
-            event.currentTarget.releasePointerCapture &&
-            event.pointerId !== undefined
-        ) {
-            try {
-                event.currentTarget.releasePointerCapture(event.pointerId)
-            } catch (e) {}
-        }
+        capturePointer(event, "release")
 
         this.end()
 
@@ -368,4 +352,20 @@ function getVelocity(history: TimestampedPoint[], timeDelta: number): Point {
     }
 
     return currentVelocity
+}
+
+function capturePointer(event: PointerEvent, action: "set" | "release") {
+    const actionName = `${action}PointerCapture` as
+        | "setPointerCapture"
+        | "releasePointerCapture"
+
+    if (
+        event.currentTarget instanceof Element &&
+        actionName in event.currentTarget &&
+        event.pointerId !== undefined
+    ) {
+        try {
+            event.currentTarget[actionName](event.pointerId)
+        } catch (e) {}
+    }
 }
