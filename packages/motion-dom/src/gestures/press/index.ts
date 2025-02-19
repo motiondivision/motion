@@ -1,6 +1,7 @@
 import { ElementOrSelector } from "../../utils/resolve-elements"
 import { isDragActive } from "../drag/state/is-active"
 import { EventOptions } from "../types"
+import { capturePointer } from "../utils/capture-pointer"
 import { isNodeOrChild } from "../utils/is-node-or-child"
 import { isPrimaryPointer } from "../utils/is-primary-pointer"
 import { setupGesture } from "../utils/setup"
@@ -51,7 +52,6 @@ export function press(
     )
 
     const startPress = (startEvent: PointerEvent) => {
-        const lockTarget = startEvent.target as Element
         const target = startEvent.currentTarget as Element
 
         if (!target || !isValidPressEvent(startEvent) || isPressing.has(target))
@@ -59,14 +59,7 @@ export function press(
 
         isPressing.add(target)
 
-        if (
-            lockTarget.setPointerCapture &&
-            startEvent.pointerId !== undefined
-        ) {
-            try {
-                lockTarget.setPointerCapture(startEvent.pointerId)
-            } catch (e) {}
-        }
+        capturePointer(startEvent, "set")
 
         const onPressEnd = onPressStart(target, startEvent)
 
@@ -74,14 +67,7 @@ export function press(
             target.removeEventListener("pointerup", onPointerUp)
             target.removeEventListener("pointercancel", onPointerCancel)
 
-            if (
-                lockTarget.releasePointerCapture &&
-                endEvent.pointerId !== undefined
-            ) {
-                try {
-                    lockTarget.releasePointerCapture(endEvent.pointerId)
-                } catch (e) {}
-            }
+            capturePointer(endEvent, "release")
 
             if (!isValidPressEvent(endEvent) || !isPressing.has(target)) {
                 return

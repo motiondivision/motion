@@ -1,4 +1,4 @@
-import { isPrimaryPointer } from "motion-dom"
+import { capturePointer, isPrimaryPointer } from "motion-dom"
 import { millisecondsToSeconds, secondsToMilliseconds } from "motion-utils"
 import { addPointerEvent } from "../../events/add-pointer-event"
 import { extractEventInfo } from "../../events/event-info"
@@ -352,20 +352,4 @@ function getVelocity(history: TimestampedPoint[], timeDelta: number): Point {
     }
 
     return currentVelocity
-}
-
-function capturePointer(event: PointerEvent, action: "set" | "release") {
-    const actionName = `${action}PointerCapture` as
-        | "setPointerCapture"
-        | "releasePointerCapture"
-
-    if (
-        event.currentTarget instanceof Element &&
-        actionName in event.currentTarget &&
-        event.pointerId !== undefined
-    ) {
-        try {
-            event.currentTarget[actionName](event.pointerId)
-        } catch (e) {}
-    }
 }
