@@ -51,6 +51,7 @@ export function press(
     )
 
     const startPress = (startEvent: PointerEvent) => {
+        const lockTarget = startEvent.target as Element
         const target = startEvent.currentTarget as Element
 
         if (!target || !isValidPressEvent(startEvent) || isPressing.has(target))
@@ -58,9 +59,12 @@ export function press(
 
         isPressing.add(target)
 
-        if (target.setPointerCapture && startEvent.pointerId !== undefined) {
+        if (
+            lockTarget.setPointerCapture &&
+            startEvent.pointerId !== undefined
+        ) {
             try {
-                target.setPointerCapture(startEvent.pointerId)
+                lockTarget.setPointerCapture(startEvent.pointerId)
             } catch (e) {}
         }
 
@@ -71,11 +75,11 @@ export function press(
             target.removeEventListener("pointercancel", onPointerCancel)
 
             if (
-                target.releasePointerCapture &&
+                lockTarget.releasePointerCapture &&
                 endEvent.pointerId !== undefined
             ) {
                 try {
-                    target.releasePointerCapture(endEvent.pointerId)
+                    lockTarget.releasePointerCapture(endEvent.pointerId)
                 } catch (e) {}
             }
 

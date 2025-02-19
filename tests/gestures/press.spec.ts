@@ -214,6 +214,17 @@ test.describe("press events", () => {
         await page.mouse.up()
         await expect(documentOutput).toHaveValue("cancel")
     })
+
+    test("nested click handlers", async ({ page }) => {
+        const button = page.locator("#press-click-button")
+        const box = await button.boundingBox()
+        if (!box) {
+            throw new Error("Button not found")
+        }
+        await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+        await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2)
+        await expect(button).toHaveText("clicked!")
+    })
 })
 
 test.describe("press accessibility", () => {

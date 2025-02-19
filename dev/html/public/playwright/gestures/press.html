@@ -9,6 +9,9 @@
                 width: 100px;
                 height: 100px;
                 background-color: #0077ff;
+                display: flex;
+                align-items: center;
+                justify-content: center;
             }
 
             .box:focus-visible {
@@ -27,6 +30,9 @@
         <div tabindex="-1" class="box" id="press-no-tab-index-2">press</div>
         <input type="text" id="document-output" value="" />
         <input type="text" id="window-output" value="" />
+        <div class="box" id="press-div-nested">
+            <button id="press-click-button">click</button>
+        </div>
         <script type="module" src="/src/inc.js"></script>
         <script type="module">
             const { press } = window.MotionDOM
@@ -64,6 +70,18 @@
                         : "cancel"
                 }
             })
+
+            press("#press-div-nested", (element) => {
+                return () => {
+                    element.style.backgroundColor = "red"
+                }
+            })
+
+            document
+                .getElementById("press-click-button")
+                .addEventListener("click", ({ currentTarget }) => {
+                    currentTarget.innerHTML = "clicked!"
+                })
 
             press(document, () => {
                 document.getElementById("document-output").value = "start"
