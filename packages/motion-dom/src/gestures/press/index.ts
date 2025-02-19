@@ -52,7 +52,6 @@ export function press(
     )
 
     const startPress = (startEvent: PointerEvent) => {
-        const lockTarget = startEvent.target as Element
         const target = startEvent.currentTarget as Element
 
         if (!target || !isValidPressEvent(startEvent) || isPressing.has(target))
