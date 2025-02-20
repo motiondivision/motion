@@ -10,7 +10,8 @@ import type { ResolvedValues } from "../types"
 import { VisualElement } from "../VisualElement"
 import { HTMLRenderState } from "./types"
 import { buildHTMLStyles } from "./utils/build-styles"
-import { getTransformValue, transformProps } from "./utils/keys-transform"
+import { transformProps } from "./utils/keys-transform"
+import { readTransformValue } from "./utils/parse-matrix"
 import { renderHTML } from "./utils/render"
 import { scrapeMotionValuesFromProps } from "./utils/scrape-motion-values"
 
@@ -31,7 +32,7 @@ export class HTMLVisualElement extends DOMVisualElement<
     ): string | number | null | undefined {
         if (transformProps.has(key)) {
             const defaultType = getDefaultValueType(key)
-            const transformValue = getTransformValue(instance, key)
+            const transformValue = readTransformValue(instance, key)
 
             if (transformValue !== null) {
                 return transformValue
