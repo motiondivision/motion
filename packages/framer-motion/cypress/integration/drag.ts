@@ -27,6 +27,25 @@ describe("Drag", () => {
             })
     })
 
+    it("Drags the element by the defined distance", () => {
+        cy.visit("?test=drag&showChild=true")
+            .get("[data-testid='draggable-child']")
+            .wait(200)
+            .trigger("pointerdown", 5, 5)
+            .trigger("pointermove", 10, 10) // Gesture will start from first move past threshold
+            .wait(50)
+            .trigger("pointermove", 200, 300, { force: true })
+            .wait(50)
+            .trigger("pointerup", { force: true })
+            .should(($draggable: any) => {
+                const draggable = $draggable[0] as HTMLDivElement
+                const { left, top } = draggable.getBoundingClientRect()
+
+                expect(left).to.equal(200)
+                expect(top).to.equal(300)
+            })
+    })
+
     it("Drags the element by the defined distance with different initial offset", () => {
         cy.visit("?test=drag&x=100&y=100")
             .get("[data-testid='draggable']")
