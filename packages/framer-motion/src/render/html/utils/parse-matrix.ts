@@ -61,11 +61,14 @@ export const getTransformValues = (instance: HTMLElement): TransformValues => {
     return result
 }
 
+export function parseValueFromMatrix(
+    transform: string | undefined,
+    key: string
+): number {
+    if (!transform || transform === "none") return key.includes("scale") ? 1 : 0
+}
+
 export const readTransformValue = (instance: HTMLElement, key: string) => {
     const { transform = "none" } = getComputedStyle(instance)
-
-    if (transform === "none") return key.includes("scale") ? 1 : 0
-
-    const values = getTransformValues(instance)
-    return values[key as keyof TransformValues]
+    return parseValueFromMatrix(transform, key)
 }
