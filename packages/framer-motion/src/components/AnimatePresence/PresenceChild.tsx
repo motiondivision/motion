@@ -38,9 +38,6 @@ export const PresenceChild = ({
         (childId: string) => {
             presenceChildren.set(childId, true)
 
-            console.log("complete", childId, presenceChildren)
-            console.trace()
-
             for (const isComplete of presenceChildren.values()) {
                 if (!isComplete) return // can stop searching when any is incomplete
             }
@@ -58,7 +55,6 @@ export const PresenceChild = ({
             custom,
             onExitComplete: memoizedOnExitComplete,
             register: (childId: string) => {
-                console.log("register", childId)
                 presenceChildren.set(childId, false)
                 return () => presenceChildren.delete(childId)
             },
