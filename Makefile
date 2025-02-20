@@ -95,7 +95,7 @@ test-e2e: test-nextjs test-html test-react test-react-19
 	yarn test-playwright
 
 test-single: build test-mkdir
-	yarn start-server-and-test "yarn dev-server" http://localhost:9990 "cd packages/framer-motion && cypress run --headless --spec cypress/integration/layout-shared.ts"
+	yarn start-server-and-test "yarn dev-server" http://localhost:9990 "cd packages/framer-motion && cypress run --headless --spec cypress/integration/animate-presence-layout.ts"
 
 
 lint: bootstrap

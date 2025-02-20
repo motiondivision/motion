@@ -228,12 +228,12 @@ export class PanSession {
 
     private handlePointerMove = (event: PointerEvent, info: EventInfo) => {
         if (
-            event.currentTarget instanceof Element &&
-            event.currentTarget.hasPointerCapture &&
+            event.target instanceof Element &&
+            event.target.hasPointerCapture &&
             event.pointerId !== undefined
         ) {
             try {
-                if (!event.currentTarget.hasPointerCapture(event.pointerId)) {
+                if (!event.target.hasPointerCapture(event.pointerId)) {
                     return
                 }
             } catch (e) {}
