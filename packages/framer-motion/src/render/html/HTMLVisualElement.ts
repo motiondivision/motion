@@ -10,7 +10,7 @@ import type { ResolvedValues } from "../types"
 import { VisualElement } from "../VisualElement"
 import { HTMLRenderState } from "./types"
 import { buildHTMLStyles } from "./utils/build-styles"
-import { transformProps } from "./utils/keys-transform"
+import { getTransformValue, transformProps } from "./utils/keys-transform"
 import { renderHTML } from "./utils/render"
 import { scrapeMotionValuesFromProps } from "./utils/scrape-motion-values"
 
@@ -31,6 +31,15 @@ export class HTMLVisualElement extends DOMVisualElement<
     ): string | number | null | undefined {
         if (transformProps.has(key)) {
             const defaultType = getDefaultValueType(key)
+            const transformValue = getTransformValue(instance, key)
+
+            if (transformValue !== null) {
+                return transformValue
+            }
+
+            // If we could not get a transform value, we return the default value.
+            // This default value might NOT resemble the actual DOM value, resulting in
+            // an animation that has a different starting value than the actual DOM.
             return defaultType ? defaultType.default || 0 : 0
         } else {
             const computedStyle = getComputedStyle(instance)
