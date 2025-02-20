@@ -1,44 +1,35 @@
 import { AnimatePresence, motion } from "framer-motion"
-import { useEffect, useState } from "react"
+import { useState } from "react"
+
+function Component() {
+    const [showChild, setShowChild] = useState(true)
+
+    return (
+        <motion.div>
+            <button id="inner" onClick={() => setShowChild(!showChild)}>
+                Toggle
+            </button>
+            {showChild && <motion.div layout>Hello</motion.div>}
+        </motion.div>
+    )
+}
 
 export const App = () => {
-    const [width, setWidth] = useState(100)
-    const [presenceState, setPresenceState] = useState(true)
-
-    useEffect(() => {
-        if (width === 200) return
-        const timeout = setTimeout(() => {
-            setWidth(50)
-
-            setTimeout(() => {
-                setWidth(200)
-            }, 1000)
-        }, 1000)
-
-        return () => clearTimeout(timeout)
-    }, [width])
-
-    useEffect(() => {
-        setTimeout(() => {
-            setPresenceState(false)
-        }, 2100)
-    }, [presenceState])
+    const [showChild, setShowChild] = useState(true)
 
     return (
         <>
+            <button id="outer" onClick={() => setShowChild(!showChild)}>
+                Toggle outer child
+            </button>
             <AnimatePresence initial={false}>
-                {presenceState && (
-                    <motion.div exit={{ opacity: 0 }}>
-                        <motion.div
-                            layout
-                            style={{
-                                width,
-                                height: 100,
-                                background: "red",
-                            }}
-                        >
-                            Presence
-                        </motion.div>
+                {showChild && (
+                    <motion.div
+                        id="box"
+                        exit={{ opacity: 0 }}
+                        style={{ width: 200, height: 200, background: "red" }}
+                    >
+                        <Component />
                     </motion.div>
                 )}
             </AnimatePresence>

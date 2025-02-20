@@ -49,7 +49,9 @@ export function usePresence(
 
     const id = useId()
     useEffect(() => {
-        if (subscribe) register(id)
+        if (subscribe) {
+            return register(id)
+        }
     }, [subscribe])
 
     const safeToRemove = useCallback(
