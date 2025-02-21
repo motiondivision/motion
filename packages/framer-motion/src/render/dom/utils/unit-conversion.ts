@@ -4,7 +4,7 @@ import { number } from "../../../value/types/numbers"
 import { px } from "../../../value/types/numbers/units"
 import { ValueType } from "../../../value/types/types"
 import { transformPropOrder } from "../../html/utils/keys-transform"
-import { parseValueFromMatrix } from "../../html/utils/parse-matrix"
+import { parseValueFromTransform } from "../../html/utils/parse-transform"
 import type { VisualElement } from "../../VisualElement"
 
 export const isNumOrPxType = (v?: ValueType): v is ValueType =>
@@ -51,8 +51,8 @@ export const positionalValues: { [key: string]: GetActualMeasurementInPixels } =
             parseFloat(left as string) + (x.max - x.min),
 
         // Transform
-        x: (_bbox, { transform }) => parseValueFromMatrix(transform, "x"),
-        y: (_bbox, { transform }) => parseValueFromMatrix(transform, "y"),
+        x: (_bbox, { transform }) => parseValueFromTransform(transform, "x"),
+        y: (_bbox, { transform }) => parseValueFromTransform(transform, "y"),
     }
 
 // Alias translate longform names

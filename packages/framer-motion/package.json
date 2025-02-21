@@ -80,7 +80,7 @@
         "dev": "yarn watch",
         "clean": "rm -rf types dist lib",
         "test": "yarn test-server && yarn test-client",
-        "test-client": "jest --config jest.config.json --max-workers=2",
+        "test-client": "jest --config jest.config.json --max-workers=2 parse-transform",
         "test-server": "jest --config jest.config.ssr.json",
         "prettier": "prettier ./src/* --write",
         "watch": "concurrently -c blue,red -n tsc --noEmitOnError ,rollup --kill-others \"tsc  --noEmitOnError --watch -p . --preserveWatchOutput\" \"rollup --config --watch --no-watch.clearScreen\"",
@@ -94,6 +94,7 @@
         "tslib": "^2.4.0"
     },
     "devDependencies": {
+        "@thednp/dommatrix": "^2.0.11",
         "@types/three": "0.137.0",
         "three": "0.137.0"
     },

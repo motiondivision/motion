@@ -5,13 +5,12 @@ import { measureViewportBox } from "../../projection/utils/measure"
 import { DOMVisualElement } from "../dom/DOMVisualElement"
 import { DOMVisualElementOptions } from "../dom/types"
 import { isCSSVariableName } from "../dom/utils/is-css-variable"
-import { getDefaultValueType } from "../dom/value-types/defaults"
 import type { ResolvedValues } from "../types"
 import { VisualElement } from "../VisualElement"
 import { HTMLRenderState } from "./types"
 import { buildHTMLStyles } from "./utils/build-styles"
 import { transformProps } from "./utils/keys-transform"
-import { readTransformValue } from "./utils/parse-matrix"
+import { readTransformValue } from "./utils/parse-transform"
 import { renderHTML } from "./utils/render"
 import { scrapeMotionValuesFromProps } from "./utils/scrape-motion-values"
 
@@ -31,17 +30,7 @@ export class HTMLVisualElement extends DOMVisualElement<
         key: string
     ): string | number | null | undefined {
         if (transformProps.has(key)) {
-            const defaultType = getDefaultValueType(key)
-            const transformValue = readTransformValue(instance, key)
-
-            if (transformValue !== null) {
-                return transformValue
-            }
-
-            // If we could not get a transform value, we return the default value.
-            // This default value might NOT resemble the actual DOM value, resulting in
-            // an animation that has a different starting value than the actual DOM.
-            return defaultType ? defaultType.default || 0 : 0
+            return readTransformValue(instance, key)
         } else {
             const computedStyle = getComputedStyle(instance)
             const value =
