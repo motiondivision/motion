@@ -176,6 +176,29 @@ describe("Layout animation", () => {
             })
     })
 
+    it("Child correctly animates when layoutDependency changes", () => {
+        let initialBbox: BoundingBox
+
+        cy.visit("?test=layout-dependency-child")
+            .wait(50)
+            .get("#child")
+            .should(([$child]: any) => {
+                initialBbox = $child.getBoundingClientRect()
+            })
+            .get("button")
+            .trigger("click")
+            .wait(100)
+            .get("#child")
+            .should(([$childAfter]: any) => {
+                const afterBbox = $childAfter.getBoundingClientRect()
+
+                expect(afterBbox.top).to.equal(initialBbox.top)
+                expect(afterBbox.left).to.equal(initialBbox.left)
+                expect(afterBbox.width).to.equal(initialBbox.width)
+                expect(afterBbox.height).to.equal(initialBbox.height)
+            })
+    })
+
     it("Has a correct bounding box when a transform is applied", () => {
         cy.visit("?test=layout-scaled-child-in-transformed-parent")
             .wait(50)
