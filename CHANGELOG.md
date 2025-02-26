@@ -4,6 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.4.8] 2025-02-26
+
+### Fixed
+
+-   Fixed exiting children with `layoutDependency` not animating layout changes because of a stale layout dependency.
+
 ## [12.4.7] 2025-02-20
 
 ### Fixed

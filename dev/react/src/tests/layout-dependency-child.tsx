@@ -28,12 +28,8 @@ export function App() {
     }
 
     const deps = {
-        // Works if you change -1 to undefined
-        // Breaks with any number, not just -1
         layoutDependency: animating ? transitionId : -1,
     }
-
-    console.log(deps.layoutDependency)
 
     return (
         <>

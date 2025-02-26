@@ -176,7 +176,7 @@ describe("Layout animation", () => {
             })
     })
 
-    it("Child correctly animates when layoutDependency changes", () => {
+    it("Exiting children correctly animate when layoutDependency changes", () => {
         let initialBbox: BoundingBox
 
         cy.visit("?test=layout-dependency-child")
