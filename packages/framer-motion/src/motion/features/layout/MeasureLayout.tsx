@@ -1,6 +1,5 @@
 "use client"
 
-import { frame } from "../../../frameloop"
 import { Component, useContext } from "react"
 import { usePresence } from "../../../components/AnimatePresence/use-presence"
 import {
@@ -8,13 +7,14 @@ import {
     LayoutGroupContextProps,
 } from "../../../context/LayoutGroupContext"
 import { SwitchLayoutGroupContext } from "../../../context/SwitchLayoutGroupContext"
+import { frame } from "../../../frameloop"
+import { microtask } from "../../../frameloop/microtask"
 import { globalProjectionState } from "../../../projection/node/state"
 import { correctBorderRadius } from "../../../projection/styles/scale-border-radius"
 import { correctBoxShadow } from "../../../projection/styles/scale-box-shadow"
 import { addScaleCorrector } from "../../../projection/styles/scale-correction"
-import { MotionProps } from "../../types"
 import { VisualElement } from "../../../render/VisualElement"
-import { microtask } from "../../../frameloop/microtask"
+import { MotionProps } from "../../types"
 
 interface MeasureContextProps {
     layoutGroup: LayoutGroupContextProps
@@ -77,7 +77,8 @@ class MeasureLayoutWithContext extends Component<MeasureProps> {
         if (
             drag ||
             prevProps.layoutDependency !== layoutDependency ||
-            layoutDependency === undefined
+            layoutDependency === undefined ||
+            prevProps.isPresent !== isPresent
         ) {
             projection.willUpdate()
         } else {
