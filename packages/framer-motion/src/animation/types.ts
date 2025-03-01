@@ -56,7 +56,7 @@ export interface AnimationControls {
      * ```
      *
      * @param definition - Properties or variant label to animate to
-     * @param transition - Optional `transtion` to apply to a variant
+     * @param transition - Optional `transition` to apply to a variant
      * @returns - A `Promise` that resolves when all animations have completed.
      *
      * @public

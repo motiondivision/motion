@@ -149,7 +149,7 @@ export class AcceleratedAnimation<
     }
 
     /**
-     * An AnimationTimline to attach to the WAAPI animation once it's created.
+     * An AnimationTimeline to attach to the WAAPI animation once it's created.
      */
     private pendingTimeline: AnimationTimeline | undefined
 

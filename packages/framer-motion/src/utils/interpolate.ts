@@ -50,7 +50,7 @@ function createMixers<T>(
  * mixColor(0.5) // 'rgba(128, 128, 128, 1)'
  * ```
  *
- * TODO Revist this approach once we've moved to data models for values,
+ * TODO: Revisit this approach once we've moved to data models for values,
  * probably not needed to pregenerate mixer functions.
  *
  * @public
