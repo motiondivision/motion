@@ -163,7 +163,7 @@ export interface DraggableProps extends DragHandlers {
      * Applies constraints on the permitted draggable area.
      *
      * It can accept an object of optional `top`, `left`, `right`, and `bottom` values, measured in pixels.
-     * This will define a distance the named edge of the draggable component.
+     * This will define a distance from the named edge of the draggable component.
      *
      * Alternatively, it can accept a `ref` to another component created with React's `useRef` hook.
      * This `ref` should be passed both to the draggable component's `dragConstraints` prop, and the `ref`
@@ -226,7 +226,7 @@ export interface DraggableProps extends DragHandlers {
     /**
      * Allows you to change dragging inertia parameters.
      * When releasing a draggable Frame, an animation with type `inertia` starts. The animation is based on your dragging velocity. This property allows you to customize it.
-     * See {@link https://framer.com/api/animation/#inertia | Inertia} for all properties you can use.
+     * See {@link https://motion.dev/api/animation/docs/react-motion-component#dragtransition | Inertia} for all properties you can use.
      *
      * ```jsx
      * <motion.div

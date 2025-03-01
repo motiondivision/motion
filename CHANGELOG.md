@@ -4,6 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.4.8] 2025-03-01
+
+### Fixed
+
+-   Fixed various typos in the type definitions along with a stale documentation link.
+
 ## [12.4.7] 2025-02-20
 
 ### Fixed
