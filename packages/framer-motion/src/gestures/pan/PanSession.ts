@@ -195,18 +195,19 @@ export class PanSession {
             addPointerEvent(
                 event.currentTarget!,
                 "lostpointercapture",
-                (e, newInfo) => {
+                (lostPointerEvent, lostPointerInfo) => {
+                    const index = getElementIndex(
+                        lostPointerEvent.currentTarget as Element
+                    )
+
                     /**
                      * If the pointer has lost capture because it's moved in the DOM
                      * then we need to re-capture it.
                      */
-                    if (
-                        getElementIndex(e.currentTarget as Element) !==
-                        this.index
-                    ) {
-                        capturePointer(e, "set")
+                    if (index !== this.index) {
+                        capturePointer(lostPointerEvent, "set")
                     } else {
-                        this.handlePointerUp(e, newInfo)
+                        this.handlePointerUp(lostPointerEvent, lostPointerInfo)
                     }
                 }
             )
