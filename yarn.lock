@@ -2910,6 +2910,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@thednp/dommatrix@npm:^2.0.11":
+  version: 2.0.11
+  resolution: "@thednp/dommatrix@npm:2.0.11"
+  checksum: a78a6a47d0f59b6e01e146676251148f3126f8c28120d72bf08e44c817b42d940db1bc1c6f0a5474429120c8111d8910abc8f13325fc57abe1143458390be94c
+  languageName: node
+  linkType: hard
+
 "@tootallnate/once@npm:1":
   version: 1.1.2
   resolution: "@tootallnate/once@npm:1.1.2"
@@ -6926,6 +6933,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "framer-motion@workspace:packages/framer-motion"
   dependencies:
+    "@thednp/dommatrix": ^2.0.11
     "@types/three": 0.137.0
     motion-dom: ^12.4.11
     motion-utils: ^12.4.10
