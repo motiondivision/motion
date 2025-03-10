@@ -47,6 +47,9 @@ export function animateElements(
 
             valueOptions.delay = secondsToMilliseconds(valueOptions.delay || 0)
 
+            valueOptions.allowFlatten =
+                !elementTransition.type && !elementTransition.ease
+
             animations.push(
                 new NativeAnimation(
                     element,

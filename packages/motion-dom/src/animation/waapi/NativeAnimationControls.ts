@@ -90,7 +90,7 @@ export class NativeAnimationControls
     }
 
     flatten() {
-        if (!this.animation) return
+        if (!this.animation || !this.options?.allowFlatten) return
 
         this.animation.effect?.updateTiming({ easing: "linear" })
     }

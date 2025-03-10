@@ -206,6 +206,7 @@ export abstract class BaseAnimation<T extends string | number, Resolved>
     }
 
     flatten() {
+        if (!this.options.allowFlatten) return
         this.options.type = "keyframes"
         this.options.ease = "linear"
     }

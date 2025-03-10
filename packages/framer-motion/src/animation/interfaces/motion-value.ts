@@ -65,7 +65,7 @@ export const animateMotionValue =
 
         /**
          * If there's no transition defined for this value, we can generate
-         * unqiue transition settings for this value.
+         * unique transition settings for this value.
          */
         if (!isTransitionDefined(valueTransition)) {
             options = {
@@ -111,6 +111,12 @@ export const animateMotionValue =
             options.duration = 0
             options.delay = 0
         }
+
+        /**
+         * If the transition type or easing has been explicitly set by the user
+         * then we don't want to allow flattening the animation.
+         */
+        options.allowFlatten = !valueTransition.type && !valueTransition.ease
 
         /**
          * If we can or must skip creating the animation, and apply only
