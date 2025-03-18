@@ -3,70 +3,60 @@ import type { ViewTransitionBuilder } from "."
 import { microtask } from "../frameloop/microtask"
 import { startViewAnimation } from "./start"
 
-interface ViewAnimationQueue {
-    builders: ViewTransitionBuilder[]
-    add: (builder: ViewTransitionBuilder) => void
-    next: () => void
-    start: (builder: ViewTransitionBuilder) => void
-    processQueue: () => void
+let builders: ViewTransitionBuilder[] = []
+
+let current: ViewTransitionBuilder | null = null
+
+function next() {
+    current = null
+    const [nextBuilder] = builders
+    if (nextBuilder) start(nextBuilder)
 }
 
-export const queue: ViewAnimationQueue = {
-    builders: [],
+function start(builder: ViewTransitionBuilder) {
+    removeItem(builders, builder)
+    current = builder
+    startViewAnimation(builder).then((animation) => {
+        builder.notifyReady(animation)
+        animation.finished.finally(next)
+    })
+}
 
-    add(builder: ViewTransitionBuilder) {
-        queue.builders.push(builder)
-        microtask.render(queue.processQueue)
-    },
+function processQueue() {
+    /**
+     * Iterate backwards over the builders array. We can ignore the
+     * "wait" animations. If we have an interrupting animation in the
+     * queue then we need to batch all preceeding animations into it.
+     * Currently this only batches the update functions but will also
+     * need to batch the targets.
+     */
+    for (let i = builders.length - 1; i >= 0; i--) {
+        const builder = builders[i]
+        const { interrupt } = builder.options
 
-    processQueue() {
-        /**
-         * Iterate backwards over the builders array. We can ignore the
-         * "wait" animations. If we have an interrupting animation in the
-         * queue then we need to batch all preceeding animations into it.
-         * Currently this only batches the update functions but will also
-         * need to batch the targets.
-         */
-        for (let i = queue.builders.length - 1; i >= 0; i--) {
-            const builder = queue.builders[i]
-            const { interrupt } = builder.options
+        if (interrupt === "immediate") {
+            const batched = builders.slice(0, i + 1).map((b) => b.update)
+            const remaining = builders.slice(i + 1)
 
-            if (interrupt === "immediate") {
-                const batched = queue.builders
-                    .slice(0, i + 1)
-                    .map((b) => b.update)
-                const remaining = queue.builders.slice(i + 1)
-
-                builder.update = () => {
-                    batched.forEach(triggerUpdate)
-                }
-
-                // Put the current builder at the front, followed by any "wait" builders
-                queue.builders = [builder, ...remaining]
-
-                break
+            builder.update = () => {
+                batched.forEach(triggerUpdate)
             }
+
+            // Put the current builder at the front, followed by any "wait" builders
+            builders = [builder, ...remaining]
+
+            break
         }
+    }
 
-        // TODO Only trigger next if there's not a currently running animation
-        // unless we're interrupting one
-        queue.next()
-    },
+    if (!current || builders[0]?.options.interrupt === "immediate") {
+        next()
+    }
+}
 
-    next() {
-        const [nextBuilder] = queue.builders
-        if (nextBuilder) queue.start(nextBuilder)
-    },
-
-    start(builder: ViewTransitionBuilder) {
-        removeItem(queue.builders, builder)
-        startViewAnimation(builder).then((animation) => {
-            builder.notifyReady(animation)
-            animation.finished.then(() => {
-                queue.next()
-            })
-        })
-    },
+export function addToQueue(builder: ViewTransitionBuilder) {
+    builders.push(builder)
+    microtask.render(processQueue)
 }
 
 function triggerUpdate(update: VoidFunction) {

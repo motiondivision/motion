@@ -1,7 +1,7 @@
 import { noop } from "motion-utils"
 import type { BaseGroupPlaybackControls } from "../animation/controls/BaseGroup"
 import { AnimationOptions, DOMKeyframesDefinition } from "../animation/types"
-import { queue } from "./queue"
+import { addToQueue } from "./queue"
 import { Target, ViewTransitionOptions, ViewTransitionTarget } from "./types"
 import "./types.global"
 
@@ -29,7 +29,7 @@ export class ViewTransitionBuilder {
             interrupt: "wait",
             ...options,
         }
-        queue.add(this)
+        addToQueue(this)
     }
 
     get(selector: Target) {

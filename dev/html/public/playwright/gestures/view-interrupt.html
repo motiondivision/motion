@@ -66,19 +66,12 @@
             runAnimation("b", "immediate")
             runAnimation("a")
 
-            /**
-             * TODO: This will currently not work with delay
-             */
-
-            // TODO: What happens if we await animation controls that never
-            // arrive?
-
-            // delay(() => {
-            //     runAnimation("b", "immediate")
-            //     runAnimation("a")
-            //     runAnimation("b")
-            //     runAnimation("a")
-            // }, 1.3)
+            delay(() => {
+                runAnimation("b", "immediate")
+                // runAnimation("a")
+                // runAnimation("b")
+                // runAnimation("a")
+            }, 1.3)
         </script>
     </body>
 </html>
