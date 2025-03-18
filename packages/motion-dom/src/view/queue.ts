@@ -35,11 +35,11 @@ function processQueue() {
         const { interrupt } = builder.options
 
         if (interrupt === "immediate") {
-            const batched = builders.slice(0, i + 1).map((b) => b.update)
+            const batchedUpdates = builders.slice(0, i + 1).map((b) => b.update)
             const remaining = builders.slice(i + 1)
 
             builder.update = () => {
-                batched.forEach(triggerUpdate)
+                batchedUpdates.forEach((update) => update())
             }
 
             // Put the current builder at the front, followed by any "wait" builders
@@ -57,8 +57,4 @@ function processQueue() {
 export function addToQueue(builder: ViewTransitionBuilder) {
     builders.push(builder)
     microtask.render(processQueue)
-}
-
-function triggerUpdate(update: VoidFunction) {
-    update()
 }
