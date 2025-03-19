@@ -6,7 +6,7 @@ import { buildSVGPath } from "./path"
 import { calcSVGTransformOrigin } from "./transform-origin"
 
 /**
- * Build SVG visual attrbutes, like cx and style.transform
+ * Build SVG visual attributes, like cx and style.transform
  */
 export function buildSVGAttrs(
     state: SVGRenderState,
