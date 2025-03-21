@@ -6,7 +6,8 @@ import { NativeAnimationControls } from "../animation/waapi/NativeAnimationContr
 import { PseudoAnimation } from "../animation/waapi/PseudoAnimation"
 import { applyGeneratorOptions } from "../animation/waapi/utils/convert-options"
 import { mapEasingToNativeEasing } from "../animation/waapi/utils/easing"
-import { Target, ViewTransitionOptions, ViewTransitionTarget } from "./types"
+import type { ViewTransitionBuilder } from "./index"
+import { ViewTransitionTarget } from "./types"
 import { chooseLayerType } from "./utils/choose-layer-type"
 import { css } from "./utils/css"
 import { getLayerName } from "./utils/get-layer-name"
@@ -16,10 +17,10 @@ import { hasTarget } from "./utils/has-target"
 const definitionNames = ["layout", "enter", "exit", "new", "old"] as const
 
 export function startViewAnimation(
-    update: () => void | Promise<void>,
-    defaultOptions: ViewTransitionOptions,
-    targets: Map<Target, ViewTransitionTarget>
+    builder: ViewTransitionBuilder
 ): Promise<BaseGroupPlaybackControls> {
+    const { update, targets, options: defaultOptions } = builder
+
     if (!document.startViewTransition) {
         return new Promise(async (resolve) => {
             await update()

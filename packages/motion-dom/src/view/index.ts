@@ -1,22 +1,20 @@
 import { noop } from "motion-utils"
 import type { BaseGroupPlaybackControls } from "../animation/controls/BaseGroup"
 import { AnimationOptions, DOMKeyframesDefinition } from "../animation/types"
-import { startViewAnimation } from "./start"
+import { addToQueue } from "./queue"
 import { Target, ViewTransitionOptions, ViewTransitionTarget } from "./types"
 import "./types.global"
 
-/**
- * TODO:
- * - Create view transition on next tick
- * - Replace animations with Motion animations
- * - Return GroupAnimation on next tick
- */
 export class ViewTransitionBuilder {
     private currentTarget: Target = "root"
 
-    private targets = new Map<Target, ViewTransitionTarget>()
+    targets = new Map<Target, ViewTransitionTarget>()
 
-    private notifyReady: (value: BaseGroupPlaybackControls) => void = noop
+    update: () => void | Promise<void>
+
+    options: ViewTransitionOptions
+
+    notifyReady: (value: BaseGroupPlaybackControls) => void = noop
 
     private readyPromise = new Promise<BaseGroupPlaybackControls>((resolve) => {
         this.notifyReady = resolve
@@ -26,11 +24,12 @@ export class ViewTransitionBuilder {
         update: () => void | Promise<void>,
         options: ViewTransitionOptions = {}
     ) {
-        queueMicrotask(() => {
-            startViewAnimation(update, options, this.targets).then(
-                (animation) => this.notifyReady(animation)
-            )
-        })
+        this.update = update
+        this.options = {
+            interrupt: "wait",
+            ...options,
+        }
+        addToQueue(this)
     }
 
     get(selector: Target) {
@@ -97,7 +96,7 @@ export class ViewTransitionBuilder {
     }
 }
 
-export function view(
+export function animateView(
     update: () => void | Promise<void>,
     defaultOptions: ViewTransitionOptions = {}
 ) {

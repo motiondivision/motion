@@ -13,6 +13,8 @@ export type ViewTransitionTarget = {
     old?: ViewTransitionAnimationDefinition
 }
 
-export interface ViewTransitionOptions extends AnimationOptions {}
+export interface ViewTransitionOptions extends AnimationOptions {
+    interrupt?: "wait" | "immediate"
+}
 
 export type Target = string | Element

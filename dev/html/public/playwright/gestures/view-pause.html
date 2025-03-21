@@ -27,7 +27,7 @@
         </main>
         <script type="module" src="/src/inc.js"></script>
         <script type="module">
-            const { press, view } = window.MotionDOM
+            const { press, animateView } = window.MotionDOM
             const { scroll, spring } = window.Motion
 
             const update = () => {
@@ -41,7 +41,7 @@
             }
 
             async function runAnimation() {
-                const animation = await view(update, {
+                const animation = await animateView(update, {
                     type: spring,
                     visualDuration: 2,
                     bounce: 0.4,
