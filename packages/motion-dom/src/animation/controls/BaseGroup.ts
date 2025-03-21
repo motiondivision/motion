@@ -116,7 +116,7 @@ export class BaseGroupPlaybackControls
         this.runAll("pause")
     }
 
-    // Bound to accomodate common `return animation.stop` pattern
+    // Bound to accommodate common `return animation.stop` pattern
     stop = () => this.runAll("stop")
 
     cancel() {
