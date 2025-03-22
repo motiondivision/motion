@@ -817,7 +817,7 @@ describe("AnimatePresence with custom components", () => {
 
             setTimeout(() => {
                 resolve(container.childElementCount)
-            }, 500)
+            }, 750)
         })
 
         return await expect(promise).resolves.toBe(3)

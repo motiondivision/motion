@@ -17,6 +17,7 @@ interface Props {
     children: React.ReactElement
     isPresent: boolean
     anchorX?: "left" | "right"
+    root?: HTMLElement | ShadowRoot
 }
 
 interface MeasureProps extends Props {
@@ -57,7 +58,7 @@ class PopChildMeasure extends React.Component<MeasureProps> {
     }
 }
 
-export function PopChild({ children, isPresent, anchorX }: Props) {
+export function PopChild({ children, isPresent, anchorX, root }: Props) {
     const id = useId()
     const ref = useRef<HTMLElement>(null)
     const size = useRef<Size>({
@@ -88,7 +89,8 @@ export function PopChild({ children, isPresent, anchorX }: Props) {
 
         const style = document.createElement("style")
         if (nonce) style.nonce = nonce
-        document.head.appendChild(style)
+        const parent = root ?? document.head;
+        parent.appendChild(style)
         if (style.sheet) {
             style.sheet.insertRule(`
           [data-motion-pop-id="${id}"] {
@@ -102,7 +104,7 @@ export function PopChild({ children, isPresent, anchorX }: Props) {
         }
 
         return () => {
-            document.head.removeChild(style)
+            parent.removeChild(style)
         }
     }, [isPresent])
 
