@@ -82,7 +82,7 @@ export interface AnimationPlaybackControls {
         fallback?: (
             animation:
                 | AnimationPlaybackControls
-                | AnimationPlaybackControlsWithFinished
+                | ThennableAnimationPlaybackControls
         ) => VoidFunction
     ) => VoidFunction
 
@@ -93,12 +93,13 @@ export interface AnimationPlaybackControls {
      * ensure an animation is being scrubbed by progress rather than eased time.
      */
     flatten: () => void
+
+    finished: Promise<any>
 }
 
-export type AnimationPlaybackControlsWithFinished = Omit<
-    AnimationPlaybackControls,
-    "then"
-> & { finished: Promise<any> }
+export type ThennableAnimationPlaybackControls = AnimationPlaybackControls & {
+    then: (onResolve: VoidFunction, onReject?: VoidFunction) => Promise<void>
+}
 
 export interface AnimationState<V> {
     value: V
