@@ -55,6 +55,7 @@ export { useTime } from "./value/use-time"
 export { useTransform } from "./value/use-transform"
 export { useVelocity } from "./value/use-velocity"
 export { useWillChange } from "./value/use-will-change"
+export { WillChangeMotionValue } from "./value/use-will-change/WillChangeMotionValue"
 export { resolveMotionValue } from "./value/utils/resolve-motion-value"
 
 /**
