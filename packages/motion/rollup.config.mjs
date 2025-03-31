@@ -107,7 +107,7 @@ const cjs = Object.assign({}, config, {
 })
 
 /**
- * Bundle seperately so bundles don't share common modules
+ * Bundle separately so bundles don't share common modules
  */
 const cjsReact = Object.assign({}, cjs, { input : "lib/react.js" })
 const cjsMini = Object.assign({}, cjs, { input : "lib/mini.js" })
