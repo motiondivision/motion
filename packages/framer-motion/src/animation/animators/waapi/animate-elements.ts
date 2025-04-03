@@ -46,7 +46,6 @@ export function animateElements(
             valueOptions.duration &&= secondsToMilliseconds(
                 valueOptions.duration
             )
-
             valueOptions.delay &&= secondsToMilliseconds(valueOptions.delay)
 
             animations.push(

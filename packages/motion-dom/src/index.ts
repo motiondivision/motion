@@ -13,7 +13,7 @@ export * from "./animation/waapi/easing/is-supported"
 export * from "./animation/waapi/easing/map-easing"
 export * from "./animation/waapi/easing/supported"
 export * from "./animation/waapi/start-waapi-animation"
-export * from "./animation/waapi/utils/attach-timeline"
+export * from "./animation/waapi/supports/waapi"
 export * from "./animation/waapi/utils/linear"
 
 export * from "./frameloop"

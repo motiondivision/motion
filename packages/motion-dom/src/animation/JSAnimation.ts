@@ -1,162 +1,16 @@
-import {
-    activeAnimations,
-    calcGeneratorDuration,
-    isGenerator,
-    ValueAnimationOptions,
-} from "motion-dom"
-import {
-    invariant,
-    millisecondsToSeconds,
-    secondsToMilliseconds,
-} from "motion-utils"
-import { clamp } from "../../../../motion-utils/src/clamp"
-import {
-    KeyframeResolver as DefaultKeyframeResolver,
-    ResolvedKeyframes,
-} from "../../render/utils/KeyframesResolver"
-import { mix } from "../../utils/mix"
-import { pipe } from "../../utils/pipe"
-import { inertia } from "../generators/inertia"
-import { keyframes as keyframesGeneratorFactory } from "../generators/keyframes"
-import { spring } from "../generators/spring/index"
-import { AnimationState, KeyframeGenerator } from "../generators/types"
-import { ValueAnimationOptionsWithRenderContext } from "../types"
-import { BaseAnimation } from "./BaseAnimation"
-import { frameloopDriver } from "./drivers/driver-frameloop"
-import { DriverControls } from "./drivers/types"
-import { getFinalKeyframe } from "./waapi/utils/get-final-keyframe"
+import { AnimationPlaybackControls } from "./types"
 
-type GeneratorFactory = (
-    options: ValueAnimationOptions<any>
-) => KeyframeGenerator<any>
-
-const generators: { [key: string]: GeneratorFactory } = {
-    decay: inertia,
-    inertia,
-    tween: keyframesGeneratorFactory,
-    keyframes: keyframesGeneratorFactory,
-    spring,
+export interface JSAnimationOptions {
+    keyframes: ResolvedKeyframes<any>
 }
 
-const percentToProgress = (percent: number) => percent / 100
-
-interface ResolvedData<T extends string | number> {
-    generator: KeyframeGenerator<T>
-    mirroredGenerator: KeyframeGenerator<T> | undefined
-    mapPercentToKeyframes: ((v: number) => T) | undefined
-
-    /**
-     * Duration of the animation as calculated by the generator.
-     */
-    calculatedDuration: number
-
-    /**
-     * Duration of the animation plus repeatDelay.
-     */
-    resolvedDuration: number
-
-    /**
-     * Total duration of the animation including repeats.
-     */
-    totalDuration: number
-}
-
-/**
- * Animation that runs on the main thread. Designed to be WAAPI-spec in the subset of
- * features we expose publically. Mostly the compatibility is to ensure visual identity
- * between both WAAPI and main thread animations.
- */
-export class MainThreadAnimation<
-    T extends string | number
-> extends BaseAnimation<T, ResolvedData<T>> {
-    /**
-     * The driver that's controlling the animation loop. Normally this is a requestAnimationFrame loop
-     * but in tests we can pass in a synchronous loop.
-     */
-    private driver?: DriverControls
-
-    /**
-     * The time at which the animation was paused.
-     */
-    private holdTime: number | null = null
-
-    /**
-     * The time at which the animation was cancelled.
-     */
-    private cancelTime: number | null = null
-
-    /**
-     * The current time of the animation.
-     */
-    private currentTime: number = 0
-
-    /**
-     * Playback speed as a factor. 0 would be stopped, -1 reverse and 2 double speed.
-     */
-    private playbackSpeed = 1
-
-    /**
-     * The state of the animation to apply when the animation is resolved. This
-     * allows calls to the public API to control the animation before it is resolved,
-     * without us having to resolve it first.
-     */
-    private pendingPlayState: AnimationPlayState = "running"
-
-    /**
-     * The time at which the animation was started.
-     */
-    startTime: number | null = null
-
-    constructor(options: ValueAnimationOptions<T>) {
-        super(options)
-
-        const { name, motionValue, element, keyframes } = this.options
-
-        const KeyframeResolver =
-            element?.KeyframeResolver || DefaultKeyframeResolver
-
-        const onResolved = (
-            resolvedKeyframes: ResolvedKeyframes<T>,
-            finalKeyframe: T
-        ) => this.onKeyframesResolved(resolvedKeyframes, finalKeyframe)
-
-        this.resolver = new KeyframeResolver(
-            keyframes,
-            onResolved,
-            name,
-            motionValue,
-            element
-        )
-
-        this.resolver.scheduleResolve()
-    }
-
-    flatten() {
-        super.flatten()
-
-        // If we've already resolved the animation, re-initialise it
-        if (this._resolved) {
-            Object.assign(
-                this._resolved,
-                this.initPlayback(this._resolved.keyframes)
-            )
-        }
-    }
-
-    protected initPlayback(keyframes: ResolvedKeyframes<T>) {
-        const {
-            type = "keyframes",
-            repeat = 0,
-            repeatDelay = 0,
-            repeatType,
-            velocity = 0,
-        } = this.options
-
+export class JSAnimation implements AnimationPlaybackControls {
+    constructor(options: JSAnimationOptions) {
         const generatorFactory = isGenerator(type)
             ? type
             : generators[type] || keyframesGeneratorFactory
 
-        /**
+        /*
          * If our generator doesn't support mixing numbers, we need to replace keyframes with
          * [0, 100] and then make a function that maps that to the actual keyframes.
          *
@@ -217,17 +71,6 @@ export class MainThreadAnimation<
         const resolvedDuration = calculatedDuration + repeatDelay
         const totalDuration = resolvedDuration * (repeat + 1) - repeatDelay
 
-        return {
-            generator,
-            mirroredGenerator,
-            mapPercentToKeyframes,
-            calculatedDuration,
-            resolvedDuration,
-            totalDuration,
-        }
-    }
-
-    onPostResolved() {
         const { autoplay = true } = this.options
 
         activeAnimations.mainThread++
@@ -411,6 +254,15 @@ export class MainThreadAnimation<
 
     state: AnimationPlayState = "idle"
 
+    /**
+     * Allows the returned animation to be awaited or promise-chained. Currently
+     * resolves when the animation finishes at all but in a future update could/should
+     * reject if its cancels.
+     */
+    then(resolve: VoidFunction, reject?: VoidFunction) {
+        return this.currentFinishedPromise.then(resolve, reject)
+    }
+
     get duration() {
         const { resolved } = this
         return resolved ? millisecondsToSeconds(resolved.calculatedDuration) : 0
@@ -560,6 +412,16 @@ export class MainThreadAnimation<
     get finished() {
         return this.currentFinishedPromise
     }
+
+    // flatten() {
+    // if (!this.options.allowFlatten) return
+    // this.options.type = "keyframes"
+    // this.options.ease = "linear"
+    //     Object.assign(
+    //         this._resolved,
+    //         this.initPlayback(this._resolved.keyframes)
+    //     )
+    // }
 }
 
 // Legacy interface

@@ -1,6 +1,16 @@
 import { time } from "../frameloop/sync-time"
 import { AnimationPlaybackControls } from "./types"
 
+/**
+ * Maximum time allowed between an animation being created and it being
+ * resolved for us to use the latter as the start time.
+ *
+ * This is to ensure that while we prefer to "start" an animation as soon
+ * as it's triggered, we also want to avoid a visual jump if there's a big delay
+ * between these two moments.
+ */
+const MAX_RESOLVE_DELAY = 40
+
 export class AsyncMotionValueAnimation implements AnimationPlaybackControls {
     constructor(options: AsyncAnimationOptions) {
         this.createdAt = time.now()
@@ -39,6 +49,16 @@ export class AsyncMotionValueAnimation implements AnimationPlaybackControls {
         if (!motionValue.owner || !motionValue.owner.current) {
             return false // TODO: Return a shell JSAnimation
         }
+
+        /**
+         * Animate via WAAPI if possible. If this is a handoff animation, the optimised animation will be running via
+         * WAAPI. Therefore, this animation must be JS to ensure it runs "under" the
+         * optimised animation.
+         */
+        const animation =
+            !isHandoff && supportsBrowserAnimation(options)
+                ? new AcceleratedAnimation(options)
+                : new MainThreadAnimation(options)
 
         // TODO: Pass this as an option to be respected by NativeAnimation
         // and JSAnimation
