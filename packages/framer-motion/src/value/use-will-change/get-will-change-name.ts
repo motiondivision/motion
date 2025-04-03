@@ -1,4 +1,4 @@
-import { acceleratedValues } from "../../animation/animators/utils/accelerated-values"
+import { acceleratedValues } from "../../../../motion-dom/src/animation/waapi/utils/accelerated-values"
 import { camelToDash } from "../../render/dom/utils/camel-to-dash"
 import { transformProps } from "../../render/html/utils/keys-transform"
 

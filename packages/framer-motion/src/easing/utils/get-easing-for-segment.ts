@@ -1,5 +1,5 @@
+import { Easing } from "../../../../motion-utils/src/easing/types"
 import { wrap } from "../../utils/wrap"
-import { Easing } from "../types"
 import { isEasingArray } from "./is-easing-array"
 
 export function getEasingForSegment(

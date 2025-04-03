@@ -9,7 +9,7 @@ import {
     ValueAnimationOptions,
 } from "motion-dom"
 import { millisecondsToSeconds, secondsToMilliseconds } from "motion-utils"
-import { clamp } from "../../../utils/clamp"
+import { clamp } from "../../../../../motion-utils/src/clamp"
 import { AnimationState, KeyframeGenerator } from "../types"
 import { calcGeneratorVelocity } from "../utils/velocity"
 import { springDefaults } from "./defaults"

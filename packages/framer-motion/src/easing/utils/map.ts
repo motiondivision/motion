@@ -1,11 +1,20 @@
 import { isBezierDefinition } from "motion-dom"
-import { invariant, noop } from "motion-utils"
-import { anticipate } from "../../easing/anticipate"
-import { backIn, backInOut, backOut } from "../../easing/back"
-import { circIn, circInOut, circOut } from "../../easing/circ"
-import { cubicBezier } from "../../easing/cubic-bezier"
-import { easeIn, easeInOut, easeOut } from "../../easing/ease"
-import { Easing } from "../../easing/types"
+import {
+    anticipate,
+    backIn,
+    backInOut,
+    backOut,
+    circIn,
+    circInOut,
+    circOut,
+    cubicBezier,
+    easeIn,
+    easeInOut,
+    easeOut,
+    Easing,
+    invariant,
+    noop,
+} from "motion-utils"
 
 const easingLookup = {
     linear: noop,

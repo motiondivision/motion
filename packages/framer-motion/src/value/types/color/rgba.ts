@@ -1,4 +1,4 @@
-import { clamp } from "../../../utils/clamp"
+import { clamp } from "../../../../../motion-utils/src/clamp"
 import { alpha as alphaType, number } from "../numbers"
 import { RGBA } from "../types"
 import { sanitize } from "../utils/sanitize"

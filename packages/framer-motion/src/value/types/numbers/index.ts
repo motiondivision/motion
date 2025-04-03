@@ -1,4 +1,4 @@
-import { clamp } from "../../../utils/clamp"
+import { clamp } from "../../../../../motion-utils/src/clamp"
 
 export const number = {
     test: (v: number) => typeof v === "number",

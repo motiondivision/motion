@@ -9,11 +9,11 @@ import {
     millisecondsToSeconds,
     secondsToMilliseconds,
 } from "motion-utils"
+import { clamp } from "../../../../motion-utils/src/clamp"
 import {
     KeyframeResolver as DefaultKeyframeResolver,
     ResolvedKeyframes,
 } from "../../render/utils/KeyframesResolver"
-import { clamp } from "../../utils/clamp"
 import { mix } from "../../utils/mix"
 import { pipe } from "../../utils/pipe"
 import { inertia } from "../generators/inertia"

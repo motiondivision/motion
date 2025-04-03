@@ -47,8 +47,8 @@ export { spring } from "./animation/generators/spring"
 /**
  * Utils
  */
+export { clamp } from "../../motion-utils/src/clamp"
 export { stagger } from "./animation/utils/stagger"
-export { clamp } from "./utils/clamp"
 export { delayInSeconds as delay, DelayedFunction } from "./utils/delay"
 export * from "./utils/distance"
 export { hslaToRgba } from "./utils/hsla-to-rgba"

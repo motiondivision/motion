@@ -1,4 +1,4 @@
-import { clamp } from "../utils/clamp"
+import { clamp } from "../clamp"
 import type { EasingFunction } from "./types"
 
 /*

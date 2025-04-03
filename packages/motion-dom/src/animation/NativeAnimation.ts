@@ -74,6 +74,8 @@ export class NativeAnimation implements AnimationPlaybackControls {
          *
          * TODO: Check for VisualElement before using animation state. This is a fallback
          * for mini animate(). Do this when implementing NativeAnimationExtended.
+         *
+         * TODO: Move this to animateElements()
          */
         const animationMap = getAnimationMap(element)
         const key = animationMapKey(name, pseudoElement || "")
@@ -123,6 +125,8 @@ export class NativeAnimation implements AnimationPlaybackControls {
                 this.commitStyles()
             }
 
+            // TODO: Fire onComplete callback
+
             this.cancel()
         }
 
@@ -159,6 +163,10 @@ export class NativeAnimation implements AnimationPlaybackControls {
             return
         }
 
+        /**
+         * TODO: Check for visual element and if present, apply to motion
+         * value instead.
+         */
         this.commitStyles()
 
         this.cancel()
@@ -176,7 +184,7 @@ export class NativeAnimation implements AnimationPlaybackControls {
      * Motion to also correctly calculate velocity for any subsequent animation
      * while deferring the commit until the next animation frame.
      */
-    private commitStyles() {
+    protected commitStyles() {
         this.animation.commitStyles?.()
     }
 

@@ -1,6 +1,6 @@
 import { invariant, MotionGlobalConfig, noop, progress } from "motion-utils"
+import { clamp } from "../../../motion-utils/src/clamp"
 import { EasingFunction } from "../easing/types"
-import { clamp } from "./clamp"
 import { mix } from "./mix"
 import { pipe } from "./pipe"
 

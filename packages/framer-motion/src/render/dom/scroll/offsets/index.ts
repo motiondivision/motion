@@ -1,4 +1,4 @@
-import { clamp } from "../../../../utils/clamp"
+import { clamp } from "../../../../../../motion-utils/src/clamp"
 import { interpolate } from "../../../../utils/interpolate"
 import { defaultOffset } from "../../../../utils/offsets/default"
 import { ScrollInfo, ScrollInfoOptions } from "../types"

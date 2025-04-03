@@ -4,7 +4,7 @@ import {
     secondsToMilliseconds,
     warning,
 } from "motion-utils"
-import { clamp } from "../../../utils/clamp"
+import { clamp } from "../../../../../motion-utils/src/clamp"
 import { springDefaults } from "./defaults"
 
 /**
