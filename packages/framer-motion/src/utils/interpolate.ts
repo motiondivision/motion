@@ -1,4 +1,4 @@
-import { invariant, noop, progress } from "motion-utils"
+import { invariant, MotionGlobalConfig, noop, progress } from "motion-utils"
 import { EasingFunction } from "../easing/types"
 import { clamp } from "./clamp"
 import { mix } from "./mix"
@@ -19,7 +19,8 @@ function createMixers<T>(
     customMixer?: MixerFactory<T>
 ) {
     const mixers: Array<Mix<T>> = []
-    const mixerFactory: MixerFactory<T> = customMixer || mix
+    const mixerFactory: MixerFactory<T> =
+        customMixer || MotionGlobalConfig.mix || mix
     const numMixers = output.length - 1
 
     for (let i = 0; i < numMixers; i++) {

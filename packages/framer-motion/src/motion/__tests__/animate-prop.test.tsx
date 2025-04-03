@@ -2,6 +2,7 @@ import { createRef, useRef } from "react"
 import {
     frame,
     motion,
+    MotionGlobalConfig,
     motionValue,
     useMotionValue,
     useMotionValueEvent,
@@ -1213,6 +1214,30 @@ describe("animate prop as object", () => {
         }
         const { rerender } = render(<Component />)
         rerender(<Component />)
+    })
+
+    test("correctly implements custom mix function", async () => {
+        MotionGlobalConfig.mix = (() => () => "black") as any
+        return new Promise<boolean>((resolve) => {
+            const Component = () => {
+                return (
+                    <motion.div
+                        initial={{ backgroundColor: "rgba(255, 255, 0, 1)" }}
+                        animate={{
+                            backgroundColor: "color(display-p3 0 1 0 / 0.5)",
+                        }}
+                        transition={{ duration: 0.1 } as any}
+                        onUpdate={({ backgroundColor }) => {
+                            expect(backgroundColor).toBe("black")
+                            delete MotionGlobalConfig.mix
+                            resolve(true)
+                        }}
+                    />
+                )
+            }
+            const { rerender } = render(<Component />)
+            rerender(<Component />)
+        })
     })
 
     test("Correctly animates complex value types on first rerender", async () => {
