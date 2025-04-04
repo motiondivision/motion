@@ -25,6 +25,12 @@ interface MeasureContextProps {
 type MeasureProps = MotionProps &
     MeasureContextProps & { visualElement: VisualElement }
 
+/**
+ * Track whether we've taken any snapshots yet. If not,
+ * we can safely skip notification of didUpdate.
+ */
+let hasTakenAnySnapshot = false
+
 class MeasureLayoutWithContext extends Component<MeasureProps> {
     /**
      * This only mounts projection nodes for components that
@@ -45,7 +51,10 @@ class MeasureLayoutWithContext extends Component<MeasureProps> {
                 switchLayoutGroup.register(projection)
             }
 
-            projection.root!.didUpdate()
+            if (hasTakenAnySnapshot) {
+                projection.root!.didUpdate()
+            }
+
             projection.addEventListener("animationComplete", () => {
                 this.safeToRemove()
             })
@@ -72,6 +81,8 @@ class MeasureLayoutWithContext extends Component<MeasureProps> {
          * perhaps in didUpdate
          */
         projection.isPresent = isPresent
+
+        hasTakenAnySnapshot = true
 
         if (
             drag ||
