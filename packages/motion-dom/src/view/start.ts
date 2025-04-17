@@ -75,7 +75,6 @@ export function startViewAnimation(
             targets.forEach((definition, target) => {
                 // TODO: If target is not "root", resolve elements
                 // and iterate over each
-
                 for (const key of definitionNames) {
                     if (!definition[key]) continue
                     const { keyframes, options } =
@@ -116,6 +115,14 @@ export function startViewAnimation(
                         if (typeof valueOptions.delay === "function") {
                             valueOptions.delay = valueOptions.delay(0, 1)
                         }
+
+                        valueOptions.duration &&= secondsToMilliseconds(
+                            valueOptions.duration
+                        )
+
+                        valueOptions.delay &&= secondsToMilliseconds(
+                            valueOptions.delay
+                        )
 
                         const animation = new NativeAnimation({
                             element: document.documentElement,

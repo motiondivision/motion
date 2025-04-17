@@ -1,0 +1,121 @@
+<html>
+    <head>
+        <style>
+            body {
+                background: black;
+            }
+            #color-picker {
+                list-style: none;
+                padding: 0;
+                margin: 0;
+                position: fixed;
+                --inset: 60px;
+                top: var(--inset);
+                left: var(--inset);
+                right: var(--inset);
+                bottom: var(--inset);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                gap: 20px;
+                --current-color: blue;
+                background-image: radial-gradient(
+                    circle,
+                    var(--current-color) 10%,
+                    transparent 10%
+                );
+                background-size: 20px 20px;
+            }
+
+            #color-picker button {
+                position: relative;
+                width: 80px;
+                height: 80px;
+                border: none;
+                border-radius: 50%;
+                cursor: pointer;
+                overflow: visible;
+                outline: 10px solid var(--background);
+            }
+
+            #color-picker .yellow button {
+                background-color: yellow;
+            }
+
+            #color-picker .blue button {
+                background-color: blue;
+            }
+
+            #color-picker .pink button {
+                background-color: pink;
+            }
+
+            #color-picker .selected button::after {
+                content: "";
+                position: absolute;
+                top: -8px;
+                left: -8px;
+                right: -8px;
+                bottom: -8px;
+                border: 4px solid white;
+                border-radius: 50%;
+                view-transition-name: color-picker-button;
+            }
+        </style>
+    </head>
+    <body>
+        <ul id="color-picker">
+            <li class="yellow">
+                <button data-color="yellow" aria-label="Yellow"></button>
+            </li>
+            <li class="blue selected">
+                <button data-color="blue" aria-label="Blue"></button>
+            </li>
+            <li class="pink">
+                <button data-color="pink" aria-label="Pink"></button>
+            </li>
+        </ul>
+
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            const { press, animateView } = window.MotionDOM
+            const { scroll, spring, delay } = window.Motion
+
+            async function selectColor(
+                element,
+                { currentTarget, pageX, pageY }
+            ) {
+                const update = () => {
+                    const color = currentTarget.getAttribute("data-color")
+                    document
+                        .querySelector("#color-picker")
+                        .style.setProperty("--current-color", color)
+
+                    const selected = document.querySelector(
+                        "#color-picker .selected"
+                    )
+                    selected.classList.remove("selected")
+
+                    currentTarget.parentElement.classList.add("selected")
+                }
+
+                const animation = await animateView(update, {
+                    duration: 0.4,
+                    ease: [0.28, 0.02, 0.1, 0.99],
+                }).new(
+                    {
+                        clipPath: [
+                            `circle(0% at ${pageX}px ${pageY}px)`,
+                            `circle(100% at ${pageX}px ${pageY}px)`,
+                        ],
+                    },
+                    { duration: 0.6, ease: "easeIn" }
+                )
+            }
+
+            press("#color-picker button", (element, event) => {
+                selectColor(element, event)
+            })
+        </script>
+    </body>
+</html>

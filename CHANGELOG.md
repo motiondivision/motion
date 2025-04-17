@@ -4,6 +4,13 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.7.3] 2025-04-15
+
+### Fixed
+
+-   Fixing `duration` for `animateView` transitions.
+-   Prevent `.commitStyles()` on `pseudoElement` animations.
+
 ## [12.7.2] 2025-04-14
 
 ### Fixed
