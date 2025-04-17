@@ -332,6 +332,35 @@ describe("press", () => {
         expect(press).toBeCalledTimes(1)
     })
 
+    test("press event listeners do fire after drag gesture on parent element", async () => {
+        const press = jest.fn()
+        const Component = () => (
+            <MockDrag>
+                <motion.div drag data-testid="parent">
+                    <motion.div onTap={() => press()} data-testid="child" />
+                </motion.div>
+            </MockDrag>
+        )
+
+        const { getByTestId, rerender } = render(<Component />)
+        rerender(<Component />)
+
+        // First, perform a drag gesture on the parent element
+        const childElement = getByTestId("child")
+        const parentElement = getByTestId("parent")
+        const pointer = await drag(parentElement, childElement).to(100, 100)
+        pointer.end()
+        await nextFrame()
+
+        // Now try to tap the child element
+        pointerDown(childElement)
+        pointerUp(childElement)
+        await nextFrame()
+
+        // The tap event should fire
+        expect(press).toBeCalledTimes(1)
+    })
+
     test("press event listeners unset", async () => {
         const press = jest.fn()
         const Component = () => <motion.div onTap={() => press()} />

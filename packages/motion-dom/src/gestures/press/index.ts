@@ -63,11 +63,13 @@ export function press(
             window.removeEventListener("pointerup", onPointerUp)
             window.removeEventListener("pointercancel", onPointerCancel)
 
-            if (!isValidPressEvent(endEvent) || !isPressing.has(target)) {
-                return
+            if (isPressing.has(target)) {
+                isPressing.delete(target)
             }
 
-            isPressing.delete(target)
+            if (!isValidPressEvent(endEvent)) {
+                return
+            }
 
             if (typeof onPressEnd === "function") {
                 onPressEnd(endEvent, { success })
