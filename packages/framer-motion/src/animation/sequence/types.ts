@@ -7,7 +7,7 @@ import {
     Transition,
     UnresolvedValueKeyframe,
 } from "motion-dom"
-import { Easing } from "../../easing/types"
+import { Easing } from "motion-utils"
 import { GenericKeyframesTarget } from "../../types"
 
 export type ObjectTarget<O> = {

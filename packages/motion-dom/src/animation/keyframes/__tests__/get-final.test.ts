@@ -23,5 +23,8 @@ describe("getFinalKeyframe", () => {
         expect(
             getFinalKeyframe([0, 1], { repeat: 2, repeatType: "mirror" })
         ).toEqual(1)
+        expect(
+            getFinalKeyframe([0, 1], { repeat: 2, repeatType: "mirror" }, -1)
+        ).toEqual(0)
     })
 })

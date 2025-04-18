@@ -1,5 +1,5 @@
 import { motionValue } from "motion-dom"
-import { render } from "../../../jest.setup"
+import { render } from "../../jest.setup"
 import { motion as motionProxy } from "../../render/components/motion/proxy"
 
 const motion = { div: motionProxy.create("div") }

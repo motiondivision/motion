@@ -1,11 +1,15 @@
 import { cancelFrame, frame, frameData, isPrimaryPointer } from "motion-dom"
-import { millisecondsToSeconds, secondsToMilliseconds } from "motion-utils"
+import {
+    millisecondsToSeconds,
+    pipe,
+    Point,
+    secondsToMilliseconds,
+    TransformPoint,
+} from "motion-utils"
 import { addPointerEvent } from "../../events/add-pointer-event"
 import { extractEventInfo } from "../../events/event-info"
 import { EventInfo } from "../../events/types"
-import { Point, TransformPoint } from "../../projection/geometry/types"
 import { distance2D } from "../../utils/distance"
-import { pipe } from "../../utils/pipe"
 
 /**
  * Passed in to pan event handlers like `onPan` the `PanInfo` object contains

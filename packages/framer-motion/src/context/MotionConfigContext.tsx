@@ -1,7 +1,7 @@
 "use client"
 
+import { TransformPoint } from "motion-utils"
 import { createContext } from "react"
-import { TransformPoint } from "../projection/geometry/types"
 import { Transition } from "../types"
 
 export type ReducedMotionConfig = "always" | "never" | "user"

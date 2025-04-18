@@ -1,5 +1,5 @@
+import { Point } from "motion-utils"
 import { RefObject } from "react"
-import { Point } from "../projection/geometry/types"
 
 /** @public */
 export interface EventInfo {

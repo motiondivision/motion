@@ -1,6 +1,6 @@
+import { Point } from "motion-utils"
 import { EventInfo } from "../events/types"
 import { VariantLabels } from "../motion/types"
-import { Point } from "../projection/geometry/types"
 import { TargetAndTransition } from "../types"
 import { PanInfo } from "./pan/PanSession"
 

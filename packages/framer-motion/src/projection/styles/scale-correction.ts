@@ -1,4 +1,4 @@
-import { isCSSVariableName } from "../../render/dom/utils/is-css-variable"
+import { isCSSVariableName } from "motion-dom"
 import { ScaleCorrectorMap } from "./types"
 
 export const scaleCorrectors: ScaleCorrectorMap = {}

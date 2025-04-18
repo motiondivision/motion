@@ -1,6 +1,6 @@
 import { VariableKeyframesDefinition } from "motion-dom"
+import { Easing } from "motion-utils"
 import { CSSProperties, SVGAttributes } from "react"
-import { Easing } from "./easing/types"
 import {
     CustomStyles,
     SVGPathProperties,

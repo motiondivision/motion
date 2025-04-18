@@ -1,7 +1,7 @@
 import * as React from "react"
 import { ForwardedRef } from "react"
 import { motion, useMotionValue } from "../.."
-import { render } from "../../../jest.setup"
+import { render } from "../../jest.setup"
 import { MotionProps } from "../types"
 
 interface Props {

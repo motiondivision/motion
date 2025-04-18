@@ -1,7 +1,6 @@
-import { frame } from "motion-dom"
+import { frame, transformProps } from "motion-dom"
 import { MotionComponentConfig } from "../../motion"
 import { makeUseVisualState } from "../../motion/utils/use-visual-state"
-import { transformProps } from "../html/utils/keys-transform"
 import { SVGRenderState } from "./types"
 import { buildSVGAttrs } from "./utils/build-attrs"
 import { createSvgRenderState } from "./utils/create-render-state"

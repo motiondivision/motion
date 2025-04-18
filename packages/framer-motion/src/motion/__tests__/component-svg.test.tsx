@@ -1,7 +1,7 @@
-import { render } from "../../../jest.setup"
-import { motion, motionValue, useMotionValue, useTransform } from "../../"
 import { useRef } from "react"
+import { motion, motionValue, useMotionValue, useTransform } from "../../"
 import { nextFrame } from "../../gestures/__tests__/utils"
+import { render } from "../../jest.setup"
 
 describe("SVG", () => {
     test("doesn't add translateZ", () => {

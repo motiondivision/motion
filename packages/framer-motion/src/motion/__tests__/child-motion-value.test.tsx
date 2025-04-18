@@ -1,5 +1,5 @@
 import { frame, motionValue } from "motion-dom"
-import { render } from "../../../jest.setup"
+import { render } from "../../jest.setup"
 import { motion } from "../../render/components/motion"
 
 describe("child as motion value", () => {

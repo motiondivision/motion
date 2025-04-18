@@ -1,5 +1,5 @@
-import { render } from "../../../../jest.setup"
 import * as React from "react"
+import { render } from "../../../jest.setup"
 import { tagProxy } from "../tag-proxy"
 
 describe("tagProxy", () => {

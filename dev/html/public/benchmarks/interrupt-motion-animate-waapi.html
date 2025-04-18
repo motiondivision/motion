@@ -1,0 +1,64 @@
+<html>
+    <!--
+    Interrupt: Motion NativeAnimationExtended
+
+    This benchmarks the performance of mass-interrupting
+    NativeAnimationExtended animations.
+
+    WAAPI doesn't support interruption so NativeAnimationExtended
+    samples a simulated animation where possible to avoid read/write
+    thrashing.
+  -->
+    <head>
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+            }
+
+            .container {
+                box-sizing: border-box;
+                padding: 100px;
+                width: 100%;
+                display: flex;
+                flex-wrap: wrap;
+            }
+
+            .container > div {
+                width: 100px;
+                height: 100px;
+            }
+
+            .box {
+                width: 100px;
+                height: 100px;
+                background-color: red;
+                opacity: 0;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container"></div>
+        <script type="module" src="/src/imports/framer-motion-dom.js"></script>
+        <script type="module">
+            const { animate } = window.Motion
+
+            // Create boxes
+            const numBoxes = 100
+            let html = ``
+            for (let i = 0; i < numBoxes; i++) {
+                html += `<div><div class="box"></div></div>`
+            }
+            document.querySelector(".container").innerHTML = html
+            const boxes = document.querySelectorAll(".box")
+
+            setTimeout(() => {
+                animate(boxes, { opacity: 1 }, { duration: 3 })
+
+                setTimeout(() => {
+                    animate(boxes, { opacity: 0 }, { duration: 3 })
+                }, 1500)
+            }, 4000)
+        </script>
+    </body>
+</html>

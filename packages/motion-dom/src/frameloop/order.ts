@@ -1,6 +1,7 @@
 import { StepId } from "./types"
 
 export const stepsOrder: StepId[] = [
+    "setup", // Compute
     "read", // Read
     "resolveKeyframes", // Write/Read/Write/Read
     "update", // Compute

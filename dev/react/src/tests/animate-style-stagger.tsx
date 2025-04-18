@@ -20,7 +20,7 @@ export const App = () => {
         const controls = animateMini(
             "#box",
             { opacity: [0, 1] },
-            { duration: 0.2, delay: stagger(0.1) }
+            { duration: 0.2, delay: stagger(0.5) }
         )
 
         return () => controls.stop()

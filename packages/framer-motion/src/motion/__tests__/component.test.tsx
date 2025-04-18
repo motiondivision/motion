@@ -1,7 +1,7 @@
 import { fireEvent } from "@testing-library/react"
 import { motion } from "framer-motion"
 import * as React from "react"
-import { render } from "../../../jest.setup"
+import { render } from "../../jest.setup"
 
 describe("motion component rendering and styles", () => {
     it("renders", () => {

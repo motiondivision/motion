@@ -1,5 +1,5 @@
 import { AnimatePresence } from ".."
-import { render } from "../../../../jest.setup"
+import { render } from "../../../jest.setup"
 import { usePresence } from "../use-presence"
 import { usePresenceData } from "../use-presence-data"
 

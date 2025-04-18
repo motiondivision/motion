@@ -1,8 +1,8 @@
 import { frame } from "motion-dom"
+import { MotionGlobalConfig } from "motion-utils"
 import { useEffect, useRef } from "react"
 import { useInstantLayoutTransition } from "../projection/use-instant-layout-transition"
 import { useForceUpdate } from "./use-force-update"
-import { instantAnimationState } from "./use-instant-transition-state"
 
 export function useInstantTransition() {
     const [forceUpdate, forcedRenderCount] = useForceUpdate()
@@ -23,14 +23,14 @@ export function useInstantTransition() {
                  * used in conjunction with React.startTransition().
                  */
                 if (forcedRenderCount !== unlockOnFrameRef.current) return
-                instantAnimationState.current = false
+                MotionGlobalConfig.instantAnimations = false
             })
         )
     }, [forcedRenderCount])
 
     return (callback: () => void) => {
         startInstantLayoutTransition(() => {
-            instantAnimationState.current = true
+            MotionGlobalConfig.instantAnimations = true
             forceUpdate()
             callback()
             unlockOnFrameRef.current = forcedRenderCount + 1
@@ -39,5 +39,5 @@ export function useInstantTransition() {
 }
 
 export function disableInstantTransitions() {
-    instantAnimationState.current = false
+    MotionGlobalConfig.instantAnimations = false
 }

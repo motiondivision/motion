@@ -50,7 +50,11 @@ export function App() {
                             animate="visible"
                             exit="hidden"
                             initial="hidden"
-                            transition={{ duration, ease: () => 0.5 }}
+                            transition={{
+                                duration,
+                                ease: () => 0.5,
+                                repeatDelay: 0.001,
+                            }}
                         />
                     ) : null}
                 </AnimatePresence>

@@ -1,9 +1,8 @@
-import { render } from "../../../jest.setup"
-import { motion, motionValue } from "../.."
-import { act, useState, useEffect } from "react"
-import { useInstantTransition } from "../use-instant-transition"
 import { renderHook } from "@testing-library/react"
-import { instantAnimationState } from "../use-instant-transition-state"
+import { act, useEffect, useState } from "react"
+import { motion, MotionGlobalConfig, motionValue } from "../.."
+import { render } from "../../jest.setup"
+import { useInstantTransition } from "../use-instant-transition"
 
 describe("useInstantTransition", () => {
     test("Disables animations for a single render", async () => {
@@ -152,7 +151,7 @@ describe("useInstantTransition", () => {
         const { result } = renderHook(() => useInstantTransition())
 
         act(() => result.current(() => {}))
-        expect(instantAnimationState.current).toBe(true)
+        expect(MotionGlobalConfig.instantAnimations).toBe(true)
 
         const promise = createResolvablePromise()
 
@@ -162,12 +161,12 @@ describe("useInstantTransition", () => {
 
             requestAnimationFrame(() => {
                 // If we hadn't called the callback a second time, we would have expected this to be `false` on this frame.
-                expect(instantAnimationState.current).toBe(true)
+                expect(MotionGlobalConfig.instantAnimations).toBe(true)
                 requestAnimationFrame(() => {
                     // Finally 2 frames have passed since the final call to
                     // start an instant transition, so we expect the state to be
                     // unblocked.
-                    expect(instantAnimationState.current).toBe(false)
+                    expect(MotionGlobalConfig.instantAnimations).toBe(false)
                     promise.resolve()
                 })
             })

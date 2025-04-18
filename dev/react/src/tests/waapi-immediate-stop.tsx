@@ -1,11 +1,11 @@
-import { AcceleratedAnimation, motionValue } from "framer-motion"
+import { AsyncMotionValueAnimation, motionValue } from "motion-dom"
 import { useEffect, useRef } from "react"
 
 interface ExtendedMotionValue {
-    owner: { current: HTMLDivElement | undefined }
+    owner: { current: HTMLDivElement | undefined; getProps: () => unknown }
 }
 
-interface ExtendedAnimation extends AcceleratedAnimation<number> {
+interface ExtendedAnimation extends AsyncMotionValueAnimation<number> {
     _resolved: boolean
 }
 
@@ -16,9 +16,9 @@ export const App = () => {
         if (!ref.current) return
         const opacity = motionValue(0)
         const extendedOpacity = opacity as unknown as ExtendedMotionValue
-        extendedOpacity.owner = { current: ref.current }
+        extendedOpacity.owner = { current: ref.current, getProps: () => ({}) }
 
-        const animation = new AcceleratedAnimation({
+        const animation = new AsyncMotionValueAnimation({
             keyframes: [0, 1],
             motionValue: opacity,
             name: "opacity",
@@ -32,7 +32,7 @@ export const App = () => {
             ref.current.textContent = "Error"
         }
 
-        new AcceleratedAnimation({
+        new AsyncMotionValueAnimation({
             keyframes: [0.4, 0.5],
             motionValue: opacity,
             name: "opacity",

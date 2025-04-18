@@ -1,6 +1,6 @@
 import { motionValue } from "motion-dom"
 import { motion } from "../.."
-import { render } from "../../../jest.setup"
+import { render } from "../../jest.setup"
 
 describe("delay attr", () => {
     test("in transition prop", async () => {

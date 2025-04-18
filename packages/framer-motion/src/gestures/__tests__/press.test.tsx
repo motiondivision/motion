@@ -8,7 +8,7 @@ import {
     pointerLeave,
     pointerUp,
     render,
-} from "../../../jest.setup"
+} from "../../jest.setup"
 import { drag, MockDrag } from "../drag/__tests__/utils"
 import { nextFrame } from "./utils"
 

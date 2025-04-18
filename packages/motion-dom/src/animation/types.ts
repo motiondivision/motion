@@ -1,9 +1,26 @@
+import { Easing } from "motion-utils"
 import { SVGAttributes } from "../render/svg/types"
+import { MotionValue } from "../value"
+import { KeyframeResolver } from "./keyframes/KeyframesResolver"
+import { WithRender } from "./keyframes/types"
 
 export interface ProgressTimeline {
     currentTime: null | { value: number }
 
     cancel?: VoidFunction
+}
+
+export interface ValueAnimationOptionsWithRenderContext<
+    V extends string | number = number
+> extends ValueAnimationOptions<V> {
+    KeyframeResolver?: typeof KeyframeResolver
+    motionValue?: MotionValue<V>
+    element?: WithRender
+}
+
+export interface TimelineWithFallback {
+    timeline: ProgressTimeline
+    observe: (animation: AnimationPlaybackControls) => VoidFunction
 }
 
 /**
@@ -31,7 +48,7 @@ export interface AnimationPlaybackControls {
      *
      * This is currently for internal use only.
      */
-    state?: AnimationPlayState
+    state: AnimationPlayState
 
     /*
      * Duration of the animation, in seconds. This can be
@@ -72,18 +89,7 @@ export interface AnimationPlaybackControls {
      *
      * This is currently for internal use only.
      */
-    attachTimeline?: (
-        timeline: ProgressTimeline,
-        fallback?: (animation: AnimationPlaybackControls) => VoidFunction
-    ) => VoidFunction
-
-    /**
-     * Flattens the animation's easing curve to linear.
-     *
-     * This is currently for internal use only, and is used by scroll() to
-     * ensure an animation is being scrubbed by progress rather than eased time.
-     */
-    flatten: () => void
+    attachTimeline: (timeline: TimelineWithFallback) => VoidFunction
 
     finished: Promise<any>
 }
@@ -103,22 +109,25 @@ export interface KeyframeGenerator<V> {
     toString: () => string
 }
 
-export interface DOMValueAnimationOptions<V extends string | number = number> {
+export interface DOMValueAnimationOptions<V extends string | number = number>
+    extends ValueAnimationTransition<V> {
     element: HTMLElement | SVGElement
     keyframes: ValueKeyframesDefinition
     name: string
     pseudoElement?: string
     allowFlatten?: boolean
-    transition: ValueAnimationTransition<V>
 }
 
 export interface ValueAnimationOptions<V extends string | number = number>
     extends ValueAnimationTransition {
     keyframes: V[]
+    element?: any // TODO: Replace with VisualElement when moved into motion-dom
     name?: string
+    motionValue?: MotionValue<V>
     from?: V
-    isGenerator?: boolean
+    isHandoff?: boolean
     allowFlatten?: boolean
+    finalKeyframe?: V
 }
 
 export type GeneratorFactoryFunction = (
@@ -126,7 +135,7 @@ export type GeneratorFactoryFunction = (
 ) => KeyframeGenerator<any>
 
 export interface GeneratorFactory extends GeneratorFactoryFunction {
-    applyToOptions: (options: Transition) => Transition
+    applyToOptions?: (options: Transition) => Transition
 }
 
 export type AnimationGeneratorType =
@@ -180,37 +189,6 @@ export interface DecayOptions extends VelocityOptions {
     timeConstant?: number
     modifyTarget?: (v: number) => number
 }
-
-export type EasingFunction = (v: number) => number
-
-export type EasingModifier = (easing: EasingFunction) => EasingFunction
-
-export type BezierDefinition = readonly [number, number, number, number]
-
-export type EasingDefinition =
-    | BezierDefinition
-    | "linear"
-    | "easeIn"
-    | "easeOut"
-    | "easeInOut"
-    | "circIn"
-    | "circOut"
-    | "circInOut"
-    | "backIn"
-    | "backOut"
-    | "backInOut"
-    | "anticipate"
-
-/**
- * The easing function to use. Set as one of:
- *
- * - The name of an in-built easing function.
- * - An array of four numbers to define a cubic bezier curve.
- * - An easing function, that accepts and returns a progress value between `0` and `1`.
- *
- * @public
- */
-export type Easing = EasingDefinition | EasingFunction
 
 export interface DriverControls {
     start: () => void

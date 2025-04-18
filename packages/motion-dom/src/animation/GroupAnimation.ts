@@ -1,7 +1,12 @@
-import { supportsScrollTimeline } from "../utils/supports/scroll-timeline"
-import { AnimationPlaybackControls } from "./types"
+import { AnimationPlaybackControls, TimelineWithFallback } from "./types"
 
-type PropNames = "time" | "speed" | "duration" | "attachTimeline" | "startTime"
+type PropNames =
+    | "time"
+    | "speed"
+    | "duration"
+    | "attachTimeline"
+    | "startTime"
+    | "state"
 
 export type AcceptedAnimations = AnimationPlaybackControls
 
@@ -29,21 +34,14 @@ export class GroupAnimation implements AnimationPlaybackControls {
 
     private setAll(propName: PropNames, newValue: any) {
         for (let i = 0; i < this.animations.length; i++) {
-            this.animations[i][propName] = newValue
+            ;(this.animations[i][propName] as any) = newValue
         }
     }
 
-    attachTimeline(
-        timeline: any,
-        fallback?: (animation: AnimationPlaybackControls) => VoidFunction
-    ) {
-        const subscriptions = this.animations.map((animation) => {
-            if (supportsScrollTimeline() && animation.attachTimeline) {
-                return animation.attachTimeline(timeline)
-            } else if (typeof fallback === "function") {
-                return fallback(animation)
-            }
-        })
+    attachTimeline(timeline: TimelineWithFallback) {
+        const subscriptions = this.animations.map((animation) =>
+            animation.attachTimeline(timeline)
+        )
 
         return () => {
             subscriptions.forEach((cancel, i) => {
@@ -69,6 +67,10 @@ export class GroupAnimation implements AnimationPlaybackControls {
         this.setAll("speed", speed)
     }
 
+    get state() {
+        return this.getAll("state")
+    }
+
     get startTime() {
         return this.getAll("startTime")
     }
@@ -84,14 +86,10 @@ export class GroupAnimation implements AnimationPlaybackControls {
     private runAll(
         methodName: keyof Omit<
             AnimationPlaybackControls,
-            PropNames | "then" | "state" | "finished"
+            PropNames | "then" | "finished"
         >
     ) {
         this.animations.forEach((controls) => controls[methodName]())
-    }
-
-    flatten() {
-        this.runAll("flatten")
     }
 
     play() {
@@ -102,7 +100,7 @@ export class GroupAnimation implements AnimationPlaybackControls {
         this.runAll("pause")
     }
 
-    // Bound to accomodate common `return animation.stop` pattern
+    // Bound to accomadate common `return animation.stop` pattern
     stop = () => this.runAll("stop")
 
     cancel() {

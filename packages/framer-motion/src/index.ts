@@ -68,8 +68,6 @@ export { useReducedMotionConfig } from "./utils/reduced-motion/use-reduced-motio
  * Utils
  */
 export { MotionGlobalConfig } from "motion-utils"
-export { AcceleratedAnimation } from "./animation/animators/AcceleratedAnimation"
-export { animateValue } from "./animation/animators/MainThreadAnimation"
 export { animationControls } from "./animation/hooks/animation-controls"
 export { useAnimate } from "./animation/hooks/use-animate"
 export { useAnimateMini } from "./animation/hooks/use-animate-style"
@@ -113,16 +111,10 @@ export {
     disableInstantTransitions,
     useInstantTransition,
 } from "./utils/use-instant-transition"
-export { color } from "./value/types/color"
-export { complex } from "./value/types/complex"
-export { px } from "./value/types/numbers/units"
-export { ValueType } from "./value/types/types"
 
 /**
  * Appear animations
  */
-export { spring } from "./animation/generators/spring"
-export { findSpring } from "./animation/generators/spring/find"
 export { optimizedAppearDataAttribute } from "./animation/optimized-appear/data-id"
 export { startOptimizedAppearAnimation } from "./animation/optimized-appear/start"
 
@@ -157,7 +149,6 @@ export {
     MotionTransform,
     VariantLabels,
 } from "./motion/types"
-export * from "./projection/geometry/types"
 export { IProjectionNode } from "./projection/node/types"
 export { DOMMotionComponents } from "./render/dom/types"
 export { ForwardRefComponent, HTMLMotionProps } from "./render/html/types"

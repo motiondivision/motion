@@ -1,5 +1,5 @@
 import { motion } from "framer-motion"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 
 /**
  * An example of the tween transition type
@@ -11,18 +11,20 @@ const style = {
     background: "white",
 }
 export const App = () => {
-    const [state, setState] = useState(false)
-    useEffect(() => {
-        setTimeout(() => {
-            setState(true)
-        }, 300)
-    }, [state])
+    const [isHovered, setIsHovered] = useState(false)
 
     return (
         <motion.div
-            animate={{ x: state ? 0 : 100 }}
-            transition={{ duration: 1 }}
-            style={style}
-        />
+            initial="none"
+            animate={isHovered ? "hover" : "none"}
+            onHoverStart={() => setIsHovered(true)}
+            onHoverEnd={() => setIsHovered(false)}
+        >
+            <motion.div
+                style={{ opacity: 0.5, ...style }}
+                variants={{ hover: { opacity: 1 } }}
+                transition={{ duration: 0.001 }}
+            />
+        </motion.div>
     )
 }

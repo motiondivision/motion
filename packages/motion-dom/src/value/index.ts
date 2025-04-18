@@ -6,8 +6,6 @@ import {
 import { frame } from "../frameloop"
 import { time } from "../frameloop/sync-time"
 
-export type Transformer<T> = (v: T) => T
-
 /**
  * @public
  */
@@ -278,6 +276,7 @@ export class MotionValue<V = any> {
      * @public
      */
     set(v: V, render = true) {
+        if (v === "none") console.trace()
         if (!render || !this.passiveEffect) {
             this.updateAndNotify(v, render)
         } else {

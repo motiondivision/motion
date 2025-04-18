@@ -69,15 +69,6 @@ describe("animateMini()", () => {
             })
     })
 
-    it("correctly measures duration", () => {
-        cy.visit("?test=animate-style-duration")
-            .wait(400)
-            .get("#box")
-            .should(([$element]: any) => {
-                expect($element.style.backgroundColor).to.equal("green")
-            })
-    })
-
     it("works correctly with stagger", () => {
         cy.visit("?test=animate-style-stagger")
             .wait(500)

@@ -1,7 +1,7 @@
 import * as React from "react"
 import { useEffect } from "react"
 import { motion } from "../.."
-import { render } from "../../../jest.setup"
+import { render } from "../../jest.setup"
 import { useMotionValue } from "../../value/use-motion-value"
 import { useAnimation } from "../hooks/use-animation"
 
@@ -215,10 +215,7 @@ describe("useAnimation", () => {
             rerender(<Component />)
         })
 
-        return await expect(promise).resolves.toEqual([
-            100,
-            "rgba(255, 255, 255, 1)",
-        ])
+        return expect(promise).resolves.toEqual([100, "#fff"])
     })
 
     it("respects initial even if passed controls", () => {
@@ -268,7 +265,7 @@ describe("useAnimation", () => {
             rerender(<Component />)
         })
 
-        return await expect(promise).resolves.toEqual("rgba(255, 255, 255, 1)")
+        return expect(promise).resolves.toEqual("#fff")
     })
 
     test("accepts array of variants", async () => {

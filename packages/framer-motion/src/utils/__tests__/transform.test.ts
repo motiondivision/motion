@@ -1,4 +1,4 @@
-import "../../../jest.setup"
+import "../../jest.setup"
 import { transform } from "../transform"
 
 // Functionality of `transform` is thoroughly tested in `popmotion/interpolate`

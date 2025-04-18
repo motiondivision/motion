@@ -1,5 +1,5 @@
+import { mixNumber } from "motion-dom"
 import { moveItem } from "motion-utils"
-import { mixNumber } from "../../../utils/mix/number"
 import { ItemData } from "../types"
 
 export function checkReorder<T>(

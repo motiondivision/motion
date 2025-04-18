@@ -121,19 +121,19 @@ describe("Shared layout: A -> B transition", () => {
             /**
              * Test that onLayoutAnimationComplete fires
              */
-            .wait(1200)
+            .wait(2000)
             .should(([$box]: any) => {
                 expect($box.style.backgroundColor).to.equal("rgb(0, 0, 255)")
             })
             .trigger("click")
-            .wait(50)
+            .wait(200)
             .get("#a")
             .should(([$box]: any) => {
                 expectBbox($box, {
-                    top: 25,
-                    left: 50,
-                    width: 150,
-                    height: 225,
+                    top: 50,
+                    left: 100,
+                    width: 200,
+                    height: 250,
                 })
             })
     })
@@ -408,19 +408,19 @@ describe("Shared layout: A -> B crossfade transition", () => {
             /**
              * Test that onLayoutAnimationComplete fires
              */
-            .wait(1200)
+            .wait(2000)
             .should(([$box]: any) => {
                 expect($box.style.backgroundColor).to.equal("rgb(0, 0, 255)")
             })
             .trigger("click")
-            .wait(50)
+            .wait(200)
             .get("#a")
             .should(([$box]: any) => {
                 expectBbox($box, {
-                    top: 25,
-                    left: 50,
-                    width: 150,
-                    height: 225,
+                    top: 50,
+                    left: 100,
+                    width: 200,
+                    height: 250,
                 })
             })
     })

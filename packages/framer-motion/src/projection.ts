@@ -7,7 +7,5 @@ export { correctBoxShadow } from "./projection/styles/scale-box-shadow"
 export { addScaleCorrector } from "./projection/styles/scale-correction"
 export { HTMLVisualElement } from "./render/html/HTMLVisualElement"
 export { buildTransform } from "./render/html/utils/build-transform"
-export { animateValue as animate, frame, frameData, mix }
-import { frame, frameData } from "motion-dom"
-import { animateValue } from "./animation/animators/MainThreadAnimation"
-import { mix } from "./utils/mix"
+export { frame, frameData, mix }
+import { frame, frameData, mix } from "motion-dom"

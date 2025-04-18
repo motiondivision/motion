@@ -1,5 +1,4 @@
 import { useState } from "react"
-import { pointerDown, render } from "../../../../jest.setup"
 import {
     BoundingBox,
     motion,
@@ -7,9 +6,10 @@ import {
     MotionValue,
     useWillChange,
 } from "../../../"
-import { MockDrag, drag, deferred, dragFrame, Point, sleep } from "./utils"
-import { nextFrame } from "../../__tests__/utils"
+import { pointerDown, render } from "../../../jest.setup"
 import { WillChangeMotionValue } from "../../../value/use-will-change/WillChangeMotionValue"
+import { nextFrame } from "../../__tests__/utils"
+import { deferred, drag, dragFrame, MockDrag, Point, sleep } from "./utils"
 
 describe("drag", () => {
     test("onDragStart fires", async () => {

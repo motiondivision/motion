@@ -1,12 +1,15 @@
-import { frame, MotionValue } from "motion-dom"
+import {
+    frame,
+    getDefaultValueType,
+    MotionValue,
+    transformProps,
+} from "motion-dom"
 import { MotionProps, MotionStyle } from "../../motion/types"
 import { createBox } from "../../projection/geometry/models"
 import { IProjectionNode } from "../../projection/node/types"
 import { DOMVisualElement } from "../dom/DOMVisualElement"
 import { DOMVisualElementOptions } from "../dom/types"
 import { camelToDash } from "../dom/utils/camel-to-dash"
-import { getDefaultValueType } from "../dom/value-types/defaults"
-import { transformProps } from "../html/utils/keys-transform"
 import { ResolvedValues } from "../types"
 import { VisualElement } from "../VisualElement"
 import { SVGRenderState } from "./types"

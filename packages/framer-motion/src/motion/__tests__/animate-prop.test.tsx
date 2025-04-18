@@ -2,12 +2,13 @@ import { createRef, useRef } from "react"
 import {
     frame,
     motion,
+    MotionGlobalConfig,
     motionValue,
     useMotionValue,
     useMotionValueEvent,
 } from "../../"
-import { render } from "../../../jest.setup"
 import { nextFrame } from "../../gestures/__tests__/utils"
+import { render } from "../../jest.setup"
 
 describe("animate prop as object", () => {
     test("animates to set prop", async () => {
@@ -983,7 +984,7 @@ describe("animate prop as object", () => {
             rerender(<Component />)
         })
 
-        return expect(promise).resolves.toBe("rgba(0, 0, 0, 1)")
+        return expect(promise).resolves.toBe("#000")
     })
 
     test("forces an animation to fallback if has been set to `null`", async () => {
@@ -1100,7 +1101,7 @@ describe("animate prop as object", () => {
         })
 
         return expect(element).toHaveStyle(
-            "background-color: rgba(255, 51, 102, 1)"
+            "background-color: hsl(345, 100%, 60%)"
         )
     })
 
@@ -1125,7 +1126,7 @@ describe("animate prop as object", () => {
         })
 
         return expect(element).toHaveStyle(
-            "background-color: rgba(255, 51, 102, 1)"
+            "background-color: hsl(345, 100%, 60%)"
         )
     })
 
@@ -1213,6 +1214,30 @@ describe("animate prop as object", () => {
         }
         const { rerender } = render(<Component />)
         rerender(<Component />)
+    })
+
+    test("correctly implements custom mix function", async () => {
+        MotionGlobalConfig.mix = (() => () => "black") as any
+        return new Promise<boolean>((resolve) => {
+            const Component = () => {
+                return (
+                    <motion.div
+                        initial={{ backgroundColor: "rgba(255, 255, 0, 1)" }}
+                        animate={{
+                            backgroundColor: "color(display-p3 0 1 0 / 0.5)",
+                        }}
+                        transition={{ duration: 0.1 } as any}
+                        onUpdate={({ backgroundColor }) => {
+                            expect(backgroundColor).toBe("black")
+                            delete MotionGlobalConfig.mix
+                            resolve(true)
+                        }}
+                    />
+                )
+            }
+            const { rerender } = render(<Component />)
+            rerender(<Component />)
+        })
     })
 
     test("Correctly animates complex value types on first rerender", async () => {

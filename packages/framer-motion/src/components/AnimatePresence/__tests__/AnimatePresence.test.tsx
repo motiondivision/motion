@@ -9,8 +9,8 @@ import {
     MotionConfig,
     useAnimation,
 } from "../../.."
-import { render } from "../../../../jest.setup"
 import { nextFrame } from "../../../gestures/__tests__/utils"
+import { render } from "../../../jest.setup"
 import { ResolvedValues } from "../../../render/types"
 
 describe("AnimatePresence", () => {

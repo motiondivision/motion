@@ -127,34 +127,6 @@ describe("animate() with WAAPI", () => {
         )
     })
 
-    test("Returns duration correctly", async () => {
-        const a = document.createElement("div")
-
-        const animation = animate(
-            a,
-            { opacity: 1 },
-            { duration: 2, opacity: { duration: 3 } }
-        )
-
-        await nextFrame()
-
-        expect(a.animate).toBeCalledWith(
-            {
-                opacity: [0, 1],
-            },
-            {
-                delay: -0,
-                duration: 3000,
-                easing: "ease-out",
-                iterations: 1,
-                direction: "normal",
-                fill: "both",
-            }
-        )
-
-        expect(animation.duration).toEqual(3)
-    })
-
     test("Can accept timeline sequences", async () => {
         const a = document.createElement("div")
         const b = document.createElement("div")

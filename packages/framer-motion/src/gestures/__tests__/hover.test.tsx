@@ -5,7 +5,7 @@ import {
     pointerEnter,
     pointerLeave,
     render,
-} from "../../../jest.setup"
+} from "../../jest.setup"
 import { nextFrame } from "./utils"
 
 describe("hover", () => {

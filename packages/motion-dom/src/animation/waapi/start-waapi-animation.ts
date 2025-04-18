@@ -12,7 +12,7 @@ export function startWaapiAnimation(
         duration = 300,
         repeat = 0,
         repeatType = "loop",
-        ease = "easeInOut",
+        ease = "easeOut",
         times,
     }: Transition = {},
     pseudoElement: string | undefined = undefined
@@ -33,15 +33,18 @@ export function startWaapiAnimation(
         activeAnimations.waapi++
     }
 
-    const animation = element.animate(keyframeOptions, {
+    const options: KeyframeAnimationOptions = {
         delay,
         duration,
         easing: !Array.isArray(easing) ? easing : "linear",
         fill: "both",
         iterations: repeat + 1,
         direction: repeatType === "reverse" ? "alternate" : "normal",
-        pseudoElement,
-    })
+    }
+
+    if (pseudoElement) options.pseudoElement = pseudoElement
+
+    const animation = element.animate(keyframeOptions, options)
 
     if (statsBuffer.value) {
         animation.finished.finally(() => {

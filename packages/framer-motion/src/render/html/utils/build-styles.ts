@@ -1,11 +1,13 @@
+import {
+    getValueAsType,
+    isCSSVariableName,
+    numberValueTypes,
+    transformProps,
+} from "motion-dom"
 import { MotionProps } from "../../../motion/types"
-import { isCSSVariableName } from "../../dom/utils/is-css-variable"
-import { getValueAsType } from "../../dom/value-types/get-as-type"
-import { numberValueTypes } from "../../dom/value-types/number"
 import { ResolvedValues } from "../../types"
 import { HTMLRenderState } from "../types"
 import { buildTransform } from "./build-transform"
-import { transformProps } from "./keys-transform"
 
 export function buildHTMLStyles(
     state: HTMLRenderState,

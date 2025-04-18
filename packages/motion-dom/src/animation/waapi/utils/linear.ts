@@ -1,4 +1,4 @@
-import { EasingFunction } from "../../types"
+import { EasingFunction } from "motion-utils"
 
 export const generateLinearEasing = (
     easing: EasingFunction,

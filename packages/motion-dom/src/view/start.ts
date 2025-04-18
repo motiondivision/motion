@@ -1,6 +1,7 @@
 import { secondsToMilliseconds } from "motion-utils"
 import { GroupAnimation } from "../animation/GroupAnimation"
 import { NativeAnimation } from "../animation/NativeAnimation"
+import { NativeAnimationWrapper } from "../animation/NativeAnimationWrapper"
 import { AnimationPlaybackControls } from "../animation/types"
 import { getValueTransition } from "../animation/utils/get-value-transition"
 import { mapEasingToNativeEasing } from "../animation/waapi/easing/map-easing"
@@ -125,11 +126,11 @@ export function startViewAnimation(
                         )
 
                         const animation = new NativeAnimation({
+                            ...valueOptions,
                             element: document.documentElement,
                             name: valueName,
                             pseudoElement: `::view-transition-${type}(${target})`,
                             keyframes: valueKeyframes,
-                            transition: valueOptions,
                         })
 
                         animations.push(animation)
@@ -185,7 +186,7 @@ export function startViewAnimation(
                         easing,
                     })
 
-                    animations.push(new NativeAnimation({ animation }))
+                    animations.push(new NativeAnimationWrapper(animation))
                 } else if (
                     hasOpacity(targetDefinition, "enter") &&
                     hasOpacity(targetDefinition, "exit") &&
@@ -193,7 +194,7 @@ export function startViewAnimation(
                         .getKeyframes()
                         .some((keyframe) => keyframe.mixBlendMode)
                 ) {
-                    animations.push(new NativeAnimation({ animation }))
+                    animations.push(new NativeAnimationWrapper(animation))
                 } else {
                     animation.cancel()
                 }

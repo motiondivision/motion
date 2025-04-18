@@ -1,6 +1,5 @@
-import { motionValue } from "motion-dom"
-import { Easing } from "../../../easing/types"
-import { spring } from "../../generators/spring"
+import { motionValue, spring } from "motion-dom"
+import { Easing } from "motion-utils"
 import { stagger } from "../../utils/stagger"
 import { createAnimationsFromSequence } from "../create"
 

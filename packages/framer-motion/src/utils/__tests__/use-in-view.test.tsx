@@ -1,5 +1,5 @@
 import { act, useEffect, useRef } from "react"
-import { render } from "../../../jest.setup"
+import { render } from "../../jest.setup"
 import { useInView } from "../use-in-view"
 import { getActiveObserver } from "./mock-intersection-observer"
 

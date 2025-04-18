@@ -1,4 +1,4 @@
-import "../../../../../jest.setup"
+import "../../../../jest.setup"
 import { animateMini } from "../animate-style"
 import "./polyfill"
 

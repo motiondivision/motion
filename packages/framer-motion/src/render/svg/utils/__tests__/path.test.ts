@@ -1,4 +1,4 @@
-import "../../../../../jest.setup"
+import "../../../../jest.setup"
 import { buildSVGPath } from "../path"
 
 describe("buildSVGPath", () => {

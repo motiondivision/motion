@@ -1,13 +1,13 @@
-import { progress as calcProgress } from "motion-utils"
-import { calcLength } from "../../../projection/geometry/delta-calc"
+import { mixNumber } from "motion-dom"
 import {
     Axis,
     BoundingBox,
     Box,
+    progress as calcProgress,
+    clamp,
     Point,
-} from "../../../projection/geometry/types"
-import { clamp } from "../../../utils/clamp"
-import { mixNumber } from "../../../utils/mix/number"
+} from "motion-utils"
+import { calcLength } from "../../../projection/geometry/delta-calc"
 import { DragElastic, ResolvedConstraints } from "../types"
 
 /**

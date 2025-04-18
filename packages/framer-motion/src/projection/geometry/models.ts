@@ -1,4 +1,4 @@
-import { Axis, AxisDelta, Box, Delta } from "./types"
+import { Axis, AxisDelta, Box, Delta } from "motion-utils"
 
 export const createAxisDelta = (): AxisDelta => ({
     translate: 0,

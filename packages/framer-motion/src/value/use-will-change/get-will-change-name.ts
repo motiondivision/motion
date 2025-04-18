@@ -1,6 +1,5 @@
-import { acceleratedValues } from "../../animation/animators/utils/accelerated-values"
+import { acceleratedValues, transformProps } from "motion-dom"
 import { camelToDash } from "../../render/dom/utils/camel-to-dash"
-import { transformProps } from "../../render/html/utils/keys-transform"
 
 export function getWillChangeName(name: string): string | undefined {
     if (transformProps.has(name)) {

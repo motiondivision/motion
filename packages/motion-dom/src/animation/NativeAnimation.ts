@@ -4,103 +4,70 @@ import {
     noop,
     secondsToMilliseconds,
 } from "motion-utils"
-import { style } from "../render/dom/style"
+import { setStyle } from "../render/dom/style-set"
+import { supportsScrollTimeline } from "../utils/supports/scroll-timeline"
 import { getFinalKeyframe } from "./keyframes/get-final"
-import { hydrateKeyframes } from "./keyframes/hydrate"
 import {
-    AnimationPlaybackControls,
+    AnimationPlaybackControlsWithThen,
     DOMValueAnimationOptions,
-    ProgressTimeline,
+    TimelineWithFallback,
 } from "./types"
+import { WithPromise } from "./utils/WithPromise"
 import { startWaapiAnimation } from "./waapi/start-waapi-animation"
 import { applyGeneratorOptions } from "./waapi/utils/apply-generator"
-
-const animationMaps = new WeakMap<Element, Map<string, NativeAnimation>>()
-const animationMapKey = (name: string, pseudoElement: string) =>
-    `${name}:${pseudoElement}`
-
-function getAnimationMap(element: Element) {
-    const map = animationMaps.get(element) || new Map()
-    animationMaps.set(element, map)
-
-    return map
-}
 
 export interface NativeAnimationOptions<V extends string | number = number>
     extends DOMValueAnimationOptions<V> {
     pseudoElement?: string
-}
-
-export interface NativeControlsOptions {
-    animation: Animation
+    startTime?: number
 }
 
 /**
  * NativeAnimation implements AnimationPlaybackControls for the browser's Web Animations API.
  */
-export class NativeAnimation implements AnimationPlaybackControls {
+export class NativeAnimation<T extends string | number>
+    extends WithPromise
+    implements AnimationPlaybackControlsWithThen
+{
     /**
      * The interfaced Web Animation API animation
      */
-    private animation: Animation
+    protected animation: Animation
+
+    protected finishedTime: number | null = null
+
+    protected options: NativeAnimationOptions
 
     private allowFlatten: boolean
 
-    private removeAnimation: VoidFunction
+    private isStopped = false
 
     private isPseudoElement: boolean
 
-    constructor(options: NativeAnimationOptions | NativeControlsOptions) {
-        /**
-         * If we already have an animation, we don't need to instantiate one
-         * and can just use this as a controls interface.
-         */
-        if ("animation" in options) {
-            this.animation = options.animation
-            return
-        }
+    constructor(options?: NativeAnimationOptions) {
+        super()
+
+        if (!options) return
 
         const {
             element,
             name,
-            keyframes: unresolvedKeyframes,
+            keyframes,
             pseudoElement,
             allowFlatten = false,
-        } = options
-        let { transition } = options
+            finalKeyframe,
+        } = options as any
 
         this.isPseudoElement = Boolean(pseudoElement)
 
         this.allowFlatten = allowFlatten
-
-        /**
-         * Stop any existing animations on the element before reading existing keyframes.
-         *
-         * TODO: Check for VisualElement before using animation state. This is a fallback
-         * for mini animate(). Do this when implementing NativeAnimationExtended.
-         */
-        const animationMap = getAnimationMap(element)
-        const key = animationMapKey(name, pseudoElement || "")
-        const currentAnimation = animationMap.get(key)
-        currentAnimation && currentAnimation.stop()
-
-        /**
-         * TODO: If these keyframes aren't correctly hydrated then we want to throw
-         * run an instant animation.
-         */
-
-        const keyframes = hydrateKeyframes(
-            element,
-            name,
-            unresolvedKeyframes,
-            pseudoElement
-        )
+        this.options = options
 
         invariant(
-            typeof transition.type !== "string",
+            typeof options.type !== "string",
             `animateMini doesn't support "type" as a string. Did you mean to import { spring } from "motion"?`
         )
-        transition = applyGeneratorOptions(transition)
+        const transition = applyGeneratorOptions(options)
 
         this.animation = startWaapiAnimation(
             element,
@@ -114,27 +81,43 @@ export class NativeAnimation implements AnimationPlaybackControls {
             this.animation.pause()
         }
 
-        this.removeAnimation = () => animationMap.delete(key)
-
         this.animation.onfinish = () => {
-            if (!pseudoElement) {
-                style.set(
-                    element,
-                    name,
-                    getFinalKeyframe(keyframes, transition)
-                )
-                this.cancel()
-            }
-        }
+            this.finishedTime = this.time
 
-        /**
-         * TODO: Check for VisualElement before using animation state.
-         */
-        animationMap.set(key, this)
+            if (!pseudoElement) {
+                const keyframe = getFinalKeyframe(
+                    keyframes as any,
+                    this.options as any,
+                    finalKeyframe,
+                    this.speed
+                )
+                if (this.updateMotionValue) {
+                    this.updateMotionValue(keyframe)
+                } else {
+                    /**
+                     * If we can, we want to commit the final style as set by the user,
+                     * rather than the computed keyframe value supplied by the animation.
+                     */
+                    setStyle(element, name, keyframe)
+                }
+
+                this.animation.cancel()
+            }
+
+            this.notifyFinished()
+        }
     }
 
+    updateMotionValue?(value?: T): void
+
     play() {
+        if (this.isStopped) return
+
         this.animation.play()
+
+        if (this.state === "finished") {
+            this.updateFinished()
+        }
     }
 
     pause() {
@@ -142,26 +125,31 @@ export class NativeAnimation implements AnimationPlaybackControls {
     }
 
     complete() {
-        this.animation.finish()
+        this.animation.finish?.()
     }
 
     cancel() {
         try {
             this.animation.cancel()
         } catch (e) {}
-
-        this.removeAnimation()
     }
 
     stop() {
+        if (this.isStopped) return
+        this.isStopped = true
         const { state } = this
 
         if (state === "idle" || state === "finished") {
             return
         }
 
-        this.commitStyles()
-        this.cancel()
+        if (this.updateMotionValue) {
+            this.updateMotionValue()
+        } else {
+            this.commitStyles()
+        }
+
+        if (!this.isPseudoElement) this.cancel()
     }
 
     /**
@@ -176,7 +164,7 @@ export class NativeAnimation implements AnimationPlaybackControls {
      * Motion to also correctly calculate velocity for any subsequent animation
      * while deferring the commit until the next animation frame.
      */
-    private commitStyles() {
+    protected commitStyles() {
         if (!this.isPseudoElement) {
             this.animation.commitStyles?.()
         }
@@ -184,7 +172,7 @@ export class NativeAnimation implements AnimationPlaybackControls {
 
     get duration() {
         const duration =
-            this.animation.effect?.getComputedTiming().duration || 0
+            this.animation.effect?.getComputedTiming?.().duration || 0
 
         return millisecondsToSeconds(Number(duration))
     }
@@ -194,6 +182,7 @@ export class NativeAnimation implements AnimationPlaybackControls {
     }
 
     set time(newTime: number) {
+        this.finishedTime = null
         this.animation.currentTime = secondsToMilliseconds(newTime)
     }
 
@@ -206,43 +195,42 @@ export class NativeAnimation implements AnimationPlaybackControls {
     }
 
     set speed(newSpeed: number) {
+        // Allow backwards playback after finishing
+        if (newSpeed < 0) this.finishedTime = null
+
         this.animation.playbackRate = newSpeed
     }
 
     get state() {
-        return this.animation.playState
+        return this.finishedTime !== null
+            ? "finished"
+            : this.animation.playState
     }
 
     get startTime() {
         return Number(this.animation.startTime)
     }
 
-    get finished() {
-        return this.animation.finished
-    }
-
-    flatten() {
-        if (this.allowFlatten) {
-            this.animation.effect?.updateTiming({ easing: "linear" })
-        }
+    set startTime(newStartTime: number) {
+        this.animation.startTime = newStartTime
     }
 
     /**
      * Attaches a timeline to the animation, for instance the `ScrollTimeline`.
      */
-    attachTimeline(timeline: ProgressTimeline): VoidFunction {
-        this.animation.timeline = timeline as any
+    attachTimeline({ timeline, observe }: TimelineWithFallback): VoidFunction {
+        if (this.allowFlatten) {
+            this.animation.effect?.updateTiming({ easing: "linear" })
+        }
+
         this.animation.onfinish = null
 
-        return noop<void>
-    }
+        if (supportsScrollTimeline()) {
+            this.animation.timeline = timeline as any
 
-    /**
-     * Allows the animation to be awaited.
-     *
-     * @deprecated Use `finished` instead.
-     */
-    then(onResolve: VoidFunction, onReject?: VoidFunction): Promise<void> {
-        return this.finished.then(onResolve).catch(onReject)
+            return noop<void>
+        } else {
+            return observe(this)
+        }
     }
 }

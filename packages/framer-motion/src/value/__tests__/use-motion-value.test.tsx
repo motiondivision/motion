@@ -1,7 +1,7 @@
 import { motionValue, MotionValue } from "motion-dom"
 import { motion } from "../../"
-import { render } from "../../../jest.setup"
 import { nextMicrotask } from "../../gestures/__tests__/utils"
+import { render } from "../../jest.setup"
 import { useMotionValue } from "../use-motion-value"
 
 describe("useMotionValue", () => {

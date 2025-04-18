@@ -18,7 +18,7 @@ export function delay(callback: DelayedFunction, timeout: number) {
         }
     }
 
-    frame.read(checkElapsed, true)
+    frame.setup(checkElapsed, true)
 
     return () => cancelFrame(checkElapsed)
 }

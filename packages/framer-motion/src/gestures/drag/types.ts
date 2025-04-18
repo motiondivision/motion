@@ -1,6 +1,6 @@
 import { MotionValue } from "motion-dom"
+import { Axis, BoundingBox } from "motion-utils"
 import { VariantLabels } from "../../motion/types"
-import { Axis, BoundingBox } from "../../projection/geometry/types"
 import { Inertia, TargetAndTransition } from "../../types"
 import { RefObject } from "../../utils/safe-react-types"
 import { PanInfo } from "../pan/PanSession"

@@ -1,6 +1,5 @@
-import { isBezierDefinition } from "../../../utils/is-bezier-definition"
+import { Easing, isBezierDefinition } from "motion-utils"
 import { supportsLinearEasing } from "../../../utils/supports/linear-easing"
-import { Easing } from "../../types"
 import { supportedWaapiEasing } from "./supported"
 
 export function isWaapiSupportedEasing(easing?: Easing | Easing[]): boolean {

@@ -1,8 +1,8 @@
 import { motionValue, MotionValue } from "motion-dom"
 import { useEffect } from "react"
 import { motion } from "../../"
-import { render } from "../../../jest.setup"
 import { syncDriver } from "../../animation/animators/__tests__/utils"
+import { render } from "../../jest.setup"
 import { useMotionValue } from "../use-motion-value"
 import { useSpring } from "../use-spring"
 

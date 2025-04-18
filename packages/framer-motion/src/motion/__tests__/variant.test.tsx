@@ -1,13 +1,8 @@
 import { motionValue } from "motion-dom"
 import { Fragment, memo, useEffect, useState } from "react"
 import { frame, motion, MotionConfig, useMotionValue } from "../../"
-import {
-    pointerDown,
-    pointerEnter,
-    pointerUp,
-    render,
-} from "../../../jest.setup"
 import { nextFrame } from "../../gestures/__tests__/utils"
+import { pointerDown, pointerEnter, pointerUp, render } from "../../jest.setup"
 import { Variants } from "../../types"
 
 const MotionFragment = motion.create(Fragment)

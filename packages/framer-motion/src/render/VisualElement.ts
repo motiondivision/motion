@@ -1,11 +1,22 @@
 import {
     cancelFrame,
+    complex,
+    findValueType,
     frame,
+    getAnimatableNone,
+    KeyframeResolver,
     motionValue,
     time,
+    transformProps,
     type MotionValue,
 } from "motion-dom"
-import { SubscriptionManager, warnOnce } from "motion-utils"
+import type { Box } from "motion-utils"
+import {
+    isNumericalString,
+    isZeroValueString,
+    SubscriptionManager,
+    warnOnce,
+} from "motion-utils"
 import {
     MotionConfigContext,
     ReducedMotionConfig,
@@ -17,20 +28,13 @@ import { FeatureDefinitions } from "../motion/features/types"
 import { MotionProps, MotionStyle } from "../motion/types"
 import { OnUpdateSettings } from "../motion/utils/use-visual-state"
 import { createBox } from "../projection/geometry/models"
-import type { Box } from "../projection/geometry/types"
 import { IProjectionNode } from "../projection/node/types"
-import { isNumericalString } from "../utils/is-numerical-string"
-import { isZeroValueString } from "../utils/is-zero-value-string"
 import { initPrefersReducedMotion } from "../utils/reduced-motion"
 import {
     hasReducedMotionListener,
     prefersReducedMotion,
 } from "../utils/reduced-motion/state"
-import { complex } from "../value/types/complex"
 import { isMotionValue } from "../value/utils/is-motion-value"
-import { getAnimatableNone } from "./dom/value-types/animatable-none"
-import { findValueType } from "./dom/value-types/find"
-import { transformProps } from "./html/utils/keys-transform"
 import { visualElementStore } from "./store"
 import {
     ResolvedValues,
@@ -42,7 +46,6 @@ import {
     isControllingVariants as checkIsControllingVariants,
     isVariantNode as checkIsVariantNode,
 } from "./utils/is-controlling-variants"
-import { KeyframeResolver } from "./utils/KeyframesResolver"
 import { updateMotionValuesFromProps } from "./utils/motion-values"
 import { resolveVariantFromProps } from "./utils/resolve-variants"
 

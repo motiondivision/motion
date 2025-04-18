@@ -13,6 +13,7 @@ export interface Step {
 }
 
 export type StepId =
+    | "setup"
     | "read"
     | "resolveKeyframes"
     | "update"

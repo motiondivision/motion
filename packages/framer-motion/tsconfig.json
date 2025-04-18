@@ -5,7 +5,7 @@
         "node_modules",
         "build",
         "**/__tests__/*",
-        "jest.setup.tsx",
+        "src/jest.setup.tsx",
         "dev",
         "types",
         "dev/examples.framer",
@@ -20,6 +20,7 @@
         "baseUrl": "src",
         "declarationDir": "types",
         "outDir": "lib",
-        "rootDir": "src"
+        "rootDir": "src",
+        "noEmitOnError": true
     }
 }

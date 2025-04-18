@@ -1,16 +1,18 @@
+import {
+    isCSSVariableName,
+    readTransformValue,
+    transformProps,
+} from "motion-dom"
+import type { Box } from "motion-utils"
 import { MotionConfigContext } from "../../context/MotionConfigContext"
 import { MotionProps } from "../../motion/types"
-import type { Box } from "../../projection/geometry/types"
 import { measureViewportBox } from "../../projection/utils/measure"
 import { DOMVisualElement } from "../dom/DOMVisualElement"
 import { DOMVisualElementOptions } from "../dom/types"
-import { isCSSVariableName } from "../dom/utils/is-css-variable"
 import type { ResolvedValues } from "../types"
 import { VisualElement } from "../VisualElement"
 import { HTMLRenderState } from "./types"
 import { buildHTMLStyles } from "./utils/build-styles"
-import { transformProps } from "./utils/keys-transform"
-import { readTransformValue } from "./utils/parse-transform"
 import { renderHTML } from "./utils/render"
 import { scrapeMotionValuesFromProps } from "./utils/scrape-motion-values"
 

@@ -1,4 +1,4 @@
-import { px } from "../../../value/types/numbers/units"
+import { px } from "motion-dom"
 import { SVGDimensions } from "../types"
 
 function calcOrigin(origin: number | string, offset: number, size: number) {

@@ -1,10 +1,6 @@
-import { MotionValue, SpringOptions, frame } from "motion-dom"
+import { frame, JSAnimation, MotionValue, SpringOptions } from "motion-dom"
 import { noop } from "motion-utils"
 import { useContext, useInsertionEffect, useRef } from "react"
-import {
-    MainThreadAnimation,
-    animateValue,
-} from "../animation/animators/MainThreadAnimation"
 import { MotionConfigContext } from "../context/MotionConfigContext"
 import { useConstant } from "../utils/use-constant"
 import { useIsomorphicLayoutEffect } from "../utils/use-isomorphic-effect"
@@ -51,9 +47,7 @@ export function useSpring(
     config: SpringOptions = {}
 ) {
     const { isStatic } = useContext(MotionConfigContext)
-    const activeSpringAnimation = useRef<MainThreadAnimation<number> | null>(
-        null
-    )
+    const activeSpringAnimation = useRef<JSAnimation<number> | null>(null)
 
     const initialValue = useConstant(() =>
         isMotionValue(source) ? source.get() : source
@@ -71,7 +65,7 @@ export function useSpring(
     const startAnimation = () => {
         stopAnimation()
 
-        activeSpringAnimation.current = animateValue({
+        activeSpringAnimation.current = new JSAnimation({
             keyframes: [asNumber(value.get()), asNumber(latestValue.current)],
             velocity: value.getVelocity(),
             type: "spring",

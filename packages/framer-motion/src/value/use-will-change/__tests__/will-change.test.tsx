@@ -5,8 +5,8 @@ import {
     useMotionValue,
     useWillChange,
 } from "../../.."
-import { render } from "../../../../jest.setup"
 import { nextFrame } from "../../../gestures/__tests__/utils"
+import { render } from "../../../jest.setup"
 import { WillChangeMotionValue } from "../WillChangeMotionValue"
 
 describe("WillChangeMotionValue", () => {

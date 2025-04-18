@@ -2,8 +2,8 @@ import {
     AnimationPlaybackControlsWithThen,
     frame,
     getValueTransition,
+    positionalKeys,
 } from "motion-dom"
-import { positionalKeys } from "../../render/html/utils/keys-position"
 import type { AnimationTypeState } from "../../render/utils/animation-state"
 import { setTarget } from "../../render/utils/setters"
 import type { VisualElement } from "../../render/VisualElement"

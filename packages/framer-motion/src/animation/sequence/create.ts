@@ -2,18 +2,22 @@ import type { MotionValue } from "motion-dom"
 import {
     AnimationScope,
     createGeneratorEasing,
+    defaultOffset,
     DOMKeyframesDefinition,
     AnimationOptions as DynamicAnimationOptions,
+    fillOffset,
     GeneratorFactory,
     isGenerator,
     Transition,
     UnresolvedValueKeyframe,
 } from "motion-dom"
-import { invariant, progress, secondsToMilliseconds } from "motion-utils"
-import { Easing } from "../../easing/types"
-import { getEasingForSegment } from "../../easing/utils/get-easing-for-segment"
-import { defaultOffset } from "../../utils/offsets/default"
-import { fillOffset } from "../../utils/offsets/fill"
+import {
+    Easing,
+    getEasingForSegment,
+    invariant,
+    progress,
+    secondsToMilliseconds,
+} from "motion-utils"
 import { isMotionValue } from "../../value/utils/is-motion-value"
 import { resolveSubjects } from "../animate/resolve-subjects"
 import {

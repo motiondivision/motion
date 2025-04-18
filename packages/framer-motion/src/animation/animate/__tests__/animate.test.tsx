@@ -3,7 +3,7 @@ import { useEffect } from "react"
 import * as THREE from "three"
 import { animate } from ".."
 import { motion, MotionGlobalConfig } from "../../.."
-import { render } from "../../../../jest.setup"
+import { render } from "../../../jest.setup"
 import { useMotionValue } from "../../../value/use-motion-value"
 import { syncDriver } from "../../animators/__tests__/utils"
 

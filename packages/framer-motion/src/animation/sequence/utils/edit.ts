@@ -1,8 +1,5 @@
-import { UnresolvedValueKeyframe } from "motion-dom"
-import { removeItem } from "motion-utils"
-import { Easing } from "../../../easing/types"
-import { getEasingForSegment } from "../../../easing/utils/get-easing-for-segment"
-import { mixNumber } from "../../../utils/mix/number"
+import { mixNumber, UnresolvedValueKeyframe } from "motion-dom"
+import { Easing, getEasingForSegment, removeItem } from "motion-utils"
 import type { ValueSequence } from "../types"
 
 export function eraseKeyframes(

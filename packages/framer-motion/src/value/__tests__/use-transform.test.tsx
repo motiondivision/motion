@@ -1,8 +1,8 @@
 import { motionValue, MotionValue } from "motion-dom"
 import { useEffect } from "react"
 import { cancelFrame, frame, motion } from "../../"
-import { render } from "../../../jest.setup"
 import { nextFrame, nextMicrotask } from "../../gestures/__tests__/utils"
+import { render } from "../../jest.setup"
 import { useMotionValue } from "../use-motion-value"
 import { useTransform } from "../use-transform"
 

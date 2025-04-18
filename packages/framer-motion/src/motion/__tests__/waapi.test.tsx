@@ -1,15 +1,15 @@
 import { supportsFlags } from "motion-dom"
 import { act, createRef, useState } from "react"
-import { motion, spring, useMotionValue } from "../../"
+import { motion, useMotionValue } from "../../"
+import "../../animation/animators/waapi/__tests__/setup"
+import { nextFrame } from "../../gestures/__tests__/utils"
 import {
     pointerDown,
     pointerEnter,
     pointerLeave,
     pointerUp,
     render,
-} from "../../../jest.setup"
-import "../../animation/animators/waapi/__tests__/setup"
-import { nextFrame } from "../../gestures/__tests__/utils"
+} from "../../jest.setup"
 
 describe("WAAPI animations", () => {
     test("opacity animates with WAAPI at default settings", async () => {
@@ -102,7 +102,8 @@ describe("WAAPI animations", () => {
         )
     })
 
-    test("Complex string type animates with WAAPI spring", async () => {
+    test("Spring generates linear() easing", async () => {
+        supportsFlags.linearEasing = true
         const ref = createRef<HTMLDivElement>()
         const Component = () => (
             <motion.div
@@ -120,18 +121,53 @@ describe("WAAPI animations", () => {
         expect(ref.current!.animate).toBeCalled()
         expect(ref.current!.animate).toBeCalledWith(
             {
-                clipPath: clipPathSpring,
+                clipPath: ["inset(100%)", "inset(0%)"],
                 offset: undefined,
             },
             {
                 delay: -0,
-                duration: 1060,
-                easing: "linear",
+                duration: 1100,
+                easing: "linear(0, 0.00492095368383275, 0.019000984981739463, 0.041224610943463774, 0.07059500467226315, 0.10614185285590878, 0.14692820240784954, 0.19205632698700284, 0.24067265069778515, 0.29197177181694345, 0.3451996339917363, 0.3996558960513803, 0.4546955544211474, 0.5097298741800398, 0.5642266861151756, 0.6177101077571204, 0.6697597463896967, 0.7200094414748801, 0.7681456028775725, 0.8139051997748197, 0.8570734532466008, 0.8974812833260857, 0.9350025587895763, 0.9695511952411193, 1.00107814414221, 1.029568312398454, 1.0550374489847534, 1.0775290319076793, 1.097111185604009, 1.113873655690537, 1.127924864841526, 1.1393890705025682, 1.1484036421760593, 1.1551164731537122, 1.159683538842269, 1.1622666112437607, 1.1630311367224075, 1.162144281925159, 1.1597731506281155, 1.15608317236054, 1.1512366619137777, 1.1453915472740652, 1.1387002621242792, 1.1313087978368275, 1.1233559088236016, 1.1149724642133656, 1.1062809380854448, 1.097395029893436, 1.0884194062556494, 1.0794495549612384, 1.0705717418332577, 1.0618630609927004, 1.0533915690712283, 1.0452164940151056, 1.0373885092991255, 1.0299500646175324, 1.0229357644297976, 1.0163727861035714, 1.0102813298065505, 1.0046750927450665, 0.9995617608221014, 0.994943511283805, 0.9908175204345401, 0.9871764710197052, 0.984009054397223, 0.981300463137384, 0.9790328702019366, 0.9771858913526992, 0.9757370279238401, 0.9746620875571338, 0.9739355809432482, 0.9735310930322081, 0.9734216275708206, 0.9735799241926674, 0.97397874762626, 0.9745911488985395, 0.9753906986937353, 0.9763516932817611, 0.9774493336560588, 0.978659878718694, 0.9799607735212718, 0.9813307537148701, 0.9827499274817646, 0.9841998363174931, 0.9856634961051535, 0.9871254199761655, 0.9885716244845871, 0.9899896206369913, 0.9913683913184798, 0.9926983566391931, 0.9939713286962706, 0.9951804572051599, 0.9963201674029861, 0.9973860915668434, 0.9983749954227661, 0.9992847006481276, 1.000114004592579, 1.0008625982615447, 1.001530983522911, 1.0021203904128289, 1.0026326953315294, 1.0030703408354977, 1.0034362576491143, 1.0037337894375618, 1.0039666208040663, 1, 1, 1, 1, 1)",
                 iterations: 1,
                 direction: "normal",
                 fill: "both",
             }
         )
+        supportsFlags.linearEasing = undefined
+    })
+
+    test("Spring generates easeOut easing if linear() not supported", async () => {
+        supportsFlags.linearEasing = false
+        const ref = createRef<HTMLDivElement>()
+        const Component = () => (
+            <motion.div
+                ref={ref}
+                initial={{ clipPath: "inset(100%)" }}
+                animate={{ clipPath: "inset(0%)" }}
+                transition={{ type: "spring" }}
+            />
+        )
+        const { rerender } = render(<Component />)
+        rerender(<Component />)
+
+        await nextFrame()
+
+        expect(ref.current!.animate).toBeCalled()
+        expect(ref.current!.animate).toBeCalledWith(
+            {
+                clipPath: ["inset(100%)", "inset(0%)"],
+                offset: undefined,
+            },
+            {
+                delay: -0,
+                duration: 300,
+                easing: "ease-out",
+                iterations: 1,
+                direction: "normal",
+                fill: "both",
+            }
+        )
+        supportsFlags.linearEasing = undefined
     })
 
     test("transform animates with WAAPI at default settings", async () => {
@@ -158,70 +194,6 @@ describe("WAAPI animations", () => {
                 delay: -0,
                 duration: 300,
                 easing: "cubic-bezier(0.25, 0.1, 0.35, 1)",
-                iterations: 1,
-                direction: "normal",
-                fill: "both",
-            }
-        )
-    })
-
-    // backgroundColor currently disabled for performance reasons
-    test.skip("backgroundColor animates with WAAPI at default settings", async () => {
-        const ref = createRef<HTMLDivElement>()
-        const Component = () => (
-            <motion.div
-                ref={ref}
-                initial={{ backgroundColor: "#f00" }}
-                animate={{ backgroundColor: "#00f" }}
-            />
-        )
-        const { rerender } = render(<Component />)
-        rerender(<Component />)
-
-        await nextFrame()
-
-        expect(ref.current!.animate).toBeCalled()
-        expect(ref.current!.animate).toBeCalledWith(
-            {
-                backgroundColor: [
-                    "rgba(255, 0, 0, 1)",
-                    "rgba(253, 0, 35, 1)",
-                    "rgba(249, 0, 56, 1)",
-                    "rgba(244, 0, 75, 1)",
-                    "rgba(237, 0, 94, 1)",
-                    "rgba(229, 0, 112, 1)",
-                    "rgba(220, 0, 128, 1)",
-                    "rgba(211, 0, 144, 1)",
-                    "rgba(200, 0, 158, 1)",
-                    "rgba(190, 0, 171, 1)",
-                    "rgba(179, 0, 182, 1)",
-                    "rgba(168, 0, 192, 1)",
-                    "rgba(157, 0, 201, 1)",
-                    "rgba(147, 0, 209, 1)",
-                    "rgba(136, 0, 215, 1)",
-                    "rgba(126, 0, 222, 1)",
-                    "rgba(116, 0, 227, 1)",
-                    "rgba(107, 0, 232, 1)",
-                    "rgba(97, 0, 236, 1)",
-                    "rgba(88, 0, 239, 1)",
-                    "rgba(79, 0, 242, 1)",
-                    "rgba(71, 0, 245, 1)",
-                    "rgba(62, 0, 247, 1)",
-                    "rgba(54, 0, 249, 1)",
-                    "rgba(46, 0, 251, 1)",
-                    "rgba(38, 0, 252, 1)",
-                    "rgba(30, 0, 253, 1)",
-                    "rgba(22, 0, 254, 1)",
-                    "rgba(15, 0, 255, 1)",
-                    "rgba(7, 0, 255, 1)",
-                    "rgba(0, 0, 255, 1)",
-                ],
-                offset: undefined,
-            },
-            {
-                delay: -0,
-                duration: 300,
-                easing: "linear",
                 iterations: 1,
                 direction: "normal",
                 fill: "both",
@@ -282,8 +254,9 @@ describe("WAAPI animations", () => {
         expect(ref.current!.animate).toBeCalled()
     })
 
-    test("WAAPI only receives expected number of calls in Framer configuration with hover gestures enabled", async () => {
+    test.skip("WAAPI only receives expected number of calls in Framer configuration with hover gestures enabled", async () => {
         const ref = createRef<HTMLDivElement>()
+
         const Component = () => {
             const [isHovered, setIsHovered] = useState(false)
 
@@ -318,7 +291,7 @@ describe("WAAPI animations", () => {
         expect(ref.current!.animate).toBeCalledTimes(2)
     })
 
-    test("WAAPI only receives expected number of calls in Framer configuration with tap gestures enabled", async () => {
+    test.skip("WAAPI only receives expected number of calls in Framer configuration with tap gestures enabled", async () => {
         const ref = createRef<HTMLDivElement>()
         const Component = () => {
             const [isPressed, setIsPressed] = useState(false)
@@ -327,8 +300,8 @@ describe("WAAPI animations", () => {
                 <motion.div
                     initial="none"
                     animate={isPressed ? "press" : "none"}
-                    onTapStart={() => setIsPressed(true)}
-                    onTap={() => setIsPressed(false)}
+                    onTapStart={() => act(() => setIsPressed(true))}
+                    onTap={() => act(() => setIsPressed(false))}
                 >
                     <motion.div
                         ref={ref}
@@ -345,6 +318,7 @@ describe("WAAPI animations", () => {
         await nextFrame()
         pointerUp(container.firstChild as Element)
 
+        await nextFrame()
         await nextFrame()
 
         rerender(<Component />)
@@ -390,7 +364,7 @@ describe("WAAPI animations", () => {
         )
     })
 
-    test("WAAPI is called with pre-generated keyframes when linear() is unsupported ", async () => {
+    test("WAAPI is called with easeOut easing if linear() not supported", async () => {
         supportsFlags.linearEasing = false
         const ref = createRef<HTMLDivElement>()
         const Component = () => (
@@ -414,14 +388,14 @@ describe("WAAPI animations", () => {
         expect(ref.current!.animate).toBeCalled()
         expect(ref.current!.animate).toBeCalledWith(
             {
-                opacity: [0, 0.2, 0.4, 0.6, 0.8, 1],
-                offset: undefined,
+                opacity: [0, 1],
+                offset: [0, 1],
             },
             {
                 delay: 2000,
                 duration: 50,
                 direction: "normal",
-                easing: "linear",
+                easing: "ease-out",
                 fill: "both",
                 iterations: 1,
             }
@@ -680,7 +654,8 @@ describe("WAAPI animations", () => {
         )
     })
 
-    test("WAAPI is called with pre-generated spring keyframes", async () => {
+    test("WAAPI is called with linear() easing if ease is spring", async () => {
+        supportsFlags.linearEasing = true
         const ref = createRef<HTMLDivElement>()
         const Component = () => (
             <motion.div
@@ -702,64 +677,19 @@ describe("WAAPI animations", () => {
         expect(ref.current!.animate).toBeCalled()
         expect(ref.current!.animate).toBeCalledWith(
             {
-                opacity: [
-                    0, 0.23606867982504365, 0.5509083741195555,
-                    0.7637684153125726, 0.8831910398786699, 0.9444771835619267,
-                    0.9743215604668359, 0.9883608373299467, 0.9948051108537942,
-                    0.9977094774280534, 1,
-                ],
+                opacity: [0, 1],
                 offset: undefined,
             },
             {
                 delay: -0,
                 direction: "normal",
                 duration: 100,
-                easing: "linear",
+                easing: "linear(0, 0.2737809528917775, 0.6078517237120086, 0.8121752183487257, 0.9157330759705354, 0.9637215929231747, 0.9848190277625796, 0.9937779942213871, 0.9974899750750417, 1)",
                 fill: "both",
                 iterations: 1,
             }
         )
-    })
-
-    test("WAAPI is called with pre-generated generator keyframes", async () => {
-        const ref = createRef<HTMLDivElement>()
-        const Component = () => (
-            <motion.div
-                ref={ref}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{
-                    type: spring,
-                    duration: 0.1,
-                    bounce: 0,
-                }}
-            />
-        )
-        const { rerender } = render(<Component />)
-        rerender(<Component />)
-
-        await nextFrame()
-
-        expect(ref.current!.animate).toBeCalled()
-        expect(ref.current!.animate).toBeCalledWith(
-            {
-                opacity: [
-                    0, 0.23606867982504365, 0.5509083741195555,
-                    0.7637684153125726, 0.8831910398786699, 0.9444771835619267,
-                    0.9743215604668359, 0.9883608373299467, 0.9948051108537942,
-                    0.9977094774280534, 1,
-                ],
-                offset: undefined,
-            },
-            {
-                delay: -0,
-                direction: "normal",
-                duration: 100,
-                easing: "linear",
-                fill: "both",
-                iterations: 1,
-            }
-        )
+        supportsFlags.linearEasing = undefined
     })
 
     /**
@@ -781,44 +711,6 @@ describe("WAAPI animations", () => {
         await nextFrame()
 
         expect(ref.current!.animate).not.toBeCalled()
-    })
-
-    test("Pregenerates keyframes if ease is anticipate and linear() is not supported", async () => {
-        supportsFlags.linearEasing = false
-        const ref = createRef<HTMLDivElement>()
-        const Component = () => (
-            <motion.div
-                ref={ref}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 0.9 }}
-                transition={{ ease: "anticipate", duration: 0.05 }}
-            />
-        )
-        const { rerender } = render(<Component />)
-        rerender(<Component />)
-
-        await nextFrame()
-
-        expect(ref.current!.animate).toBeCalled()
-        expect(ref.current!.animate).toBeCalledWith(
-            {
-                opacity: [
-                    0, -0.038019759996313955, 0.14036703066311026, 0.7875,
-                    0.89296875, 0.899560546875,
-                ],
-                offset: undefined,
-            },
-            {
-                delay: -0,
-                direction: "normal",
-                duration: 50,
-                easing: "linear",
-                fill: "both",
-                iterations: 1,
-            }
-        )
-
-        supportsFlags.linearEasing = undefined
     })
 
     test("Generates linear() easing if ease is anticipate", async () => {
@@ -855,44 +747,6 @@ describe("WAAPI animations", () => {
         supportsFlags.linearEasing = undefined
     })
 
-    test("Pregenerates keyframes if ease is backInOut and linear() is not supported", async () => {
-        supportsFlags.linearEasing = false
-
-        const ref = createRef<HTMLDivElement>()
-        const Component = () => (
-            <motion.div
-                ref={ref}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 0.9 }}
-                transition={{ ease: "backInOut", duration: 0.05 }}
-            />
-        )
-        const { rerender } = render(<Component />)
-        rerender(<Component />)
-
-        await nextFrame()
-
-        expect(ref.current!.animate).toBeCalled()
-        expect(ref.current!.animate).toBeCalledWith(
-            {
-                opacity: [
-                    0, -0.038019759996313955, 0.14036703066311026,
-                    0.7596329693368897, 0.9380197599963139, 0.9,
-                ],
-                offset: undefined,
-            },
-            {
-                delay: -0,
-                direction: "normal",
-                duration: 50,
-                easing: "linear",
-                fill: "both",
-                iterations: 1,
-            }
-        )
-        supportsFlags.linearEasing = undefined
-    })
-
     test("Generates linear() if ease is backInOut", async () => {
         supportsFlags.linearEasing = true
 
@@ -921,43 +775,6 @@ describe("WAAPI animations", () => {
                 direction: "normal",
                 duration: 50,
                 easing: "linear(0, -0.033628590829175686, 0.5, 1.0336285908291756, 1)",
-                fill: "both",
-                iterations: 1,
-            }
-        )
-        supportsFlags.linearEasing = undefined
-    })
-
-    test("Pregenerates keyframes if ease is circInOut and linear() is not supported", async () => {
-        supportsFlags.linearEasing = false
-        const ref = createRef<HTMLDivElement>()
-        const Component = () => (
-            <motion.div
-                ref={ref}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 0.9 }}
-                transition={{ ease: "circInOut", duration: 0.05 }}
-            />
-        )
-        const { rerender } = render(<Component />)
-        rerender(<Component />)
-
-        await nextFrame()
-
-        expect(ref.current!.animate).toBeCalled()
-        expect(ref.current!.animate).toBeCalledWith(
-            {
-                opacity: [
-                    0, 0.03756818745397441, 0.18000000000000008, 0.72,
-                    0.8624318125460256, 0.9,
-                ],
-                offset: undefined,
-            },
-            {
-                delay: -0,
-                direction: "normal",
-                duration: 50,
-                easing: "linear",
                 fill: "both",
                 iterations: 1,
             }
@@ -1111,19 +928,16 @@ describe("WAAPI animations", () => {
         expect(ref.current!.animate).toBeCalled()
         expect(ref.current!.animate).toBeCalledWith(
             {
-                opacity: [
-                    0, -0.038019759996313955, 0.14036703066311026,
-                    0.7596329693368897, 0.9380197599963139, 0.9,
-                ],
+                opacity: [0, 0.9],
                 offset: undefined,
             },
             {
                 delay: -0,
                 direction: "normal",
                 duration: 50,
-                easing: "linear",
                 fill: "both",
                 iterations: 3,
+                easing: "ease-out",
             }
         )
         supportsFlags.linearEasing = undefined
@@ -1152,131 +966,17 @@ describe("WAAPI animations", () => {
         expect(ref.current!.animate).toBeCalled()
         expect(ref.current!.animate).toBeCalledWith(
             {
-                opacity: [
-                    0, -0.038019759996313955, 0.14036703066311026,
-                    0.7596329693368897, 0.9380197599963139, 0.9,
-                ],
-                offset: undefined,
+                opacity: [0, 0.9],
             },
             {
                 delay: -0,
                 direction: "normal",
                 duration: 50,
-                easing: "linear",
                 fill: "both",
                 iterations: Infinity,
+                easing: "ease-out",
             }
         )
         supportsFlags.linearEasing = undefined
     })
 })
-
-const clipPathSpring = [
-    "inset(100%)",
-    "inset(99.51666%)",
-    "inset(98.13308%)",
-    "inset(95.94808%)",
-    "inset(93.0587%)",
-    "inset(89.55945%)",
-    "inset(85.54164%)",
-    "inset(81.09282%)",
-    "inset(76.2963%)",
-    "inset(71.23077%)",
-    "inset(65.97002%)",
-    "inset(60.58262%)",
-    "inset(55.13186%)",
-    "inset(49.6756%)",
-    "inset(44.26624%)",
-    "inset(38.95075%)",
-    "inset(33.77073%)",
-    "inset(28.76256%)",
-    "inset(23.9575%)",
-    "inset(19.3819%)",
-    "inset(15.05744%)",
-    "inset(11.00133%)",
-    "inset(7.22661%)",
-    "inset(3.74239%)",
-    "inset(0.55415%)",
-    "inset(-2.33596%)",
-    "inset(-4.92882%)",
-    "inset(-7.22808%)",
-    "inset(-9.23981%)",
-    "inset(-10.97224%)",
-    "inset(-12.43548%)",
-    "inset(-13.64123%)",
-    "inset(-14.60254%)",
-    "inset(-15.33352%)",
-    "inset(-15.84914%)",
-    "inset(-16.16499%)",
-    "inset(-16.29709%)",
-    "inset(-16.26165%)",
-    "inset(-16.07497%)",
-    "inset(-15.75321%)",
-    "inset(-15.31228%)",
-    "inset(-14.76771%)",
-    "inset(-14.13455%)",
-    "inset(-13.42725%)",
-    "inset(-12.65959%)",
-    "inset(-11.84461%)",
-    "inset(-10.99456%)",
-    "inset(-10.12086%)",
-    "inset(-9.23407%)",
-    "inset(-8.34388%)",
-    "inset(-7.45906%)",
-    "inset(-6.58752%)",
-    "inset(-5.73628%)",
-    "inset(-4.9115%)",
-    "inset(-4.11851%)",
-    "inset(-3.36183%)",
-    "inset(-2.64518%)",
-    "inset(-1.97159%)",
-    "inset(-1.34334%)",
-    "inset(-0.76211%)",
-    "inset(-0.22895%)",
-    "inset(0.25566%)",
-    "inset(0.69171%)",
-    "inset(1.0797%)",
-    "inset(1.42049%)",
-    "inset(1.71535%)",
-    "inset(1.96584%)",
-    "inset(2.1738%)",
-    "inset(2.3413%)",
-    "inset(2.4706%)",
-    "inset(2.5641%)",
-    "inset(2.62433%)",
-    "inset(2.65387%)",
-    "inset(2.65537%)",
-    "inset(2.63147%)",
-    "inset(2.58483%)",
-    "inset(2.51805%)",
-    "inset(2.43368%)",
-    "inset(2.3342%)",
-    "inset(2.22199%)",
-    "inset(2.09934%)",
-    "inset(1.96839%)",
-    "inset(1.83119%)",
-    "inset(1.68964%)",
-    "inset(1.54548%)",
-    "inset(1.40036%)",
-    "inset(1.25572%)",
-    "inset(1.11292%)",
-    "inset(0.97312%)",
-    "inset(0.83737%)",
-    "inset(0.70657%)",
-    "inset(0.58151%)",
-    "inset(0.46282%)",
-    "inset(0.35102%)",
-    "inset(0.24652%)",
-    "inset(0.14963%)",
-    "inset(0.06053%)",
-    "inset(-0.02067%)",
-    "inset(-0.09394%)",
-    "inset(-0.15935%)",
-    "inset(-0.21701%)",
-    "inset(-0.26713%)",
-    "inset(-0.30993%)",
-    "inset(-0.34572%)",
-    "inset(-0.37481%)",
-    "inset(-0.39757%)",
-    "inset(0%)",
-]

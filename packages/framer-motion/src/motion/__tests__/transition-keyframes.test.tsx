@@ -1,5 +1,5 @@
-import { render } from "../../../jest.setup"
 import { motion, motionValue } from "../.."
+import { render } from "../../jest.setup"
 import { checkVariantsDidChange } from "../../render/utils/animation-state"
 
 describe("keyframes transition", () => {

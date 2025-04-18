@@ -1,4 +1,4 @@
-import { EasingFunction } from "../../../easing/types"
+import { EasingFunction } from "motion-utils"
 
 export interface ScrollOptions {
     source?: HTMLElement
@@ -6,6 +6,11 @@ export interface ScrollOptions {
     target?: Element
     axis?: "x" | "y"
     offset?: ScrollOffset
+}
+
+export interface ScrollOptionsWithDefaults extends ScrollOptions {
+    axis: "x" | "y"
+    container: HTMLElement
 }
 
 export type OnScrollProgress = (progress: number) => void
