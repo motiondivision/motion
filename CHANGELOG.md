@@ -8,7 +8,12 @@ Undocumented APIs should be considered internal and may change without warning.
 
 ### Fixed
 
+<<<<<<< HEAD
 -   `duration` for `animateView` transitions.
+=======
+-   Fixing `duration` for `animateView` transitions.
+-   Prevent `.commitStyles()` on `pseudoElement` animations.
+>>>>>>> a5822eeba5f94c6f695d95d1ff77097abf4cb0ce
 
 ## [12.7.2] 2025-04-14
 

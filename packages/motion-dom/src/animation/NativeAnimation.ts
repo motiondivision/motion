@@ -48,6 +48,8 @@ export class NativeAnimation implements AnimationPlaybackControls {
 
     private removeAnimation: VoidFunction
 
+    private isPseudoElement: boolean
+
     constructor(options: NativeAnimationOptions | NativeControlsOptions) {
         /**
          * If we already have an animation, we don't need to instantiate one
@@ -66,6 +68,8 @@ export class NativeAnimation implements AnimationPlaybackControls {
             allowFlatten = false,
         } = options
         let { transition } = options
+
+        this.isPseudoElement = Boolean(pseudoElement)
 
         this.allowFlatten = allowFlatten
 
@@ -157,7 +161,6 @@ export class NativeAnimation implements AnimationPlaybackControls {
         }
 
         this.commitStyles()
-
         this.cancel()
     }
 
@@ -174,12 +177,12 @@ export class NativeAnimation implements AnimationPlaybackControls {
      * while deferring the commit until the next animation frame.
      */
     private commitStyles() {
-        this.animation.commitStyles?.()
+        if (!this.isPseudoElement) {
+            this.animation.commitStyles?.()
+        }
     }
 
     get duration() {
-        console.log(this.animation.effect?.getComputedTiming())
-
         const duration =
             this.animation.effect?.getComputedTiming().duration || 0
 
