@@ -12,8 +12,8 @@ describe("SVG", () => {
             </svg>
         )
 
-        expect(getByTestId("g")).not.toHaveStyle("transform: translateX(100px)")
-        expect(getByTestId("h")).not.toHaveStyle("transform: translateX(100px)")
+        expect(getByTestId("g")).toHaveStyle("transform: translateX(100px)")
+        expect(getByTestId("h")).toHaveStyle("transform: translateX(100px)")
     })
 
     test("accepts attrX/attrY/attrScale in types", () => {

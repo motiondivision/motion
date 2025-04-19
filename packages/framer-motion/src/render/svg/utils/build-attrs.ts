@@ -3,7 +3,6 @@ import { buildHTMLStyles } from "../../html/utils/build-styles"
 import { ResolvedValues } from "../../types"
 import { SVGRenderState } from "../types"
 import { buildSVGPath } from "./path"
-import { calcSVGTransformOrigin } from "./transform-origin"
 
 /**
  * Build SVG visual attrbutes, like cx and style.transform
@@ -14,8 +13,6 @@ export function buildSVGAttrs(
         attrX,
         attrY,
         attrScale,
-        originX,
-        originY,
         pathLength,
         pathSpacing = 1,
         pathOffset = 0,
@@ -40,27 +37,28 @@ export function buildSVGAttrs(
 
     state.attrs = state.style
     state.style = {}
-    const { attrs, style, dimensions } = state
+    const { attrs, style } = state
 
     /**
-     * However, we apply transforms as CSS transforms. So if we detect a transform we take it from attrs
-     * and copy it into style.
+     * However, we apply transforms as CSS transforms.
+     * So if we detect a transform, transformOrigin we take it from attrs and copy it into style.
      */
     if (attrs.transform) {
-        if (dimensions) style.transform = attrs.transform
+        style.transform = attrs.transform
         delete attrs.transform
     }
+    if (style.transform || attrs.transformOrigin) {
+        style.transformOrigin = attrs.transformOrigin ?? "50% 50%"
+        delete attrs.transformOrigin
+    }
 
-    // Parse transformOrigin
-    if (
-        dimensions &&
-        (originX !== undefined || originY !== undefined || style.transform)
-    ) {
-        style.transformOrigin = calcSVGTransformOrigin(
-            dimensions,
-            originX !== undefined ? originX : 0.5,
-            originY !== undefined ? originY : 0.5
-        )
+    if (style.transform) {
+        /**
+         * SVG's element transform-origin uses its own median as a reference.
+         * Therefore, transformBox becomes a fill-box
+         */
+        style.transformBox = "fill-box"
+        delete attrs.transformBox
     }
 
     // Render attrX/attrY/attrScale as attributes

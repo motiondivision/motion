@@ -1,4 +1,4 @@
-import { frame, MotionValue } from "motion-dom"
+import { MotionValue } from "motion-dom"
 import { MotionProps, MotionStyle } from "../../motion/types"
 import { createBox } from "../../projection/geometry/models"
 import { IProjectionNode } from "../../projection/node/types"
@@ -13,7 +13,6 @@ import { SVGRenderState } from "./types"
 import { buildSVGAttrs } from "./utils/build-attrs"
 import { camelCaseAttributes } from "./utils/camel-case-attrs"
 import { isSVGTag } from "./utils/is-svg-tag"
-import { updateSVGDimensions } from "./utils/measure"
 import { renderSVG } from "./utils/render"
 import { scrapeMotionValuesFromProps } from "./utils/scrape-motion-values"
 
@@ -50,18 +49,6 @@ export class SVGVisualElement extends DOMVisualElement<
         visualElement: VisualElement
     ) {
         return scrapeMotionValuesFromProps(props, prevProps, visualElement)
-    }
-
-    updateDimensions = () => {
-        if (this.current && !this.renderState.dimensions) {
-            updateSVGDimensions(this.current, this.renderState)
-        }
-    }
-
-    onBindTransform() {
-        if (this.current && !this.renderState.dimensions) {
-            frame.postRender(this.updateDimensions)
-        }
     }
 
     build(

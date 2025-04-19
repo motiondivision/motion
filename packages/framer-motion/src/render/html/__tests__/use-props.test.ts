@@ -19,7 +19,9 @@ describe("HTML useProps", () => {
         )
 
         expect(result.current).toEqual({
-            style: { transform: "translateX(3px)" },
+            style: {
+                transform: "translateX(3px)",
+            },
         })
     })
 
@@ -39,7 +41,9 @@ describe("HTML useProps", () => {
         )
 
         expect(result.current).toEqual({
-            style: { transform: "translateX(3px)" },
+            style: {
+                transform: "translateX(3px)",
+            },
         })
     })
 
@@ -59,8 +63,12 @@ describe("HTML useProps", () => {
 
         expect(a).toEqual(b)
         expect(a).not.toEqual(c)
-        expect(a).toEqual({ transform: "translateX(100px)" })
-        expect(c).toEqual({ transform: "translateX(200px)" })
+        expect(a).toEqual({
+            transform: "translateX(100px)",
+        })
+        expect(c).toEqual({
+            transform: "translateX(200px)",
+        })
     })
 
     test("should generate the correct props when drag is enabled", () => {

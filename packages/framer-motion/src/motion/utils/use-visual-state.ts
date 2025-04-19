@@ -15,18 +15,9 @@ import { useConstant } from "../../utils/use-constant"
 import { resolveMotionValue } from "../../value/utils/resolve-motion-value"
 import { MotionProps } from "../types"
 
-export interface OnUpdateSettings<Instance, RenderState> {
-    props: MotionProps
-    prevProps?: MotionProps
-    current: Instance | null
-    renderState: RenderState
-    latestValues: ResolvedValues
-}
-
 export interface VisualState<Instance, RenderState> {
     renderState: RenderState
     latestValues: ResolvedValues
-    onUpdate?: (settings: OnUpdateSettings<Instance, RenderState>) => void
     onMount?: (instance: Instance) => void
 }
 
@@ -35,18 +26,16 @@ export type UseVisualState<Instance, RenderState> = (
     isStatic: boolean
 ) => VisualState<Instance, RenderState>
 
-export interface UseVisualStateConfig<Instance, RenderState> {
+export interface UseVisualStateConfig<RenderState> {
     scrapeMotionValuesFromProps: ScrapeMotionValuesFromProps
     createRenderState: () => RenderState
-    onUpdate?: (settings: OnUpdateSettings<Instance, RenderState>) => void
 }
 
 function makeState<I, RS>(
     {
         scrapeMotionValuesFromProps,
         createRenderState,
-        onUpdate,
-    }: UseVisualStateConfig<I, RS>,
+    }: UseVisualStateConfig<RS>,
     props: MotionProps,
     context: MotionContextProps,
     presenceContext: PresenceContextProps | null
@@ -61,22 +50,11 @@ function makeState<I, RS>(
         renderState: createRenderState(),
     }
 
-    if (onUpdate) {
-        /**
-         * onMount works without the VisualElement because it could be
-         * called before the VisualElement payload has been hydrated.
-         * (e.g. if someone is using m components <m.circle />)
-         */
-        state.onMount = (instance) =>
-            onUpdate({ props, current: instance, ...state })
-        state.onUpdate = (visualElement) => onUpdate(visualElement)
-    }
-
     return state
 }
 
 export const makeUseVisualState =
-    <I, RS>(config: UseVisualStateConfig<I, RS>): UseVisualState<I, RS> =>
+    <I, RS>(config: UseVisualStateConfig<RS>): UseVisualState<I, RS> =>
     (props: MotionProps, isStatic: boolean): VisualState<I, RS> => {
         const context = useContext(MotionContext)
         const presenceContext = useContext(PresenceContext)
