@@ -435,7 +435,7 @@ export class JSAnimation<T extends number | string>
     stop = () => {
         const { motionValue } = this.options
         if (motionValue && motionValue.updatedAt !== time.now()) {
-            this.tick(time.now())
+            this.tick(this.holdTime!,true)
         }
 
         this.isStopped = true
