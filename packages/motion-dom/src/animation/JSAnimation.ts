@@ -433,10 +433,6 @@ export class JSAnimation<T extends number | string>
      * animation.stop is returned as a reference from a useEffect.
      */
     stop = () => {
-        const { motionValue } = this.options
-        if (motionValue && motionValue.updatedAt !== time.now()) {
-            this.tick(this.holdTime!,true)
-        }
 
         this.isStopped = true
         if (this.state === "idle") return
