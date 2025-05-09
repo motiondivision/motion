@@ -41,7 +41,7 @@ function useDefaultMotionValue(value: any, defaultValue: number = 0) {
 }
 
 type ReorderItemProps<V> = Props<V> &
-    HTMLMotionProps<any> &
+    Omit<HTMLMotionProps<any>, "value" | "layout"> &
     React.PropsWithChildren<{}>
 
 export function ReorderItemComponent<V>(
