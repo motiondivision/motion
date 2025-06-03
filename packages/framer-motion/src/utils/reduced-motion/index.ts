@@ -11,7 +11,7 @@ export function initPrefersReducedMotion() {
         const setReducedMotionPreferences = () =>
             (prefersReducedMotion.current = motionMediaQuery.matches)
 
-        motionMediaQuery.addListener(setReducedMotionPreferences)
+        motionMediaQuery.addEventListener("change", setReducedMotionPreferences)
 
         setReducedMotionPreferences()
     } else {
