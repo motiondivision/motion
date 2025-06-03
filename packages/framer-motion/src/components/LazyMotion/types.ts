@@ -19,7 +19,7 @@ export interface LazyProps {
      * // index.js
      * import { LazyMotion, m } from "framer-motion"
      *
-     * const loadFeatures = import("./features.js")
+     * const loadFeatures = () =>import("./features.js")
      *   .then(res => res.default)
      *
      * function Component() {
