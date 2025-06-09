@@ -17,6 +17,7 @@ import type { VisualElement } from "../../render/VisualElement"
 import { isRefObject } from "../../utils/is-ref-object"
 import { useIsomorphicLayoutEffect } from "../../utils/use-isomorphic-effect"
 import { VisualState } from "./use-visual-state"
+import { useMotionValueChildren } from "./use-motion-value-children"
 
 export function useVisualElement<Instance, RenderState>(
     Component: string | React.ComponentType<React.PropsWithChildren<unknown>>,
@@ -51,6 +52,11 @@ export function useVisualElement<Instance, RenderState>(
     }
 
     const visualElement = visualElementRef.current
+
+    /**
+     * Handle motion value children updates
+     */
+    useMotionValueChildren(props, visualElement!)
 
     /**
      * Load Motion gesture and animation features. These are rendered as renderless
