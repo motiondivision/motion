@@ -1,5 +1,11 @@
 import { useRef } from "react"
-import { motion, motionValue, useMotionValue, useTransform } from "../../"
+import {
+    motion,
+    motionValue,
+    TargetAndTransition,
+    useMotionValue,
+    useTransform,
+} from "../../"
 import { nextFrame } from "../../gestures/__tests__/utils"
 import { render } from "../../jest.setup"
 
@@ -78,7 +84,7 @@ describe("SVG", () => {
 
     // // https://github.com/motiondivision/motion/issues/216
     test("doesn't throw if animating unencounterd value", () => {
-        const animation = {
+        const animation: TargetAndTransition = {
             strokeDasharray: ["1px, 200px", "100px, 200px", "100px, 200px"],
             strokeDashoffset: [0, -15, -125],
             transition: { duration: 1.4, ease: "linear" },

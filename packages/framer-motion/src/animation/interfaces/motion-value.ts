@@ -1,8 +1,8 @@
 import type {
     MotionValue,
     StartAnimation,
-    Transition,
     UnresolvedKeyframes,
+    ValueTransition,
 } from "motion-dom"
 import {
     AsyncMotionValueAnimation,
@@ -22,7 +22,7 @@ export const animateMotionValue =
         name: string,
         value: MotionValue<V>,
         target: V | UnresolvedKeyframes<V>,
-        transition: Transition & { elapsed?: number } = {},
+        transition: ValueTransition & { elapsed?: number } = {},
         element?: VisualElement<any>,
         isHandoff?: boolean
     ): StartAnimation =>

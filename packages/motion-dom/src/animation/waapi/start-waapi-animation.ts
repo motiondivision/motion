@@ -1,6 +1,6 @@
 import { activeAnimations } from "../../stats/animation-count"
 import { statsBuffer } from "../../stats/buffer"
-import { Transition, ValueKeyframesDefinition } from "../types"
+import { ValueKeyframesDefinition, ValueTransition } from "../types"
 import { mapEasingToNativeEasing } from "./easing/map-easing"
 
 export function startWaapiAnimation(
@@ -14,7 +14,7 @@ export function startWaapiAnimation(
         repeatType = "loop",
         ease = "easeOut",
         times,
-    }: Transition = {},
+    }: ValueTransition = {},
     pseudoElement: string | undefined = undefined
 ) {
     const keyframeOptions: PropertyIndexedKeyframes = {

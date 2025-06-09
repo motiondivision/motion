@@ -1,4 +1,4 @@
-import type { JSAnimation, Transition } from "motion-dom"
+import type { JSAnimation, Transition, ValueTransition } from "motion-dom"
 import { Box, Delta, Point } from "motion-utils"
 import { InitialPromotionConfig } from "../../context/SwitchLayoutGroupContext"
 import { MotionStyle } from "../../motion/types"
@@ -113,7 +113,7 @@ export interface IProjectionNode<I = unknown> {
     isAnimationBlocked?: boolean
     isTreeAnimationBlocked: () => boolean
     setAnimationOrigin(delta: Delta): void
-    startAnimation(transition: Transition): void
+    startAnimation(transition: ValueTransition): void
     finishAnimation(): void
     hasCheckedOptimisedAppear: boolean
 

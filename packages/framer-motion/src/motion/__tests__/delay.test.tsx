@@ -1,4 +1,4 @@
-import { motionValue } from "motion-dom"
+import { motionValue, Variants } from "motion-dom"
 import { motion } from "../.."
 import { render } from "../../jest.setup"
 
@@ -106,14 +106,14 @@ describe("delay attr", () => {
         const promise = new Promise((resolve) => {
             const x = motionValue(0)
 
-            const parent = {
+            const parent: Variants = {
                 visible: {
                     x: 10,
                     transition: { delay: 0, delayChildren: 1, type: false },
                 },
             }
 
-            const child = {
+            const child: Variants = {
                 visible: {
                     x: 10,
                     transition: { type: false },
@@ -138,14 +138,14 @@ describe("delay attr", () => {
         const promise = new Promise((resolve) => {
             const x = motionValue(0)
 
-            const parent = {
+            const parent: Variants = {
                 visible: {
                     x: 10,
                     transition: { delay: 0, staggerChildren: 1, type: false },
                 },
             }
 
-            const child = {
+            const child: Variants = {
                 visible: {
                     x: 10,
                     transition: { type: false },

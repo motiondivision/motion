@@ -131,7 +131,7 @@ export function createAnimationsFromSequence(
             const numKeyframes = valueKeyframesAsList.length
             const createGenerator = isGenerator(type)
                 ? type
-                : generators?.[type]
+                : generators?.[type || "keyframes"]
 
             if (numKeyframes <= 2 && createGenerator) {
                 /**

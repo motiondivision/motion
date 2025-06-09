@@ -868,7 +868,7 @@ describe("animate prop as variant", () => {
 
     test("accepts variants without being typed", () => {
         expect(() => {
-            const variants = {
+            const variants: Variants = {
                 withoutTransition: { opacity: 0 },
                 withJustDefaultTransitionType: {
                     opacity: 0,

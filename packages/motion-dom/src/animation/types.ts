@@ -139,13 +139,17 @@ export interface GeneratorFactory extends GeneratorFactoryFunction {
     applyToOptions?: (options: Transition) => Transition
 }
 
-export type AnimationGeneratorType =
-    | GeneratorFactory
+export type AnimationGeneratorName =
     | "decay"
     | "spring"
     | "keyframes"
     | "tween"
     | "inertia"
+
+export type AnimationGeneratorType =
+    | GeneratorFactory
+    | AnimationGeneratorName
+    | false
 
 export interface AnimationPlaybackLifecycles<V> {
     onUpdate?: (latest: V) => void
@@ -159,7 +163,7 @@ export interface AnimationPlaybackLifecycles<V> {
 }
 
 export interface ValueAnimationTransition<V = any>
-    extends Transition,
+    extends ValueTransition,
         AnimationPlaybackLifecycles<V> {
     isSync?: boolean
 }
@@ -398,7 +402,7 @@ export interface KeyframeOptions {
     times?: number[]
 }
 
-export interface Transition
+export interface ValueTransition
     extends AnimationOrchestrationOptions,
         AnimationPlaybackOptions,
         Omit<SpringOptions, "keyframes">,
@@ -424,6 +428,7 @@ export interface Transition
      *
      * - "tween": Duration-based animation with ease curve
      * - "spring": Physics or duration-based spring animation
+     * - false: Use an instant animation
      */
     type?: AnimationGeneratorType
 
@@ -440,20 +445,24 @@ export interface Transition
     from?: any
 }
 
+export type SVGForcedAttrTransitions = {
+    [K in keyof SVGForcedAttrProperties]: ValueTransition
+}
+
 export type SVGPathTransitions = {
-    [K in keyof SVGPathProperties]: Transition
+    [K in keyof SVGPathProperties]: ValueTransition
 }
 
 export type SVGTransitions = {
-    [K in keyof SVGAttributes]: Transition
+    [K in keyof SVGAttributes]: ValueTransition
 }
 
 export type VariableTransitions = {
-    [key: `--${string}`]: Transition
+    [key: `--${string}`]: ValueTransition
 }
 
 export type StyleTransitions = {
-    [K in keyof CSSStyleDeclarationWithTransform]?: Transition
+    [K in keyof CSSStyleDeclarationWithTransform]?: ValueTransition
 }
 
 export type ValueKeyframe<T extends string | number = string | number> = T
@@ -481,6 +490,10 @@ export type VariableKeyframesDefinition = {
     [key: `--${string}`]: ValueKeyframesDefinition
 }
 
+export type SVGForcedAttrKeyframesDefinition = {
+    [K in keyof SVGForcedAttrProperties]?: ValueKeyframesDefinition
+}
+
 export type SVGPathKeyframesDefinition = {
     [K in keyof SVGPathProperties]?: ValueKeyframesDefinition
 }
@@ -488,6 +501,7 @@ export type SVGPathKeyframesDefinition = {
 export type DOMKeyframesDefinition = StyleKeyframesDefinition &
     SVGKeyframesDefinition &
     SVGPathKeyframesDefinition &
+    SVGForcedAttrKeyframesDefinition &
     VariableKeyframesDefinition
 
 export interface CSSStyleDeclarationWithTransform
@@ -508,16 +522,19 @@ export interface CSSStyleDeclarationWithTransform
     skewY: number | string
 }
 
-export type AnimationOptionsWithValueOverrides<V = any> = StyleTransitions &
+export type Transition<V = any> = StyleTransitions &
     SVGPathTransitions &
+    SVGForcedAttrTransitions &
     SVGTransitions &
     VariableTransitions &
-    ValueAnimationTransition<V>
+    ValueAnimationTransition<V> & {
+        default?: ValueTransition
+        layout?: ValueTransition
+    }
 
 export type DynamicOption<T> = (i: number, total: number) => T
 
-export interface AnimationOptions
-    extends Omit<AnimationOptionsWithValueOverrides, "delay"> {
+export interface AnimationOptions extends Omit<Transition, "delay"> {
     delay?: number | DynamicOption<number>
 }
 
@@ -544,6 +561,12 @@ export interface TransformProperties {
     originZ?: string | number
     perspective?: string | number
     transformPerspective?: string | number
+}
+
+export interface SVGForcedAttrProperties {
+    attrX?: number
+    attrY?: number
+    attrScale?: number
 }
 
 export interface SVGPathProperties {

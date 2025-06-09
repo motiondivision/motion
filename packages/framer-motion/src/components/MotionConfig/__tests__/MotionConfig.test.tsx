@@ -1,5 +1,6 @@
-import { useContext } from "react";
 import { render } from "@testing-library/react"
+import { AnimationGeneratorName } from "motion-dom"
+import { useContext } from "react"
 import { MotionConfig } from ".."
 import { MotionConfigContext } from "../../../context/MotionConfigContext"
 
@@ -10,7 +11,7 @@ const Consumer = () => {
     return <div data-testid={consumerId}>{value.transition!.type}</div>
 }
 
-const App = ({ type }: { type: string }) => (
+const App = ({ type }: { type: AnimationGeneratorName }) => (
     <MotionConfig transition={{ type }}>
         <Consumer />
     </MotionConfig>
