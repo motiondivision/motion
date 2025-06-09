@@ -1,7 +1,7 @@
 {
     "name": "next-env",
     "private": true,
-    "version": "12.16.0",
+    "version": "12.16.1-alpha.0",
     "type": "module",
     "scripts": {
         "dev": "next dev",
@@ -9,7 +9,7 @@
         "start": "next start"
     },
     "dependencies": {
-        "motion": "^12.16.0",
+        "motion": "^12.16.1-alpha.0",
         "next": "14.x",
         "react": "^18.3.1",
         "react-dom": "^18.3.1"
