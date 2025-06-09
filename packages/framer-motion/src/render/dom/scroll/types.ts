@@ -43,8 +43,7 @@ export interface ScrollInfo {
 export type OnScrollInfo = (info: ScrollInfo) => void
 
 export type OnScrollHandler = {
-    measure: () => void
-    update: (time: number) => void
+    measure: (time: number) => void
     notify: () => void
 }
 

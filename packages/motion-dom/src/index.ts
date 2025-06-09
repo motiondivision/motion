@@ -36,7 +36,10 @@ export * from "./animation/waapi/supports/waapi"
 export * from "./animation/waapi/utils/accelerated-values"
 export * from "./animation/waapi/utils/linear"
 
+export * from "./effects/attr"
+export * from "./effects/prop"
 export * from "./effects/style"
+export * from "./effects/svg"
 
 export * from "./frameloop"
 export * from "./frameloop/batcher"
@@ -59,6 +62,8 @@ export * from "./render/dom/style-set"
 export * from "./render/svg/types"
 export * from "./render/utils/keys-position"
 export * from "./render/utils/keys-transform"
+
+export * from "./resize"
 
 export * from "./scroll/observe"
 

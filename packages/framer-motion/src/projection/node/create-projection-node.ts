@@ -545,11 +545,6 @@ export function createProjectionNode<I>({
                                 this.resumingFrom.resumingFrom = undefined
                             }
 
-                            this.setAnimationOrigin(
-                                delta,
-                                hasOnlyRelativeTargetChanged
-                            )
-
                             const animationOptions = {
                                 ...getValueTransition(
                                     layoutTransition,
@@ -568,6 +563,14 @@ export function createProjectionNode<I>({
                             }
 
                             this.startAnimation(animationOptions)
+                            /**
+                             * Set animation origin after starting animation to avoid layout jump
+                             * caused by stopping previous layout animation
+                             */
+                            this.setAnimationOrigin(
+                                delta,
+                                hasOnlyRelativeTargetChanged
+                            )
                         } else {
                             /**
                              * If the layout hasn't changed and we have an animation that hasn't started yet,
@@ -1599,8 +1602,8 @@ export function createProjectionNode<I>({
         startAnimation(options: ValueAnimationOptions<number>) {
             this.notifyListeners("animationStart")
 
-            this.currentAnimation?.stop(false)
-            this.resumingFrom?.currentAnimation?.stop(false)
+            this.currentAnimation?.stop()
+            this.resumingFrom?.currentAnimation?.stop()
 
             if (this.pendingAnimation) {
                 cancelFrame(this.pendingAnimation)
@@ -1617,11 +1620,13 @@ export function createProjectionNode<I>({
 
                 activeAnimations.layout++
                 this.motionValue ||= motionValue(0)
+
                 this.currentAnimation = animateSingleValue(
                     this.motionValue,
                     [0, 1000],
                     {
                         ...(options as any),
+                        velocity: 0,
                         isSync: true,
                         onUpdate: (latest: number) => {
                             this.mixTargetDelta(latest)
@@ -1665,7 +1670,7 @@ export function createProjectionNode<I>({
         finishAnimation() {
             if (this.currentAnimation) {
                 this.mixTargetDelta && this.mixTargetDelta(animationTarget)
-                this.currentAnimation.stop(false)
+                this.currentAnimation.stop()
             }
 
             this.completeAnimation()
@@ -2022,7 +2027,7 @@ export function createProjectionNode<I>({
         // Only run on root
         resetTree() {
             this.root.nodes!.forEach((node: IProjectionNode) =>
-                node.currentAnimation?.stop(false)
+                node.currentAnimation?.stop()
             )
             this.root.nodes!.forEach(clearMeasurements)
             this.root.sharedNodes.clear()

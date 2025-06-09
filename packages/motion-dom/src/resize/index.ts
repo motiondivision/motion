@@ -1,15 +1,15 @@
-import { ElementOrSelector } from "motion-dom"
+import { ElementOrSelector } from "../utils/resolve-elements"
 import { resizeElement } from "./handle-element"
 import { resizeWindow } from "./handle-window"
-import { ResizeHandler } from "./types"
+import { ResizeHandler, WindowResizeHandler } from "./types"
 
-export function resize(onResize: ResizeHandler<Window>): VoidFunction
+export function resize(onResize: WindowResizeHandler): VoidFunction
 export function resize(
     target: ElementOrSelector,
     onResize: ResizeHandler<Element>
 ): VoidFunction
 export function resize(
-    a: ResizeHandler<Window> | ElementOrSelector,
+    a: WindowResizeHandler | ElementOrSelector,
     b?: ResizeHandler<Element>
 ) {
     return typeof a === "function" ? resizeWindow(a) : resizeElement(a, b!)

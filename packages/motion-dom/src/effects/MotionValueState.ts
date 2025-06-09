@@ -15,7 +15,8 @@ export class MotionValueState {
         name: string,
         value: MotionValue,
         render?: VoidFunction,
-        computed?: MotionValue
+        computed?: MotionValue,
+        useDefaultValueType = true
     ) {
         const existingValue = this.values.get(name)
 
@@ -24,10 +25,13 @@ export class MotionValueState {
         }
 
         const onChange = () => {
-            this.latest[name] = getValueAsType(
-                value.get(),
-                numberValueTypes[name]
-            )
+            const v = value.get()
+
+            if (useDefaultValueType) {
+                this.latest[name] = getValueAsType(v, numberValueTypes[name])
+            } else {
+                this.latest[name] = v
+            }
 
             render && frame.render(render)
         }

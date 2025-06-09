@@ -55,8 +55,8 @@ export function createOnScrollHandler(
     options: ScrollInfoOptions = {}
 ): OnScrollHandler {
     return {
-        measure: () => measure(element, options.target, info),
-        update: (time) => {
+        measure: (time) => {
+            measure(element, options.target, info)
             updateScrollInfo(element, info, time)
 
             if (options.offset || options.target) {

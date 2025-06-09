@@ -1,38 +1,40 @@
-import { ElementOrSelector, isSVGElement, resolveElements } from "motion-dom"
+import { isSVGElement } from "../utils/is-svg-element"
+import { ElementOrSelector, resolveElements } from "../utils/resolve-elements"
 import { ResizeHandler } from "./types"
 
 const resizeHandlers = new WeakMap<Element, Set<ResizeHandler<Element>>>()
 
 let observer: ResizeObserver | undefined
 
-function getElementSize(
-    target: Element,
-    borderBoxSize?: ReadonlyArray<ResizeObserverSize>
-) {
-    if (borderBoxSize) {
-        const { inlineSize, blockSize } = borderBoxSize[0]
-        return { width: inlineSize, height: blockSize }
-    } else if (isSVGElement(target) && "getBBox" in target) {
-        return (target as SVGGraphicsElement).getBBox()
-    } else {
-        return {
-            width: (target as HTMLElement).offsetWidth,
-            height: (target as HTMLElement).offsetHeight,
+const getSize =
+    (
+        borderBoxAxis: "inline" | "block",
+        svgAxis: "width" | "height",
+        htmlAxis: "offsetWidth" | "offsetHeight"
+    ) =>
+    (target: Element, borderBoxSize?: ReadonlyArray<ResizeObserverSize>) => {
+        if (borderBoxSize && borderBoxSize[0]) {
+            return borderBoxSize[0][
+                (borderBoxAxis + "Size") as keyof ResizeObserverSize
+            ]
+        } else if (isSVGElement(target) && "getBBox" in target) {
+            return (target as SVGGraphicsElement).getBBox()[svgAxis]
+        } else {
+            return (target as HTMLElement)[htmlAxis]
         }
     }
-}
 
-function notifyTarget({
-    target,
-    contentRect,
-    borderBoxSize,
-}: ResizeObserverEntry) {
+const getWidth = /*@__PURE__*/ getSize("inline", "width", "offsetWidth")
+const getHeight = /*@__PURE__*/ getSize("block", "height", "offsetHeight")
+
+function notifyTarget({ target, borderBoxSize }: ResizeObserverEntry) {
     resizeHandlers.get(target)?.forEach((handler) => {
-        handler({
-            target,
-            contentSize: contentRect,
-            get size() {
-                return getElementSize(target, borderBoxSize)
+        handler(target, {
+            get width() {
+                return getWidth(target, borderBoxSize)
+            },
+            get height() {
+                return getHeight(target, borderBoxSize)
             },
         })
     })

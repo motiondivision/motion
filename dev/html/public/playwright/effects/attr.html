@@ -1,0 +1,57 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+                font-family: sans-serif;
+                display: flex;
+                gap: 10px;
+                flex-direction: column;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="test-html"></div>
+        <svg width="200" height="200" viewBox="0 0 0 0">
+            <circle
+                id="circle"
+                cx="50"
+                cy="50"
+                r="40"
+                fill="none"
+                stroke="#0077ff"
+                stroke-width="4"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+            />
+            <defs>
+                <filter id="turbulence">
+                    <feTurbulence baseFrequency="0" numOctaves="0" />
+                </filter>
+            </defs>
+        </svg>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            const { motionValue, attrEffect, svgEffect, animate } =
+                window.Motion
+
+            const x = motionValue(100)
+            const cx = motionValue(0)
+            const dataMyValue = motionValue("test")
+            const ariaMyValue = motionValue("a11y")
+
+            svgEffect("circle", { attrX: x, cx, dataMyValue, ariaMyValue })
+            svgEffect("svg", { viewBox: motionValue("0 0 100 100") })
+            svgEffect("#turbulence feTurbulence", {
+                baseFrequency: motionValue(0.1),
+                numOctaves: motionValue(4),
+            })
+
+            attrEffect("#test-html", {
+                dataMyValue,
+                ariaMyValue,
+                contentEditable: motionValue(true),
+            })
+        </script>
+    </body>
+</html>

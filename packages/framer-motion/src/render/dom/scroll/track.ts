@@ -1,6 +1,5 @@
-import { cancelFrame, frame, frameData } from "motion-dom"
+import { cancelFrame, frame, frameData, resize } from "motion-dom"
 import { noop } from "motion-utils"
-import { resize } from "../resize"
 import { createScrollInfo } from "./info"
 import { createOnScrollHandler } from "./on-scroll-handler"
 import { OnScrollHandler, OnScrollInfo, ScrollInfoOptions } from "./types"
@@ -52,24 +51,20 @@ export function scrollInfo(
      */
     if (!scrollListeners.has(container)) {
         const measureAll = () => {
-            for (const handler of containerHandlers!) handler.measure()
-        }
-
-        const updateAll = () => {
-            for (const handler of containerHandlers!) {
-                handler.update(frameData.timestamp)
+            for (const handler of containerHandlers) {
+                handler.measure(frameData.timestamp)
             }
+
+            frame.preUpdate(notifyAll)
         }
 
         const notifyAll = () => {
-            for (const handler of containerHandlers!) handler.notify()
+            for (const handler of containerHandlers) {
+                handler.notify()
+            }
         }
 
-        const listener = () => {
-            frame.read(measureAll)
-            frame.read(updateAll)
-            frame.preUpdate(notifyAll)
-        }
+        const listener = () => frame.read(measureAll)
 
         scrollListeners.set(container, listener)
 

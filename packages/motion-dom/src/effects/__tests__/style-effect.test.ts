@@ -345,4 +345,136 @@ describe("styleEffect", () => {
             "translateX(40px) translateY(50px)"
         )
     })
+
+    it("handles transform origin values", async () => {
+        const element = document.createElement("div")
+
+        // Create motion values
+        const originX = motionValue("0%")
+        const originY = motionValue("100%")
+        const originZ = motionValue(100)
+
+        // Apply style effect
+        styleEffect(element, {
+            originX,
+            originY,
+            originZ,
+        })
+
+        await nextFrame()
+
+        // Verify initial styles
+        expect(element.style.transformOrigin).toBe("0% 100% 100px")
+
+        // Change motion values
+        originX.set("50%")
+        originY.set("50%")
+        originZ.set(0)
+
+        await nextFrame()
+
+        // Verify styles are updated
+        expect(element.style.transformOrigin).toBe("50% 50% 0px")
+    })
+
+    it("uses default values for missing transform origin properties", async () => {
+        const element = document.createElement("div")
+
+        // Create motion values with only some origin properties
+        const originX = motionValue("25%")
+
+        // Apply style effect
+        styleEffect(element, {
+            originX,
+        })
+
+        await nextFrame()
+
+        // Verify default values are used for missing properties
+        expect(element.style.transformOrigin).toBe("25% 50% 0")
+    })
+
+    it("combines transform and transform origin values", async () => {
+        const element = document.createElement("div")
+
+        // Create motion values
+        const x = motionValue("100px")
+        const originX = motionValue("0%")
+        const originY = motionValue("100%")
+
+        // Apply style effect
+        styleEffect(element, {
+            x,
+            originX,
+            originY,
+        })
+
+        await nextFrame()
+
+        // Verify both transform and transform origin are set
+        expect(element.style.transform).toBe("translateX(100px)")
+        expect(element.style.transformOrigin).toBe("0% 100% 0")
+
+        // Change values
+        x.set("200px")
+        originX.set("50%")
+        originY.set("50%")
+
+        await nextFrame()
+
+        // Verify both properties update
+        expect(element.style.transform).toBe("translateX(200px)")
+        expect(element.style.transformOrigin).toBe("50% 50% 0")
+    })
+
+    it("converts numerical transform origin values to percentages", async () => {
+        const element = document.createElement("div")
+
+        // Create motion values with numerical values
+        const originX = motionValue(0.25)
+        const originY = motionValue(0.75)
+        const originZ = motionValue(100)
+
+        // Apply style effect
+        styleEffect(element, {
+            originX,
+            originY,
+            originZ,
+        })
+
+        await nextFrame()
+
+        // Verify numerical values are converted to percentages
+        expect(element.style.transformOrigin).toBe("25% 75% 100px")
+
+        // Change to different numerical values
+        originX.set(0.5)
+        originY.set(0.1)
+
+        await nextFrame()
+
+        // Verify updated values are converted to percentages
+        expect(element.style.transformOrigin).toBe("50% 10% 100px")
+    })
+
+    it("handles mixed numerical and string transform origin values", async () => {
+        const element = document.createElement("div")
+
+        // Create motion values with mixed types
+        const originX = motionValue(0.5)
+        const originY = motionValue("100%")
+        const originZ = motionValue(0)
+
+        // Apply style effect
+        styleEffect(element, {
+            originX,
+            originY,
+            originZ,
+        })
+
+        await nextFrame()
+
+        // Verify mixed values are handled correctly
+        expect(element.style.transformOrigin).toBe("50% 100% 0px")
+    })
 })
