@@ -8,7 +8,9 @@ const consumerId = "consumer"
 
 const Consumer = () => {
     const value = useContext(MotionConfigContext)
-    return <div data-testid={consumerId}>{value.transition!.type}</div>
+    return (
+        <div data-testid={consumerId}>{value.transition!.type as string}</div>
+    )
 }
 
 const App = ({ type }: { type: AnimationGeneratorName }) => (

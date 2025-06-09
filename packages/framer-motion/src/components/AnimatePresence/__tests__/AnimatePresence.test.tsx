@@ -1,5 +1,5 @@
 import { waitFor } from "@testing-library/dom"
-import { motionValue } from "motion-dom"
+import { motionValue, Variants } from "motion-dom"
 import { act, createRef } from "react"
 import {
     AnimatePresence,
@@ -538,7 +538,7 @@ describe("AnimatePresence", () => {
     })
 
     test("Exit variants are triggered with `AnimatePresence.custom`, not that of the element.", async () => {
-        const variants = {
+        const variants: Variants = {
             enter: { x: 0, transition: { type: false } },
             exit: (i: number) => ({ x: i * 100, transition: { type: false } }),
         }
@@ -585,7 +585,7 @@ describe("AnimatePresence", () => {
     })
 
     test("Exit propagates through variants", async () => {
-        const variants = {
+        const variants: Variants = {
             enter: { opacity: 1, transition: { type: false } },
             exit: { opacity: 0, transition: { type: false } },
         }
@@ -824,7 +824,7 @@ describe("AnimatePresence with custom components", () => {
     })
 
     test("Exit variants are triggered with `AnimatePresence.custom`, not that of the element.", async () => {
-        const variants = {
+        const variants: Variants = {
             enter: { x: 0, transition: { type: false } },
             exit: (i: number) => ({ x: i * 100, transition: { type: false } }),
         }
@@ -869,7 +869,7 @@ describe("AnimatePresence with custom components", () => {
     })
 
     test("Exit variants are triggered with `AnimatePresence.custom` throughout the tree", async () => {
-        const variants = {
+        const variants: Variants = {
             enter: { x: 0, transition: { type: false } },
             exit: (i: number) => {
                 return { x: i * 100, transition: { type: false } }
@@ -946,7 +946,7 @@ describe("AnimatePresence with custom components", () => {
     })
 
     test("Exit propagates through variants", async () => {
-        const variants = {
+        const variants: Variants = {
             enter: { opacity: 1, transition: { type: false } },
             exit: { opacity: 0, transition: { type: false } },
         }

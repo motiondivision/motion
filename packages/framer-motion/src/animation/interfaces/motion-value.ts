@@ -82,7 +82,7 @@ export const animateMotionValue =
          * Support deprecated way to set initial value. Prefer keyframe syntax.
          */
         if (options.from !== undefined) {
-            options.keyframes[0] = options.from
+            options.keyframes[0] = options.from as any
         }
 
         let shouldSkip = false

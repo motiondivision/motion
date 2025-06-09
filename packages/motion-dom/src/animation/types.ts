@@ -125,7 +125,10 @@ export interface ValueAnimationOptions<V extends string | number = number>
     element?: any // TODO: Replace with VisualElement when moved into motion-dom
     name?: string
     motionValue?: MotionValue<V>
-    from?: V
+
+    // @deprecated
+    from?: any
+
     isHandoff?: boolean
     allowFlatten?: boolean
     finalKeyframe?: V
@@ -483,7 +486,7 @@ export type StyleKeyframesDefinition = {
 }
 
 export type SVGKeyframesDefinition = {
-    [K in keyof SVGAttributes]?: ValueKeyframesDefinition
+    [K in keyof Omit<SVGAttributes, "from">]?: ValueKeyframesDefinition
 }
 
 export type VariableKeyframesDefinition = {
