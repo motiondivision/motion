@@ -457,7 +457,7 @@ export type SVGPathTransitions = {
 }
 
 export type SVGTransitions = {
-    [K in keyof SVGAttributes]: ValueTransition
+    [K in keyof Omit<SVGAttributes, "from">]: ValueTransition
 }
 
 export type VariableTransitions = {
