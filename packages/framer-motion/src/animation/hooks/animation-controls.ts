@@ -1,8 +1,9 @@
+import type { AnimationDefinition } from "motion-dom"
 import { invariant } from "motion-utils"
 import { setTarget } from "../../render/utils/setters"
 import type { VisualElement } from "../../render/VisualElement"
-import { AnimationControls, AnimationDefinition } from "../types"
 import { animateVisualElement } from "../interfaces/visual-element"
+import { AnimationControls } from "../types"
 
 function stopAnimation(visualElement: VisualElement) {
     visualElement.values.forEach((value) => value.stop())

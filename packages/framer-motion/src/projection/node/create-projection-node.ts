@@ -14,6 +14,7 @@ import {
     motionValue,
     statsBuffer,
     time,
+    Transition,
     ValueAnimationOptions,
     type Process,
 } from "motion-dom"
@@ -34,7 +35,6 @@ import { HTMLVisualElement } from "../../projection"
 import { ResolvedValues } from "../../render/types"
 import { FlatTree } from "../../render/utils/flat-tree"
 import { VisualElement } from "../../render/VisualElement"
-import { Transition } from "../../types"
 import { delay } from "../../utils/delay"
 import { resolveMotionValue } from "../../value/utils/resolve-motion-value"
 import { mixValues } from "../animation/mix-values"

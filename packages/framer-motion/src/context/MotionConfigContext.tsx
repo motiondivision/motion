@@ -1,8 +1,8 @@
 "use client"
 
+import type { Transition } from "motion-dom"
 import { TransformPoint } from "motion-utils"
 import { createContext } from "react"
-import { Transition } from "../types"
 
 export type ReducedMotionConfig = "always" | "never" | "user"
 

@@ -1,6 +1,6 @@
+import type { AnimationDefinition } from "motion-dom"
 import { resolveVariant } from "../../render/utils/resolve-dynamic-variants"
 import { VisualElement } from "../../render/VisualElement"
-import { AnimationDefinition } from "../types"
 import { VisualElementAnimationOptions } from "./types"
 import { animateTarget } from "./visual-element-target"
 import { animateVariant } from "./visual-element-variant"

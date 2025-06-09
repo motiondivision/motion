@@ -5,10 +5,10 @@ import type {
     AnimationOptions as DynamicAnimationOptions,
     ElementOrSelector,
     MotionValue,
+    UnresolvedValueKeyframe,
     ValueAnimationTransition,
 } from "motion-dom"
 import { GroupAnimationWithThen } from "motion-dom"
-import { GenericKeyframesTarget } from "../../types"
 import {
     AnimationSequence,
     ObjectTarget,
@@ -38,7 +38,7 @@ export function createScopedAnimate(scope?: AnimationScope) {
      */
     function scopedAnimate(
         value: string | MotionValue<string>,
-        keyframes: string | GenericKeyframesTarget<string>,
+        keyframes: string | UnresolvedValueKeyframe<string>[],
         options?: ValueAnimationTransition<string>
     ): AnimationPlaybackControlsWithThen
     /**
@@ -46,15 +46,15 @@ export function createScopedAnimate(scope?: AnimationScope) {
      */
     function scopedAnimate(
         value: number | MotionValue<number>,
-        keyframes: number | GenericKeyframesTarget<number>,
+        keyframes: number | UnresolvedValueKeyframe<number>[],
         options?: ValueAnimationTransition<number>
     ): AnimationPlaybackControlsWithThen
     /**
      * Animate a generic motion value
      */
-    function scopedAnimate<V>(
+    function scopedAnimate<V extends string | number>(
         value: V | MotionValue<V>,
-        keyframes: V | GenericKeyframesTarget<V>,
+        keyframes: V | UnresolvedValueKeyframe<V>[],
         options?: ValueAnimationTransition<V>
     ): AnimationPlaybackControlsWithThen
     /**
@@ -90,8 +90,8 @@ export function createScopedAnimate(scope?: AnimationScope) {
             | SequenceOptions
             | number
             | string
-            | GenericKeyframesTarget<number>
-            | GenericKeyframesTarget<string>
+            | UnresolvedValueKeyframe<number>[]
+            | UnresolvedValueKeyframe<string>[]
             | DOMKeyframesDefinition
             | ObjectTarget<O>,
         options?:

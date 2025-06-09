@@ -1,10 +1,10 @@
-import { Repeat } from "../../../../types"
+import { AnimationPlaybackOptions } from "motion-dom"
 
 const isNotNull = (value: unknown) => value !== null
 
 export function getFinalKeyframe<T>(
     keyframes: T[],
-    { repeat, repeatType = "loop" }: Repeat,
+    { repeat, repeatType = "loop" }: AnimationPlaybackOptions,
     finalKeyframe?: T
 ): T {
     const resolvedKeyframes = keyframes.filter(isNotNull)

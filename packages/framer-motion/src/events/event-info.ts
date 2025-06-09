@@ -1,5 +1,4 @@
-import { EventInfo } from "./types"
-import { isPrimaryPointer } from "motion-dom"
+import { EventInfo, isPrimaryPointer } from "motion-dom"
 
 export type EventListenerWithPointInfo = (
     e: PointerEvent,

@@ -118,7 +118,7 @@ function makeLatestValues(
                         const index = isInitialAnimationBlocked
                             ? valueTarget.length - 1
                             : 0
-                        valueTarget = valueTarget[index]
+                        valueTarget = valueTarget[index] as any
                     }
 
                     if (valueTarget !== null) {

@@ -1,6 +1,7 @@
 import type {
     MotionValue,
     StartAnimation,
+    Transition,
     UnresolvedKeyframes,
 } from "motion-dom"
 import {
@@ -12,7 +13,6 @@ import {
 } from "motion-dom"
 import { MotionGlobalConfig, secondsToMilliseconds } from "motion-utils"
 import type { VisualElement } from "../../render/VisualElement"
-import { Transition } from "../../types"
 import { getFinalKeyframe } from "../animators/waapi/utils/get-final-keyframe"
 import { getDefaultTransition } from "../utils/default-transitions"
 import { isTransitionDefined } from "../utils/is-transition-defined"

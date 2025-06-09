@@ -1,8 +1,6 @@
-import type { Transition } from "motion-dom"
+import type { AnimationDefinition, Transition } from "motion-dom"
 import { KeyframeResolver, OnKeyframesResolved } from "motion-dom"
-import { VariantLabels } from "../motion/types"
 import type { VisualElement } from "../render/VisualElement"
-import { TargetAndTransition, TargetResolver } from "../types"
 
 export type ResolveKeyframes<V extends string | number> = (
     keyframes: V[],
@@ -10,11 +8,6 @@ export type ResolveKeyframes<V extends string | number> = (
     name?: string,
     motionValue?: any
 ) => KeyframeResolver<V>
-
-export type AnimationDefinition =
-    | VariantLabels
-    | TargetAndTransition
-    | TargetResolver
 
 /**
  * @public

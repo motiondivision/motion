@@ -5,12 +5,13 @@ import {
     AnimationOptions as DynamicAnimationOptions,
     ElementOrSelector,
     MotionValue,
+    TargetAndTransition,
+    UnresolvedValueKeyframe,
     ValueAnimationTransition,
     isMotionValue,
 } from "motion-dom"
 import { invariant } from "motion-utils"
 import { visualElementStore } from "../../render/store"
-import { GenericKeyframesTarget, TargetAndTransition } from "../../types"
 import { animateTarget } from "../interfaces/visual-element-target"
 import { ObjectTarget } from "../sequence/types"
 import {
@@ -39,7 +40,7 @@ function isSingleValue(
  */
 export function animateSubject(
     value: string | MotionValue<string>,
-    keyframes: string | GenericKeyframesTarget<string>,
+    keyframes: string | UnresolvedValueKeyframe<string>[],
     options?: ValueAnimationTransition<string>
 ): AnimationPlaybackControlsWithThen[]
 /**
@@ -47,7 +48,7 @@ export function animateSubject(
  */
 export function animateSubject(
     value: number | MotionValue<number>,
-    keyframes: number | GenericKeyframesTarget<number>,
+    keyframes: number | UnresolvedValueKeyframe<number>[],
     options?: ValueAnimationTransition<number>
 ): AnimationPlaybackControlsWithThen[]
 /**
@@ -82,8 +83,8 @@ export function animateSubject<O extends Object>(
     keyframes:
         | number
         | string
-        | GenericKeyframesTarget<number>
-        | GenericKeyframesTarget<string>
+        | UnresolvedValueKeyframe<number>[]
+        | UnresolvedValueKeyframe<string>[]
         | DOMKeyframesDefinition
         | ObjectTarget<O>,
     options?:

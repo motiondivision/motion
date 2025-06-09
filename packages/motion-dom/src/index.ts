@@ -49,12 +49,16 @@ export * from "./frameloop/types"
 
 export * from "./gestures/drag/state/is-active"
 export * from "./gestures/drag/state/set-active"
+export * from "./gestures/drag/types"
 export * from "./gestures/hover"
+export * from "./gestures/pan/types"
 export * from "./gestures/press"
 export * from "./gestures/press/types"
 export * from "./gestures/types"
 export * from "./gestures/utils/is-node-or-child"
 export * from "./gestures/utils/is-primary-pointer"
+
+export * from "./node/types"
 
 export * from "./render/dom/parse-transform"
 export * from "./render/dom/style-computed"

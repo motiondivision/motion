@@ -85,14 +85,6 @@ export {
     DragControls,
     useDragControls,
 } from "./gestures/drag/use-drag-controls"
-export { PanInfo } from "./gestures/pan/PanSession"
-export {
-    FocusHandlers,
-    HoverHandlers,
-    PanHandlers,
-    TapHandlers,
-    TapInfo,
-} from "./gestures/types"
 export { createRendererMotionComponent } from "./motion"
 export { isMotionComponent } from "./motion/utils/is-motion-component"
 export { unwrapMotionComponent } from "./motion/utils/unwrap-motion-component"
@@ -132,17 +124,8 @@ export { SwitchLayoutGroupContext } from "./context/SwitchLayoutGroupContext"
 export { AnimatePresenceProps } from "./components/AnimatePresence/types"
 export { LazyProps } from "./components/LazyMotion/types"
 export { MotionConfigProps } from "./components/MotionConfig"
-export { EventInfo } from "./events/types"
-export {
-    DragElastic,
-    DraggableProps,
-    DragHandlers,
-} from "./gestures/drag/types"
-export { LayoutProps } from "./motion/features/layout/types"
 export * from "./motion/features/types"
 export {
-    AnimationProps,
-    MotionAdvancedProps,
     MotionProps,
     MotionStyle,
     MotionTransform,
@@ -152,28 +135,8 @@ export { IProjectionNode } from "./projection/node/types"
 export { DOMMotionComponents } from "./render/dom/types"
 export { ForwardRefComponent, HTMLMotionProps } from "./render/html/types"
 export { SVGAttributesAsMotionValues, SVGMotionProps } from "./render/svg/types"
-export { AnimationLifecycles, CreateVisualElement } from "./render/types"
+export { CreateVisualElement } from "./render/types"
 export { FlatTree } from "./render/utils/flat-tree"
-export {
-    Inertia,
-    Keyframes,
-    KeyframesTarget,
-    None,
-    Orchestration,
-    Repeat,
-    ResolvedKeyframesTarget,
-    ResolvedSingleTarget,
-    ResolvedValueTarget,
-    SingleTarget,
-    Spring,
-    Target,
-    TargetAndTransition,
-    Transition,
-    Tween,
-    ValueTarget,
-    Variant,
-    Variants,
-} from "./types"
 export { ScrollMotionValues } from "./value/scroll/utils"
 
 /**

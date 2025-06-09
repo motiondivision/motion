@@ -1,11 +1,10 @@
-import { JSAnimation } from "motion-dom"
+import type { JSAnimation, Transition } from "motion-dom"
 import { Box, Delta, Point } from "motion-utils"
 import { InitialPromotionConfig } from "../../context/SwitchLayoutGroupContext"
 import { MotionStyle } from "../../motion/types"
 import { ResolvedValues } from "../../render/types"
 import { FlatTree } from "../../render/utils/flat-tree"
 import type { VisualElement } from "../../render/VisualElement"
-import { Transition } from "../../types"
 import { NodeStack } from "../shared/stack"
 
 export interface Measurements {

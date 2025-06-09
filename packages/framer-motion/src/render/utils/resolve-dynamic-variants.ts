@@ -1,4 +1,8 @@
-import { TargetAndTransition, TargetResolver } from "../../types"
+import type {
+    AnimationDefinition,
+    TargetAndTransition,
+    TargetResolver,
+} from "motion-dom"
 import type { VisualElement } from "../VisualElement"
 import { resolveVariantFromProps } from "./resolve-variants"
 
@@ -12,12 +16,12 @@ export function resolveVariant(
 ): TargetAndTransition
 export function resolveVariant(
     visualElement: VisualElement,
-    definition?: string | TargetAndTransition | TargetResolver,
+    definition?: AnimationDefinition,
     custom?: any
 ): TargetAndTransition | undefined
 export function resolveVariant(
     visualElement: VisualElement,
-    definition?: string | TargetAndTransition | TargetResolver,
+    definition?: AnimationDefinition,
     custom?: any
 ) {
     const props = visualElement.getProps()

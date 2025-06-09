@@ -1,3 +1,4 @@
+import type { PanInfo, ResolvedConstraints, Transition } from "motion-dom"
 import { frame, mixNumber, percent, setDragLock } from "motion-dom"
 import { Axis, Point, invariant } from "motion-utils"
 import { animateMotionValue } from "../../animation/interfaces/motion-value"
@@ -15,12 +16,10 @@ import { LayoutUpdateData } from "../../projection/node/types"
 import { eachAxis } from "../../projection/utils/each-axis"
 import { measurePageBox } from "../../projection/utils/measure"
 import type { VisualElement } from "../../render/VisualElement"
-import { Transition } from "../../types"
 import { getContextWindow } from "../../utils/get-context-window"
 import { isRefObject } from "../../utils/is-ref-object"
 import { addValueToWillChange } from "../../value/use-will-change/add-will-change"
-import { PanInfo, PanSession } from "../pan/PanSession"
-import { ResolvedConstraints } from "./types"
+import { PanSession } from "../pan/PanSession"
 import {
     applyConstraints,
     calcOrigin,
@@ -30,6 +29,7 @@ import {
     rebaseAxisConstraints,
     resolveDragElastic,
 } from "./utils/constraints"
+
 export const elementDragControls = new WeakMap<
     VisualElement,
     VisualElementDragControls
@@ -412,7 +412,7 @@ export class VisualElementDragControls {
             const bounceStiffness = dragElastic ? 200 : 1000000
             const bounceDamping = dragElastic ? 40 : 10000000
 
-            const inertia = {
+            const inertia: Transition = {
                 type: "inertia",
                 velocity: dragMomentum ? velocity[axis] : 0,
                 bounceStiffness,
