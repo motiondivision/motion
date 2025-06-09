@@ -56,7 +56,7 @@ export function useVisualElement<Instance, RenderState>(
     /**
      * Handle motion value children updates
      */
-    useMotionValueChildren(props, visualElement!)
+    useMotionValueChildren(props.children, visualElement!)
 
     /**
      * Load Motion gesture and animation features. These are rendered as renderless

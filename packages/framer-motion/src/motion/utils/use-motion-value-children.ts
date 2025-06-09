@@ -9,10 +9,9 @@ import { isMotionValue } from "motion-dom"
  * @param visualElement - Visual element instance to update
  */
 export function useMotionValueChildren(
-    props: MotionProps,
+    children: MotionProps['children'],
     visualElement: VisualElement<any>
 ) {
-    const { children } = props
     useEffect(() => {
         // Skip if children is not a motion value
         if (!children || !isMotionValue(children)) return
