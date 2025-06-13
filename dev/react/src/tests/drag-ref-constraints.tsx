@@ -8,6 +8,7 @@ export const App = () => {
     const [dragging, setDragging] = useState(false)
     const params = new URLSearchParams(window.location.search)
     const layout = params.get("layout") || undefined
+    const elastic = Number(params.get("elastic")) || 0
 
     // We do this to test when scroll position isn't 0/0
     useLayoutEffect(() => {
@@ -27,7 +28,7 @@ export const App = () => {
                         id="box"
                         data-testid="draggable"
                         drag
-                        dragElastic={0}
+                        dragElastic={elastic}
                         dragMomentum={false}
                         style={{
                             width: 50,
