@@ -148,12 +148,6 @@ export abstract class VisualElement<
     onBindTransform?(): void
 
     /**
-     * If the component child is provided as a motion value, handle subscriptions
-     * with the renderer-specific VisualElement.
-     */
-    handleChildMotionValue?(): void
-
-    /**
      * This method takes React props and returns found MotionValues. For example, HTML
      * MotionValues will be found within the style prop, whereas for Three.js within attribute arrays.
      *
@@ -625,9 +619,6 @@ export abstract class VisualElement<
             this.prevMotionValues
         )
 
-        if (this.handleChildMotionValue) {
-            this.handleChildMotionValue()
-        }
     }
 
     getProps() {
