@@ -1874,14 +1874,17 @@ export function createProjectionNode<I>({
             visualElement.scheduleRender()
         }
 
-        getProjectionStyles(styleProp?: MotionStyle) {
-            if (!this.instance || this.isSVG) return undefined
+        getProjectionStyles(styleProp?: MotionStyle, _writeStyle?: CSSStyleDeclaration): ResolvedValues | undefined {
+            if (!this.instance || this.isSVG) return
 
             if (!this.isVisible) {
+                if (_writeStyle) {
+                    _writeStyle.visibility = "hidden"
+                }
                 return hiddenVisibility
             }
 
-            const styles: ResolvedValues = {
+            const styles: ResolvedValues = _writeStyle as unknown as ResolvedValues ?? {
                 visibility: "",
             }
 
@@ -1901,7 +1904,7 @@ export function createProjectionNode<I>({
 
             const lead = this.getLead()
             if (!this.projectionDelta || !this.layout || !lead.target) {
-                const emptyStyles: ResolvedValues = {}
+                const emptyStyles: ResolvedValues = _writeStyle as unknown as ResolvedValues ?? {}
                 if (this.options.layoutId) {
                     emptyStyles.opacity =
                         this.latestValues.opacity !== undefined
