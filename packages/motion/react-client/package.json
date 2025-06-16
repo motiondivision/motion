@@ -1,0 +1,6 @@
+{
+    "private": true,
+    "types": "../dist/react-client.d.ts",
+    "main": "../dist/cjs/react-client.js",
+    "module": "../dist/es/motion/lib/react-client.mjs"
+}

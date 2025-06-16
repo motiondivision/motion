@@ -19,7 +19,8 @@ export function useSVGProps(
             state,
             visualState,
             isSVGTag(Component),
-            props.transformTemplate
+            props.transformTemplate,
+            props.style
         )
 
         return {

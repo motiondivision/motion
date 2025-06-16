@@ -1,8 +1,8 @@
-import { render } from "../../../jest.setup"
-import { motion, useMotionValue } from "../.."
+import { motionValue } from "motion-dom"
 import { useEffect } from "react"
-import { motionValue } from "../../value"
+import { motion, useMotionValue } from "../.."
 import { MotionConfig } from "../../components/MotionConfig"
+import { render } from "../../jest.setup"
 import { globalProjectionState } from "../../projection/node/state"
 
 describe("isStatic prop", () => {

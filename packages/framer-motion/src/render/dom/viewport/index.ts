@@ -1,14 +1,13 @@
-import { ElementOrSelector } from "../../../animation/types"
-import { resolveElements } from "../utils/resolve-element"
+import { ElementOrSelector, resolveElements } from "motion-dom"
 
 export type ViewChangeHandler = (entry: IntersectionObserverEntry) => void
 
-type MarginValue = `${number}${'px' | '%'}`
+type MarginValue = `${number}${"px" | "%"}`
 type MarginType =
-    MarginValue |
-    `${MarginValue} ${MarginValue}` |
-    `${MarginValue} ${MarginValue} ${MarginValue}` |
-    `${MarginValue} ${MarginValue} ${MarginValue} ${MarginValue}`
+    | MarginValue
+    | `${MarginValue} ${MarginValue}`
+    | `${MarginValue} ${MarginValue} ${MarginValue}`
+    | `${MarginValue} ${MarginValue} ${MarginValue} ${MarginValue}`
 
 export interface InViewOptions {
     root?: Element | Document
@@ -23,7 +22,10 @@ const thresholds = {
 
 export function inView(
     elementOrSelector: ElementOrSelector,
-    onStart: (entry: IntersectionObserverEntry) => void | ViewChangeHandler,
+    onStart: (
+        element: Element,
+        entry: IntersectionObserverEntry
+    ) => void | ViewChangeHandler,
     { root, margin: rootMargin, amount = "some" }: InViewOptions = {}
 ): VoidFunction {
     const elements = resolveElements(elementOrSelector)
@@ -41,13 +43,13 @@ export function inView(
             if (entry.isIntersecting === Boolean(onEnd)) return
 
             if (entry.isIntersecting) {
-                const newOnEnd = onStart(entry)
+                const newOnEnd = onStart(entry.target, entry)
                 if (typeof newOnEnd === "function") {
                     activeIntersections.set(entry.target, newOnEnd)
                 } else {
                     observer.unobserve(entry.target)
                 }
-            } else if (onEnd) {
+            } else if (typeof onEnd === "function") {
                 onEnd(entry)
                 activeIntersections.delete(entry.target)
             }

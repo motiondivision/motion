@@ -1,6 +1,6 @@
+import { warnOnce } from "motion-utils"
 import { useState } from "react"
 import { initPrefersReducedMotion } from "."
-import { warnOnce } from "../warn-once"
 import { hasReducedMotionListener, prefersReducedMotion } from "./state"
 
 /**

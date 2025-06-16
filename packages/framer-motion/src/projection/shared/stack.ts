@@ -1,4 +1,4 @@
-import { addUniqueItem, removeItem } from "../../utils/array"
+import { addUniqueItem, removeItem } from "motion-utils"
 import { IProjectionNode } from "../node/types"
 
 export class NodeStack {

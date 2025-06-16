@@ -1,4 +1,4 @@
-import { motionValue } from "../../../../value"
+import { motionValue } from "motion-dom"
 import { scrapeMotionValuesFromProps } from "../scrape-motion-values"
 
 describe("SVG scrapeMotionValuesFromProps", () => {

@@ -2,18 +2,22 @@ import {
     createRendererMotionComponent,
     MotionComponentProps,
 } from "../../motion"
-import { DOMMotionComponents } from "../dom/types"
-import { CreateVisualElement } from "../types"
 import { FeaturePackages } from "../../motion/features/types"
-import { isSVGComponent } from "../dom/utils/is-svg-component"
-import { svgMotionConfig } from "../svg/config-motion"
-import { htmlMotionConfig } from "../html/config-motion"
+import { DOMMotionComponents } from "../dom/types"
 import { createUseRender } from "../dom/use-render"
+import { isSVGComponent } from "../dom/utils/is-svg-component"
+import { htmlMotionConfig } from "../html/config-motion"
+import { svgMotionConfig } from "../svg/config-motion"
+import { CreateVisualElement } from "../types"
 
 type MotionComponent<T, P> = T extends keyof DOMMotionComponents
     ? DOMMotionComponents[T]
-    : React.ForwardRefExoticComponent<
-          MotionComponentProps<React.PropsWithChildren<P>>
+    : React.ComponentType<
+          Omit<MotionComponentProps<P>, "children"> & {
+              children?: "children" extends keyof P
+                  ? P["children"] | MotionComponentProps<P>["children"]
+                  : MotionComponentProps<P>["children"]
+          }
       >
 
 export function createMotionComponentFactory(
@@ -24,7 +28,7 @@ export function createMotionComponentFactory(
         Props,
         TagName extends keyof DOMMotionComponents | string = "div"
     >(
-        Component: TagName | string | React.ForwardRefExoticComponent<Props>,
+        Component: TagName | string | React.ComponentType<Props>,
         { forwardMotionProps } = { forwardMotionProps: false }
     ) {
         const baseConfig = isSVGComponent(Component)

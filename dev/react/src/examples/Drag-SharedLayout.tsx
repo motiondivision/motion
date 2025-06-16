@@ -1,65 +1,51 @@
-import { useEffect, useState, useRef } from "react";
-import { motion } from "framer-motion"
-import styled from "styled-components"
+import { Box, motion } from "framer-motion"
+import { useEffect, useRef, useState } from "react"
 
 /**
  * This is an example of transferring drag status by tagging a component with layoutId
  */
 
-const Container = styled.div`
-    width: 100vw;
-    height: 100vh;
-    position: absolute;
-    display: flex;
-    align-items: stretch;
-    justify-content: stretch;
-`
+interface TargetProps {
+    onProjectionUpdate: (box: Box) => void
+}
 
-const Zone = styled.div`
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 50%;
-    height: 100%;
-`
-
-const Shadow = styled(motion.div)`
-    background: rgba(255, 255, 255, 0.5);
-    width: 100px;
-    height: 100px;
-    border-radius: 20px;
-`
-
-const Draggable = styled(motion.div)`
-    background: white;
-    width: 100px;
-    height: 100px;
-    border-radius: 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-`
-
-const Dot = styled(motion.div)`
-    background: rgb(255, 0, 136);
-    width: 20px;
-    height: 20px;
-    border-radius: 10px;
-`
-
-function Target({ onProjectionUpdate }) {
+function Target({ onProjectionUpdate }: TargetProps) {
     return (
-        <Shadow>
-            <Draggable
+        <motion.div
+            style={{
+                background: "rgba(255, 255, 255, 0.5)",
+                width: "100px",
+                height: "100px",
+                borderRadius: "20px",
+            }}
+        >
+            <motion.div
                 drag
                 dragConstraints={{ top: 0, left: 0, right: 0, bottom: 0 }}
                 dragElastic={1}
-                onProjectionUpdate={onProjectionUpdate}
+                onLayoutMeasure={onProjectionUpdate}
                 layoutId="a"
+                style={{
+                    background: "white",
+                    width: "100px",
+                    height: "100px",
+                    borderRadius: "20px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                }}
             >
-                <Dot layoutId="dot" />
-            </Draggable>
-        </Shadow>
+                <motion.div
+                    layoutId="dot"
+                    style={{
+                        background: "rgb(255, 0, 136)",
+                        width: "20px",
+                        height: "20px",
+                        borderRadius: "10px",
+                    }}
+                />
+            </motion.div>
+        </motion.div>
     )
 }
 
@@ -73,36 +59,61 @@ function DragDrop() {
 
     return (
         <>
-            <Zone>
+            <div
+                style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: "50%",
+                    height: "100%",
+                }}
+            >
                 {is && (
                     <Target
-                        onProjectionUpdate={(box) => {
+                        onProjectionUpdate={(box: Box) => {
                             if (box.x.min > viewportWidth.current / 2 + 100) {
                                 setIs(false)
                             }
                         }}
                     />
                 )}
-            </Zone>
-            <Zone>
+            </div>
+            <div
+                style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: "50%",
+                    height: "100%",
+                }}
+            >
                 {!is && (
                     <Target
-                        onProjectionUpdate={(box) => {
+                        onProjectionUpdate={(box: Box) => {
                             if (box.x.min < viewportWidth.current / 2 - 100) {
                                 setIs(true)
                             }
                         }}
                     />
                 )}
-            </Zone>
+            </div>
         </>
     )
 }
 
 export const App = () => {
     return (
-        <Container>
+        <div
+            style={{
+                width: "100vw",
+                height: "100vh",
+                position: "absolute",
+                display: "flex",
+                alignItems: "stretch",
+                justifyContent: "stretch",
+            }}
+        >
             <DragDrop />
-        </Container>
+        </div>
     )
 }

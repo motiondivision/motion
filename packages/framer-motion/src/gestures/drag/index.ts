@@ -1,6 +1,6 @@
 import { Feature } from "../../motion/features/Feature"
 import type { VisualElement } from "../../render/VisualElement"
-import { noop } from "../../utils/noop"
+import { noop } from "motion-utils"
 import { VisualElementDragControls } from "./VisualElementDragControls"
 
 export class DragGesture extends Feature<HTMLElement> {

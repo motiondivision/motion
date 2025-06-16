@@ -1,10 +1,11 @@
-import { GroupPlaybackControls } from "../../GroupPlaybackControls"
 import {
+    AnimationPlaybackControlsWithThen,
     AnimationScope,
     DOMKeyframesDefinition,
-    DynamicAnimationOptions,
+    AnimationOptions as DynamicAnimationOptions,
     ElementOrSelector,
-} from "../../types"
+    GroupAnimationWithThen,
+} from "motion-dom"
 import { animateElements } from "./animate-elements"
 
 export const createScopedWaapiAnimate = (scope?: AnimationScope) => {
@@ -12,8 +13,8 @@ export const createScopedWaapiAnimate = (scope?: AnimationScope) => {
         elementOrSelector: ElementOrSelector,
         keyframes: DOMKeyframesDefinition,
         options?: DynamicAnimationOptions
-    ) {
-        return new GroupPlaybackControls(
+    ): AnimationPlaybackControlsWithThen {
+        return new GroupAnimationWithThen(
             animateElements(
                 elementOrSelector,
                 keyframes as DOMKeyframesDefinition,

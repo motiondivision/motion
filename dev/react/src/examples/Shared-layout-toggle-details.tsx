@@ -1,6 +1,5 @@
+import { AnimatePresence, LayoutGroup, motion } from "framer-motion"
 import { useState } from "react"
-import { motion, AnimatePresence, LayoutGroup } from "framer-motion"
-import styled from "styled-components"
 
 /**
  * This demonstrates container components correctly animating
@@ -8,56 +7,35 @@ import styled from "styled-components"
  */
 
 interface ItemProps {
-    isOpen: boolean
-    onClick: () => void
     i: number
 }
 
-const ContentRow = styled(motion.div)`
-    width: 200px;
-    height: 8px;
-    background-color: #999;
-    border-radius: 10px;
-    margin-top: 12px;
-`
-const List = styled(motion.div)`
-    width: 240px;
-    display: flex;
-    flex-direction: column;
-    background: white;
-    padding: 20px;
-`
-
-const Container = styled(motion.div)`
-    background-color: rgba(214, 214, 214, 0.5);
-    padding: 20px;
-    margin-bottom: 20px;
-    overflow: hidden;
-
-    &:last-child {
-        margin-bottom: 0px;
-    }
-`
-
-const Image = styled(motion.div)`
-    width: 40px;
-    height: 40px;
-    background-color: #666;
-    border-radius: 20px;
-`
-
-function Item({ onClick, i }: ItemProps) {
-    const [isOpen, setIsOpen] = useState<false | number>(0)
+function Item({ i }: ItemProps) {
+    const [isOpen, setIsOpen] = useState(false)
 
     return (
-        <Container
+        <motion.div
             layout
             onClick={() => setIsOpen(!isOpen)}
-            isOpen={isOpen}
             id={`container-${i}`}
-            style={{ borderRadius: 10 }}
+            style={{
+                backgroundColor: "rgba(214, 214, 214, 0.5)",
+                padding: "20px",
+                marginBottom: "20px",
+                overflow: "hidden",
+                borderRadius: 10,
+            }}
         >
-            <Image id={`image-${i}`} layout />
+            <motion.div
+                id={`image-${i}`}
+                layout
+                style={{
+                    width: "40px",
+                    height: "40px",
+                    backgroundColor: "#666",
+                    borderRadius: "20px",
+                }}
+            />
             <AnimatePresence initial={false}>
                 {isOpen && (
                     <motion.div
@@ -66,29 +44,60 @@ function Item({ onClick, i }: ItemProps) {
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                     >
-                        <ContentRow />
-                        <ContentRow />
-                        <ContentRow />
+                        <motion.div
+                            style={{
+                                width: "200px",
+                                height: "8px",
+                                backgroundColor: "#999",
+                                borderRadius: "10px",
+                                marginTop: "12px",
+                            }}
+                        />
+                        <motion.div
+                            style={{
+                                width: "200px",
+                                height: "8px",
+                                backgroundColor: "#999",
+                                borderRadius: "10px",
+                                marginTop: "12px",
+                            }}
+                        />
+                        <motion.div
+                            style={{
+                                width: "200px",
+                                height: "8px",
+                                backgroundColor: "#999",
+                                borderRadius: "10px",
+                                marginTop: "12px",
+                            }}
+                        />
                     </motion.div>
                 )}
             </AnimatePresence>
-        </Container>
+        </motion.div>
     )
 }
 
 export const App = () => {
     return (
         <LayoutGroup>
-            <List
+            <motion.div
                 initial={{ borderRadius: 25 }}
                 layout
-                style={{ borderRadius: 25 }}
+                style={{
+                    width: "240px",
+                    display: "flex",
+                    flexDirection: "column",
+                    background: "white",
+                    padding: "20px",
+                    borderRadius: 25,
+                }}
                 id="container"
             >
                 {items.map((id) => (
                     <Item key={id} i={id} />
                 ))}
-            </List>
+            </motion.div>
         </LayoutGroup>
     )
 }

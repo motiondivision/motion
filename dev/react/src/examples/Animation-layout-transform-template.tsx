@@ -1,23 +1,5 @@
-import { useState } from "react"
 import { motion } from "framer-motion"
-import styled from "styled-components"
-
-const SwitchContainer = styled(motion.div)`
-    box-sizing: border-box;
-    width: 170px;
-    height: 100px;
-    border-radius: 100px;
-    padding: 10px;
-    background-color: ${({ isOn }) => (isOn ? `#09f` : "#bbb")};
-`
-
-const Switch = styled(motion.div)`
-    width: 80px;
-    height: 80px;
-    background-color: #ffffff;
-    border-radius: 200px;
-    float: ${({ isOn }) => (isOn ? `right` : "left")};
-`
+import { useState } from "react"
 
 /**
  * This example replicates the centering technique of Framer which applies a `transformTemplate` prop
@@ -28,15 +10,31 @@ export const App = () => {
     const [isOn, setIsOn] = useState(false)
 
     return (
-        <SwitchContainer
-            isOn={isOn}
+        <motion.div
             onClick={() => setIsOn(!isOn)}
             transformTemplate={(_, generated) =>
                 `translate(-50%, -50%) ${generated}`
             }
             layout
+            style={{
+                boxSizing: "border-box",
+                width: "170px",
+                height: "100px",
+                borderRadius: "100px",
+                padding: "10px",
+                backgroundColor: isOn ? "#09f" : "#bbb",
+            }}
         >
-            <Switch isOn={isOn} layout />
-        </SwitchContainer>
+            <motion.div
+                layout
+                style={{
+                    width: "80px",
+                    height: "80px",
+                    backgroundColor: "#ffffff",
+                    borderRadius: "200px",
+                    float: isOn ? "right" : "left",
+                }}
+            />
+        </motion.div>
     )
 }

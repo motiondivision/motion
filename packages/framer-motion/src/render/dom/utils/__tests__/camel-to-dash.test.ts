@@ -1,4 +1,4 @@
-import "../../../../../jest.setup"
+import "../../../../jest.setup"
 import { camelToDash } from "../camel-to-dash"
 
 describe("camelToDash", () => {

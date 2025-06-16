@@ -1,26 +1,10 @@
-import { render } from "../../../jest.setup"
+import { motionValue, MotionValue } from "motion-dom"
 import { useEffect } from "react"
 import { cancelFrame, frame, motion } from "../../"
+import { nextFrame, nextMicrotask } from "../../gestures/__tests__/utils"
+import { render } from "../../jest.setup"
 import { useMotionValue } from "../use-motion-value"
 import { useTransform } from "../use-transform"
-import { MotionValue, motionValue } from ".."
-import { nextFrame, nextMicrotask } from "../../gestures/__tests__/utils"
-
-class Custom {
-    value: number = 0
-
-    constructor(value: number) {
-        this.value = value
-    }
-
-    get() {
-        return this.value
-    }
-
-    mix(from: Custom, to: Custom) {
-        return (p: number) => from.get() + to.get() * p
-    }
-}
 
 describe("as function", () => {
     test("sets initial value", async () => {
@@ -146,31 +130,6 @@ describe("as input/output range", () => {
                 resolve()
             }, 20)
         })
-    })
-
-    test("detects custom mixer on value type", async () => {
-        const Component = () => {
-            const x = useMotionValue(100)
-            const y = useTransform(
-                x,
-                [0, 200],
-                [new Custom(100), new Custom(200)]
-            )
-
-            useEffect(() => {
-                x.set(20)
-            }, [])
-
-            return <motion.div style={{ x, y }} />
-        }
-
-        const { container, rerender } = render(<Component />)
-        rerender(<Component />)
-        await nextFrame()
-
-        expect(container.firstChild).toHaveStyle(
-            "transform: translateX(20px) translateY(120px)"
-        )
     })
 })
 

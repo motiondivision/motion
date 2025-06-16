@@ -1,7 +1,10 @@
-import { spring } from "../generators/spring"
+import {
+    AnimationPlaybackControlsWithThen,
+    AnimationScope,
+    spring,
+} from "motion-dom"
 import { createAnimationsFromSequence } from "../sequence/create"
 import { AnimationSequence, SequenceOptions } from "../sequence/types"
-import { AnimationPlaybackControls, AnimationScope } from "../types"
 import { animateSubject } from "./subject"
 
 export function animateSequence(
@@ -9,7 +12,7 @@ export function animateSequence(
     options?: SequenceOptions,
     scope?: AnimationScope
 ) {
-    const animations: AnimationPlaybackControls[] = []
+    const animations: AnimationPlaybackControlsWithThen[] = []
 
     const animationDefinitions = createAnimationsFromSequence(
         sequence,

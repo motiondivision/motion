@@ -8,7 +8,7 @@
         "!**/__tests__/**"
     ],
     "coverageDirectory": "<rootDir>/../coverage",
-    "setupFilesAfterEnv": ["<rootDir>/../jest.setup.tsx"],
+    "setupFilesAfterEnv": ["<rootDir>/jest.setup.tsx"],
     "testMatch": ["**/__tests__/**/*ssr.test.(js|ts)?(x)"],
     "watchPlugins": [
         "jest-watch-typeahead/filename",

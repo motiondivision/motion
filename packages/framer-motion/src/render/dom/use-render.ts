@@ -1,12 +1,12 @@
+import { isMotionValue } from "motion-dom"
 import { Fragment, createElement, useMemo } from "react"
-import { useHTMLProps } from "../html/use-props"
-import { filterProps } from "./utils/filter-props"
-import { isSVGComponent } from "./utils/is-svg-component"
-import { useSVGProps } from "../svg/use-props"
 import { RenderComponent } from "../../motion/features/types"
 import { HTMLRenderState } from "../html/types"
+import { useHTMLProps } from "../html/use-props"
 import { SVGRenderState } from "../svg/types"
-import { isMotionValue } from "../../value/utils/is-motion-value"
+import { useSVGProps } from "../svg/use-props"
+import { filterProps } from "./utils/filter-props"
+import { isSVGComponent } from "./utils/is-svg-component"
 
 export function createUseRender(forwardMotionProps = false) {
     const useRender: RenderComponent<

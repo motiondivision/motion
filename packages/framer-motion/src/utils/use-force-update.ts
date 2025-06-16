@@ -1,5 +1,5 @@
-import { frame } from "../frameloop"
-import { useState, useCallback } from "react"
+import { frame } from "motion-dom"
+import { useCallback, useState } from "react"
 import { useIsMounted } from "./use-is-mounted"
 
 export function useForceUpdate(): [VoidFunction, number] {

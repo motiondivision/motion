@@ -1,0 +1,66 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+
+            .box {
+                width: 100px;
+                height: 100px;
+                background-color: #0077ff;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="box" id="hover">test</div>
+        <div class="box" id="multi">multi</div>
+        <div class="box" id="once">once</div>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            const { hover } = window.MotionDOM
+
+            hover("#hover", (target) => {
+                target.innerHTML = "start"
+
+                return () => {
+                    target.innerHTML = "end"
+                }
+            })
+
+            hover("#hover", (target) => {
+                target.style.color = "green"
+
+                return () => {
+                    target.style.color = "purple"
+                }
+            })
+
+            let multiCount = 0
+            hover("#multi", (target) => {
+                target.innerHTML = multiCount
+                multiCount++
+
+                return () => {
+                    target.innerHTML = multiCount
+                    multiCount++
+                }
+            })
+
+            let onceCount = 0
+            hover(
+                "#once",
+                (target) => {
+                    target.innerHTML = onceCount
+                    onceCount++
+
+                    return () => {
+                        target.innerHTML = onceCount
+                        onceCount++
+                    }
+                },
+                { once: true }
+            )
+        </script>
+    </body>
+</html>

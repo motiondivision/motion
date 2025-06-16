@@ -6,6 +6,9 @@ labels: bug
 assignees: ""
 ---
 
+> [!NOTE]
+> **Motion for Vue issues:** Please open in the [Motion for Vue repo](https://github.com/motiondivision/motion-vue).
+
 **1. Read the [FAQs](#faqs) 👇**
 
 **2. Describe the bug**
@@ -41,30 +44,30 @@ If applicable, let us know which OS, browser, browser version etc you're using.
 
 ### React Server Components `"use client"` error
 
-If you're importing `motion` or `m` into a React Server Component environment, ensure you're importing from `framer-motion/client` instead of `framer-motion`.
+If you're importing `motion` or `m` into a React Server Component environment, ensure you're importing from `motion/react-client` instead of `motion/react`.
 
 ```javascript
-import * as motion from "framer-motion/client"
-import * as m from "framer-motion/m"
+import * as motion from "motion/react-client"
+import * as m from "framer-motion/react-m"
 ```
 
-### Framer Motion won't install
+### Motion for React won't install
 
-Different versions of Framer Motion are compatible with different versions of React.
+Different versions of Motion for React are compatible with different versions of React.
 
-React 19: `12.0.0-alpha.0` or higher
-React 18: `7.0.0` to `11.x`
-React 17: `6.x` or lower
+React 19: `framer-motion@12.0.0-alpha.0` or higher
+React 18: `framer-motion@7.0.0` to `framer-motion@11.x`, or `motion`
+React 17: `framer-motion@6.x` or lower
 
 ### `height: "auto"` is jumping
 
 Animating to/from `auto` requires measuring the DOM. There's no perfect way to do this and if you have also applied padding to the same element, these measurements might be wrong.
 
-The recommended solution is to move padding to a child element. See [this issue](https://github.com/framer/motion/issues/368) for the full discussion.
+The recommended solution is to move padding to a child element. See [this issue](https://github.com/motiondivision/motion/issues/368) for the full discussion.
 
 ### Preact isn't working
 
-Framer Motion isn't compatible with Preact.
+Motion for React isn't compatible with Preact.
 
 ### `AnimatePresence` isn't working
 

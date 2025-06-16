@@ -1,0 +1,105 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+
+            .box {
+                width: 100px;
+                height: 100px;
+                background-color: #0077ff;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .box:focus-visible {
+                background-color: #ff0000;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="box" id="press-div">press</div>
+        <div class="box" id="press-div-cancel">press</div>
+        <button class="box" id="press-button">press</button>
+        <button class="box" id="press-button-disabled" disabled>press</button>
+        <button tabindex="-1" class="box" id="press-no-tab-index-1">
+            press
+        </button>
+        <div tabindex="-1" class="box" id="press-no-tab-index-2">press</div>
+        <input type="text" id="document-output" value="" />
+        <input type="text" id="window-output" value="" />
+        <div class="box" id="press-div-nested">
+            <button id="press-click-button">click</button>
+        </div>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            const { press } = window.MotionDOM
+
+            press("#press-div", (target, event) => {
+                event.stopPropagation()
+                console.log("pointer down")
+                target.innerHTML = "start"
+
+                return () => {
+                    console.log("end")
+                    target.innerHTML = "end"
+                }
+            })
+
+            // Test that we can attach multiple handlers to the same element
+            press("#press-div", (target) => {
+                target.style.color = "green"
+
+                return () => {
+                    target.style.color = "purple"
+                }
+            })
+
+            press("#press-div-cancel", (target) => {
+                target.innerHTML = "start"
+
+                return (event, { success }) => {
+                    target.innerHTML = success ? "end" : "cancel"
+                }
+            })
+
+            press("#press-button", () => {})
+
+            // Ensure elements with tabindex explicitly set to -1 are not reset to 0
+            press("#press-no-tab-index-1", () => {})
+            press("#press-no-tab-index-2", () => {})
+
+            press(window, () => {
+                document.getElementById("window-output").value = "start"
+                return (_, { success }) => {
+                    document.getElementById("window-output").value = success
+                        ? "end"
+                        : "cancel"
+                }
+            })
+
+            press("#press-div-nested", (element) => {
+                return () => {
+                    element.style.backgroundColor = "red"
+                }
+            })
+
+            document
+                .getElementById("press-click-button")
+                .addEventListener("click", ({ currentTarget }) => {
+                    currentTarget.innerHTML = "clicked!"
+                })
+
+            press(document, () => {
+                document.getElementById("document-output").value = "start"
+                return (_, { success }) => {
+                    document.getElementById("document-output").value = success
+                        ? "end"
+                        : "cancel"
+                }
+            })
+        </script>
+    </body>
+</html>

@@ -1,6 +1,5 @@
-import { useEffect, useState } from "react";
-import { mix, motion, addScaleCorrector } from "framer-motion"
-import styled from "styled-components"
+import { addScaleCorrector, motion } from "framer-motion"
+import { useEffect, useState } from "react"
 
 /**
  * This demo is called "Framer border" because it demonstrates border animations as Framer
@@ -8,26 +7,23 @@ import styled from "styled-components"
  * and defining additional values with handlers passed to `autoValues`.
  */
 
-const Container = styled(motion.div)<{ isOn: boolean }>`
-    display: block;
-    position: relative;
-    background: white;
+interface ScaleCorrectorContext {
+    targetDelta: { x: { scale: number }; y: { scale: number } }
+    treeScale: { x: number; y: number }
+}
 
-    ${({ isOn }) => `
-        width: ${isOn ? 700 : 100}px;
-        height: ${isOn ? 400 : 100}px;
-        `}
+type ScaleCorrector = (
+    latest: string | number,
+    context: ScaleCorrectorContext
+) => string
 
-    div {
-        position: absolute;
-        inset: 0px;
-        border-style: solid;
-    }
-`
-
-const borderWidth = (axis: "x" | "y") => ({
-    correct: (latest: any, { targetDelta, treeScale }: any) => {
-        return latest / targetDelta[axis].scale / treeScale[axis] + "px"
+const borderWidth = (axis: "x" | "y"): { correct: ScaleCorrector } => ({
+    correct: (
+        latest: string | number,
+        { targetDelta, treeScale }: ScaleCorrectorContext
+    ) => {
+        const value = typeof latest === "string" ? parseFloat(latest) : latest
+        return value / targetDelta[axis].scale / treeScale[axis] + "px"
     },
 })
 
@@ -49,11 +45,17 @@ export const App = () => {
     }, [])
 
     return (
-        <Container
+        <motion.div
             layout
             transition={{ duration: 3, ease: "circIn" }}
             onClick={() => setOn(!isOn)}
-            isOn={isOn}
+            style={{
+                display: "block",
+                position: "relative",
+                background: "white",
+                width: isOn ? 700 : 100,
+                height: isOn ? 400 : 100,
+            }}
         >
             <motion.div
                 layout
@@ -76,7 +78,12 @@ export const App = () => {
                           }
                 }
                 transition={{ duration: 3, ease: "circIn" }}
+                style={{
+                    position: "absolute",
+                    inset: "0px",
+                    borderStyle: "solid",
+                }}
             />
-        </Container>
+        </motion.div>
     )
 }

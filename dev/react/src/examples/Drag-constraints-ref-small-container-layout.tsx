@@ -16,7 +16,7 @@ const child = {
 }
 
 export const App = () => {
-    const ref = useRef()
+    const ref = useRef(null)
     return (
         <div ref={ref} style={container}>
             <motion.div

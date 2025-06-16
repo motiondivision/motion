@@ -1,4 +1,4 @@
-import { render } from "../../../jest.setup"
+import { createRef, useRef } from "react"
 import {
     motion,
     motionValue,
@@ -6,7 +6,7 @@ import {
     useMotionValue,
     useTransform,
 } from "../.."
-import { createRef, useRef } from "react"
+import { render } from "../../jest.setup"
 
 const degreesToRadians = (degrees: number) => (degrees * Math.PI) / 180
 

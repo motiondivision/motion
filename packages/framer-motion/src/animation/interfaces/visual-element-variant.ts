@@ -7,7 +7,7 @@ export function animateVariant(
     visualElement: VisualElement,
     variant: string,
     options: VisualElementAnimationOptions = {}
-) {
+): Promise<any> {
     const resolved = resolveVariant(
         visualElement,
         variant,

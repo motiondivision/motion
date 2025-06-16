@@ -1,6 +1,6 @@
-import { render } from "../../../jest.setup"
+import { motionValue } from "motion-dom"
 import { motion, MotionConfig } from "../../"
-import { motionValue } from "../../value"
+import { render } from "../../jest.setup"
 
 describe("MotionConfig.transition", () => {
     test("Can define a default transition for an entire tree", async () => {

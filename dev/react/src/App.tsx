@@ -1,3 +1,5 @@
+import { StrictMode } from "react"
+
 const examples = import.meta.glob("./examples/*.tsx", {
     eager: true,
     import: "App",
@@ -16,7 +18,11 @@ function App() {
         : null
 
     if (Module) {
-        return <Module />
+        return (
+            <StrictMode>
+                <Module />
+            </StrictMode>
+        )
     } else {
         return <ExampleList />
     }
@@ -25,7 +31,7 @@ function App() {
 const ExampleList = () => {
     return (
         <div>
-            <h2>Framer Motion Playground</h2>
+            <h2>Motion Playground</h2>
             <p>
                 You can edit any of these in the{" "}
                 <code>dev/react/src/examples</code>

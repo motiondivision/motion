@@ -1,20 +1,5 @@
-import { motion, animate } from "framer-motion"
+import { motion } from "framer-motion"
 import { useEffect, useState } from "react"
-import styled from "styled-components"
-
-const Container = styled.section`
-    position: relative;
-    display: flex;
-    flex-direction: column;
-
-    #box {
-        width: 100px;
-        height: 100px;
-        position: relative;
-        background-color: red;
-        opacity: 1;
-    }
-`
 
 export const App = () => {
     const [state, setState] = useState(false)
@@ -30,15 +15,28 @@ export const App = () => {
     }, [])
 
     return (
-        <Container>
+        <section
+            style={{
+                position: "relative",
+                display: "flex",
+                flexDirection: "column",
+            }}
+        >
             <motion.div
                 id="box"
                 transition={{ type: "spring" }}
                 initial={{ clipPath: "inset(0px)" }}
                 animate={{ clipPath: state ? "inset(0px)" : "inset(20px)" }}
+                style={{
+                    width: "100px",
+                    height: "100px",
+                    position: "relative",
+                    backgroundColor: "red",
+                    opacity: 1,
+                }}
             >
                 Content
             </motion.div>
-        </Container>
+        </section>
     )
 }

@@ -35,7 +35,9 @@ type NotPresent = [false, SafeToRemove]
  *
  * @public
  */
-export function usePresence(): AlwaysPresent | Present | NotPresent {
+export function usePresence(
+    subscribe: boolean = true
+): AlwaysPresent | Present | NotPresent {
     const context = useContext(PresenceContext)
 
     if (context === null) return [true, null]
@@ -46,9 +48,16 @@ export function usePresence(): AlwaysPresent | Present | NotPresent {
     // either be null or non-null for the lifespan of the component.
 
     const id = useId()
-    useEffect(() => register(id), [])
+    useEffect(() => {
+        if (subscribe) {
+            return register(id)
+        }
+    }, [subscribe])
 
-    const safeToRemove = useCallback(() => onExitComplete && onExitComplete(id), [id, onExitComplete])
+    const safeToRemove = useCallback(
+        () => subscribe && onExitComplete && onExitComplete(id),
+        [id, onExitComplete, subscribe]
+    )
 
     return !isPresent && onExitComplete ? [false, safeToRemove] : [true]
 }

@@ -1,41 +1,36 @@
-import { addPointerEvent } from "../events/add-pointer-event"
-import { pipe } from "../utils/pipe"
-import { isDragActive } from "./drag/utils/lock"
-import { EventInfo } from "../events/types"
-import type { VisualElement } from "../render/VisualElement"
+import { frame, hover } from "motion-dom"
+import { extractEventInfo } from "../events/event-info"
 import { Feature } from "../motion/features/Feature"
-import { frame } from "../frameloop"
+import type { VisualElement } from "../render/VisualElement"
 
-function addHoverEvent(node: VisualElement<Element>, isActive: boolean) {
-    const eventName = isActive ? "pointerenter" : "pointerleave"
-    const callbackName = isActive ? "onHoverStart" : "onHoverEnd"
+function handleHoverEvent(
+    node: VisualElement<Element>,
+    event: PointerEvent,
+    lifecycle: "Start" | "End"
+) {
+    const { props } = node
 
-    const handleEvent = (event: PointerEvent, info: EventInfo) => {
-        if (event.pointerType === "touch" || isDragActive()) return
-
-        const props = node.getProps()
-
-        if (node.animationState && props.whileHover) {
-            node.animationState.setActive("whileHover", isActive)
-        }
-
-        const callback = props[callbackName]
-        if (callback) {
-            frame.postRender(() => callback(event, info))
-        }
+    if (node.animationState && props.whileHover) {
+        node.animationState.setActive("whileHover", lifecycle === "Start")
     }
 
-    return addPointerEvent(node.current!, eventName, handleEvent, {
-        passive: !node.getProps()[callbackName],
-    })
+    const eventName = ("onHover" + lifecycle) as "onHoverStart" | "onHoverEnd"
+    const callback = props[eventName]
+    if (callback) {
+        frame.postRender(() => callback(event, extractEventInfo(event)))
+    }
 }
 
 export class HoverGesture extends Feature<Element> {
     mount() {
-        this.unmount = pipe(
-            addHoverEvent(this.node, true),
-            addHoverEvent(this.node, false)
-        ) as VoidFunction
+        const { current } = this.node
+        if (!current) return
+
+        this.unmount = hover(current, (_element, startEvent) => {
+            handleHoverEvent(this.node, startEvent, "Start")
+
+            return (endEvent) => handleHoverEvent(this.node, endEvent, "End")
+        })
     }
 
     unmount() {}

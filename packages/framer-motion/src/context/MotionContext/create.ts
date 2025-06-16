@@ -1,5 +1,5 @@
 import { useContext, useMemo } from "react"
-import { MotionContext, MotionContextProps } from "."
+import { MotionContext, type MotionContextProps } from "."
 import { MotionProps } from "../../motion/types"
 import { getCurrentTreeVariants } from "./utils"
 

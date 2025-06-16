@@ -1,8 +1,8 @@
 "use client"
 
-import { IProjectionNode } from "../projection/node/types"
+import type { Transition } from "motion-dom"
 import { createContext } from "react"
-import { Transition } from "../types"
+import { IProjectionNode } from "../projection/node/types"
 
 export interface SwitchLayoutGroup {
     register?: (member: IProjectionNode) => void

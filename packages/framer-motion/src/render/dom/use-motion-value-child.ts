@@ -1,6 +1,6 @@
+import { MotionValue } from "motion-dom"
 import { useConstant } from "../../utils/use-constant"
 import { useMotionValueEvent } from "../../utils/use-motion-value-event"
-import { MotionValue } from "../../value"
 import type { VisualElement } from "../VisualElement"
 
 export function useMotionValueChild(

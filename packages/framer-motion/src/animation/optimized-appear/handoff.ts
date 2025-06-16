@@ -1,4 +1,4 @@
-import type { Batcher } from "../../frameloop/types"
+import type { Batcher } from "motion-dom"
 import { appearAnimationStore } from "./store"
 import { appearStoreId } from "./store-id"
 

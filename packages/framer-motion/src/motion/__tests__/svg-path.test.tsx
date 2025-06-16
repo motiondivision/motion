@@ -1,6 +1,6 @@
-import { render } from "../../../jest.setup"
+import { createRef } from "react"
 import { motion } from "../.."
-import { createRef } from "react";
+import { render } from "../../jest.setup"
 
 describe("SVG path", () => {
     test("accepts custom transition prop", async () => {

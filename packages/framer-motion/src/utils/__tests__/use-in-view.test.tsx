@@ -1,5 +1,5 @@
-import { render } from "../../../jest.setup"
-import { act, useRef, useEffect } from "react"
+import { act, useEffect, useRef } from "react"
+import { render } from "../../jest.setup"
 import { useInView } from "../use-in-view"
 import { getActiveObserver } from "./mock-intersection-observer"
 
@@ -32,6 +32,30 @@ describe("useInView", () => {
         rerender(<Component />)
 
         expect(results).toEqual([false])
+    })
+
+    test("Can change initial value", () => {
+        const results: boolean[] = []
+
+        const Component = () => {
+            const ref = useRef(null)
+            const isInView = useInView(ref, { initial: true })
+
+            useEffect(() => {
+                if (results[results.length - 1] !== isInView)
+                    results.push(isInView)
+            }, [isInView])
+
+            return <div ref={ref} />
+        }
+
+        const { rerender } = render(<Component />)
+        rerender(<Component />)
+        rerender(<Component />)
+        rerender(<Component />)
+        rerender(<Component />)
+
+        expect(results).toEqual([true])
     })
 
     test("Returns true when element enters the viewport", async () => {

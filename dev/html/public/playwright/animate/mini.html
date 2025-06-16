@@ -1,0 +1,166 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+
+            .box {
+                width: 100px;
+                height: 100px;
+                background-color: #0077ff;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            #then,
+            #finished {
+                opacity: 0;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="box" id="then">then</div>
+        <div class="box" id="finished">finished</div>
+        <div class="box" id="spring-duration">spring duration</div>
+        <div class="box" id="spring-visual-duration">
+            spring visual duration
+        </div>
+        <div class="box" id="duration">duration</div>
+        <div class="box" id="final-keyframe">final keyframe</div>
+        <div class="box" id="final-keyframe-reverse">
+            final keyframe reverse
+        </div>
+        <div class="box" id="autoplay">autoplay</div>
+        <div class="box" id="time">time</div>
+        <div class="box" id="custom-easing">custom easing</div>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            const { animateMini, spring } = window.Motion
+
+            // Test then fires correctly
+            animateMini("#then", { opacity: 1 }, { duration: 0.2 }).then(() => {
+                document.getElementById("then").innerHTML = "complete"
+            })
+
+            // Test finished fires correctly
+            animateMini("#finished", { opacity: 1 }, { duration: 0.2 }).then(
+                () => {
+                    document.getElementById("finished").innerHTML = "complete"
+                }
+            )
+
+            // Test spring duration fires correctly
+            animateMini(
+                "#spring-duration",
+                { transform: "translateX(100px)" },
+                { type: spring, bounce: 0.8, duration: 0.2 }
+            ).then(() => {
+                const element = document.getElementById("spring-duration")
+                requestAnimationFrame(() => {
+                    if (element.style.transform === "translateX(100px)") {
+                        element.innerHTML = "complete"
+                    }
+                })
+            })
+
+            // Test spring visualDuration fires correctly
+            animateMini(
+                "#spring-visual-duration",
+                { transform: "translateX(100px)" },
+                { type: spring, bounce: 0.1, visualDuration: 0.2 }
+            ).then(() => {
+                const element = document.getElementById(
+                    "spring-visual-duration"
+                )
+                requestAnimationFrame(() => {
+                    if (element.style.transform === "translateX(100px)") {
+                        element.innerHTML = "complete"
+                    }
+                })
+            })
+
+            // Duration is returned correctly
+            const animation = animateMini(
+                "#duration",
+                { opacity: 1 },
+                { duration: 0.2 }
+            )
+
+            animation.then(() => {
+                requestAnimationFrame(() => {
+                    const element = document.getElementById("duration")
+                    if (
+                        animation.duration === 0.2 &&
+                        element.style.opacity === "1"
+                    ) {
+                        element.innerHTML = "complete"
+                    }
+                })
+            })
+
+            // Final keyframe is applied correctly
+            animateMini(
+                "#final-keyframe",
+                { opacity: [0.2, 0.5] },
+                { duration: 0.2 }
+            ).then(() => {
+                const element = document.getElementById("final-keyframe")
+                requestAnimationFrame(() => {
+                    if (element.style.opacity === "0.5") {
+                        element.innerHTML = "complete"
+                    }
+                })
+            })
+
+            // Final keyframe is applied correctly when in reverse
+            animateMini(
+                "#final-keyframe-reverse",
+                { opacity: [0.2, 0.5] },
+                { duration: 0.2, repeat: 1, repeatType: "reverse" }
+            ).then(() => {
+                const element = document.getElementById(
+                    "final-keyframe-reverse"
+                )
+                requestAnimationFrame(() => {
+                    if (element.style.opacity === "0.2") {
+                        element.innerHTML = "complete"
+                    }
+                })
+            })
+
+            // Test then fires correctly
+            animateMini(
+                "#autoplay",
+                { opacity: 1 },
+                { duration: 0.2, autoplay: false }
+            ).then(() => {
+                document.getElementById("autoplay").innerHTML = "complete"
+            })
+
+            const timeAnimation = animateMini(
+                "#time",
+                { opacity: [0, 1] },
+                { duration: 0.2, ease: "linear" }
+            )
+
+            timeAnimation.finished.finally(() => {
+                document.getElementById("time").innerHTML = "complete"
+            })
+            timeAnimation.pause()
+            timeAnimation.time = 0.1
+            timeAnimation.stop()
+
+            const customEasingFunction = animateMini(
+                "#custom-easing",
+                { opacity: [0, 1] },
+                { duration: 0.2, ease: () => 0.25 }
+            )
+
+            customEasingFunction.pause()
+            customEasingFunction.time = 0.1
+            customEasingFunction.stop()
+        </script>
+    </body>
+</html>

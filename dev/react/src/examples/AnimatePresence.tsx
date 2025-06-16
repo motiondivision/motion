@@ -1,4 +1,4 @@
-import { motion, AnimatePresence } from "framer-motion"
+import { AnimatePresence, motion } from "framer-motion"
 import { useState } from "react"
 
 /**
@@ -16,7 +16,10 @@ export const App = () => {
     const [isVisible, setVisible] = useState(true)
 
     return (
-        <div onClick={() => setVisible(!isVisible)}>
+        <div
+            onClick={() => setVisible(!isVisible)}
+            style={{ width: 1000, height: 1000, background: "green" }}
+        >
             <AnimatePresence
                 initial={false}
                 onExitComplete={() => console.log("rest")}
@@ -29,7 +32,22 @@ export const App = () => {
                         exit={{ opacity: 0 }}
                         transition={{ duration: 1 }}
                         style={style}
-                    />
+                    >
+                        <AnimatePresence propagate initial={false}>
+                            <motion.div
+                                key="b"
+                                exit={{ x: 100 }}
+                                transition={{ duration: 1 }}
+                                style={{
+                                    width: 50,
+                                    height: 50,
+                                    background: "blue",
+                                }}
+                            >
+                                Hello
+                            </motion.div>
+                        </AnimatePresence>
+                    </motion.div>
                 )}
             </AnimatePresence>
         </div>

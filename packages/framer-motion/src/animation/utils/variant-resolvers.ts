@@ -1,4 +1,4 @@
-import { MotionValue } from "../../value"
+import { MotionValue } from "motion-dom"
 
 type VariantNameList = string[]
 type VariantName = string | VariantNameList

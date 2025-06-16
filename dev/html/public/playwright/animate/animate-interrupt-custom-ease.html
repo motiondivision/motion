@@ -1,0 +1,56 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+                font-family: sans-serif;
+                display: flex;
+                gap: 10px;
+                flex-direction: column;
+            }
+
+            .box {
+                width: 100px;
+                height: 100px;
+                background-color: #0077ff;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                text-align: center;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="box" id="mini">mini</div>
+        <div class="box" id="js">js</div>
+        <div class="box" id="waapi">waapi</div>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            const { animateMini, animate, frame, delay, spring } = window.Motion
+
+            const options = {
+                ease: () => 0.5,
+            }
+
+            animateMini("#mini", { transform: "translateX(100px)" }, options)
+            animate("#js", { x: 100 }, options)
+            animate("#waapi", { transform: "translateX(100px)" }, options)
+
+            delay(() => {
+                animateMini("#mini", { transform: "translateX(0px)" }, options)
+                animate("#js", { x: 0 }, options)
+                animate("#waapi", { transform: "translateX(0px)" }, options)
+
+                frame.postRender(() => {
+                    const mini = document.getElementById("mini")
+                    const js = document.getElementById("js")
+                    const waapi = document.getElementById("waapi")
+
+                    mini.innerHTML = mini.getBoundingClientRect().x
+                    js.innerHTML = js.getBoundingClientRect().x
+                    waapi.innerHTML = waapi.getBoundingClientRect().x
+                })
+            }, 0.2)
+        </script>
+    </body>
+</html>

@@ -1,5 +1,5 @@
+import { warnOnce } from "motion-utils"
 import { MotionProps } from "../../motion/types"
-import { warnOnce } from "../../utils/warn-once"
 import { DOMMotionComponents } from "../dom/types"
 import type { createMotionComponent } from "./motion/create"
 
@@ -8,9 +8,10 @@ import type { createMotionComponent } from "./motion/create"
  * incorrect relative paths in the exported types and API Extractor throws
  * a wobbly.
  */
-export type CustomDomComponent<Props> = React.ForwardRefExoticComponent<
-    React.PropsWithoutRef<Props & MotionProps> &
-        React.RefAttributes<SVGElement | HTMLElement>
+type ComponentProps<Props> = React.PropsWithoutRef<Props & MotionProps> &
+    React.RefAttributes<SVGElement | HTMLElement>
+export type CustomDomComponent<Props> = React.ComponentType<
+    ComponentProps<Props>
 >
 
 export function createDOMMotionComponentProxy(

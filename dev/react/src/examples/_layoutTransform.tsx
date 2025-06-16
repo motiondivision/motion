@@ -1,59 +1,39 @@
-import { useState } from "react"
 import { motion } from "framer-motion"
-import styled from "styled-components"
+import { useState } from "react"
 
 const transition = { default: { duration: 5 }, scale: { duration: 0.2 } }
 
 export const App = () => {
     const [isOpen, setIsOpen] = useState(false)
     return (
-        <Container
+        <motion.div
             layout
             transition={transition}
             initial={{ borderRadius: 10 }}
-            isOpen={isOpen}
+            style={{
+                background: "white",
+                padding: "20px",
+                display: "flex",
+                width: isOpen ? "300px" : "200px",
+                height: isOpen ? "200px" : "400px",
+                justifyContent: isOpen ? "flex-end" : undefined,
+                alignItems: !isOpen ? "flex-end" : undefined,
+            }}
         >
-            <Child
+            <motion.div
                 layout
                 transition={transition}
-                isOpen={isOpen}
                 onClick={() => setIsOpen(!isOpen)}
                 initial={{ borderRadius: 20 }}
                 //whileHover={{ scale: 1.13 }}
                 id="child"
+                style={{
+                    background: "rgb(255, 0, 136)",
+                    cursor: "pointer",
+                    width: isOpen ? "30px" : "100%",
+                    height: isOpen ? "30px" : "40px",
+                }}
             />
-        </Container>
+        </motion.div>
     )
 }
-
-const Container = styled(motion.div)`
-    background: white;
-    padding: 20px;
-    display: flex;
-
-    ${({ isOpen }) =>
-        isOpen
-            ? `
-        width: 300px;
-        height: 200px;
-            justify-content: flex-end;`
-            : `
-            align-items: flex-end;
-        width: 200px;
-        height: 400px;
-    `}
-`
-
-const Child = styled(motion.div)`
-    background: rgb(255, 0, 136);
-    cursor: pointer;
-    ${({ isOpen }) =>
-        isOpen
-            ? `
-            width: 30px;
-        height: 30px;`
-            : `
-            width: 100%;
-        height: 40px;
-    `}
-`

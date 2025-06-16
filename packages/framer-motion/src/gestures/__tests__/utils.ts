@@ -1,5 +1,4 @@
-import { frame } from "../../frameloop"
-import { microtask } from "../../frameloop/microtask"
+import { frame, microtask } from "motion-dom"
 
 export async function nextFrame() {
     return new Promise<void>((resolve) => {

@@ -9,4 +9,6 @@ export interface MotionContextProps<Instance = unknown> {
     animate?: string | string[]
 }
 
-export const MotionContext = createContext<MotionContextProps>({})
+export const MotionContext = /* @__PURE__ */ createContext<MotionContextProps>(
+    {}
+)

@@ -1,4 +1,4 @@
-import { addUniqueItem, removeItem } from "../../utils/array"
+import { addUniqueItem, removeItem } from "motion-utils"
 import { compareByDepth, WithDepth } from "./compare-by-depth"
 
 export class FlatTree {

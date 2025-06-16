@@ -1,5 +1,5 @@
+import { MotionValue, MotionValueEventCallbacks } from "motion-dom"
 import { useInsertionEffect } from "react"
-import { MotionValue, MotionValueEventCallbacks } from "../value"
 
 export function useMotionValueEvent<
     V,

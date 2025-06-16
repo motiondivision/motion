@@ -1,23 +1,14 @@
 import { motion } from "framer-motion"
-import styled from "styled-components"
-
-const Container = styled.section`
-    position: relative;
-    display: flex;
-    flex-direction: column;
-
-    #box {
-        width: 100px;
-        height: 100px;
-        position: relative;
-        background-color: red;
-        opacity: 1;
-    }
-`
 
 export const App = () => {
     return (
-        <Container>
+        <section
+            style={{
+                position: "relative",
+                display: "flex",
+                flexDirection: "column",
+            }}
+        >
             <motion.div
                 id="box"
                 transition={{
@@ -27,9 +18,16 @@ export const App = () => {
                 }}
                 initial={{ transform: "scale(1)" }}
                 animate={{ transform: "scale(1)" }}
+                style={{
+                    width: "100px",
+                    height: "100px",
+                    position: "relative",
+                    backgroundColor: "red",
+                    opacity: 1,
+                }}
             >
                 Content
             </motion.div>
-        </Container>
+        </section>
     )
 }

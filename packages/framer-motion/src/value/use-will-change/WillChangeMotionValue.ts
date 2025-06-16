@@ -1,21 +1,20 @@
-import { MotionValue } from ".."
+import { acceleratedValues, MotionValue, transformProps } from "motion-dom"
 import { WillChange } from "./types"
-import { getWillChangeName } from "./get-will-change-name"
-import { addUniqueItem } from "../../utils/array"
 
-export class WillChangeMotionValue extends MotionValue implements WillChange {
-    private values: string[] = []
+export class WillChangeMotionValue
+    extends MotionValue<string>
+    implements WillChange
+{
+    private isEnabled = false
 
     add(name: string) {
-        const styleName = getWillChangeName(name)
-
-        if (styleName) {
-            addUniqueItem(this.values, styleName)
+        if (transformProps.has(name) || acceleratedValues.has(name)) {
+            this.isEnabled = true
             this.update()
         }
     }
 
     private update() {
-        this.set(this.values.length ? this.values.join(", ") : "auto")
+        this.set(this.isEnabled ? "transform" : "auto")
     }
 }

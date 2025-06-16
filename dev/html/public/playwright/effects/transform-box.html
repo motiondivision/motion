@@ -1,0 +1,66 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+                font-family: sans-serif;
+                display: flex;
+                gap: 10px;
+                flex-direction: column;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="test-html"></div>
+        <svg width="200" height="200" viewBox="0 0 100 100">
+            <circle
+                id="via-style-effect"
+                cx="50"
+                cy="50"
+                r="40"
+                fill="none"
+                stroke="#0077ff"
+                stroke-width="4"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+            />
+            <circle
+                id="via-svg-effect"
+                cx="50"
+                cy="50"
+                r="40"
+                fill="none"
+                stroke="#0077ff"
+                stroke-width="4"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+            />
+            <circle
+                id="via-style-effect-and-transform-box"
+                cx="50"
+                cy="50"
+                r="40"
+                fill="none"
+                stroke="#0077ff"
+                stroke-width="4"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+            />
+        </svg>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            const { motionValue, styleEffect, svgEffect, animate } =
+                window.Motion
+
+            const x = motionValue(100)
+            styleEffect("svg", { x })
+            styleEffect("#via-style-effect", { x })
+            svgEffect("#via-svg-effect", { x })
+            styleEffect("#test-html", { x })
+            styleEffect("#via-style-effect-and-transform-box", {
+                x,
+                transformBox: motionValue("view-box"),
+            })
+        </script>
+    </body>
+</html>

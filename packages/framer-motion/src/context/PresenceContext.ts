@@ -18,4 +18,5 @@ export interface PresenceContextProps {
 /**
  * @public
  */
-export const PresenceContext = createContext<PresenceContextProps | null>(null)
+export const PresenceContext =
+    /* @__PURE__ */ createContext<PresenceContextProps | null>(null)

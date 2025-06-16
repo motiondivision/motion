@@ -1,6 +1,6 @@
-import { focus, blur, render } from "../../../jest.setup"
 import { createRef } from "react"
 import { frame, motion, motionValue } from "../../"
+import { blur, focus, render } from "../../jest.setup"
 import { nextFrame } from "./utils"
 
 describe("focus", () => {

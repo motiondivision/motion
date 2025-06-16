@@ -1,41 +1,11 @@
 {
-    "compilerOptions": {
-        "target": "es2018",
-        "module": "esnext",
-        "moduleResolution": "node",
-        "isolatedModules": false,
-        "importHelpers": true,
-        "jsx": "react-jsx",
-        "esModuleInterop": true,
-        "experimentalDecorators": true,
-        "emitDecoratorMetadata": true,
-        "declaration": true,
-        "declarationDir": "types",
-        "outDir": "lib",
-        "noLib": false,
-        "preserveConstEnums": true,
-        "rootDir": "src",
-        "sourceMap": true,
-        "baseUrl": "src",
-        "strictNullChecks": true,
-        "noImplicitAny": true,
-        "noImplicitThis": true,
-        "noImplicitUseStrict": false,
-        "noUnusedLocals": true,
-        "noUnusedParameters": true,
-        "removeComments": false,
-        "lib": ["es2017", "dom"],
-        "skipLibCheck": true,
-        "downlevelIteration": true,
-        "stripInternal": true
-    },
-    "compileOnSave": false,
-    "buildOnSave": false,
+    "extends": "config/tsconfig.json",
+    "filesGlob": ["./src/**/*.ts"],
     "exclude": [
         "node_modules",
         "build",
         "**/__tests__/*",
-        "jest.setup.tsx",
+        "src/jest.setup.tsx",
         "dev",
         "types",
         "dev/examples.framer",
@@ -46,6 +16,11 @@
         "api",
         "cypress"
     ],
-
-    "filesGlob": ["./src/**/*.ts"]
+    "compilerOptions": {
+        "baseUrl": "src",
+        "declarationDir": "types",
+        "outDir": "lib",
+        "rootDir": "src",
+        "noEmitOnError": true
+    }
 }

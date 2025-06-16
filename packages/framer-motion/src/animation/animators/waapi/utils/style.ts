@@ -8,7 +8,7 @@ export function setCSSVar(
     name: string,
     value: string | number
 ) {
-    element.style.setProperty(`--${name}`, value as string)
+    element.style.setProperty(name, value as string)
 }
 
 export function setStyle(

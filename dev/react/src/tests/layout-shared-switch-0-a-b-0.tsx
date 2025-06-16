@@ -1,8 +1,8 @@
 import { motion } from "framer-motion"
-import { useState } from "react";
+import { useState } from "react"
 
 const transition = {
-    default: { duration: 0.2, ease: () => 0.5 },
+    default: { duration: 5, ease: () => 0.5 },
 }
 
 export const App = () => {

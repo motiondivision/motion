@@ -8,6 +8,7 @@ export type ScaleCorrector = (
 export interface ScaleCorrectorDefinition {
     correct: ScaleCorrector
     applyTo?: string[]
+    isCSSVariable?: boolean
 }
 
 export interface ScaleCorrectorMap {

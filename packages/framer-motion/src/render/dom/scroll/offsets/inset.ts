@@ -1,9 +1,11 @@
-export function calcInset(element: Element, container: HTMLElement) {
+import { isHTMLElement } from "motion-dom"
+
+export function calcInset(element: Element, container: Element) {
     const inset = { x: 0, y: 0 }
 
     let current: Element | null = element
     while (current && current !== container) {
-        if (current instanceof HTMLElement) {
+        if (isHTMLElement(current)) {
             inset.x += current.offsetLeft
             inset.y += current.offsetTop
             current = current.offsetParent

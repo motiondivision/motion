@@ -1,6 +1,6 @@
-import { render } from "../../../../jest.setup"
-import { useRef, useLayoutEffect } from "react"
+import { useLayoutEffect, useRef } from "react"
 import { Reorder } from ".."
+import { render } from "../../../jest.setup"
 
 describe("Reorder", () => {
     it("Correctly hydrates ref", () => {

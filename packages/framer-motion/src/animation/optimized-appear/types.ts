@@ -1,5 +1,5 @@
-import type { Batcher } from "../../frameloop/types"
-import { MotionValue } from "../../value"
+import type { Batcher } from "motion-dom"
+import { MotionValue } from "motion-dom"
 import { optimizedAppearDataAttribute } from "./data-id"
 
 /**
@@ -23,7 +23,7 @@ export type HandoffFunction = (
 
 /**
  * The window global object acts as a bridge between our inline script
- * triggering the optimized appear animations, and Framer Motion.
+ * triggering the optimized appear animations, and Motion.
  */
 declare global {
     interface Window {

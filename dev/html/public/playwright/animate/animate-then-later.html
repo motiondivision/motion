@@ -1,0 +1,80 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+                font-family: sans-serif;
+                display: flex;
+                gap: 10px;
+                flex-direction: column;
+            }
+
+            .box {
+                width: 100px;
+                height: 100px;
+                background-color: #0077ff;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                text-align: center;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="box" id="mini">mini</div>
+        <div class="box" id="js">js</div>
+        <div class="box" id="waapi">waapi</div>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            const { animateMini, delay, animate } = window.Motion
+
+            const options = {
+                duration: 0.2,
+            }
+
+            const mini = animateMini(
+                "#mini",
+                { transform: "translateX(100px)" },
+                options
+            )
+
+            mini.then(() => {
+                delay(() => {
+                    mini.then(
+                        () =>
+                            (document.getElementById("mini").innerHTML =
+                                "finished")
+                    )
+                }, 0.1)
+            })
+
+            const js = animate("#js", { x: 100 }, options)
+
+            js.then(() => {
+                delay(() => {
+                    js.then(
+                        () =>
+                            (document.getElementById("js").innerHTML =
+                                "finished")
+                    )
+                }, 0.1)
+            })
+
+            const waapi = animate(
+                "#waapi",
+                { transform: "translateX(100px)" },
+                options
+            )
+
+            waapi.then(() => {
+                delay(() => {
+                    waapi.then(
+                        () =>
+                            (document.getElementById("waapi").innerHTML =
+                                "finished")
+                    )
+                }, 0.1)
+            })
+        </script>
+    </body>
+</html>

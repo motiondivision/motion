@@ -1,12 +1,11 @@
-<h1 align="center">
-    <img src="http://misc.framerstatic.com/repos/api-logo.png" width="40"/>
-    <br>
-    Contributing
-</h1>
+<p align="center">
+  <img width="100" height="100" alt="Motion logo" src="https://user-images.githubusercontent.com/7850794/164965523-3eced4c4-6020-467e-acde-f11b7900ad62.png" />
+</p>
+<h1 align="center">Contributing</h1>
 
 ## Bug fixes
 
-Open issues can be found on our [GitHub issues](https://github.com/framer/motion/issues?q=is%3Aopen+is%3Aissue+label%3Abug) page with a "Bug" label.
+Open issues can be found on our [GitHub issues](https://github.com/motiondivision/motion/issues?q=is%3Aopen+is%3Aissue+label%3Abug) page with a "Bug" label.
 
 These are a great place to start contributing to the repo!
 
@@ -16,11 +15,9 @@ If the bug you want to work on doesn't have a related issue, open one, and attac
 
 ## New features
 
-Before adding any features, open a [Feature Proposal](https://github.com/framer/motion/issues/new/choose).
+Before adding any features, open a [Feature Proposal](https://github.com/motiondivision/motion/issues/new/choose).
 
 This will let us talk through your proposal API and/or implementation before you spend time on it.
-
-An added caveat is that this API is offered within Framer, so our target audience is designers as well as developers. This can tend us towards simplicity and power over composability.
 
 ## Development
 

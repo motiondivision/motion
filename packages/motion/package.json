@@ -1,0 +1,99 @@
+{
+    "name": "motion",
+    "version": "12.18.1",
+    "description": "An animation library for JavaScript and React.",
+    "main": "dist/cjs/index.js",
+    "module": "dist/es/motion/lib/index.mjs",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "require": "./dist/cjs/index.js",
+            "import": "./dist/es/motion/lib/index.mjs",
+            "default": "./dist/cjs/index.js"
+        },
+        "./debug": {
+            "types": "./dist/debug.d.ts",
+            "require": "./dist/cjs/debug.js",
+            "import": "./dist/es/motion/lib/debug.mjs",
+            "default": "./dist/cjs/debug.js"
+        },
+        "./mini": {
+            "types": "./dist/mini.d.ts",
+            "require": "./dist/cjs/mini.js",
+            "import": "./dist/es/motion/lib/mini.mjs",
+            "default": "./dist/cjs/mini.js"
+        },
+        "./react": {
+            "types": "./dist/react.d.ts",
+            "require": "./dist/cjs/react.js",
+            "import": "./dist/es/motion/lib/react.mjs",
+            "default": "./dist/cjs/react.js"
+        },
+        "./react-client": {
+            "types": "./dist/react-client.d.ts",
+            "require": "./dist/cjs/react-client.js",
+            "import": "./dist/es/motion/lib/react-client.mjs",
+            "default": "./dist/cjs/react-client.js"
+        },
+        "./react-m": {
+            "types": "./dist/react-m.d.ts",
+            "require": "./dist/cjs/react-m.js",
+            "import": "./dist/es/motion/lib/react-m.mjs",
+            "default": "./dist/cjs/react-m.js"
+        },
+        "./react-mini": {
+            "types": "./dist/react-mini.d.ts",
+            "require": "./dist/cjs/react-mini.js",
+            "import": "./dist/es/motion/lib/react-mini.mjs",
+            "default": "./dist/cjs/react-mini.js"
+        },
+        "./package.json": "./package.json"
+    },
+    "types": "dist/index.d.ts",
+    "author": "Matt Perry",
+    "license": "MIT",
+    "repository": "https://github.com/motiondivision/motion",
+    "sideEffects": false,
+    "keywords": [
+        "javascript animation",
+        "react animation",
+        "react",
+        "three",
+        "3d",
+        "animation",
+        "gestures",
+        "drag",
+        "spring",
+        "popmotion",
+        "framer",
+        "waapi"
+    ],
+    "scripts": {
+        "build": "yarn clean && tsc -p . && rollup -c",
+        "dev": "concurrently -c blue,red -n tsc,rollup --kill-others \"tsc --watch -p . --preserveWatchOutput\" \"rollup --config --watch --no-watch.clearScreen\"",
+        "clean": "rm -rf types dist lib",
+        "prepack": "yarn build",
+        "postpublish": "git push --tags"
+    },
+    "dependencies": {
+        "framer-motion": "^12.18.1",
+        "tslib": "^2.4.0"
+    },
+    "peerDependencies": {
+        "@emotion/is-prop-valid": "*",
+        "react": "^18.0.0 || ^19.0.0",
+        "react-dom": "^18.0.0 || ^19.0.0"
+    },
+    "peerDependenciesMeta": {
+        "@emotion/is-prop-valid": {
+            "optional": true
+        },
+        "react": {
+            "optional": true
+        },
+        "react-dom": {
+            "optional": true
+        }
+    },
+    "gitHead": "cddcc66430c5c96b2f560bb6a61160231f512c53"
+}

@@ -1,4 +1,4 @@
-import { Transition } from "../../types"
+import type { Transition } from "motion-dom"
 
 /**
  * Decide whether a transition is defined on a given Transition.
@@ -17,6 +17,6 @@ export function isTransitionDefined({
     from,
     elapsed,
     ...transition
-}: Transition & { elapsed?: number }) {
+}: Transition & { elapsed?: number; from?: string | number }) {
     return !!Object.keys(transition).length
 }

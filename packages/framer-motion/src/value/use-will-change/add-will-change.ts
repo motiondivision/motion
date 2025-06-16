@@ -1,3 +1,4 @@
+import { MotionGlobalConfig } from "motion-utils"
 import type { VisualElement } from "../../render/VisualElement"
 import { isWillChangeMotionValue } from "./is"
 
@@ -13,5 +14,10 @@ export function addValueToWillChange(
      */
     if (isWillChangeMotionValue(willChange)) {
         return willChange.add(key)
+    } else if (!willChange && MotionGlobalConfig.WillChange) {
+        const newWillChange = new MotionGlobalConfig.WillChange("auto")
+
+        visualElement.addValue("willChange", newWillChange)
+        newWillChange.add(key)
     }
 }

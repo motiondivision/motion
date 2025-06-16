@@ -46,7 +46,7 @@ const SiblingLayoutAnimation = () => {
 }
 
 export const App = () => {
-    const ref = useRef()
+    const ref = useRef(null)
     const [count, setCount] = useState(0)
     return (
         <>

@@ -1,9 +1,9 @@
-import { AnimationControls } from "../types"
+import { LegacyAnimationControls } from "motion-dom"
 
-export function isAnimationControls(v?: unknown): v is AnimationControls {
+export function isAnimationControls(v?: unknown): v is LegacyAnimationControls {
     return (
         v !== null &&
         typeof v === "object" &&
-        typeof (v as AnimationControls).start === "function"
+        typeof (v as LegacyAnimationControls).start === "function"
     )
 }

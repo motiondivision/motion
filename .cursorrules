@@ -1,0 +1,11 @@
+## Writing tests
+
+-  When waiting for the next frame, use an `async` test and await like so:
+
+```javascript
+async function nextFrame() {
+    return new Promise<void>((resolve) => {
+        frame.postRender(() => resolve())
+    })
+}
+```

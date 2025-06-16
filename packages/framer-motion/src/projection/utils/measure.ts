@@ -1,9 +1,9 @@
+import { TransformPoint } from "motion-utils"
 import {
     convertBoundingBoxToBox,
     transformBoxPoints,
 } from "../geometry/conversion"
 import { translateAxis } from "../geometry/delta-apply"
-import { TransformPoint } from "../geometry/types"
 import { IProjectionNode } from "../node/types"
 
 export function measureViewportBox(

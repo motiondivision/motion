@@ -1,4 +1,4 @@
-import { Axis, Box } from "../../projection/geometry/types"
+import { Axis, Box } from "motion-utils"
 
 export interface ReorderContextProps<T> {
     axis: "x" | "y"

@@ -1,0 +1,70 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+
+            .box {
+                width: 100px;
+                height: 100px;
+                background-color: #0077ff;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="box">error</div>
+        <svg width="100" height="100">
+            <rect width="100" height="100" />
+        </svg>
+        <div id="svg-status">error</div>
+        <div id="rect-status">error</div>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            const { resize, frame } = window.MotionDOM
+
+            const stop = resize("#box", (element, { width, height }) => {
+                if (width === 200 && height === 200) {
+                    element.innerHTML = "success"
+                } else {
+                    element.innerHTML = "error"
+                }
+            })
+
+            resize("svg", (element, { width, height }) => {
+                if (width === 200 && height === 200) {
+                    document.querySelector("#svg-status").innerHTML = "success"
+                }
+            })
+
+            resize("rect", (element, { width, height }) => {
+                if (width === 200 && height === 200) {
+                    document.querySelector("#rect-status").innerHTML = "success"
+                }
+            })
+
+            const box = document.querySelector("#box")
+            box.style.width = "200px"
+            box.style.height = "200px"
+
+            frame.postRender(() => {
+                frame.postRender(() => {
+                    stop()
+                    box.style.width = "300px"
+                    box.style.height = "300px"
+                })
+            })
+
+            const svg = document.querySelector("svg")
+            svg.style.width = "200px"
+            svg.style.height = "200px"
+
+            const rect = document.querySelector("rect")
+            rect.setAttribute("width", "200")
+            rect.setAttribute("height", "200")
+        </script>
+    </body>
+</html>

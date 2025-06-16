@@ -1,10 +1,9 @@
-import { ScrollInfo } from "../types"
+import { defaultOffset, interpolate } from "motion-dom"
+import { clamp } from "motion-utils"
+import { ScrollInfo, ScrollInfoOptions } from "../types"
 import { calcInset } from "./inset"
-import { ScrollOffset } from "./presets"
-import { ScrollInfoOptions } from "../types"
 import { resolveOffset } from "./offset"
-import { interpolate } from "../../../../utils/interpolate"
-import { defaultOffset } from "../../../../utils/offsets/default"
+import { ScrollOffset } from "./presets"
 
 const point = { x: 0, y: 0 }
 
@@ -15,7 +14,7 @@ function getTargetSize(target: Element) {
 }
 
 export function resolveOffsets(
-    container: HTMLElement,
+    container: Element,
     info: ScrollInfo,
     options: ScrollInfoOptions
 ) {
@@ -75,10 +74,16 @@ export function resolveOffsets(
     if (hasChanged) {
         info[axis].interpolate = interpolate(
             info[axis].offset,
-            defaultOffset(offsetDefinition)
+            defaultOffset(offsetDefinition),
+            { clamp: false }
         )
 
         info[axis].interpolatorOffsets = [...info[axis].offset]
     }
-    info[axis].progress = info[axis].interpolate!(info[axis].current)
+
+    info[axis].progress = clamp(
+        0,
+        1,
+        info[axis].interpolate!(info[axis].current)
+    )
 }

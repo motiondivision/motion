@@ -1,11 +1,11 @@
+import { motionValue, Variants } from "motion-dom"
+import { frame, motion } from "../../"
 import {
     pointerDown,
     pointerEnter,
     pointerLeave,
     render,
-} from "../../../jest.setup"
-import { frame, motion } from "../../"
-import { motionValue } from "../../value"
+} from "../../jest.setup"
 import { nextFrame } from "./utils"
 
 describe("hover", () => {
@@ -168,6 +168,48 @@ describe("hover", () => {
         })
 
         return expect(promise).resolves.toBe(1)
+    })
+
+    test("Correctly uses transition applied to initial", () => {
+        const promise = new Promise(async (resolve) => {
+            const variant: Variants = {
+                initial: { opacity: 0.9, transition: { type: false } },
+                hidden: {
+                    opacity: 0.5,
+                    transition: { type: false },
+                    transitionEnd: { opacity: 0.75 },
+                },
+            }
+            const opacity = motionValue(0.9)
+
+            let hasMousedOut = false
+            const onComplete = () => {
+                frame.postRender(() => hasMousedOut && resolve(opacity.get()))
+            }
+
+            const Component = ({ onAnimationComplete }: any) => (
+                <motion.div
+                    whileHover="hidden"
+                    variants={variant}
+                    style={{ opacity }}
+                    onAnimationComplete={onAnimationComplete}
+                />
+            )
+
+            const { container } = render(
+                <Component onAnimationComplete={onComplete} />
+            )
+
+            pointerEnter(container.firstChild as Element)
+
+            await nextFrame()
+            setTimeout(() => {
+                hasMousedOut = true
+                pointerLeave(container.firstChild as Element)
+            }, 10)
+        })
+
+        return expect(promise).resolves.toBe(0.9)
     })
 
     test("whileHover only animates values that aren't being controlled by a higher-priority gesture ", () => {

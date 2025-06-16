@@ -1,8 +1,8 @@
-import { render } from "../../../jest.setup"
+import { motionValue, MotionValue } from "motion-dom"
 import { motion } from "../../"
-import { useMotionValue } from "../use-motion-value"
-import { motionValue, MotionValue } from ".."
 import { nextMicrotask } from "../../gestures/__tests__/utils"
+import { render } from "../../jest.setup"
+import { useMotionValue } from "../use-motion-value"
 
 describe("useMotionValue", () => {
     test("sets initial value", async () => {

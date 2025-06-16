@@ -1,9 +1,9 @@
 import { motion } from "framer-motion"
-import { useState } from "react";
+import { useState } from "react"
 
 const transition = {
-    default: { duration: 0.2, ease: () => 0.5 },
-    opacity: { duration: 0.2, ease: () => 0.1 },
+    default: { duration: 1, ease: () => 0.5 },
+    opacity: { duration: 1, ease: () => 0.1 },
 }
 
 export const App = () => {

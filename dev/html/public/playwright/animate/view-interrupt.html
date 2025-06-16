@@ -1,0 +1,79 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+                display: flex;
+            }
+
+            .box {
+                width: 100px;
+                height: 100px;
+                background-color: red;
+                position: relative;
+                left: 0px;
+                view-transition-name: box;
+            }
+
+            main {
+                width: 600px;
+                padding: 100px;
+            }
+
+            .b .box {
+                left: 100px;
+                top: 100px;
+                width: 200px;
+                height: 200px;
+                background-color: blue;
+            }
+        </style>
+    </head>
+    <body>
+        <main>
+            <div class="box">0</div>
+        </main>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            const { press, animateView } = window.MotionDOM
+            const { scroll, spring, delay } = window.Motion
+
+            let state = "a"
+
+            const increment = (value) => {
+                const box = document.querySelector(".box")
+                box.textContent = parseInt(box.textContent) + 1
+            }
+
+            const update = (newState) => () => {
+                document.body.classList.remove(state)
+                state = newState
+                console.log("setting state", newState)
+                increment()
+                document.body.classList.add(state)
+            }
+
+            async function runAnimation(newState, interrupt = "wait") {
+                const animation = await animateView(update(newState), {
+                    ease: "easeOut",
+                    duration: 1,
+                    interrupt,
+                })
+
+                return animation
+            }
+
+            runAnimation("b")
+            runAnimation("a")
+            runAnimation("b", "immediate")
+            runAnimation("a")
+
+            delay(() => {
+                runAnimation("b", "immediate")
+                // runAnimation("a")
+                // runAnimation("b")
+                // runAnimation("a")
+            }, 1.3)
+        </script>
+    </body>
+</html>

@@ -1,0 +1,6 @@
+{
+    "private": true,
+    "types": "../dist/react.d.ts",
+    "main": "../dist/cjs/react.js",
+    "module": "../dist/es/motion/lib/react.mjs"
+}

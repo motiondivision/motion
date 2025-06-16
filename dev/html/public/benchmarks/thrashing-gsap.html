@@ -1,0 +1,71 @@
+<html>
+    <!--
+    Load scroll, thrashing: GSAP
+  -->
+    <head>
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .box {
+                width: 100px;
+                height: 100px;
+                background-color: #fff;
+            }
+
+            .pin {
+                width: 20px;
+                height: 20px;
+                background-color: #00f;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="root"></div>
+        <script type="module" src="/src/imports/gsap.js"></script>
+        <script type="module">
+            // Create 500 containers with boxes
+            const root = document.getElementById("root")
+            let html = ""
+
+            for (let i = 0; i < 500; i++) {
+                html += `
+                <div class="container">
+                    <div class="box"></div>
+                    ${i % 10 === 0 ? '<div class="pin"></div>' : ""}
+                </div>`
+            }
+
+            root.innerHTML = html
+
+            const containers = document.querySelectorAll(".container")
+
+            containers.forEach((container) => {
+                gsap.to(container.querySelector(".box"), {
+                    rotate: Math.random() * 360,
+                    backgroundColor: "#f00",
+                    width: Math.random() * 100 + "%",
+                    duration: 1,
+                    scrollTrigger: {
+                        scrub: 0,
+                    },
+                })
+
+                const pin = container.querySelector(".pin")
+                if (pin) {
+                    gsap.to(pin, {
+                        scrollTrigger: {
+                            trigger: pin,
+                            pin: true,
+                        },
+                    })
+                }
+            })
+        </script>
+    </body>
+</html>

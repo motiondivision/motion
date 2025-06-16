@@ -1,0 +1,73 @@
+<html>
+    <!--
+    Load scroll, thrashing: Motion
+  -->
+    <head>
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .container {
+                min-height: 200px;
+                position: relative;
+            }
+
+            .box {
+                width: 100px;
+                height: 100px;
+                background-color: #fff;
+            }
+
+            .pin {
+                width: 20px;
+                height: 20px;
+                background-color: #00f;
+                position: sticky;
+                top: 0;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="root"></div>
+        <script type="module" src="/src/imports/framer-motion-dom.js"></script>
+        <script type="module">
+            const { animate, scroll } = window.Motion
+
+            // Create 500 containers with boxes
+            const root = document.getElementById("root")
+            let html = ""
+
+            for (let i = 0; i < 500; i++) {
+                html += `
+                <div class="container">
+                    <div class="box"></div>
+                    ${i % 10 === 0 ? '<div class="pin"></div>' : ""}
+                </div>`
+            }
+
+            root.innerHTML = html
+
+            const containers = document.querySelectorAll(".container")
+
+            containers.forEach((container) => {
+                scroll(
+                    animate(container.querySelector(".box"), {
+                        rotate: Math.random() * 360,
+                        backgroundColor: "#f00",
+                        width: Math.random() * 100 + "%",
+                    })
+                )
+
+                const pin = container.querySelector(".pin")
+                if (pin) {
+                    scroll(animate(pin, { rotate: 20 }))
+                }
+            })
+        </script>
+    </body>
+</html>

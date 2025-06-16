@@ -1,24 +1,28 @@
-import { scroll, useAnimateMini } from "framer-motion"
+import { scroll, useAnimateMini, animate } from "framer-motion"
 import * as React from "react"
 import { useEffect } from "react"
 
 export const App = () => {
-    const [scope, animate] = useAnimateMini()
+    const [scope, miniAnimate] = useAnimateMini()
 
     useEffect(() => {
         if (!scope.current) return
 
-        return scroll(
-            animate(
-                scope.current,
-                {
-                    backgroundColor: ["#fff", "#000"],
-                    color: ["#000", "#fff"],
-                    transform: ["none", "translateX(100px)"],
-                },
-                { ease: "linear" }
-            )
+        const stopMiniScrollAnimation = scroll(
+            miniAnimate(scope.current, {
+                backgroundColor: ["#fff", "#000"],
+                color: ["#000", "#fff"],
+            })
         )
+
+        const stopScrollAnimation = scroll(
+            animate(scope.current, { x: [0, 100] })
+        )
+
+        return () => {
+            stopMiniScrollAnimation()
+            stopScrollAnimation()
+        }
     }, [])
 
     return (

@@ -1,0 +1,66 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+                display: flex;
+            }
+
+            .box {
+                width: 100px;
+                height: 100px;
+                background-color: red;
+                position: relative;
+                left: 0px;
+                view-transition-name: box;
+            }
+
+            main {
+                width: 600px;
+                padding: 100px;
+            }
+        </style>
+    </head>
+    <body>
+        <main>
+            <div class="box">test</div>
+        </main>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            const { press, animateView } = window.MotionDOM
+            const { scroll, spring } = window.Motion
+
+            const update = () => {
+                const box = document.querySelector(".box")
+                box.style.left = "100px"
+                box.style.top = "100px"
+                box.style.width = "200px"
+                box.style.height = "200px"
+                box.style.backgroundColor = "blue"
+                document.body.style.backgroundColor = "#eee"
+            }
+
+            async function runAnimation() {
+                const animation = await animateView(update, {
+                    type: spring,
+                    visualDuration: 2,
+                    bounce: 0.4,
+                    opacity: {
+                        bounce: 0,
+                    },
+                }).new(
+                    {
+                        opacity: 1,
+                        transform: ["translateX(100px)", "none"],
+                    },
+                    { delay: 1 }
+                )
+
+                animation.pause()
+                animation.time = 0.2
+            }
+
+            runAnimation()
+        </script>
+    </body>
+</html>

@@ -28,7 +28,7 @@ WORKTREE_NODE_MODULES := $(BASE_DIR)/node_modules/.yarn-state.yml
 WORKSPACE_NODE_MODULES := node_modules
 
 # Update node modules if package.json is newer than node_modules or yarn lockfile
-$(WORKTREE_NODE_MODULES) $(WORKSPACE_NODE_MODULES): $(BASE_DIR)/yarn.lock package.json packages/framer-motion/package.json packages/framer-motion-3d/package.json
+$(WORKTREE_NODE_MODULES) $(WORKSPACE_NODE_MODULES): $(BASE_DIR)/yarn.lock package.json packages/framer-motion/package.json
 	yarn install
 	touch $@
 
@@ -38,25 +38,22 @@ $(WORKTREE_NODE_MODULES) $(WORKSPACE_NODE_MODULES): $(BASE_DIR)/yarn.lock packag
 # Makefile
 bootstrap:: $(WORKTREE_NODE_MODULES)
 
-SOURCE_FILES := $(shell find packages/framer-motion/src packages/framer-motion-3d/src -type f)
-
 ######
 
 # The location to gather test reports
 TEST_REPORT_PATH := $(if $(CIRCLE_TEST_REPORTS),$(CIRCLE_TEST_REPORTS),$(CURDIR)/test_reports)
 
 build: bootstrap
-	cd packages/framer-motion && yarn build
-	cd packages/framer-motion-3d && yarn build
+	yarn build
 
 watch: bootstrap
 	cd packages/framer-motion && yarn watch
 
 check-status:
-	@BUILD_STATUS=$(shell gh api repos/framer/motion/commits/$(shell git rev-parse HEAD)/status | jq -r .state); \
+	@BUILD_STATUS=$(shell gh api repos/motiondivision/motion/commits/$(shell git rev-parse HEAD)/status | jq -r .state); \
 	echo "Build $$BUILD_STATUS"; \
 	if [ "$$BUILD_STATUS" != "success" ]; then \
-	 BUILD_URL=$(shell gh api repos/framer/motion/commits/$(shell git rev-parse HEAD)/status | jq -r .statuses[0].target_url); \
+	 BUILD_URL=$(shell gh api repos/motiondivision/motion/commits/$(shell git rev-parse HEAD)/status | jq -r .statuses[0].target_url); \
 	 echo "Build URL: $$BUILD_URL"; exit 1; \
 	fi;
 
@@ -84,6 +81,9 @@ test-jest: bootstrap test-mkdir
 test-react: build test-mkdir
 	yarn start-server-and-test "yarn dev-server" http://localhost:9990 "cd packages/framer-motion && cypress run --headless $(if $(CI), --spec $(shell cd packages/framer-motion && circleci tests glob "cypress/integration/*.ts" | circleci tests split), --reporter spec)"
 
+test-react-19: build test-mkdir
+	yarn start-server-and-test "yarn dev-server" http://localhost:9991 "cd packages/framer-motion && cypress run --config-file=cypress.react-19.json --headless $(if $(CI), --spec $(shell cd packages/framer-motion && circleci tests glob "cypress/integration/*.ts" | circleci tests split), --reporter spec)"
+
 test-html: build test-mkdir
 	node dev/inc/collect-html-tests.js
 	yarn start-server-and-test "yarn dev-server" http://localhost:8000 "cd packages/framer-motion && cypress run --config-file=cypress.html.json $(if $(CI), --config video=false, --reporter spec)"
@@ -91,7 +91,11 @@ test-html: build test-mkdir
 test-nextjs: build test-mkdir
 	yarn start-server-and-test "yarn dev-server || true" http://localhost:3000 "cd packages/framer-motion && cypress run --headless --config-file=cypress.rsc.json $(if $(CI), --config video=false, --reporter spec)"
 
-test-e2e: test-nextjs test-html test-react
+test-e2e: test-nextjs test-html test-react test-react-19
+	yarn test-playwright
+
+test-single: build test-mkdir
+	yarn start-server-and-test "yarn dev-server" http://localhost:9991 "cd packages/framer-motion && cypress run --config-file=cypress.react-19.json --headed --spec cypress/integration/layout-read-transform.ts"
 
 lint: bootstrap
 	yarn lint

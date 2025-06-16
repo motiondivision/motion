@@ -1,7 +1,7 @@
 import { motion } from "framer-motion"
 
 /**
-    Cold Start: Framer Motion
+    Cold Start: Motion
 
     This benchmarks cold start - when an animation library has to
     read values from the DOM.

@@ -1,5 +1,5 @@
-import { useRef, useState } from "react"
 import { motion } from "framer-motion"
+import { useRef, useState } from "react"
 
 const container = {
     width: "50%",
@@ -20,7 +20,7 @@ const child = {
 }
 
 export const App = () => {
-    const ref = useRef()
+    const ref = useRef<HTMLDivElement>(null)
     const [count, setCount] = useState(0)
     return (
         <div ref={ref} style={container} id="constraints">
@@ -28,8 +28,6 @@ export const App = () => {
                 drag
                 //dragElastic
                 dragConstraints={ref}
-                whileTap={{ scale: 0.95 }}
-                whileHover={{ scale: 1.1 }}
                 style={child}
                 onClick={() => setCount(count + 1)}
                 id="box"

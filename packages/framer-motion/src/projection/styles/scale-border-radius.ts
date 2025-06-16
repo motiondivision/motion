@@ -1,5 +1,5 @@
-import { px } from "../../value/types/numbers/units"
-import { Axis } from "../geometry/types"
+import { px } from "motion-dom"
+import { Axis } from "motion-utils"
 import { ScaleCorrectorDefinition } from "./types"
 
 export function pixelsToPercent(pixels: number, axis: Axis): number {

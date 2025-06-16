@@ -3,8 +3,7 @@ name: Feature request
 about: Propose a feature
 title: "[FEATURE]"
 labels: feature
-assignees: ''
-
+assignees: ""
 ---
 
 **Is your feature request related to a problem? Please describe.**
@@ -21,5 +20,6 @@ Add any other context or screenshots about the feature request here.
 
 ## FAQs
 
-### Does Framer Motion support Preact?
+### Does Motion support Preact?
+
 It might work with Preact, but we don't explicitly support it, so if it does currently work you'd be using it at your own risk.

@@ -1,8 +1,8 @@
-import { render } from "../../../../jest.setup"
-import { motion } from "../../../render/components/motion"
+import { motionValue } from "motion-dom"
 import { MotionConfig } from "../"
-import { motionValue } from "../../../value"
 import { nextFrame } from "../../../gestures/__tests__/utils"
+import { render } from "../../../jest.setup"
+import { motion } from "../../../render/components/motion"
 
 describe("custom properties", () => {
     test("renders", () => {

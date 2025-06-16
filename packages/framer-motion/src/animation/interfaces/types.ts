@@ -1,5 +1,5 @@
-import { AnimationType } from "../../render/utils/types"
-import { Transition } from "../../types"
+import type { Transition } from "motion-dom"
+import type { AnimationType } from "../../render/utils/types"
 
 export type VisualElementAnimationOptions = {
     delay?: number

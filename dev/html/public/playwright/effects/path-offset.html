@@ -1,0 +1,35 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+                font-family: sans-serif;
+                display: flex;
+                gap: 10px;
+                flex-direction: column;
+            }
+        </style>
+    </head>
+    <body>
+        <svg width="200" height="200" viewBox="0 0 100 100">
+            <path
+                id="tick"
+                d="M20 50 L40 70 L80 30"
+                fill="none"
+                stroke="#0077ff"
+                stroke-width="4"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+            />
+        </svg>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            const { motionValue, svgEffect, animate } = window.Motion
+
+            const pathLength = motionValue(0.25)
+            const pathOffset = motionValue(0.5)
+
+            svgEffect("path", { pathLength, pathOffset })
+        </script>
+    </body>
+</html>

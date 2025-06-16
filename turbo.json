@@ -1,8 +1,9 @@
 {
     "pipeline": {
+        "clean": {},
         "build": {
             "dependsOn": ["^build"],
-            "outputs": ["dist/**", "types/**"]
+            "outputs": ["dist/**", "lib/**", "types/**"]
         },
         "watch": {
             "dependsOn": ["^watch"],

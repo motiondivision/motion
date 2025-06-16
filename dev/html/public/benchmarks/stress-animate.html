@@ -1,0 +1,78 @@
+<html>
+    <!--
+      Mix unit value: Motion
+
+      This benchmark mixes simple unit values.
+    -->
+    <head>
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+            }
+
+            .container {
+                padding: 100px;
+                width: 100%;
+                display: flex;
+                flex-wrap: wrap;
+            }
+
+            .container > div {
+                width: 100px;
+                height: 100px;
+            }
+
+            .box {
+                width: 10px;
+                height: 100px;
+                background-color: red;
+                contain: layout;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container"></div>
+        <script type="module" src="/src/imports/framer-motion-dom.js"></script>
+        <script type="module">
+            const { motionValue, styleEffect, animate } = window.Motion
+
+            // Create boxes
+            const numBoxes = 100
+            let html = ``
+            for (let i = 0; i < numBoxes; i++) {
+                html += `<div><div class="box"></div></div>`
+            }
+            document.querySelector(".container").innerHTML = html
+            const boxes = document.querySelectorAll(".box")
+
+            const options = {
+                duration: 100,
+                ease: "linear",
+            }
+
+            boxes.forEach((box) => {
+                animate(
+                    box,
+                    {
+                        backgroundColor: "#00f",
+                        width: 10,
+                        x: 100,
+                        rotateZ: 360,
+                    },
+                    { type: false }
+                )
+                animate(
+                    box,
+                    {
+                        // backgroundColor: ["#f00", "#00f"],
+                        // x: [0, 100],
+                        // rotateZ: [0, 360],
+                        width: [10, 100],
+                    },
+                    options
+                )
+            })
+        </script>
+    </body>
+</html>

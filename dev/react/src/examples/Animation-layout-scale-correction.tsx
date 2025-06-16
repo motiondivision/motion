@@ -1,6 +1,5 @@
-import { useEffect, useState } from "react";
 import { motion } from "framer-motion"
-import styled from "styled-components"
+import { useEffect, useState } from "react"
 
 /**
  * This demonstrates child scale correction working through a muggle motion
@@ -16,40 +15,30 @@ export const App = () => {
     }, [isOn])
 
     return (
-        <Box
+        <motion.div
             layout
-            isOn={isOn}
             onClick={() => setIsOn(!isOn)}
             transition={transition}
+            style={{
+                background: "white",
+                width: isOn ? "500px" : "200px",
+                height: isOn ? "500px" : "200px",
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+            }}
         >
             <motion.div>
-                <JitterBox layout transition={transition} />
+                <motion.div
+                    layout
+                    transition={transition}
+                    style={{
+                        background: "red",
+                        width: "100px",
+                        height: "100px",
+                    }}
+                />
             </motion.div>
-        </Box>
+        </motion.div>
     )
 }
-
-const Box = styled(motion.div)`
-    background: white;
-    width: 300px;
-    height: 300px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-
-    ${({ isOn }: { isOn: boolean }) => {
-        return isOn
-            ? `
-          width: 500px;
-          height: 500px;`
-            : `
-          width: 200px;
-          height: 200px;`
-    }}
-`
-
-const JitterBox = styled(motion.div)`
-    background: red;
-    width: 100px;
-    height: 100px;
-`

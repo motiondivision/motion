@@ -1,25 +1,7 @@
 <p align="center">
-  <img src="https://framerusercontent.com/images/48ha9ZR9oZQGQ6gZ8YUfElP3T0A.png" width="50" height="50" alt="Framer Motion Icon" />
+  <img width="100" height="100" alt="Motion logo" src="https://github.com/user-attachments/assets/00d6d1c3-72c4-4c2f-a664-69da13182ffc" />
 </p>
-<h1 align="center">Framer Motion</h1>
-<h3 align="center">
-  An open source motion library for React, made by Framer.
-</h3>
-<h3 align="center">
-Motion powers Framer, the web builder for creative pros. Design and ship your dream site. Zero code, maximum speed.
-</h3>
-<br/>
-<p align="center">
-  <a href="https://www.framer.com?utm_source=motion-readme">
-    <img src="https://framerusercontent.com/images/atXqxn4JhKm4LXVncdNjkKV7yCU.png" width="140" alt="Start for free" />
-  </a>
-</p>
-<br/>
-<p align="center">
-  <a href="https://www.framer.com?utm_source=motion-readme">
-    <img src="https://framerusercontent.com/images/pMSOmGP2V8sSaZRV2D7i4HTBTe4.png" width="1000" alt="Framer Banner" />
-  </a>
-</p>
+<h1 align="center">Motion for React</h1>
 
 <br>
 
@@ -30,11 +12,8 @@ Motion powers Framer, the web builder for creative pros. Design and ship your dr
   <a href="https://www.npmjs.com/package/framer-motion" target="_blank">
   <img src="https://img.shields.io/npm/dm/framer-motion.svg?style=flat-square" />
   </a>
-  <a href="https://twitter.com/framer" target="_blank">
+  <a href="https://twitter.com/motiondotdev" target="_blank">
   <img src="https://img.shields.io/twitter/follow/framer.svg?style=social&label=Follow"  />
-  </a>
-  <a href="https://discord.gg/DfkSpYe" target="_blank">
-  <img src="https://img.shields.io/discord/308323056592486420.svg?logo=discord&logoColor=white" alt="Chat on Discord">
   </a>
 </p>
 
@@ -42,7 +21,9 @@ Motion powers Framer, the web builder for creative pros. Design and ship your dr
 <hr>
 <br>
 
-Framer Motion is an open source, production-ready library that’s designed for all creative developers.
+Motion for React is an open source, production-ready library that’s designed for all creative developers.
+
+It's the only animation library with a hybrid engine, combining the power of JavaScript animations with the performance of native browser APIs.
 
 It looks like this:
 
@@ -52,18 +33,18 @@ It looks like this:
 
 It does all this:
 
--   [Springs](https://www.framer.com/docs/transition/#spring?utm_source=motion-readme-docs)
--   [Keyframes](https://www.framer.com/docs/animation/##keyframes?utm_source=motion-readme-docs)
--   [Layout animations](https://www.framer.com/docs/layout-animations/?utm_source=motion-readme-docs)
--   [Shared layout animations](https://www.framer.com/docs/layout-animations/#shared-layout-animations?utm_source=motion-readme-docs)
--   [Gestures (drag/tap/hover)](https://www.framer.com/docs/gestures/?utm_source=motion-readme-docs)
--   [Scroll animations](https://www.framer.com/docs/scroll-animations?utm_source=motion-readme-docs)
--   [SVG paths](https://www.framer.com/docs/component/###svg-line-drawing?utm_source=motion-readme-docs)
--   [Exit animations](https://www.framer.com/docs/animate-presence/?utm_source=motion-readme-docs)
--   Server-side rendering
--   [Hardware-accelerated animations](https://www.framer.com/docs/animation/#hardware-accelerated-animations?utm_source=motion-readme-docs)
--   [Orchestrate animations across components](https://www.framer.com/docs/animation/##orchestration?utm_source=motion-readme-docs)
--   [CSS variables](https://www.framer.com/docs/component/##css-variables?utm_source=motion-readme-docs)
+-   [Springs](https://motion.dev/docs/react-transitions#spring)
+-   [Keyframes](https://motion.dev/docs/react-animation#keyframes)
+-   [Layout animations](https://motion.dev/docs/react-layout-animations)
+-   [Shared layout animations](https://motion.dev/docs/react-layout-animations#shared-layout-animations)
+-   [Gestures (drag/tap/hover)](https://motion.dev/docs/react-gestures)
+-   [Scroll animations](https://motion.dev/docs/react-scroll-animations)
+-   [SVG paths](https://motion.dev/docs/react-animation#svg-line-drawing)
+-   [Exit animations](https://motion.dev/docs/react-animation#exit-animations)
+-   [Server-side rendering](https://motion.dev/docs/react-motion-component#server-side-rendering)
+-   [Independent transforms](https://motion.dev/docs/react-motion-component#style)
+-   [Orchestrate animations across components](https://motion.dev/docs/react-animation#orchestration)
+-   [CSS variables](https://motion.dev/docs/react-animation#css-variables)
 
 ...and a whole lot more.
 
@@ -71,35 +52,59 @@ It does all this:
 
 ### 🐇 Quick start
 
-Install `framer-motion` with via your package manager:
+Install `motion` via your package manager:
 
 ```
-npm install framer-motion
+npm install motion
 ```
 
 Then import the `motion` component:
 
 ```jsx
-import { motion } from "framer-motion"
+import { motion } from "motion/react"
 
-export const MyComponent = ({ isVisible }) => (
-    <motion.div animate={{ opacity: isVisible ? 1 : 0 }} />
-)
+export function Component({ isVisible }) {
+    return <motion.div animate={{ opacity: isVisible ? 1 : 0 }} />
+}
 ```
-
-### 📚 Docs
-
--   Check out [our documentation](https://www.framer.com/docs/?utm_source=motion-readme-docs) for guides and a full API reference.
--   Or see [our examples](https://www.framer.com/docs/examples/?utm_source=motion-readme-docs) for inspiration.
 
 ### 💎 Contribute
 
--   Want to contribute to Framer Motion? Our [contributing guide](https://github.com/framer/motion/blob/master/CONTRIBUTING.md) has you covered.
+-   Want to contribute to Motion? Our [contributing guide](https://github.com/motiondivision/motion/blob/master/CONTRIBUTING.md) has you covered.
 
 ### 👩🏻‍⚖️ License
 
--   Framer Motion is MIT licensed.
+-   Motion for React is MIT licensed.
 
-### ✨ Framer
+## ✨ Sponsors
 
--   Design and publish sites that inspire. [Try Framer for free](https://www.framer.com/?utm_source=motion-readme).
+Motion is sustainable thanks to the kind support of its sponsors.
+
+### Partners
+
+#### Framer
+
+Motion powers Framer animations, the web builder for creative pros. Design and ship your dream site. Zero code, maximum speed.
+
+<a href="https://www.framer.com?utm_source=motion-readme">
+  <img alt="Framer" src="https://github.com/user-attachments/assets/0404c7a1-c29d-4785-89ae-aae315f3c759" width="300px" height="200px">
+</a>
+
+### Platinum
+
+<a href="https://tailwindcss.com"><img alt="Tailwind" src="https://github.com/user-attachments/assets/c0496f09-b8ee-4bc4-85ab-83a071bbbdec" width="300px" height="200px"></a> <a href="https://emilkowal.ski"><img alt="Emil Kowalski" src="https://github.com/user-attachments/assets/29f56b1a-37fb-4695-a6a6-151f6c24864f" width="300px" height="200px"></a> <a href="https://linear.app"><img alt="Linear" src="https://github.com/user-attachments/assets/a93710bb-d8ed-40e3-b0fb-1c5b3e2b16bb" width="300px" height="200px"></a>
+
+### Gold
+
+<a href="https://vercel.com"><img alt="Vercel" src="https://github.com/user-attachments/assets/23cb1e37-fa67-49ad-8f77-7f4b8eaba325" width="225px" height="150px"></a> <a href="https://liveblocks.io"><img alt="Liveblocks" src="https://github.com/user-attachments/assets/31436a47-951e-4eab-9a68-bdd54ccf9444" width="225px" height="150px"></a> <a href="https://lu.ma"><img alt="Luma" src="https://github.com/user-attachments/assets/4fae0c9d-de0f-4042-9cd6-e07885d028a9" width="225px" height="150px"></a>
+
+### Silver
+
+<a href="https://www.frontend.fyi/?utm_source=motion"><img alt="Frontend.fyi" src="https://github.com/user-attachments/assets/07d23aa5-69db-44a0-849d-90177e6fc817" width="150px" height="100px"></a> <a href="https://firecrawl.dev"><img alt="Firecrawl" src="https://github.com/user-attachments/assets/cba90e54-1329-4353-8fba-85beef4d2ee9" width="150px" height="100px"></a> <a href="https://puzzmo.com"><img alt="Puzzmo" src="https://github.com/user-attachments/assets/aa2d5586-e5e2-43b9-8446-db456e4b0758" width="150px" height="100px"></a> <a href="https://buildui.com"><img alt="Build UI" src="https://github.com/user-attachments/assets/024bfcd5-50e8-4b3d-a115-d5c6d6030d1c" width="150px" height="100px"></a>
+
+### Personal
+
+-   [OlegWock](https://sinja.io)
+-   [Lambert Weller](https://github.com/l-mbert)
+-   [Jake LeBoeuf](https://jklb.wf)
+-   [Han Lee](https://github.com/hahnlee)

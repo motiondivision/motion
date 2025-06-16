@@ -1,4 +1,4 @@
-import { DOMKeyframesDefinition } from "../types"
+import { DOMKeyframesDefinition } from "motion-dom"
 
 export function isDOMKeyframes(
     keyframes: unknown

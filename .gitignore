@@ -30,3 +30,8 @@ yarn-error.log
 stats.html
 
 lerna-debug.log
+
+playwright-report
+test-results
+test_results
+.cache

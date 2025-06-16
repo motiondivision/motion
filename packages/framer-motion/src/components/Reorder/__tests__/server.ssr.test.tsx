@@ -1,5 +1,5 @@
-import { renderToString, renderToStaticMarkup } from "react-dom/server"
 import { useState } from "react"
+import { renderToStaticMarkup, renderToString } from "react-dom/server"
 import { Reorder } from ".."
 
 describe("Reorder", () => {
@@ -13,7 +13,7 @@ describe("Reorder", () => {
         const staticMarkup = renderToStaticMarkup(<Component />)
         const string = renderToString(<Component />)
 
-        const expectedMarkup = `<article><main style="z-index:unset;transform:none;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;touch-action:pan-x" draggable="false"></main></article>`
+        const expectedMarkup = `<article><main draggable="false" style="z-index:unset;transform:none;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;touch-action:pan-x"></main></article>`
 
         expect(staticMarkup).toBe(expectedMarkup)
         expect(string).toBe(expectedMarkup)
@@ -32,7 +32,7 @@ describe("Reorder", () => {
         const staticMarkup = renderToStaticMarkup(<Component />)
         const string = renderToString(<Component />)
 
-        const expectedMarkup = `<article><main style="z-index:unset;transform:none;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;touch-action:pan-x" draggable="false"></main></article>`
+        const expectedMarkup = `<article><main draggable="false" style="z-index:unset;transform:none;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;touch-action:pan-x"></main></article>`
 
         expect(staticMarkup).toBe(expectedMarkup)
         expect(string).toBe(expectedMarkup)

@@ -1,0 +1,31 @@
+{
+    "compilerOptions": {
+        "target": "es2020",
+        "module": "esnext",
+        "moduleResolution": "bundler",
+        "isolatedModules": false,
+        "importHelpers": true,
+        "jsx": "react-jsx",
+        "esModuleInterop": true,
+        "experimentalDecorators": true,
+        "emitDecoratorMetadata": true,
+        "declaration": true,
+        "declarationDir": "types",
+        "noLib": false,
+        "preserveConstEnums": true,
+        "sourceMap": true,
+        "strictNullChecks": true,
+        "noImplicitAny": true,
+        "noImplicitThis": true,
+        "noImplicitUseStrict": false,
+        "noUnusedLocals": true,
+        "noUnusedParameters": true,
+        "removeComments": false,
+        "lib": ["es2017", "dom"],
+        "skipLibCheck": true,
+        "downlevelIteration": true,
+        "stripInternal": true
+    },
+    "compileOnSave": false,
+    "buildOnSave": false
+}

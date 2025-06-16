@@ -6,7 +6,7 @@ let shouldForward = (key: string) => !isValidMotionProp(key)
 export type IsValidProp = (key: string) => boolean
 
 export function loadExternalIsValidProp(isValidProp?: IsValidProp) {
-    if (!isValidProp) return
+    if (typeof isValidProp !== "function") return
 
     // Explicitly filter our events
     shouldForward = (key: string) =>

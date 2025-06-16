@@ -1,0 +1,39 @@
+<html>
+    <head>
+        <style>
+            .box {
+                width: 100px;
+                height: 100px;
+                background-color: red;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="box">fail</div>
+        </div>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            const { animateMini, animate, spring, transform, frame } =
+                window.Motion
+
+            animate(
+                ".box",
+                { scale: 1 },
+                {
+                    type: "spring",
+                    velocity: 50,
+                    stiffness: 700,
+                    damping: 80,
+                }
+            )
+
+            const box = document.querySelector(".box")
+            frame.postRender(() => {
+                if (box?.getBoundingClientRect().width > 120) {
+                    box.innerText = "pass"
+                }
+            }, true)
+        </script>
+    </body>
+</html>
