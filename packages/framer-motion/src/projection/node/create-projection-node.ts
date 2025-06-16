@@ -628,10 +628,8 @@ export function createProjectionNode<I>({
 
         // Note: currently only running on root node
         startUpdate() {
-            console.log("update blocked")
             if (this.isUpdateBlocked()) return
 
-            console.log("start update")
             this.isUpdating = true
 
             this.nodes && this.nodes.forEach(resetSkewAndRotation)
