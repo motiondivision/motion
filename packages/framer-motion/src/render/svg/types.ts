@@ -1,27 +1,15 @@
-import { ResolvedValues } from "../types"
-import { SVGAttributes } from "react"
+import { JSX, SVGAttributes } from "react"
 import { MakeMotion, MotionProps } from "../../motion/types"
-import { SVGElements } from "./supported-elements"
 import { ForwardRefComponent, HTMLRenderState } from "../html/types"
+import { ResolvedValues } from "../types"
+import { SVGElements } from "./supported-elements"
 
 export interface SVGRenderState extends HTMLRenderState {
-    /**
-     * Measured dimensions of the SVG element to be used to calculate a transform-origin.
-     */
-    dimensions?: SVGDimensions
-
     /**
      * A mutable record of attributes we want to apply directly to the rendered Element
      * every frame. We use a mutable data structure to reduce GC during animations.
      */
     attrs: ResolvedValues
-}
-
-export type SVGDimensions = {
-    x: number
-    y: number
-    width: number
-    height: number
 }
 
 interface SVGAttributesWithoutMotionProps<T>

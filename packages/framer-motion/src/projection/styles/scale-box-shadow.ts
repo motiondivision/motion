@@ -1,5 +1,4 @@
-import { mixNumber } from "../../utils/mix/number"
-import { complex } from "../../value/types/complex"
+import { complex, mixNumber } from "motion-dom"
 import { ScaleCorrectorDefinition } from "./types"
 
 export const correctBoxShadow: ScaleCorrectorDefinition = {

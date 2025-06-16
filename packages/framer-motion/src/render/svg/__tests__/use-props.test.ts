@@ -1,5 +1,5 @@
 import { renderHook } from "@testing-library/react"
-import { motionValue } from "../../../value"
+import { motionValue } from "motion-dom"
 import { useSVGProps } from "../use-props"
 
 describe("SVG useProps", () => {
@@ -34,7 +34,11 @@ describe("SVG useProps", () => {
             y: 10,
             scale: 4,
             cx: 7,
-            style: {},
+            style: {
+                transform: "translateX(8px) scale(9)",
+                transformBox: "fill-box",
+                transformOrigin: "50% 50%",
+            },
         })
     })
 

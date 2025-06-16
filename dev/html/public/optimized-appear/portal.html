@@ -92,7 +92,7 @@
                 (animation) => {
                     // Hydrate root mid-way through animation
                     setTimeout(() => {
-                        ReactDOM.createRoot(
+                        ReactDOMClient.createRoot(
                             document.getElementById("portal")
                         ).render(
                             React.createElement(motion.div, {

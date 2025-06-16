@@ -1,6 +1,6 @@
+import { mixNumber } from "motion-dom"
+import { Axis, AxisDelta, Box, Delta } from "motion-utils"
 import { ResolvedValues } from "../../render/types"
-import { mixNumber } from "../../utils/mix/number"
-import { Axis, AxisDelta, Box, Delta } from "./types"
 
 const SCALE_PRECISION = 0.0001
 const SCALE_MIN = 1 - SCALE_PRECISION

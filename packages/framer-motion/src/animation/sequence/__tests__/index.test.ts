@@ -1,8 +1,7 @@
-import { Easing } from "../../../easing/types"
-import { motionValue } from "../../../value"
+import { motionValue, spring } from "motion-dom"
+import { Easing } from "motion-utils"
 import { stagger } from "../../utils/stagger"
 import { createAnimationsFromSequence } from "../create"
-import { spring } from "../../generators/spring"
 
 describe("createAnimationsFromSequence", () => {
     const a = document.createElement("div")
@@ -331,6 +330,33 @@ describe("createAnimationsFromSequence", () => {
         })
     })
 
+    test("Can set label as first item in sequence", () => {
+        const animations = createAnimationsFromSequence(
+            [
+                "my label",
+                [a, { opacity: 0 }, { duration: 1 }],
+                [b, { y: 500 }, { duration: 1, at: "my label" }],
+            ],
+            undefined,
+            undefined,
+            { spring }
+        )
+
+        expect(animations.get(a)!.keyframes.opacity).toEqual([null, 0])
+        expect(animations.get(a)!.transition.opacity).toEqual({
+            duration: 1,
+            ease: ["easeOut", "easeOut"],
+            times: [0, 1],
+        })
+
+        expect(animations.get(b)!.keyframes.y).toEqual([null, 500])
+        expect(animations.get(b)!.transition.y).toEqual({
+            duration: 1,
+            ease: ["easeOut", "easeOut"],
+            times: [0, 1],
+        })
+    })
+
     test("It sets annotated labels with absolute at times", () => {
         const animations = createAnimationsFromSequence(
             [
@@ -614,5 +640,133 @@ describe("createAnimationsFromSequence", () => {
         expect((ease as Easing[])[1]).toEqual("easeOut")
         expect(typeof (ease as Easing[])[2]).toEqual("function")
         expect(times).toEqual([0, 0.45454545454545453, 0.45454545454545453, 1])
+    })
+
+    test("It correctly repeats keyframes once", () => {
+        const animations = createAnimationsFromSequence(
+            [[a, { x: [0, 100] }, { duration: 1, repeat: 1, ease: "linear" }]],
+            undefined,
+            undefined,
+            { spring }
+        )
+
+        expect(animations.get(a)!.keyframes.x).toEqual([0, 100, 0, 100])
+        const { duration, times, ease } = animations.get(a)!.transition.x
+        expect(duration).toEqual(2)
+        expect(times).toEqual([0, 0.5, 0.5, 1])
+        expect(ease).toEqual(["linear", "linear", "linear", "linear"])
+    })
+
+    test("It correctly repeats easing", () => {
+        const animations = createAnimationsFromSequence(
+            [
+                [
+                    a,
+                    { x: [0, 50, 100] },
+                    { duration: 1, repeat: 1, ease: ["easeIn", "easeOut"] },
+                ],
+            ],
+            undefined,
+            undefined,
+            { spring }
+        )
+
+        expect(animations.get(a)!.keyframes.x).toEqual([0, 50, 100, 0, 50, 100])
+        const { duration, times, ease } = animations.get(a)!.transition.x
+        expect(duration).toEqual(2)
+        expect(times).toEqual([0, 0.25, 0.5, 0.5, 0.75, 1])
+        expect(ease).toEqual([
+            "easeIn",
+            "easeOut",
+            "linear",
+            "easeIn",
+            "easeOut",
+            "easeIn",
+        ])
+    })
+
+    test("Repeating a segment correctly places the next segment at the end", () => {
+        const animations = createAnimationsFromSequence(
+            [
+                [a, { x: [0, 100] }, { duration: 1, repeat: 1 }],
+                [a, { y: [0, 100] }, { duration: 2 }],
+            ],
+            undefined,
+            undefined,
+            { spring }
+        )
+
+        const { keyframes, transition } = animations.get(a)!
+        expect(keyframes.x).toEqual([0, 100, 0, 100, null])
+        expect(keyframes.y).toEqual([0, 0, 100])
+
+        expect(transition.x.duration).toEqual(4)
+        expect(transition.x.times).toEqual([0, 0.25, 0.25, 0.5, 1])
+        expect(transition.y.duration).toEqual(4)
+        expect(transition.y.times).toEqual([0, 0.5, 1])
+    })
+
+    test.skip("It correctly adds repeatDelay between repeated keyframes", () => {
+        const animations = createAnimationsFromSequence(
+            [
+                [
+                    a,
+                    { x: [0, 100] },
+                    { duration: 1, repeat: 1, repeatDelay: 0.5 },
+                ],
+            ],
+            undefined,
+            undefined,
+            { spring }
+        )
+
+        expect(animations.get(a)!.keyframes.x).toEqual([0, 100, 100, 0, 100])
+        const { duration, times } = animations.get(a)!.transition.x
+        expect(duration).toEqual(2.5)
+        expect(times).toEqual([0, 0.4, 0.6, 0.6, 1])
+    })
+
+    test.skip("It correctly mirrors repeated keyframes", () => {
+        const animations = createAnimationsFromSequence(
+            [
+                [
+                    a,
+                    { x: [0, 100] },
+                    { duration: 1, repeat: 3, repeatType: "mirror" },
+                ],
+            ],
+            undefined,
+            undefined,
+            { spring }
+        )
+
+        expect(animations.get(a)!.keyframes.x).toEqual([
+            0, 100, 100, 0, 0, 100, 100, 0,
+        ])
+        const { duration, times } = animations.get(a)!.transition.x
+        expect(duration).toEqual(4)
+        expect(times).toEqual([0, 0.25, 0.25, 0.5, 0.5, 0.75, 0.75, 1])
+    })
+
+    test.skip("It correctly reverses repeated keyframes", () => {
+        const animations = createAnimationsFromSequence(
+            [
+                [
+                    a,
+                    { x: [0, 100] },
+                    { duration: 1, repeat: 3, repeatType: "reverse" },
+                ],
+            ],
+            undefined,
+            undefined,
+            { spring }
+        )
+
+        expect(animations.get(a)!.keyframes.x).toEqual([
+            0, 100, 100, 0, 0, 100, 100, 0,
+        ])
+        const { duration, times } = animations.get(a)!.transition.x
+        expect(duration).toEqual(4)
+        expect(times).toEqual([0, 0.25, 0.25, 0.5, 0.5, 0.75, 0.75, 1])
     })
 })

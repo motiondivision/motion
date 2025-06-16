@@ -1,19 +1,18 @@
-import { motion, animate } from "framer-motion"
+import { animate, motion } from "framer-motion"
 import { useEffect, useState } from "react"
-import styled from "styled-components"
 
-const Container = styled.section`
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    padding: 100px;
+const containerStyles = {
+    position: "relative" as const,
+    display: "flex",
+    flexDirection: "column" as const,
+    padding: "100px",
+}
 
-    div {
-        width: 100px;
-        height: 100px;
-        background-color: red;
-    }
-`
+const boxStyles = {
+    width: "100px",
+    height: "100px",
+    backgroundColor: "red",
+}
 
 export const App = () => {
     const [count, setCount] = useState(0)
@@ -42,12 +41,12 @@ export const App = () => {
     }, [count])
 
     return (
-        <Container>
+        <div style={containerStyles}>
             <button id="action" onClick={() => setCount((c) => c + 1)}>
                 Animate
             </button>
             <input id="result" readOnly value={result} />
-            <motion.div className="box" layout />
-        </Container>
+            <motion.div className="box" layout style={boxStyles} />
+        </div>
     )
 }

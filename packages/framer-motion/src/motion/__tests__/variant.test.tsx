@@ -1,14 +1,8 @@
-import {
-    pointerDown,
-    pointerEnter,
-    pointerUp,
-    render,
-} from "../../../jest.setup"
+import { motionValue, Variants } from "motion-dom"
+import { Fragment, memo, useEffect, useState } from "react"
 import { frame, motion, MotionConfig, useMotionValue } from "../../"
-import { Fragment, useEffect, memo, useState } from "react"
-import { Variants } from "../../types"
-import { motionValue } from "../../value"
 import { nextFrame } from "../../gestures/__tests__/utils"
+import { pointerDown, pointerEnter, pointerUp, render } from "../../jest.setup"
 
 const MotionFragment = motion.create(Fragment)
 
@@ -869,42 +863,6 @@ describe("animate prop as variant", () => {
         })
 
         expect(onUpdate).toHaveBeenCalledTimes(1)
-    })
-
-    test("accepts variants without being typed", () => {
-        expect(() => {
-            const variants = {
-                withoutTransition: { opacity: 0 },
-                withJustDefaultTransitionType: {
-                    opacity: 0,
-                    transition: {
-                        duration: 1,
-                    },
-                },
-                withTransitionIndividual: {
-                    transition: {
-                        when: "beforeChildren",
-                        opacity: { type: "spring" },
-                    },
-                },
-                withTransitionType: {
-                    transition: {
-                        type: "spring",
-                    },
-                },
-                asResolver: () => ({
-                    opacity: 0,
-                    transition: {
-                        type: "physics",
-                        delay: 10,
-                    },
-                }),
-                withTransitionEnd: {
-                    transitionEnd: { opacity: 0 },
-                },
-            }
-            render(<motion.div variants={variants} />)
-        }).not.toThrowError()
     })
 
     test("new child items animate from initial to animate", async () => {

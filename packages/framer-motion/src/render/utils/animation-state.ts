@@ -1,18 +1,16 @@
+import type { AnimationDefinition, TargetAndTransition } from "motion-dom"
+import { VisualElementAnimationOptions } from "../../animation/interfaces/types"
+import { animateVisualElement } from "../../animation/interfaces/visual-element"
 import { isAnimationControls } from "../../animation/utils/is-animation-controls"
 import { isKeyframesTarget } from "../../animation/utils/is-keyframes-target"
 import { VariantLabels } from "../../motion/types"
-import { TargetAndTransition } from "../../types"
 import { shallowCompare } from "../../utils/shallow-compare"
 import type { VisualElement } from "../VisualElement"
-import { isVariantLabel } from "./is-variant-label"
-import { AnimationType } from "./types"
-import { resolveVariant } from "./resolve-dynamic-variants"
-import { variantPriorityOrder } from "./variant-props"
-import { VisualElementAnimationOptions } from "../../animation/interfaces/types"
-import { AnimationDefinition } from "../../animation/types"
-import { animateVisualElement } from "../../animation/interfaces/visual-element"
-import { ResolvedValues } from "../types"
 import { getVariantContext } from "./get-variant-context"
+import { isVariantLabel } from "./is-variant-label"
+import { resolveVariant } from "./resolve-dynamic-variants"
+import { AnimationType } from "./types"
+import { variantPriorityOrder } from "./variant-props"
 
 export interface AnimationState {
     animateChanges: (type?: AnimationType) => Promise<any>
@@ -336,7 +334,25 @@ export function createAnimationState(
          * defined in the style prop, or the last read value.
          */
         if (removedKeys.size) {
-            const fallbackAnimation: ResolvedValues = {}
+            const fallbackAnimation: TargetAndTransition = {}
+
+            /**
+             * If the initial prop contains a transition we can use that, otherwise
+             * allow the animation function to use the visual element's default.
+             */
+            if (typeof props.initial !== "boolean") {
+                const initialTransition = resolveVariant(
+                    visualElement,
+                    Array.isArray(props.initial)
+                        ? props.initial[0]
+                        : props.initial
+                )
+
+                if (initialTransition && initialTransition.transition) {
+                    fallbackAnimation.transition = initialTransition.transition
+                }
+            }
+
             removedKeys.forEach((key) => {
                 const fallbackTarget = visualElement.getBaseTarget(key)
 

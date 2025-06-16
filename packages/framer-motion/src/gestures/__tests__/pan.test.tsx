@@ -1,12 +1,12 @@
-import { useState } from "react";
+import { useState } from "react"
 import { motion } from "../../"
-import { render } from "../../../jest.setup"
 import {
     MockDrag,
+    deferred,
     drag,
     dragFrame,
-    deferred,
 } from "../../gestures/drag/__tests__/utils"
+import { render } from "../../jest.setup"
 
 describe("pan", () => {
     test("pan handlers aren't frozen at pan session start", async () => {

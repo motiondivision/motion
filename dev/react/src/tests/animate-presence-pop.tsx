@@ -1,24 +1,27 @@
-import { AnimatePresence, motion, animate } from "framer-motion"
-import { useState, useRef, useEffect } from "react"
-import styled from "styled-components"
+import { animate, AnimatePresence, motion } from "framer-motion"
+import { useEffect, useRef, useState } from "react"
 
-const Container = styled.section`
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    padding: 100px;
+const containerStyles = {
+    position: "relative" as const,
+    display: "flex",
+    flexDirection: "column" as const,
+    padding: "100px",
+}
 
-    div {
-        width: 100px;
-        height: 100px;
-        background-color: red;
-    }
-`
+const boxStyles = {
+    width: "100px",
+    height: "100px",
+    backgroundColor: "red",
+}
+
+type Position = "static" | "relative" | "absolute" | "fixed"
+type Anchor = "left" | "right"
 
 export const App = () => {
     const [state, setState] = useState(true)
     const params = new URLSearchParams(window.location.search)
-    const position = params.get("position") || ("static" as any)
+    const position = (params.get("position") || "static") as Position
+    const anchorX = (params.get("anchor-x") || "left") as Anchor
     const itemStyle =
         position === "relative" ? { position, top: 100, left: 100 } : {}
 
@@ -32,14 +35,14 @@ export const App = () => {
     }, [])
 
     return (
-        <Container onClick={() => setState(!state)}>
-            <AnimatePresence mode="popLayout">
+        <div style={containerStyles} onClick={() => setState(!state)}>
+            <AnimatePresence anchorX={anchorX} mode="popLayout">
                 <motion.div
                     key="a"
                     id="a"
                     layout
                     transition={{ ease: () => 1 }}
-                    style={{ ...itemStyle }}
+                    style={{ ...boxStyles, ...itemStyle }}
                 />
                 {state ? (
                     <motion.div
@@ -51,7 +54,11 @@ export const App = () => {
                         }}
                         exit={{ opacity: 0, transition: { duration: 10 } }}
                         layout
-                        style={{ ...itemStyle, backgroundColor: "green" }}
+                        style={{
+                            ...boxStyles,
+                            ...itemStyle,
+                            backgroundColor: "green",
+                        }}
                     />
                 ) : null}
                 <motion.div
@@ -59,13 +66,21 @@ export const App = () => {
                     id="c"
                     layout
                     transition={{ ease: () => 1 }}
-                    style={{ ...itemStyle, backgroundColor: "blue" }}
+                    style={{
+                        ...boxStyles,
+                        ...itemStyle,
+                        backgroundColor: "blue",
+                    }}
                 />
             </AnimatePresence>
             <div
                 ref={ref}
-                style={{ ...itemStyle, backgroundColor: "purple" }}
+                style={{
+                    ...boxStyles,
+                    ...itemStyle,
+                    backgroundColor: "purple",
+                }}
             />
-        </Container>
+        </div>
     )
 }

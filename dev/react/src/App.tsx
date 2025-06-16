@@ -1,3 +1,5 @@
+import { StrictMode } from "react"
+
 const examples = import.meta.glob("./examples/*.tsx", {
     eager: true,
     import: "App",
@@ -16,7 +18,11 @@ function App() {
         : null
 
     if (Module) {
-        return <Module />
+        return (
+            <StrictMode>
+                <Module />
+            </StrictMode>
+        )
     } else {
         return <ExampleList />
     }

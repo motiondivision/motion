@@ -1,27 +1,40 @@
 {
     "name": "motion-dom",
-    "version": "11.13.0",
-    "main": "./lib/index.js",
-    "types": "./types/index.d.ts",
-    "module": "./lib/index.js",
+    "version": "12.18.1",
+    "author": "Matt Perry",
+    "license": "MIT",
+    "repository": "https://github.com/motiondivision/motion",
+    "main": "./dist/cjs/index.js",
+    "types": "./dist/index.d.ts",
+    "module": "./dist/es/index.mjs",
+    "sideEffects": false,
     "exports": {
         ".": {
-            "types": "./types/index.d.ts",
+            "types": "./dist/index.d.ts",
             "require": "./dist/cjs/index.js",
             "import": "./dist/es/index.mjs",
-            "default": "./lib/index.js"
-        },
-        "./hover": {
-            "types": "./types/gestures/hover.d.ts",
-            "require": "./dist/cjs/gestures/hover.js",
-            "import": "./dist/es/gestures/hover.mjs",
-            "default": "./lib/gestures/hover.js"
+            "default": "./dist/cjs/index.js"
         }
+    },
+    "dependencies": {
+        "motion-utils": "^12.18.1"
     },
     "scripts": {
         "clean": "rm -rf types dist lib",
-        "build": "yarn clean && tsc -p . && rollup -c",
-        "dev": "concurrently -c blue,red -n tsc,rollup --kill-others \"tsc --watch -p . --preserveWatchOutput\" \"rollup --config --watch --no-watch.clearScreen\""
+        "build": "yarn clean && tsc -p . && rollup -c && node ./scripts/check-bundle.js",
+        "dev": "concurrently -c blue,red -n tsc,rollup --kill-others \"tsc --watch -p . --preserveWatchOutput\" \"rollup --config --watch --no-watch.clearScreen\"",
+        "test": "jest --config jest.config.json --max-workers=2",
+        "measure": "rollup -c ./rollup.size.config.mjs"
     },
-    "gitHead": "9c70b0208d6492d195ce5fdb60ded6cae1a3245c"
+    "bundlesize": [
+        {
+            "path": "./dist/size-rollup-style-effect.js",
+            "maxSize": "2.9 kB"
+        },
+        {
+            "path": "./dist/size-rollup-motion-value.js",
+            "maxSize": "1.8 kB"
+        }
+    ],
+    "gitHead": "0d3c11b5f54647ecc5d1ee93e827651291fe7ce3"
 }

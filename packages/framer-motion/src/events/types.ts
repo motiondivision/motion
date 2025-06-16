@@ -1,10 +1,5 @@
-import { RefObject } from "react"
-import { Point } from "../projection/geometry/types"
-
-/** @public */
-export interface EventInfo {
-    point: Point
-}
+import type { EventInfo } from "motion-dom"
+import type { RefObject } from "react"
 
 export type EventHandler = (event: PointerEvent, info: EventInfo) => void
 

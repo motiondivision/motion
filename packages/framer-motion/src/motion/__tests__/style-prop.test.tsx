@@ -1,6 +1,6 @@
-import { render } from "../../../jest.setup"
 import { motion, MotionConfig, useMotionValue } from "../.."
 import { nextMicrotask } from "../../gestures/__tests__/utils"
+import { render } from "../../jest.setup"
 
 describe("style prop", () => {
     test("should remove non-set styles", () => {

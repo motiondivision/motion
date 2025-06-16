@@ -1,5 +1,5 @@
+import { motionValue, MotionValue } from "motion-dom"
 import { useContext, useEffect, useState } from "react"
-import { motionValue, MotionValue } from "."
 import { MotionConfigContext } from "../context/MotionConfigContext"
 import { useConstant } from "../utils/use-constant"
 

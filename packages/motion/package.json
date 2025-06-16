@@ -1,6 +1,6 @@
 {
     "name": "motion",
-    "version": "11.13.0",
+    "version": "12.18.1",
     "description": "An animation library for JavaScript and React.",
     "main": "dist/cjs/index.js",
     "module": "dist/es/motion/lib/index.mjs",
@@ -10,6 +10,12 @@
             "require": "./dist/cjs/index.js",
             "import": "./dist/es/motion/lib/index.mjs",
             "default": "./dist/cjs/index.js"
+        },
+        "./debug": {
+            "types": "./dist/debug.d.ts",
+            "require": "./dist/cjs/debug.js",
+            "import": "./dist/es/motion/lib/debug.mjs",
+            "default": "./dist/cjs/debug.js"
         },
         "./mini": {
             "types": "./dist/mini.d.ts",
@@ -46,7 +52,7 @@
     "types": "dist/index.d.ts",
     "author": "Matt Perry",
     "license": "MIT",
-    "repository": "https://github.com/framer/motion/",
+    "repository": "https://github.com/motiondivision/motion",
     "sideEffects": false,
     "keywords": [
         "javascript animation",
@@ -70,13 +76,13 @@
         "postpublish": "git push --tags"
     },
     "dependencies": {
-        "framer-motion": "^11.13.0",
+        "framer-motion": "^12.18.1",
         "tslib": "^2.4.0"
     },
     "peerDependencies": {
         "@emotion/is-prop-valid": "*",
-        "react": "^18.0.0",
-        "react-dom": "^18.0.0"
+        "react": "^18.0.0 || ^19.0.0",
+        "react-dom": "^18.0.0 || ^19.0.0"
     },
     "peerDependenciesMeta": {
         "@emotion/is-prop-valid": {
@@ -89,5 +95,5 @@
             "optional": true
         }
     },
-    "gitHead": "9c70b0208d6492d195ce5fdb60ded6cae1a3245c"
+    "gitHead": "cddcc66430c5c96b2f560bb6a61160231f512c53"
 }

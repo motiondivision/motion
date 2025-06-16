@@ -61,7 +61,9 @@
         <script type="module">
             const { createNode } = window.Animate
             const { matchViewportBox, checkFrame } = window.Assert
-            const { frame } = window.Projection
+            const { frame, recordStats } = window.Projection
+
+            recordStats()
             const duration = 10
 
             const a = document.getElementById("a")
@@ -127,7 +129,6 @@
              */
             requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
-                    console.log(window.ProjectionFrames)
                     checkFrame(a, 1, {
                         totalNodes: 7,
                         resolvedTargetDeltas: 3,

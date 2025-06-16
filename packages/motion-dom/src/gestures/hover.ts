@@ -1,27 +1,7 @@
-import { ElementOrSelector, resolveElements } from "../utils/resolve-elements"
+import { ElementOrSelector } from "../utils/resolve-elements"
 import { isDragActive } from "./drag/state/is-active"
-
-/**
- * Options for the hover gesture.
- *
- * @public
- */
-export interface HoverOptions {
-    /**
-     * Use passive event listeners. Doing so allows the browser to optimize
-     * scrolling performance by not allowing the use of `preventDefault()`.
-     *
-     * @default true
-     */
-    passive?: boolean
-
-    /**
-     * Remove the event listener after the first event.
-     *
-     * @default false
-     */
-    once?: boolean
-}
+import { EventOptions } from "./types"
+import { setupGesture } from "./utils/setup"
 
 /**
  * A function to be called when a hover gesture starts.
@@ -31,7 +11,10 @@ export interface HoverOptions {
  *
  * @public
  */
-export type OnHoverStartEvent = (event: PointerEvent) => void | OnHoverEndEvent
+export type OnHoverStartEvent = (
+    element: Element,
+    event: PointerEvent
+) => void | OnHoverEndEvent
 
 /**
  * A function to be called when a hover gesture ends.
@@ -40,15 +23,8 @@ export type OnHoverStartEvent = (event: PointerEvent) => void | OnHoverEndEvent
  */
 export type OnHoverEndEvent = (event: PointerEvent) => void
 
-/**
- * Filter out events that are not pointer events, or are triggering
- * while a Motion gesture is active.
- */
-function filterEvents(callback: OnHoverStartEvent) {
-    return (event: PointerEvent) => {
-        if (event.pointerType === "touch" || isDragActive()) return
-        callback(event)
-    }
+function isValidHover(event: PointerEvent) {
+    return !(event.pointerType === "touch" || isDragActive())
 }
 
 /**
@@ -61,33 +37,45 @@ function filterEvents(callback: OnHoverStartEvent) {
 export function hover(
     elementOrSelector: ElementOrSelector,
     onHoverStart: OnHoverStartEvent,
-    options: HoverOptions = {}
-) {
-    const gestureAbortController = new AbortController()
+    options: EventOptions = {}
+): VoidFunction {
+    const [elements, eventOptions, cancel] = setupGesture(
+        elementOrSelector,
+        options
+    )
 
-    const eventOptions = {
-        passive: true,
-        ...options,
-        signal: gestureAbortController.signal,
+    const onPointerEnter = (enterEvent: PointerEvent) => {
+        if (!isValidHover(enterEvent)) return
+
+        const { target } = enterEvent
+        const onHoverEnd = onHoverStart(target as Element, enterEvent)
+
+        if (typeof onHoverEnd !== "function" || !target) return
+
+        const onPointerLeave = (leaveEvent: PointerEvent) => {
+            if (!isValidHover(leaveEvent)) return
+
+            onHoverEnd(leaveEvent)
+            target.removeEventListener(
+                "pointerleave",
+                onPointerLeave as EventListener
+            )
+        }
+
+        target.addEventListener(
+            "pointerleave",
+            onPointerLeave as EventListener,
+            eventOptions
+        )
     }
 
-    const onPointerEnter = filterEvents((enterEvent: PointerEvent) => {
-        const { target } = enterEvent
-        const onHoverEnd = onHoverStart(enterEvent)
-
-        if (!onHoverEnd || !target) return
-
-        const onPointerLeave = filterEvents((leaveEvent: PointerEvent) => {
-            onHoverEnd(leaveEvent)
-            target.removeEventListener("pointerleave", onPointerLeave)
-        })
-
-        target.addEventListener("pointerleave", onPointerLeave, eventOptions)
+    elements.forEach((element) => {
+        element.addEventListener(
+            "pointerenter",
+            onPointerEnter as EventListener,
+            eventOptions
+        )
     })
 
-    resolveElements(elementOrSelector).forEach((element) => {
-        element.addEventListener("pointerenter", onPointerEnter, eventOptions)
-    })
-
-    return () => gestureAbortController.abort()
+    return cancel
 }

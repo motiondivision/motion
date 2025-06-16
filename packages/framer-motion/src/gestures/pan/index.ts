@@ -1,9 +1,10 @@
-import { PanInfo, PanSession } from "./PanSession"
+import type { PanInfo } from "motion-dom"
+import { frame } from "motion-dom"
+import { noop } from "motion-utils"
 import { addPointerEvent } from "../../events/add-pointer-event"
 import { Feature } from "../../motion/features/Feature"
-import { noop } from "motion-utils"
 import { getContextWindow } from "../../utils/get-context-window"
-import { frame } from "../../frameloop"
+import { PanSession } from "./PanSession"
 
 type PanEventHandler = (event: PointerEvent, info: PanInfo) => void
 const asyncHandler =

@@ -1,6 +1,6 @@
 import * as React from "react"
-import { useState, useEffect } from "react"
-import { motion, useAnimation, useCycle } from "framer-motion"
+import { useState } from "react"
+import { motion } from "framer-motion"
 
 const sidebarStyle = {
     width: 100,

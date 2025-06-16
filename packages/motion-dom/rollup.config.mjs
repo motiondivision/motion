@@ -1,9 +1,10 @@
 import resolve from "@rollup/plugin-node-resolve"
 import replace from "@rollup/plugin-replace"
+import terser from "@rollup/plugin-terser"
 import dts from "rollup-plugin-dts"
-import pkg from "./package.json" with { type: "json"}
+import preserveDirectives from "rollup-plugin-preserve-directives"
+import pkg from "./package.json" with { type: "json" }
 import tsconfig from "./tsconfig.json" with { type: "json" }
-import preserveDirectives from "rollup-plugin-preserve-directives";
 
 const config = {
     input: "lib/index.js",
@@ -19,8 +20,6 @@ export const replaceSettings = (env) => {
               preventAssignment: false,
           }
 
-    replaceConfig.__VERSION__ = `${pkg.version}`
-
     return replace(replaceConfig)
 }
 
@@ -30,6 +29,52 @@ const external = [
     ...Object.keys(pkg.optionalDependencies || {}),
     "react/jsx-runtime",
 ]
+
+
+const pureClass = {
+    transform(code) {
+        // Replace TS emitted @class function annotations with PURE so terser
+        // can remove them
+        return code.replace(/\/\*\* @class \*\//g, "/*@__PURE__*/")
+    },
+}
+
+const umd = {
+    input: "lib/index.js",
+    output: {
+        file: `dist/${pkg.name}.dev.js`,
+        format: "umd",
+        name: "MotionDom",
+        exports: "named",
+        globals: {"motion-utils": "MotionUtils" },
+    },
+    external: ["motion-utils"],
+    plugins: [resolve(), replaceSettings("development")],
+    onwarn(warning, warn) {
+        if (warning.code === 'MODULE_LEVEL_DIRECTIVE') {
+            return
+        }
+        warn(warning)
+    }
+}
+
+const umdProd = Object.assign({}, umd, {
+    output: Object.assign({}, umd.output, {
+        file: `dist/${pkg.name}.js`,
+    }),
+    plugins: [
+        resolve(),
+        replaceSettings("production"),
+        pureClass,
+        terser({ output: { comments: false } }),
+    ],
+    onwarn(warning, warn) {
+        if (warning.code === 'MODULE_LEVEL_DIRECTIVE') {
+            return
+        }
+        warn(warning)
+    }
+})
 
 const cjs = Object.assign({}, config, {
     input: "lib/index.js",
@@ -88,6 +133,8 @@ const types = createTypes("types/index.d.ts", "dist/index.d.ts")
 
 // eslint-disable-next-line import/no-default-export
 export default [
+    umd, 
+    umdProd,
     cjs,
     es,
     types,

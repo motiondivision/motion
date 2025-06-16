@@ -1,24 +1,24 @@
 import { useContext } from "react"
 import { isAnimationControls } from "../../animation/utils/is-animation-controls"
+import { MotionContext, MotionContextProps } from "../../context/MotionContext"
 import {
     PresenceContext,
-    PresenceContextProps,
+    type PresenceContextProps,
 } from "../../context/PresenceContext"
 import { ResolvedValues, ScrapeMotionValuesFromProps } from "../../render/types"
-import { resolveVariantFromProps } from "../../render/utils/resolve-variants"
-import { useConstant } from "../../utils/use-constant"
-import { resolveMotionValue } from "../../value/utils/resolve-motion-value"
-import { MotionContext, MotionContextProps } from "../../context/MotionContext"
-import { MotionProps } from "../types"
 import {
     isControllingVariants as checkIsControllingVariants,
     isVariantNode as checkIsVariantNode,
 } from "../../render/utils/is-controlling-variants"
+import { resolveVariantFromProps } from "../../render/utils/resolve-variants"
+import { useConstant } from "../../utils/use-constant"
+import { resolveMotionValue } from "../../value/utils/resolve-motion-value"
+import { MotionProps } from "../types"
 
 export interface VisualState<Instance, RenderState> {
     renderState: RenderState
     latestValues: ResolvedValues
-    mount?: (instance: Instance) => void
+    onMount?: (instance: Instance) => void
 }
 
 export type UseVisualState<Instance, RenderState> = (
@@ -26,22 +26,16 @@ export type UseVisualState<Instance, RenderState> = (
     isStatic: boolean
 ) => VisualState<Instance, RenderState>
 
-export interface UseVisualStateConfig<Instance, RenderState> {
+export interface UseVisualStateConfig<RenderState> {
     scrapeMotionValuesFromProps: ScrapeMotionValuesFromProps
     createRenderState: () => RenderState
-    onMount?: (
-        props: MotionProps,
-        instance: Instance,
-        visualState: VisualState<Instance, RenderState>
-    ) => void
 }
 
 function makeState<I, RS>(
     {
         scrapeMotionValuesFromProps,
         createRenderState,
-        onMount,
-    }: UseVisualStateConfig<I, RS>,
+    }: UseVisualStateConfig<RS>,
     props: MotionProps,
     context: MotionContextProps,
     presenceContext: PresenceContextProps | null
@@ -56,15 +50,11 @@ function makeState<I, RS>(
         renderState: createRenderState(),
     }
 
-    if (onMount) {
-        state.mount = (instance: I) => onMount(props, instance, state)
-    }
-
     return state
 }
 
 export const makeUseVisualState =
-    <I, RS>(config: UseVisualStateConfig<I, RS>): UseVisualState<I, RS> =>
+    <I, RS>(config: UseVisualStateConfig<RS>): UseVisualState<I, RS> =>
     (props: MotionProps, isStatic: boolean): VisualState<I, RS> => {
         const context = useContext(MotionContext)
         const presenceContext = useContext(PresenceContext)
@@ -128,7 +118,7 @@ function makeLatestValues(
                         const index = isInitialAnimationBlocked
                             ? valueTarget.length - 1
                             : 0
-                        valueTarget = valueTarget[index]
+                        valueTarget = valueTarget[index] as any
                     }
 
                     if (valueTarget !== null) {

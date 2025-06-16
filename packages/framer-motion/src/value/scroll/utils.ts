@@ -1,4 +1,4 @@
-import { motionValue, MotionValue } from "../"
+import { motionValue, MotionValue } from "motion-dom"
 
 /**
  * @public

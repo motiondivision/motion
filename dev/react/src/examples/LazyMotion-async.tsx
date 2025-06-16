@@ -1,5 +1,5 @@
-import { memo, useEffect, useState } from "react";
-import { m, LazyMotion, domAnimation } from "framer-motion"
+import { memo } from "react";
+import { m, LazyMotion, } from "framer-motion"
 
 /**
  * An example of dynamically loading features from a different entry point.

@@ -23,7 +23,7 @@ import { addDomEvent } from "./add-dom-event"
  * @public
  */
 export function useDomEvent(
-    ref: RefObject<EventTarget>,
+    ref: RefObject<EventTarget | null>,
     eventName: string,
     handler?: EventListener | undefined,
     options?: AddEventListenerOptions

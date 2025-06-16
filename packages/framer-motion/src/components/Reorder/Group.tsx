@@ -2,13 +2,8 @@
 
 import { invariant } from "motion-utils"
 import * as React from "react"
-import {
-    forwardRef,
-    FunctionComponent,
-    ReactHTML,
-    useEffect,
-    useRef,
-} from "react"
+import { forwardRef, FunctionComponent, useEffect, useRef } from "react"
+import type { HTMLElements } from "../../render/html/supported-elements"
 import { ReorderContext } from "../../context/ReorderContext"
 import { motion } from "../../render/components/motion/proxy"
 import { HTMLMotionProps } from "../../render/html/types"
@@ -22,7 +17,7 @@ export interface Props<V> {
      *
      * @public
      */
-    as?: keyof ReactHTML
+    as?: keyof HTMLElements
 
     /**
      * The axis to reorder along. By default, items will be draggable on this axis.

@@ -1,7 +1,7 @@
+import type { AnimationDefinition, LegacyAnimationControls } from "motion-dom"
 import { invariant } from "motion-utils"
 import { setTarget } from "../../render/utils/setters"
 import type { VisualElement } from "../../render/VisualElement"
-import { AnimationControls, AnimationDefinition } from "../types"
 import { animateVisualElement } from "../interfaces/visual-element"
 
 function stopAnimation(visualElement: VisualElement) {
@@ -39,7 +39,7 @@ export function setValues(
 /**
  * @public
  */
-export function animationControls(): AnimationControls {
+export function animationControls(): LegacyAnimationControls {
     /**
      * Track whether the host component has mounted.
      */
@@ -50,7 +50,7 @@ export function animationControls(): AnimationControls {
      */
     const subscribers = new Set<VisualElement>()
 
-    const controls: AnimationControls = {
+    const controls: LegacyAnimationControls = {
         subscribe(visualElement) {
             subscribers.add(visualElement)
             return () => void subscribers.delete(visualElement)

@@ -1,5 +1,4 @@
-import { MotionValue } from "."
-import { frame } from "../frameloop"
+import { frame, MotionValue } from "motion-dom"
 import { useMotionValueEvent } from "../utils/use-motion-value-event"
 import { useMotionValue } from "./use-motion-value"
 /**

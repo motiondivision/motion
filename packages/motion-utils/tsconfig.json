@@ -20,6 +20,7 @@
         "baseUrl": "src",
         "declarationDir": "types",
         "outDir": "lib",
-        "rootDir": "src"
+        "rootDir": "src",
+        "noEmitOnError": true
     }
 }

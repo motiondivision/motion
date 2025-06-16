@@ -1,8 +1,7 @@
-import { render } from "../../../jest.setup"
 import { fireEvent } from "@testing-library/react"
 import { motion } from "framer-motion"
 import * as React from "react"
-import styled from "styled-components"
+import { render } from "../../jest.setup"
 
 describe("motion component rendering and styles", () => {
     it("renders", () => {
@@ -32,9 +31,18 @@ describe("motion component rendering and styles", () => {
                     <motion.button title="test" type="button" />
                     <motion.button ref={ref} />
                     <motion.button
+                        className="test"
                         animate={{ rotate: 90 }}
                         transition={{ velocity: 0 }}
                         style={{ overflow: "hidden" }}
+                        onClick={(event) => event.stopPropagation()}
+                    />
+                    <motion.div
+                        className="test"
+                        animate={{ rotate: 90 }}
+                        transition={{ velocity: 0 }}
+                        style={{ overflow: "hidden" }}
+                        onClick={(event) => event.stopPropagation()}
                     />
                     <motion.img
                         src="https://framer.com"
@@ -245,13 +253,8 @@ describe("motion component rendering and styles", () => {
     })
 
     it("renders styled component and overwrites style", () => {
-        const Box = styled.div`
-            background-color: #fff;
-        `
-
-        const MotionBox = motion.create(Box)
         const { container } = render(
-            <MotionBox style={{ backgroundColor: "#f00" }} />
+            <motion.div style={{ backgroundColor: "#f00" }} />
         )
         expect(container.firstChild).toHaveStyle("background-color: #f00")
     })
@@ -304,5 +307,41 @@ describe("motion component rendering and styles", () => {
 
         const { container } = render(<Test />)
         expect(container.firstChild).toBeTruthy()
+    })
+
+    it("layout animations interrupt jump", async () => {
+        const promise = new Promise((r)=>{
+            const Component = ()=>{
+                const [open,setOpen] = React.useState(false)
+                const divRef = React.useRef<HTMLDivElement>(null)
+                async function handleLayoutJump(){
+                    setOpen(true)
+                    await new Promise(resolve => setTimeout(resolve, 1500))
+                    const firstSize = divRef.current?.getBoundingClientRect().width||0
+                    setOpen(false)
+                    const secondSize = divRef.current?.getBoundingClientRect().width||0
+                    r(Math.abs(firstSize - secondSize))
+                }
+                React.useEffect(()=>{
+                    handleLayoutJump()
+                },[])
+                return <motion.div layout="size">
+                <motion.div
+                    layout="size"
+                    ref={divRef}
+                    style={{ width:open? "200px" : "50px" }}
+                    transition={{
+                        layout: {
+                            duration: 2,
+                            ease: "linear",
+                        },
+                    }}
+                />
+            </motion.div>
+            }
+            render(<Component />)
+        })
+
+        expect(promise).resolves.toBeLessThan(50)
     })
 })

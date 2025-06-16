@@ -1,12 +1,7 @@
 import * as React from "react"
 import { lowercaseSVGElements } from "../../svg/lowercase-elements"
 
-export function isSVGComponent(
-    Component:
-        | string
-        | React.ForwardRefExoticComponent<unknown>
-        | React.ComponentType<React.PropsWithChildren<unknown>>
-) {
+export function isSVGComponent(Component: string | React.ComponentType<any>) {
     if (
         /**
          * If it's not a string, it's a custom React component. Currently we only support

@@ -1,8 +1,8 @@
+import { mixNumber } from "motion-dom"
+import { Axis, Box, Delta, Point } from "motion-utils"
 import { ResolvedValues } from "../../render/types"
-import { mixNumber } from "../../utils/mix/number"
 import { IProjectionNode } from "../node/types"
 import { hasTransform } from "../utils/has-transform"
-import { Axis, Box, Delta, Point } from "./types"
 
 /**
  * Scales a point based on a factor and an originPoint

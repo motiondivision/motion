@@ -1,14 +1,14 @@
-import { progress as calcProgress } from "../../../utils/progress"
-import { calcLength } from "../../../projection/geometry/delta-calc"
+import type { DragElastic, ResolvedConstraints } from "motion-dom"
+import { mixNumber } from "motion-dom"
 import {
     Axis,
     BoundingBox,
     Box,
+    progress as calcProgress,
+    clamp,
     Point,
-} from "../../../projection/geometry/types"
-import { clamp } from "../../../utils/clamp"
-import { mixNumber } from "../../../utils/mix/number"
-import { DragElastic, ResolvedConstraints } from "../types"
+} from "motion-utils"
+import { calcLength } from "../../../projection/geometry/delta-calc"
 
 /**
  * Apply constraints to a point. These constraints are both physical along an

@@ -12,13 +12,16 @@
         "react",
         "react-hooks",
         "import",
-        "redos-detector"
+        "redos-detector",
+        "react-compiler"
     ],
     "extends": ["prettier", "plugin:regexp/recommended"],
     "rules": {
         "@typescript-eslint/no-unused-vars": "warn",
         "@typescript-eslint/type-annotation-spacing": "error",
         "react/jsx-pascal-case": "error",
+        "react-compiler/react-compiler": "warn",
+
         // "react-hooks/rules-of-hooks": "error",
         "react-hooks/exhaustive-deps": "warn",
         "import/no-default-export": "error",

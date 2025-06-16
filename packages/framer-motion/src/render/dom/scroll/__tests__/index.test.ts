@@ -1,7 +1,7 @@
-import { frame } from "../../../../frameloop"
-import { scrollInfo } from "../track"
+import { frame } from "motion-dom"
 import { scroll } from "../"
 import { ScrollOffset } from "../offsets/presets"
+import { scrollInfo } from "../track"
 import { ScrollInfo } from "../types"
 
 type Measurements = {
@@ -10,11 +10,28 @@ type Measurements = {
 
 const measurements = new Map<Element, Measurements>()
 
+// Mock scrollingElement for testing
+Object.defineProperty(document, "scrollingElement", {
+    value: document.documentElement,
+    writable: false,
+    configurable: true,
+})
+
 async function nextFrame() {
-    return new Promise((resolve) => frame.postRender(resolve))
+    return new Promise((resolve) => {
+        window.dispatchEvent(new window.Event("scroll"))
+        frame.postRender(resolve)
+    })
 }
 
-const createMockMeasurement = (element: Element, name: string) => {
+const createMockMeasurement = (element: Element | null, name: string) => {
+    if (element === null) {
+        console.error("scroll element is null")
+        return (value: number) => {
+            elementMeasurements[name] = value
+        }
+    }
+
     const elementMeasurements = measurements.get(element) || {}
 
     measurements.set(element, elementMeasurements)
@@ -34,15 +51,15 @@ const createMockMeasurement = (element: Element, name: string) => {
 }
 
 const setWindowHeight = createMockMeasurement(
-    document.documentElement,
+    document.scrollingElement,
     "clientHeight"
 )
 const setDocumentHeight = createMockMeasurement(
-    document.documentElement,
+    document.scrollingElement,
     "scrollHeight"
 )
 const setScrollTop = createMockMeasurement(
-    document.documentElement,
+    document.scrollingElement,
     "scrollTop"
 )
 
@@ -210,7 +227,7 @@ describe("scrollInfo", () => {
         )
 
         return new Promise<void>(async (resolve) => {
-            await nextFrame()
+            await fireElementScroll(0)
             expect(latest.y.current).toEqual(0)
             expect(latest.y.offset).toEqual([0, 200])
             expect(latest.y.scrollLength).toEqual(900)
@@ -541,7 +558,7 @@ describe("scroll", () => {
         )
 
         return new Promise<void>(async (resolve) => {
-            await nextFrame()
+            await fireElementScroll(0)
             expect(latest.y.current).toEqual(0)
             expect(latest.y.offset).toEqual([0, 200])
             expect(latest.y.scrollLength).toEqual(900)

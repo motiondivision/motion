@@ -1,5 +1,5 @@
 import { animateMini } from "framer-motion/dom"
-import { useRef, useEffect } from "react"
+import { useEffect, useRef } from "react"
 
 export const App = () => {
     const ref = useRef<HTMLDivElement>(null)
@@ -16,7 +16,11 @@ export const App = () => {
         return () => animation.cancel()
     }, [])
 
-    return <div id="box" ref={ref} style={style} />
+    return (
+        <div id="box" ref={ref} style={style}>
+            test
+        </div>
+    )
 }
 
 const style = {

@@ -1,7 +1,7 @@
-import { render } from "../../../jest.setup"
+import { frame } from "motion-dom"
 import { motion } from "../../"
-import { frame } from "../../frameloop"
 import { nextMicrotask } from "../../gestures/__tests__/utils"
+import { render } from "../../jest.setup"
 
 describe("transformTemplate", () => {
     it("applies transformTemplate on initial render", () => {

@@ -1,10 +1,10 @@
 import {
-    scroll,
     animate,
     animateMini,
+    motion,
+    scroll,
     useMotionValue,
     useTransform,
-    motion,
 } from "framer-motion"
 import * as React from "react"
 import { useEffect } from "react"

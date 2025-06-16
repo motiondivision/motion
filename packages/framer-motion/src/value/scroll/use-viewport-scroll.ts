@@ -1,4 +1,4 @@
-import { warnOnce } from "../../utils/warn-once"
+import { warnOnce } from "motion-utils"
 import { useScroll } from "../use-scroll"
 
 /**

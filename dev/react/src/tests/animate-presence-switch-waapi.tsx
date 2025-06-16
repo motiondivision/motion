@@ -27,7 +27,9 @@ export const App = () => {
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.2 }}
-                    onAnimationStart={() => count.set(count.get() + 1)}
+                    onAnimationStart={() => {
+                        count.set(count.get() + 1)
+                    }}
                 >
                     {state}
                 </motion.div>

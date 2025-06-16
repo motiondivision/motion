@@ -1,19 +1,21 @@
-import { HTMLRenderState } from "./types"
-import { DOMVisualElementOptions } from "../dom/types"
-import { buildHTMLStyles } from "./utils/build-styles"
-import { isCSSVariableName } from "../dom/utils/is-css-variable"
-import { transformProps } from "./utils/transform"
-import { scrapeMotionValuesFromProps } from "./utils/scrape-motion-values"
-import { renderHTML } from "./utils/render"
-import { getDefaultValueType } from "../dom/value-types/defaults"
-import { measureViewportBox } from "../../projection/utils/measure"
-import { MotionProps } from "../../motion/types"
-import type { Box } from "../../projection/geometry/types"
-import { DOMVisualElement } from "../dom/DOMVisualElement"
+import {
+    defaultTransformValue,
+    isCSSVariableName,
+    readTransformValue,
+    transformProps,
+} from "motion-dom"
+import type { Box } from "motion-utils"
 import { MotionConfigContext } from "../../context/MotionConfigContext"
-import { isMotionValue } from "../../value/utils/is-motion-value"
+import { MotionProps } from "../../motion/types"
+import { measureViewportBox } from "../../projection/utils/measure"
+import { DOMVisualElement } from "../dom/DOMVisualElement"
+import { DOMVisualElementOptions } from "../dom/types"
 import type { ResolvedValues } from "../types"
 import { VisualElement } from "../VisualElement"
+import { HTMLRenderState } from "./types"
+import { buildHTMLStyles } from "./utils/build-styles"
+import { renderHTML } from "./utils/render"
+import { scrapeMotionValuesFromProps } from "./utils/scrape-motion-values"
 
 export function getComputedStyle(element: HTMLElement) {
     return window.getComputedStyle(element)
@@ -31,8 +33,9 @@ export class HTMLVisualElement extends DOMVisualElement<
         key: string
     ): string | number | null | undefined {
         if (transformProps.has(key)) {
-            const defaultType = getDefaultValueType(key)
-            return defaultType ? defaultType.default || 0 : 0
+            return this.projection?.isProjecting
+                ? defaultTransformValue(key)
+                : readTransformValue(instance, key)
         } else {
             const computedStyle = getComputedStyle(instance)
             const value =
@@ -65,21 +68,6 @@ export class HTMLVisualElement extends DOMVisualElement<
         visualElement: VisualElement
     ) {
         return scrapeMotionValuesFromProps(props, prevProps, visualElement)
-    }
-
-    childSubscription?: VoidFunction
-    handleChildMotionValue() {
-        if (this.childSubscription) {
-            this.childSubscription()
-            delete this.childSubscription
-        }
-
-        const { children } = this.props
-        if (isMotionValue(children)) {
-            this.childSubscription = children.on("change", (latest) => {
-                if (this.current) this.current.textContent = `${latest}`
-            })
-        }
     }
 
     renderInstance = renderHTML

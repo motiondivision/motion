@@ -1,9 +1,7 @@
-import { noop } from "./noop"
-
 export type DevMessage = (check: boolean, message: string) => void
 
-let warning: DevMessage = noop
-let invariant: DevMessage = noop
+let warning: DevMessage = () => {}
+let invariant: DevMessage = () => {}
 
 if (process.env.NODE_ENV !== "production") {
     warning = (check, message) => {
@@ -19,4 +17,4 @@ if (process.env.NODE_ENV !== "production") {
     }
 }
 
-export { warning, invariant }
+export { invariant, warning }

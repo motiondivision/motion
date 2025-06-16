@@ -1,6 +1,6 @@
-import "../../../../../jest.setup"
+import { transformProps } from "motion-dom"
+import "../../../../jest.setup"
 import { buildTransform } from "../build-transform"
-import { transformProps } from "../transform"
 
 describe("transformProps.has", () => {
     it("Correctly identifies only transformPerspective as a transform prop", () => {

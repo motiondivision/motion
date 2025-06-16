@@ -1,0 +1,27 @@
+{
+    "preset": "ts-jest",
+    "testEnvironment": "jsdom",
+    "rootDir": "src",
+    "collectCoverageFrom": [
+        "**/*.{js,jsx,ts,tsx}",
+        "!**/node_modules/**",
+        "!**/__tests__/**"
+    ],
+    "coverageDirectory": "<rootDir>/../coverage",
+    "testMatch": ["**/__tests__/**/*.test.(js|ts)?(x)"],
+    "testPathIgnorePatterns": ["ssr.test.tsx"],
+    "watchPlugins": [
+        "jest-watch-typeahead/filename",
+        "jest-watch-typeahead/testname"
+    ],
+    "reporters": [
+        "default",
+        [
+            "jest-junit",
+            {
+                "outputDirectory": "../../test_reports",
+                "outputName": "framer-motion.xml"
+            }
+        ]
+    ]
+}

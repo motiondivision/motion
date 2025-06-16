@@ -1,10 +1,50 @@
-import { frame, cancelFrame } from "../../frameloop"
-import { AnimationPlaybackControls } from "../../animation/types"
+import {
+    activeAnimations,
+    cancelFrame,
+    frame,
+    frameData,
+    frameSteps,
+    getValueTransition,
+    isSVGElement,
+    isSVGSVGElement,
+    JSAnimation,
+    microtask,
+    mixNumber,
+    MotionValue,
+    motionValue,
+    statsBuffer,
+    time,
+    Transition,
+    ValueAnimationOptions,
+    type Process,
+} from "motion-dom"
+import {
+    Axis,
+    AxisDelta,
+    Box,
+    clamp,
+    Delta,
+    noop,
+    Point,
+    SubscriptionManager,
+} from "motion-utils"
+import { animateSingleValue } from "../../animation/animate/single-value"
+import { getOptimisedAppearId } from "../../animation/optimized-appear/get-appear-id"
+import { MotionStyle } from "../../motion/types"
+import { HTMLVisualElement } from "../../projection"
 import { ResolvedValues } from "../../render/types"
-import { SubscriptionManager } from "../../utils/subscription-manager"
+import { FlatTree } from "../../render/utils/flat-tree"
+import { VisualElement } from "../../render/VisualElement"
+import { delay } from "../../utils/delay"
+import { resolveMotionValue } from "../../value/utils/resolve-motion-value"
 import { mixValues } from "../animation/mix-values"
 import { copyAxisDeltaInto, copyBoxInto } from "../geometry/copy"
-import { applyBoxDelta, applyTreeDeltas } from "../geometry/delta-apply"
+import {
+    applyBoxDelta,
+    applyTreeDeltas,
+    transformBox,
+    translateAxis,
+} from "../geometry/delta-apply"
 import {
     calcBoxDelta,
     calcLength,
@@ -13,10 +53,7 @@ import {
     isNear,
 } from "../geometry/delta-calc"
 import { removeBoxTransforms } from "../geometry/delta-remove"
-import { Axis, AxisDelta, Box, Delta } from "../geometry/types"
-import { transformBox, translateAxis } from "../geometry/delta-apply"
-import { Point } from "../geometry/types"
-import { getValueTransition } from "../../animation/utils/get-value-transition"
+import { createBox, createDelta } from "../geometry/models"
 import {
     aspectRatio,
     axisDeltaEquals,
@@ -29,54 +66,23 @@ import { scaleCorrectors } from "../styles/scale-correction"
 import { buildProjectionTransform } from "../styles/transform"
 import { eachAxis } from "../utils/each-axis"
 import { has2DTranslate, hasScale, hasTransform } from "../utils/has-transform"
+import { globalProjectionState } from "./state"
 import {
     IProjectionNode,
     LayoutEvents,
     LayoutUpdateData,
+    Measurements,
+    Phase,
     ProjectionNodeConfig,
     ProjectionNodeOptions,
-    Measurements,
     ScrollMeasurements,
-    Phase,
 } from "./types"
-import { FlatTree } from "../../render/utils/flat-tree"
-import { Transition } from "../../types"
-import { resolveMotionValue } from "../../value/utils/resolve-motion-value"
-import { MotionStyle } from "../../motion/types"
-import { globalProjectionState } from "./state"
-import { delay } from "../../utils/delay"
-import { mixNumber } from "../../utils/mix/number"
-import { Process } from "../../frameloop/types"
-import { ValueAnimationOptions } from "../../animation/types"
-import { frameData } from "../../dom"
-import { isSVGElement } from "../../render/dom/utils/is-svg-element"
-import { animateSingleValue } from "../../animation/animate/single-value"
-import { clamp } from "../../utils/clamp"
-import { frameSteps } from "../../frameloop/frame"
-import { noop } from "motion-utils"
-import { time } from "../../frameloop/sync-time"
-import { microtask } from "../../frameloop/microtask"
-import { VisualElement } from "../../render/VisualElement"
-import { getOptimisedAppearId } from "../../animation/optimized-appear/get-appear-id"
-import { createBox, createDelta } from "../geometry/models"
 
 const metrics = {
-    type: "projectionFrame",
-    totalNodes: 0,
-    resolvedTargetDeltas: 0,
-    recalculatedProjection: 0,
+    nodes: 0,
+    calculatedTargetDeltas: 0,
+    calculatedProjections: 0,
 }
-
-declare global {
-    interface Window {
-        MotionDebug?: {
-            record: (data: typeof metrics) => void
-        }
-    }
-}
-
-const isDebug =
-    typeof window !== "undefined" && window.MotionDebug !== undefined
 
 const transformAxes = ["", "X", "Y", "Z"]
 
@@ -157,7 +163,7 @@ export function createProjectionNode<I>({
         /**
          * A reference to the platform-native node (currently this will be a HTMLElement).
          */
-        instance: I
+        instance: I | undefined
 
         /**
          * A reference to the root projection node. There'll only ever be one tree and one root.
@@ -432,10 +438,10 @@ export function createProjectionNode<I>({
         /**
          * Lifecycles
          */
-        mount(instance: I, isLayoutDirty = this.root.hasTreeAnimated) {
+        mount(instance: I) {
             if (this.instance) return
 
-            this.isSVG = isSVGElement(instance)
+            this.isSVG = isSVGElement(instance) && !isSVGSVGElement(instance)
 
             this.instance = instance
 
@@ -447,7 +453,7 @@ export function createProjectionNode<I>({
             this.root.nodes!.add(this)
             this.parent && this.parent.children.add(this)
 
-            if (isLayoutDirty && (layout || layoutId)) {
+            if (this.root.hasTreeAnimated && (layout || layoutId)) {
                 this.isLayoutDirty = true
             }
 
@@ -485,7 +491,7 @@ export function createProjectionNode<I>({
                     ({
                         delta,
                         hasLayoutChanged,
-                        hasRelativeTargetChanged,
+                        hasRelativeLayoutChanged,
                         layout: newLayout,
                     }: LayoutUpdateData) => {
                         if (this.isTreeAnimationBlocked()) {
@@ -509,10 +515,15 @@ export function createProjectionNode<I>({
                          * The target layout of the element might stay the same,
                          * but its position relative to its parent has changed.
                          */
-                        const targetChanged =
+                        const hasTargetChanged =
                             !this.targetLayout ||
-                            !boxEqualsRounded(this.targetLayout, newLayout) ||
-                            hasRelativeTargetChanged
+                            !boxEqualsRounded(this.targetLayout, newLayout)
+                        /*
+                         * Note: Disabled to fix relative animations always triggering new
+                         * layout animations. If this causes further issues, we can try
+                         * a different approach to detecting relative target changes.
+                         */
+                        // || hasRelativeLayoutChanged
 
                         /**
                          * If the layout hasn't seemed to have changed, it might be that the
@@ -520,24 +531,19 @@ export function createProjectionNode<I>({
                          * relative to its parent has indeed changed. So here we check for that.
                          */
                         const hasOnlyRelativeTargetChanged =
-                            !hasLayoutChanged && hasRelativeTargetChanged
+                            !hasLayoutChanged && hasRelativeLayoutChanged
 
                         if (
                             this.options.layoutRoot ||
-                            (this.resumeFrom && this.resumeFrom.instance) ||
+                            this.resumeFrom ||
                             hasOnlyRelativeTargetChanged ||
                             (hasLayoutChanged &&
-                                (targetChanged || !this.currentAnimation))
+                                (hasTargetChanged || !this.currentAnimation))
                         ) {
                             if (this.resumeFrom) {
                                 this.resumingFrom = this.resumeFrom
                                 this.resumingFrom.resumingFrom = undefined
                             }
-
-                            this.setAnimationOrigin(
-                                delta,
-                                hasOnlyRelativeTargetChanged
-                            )
 
                             const animationOptions = {
                                 ...getValueTransition(
@@ -557,6 +563,14 @@ export function createProjectionNode<I>({
                             }
 
                             this.startAnimation(animationOptions)
+                            /**
+                             * Set animation origin after starting animation to avoid layout jump
+                             * caused by stopping previous layout animation
+                             */
+                            this.setAnimationOrigin(
+                                delta,
+                                hasOnlyRelativeTargetChanged
+                            )
                         } else {
                             /**
                              * If the layout hasn't changed and we have an animation that hasn't started yet,
@@ -585,7 +599,8 @@ export function createProjectionNode<I>({
             const stack = this.getStack()
             stack && stack.remove(this)
             this.parent && this.parent.children.delete(this)
-            ;(this.instance as any) = undefined
+            this.instance = undefined
+            this.eventHandlers.clear()
 
             cancelFrame(this.updateProjection)
         }
@@ -792,10 +807,10 @@ export function createProjectionNode<I>({
              * Reset debug counts. Manually resetting rather than creating a new
              * object each frame.
              */
-            if (isDebug) {
-                metrics.totalNodes =
-                    metrics.resolvedTargetDeltas =
-                    metrics.recalculatedProjection =
+            if (statsBuffer.value) {
+                metrics.nodes =
+                    metrics.calculatedTargetDeltas =
+                    metrics.calculatedProjections =
                         0
             }
 
@@ -804,8 +819,8 @@ export function createProjectionNode<I>({
             this.nodes!.forEach(calcProjection)
             this.nodes!.forEach(cleanDirtyNodes)
 
-            if (isDebug) {
-                window.MotionDebug!.record(metrics)
+            if (statsBuffer.addProjectionMetrics) {
+                statsBuffer.addProjectionMetrics(metrics)
             }
         }
 
@@ -816,6 +831,14 @@ export function createProjectionNode<I>({
             if (this.snapshot || !this.instance) return
 
             this.snapshot = this.measure()
+
+            if (
+                this.snapshot &&
+                !calcLength(this.snapshot.measuredBox.x) &&
+                !calcLength(this.snapshot.measuredBox.y)
+            ) {
+                this.snapshot = undefined
+            }
         }
 
         updateLayout() {
@@ -874,7 +897,7 @@ export function createProjectionNode<I>({
                 needsMeasurement = false
             }
 
-            if (needsMeasurement) {
+            if (needsMeasurement && this.instance) {
                 const isRoot = checkIsScrollRoot(this.instance)
                 this.scroll = {
                     animationId: this.root.animationId,
@@ -907,6 +930,7 @@ export function createProjectionNode<I>({
 
             if (
                 isResetRequested &&
+                this.instance &&
                 (hasProjection ||
                     hasTransform(this.latestValues) ||
                     transformTemplateHasChanged)
@@ -1251,8 +1275,8 @@ export function createProjectionNode<I>({
             /**
              * Increase debug counter for resolved target deltas
              */
-            if (isDebug) {
-                metrics.resolvedTargetDeltas++
+            if (statsBuffer.value) {
+                metrics.calculatedTargetDeltas++
             }
         }
 
@@ -1435,8 +1459,8 @@ export function createProjectionNode<I>({
             /**
              * Increase debug counter for recalculated projections
              */
-            if (isDebug) {
-                metrics.recalculatedProjection++
+            if (statsBuffer.value) {
+                metrics.calculatedProjections++
             }
         }
 
@@ -1472,7 +1496,7 @@ export function createProjectionNode<I>({
          */
         animationValues?: ResolvedValues
         pendingAnimation?: Process
-        currentAnimation?: AnimationPlaybackControls
+        currentAnimation?: JSAnimation<number>
         mixTargetDelta: (progress: number) => void
         animationProgress = 0
 
@@ -1481,9 +1505,7 @@ export function createProjectionNode<I>({
             hasOnlyRelativeTargetChanged: boolean = false
         ) {
             const snapshot = this.snapshot
-            const snapshotLatestValues = snapshot
-                ? snapshot.latestValues
-                : undefined || {}
+            const snapshotLatestValues = snapshot ? snapshot.latestValues : {}
             const mixedValues = { ...this.latestValues }
 
             const targetDelta = createDelta()
@@ -1576,13 +1598,13 @@ export function createProjectionNode<I>({
             this.mixTargetDelta(this.options.layoutRoot ? 1000 : 0)
         }
 
+        motionValue?: MotionValue<number>
         startAnimation(options: ValueAnimationOptions<number>) {
             this.notifyListeners("animationStart")
 
-            this.currentAnimation && this.currentAnimation.stop()
-            if (this.resumingFrom && this.resumingFrom.currentAnimation) {
-                this.resumingFrom.currentAnimation.stop()
-            }
+            this.currentAnimation?.stop()
+            this.resumingFrom?.currentAnimation?.stop()
+
             if (this.pendingAnimation) {
                 cancelFrame(this.pendingAnimation)
                 this.pendingAnimation = undefined
@@ -1596,17 +1618,30 @@ export function createProjectionNode<I>({
             this.pendingAnimation = frame.update(() => {
                 globalProjectionState.hasAnimatedSinceResize = true
 
-                this.currentAnimation = animateSingleValue(0, animationTarget, {
-                    ...(options as any),
-                    onUpdate: (latest: number) => {
-                        this.mixTargetDelta(latest)
-                        options.onUpdate && options.onUpdate(latest)
-                    },
-                    onComplete: () => {
-                        options.onComplete && options.onComplete()
-                        this.completeAnimation()
-                    },
-                })
+                activeAnimations.layout++
+                this.motionValue ||= motionValue(0)
+
+                this.currentAnimation = animateSingleValue(
+                    this.motionValue,
+                    [0, 1000],
+                    {
+                        ...(options as any),
+                        velocity: 0,
+                        isSync: true,
+                        onUpdate: (latest: number) => {
+                            this.mixTargetDelta(latest)
+                            options.onUpdate && options.onUpdate(latest)
+                        },
+                        onStop: () => {
+                            activeAnimations.layout--
+                        },
+                        onComplete: () => {
+                            activeAnimations.layout--
+                            options.onComplete && options.onComplete()
+                            this.completeAnimation()
+                        },
+                    }
+                ) as JSAnimation<number>
 
                 if (this.resumingFrom) {
                     this.resumingFrom.currentAnimation = this.currentAnimation
@@ -1938,7 +1973,7 @@ export function createProjectionNode<I>({
             for (const key in scaleCorrectors) {
                 if (valuesToRender[key] === undefined) continue
 
-                const { correct, applyTo } = scaleCorrectors[key]
+                const { correct, applyTo, isCSSVariable } = scaleCorrectors[key]
 
                 /**
                  * Only apply scale correction to the value if we have an
@@ -1957,7 +1992,16 @@ export function createProjectionNode<I>({
                         styles[applyTo[i]] = corrected
                     }
                 } else {
-                    styles[key] = corrected
+                    // If this is a CSS variable, set it directly on the instance.
+                    // Replacing this function from creating styles to setting them
+                    // would be a good place to remove per frame object creation
+                    if (isCSSVariable) {
+                        ;(
+                            this.options.visualElement as HTMLVisualElement
+                        ).renderState.vars[key] = corrected
+                    } else {
+                        styles[key] = corrected
+                    }
                 }
             }
 
@@ -2056,7 +2100,7 @@ function notifyLayoutUpdate(node: IProjectionNode) {
         }
 
         const hasLayoutChanged = !isDeltaZero(layoutDelta)
-        let hasRelativeTargetChanged = false
+        let hasRelativeLayoutChanged = false
 
         if (!node.resumeFrom) {
             const relativeParent = node.getClosestProjectingParent()
@@ -2085,7 +2129,7 @@ function notifyLayoutUpdate(node: IProjectionNode) {
                     )
 
                     if (!boxEqualsRounded(relativeSnapshot, relativeLayout)) {
-                        hasRelativeTargetChanged = true
+                        hasRelativeLayoutChanged = true
                     }
 
                     if (relativeParent.options.layoutRoot) {
@@ -2103,7 +2147,7 @@ function notifyLayoutUpdate(node: IProjectionNode) {
             delta: visualDelta,
             layoutDelta,
             hasLayoutChanged,
-            hasRelativeTargetChanged,
+            hasRelativeLayoutChanged,
         })
     } else if (node.isLead()) {
         const { onExitComplete } = node.options
@@ -2122,8 +2166,8 @@ export function propagateDirtyNodes(node: IProjectionNode) {
     /**
      * Increase debug counter for nodes encountered this frame
      */
-    if (isDebug) {
-        metrics.totalNodes++
+    if (statsBuffer.value) {
+        metrics.nodes++
     }
 
     if (!node.parent) return

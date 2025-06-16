@@ -3,7 +3,7 @@
         "clean": {},
         "build": {
             "dependsOn": ["^build"],
-            "outputs": ["dist/**", "types/**"]
+            "outputs": ["dist/**", "lib/**", "types/**"]
         },
         "watch": {
             "dependsOn": ["^watch"],
@@ -29,7 +29,7 @@
             "outputs": ["dist/**", "build/**"]
         },
         "measure": {
-            "dependsOn": ["^build", "build"],
+            "dependsOn": ["build"],
             "outputs": ["dist/**", "build/**"]
         },
         "publish": {

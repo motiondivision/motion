@@ -1,11 +1,11 @@
-import { render } from "../../../../jest.setup"
+import { motionValue, MotionValue } from "motion-dom"
 import { useEffect } from "react"
-import { motion, MotionGlobalConfig } from "../../.."
-import { animate } from ".."
-import { useMotionValue } from "../../../value/use-motion-value"
-import { motionValue, MotionValue } from "../../../value"
-import { syncDriver } from "../../animators/__tests__/utils"
 import * as THREE from "three"
+import { animate } from ".."
+import { motion, MotionGlobalConfig } from "../../.."
+import { render } from "../../../jest.setup"
+import { useMotionValue } from "../../../value/use-motion-value"
+import { syncDriver } from "../../animators/__tests__/utils"
 
 const duration = 0.001
 
@@ -322,6 +322,20 @@ describe("animate", () => {
             [div, { x: 100 }],
             [div, { y: 100 }],
         ])
+    })
+
+    test("will animate spring with existing target and velocity", async () => {
+        let max = 0
+        const value = motionValue(0)
+
+        value.on("change", (v) => {
+            max = Math.max(max, v)
+        })
+
+        await animate(value, 0, { type: "spring", velocity: 50 }).finished
+
+        expect(max).toBeGreaterThan(2)
+        expect(value.get()).toBe(0)
     })
 })
 

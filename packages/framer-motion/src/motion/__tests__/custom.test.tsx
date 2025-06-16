@@ -1,14 +1,14 @@
-import { render } from "../../../jest.setup"
-import { motion, useMotionValue } from "../.."
 import * as React from "react"
 import { ForwardedRef } from "react"
+import { motion, useMotionValue } from "../.."
+import { render } from "../../jest.setup"
 import { MotionProps } from "../types"
 
 interface Props {
     foo: boolean
 }
 
-function runTests(name: string, motionFactory: any) {
+function runTests(name: string, motionFactory: typeof motion.create) {
     describe(name, () => {
         test("accepts custom types", () => {
             const BaseComponent = React.forwardRef(
@@ -18,6 +18,16 @@ function runTests(name: string, motionFactory: any) {
             )
 
             const MotionComponent = motionFactory(BaseComponent)
+
+            const Component = () => <MotionComponent foo />
+
+            render(<Component />)
+        })
+
+        test("accepts normal component", () => {
+            const MotionComponent = motionFactory((props: Props) =>
+                props.foo ? <div /> : null
+            )
 
             const Component = () => <MotionComponent foo />
 
@@ -92,6 +102,39 @@ function runTests(name: string, motionFactory: any) {
             render(<Component />)
 
             expect(children!).toEqual(5)
+        })
+
+        test("Accepts children as a function if original component accepts children as a function", () => {
+            const BaseComponent = React.forwardRef(
+                (
+                    props: Props & {
+                        children:
+                            | React.ReactNode
+                            | (({
+                                  isServer,
+                              }: {
+                                  isServer: boolean
+                              }) => React.ReactNode)
+                    },
+                    ref: ForwardedRef<HTMLDivElement>
+                ) => {
+                    return (
+                        <div ref={ref}>
+                            {typeof props.children === "function"
+                                ? props.children({ isServer: false })
+                                : props.children}
+                        </div>
+                    )
+                }
+            )
+
+            const MotionComponent = motionFactory(BaseComponent)
+
+            const Component = () => (
+                <MotionComponent foo>{() => <div />}</MotionComponent>
+            )
+
+            render(<Component />)
         })
     })
 }

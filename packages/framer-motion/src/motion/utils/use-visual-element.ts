@@ -1,22 +1,22 @@
+import { microtask } from "motion-dom"
 import * as React from "react"
-import { useContext, useRef, useEffect, useInsertionEffect } from "react"
-import { PresenceContext } from "../../context/PresenceContext"
-import { MotionProps } from "../../motion/types"
-import { MotionContext } from "../../context/MotionContext"
-import { CreateVisualElement } from "../../render/types"
-import { useIsomorphicLayoutEffect } from "../../utils/use-isomorphic-effect"
-import { VisualState } from "./use-visual-state"
+import { useContext, useEffect, useInsertionEffect, useRef } from "react"
+import { optimizedAppearDataAttribute } from "../../animation/optimized-appear/data-id"
 import { LazyContext } from "../../context/LazyContext"
 import { MotionConfigContext } from "../../context/MotionConfigContext"
-import type { VisualElement } from "../../render/VisualElement"
-import { optimizedAppearDataAttribute } from "../../animation/optimized-appear/data-id"
-import { microtask } from "../../frameloop/microtask"
-import { IProjectionNode } from "../../projection/node/types"
-import { isRefObject } from "../../utils/is-ref-object"
+import { MotionContext } from "../../context/MotionContext"
+import { PresenceContext } from "../../context/PresenceContext"
 import {
     InitialPromotionConfig,
     SwitchLayoutGroupContext,
 } from "../../context/SwitchLayoutGroupContext"
+import { MotionProps } from "../../motion/types"
+import { IProjectionNode } from "../../projection/node/types"
+import { CreateVisualElement } from "../../render/types"
+import type { VisualElement } from "../../render/VisualElement"
+import { isRefObject } from "../../utils/is-ref-object"
+import { useIsomorphicLayoutEffect } from "../../utils/use-isomorphic-effect"
+import { VisualState } from "./use-visual-state"
 
 export function useVisualElement<Instance, RenderState>(
     Component: string | React.ComponentType<React.PropsWithChildren<unknown>>,
@@ -30,7 +30,7 @@ export function useVisualElement<Instance, RenderState>(
     const presenceContext = useContext(PresenceContext)
     const reducedMotionConfig = useContext(MotionConfigContext).reducedMotion
 
-    const visualElementRef = useRef<VisualElement<Instance>>()
+    const visualElementRef = useRef<VisualElement<Instance> | null>(null)
 
     /**
      * If we haven't preloaded a renderer, check to see if we have one lazy-loaded
@@ -137,7 +137,7 @@ export function useVisualElement<Instance, RenderState>(
         }
     })
 
-    return visualElement
+    return visualElement!
 }
 
 function createProjectionNode(
@@ -153,6 +153,7 @@ function createProjectionNode(
         dragConstraints,
         layoutScroll,
         layoutRoot,
+        layoutCrossfade,
     } = props
 
     visualElement.projection = new ProjectionNodeConstructor(
@@ -177,6 +178,7 @@ function createProjectionNode(
          */
         animationType: typeof layout === "string" ? layout : "both",
         initialPromotionConfig,
+        crossfade: layoutCrossfade,
         layoutScroll,
         layoutRoot,
     })

@@ -1,4 +1,4 @@
-import { BoundingBox, Box, TransformPoint } from "./types"
+import { BoundingBox, Box, TransformPoint } from "motion-utils"
 
 /**
  * Bounding boxes tend to be defined as top, left, right, bottom. For various operations

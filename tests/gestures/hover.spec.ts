@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test"
+import { expect, test } from "@playwright/test"
 
 test.beforeEach(async ({ page }) => {
     await page.goto("gestures/hover.html")
@@ -17,6 +17,25 @@ test.describe("hover", () => {
         await expect(element).toHaveText("start")
         await page.mouse.move(1000, 1000) // Move mouse away to trigger hover out
         await expect(element).toHaveText("end")
+    })
+
+    test("hover handles multiple attached handlers correctly", async ({
+        page,
+    }) => {
+        const element = page.locator("#hover")
+        await element.hover()
+        // Check color is green on press start
+        const colorOnPress = await element.evaluate((el) => {
+            return window.getComputedStyle(el).color
+        })
+        expect(colorOnPress).toBe("rgb(0, 128, 0)") // green
+        await expect(element).toHaveText("start")
+        await page.mouse.move(1000, 1000) // Move mouse away to trigger hover out
+        // Check color is purple after press end
+        const colorAfterPress = await element.evaluate((el) => {
+            return window.getComputedStyle(el).color
+        })
+        expect(colorAfterPress).toBe("rgb(128, 0, 128)") // purple
     })
 
     test("once works correctly", async ({ page }) => {

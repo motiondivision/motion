@@ -16,13 +16,13 @@ describe("checkShouldInheritVariant", () => {
         ).toBe(false)
         expect(
             checkShouldInheritVariant({
-                animate: animationControls(),
+                animate: animationControls() as any,
                 variants: {},
             })
         ).toBe(false)
         expect(
             checkShouldInheritVariant({
-                animate: animationControls(),
+                animate: animationControls() as any,
                 variants: {},
                 inherit: true,
             })

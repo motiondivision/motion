@@ -1,4 +1,4 @@
-import { Point } from "../projection/geometry/types"
+import { Point } from "motion-utils"
 
 export const distance = (a: number, b: number) => Math.abs(a - b)
 

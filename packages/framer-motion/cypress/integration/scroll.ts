@@ -87,7 +87,7 @@ describe("scroll() callbacks", () => {
 })
 
 describe("scroll() animation", () => {
-    it("Updates aniamtion on first frame, before scroll event", () => {
+    it("Updates animation on first frame, before scroll event", () => {
         cy.visit("?test=scroll-animate-window")
             .wait(100)
             .get("#color")
@@ -142,6 +142,117 @@ describe("scroll() animation", () => {
                 )
             })
     })
+
+    it("Correctly applies the same easing to both useAnimate and useAnimateMini", () => {
+        cy.visit("?test=scroll-default-ease").wait(100).viewport(400, 400)
+
+        // Scroll halfway down the page
+        cy.scrollTo(0, 1250)
+            .wait(200)
+            // Get all the elements we need to compare
+            .get("div")
+            .contains("mini - default")
+            .as("miniDefault")
+            .get("div")
+            .contains("animate - default")
+            .as("animateDefault")
+            .get("div")
+            .contains("mini - easeOut")
+            .as("miniEaseOut")
+            .get("div")
+            .contains("animate - easeOut")
+            .as("animateEaseOut")
+            .get("div")
+            .contains("mini - spring")
+            .as("miniSpring")
+            .get("div")
+            .contains("animate - spring")
+            .as("animateSpring")
+            .get("div")
+            .contains("animate main thread - default")
+            .as("animateMainThreadDefault")
+            .get("div")
+            .contains("animate main thread - easeOut")
+            .as("animateMainThreadEaseOut")
+            .get("div")
+            .contains("animate main thread - spring")
+            .as("animateMainThreadSpring")
+            // Now compare transforms
+            .then(function () {
+                const miniDefaultBounds =
+                    this.miniDefault[0].getBoundingClientRect()
+                const animateDefaultBounds =
+                    this.animateDefault[0].getBoundingClientRect()
+                const miniEaseOutBounds =
+                    this.miniEaseOut[0].getBoundingClientRect()
+                const animateEaseOutBounds =
+                    this.animateEaseOut[0].getBoundingClientRect()
+                const miniSpringBounds =
+                    this.miniSpring[0].getBoundingClientRect()
+                const animateMainThreadDefaultBounds =
+                    this.animateMainThreadDefault[0].getBoundingClientRect()
+                const animateMainThreadEaseOutBounds =
+                    this.animateMainThreadEaseOut[0].getBoundingClientRect()
+                const animateMainThreadSpringBounds =
+                    this.animateMainThreadSpring[0].getBoundingClientRect()
+
+                // Both default boxes should have the same position
+                expect(miniDefaultBounds.left).to.equal(
+                    animateDefaultBounds.left
+                )
+
+                // Both easeOut boxes should have the same position
+                expect(miniEaseOutBounds.left).to.equal(
+                    animateEaseOutBounds.left
+                )
+
+                expect(animateMainThreadDefaultBounds.left).to.equal(
+                    animateDefaultBounds.left
+                )
+                expect(
+                    Math.round(animateMainThreadEaseOutBounds.left)
+                ).to.equal(Math.round(animateEaseOutBounds.left))
+
+                // Skipping as env doesn't support linear() easing
+                // expect(miniSpringBounds.left).to.equal(animateSpringBounds.left)
+
+                // Each easing type should have different positions
+                expect(miniDefaultBounds.left).not.to.equal(
+                    miniEaseOutBounds.left
+                )
+                expect(miniDefaultBounds.left).not.to.equal(
+                    miniSpringBounds.left
+                )
+                expect(animateMainThreadDefaultBounds.left).not.to.equal(
+                    animateMainThreadEaseOutBounds.left
+                )
+                expect(animateMainThreadDefaultBounds.left).not.to.equal(
+                    animateMainThreadSpringBounds.left
+                )
+                // Skipping as env doesn't support linear() easing
+                // expect(miniEaseOutBounds.left).not.to.equal(
+                //     miniSpringBounds.left
+                // )
+            })
+    })
+
+    it("correctly applies parallax animations", () => {
+        cy.visit("?test=scroll-parallax")
+            .viewport(1000, 500)
+            .wait(200)
+            .get(".img-container:first-child .main-thread.sentinel")
+            .should(([$element]: any) => {
+                expect($element.getBoundingClientRect().top).to.equal(200)
+            })
+            .get(".img-container:first-child .waapi.sentinel")
+            .should(([$element]: any) => {
+                expect($element.getBoundingClientRect().top).to.equal(200)
+            })
+            .get(".img-container:first-child .waapi.sentinel")
+            .should(([$element]: any) => {
+                expect($element.getBoundingClientRect().top).to.equal(200)
+            })
+    })
 })
 
 describe("SVG", () => {
@@ -181,5 +292,16 @@ describe("SVG", () => {
         cy.get("#svg-progress").should(([$element]: any) => {
             expect($element.innerText).to.equal("1")
         })
+    })
+})
+
+describe("scroll() full height target", () => {
+    it("doesn't return progress 1 before it hits its first offset", () => {
+        cy.visit("?test=scroll-fill-range")
+            .wait(100)
+            .get("#content")
+            .should(([$element]: any) => {
+                expect($element.innerText).to.equal("0")
+            })
     })
 })

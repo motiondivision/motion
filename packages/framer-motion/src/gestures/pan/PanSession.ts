@@ -1,106 +1,29 @@
-import { EventInfo } from "../../events/types"
-import { extractEventInfo } from "../../events/event-info"
-import { frame, cancelFrame } from "../../frameloop"
+import type { EventInfo, PanHandler } from "motion-dom"
+import { cancelFrame, frame, frameData, isPrimaryPointer } from "motion-dom"
 import {
     millisecondsToSeconds,
+    pipe,
+    Point,
     secondsToMilliseconds,
-} from "../../utils/time-conversion"
+    TransformPoint,
+} from "motion-utils"
 import { addPointerEvent } from "../../events/add-pointer-event"
-import { Point, TransformPoint } from "../../projection/geometry/types"
-import { pipe } from "../../utils/pipe"
+import { extractEventInfo } from "../../events/event-info"
 import { distance2D } from "../../utils/distance"
-import { frameData } from "../../frameloop"
-import { isPrimaryPointer } from "../../events/utils/is-primary-pointer"
 
-/**
- * Passed in to pan event handlers like `onPan` the `PanInfo` object contains
- * information about the current state of the tap gesture such as its
- * `point`, `delta`, `offset` and `velocity`.
- *
- * ```jsx
- * <motion.div onPan={(event, info) => {
- *   console.log(info.point.x, info.point.y)
- * }} />
- * ```
- *
- * @public
- */
-export interface PanInfo {
-    /**
-     * Contains `x` and `y` values for the current pan position relative
-     * to the device or page.
-     *
-     * ```jsx
-     * function onPan(event, info) {
-     *   console.log(info.point.x, info.point.y)
-     * }
-     *
-     * <motion.div onPan={onPan} />
-     * ```
-     *
-     * @public
-     */
-    point: Point
-    /**
-     * Contains `x` and `y` values for the distance moved since
-     * the last event.
-     *
-     * ```jsx
-     * function onPan(event, info) {
-     *   console.log(info.delta.x, info.delta.y)
-     * }
-     *
-     * <motion.div onPan={onPan} />
-     * ```
-     *
-     * @public
-     */
-    delta: Point
-    /**
-     * Contains `x` and `y` values for the distance moved from
-     * the first pan event.
-     *
-     * ```jsx
-     * function onPan(event, info) {
-     *   console.log(info.offset.x, info.offset.y)
-     * }
-     *
-     * <motion.div onPan={onPan} />
-     * ```
-     *
-     * @public
-     */
-    offset: Point
-    /**
-     * Contains `x` and `y` values for the current velocity of the pointer, in px/ms.
-     *
-     * ```jsx
-     * function onPan(event, info) {
-     *   console.log(info.velocity.x, info.velocity.y)
-     * }
-     *
-     * <motion.div onPan={onPan} />
-     * ```
-     *
-     * @public
-     */
-    velocity: Point
-}
-
-export type PanHandler = (event: Event, info: PanInfo) => void
 interface PanSessionHandlers {
     onSessionStart: PanHandler
     onStart: PanHandler
     onMove: PanHandler
     onEnd: PanHandler
-    onSessionEnd: PanHandler,
+    onSessionEnd: PanHandler
     resumeAnimation: () => void
 }
 
 interface PanSessionOptions {
-    transformPagePoint?: TransformPoint,
-    contextWindow?: (Window & typeof globalThis) | null
+    transformPagePoint?: TransformPoint
     dragSnapToOrigin?: boolean
+    contextWindow?: (Window & typeof globalThis) | null
 }
 
 interface TimestampedPoint extends Point {
@@ -148,11 +71,11 @@ export class PanSession {
 
     /**
      * For determining if an animation should resume after it is interupted
-     * 
+     *
      * @internal
      */
     private dragSnapToOrigin: boolean
-    
+
     /**
      * @internal
      */
@@ -161,7 +84,11 @@ export class PanSession {
     constructor(
         event: PointerEvent,
         handlers: Partial<PanSessionHandlers>,
-        { transformPagePoint, contextWindow, dragSnapToOrigin = false }: PanSessionOptions = {}
+        {
+            transformPagePoint,
+            contextWindow,
+            dragSnapToOrigin = false,
+        }: PanSessionOptions = {}
     ) {
         // If we have more than one touch, don't start detecting this gesture
         if (!isPrimaryPointer(event)) return
@@ -242,8 +169,8 @@ export class PanSession {
         this.end()
 
         const { onEnd, onSessionEnd, resumeAnimation } = this.handlers
-        
-        if(this.dragSnapToOrigin) resumeAnimation && resumeAnimation()
+
+        if (this.dragSnapToOrigin) resumeAnimation && resumeAnimation()
         if (!(this.lastMoveEvent && this.lastMoveEventInfo)) return
 
         const panInfo = getPanInfo(

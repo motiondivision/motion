@@ -1,0 +1,68 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+                font-family: sans-serif;
+            }
+
+            .container {
+                display: flex;
+                gap: 10px;
+                flex-direction: column;
+                height: 200vh;
+            }
+
+            .box {
+                width: 100px;
+                height: 100px;
+                background-color: #0077ff;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                text-align: center;
+                position: fixed;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="box" id="mini" style="top: 0px">mini</div>
+            <div class="box" id="js" style="top: 100px">js</div>
+            <div class="box" id="waapi" style="top: 200px">waapi</div>
+        </div>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            const { animateMini, animate, scroll, delay } = window.Motion
+
+            const options = {
+                duration: 0.2,
+            }
+
+            const miniElement = document.querySelector("#mini")
+            const jsElement = document.querySelector("#js")
+            const waapiElement = document.querySelector("#waapi")
+
+            const mini = animateMini(
+                miniElement,
+                { transform: "translateX(100px)" },
+                options
+            )
+            const js = animate(jsElement, { x: 100 }, options)
+            const waapi = animate(
+                waapiElement,
+                { transform: "translateX(100px)" },
+                options
+            )
+
+            const scrollOptions = {
+                offset: ["start start", "end end"],
+            }
+
+            scroll((p, info) => console.log(p, info.y))
+            scroll(mini, scrollOptions)
+            scroll(js, scrollOptions)
+            scroll(waapi, scrollOptions)
+        </script>
+    </body>
+</html>

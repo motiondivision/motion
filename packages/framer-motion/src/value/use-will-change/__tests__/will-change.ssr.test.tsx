@@ -1,6 +1,6 @@
-import { renderToString, renderToStaticMarkup } from "react-dom/server"
+import { motionValue } from "motion-dom"
+import { renderToStaticMarkup, renderToString } from "react-dom/server"
 import { MotionConfig, motion } from "../../../"
-import { motionValue } from "../../../value"
 
 function runTests(render: (components: any) => string) {
     test("will-change not applied", () => {

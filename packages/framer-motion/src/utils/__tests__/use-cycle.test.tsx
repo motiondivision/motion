@@ -1,6 +1,6 @@
-import { render, click } from "../../../jest.setup"
 import { fireEvent } from "@testing-library/react"
-import { useEffect } from "react";
+import { useEffect } from "react"
+import { click, render } from "../../jest.setup"
 import { useCycle } from "../use-cycle"
 
 describe("useCycle", () => {

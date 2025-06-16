@@ -1,15 +1,17 @@
-import { appearStoreId } from "./store-id"
-import { startWaapiAnimation } from "../animators/waapi"
-import { NativeAnimationOptions } from "../animators/waapi/types"
-import { optimizedAppearDataId } from "./data-id"
-import { handoffOptimizedAppearAnimation } from "./handoff"
-import { appearAnimationStore, AppearStoreEntry, appearComplete } from "./store"
+import {
+    Batcher,
+    MotionValue,
+    startWaapiAnimation,
+    ValueAnimationTransition,
+} from "motion-dom"
 import { noop } from "motion-utils"
-import "./types"
+import { optimizedAppearDataId } from "./data-id"
 import { getOptimisedAppearId } from "./get-appear-id"
-import { MotionValue } from "../../value"
+import { handoffOptimizedAppearAnimation } from "./handoff"
+import { appearAnimationStore, appearComplete, AppearStoreEntry } from "./store"
+import { appearStoreId } from "./store-id"
+import "./types"
 import type { WithAppearProps } from "./types"
-import { Batcher } from "../../frameloop/types"
 
 /**
  * A single time to use across all animations to manually set startTime
@@ -44,7 +46,7 @@ export function startOptimizedAppearAnimation(
     element: HTMLElement,
     name: string,
     keyframes: string[] | number[],
-    options: NativeAnimationOptions,
+    options: ValueAnimationTransition<number | string>,
     onReady?: (animation: Animation) => void
 ): void {
     // Prevent optimised appear animations if Motion has already started animating.

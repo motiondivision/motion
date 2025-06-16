@@ -1,4 +1,4 @@
-import "../../../jest.setup"
+import "../../jest.setup"
 import { shallowCompare } from "../shallow-compare"
 
 describe("shallowCompare", () => {

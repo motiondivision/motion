@@ -1,7 +1,6 @@
-import { GroupPlaybackControls } from "../../GroupPlaybackControls"
+import { AnimationPlaybackControls, GroupAnimationWithThen } from "motion-dom"
 import { createAnimationsFromSequence } from "../../sequence/create"
 import { AnimationSequence, SequenceOptions } from "../../sequence/types"
-import { AnimationPlaybackControls } from "../../types"
 import { animateElements } from "./animate-elements"
 
 export function animateSequence(
@@ -16,5 +15,5 @@ export function animateSequence(
         }
     )
 
-    return new GroupPlaybackControls(animations)
+    return new GroupAnimationWithThen(animations)
 }

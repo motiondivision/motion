@@ -1,5 +1,5 @@
-import "../../../jest.setup"
-import { Point } from "../../projection/geometry/types"
+import { Point } from "motion-utils"
+import "../../jest.setup"
 
 const relativeTo = (idOrElem: string | HTMLElement) => {
     let elem: HTMLElement | null

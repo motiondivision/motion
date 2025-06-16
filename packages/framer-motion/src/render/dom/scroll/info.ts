@@ -1,5 +1,4 @@
-import { progress } from "../../../utils/progress"
-import { velocityPerSecond } from "../../../utils/velocity-per-second"
+import { progress, velocityPerSecond } from "motion-utils"
 import { AxisScrollInfo, ScrollInfo } from "./types"
 
 /**
@@ -36,7 +35,7 @@ const keys = {
 } as const
 
 function updateAxisInfo(
-    element: HTMLElement,
+    element: Element,
     axisName: "x" | "y",
     info: ScrollInfo,
     time: number
@@ -49,6 +48,7 @@ function updateAxisInfo(
 
     axis.current = element[`scroll${position}`]
     axis.scrollLength = element[`scroll${length}`] - element[`client${length}`]
+
     axis.offset.length = 0
     axis.offset[0] = 0
     axis.offset[1] = axis.scrollLength
@@ -62,7 +62,7 @@ function updateAxisInfo(
 }
 
 export function updateScrollInfo(
-    element: HTMLElement,
+    element: Element,
     info: ScrollInfo,
     time: number
 ) {

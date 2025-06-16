@@ -1,4 +1,4 @@
-import { render } from "../../../jest.setup"
+import { render } from "../../jest.setup"
 import { useAnimationFrame } from "../use-animation-frame"
 
 describe("useAnimationFrame", () => {

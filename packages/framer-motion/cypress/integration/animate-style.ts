@@ -69,21 +69,22 @@ describe("animateMini()", () => {
             })
     })
 
-    it("correctly measures duration", () => {
-        cy.visit("?test=animate-style-duration")
-            .wait(400)
-            .get("#box")
-            .should(([$element]: any) => {
-                expect($element.style.backgroundColor).to.equal("green")
-            })
-    })
-
     it("works correctly with stagger", () => {
         cy.visit("?test=animate-style-stagger")
             .wait(500)
             .get("#box")
             .should(([$element]: any) => {
                 expect($element.style.opacity).to.equal("1")
+            })
+    })
+
+    it("works correctly with CSS variables", () => {
+        cy.visit("?test=animate-style-css-var")
+            .wait(500)
+            .get("#box")
+            .should(([$element]: any) => {
+                expect($element.style.getPropertyValue("--x")).to.equal("500px")
+                expect($element.getBoundingClientRect().left).to.equal(500)
             })
     })
 })

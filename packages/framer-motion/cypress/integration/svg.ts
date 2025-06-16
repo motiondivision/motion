@@ -82,3 +82,78 @@ describe("SVG", () => {
             })
     })
 })
+
+describe("SVG origin", () => {
+    it("Correctly animates origin", () => {
+        cy.visit("?test=svg-origin")
+            .get("#none-transform")
+            .wait(100)
+            .should(([$rect]: any) => {
+                expect($rect.style.transform).to.equal("none")
+                expect($rect.style.transformBox).to.equal("fill-box")
+                expect($rect.style.transformOrigin).to.equal("50% 50%")
+            })
+            .get("#only-transform")
+            .should(([$rect]: any) => {
+                expect($rect.style.transform).to.equal("rotate(45deg)")
+                expect($rect.style.transformBox).to.equal("fill-box")
+                expect($rect.style.transformOrigin).to.equal("50% 50%")
+            })
+            .get("#only-transformOrigin")
+            .should(([$rect]: any) => {
+                expect($rect.style.transform).to.equal("")
+                expect($rect.style.transformBox).to.equal("")
+                expect($rect.style.transformOrigin).to.equal("100% 50% 0px")
+            })
+            .get("#transform-and-transformOrigin")
+            .should(([$rect]: any) => {
+                expect($rect.style.transform).to.equal("rotate(45deg)")
+                expect($rect.style.transformBox).to.equal("fill-box")
+                expect($rect.style.transformOrigin).to.equal("100% 50% 0px")
+            })
+            .wait(100)
+            .get("#no-set-originY")
+            .should(([$circle]: any) => {
+                expect($circle.style.transform).to.equal(
+                    "rotate(180deg) skew(45deg)"
+                )
+                expect($circle.style.transformBox).to.equal("fill-box")
+                expect($circle.style.transformOrigin).to.equal("100% 50% 0px")
+            })
+            .get("#set-originY")
+            .should(([$circle]: any) => {
+                expect($circle.style.transform).to.equal(
+                    "rotate(180deg) skew(45deg)"
+                )
+                expect($circle.style.transformBox).to.equal("fill-box")
+                expect($circle.style.transformOrigin).to.equal("100% 100% 0px")
+            })
+    })
+})
+
+describe("SVG measures", () => {
+    it("Correctly measures SVG and renders on mount", () => {
+        cy.visit("?test=svg-initial-render")
+            .get("path")
+            .should(([$path]: any) => {
+                expect($path.style.transform).to.equal(
+                    "translateX(5px) translateY(5px)"
+                )
+                expect($path.style.transformBox).to.equal("fill-box")
+                expect($path.style.transformOrigin).to.equal("50% 50%")
+            })
+    })
+
+    it("Measure SVG and renders on mount when encountering new transforms", () => {
+        cy.visit("?test=svg-animate-transform")
+            .wait(200)
+            .get("path")
+            .should(([$path]: any) => {
+                expect($path.style.transform).to.equal(
+                    "translateX(5px) translateY(5px)"
+                )
+                expect($path.style.transformBox).to.equal("fill-box")
+                expect($path.style.transformOrigin).to.equal("50% 50%")
+            })
+    })
+})

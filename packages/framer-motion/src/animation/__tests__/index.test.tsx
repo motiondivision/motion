@@ -1,9 +1,9 @@
-import { render } from "../../../jest.setup"
 import * as React from "react"
 import { useEffect } from "react"
 import { motion } from "../.."
-import { useAnimation } from "../hooks/use-animation"
+import { render } from "../../jest.setup"
 import { useMotionValue } from "../../value/use-motion-value"
+import { useAnimation } from "../hooks/use-animation"
 
 describe("useAnimation", () => {
     test("animates on mount", async () => {
@@ -98,13 +98,13 @@ describe("useAnimation", () => {
                         initial="hidden"
                         animate="visible"
                         variants={variants}
-                        transition={{ transition: false }}
+                        transition={{ type: false }}
                     >
                         <motion.div
                             onAnimationComplete={(definition) =>
                                 resolve(definition)
                             }
-                            transition={{ transition: false }}
+                            transition={{ type: false }}
                             variants={variants}
                         />
                     </motion.div>
@@ -215,10 +215,7 @@ describe("useAnimation", () => {
             rerender(<Component />)
         })
 
-        return await expect(promise).resolves.toEqual([
-            100,
-            "rgba(255, 255, 255, 1)",
-        ])
+        return expect(promise).resolves.toEqual([100, "#fff"])
     })
 
     it("respects initial even if passed controls", () => {
@@ -268,7 +265,7 @@ describe("useAnimation", () => {
             rerender(<Component />)
         })
 
-        return await expect(promise).resolves.toEqual("rgba(255, 255, 255, 1)")
+        return expect(promise).resolves.toEqual("#fff")
     })
 
     test("accepts array of variants", async () => {

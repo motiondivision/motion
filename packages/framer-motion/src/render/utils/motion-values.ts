@@ -1,7 +1,5 @@
+import { isMotionValue, motionValue } from "motion-dom"
 import { MotionStyle } from "../../motion/types"
-import { warnOnce } from "../../utils/warn-once"
-import { motionValue } from "../../value"
-import { isMotionValue } from "../../value/utils/is-motion-value"
 import type { VisualElement } from "../VisualElement"
 
 export function updateMotionValuesFromProps(
@@ -19,17 +17,6 @@ export function updateMotionValuesFromProps(
              * to our visual element's motion value map.
              */
             element.addValue(key, nextValue)
-
-            /**
-             * Check the version of the incoming motion value with this version
-             * and warn against mismatches.
-             */
-            if (process.env.NODE_ENV === "development") {
-                warnOnce(
-                    nextValue.version === "__VERSION__",
-                    `Attempting to mix Motion versions ${nextValue.version} with __VERSION__ may not work as expected.`
-                )
-            }
         } else if (isMotionValue(prevValue)) {
             /**
              * If we're swapping from a motion value to a static value,

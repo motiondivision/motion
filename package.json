@@ -17,10 +17,10 @@
         "test": "turbo run test",
         "test-playwright": "yarn playwright test",
         "test-ci": "turbo run test-ci --no-cache",
-        "measure": "turbo run measure && node dev/inc/bundlesize.mjs",
+        "measure": "turbo run measure --force && node dev/inc/bundlesize.mjs",
         "version": "yarn install && git stage yarn.lock",
         "prepare": "make check-status && turbo run build measure",
-        "new": "lerna publish from-package",
+        "new": "yarn test-playwright && lerna publish from-package",
         "new-alpha": "turbo run build && lerna publish from-package --canary --preid alpha"
     },
     "devDependencies": {
@@ -30,13 +30,14 @@
         "@rollup/plugin-alias": "^5.1.0",
         "@rollup/plugin-node-resolve": "^15.2.3",
         "@rollup/plugin-replace": "^5.0.5",
+        "@rollup/plugin-terser": "^0.4.4",
         "@testing-library/dom": "^8.16.0",
         "@testing-library/jest-dom": "^6.4.2",
         "@testing-library/react": "16.0.1",
         "@types/jest": "^29.5.12",
         "@types/node": "^18.6.3",
-        "@types/react": "latest",
-        "@types/react-dom": "latest",
+        "@types/react": "^18.3.1",
+        "@types/react-dom": "^18.3.1",
         "@types/styled-components": "^5.1.25",
         "@typescript-eslint/eslint-plugin": "^7.4.0",
         "@typescript-eslint/parser": "^7.4.0",
@@ -48,6 +49,7 @@
         "eslint-config-prettier": "^8.5.0",
         "eslint-plugin-import": "^2.26.0",
         "eslint-plugin-react": "^7.30.1",
+        "eslint-plugin-react-compiler": "^19.0.0-beta-df7b47d-20241124",
         "eslint-plugin-react-hooks": "^4.6.0",
         "eslint-plugin-redos-detector": "^2.4.0",
         "eslint-plugin-regexp": "^2.2.0",
@@ -67,10 +69,8 @@
         "rollup-plugin-analyzer": "^4.0.0",
         "rollup-plugin-dts": "6.1.0",
         "rollup-plugin-preserve-directives": "^0.4.0",
-        "rollup-plugin-terser": "^5.3.0",
-        "rollup-plugin-visualizer": "^5.7.1",
+        "rollup-plugin-visualizer": "^5.14.0",
         "start-server-and-test": "^1.14.0",
-        "styled-components": "^4.1.1",
         "ts-jest": "^29.1.2",
         "ts-loader": "^9.5.1",
         "turbo": "1.x",
@@ -78,6 +78,14 @@
         "typescript": "5.4.3",
         "yarn-deduplicate": "^1.1.1",
         "zlib": "^1.0.5"
+    },
+    "overrides": {
+        "react-19-env": {
+            "react": "^19.0.0",
+            "react-dom": "^19.0.0",
+            "@types/react": "^19.0.0",
+            "@types/react-dom": "^19.0.0"
+        }
     },
     "packageManager": "yarn@3.1.0"
 }

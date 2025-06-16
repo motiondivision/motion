@@ -15,15 +15,6 @@ function showError(element, msg) {
 
 window.showError = showError
 
-window.ProjectionFrames = []
-window.MotionDebug = {
-    record: (action) => {
-        if (action.type === "projectionFrame") {
-            window.ProjectionFrames.push({ ...action })
-        }
-    },
-}
-
 window.Assert = {
     matchViewportBox: (element, expected, threshold = 0.01) => {
         const bbox = element.getBoundingClientRect()
@@ -123,9 +114,24 @@ window.Assert = {
         }
     },
     checkFrame(element, frameIndex, expected) {
-        const frame = window.ProjectionFrames[frameIndex]
+        const { statsBuffer } = window.Projection
 
-        if (!frame) showError(element, "No frame found for given index")
+        if (!statsBuffer.value) {
+            showError(element, "No stats buffer found")
+            return
+        }
+
+        const { nodes, calculatedTargetDeltas, calculatedProjections } =
+            statsBuffer.value.layoutProjection
+
+        const frame = {
+            totalNodes: nodes[frameIndex],
+            resolvedTargetDeltas: calculatedTargetDeltas[frameIndex],
+            recalculatedProjection: calculatedProjections[frameIndex],
+        }
+
+        if (!nodes[frameIndex])
+            showError(element, "No frame found for given index")
 
         if (frame.totalNodes !== expected.totalNodes) {
             showError(

@@ -1,0 +1,64 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+                font-family: sans-serif;
+                display: flex;
+                gap: 10px;
+                flex-direction: column;
+            }
+
+            .box {
+                width: 100px;
+                height: 100px;
+                background-color: #0077ff;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                text-align: center;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="box" id="mini">mini</div>
+        <div class="box" id="js">js</div>
+        <div class="box" id="waapi">waapi</div>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            const { animateMini, animate, delay } = window.Motion
+
+            const options = {
+                duration: 1,
+            }
+
+            const miniElement = document.querySelector("#mini")
+            const jsElement = document.querySelector("#js")
+            const waapiElement = document.querySelector("#waapi")
+
+            let mini = animateMini(
+                miniElement,
+                { transform: "translateX(100px)" },
+                options
+            )
+            let js = animate(jsElement, { x: 100 }, options)
+            let waapi = animate(
+                waapiElement,
+                { transform: "translateX(100px)" },
+                options
+            )
+
+            mini.time = 0.5
+            js.time = 0.5
+            waapi.time = 0.5
+
+            mini.pause()
+            js.pause()
+            waapi.pause()
+
+            mini.cancel()
+            js.cancel()
+            waapi.cancel()
+        </script>
+    </body>
+</html>

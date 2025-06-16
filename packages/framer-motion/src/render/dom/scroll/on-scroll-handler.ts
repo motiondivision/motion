@@ -1,15 +1,15 @@
-import { warnOnce } from "../../../utils/warn-once"
+import { warnOnce } from "motion-utils"
 import { updateScrollInfo } from "./info"
 import { resolveOffsets } from "./offsets/index"
 import {
-    OnScrollInfo,
     OnScrollHandler,
+    OnScrollInfo,
     ScrollInfo,
     ScrollInfoOptions,
 } from "./types"
 
 function measure(
-    container: HTMLElement,
+    container: Element,
     target: Element = container,
     info: ScrollInfo
 ) {
@@ -49,14 +49,14 @@ function measure(
 }
 
 export function createOnScrollHandler(
-    element: HTMLElement,
+    element: Element,
     onScroll: OnScrollInfo,
     info: ScrollInfo,
     options: ScrollInfoOptions = {}
 ): OnScrollHandler {
     return {
-        measure: () => measure(element, options.target, info),
-        update: (time) => {
+        measure: (time) => {
+            measure(element, options.target, info)
             updateScrollInfo(element, info, time)
 
             if (options.offset || options.target) {

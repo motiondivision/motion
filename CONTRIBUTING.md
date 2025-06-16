@@ -5,7 +5,7 @@
 
 ## Bug fixes
 
-Open issues can be found on our [GitHub issues](https://github.com/framer/motion/issues?q=is%3Aopen+is%3Aissue+label%3Abug) page with a "Bug" label.
+Open issues can be found on our [GitHub issues](https://github.com/motiondivision/motion/issues?q=is%3Aopen+is%3Aissue+label%3Abug) page with a "Bug" label.
 
 These are a great place to start contributing to the repo!
 
@@ -15,7 +15,7 @@ If the bug you want to work on doesn't have a related issue, open one, and attac
 
 ## New features
 
-Before adding any features, open a [Feature Proposal](https://github.com/framer/motion/issues/new/choose).
+Before adding any features, open a [Feature Proposal](https://github.com/motiondivision/motion/issues/new/choose).
 
 This will let us talk through your proposal API and/or implementation before you spend time on it.
 

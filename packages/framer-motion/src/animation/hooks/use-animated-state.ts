@@ -1,10 +1,10 @@
-import { useState, useLayoutEffect } from "react"
-import { useConstant } from "../../utils/use-constant"
-import { TargetAndTransition } from "../../types"
-import { ResolvedValues } from "../../render/types"
+import { TargetAndTransition } from "motion-dom"
+import { useLayoutEffect, useState } from "react"
 import { makeUseVisualState } from "../../motion/utils/use-visual-state"
 import { createBox } from "../../projection/geometry/models"
+import { ResolvedValues } from "../../render/types"
 import { VisualElement } from "../../render/VisualElement"
+import { useConstant } from "../../utils/use-constant"
 import { animateVisualElement } from "../interfaces/visual-element"
 
 interface AnimatedStateOptions {

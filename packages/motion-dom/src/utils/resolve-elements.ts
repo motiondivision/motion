@@ -22,17 +22,12 @@ export function resolveElements(
     scope?: AnimationScope,
     selectorCache?: SelectorCache
 ): Element[] {
-    if (elementOrSelector instanceof Element) {
+    if (elementOrSelector instanceof EventTarget) {
         return [elementOrSelector]
     } else if (typeof elementOrSelector === "string") {
         let root: WithQuerySelectorAll = document
 
         if (scope) {
-            // TODO: Refactor to utils package
-            // invariant(
-            //     Boolean(scope.current),
-            //     "Scope provided, but no element detected."
-            // )
             root = scope.current
         }
 

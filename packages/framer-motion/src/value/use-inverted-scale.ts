@@ -1,9 +1,9 @@
-import { useTransform } from "../value/use-transform"
-import { MotionValue } from "./"
+import { MotionValue } from "motion-dom"
 import { invariant, warning } from "motion-utils"
-import { useMotionValue } from "./use-motion-value"
-import { MotionContext } from "../context/MotionContext"
 import { useContext } from "react"
+import { MotionContext } from "../context/MotionContext"
+import { useMotionValue } from "./use-motion-value"
+import { useTransform } from "./use-transform"
 
 interface ScaleMotionValues {
     scaleX: MotionValue<number>

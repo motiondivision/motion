@@ -1,14 +1,11 @@
-import { render } from "../../../jest.setup"
+import { frame, frameData, frameSteps, time } from "motion-dom"
+import { mirrorEasing, MotionGlobalConfig } from "motion-utils"
 import { useEffect } from "react"
-import { useVelocity } from "../use-velocity"
-import { useMotionValue } from "../use-motion-value"
 import { animate } from "../../animation/animate"
-import { frame, frameSteps } from "../../frameloop"
-import { frameData } from "../../frameloop"
+import { render } from "../../jest.setup"
 import { useMotionValueEvent } from "../../utils/use-motion-value-event"
-import { mirrorEasing } from "../../easing/modifiers/mirror"
-import { time } from "../../frameloop/sync-time"
-import { MotionGlobalConfig } from "../../utils/GlobalConfig"
+import { useMotionValue } from "../use-motion-value"
+import { useVelocity } from "../use-velocity"
 
 MotionGlobalConfig.useManualTiming = true
 

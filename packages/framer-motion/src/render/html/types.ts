@@ -1,11 +1,5 @@
 import { ResolvedValues } from "../types"
-import {
-    DetailedHTMLFactory,
-    HTMLAttributes,
-    PropsWithoutRef,
-    ReactHTML,
-    RefAttributes,
-} from "react"
+import { PropsWithoutRef, RefAttributes, JSX } from "react"
 import { MotionProps } from "../../motion/types"
 import { HTMLElements } from "./supported-elements"
 
@@ -48,36 +42,15 @@ export type ForwardRefComponent<T, P> = { readonly $$typeof: symbol } & ((
     props: PropsWithoutRef<P> & RefAttributes<T>
 ) => JSX.Element)
 
-/**
- * Support for React component props
- */
-export type UnwrapFactoryAttributes<F> = F extends DetailedHTMLFactory<
-    infer P,
-    any
->
-    ? P
-    : never
-export type UnwrapFactoryElement<F> = F extends DetailedHTMLFactory<
-    any,
-    infer P
->
-    ? P
-    : never
-
-type HTMLAttributesWithoutMotionProps<
-    Attributes extends HTMLAttributes<Element>,
-    Element extends HTMLElement
-> = { [K in Exclude<keyof Attributes, keyof MotionProps>]?: Attributes[K] }
+type AttributesWithoutMotionProps<Attributes> = {
+    [K in Exclude<keyof Attributes, keyof MotionProps>]?: Attributes[K]
+}
 
 /**
  * @public
  */
-export type HTMLMotionProps<TagName extends keyof ReactHTML> =
-    HTMLAttributesWithoutMotionProps<
-        UnwrapFactoryAttributes<ReactHTML[TagName]>,
-        UnwrapFactoryElement<ReactHTML[TagName]>
-    > &
-        MotionProps
+export type HTMLMotionProps<Tag extends keyof HTMLElements> =
+    AttributesWithoutMotionProps<JSX.IntrinsicElements[Tag]> & MotionProps
 
 /**
  * Motion-optimised versions of React's HTML components.
@@ -85,8 +58,8 @@ export type HTMLMotionProps<TagName extends keyof ReactHTML> =
  * @public
  */
 export type HTMLMotionComponents = {
-    [K in HTMLElements]: ForwardRefComponent<
-        UnwrapFactoryElement<ReactHTML[K]>,
+    [K in keyof HTMLElements]: ForwardRefComponent<
+        HTMLElements[K],
         HTMLMotionProps<K>
     >
 }

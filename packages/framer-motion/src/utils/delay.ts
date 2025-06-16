@@ -1,7 +1,5 @@
-import { frame, cancelFrame } from "../frameloop"
-import { time } from "../frameloop/sync-time"
-import { FrameData } from "../frameloop/types"
-import { secondsToMilliseconds } from "./time-conversion"
+import { cancelFrame, frame, FrameData, time } from "motion-dom"
+import { secondsToMilliseconds } from "motion-utils"
 
 export type DelayedFunction = (overshoot: number) => void
 
@@ -20,7 +18,7 @@ export function delay(callback: DelayedFunction, timeout: number) {
         }
     }
 
-    frame.read(checkElapsed, true)
+    frame.setup(checkElapsed, true)
 
     return () => cancelFrame(checkElapsed)
 }

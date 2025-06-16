@@ -1,7 +1,6 @@
-import { frame, cancelFrame } from "../frameloop"
+import { cancelFrame, frame, FrameData } from "motion-dom"
 import { useContext, useEffect, useRef } from "react"
 import { MotionConfigContext } from "../context/MotionConfigContext"
-import { FrameData } from "../frameloop/types"
 
 export type FrameCallback = (timestamp: number, delta: number) => void
 

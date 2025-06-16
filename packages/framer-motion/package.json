@@ -1,15 +1,21 @@
 {
     "name": "framer-motion",
-    "version": "11.13.0",
+    "version": "12.18.1",
     "description": "A simple and powerful JavaScript animation library",
     "main": "dist/cjs/index.js",
     "module": "dist/es/index.mjs",
     "exports": {
         ".": {
-            "types": "./dist/index.d.ts",
+            "types": "./dist/types/index.d.ts",
             "require": "./dist/cjs/index.js",
             "import": "./dist/es/index.mjs",
             "default": "./dist/cjs/index.js"
+        },
+        "./debug": {
+            "types": "./dist/debug.d.ts",
+            "require": "./dist/cjs/debug.js",
+            "import": "./dist/es/debug.mjs",
+            "default": "./dist/cjs/debug.js"
         },
         "./dom/mini": {
             "types": "./dist/dom-mini.d.ts",
@@ -24,7 +30,7 @@
             "default": "./dist/cjs/dom.js"
         },
         "./client": {
-            "types": "./dist/client.d.ts",
+            "types": "./dist/types/client.d.ts",
             "require": "./dist/cjs/client.js",
             "import": "./dist/es/client.mjs",
             "default": "./dist/cjs/client.js"
@@ -47,16 +53,14 @@
         },
         "./package.json": "./package.json"
     },
-    "types": "dist/index.d.ts",
+    "types": "dist/types/index.d.ts",
     "author": "Matt Perry",
     "license": "MIT",
-    "repository": "https://github.com/framer/motion/",
+    "repository": "https://github.com/motiondivision/motion/",
     "sideEffects": false,
     "keywords": [
         "react animation",
         "react",
-        "three",
-        "3d",
         "pose",
         "react pose",
         "animation",
@@ -70,31 +74,32 @@
     "scripts": {
         "eslint": "yarn run lint",
         "lint": "yarn eslint src/**/*.ts",
-        "build": "yarn clean && tsc -p . && rollup -c && node ./scripts/check-bundle.js",
+        "build": "yarn clean && tsc --noEmitOnError -p . && rollup -c && node ./scripts/check-bundle.js",
         "dev": "yarn watch",
         "clean": "rm -rf types dist lib",
         "test": "yarn test-server && yarn test-client",
         "test-client": "jest --config jest.config.json --max-workers=2",
         "test-server": "jest --config jest.config.ssr.json",
         "prettier": "prettier ./src/* --write",
-        "watch": "concurrently -c blue,red -n tsc,rollup --kill-others \"tsc --watch -p . --preserveWatchOutput\" \"rollup --config --watch --no-watch.clearScreen\"",
-        "prepack": "yarn build",
+        "watch": "concurrently -c blue,red -n tsc --noEmitOnError ,rollup --kill-others \"tsc  --noEmitOnError --watch -p . --preserveWatchOutput\" \"rollup --config --watch --no-watch.clearScreen\"",
+        "prepack": "yarn build && yarn measure",
         "postpublish": "git push --tags",
         "measure": "rollup -c ./rollup.size.config.mjs"
     },
     "dependencies": {
-        "motion-dom": "^11.13.0",
-        "motion-utils": "^11.13.0",
+        "motion-dom": "^12.18.1",
+        "motion-utils": "^12.18.1",
         "tslib": "^2.4.0"
     },
     "devDependencies": {
+        "@thednp/dommatrix": "^2.0.11",
         "@types/three": "0.137.0",
         "three": "0.137.0"
     },
     "peerDependencies": {
         "@emotion/is-prop-valid": "*",
-        "react": "^18.0.0",
-        "react-dom": "^18.0.0"
+        "react": "^18.0.0 || ^19.0.0",
+        "react-dom": "^18.0.0 || ^19.0.0"
     },
     "peerDependenciesMeta": {
         "@emotion/is-prop-valid": {
@@ -110,23 +115,23 @@
     "bundlesize": [
         {
             "path": "./dist/size-rollup-motion.js",
-            "maxSize": "34.4 kB"
+            "maxSize": "34.9 kB"
         },
         {
             "path": "./dist/size-rollup-m.js",
-            "maxSize": "5.71 kB"
+            "maxSize": "6 kB"
         },
         {
             "path": "./dist/size-rollup-dom-animation.js",
-            "maxSize": "17.35 kB"
+            "maxSize": "17.85 kB"
         },
         {
             "path": "./dist/size-rollup-dom-max.js",
-            "maxSize": "29.6 kB"
+            "maxSize": "29.8 kB"
         },
         {
             "path": "./dist/size-rollup-animate.js",
-            "maxSize": "18.2 kB"
+            "maxSize": "19.1 kB"
         },
         {
             "path": "./dist/size-rollup-scroll.js",
@@ -134,8 +139,8 @@
         },
         {
             "path": "./dist/size-rollup-waapi-animate.js",
-            "maxSize": "2.54 kB"
+            "maxSize": "2.26 kB"
         }
     ],
-    "gitHead": "9c70b0208d6492d195ce5fdb60ded6cae1a3245c"
+    "gitHead": "cddcc66430c5c96b2f560bb6a61160231f512c53"
 }

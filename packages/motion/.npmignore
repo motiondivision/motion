@@ -1,0 +1,9 @@
+*
+**/*
+!dist/**
+!LICENSE.md
+!package.json
+!mini/package.json
+!react/package.json
+!react-client/package.json
+!react-m/package.json

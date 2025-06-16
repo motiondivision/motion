@@ -1,7 +1,6 @@
-import { MotionValue } from "../value"
-import { transform, TransformOptions } from "../utils/transform"
-import { useCombineMotionValues } from "./use-combine-values"
+import { MotionValue, transform, TransformOptions } from "motion-dom"
 import { useConstant } from "../utils/use-constant"
+import { useCombineMotionValues } from "./use-combine-values"
 import { useComputed } from "./use-computed"
 
 export type InputRange = number[]

@@ -22,7 +22,10 @@ const thresholds = {
 
 export function inView(
     elementOrSelector: ElementOrSelector,
-    onStart: (entry: IntersectionObserverEntry) => void | ViewChangeHandler,
+    onStart: (
+        element: Element,
+        entry: IntersectionObserverEntry
+    ) => void | ViewChangeHandler,
     { root, margin: rootMargin, amount = "some" }: InViewOptions = {}
 ): VoidFunction {
     const elements = resolveElements(elementOrSelector)
@@ -40,13 +43,13 @@ export function inView(
             if (entry.isIntersecting === Boolean(onEnd)) return
 
             if (entry.isIntersecting) {
-                const newOnEnd = onStart(entry)
+                const newOnEnd = onStart(entry.target, entry)
                 if (typeof newOnEnd === "function") {
                     activeIntersections.set(entry.target, newOnEnd)
                 } else {
                     observer.unobserve(entry.target)
                 }
-            } else if (onEnd) {
+            } else if (typeof onEnd === "function") {
                 onEnd(entry)
                 activeIntersections.delete(entry.target)
             }

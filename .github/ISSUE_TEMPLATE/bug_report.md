@@ -6,6 +6,9 @@ labels: bug
 assignees: ""
 ---
 
+> [!NOTE]
+> **Motion for Vue issues:** Please open in the [Motion for Vue repo](https://github.com/motiondivision/motion-vue).
+
 **1. Read the [FAQs](#faqs) 👇**
 
 **2. Describe the bug**
@@ -60,7 +63,7 @@ React 17: `framer-motion@6.x` or lower
 
 Animating to/from `auto` requires measuring the DOM. There's no perfect way to do this and if you have also applied padding to the same element, these measurements might be wrong.
 
-The recommended solution is to move padding to a child element. See [this issue](https://github.com/framer/motion/issues/368) for the full discussion.
+The recommended solution is to move padding to a child element. See [this issue](https://github.com/motiondivision/motion/issues/368) for the full discussion.
 
 ### Preact isn't working
 

@@ -1,9 +1,9 @@
 import {
-    motion,
-    Reorder,
     AnimatePresence,
-    MotionConfig,
     LayoutGroup,
+    motion,
+    MotionConfig,
+    Reorder,
 } from "framer-motion"
 import { useEffect, useState } from "react"
 

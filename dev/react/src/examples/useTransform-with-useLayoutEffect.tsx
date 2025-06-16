@@ -1,31 +1,9 @@
-import { useRef, useState, useLayoutEffect, useEffect } from "react";
 import { motion, useTransform, useViewportScroll } from "framer-motion"
-import styled from "styled-components"
-
-const PrevElements = styled.div`
-    height: 400vh;
-    background-color: lightblue;
-`
-
-const Container = styled.div`
-    height: 200vh;
-    width: 100vw;
-`
-
-const Background = styled.div`
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    width: 100%;
-    height: 100vh;
-    position: relative;
-`
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 
 export function App() {
     const [elementTop, setElementTop] = useState(0)
-    const ref = useRef(null)
+    const ref = useRef<HTMLDivElement>(null)
     const { scrollY } = useViewportScroll()
 
     useLayoutEffect(() => {
@@ -41,7 +19,7 @@ export function App() {
 
     useEffect(() => {
         const log = () => {
-            console.log(elementTop, scrollY.current, opacity.current)
+            console.log(elementTop, scrollY.get(), opacity.get())
         }
         window.addEventListener("scroll", log)
         return () => window.removeEventListener("scroll", log)
@@ -49,17 +27,41 @@ export function App() {
 
     return (
         <>
-            <PrevElements />
-            <Container ref={ref}>
+            <div
+                style={{
+                    height: "400vh",
+                    backgroundColor: "lightblue",
+                }}
+            />
+            <div
+                ref={ref}
+                style={{
+                    height: "200vh",
+                    width: "100vw",
+                }}
+            >
                 <motion.div
                     initial={{ background: "#f9cb29" }}
                     style={{
                         opacity,
                     }}
                 >
-                    <Background>Hi!</Background>
+                    <div
+                        style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            textAlign: "center",
+                            width: "100%",
+                            height: "100vh",
+                            position: "relative",
+                        }}
+                    >
+                        Hi!
+                    </div>
                 </motion.div>
-            </Container>
+            </div>
         </>
     )
 }

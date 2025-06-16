@@ -5,7 +5,7 @@ import { motion, useAnimation } from "framer-motion"
  * This is an example of SVGs working without explicitly setting initial
  * values.
  */
-// https://github.com/framer/motion/issues/216
+// https://github.com/motiondivision/motion/issues/216
 const animation = {
     strokeDasharray: ["1px, 200px", "100px, 200px", "100px, 200px"],
     strokeDashoffset: [0, -15, -125],

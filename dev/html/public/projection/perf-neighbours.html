@@ -61,7 +61,9 @@
         <script type="module">
             const { createNode, relativeEase } = window.Animate
             const { matchViewportBox, checkFrame } = window.Assert
-            const { frame } = window.Projection
+            const { frame, recordStats } = window.Projection
+
+            recordStats()
 
             const duration = 10
 
@@ -98,7 +100,6 @@
 
             frame.postRender(() => {
                 frame.postRender(() => {
-                    console.log(window.ProjectionFrames)
                     checkFrame(topEl, 2, {
                         totalNodes: 5,
                         resolvedTargetDeltas: 3,

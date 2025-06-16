@@ -1,5 +1,5 @@
-import { easingDefinitionToFunction } from "../../../easing/utils/map"
-import { stagger, getOriginIndex } from "../stagger"
+import { easingDefinitionToFunction } from "motion-utils"
+import { getOriginIndex, stagger } from "../stagger"
 
 describe("stagger", () => {
     test("Creates a stagger function", () => {

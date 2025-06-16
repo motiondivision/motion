@@ -1,11 +1,11 @@
-import { Fragment, useRef, useState, forwardRef, ForwardedRef } from "react"
-import { renderToString, renderToStaticMarkup } from "react-dom/server"
+import { motionValue } from "motion-dom"
+import { ForwardedRef, forwardRef, Fragment, useRef, useState } from "react"
+import { renderToStaticMarkup, renderToString } from "react-dom/server"
 import { useMotionValue } from "../../"
-import { motion } from "../../render/components/motion"
-import { motion as motionProxy } from "../../render/components/motion/proxy"
-import { motionValue } from "../../value"
 import { AnimatePresence } from "../../components/AnimatePresence"
 import { Reorder } from "../../components/Reorder"
+import { motion } from "../../render/components/motion"
+import { motion as motionProxy } from "../../render/components/motion/proxy"
 
 const MotionFragment = motion.create(Fragment)
 
@@ -185,7 +185,7 @@ function runTests(render: (components: any) => string) {
         )
 
         expect(circle).toBe(
-            '<circle cx="100" style="background:#fff" stroke-width="10" pathLength="1" stroke-dashoffset="0px" stroke-dasharray="0.5px 1px"></circle>'
+            '<circle cx="100" stroke-width="10" pathLength="1" stroke-dashoffset="0px" stroke-dasharray="0.5px 1px" style="background:#fff;transform:translateX(100px);transform-origin:50% 50%;transform-box:fill-box"></circle>'
         )
         const rect = render(
             <AnimatePresence>
@@ -204,7 +204,28 @@ function runTests(render: (components: any) => string) {
         )
 
         expect(rect).toBe(
-            '<rect mask="" style="background:#fff" class="test"></rect>'
+            '<rect mask="" class="test" style="background:#fff;transform:none;transform-origin:50% 50%;transform-box:fill-box"></rect>'
+        )
+
+        const path = render(
+            <AnimatePresence>
+                <motion.path
+                    initial={{ x: 0 }}
+                    animate={{ x: 100 }}
+                    exit={{ x: 0 }}
+                    mask=""
+                    style={{
+                        background: "#fff",
+                        transformBox: "view-box",
+                    }}
+                    className="test"
+                    onMouseMove={() => {}}
+                />
+            </AnimatePresence>
+        )
+
+        expect(path).toBe(
+            '<path mask="" class="test" style="background:#fff;transform-box:view-box;transform:none;transform-origin:50% 50%"></path>'
         )
     })
 
@@ -264,7 +285,7 @@ function runTests(render: (components: any) => string) {
         const div = render(<Component />)
 
         expect(div).toBe(
-            `<ul><li style="z-index:unset;transform:none;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;touch-action:pan-x" draggable="false"></li></ul>`
+            `<ul><li draggable="false" style="z-index:unset;transform:none;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;touch-action:pan-x"></li></ul>`
         )
     })
 
@@ -296,7 +317,7 @@ function runTests(render: (components: any) => string) {
         const div = render(<Component />)
 
         expect(div).toBe(
-            `<div><div style="z-index:unset;transform:none;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;touch-action:pan-x" draggable="false"></div></div>`
+            `<div><div draggable="false" style="z-index:unset;transform:none;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;touch-action:pan-x"></div></div>`
         )
     })
 

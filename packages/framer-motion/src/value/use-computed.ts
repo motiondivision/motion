@@ -1,4 +1,4 @@
-import { collectMotionValues, type MotionValue } from "."
+import { collectMotionValues, type MotionValue } from "motion-dom"
 import { useCombineMotionValues } from "./use-combine-values"
 
 export function useComputed<O>(compute: () => O): MotionValue<O> {

@@ -8,7 +8,11 @@ const style = {
 
 export const App = () => {
     return (
-        <motion.div whileTap="pressed">
+        <motion.div
+            whileTap="pressed"
+            onTap={() => console.log("tap")}
+            onTapCancel={() => console.log("tap cancel")}
+        >
             <motion.div
                 variants={{
                     pressed: {

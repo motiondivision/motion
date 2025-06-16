@@ -1,0 +1,32 @@
+{
+    "name": "motion-ai",
+    "version": "12.18.1",
+    "author": "Matt Perry",
+    "description": "MCP server for allowing AI agents to perform actions using Motion, like generating CSS spring easing curves.",
+    "license": "MIT",
+    "repository": "https://github.com/motiondivision/motion",
+    "main": "./dist/es/index.mjs",
+    "types": "./dist/index.d.ts",
+    "bin": "./dist/es/index.mjs",
+    "module": "./dist/es/index.mjs",
+    "sideEffects": false,
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/es/index.mjs",
+            "default": "./dist/es/index.mjs"
+        }
+    },
+    "dependencies": {
+        "@modelcontextprotocol/sdk": "^1.12.1",
+        "motion-dom": "^12.18.1",
+        "motion-utils": "^12.18.1",
+        "zod": "^3.25.56"
+    },
+    "scripts": {
+        "clean": "rm -rf types dist lib",
+        "build": "yarn clean && tsc -p . && rollup -c",
+        "dev": "concurrently -c blue,red -n tsc,rollup --kill-others \"tsc --watch -p . --preserveWatchOutput\" \"rollup --config --watch --no-watch.clearScreen\""
+    },
+    "gitHead": "0d3c11b5f54647ecc5d1ee93e827651291fe7ce3"
+}

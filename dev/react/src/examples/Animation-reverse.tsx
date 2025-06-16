@@ -12,11 +12,10 @@ export const App = () => {
             <p>reverse</p>
             <button
                 onClick={() => {
-                    const animation = animate(
-                        ".four",
-                        { x: 90 },
-                        { duration: 2 }
-                    )
+                    const animation = animate([
+                        "my label",
+                        [".four", { x: 90 }, { duration: 2 }],
+                    ])
                     animation.time = animation.duration
                     animation.speed = -1
                 }}

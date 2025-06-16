@@ -1,5 +1,5 @@
+import type { Delta, Point } from "motion-utils"
 import { ResolvedValues } from "../../render/types"
-import type { Delta, Point } from "../geometry/types"
 
 export function buildProjectionTransform(
     delta: Delta,

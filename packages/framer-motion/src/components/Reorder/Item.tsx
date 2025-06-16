@@ -1,15 +1,16 @@
 "use client"
 
+import { isMotionValue } from "motion-dom"
 import { invariant } from "motion-utils"
 import * as React from "react"
-import { ReactHTML, FunctionComponent, useContext, forwardRef } from "react"
+import { forwardRef, FunctionComponent, useContext } from "react"
 import { ReorderContext } from "../../context/ReorderContext"
 import { motion } from "../../render/components/motion/proxy"
+import { HTMLElements } from "../../render/html/supported-elements"
 import { HTMLMotionProps } from "../../render/html/types"
 import { useConstant } from "../../utils/use-constant"
 import { useMotionValue } from "../../value/use-motion-value"
 import { useTransform } from "../../value/use-transform"
-import { isMotionValue } from "../../value/utils/is-motion-value"
 
 export interface Props<V> {
     /**
@@ -17,7 +18,7 @@ export interface Props<V> {
      *
      * @public
      */
-    as?: keyof ReactHTML
+    as?: keyof HTMLElements
 
     /**
      * The value in the list that this component represents.
@@ -40,7 +41,7 @@ function useDefaultMotionValue(value: any, defaultValue: number = 0) {
 }
 
 type ReorderItemProps<V> = Props<V> &
-    HTMLMotionProps<any> &
+    Omit<HTMLMotionProps<any>, "value" | "layout"> &
     React.PropsWithChildren<{}>
 
 export function ReorderItemComponent<V>(

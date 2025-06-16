@@ -4,6 +4,730 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.18.1] 2025-06-13
+
+### Fixed
+
+-   Removed `"react"` import from `"motion-dom"`.
+
+## [12.18.0] 2025-06-13
+
+### Added
+
+-   Support for defining a timeline position relative to the start of the most recently added animation (e.g. `<+0.5`, `<-1`)
+
+## [12.17.3] 2025-06-12
+
+### Changed
+
+-   Refactored `MotionProps` into vanilla `MotionNodeOptions` type within `"motion-dom"` package.
+
+## [12.17.2] 2025-06-12
+
+### Changed
+
+-   Handle colors when creating animatable `"none"` keyframes for complex strings.
+
+## [12.17.1] 2025-06-12
+
+### Fixed
+
+-   Fixes `isValidProp` check with Rolldown.
+
+## [12.17.0] 2025-06-10
+
+### Added
+
+-   MCP server.
+
+### Fixed
+
+-   Improved rounding for `linear()` easing curves.
+
+## [12.16.0] 2025-06-03
+
+### Added
+
+-   `resize()`.
+
+## [12.15.1] 2025-05-30
+
+### Fixed
+
+-   Explicitly set layout animation velocity to zero to prevent persistent `MotionValue` carrying through velocity.
+
+## [12.15.0] 2025-05-27
+
+### Added
+
+-   Support for `pathLength`/`pathSpacing`/`pathOffset` for `svgEffect`.
+-   Auto kebab-casing of `data` and `aria` attributes in `attrEffect`.
+-   `attrEffect` applies attributes via JS property where possible.
+-   Auto `transform-box: fill-box` for SVGs with `transform` in `styleEffect`.
+
+## [12.14.0] 2025-05-26
+
+### Added
+
+-   Support for `originX`/`Y`/`Z` in `styleEffect`.
+
+### Fixed
+
+-   Added markers for pure function calls with effects.
+
+## [12.13.0] 2025-05-26
+
+### Added
+
+-   `svgEffect`, `propEffect` and `attrEffect`.
+
+### Fixed
+
+-   Fixed a jump in layout animations in select circumstances.
+
+## [12.12.2] 2025-05-23
+
+### Fixed
+
+-   Ensure scroll updates are only triggered after a scroll read.
+
+## [12.12.1] 2025-05-16
+
+### Fixed
+
+-   Checks for `instanceof HTMLElement` made compatible with dynamically generated `iframe`s.
+
+## [12.12.0] 2025-05-16
+
+### Added
+
+-   `springValue`
+
+### Fixed
+
+-   Fixed various typos in the type definitions along with a stale documentation link.
+
+## [12.11.4] 2025-05-15
+
+### Fixed
+
+-   Only read `transform` from the DOM for initial independent transforms when there's no active projection.
+
+## [12.11.3] 2025-05-14
+
+### Changed
+
+-   `useWillChange` now only adds `transform` to `will-change` to prevent issues with prematurely flattened `preserve-3d`.
+
+## [12.11.2] 2025-05-14
+
+### Fixed
+
+-   Removed `__VERSION__` placeholder from motion value.
+-   Fixed types for `Reorder` component.
+
+## [12.11.1] 2025-05-14
+
+### Fixed
+
+-   Default `scroll` tracking to `document.scrollingElement`.
+
+## [12.11.0] 2025-05-12
+
+### Added
+
+-   Added `value.isEffectActive` for internal use.
+
+## [12.10.6] 2025-05-09
+
+### Fixed
+
+-   Stop firing `.then()` after `.stop()` and `.cancel()`.
+
+## [12.10.5] 2025-05-09
+
+### Fixed
+
+-   Fixed attaching multiple `press` handlers on the same element.
+
+## [12.10.4] 2025-05-08
+
+### Fixed
+
+-   Fixed layout animations jumping when interrupted.
+-   Lower memory and runtime overhead of layout animations.
+
+## [12.10.3] 2025-05-08
+
+### Fixed
+
+-   Attempting to fix layout animations jumping when interrupted.
+
+## [12.10.2] 2025-05-08
+
+### Fixed
+
+-   Fixed `.cancel()` after `.stop()`.
+
+## [12.10.1] 2025-05-07
+
+### Changed
+
+-   Main thread `scroll` animations are now lazy, resolving after `"scroll"` events instead of every animation frame.
+
+## [12.10.0] 2025-05-06
+
+### Added
+
+-   `styleEffect` now supports:
+    -   Default value types
+    -   Independent transforms
+    -   CSS variables
+
+## [12.9.8] 2025-05-05
+
+### Fixed
+
+-   Fixing press after parent is dragged.
+
+## [12.9.7] 2025-05-05
+
+### Fixed
+
+-   Fix mixing `PopChild` with Astro view transitions.
+
+## [12.9.6] 2025-05-05
+
+### Fixed
+
+-   Fix setting `transformBox` via `style`.
+
+## [12.9.5] 2025-05-05
+
+### Fixed
+
+-   Fixed drag `undefined` error in React 19 Strict Mode.
+-   Skip keyframe measurements for values without support for unit conversion.
+
+## [12.9.4] 2025-05-01
+
+### Fixed
+
+-   Remove version check for `MotionValue`.
+
+## [12.9.3] 2025-05-01
+
+### Fixed
+
+-   Fixed memory leak when unmounting `motion` components.
+
+## [12.9.2] 2025-04-25
+
+### Fixed
+
+-   Fixed scroll timeline cache when defining `offset`.
+-   Detect when page scroll is attached to `document.body` and use this instead of `document.documentElement`.
+
+## [12.9.1] 2025-04-24
+
+### Fixed
+
+-   Restarting a finished main thread animation with a negative `.speed` now works as expected.
+
+## [12.9.0] 2025-04-24
+
+### Added
+
+-   `styleEffect`
+
+## [12.8.3] 2025-04-24
+
+### Changed
+
+-   Animating a `MotionValue` to its current value will skip creating the animation.
+
+### Fixed
+
+-   Ensure `.then()` fires when `.stop()` or `.cancel()` are called. This is undesired but reverts the behaviour to before `12.7.5`.
+
+## [12.8.2] 2025-04-24
+
+### Changed
+
+-   Unifying `transform` behaviour for SVG and CSS switched from element measurements for `transform-box: fill-box`.
+
+## [12.8.1] 2025-04-23
+
+### Fixed
+
+-   Removing errant `console.trace` on `value.set("none")`.
+
+## [12.8.0] 2025-04-23
+
+### Added
+
+-   `mapValue`
+-   `transformValue`
+
+### Changed
+
+-   Removed support for Framer's internal `CustomValueType`.
+
+## [12.7.5] 2025-04-22
+
+### Changed
+
+-   Improved scroll timeline caching.
+-   Replaced WAAPI keyframe generation with `linear()` easing.
+-   Ensure final defined keyframe is always applied to animations when animation finishes.
+-   Moved `instantAnimationState.current` to `MotionGlobalConfig.instantAnimations`.
+-   Changed `delay` from `read` to `setup` frameloop step.
+
+### Fixed
+
+-   Fixed `.then()` and `await` early resolution.
+-   Fixed replaying main thread animations after finished.
+-   `.speed` works correctly across all animation types.
+-   Various imperative animation control fixes.
+
+## [12.7.4] 2025-04-17
+
+### Fixed
+
+-   Removed non-deterministic behaviour from `AnimatePresence`.
+
+## [12.7.3] 2025-04-15
+
+### Fixed
+
+-   Fixing `duration` for `animateView` transitions.
+-   Prevent `.commitStyles()` on `pseudoElement` animations.
+
+## [12.7.2] 2025-04-14
+
+### Fixed
+
+-   Adding `"sideEffects": false` to `motion-dom` and `motion-utils` packages.
+
+## [12.7.1] 2025-04-14
+
+### Fixed
+
+-   Skip `.commitStyles` on `psuedoElement` animations.
+
+## [12.7.0] 2025-04-14
+
+### Added
+
+-   Private `layoutCrossfade` allows disabling crossfade of shared layout elements.
+
+## [12.6.5] 2025-04-11
+
+### Fixed
+
+-   Polyfilled `sync` and `cancelSync` exports.
+
+## [12.6.4] 2025-04-11
+
+### Added
+
+-   Global injection of `WillChangeMotionValue` for internal Framer use.
+
+## [12.6.3] 2025-04-01
+
+### Changed
+
+-   Refactored mini `animate` and `animateView` to share the same `NativeAnimation`. Mini `animate` down to `2.3kb`.
+
+### Fixed
+
+-   Fixed keyboard accessibility of press events.
+
+## [12.6.2] 2025-03-26
+
+### Fixed
+
+-   Fixing hardware acceleration for non-`transform` values when a `motion` component has a defined `transformTemplate`.
+
+## [12.6.1] 2025-03-26
+
+### Fixed
+
+-   Reverting pointer capture for press gesture.
+
+## [12.6.0] 2025-03-25
+
+### Changed
+
+-   Renamed `view` to `animateView`.
+
+### Added
+
+-   New `interrupt: "wait"` mode as `animateView` default.
+
+## [12.5.0] 2025-03-11
+
+### Added
+
+-   Added `motionValue` to vanilla JS entrypoint.
+
+### Removed
+
+-   Removed `framer-motion-3d` package.
+
+## [12.4.13] 2025-03-11
+
+### Fixed
+
+-   Fixed reading initial transform values from elements.
+
+## [12.4.12] 2025-03-11
+
+### Fixed
+
+-   Removed pointer capture from pan and drag gestures.
+
+## [12.4.11] 2025-03-10
+
+### Fixed
+
+-   Preventing flattening of scroll animations when `type` or `ease` are explicitly set.
+
+## [12.4.10] 2025-03-03
+
+### Fixed
+
+-   Adding UMD bundles for `motion-dom` and `motion-utils`.
+
+## [12.4.9] 2025-03-03
+
+### Fixed
+
+-   Fixed `Reorder.Item` reordering causing `lostpointercapture` event to fire.
+
+## [12.4.8] 2025-02-26
+
+### Fixed
+
+-   Fixed exiting children with `layoutDependency` not animating layout changes because of a stale layout dependency.
+
+## [12.4.7] 2025-02-20
+
+### Fixed
+
+-   Fixed `AnimatePresence` not triggering exit animations when a child with `layout` or `drag` is removed.
+
+## [12.4.6] 2025-02-20
+
+### Fixed
+
+-   Fixed drag gesture on child elements.
+
+## [12.4.5] 2025-02-19
+
+### Fixed
+
+-   Fixed `onClick` handlers not working inside `press` events.
+
+## [12.4.4] 2025-02-18
+
+### Fixed
+
+-   Changed press, drag and pan gestures to use pointer capturing for better usage within `iframe` embeds.
+
+## [12.4.3] 2025-02-12
+
+### Fixed
+
+-   Restored warning for when animating more than two keyframes with a spring.
+
+## [12.4.2] 2025-02-10
+
+### Fixed
+
+-   Preventing `press` from triggering when an element is disabled.
+
+## [12.4.1] 2025-02-06
+
+### Fixed
+
+-   Check for `transition` in `initial` when animating removed values.
+
+## [12.4.0] 2025-02-06
+
+### Added
+
+-   Added `initial` option to `useInView`.
+
+## [12.3.1] 2025-02-05
+
+### Fixed
+
+-   Correctly applying CSS variables at the end of a mini `animate` animation.
+
+## [12.3.0] 2025-02-05
+
+### Added
+
+-   Added `usePresenceData` to get custom data passed to `AnimatePresence` in descendant components.
+
+## [12.2.0] 2025-02-05
+
+### Added
+
+-   Added unit support to `useSpring`.
+
+## [12.1.0] 2025-02-04
+
+### Fixed
+
+-   Bug with `AnimatePresence` in React 19 strict mode.
+
+### Deprecated
+
+-   Motion 3D.
+
+## [12.0.11] 2025-02-03
+
+### Fixed
+
+-   Moving `updateSVGDimensions` to its own file to help with tree-shaking.
+
+## [12.0.10] 2025-02-03
+
+### Fixed
+
+-   Providing `MotionValue` to `motion` component from `motion/react-client` entrypoint.
+
+## [12.0.9] 2025-02-03
+
+### Fixed
+
+-   Removing React from bundle.
+
+## [12.0.8] 2025-02-03
+
+### Fixed
+
+-   Infer type of `children` prop for `motion.create`.
+
+## [12.0.7] 2025-01-28
+
+### Fixed
+
+-   Fixed SVG transform animations via `animate`.
+
+## [12.0.6] 2025-01-27
+
+### Fixed
+
+-   Discard layout projection snapshots if 0x0.
+
+## [12.0.5] 2025-01-24
+
+### Fixed
+
+-   Fix scale correction for CSS variables.
+
+## [12.0.4] 2025-01-24
+
+### Fixed
+
+-   Add scale correction for CSS variables.
+
+## [12.0.3] 2025-01-23
+
+### Fixed
+
+-   Fixed toggling between shared layout animations multiple times.
+
+### Added
+
+-   Added private `anchorX` prop to `AnimatePresence`.
+
+### Changed
+
+-   Simplified `useSpring` for smaller bundlesize.
+
+## [12.0.1] 2025-01-21
+
+### Fixed
+
+-   Prevent relative animations from restarting layout animations unnecessarily.
+
+## [12.0.0] 2025-01-20
+
+### Changed
+
+-   `press`, `hover` and `inView` now pass the target element as the first argument to the gesture start callback.
+
+## [11.18.2] 2025-01-20
+
+### Fixed
+
+-   Animations with `transformTemplate` not hardware accelerated.
+
+## [11.18.1] 2025-01-17
+
+### Fixed
+
+-   `AnimatePresence` types in React 19.
+-   SVG with `transform` not always setting styles correctly on mount.
+
+## [11.18.0] 2025-01-14
+
+### Added
+
+-   Adding `animateSequence` to perform animation sequences via WAAPI for a tiny bundlesize.
+
+### Fixed
+
+-   Missing `AnimationControls` type export.
+
+## [11.17.1] 2025-01-13
+
+### Fixed
+
+-   Remeasure SVG when size/position changes to ensure correct `transform-origin`.
+
+## [11.17.0] 2025-01-10
+
+### Added
+
+-   Added `propagate` to `AnimatePresence`. This prop allows parent exit animations to be propagated to children.
+
+### Removed
+
+-   Removed `exitBeforeEnter` from `AnimatePresence`.
+
+## [11.16.7] 2025-01-10
+
+### Fixed
+
+-   Fixing timelines where a string label is used as the first segment.
+
+## [11.16.6] 2025-01-10
+
+### Changed
+
+-   More movement values like `height` and `top` are now blocked by reduced motion.
+
+## [11.16.5] 2025-01-09
+
+### Fixed
+
+-   Fixed `scroll` progress being stuck at `1` when a `target` is `100vh`.
+
+## [11.16.4] 2025-01-09
+
+### Fixed
+
+-   Fix type of `attachTimeline` when `skipLibCheck` is disabled.
+
+## [11.16.3] 2025-01-09
+
+### Fixed
+
+-   Checking return of `press`, `hover`, and `inView` callbacks before calling.
+
+## [11.16.2] 2025-01-09
+
+### Fixed
+
+-   Restoring missing type exports.
+
+## [11.16.1] 2025-01-08
+
+### Fixed
+
+-   Adding `displayName` to `motion` components.
+-   Ensure `press` doesn't override `tabindex` when explicitly set.
+
+## [11.16.0] 2025-01-06
+
+### Added
+
+-   Added `view()` alpha to early access.
+
+## [11.15.0] 2024-12-13
+
+### Added
+
+-   Add support for `repeat` in animation sequences.
+
+### Fixed
+
+-   Clearing scheduled jobs at the end of an animation frame to ensure memory is released should the animation loop settle.
+
+## [11.14.4] 2024-12-13
+
+### Fixed
+
+-   Exporting `AnimationSequence` via `"motion"` entrypoint.
+-   Adding support for passing normal components to `motion.create()` in React 19.
+
+## [11.14.3] 2024-12-13
+
+### Fixed
+
+-   Fixing `motion-dom` and `motion-utils` entrypoints.
+
+## [11.14.2] 2024-12-13
+
+### Fixed
+
+-   Exporting `time` for internal use.
+-   Making `MotionValue.updatedAt` public for internal use.
+
+## [11.14.1] 2024-12-12
+
+### Fixed
+
+-   Fixing missing license in `motion-dom` and `motion-utils` packages.
+
+## [11.14.0] 2024-12-12
+
+### Added
+
+-   Added `press` gesture in Motion+ early access.
+
+## [11.13.6] 2024-12-10
+
+### Fixed
+
+-   Adding React 19 to optional peer dependencies in `"motion"` package also.
+
+## [11.13.5] 2024-12-10
+
+### Fixed
+
+-   Adding React 19 to optional peer dependencies in `"framer-motion"` packages.
+
+## [11.13.4] 2024-12-10
+
+### Fixed
+
+-   Fixing types for React 19.
+
+## [11.13.3] 2024-12-09
+
+### Fixed
+
+-   Attempting to update types to be compatible with both React 18 and 19.
+
+## [11.13.2] 2024-12-04
+
+### Fixed
+
+-   Hover gesture now always `passive: true`.
+
+## [11.13.1] 2024-12-03
+
+### Fixed
+
+-   SVG elements (like `motion.text`) now update when given a `MotionValue` as children, matching HTML element behavior.
+-   Exporting `DynamicAnimationOptions` type.
+
 ## [11.13.0] 2024-12-03
 
 ### Added
@@ -2369,7 +3093,7 @@ Undocumented APIs should be considered internal and may change without warning.
 
 ### Fixed
 
--   Fixing crossfade for % or px unit border radius. [Issue](https://github.com/framer/motion/issues/1413)
+-   Fixing crossfade for % or px unit border radius. [Issue](https://github.com/motiondivision/motion/issues/1413)
 
 ## [5.5.6] 2022-01-07
 
@@ -2430,7 +3154,7 @@ Undocumented APIs should be considered internal and may change without warning.
 
 ### Fixed
 
--   Fixing export paths. [PR by @edoardolincetto](https://github.com/framer/motion/pull/1385).
+-   Fixing export paths. [PR by @edoardolincetto](https://github.com/motiondivision/motion/pull/1385).
 
 ## [5.4.2] 2021-12-07
 
@@ -2454,18 +3178,18 @@ Undocumented APIs should be considered internal and may change without warning.
 
 ### Fixed
 
--   Fixing animating to CSS variables with `SVGElement`. [Issue](https://github.com/framer/motion/issues/1334)
--   Unsetting `z-index` for resting `Reorder.Item` components. [Issue](https://github.com/framer/motion/issues/1313)
--   Forward native drag listeners to `draggable` elements. [Issue](https://github.com/framer/motion/issues/1248)
--   Authors can now support browsers without `Proxy` by using `motion("div")` syntax. [Issue](https://github.com/framer/motion/issues/1178)
+-   Fixing animating to CSS variables with `SVGElement`. [Issue](https://github.com/motiondivision/motion/issues/1334)
+-   Unsetting `z-index` for resting `Reorder.Item` components. [Issue](https://github.com/motiondivision/motion/issues/1313)
+-   Forward native drag listeners to `draggable` elements. [Issue](https://github.com/motiondivision/motion/issues/1248)
+-   Authors can now support browsers without `Proxy` by using `motion("div")` syntax. [Issue](https://github.com/motiondivision/motion/issues/1178)
 
 ## [5.3.2] 2021-11-23
 
 ### Fixed
 
--   Ensuring forced renders are batched so sibling `AnimatePresence` renders are triggered together. [Issue](https://github.com/framer/motion/issues/1358)
--   Viewport enter/leave event handlers are passed `IntersectionObserverEntry` or `null` if `IntersectionObserver` is not supported on the device. [Issue](https://github.com/framer/motion/issues/1364)
--   No longer applying touch scroll-disabling styles if `dragListener` is set to `false`. [Issue](https://github.com/framer/motion/issues/1341)
+-   Ensuring forced renders are batched so sibling `AnimatePresence` renders are triggered together. [Issue](https://github.com/motiondivision/motion/issues/1358)
+-   Viewport enter/leave event handlers are passed `IntersectionObserverEntry` or `null` if `IntersectionObserver` is not supported on the device. [Issue](https://github.com/motiondivision/motion/issues/1364)
+-   No longer applying touch scroll-disabling styles if `dragListener` is set to `false`. [Issue](https://github.com/motiondivision/motion/issues/1341)
 
 ## [5.3.1] 2021-11-19
 
@@ -2475,10 +3199,10 @@ Undocumented APIs should be considered internal and may change without warning.
 
 ### Fixed
 
--   Removing `layoutDependency` from forwarded props. [Issue](https://github.com/framer/motion/issues/1350)
--   `Reorder.Item` correctly fires `onDrag`. [Issue](https://github.com/framer/motion/issues/1348)
+-   Removing `layoutDependency` from forwarded props. [Issue](https://github.com/motiondivision/motion/issues/1350)
+-   `Reorder.Item` correctly fires `onDrag`. [Issue](https://github.com/motiondivision/motion/issues/1348)
 -   Fires `onPressStart` and `onHoverStart` **after** triggering animations.
--   Replay keyframes when variant changes. [Issue](https://github.com/framer/motion/issues/1346)
+-   Replay keyframes when variant changes. [Issue](https://github.com/motiondivision/motion/issues/1346)
 -   Correctly SSR final keyframe when `initial` is `false`.
 
 ## [5.3.0] 2021-11-11
@@ -2491,7 +3215,7 @@ Undocumented APIs should be considered internal and may change without warning.
 
 ### Fixed
 
--   Fixing unit conversion for `x` and `y` styles. [Issue](https://github.com/framer/motion/issues/1336)
+-   Fixing unit conversion for `x` and `y` styles. [Issue](https://github.com/motiondivision/motion/issues/1336)
 
 ## [5.2.0] 2021-11-04
 
@@ -2501,7 +3225,7 @@ Undocumented APIs should be considered internal and may change without warning.
 
 ### Fixed
 
--   Fixing HSLA color interpolation. [Issue](https://github.com/framer/motion/issues/1324)
+-   Fixing HSLA color interpolation. [Issue](https://github.com/motiondivision/motion/issues/1324)
 
 ## [5.1.0] 2021-11-02
 
@@ -2513,17 +3237,17 @@ Undocumented APIs should be considered internal and may change without warning.
 ### Fixed
 
 -   Fixed SSR for `pathLength`.
--   Downgrading `whileFocus` to lowest gesture priority. [Issue](https://github.com/framer/motion/issues/1221)
--   Fixed path length for elements with `vectorEffect="non-scaling-stroke"` [Issue](https://github.com/framer/motion/issues/521)
--   Stripping `dragSnapToOrigin` from DOM output. [PR by @Evalon](https://github.com/framer/motion/pull/1326)
+-   Downgrading `whileFocus` to lowest gesture priority. [Issue](https://github.com/motiondivision/motion/issues/1221)
+-   Fixed path length for elements with `vectorEffect="non-scaling-stroke"` [Issue](https://github.com/motiondivision/motion/issues/521)
+-   Stripping `dragSnapToOrigin` from DOM output. [PR by @Evalon](https://github.com/motiondivision/motion/pull/1326)
 
 ## [5.0.2] 2021-11-02
 
 ### Fixed
 
--   Convert x/y from percent to pixels before drag. [Issue](https://github.com/framer/motion/issues/424)
--   Dynamic functions passed to `controls.start()` can now return variant names. [Issue](https://github.com/framer/motion/issues/503)
--   Factors in padding when measuring elements for `width`/`height` unit conversion. [Issue](https://github.com/framer/motion/issues/368)
+-   Convert x/y from percent to pixels before drag. [Issue](https://github.com/motiondivision/motion/issues/424)
+-   Dynamic functions passed to `controls.start()` can now return variant names. [Issue](https://github.com/motiondivision/motion/issues/503)
+-   Factors in padding when measuring elements for `width`/`height` unit conversion. [Issue](https://github.com/motiondivision/motion/issues/368)
 
 ## [5.0.1] 2021-11-01
 
@@ -2534,10 +3258,10 @@ Undocumented APIs should be considered internal and may change without warning.
 ### Fixed
 
 -   Removing context memoisation to ensure removed values are correctly animated to.
--   Adding unmount check to `AnimatePresence` before updating state. [PR by @ctrlplusb](https://github.com/framer/motion/pull/796)
--   Fixing types for multi-input `useTransform`. [PR by @kena0ki](https://github.com/framer/motion/pull/843)
--   Fixing `staggerChildren` for value-specific transitions. [Issue](https://github.com/framer/motion/issues/1081)
--   Fixes animation between `0` and non-number/pixel keyframe array. [Issue](https://github.com/framer/motion/issues/1308)
+-   Adding unmount check to `AnimatePresence` before updating state. [PR by @ctrlplusb](https://github.com/motiondivision/motion/pull/796)
+-   Fixing types for multi-input `useTransform`. [PR by @kena0ki](https://github.com/motiondivision/motion/pull/843)
+-   Fixing `staggerChildren` for value-specific transitions. [Issue](https://github.com/motiondivision/motion/issues/1081)
+-   Fixes animation between `0` and non-number/pixel keyframe array. [Issue](https://github.com/motiondivision/motion/issues/1308)
 
 ## [5.0.0] 2021-10-27
 
@@ -2548,7 +3272,7 @@ Undocumented APIs should be considered internal and may change without warning.
 -   `layoutDependency` prop to restrict when components are measured.
 -   `layoutScroll` prop to hint to layout animations when a element is scrollable.
 -   Layout animations are auto-completed when the viewport resizes.
--   `layout="size"` for size-only animations [PR by @bhollis](https://github.com/framer/motion/pull/1154).
+-   `layout="size"` for size-only animations [PR by @bhollis](https://github.com/motiondivision/motion/pull/1154).
 
 ### Fixed
 
@@ -3386,31 +4110,31 @@ Undocumented APIs should be considered internal and may change without warning.
 -   Using `Proxy` to generate `motion` components. This saves ~0.5kb from the bundle size and ensures compatibility with all DOM elements and Web Components.
 -   `x` and `y` transform values won't change as a result of a drag gesture as this now works via layout projection.
 -   Drag events now report `point` as the pointer relative to the viewport, in line with other pointer events.
--   Changed build process and using Terser for uglification. Reduces bundle size by ~1.2kb. ([@stokesman](https://github.com/stokesman) in [#596](https://github.com/framer/motion/pull/596))
+-   Changed build process and using Terser for uglification. Reduces bundle size by ~1.2kb. ([@stokesman](https://github.com/stokesman) in [#596](https://github.com/motiondivision/motion/pull/596))
 
 ## [1.11.1] 2020-06-16
 
 ### Fixed
 
--   Using `useIsomorphicEffect` for `useElementScroll` and `useViewportScroll`.([@thebuilder](https://github.com/thebuilder) in [#592](https://github.com/framer/motion/pull/592))
+-   Using `useIsomorphicEffect` for `useElementScroll` and `useViewportScroll`.([@thebuilder](https://github.com/thebuilder) in [#592](https://github.com/motiondivision/motion/pull/592))
 
 ## [1.11.0] 2020-05-15
 
 ### Added
 
--   Added a `useElementScroll` hook that allows the creation of scroll motion values for HTML elements. ([@souporserious](https://github.com/souporserious) in [#195](https://github.com/framer/motion/pull/195))
+-   Added a `useElementScroll` hook that allows the creation of scroll motion values for HTML elements. ([@souporserious](https://github.com/souporserious) in [#195](https://github.com/motiondivision/motion/pull/195))
 
 ## [1.10.3] 2020-03-23
 
 ### Fix
 
--   Replacing the functionality of `DragControls` `e.preventDefault()` with CSS and HTML attributes. ([@inventingwithmonster](https://github.com/inventingwithmonster) in [#495](https://github.com/framer/motion/pull/495))
+-   Replacing the functionality of `DragControls` `e.preventDefault()` with CSS and HTML attributes. ([@inventingwithmonster](https://github.com/inventingwithmonster) in [#495](https://github.com/motiondivision/motion/pull/495))
 
 ## [1.10.2] 2020-03-23
 
 ### Fix
 
--   Fixing `PresenceChild` losing correct count of exiting children if it re-renders. ([@inventingwithmonster](https://github.com/inventingwithmonster) in [#490](https://github.com/framer/motion/pull/490))
+-   Fixing `PresenceChild` losing correct count of exiting children if it re-renders. ([@inventingwithmonster](https://github.com/inventingwithmonster) in [#490](https://github.com/motiondivision/motion/pull/490))
 
 ### Changed
 
@@ -3420,8 +4144,8 @@ Undocumented APIs should be considered internal and may change without warning.
 
 ### Fix
 
--   Fixing `AnimatePresence` children not re-rendering when their exiting siblings have been removed from the tree (which broke siblings `positionTransition` and `layoutTransition`). ([@inventingwithmonster](https://github.com/inventingwithmonster) in [#489](https://github.com/framer/motion/pull/489))
--   Adding `null` check for `getTranslateFromMatrix` ([@JoyalJoyMadeckal](https://github.com/JoyalJoyMadeckal) in [#482](https://github.com/framer/motion/pull/482))
+-   Fixing `AnimatePresence` children not re-rendering when their exiting siblings have been removed from the tree (which broke siblings `positionTransition` and `layoutTransition`). ([@inventingwithmonster](https://github.com/inventingwithmonster) in [#489](https://github.com/motiondivision/motion/pull/489))
+-   Adding `null` check for `getTranslateFromMatrix` ([@JoyalJoyMadeckal](https://github.com/JoyalJoyMadeckal) in [#482](https://github.com/motiondivision/motion/pull/482))
 
 ## [1.10.0] 2020-03-19
 
@@ -3433,14 +4157,14 @@ Undocumented APIs should be considered internal and may change without warning.
 
 ### Fixed
 
--   Ensuring drag momentum animations happen on `_dragValueX` and `_dragValueY` if provided. ([@inventingwithmonster](https://github.com/inventingwithmonster) in [#473](https://github.com/framer/motion/pull/473))
+-   Ensuring drag momentum animations happen on `_dragValueX` and `_dragValueY` if provided. ([@inventingwithmonster](https://github.com/inventingwithmonster) in [#473](https://github.com/motiondivision/motion/pull/473))
 
 ## [1.9.0] 2020-03-02
 
 ### Added
 
--   `usePresence` hook. ([@inventingwithmonster](https://github.com/inventingwithmonster) in [#473](https://github.com/framer/motion/pull/473))
--   `repository` field in `package.json`. ([@iamstarkov](https://github.com/iamstarkov) in [#469](https://github.com/framer/motion/pull/469))
+-   `usePresence` hook. ([@inventingwithmonster](https://github.com/inventingwithmonster) in [#473](https://github.com/motiondivision/motion/pull/473))
+-   `repository` field in `package.json`. ([@iamstarkov](https://github.com/iamstarkov) in [#469](https://github.com/motiondivision/motion/pull/469))
 
 ## [1.8.4] 2020-02-05
 
@@ -4094,7 +4818,7 @@ Undocumented APIs should be considered internal and may change without warning.
 
 ### Fixed
 
--   Deleting unused props from `style` object rather than setting to `undefined`. [#99](https://github.com/framer/motion/pull/99)
+-   Deleting unused props from `style` object rather than setting to `undefined`. [#99](https://github.com/motiondivision/motion/pull/99)
 
 ## [0.12.1] 2019-04-03
 

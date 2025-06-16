@@ -1,21 +1,40 @@
-import { frame, cancelFrame } from "../frameloop"
+import {
+    cancelFrame,
+    complex,
+    findValueType,
+    frame,
+    getAnimatableNone,
+    isMotionValue,
+    KeyframeResolver,
+    motionValue,
+    time,
+    transformProps,
+    type MotionValue,
+} from "motion-dom"
+import type { Box } from "motion-utils"
+import {
+    isNumericalString,
+    isZeroValueString,
+    SubscriptionManager,
+    warnOnce,
+} from "motion-utils"
 import {
     MotionConfigContext,
     ReducedMotionConfig,
 } from "../context/MotionConfigContext"
+import type { PresenceContextProps } from "../context/PresenceContext"
+import { featureDefinitions } from "../motion/features/definitions"
+import { Feature } from "../motion/features/Feature"
 import { FeatureDefinitions } from "../motion/features/types"
 import { MotionProps, MotionStyle } from "../motion/types"
-import type { Box } from "../projection/geometry/types"
+import { createBox } from "../projection/geometry/models"
 import { IProjectionNode } from "../projection/node/types"
 import { initPrefersReducedMotion } from "../utils/reduced-motion"
 import {
     hasReducedMotionListener,
     prefersReducedMotion,
 } from "../utils/reduced-motion/state"
-import { SubscriptionManager } from "../utils/subscription-manager"
-import { motionValue, MotionValue } from "../value"
-import { isMotionValue } from "../value/utils/is-motion-value"
-import { transformProps } from "./html/utils/transform"
+import { visualElementStore } from "./store"
 import {
     ResolvedValues,
     VisualElementEventCallbacks,
@@ -28,19 +47,6 @@ import {
 } from "./utils/is-controlling-variants"
 import { updateMotionValuesFromProps } from "./utils/motion-values"
 import { resolveVariantFromProps } from "./utils/resolve-variants"
-import { warnOnce } from "../utils/warn-once"
-import { featureDefinitions } from "../motion/features/definitions"
-import { Feature } from "../motion/features/Feature"
-import type { PresenceContextProps } from "../context/PresenceContext"
-import { visualElementStore } from "./store"
-import { KeyframeResolver } from "./utils/KeyframesResolver"
-import { isNumericalString } from "../utils/is-numerical-string"
-import { isZeroValueString } from "../utils/is-zero-value-string"
-import { findValueType } from "./dom/value-types/find"
-import { complex } from "../value/types/complex"
-import { getAnimatableNone } from "./dom/value-types/animatable-none"
-import { createBox } from "../projection/geometry/models"
-import { time } from "../frameloop/sync-time"
 
 const propEventHandlers = [
     "AnimationStart",
@@ -134,6 +140,12 @@ export abstract class VisualElement<
         styleProp?: MotionStyle,
         projection?: IProjectionNode
     ): void
+
+    /**
+     * This method is called when a transform property is bound to a motion value.
+     * It's currently used to measure SVG elements when a new transform property is bound.
+     */
+    onBindTransform?(): void
 
     /**
      * If the component child is provided as a motion value, handle subscriptions
@@ -412,7 +424,6 @@ export abstract class VisualElement<
     }
 
     unmount() {
-        visualElementStore.delete(this.current)
         this.projection && this.projection.unmount()
         cancelFrame(this.notifyUpdate)
         cancelFrame(this.render)
@@ -441,6 +452,10 @@ export abstract class VisualElement<
         }
 
         const valueIsTransform = transformProps.has(key)
+
+        if (valueIsTransform && this.onBindTransform) {
+            this.onBindTransform()
+        }
 
         const removeOnChange = value.on(
             "change",

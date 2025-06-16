@@ -1,10 +1,9 @@
-import { useEffect, useState, useRef } from "react"
+import { useState, useRef } from "react"
 import {
     mix,
     motion,
     useElementScroll,
     useSpring,
-    useTransform,
 } from "framer-motion"
 
 const randomInt = (min, max) => Math.round(mix(min, max, Math.random()))

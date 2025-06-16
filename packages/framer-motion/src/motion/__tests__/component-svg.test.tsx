@@ -1,7 +1,13 @@
-import { render } from "../../../jest.setup"
-import { motion, motionValue, useMotionValue, useTransform } from "../../"
 import { useRef } from "react"
+import {
+    motion,
+    motionValue,
+    TargetAndTransition,
+    useMotionValue,
+    useTransform,
+} from "../../"
 import { nextFrame } from "../../gestures/__tests__/utils"
+import { render } from "../../jest.setup"
 
 describe("SVG", () => {
     test("doesn't add translateZ", () => {
@@ -12,8 +18,8 @@ describe("SVG", () => {
             </svg>
         )
 
-        expect(getByTestId("g")).not.toHaveStyle("transform: translateX(100px)")
-        expect(getByTestId("h")).not.toHaveStyle("transform: translateX(100px)")
+        expect(getByTestId("g")).toHaveStyle("transform: translateX(100px)")
+        expect(getByTestId("h")).toHaveStyle("transform: translateX(100px)")
     })
 
     test("accepts attrX/attrY/attrScale in types", () => {
@@ -76,9 +82,9 @@ describe("SVG", () => {
         )
     })
 
-    // // https://github.com/framer/motion/issues/216
+    // // https://github.com/motiondivision/motion/issues/216
     test("doesn't throw if animating unencounterd value", () => {
-        const animation = {
+        const animation: TargetAndTransition = {
             strokeDasharray: ["1px, 200px", "100px, 200px", "100px, 200px"],
             strokeDashoffset: [0, -15, -125],
             transition: { duration: 1.4, ease: "linear" },

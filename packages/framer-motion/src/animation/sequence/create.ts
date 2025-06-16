@@ -1,33 +1,42 @@
-import { AnimationScope } from "motion-dom"
-import { Easing } from "../../easing/types"
-import { createGeneratorEasing } from "../../easing/utils/create-generator-easing"
-import { defaultOffset } from "../../utils/offsets/default"
-import { fillOffset } from "../../utils/offsets/fill"
-import { progress } from "../../utils/progress"
-import { secondsToMilliseconds } from "../../utils/time-conversion"
-import type { MotionValue } from "../../value"
-import { isMotionValue } from "../../value/utils/is-motion-value"
-import { resolveSubjects } from "../animate/resolve-subjects"
-import { isGenerator } from "../generators/utils/is-generator"
-import { DynamicAnimationOptions, GeneratorFactory } from "../types"
+import type { MotionValue } from "motion-dom"
 import {
+    AnimationScope,
+    createGeneratorEasing,
+    defaultOffset,
     DOMKeyframesDefinition,
+    AnimationOptions as DynamicAnimationOptions,
+    fillOffset,
+    GeneratorFactory,
+    isGenerator,
+    isMotionValue,
     Transition,
     UnresolvedValueKeyframe,
-} from "../types"
+} from "motion-dom"
+import {
+    Easing,
+    getEasingForSegment,
+    invariant,
+    progress,
+    secondsToMilliseconds,
+} from "motion-utils"
+import { resolveSubjects } from "../animate/resolve-subjects"
 import {
     AnimationSequence,
     At,
-    SequenceMap,
     ResolvedAnimationDefinitions,
+    SequenceMap,
     SequenceOptions,
     ValueSequence,
 } from "./types"
+import { calculateRepeatDuration } from "./utils/calc-repeat-duration"
 import { calcNextTime } from "./utils/calc-time"
 import { addKeyframes } from "./utils/edit"
+import { normalizeTimes } from "./utils/normalize-times"
 import { compareByTime } from "./utils/sort"
 
 const defaultSegmentEasing = "easeInOut"
+
+const MAX_REPEAT = 20
 
 export function createAnimationsFromSequence(
     sequence: AnimationSequence,
@@ -100,6 +109,9 @@ export function createAnimationsFromSequence(
                 delay = 0,
                 times = defaultOffset(valueKeyframesAsList),
                 type = "keyframes",
+                repeat,
+                repeatType,
+                repeatDelay = 0,
                 ...remainingTransition
             } = valueTransition
             let { ease = defaultTransition.ease || "easeOut", duration } =
@@ -119,7 +131,7 @@ export function createAnimationsFromSequence(
             const numKeyframes = valueKeyframesAsList.length
             const createGenerator = isGenerator(type)
                 ? type
-                : generators?.[type]
+                : generators?.[type || "keyframes"]
 
             if (numKeyframes <= 2 && createGenerator) {
                 /**
@@ -156,7 +168,6 @@ export function createAnimationsFromSequence(
             duration ??= defaultDuration
 
             const startTime = currentTime + calculatedDelay
-            const targetTime = startTime + duration
 
             /**
              * If there's only one time offset of 0, fill in a second with length 1
@@ -178,6 +189,53 @@ export function createAnimationsFromSequence(
              */
             valueKeyframesAsList.length === 1 &&
                 valueKeyframesAsList.unshift(null)
+
+            /**
+             * Handle repeat options
+             */
+            if (repeat) {
+                invariant(
+                    repeat < MAX_REPEAT,
+                    "Repeat count too high, must be less than 20"
+                )
+
+                duration = calculateRepeatDuration(
+                    duration,
+                    repeat,
+                    repeatDelay
+                )
+
+                const originalKeyframes = [...valueKeyframesAsList]
+                const originalTimes = [...times]
+                ease = Array.isArray(ease) ? [...ease] : [ease]
+                const originalEase = [...ease]
+
+                for (let repeatIndex = 0; repeatIndex < repeat; repeatIndex++) {
+                    valueKeyframesAsList.push(...originalKeyframes)
+
+                    for (
+                        let keyframeIndex = 0;
+                        keyframeIndex < originalKeyframes.length;
+                        keyframeIndex++
+                    ) {
+                        times.push(
+                            originalTimes[keyframeIndex] + (repeatIndex + 1)
+                        )
+                        ease.push(
+                            keyframeIndex === 0
+                                ? "linear"
+                                : getEasingForSegment(
+                                      originalEase,
+                                      keyframeIndex - 1
+                                  )
+                        )
+                    }
+                }
+
+                normalizeTimes(times, repeat)
+            }
+
+            const targetTime = startTime + duration
 
             /**
              * Add keyframes, mapping offsets to absolute time.

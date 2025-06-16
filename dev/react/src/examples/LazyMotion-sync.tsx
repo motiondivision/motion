@@ -1,4 +1,4 @@
-import { memo, useEffect, useState } from "react";
+import { memo } from "react";
 import { m, LazyMotion, domAnimation } from "framer-motion"
 
 /**

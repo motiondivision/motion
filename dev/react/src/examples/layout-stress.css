@@ -1,0 +1,137 @@
+.layout-container {
+    display: flex;
+    flex-wrap: wrap;
+    --width: 200px;
+    --height: 200px;
+    --offset: 0px;
+    width: 1000px;
+    height: 4000px;
+    overflow: hidden;
+    justify-content: flex-start;
+    align-items: flex-start;
+}
+
+.layout-container.expanded {
+    --width: 500px;
+    --height: 500px;
+    --offset: 100px;
+}
+
+.a {
+    background-color: hsla(0, 50%, 50%);
+    position: relative;
+    width: var(--width);
+    height: var(--height);
+    display: flex;
+}
+
+.b {
+    background-color: hsla(20, 50%, 50%);
+    width: var(--width);
+    height: var(--height);
+    position: absolute;
+    top: var(--offset);
+    left: var(--offset);
+}
+
+.c {
+    background-color: hsla(60, 50%, 50%);
+    width: var(--width);
+    height: var(--height);
+}
+
+.d {
+    background-color: hsla(90, 50%, 50%);
+    width: var(--width);
+    height: var(--height);
+}
+
+.e {
+    background-color: hsla(120, 50%, 50%);
+    width: var(--width);
+    height: var(--height);
+    position: absolute;
+    top: var(--offset);
+    left: var(--offset);
+}
+
+.f {
+    background-color: hsla(170, 50%, 50%);
+    width: var(--width);
+    height: var(--height);
+    position: absolute;
+    top: var(--offset);
+    left: var(--offset);
+}
+
+.g {
+    background-color: hsla(220, 50%, 50%);
+    width: var(--width);
+    height: var(--height);
+    position: absolute;
+    top: var(--offset);
+    left: var(--offset);
+}
+
+.h {
+    background-color: hsla(260, 50%, 50%);
+    width: var(--width);
+    height: var(--height);
+    position: absolute;
+    top: var(--offset);
+    left: var(--offset);
+}
+
+.i {
+    background-color: hsla(300, 50%, 50%);
+    width: var(--width);
+    height: var(--height);
+    position: absolute;
+    top: var(--offset);
+    left: var(--offset);
+}
+
+/* Scroll container specific styles */
+.a-scroll {
+    overflow: scroll;
+    width: calc(var(--width) / 2);
+}
+
+/* Transform specific styles */
+.layout-container.transform .a {
+    width: 100px;
+    height: 200px;
+}
+
+.layout-container.transform .b,
+.layout-container.transform .c,
+.layout-container.transform .d,
+.layout-container.transform .e,
+.layout-container.transform .f,
+.layout-container.transform .g,
+.layout-container.transform .h,
+.layout-container.transform .i {
+    width: 100px;
+    height: 200px;
+    top: 0;
+    left: 0;
+}
+
+/* Scale correction specific styles */
+.layout-container.scale-correction .a {
+    width: var(--width);
+    height: var(--height);
+}
+
+.layout-container.scale-correction .a .a,
+.layout-container.scale-correction .b,
+.layout-container.scale-correction .c,
+.layout-container.scale-correction .d,
+.layout-container.scale-correction .e,
+.layout-container.scale-correction .f,
+.layout-container.scale-correction .g,
+.layout-container.scale-correction .h,
+.layout-container.scale-correction .i {
+    width: 100px;
+    height: 100px;
+}

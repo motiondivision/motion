@@ -1,7 +1,7 @@
+import { frame } from "motion-dom"
 import * as React from "react"
-import { frame } from "../../../frameloop"
 import { MotionConfig } from "../../../components/MotionConfig"
-import { pointerDown, pointerMove, pointerUp } from "../../../../jest.setup"
+import { pointerDown, pointerMove, pointerUp } from "../../../jest.setup"
 
 export type Point = {
     x: number

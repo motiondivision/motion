@@ -1,23 +1,24 @@
-import { AnimationScope, ElementOrSelector } from "motion-dom"
-import { GenericKeyframesTarget } from "../../types"
-import type { MotionValue } from "../../value"
-import { GroupPlaybackControls } from "../GroupPlaybackControls"
+import type {
+    AnimationPlaybackControlsWithThen,
+    AnimationScope,
+    DOMKeyframesDefinition,
+    AnimationOptions as DynamicAnimationOptions,
+    ElementOrSelector,
+    MotionValue,
+    UnresolvedValueKeyframe,
+    ValueAnimationTransition,
+} from "motion-dom"
+import { GroupAnimationWithThen } from "motion-dom"
 import {
     AnimationSequence,
     ObjectTarget,
     SequenceOptions,
 } from "../sequence/types"
-import {
-    AnimationPlaybackControls,
-    DOMKeyframesDefinition,
-    DynamicAnimationOptions,
-    ValueAnimationTransition,
-} from "../types"
 import { animateSequence } from "./sequence"
 import { animateSubject } from "./subject"
 
 function isSequence(value: unknown): value is AnimationSequence {
-    return Array.isArray(value) && Array.isArray(value[0])
+    return Array.isArray(value) && value.some(Array.isArray)
 }
 
 /**
@@ -31,31 +32,31 @@ export function createScopedAnimate(scope?: AnimationScope) {
     function scopedAnimate(
         sequence: AnimationSequence,
         options?: SequenceOptions
-    ): AnimationPlaybackControls
+    ): AnimationPlaybackControlsWithThen
     /**
      * Animate a string
      */
     function scopedAnimate(
         value: string | MotionValue<string>,
-        keyframes: string | GenericKeyframesTarget<string>,
+        keyframes: string | UnresolvedValueKeyframe<string>[],
         options?: ValueAnimationTransition<string>
-    ): AnimationPlaybackControls
+    ): AnimationPlaybackControlsWithThen
     /**
      * Animate a number
      */
     function scopedAnimate(
         value: number | MotionValue<number>,
-        keyframes: number | GenericKeyframesTarget<number>,
+        keyframes: number | UnresolvedValueKeyframe<number>[],
         options?: ValueAnimationTransition<number>
-    ): AnimationPlaybackControls
+    ): AnimationPlaybackControlsWithThen
     /**
      * Animate a generic motion value
      */
-    function scopedAnimate<V>(
+    function scopedAnimate<V extends string | number>(
         value: V | MotionValue<V>,
-        keyframes: V | GenericKeyframesTarget<V>,
+        keyframes: V | UnresolvedValueKeyframe<V>[],
         options?: ValueAnimationTransition<V>
-    ): AnimationPlaybackControls
+    ): AnimationPlaybackControlsWithThen
     /**
      * Animate an Element
      */
@@ -63,7 +64,7 @@ export function createScopedAnimate(scope?: AnimationScope) {
         element: ElementOrSelector,
         keyframes: DOMKeyframesDefinition,
         options?: DynamicAnimationOptions
-    ): AnimationPlaybackControls
+    ): AnimationPlaybackControlsWithThen
     /**
      * Animate an object
      */
@@ -71,7 +72,7 @@ export function createScopedAnimate(scope?: AnimationScope) {
         object: O | O[],
         keyframes: ObjectTarget<O>,
         options?: DynamicAnimationOptions
-    ): AnimationPlaybackControls
+    ): AnimationPlaybackControlsWithThen
     /**
      * Implementation
      */
@@ -89,16 +90,16 @@ export function createScopedAnimate(scope?: AnimationScope) {
             | SequenceOptions
             | number
             | string
-            | GenericKeyframesTarget<number>
-            | GenericKeyframesTarget<string>
+            | UnresolvedValueKeyframe<number>[]
+            | UnresolvedValueKeyframe<string>[]
             | DOMKeyframesDefinition
             | ObjectTarget<O>,
         options?:
             | ValueAnimationTransition<number>
             | ValueAnimationTransition<string>
             | DynamicAnimationOptions
-    ): AnimationPlaybackControls {
-        let animations: AnimationPlaybackControls[] = []
+    ): AnimationPlaybackControlsWithThen {
+        let animations: AnimationPlaybackControlsWithThen[] = []
 
         if (isSequence(subjectOrSequence)) {
             animations = animateSequence(
@@ -115,7 +116,7 @@ export function createScopedAnimate(scope?: AnimationScope) {
             )
         }
 
-        const animation = new GroupPlaybackControls(animations)
+        const animation = new GroupAnimationWithThen(animations)
 
         if (scope) {
             scope.animations.push(animation)

@@ -1,23 +1,23 @@
 "use client"
 
+import { invariant, warning } from "motion-utils"
 import * as React from "react"
 import { forwardRef, useContext } from "react"
-import { MotionProps } from "./types"
-import { RenderComponent, FeatureBundle } from "./features/types"
-import { MotionConfigContext } from "../context/MotionConfigContext"
-import { MotionContext } from "../context/MotionContext"
-import { useVisualElement } from "./utils/use-visual-element"
-import { UseVisualState } from "./utils/use-visual-state"
-import { useMotionRef } from "./utils/use-motion-ref"
-import { useCreateMotionContext } from "../context/MotionContext/create"
-import { loadFeatures } from "./features/load-features"
-import { isBrowser } from "../utils/is-browser"
 import { LayoutGroupContext } from "../context/LayoutGroupContext"
 import { LazyContext } from "../context/LazyContext"
-import { motionComponentSymbol } from "./utils/symbol"
+import { MotionConfigContext } from "../context/MotionConfigContext"
+import { MotionContext } from "../context/MotionContext"
+import { useCreateMotionContext } from "../context/MotionContext/create"
 import { CreateVisualElement } from "../render/types"
-import { invariant, warning } from "motion-utils"
+import { isBrowser } from "../utils/is-browser"
 import { featureDefinitions } from "./features/definitions"
+import { loadFeatures } from "./features/load-features"
+import { FeatureBundle, RenderComponent } from "./features/types"
+import { MotionProps } from "./types"
+import { motionComponentSymbol } from "./utils/symbol"
+import { useMotionRef } from "./utils/use-motion-ref"
+import { useVisualElement } from "./utils/use-visual-element"
+import { UseVisualState } from "./utils/use-visual-state"
 
 export interface MotionComponentConfig<Instance, RenderState> {
     preloadedFeatures?: FeatureBundle
@@ -124,8 +124,15 @@ export function createRendererMotionComponent<
         )
     }
 
+    MotionComponent.displayName = `motion.${
+        typeof Component === "string"
+            ? Component
+            : `create(${Component.displayName ?? Component.name ?? ""})`
+    }`
+
     const ForwardRefMotionComponent = forwardRef(MotionComponent as any)
     ;(ForwardRefMotionComponent as any)[motionComponentSymbol] = Component
+
     return ForwardRefMotionComponent
 }
 

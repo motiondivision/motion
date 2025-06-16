@@ -1,17 +1,16 @@
-import { ElementOrSelector } from "motion-dom"
-import { Easing } from "../../easing/types"
-import { GenericKeyframesTarget } from "../../types"
-import type { MotionValue } from "../../value"
-import { DynamicAnimationOptions } from "../types"
+import type { MotionValue } from "motion-dom"
 import {
-    DOMKeyframesDefinition,
-    Transition,
     AnimationPlaybackOptions,
+    DOMKeyframesDefinition,
+    AnimationOptions as DynamicAnimationOptions,
+    ElementOrSelector,
+    Transition,
     UnresolvedValueKeyframe,
-} from "../types"
+} from "motion-dom"
+import { Easing } from "motion-utils"
 
 export type ObjectTarget<O> = {
-    [K in keyof O]?: O[K] | GenericKeyframesTarget<O[K]>
+    [K in keyof O]?: O[K] | UnresolvedValueKeyframe[]
 }
 
 export type SequenceTime =

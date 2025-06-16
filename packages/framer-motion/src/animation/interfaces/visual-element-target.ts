@@ -1,15 +1,17 @@
-import { transformProps } from "../../render/html/utils/transform"
+import type { TargetAndTransition } from "motion-dom"
+import {
+    AnimationPlaybackControlsWithThen,
+    frame,
+    getValueTransition,
+    positionalKeys,
+} from "motion-dom"
 import type { AnimationTypeState } from "../../render/utils/animation-state"
-import type { VisualElement } from "../../render/VisualElement"
-import type { TargetAndTransition } from "../../types"
-import type { VisualElementAnimationOptions } from "./types"
-import { animateMotionValue } from "./motion-value"
 import { setTarget } from "../../render/utils/setters"
-import { AnimationPlaybackControls } from "../types"
-import { getValueTransition } from "../utils/get-value-transition"
-import { frame } from "../../frameloop"
-import { getOptimisedAppearId } from "../optimized-appear/get-appear-id"
+import type { VisualElement } from "../../render/VisualElement"
 import { addValueToWillChange } from "../../value/use-will-change/add-will-change"
+import { getOptimisedAppearId } from "../optimized-appear/get-appear-id"
+import { animateMotionValue } from "./motion-value"
+import type { VisualElementAnimationOptions } from "./types"
 
 /**
  * Decide whether we should block this animation. Previously, we achieved this
@@ -32,7 +34,7 @@ export function animateTarget(
     visualElement: VisualElement,
     targetAndTransition: TargetAndTransition,
     { delay = 0, transitionOverride, type }: VisualElementAnimationOptions = {}
-): AnimationPlaybackControls[] {
+): AnimationPlaybackControlsWithThen[] {
     let {
         transition = visualElement.getDefaultTransition(),
         transitionEnd,
@@ -41,7 +43,7 @@ export function animateTarget(
 
     if (transitionOverride) transition = transitionOverride
 
-    const animations: AnimationPlaybackControls[] = []
+    const animations: AnimationPlaybackControlsWithThen[] = []
 
     const animationTypeState =
         type &&
@@ -66,6 +68,20 @@ export function animateTarget(
         const valueTransition = {
             delay,
             ...getValueTransition(transition || {}, key),
+        }
+
+        /**
+         * If the value is already at the defined target, skip the animation.
+         */
+        const currentValue = value.get()
+        if (
+            currentValue !== undefined &&
+            !value.isAnimating &&
+            !Array.isArray(valueTarget) &&
+            valueTarget === currentValue &&
+            !valueTransition.velocity
+        ) {
+            continue
         }
 
         /**
@@ -97,7 +113,7 @@ export function animateTarget(
                 key,
                 value,
                 valueTarget,
-                visualElement.shouldReduceMotion && transformProps.has(key)
+                visualElement.shouldReduceMotion && positionalKeys.has(key)
                     ? { type: false }
                     : valueTransition,
                 visualElement,

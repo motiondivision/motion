@@ -20,21 +20,29 @@
         <script type="module">
             const { hover } = window.MotionDOM
 
-            hover("#hover", ({ currentTarget }) => {
-                currentTarget.innerHTML = "start"
+            hover("#hover", (target) => {
+                target.innerHTML = "start"
 
                 return () => {
-                    currentTarget.innerHTML = "end"
+                    target.innerHTML = "end"
+                }
+            })
+
+            hover("#hover", (target) => {
+                target.style.color = "green"
+
+                return () => {
+                    target.style.color = "purple"
                 }
             })
 
             let multiCount = 0
-            hover("#multi", ({ currentTarget }) => {
-                currentTarget.innerHTML = multiCount
+            hover("#multi", (target) => {
+                target.innerHTML = multiCount
                 multiCount++
 
                 return () => {
-                    currentTarget.innerHTML = multiCount
+                    target.innerHTML = multiCount
                     multiCount++
                 }
             })
@@ -42,12 +50,12 @@
             let onceCount = 0
             hover(
                 "#once",
-                ({ currentTarget }) => {
-                    currentTarget.innerHTML = onceCount
+                (target) => {
+                    target.innerHTML = onceCount
                     onceCount++
 
                     return () => {
-                        currentTarget.innerHTML = onceCount
+                        target.innerHTML = onceCount
                         onceCount++
                     }
                 },

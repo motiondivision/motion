@@ -1,13 +1,13 @@
-import { animationControls } from "./animation-controls"
-import { AnimationControls } from "../types"
+import { LegacyAnimationControls } from "motion-dom"
 import { useConstant } from "../../utils/use-constant"
 import { useIsomorphicLayoutEffect } from "../../utils/use-isomorphic-effect"
+import { animationControls } from "./animation-controls"
 
 /**
- * Creates `AnimationControls`, which can be used to manually start, stop
+ * Creates `LegacyAnimationControls`, which can be used to manually start, stop
  * and sequence animations on one or more components.
  *
- * The returned `AnimationControls` should be passed to the `animate` property
+ * The returned `LegacyAnimationControls` should be passed to the `animate` property
  * of the components you want to animate.
  *
  * These components can then be animated with the `start` method.
@@ -32,7 +32,7 @@ import { useIsomorphicLayoutEffect } from "../../utils/use-isomorphic-effect"
  *
  * @public
  */
-export function useAnimationControls(): AnimationControls {
+export function useAnimationControls(): LegacyAnimationControls {
     const controls = useConstant(animationControls)
 
     useIsomorphicLayoutEffect(controls.mount, [])

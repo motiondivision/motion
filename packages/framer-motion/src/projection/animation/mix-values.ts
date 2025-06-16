@@ -1,10 +1,11 @@
-import { circOut } from "../../easing/circ"
-import { EasingFunction } from "../../easing/types"
+import { mixNumber, percent, px } from "motion-dom"
+import {
+    progress as calcProgress,
+    circOut,
+    EasingFunction,
+    noop,
+} from "motion-utils"
 import { ResolvedValues } from "../../render/types"
-import { progress as calcProgress } from "../../utils/progress"
-import { mixNumber } from "../../utils/mix/number"
-import { noop } from "motion-utils"
-import { percent, px } from "../../value/types/numbers/units"
 
 const borders = ["TopLeft", "TopRight", "BottomLeft", "BottomRight"]
 const numBorders = borders.length
@@ -26,19 +27,18 @@ export function mixValues(
     if (shouldCrossfadeOpacity) {
         target.opacity = mixNumber(
             0,
-            // TODO Reinstate this if only child
-            lead.opacity !== undefined ? (lead.opacity as number) : 1,
+            (lead.opacity as number) ?? 1,
             easeCrossfadeIn(progress)
         )
         target.opacityExit = mixNumber(
-            follow.opacity !== undefined ? (follow.opacity as number) : 1,
+            (follow.opacity as number) ?? 1,
             0,
             easeCrossfadeOut(progress)
         )
     } else if (isOnlyMember) {
         target.opacity = mixNumber(
-            follow.opacity !== undefined ? (follow.opacity as number) : 1,
-            lead.opacity !== undefined ? (lead.opacity as number) : 1,
+            (follow.opacity as number) ?? 1,
+            (lead.opacity as number) ?? 1,
             progress
         )
     }

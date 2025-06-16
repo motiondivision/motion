@@ -1,4 +1,4 @@
-import { Axis, AxisDelta, Box } from "./types"
+import { Axis, AxisDelta, Box } from "motion-utils"
 
 /**
  * Reset an axis to the provided origin box.

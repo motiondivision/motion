@@ -1,5 +1,10 @@
-import { ValueTarget, KeyframesTarget } from "../../types"
+import type {
+    UnresolvedValueKeyframe,
+    ValueKeyframesDefinition,
+} from "motion-dom"
 
-export const isKeyframesTarget = (v: ValueTarget): v is KeyframesTarget => {
+export const isKeyframesTarget = (
+    v: ValueKeyframesDefinition
+): v is UnresolvedValueKeyframe[] => {
     return Array.isArray(v)
 }

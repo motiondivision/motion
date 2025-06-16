@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect } from "react"
 import { motion } from "framer-motion"
+import { useRef, useState } from "react"
 
 const styleA = {
     width: 200,

@@ -1,20 +1,13 @@
-import { useRef, useContext, useInsertionEffect } from "react"
-import { MotionValue } from "../value"
-import { isMotionValue } from "./utils/is-motion-value"
-import { useMotionValue } from "./use-motion-value"
-import { MotionConfigContext } from "../context/MotionConfigContext"
-import { SpringOptions } from "../animation/types"
-import { useIsomorphicLayoutEffect } from "../utils/use-isomorphic-effect"
-import { frame, frameData } from "../frameloop"
 import {
-    MainThreadAnimation,
-    animateValue,
-} from "../animation/animators/MainThreadAnimation"
-
-function toNumber(v: string | number) {
-    if (typeof v === "number") return v
-    return parseFloat(v)
-}
+    attachSpring,
+    isMotionValue,
+    MotionValue,
+    SpringOptions,
+} from "motion-dom"
+import { useContext, useInsertionEffect } from "react"
+import { MotionConfigContext } from "../context/MotionConfigContext"
+import { useMotionValue } from "./use-motion-value"
+import { useTransform } from "./use-transform"
 
 /**
  * Creates a `MotionValue` that, when `set`, will use a spring animation to animate to its new state.
@@ -36,70 +29,38 @@ function toNumber(v: string | number) {
  * @public
  */
 export function useSpring(
-    source: MotionValue<string> | MotionValue<number> | number,
-    config: SpringOptions = {}
+    source: MotionValue<string>,
+    options?: SpringOptions
+): MotionValue<string>
+export function useSpring(
+    source: string,
+    options?: SpringOptions
+): MotionValue<string>
+export function useSpring(
+    source: MotionValue<number>,
+    options?: SpringOptions
+): MotionValue<number>
+export function useSpring(
+    source: number,
+    options?: SpringOptions
+): MotionValue<number>
+export function useSpring(
+    source: MotionValue<string> | MotionValue<number> | string | number,
+    options: SpringOptions = {}
 ) {
     const { isStatic } = useContext(MotionConfigContext)
-    const activeSpringAnimation = useRef<MainThreadAnimation<number> | null>(
-        null
-    )
-    const value = useMotionValue(
-        isMotionValue(source) ? toNumber(source.get()) : source
-    )
-    const latestValue = useRef<number>(value.get())
-    const latestSetter = useRef<(v: number) => void>(() => {})
+    const getFromSource = () => (isMotionValue(source) ? source.get() : source)
 
-    const startAnimation = () => {
-        /**
-         * If the previous animation hasn't had the chance to even render a frame, render it now.
-         */
-        const animation = activeSpringAnimation.current
-
-        if (animation && animation.time === 0) {
-            animation.sample(frameData.delta)
-        }
-
-        stopAnimation()
-
-        activeSpringAnimation.current = animateValue({
-            keyframes: [value.get(), latestValue.current],
-            velocity: value.getVelocity(),
-            type: "spring",
-            restDelta: 0.001,
-            restSpeed: 0.01,
-            ...config,
-            onUpdate: latestSetter.current,
-        })
+    // isStatic will never change, allowing early hooks return
+    if (isStatic) {
+        return useTransform(getFromSource)
     }
 
-    const stopAnimation = () => {
-        if (activeSpringAnimation.current) {
-            activeSpringAnimation.current.stop()
-        }
-    }
+    const value = useMotionValue(getFromSource())
 
     useInsertionEffect(() => {
-        return value.attach((v, set) => {
-            /**
-             * A more hollistic approach to this might be to use isStatic to fix VisualElement animations
-             * at that level, but this will work for now
-             */
-            if (isStatic) return set(v)
-
-            latestValue.current = v
-            latestSetter.current = set
-
-            frame.update(startAnimation)
-
-            return value.get()
-        }, stopAnimation)
-    }, [JSON.stringify(config)])
-
-    useIsomorphicLayoutEffect(() => {
-        if (isMotionValue(source)) {
-            return source.on("change", (v) => value.set(toNumber(v)))
-        }
-    }, [value])
+        return attachSpring(value, source, options)
+    }, [value, JSON.stringify(options)])
 
     return value
 }

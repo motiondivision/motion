@@ -1,6 +1,5 @@
-import { MotionValue } from "."
+import { isMotionValue, MotionValue } from "motion-dom"
 import { useCombineMotionValues } from "./use-combine-values"
-import { isMotionValue } from "./utils/is-motion-value"
 
 /**
  * Combine multiple motion values into a new one using a string template literal.
