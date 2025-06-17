@@ -53,6 +53,12 @@ export interface AnimatePresenceProps {
     mode?: "sync" | "popLayout" | "wait"
 
     /**
+     * Root element to use when injecting styles, used when mode === `"popLayout"`.
+     * This defaults to document.head but can be overridden e.g. for use in shadow DOM.
+     */
+    root?: HTMLElement | ShadowRoot;
+
+    /**
      * Internal. Used in Framer to flag that sibling children *shouldn't* re-render as a result of a
      * child being removed.
      */

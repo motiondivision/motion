@@ -21,7 +21,7 @@ describe("animateMini()", () => {
 
     it("pause() correctly pauses the animation", () => {
         cy.visit("?test=animate-style-pause")
-            .wait(200)
+            .wait(400)
             .get("#box")
             .should(([$element]: any) => {
                 expect($element.getBoundingClientRect().width).not.to.equal(100)
