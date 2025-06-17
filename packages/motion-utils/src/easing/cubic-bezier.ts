@@ -5,7 +5,7 @@
   https://github.com/gre/bezier-easing/blob/master/LICENSE
   
   I've removed the newtonRaphsonIterate algo because in benchmarking it
-  wasn't noticiably faster than binarySubdivision, indeed removing it
+  wasn't noticeably faster than binarySubdivision, indeed removing it
   usually improved times, depending on the curve.
   I also removed the lookup table, as for the added bundle size and loop we're
   only cutting ~4 or so subdivision iterations. I bumped the max iterations up
