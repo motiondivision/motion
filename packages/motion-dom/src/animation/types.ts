@@ -404,6 +404,18 @@ export interface AnimationOrchestrationOptions {
      * @public
      */
     staggerDirection?: number
+
+    /**
+     * Specifies the index or origin to stagger from.
+     *
+     * Can be `number` for a specific index, or `"first"`, `"last"`, or `"center"`.
+     * This can create an "outward" effect from the center or a specific index.
+     *
+     * Can supersede `staggerDirection`.
+     *
+     * @public
+     */
+    staggerFrom?: number | "first" | "last" | "center"
 }
 
 export interface KeyframeOptions {
