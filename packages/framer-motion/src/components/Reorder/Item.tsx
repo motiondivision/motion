@@ -11,6 +11,7 @@ import { HTMLMotionProps } from "../../render/html/types"
 import { useConstant } from "../../utils/use-constant"
 import { useMotionValue } from "../../value/use-motion-value"
 import { useTransform } from "../../value/use-transform"
+import type { PanInfo } from "../../gestures/types"
 
 export interface Props<V> {
     /**
@@ -41,8 +42,16 @@ function useDefaultMotionValue(value: any, defaultValue: number = 0) {
 }
 
 type ReorderItemProps<V> = Props<V> &
-    Omit<HTMLMotionProps<any>, "value" | "layout"> &
-    React.PropsWithChildren<{}>
+    Omit<HTMLMotionProps<any>, "value" | "layout"> & {
+        onDrag?: (
+            event: MouseEvent | TouchEvent | PointerEvent,
+            info: PanInfo
+        ) => void
+        onDragEnd?: (
+            event: MouseEvent | TouchEvent | PointerEvent,
+            info: PanInfo
+        ) => void
+    } & React.PropsWithChildren<{}>
 
 export function ReorderItemComponent<V>(
     {
@@ -50,7 +59,8 @@ export function ReorderItemComponent<V>(
         style = {},
         value,
         as = "li",
-        onDrag,
+        onDrag: customOnDrag,
+        onDragEnd: customOnDragEnd,
         layout = true,
         ...props
     }: ReorderItemProps<V>,
@@ -88,8 +98,9 @@ export function ReorderItemComponent<V>(
                 velocity[axis] &&
                     updateOrder(value, point[axis].get(), velocity[axis])
 
-                onDrag && onDrag(event, gesturePoint)
+                customOnDrag && customOnDrag(event, gesturePoint)
             }}
+            onDragEnd={customOnDragEnd}
             onLayoutMeasure={(measured) => registerItem(value, measured)}
             ref={externalRef}
             ignoreStrict
