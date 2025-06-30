@@ -2,6 +2,7 @@ import { resolveVariant } from "../../render/utils/resolve-dynamic-variants"
 import { VisualElement } from "../../render/VisualElement"
 import { VisualElementAnimationOptions } from "./types"
 import { animateTarget } from "./visual-element-target"
+import { getOriginIndex, StaggerOrigin } from "../utils/stagger"
 
 export function animateVariant(
     visualElement: VisualElement,
@@ -42,6 +43,7 @@ export function animateVariant(
                       delayChildren = 0,
                       staggerChildren,
                       staggerDirection,
+                      staggerFrom,
                   } = transition
 
                   return animateChildren(
@@ -50,6 +52,7 @@ export function animateVariant(
                       delayChildren + forwardDelay,
                       staggerChildren,
                       staggerDirection,
+                      staggerFrom,
                       options
                   )
               }
@@ -78,17 +81,34 @@ function animateChildren(
     delayChildren = 0,
     staggerChildren = 0,
     staggerDirection = 1,
+    staggerFrom?: StaggerOrigin,
     options: VisualElementAnimationOptions
 ) {
     const animations: Promise<any>[] = []
 
-    const maxStaggerDuration =
-        (visualElement.variantChildren!.size - 1) * staggerChildren
+    let generateStaggerDuration: (i: number) => number
 
-    const generateStaggerDuration =
-        staggerDirection === 1
-            ? (i = 0) => i * staggerChildren
-            : (i = 0) => maxStaggerDuration - i * staggerChildren
+    if (staggerFrom !== undefined) {
+        const fromIndex =
+            typeof staggerFrom === "number"
+                ? staggerFrom
+                : getOriginIndex(
+                      staggerFrom,
+                      visualElement.variantChildren!.size
+                  )
+
+        generateStaggerDuration = (i = 0) => {
+            const distance = Math.abs(fromIndex - i)
+            return distance * staggerChildren
+        }
+    } else {
+        const maxStaggerDuration =
+            (visualElement.variantChildren!.size - 1) * staggerChildren
+        generateStaggerDuration =
+            staggerDirection === 1
+                ? (i = 0) => i * staggerChildren
+                : (i = 0) => maxStaggerDuration - i * staggerChildren
+    }
 
     Array.from(visualElement.variantChildren!)
         .sort(sortByTreeOrder)
