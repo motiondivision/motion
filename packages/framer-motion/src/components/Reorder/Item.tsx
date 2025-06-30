@@ -76,17 +76,43 @@ export function ReorderItemComponent<V>(
 
     const { axis, registerItem, updateOrder } = context!
 
+    const dragDirection = axis === "xy" ? true : axis
+
     return (
         <Component
-            drag={axis}
+            drag={dragDirection}
             {...props}
             dragSnapToOrigin
             style={{ ...style, x: point.x, y: point.y, zIndex }}
             layout={layout}
             onDrag={(event, gesturePoint) => {
                 const { velocity } = gesturePoint
-                velocity[axis] &&
-                    updateOrder(value, point[axis].get(), velocity[axis])
+                const relevantVelocity =
+                    axis === "xy"
+                        ? velocity.x || velocity.y
+                        : velocity[axis]
+
+                if (relevantVelocity) {
+                    if (axis === "xy") {
+                        updateOrder(
+                            value,
+                            { x: point.x.get(), y: point.y.get() },
+                            { x: velocity.x, y: velocity.y }
+                        )
+                    } else {
+                        updateOrder(
+                            value,
+                            {
+                                x: axis === "x" ? point.x.get() : 0,
+                                y: axis === "y" ? point.y.get() : 0,
+                            },
+                            {
+                                x: axis === "x" ? velocity.x : 0,
+                                y: axis === "y" ? velocity.y : 0,
+                            }
+                        )
+                    }
+                }
 
                 onDrag && onDrag(event, gesturePoint)
             }}
