@@ -105,8 +105,31 @@ class MeasureLayoutWithContext extends Component<MeasureProps> {
         return null
     }
 
-    componentDidUpdate() {
-        const { projection } = this.props.visualElement
+    componentDidUpdate(prevProps: MeasureProps) {
+        const { visualElement, layoutId, switchLayoutGroup } = this.props
+        const { projection } = visualElement
+
+        if (layoutId !== prevProps.layoutId) {
+            if (
+                prevProps.layoutId &&
+                switchLayoutGroup &&
+                switchLayoutGroup.deregister
+            ) {
+                switchLayoutGroup.deregister(projection)
+            }
+
+            if (layoutId && switchLayoutGroup && switchLayoutGroup.register) {
+                switchLayoutGroup.register(projection)
+            }
+
+            if (projection && projection.setOptions) {
+                projection.setOptions({
+                    ...projection.options,
+                    layoutId: layoutId,
+                })
+            }
+        }
+
         if (projection) {
             projection.root!.didUpdate()
 

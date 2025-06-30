@@ -1099,11 +1099,31 @@ export function createProjectionNode<I>({
         }
 
         setOptions(options: ProjectionNodeOptions) {
+            const oldLayoutId = this.options.layoutId
             this.options = {
                 ...this.options,
                 ...options,
                 crossfade:
                     options.crossfade !== undefined ? options.crossfade : true,
+            }
+            const newLayoutId = this.options.layoutId
+
+            if (oldLayoutId !== newLayoutId) {
+                if (oldLayoutId) {
+                    const stack = this.root.sharedNodes.get(oldLayoutId)
+                    if (stack) {
+                        stack.remove(this)
+                    }
+                }
+                if (newLayoutId) {
+                    if (!this.root.sharedNodes.has(newLayoutId)) {
+                        this.root.sharedNodes.set(newLayoutId, new NodeStack())
+                    }
+                    const newStack = this.root.sharedNodes.get(newLayoutId)
+                    if (newStack) {
+                        newStack.add(this)
+                    }
+                }
             }
         }
 

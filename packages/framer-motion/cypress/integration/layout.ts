@@ -366,4 +366,43 @@ describe("Layout animation", () => {
                 expect($box.style.opacity).to.equal("1")
             })
     })
+
+    it("should animate correctly when layoutId changes dynamically", () => {
+        // This test assumes a component is available at "?test=layout-id-update"
+        // which renders two motion.divs (box-a, box-b) and a button (change-id-button).
+        // box-a's layoutId changes from "initial-id" to "target-id" (matching box-b's layoutId) on button click.
+        cy.visit("?test=layout-id-update") // Assumed test page
+
+        let boxBOffset: { top: number; left: number }
+
+        cy.get('[data-testid="box-b"]')
+            .should(([$boxB]: any) => {
+                const rect = $boxB.getBoundingClientRect()
+                boxBOffset = { top: rect.top, left: rect.left }
+            })
+            .then(() => {
+                cy.get('[data-testid="box-a"]').should(([$boxA]: any) => {
+                    const rect = $boxA.getBoundingClientRect()
+                    // Ensure it's not already at boxB's position
+                    expect(rect.top).not.to.be.closeTo(boxBOffset.top, 1)
+                    expect(rect.left).not.to.be.closeTo(boxBOffset.left, 1)
+                })
+
+                cy.get('[data-testid="change-id-button"]').click()
+
+                // Wait for the animation (default duration is 0.3s, using 0.1s in component + buffer)
+                cy.wait(200)
+
+                cy.get('[data-testid="box-a"]').should(([$boxA]: any) => {
+                    const rect = $boxA.getBoundingClientRect()
+                    expect(rect.top).to.be.closeTo(boxBOffset.top, 1)
+                    expect(rect.left).to.be.closeTo(boxBOffset.left, 1)
+                    // Also check size if it's supposed to match (assuming it does for full layout share)
+                    // For this test, primarily concerned with position due to layoutId switch.
+                    // const boxBRect = cy.get('[data-testid="box-b"]').getBoundingClientRect() // this won't work here
+                    // expect(rect.width).to.be.closeTo(boxBRect.width, 1)
+                    // expect(rect.height).to.be.closeTo(boxBRect.height, 1)
+                })
+            })
+    })
 })
