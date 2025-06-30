@@ -231,16 +231,43 @@ export class VisualElementDragControls {
     }
 
     private stop(event: PointerEvent, info: PanInfo) {
-        const isDragging = this.isDragging
-        this.cancel()
-        if (!isDragging) return
+        if (!this.isDragging) {
+            // If not dragging (e.g. gesture didn't start, or was cancelled before stop),
+            // still call cancel to ensure cleanup, though it might be redundant if already cancelled.
+            this.cancel();
+            return;
+        }
 
-        const { velocity } = info
-        this.startAnimation(velocity)
+        // At this point, isDragging was true when stop was called.
+        // We will set this.isDragging = false within this.cancel() later.
 
-        const { onDragEnd } = this.getProps()
+        const { velocity } = info;
+        const momentumAnimPromise = this.startAnimation(velocity);
+
+        const { onDragEnd } = this.getProps();
+
+        const finalCancel = () => {
+            // this.isDragging is set to false inside this.cancel()
+            // this.panSession is set to undefined inside this.cancel()
+            // Call cancel only if it hasn't effectively been called yet for this drag operation.
+            // Check this.isDragging as it's set to false in cancel().
+            // PanSession is also cleared in cancel().
+            if (this.isDragging || this.panSession) {
+                 this.cancel();
+            }
+        };
+
         if (onDragEnd) {
-            frame.postRender(() => onDragEnd(event, info))
+            frame.postRender(() => {
+                onDragEnd(event, info);
+                // Wait for momentum to finish (or an animation frame if no momentum)
+                // before cancelling drag state. This ensures animationState
+                // reconciles *after* onDragEnd props have been updated.
+                momentumAnimPromise.then(finalCancel);
+            });
+        } else {
+            // If no onDragEnd, still wait for momentum then cancel.
+            momentumAnimPromise.then(finalCancel);
         }
     }
 
