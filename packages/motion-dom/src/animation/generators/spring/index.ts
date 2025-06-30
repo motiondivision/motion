@@ -125,12 +125,12 @@ function spring(
      * ratio between feeling good and finishing as soon as changes are imperceptible.
      */
     const isGranularScale = Math.abs(initialDelta) < 5
-    restSpeed ||= isGranularScale
-        ? springDefaults.restSpeed.granular
-        : springDefaults.restSpeed.default
-    restDelta ||= isGranularScale
-        ? springDefaults.restDelta.granular
-        : springDefaults.restDelta.default
+
+    // Calculate durationFactor
+    const durationFactor = Math.max(0.1, 1 / Math.sqrt(stiffness));
+
+    restSpeed = (isGranularScale ? springDefaults.restSpeed.granular : springDefaults.restSpeed.default) * durationFactor;
+    restDelta = (isGranularScale ? springDefaults.restDelta.granular : springDefaults.restDelta.default) * durationFactor;
 
     let resolveSpring: (v: number) => number
     if (dampingRatio < 1) {

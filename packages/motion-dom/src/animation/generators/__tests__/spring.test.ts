@@ -106,6 +106,51 @@ describe("spring", () => {
         ).toEqual([100, 1000])
     })
 
+    test("should correctly animate slow springs without premature completion", () => {
+        const animationOptions: ValueAnimationOptions<number> = {
+            keyframes: [0, 100],
+            stiffness: 4,
+            damping: 35,
+            mass: 0.5,
+        }
+
+        const animation = spring(animationOptions)
+        let state = animation.next(0)
+        let previousValue = state.value
+        let step = 0
+        const maxSteps = 500 // Estimated max steps before completion for this slow spring
+
+        // Simulate animation progression
+        while (!state.done && step < maxSteps) {
+            state = animation.next(step * 0.01) // Advance time by 0.01s per step
+
+            // Check for smooth progression (no sudden jumps)
+            expect(Math.abs(state.value - previousValue)).toBeLessThan(20) // Allow some change, but not drastic jumps
+
+            previousValue = state.value
+            step++
+        }
+
+        // Assert that the animation didn't finish too early
+        // This specific check might need adjustment based on expected duration
+        expect(step).toBeGreaterThan(100) // Ensure it runs for a significant number of steps
+
+        // Continue stepping until actually done, if not already
+        while (!state.done) {
+            state = animation.next(step * 0.01)
+            step++
+            if (step > 2000) { // Safety break for very long animations
+                break
+            }
+        }
+
+        // Assert that the animation eventually completes
+        expect(state.done).toBe(true)
+
+        // Assert that the final value is close to the target
+        expect(state.value).toBeCloseTo(100)
+    })
+
     test("Velocity passed to overdamped spring", () => {
         const settings = {
             keyframes: [100, 1000],
