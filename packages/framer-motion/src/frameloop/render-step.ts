@@ -91,8 +91,8 @@ export function createRenderStep(runNextFrame: () => void): Step {
 
             isProcessing = true
 
-            // Swap this frame and the next to avoid GC
-            ;[thisFrame, nextFrame] = [nextFrame, thisFrame]
+                // Swap this frame and the next to avoid GC
+                ;[thisFrame, nextFrame] = [nextFrame, thisFrame]
 
             // Clear the next frame queue
             nextFrame.clear()
@@ -111,6 +111,7 @@ export function createRenderStep(runNextFrame: () => void): Step {
 
                     callback(frameData)
                 }
+                thisFrame.clear()
             }
 
             isProcessing = false

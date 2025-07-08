@@ -441,7 +441,9 @@ export abstract class VisualElement<
 
         this.values.forEach((value, key) => this.bindToMotionValue(key, value))
 
-        if (!hasReducedMotionListener.current) {
+        const isAutoConfig = this.reducedMotionConfig !== "never" && this.reducedMotionConfig !== "always";
+
+        if (isAutoConfig && !hasReducedMotionListener.current) {
             initPrefersReducedMotion()
         }
 
@@ -449,8 +451,8 @@ export abstract class VisualElement<
             this.reducedMotionConfig === "never"
                 ? false
                 : this.reducedMotionConfig === "always"
-                ? true
-                : prefersReducedMotion.current
+                    ? true
+                    : prefersReducedMotion.current
 
         if (process.env.NODE_ENV !== "production") {
             warnOnce(
@@ -745,8 +747,8 @@ export abstract class VisualElement<
         return this.isVariantNode
             ? this
             : this.parent
-            ? this.parent.getClosestVariantNode()
-            : undefined
+                ? this.parent.getClosestVariantNode()
+                : undefined
     }
 
     getVariantContext(startAtParent = false): undefined | VariantStateContext {
@@ -862,7 +864,7 @@ export abstract class VisualElement<
             this.latestValues[key] !== undefined || !this.current
                 ? this.latestValues[key]
                 : this.getBaseTargetFromProps(this.props, key) ??
-                  this.readValueFromInstance(this.current, key, this.options)
+                this.readValueFromInstance(this.current, key, this.options)
 
         if (value !== undefined && value !== null) {
             if (
