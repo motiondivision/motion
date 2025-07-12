@@ -1,4 +1,3 @@
-import { px } from "motion-dom"
 import { ResolvedValues } from "../../types"
 
 const dashKeys = {
@@ -20,9 +19,9 @@ const camelKeys = {
  */
 export function buildSVGPath(
     attrs: ResolvedValues,
-    length: number,
-    spacing = 1,
-    offset = 0,
+    length: number | string,
+    spacing: number | string = 1,
+    offset: number | string = 0,
     useDashCase: boolean = true
 ): void {
     // Normalise path length by setting SVG attribute pathLength to 1
@@ -32,11 +31,12 @@ export function buildSVGPath(
     // when defining props on a React component.
     const keys = useDashCase ? dashKeys : camelKeys
 
-    // Build the dash offset
-    attrs[keys.offset] = px.transform!(-offset)
+    // Build the dash offset (unitless so zooming doesn't affect rendering)
+    const offsetValue = typeof offset === "string" ? -parseFloat(offset) : -offset
+    attrs[keys.offset] = `${offsetValue}`
 
-    // Build the dash array
-    const pathLength = px.transform!(length)
-    const pathSpacing = px.transform!(spacing)
-    attrs[keys.array] = `${pathLength} ${pathSpacing}`
+    // Build the dash array (unitless for the same reason)
+    const lengthValue = typeof length === "string" ? length : `${length}`
+    const spacingValue = typeof spacing === "string" ? spacing : `${spacing}`
+    attrs[keys.array] = `${lengthValue} ${spacingValue}`
 }
