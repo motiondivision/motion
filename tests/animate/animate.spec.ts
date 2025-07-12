@@ -25,7 +25,7 @@ test.describe("animate() methods", () => {
         await waitForAnimation("animate/animate-play.html", page)
         await eachBox(page, async (box) => {
             const style = await box.getAttribute("style")
-            expect(style).toContain("transform: translateX(100px)")
+            expect(style).toContain("transform: translateX(100px) translateY(200px")
         })
     })
 
