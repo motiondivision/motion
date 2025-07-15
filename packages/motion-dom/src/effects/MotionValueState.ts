@@ -5,7 +5,11 @@ import { numberValueTypes } from "../value/types/maps/number"
 import { getValueAsType } from "../value/types/utils/get-as-type"
 
 export class MotionValueState {
-    latest: { [name: string]: AnyResolvedKeyframe } = {}
+    latest: { [name: string]: AnyResolvedKeyframe }
+
+    constructor(initialValues: { [name: string]: AnyResolvedKeyframe } = {}) {
+        this.latest = initialValues
+    }
 
     private values = new Map<
         string,

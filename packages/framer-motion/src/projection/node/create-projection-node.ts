@@ -100,11 +100,11 @@ function resetDistortingTransform(
     values: ResolvedValues,
     sharedAnimationValues?: ResolvedValues
 ) {
-    const { latestValues } = visualElement
+    const { state } = visualElement
 
     // Record the distorting transform and then temporarily set it to 0
-    if (latestValues[key]) {
-        values[key] = latestValues[key]
+    if (state.latest[key]) {
+        values[key] = state.latest[key]
         visualElement.setStaticValue(key, 0)
         if (sharedAnimationValues) {
             sharedAnimationValues[key] = 0
@@ -1837,15 +1837,15 @@ export function createProjectionNode<I>({
              * An unrolled check for rotation values. Most elements don't have any rotation and
              * skipping the nested loop and new object creation is 50% faster.
              */
-            const { latestValues } = visualElement
+            const { state } = visualElement
             if (
-                latestValues.z ||
-                latestValues.rotate ||
-                latestValues.rotateX ||
-                latestValues.rotateY ||
-                latestValues.rotateZ ||
-                latestValues.skewX ||
-                latestValues.skewY
+                state.latest.z ||
+                state.latest.rotate ||
+                state.latest.rotateX ||
+                state.latest.rotateY ||
+                state.latest.rotateZ ||
+                state.latest.skewX ||
+                state.latest.skewY
             ) {
                 hasDistortingTransform = true
             }
@@ -1855,7 +1855,7 @@ export function createProjectionNode<I>({
 
             const resetValues: ResolvedValues = {}
 
-            if (latestValues.z) {
+            if (state.latest.z) {
                 resetDistortingTransform(
                     "z",
                     visualElement,

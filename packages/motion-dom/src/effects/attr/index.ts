@@ -47,6 +47,11 @@ export const addAttrValue = (
     return state.set(key, value, render)
 }
 
+export const attrStateCache = new WeakMap<
+    HTMLElement | SVGElement,
+    MotionValueState
+>()
+
 export const attrEffect = /*@__PURE__*/ createSelectorEffect(
-    /*@__PURE__*/ createEffect(addAttrValue)
+    /*@__PURE__*/ createEffect(addAttrValue, attrStateCache)
 )

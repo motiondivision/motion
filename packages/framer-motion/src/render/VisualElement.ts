@@ -12,6 +12,7 @@ import {
     transformProps,
     type AnyResolvedKeyframe,
     type MotionValue,
+    type MotionValueState,
 } from "motion-dom"
 import type { Box } from "motion-utils"
 import {
@@ -199,10 +200,10 @@ export abstract class VisualElement<
     renderState: RenderState
 
     /**
-     * An object containing the latest static values for each of this VisualElement's
-     * MotionValues.
+     * The visual state of the visual element.
+     * TODO: Use this to replace renderState and the render functions.
      */
-    latestValues: ResolvedValues
+    state: MotionValueState
 
     /**
      * Determine what role this visual element should take in the variant tree.
@@ -342,13 +343,14 @@ export abstract class VisualElement<
             reducedMotionConfig,
             blockInitialAnimation,
             visualState,
-        }: VisualElementOptions<Instance, RenderState>,
+        }: VisualElementOptions<RenderState>,
         options: Options = {} as any
     ) {
-        const { latestValues, renderState } = visualState
-        this.latestValues = latestValues
-        this.baseTarget = { ...latestValues }
-        this.initialValues = props.initial ? { ...latestValues } : {}
+        const { state, renderState } = visualState
+
+        this.state = state
+        this.baseTarget = { ...state.latest }
+        this.initialValues = props.initial ? { ...state.latest } : {}
         this.renderState = renderState
         this.parent = parent
         this.props = props
@@ -382,8 +384,8 @@ export abstract class VisualElement<
         for (const key in initialMotionValues) {
             const value = initialMotionValues[key]
 
-            if (latestValues[key] !== undefined && isMotionValue(value)) {
-                value.set(latestValues[key], false)
+            if (state.latest[key] !== undefined && isMotionValue(value)) {
+                value.set(state.latest[key], false)
             }
         }
     }
@@ -463,7 +465,7 @@ export abstract class VisualElement<
         const removeOnChange = value.on(
             "change",
             (latestValue: AnyResolvedKeyframe) => {
-                this.latestValues[key] = latestValue
+                this.state.latest[key] = latestValue
 
                 this.props.onUpdate && frame.preRender(this.notifyUpdate)
 
@@ -545,10 +547,10 @@ export abstract class VisualElement<
         }
     }
 
-    notifyUpdate = () => this.notify("Update", this.latestValues)
+    notifyUpdate = () => this.notify("Update", this.state.latest)
 
     triggerBuild() {
-        this.build(this.renderState, this.latestValues, this.props)
+        this.build(this.renderState, this.state.latest, this.props)
     }
 
     render = () => {
@@ -583,11 +585,11 @@ export abstract class VisualElement<
     }
 
     getStaticValue(key: string) {
-        return this.latestValues[key]
+        return this.state.latest[key]
     }
 
     setStaticValue(key: string, value: AnyResolvedKeyframe) {
-        this.latestValues[key] = value
+        this.state.latest[key] = value
     }
 
     /**
@@ -686,7 +688,7 @@ export abstract class VisualElement<
             if (existingValue) this.removeValue(key)
             this.bindToMotionValue(key, value)
             this.values.set(key, value)
-            this.latestValues[key] = value.get()
+            this.state.latest[key] = value.get()
         }
     }
 
@@ -700,7 +702,7 @@ export abstract class VisualElement<
             unsubscribe()
             this.valueSubscriptions.delete(key)
         }
-        delete this.latestValues[key]
+        delete this.state.latest[key]
         this.removeValueFromRenderState(key, this.renderState)
     }
 
@@ -745,8 +747,8 @@ export abstract class VisualElement<
      */
     readValue(key: string, target?: AnyResolvedKeyframe | null) {
         let value =
-            this.latestValues[key] !== undefined || !this.current
-                ? this.latestValues[key]
+            this.state.latest[key] !== undefined || !this.current
+                ? this.state.latest[key]
                 : this.getBaseTargetFromProps(this.props, key) ??
                   this.readValueFromInstance(this.current, key, this.options)
 

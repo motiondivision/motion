@@ -11,9 +11,7 @@ import { useCreateMotionContext } from "../context/MotionContext/create"
 import { DOMMotionComponents } from "../render/dom/types"
 import { useRender } from "../render/dom/use-render"
 import { isSVGComponent } from "../render/dom/utils/is-svg-component"
-import { HTMLRenderState } from "../render/html/types"
 import { useHTMLVisualState } from "../render/html/use-html-visual-state"
-import { SVGRenderState } from "../render/svg/types"
 import { useSVGVisualState } from "../render/svg/use-svg-visual-state"
 import { CreateVisualElement } from "../render/types"
 import { isBrowser } from "../utils/is-browser"
@@ -134,10 +132,10 @@ export function createMotionComponent<
                 {useRender<Props, TagName>(
                     Component,
                     props,
-                    useMotionRef<
-                        HTMLElement | SVGElement,
-                        HTMLRenderState | SVGRenderState
-                    >(visualState, context.visualElement, externalRef),
+                    useMotionRef<HTMLElement | SVGElement>(
+                        context.visualElement,
+                        externalRef
+                    ),
                     visualState,
                     isStatic,
                     forwardMotionProps

@@ -37,6 +37,7 @@ export * from "./animation/waapi/utils/accelerated-values"
 export * from "./animation/waapi/utils/linear"
 
 export * from "./effects/attr"
+export * from "./effects/MotionValueState"
 export * from "./effects/prop"
 export * from "./effects/style"
 export * from "./effects/svg"

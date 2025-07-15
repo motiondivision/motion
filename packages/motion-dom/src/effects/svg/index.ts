@@ -55,8 +55,10 @@ const addSVGValue = (
     return handler(element, state, key, value)
 }
 
+export const svgStateCache = new WeakMap<SVGElement, MotionValueState>()
+
 export const svgEffect = /*@__PURE__*/ createSelectorEffect(
-    /*@__PURE__*/ createEffect(addSVGValue)
+    /*@__PURE__*/ createEffect(addSVGValue, svgStateCache)
 )
 
 function convertAttrKey(key: string) {

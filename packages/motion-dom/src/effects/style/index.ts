@@ -61,6 +61,11 @@ export const addStyleValue = (
     return state.set(key, value, render, computed)
 }
 
+export const styleStateCache = new WeakMap<
+    HTMLElement | SVGElement,
+    MotionValueState
+>()
+
 export const styleEffect = /*@__PURE__*/ createSelectorEffect(
-    /*@__PURE__*/ createEffect(addStyleValue)
+    /*@__PURE__*/ createEffect(addStyleValue, styleStateCache)
 )

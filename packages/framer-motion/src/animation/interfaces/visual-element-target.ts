@@ -53,7 +53,7 @@ export function animateTarget(
     for (const key in target) {
         const value = visualElement.getValue(
             key,
-            visualElement.latestValues[key] ?? null
+            visualElement.state.latest[key] ?? null
         )
         const valueTarget = target[key as keyof typeof target]
 

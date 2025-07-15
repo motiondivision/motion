@@ -1,7 +1,8 @@
-import { AnimationState, createAnimationState } from "../animation-state"
+import { MotionValueState } from "motion-dom"
 import { MotionProps } from "../../../motion/types"
 import { createHtmlRenderState } from "../../html/utils/create-render-state"
 import { VisualElement } from "../../VisualElement"
+import { AnimationState, createAnimationState } from "../animation-state"
 import { StateVisualElement } from "./StateVisualElement"
 
 function createTest(
@@ -14,7 +15,7 @@ function createTest(
             parent,
             presenceContext: null,
             visualState: {
-                latestValues: {},
+                state: new MotionValueState({}),
                 renderState: createHtmlRenderState(),
             },
         },

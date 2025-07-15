@@ -25,9 +25,7 @@ export function useVisualElement<
     TagName extends keyof DOMMotionComponents | string
 >(
     Component: TagName | string | React.ComponentType<Props>,
-    visualState:
-        | VisualState<SVGElement, SVGRenderState>
-        | VisualState<HTMLElement, HTMLRenderState>,
+    visualState: VisualState<SVGRenderState> | VisualState<HTMLRenderState>,
     props: MotionProps & Partial<MotionConfigContext>,
     createVisualElement?: CreateVisualElement<Props, TagName>,
     ProjectionNodeConstructor?: any
@@ -167,7 +165,7 @@ function createProjectionNode(
     } = props
 
     visualElement.projection = new ProjectionNodeConstructor(
-        visualElement.latestValues,
+        visualElement.state.latest,
         props["data-framer-portal-id"]
             ? undefined
             : getClosestProjectingNode(visualElement.parent)

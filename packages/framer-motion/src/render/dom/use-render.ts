@@ -17,9 +17,7 @@ export function useRender<
     Component: TagName | string | React.ComponentType<Props>,
     props: MotionProps,
     ref: React.Ref<HTMLElement | SVGElement>,
-    {
-        latestValues,
-    }: VisualState<HTMLElement | SVGElement, HTMLRenderState | SVGRenderState>,
+    { state }: VisualState<HTMLRenderState | SVGRenderState>,
     isStatic: boolean,
     forwardMotionProps: boolean = false
 ) {
@@ -29,7 +27,7 @@ export function useRender<
 
     const visualProps = useVisualProps(
         props as any,
-        latestValues,
+        state.latest,
         isStatic,
         Component as any
     )

@@ -18,8 +18,8 @@ export type ScrapeMotionValuesFromProps = (
 
 export type UseRenderState<RenderState = any> = () => RenderState
 
-export interface VisualElementOptions<Instance, RenderState = any> {
-    visualState: VisualState<Instance, RenderState>
+export interface VisualElementOptions<RenderState = any> {
+    visualState: VisualState<RenderState>
     parent?: VisualElement<unknown>
     variantParent?: VisualElement<unknown>
     presenceContext: PresenceContextProps | null
@@ -69,5 +69,5 @@ export type CreateVisualElement<
     TagName extends keyof DOMMotionComponents | string = "div"
 > = (
     Component: TagName | string | React.ComponentType<Props>,
-    options: VisualElementOptions<HTMLElement | SVGElement>
+    options: VisualElementOptions
 ) => VisualElement<HTMLElement | SVGElement>
