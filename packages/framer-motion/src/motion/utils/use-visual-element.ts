@@ -1,3 +1,4 @@
+import { MotionNodeState } from "motion-dom"
 import * as React from "react"
 import { useContext, useEffect, useInsertionEffect, useRef } from "react"
 import { optimizedAppearDataAttribute } from "../../animation/optimized-appear/data-id"
@@ -12,22 +13,17 @@ import {
 import { MotionProps } from "../../motion/types"
 import { IProjectionNode } from "../../projection/node/types"
 import { DOMMotionComponents } from "../../render/dom/types"
-import { HTMLRenderState } from "../../render/html/types"
-import { SVGRenderState } from "../../render/svg/types"
 import { CreateVisualElement } from "../../render/types"
 import type { VisualElement } from "../../render/VisualElement"
 import { isRefObject } from "../../utils/is-ref-object"
 import { useIsomorphicLayoutEffect } from "../../utils/use-isomorphic-effect"
-import { VisualState } from "./use-visual-state"
 
 export function useVisualElement<
     Props,
     TagName extends keyof DOMMotionComponents | string
 >(
     Component: TagName | string | React.ComponentType<Props>,
-    visualState:
-        | VisualState<SVGElement, SVGRenderState>
-        | VisualState<HTMLElement, HTMLRenderState>,
+    state: MotionNodeState,
     props: MotionProps & Partial<MotionConfigContext>,
     createVisualElement?: CreateVisualElement<Props, TagName>,
     ProjectionNodeConstructor?: any
@@ -50,7 +46,7 @@ export function useVisualElement<
 
     if (!visualElementRef.current && createVisualElement) {
         visualElementRef.current = createVisualElement(Component, {
-            visualState,
+            state,
             parent,
             props,
             presenceContext,
@@ -167,7 +163,7 @@ function createProjectionNode(
     } = props
 
     visualElement.projection = new ProjectionNodeConstructor(
-        visualElement.latestValues,
+        visualElement.state.latest,
         props["data-framer-portal-id"]
             ? undefined
             : getClosestProjectingNode(visualElement.parent)

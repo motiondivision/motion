@@ -1,11 +1,11 @@
 import { MotionValue } from "../../value"
-import { MotionValueState } from "../MotionValueState"
+import { MotionNodeState } from "../MotionNodeState"
 import { createEffect } from "../utils/create-effect"
 
 export const propEffect = /*@__PURE__*/ createEffect(
     (
         subject: { [key: string]: any },
-        state: MotionValueState,
+        state: MotionNodeState,
         key: string,
         value: MotionValue
     ) => {

@@ -1,10 +1,9 @@
-import type { AnimationDefinition } from "motion-dom"
+import type { AnimationDefinition, MotionNodeState } from "motion-dom"
 import { AnyResolvedKeyframe, MotionValue } from "motion-dom"
 import type { Axis, Box } from "motion-utils"
 import { ReducedMotionConfig } from "../context/MotionConfigContext"
 import type { PresenceContextProps } from "../context/PresenceContext"
 import { MotionProps } from "../motion/types"
-import { VisualState } from "../motion/utils/use-visual-state"
 import { DOMMotionComponents } from "./dom/types"
 import type { VisualElement } from "./VisualElement"
 
@@ -16,10 +15,8 @@ export type ScrapeMotionValuesFromProps = (
     [key: string]: MotionValue | AnyResolvedKeyframe
 }
 
-export type UseRenderState<RenderState = any> = () => RenderState
-
-export interface VisualElementOptions<Instance, RenderState = any> {
-    visualState: VisualState<Instance, RenderState>
+export interface VisualElementOptions {
+    state: MotionNodeState
     parent?: VisualElement<unknown>
     variantParent?: VisualElement<unknown>
     presenceContext: PresenceContextProps | null
@@ -69,5 +66,5 @@ export type CreateVisualElement<
     TagName extends keyof DOMMotionComponents | string = "div"
 > = (
     Component: TagName | string | React.ComponentType<Props>,
-    options: VisualElementOptions<HTMLElement | SVGElement>
+    options: VisualElementOptions
 ) => VisualElement<HTMLElement | SVGElement>

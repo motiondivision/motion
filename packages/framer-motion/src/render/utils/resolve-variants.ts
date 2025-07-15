@@ -12,7 +12,7 @@ function getValueState(
 ): [ResolvedValues, ResolvedValues] {
     const state: [ResolvedValues, ResolvedValues] = [{}, {}]
 
-    visualElement?.values.forEach((value, key) => {
+    visualElement?.state.forEachValue((value, key) => {
         state[0][key] = value.get()
         state[1][key] = value.getVelocity()
     })

@@ -2,7 +2,7 @@ import { frame } from "../../frameloop"
 import { MotionValue } from "../../value"
 import { px } from "../../value/types/numbers/units"
 import { addAttrValue } from "../attr"
-import { MotionValueState } from "../MotionValueState"
+import { MotionNodeState } from "../MotionNodeState"
 import { addStyleValue } from "../style"
 import { createSelectorEffect } from "../utils/create-dom-effect"
 import { createEffect } from "../utils/create-effect"
@@ -11,7 +11,7 @@ const toPx = px.transform!
 
 function addSVGPathValue(
     element: SVGElement,
-    state: MotionValueState,
+    state: MotionNodeState<SVGElement>,
     key: string,
     value: MotionValue
 ) {
@@ -41,7 +41,7 @@ function addSVGPathValue(
 
 const addSVGValue = (
     element: SVGElement,
-    state: MotionValueState,
+    state: MotionNodeState<SVGElement>,
     key: string,
     value: MotionValue
 ) => {
@@ -55,8 +55,10 @@ const addSVGValue = (
     return handler(element, state, key, value)
 }
 
+export const svgStateCache = new WeakMap<SVGElement, MotionNodeState>()
+
 export const svgEffect = /*@__PURE__*/ createSelectorEffect(
-    /*@__PURE__*/ createEffect(addSVGValue)
+    /*@__PURE__*/ createEffect(addSVGValue, svgStateCache)
 )
 
 function convertAttrKey(key: string) {

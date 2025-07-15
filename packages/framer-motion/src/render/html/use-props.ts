@@ -20,20 +20,20 @@ export function copyRawValuesOnly(
 
 function useInitialMotionValues(
     { transformTemplate }: MotionProps,
-    visualState: ResolvedValues
+    latestValues: ResolvedValues
 ) {
     return useMemo(() => {
         const state = createHtmlRenderState()
 
-        buildHTMLStyles(state, visualState, transformTemplate)
+        buildHTMLStyles(state, latestValues, transformTemplate)
 
         return Object.assign({}, state.vars, state.style)
-    }, [visualState])
+    }, [latestValues])
 }
 
 function useStyle(
     props: MotionProps,
-    visualState: ResolvedValues
+    latestValues: ResolvedValues
 ): ResolvedValues {
     const styleProp = props.style || {}
     const style = {}
@@ -43,18 +43,18 @@ function useStyle(
      */
     copyRawValuesOnly(style, styleProp as any, props)
 
-    Object.assign(style, useInitialMotionValues(props, visualState))
+    Object.assign(style, useInitialMotionValues(props, latestValues))
 
     return style
 }
 
 export function useHTMLProps(
     props: MotionProps & HTMLProps<HTMLElement>,
-    visualState: ResolvedValues
+    latestValues: ResolvedValues
 ) {
     // The `any` isn't ideal but it is the type of createElement props argument
     const htmlProps: any = {}
-    const style = useStyle(props, visualState)
+    const style = useStyle(props, latestValues)
 
     if (props.drag && props.dragListener !== false) {
         // Disable the ghost element when a user drags

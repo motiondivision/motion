@@ -17,7 +17,7 @@ export function addValueToWillChange(
     } else if (!willChange && MotionGlobalConfig.WillChange) {
         const newWillChange = new MotionGlobalConfig.WillChange("auto")
 
-        visualElement.addValue("willChange", newWillChange)
+        visualElement.state.set("willChange", newWillChange)
         newWillChange.add(key)
     }
 }

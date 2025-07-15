@@ -5,7 +5,7 @@ import type { VisualElement } from "../../render/VisualElement"
 import { animateVisualElement } from "../interfaces/visual-element"
 
 function stopAnimation(visualElement: VisualElement) {
-    visualElement.values.forEach((value) => value.stop())
+    visualElement.state.values.forEach(({ value }) => value.stop())
 }
 
 function setVariants(visualElement: VisualElement, variantLabels: string[]) {

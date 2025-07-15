@@ -1,10 +1,7 @@
-import { isMotionValue } from "motion-dom"
-import { Fragment, createElement, useMemo } from "react"
+import { isMotionValue, MotionNodeState } from "motion-dom"
+import { createElement, Fragment, useMemo } from "react"
 import { MotionProps } from "../../motion/types"
-import { VisualState } from "../../motion/utils/use-visual-state"
-import { HTMLRenderState } from "../html/types"
 import { useHTMLProps } from "../html/use-props"
-import { SVGRenderState } from "../svg/types"
 import { useSVGProps } from "../svg/use-props"
 import { DOMMotionComponents } from "./types"
 import { filterProps } from "./utils/filter-props"
@@ -17,9 +14,7 @@ export function useRender<
     Component: TagName | string | React.ComponentType<Props>,
     props: MotionProps,
     ref: React.Ref<HTMLElement | SVGElement>,
-    {
-        latestValues,
-    }: VisualState<HTMLElement | SVGElement, HTMLRenderState | SVGRenderState>,
+    state: MotionNodeState,
     isStatic: boolean,
     forwardMotionProps: boolean = false
 ) {
@@ -29,7 +24,7 @@ export function useRender<
 
     const visualProps = useVisualProps(
         props as any,
-        latestValues,
+        state.latest,
         isStatic,
         Component as any
     )
