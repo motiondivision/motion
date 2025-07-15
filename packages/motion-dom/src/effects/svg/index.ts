@@ -1,13 +1,10 @@
 import { frame } from "../../frameloop"
 import { MotionValue } from "../../value"
-import { px } from "../../value/types/numbers/units"
 import { addAttrValue } from "../attr"
 import { MotionValueState } from "../MotionValueState"
 import { addStyleValue } from "../style"
 import { createSelectorEffect } from "../utils/create-dom-effect"
 import { createEffect } from "../utils/create-effect"
-
-const toPx = px.transform!
 
 function addSVGPathValue(
     element: SVGElement,
@@ -18,19 +15,30 @@ function addSVGPathValue(
     frame.render(() => element.setAttribute("pathLength", "1"))
 
     if (key === "pathOffset") {
+        const offset = state.latest[key]
+        const offsetValue = typeof offset === "string" ? -parseFloat(offset) : -offset
         return state.set(key, value, () =>
-            element.setAttribute("stroke-dashoffset", toPx(-state.latest[key]))
+            element.setAttribute("stroke-dashoffset", `${offsetValue}`)
         )
     } else {
         if (!state.get("stroke-dasharray")) {
             state.set("stroke-dasharray", new MotionValue("1 1"), () => {
                 const { pathLength = 1, pathSpacing } = state.latest
 
+                const lengthValue =
+                    typeof pathLength === "string"
+                        ? pathLength
+                        : `${pathLength}`
+
+                const spacingRaw = pathSpacing ?? 1 - Number(pathLength)
+                const spacingValue =
+                    typeof spacingRaw === "string"
+                        ? spacingRaw
+                        : `${spacingRaw}`
+
                 element.setAttribute(
                     "stroke-dasharray",
-                    `${toPx(pathLength)} ${toPx(
-                        pathSpacing ?? 1 - Number(pathLength)
-                    )}`
+                    `${lengthValue} ${spacingValue}`
                 )
             })
         }
