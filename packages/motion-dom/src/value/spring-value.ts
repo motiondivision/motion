@@ -34,7 +34,7 @@ export function attachSpring<T extends AnyResolvedKeyframe>(
     value: MotionValue<T>,
     source: T | MotionValue<T>,
     options?: SpringOptions
-) {
+): VoidFunction {
     const initialValue = value.get()
 
     let activeAnimation: JSAnimation<number> | null = null
@@ -75,15 +75,20 @@ export function attachSpring<T extends AnyResolvedKeyframe>(
         return value.get()
     }, stopAnimation)
 
-    let unsubscribe: VoidFunction | undefined = undefined
     if (isMotionValue(source)) {
-        unsubscribe = source.on("change", (v) =>
+        const removeSourceOnChange = source.on("change", (v) =>
             value.set(parseValue(v, unit) as T)
         )
-        value.on("destroy", unsubscribe)
+
+        const removeValueOnDestroy = value.on("destroy", removeSourceOnChange)
+
+        return () => {
+            removeSourceOnChange()
+            removeValueOnDestroy()
+        }
     }
 
-    return unsubscribe
+    return stopAnimation
 }
 
 function parseValue(v: AnyResolvedKeyframe, unit?: string) {

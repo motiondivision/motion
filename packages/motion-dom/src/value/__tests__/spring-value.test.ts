@@ -1,6 +1,6 @@
 import { syncDriver } from "../../animation/__tests__/utils"
 import { motionValue } from "../index"
-import { springValue } from "../spring-value"
+import { attachSpring, springValue } from "../spring-value"
 
 describe("springValue types", () => {
     test("can create a motion value from a number", () => {
@@ -140,16 +140,49 @@ const runSpringTests = (unit?: string | undefined) => {
             expect(resolved).toEqual([createValue(100)])
         })
 
-        test("unsubscribes when destroyed", () => {
-            const a = motionValue(createValue(0))
+        test("unsubscribes when spring is destroyed", () => {
+            const source = motionValue(createValue(0))
+            const spring = springValue(source)
 
-            const b = springValue(a)
-            springValue(a)
+            expect((source as any).events.change.getSize()).toBe(1)
+            expect((spring as any).events.destroy.getSize()).toBe(1)
 
-            b.destroy()
+            spring.destroy()
 
             // Cast to any here as `.events` is private API
-            expect((a as any).events.change.getSize()).toBe(1)
+            expect((source as any).events.change.getSize()).toBe(0)
+            expect((spring as any).events.destroy.getSize()).toBe(0)
+        })
+
+        test("unsubscribes when source is destroyed", () => {
+            const source = motionValue(createValue(0))
+            springValue(source)
+
+            expect((source as any).events.change.getSize()).toBe(1)
+
+            source.destroy()
+
+            // Cast to any here as `.events` is private API
+            expect((source as any).events.change.getSize()).toBe(0)
+        })
+
+        test("Cleanup function works as expected", () => {
+            const source = motionValue(createValue(0))
+            const spring = motionValue(createValue(0))
+
+            const clean = attachSpring(spring, source)
+            clean()
+            const clean2 = attachSpring(spring, source)
+
+            expect((source as any).events.change.getSize()).toBe(1)
+            expect((spring as any).events.destroy.getSize()).toBe(1)
+
+            clean2()
+            const clean3 = attachSpring(spring, source)
+            clean3()
+
+            expect((source as any).events.change.getSize()).toBe(0)
+            expect((spring as any).events.destroy.getSize()).toBe(0)
         })
     })
 }
