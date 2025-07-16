@@ -5,10 +5,8 @@ import {
     MotionValue,
     SpringOptions,
 } from "motion-dom"
-import { useContext, useInsertionEffect } from "react"
-import { MotionConfigContext } from "../context/MotionConfigContext"
+import { useInsertionEffect } from "react"
 import { useMotionValue } from "./use-motion-value"
-import { useTransform } from "./use-transform"
 
 /**
  * Creates a `MotionValue` that, when `set`, will use a spring animation to animate to its new state.
@@ -49,13 +47,7 @@ export function useSpring(
     source: MotionValue<string> | MotionValue<number> | AnyResolvedKeyframe,
     options: SpringOptions = {}
 ) {
-    const { isStatic } = useContext(MotionConfigContext)
     const getFromSource = () => (isMotionValue(source) ? source.get() : source)
-
-    // isStatic will never change, allowing early hooks return
-    if (isStatic) {
-        return useTransform(getFromSource)
-    }
 
     const value = useMotionValue(getFromSource())
 
