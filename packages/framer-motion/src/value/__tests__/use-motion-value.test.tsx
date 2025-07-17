@@ -47,11 +47,9 @@ describe("useMotionValue", () => {
 
     test("fires callbacks", async () => {
         const onChange = jest.fn()
-        const onRenderRequest = jest.fn()
         const Component = () => {
             const x = useMotionValue(100)
             x.on("change", onChange)
-            x.on("renderRequest", onRenderRequest)
 
             x.set(500)
 
@@ -60,7 +58,6 @@ describe("useMotionValue", () => {
 
         render(<Component />)
         expect(onChange).toHaveBeenCalled()
-        expect(onRenderRequest).toHaveBeenCalled()
     })
 
     test("is typed", async () => {

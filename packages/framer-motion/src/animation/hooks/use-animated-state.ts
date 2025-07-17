@@ -1,6 +1,6 @@
-import { TargetAndTransition } from "motion-dom"
+import { MotionNodeState, TargetAndTransition } from "motion-dom"
 import { useLayoutEffect, useState } from "react"
-import { makeUseVisualState } from "../../motion/utils/use-visual-state"
+import { makeUseMotionNodeState } from "../../motion/utils/use-motion-value-state"
 import { createBox } from "../../projection/geometry/models"
 import { ResolvedValues } from "../../render/types"
 import { VisualElement } from "../../render/VisualElement"
@@ -23,7 +23,6 @@ class StateVisualElement extends VisualElement<
     measureInstanceViewportBox = createBox
     resetTransform() {}
     restoreTransform() {}
-    removeValueFromRenderState() {}
     renderInstance() {}
     scrapeMotionValuesFromProps() {
         return createObject()
@@ -45,9 +44,9 @@ class StateVisualElement extends VisualElement<
     }
 }
 
-const useVisualState = makeUseVisualState({
+const useVisualState = makeUseMotionNodeState({
     scrapeMotionValuesFromProps: createObject,
-    createRenderState: createObject,
+    StateConstructor: MotionNodeState, // TODO ObjectMotionNodeState
 })
 
 /**
@@ -56,7 +55,7 @@ const useVisualState = makeUseVisualState({
  */
 export function useAnimatedState(initialState: any) {
     const [animationState, setAnimationState] = useState(initialState)
-    const visualState = useVisualState({}, false)
+    const state = useVisualState({}, false)
 
     const element = useConstant(() => {
         return new StateVisualElement(
@@ -66,7 +65,7 @@ export function useAnimatedState(initialState: any) {
                         setAnimationState({ ...v })
                     },
                 },
-                visualState,
+                state,
                 presenceContext: null,
             },
             { initialState }

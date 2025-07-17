@@ -219,7 +219,7 @@ export class VisualElementDragControls {
              * of a re-render we want to ensure the browser can read the latest
              * bounding box to ensure the pointer and element don't fall out of sync.
              */
-            this.visualElement.render()
+            this.visualElement.state.render()
 
             /**
              * This must fire after the render call as it might trigger a state
@@ -682,7 +682,7 @@ export class VisualElementDragControls {
                         )
                     })
 
-                    this.visualElement.render()
+                    this.visualElement.state.render()
                 }
             }) as any
         )

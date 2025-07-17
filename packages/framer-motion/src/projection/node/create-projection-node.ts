@@ -100,11 +100,11 @@ function resetDistortingTransform(
     values: ResolvedValues,
     sharedAnimationValues?: ResolvedValues
 ) {
-    const { latestValues } = visualElement
+    const { state } = visualElement
 
     // Record the distorting transform and then temporarily set it to 0
-    if (latestValues[key]) {
-        values[key] = latestValues[key]
+    if (state.latest[key]) {
+        values[key] = state.latest[key]
         visualElement.setStaticValue(key, 0)
         if (sharedAnimationValues) {
             sharedAnimationValues[key] = 0
@@ -1498,7 +1498,7 @@ export function createProjectionNode<I>({
         }
 
         scheduleRender(notifyAll = true) {
-            this.options.visualElement?.scheduleRender()
+            this.options.visualElement?.state.scheduleRender()
             if (notifyAll) {
                 const stack = this.getStack()
                 stack && stack.scheduleRender()
@@ -1837,15 +1837,15 @@ export function createProjectionNode<I>({
              * An unrolled check for rotation values. Most elements don't have any rotation and
              * skipping the nested loop and new object creation is 50% faster.
              */
-            const { latestValues } = visualElement
+            const { state } = visualElement
             if (
-                latestValues.z ||
-                latestValues.rotate ||
-                latestValues.rotateX ||
-                latestValues.rotateY ||
-                latestValues.rotateZ ||
-                latestValues.skewX ||
-                latestValues.skewY
+                state.latest.z ||
+                state.latest.rotate ||
+                state.latest.rotateX ||
+                state.latest.rotateY ||
+                state.latest.rotateZ ||
+                state.latest.skewX ||
+                state.latest.skewY
             ) {
                 hasDistortingTransform = true
             }
@@ -1855,7 +1855,7 @@ export function createProjectionNode<I>({
 
             const resetValues: ResolvedValues = {}
 
-            if (latestValues.z) {
+            if (state.latest.z) {
                 resetDistortingTransform(
                     "z",
                     visualElement,
@@ -1882,7 +1882,7 @@ export function createProjectionNode<I>({
 
             // Force a render of this element to apply the transform with all skews and rotations
             // set to 0.
-            visualElement.render()
+            visualElement.state.render()
 
             // Put back all the values we reset
             for (const key in resetValues) {
@@ -1894,7 +1894,7 @@ export function createProjectionNode<I>({
 
             // Schedule a render for the next frame. This ensures we won't visually
             // see the element with the reset rotate value applied.
-            visualElement.scheduleRender()
+            visualElement.state.scheduleRender()
         }
 
         applyProjectionStyles(

@@ -8,7 +8,7 @@ import { isSVGTag } from "./utils/is-svg-tag"
 
 export function useSVGProps(
     props: MotionProps,
-    visualState: ResolvedValues,
+    latestValues: ResolvedValues,
     _isStatic: boolean,
     Component: string | React.ComponentType<React.PropsWithChildren<unknown>>
 ) {
@@ -17,7 +17,7 @@ export function useSVGProps(
 
         buildSVGAttrs(
             state,
-            visualState,
+            latestValues,
             isSVGTag(Component),
             props.transformTemplate,
             props.style
@@ -27,7 +27,7 @@ export function useSVGProps(
             ...state.attrs,
             style: { ...state.style },
         }
-    }, [visualState])
+    }, [latestValues])
 
     if (props.style) {
         const rawStyles = {}

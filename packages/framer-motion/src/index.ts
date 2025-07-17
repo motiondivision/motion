@@ -21,9 +21,9 @@ export { addPointerEvent } from "./events/add-pointer-event"
 export { addPointerInfo } from "./events/event-info"
 export { animations } from "./motion/features/animations"
 export {
-    makeUseVisualState,
-    VisualState,
-} from "./motion/utils/use-visual-state"
+    makeUseMotionNodeState,
+    UseMotionNodeState,
+} from "./motion/utils/use-motion-value-state"
 export { calcLength } from "./projection/geometry/delta-calc"
 export { createBox } from "./projection/geometry/models"
 export { filterProps } from "./render/dom/utils/filter-props"
