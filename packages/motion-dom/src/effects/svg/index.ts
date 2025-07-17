@@ -11,7 +11,7 @@ const toPx = px.transform!
 
 function addSVGPathValue(
     element: SVGElement,
-    state: MotionNodeState,
+    state: MotionNodeState<SVGElement>,
     key: string,
     value: MotionValue
 ) {
@@ -41,7 +41,7 @@ function addSVGPathValue(
 
 const addSVGValue = (
     element: SVGElement,
-    state: MotionNodeState,
+    state: MotionNodeState<SVGElement>,
     key: string,
     value: MotionValue
 ) => {

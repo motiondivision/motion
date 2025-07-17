@@ -11,7 +11,7 @@ const originProps = new Set(["originX", "originY", "originZ"])
 
 export const addStyleValue = (
     element: HTMLElement | SVGElement,
-    state: MotionNodeState,
+    state: MotionNodeState<HTMLElement | SVGElement>,
     key: string,
     value: MotionValue
 ) => {

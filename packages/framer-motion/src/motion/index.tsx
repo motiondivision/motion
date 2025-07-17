@@ -94,7 +94,7 @@ export function createMotionComponent<
 
         const context = useCreateMotionContext<HTMLElement | SVGElement>(props)
 
-        const visualState = useVisualState(props, isStatic)
+        const state = useVisualState(props, isStatic)
 
         if (!isStatic && isBrowser) {
             useStrictMode(configAndProps, preloadedFeatures)
@@ -110,7 +110,7 @@ export function createMotionComponent<
              */
             context.visualElement = useVisualElement(
                 Component,
-                visualState,
+                state,
                 configAndProps,
                 createVisualElement,
                 layoutProjection.ProjectionNode
@@ -136,7 +136,7 @@ export function createMotionComponent<
                         context.visualElement,
                         externalRef
                     ),
-                    visualState,
+                    state,
                     isStatic,
                     forwardMotionProps
                 )}

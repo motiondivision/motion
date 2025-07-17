@@ -183,7 +183,7 @@ export abstract class VisualElement<
     /**
      * The visual state of the visual element.
      */
-    state: MotionNodeState
+    state: MotionNodeState<Instance>
 
     /**
      * Determine what role this visual element should take in the variant tree.
@@ -349,7 +349,7 @@ export abstract class VisualElement<
             const value = initialMotionValues[key]
 
             if (state.latest[key] !== undefined && isMotionValue(value)) {
-                value.set(state.latest[key], false)
+                value.set(state.latest[key])
             }
         }
     }
@@ -412,27 +412,27 @@ export abstract class VisualElement<
         this.current = null
     }
 
-    private bindToMotionValue(key: string, value: MotionValue) {
-        this.state.set(key, value)
+    // private bindToMotionValue(key: string, value: MotionValue) {
+    //     this.state.set(key, value)
 
-        // Setup
-        // const valueIsTransform = transformProps.has(key)
-        // let removeSyncCheck: VoidFunction | void
-        // if (window.MotionCheckAppearSync) {
-        //     removeSyncCheck = window.MotionCheckAppearSync(this, key, value)
-        // }
+    // Setup
+    // const valueIsTransform = transformProps.has(key)
+    // let removeSyncCheck: VoidFunction | void
+    // if (window.MotionCheckAppearSync) {
+    //     removeSyncCheck = window.MotionCheckAppearSync(this, key, value)
+    // }
 
-        // Each frame:
-        // this.props.onUpdate && frame.preRender(this.notifyUpdate)
+    // Each frame:
+    // this.props.onUpdate && frame.preRender(this.notifyUpdate)
 
-        // if (valueIsTransform && this.projection) {
-        //     this.projection.isTransformDirty = true
-        // }
+    // if (valueIsTransform && this.projection) {
+    //     this.projection.isTransformDirty = true
+    // }
 
-        // On destroy:
-        //  if (removeSyncCheck) removeSyncCheck()
-        // if (value.owner) value.stop()
-    }
+    // On destroy:
+    //  if (removeSyncCheck) removeSyncCheck()
+    // if (value.owner) value.stop()
+    // }
 
     sortNodePosition(other: VisualElement<Instance>) {
         /**

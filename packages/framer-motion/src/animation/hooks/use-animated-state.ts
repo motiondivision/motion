@@ -55,7 +55,7 @@ const useVisualState = makeUseMotionNodeState({
  */
 export function useAnimatedState(initialState: any) {
     const [animationState, setAnimationState] = useState(initialState)
-    const visualState = useVisualState({}, false)
+    const state = useVisualState({}, false)
 
     const element = useConstant(() => {
         return new StateVisualElement(
@@ -65,7 +65,7 @@ export function useAnimatedState(initialState: any) {
                         setAnimationState({ ...v })
                     },
                 },
-                visualState,
+                state,
                 presenceContext: null,
             },
             { initialState }

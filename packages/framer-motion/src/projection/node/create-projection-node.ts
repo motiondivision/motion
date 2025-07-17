@@ -1498,7 +1498,7 @@ export function createProjectionNode<I>({
         }
 
         scheduleRender(notifyAll = true) {
-            this.options.visualElement?.scheduleRender()
+            this.options.visualElement?.state.scheduleRender()
             if (notifyAll) {
                 const stack = this.getStack()
                 stack && stack.scheduleRender()
@@ -1882,7 +1882,7 @@ export function createProjectionNode<I>({
 
             // Force a render of this element to apply the transform with all skews and rotations
             // set to 0.
-            visualElement.render()
+            visualElement.state.render()
 
             // Put back all the values we reset
             for (const key in resetValues) {
@@ -1894,7 +1894,7 @@ export function createProjectionNode<I>({
 
             // Schedule a render for the next frame. This ensures we won't visually
             // see the element with the reset rotate value applied.
-            visualElement.scheduleRender()
+            visualElement.state.scheduleRender()
         }
 
         applyProjectionStyles(

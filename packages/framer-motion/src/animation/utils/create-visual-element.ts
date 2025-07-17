@@ -8,16 +8,7 @@ export function createDOMVisualElement(element: HTMLElement | SVGElement) {
     const options = {
         presenceContext: null,
         props: {},
-        visualState: {
-            renderState: {
-                transform: {},
-                transformOrigin: {},
-                style: {},
-                vars: {},
-                attrs: {},
-            },
-            state: new MotionNodeState({}),
-        },
+        state: new MotionNodeState({}),
     }
     const node =
         isSVGElement(element) && !isSVGSVGElement(element)
@@ -33,12 +24,7 @@ export function createObjectVisualElement(subject: Object) {
     const options = {
         presenceContext: null,
         props: {},
-        visualState: {
-            renderState: {
-                output: {},
-            },
-            state: new MotionNodeState({}),
-        },
+        state: new MotionNodeState({}),
     }
     const node = new ObjectVisualElement(options)
 

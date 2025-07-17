@@ -24,7 +24,7 @@ import { getValueAsType } from "../value/types/utils/get-as-type"
  */
 
 // Rename MotionNodeState
-export class MotionNodeState<Subject> {
+export class MotionNodeState<Subject = any> {
     subject: Subject
 
     latest: { [name: string]: AnyResolvedKeyframe }
@@ -37,6 +37,10 @@ export class MotionNodeState<Subject> {
 
     render = () => {
         // Render all bound values
+    }
+
+    scheduleRender() {
+        frame.render(this.render, false, true)
     }
 
     has(name: string) {
@@ -88,6 +92,20 @@ export class MotionNodeState<Subject> {
 
     get(name: string): MotionValue | undefined {
         return this.values.get(name)?.value
+    }
+
+    forEachValue(callback: (value: MotionValue, name: string) => void) {
+        for (const [name, { value }] of this.values) {
+            callback(value, name)
+        }
+    }
+
+    remove(name: string) {
+        const { onRemove } = this.values.get(name) ?? {}
+        if (onRemove) {
+            onRemove()
+            this.values.delete(name)
+        }
     }
 
     mount(subject: Subject) {

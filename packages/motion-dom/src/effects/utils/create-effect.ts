@@ -16,7 +16,7 @@ export function createEffect<Subject extends object>(
         subject: Subject,
         values: Record<string, MotionValue>
     ): VoidFunction => {
-        const state = stateCache.get(subject) ?? new MotionNodeState()
+        const state = stateCache.get(subject) ?? new MotionNodeState<Subject>()
 
         stateCache.set(subject, state)
 

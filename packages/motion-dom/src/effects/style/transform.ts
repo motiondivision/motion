@@ -8,7 +8,9 @@ const translateAlias = {
     transformPerspective: "perspective",
 }
 
-export function buildTransform(state: MotionNodeState) {
+export function buildTransform(
+    state: MotionNodeState<HTMLElement | SVGElement>
+) {
     let transform = ""
     let transformIsDefault = true
 
