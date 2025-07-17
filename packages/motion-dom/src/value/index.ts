@@ -26,7 +26,6 @@ export interface MotionValueEventCallbacks<V> {
     animationComplete: () => void
     animationCancel: () => void
     change: (latestValue: V) => void
-    renderRequest: () => void
     destroy: () => void
 }
 
@@ -282,9 +281,9 @@ export class MotionValue<V = any> {
      *
      * @public
      */
-    set(v: V, render = true) {
-        if (!render || !this.passiveEffect) {
-            this.updateAndNotify(v, render)
+    set(v: V) {
+        if (!this.passiveEffect) {
+            this.updateAndNotify(v)
         } else {
             this.passiveEffect(v, this.updateAndNotify)
         }
@@ -326,7 +325,7 @@ export class MotionValue<V = any> {
         }
     }
 
-    updateAndNotify = (v: V, render = true) => {
+    updateAndNotify = (v: V) => {
         const currentTime = time.now()
 
         /**
@@ -351,11 +350,6 @@ export class MotionValue<V = any> {
                     dependent.dirty()
                 }
             }
-        }
-
-        // Update render subscribers
-        if (render) {
-            this.events.renderRequest?.notify(this.current)
         }
     }
 

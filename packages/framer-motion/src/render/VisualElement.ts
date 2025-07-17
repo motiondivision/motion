@@ -470,12 +470,9 @@ export abstract class VisualElement<
                 if (valueIsTransform && this.projection) {
                     this.projection.isTransformDirty = true
                 }
-            }
-        )
 
-        const removeOnRenderRequest = value.on(
-            "renderRequest",
-            this.scheduleRender
+                this.scheduleRender()
+            }
         )
 
         let removeSyncCheck: VoidFunction | void
@@ -485,7 +482,6 @@ export abstract class VisualElement<
 
         this.valueSubscriptions.set(key, () => {
             removeOnChange()
-            removeOnRenderRequest()
             if (removeSyncCheck) removeSyncCheck()
             if (value.owner) value.stop()
         })
