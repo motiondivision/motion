@@ -108,8 +108,6 @@ export function PopChild({ children, isPresent, anchorX, root }: Props) {
         }
 
         return () => {
-            parent.removeChild(style)
-
             if (parent.contains(style)) {
                 parent.removeChild(style)
             }
