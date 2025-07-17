@@ -1,6 +1,6 @@
 import { camelToDash } from "../../render/dom/utils/camel-to-dash"
 import { MotionValue } from "../../value"
-import { MotionValueState } from "../MotionValueState"
+import { MotionNodeState } from "../MotionNodeState"
 import { createSelectorEffect } from "../utils/create-dom-effect"
 import { createEffect } from "../utils/create-effect"
 
@@ -17,7 +17,7 @@ function canSetAsProperty(element: HTMLElement | SVGElement, name: string) {
 
 export const addAttrValue = (
     element: HTMLElement | SVGElement,
-    state: MotionValueState,
+    state: MotionNodeState,
     key: string,
     value: MotionValue
 ) => {
@@ -49,7 +49,7 @@ export const addAttrValue = (
 
 export const attrStateCache = new WeakMap<
     HTMLElement | SVGElement,
-    MotionValueState
+    MotionNodeState
 >()
 
 export const attrEffect = /*@__PURE__*/ createSelectorEffect(

@@ -18,10 +18,10 @@ function setMotionValue(
     key: string,
     value: AnyResolvedKeyframe
 ) {
-    if (visualElement.hasValue(key)) {
+    if (visualElement.state.has(key)) {
         visualElement.getValue(key)!.set(value)
     } else {
-        visualElement.addValue(key, motionValue(value))
+        visualElement.state.set(key, motionValue(value))
     }
 }
 

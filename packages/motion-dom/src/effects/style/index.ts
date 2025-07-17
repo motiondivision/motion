@@ -2,7 +2,7 @@ import { isCSSVar } from "../../render/dom/is-css-var"
 import { transformProps } from "../../render/utils/keys-transform"
 import { isHTMLElement } from "../../utils/is-html-element"
 import { MotionValue } from "../../value"
-import { MotionValueState } from "../MotionValueState"
+import { MotionNodeState } from "../MotionNodeState"
 import { createSelectorEffect } from "../utils/create-dom-effect"
 import { createEffect } from "../utils/create-effect"
 import { buildTransform } from "./transform"
@@ -11,7 +11,7 @@ const originProps = new Set(["originX", "originY", "originZ"])
 
 export const addStyleValue = (
     element: HTMLElement | SVGElement,
-    state: MotionValueState,
+    state: MotionNodeState,
     key: string,
     value: MotionValue
 ) => {
@@ -63,7 +63,7 @@ export const addStyleValue = (
 
 export const styleStateCache = new WeakMap<
     HTMLElement | SVGElement,
-    MotionValueState
+    MotionNodeState
 >()
 
 export const styleEffect = /*@__PURE__*/ createSelectorEffect(

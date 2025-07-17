@@ -1,4 +1,4 @@
-import { isSVGElement, isSVGSVGElement, MotionValueState } from "motion-dom"
+import { isSVGElement, isSVGSVGElement, MotionNodeState } from "motion-dom"
 import { HTMLVisualElement } from "../../render/html/HTMLVisualElement"
 import { ObjectVisualElement } from "../../render/object/ObjectVisualElement"
 import { visualElementStore } from "../../render/store"
@@ -16,7 +16,7 @@ export function createDOMVisualElement(element: HTMLElement | SVGElement) {
                 vars: {},
                 attrs: {},
             },
-            state: new MotionValueState({}),
+            state: new MotionNodeState({}),
         },
     }
     const node =
@@ -37,7 +37,7 @@ export function createObjectVisualElement(subject: Object) {
             renderState: {
                 output: {},
             },
-            state: new MotionValueState({}),
+            state: new MotionNodeState({}),
         },
     }
     const node = new ObjectVisualElement(options)

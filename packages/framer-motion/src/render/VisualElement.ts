@@ -1,18 +1,14 @@
 import {
-    cancelFrame,
     complex,
     findValueType,
-    frame,
     getAnimatableNone,
     isMotionValue,
     KeyframeResolver,
     microtask,
     motionValue,
-    time,
-    transformProps,
     type AnyResolvedKeyframe,
+    type MotionNodeState,
     type MotionValue,
-    type MotionValueState,
 } from "motion-dom"
 import type { Box } from "motion-utils"
 import {
@@ -113,15 +109,6 @@ export abstract class VisualElement<
     ): AnyResolvedKeyframe | null | undefined
 
     /**
-     * When a value has been removed from the VisualElement we use this to remove
-     * it from the inherting class' unique render state.
-     */
-    abstract removeValueFromRenderState(
-        key: string,
-        renderState: RenderState
-    ): void
-
-    /**
      * Run before a React or VisualElement render, builds the latest motion
      * values into an Instance-specific format. For example, HTMLVisualElement
      * will use this step to build `style` and `var` values.
@@ -143,12 +130,6 @@ export abstract class VisualElement<
         styleProp?: MotionStyle,
         projection?: IProjectionNode
     ): void
-
-    /**
-     * This method is called when a transform property is bound to a motion value.
-     * It's currently used to measure SVG elements when a new transform property is bound.
-     */
-    onBindTransform?(): void
 
     /**
      * If the component child is provided as a motion value, handle subscriptions
@@ -201,9 +182,8 @@ export abstract class VisualElement<
 
     /**
      * The visual state of the visual element.
-     * TODO: Use this to replace renderState and the render functions.
      */
-    state: MotionValueState
+    state: MotionNodeState
 
     /**
      * Determine what role this visual element should take in the variant tree.
@@ -249,13 +229,6 @@ export abstract class VisualElement<
     projection?: IProjectionNode
 
     /**
-     * A map of all motion values attached to this visual element. Motion
-     * values are source of truth for any given animated value. A motion
-     * value might be provided externally by the component via props.
-     */
-    values = new Map<string, MotionValue>()
-
-    /**
      * The AnimationState, this is hydrated by the animation Feature.
      */
     animationState?: AnimationState
@@ -283,12 +256,6 @@ export abstract class VisualElement<
     private features: {
         [K in keyof FeatureDefinitions]?: Feature<Instance>
     } = {}
-
-    /**
-     * A map of every subscription that binds the provided or generated
-     * motion values onChange listeners to this visual element.
-     */
-    private valueSubscriptions = new Map<string, VoidFunction>()
 
     /**
      * A reference to the ReducedMotionConfig passed to the VisualElement's host React component.
@@ -342,16 +309,13 @@ export abstract class VisualElement<
             presenceContext,
             reducedMotionConfig,
             blockInitialAnimation,
-            visualState,
-        }: VisualElementOptions<RenderState>,
+            state,
+        }: VisualElementOptions,
         options: Options = {} as any
     ) {
-        const { state, renderState } = visualState
-
         this.state = state
         this.baseTarget = { ...state.latest }
         this.initialValues = props.initial ? { ...state.latest } : {}
-        this.renderState = renderState
         this.parent = parent
         this.props = props
         this.presenceContext = presenceContext
@@ -395,6 +359,8 @@ export abstract class VisualElement<
 
         visualElementStore.set(instance, this)
 
+        this.state.mount(instance)
+
         if (this.projection && !this.projection.instance) {
             this.projection.mount(instance)
         }
@@ -402,8 +368,6 @@ export abstract class VisualElement<
         if (this.parent && this.isVariantNode && !this.isControllingVariants) {
             this.removeFromVariantTree = this.parent.addVariantChild(this)
         }
-
-        this.values.forEach((value, key) => this.bindToMotionValue(key, value))
 
         if (!hasReducedMotionListener.current) {
             initPrefersReducedMotion()
@@ -430,10 +394,7 @@ export abstract class VisualElement<
 
     unmount() {
         this.projection && this.projection.unmount()
-        cancelFrame(this.notifyUpdate)
-        cancelFrame(this.render)
-        this.valueSubscriptions.forEach((remove) => remove())
-        this.valueSubscriptions.clear()
+        this.state.unmount()
         this.removeFromVariantTree && this.removeFromVariantTree()
         this.parent && this.parent.children.delete(this)
 
@@ -452,45 +413,25 @@ export abstract class VisualElement<
     }
 
     private bindToMotionValue(key: string, value: MotionValue) {
-        if (this.valueSubscriptions.has(key)) {
-            this.valueSubscriptions.get(key)!()
-        }
+        this.state.set(key, value)
 
-        const valueIsTransform = transformProps.has(key)
+        // Setup
+        // const valueIsTransform = transformProps.has(key)
+        // let removeSyncCheck: VoidFunction | void
+        // if (window.MotionCheckAppearSync) {
+        //     removeSyncCheck = window.MotionCheckAppearSync(this, key, value)
+        // }
 
-        if (valueIsTransform && this.onBindTransform) {
-            this.onBindTransform()
-        }
+        // Each frame:
+        // this.props.onUpdate && frame.preRender(this.notifyUpdate)
 
-        const removeOnChange = value.on(
-            "change",
-            (latestValue: AnyResolvedKeyframe) => {
-                this.state.latest[key] = latestValue
+        // if (valueIsTransform && this.projection) {
+        //     this.projection.isTransformDirty = true
+        // }
 
-                this.props.onUpdate && frame.preRender(this.notifyUpdate)
-
-                if (valueIsTransform && this.projection) {
-                    this.projection.isTransformDirty = true
-                }
-            }
-        )
-
-        const removeOnRenderRequest = value.on(
-            "renderRequest",
-            this.scheduleRender
-        )
-
-        let removeSyncCheck: VoidFunction | void
-        if (window.MotionCheckAppearSync) {
-            removeSyncCheck = window.MotionCheckAppearSync(this, key, value)
-        }
-
-        this.valueSubscriptions.set(key, () => {
-            removeOnChange()
-            removeOnRenderRequest()
-            if (removeSyncCheck) removeSyncCheck()
-            if (value.owner) value.stop()
-        })
+        // On destroy:
+        //  if (removeSyncCheck) removeSyncCheck()
+        // if (value.owner) value.stop()
     }
 
     sortNodePosition(other: VisualElement<Instance>) {
@@ -547,32 +488,6 @@ export abstract class VisualElement<
         }
     }
 
-    notifyUpdate = () => this.notify("Update", this.state.latest)
-
-    triggerBuild() {
-        this.build(this.renderState, this.state.latest, this.props)
-    }
-
-    render = () => {
-        if (!this.current) return
-        this.triggerBuild()
-        this.renderInstance(
-            this.current,
-            this.renderState,
-            this.props.style,
-            this.projection
-        )
-    }
-
-    private renderScheduledAt = 0.0
-    scheduleRender = () => {
-        const now = time.now()
-        if (this.renderScheduledAt < now) {
-            this.renderScheduledAt = now
-            frame.render(this.render, false, true)
-        }
-    }
-
     /**
      * Measure the current viewport box with or without transforms.
      * Only measures axis-aligned boxes, rotate and skew must be manually
@@ -597,9 +512,10 @@ export abstract class VisualElement<
      * added to our map, old ones removed, and listeners updated.
      */
     update(props: MotionProps, presenceContext: PresenceContextProps | null) {
-        if (props.transformTemplate || this.props.transformTemplate) {
-            this.scheduleRender()
-        }
+        // TODO: Fix this
+        // if (props.transformTemplate || this.props.transformTemplate) {
+        //     this.scheduleRender()
+        // }
 
         this.prevProps = this.props
         this.props = props
@@ -625,7 +541,7 @@ export abstract class VisualElement<
         }
 
         this.prevMotionValues = updateMotionValuesFromProps(
-            this,
+            this, // TODO: Should we be passing state here?
             this.scrapeMotionValuesFromProps(props, this.prevProps, this),
             this.prevMotionValues
         )
@@ -678,42 +594,6 @@ export abstract class VisualElement<
     }
 
     /**
-     * Add a motion value and bind it to this visual element.
-     */
-    addValue(key: string, value: MotionValue) {
-        // Remove existing value if it exists
-        const existingValue = this.values.get(key)
-
-        if (value !== existingValue) {
-            if (existingValue) this.removeValue(key)
-            this.bindToMotionValue(key, value)
-            this.values.set(key, value)
-            this.state.latest[key] = value.get()
-        }
-    }
-
-    /**
-     * Remove a motion value and unbind any active subscriptions.
-     */
-    removeValue(key: string) {
-        this.values.delete(key)
-        const unsubscribe = this.valueSubscriptions.get(key)
-        if (unsubscribe) {
-            unsubscribe()
-            this.valueSubscriptions.delete(key)
-        }
-        delete this.state.latest[key]
-        this.removeValueFromRenderState(key, this.renderState)
-    }
-
-    /**
-     * Check whether we have a motion value for this key
-     */
-    hasValue(key: string) {
-        return this.values.has(key)
-    }
-
-    /**
      * Get a motion value for this key. If called with a default
      * value, we'll create one if none exists.
      */
@@ -727,14 +607,14 @@ export abstract class VisualElement<
             return this.props.values[key]
         }
 
-        let value = this.values.get(key)
+        let value = this.state.get(key)
 
         if (value === undefined && defaultValue !== undefined) {
             value = motionValue(
                 defaultValue === null ? undefined : defaultValue,
                 { owner: this }
             )
-            this.addValue(key, value)
+            this.state.set(key, value)
         }
 
         return value
@@ -844,6 +724,6 @@ export abstract class VisualElement<
     }
 
     scheduleRenderMicrotask() {
-        microtask.render(this.render)
+        microtask.render(this.state.render)
     }
 }

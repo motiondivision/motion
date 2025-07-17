@@ -1,4 +1,4 @@
-import { AnyResolvedKeyframe, MotionValueState } from "motion-dom"
+import { AnyResolvedKeyframe, MotionNodeState } from "motion-dom"
 import { useContext } from "react"
 import { isAnimationControls } from "../../animation/utils/is-animation-controls"
 import { MotionContext, MotionContextProps } from "../../context/MotionContext"
@@ -16,46 +16,30 @@ import { useConstant } from "../../utils/use-constant"
 import { resolveMotionValue } from "../../value/utils/resolve-motion-value"
 import { MotionProps } from "../types"
 
-export interface VisualState<RenderState> {
-    renderState: RenderState
-    // TODO: This should replace the VisualState itself
-    // but as an initial step we're using it just to store the
-    // flat initial values
-    state: MotionValueState
-}
-
-export type UseVisualState<RenderState> = (
+export type UseMotionNodeState = (
     props: MotionProps,
     isStatic: boolean
-) => VisualState<RenderState>
+) => MotionNodeState
 
-export interface UseVisualStateConfig<RenderState> {
+export interface UseMotionNodeStateConfig {
     scrapeMotionValuesFromProps: ScrapeMotionValuesFromProps
-    createRenderState: () => RenderState
+    StateConstructor: new (initialValues: ResolvedValues) => MotionNodeState
 }
 
-function makeState<RS>(
-    {
-        scrapeMotionValuesFromProps,
-        createRenderState,
-    }: UseVisualStateConfig<RS>,
+function makeMotionNodeState(
+    { scrapeMotionValuesFromProps, StateConstructor }: UseMotionNodeStateConfig,
     props: MotionProps,
     context: MotionContextProps,
     presenceContext: PresenceContextProps | null
 ) {
-    const initialValues = makeInitialValues(
-        props,
-        context,
-        presenceContext,
-        scrapeMotionValuesFromProps
+    return new StateConstructor(
+        makeInitialValues(
+            props,
+            context,
+            presenceContext,
+            scrapeMotionValuesFromProps
+        )
     )
-
-    const state: VisualState<RS> = {
-        state: new MotionValueState(initialValues),
-        renderState: createRenderState(),
-    }
-
-    return state
 }
 
 function makeInitialValues(
@@ -132,12 +116,13 @@ function makeInitialValues(
     return values
 }
 
-export const makeUseVisualState =
-    <RS>(config: UseVisualStateConfig<RS>): UseVisualState<RS> =>
-    (props: MotionProps, isStatic: boolean): VisualState<RS> => {
+export const makeUseMotionNodeState =
+    (config: UseMotionNodeStateConfig): UseMotionNodeState =>
+    (props: MotionProps, isStatic: boolean): MotionNodeState => {
         const context = useContext(MotionContext)
         const presenceContext = useContext(PresenceContext)
-        const make = () => makeState(config, props, context, presenceContext)
+        const make = () =>
+            makeMotionNodeState(config, props, context, presenceContext)
 
         return isStatic ? make() : useConstant(make)
     }

@@ -1,5 +1,5 @@
 import { transformPropOrder } from "../../render/utils/keys-transform"
-import { MotionValueState } from "../MotionValueState"
+import { MotionNodeState } from "../MotionNodeState"
 
 const translateAlias = {
     x: "translateX",
@@ -8,7 +8,7 @@ const translateAlias = {
     transformPerspective: "perspective",
 }
 
-export function buildTransform(state: MotionValueState) {
+export function buildTransform(state: MotionNodeState) {
     let transform = ""
     let transformIsDefault = true
 

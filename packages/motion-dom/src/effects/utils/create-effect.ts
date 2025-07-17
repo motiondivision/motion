@@ -1,14 +1,14 @@
 import { MotionValue } from "../../value"
-import { MotionValueState } from "../MotionValueState"
+import { MotionNodeState } from "../MotionNodeState"
 
 export function createEffect<Subject extends object>(
     addValue: (
         subject: Subject,
-        state: MotionValueState,
+        state: MotionNodeState,
         key: string,
         value: MotionValue
     ) => VoidFunction,
-    stateCache = new WeakMap<Subject, MotionValueState>()
+    stateCache = new WeakMap<Subject, MotionNodeState>()
 ) {
     const subscriptions: VoidFunction[] = []
 
@@ -16,7 +16,7 @@ export function createEffect<Subject extends object>(
         subject: Subject,
         values: Record<string, MotionValue>
     ): VoidFunction => {
-        const state = stateCache.get(subject) ?? new MotionValueState()
+        const state = stateCache.get(subject) ?? new MotionNodeState()
 
         stateCache.set(subject, state)
 

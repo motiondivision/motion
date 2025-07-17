@@ -352,11 +352,6 @@ export class MotionValue<V = any> {
                 }
             }
         }
-
-        // Update render subscribers
-        if (render) {
-            this.events.renderRequest?.notify(this.current)
-        }
     }
 
     /**

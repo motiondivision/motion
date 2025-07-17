@@ -4,17 +4,44 @@ import { MotionValue } from "../value"
 import { numberValueTypes } from "../value/types/maps/number"
 import { getValueAsType } from "../value/types/utils/get-as-type"
 
-export class MotionValueState {
+/**
+ * TODO:
+ * - Add .mount()
+ *      - Make visualElement bind onUpdate with mount and every prop update
+ * - Add .unmount(), replace .destroy()
+ * - Add .remove(name)
+ * - Add ability to set onUpdate
+ *      - Cancelframe if this gets unmounted()
+ * - Inherit by svg/objet/style/attr
+ * - Update effect to use this 
+ * - Handle transform template
+ * - Add gating for multiple render
+ *         const now = time.now()
+        if (this.renderScheduledAt < now) {
+            this.renderScheduledAt = now
+            frame.render(this.render, false, true)
+        }
+ */
+
+// Rename MotionNodeState
+export class MotionNodeState<Subject> {
+    subject: Subject
+
     latest: { [name: string]: AnyResolvedKeyframe }
 
     constructor(initialValues: { [name: string]: AnyResolvedKeyframe } = {}) {
         this.latest = initialValues
     }
 
-    private values = new Map<
-        string,
-        { value: MotionValue; onRemove: VoidFunction }
-    >()
+    values = new Map<string, { value: MotionValue; onRemove: VoidFunction }>()
+
+    render = () => {
+        // Render all bound values
+    }
+
+    has(name: string) {
+        return this.values.has(name)
+    }
 
     set(
         name: string,
@@ -63,7 +90,11 @@ export class MotionValueState {
         return this.values.get(name)?.value
     }
 
-    destroy() {
+    mount(subject: Subject) {
+        this.subject = subject
+    }
+
+    unmount() {
         for (const value of this.values.values()) {
             value.onRemove()
         }

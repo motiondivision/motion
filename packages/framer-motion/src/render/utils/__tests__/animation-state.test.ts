@@ -1,4 +1,4 @@
-import { MotionValueState } from "motion-dom"
+import { MotionNodeState } from "motion-dom"
 import { MotionProps } from "../../../motion/types"
 import { createHtmlRenderState } from "../../html/utils/create-render-state"
 import { VisualElement } from "../../VisualElement"
@@ -15,7 +15,7 @@ function createTest(
             parent,
             presenceContext: null,
             visualState: {
-                state: new MotionValueState({}),
+                state: new MotionNodeState({}),
                 renderState: createHtmlRenderState(),
             },
         },
