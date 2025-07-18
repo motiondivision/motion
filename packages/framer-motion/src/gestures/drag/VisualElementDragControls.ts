@@ -228,15 +228,7 @@ export class VisualElementDragControls {
             onDrag && onDrag(event, info)
         }
 
-        const onSessionEnd = (event: PointerEvent, info: PanInfo) => {
-            this.latestPointerEvent = event
-            this.latestPanInfo = info
-
-            this.stop(event, info)
-
-            this.latestPointerEvent = null
-            this.latestPanInfo = null
-        }
+        const onSessionEnd = (event: PointerEvent, info: PanInfo) => this.stop(event, info)
 
         const resumeAnimation = () =>
             eachAxis(
