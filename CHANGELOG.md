@@ -4,6 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.23.6] 2025-07-21
+
+### Fixed
+
+-   Fixed drag direction when a draggable is inside a rotated parent container; it now moves with the cursor 
+
 ## [12.23.6] 2025-07-11
 
 ### Changed
