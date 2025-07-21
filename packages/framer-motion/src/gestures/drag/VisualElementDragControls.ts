@@ -71,6 +71,7 @@ export class VisualElementDragControls {
     private currentDirection: DragDirection | null = null
 
     private originPoint: Point = { x: 0, y: 0 }
+    private inverseMatrix: number[][]
 
     /**
      * The permitted boundaries of travel, in pixels.
@@ -309,25 +310,142 @@ export class VisualElementDragControls {
         animationState && animationState.setActive("whileDrag", false)
     }
 
+    private calculateInvertedPoint(
+        inverseMatrix: number[][],
+        xCoordinate: number,
+        yCoordinate: number
+    ): Point {
+        const invertedPoint: Point = { x: 0, y: 0 }
+
+        if (!inverseMatrix) {
+            return invertedPoint
+        }
+
+        invertedPoint["x"] =
+            inverseMatrix[0][0] * xCoordinate +
+            inverseMatrix[0][1] * yCoordinate
+        invertedPoint["y"] =
+            inverseMatrix[1][0] * xCoordinate +
+            inverseMatrix[1][1] * yCoordinate
+
+        return invertedPoint
+    }
+
+    private calculateInverseMatrix(element: HTMLElement): number[][] {
+        const inverseMatrix: number[][] = [
+            [0, 0],
+            [0, 0],
+        ]
+
+        if (!element) return inverseMatrix
+        const computed = getComputedStyle(element)
+
+        const matrix = computed.transform.match(
+            /matrix\(\s*([-\d.]+),\s*([-\d.]+),\s*([-\d.]+),\s*([-\d.]+)/
+        )
+        if (!matrix) return inverseMatrix
+
+        //Inverting a matrix
+        const a: number = parseFloat(matrix[1])
+        const b: number = parseFloat(matrix[2])
+        const c: number = parseFloat(matrix[3])
+        const d: number = parseFloat(matrix[4])
+
+        const determinant: number = 1 / (a * d - b * c)
+
+        inverseMatrix[0][0] = determinant * d
+        inverseMatrix[0][1] = determinant * -c
+        inverseMatrix[1][0] = determinant * -b
+        inverseMatrix[1][1] = determinant * a
+
+        return inverseMatrix
+    }
+
+    private checkForRotatedParent(element: HTMLElement): HTMLElement | null {
+        while (element.parentElement) {
+            element = element.parentElement
+            const computed = getComputedStyle(element)
+
+            if (computed.transform && computed.transform !== "none") {
+                const epsilon = 0.001
+
+                const matrix = computed.transform.match(
+                    /matrix\(\s*([-\d.]+),\s*([-\d.]+),\s*([-\d.]+),\s*([-\d.]+)/
+                )
+
+                if (!matrix) break
+
+                const a: number = parseFloat(matrix[1])
+                const b: number = parseFloat(matrix[2])
+
+                const hasRotation =
+                    Math.abs(a - 1) > epsilon || Math.abs(b) > epsilon
+
+                console.log(matrix)
+
+                if (hasRotation) {
+                    return element
+                }
+            }
+        }
+
+        return null
+    }
+
     private updateAxis(axis: DragDirection, _point: Point, offset?: Point) {
         const { drag } = this.getProps()
 
         // If we're not dragging this axis, do an early return.
         if (!offset || !shouldDrag(axis, drag, this.currentDirection)) return
+        if (!this.visualElement.current) return
 
         const axisValue = this.getAxisMotionValue(axis)
-        let next = this.originPoint[axis] + offset[axis]
 
-        // Apply constraints
-        if (this.constraints && this.constraints[axis]) {
-            next = applyConstraints(
-                next,
-                this.constraints[axis],
-                this.elastic[axis]
+        const rotatedDiv = this.checkForRotatedParent(
+            this.visualElement.current
+        )
+
+        if (rotatedDiv) {
+            console.log("ROTATED")
+            if (this.inverseMatrix === undefined) {
+                this.inverseMatrix = this.calculateInverseMatrix(rotatedDiv)
+            }
+
+            const invertedOffset = this.calculateInvertedPoint(
+                this.inverseMatrix,
+                offset["x"],
+                offset["y"]
             )
-        }
+            const newCoordinates: Point = {
+                x: invertedOffset["x"] + this.originPoint["x"],
+                y: invertedOffset["y"] + this.originPoint["y"],
+            }
 
-        axisValue.set(next)
+            //apply constraints
+            if (this.constraints && this.constraints[axis]) {
+                newCoordinates[axis] = applyConstraints(
+                    newCoordinates[axis],
+                    this.constraints[axis],
+                    this.elastic[axis]
+                )
+            }
+
+            axisValue.set(newCoordinates[axis])
+        } else {
+            console.log("NOT ROTATED")
+            let next = this.originPoint[axis] + offset[axis]
+
+            // Apply constraints
+            if (this.constraints && this.constraints[axis]) {
+                next = applyConstraints(
+                    next,
+                    this.constraints[axis],
+                    this.elastic[axis]
+                )
+            }
+
+            axisValue.set(next)
+        }
     }
 
     private resolveConstraints() {

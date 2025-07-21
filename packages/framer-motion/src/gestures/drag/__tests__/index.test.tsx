@@ -62,6 +62,96 @@ describe("dragging", () => {
         pointer.end()
     })
 
+    test("draggable element moves correctly in the X direction when inside a rotated parent", async () => {
+        const Component = (): JSX.Element => (
+            <MockDrag>
+                <motion.div style={{ transform: "rotate(180deg)" }}>
+                    <motion.div
+                        data-testid="draggable"
+                        drag="x"
+                        dragTransition={{
+                            bounceStiffness: 100000,
+                            bounceDamping: 100000,
+                        }}
+                        style={{
+                            width: 100,
+                            height: 100,
+                            background: "red",
+                        }}
+                    />
+                </motion.div>
+            </MockDrag>
+        )
+
+        const { container, getByTestId, rerender } = render(<Component />)
+        rerender(<Component />)
+
+        const draggable = getByTestId("draggable")
+        const dragTarget = container.firstChild?.firstChild as HTMLElement
+
+        const pointer = await drag(dragTarget).to(100, 0)
+        await nextFrame()
+
+        const transform = draggable.style.transform
+        const translateXMatch = transform.match(/translateX\(\s*([\d.-]+)px\)/)
+
+        expect(translateXMatch).not.toBeNull()
+        expect(translateXMatch).toBeTruthy()
+
+        const translateXValue = parseFloat(translateXMatch![1])
+        expect(translateXValue).not.toBeNaN()
+        expect(translateXValue).toBeCloseTo(100, 1)
+
+        expect(transform).not.toMatch(/translateY/)
+
+        pointer.end()
+    })
+
+    test("draggable element moves correctly in the Y direction when inside a rotated parent", async () => {
+        const Component = (): JSX.Element => (
+            <MockDrag>
+                <motion.div style={{ transform: "rotate(180deg)" }}>
+                    <motion.div
+                        data-testid="draggable"
+                        drag="y"
+                        dragTransition={{
+                            bounceStiffness: 100000,
+                            bounceDamping: 100000,
+                        }}
+                        style={{
+                            width: 100,
+                            height: 100,
+                            background: "red",
+                        }}
+                    />
+                </motion.div>
+            </MockDrag>
+        )
+
+        const { container, getByTestId, rerender } = render(<Component />)
+        rerender(<Component />)
+
+        const draggable = getByTestId("draggable")
+        const dragTarget = container.firstChild?.firstChild as HTMLElement
+
+        const pointer = await drag(dragTarget).to(0, 100)
+        await nextFrame()
+
+        const transform = draggable.style.transform
+        const translateYMatch = transform.match(/translateY\(\s*([\d.-]+)px\)/)
+
+        expect(translateYMatch).not.toBeNull()
+        expect(translateYMatch).toBeTruthy()
+
+        const translateYValue = parseFloat(translateYMatch![1])
+        expect(translateYValue).not.toBeNaN()
+        expect(translateYValue).toBeCloseTo(100, 1)
+
+        expect(transform).not.toMatch(/translateX/)
+
+        pointer.end()
+    })
+
     test("willChange is applied correctly when other values are animating", async () => {
         const Component = () => {
             const willChange = useWillChange()
