@@ -6,7 +6,8 @@
     "scripts": {
         "dev": "next dev",
         "dev-server": "next dev",
-        "start": "next start"
+        "start": "next start",
+        "build": "next build"
     },
     "dependencies": {
         "motion": "^12.23.7",
