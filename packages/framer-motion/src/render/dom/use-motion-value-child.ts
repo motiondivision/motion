@@ -1,3 +1,5 @@
+"use client"
+
 import { MotionValue } from "motion-dom"
 import { useConstant } from "../../utils/use-constant"
 import { useMotionValueEvent } from "../../utils/use-motion-value-event"

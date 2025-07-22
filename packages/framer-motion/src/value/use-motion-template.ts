@@ -1,3 +1,5 @@
+"use client"
+
 import { isMotionValue, MotionValue } from "motion-dom"
 import { useCombineMotionValues } from "./use-combine-values"
 

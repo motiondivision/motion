@@ -1,3 +1,5 @@
+"use client"
+
 import { useContext } from "react"
 import { MotionConfigContext } from "../../context/MotionConfigContext"
 import { useReducedMotion } from "./use-reduced-motion"

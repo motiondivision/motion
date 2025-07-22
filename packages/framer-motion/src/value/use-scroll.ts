@@ -1,3 +1,5 @@
+"use client"
+
 import { motionValue } from "motion-dom"
 import { invariant } from "motion-utils"
 import { RefObject, useCallback, useEffect, useRef } from "react"
