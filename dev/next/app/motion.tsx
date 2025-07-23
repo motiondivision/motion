@@ -1,17 +1,14 @@
 "use client"
 
-import * as motion from "motion/react-client"
-import { forwardRef, ReactNode } from "react"
+import { motion } from "motion/react"
+import { RenderChildren } from "./render-children"
 
-const Component = forwardRef(function Component(
-    { children }: { children: (p: { test: boolean }) => ReactNode },
-    ref: React.Ref<HTMLDivElement>
-) {
-    return <div ref={ref}>{children({ test: true })}</div>
-})
-
-export const MotionComponent = motion.create(Component)
+export const MotionComponent = motion.create(RenderChildren)
 
 export const MotionWithRenderChildren = () => {
-    return <MotionComponent>{({ test }) => <div>{test}</div>}</MotionComponent>
+    return (
+        <MotionComponent>
+            {({ test }) => <div id="motion-render-children">{test}</div>}
+        </MotionComponent>
+    )
 }
