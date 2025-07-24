@@ -1,8 +1,8 @@
-import { makeUseVisualState } from "../../motion/utils/use-visual-state"
-import { createHtmlRenderState } from "./utils/create-render-state"
+import { MotionNodeState } from "motion-dom"
+import { makeUseMotionNodeState } from "../../motion/utils/use-motion-value-state"
 import { scrapeMotionValuesFromProps } from "./utils/scrape-motion-values"
 
-export const useHTMLVisualState = /*@__PURE__*/ makeUseVisualState({
+export const useHTMLVisualState = /*@__PURE__*/ makeUseMotionNodeState({
     scrapeMotionValuesFromProps,
-    createRenderState: createHtmlRenderState,
+    StateConstructor: MotionNodeState, // TODO HTMLMotionNodeState
 })

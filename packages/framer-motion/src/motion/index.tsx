@@ -11,9 +11,7 @@ import { useCreateMotionContext } from "../context/MotionContext/create"
 import { DOMMotionComponents } from "../render/dom/types"
 import { useRender } from "../render/dom/use-render"
 import { isSVGComponent } from "../render/dom/utils/is-svg-component"
-import { HTMLRenderState } from "../render/html/types"
 import { useHTMLVisualState } from "../render/html/use-html-visual-state"
-import { SVGRenderState } from "../render/svg/types"
 import { useSVGVisualState } from "../render/svg/use-svg-visual-state"
 import { CreateVisualElement } from "../render/types"
 import { isBrowser } from "../utils/is-browser"
@@ -96,7 +94,7 @@ export function createMotionComponent<
 
         const context = useCreateMotionContext<HTMLElement | SVGElement>(props)
 
-        const visualState = useVisualState(props, isStatic)
+        const state = useVisualState(props, isStatic)
 
         if (!isStatic && isBrowser) {
             useStrictMode(configAndProps, preloadedFeatures)
@@ -112,7 +110,7 @@ export function createMotionComponent<
              */
             context.visualElement = useVisualElement(
                 Component,
-                visualState,
+                state,
                 configAndProps,
                 createVisualElement,
                 layoutProjection.ProjectionNode
@@ -134,11 +132,11 @@ export function createMotionComponent<
                 {useRender<Props, TagName>(
                     Component,
                     props,
-                    useMotionRef<
-                        HTMLElement | SVGElement,
-                        HTMLRenderState | SVGRenderState
-                    >(visualState, context.visualElement, externalRef),
-                    visualState,
+                    useMotionRef<HTMLElement | SVGElement>(
+                        context.visualElement,
+                        externalRef
+                    ),
+                    state,
                     isStatic,
                     forwardMotionProps
                 )}
