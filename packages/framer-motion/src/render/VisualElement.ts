@@ -383,7 +383,7 @@ export abstract class VisualElement<
             const value = initialMotionValues[key]
 
             if (latestValues[key] !== undefined && isMotionValue(value)) {
-                value.set(latestValues[key], false)
+                value.set(latestValues[key])
             }
         }
     }
@@ -470,12 +470,9 @@ export abstract class VisualElement<
                 if (valueIsTransform && this.projection) {
                     this.projection.isTransformDirty = true
                 }
-            }
-        )
 
-        const removeOnRenderRequest = value.on(
-            "renderRequest",
-            this.scheduleRender
+                this.scheduleRender()
+            }
         )
 
         let removeSyncCheck: VoidFunction | void
@@ -485,7 +482,6 @@ export abstract class VisualElement<
 
         this.valueSubscriptions.set(key, () => {
             removeOnChange()
-            removeOnRenderRequest()
             if (removeSyncCheck) removeSyncCheck()
             if (value.owner) value.stop()
         })

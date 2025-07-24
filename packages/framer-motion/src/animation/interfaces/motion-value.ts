@@ -10,6 +10,7 @@ import {
     frame,
     getValueTransition,
     JSAnimation,
+    makeAnimationInstant,
     ValueAnimationOptions,
 } from "motion-dom"
 import { MotionGlobalConfig, secondsToMilliseconds } from "motion-utils"
@@ -92,7 +93,7 @@ export const animateMotionValue =
             (options as any).type === false ||
             (options.duration === 0 && !options.repeatDelay)
         ) {
-            options.duration = 0
+            makeAnimationInstant(options)
 
             if (options.delay === 0) {
                 shouldSkip = true
@@ -104,7 +105,7 @@ export const animateMotionValue =
             MotionGlobalConfig.skipAnimations
         ) {
             shouldSkip = true
-            options.duration = 0
+            makeAnimationInstant(options)
             options.delay = 0
         }
 

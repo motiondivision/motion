@@ -10,6 +10,7 @@ export * from "./animation/utils/active-animations"
 export * from "./animation/utils/css-variables-conversion"
 export * from "./animation/utils/get-value-transition"
 export * from "./animation/utils/is-css-variable"
+export * from "./animation/utils/make-animation-instant"
 
 export * from "./animation/generators/inertia"
 export * from "./animation/generators/keyframes"
