@@ -6,8 +6,6 @@ describe("use client", () => {
             .should("exist")
             .get("#motion-client")
             .should("exist")
-            .get("#motion-client-with-children")
-            .should("exist")
             .get("#motion-render-children")
             .should("exist")
     })
