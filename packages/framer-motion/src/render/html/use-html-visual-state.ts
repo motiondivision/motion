@@ -1,3 +1,5 @@
+"use client"
+
 import { makeUseVisualState } from "../../motion/utils/use-visual-state"
 import { createHtmlRenderState } from "./utils/create-render-state"
 import { scrapeMotionValuesFromProps } from "./utils/scrape-motion-values"

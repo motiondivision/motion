@@ -1,3 +1,5 @@
+"use client"
+
 import { useContext, useMemo } from "react"
 import { MotionContext, type MotionContextProps } from "."
 import { MotionProps } from "../../motion/types"

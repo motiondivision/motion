@@ -1,3 +1,5 @@
+"use client"
+
 import { warnOnce } from "motion-utils"
 import { useState } from "react"
 import { initPrefersReducedMotion } from "."

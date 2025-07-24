@@ -1,3 +1,5 @@
+"use client"
+
 import { useMemo } from "react"
 import { MotionProps } from "../../motion/types"
 import { copyRawValuesOnly } from "../html/use-props"
