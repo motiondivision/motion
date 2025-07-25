@@ -381,8 +381,6 @@ export class VisualElementDragControls {
                 const hasRotation =
                     Math.abs(a - 1) > epsilon || Math.abs(b) > epsilon
 
-                console.log(matrix)
-
                 if (hasRotation) {
                     return element
                 }
@@ -406,7 +404,6 @@ export class VisualElementDragControls {
         )
 
         if (rotatedDiv) {
-            console.log("ROTATED")
             if (this.inverseMatrix === undefined) {
                 this.inverseMatrix = this.calculateInverseMatrix(rotatedDiv)
             }
@@ -432,7 +429,6 @@ export class VisualElementDragControls {
 
             axisValue.set(newCoordinates[axis])
         } else {
-            console.log("NOT ROTATED")
             let next = this.originPoint[axis] + offset[axis]
 
             // Apply constraints
@@ -578,9 +574,18 @@ export class VisualElementDragControls {
             const bounceStiffness = dragElastic ? 200 : 1000000
             const bounceDamping = dragElastic ? 40 : 10000000
 
+            let velocityProper = velocity[axis]
+            if (this.inverseMatrix) {
+                velocityProper = this.calculateInvertedPoint(
+                    this.inverseMatrix,
+                    velocity["x"],
+                    velocity["y"]
+                )[axis]
+            }
+
             const inertia: Transition = {
                 type: "inertia",
-                velocity: dragMomentum ? velocity[axis] : 0,
+                velocity: dragMomentum ? velocityProper : 0,
                 bounceStiffness,
                 bounceDamping,
                 timeConstant: 750,
