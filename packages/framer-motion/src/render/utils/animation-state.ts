@@ -1,6 +1,7 @@
 import type { AnimationDefinition, TargetAndTransition } from "motion-dom"
 import { VisualElementAnimationOptions } from "../../animation/interfaces/types"
 import { animateVisualElement } from "../../animation/interfaces/visual-element"
+import { calcChildStagger } from "../../animation/utils/calc-child-stagger"
 import { isAnimationControls } from "../../animation/utils/is-animation-controls"
 import { isKeyframesTarget } from "../../animation/utils/is-keyframes-target"
 import { VariantLabels } from "../../motion/types"
@@ -158,9 +159,6 @@ export function createAnimationState(
                 prop !== props[type] &&
                 propIsVariant
 
-            /**
-             *
-             */
             if (
                 isInherited &&
                 isInitialRender &&
@@ -301,9 +299,6 @@ export function createAnimationState(
             typeState.prevProp = prop
             typeState.prevResolvedValues = resolvedValues
 
-            /**
-             *
-             */
             if (typeState.isActive) {
                 encounteredKeys = { ...encounteredKeys, ...resolvedValues }
             }
@@ -320,10 +315,43 @@ export function createAnimationState(
             const needsAnimating = !willAnimateViaParent || handledRemovedValues
             if (shouldAnimateType && needsAnimating) {
                 animations.push(
-                    ...definitionList.map((animation) => ({
-                        animation: animation as AnimationDefinition,
-                        options: { type },
-                    }))
+                    ...definitionList.map((animation) => {
+                        const options: VisualElementAnimationOptions = { type }
+
+                        /**
+                         * If we're performing the initial animation, but we're not
+                         * rendering at the same time as the variant-controlling parent,
+                         * we want to use the parent's transition to calculate the stagger.
+                         */
+                        if (
+                            typeof animation === "string" &&
+                            isInitialRender &&
+                            !willAnimateViaParent &&
+                            visualElement.manuallyAnimateOnMount &&
+                            visualElement.parent
+                        ) {
+                            const { parent } = visualElement
+                            const parentVariant = resolveVariant(
+                                parent,
+                                animation
+                            )
+
+                            if (parent.enteringChildren && parentVariant) {
+                                const { delayChildren } =
+                                    parentVariant.transition || {}
+                                options.delay = calcChildStagger(
+                                    parent.enteringChildren,
+                                    visualElement,
+                                    delayChildren
+                                )
+                            }
+                        }
+
+                        return {
+                            animation: animation as AnimationDefinition,
+                            options,
+                        }
+                    })
                 )
             }
         }

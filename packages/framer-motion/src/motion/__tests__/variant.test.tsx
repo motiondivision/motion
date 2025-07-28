@@ -1379,4 +1379,58 @@ describe("animate prop as variant", () => {
 
         expect(element).toHaveStyle("transform: translateX(100px)")
     })
+
+    test("staggerChildren is calculated correctly for new children", async () => {
+        const Component = ({ items }: { items: string[] }) => {
+            return (
+                <motion.div
+                    animate="enter"
+                    variants={{
+                        enter: { transition: { delayChildren: stagger(0.1) } },
+                    }}
+                >
+                    {items.map((item) => (
+                        <motion.div
+                            key={item}
+                            id={item}
+                            className="item"
+                            variants={{ enter: { opacity: 1 } }}
+                            initial={{ opacity: 0 }}
+                        />
+                    ))}
+                </motion.div>
+            )
+        }
+
+        const { rerender } = render(<Component items={["1", "2"]} />)
+
+        await nextFrame()
+        await nextFrame()
+        await nextFrame()
+        await nextFrame()
+
+        rerender(<Component items={["1", "2", "3", "4", "5"]} />)
+
+        await nextFrame()
+        await nextFrame()
+        await nextFrame()
+        await nextFrame()
+        await nextFrame()
+        await nextFrame()
+        await nextFrame()
+        await nextFrame()
+        await nextFrame()
+        await nextFrame()
+
+        const elements = document.querySelectorAll(".item")
+
+        // Check that none of the opacities are the same
+        const opacities = Array.from(elements).map((el) =>
+            parseFloat(window.getComputedStyle(el).opacity)
+        )
+
+        // All opacities should be unique
+        const uniqueOpacities = new Set(opacities)
+        expect(uniqueOpacities.size).toBe(opacities.length)
+    })
 })

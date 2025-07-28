@@ -189,6 +189,13 @@ export abstract class VisualElement<
     children = new Set<VisualElement>()
 
     /**
+     * A set containing the latest children of this VisualElement. This is flushed
+     * at the start of every commit. We use it to calculate the stagger delay
+     * for newly-added children.
+     */
+    enteringChildren?: Set<VisualElement>
+
+    /**
      * The depth of this VisualElement within the overall VisualElement tree.
      */
     depth: number
@@ -422,7 +429,8 @@ export abstract class VisualElement<
             )
         }
 
-        if (this.parent) this.parent.children.add(this)
+        this.parent?.addChild(this)
+
         this.update(this.props, this.presenceContext)
     }
 
@@ -433,7 +441,7 @@ export abstract class VisualElement<
         this.valueSubscriptions.forEach((remove) => remove())
         this.valueSubscriptions.clear()
         this.removeFromVariantTree && this.removeFromVariantTree()
-        this.parent && this.parent.children.delete(this)
+        this.parent?.removeChild(this)
 
         for (const key in this.events) {
             this.events[key].clear()
@@ -447,6 +455,17 @@ export abstract class VisualElement<
             }
         }
         this.current = null
+    }
+
+    addChild(child: VisualElement) {
+        this.children.add(child)
+        this.enteringChildren ??= new Set()
+        this.enteringChildren.add(child)
+    }
+
+    removeChild(child: VisualElement) {
+        this.children.delete(child)
+        this.enteringChildren && this.enteringChildren.delete(child)
     }
 
     private bindToMotionValue(key: string, value: MotionValue) {

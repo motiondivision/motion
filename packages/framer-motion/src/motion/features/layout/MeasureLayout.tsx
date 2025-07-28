@@ -28,6 +28,10 @@ type MeasureProps = MotionProps &
 /**
  * Track whether we've taken any snapshots yet. If not,
  * we can safely skip notification of didUpdate.
+ *
+ * Difficult to capture in a test but to prevent flickering
+ * we must set this to true either on update or unmount.
+ * Running `next-env/layout-id` in Safari will show this behaviour if broken.
  */
 let hasTakenAnySnapshot = false
 
@@ -136,6 +140,8 @@ class MeasureLayoutWithContext extends Component<MeasureProps> {
             switchLayoutGroup: promoteContext,
         } = this.props
         const { projection } = visualElement
+
+        hasTakenAnySnapshot = true
 
         if (projection) {
             projection.scheduleCheckAfterUnmount()
