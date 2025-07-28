@@ -109,29 +109,6 @@ export abstract class VisualElement<
     ): AnyResolvedKeyframe | null | undefined
 
     /**
-     * Run before a React or VisualElement render, builds the latest motion
-     * values into an Instance-specific format. For example, HTMLVisualElement
-     * will use this step to build `style` and `var` values.
-     */
-    abstract build(
-        renderState: RenderState,
-        latestValues: ResolvedValues,
-        props: MotionProps
-    ): void
-
-    /**
-     * Apply the built values to the Instance. For example, HTMLElements will have
-     * styles applied via `setProperty` and the style attribute, whereas SVGElements
-     * will have values applied to attributes.
-     */
-    abstract renderInstance(
-        instance: Instance,
-        renderState: RenderState,
-        styleProp?: MotionStyle,
-        projection?: IProjectionNode
-    ): void
-
-    /**
      * If the component child is provided as a motion value, handle subscriptions
      * with the renderer-specific VisualElement.
      */

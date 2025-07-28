@@ -17,6 +17,7 @@ export function updateMotionValuesFromProps(
              * to our visual element's motion value map.
              */
             element.state.set(key, nextValue)
+            console.log("num values", element.state.values.size)
         } else if (isMotionValue(prevValue)) {
             /**
              * If we're swapping from a motion value to a static value,

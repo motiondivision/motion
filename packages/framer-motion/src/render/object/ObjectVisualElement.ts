@@ -35,14 +35,6 @@ export class ObjectVisualElement extends VisualElement<
         return createBox()
     }
 
-    build(renderState: ObjectRenderState, latestValues: ResolvedValues) {
-        Object.assign(renderState.output, latestValues)
-    }
-
-    renderInstance(instance: Object, { output }: ObjectRenderState) {
-        Object.assign(instance, output)
-    }
-
     sortInstanceNodePosition() {
         return 0
     }

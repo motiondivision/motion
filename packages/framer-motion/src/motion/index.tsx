@@ -137,7 +137,6 @@ export function createMotionComponent<
                         externalRef
                     ),
                     state,
-                    isStatic,
                     forwardMotionProps
                 )}
             </MotionContext.Provider>

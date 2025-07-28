@@ -1,5 +1,5 @@
-import { AnyResolvedKeyframe } from "../animation/types"
 import { cancelFrame, frame } from "../frameloop/frame"
+import { ResolvedValues } from "../node/types"
 import { MotionValue } from "../value"
 import { numberValueTypes } from "../value/types/maps/number"
 import { getValueAsType } from "../value/types/utils/get-as-type"
@@ -22,18 +22,35 @@ import { getValueAsType } from "../value/types/utils/get-as-type"
             frame.render(this.render, false, true)
         }
  */
-
-// Rename MotionNodeState
 export class MotionNodeState<Subject = any> {
-    subject: Subject
+    /**
+     * The render subject. For a StyleMotionNodeState this is the HTMLElement.
+     */
+    subject?: Subject
 
-    latest: { [name: string]: AnyResolvedKeyframe }
+    /**
+     * The latest values returned from each MotionValue. This is "pre-build",
+     * not all the values here will end up rendered on the subject.
+     *
+     * For example, an x transform would output to latest but be rendered on
+     * the subject as part of the style.transform property.
+     */
+    latest: ResolvedValues
 
-    constructor(initialValues: { [name: string]: AnyResolvedKeyframe } = {}) {
+    /**
+     * A static output of values that are rendered on the subject. This is
+     * used primarily pre-mount, for example to generate a style tag.
+     */
+    staticOutput: ResolvedValues = {}
+
+    /**
+     * A store of all the MotionValues bound to the render subject.
+     */
+    values = new Map<string, { value: MotionValue; onRemove: VoidFunction }>()
+
+    constructor(initialValues: ResolvedValues = {}) {
         this.latest = initialValues
     }
-
-    values = new Map<string, { value: MotionValue; onRemove: VoidFunction }>()
 
     render = () => {
         // Render all bound values
@@ -84,7 +101,7 @@ export class MotionNodeState<Subject = any> {
             this.values.delete(name)
             computed && value.removeDependent(computed)
         }
-
+        console.log("setting ", name)
         this.values.set(name, { value, onRemove: remove })
 
         return remove
@@ -106,6 +123,10 @@ export class MotionNodeState<Subject = any> {
             onRemove()
             this.values.delete(name)
         }
+    }
+
+    build(): ResolvedValues {
+        return this.staticOutput
     }
 
     mount(subject: Subject) {

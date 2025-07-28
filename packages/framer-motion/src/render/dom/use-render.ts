@@ -15,19 +15,13 @@ export function useRender<
     props: MotionProps,
     ref: React.Ref<HTMLElement | SVGElement>,
     state: MotionNodeState,
-    isStatic: boolean,
     forwardMotionProps: boolean = false
 ) {
     const useVisualProps = isSVGComponent(Component)
         ? useSVGProps
         : useHTMLProps
 
-    const visualProps = useVisualProps(
-        props as any,
-        state.latest,
-        isStatic,
-        Component as any
-    )
+    const visualProps = useVisualProps(props as any, state)
     const filteredProps = filterProps(
         props,
         typeof Component === "string",

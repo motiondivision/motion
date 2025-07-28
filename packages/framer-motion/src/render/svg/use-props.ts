@@ -1,33 +1,21 @@
+import { MotionNodeState, ResolvedValues } from "motion-dom"
 import { useMemo } from "react"
 import { MotionProps } from "../../motion/types"
 import { copyRawValuesOnly } from "../html/use-props"
-import { ResolvedValues } from "../types"
-import { buildSVGAttrs } from "./utils/build-attrs"
-import { createSvgRenderState } from "./utils/create-render-state"
-import { isSVGTag } from "./utils/is-svg-tag"
 
-export function useSVGProps(
-    props: MotionProps,
-    latestValues: ResolvedValues,
-    _isStatic: boolean,
-    Component: string | React.ComponentType<React.PropsWithChildren<unknown>>
-) {
+export function useSVGProps(props: MotionProps, state: MotionNodeState) {
     const visualProps = useMemo(() => {
-        const state = createSvgRenderState()
-
-        buildSVGAttrs(
-            state,
-            latestValues,
-            isSVGTag(Component),
-            props.transformTemplate,
-            props.style
-        )
+        // TODO: Remove cast and fix properly
+        const { attrs, style } = state.build() as unknown as {
+            attrs: ResolvedValues
+            style: ResolvedValues
+        }
 
         return {
-            ...state.attrs,
-            style: { ...state.style },
+            ...attrs,
+            style: { ...style },
         }
-    }, [latestValues])
+    }, [state])
 
     if (props.style) {
         const rawStyles = {}
