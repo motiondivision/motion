@@ -21,9 +21,9 @@ export { addPointerEvent } from "./events/add-pointer-event"
 export { addPointerInfo } from "./events/event-info"
 export { animations } from "./motion/features/animations"
 export {
-    makeUseVisualState,
-    VisualState,
-} from "./motion/utils/use-visual-state"
+    makeUseMotionNodeState,
+    UseMotionNodeState,
+} from "./motion/utils/use-motion-value-state"
 export { calcLength } from "./projection/geometry/delta-calc"
 export { createBox } from "./projection/geometry/models"
 export { filterProps } from "./render/dom/utils/filter-props"
@@ -91,7 +91,6 @@ export { isValidMotionProp } from "./motion/utils/valid-prop"
 export { addScaleCorrector } from "./projection/styles/scale-correction"
 export { useInstantLayoutTransition } from "./projection/use-instant-layout-transition"
 export { useResetProjection } from "./projection/use-reset-projection"
-export { buildTransform } from "./render/html/utils/build-transform"
 export { visualElementStore } from "./render/store"
 export { VisualElement } from "./render/VisualElement"
 export { useAnimationFrame } from "./utils/use-animation-frame"

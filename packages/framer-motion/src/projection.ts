@@ -6,6 +6,5 @@ export { correctBorderRadius } from "./projection/styles/scale-border-radius"
 export { correctBoxShadow } from "./projection/styles/scale-box-shadow"
 export { addScaleCorrector } from "./projection/styles/scale-correction"
 export { HTMLVisualElement } from "./render/html/HTMLVisualElement"
-export { buildTransform } from "./render/html/utils/build-transform"
 export { frame, frameData, mix }
 import { frame, frameData, mix } from "motion-dom"

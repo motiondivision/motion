@@ -1,10 +1,13 @@
-import { AnyResolvedKeyframe, isMotionValue, MotionValue } from "motion-dom"
+import {
+    AnyResolvedKeyframe,
+    isMotionValue,
+    MotionNodeState,
+    MotionValue,
+} from "motion-dom"
 import { HTMLProps, useMemo } from "react"
 import { MotionProps } from "../../motion/types"
 import { isForcedMotionValue } from "../../motion/utils/is-forced-motion-value"
 import { ResolvedValues } from "../types"
-import { buildHTMLStyles } from "./utils/build-styles"
-import { createHtmlRenderState } from "./utils/create-render-state"
 
 export function copyRawValuesOnly(
     target: ResolvedValues,
@@ -18,23 +21,7 @@ export function copyRawValuesOnly(
     }
 }
 
-function useInitialMotionValues(
-    { transformTemplate }: MotionProps,
-    visualState: ResolvedValues
-) {
-    return useMemo(() => {
-        const state = createHtmlRenderState()
-
-        buildHTMLStyles(state, visualState, transformTemplate)
-
-        return Object.assign({}, state.vars, state.style)
-    }, [visualState])
-}
-
-function useStyle(
-    props: MotionProps,
-    visualState: ResolvedValues
-): ResolvedValues {
+function useStyle(props: MotionProps, state: MotionNodeState): ResolvedValues {
     const styleProp = props.style || {}
     const style = {}
 
@@ -43,18 +30,21 @@ function useStyle(
      */
     copyRawValuesOnly(style, styleProp as any, props)
 
-    Object.assign(style, useInitialMotionValues(props, visualState))
+    // TODO: Handle transformTemplate
+    const initialAnimatedStyles = useMemo(() => state.build(), [state])
+
+    Object.assign(style, initialAnimatedStyles)
 
     return style
 }
 
 export function useHTMLProps(
     props: MotionProps & HTMLProps<HTMLElement>,
-    visualState: ResolvedValues
+    state: MotionNodeState
 ) {
     // The `any` isn't ideal but it is the type of createElement props argument
     const htmlProps: any = {}
-    const style = useStyle(props, visualState)
+    const style = useStyle(props, state)
 
     if (props.drag && props.dragListener !== false) {
         // Disable the ghost element when a user drags

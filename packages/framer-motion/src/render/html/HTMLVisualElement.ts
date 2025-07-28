@@ -11,10 +11,8 @@ import { MotionProps } from "../../motion/types"
 import { measureViewportBox } from "../../projection/utils/measure"
 import { DOMVisualElement } from "../dom/DOMVisualElement"
 import { DOMVisualElementOptions } from "../dom/types"
-import type { ResolvedValues } from "../types"
 import { VisualElement } from "../VisualElement"
 import { HTMLRenderState } from "./types"
-import { buildHTMLStyles } from "./utils/build-styles"
 import { renderHTML } from "./utils/render"
 import { scrapeMotionValuesFromProps } from "./utils/scrape-motion-values"
 
@@ -53,14 +51,6 @@ export class HTMLVisualElement extends DOMVisualElement<
         { transformPagePoint }: MotionProps & Partial<MotionConfigContext>
     ): Box {
         return measureViewportBox(instance, transformPagePoint)
-    }
-
-    build(
-        renderState: HTMLRenderState,
-        latestValues: ResolvedValues,
-        props: MotionProps
-    ) {
-        buildHTMLStyles(renderState, latestValues, props.transformTemplate)
     }
 
     scrapeMotionValuesFromProps(

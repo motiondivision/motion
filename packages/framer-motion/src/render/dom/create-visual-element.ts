@@ -6,7 +6,7 @@ import { isSVGComponent } from "./utils/is-svg-component"
 
 export const createDomVisualElement: CreateVisualElement = (
     Component: string | ComponentType<React.PropsWithChildren<unknown>>,
-    options: VisualElementOptions<HTMLElement | SVGElement>
+    options: VisualElementOptions
 ) => {
     return isSVGComponent(Component)
         ? new SVGVisualElement(options)

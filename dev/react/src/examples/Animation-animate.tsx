@@ -1,4 +1,4 @@
-import { motion } from "framer-motion"
+import { motion, motionValue } from "framer-motion"
 import { useEffect, useState } from "react"
 
 /**
@@ -8,7 +8,7 @@ import { useEffect, useState } from "react"
 const style = {
     width: 100,
     height: 100,
-    background: "white",
+    background: motionValue("#f00"),
 }
 export const App = () => {
     const [state, setState] = useState(false)

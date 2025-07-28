@@ -31,23 +31,8 @@ export class ObjectVisualElement extends VisualElement<
         return undefined
     }
 
-    removeValueFromRenderState(
-        key: string,
-        renderState: ObjectRenderState
-    ): void {
-        delete renderState.output[key]
-    }
-
     measureInstanceViewportBox() {
         return createBox()
-    }
-
-    build(renderState: ObjectRenderState, latestValues: ResolvedValues) {
-        Object.assign(renderState.output, latestValues)
-    }
-
-    renderInstance(instance: Object, { output }: ObjectRenderState) {
-        Object.assign(instance, output)
     }
 
     sortInstanceNodePosition() {

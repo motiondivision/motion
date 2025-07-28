@@ -32,14 +32,6 @@ export abstract class DOMVisualElement<
             : undefined
     }
 
-    removeValueFromRenderState(
-        key: string,
-        { vars, style }: HTMLRenderState
-    ): void {
-        delete vars[key]
-        delete style[key]
-    }
-
     KeyframeResolver = DOMKeyframesResolver
 
     childSubscription?: VoidFunction
