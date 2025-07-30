@@ -23,17 +23,6 @@ describe("motionValue", () => {
         expect(callback).toHaveBeenCalledTimes(1)
     })
 
-    test("renderRequest event fires", () => {
-        const value = motionValue(0)
-        const callback = jest.fn()
-
-        value.on("renderRequest", callback)
-
-        expect(callback).not.toHaveBeenCalled()
-        value.set(1)
-        expect(callback).toHaveBeenCalledTimes(1)
-    })
-
     test("Velocity is calculated as zero when value is arbitrarily changed after creation", () => {
         const value = motionValue(0)
         frameData.isProcessing = false

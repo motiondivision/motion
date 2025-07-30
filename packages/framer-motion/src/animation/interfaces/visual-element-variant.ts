@@ -1,6 +1,7 @@
 import { DynamicOption } from "motion-dom"
 import { resolveVariant } from "../../render/utils/resolve-dynamic-variants"
 import { VisualElement } from "../../render/VisualElement"
+import { calcChildStagger } from "../utils/calc-child-stagger"
 import { VisualElementAnimationOptions } from "./types"
 import { animateTarget } from "./visual-element-target"
 
@@ -84,36 +85,25 @@ function animateChildren(
     options: VisualElementAnimationOptions
 ) {
     const animations: Promise<any>[] = []
-    const numChildren = visualElement.variantChildren!.size
 
-    const maxStaggerDuration = (numChildren - 1) * staggerChildren
-    const delayIsFunction = typeof delayChildren === "function"
-
-    const generateStaggerDuration = delayIsFunction
-        ? (i: number) => delayChildren(i, numChildren)
-        : // Support deprecated staggerChildren
-        staggerDirection === 1
-        ? (i = 0) => i * staggerChildren
-        : (i = 0) => maxStaggerDuration - i * staggerChildren
-
-    Array.from(visualElement.variantChildren!)
-        .sort(sortByTreeOrder)
-        .forEach((child, i) => {
-            child.notify("AnimationStart", variant)
-            animations.push(
-                animateVariant(child, variant, {
-                    ...options,
-                    delay:
-                        delay +
-                        (delayIsFunction ? 0 : delayChildren) +
-                        generateStaggerDuration(i),
-                }).then(() => child.notify("AnimationComplete", variant))
-            )
-        })
+    for (const child of visualElement.variantChildren!) {
+        child.notify("AnimationStart", variant)
+        animations.push(
+            animateVariant(child, variant, {
+                ...options,
+                delay:
+                    delay +
+                    (typeof delayChildren === "function" ? 0 : delayChildren) +
+                    calcChildStagger(
+                        visualElement.variantChildren!,
+                        child,
+                        delayChildren,
+                        staggerChildren,
+                        staggerDirection
+                    ),
+            }).then(() => child.notify("AnimationComplete", variant))
+        )
+    }
 
     return Promise.all(animations)
-}
-
-export function sortByTreeOrder(a: VisualElement, b: VisualElement) {
-    return a.sortNodePosition(b)
 }

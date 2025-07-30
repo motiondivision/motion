@@ -4,6 +4,43 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.23.12] 2025-07-29
+
+### Added
+
+-   Exporting internal APIs for use in view animations.
+
+## [12.23.11] 2025-07-28
+
+### Added
+
+-   Children of variants with `delayChildren: stagger()` will now be staggered correctly alongside their newly-entering siblings.
+
+## [12.23.10] 2025-07-28
+
+### Fixed
+
+-   Fixed shared layout animation in situations where no `motion` components have re-rendered between shared element switching.
+
+## [12.23.9] 2025-07-24
+
+### Changed
+
+-   Removing redundant `renderRequest` `MotionValue` lifecycle.
+
+## [12.23.8] 2025-07-24
+
+### Fixed
+
+-   Ensuring that when an animation is skipped via `duration = 0` that we also set `type = "keyframes"` so that `duration` takes effect.
+
+## [12.23.7] 2025-07-23
+
+### Fixed
+
+-   `springValue` cleanup.
+-   Removed additional `removeNode` from `AnimatePresence` when using `popLayout`.
+
 ## [12.23.6] 2025-07-11
 
 ### Changed

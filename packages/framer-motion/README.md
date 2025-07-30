@@ -1,62 +1,46 @@
-<p align="center">
-  <img width="42" height="42" alt="Motion logo" src="https://github.com/user-attachments/assets/00d6d1c3-72c4-4c2f-a664-69da13182ffc" />
-</p>
-<h1 align="center">Motion for React</h1>
+
+<h1 align="center"> <img width="35" height="35" alt="Motion logo" src="https://github.com/user-attachments/assets/00d6d1c3-72c4-4c2f-a664-69da13182ffc" /><br />Motion for React</h1>
 <h3 align="center">
-  An open source, production-ready animation library
+  An open source animation library<br />for React
 </h3>
-<p align="center">Previously Framer Motion. Also available for <a href="https://github.com/motiondivision/motion/tree/main/packages/motion">JavaScript</a> and <a href="https://github.com/motiondivision/motion-vue">Vue</a></p>
-
-<br>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/framer-motion" target="_blank">
-    <img src="https://img.shields.io/npm/v/framer-motion.svg?style=flat-square" />
-  </a>
-  <a href="https://www.npmjs.com/package/framer-motion" target="_blank">
-  <img src="https://img.shields.io/npm/dm/framer-motion.svg?style=flat-square" />
-  </a>
-  <a href="https://twitter.com/mattgperry" target="_blank">
-  <img src="https://img.shields.io/twitter/follow/mattgperry.svg?style=social&label=Follow"  />
-  </a>
+  <a href="https://www.npmjs.com/package/motion" rel="noopener noreferrer nofollow" ><img src="https://img.shields.io/npm/v/motion?color=0368FF&label=version" alt="npm version"></a>
+  <a href="https://www.npmjs.com/package/motion" rel="noopener noreferrer nofollow" ><img src="https://img.shields.io/npm/dm/framer-motion?color=8D30FF&label=npm" alt="npm downloads per month"></a>
+  <a target="_blank" rel="noopener noreferrer nofollow" href="https://www.jsdelivr.com/package/npm/motion"><img alt="jsDelivr hits (npm)" src="https://img.shields.io/jsdelivr/npm/hm/framer-motion?logo=jsdeliver&color=FF4FBA"></a>
+  <img alt="NPM License" src="https://img.shields.io/npm/l/motion?color=FF2B6E">
 </p>
 
-<br>
-
-Motion for React is an open source, production-ready library that’s designed for all creative developers.
-
-It's the only animation library with a hybrid engine, combining the power of JavaScript animations with the performance of native browser APIs.
-
-It looks like this:
-
-```jsx
-<motion.div animate={{ x: 0 }} />
-```
-
-It does all this:
-
--   [Springs](https://motion.dev/docs/react-transitions#spring)
--   [Keyframes](https://motion.dev/docs/react-animation#keyframes)
--   [Layout animations](https://motion.dev/docs/react-layout-animations)
--   [Shared layout animations](https://motion.dev/docs/react-layout-animations#shared-layout-animations)
--   [Gestures (drag/tap/hover)](https://motion.dev/docs/react-gestures)
--   [Scroll animations](https://motion.dev/docs/react-scroll-animations)
--   [SVG paths](https://motion.dev/docs/react-animation#svg-line-drawing)
--   [Exit animations](https://motion.dev/docs/react-animation#exit-animations)
--   [Server-side rendering](https://motion.dev/docs/react-motion-component#server-side-rendering)
--   [Independent transforms](https://motion.dev/docs/react-motion-component#style)
--   [Orchestrate animations across components](https://motion.dev/docs/react-animation#orchestration)
--   [CSS variables](https://motion.dev/docs/react-animation#css-variables)
-
-...and a whole lot more.
-
-## Get started
-
-### 🐇 Quick start
 
 ```bash
 npm install motion
 ```
+
+## Table of Contents
+
+1. [Why Motion?](#why-motion)
+2. [🍦 Flavours](#-flavours)
+3. [🎓 Examples](#-examples)
+4. [🎨 Studio](#-studio)
+5. [⚡️ Motion+](#-motion)
+6. [👩🏻‍⚖️ License](#-license)
+7. [💎 Contribute](#-contribute)
+8. [✨ Sponsors](#-sponsors)
+
+## Why Motion?
+
+Motion is an animation library for making beautiful animations.
+
+* The **only** library with first‑class APIs for React, JavaScript, **and** Vue.
+* Powered by a **hybrid engine** that blends JavaScript flexibility with native browser APIs for **120fps GPU‑accelerated** motion.
+* Tiny footprint, tree‑shakable, and fully TypeScript‑typed.
+
+## 🍦 Flavours
+
+Motion is available for [React](https://motion.dev/docs/react), [JavaScript](https://motion.dev/docs/quick-start) and [Vue](https://motion.dev/docs/vue).
+
+<details>
+<summary>React ⬇</summary>
 
 ```jsx
 import { motion } from "motion/react"
@@ -66,7 +50,52 @@ function Component() {
 }
 ```
 
-Get started with [Motion for React](https://motion.dev/docs/react-quick-start).
+Get started with [Motion for React](https://motion.dev/docs/react).
+
+</details>
+
+<details>
+<summary>JavaScript ⬇</summary>
+
+```javascript
+import { animate } from "motion"
+
+animate("#box", { x: 100 })
+```
+
+Get started with [JavaScript](https://motion.dev/docs/quick-start).
+
+</details>
+
+<details>
+<summary>Vue ⬇</summary>
+
+```html
+<script>
+    import { motion } from "motion-v"
+</script>
+
+<template> <motion.div :animate={{ x: 100 }} /> </template>
+```
+
+Get started with [Motion for Vue](https://motion.dev/docs/vue).
+
+</details>
+
+## 🎓 Examples
+
+[Motion Examples](https://motion.dev/examples) offers 100s of free and Motion+ examples for beginners and advanced users alike. Easy copy/paste code to kick‑start your next project.
+
+## ⚡️ Motion+
+
+Learn, Design, Build. [Motion+](https://motion.dev/plus) is a one-time fee, lifetime update membership that provides:
+- 160+ premium Motion Examples
+- Motion UI features like Cursor and Ticker
+- Motion Studio animation editing for VS Code `alpha`
+- Early access content
+- Private Discord
+
+[Get Motion+](https://motion.dev/plus)
 
 ## 🎨 Studio
 
@@ -80,28 +109,13 @@ Motion Studio is a versatile suite of developer tools allowing you to:
 
 Get started with [Motion Studio](https://motion.dev/docs/tools-quick-start).
 
-## 🎓 Examples
+## 👩🏻‍⚖️ License
 
-[Motion Examples](https://examples.motion.dev/react) offers 100s of free and Motion+ examples for beginners and advanced users alike. Easy copy/paste code to kickstart your next project.
+-   Motion is MIT licensed.
 
-## ⚡️ Motion+
-
-[Motion+](https://motion.dev/plus) is a one-time fee, lifetime membership that unlocks over 100 premium examples, early access, powerful Studio tools, a private Discord, and exclusive APIs like:
-
--   Cursor
--   Ticker
--   AnimateNumber
--   splitText
-
-[Get Motion+](https://motion.dev/plus)
-
-### 💎 Contribute
+## 💎 Contribute
 
 -   Want to contribute to Motion? Our [contributing guide](https://github.com/motiondivision/motion/blob/master/CONTRIBUTING.md) has you covered.
-
-### 👩🏻‍⚖️ License
-
--   Motion for React is MIT licensed.
 
 ## ✨ Sponsors
 
@@ -119,11 +133,11 @@ Motion powers Framer animations, the web builder for creative pros. Design and s
 
 ### Platinum
 
-<a href="https://tailwindcss.com"><img alt="Tailwind" src="https://github.com/user-attachments/assets/c0496f09-b8ee-4bc4-85ab-83a071bbbdec" width="300px" height="200px"></a> <a href="https://emilkowal.ski"><img alt="Emil Kowalski" src="https://github.com/user-attachments/assets/29f56b1a-37fb-4695-a6a6-151f6c24864f" width="300px" height="200px"></a> <a href="https://linear.app"><img alt="Linear" src="https://github.com/user-attachments/assets/a93710bb-d8ed-40e3-b0fb-1c5b3e2b16bb" width="300px" height="200px"></a>
+<a href="https://tailwindcss.com"><img alt="Tailwind" src="https://github.com/user-attachments/assets/c0496f09-b8ee-4bc4-85ab-83a071bbbdec" width="300px" height="200px"></a> <a href="https://linear.app"><img alt="Linear" src="https://github.com/user-attachments/assets/a93710bb-d8ed-40e3-b0fb-1c5b3e2b16bb" width="300px" height="200px"></a>
 
 ### Gold
 
-<a href="https://vercel.com"><img alt="Vercel" src="https://github.com/user-attachments/assets/23cb1e37-fa67-49ad-8f77-7f4b8eaba325" width="225px" height="150px"></a> <a href="https://liveblocks.io"><img alt="Liveblocks" src="https://github.com/user-attachments/assets/31436a47-951e-4eab-9a68-bdd54ccf9444" width="225px" height="150px"></a> <a href="https://lu.ma"><img alt="Luma" src="https://github.com/user-attachments/assets/4fae0c9d-de0f-4042-9cd6-e07885d028a9" width="225px" height="150px"></a>
+<a href="https://vercel.com"><img alt="Vercel" src="https://github.com/user-attachments/assets/23cb1e37-fa67-49ad-8f77-7f4b8eaba325" width="225px" height="150px"></a> <a href="https://liveblocks.io"><img alt="Liveblocks" src="https://github.com/user-attachments/assets/31436a47-951e-4eab-9a68-bdd54ccf9444" width="225px" height="150px"></a> <a href="https://lu.ma"><img alt="Luma" src="https://github.com/user-attachments/assets/4fae0c9d-de0f-4042-9cd6-e07885d028a9" width="225px" height="150px"></a> <a href="https://emilkowal.ski"><img alt="Emil Kowalski" src="https://github.com/user-attachments/assets/29f56b1a-37fb-4695-a6a6-151f6c24864f" width="300px" height="200px"></a>
 
 ### Silver
 

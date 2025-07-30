@@ -15,6 +15,7 @@ import {
     ValueAnimationOptions,
 } from "./types"
 import { canAnimate } from "./utils/can-animate"
+import { makeAnimationInstant } from "./utils/make-animation-instant"
 import { WithPromise } from "./utils/WithPromise"
 import { supportsBrowserAnimation } from "./waapi/supports/waapi"
 
@@ -124,7 +125,7 @@ export class AsyncMotionValueAnimation<T extends AnyResolvedKeyframe>
 
             keyframes[0] = keyframes[keyframes.length - 1]
 
-            options.duration = 0
+            makeAnimationInstant(options)
             options.repeat = 0
         }
 
