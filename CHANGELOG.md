@@ -4,6 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.23.12] 2025-07-29
+
+### Added
+
+-   Exporting internal APIs for use in view animations.
+
 ## [12.23.11] 2025-07-28
 
 ### Added

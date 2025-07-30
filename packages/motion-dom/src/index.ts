@@ -35,6 +35,7 @@ export * from "./animation/waapi/start-waapi-animation"
 export * from "./animation/waapi/supports/partial-keyframes"
 export * from "./animation/waapi/supports/waapi"
 export * from "./animation/waapi/utils/accelerated-values"
+export * from "./animation/waapi/utils/apply-generator"
 export * from "./animation/waapi/utils/linear"
 
 export * from "./effects/attr"
@@ -121,6 +122,8 @@ export * from "./value/utils/is-motion-value"
 
 export * from "./view"
 export * from "./view/types"
+export * from "./view/utils/get-layer-info"
+export * from "./view/utils/get-view-animations"
 
 /**
  * Deprecated

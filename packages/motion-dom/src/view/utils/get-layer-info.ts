@@ -1,4 +1,4 @@
-export function getLayerName(pseudoElement: string) {
+export function getViewAnimationLayerInfo(pseudoElement: string) {
     const match = pseudoElement.match(
         /::view-transition-(old|new|group|image-pair)\((.*?)\)/
     )
