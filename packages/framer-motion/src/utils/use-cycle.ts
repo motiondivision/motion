@@ -1,3 +1,5 @@
+"use client"
+
 import { wrap } from "motion-utils"
 import { useCallback, useRef, useState } from "react"
 

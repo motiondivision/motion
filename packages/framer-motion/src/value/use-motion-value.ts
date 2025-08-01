@@ -1,3 +1,5 @@
+"use client"
+
 import { motionValue, MotionValue } from "motion-dom"
 import { useContext, useEffect, useState } from "react"
 import { MotionConfigContext } from "../context/MotionConfigContext"

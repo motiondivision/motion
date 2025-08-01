@@ -1,3 +1,5 @@
+"use client"
+
 import { MotionValue } from "motion-dom"
 import { invariant, warning } from "motion-utils"
 import { useContext } from "react"

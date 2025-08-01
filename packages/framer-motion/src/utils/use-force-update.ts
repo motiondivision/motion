@@ -1,3 +1,5 @@
+"use client"
+
 import { frame } from "motion-dom"
 import { useCallback, useState } from "react"
 import { useIsMounted } from "./use-is-mounted"

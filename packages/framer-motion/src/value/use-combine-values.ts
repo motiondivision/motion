@@ -1,3 +1,5 @@
+"use client"
+
 import { cancelFrame, frame, MotionValue } from "motion-dom"
 import { useIsomorphicLayoutEffect } from "../utils/use-isomorphic-effect"
 import { useMotionValue } from "./use-motion-value"

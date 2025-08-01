@@ -1,3 +1,5 @@
+"use client"
+
 import { RefObject, useEffect } from "react"
 import { addDomEvent } from "./add-dom-event"
 
