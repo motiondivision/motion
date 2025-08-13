@@ -9,7 +9,12 @@ function showError(element, msg) {
     if (!messages.has(msg)) {
         messages.add(msg)
         console.error(msg)
-        document.body.innerHTML += `<p style="color: black;z-index: 1000;position: absolute;">${msg}</p>`
+        const p = document.createElement("p")
+    p.style.color = "black"
+    p.style.zIndex = "1000"
+    p.style.position = "absolute"
+    p.textContent = msg
+    document.body.appendChild(p)
     }
 }
 

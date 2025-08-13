@@ -14,7 +14,7 @@ export function moveItem<T>([...arr]: T[], fromIndex: number, toIndex: number) {
     if (startIndex >= 0 && startIndex < arr.length) {
         const endIndex = toIndex < 0 ? arr.length + toIndex : toIndex
 
-        const [item] = arr.splice(fromIndex, 1)
+        const [item] = arr.splice(startIndex, 1)
         arr.splice(endIndex, 0, item)
     }
 
