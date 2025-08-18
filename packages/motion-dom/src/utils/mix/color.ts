@@ -2,8 +2,10 @@ import { warning } from "motion-utils"
 import { hex } from "../../value/types/color/hex"
 import { hsla } from "../../value/types/color/hsla"
 import { hslaToRgba } from "../../value/types/color/hsla-to-rgba"
+import { oklch } from "../../value/types/color/oklch"
+import { oklchToRgba } from "../../value/types/color/oklch-to-rgba"
 import { rgba } from "../../value/types/color/rgba"
-import { Color, HSLA, RGBA } from "../../value/types/types"
+import { Color, HSLA, RGBA, OKLCH } from "../../value/types/types"
 import { mixImmediate } from "./immediate"
 import { mixNumber } from "./number"
 
@@ -16,7 +18,7 @@ export const mixLinearColor = (from: number, to: number, v: number) => {
     return expo < 0 ? 0 : Math.sqrt(expo)
 }
 
-const colorTypes = [hex, rgba, hsla]
+const colorTypes = [hex, rgba, hsla, oklch]
 const getColorType = (v: Color | string) =>
     colorTypes.find((type) => type.test(v))
 
@@ -36,6 +38,8 @@ function asRGBA(color: Color | string) {
     if (type === hsla) {
         // TODO Remove this cast - needed since Motion's stricter typing
         model = hslaToRgba(model as HSLA)
+    } else if (type === oklch) {
+        model = oklchToRgba(model as OKLCH)
     }
 
     return model as RGBA

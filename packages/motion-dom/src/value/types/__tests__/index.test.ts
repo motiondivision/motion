@@ -1,6 +1,7 @@
 import { color } from "../color"
 import { hex } from "../color/hex"
 import { hsla } from "../color/hsla"
+import { oklch } from "../color/oklch"
 import { rgba, rgbUnit } from "../color/rgba"
 import { complex } from "../complex"
 import { filter } from "../complex/filter"
@@ -26,6 +27,10 @@ describe("regex", () => {
         expect(singleColorRegex.test("rgba(161, 0, 246, 0)")).toBe(true)
         expect(singleColorRegex.test("rgba(161 0 246 / 0)")).toBe(true)
         expect(singleColorRegex.test("rgba(161 0 246/0)")).toBe(true)
+        expect(singleColorRegex.test("oklch(40.1% 0.123 21.57)")).toBe(true)
+        expect(singleColorRegex.test("oklch(59.69% 0.156 49.77 / 0.5)")).toBe(
+            true
+        )
         expect(
             singleColorRegex.test("rgba(161 0 246 / 0) rgba(161 0 246 / 0)")
         ).toBe(false)
@@ -66,6 +71,11 @@ describe("regex", () => {
             "37.4978",
             "76.66804",
             "1",
+        ])
+        expect("oklch(40.1% 0.123 21.57)".match(floatRegex)).toEqual([
+            "40.1",
+            "0.123",
+            "21.57",
         ])
     })
 })
@@ -183,6 +193,20 @@ const hslaOutOfRange = {
     hue: 170,
     saturation: 50,
     lightness: 45,
+    alpha: 2,
+}
+
+const oklchTestColor = {
+    lightness: 40.1,
+    chroma: 0.123,
+    hue: 21.57,
+    alpha: 1,
+}
+
+const oklchOutOfRange = {
+    lightness: 40.1,
+    chroma: 0.123,
+    hue: 21.57,
     alpha: 2,
 }
 
@@ -312,6 +336,44 @@ describe("hsla()", () => {
     })
 })
 
+describe("oklch()", () => {
+    it("should correctly test for colors", () => {
+        expect(oklch.test("oklch(40.1% 0.123 21.57)")).toEqual(true)
+        expect(oklch.test("oklch(59.69% 0.156 49.77 / 0.5)")).toEqual(true)
+        expect(oklch.test("oklch(40.1% 0.123 21.57) 0px")).toEqual(false)
+        expect(oklch.test(null)).toEqual(false)
+        expect(oklch.test(undefined)).toEqual(false)
+    })
+
+    it("should split an oklch value into the correct params", () => {
+        expect(oklch.parse("oklch(40.1% 0.123 21.57)")).toEqual(oklchTestColor)
+        expect(oklch.parse("oklch(59.69% 0.156 49.77 / 0.5)")).toEqual({
+            lightness: 59.69,
+            chroma: 0.156,
+            hue: 49.77,
+            alpha: 0.5,
+        })
+        expect(oklch.parse(oklchTestColor)).toEqual(oklchTestColor)
+    })
+
+    it("should correctly combine oklch value", () => {
+        expect(oklch.transform(oklchTestColor)).toEqual(
+            "oklch(40.1% 0.123 21.57 / 1)"
+        )
+        expect(oklch.transform(oklchOutOfRange)).toEqual(
+            "oklch(40.1% 0.123 21.57 / 1)"
+        )
+        expect(
+            oklch.transform({
+                lightness: 59.69,
+                chroma: 0.156,
+                hue: 49.77,
+                alpha: 0.5,
+            })
+        ).toEqual("oklch(59.69% 0.156 49.77 / 0.5)")
+    })
+})
+
 describe("color()", () => {
     it("should split the color with the appropriate parser", () => {
         expect(color.parse("rgba(255, 0, 0, 1)")).toEqual(red)
@@ -330,6 +392,7 @@ describe("color()", () => {
         expect(color.parse("#f00")).toEqual(red)
         expect(color.parse("#f00f")).toEqual(red)
         expect(color.parse("hsla(170, 50%, 45%, 1)")).toEqual(hslaTestColor)
+        expect(color.parse("oklch(40.1% 0.123 21.57)")).toEqual(oklchTestColor)
     })
 
     it("should correctly combine color value", () => {
@@ -338,6 +401,14 @@ describe("color()", () => {
             "rgba(255, 0, 0, 1)"
         )
         expect(color.transform(hslaTestColor)).toEqual("hsla(170, 50%, 45%, 1)")
+        expect(
+            color.transform({
+                lightness: 40.1,
+                chroma: 0.123,
+                hue: 21.57,
+                alpha: 1,
+            })
+        ).toEqual("oklch(40.1% 0.123 21.57 / 1)")
     })
 
     it("should correctly identify color", () => {
@@ -356,6 +427,8 @@ describe("color()", () => {
         expect(color.test("hsl(0, 0%,0%)")).toBe(true)
         expect(color.test("hsla(180, 360%, 360%, 0.5)")).toBe(true)
         expect(color.test("hsla(180, 360%, 360%, 0.5) 0px")).toBe(false)
+        expect(color.test("oklch(40.1% 0.123 21.57)")).toBe(true)
+        expect(color.test("oklch(59.69% 0.156 49.77 / 0.5)")).toBe(true)
         expect(color.test("greensock")).toBe(false)
         expect(color.test("filter(190deg)")).toBe(false)
     })
@@ -367,6 +440,9 @@ describe("color()", () => {
         expect(color.getAnimatableNone("#f00")).toBe("rgba(255, 0, 0, 0)")
         expect(color.getAnimatableNone("hsla(170, 50%, 45%, 1)")).toBe(
             "hsla(170, 50%, 45%, 0)"
+        )
+        expect(color.getAnimatableNone("oklch(40.1% 0.123 21.57 / 1)")).toBe(
+            "oklch(40.1% 0.123 21.57 / 0)"
         )
     })
 })
