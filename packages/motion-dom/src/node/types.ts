@@ -942,7 +942,8 @@ export interface MotionNodeLayoutOptions {
     layoutDependency?: any
 
     /**
-     * Whether a projection node should measure its scroll when it or its descendants update their layout.
+     * Whether a projection node should measure its scroll
+     * when it or its descendants update their layout.
      *
      * @public
      */

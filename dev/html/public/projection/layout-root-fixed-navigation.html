@@ -1,0 +1,254 @@
+<html>
+    <head>
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+                font-family: sans-serif;
+            }
+
+            #stack {
+                position: fixed;
+                top: 10px;
+                display: flex;
+                gap: 20px;
+                z-index: 1000;
+            }
+
+            #navigate-button {
+                cursor: pointer;
+                background: #f0f0f0;
+                padding: 8px 16px;
+                border-radius: 4px;
+                user-select: none;
+            }
+
+            #navigate-button:hover {
+                background: #e0e0e0;
+            }
+
+            #container {
+                display: flex;
+                align-items: center;
+            }
+
+            #bar-outer {
+                width: 200px;
+                height: 50px;
+                transition: background-color 0.3s;
+            }
+
+            .bar-blue {
+                background: blue;
+            }
+
+            .bar-red {
+                background: red;
+            }
+
+            #bar-inner {
+                width: 20px;
+                height: 20px;
+                background-color: rgb(51, 136, 255);
+            }
+
+            #page-content {
+                padding-top: 80px;
+                min-height: 2000px;
+            }
+
+            .page-a {
+                background: linear-gradient(to bottom, #dbeafe, #bfdbfe);
+            }
+
+            .page-b {
+                background: linear-gradient(to bottom, #fecaca, #fca5a5);
+            }
+
+            .page-content {
+                padding: 40px;
+                font-size: 18px;
+                line-height: 1.6;
+            }
+
+            [data-layout-correct="false"] {
+                background: #dd1144 !important;
+                opacity: 0.5;
+            }
+        </style>
+    </head>
+    <body>
+        <div>
+            <div id="stack" data-test-id="stack">
+                <p id="navigate-button">scroll down & click me</p>
+                <div id="container" data-test-id="container">
+                    <div id="bar-layout-group">
+                        <div id="bar-outer" class="bar-blue">
+                            <div id="bar-inner"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="page-content">
+            <div id="page-a" class="page-content page-a">
+                <h1>Page A</h1>
+                <p>This is page A content. The bar above should be blue.</p>
+                <p>
+                    Scroll down and click the navigation button to see the
+                    layout transition.
+                </p>
+                <p>
+                    Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed
+                    do eiusmod tempor incididunt ut labore et dolore magna
+                    aliqua.
+                </p>
+                <p>
+                    Ut enim ad minim veniam, quis nostrud exercitation ullamco
+                    laboris nisi ut aliquip ex ea commodo consequat.
+                </p>
+                <p>
+                    Duis aute irure dolor in reprehenderit in voluptate velit
+                    esse cillum dolore eu fugiat nulla pariatur.
+                </p>
+                <p>
+                    Excepteur sint occaecat cupidatat non proident, sunt in
+                    culpa qui officia deserunt mollit anim id est laborum.
+                </p>
+            </div>
+
+            <div id="page-b" class="page-content page-b" style="display: none">
+                <h1>Page B</h1>
+                <p>This is page B content. The bar above should be red.</p>
+                <p>
+                    Scroll down and click the navigation button to go back to
+                    page A.
+                </p>
+                <p>
+                    Sed ut perspiciatis unde omnis iste natus error sit
+                    voluptatem accusantium doloremque laudantium.
+                </p>
+                <p>
+                    Totam rem aperiam, eaque ipsa quae ab illo inventore
+                    veritatis et quasi architecto beatae vitae dicta sunt.
+                </p>
+                <p>
+                    Explicabo nemo enim ipsam voluptatem quia voluptas sit
+                    aspernatur aut odit aut fugit.
+                </p>
+                <p>
+                    Sed quia consequuntur magni dolores eos qui ratione
+                    voluptatem sequi nesciunt.
+                </p>
+            </div>
+        </div>
+
+        <script type="module" src="/src/imports/projection.js"></script>
+        <script type="module" src="/src/imports/script-assert.js"></script>
+        <script type="module" src="/src/imports/script-undo.js"></script>
+        <script type="module">
+            const { createNode } = window.Undo
+            const { matchViewportBox } = window.Assert
+            const { frame } = window.Projection
+
+            // Create layout group simulation
+            let currentPage = "a"
+
+            // Get elements
+            const stack = document.getElementById("stack")
+            const barLayoutGroup = document.getElementById("bar-layout-group")
+            const barOuter = document.getElementById("bar-outer")
+            const barInner = document.getElementById("bar-inner")
+            const container = document.getElementById("container")
+            const navigateButton = document.getElementById("navigate-button")
+            const pageA = document.getElementById("page-a")
+            const pageB = document.getElementById("page-b")
+
+            // Create projection nodes matching the Bar component structure
+            const stackProjection = createNode(stack, undefined, {
+                layoutRoot: true,
+                layout: true,
+            })
+
+            const containerProjection = createNode(container, stackProjection)
+            
+            // LayoutGroup for the Bar component (layoutId="bar")
+            const barLayoutGroupProjection = createNode(barLayoutGroup, containerProjection, {
+                layoutId: "bar"
+            })
+            
+            // The outer motion.div with layoutId="blue" 
+            const barOuterProjection = createNode(barOuter, barLayoutGroupProjection, {
+                layoutId: "blue",
+            })
+            
+            // The inner motion.div with layoutId="inner-box"
+            const barInnerProjection = createNode(barInner, barOuterProjection, {
+                layoutId: "inner-box",
+            })
+
+            // Navigation function
+            const navigate = async () => {
+                barOuterProjection.willUpdate()
+                barInnerProjection.willUpdate()
+                stackProjection.willUpdate()
+                
+                // Mimic router behavior - scroll to top
+                window.scrollTo(0, 0)
+
+                // Toggle page
+                currentPage = currentPage === "a" ? "b" : "a"
+
+                // Update UI
+                if (currentPage === "a") {
+                    pageA.style.display = "block"
+                    pageB.style.display = "none"
+                    barOuter.className = "bar-blue"
+                } else {
+                    pageA.style.display = "none"
+                    pageB.style.display = "block"
+                    barOuter.className = "bar-red"
+                }
+
+                barOuterProjection.root.didUpdate()
+            }
+
+            // Add click listener
+            navigateButton.addEventListener("click", navigate)
+
+            // Test sequence: measure inner box, scroll, navigate, verify position
+            
+            // Step 1: Measure the initial inner box position
+            const initialInnerBox = barInner.getBoundingClientRect()
+            console.log("Initial inner box position:", initialInnerBox)
+
+            // Step 2: Scroll 500px
+            window.scrollTo(0, 500)
+            console.log("Scrolled to 500px")
+
+            // Step 3: Navigate (which will scroll back to top and change bar color)
+            setTimeout(async () => {
+                await navigate()
+                
+                const newInnerBox = barInner.getBoundingClientRect()
+                console.log("New inner box position after navigation:", newInnerBox)
+                
+                // Step 5: Verify the inner box position matches the original
+                matchViewportBox(barInner, {
+                    top: initialInnerBox.top,
+                    left: initialInnerBox.left,
+                    bottom: initialInnerBox.bottom,
+                    right: initialInnerBox.right,
+                })
+                
+                // Additional verification that bar color changed
+                if (!barOuter.classList.contains("bar-red")) {
+                    window.showError(
+                        barOuter,
+                        "Expected bar to have red class after navigation"
+                    )
+                }
+            }, 50)
+        </script>
+    </body>
+</html>
