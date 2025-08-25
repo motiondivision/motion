@@ -1,3 +1,5 @@
+"use client"
+
 import { MotionValue, MotionValueEventCallbacks } from "motion-dom"
 import { useInsertionEffect } from "react"
 

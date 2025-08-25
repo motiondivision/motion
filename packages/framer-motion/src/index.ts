@@ -1,9 +1,7 @@
-"use client"
-
 /**
  * Components
  */
-export * from "./animation/types"
+export type * from "./animation/types"
 export { AnimatePresence } from "./components/AnimatePresence"
 export { LayoutGroup } from "./components/LayoutGroup"
 export { LazyMotion } from "./components/LazyMotion"
@@ -121,23 +119,23 @@ export { SwitchLayoutGroupContext } from "./context/SwitchLayoutGroupContext"
 /**
  * Types
  */
-export { AnimatePresenceProps } from "./components/AnimatePresence/types"
-export { LazyProps } from "./components/LazyMotion/types"
-export { MotionConfigProps } from "./components/MotionConfig"
-export * from "./motion/features/types"
-export {
+export type { AnimatePresenceProps } from "./components/AnimatePresence/types"
+export type { LazyProps } from "./components/LazyMotion/types"
+export type { MotionConfigProps } from "./components/MotionConfig"
+export type * from "./motion/features/types"
+export type {
     MotionProps,
     MotionStyle,
     MotionTransform,
     VariantLabels,
 } from "./motion/types"
-export { IProjectionNode } from "./projection/node/types"
-export { DOMMotionComponents } from "./render/dom/types"
-export { ForwardRefComponent, HTMLMotionProps } from "./render/html/types"
-export { SVGAttributesAsMotionValues, SVGMotionProps } from "./render/svg/types"
-export { CreateVisualElement } from "./render/types"
-export { FlatTree } from "./render/utils/flat-tree"
-export { ScrollMotionValues } from "./value/scroll/utils"
+export type { IProjectionNode } from "./projection/node/types"
+export type { DOMMotionComponents } from "./render/dom/types"
+export type { ForwardRefComponent, HTMLMotionProps } from "./render/html/types"
+export type { SVGAttributesAsMotionValues, SVGMotionProps } from "./render/svg/types"
+export type { CreateVisualElement } from "./render/types"
+export type { FlatTree } from "./render/utils/flat-tree"
+export type { ScrollMotionValues } from "./value/scroll/utils"
 
 /**
  * Deprecated
