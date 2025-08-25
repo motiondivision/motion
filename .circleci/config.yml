@@ -13,9 +13,14 @@ jobs:
             # Download and cache dependencies
             - restore_cache:
                   keys:
+                      - v1-dependencies-{{ checksum "package.json" }}-{{ checksum "yarn.lock" }}
                       - v1-dependencies-{{ checksum "package.json" }}
                       # fallback to using the latest cache if no exact match is found
                       - v1-dependencies-
+
+            - run:
+                  name: Install dependencies
+                  command: yarn install
 
             - run:
                   name: Test Jest
@@ -27,7 +32,7 @@ jobs:
             - save_cache:
                   paths:
                       - node_modules
-                  key: v1-dependencies-{{ checksum "package.json" }}
+                  key: v1-dependencies-{{ checksum "package.json" }}-{{ checksum "yarn.lock" }}
 
     test-react:
         docker:
@@ -42,9 +47,14 @@ jobs:
             # Download and cache dependencies
             - restore_cache:
                   keys:
+                      - v1-dependencies-{{ checksum "package.json" }}-{{ checksum "yarn.lock" }}
                       - v1-dependencies-{{ checksum "package.json" }}
                       # fallback to using the latest cache if no exact match is found
                       - v1-dependencies-
+
+            - run:
+                  name: Install dependencies
+                  command: yarn install
 
             - run:
                   name: React tests
@@ -58,7 +68,7 @@ jobs:
             - save_cache:
                   paths:
                       - node_modules
-                  key: v1-dependencies-{{ checksum "package.json" }}
+                  key: v1-dependencies-{{ checksum "package.json" }}-{{ checksum "yarn.lock" }}
 
     test-react-19:
         docker:
@@ -73,9 +83,14 @@ jobs:
             # Download and cache dependencies
             - restore_cache:
                   keys:
+                      - v1-dependencies-{{ checksum "package.json" }}-{{ checksum "yarn.lock" }}
                       - v1-dependencies-{{ checksum "package.json" }}
                       # fallback to using the latest cache if no exact match is found
                       - v1-dependencies-
+
+            - run:
+                  name: Install dependencies
+                  command: yarn install
 
             - run:
                   name: React tests
@@ -89,7 +104,7 @@ jobs:
             - save_cache:
                   paths:
                       - node_modules
-                  key: v1-dependencies-{{ checksum "package.json" }}
+                  key: v1-dependencies-{{ checksum "package.json" }}-{{ checksum "yarn.lock" }}
 
     test-html:
         docker:
@@ -102,9 +117,14 @@ jobs:
             # Download and cache dependencies
             - restore_cache:
                   keys:
+                      - v1-dependencies-{{ checksum "package.json" }}-{{ checksum "yarn.lock" }}
                       - v1-dependencies-{{ checksum "package.json" }}
                       # fallback to using the latest cache if no exact match is found
                       - v1-dependencies-
+
+            - run:
+                  name: Install dependencies
+                  command: yarn install
 
             - run:
                   name: HTML tests
@@ -124,7 +144,7 @@ jobs:
             - save_cache:
                   paths:
                       - node_modules
-                  key: v1-dependencies-{{ checksum "package.json" }}
+                  key: v1-dependencies-{{ checksum "package.json" }}-{{ checksum "yarn.lock" }}
 
     test-playwright:
         docker:
@@ -137,13 +157,18 @@ jobs:
             # Download and cache dependencies
             - restore_cache:
                   keys:
+                      - v1-dependencies-{{ checksum "package.json" }}-{{ checksum "yarn.lock" }}
                       - v1-dependencies-{{ checksum "package.json" }}
                       # fallback to using the latest cache if no exact match is found
                       - v1-dependencies-
 
             - run:
+                  name: Install dependencies
+                  command: yarn install
+
+            - run:
                   name: Playwright tests
-                  command: yarn && yarn test-playwright
+                  command: yarn test-playwright
                   environment:
                       JEST_JUNIT_OUTPUT: test_reports/framer-motion-playwright.xml
 
@@ -153,7 +178,7 @@ jobs:
             - save_cache:
                   paths:
                       - node_modules
-                  key: v1-dependencies-{{ checksum "package.json" }}
+                  key: v1-dependencies-{{ checksum "package.json" }}-{{ checksum "yarn.lock" }}
 
 workflows:
     version: 2
