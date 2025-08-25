@@ -19,6 +19,12 @@ jobs:
                       - v1-dependencies-
 
             - run:
+                  name: Install Yarn 3
+                  command: |
+                      corepack enable
+                      yarn --version
+
+            - run:
                   name: Install dependencies
                   command: yarn install
 
@@ -32,6 +38,10 @@ jobs:
             - save_cache:
                   paths:
                       - node_modules
+                      - dev/next/node_modules
+                      - dev/react/node_modules
+                      - dev/react-19/node_modules
+                      - dev/html/node_modules
                   key: v1-dependencies-{{ checksum "package.json" }}-{{ checksum "yarn.lock" }}
 
     test-react:
@@ -53,6 +63,12 @@ jobs:
                       - v1-dependencies-
 
             - run:
+                  name: Install Yarn 3
+                  command: |
+                      corepack enable
+                      yarn --version
+
+            - run:
                   name: Install dependencies
                   command: yarn install
 
@@ -72,6 +88,10 @@ jobs:
             - save_cache:
                   paths:
                       - node_modules
+                      - dev/next/node_modules
+                      - dev/react/node_modules
+                      - dev/react-19/node_modules
+                      - dev/html/node_modules
                   key: v1-dependencies-{{ checksum "package.json" }}-{{ checksum "yarn.lock" }}
 
     test-react-19:
@@ -93,6 +113,12 @@ jobs:
                       - v1-dependencies-
 
             - run:
+                  name: Install Yarn 3
+                  command: |
+                      corepack enable
+                      yarn --version
+
+            - run:
                   name: Install dependencies
                   command: yarn install
 
@@ -112,6 +138,10 @@ jobs:
             - save_cache:
                   paths:
                       - node_modules
+                      - dev/next/node_modules
+                      - dev/react/node_modules
+                      - dev/react-19/node_modules
+                      - dev/html/node_modules
                   key: v1-dependencies-{{ checksum "package.json" }}-{{ checksum "yarn.lock" }}
 
     test-html:
@@ -129,6 +159,18 @@ jobs:
                       - v1-dependencies-{{ checksum "package.json" }}
                       # fallback to using the latest cache if no exact match is found
                       - v1-dependencies-
+
+            - run:
+                  name: Install Yarn 3
+                  command: |
+                      corepack enable
+                      yarn --version
+
+            - run:
+                  name: Install Yarn 3
+                  command: |
+                      corepack enable
+                      yarn --version
 
             - run:
                   name: Install dependencies
@@ -156,6 +198,10 @@ jobs:
             - save_cache:
                   paths:
                       - node_modules
+                      - dev/next/node_modules
+                      - dev/react/node_modules
+                      - dev/react-19/node_modules
+                      - dev/html/node_modules
                   key: v1-dependencies-{{ checksum "package.json" }}-{{ checksum "yarn.lock" }}
 
     test-playwright:
@@ -175,6 +221,12 @@ jobs:
                       - v1-dependencies-
 
             - run:
+                  name: Install Yarn 3
+                  command: |
+                      corepack enable
+                      yarn --version
+
+            - run:
                   name: Install dependencies
                   command: yarn install
 
@@ -190,6 +242,10 @@ jobs:
             - save_cache:
                   paths:
                       - node_modules
+                      - dev/next/node_modules
+                      - dev/react/node_modules
+                      - dev/react-19/node_modules
+                      - dev/html/node_modules
                   key: v1-dependencies-{{ checksum "package.json" }}-{{ checksum "yarn.lock" }}
 
 workflows:
