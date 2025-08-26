@@ -3,8 +3,8 @@
 import { forwardRef, ReactNode } from "react"
 
 export const RenderChildren = forwardRef(function Component(
-    { children }: { children: (p: { test: boolean }) => ReactNode },
+    { children }: { children: (p: { label: string }) => ReactNode },
     ref: React.Ref<HTMLDivElement>
 ) {
-    return <div ref={ref}>{children({ test: true })}</div>
+    return <div ref={ref}>{children({ label: "Hello World" })}</div>
 })
