@@ -1,3 +1,5 @@
+"use client"
+
 import { TargetAndTransition } from "motion-dom"
 import { useLayoutEffect, useState } from "react"
 import { makeUseVisualState } from "../../motion/utils/use-visual-state"

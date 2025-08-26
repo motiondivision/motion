@@ -1,5 +1,3 @@
-"use client"
-
 export {
     a,
     abbr,
@@ -25,7 +23,6 @@ export {
     code,
     col,
     colgroup,
-    create,
     data,
     datalist,
     dd,

@@ -1,3 +1,5 @@
+"use client"
+
 import { isMotionValue } from "motion-dom"
 import { Fragment, createElement, useMemo } from "react"
 import { MotionProps } from "../../motion/types"
