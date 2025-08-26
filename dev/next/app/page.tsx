@@ -27,6 +27,7 @@ export default function Page() {
                 />
                 <MotionDiv
                     key="motion-div"
+                    id="motion-div"
                     transition={{ type: "spring" }}
                     animate={{ x: 50 }}
                 >
