@@ -1,3 +1,5 @@
+"use client"
+
 import { drag } from "../../motion/features/drag"
 import { layout } from "../../motion/features/layout"
 import { FeatureBundle } from "../../motion/features/types"
