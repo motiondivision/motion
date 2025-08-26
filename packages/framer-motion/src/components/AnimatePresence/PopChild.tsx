@@ -5,6 +5,7 @@ import * as React from "react"
 import { useContext, useId, useInsertionEffect, useRef } from "react"
 
 import { MotionConfigContext } from "../../context/MotionConfigContext"
+import { useComposedRefs } from "./use-composed-ref"
 
 interface Size {
     width: number
@@ -71,6 +72,10 @@ export function PopChild({ children, isPresent, anchorX, root }: Props) {
         right: 0,
     })
     const { nonce } = useContext(MotionConfigContext)
+    const composedRef = useComposedRefs(
+        ref,
+        (children as { ref?: React.Ref<HTMLElement> })?.ref
+    )
 
     /**
      * We create and inject a style block so we can apply this explicit
@@ -92,7 +97,7 @@ export function PopChild({ children, isPresent, anchorX, root }: Props) {
         const style = document.createElement("style")
         if (nonce) style.nonce = nonce
 
-        const parent = root ?? document.head;
+        const parent = root ?? document.head
         parent.appendChild(style)
 
         if (style.sheet) {
@@ -116,7 +121,7 @@ export function PopChild({ children, isPresent, anchorX, root }: Props) {
 
     return (
         <PopChildMeasure isPresent={isPresent} childRef={ref} sizeRef={size}>
-            {React.cloneElement(children as any, { ref })}
+            {React.cloneElement(children as any, { ref: composedRef })}
         </PopChildMeasure>
     )
 }
