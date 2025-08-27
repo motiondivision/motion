@@ -1,4 +1,3 @@
-
 <h1 align="center"> <img width="35" height="35" alt="Motion logo" src="https://github.com/user-attachments/assets/00d6d1c3-72c4-4c2f-a664-69da13182ffc" /><br />Motion for React</h1>
 <h3 align="center">
   An open source animation library<br />for React
@@ -11,7 +10,6 @@
   <img alt="NPM License" src="https://img.shields.io/npm/l/motion?color=FF2B6E">
 </p>
 
-
 ```bash
 npm install motion
 ```
@@ -19,28 +17,26 @@ npm install motion
 ## Table of Contents
 
 1. [Why Motion?](#why-motion)
-2. [🍦 Flavours](#-flavours)
+2. [🍦 Platforms](#-platforms)
 3. [🎓 Examples](#-examples)
-4. [🎨 Studio](#-studio)
-5. [⚡️ Motion+](#-motion)
-6. [👩🏻‍⚖️ License](#-license)
-7. [💎 Contribute](#-contribute)
-8. [✨ Sponsors](#-sponsors)
+4. [⚡️ Motion+](#-motion)
+5. [👩🏻‍⚖️ License](#-license)
+6. [💎 Contribute](#-contribute)
+7. [✨ Sponsors](#-sponsors)
 
 ## Why Motion?
 
-Motion is an animation library for making beautiful animations.
+-   **Simple API:** First-class React, JavaScript, and Vue packages.
+-   **Hybrid engine:** Power of JavaScript combined with native browser APIs for 120fps, GPU-accelerated animations.
+-   **Production-ready:** TypeScript, extensive test suite, tree-shakable, tiny footprint.
+    **Batteries included:** Gestures, springs, layout transitions, scroll-linked effects, timelines.
 
-* The **only** library with first‑class APIs for React, JavaScript, **and** Vue.
-* Powered by a **hybrid engine** that blends JavaScript flexibility with native browser APIs for **120fps GPU‑accelerated** motion.
-* Tiny footprint, tree‑shakable, and fully TypeScript‑typed.
-
-## 🍦 Flavours
+## 🍦 Platforms
 
 Motion is available for [React](https://motion.dev/docs/react), [JavaScript](https://motion.dev/docs/quick-start) and [Vue](https://motion.dev/docs/vue).
 
 <details>
-<summary>React ⬇</summary>
+<summary>React</summary>
 
 ```jsx
 import { motion } from "motion/react"
@@ -55,7 +51,7 @@ Get started with [Motion for React](https://motion.dev/docs/react).
 </details>
 
 <details>
-<summary>JavaScript ⬇</summary>
+<summary>JavaScript</summary>
 
 ```javascript
 import { animate } from "motion"
@@ -68,7 +64,7 @@ Get started with [JavaScript](https://motion.dev/docs/quick-start).
 </details>
 
 <details>
-<summary>Vue ⬇</summary>
+<summary>Vue</summary>
 
 ```html
 <script>
@@ -84,30 +80,19 @@ Get started with [Motion for Vue](https://motion.dev/docs/vue).
 
 ## 🎓 Examples
 
-[Motion Examples](https://motion.dev/examples) offers 100s of free and Motion+ examples for beginners and advanced users alike. Easy copy/paste code to kick‑start your next project.
+Browse 100+ free and 180+ premium [Motion Examples](https://motion.dev/examples), with copy-paste code that'll level-up your animations whether you're a beginner or an expert.
 
 ## ⚡️ Motion+
 
-Learn, Design, Build. [Motion+](https://motion.dev/plus) is a one-time fee, lifetime update membership that provides:
-- 160+ premium Motion Examples
-- Motion UI features like Cursor and Ticker
-- Motion Studio animation editing for VS Code `alpha`
-- Early access content
-- Private Discord
+A one-time payment, lifetime-updates membership:
+
+-   **180+ premium examples**
+-   **Premium APIs** like [Cursor](https://motion.dev/docs/cursor) and [Ticker](https://motion.dev/docs/react-ticker)
+-   **Visual editing** for VS Code (alpha)
+-   **Private Discord**
+-   **Early access content**
 
 [Get Motion+](https://motion.dev/plus)
-
-## 🎨 Studio
-
-![Video of bezier curve editing](https://framerusercontent.com/images/KO5dnHOUSNGb9S73p1J7nLhoFI.gif)
-
-Motion Studio is a versatile suite of developer tools allowing you to:
-
--   Visually edit CSS and Motion easing curves in VS Code
--   Generate CSS springs with LLMs
--   Load Motion docs into your LLM
-
-Get started with [Motion Studio](https://motion.dev/docs/tools-quick-start).
 
 ## 👩🏻‍⚖️ License
 
@@ -121,27 +106,27 @@ Get started with [Motion Studio](https://motion.dev/docs/tools-quick-start).
 
 Motion is sustainable thanks to the kind support of its sponsors.
 
-### Partners
+[Become a sponsor](https://motion.dev/sponsor)
 
-#### Framer
+### Partner
 
 Motion powers Framer animations, the web builder for creative pros. Design and ship your dream site. Zero code, maximum speed.
 
-<a href="https://www.framer.com?utm_source=motion-readme">
-  <img alt="Framer" src="https://github.com/user-attachments/assets/0404c7a1-c29d-4785-89ae-aae315f3c759" width="300px" height="200px">
+<a href="https://framer.link/FlnUbQY">
+  <img alt="Framer" src="https://github.com/user-attachments/assets/22a79be7-672e-4336-bfb7-5d55d1deb917" width="250px" height="150px">
 </a>
 
 ### Platinum
 
-<a href="https://tailwindcss.com"><img alt="Tailwind" src="https://github.com/user-attachments/assets/c0496f09-b8ee-4bc4-85ab-83a071bbbdec" width="300px" height="200px"></a> <a href="https://linear.app"><img alt="Linear" src="https://github.com/user-attachments/assets/a93710bb-d8ed-40e3-b0fb-1c5b3e2b16bb" width="300px" height="200px"></a>
+<a href="https://linear.app"><img alt="Linear" src="https://github.com/user-attachments/assets/f9ce44b4-af28-4770-bb6e-9515b474bfb2" width="250px" height="150px"></a> <a href="https://figma.com"><img alt="Figma" src="https://github.com/user-attachments/assets/1077d0ab-4305-4a1f-81c8-d5be8c4c6717" width="250px" height="150px"></a> <a href="https://sanity.io"><img alt="Sanity" src="https://github.com/user-attachments/assets/80134088-f456-483f-8edd-940593c120ce" width="250px" height="150px"></a>
 
 ### Gold
 
-<a href="https://vercel.com"><img alt="Vercel" src="https://github.com/user-attachments/assets/23cb1e37-fa67-49ad-8f77-7f4b8eaba325" width="225px" height="150px"></a> <a href="https://liveblocks.io"><img alt="Liveblocks" src="https://github.com/user-attachments/assets/31436a47-951e-4eab-9a68-bdd54ccf9444" width="225px" height="150px"></a> <a href="https://lu.ma"><img alt="Luma" src="https://github.com/user-attachments/assets/4fae0c9d-de0f-4042-9cd6-e07885d028a9" width="225px" height="150px"></a> <a href="https://emilkowal.ski"><img alt="Emil Kowalski" src="https://github.com/user-attachments/assets/29f56b1a-37fb-4695-a6a6-151f6c24864f" width="300px" height="200px"></a>
+<a href="https://tailwindcss.com"><img alt="Tailwind" src="https://github.com/user-attachments/assets/1d5f2571-8bc3-4367-9fec-14d291168ff0" width="200px" height="120px"></a> <a href="https://emilkowal.ski"><img alt="Emil Kowalski" src="https://github.com/user-attachments/assets/33d1cb98-238a-4eed-a0df-9c7ab097d65b" width="200px" height="120px"></a> <a href="https://liveblocks.io"><img alt="Liveblocks" src="https://github.com/user-attachments/assets/28eddbe5-1617-4e74-969d-2eb6fcd481af" width="200px" height="120px"></a> <a href="https://vercel.com"><img alt="Vercel" src="https://github.com/user-attachments/assets/abc473bd-07ae-4a7d-9833-efe9dadb3773" width="200px" height="120px"></a> <a href="https://lu.ma"><img alt="Luma" src="https://github.com/user-attachments/assets/ac282433-6adb-4ad2-9fd2-5c6ee513c14b" width="200px" height="120px"></a>
 
 ### Silver
 
-<a href="https://www.frontend.fyi/?utm_source=motion"><img alt="Frontend.fyi" src="https://github.com/user-attachments/assets/07d23aa5-69db-44a0-849d-90177e6fc817" width="150px" height="100px"></a> <a href="https://firecrawl.dev"><img alt="Firecrawl" src="https://github.com/user-attachments/assets/cba90e54-1329-4353-8fba-85beef4d2ee9" width="150px" height="100px"></a> <a href="https://puzzmo.com"><img alt="Puzzmo" src="https://github.com/user-attachments/assets/aa2d5586-e5e2-43b9-8446-db456e4b0758" width="150px" height="100px"></a>
+<a href="https://www.frontend.fyi/?utm_source=motion"><img alt="Frontend.fyi" src="https://github.com/user-attachments/assets/f16e3eb9-f0bd-4ad1-8049-f079a3d65c69" width="150px" height="100px"></a> <a href="https://firecrawl.dev"><img alt="Firecrawl" src="https://github.com/user-attachments/assets/2c44e7f4-5c2a-4714-9050-1570538665ff" width="150px" height="100px"></a> <a href="https://puzzmo.com"><img alt="Puzzmo" src="https://github.com/user-attachments/assets/e32205a7-3ab1-41ec-8729-a794058fd655" width="150px" height="100px"></a>
 
 ### Personal
 
