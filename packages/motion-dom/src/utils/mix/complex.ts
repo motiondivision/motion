@@ -4,19 +4,19 @@ import { isCSSVariableToken } from "../../animation/utils/is-css-variable"
 import { color } from "../../value/types/color"
 import {
     analyseComplexValue,
-    complex,
     ComplexValueInfo,
     ComplexValues,
+    complex,
 } from "../../value/types/complex"
-import { HSLA, RGBA } from "../../value/types/types"
+import { HSLA, RGBA, OKLCH } from "../../value/types/types"
 import { mixColor } from "./color"
 import { mixImmediate } from "./immediate"
 import { mixNumber as mixNumberImmediate } from "./number"
 import { invisibleValues, mixVisibility } from "./visibility"
 
-type MixableArray = Array<number | RGBA | HSLA | string>
+type MixableArray = Array<number | RGBA | HSLA | OKLCH | string>
 interface MixableObject {
-    [key: string]: AnyResolvedKeyframe | RGBA | HSLA
+    [key: string]: AnyResolvedKeyframe | RGBA | HSLA | OKLCH
 }
 
 function mixNumber(a: number, b: number) {

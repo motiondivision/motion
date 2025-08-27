@@ -1,4 +1,4 @@
-import { Color, HSLA, RGBA } from "../types"
+import { Color, HSLA, RGBA, OKLCH } from "../types"
 import { floatRegex } from "../utils/float-regex"
 import { isNullish } from "../utils/is-nullish"
 import { singleColorRegex } from "../utils/single-color-regex"
@@ -19,7 +19,11 @@ export const isColorString = (type: string, testProp?: string) => (v: any) => {
 }
 
 export const splitColor =
-    <V extends RGBA | HSLA>(aName: string, bName: string, cName: string) =>
+    <V extends RGBA | HSLA | OKLCH>(
+        aName: string,
+        bName: string,
+        cName: string
+    ) =>
     (v: string | Color): V => {
         if (typeof v !== "string") return v as any
 
