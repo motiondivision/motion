@@ -27,4 +27,11 @@ export type HSLA = {
     alpha: number
 }
 
-export type Color = HSLA | RGBA
+export type OKLCH = {
+    lightness: number
+    chroma: number
+    hue: number
+    alpha: number
+}
+
+export type Color = HSLA | RGBA | OKLCH
