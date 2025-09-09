@@ -1,3 +1,5 @@
+"use client"
+
 import { frame } from "motion-dom"
 import { MotionGlobalConfig } from "motion-utils"
 import { useEffect, useRef } from "react"

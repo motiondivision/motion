@@ -1,3 +1,5 @@
+"use client"
+
 import { cancelFrame, frame, FrameData } from "motion-dom"
 import { useContext, useEffect, useRef } from "react"
 import { MotionConfigContext } from "../context/MotionConfigContext"

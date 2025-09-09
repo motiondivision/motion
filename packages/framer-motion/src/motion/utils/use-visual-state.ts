@@ -1,3 +1,5 @@
+"use client"
+
 import { AnyResolvedKeyframe } from "motion-dom"
 import { useContext } from "react"
 import { isAnimationControls } from "../../animation/utils/is-animation-controls"
