@@ -3,22 +3,23 @@
 import { isMotionValue } from "motion-dom"
 import { invariant } from "motion-utils"
 import * as React from "react"
-import { forwardRef, FunctionComponent, useContext } from "react"
+import { forwardRef, useContext } from "react"
 import { ReorderContext } from "../../context/ReorderContext"
 import { motion } from "../../render/components/motion/proxy"
+import { DOMMotionComponents } from "../../render/dom/types"
 import { HTMLElements } from "../../render/html/supported-elements"
 import { HTMLMotionProps } from "../../render/html/types"
 import { useConstant } from "../../utils/use-constant"
 import { useMotionValue } from "../../value/use-motion-value"
 import { useTransform } from "../../value/use-transform"
 
-export interface Props<V> {
+export interface Props<V, Tag extends keyof DOMMotionComponents = "li"> {
     /**
      * A HTML element to render this component as. Defaults to `"li"`.
      *
      * @public
      */
-    as?: keyof HTMLElements
+    as?: Tag
 
     /**
      * The value in the list that this component represents.
@@ -40,27 +41,23 @@ function useDefaultMotionValue(value: any, defaultValue: number = 0) {
     return isMotionValue(value) ? value : useMotionValue(defaultValue)
 }
 
-type ReorderItemProps<V> = Props<V> &
-    Omit<HTMLMotionProps<any>, "value" | "layout"> &
+type ReorderItemProps<V, Tag extends keyof DOMMotionComponents = "li"> = Props<V, Tag> &
+    Omit<HTMLMotionProps<Tag extends keyof HTMLElements ? Tag : "div">, "value" | "layout"> &
     React.PropsWithChildren<{}>
 
-export function ReorderItemComponent<V>(
+export function ReorderItemComponent<V, Tag extends keyof DOMMotionComponents = "li">(
     {
         children,
         style = {},
         value,
-        as = "li",
+        as = "li" as Tag,
         onDrag,
         layout = true,
         ...props
-    }: ReorderItemProps<V>,
-    externalRef?: React.ForwardedRef<any>
+    }: ReorderItemProps<V, Tag>,
+    externalRef?: React.ForwardedRef<HTMLElements[Tag extends keyof HTMLElements ? Tag : "div"]>
 ) {
-    const Component = useConstant(
-        () => motion[as as keyof typeof motion]
-    ) as FunctionComponent<
-        React.PropsWithChildren<HTMLMotionProps<any> & { ref?: React.Ref<any> }>
-    >
+    const Component = useConstant(() => motion[as]) as DOMMotionComponents[Tag]
 
     const context = useContext(ReorderContext)
     const point = {
@@ -104,7 +101,8 @@ export function ReorderItemComponent<V>(
 }
 
 export const ReorderItem = /*@__PURE__*/ forwardRef(ReorderItemComponent) as <
-    V
+    V,
+    Tag extends keyof DOMMotionComponents = "li"
 >(
-    props: ReorderItemProps<V> & { ref?: React.ForwardedRef<any> }
+    props: ReorderItemProps<V, Tag> & { ref?: React.ForwardedRef<HTMLElements[Tag extends keyof HTMLElements ? Tag : "div"]> }
 ) => ReturnType<typeof ReorderItemComponent>
