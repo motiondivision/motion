@@ -165,7 +165,7 @@ export const AnimatePresence = ({
      * we can use it to force a re-render amongst all surrounding components once
      * all components have finished animating out.
      */
-    const { forceRender } = useContext(LayoutGroupContext)
+    const { forceRender } = useContext(LayoutGroupContext) || {}
 
     return (
         <>
