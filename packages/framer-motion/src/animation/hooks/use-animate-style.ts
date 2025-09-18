@@ -1,3 +1,5 @@
+"use client"
+
 import { useConstant } from "../../utils/use-constant"
 import { useUnmountEffect } from "../../utils/use-unmount-effect"
 import { createScopedWaapiAnimate } from "../animators/waapi/animate-style"

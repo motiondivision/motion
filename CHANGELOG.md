@@ -4,6 +4,29 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.23.15] 2025-09-18
+
+### Fixed
+
+-   Fixing `export *` error in RSC.
+
+## [12.23.14] 2025-09-17
+
+### Fixed
+
+-   Fixing types of `Reorder.Item` and `Reorder.Group` so incorrect HTML props are correctly flagged.
+-   Reverting rehydration of `externalRef` when it switches.
+
+## [12.23.13] 2025-09-16
+
+### Fixed
+
+-   Fixed issue where motion components don't update refs when externalRef changes. The `useMotionRef` function now properly includes `externalRef` in the dependency array to ensure ref callbacks update when the external ref changes.
+
+### Changed
+
+-   Stopped tracking yarn cache in the repo.
+
 ## [12.23.12] 2025-07-29
 
 ### Added

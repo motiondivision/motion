@@ -1,3 +1,5 @@
+"use client"
+
 import { invariant } from "motion-utils"
 import * as React from "react"
 import { useConstant } from "../utils/use-constant"

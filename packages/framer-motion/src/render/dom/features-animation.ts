@@ -1,3 +1,5 @@
+"use client"
+
 import { animations } from "../../motion/features/animations"
 import { gestureAnimations } from "../../motion/features/gestures"
 import { FeatureBundle } from "../../motion/features/types"

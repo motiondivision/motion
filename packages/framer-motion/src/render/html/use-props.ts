@@ -1,3 +1,5 @@
+"use client"
+
 import { AnyResolvedKeyframe, isMotionValue, MotionValue } from "motion-dom"
 import { HTMLProps, useMemo } from "react"
 import { MotionProps } from "../../motion/types"
