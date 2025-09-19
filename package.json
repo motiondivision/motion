@@ -19,7 +19,7 @@
         "test-ci": "turbo run test-ci --no-cache",
         "measure": "turbo run measure --force && node dev/inc/bundlesize.mjs",
         "version": "yarn install && git stage yarn.lock",
-        "prepare": "make check-status && turbo run build measure",
+        "prepare": "turbo run build measure",
         "new": "yarn test-playwright && lerna publish from-package",
         "new-alpha": "turbo run build && lerna publish from-package --canary --preid alpha"
     },
@@ -65,7 +65,7 @@
         "react": "^18.3.1",
         "react-dev-utils": "^12.0.1",
         "react-dom": "^18.3.1",
-        "rollup": "4.14.0",
+        "rollup": "4.22.4",
         "rollup-plugin-analyzer": "^4.0.0",
         "rollup-plugin-dts": "6.1.0",
         "rollup-plugin-preserve-directives": "^0.4.0",

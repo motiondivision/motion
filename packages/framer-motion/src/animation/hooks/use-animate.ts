@@ -1,3 +1,5 @@
+"use client"
+
 import { AnimationScope } from "motion-dom"
 import { useConstant } from "../../utils/use-constant"
 import { useUnmountEffect } from "../../utils/use-unmount-effect"

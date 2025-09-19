@@ -1,3 +1,5 @@
+"use client"
+
 import { LegacyAnimationControls } from "motion-dom"
 import { useConstant } from "../../utils/use-constant"
 import { useIsomorphicLayoutEffect } from "../../utils/use-isomorphic-effect"

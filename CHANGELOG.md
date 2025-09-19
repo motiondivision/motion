@@ -4,6 +4,78 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.23.17] 2025-09-19
+
+### Fixed
+
+-   Ensure `animate()` `onComplete` only fires once, when all values are complete.
+
+## [12.23.16] 2025-09-19
+
+### Fixed
+
+-   Fixing `ref` when passed to a child of `AnimatePresence` in `"popLayout"` mode.
+
+## [12.23.15] 2025-09-18
+
+### Fixed
+
+-   Fixing `export *` error in RSC.
+
+## [12.23.14] 2025-09-17
+
+### Fixed
+
+-   Fixing types of `Reorder.Item` and `Reorder.Group` so incorrect HTML props are correctly flagged.
+-   Reverting rehydration of `externalRef` when it switches.
+
+## [12.23.13] 2025-09-16
+
+### Fixed
+
+-   Fixed issue where motion components don't update refs when externalRef changes. The `useMotionRef` function now properly includes `externalRef` in the dependency array to ensure ref callbacks update when the external ref changes.
+
+### Changed
+
+-   Stopped tracking yarn cache in the repo.
+
+## [12.23.12] 2025-07-29
+
+### Added
+
+-   Exporting internal APIs for use in view animations.
+
+## [12.23.11] 2025-07-28
+
+### Added
+
+-   Children of variants with `delayChildren: stagger()` will now be staggered correctly alongside their newly-entering siblings.
+
+## [12.23.10] 2025-07-28
+
+### Fixed
+
+-   Fixed shared layout animation in situations where no `motion` components have re-rendered between shared element switching.
+
+## [12.23.9] 2025-07-24
+
+### Changed
+
+-   Removing redundant `renderRequest` `MotionValue` lifecycle.
+
+## [12.23.8] 2025-07-24
+
+### Fixed
+
+-   Ensuring that when an animation is skipped via `duration = 0` that we also set `type = "keyframes"` so that `duration` takes effect.
+
+## [12.23.7] 2025-07-23
+
+### Fixed
+
+-   `springValue` cleanup.
+-   Removed additional `removeNode` from `AnimatePresence` when using `popLayout`.
+
 ## [12.23.6] 2025-07-11
 
 ### Changed

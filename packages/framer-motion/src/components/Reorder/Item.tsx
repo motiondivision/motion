@@ -6,19 +6,23 @@ import * as React from "react"
 import { forwardRef, FunctionComponent, useContext } from "react"
 import { ReorderContext } from "../../context/ReorderContext"
 import { motion } from "../../render/components/motion/proxy"
-import { HTMLElements } from "../../render/html/supported-elements"
 import { HTMLMotionProps } from "../../render/html/types"
 import { useConstant } from "../../utils/use-constant"
 import { useMotionValue } from "../../value/use-motion-value"
 import { useTransform } from "../../value/use-transform"
 
-export interface Props<V> {
+import { DefaultItemElement, ReorderElementTag } from "./types"
+
+export interface Props<
+    V,
+    TagName extends ReorderElementTag = DefaultItemElement
+> {
     /**
      * A HTML element to render this component as. Defaults to `"li"`.
      *
      * @public
      */
-    as?: keyof HTMLElements
+    as?: TagName
 
     /**
      * The value in the list that this component represents.
@@ -40,22 +44,28 @@ function useDefaultMotionValue(value: any, defaultValue: number = 0) {
     return isMotionValue(value) ? value : useMotionValue(defaultValue)
 }
 
-type ReorderItemProps<V> = Props<V> &
-    Omit<HTMLMotionProps<any>, "value" | "layout"> &
+type ReorderItemProps<
+    V,
+    TagName extends ReorderElementTag = DefaultItemElement
+> = Props<V, TagName> &
+    Omit<HTMLMotionProps<TagName>, "value" | "layout"> &
     React.PropsWithChildren<{}>
 
-export function ReorderItemComponent<V>(
+export function ReorderItemComponent<
+    V,
+    TagName extends ReorderElementTag = DefaultItemElement
+>(
     {
         children,
         style = {},
         value,
-        as = "li",
+        as = "li" as TagName,
         onDrag,
         layout = true,
         ...props
-    }: ReorderItemProps<V>,
+    }: ReorderItemProps<V, TagName>,
     externalRef?: React.ForwardedRef<any>
-) {
+): JSX.Element {
     const Component = useConstant(
         () => motion[as as keyof typeof motion]
     ) as FunctionComponent<
@@ -104,7 +114,8 @@ export function ReorderItemComponent<V>(
 }
 
 export const ReorderItem = /*@__PURE__*/ forwardRef(ReorderItemComponent) as <
-    V
+    V,
+    TagName extends ReorderElementTag = DefaultItemElement
 >(
-    props: ReorderItemProps<V> & { ref?: React.ForwardedRef<any> }
+    props: ReorderItemProps<V, TagName> & { ref?: React.ForwardedRef<any> }
 ) => ReturnType<typeof ReorderItemComponent>

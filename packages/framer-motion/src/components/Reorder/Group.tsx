@@ -5,19 +5,26 @@ import * as React from "react"
 import { forwardRef, FunctionComponent, useEffect, useRef } from "react"
 import { ReorderContext } from "../../context/ReorderContext"
 import { motion } from "../../render/components/motion/proxy"
-import type { HTMLElements } from "../../render/html/supported-elements"
 import { HTMLMotionProps } from "../../render/html/types"
 import { useConstant } from "../../utils/use-constant"
-import { ItemData, ReorderContextProps } from "./types"
+import {
+    DefaultGroupElement,
+    ItemData,
+    ReorderContextProps,
+    ReorderElementTag,
+} from "./types"
 import { checkReorder } from "./utils/check-reorder"
 
-export interface Props<V> {
+export interface Props<
+    V,
+    TagName extends ReorderElementTag = DefaultGroupElement
+> {
     /**
      * A HTML element to render this component as. Defaults to `"ul"`.
      *
      * @public
      */
-    as?: keyof HTMLElements
+    as?: TagName
 
     /**
      * The axis to reorder along. By default, items will be draggable on this axis.
@@ -55,21 +62,27 @@ export interface Props<V> {
     values: V[]
 }
 
-type ReorderGroupProps<V> = Props<V> &
-    Omit<HTMLMotionProps<any>, "values"> &
+type ReorderGroupProps<
+    V,
+    TagName extends ReorderElementTag = DefaultGroupElement
+> = Props<V, TagName> &
+    Omit<HTMLMotionProps<TagName>, "values"> &
     React.PropsWithChildren<{}>
 
-export function ReorderGroupComponent<V>(
+export function ReorderGroupComponent<
+    V,
+    TagName extends ReorderElementTag = DefaultGroupElement
+>(
     {
         children,
-        as = "ul",
+        as = "ul" as TagName,
         axis = "y",
         onReorder,
         values,
         ...props
-    }: ReorderGroupProps<V>,
+    }: ReorderGroupProps<V, TagName>,
     externalRef?: React.ForwardedRef<any>
-) {
+): JSX.Element {
     const Component = useConstant(
         () => motion[as as keyof typeof motion]
     ) as FunctionComponent<
@@ -127,9 +140,10 @@ export function ReorderGroupComponent<V>(
 }
 
 export const ReorderGroup = /*@__PURE__*/ forwardRef(ReorderGroupComponent) as <
-    V
+    V,
+    TagName extends ReorderElementTag = DefaultGroupElement
 >(
-    props: ReorderGroupProps<V> & { ref?: React.ForwardedRef<any> }
+    props: ReorderGroupProps<V, TagName> & { ref?: React.ForwardedRef<any> }
 ) => ReturnType<typeof ReorderGroupComponent>
 
 function getValue<V>(item: ItemData<V>) {

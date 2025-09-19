@@ -4,18 +4,30 @@ jobs:
     test:
         docker:
             - image: cimg/node:lts-browsers
-
         working_directory: ~/repo
         resource_class: large
         steps:
             - checkout
 
-            # Download and cache dependencies
+            - run:
+                  name: Yarn version
+                  command: yarn --version
+
+            # Download and cache dependencies (Yarn artifacts, not node_modules)
             - restore_cache:
                   keys:
-                      - v1-dependencies-{{ checksum "package.json" }}
-                      # fallback to using the latest cache if no exact match is found
-                      - v1-dependencies-
+                      - v3-yarn-{{ checksum "yarn.lock" }}
+                      - v3-yarn-
+            - run:
+                  name: Install dependencies (immutable)
+                  command: yarn install --immutable
+            - save_cache:
+                  paths:
+                      - .yarn/cache
+                      - .yarn/releases
+                      - .yarn/plugins
+                      - .yarn/patches
+                  key: v3-yarn-{{ checksum "yarn.lock" }}
 
             - run:
                   name: Test Jest
@@ -24,27 +36,33 @@ jobs:
             - store_test_results:
                   path: test_reports
 
-            - save_cache:
-                  paths:
-                      - node_modules
-                  key: v1-dependencies-{{ checksum "package.json" }}
-
     test-react:
         docker:
             - image: cimg/node:lts-browsers
-
         working_directory: ~/repo
         parallelism: 6
         resource_class: large
         steps:
             - checkout
 
-            # Download and cache dependencies
+            - run:
+                  name: Yarn version
+                  command: yarn --version
+
             - restore_cache:
                   keys:
-                      - v1-dependencies-{{ checksum "package.json" }}
-                      # fallback to using the latest cache if no exact match is found
-                      - v1-dependencies-
+                      - v3-yarn-{{ checksum "yarn.lock" }}
+                      - v3-yarn-
+            - run:
+                  name: Install dependencies (immutable)
+                  command: yarn install --immutable
+            - save_cache:
+                  paths:
+                      - .yarn/cache
+                      - .yarn/releases
+                      - .yarn/plugins
+                      - .yarn/patches
+                  key: v3-yarn-{{ checksum "yarn.lock" }}
 
             - run:
                   name: React tests
@@ -55,27 +73,33 @@ jobs:
             - store_test_results:
                   path: test_reports
 
-            - save_cache:
-                  paths:
-                      - node_modules
-                  key: v1-dependencies-{{ checksum "package.json" }}
-
     test-react-19:
         docker:
             - image: cimg/node:lts-browsers
-
         working_directory: ~/repo
         parallelism: 6
         resource_class: large
         steps:
             - checkout
 
-            # Download and cache dependencies
+            - run:
+                  name: Yarn version
+                  command: yarn --version
+
             - restore_cache:
                   keys:
-                      - v1-dependencies-{{ checksum "package.json" }}
-                      # fallback to using the latest cache if no exact match is found
-                      - v1-dependencies-
+                      - v3-yarn-{{ checksum "yarn.lock" }}
+                      - v3-yarn-
+            - run:
+                  name: Install dependencies (immutable)
+                  command: yarn install --immutable
+            - save_cache:
+                  paths:
+                      - .yarn/cache
+                      - .yarn/releases
+                      - .yarn/plugins
+                      - .yarn/patches
+                  key: v3-yarn-{{ checksum "yarn.lock" }}
 
             - run:
                   name: React tests
@@ -86,11 +110,6 @@ jobs:
             - store_test_results:
                   path: test_reports
 
-            - save_cache:
-                  paths:
-                      - node_modules
-                  key: v1-dependencies-{{ checksum "package.json" }}
-
     test-html:
         docker:
             - image: cimg/node:lts-browsers
@@ -99,12 +118,24 @@ jobs:
         steps:
             - checkout
 
-            # Download and cache dependencies
+            - run:
+                  name: Yarn version
+                  command: yarn --version
+
             - restore_cache:
                   keys:
-                      - v1-dependencies-{{ checksum "package.json" }}
-                      # fallback to using the latest cache if no exact match is found
-                      - v1-dependencies-
+                      - v3-yarn-{{ checksum "yarn.lock" }}
+                      - v3-yarn-
+            - run:
+                  name: Install dependencies (immutable)
+                  command: yarn install --immutable
+            - save_cache:
+                  paths:
+                      - .yarn/cache
+                      - .yarn/releases
+                      - .yarn/plugins
+                      - .yarn/patches
+                  key: v3-yarn-{{ checksum "yarn.lock" }}
 
             - run:
                   name: HTML tests
@@ -121,11 +152,6 @@ jobs:
             - store_test_results:
                   path: test_reports
 
-            - save_cache:
-                  paths:
-                      - node_modules
-                  key: v1-dependencies-{{ checksum "package.json" }}
-
     test-playwright:
         docker:
             - image: mcr.microsoft.com/playwright:v1.51.1-noble
@@ -134,26 +160,33 @@ jobs:
         steps:
             - checkout
 
-            # Download and cache dependencies
+            - run:
+                  name: Yarn version
+                  command: yarn --version
+
             - restore_cache:
                   keys:
-                      - v1-dependencies-{{ checksum "package.json" }}
-                      # fallback to using the latest cache if no exact match is found
-                      - v1-dependencies-
+                      - v3-yarn-{{ checksum "yarn.lock" }}
+                      - v3-yarn-
+            - run:
+                  name: Install dependencies (immutable)
+                  command: yarn install --immutable
+            - save_cache:
+                  paths:
+                      - .yarn/cache
+                      - .yarn/releases
+                      - .yarn/plugins
+                      - .yarn/patches
+                  key: v3-yarn-{{ checksum "yarn.lock" }}
 
             - run:
                   name: Playwright tests
-                  command: yarn && yarn test-playwright
+                  command: yarn test-playwright
                   environment:
                       JEST_JUNIT_OUTPUT: test_reports/framer-motion-playwright.xml
 
             - store_test_results:
                   path: test_reports
-
-            - save_cache:
-                  paths:
-                      - node_modules
-                  key: v1-dependencies-{{ checksum "package.json" }}
 
 workflows:
     version: 2

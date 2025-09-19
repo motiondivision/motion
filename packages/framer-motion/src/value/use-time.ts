@@ -1,3 +1,5 @@
+"use client"
+
 import { useAnimationFrame } from "../utils/use-animation-frame"
 import { useMotionValue } from "./use-motion-value"
 

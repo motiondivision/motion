@@ -10,7 +10,7 @@ import type { ViewTransitionBuilder } from "./index"
 import { ViewTransitionTarget } from "./types"
 import { chooseLayerType } from "./utils/choose-layer-type"
 import { css } from "./utils/css"
-import { getLayerName } from "./utils/get-layer-name"
+import { getViewAnimationLayerInfo } from "./utils/get-layer-info"
 import { getViewAnimations } from "./utils/get-view-animations"
 import { hasTarget } from "./utils/has-target"
 
@@ -150,7 +150,7 @@ export function startViewAnimation(
                 const { pseudoElement } = effect
                 if (!pseudoElement) continue
 
-                const name = getLayerName(pseudoElement)
+                const name = getViewAnimationLayerInfo(pseudoElement)
                 if (!name) continue
 
                 const targetDefinition = targets.get(name.layer)

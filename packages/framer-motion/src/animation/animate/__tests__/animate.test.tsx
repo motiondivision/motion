@@ -337,6 +337,40 @@ describe("animate", () => {
         expect(max).toBeGreaterThan(2)
         expect(value.get()).toBe(0)
     })
+
+    test("top-level onComplete fires once when some props are equal and others animate", async () => {
+        const calls: number[] = []
+
+        const proxy = new Proxy(
+            { x: 0, y: 0 },
+            {
+                set: (target, p: string, newValue: any) => {
+                    if (p === "x" || p === "y") {
+                        ;(target as any)[p] = newValue
+                    }
+                    return true
+                },
+            }
+        )
+
+        const anim = animate(
+            proxy,
+            { x: 100, y: 0 },
+            {
+                duration: 0.05,
+                onComplete: () => {
+                    calls.push(performance.now())
+                },
+            }
+        )
+
+        await anim.finished
+
+        expect(calls.length).toBe(1)
+        // And ensure final state reached
+        expect(proxy.x).toBeGreaterThanOrEqual(100)
+        expect(proxy.y).toBe(0)
+    })
 })
 
 describe("animate: Objects", () => {

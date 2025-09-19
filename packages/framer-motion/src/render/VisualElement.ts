@@ -189,6 +189,13 @@ export abstract class VisualElement<
     children = new Set<VisualElement>()
 
     /**
+     * A set containing the latest children of this VisualElement. This is flushed
+     * at the start of every commit. We use it to calculate the stagger delay
+     * for newly-added children.
+     */
+    enteringChildren?: Set<VisualElement>
+
+    /**
      * The depth of this VisualElement within the overall VisualElement tree.
      */
     depth: number
@@ -383,7 +390,7 @@ export abstract class VisualElement<
             const value = initialMotionValues[key]
 
             if (latestValues[key] !== undefined && isMotionValue(value)) {
-                value.set(latestValues[key], false)
+                value.set(latestValues[key])
             }
         }
     }
@@ -422,7 +429,8 @@ export abstract class VisualElement<
             )
         }
 
-        if (this.parent) this.parent.children.add(this)
+        this.parent?.addChild(this)
+
         this.update(this.props, this.presenceContext)
     }
 
@@ -433,7 +441,7 @@ export abstract class VisualElement<
         this.valueSubscriptions.forEach((remove) => remove())
         this.valueSubscriptions.clear()
         this.removeFromVariantTree && this.removeFromVariantTree()
-        this.parent && this.parent.children.delete(this)
+        this.parent?.removeChild(this)
 
         for (const key in this.events) {
             this.events[key].clear()
@@ -447,6 +455,17 @@ export abstract class VisualElement<
             }
         }
         this.current = null
+    }
+
+    addChild(child: VisualElement) {
+        this.children.add(child)
+        this.enteringChildren ??= new Set()
+        this.enteringChildren.add(child)
+    }
+
+    removeChild(child: VisualElement) {
+        this.children.delete(child)
+        this.enteringChildren && this.enteringChildren.delete(child)
     }
 
     private bindToMotionValue(key: string, value: MotionValue) {
@@ -470,12 +489,9 @@ export abstract class VisualElement<
                 if (valueIsTransform && this.projection) {
                     this.projection.isTransformDirty = true
                 }
-            }
-        )
 
-        const removeOnRenderRequest = value.on(
-            "renderRequest",
-            this.scheduleRender
+                this.scheduleRender()
+            }
         )
 
         let removeSyncCheck: VoidFunction | void
@@ -485,7 +501,6 @@ export abstract class VisualElement<
 
         this.valueSubscriptions.set(key, () => {
             removeOnChange()
-            removeOnRenderRequest()
             if (removeSyncCheck) removeSyncCheck()
             if (value.owner) value.stop()
         })
