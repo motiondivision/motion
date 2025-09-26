@@ -87,6 +87,12 @@ export const AnimatePresence = ({
     const exitComplete = useConstant(() => new Map<ComponentKey, boolean>())
 
     /**
+     * Track components that are currently in the process of exiting.
+     * This prevents duplicate exit handling during rapid state changes.
+     */
+    const exitingComponents = useRef(new Set<ComponentKey>())
+
+    /**
      * Save children to render as React state. To ensure this component is concurrent-safe,
      * we check for exiting children via an effect.
      */
@@ -179,9 +185,22 @@ export const AnimatePresence = ({
                           presentKeys.includes(key)
 
                 const onExit = () => {
+                    // Check if this component is already being processed
+                    // This prevents duplicate exit handling during rapid state changes
+                    // (e.g., when Radix UI dismissable-layer triggers multiple events)
+                    if (exitingComponents.current.has(key)) {
+                        return
+                    }
+
+                    // Mark this component as being processed
+                    exitingComponents.current.add(key)
+
                     if (exitComplete.has(key)) {
                         exitComplete.set(key, true)
                     } else {
+                        // Component was already removed from exitComplete
+                        // (likely re-entered), clean up and return
+                        exitingComponents.current.delete(key)
                         return
                     }
 
@@ -191,12 +210,18 @@ export const AnimatePresence = ({
                     })
 
                     if (isEveryExitComplete) {
+                        // Clear all tracking states
+                        exitingComponents.current.clear()
+
                         forceRender?.()
                         setRenderedChildren(pendingPresentChildren.current)
 
                         propagate && safeToRemove?.()
 
                         onExitComplete && onExitComplete()
+                    } else {
+                        // Remove from processing set as this component is done
+                        exitingComponents.current.delete(key)
                     }
                 }
 
