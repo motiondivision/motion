@@ -966,6 +966,17 @@ export interface MotionNodeLayoutOptions {
      * to `false`, this element will take its default opacity throughout the animation.
      */
     layoutCrossfade?: boolean
+
+    /**
+     * By default, layout animations animate from a straight line between the two bounding boxes.
+     * By setting this to a number, the animation will animate along a curve with the given
+     * amplitude.
+     *
+     * @public
+     */
+    layoutCurve?: {
+        amplitude: number
+    }
 }
 
 /**
