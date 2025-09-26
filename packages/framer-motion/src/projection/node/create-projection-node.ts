@@ -1514,6 +1514,33 @@ export function createProjectionNode<I>({
             this.projectionDeltaWithTransform = createDelta()
         }
 
+        computeControlPoints(
+            originX: number,
+            originY: number,
+            targetX: number,
+            targetY: number,
+            amplitude: number
+        ) {
+            const x = -(targetY - originY)
+            const y = targetX - originX
+            const length = Math.sqrt(x * x + y * y)
+
+            if (length > 0) {
+                const normalX = x / length
+                const normalY = y / length
+
+                const midX = originX + (targetX - originX) * 0.5
+                const midY = originY + (targetY - originY) * 0.5
+
+                return {
+                    x: midX + normalX * amplitude,
+                    y: midY + normalY * amplitude,
+                }
+            } else {
+                return { x: originX, y: originY }
+            }
+        }
+
         /**
          * Animation
          */
@@ -1561,8 +1588,27 @@ export function createProjectionNode<I>({
             this.mixTargetDelta = (latest: number) => {
                 const progress = latest / 1000
 
-                mixAxisDelta(targetDelta.x, delta.x, progress)
-                mixAxisDelta(targetDelta.y, delta.y, progress)
+                const controlDelta = this.options.layoutCurve
+                    ? this.computeControlPoints(
+                          delta.x.translate,
+                          delta.y.translate,
+                          0,
+                          0,
+                          this.options.layoutCurve?.amplitude ?? 0
+                      )
+                    : {
+                          x: 0,
+                          y: 0,
+                      }
+
+                // deltaTarget = target
+                // delta = origin
+
+                mixAxisDelta(targetDelta.x, delta.x, controlDelta.x, progress)
+                mixAxisDelta(targetDelta.y, delta.y, controlDelta.y, progress)
+
+                // targetDelta now = interpolated
+
                 this.setTargetDelta(targetDelta)
 
                 if (
@@ -2270,8 +2316,26 @@ function removeLeadSnapshots(stack: NodeStack) {
     stack.removeLeadSnapshot()
 }
 
-export function mixAxisDelta(output: AxisDelta, delta: AxisDelta, p: number) {
-    output.translate = mixNumber(delta.translate, 0, p)
+function bezierPoint(
+    t: number,
+    origin: number,
+    control: number,
+    target: number
+) {
+    return (
+        Math.pow(1 - t, 2) * origin +
+        2 * (1 - t) * t * control +
+        Math.pow(t, 2) * target
+    )
+}
+
+export function mixAxisDelta(
+    output: AxisDelta,
+    delta: AxisDelta,
+    control: number,
+    p: number
+) {
+    output.translate = bezierPoint(p, delta.translate, control, 0)
     output.scale = mixNumber(delta.scale, 1, p)
     output.origin = delta.origin
     output.originPoint = delta.originPoint
