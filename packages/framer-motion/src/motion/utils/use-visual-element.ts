@@ -203,6 +203,7 @@ function createProjectionNode(
         layoutRoot,
         layoutAnchor,
         layoutCrossfade,
+        layoutCurve,
     } = props
 
     visualElement.projection = new ProjectionNodeConstructor(
@@ -228,6 +229,7 @@ function createProjectionNode(
         animationType: typeof layout === "string" ? layout : "both",
         initialPromotionConfig,
         crossfade: layoutCrossfade,
+        layoutCurve,
         layoutScroll,
         layoutRoot,
         layoutAnchor,
