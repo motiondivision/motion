@@ -1521,20 +1521,26 @@ export function createProjectionNode<I>({
             targetY: number,
             amplitude: number
         ) {
-            const x = -(targetY - originY)
-            const y = targetX - originX
-            const length = Math.sqrt(x * x + y * y)
+            const deltaX = targetX - originX
+            const deltaY = targetY - originY
 
-            if (length > 0) {
-                const normalX = x / length
-                const normalY = y / length
+            const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
 
-                const midX = originX + (targetX - originX) * 0.5
-                const midY = originY + (targetY - originY) * 0.5
+            if (distance > 0) {
+                const perpX = -deltaY
+                const perpY = deltaX
+
+                const normalPerpX = perpX / distance
+                const normalPerpY = perpY / distance
+
+                const midX = originX + deltaX * 0.5
+                const midY = originY + deltaY * 0.5
+
+                const desiredHeight = amplitude * distance
 
                 return {
-                    x: midX + normalX * amplitude,
-                    y: midY + normalY * amplitude,
+                    x: midX + normalPerpX * desiredHeight,
+                    y: midY + normalPerpY * desiredHeight,
                 }
             } else {
                 return { x: originX, y: originY }
@@ -1588,13 +1594,16 @@ export function createProjectionNode<I>({
             this.mixTargetDelta = (latest: number) => {
                 const progress = latest / 1000
 
+                let amplitude = this.options.layoutCurve?.amplitude ?? 0
+                if (delta.x.translate <= 0) amplitude *= -1
+
                 const controlDelta = this.options.layoutCurve
                     ? this.computeControlPoints(
                           delta.x.translate,
                           delta.y.translate,
                           0,
                           0,
-                          this.options.layoutCurve?.amplitude ?? 0
+                          amplitude
                       )
                     : {
                           x: 0,
