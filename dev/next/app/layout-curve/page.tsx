@@ -1,6 +1,6 @@
 "use client"
-import { cancelFrame, frame, LayoutGroup, motion } from "motion/react"
-import { useEffect, useState } from "react"
+import { LayoutGroup, motion } from "motion/react"
+import { useState } from "react"
 
 function NavigationItem({
     title,
@@ -55,25 +55,7 @@ function NavigationItem({
 
 export default function Page() {
     const [state, setState] = useState("a")
-    const [layoutCurveAmplitude, setCurveAmplitude] = useState(500)
-
-    useEffect(() => {
-        let prevLeft = 0
-        const check = frame.setup(() => {
-            const indicator = document.getElementById("current-indicator")
-            if (!indicator) return
-
-            const { left } = indicator.getBoundingClientRect()
-
-            if (Math.abs(left - prevLeft) > 100) {
-                // console.log(prevLeft, left)
-            }
-
-            prevLeft = left
-        }, true)
-
-        return () => cancelFrame(check)
-    }, [state])
+    const [layoutCurveAmplitude, setCurveAmplitude] = useState(1)
 
     return (
         <div
@@ -98,8 +80,9 @@ export default function Page() {
                 </label>
                 <input
                     type="range"
-                    min={-1000}
-                    max={1000}
+                    min={-1}
+                    step={0.1}
+                    max={1}
                     value={layoutCurveAmplitude}
                     onChange={(e) => setCurveAmplitude(Number(e.target.value))}
                 />
@@ -129,6 +112,76 @@ export default function Page() {
 
                         <NavigationItem
                             id="b"
+                            title="Secondary Location"
+                            current={state === "b"}
+                            onClick={() => setState("b")}
+                            layoutCurveAmplitude={layoutCurveAmplitude}
+                        />
+                    </LayoutGroup>
+                </div>
+            </div>
+            <div
+                style={{
+                    maxWidth: "64rem",
+                }}
+            >
+                <div
+                    style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        gap: "8rem",
+                        padding: "8rem",
+                    }}
+                >
+                    <LayoutGroup id={`${state}b`}>
+                        <NavigationItem
+                            id="ab"
+                            title="Primary Location"
+                            current={state === "a"}
+                            onClick={() => setState("a")}
+                            layoutCurveAmplitude={layoutCurveAmplitude}
+                        />
+
+                        <NavigationItem
+                            id="bb"
+                            title="Secondary Location"
+                            current={state === "b"}
+                            onClick={() => setState("b")}
+                            layoutCurveAmplitude={layoutCurveAmplitude}
+                        />
+                    </LayoutGroup>
+                </div>
+            </div>
+            <div
+                style={{
+                    maxWidth: "64rem",
+                }}
+            >
+                <div
+                    style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        gap: "8rem",
+                        padding: "8rem",
+                    }}
+                >
+                    <LayoutGroup id={`${state}c`}>
+                        <div style={{ paddingRight: "25rem" }}>
+                            <NavigationItem
+                                id="ac"
+                                title="Primary Location"
+                                current={state === "a"}
+                                onClick={() => setState("a")}
+                                layoutCurveAmplitude={layoutCurveAmplitude}
+                            />
+                        </div>
+
+                        <NavigationItem
+                            id="bc"
                             title="Secondary Location"
                             current={state === "b"}
                             onClick={() => setState("b")}
