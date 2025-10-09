@@ -274,7 +274,8 @@ export class VisualElementDragControls {
 
         const isDragging = this.isDragging
         this.cancel()
-        if (!isDragging || !finalPanInfo || !finalEvent) return
+        const { dragConstraints } = this.getProps()
+        if ((!dragConstraints && !isDragging) || !finalPanInfo || !finalEvent) return
 
         const { velocity } = finalPanInfo
         this.startAnimation(velocity)
