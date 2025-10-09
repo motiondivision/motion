@@ -245,7 +245,7 @@ export class VisualElementDragControls {
                     this.getAxisMotionValue(axis).animation?.play()
             )
 
-        const { dragSnapToOrigin } = this.getProps()
+        const { dragSnapToOrigin, dragConstraints } = this.getProps()
         this.panSession = new PanSession(
             originEvent,
             {
@@ -258,6 +258,7 @@ export class VisualElementDragControls {
             {
                 transformPagePoint: this.visualElement.getTransformPagePoint(),
                 dragSnapToOrigin,
+                dragConstraints,
                 distanceThreshold,
                 contextWindow: getContextWindow(this.visualElement),
             }

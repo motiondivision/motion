@@ -1,6 +1,7 @@
 import type { EventInfo, PanHandler } from "motion-dom"
 import { cancelFrame, frame, frameData, isPrimaryPointer } from "motion-dom"
 import {
+    BoundingBox,
     millisecondsToSeconds,
     pipe,
     Point,
@@ -23,6 +24,9 @@ interface PanSessionHandlers {
 interface PanSessionOptions {
     transformPagePoint?: TransformPoint
     dragSnapToOrigin?: boolean
+    dragConstraints?: false | Partial<BoundingBox> | {
+        current: Element | null;
+    };
     distanceThreshold?: number
     contextWindow?: (Window & typeof globalThis) | null
 }
@@ -78,6 +82,15 @@ export class PanSession {
     private dragSnapToOrigin: boolean
 
     /**
+     * Resume animation to the drag constraints box
+     *
+     * @internal
+     */
+    private dragConstraints: false | Partial<BoundingBox> | {
+        current: Element | null;
+    };
+
+    /**
      * The distance after which panning should start.
      *
      * @internal
@@ -96,6 +109,7 @@ export class PanSession {
             transformPagePoint,
             contextWindow = window,
             dragSnapToOrigin = false,
+            dragConstraints = false,
             distanceThreshold = 3,
         }: PanSessionOptions = {}
     ) {
@@ -103,6 +117,7 @@ export class PanSession {
         if (!isPrimaryPointer(event)) return
 
         this.dragSnapToOrigin = dragSnapToOrigin
+        this.dragConstraints = dragConstraints
         this.handlers = handlers
         this.transformPagePoint = transformPagePoint
         this.distanceThreshold = distanceThreshold
