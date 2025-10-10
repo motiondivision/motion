@@ -109,11 +109,11 @@ export class VisualElementDragControls {
         if (presenceContext && presenceContext.isPresent === false) return
 
         const onSessionStart = (event: PointerEvent) => {
-            const { dragSnapToOrigin } = this.getProps()
+            const { dragSnapToOrigin, dragConstraints } = this.getProps()
 
             // Stop or pause any animations on both axis values immediately. This allows the user to throw and catch
             // the component.
-            dragSnapToOrigin ? this.pauseAnimation() : this.stopAnimation()
+            dragSnapToOrigin || dragConstraints ? this.pauseAnimation() : this.stopAnimation()
 
             if (snapToCursor) {
                 this.snapToCursor(extractEventInfo(event).point)
@@ -274,8 +274,7 @@ export class VisualElementDragControls {
 
         const isDragging = this.isDragging
         this.cancel()
-        const { dragConstraints } = this.getProps()
-        if ((!dragConstraints && !isDragging) || !finalPanInfo || !finalEvent) return
+        if (!isDragging || !finalPanInfo || !finalEvent) return
 
         const { velocity } = finalPanInfo
         this.startAnimation(velocity)

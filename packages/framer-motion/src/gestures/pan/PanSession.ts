@@ -195,16 +195,8 @@ export class PanSession {
 
         const { onEnd, onSessionEnd, resumeAnimation } = this.handlers
 
-        if (this.dragSnapToOrigin) resumeAnimation && resumeAnimation()
-        if (!(this.lastMoveEvent && this.lastMoveEventInfo)) {
-            if (this.dragConstraints) {
-                onSessionEnd && onSessionEnd(event, getPanInfo(
-                    transformPoint(info, this.transformPagePoint),
-                    this.history
-                ))
-            }
-            return
-        }
+        if (this.dragSnapToOrigin || this.dragConstraints) resumeAnimation && resumeAnimation()
+        if (!(this.lastMoveEvent && this.lastMoveEventInfo)) return
 
         const panInfo = getPanInfo(
             event.type === "pointercancel"
