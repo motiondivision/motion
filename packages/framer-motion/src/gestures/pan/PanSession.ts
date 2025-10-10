@@ -1,7 +1,6 @@
 import type { EventInfo, PanHandler } from "motion-dom"
 import { cancelFrame, frame, frameData, isPrimaryPointer } from "motion-dom"
 import {
-    BoundingBox,
     millisecondsToSeconds,
     pipe,
     Point,
