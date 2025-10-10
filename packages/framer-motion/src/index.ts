@@ -3,6 +3,8 @@
  */
 export type * from "./animation/types"
 export { AnimatePresence } from "./components/AnimatePresence"
+export { PopChild } from "./components/AnimatePresence/PopChild"
+export { PresenceChild } from "./components/AnimatePresence/PresenceChild"
 export { LayoutGroup } from "./components/LayoutGroup"
 export { LazyMotion } from "./components/LazyMotion"
 export { MotionConfig } from "./components/MotionConfig"
