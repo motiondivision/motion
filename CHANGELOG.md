@@ -4,6 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.23.24] 2025-10-10
+
+### Fixed
+
+-   Ensure that when a component remounts, it continues to fire animations even when `initial={false}`.
+
 ## [12.23.23] 2025-10-10
 
 ### Added
