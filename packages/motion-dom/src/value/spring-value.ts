@@ -63,7 +63,12 @@ export function attachSpring<T extends AnyResolvedKeyframe>(
             restSpeed: 0.01,
             ...options,
             onUpdate: latestSetter,
+            onComplete: () => {
+                value["events"].animationComplete?.notify()
+            },
         })
+
+        value['events'].animationStart?.notify()
     }
 
     value.attach((v, set) => {
