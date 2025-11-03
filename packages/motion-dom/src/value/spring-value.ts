@@ -63,19 +63,20 @@ export function attachSpring<T extends AnyResolvedKeyframe>(
             restSpeed: 0.01,
             ...options,
             onUpdate: latestSetter,
-            onComplete: () => {
-                value["events"].animationComplete?.notify()
-            },
         })
-
-        value['events'].animationStart?.notify()
     }
 
     value.attach((v, set) => {
         latestValue = v
         latestSetter = (latest) => set(parseValue(latest, unit) as T)
 
-        frame.postRender(startAnimation)
+        frame.postRender(()=>{
+            startAnimation()
+            value['events'].animationStart?.notify()
+            activeAnimation?.then(()=>{
+                value['events'].animationComplete?.notify()
+            })
+        })
     }, stopAnimation)
 
     if (isMotionValue(source)) {
