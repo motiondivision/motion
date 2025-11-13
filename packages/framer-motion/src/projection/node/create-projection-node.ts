@@ -586,7 +586,7 @@ export function createProjectionNode<I>({
                             /**
                              * If the layout hasn't changed and we have an animation that hasn't started yet,
                              * finish it immediately. Otherwise it will be animating from a location
-                             * that was probably never commited to screen and look like a jumpy box.
+                             * that was probably never committed to screen and look like a jumpy box.
                              */
 
                             if (!hasLayoutChanged) {

@@ -131,7 +131,7 @@ const cjs = Object.assign({}, config, {
 })
 
 /**
- * Bundle seperately so bundles don't share common modules
+ * Bundle separately so bundles don't share common modules
  */
 const cjsDebug = Object.assign({}, cjs, { input : "lib/debug.js" })
 const cjsDom = Object.assign({}, cjs, { input : "lib/dom.js" })

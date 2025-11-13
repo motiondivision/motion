@@ -151,5 +151,5 @@ export { AnimateSharedLayout } from "./components/AnimateSharedLayout"
 export { DeprecatedLayoutGroupContext } from "./context/DeprecatedLayoutGroupContext"
 export { useInvertedScale as useDeprecatedInvertedScale } from "./value/use-inverted-scale"
 
-// Keep explict delay in milliseconds export for BC with Framer
+// Keep explicit delay in milliseconds export for BC with Framer
 export { delay, DelayedFunction } from "./utils/delay"
