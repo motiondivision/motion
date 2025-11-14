@@ -71,8 +71,6 @@ export function attachSpring<T extends AnyResolvedKeyframe>(
         latestSetter = (latest) => set(parseValue(latest, unit) as T)
 
         frame.postRender(startAnimation)
-
-        return value.get()
     }, stopAnimation)
 
     if (isMotionValue(source)) {

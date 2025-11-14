@@ -112,12 +112,18 @@ Motion is sustainable thanks to the kind support of its sponsors.
 
 [Become a sponsor](https://motion.dev/sponsor)
 
-### Partner
+### Partners
 
-Motion powers Framer animations, the web builder for creative pros. Design and ship your dream site. Zero code, maximum speed.
+Motion powers the animations for all websites built with Framer, the web builder for creative pros. The Motion website itself is built on Framer, for its delightful canvas-based editing and powerful CMS features.
 
 <a href="https://framer.link/FlnUbQY">
   <img alt="Framer" src="https://github.com/user-attachments/assets/22a79be7-672e-4336-bfb7-5d55d1deb917" width="250px" height="150px">
+</a>
+
+Motion drives the animations on the Cursor homepage, and is working with Cursor to bring powerful AI workflows to the Motion examples and docs.
+
+<a href="https://cursor.com">
+  <img alt="Cursor" src="https://github.com/user-attachments/assets/81c482d3-c2c2-4b35-bbcf-933b28d5b448" width="250px" height="150px" />
 </a>
 
 ### Platinum
