@@ -112,16 +112,21 @@ Motion is sustainable thanks to the kind support of its sponsors.
 
 [Become a sponsor](https://motion.dev/sponsor)
 
-### Partner
+### Partners
 
-Motion powers Framer animations, the web builder for creative pros. Design and ship your dream site. Zero code, maximum speed.
+Motion powers the animations for all websites built with Framer, the web builder for creative pros. The Motion website itself is built on Framer, for its delightful canvas-based editing and powerful CMS features.
 
 <a href="https://framer.link/FlnUbQY">
   <img alt="Framer" src="https://github.com/user-attachments/assets/22a79be7-672e-4336-bfb7-5d55d1deb917" width="250px" height="150px">
 </a>
 
-### Platinum
+Motion drives the animations on the Cursor homepage, and is working with Cursor to bring powerful AI workflows to the Motion examples and docs.
 
+<a href="https://cursor.com">
+  <img alt="Cursor" src="https://github.com/user-attachments/assets/81c482d3-c2c2-4b35-bbcf-933b28d5b448" width="250px" height="150px" />
+</a>
+
+### Platinum
 
 <a href="https://linear.app"><img alt="Linear" src="https://github.com/user-attachments/assets/f9ce44b4-af28-4770-bb6e-9515b474bfb2" width="250px" height="150px"></a> <a href="https://figma.com"><img alt="Figma" src="https://github.com/user-attachments/assets/1077d0ab-4305-4a1f-81c8-d5be8c4c6717" width="250px" height="150px"></a> <a href="https://sanity.io"><img alt="Sanity" src="https://github.com/user-attachments/assets/80134088-f456-483f-8edd-940593c120ce" width="250px" height="150px"></a>
 
