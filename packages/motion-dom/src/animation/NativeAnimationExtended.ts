@@ -53,7 +53,7 @@ export class NativeAnimationExtended<
     /**
      * WAAPI doesn't natively have any interruption capabilities.
      *
-     * Rather than read commited styles back out of the DOM, we can
+     * Rather than read committed styles back out of the DOM, we can
      * create a renderless JS animation and sample it twice to calculate
      * its current value, "previous" value, and therefore allow
      * Motion to calculate velocity for any subsequent animation.

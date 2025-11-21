@@ -72,7 +72,7 @@ describe("Shared layout: A -> B transition", () => {
             })
             .trigger("click")
             .wait(50)
-            // Lose reference to orignal element
+            // Lose reference to original element
             .get("#shape-1")
             .get("#shape-0")
             .should(([$box]: any) => {
