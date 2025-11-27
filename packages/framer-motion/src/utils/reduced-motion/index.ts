@@ -11,7 +11,12 @@ export function initPrefersReducedMotion() {
         const setReducedMotionPreferences = () =>
             (prefersReducedMotion.current = motionMediaQuery.matches)
 
-        motionMediaQuery.addEventListener("change", setReducedMotionPreferences)
+        if (motionMediaQuery.addEventListener) {
+            motionMediaQuery.addEventListener("change", setReducedMotionPreferences)
+        } else {
+            // iOS (Safari) 13 doesn't support addEventListener, so we use addListener instead
+            motionMediaQuery.addListener(setReducedMotionPreferences)
+        }
 
         setReducedMotionPreferences()
     } else {
