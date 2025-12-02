@@ -2,7 +2,7 @@
 
 import { invariant } from "motion-utils"
 import * as React from "react"
-import { forwardRef, FunctionComponent, useEffect, useRef } from "react"
+import { forwardRef, FunctionComponent, JSX, useEffect, useRef } from "react"
 import { ReorderContext } from "../../context/ReorderContext"
 import { motion } from "../../render/components/motion/proxy"
 import { HTMLMotionProps } from "../../render/html/types"
