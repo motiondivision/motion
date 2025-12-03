@@ -6,10 +6,15 @@ export type DevMessage = (
     errorCode?: string
 ) => void
 
+const isDev =
+    typeof process !== "undefined" &&
+    process.env &&
+    process.env.NODE_ENV !== "production"
+
 let warning: DevMessage = () => {}
 let invariant: DevMessage = () => {}
 
-if (process.env.NODE_ENV !== "production") {
+if (isDev) {
     warning = (check, message, errorCode) => {
         if (!check && typeof console !== "undefined") {
             console.warn(formatErrorMessage(message, errorCode))
