@@ -1,15 +1,7 @@
-import { formatErrorMessage } from "./format-error-message"
-
-export type DevMessage = (
-    check: boolean,
-    message: string,
-    errorCode?: string
-) => void
-
 let warning: DevMessage = () => {}
 let invariant: DevMessage = () => {}
 
-if (process.env.NODE_ENV !== "production") {
+if (import.meta.env?.DEV ?? false) {
     warning = (check, message, errorCode) => {
         if (!check && typeof console !== "undefined") {
             console.warn(formatErrorMessage(message, errorCode))
