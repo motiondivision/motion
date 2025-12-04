@@ -67,7 +67,7 @@ function updateAxisInfo(
     if (isReverse) {
         axis.progress = progress(0, axis.scrollLength, Math.round(-axis.current));
     } else {
-        axis.progress = progress(0, axis.scrollLength, axis.current);
+        axis.progress = progress(0, axis.scrollLength, Math.round(axis.current));
     }
 
     const elapsed = time - prevTime
