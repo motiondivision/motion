@@ -52,7 +52,23 @@ function updateAxisInfo(
     axis.offset.length = 0
     axis.offset[0] = 0
     axis.offset[1] = axis.scrollLength
-    axis.progress = progress(0, axis.scrollLength, axis.current)
+    
+    const style = getComputedStyle(element);
+    let isReverse = false;
+    if (axisName === "y") {
+        isReverse = style.flexDirection === "column-reverse";
+    } else if (axisName === "x") {
+        isReverse =
+            style.flexDirection === "row-reverse" ||
+            style.writingMode === "vertical-rl" || 
+            style.direction === "rtl";
+    }
+
+    if (isReverse) {
+        axis.progress = progress(0, axis.scrollLength, Math.round(-axis.current));
+    } else {
+        axis.progress = progress(0, axis.scrollLength, axis.current);
+    }
 
     const elapsed = time - prevTime
     axis.velocity =
