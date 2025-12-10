@@ -23,6 +23,7 @@ interface PanSessionHandlers {
 interface PanSessionOptions {
     transformPagePoint?: TransformPoint
     dragSnapToOrigin?: boolean
+    applyingConstraints?: boolean;
     distanceThreshold?: number
     contextWindow?: (Window & typeof globalThis) | null
 }
@@ -78,6 +79,13 @@ export class PanSession {
     private dragSnapToOrigin: boolean
 
     /**
+     * Resume animation to the drag constraints box
+     *
+     * @internal
+     */
+    private applyingConstraints: boolean = false
+
+    /**
      * The distance after which panning should start.
      *
      * @internal
@@ -96,6 +104,7 @@ export class PanSession {
             transformPagePoint,
             contextWindow = window,
             dragSnapToOrigin = false,
+            applyingConstraints = false,
             distanceThreshold = 3,
         }: PanSessionOptions = {}
     ) {
@@ -103,6 +112,7 @@ export class PanSession {
         if (!isPrimaryPointer(event)) return
 
         this.dragSnapToOrigin = dragSnapToOrigin
+        this.applyingConstraints = applyingConstraints
         this.handlers = handlers
         this.transformPagePoint = transformPagePoint
         this.distanceThreshold = distanceThreshold
@@ -180,7 +190,7 @@ export class PanSession {
 
         const { onEnd, onSessionEnd, resumeAnimation } = this.handlers
 
-        if (this.dragSnapToOrigin) resumeAnimation && resumeAnimation()
+        if (this.dragSnapToOrigin || this.applyingConstraints) resumeAnimation && resumeAnimation()
         if (!(this.lastMoveEvent && this.lastMoveEventInfo)) return
 
         const panInfo = getPanInfo(

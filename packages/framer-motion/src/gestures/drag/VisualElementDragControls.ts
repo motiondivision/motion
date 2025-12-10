@@ -94,6 +94,8 @@ export class VisualElementDragControls {
      */
     private latestPanInfo: PanInfo | null = null
 
+    private applyingConstraints = false
+
     constructor(visualElement: VisualElement<HTMLElement>) {
         this.visualElement = visualElement
     }
@@ -113,7 +115,7 @@ export class VisualElementDragControls {
 
             // Stop or pause any animations on both axis values immediately. This allows the user to throw and catch
             // the component.
-            dragSnapToOrigin ? this.pauseAnimation() : this.stopAnimation()
+            dragSnapToOrigin || this.applyingConstraints ? this.pauseAnimation() : this.stopAnimation()
 
             if (snapToCursor) {
                 this.snapToCursor(extractEventInfo(event).point)
@@ -258,6 +260,7 @@ export class VisualElementDragControls {
             {
                 transformPagePoint: this.visualElement.getTransformPagePoint(),
                 dragSnapToOrigin,
+                applyingConstraints: this.applyingConstraints,
                 distanceThreshold,
                 contextWindow: getContextWindow(this.visualElement),
             }
@@ -320,6 +323,11 @@ export class VisualElementDragControls {
 
         // Apply constraints
         if (this.constraints && this.constraints[axis]) {
+            this.applyingConstraints = false
+            const { min, max } = this.constraints[axis]
+            if ((min && next < min) || (max && next > max)) {
+                this.applyingConstraints = true
+            }
             next = applyConstraints(
                 next,
                 this.constraints[axis],
