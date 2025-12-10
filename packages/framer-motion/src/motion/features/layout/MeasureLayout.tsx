@@ -9,9 +9,6 @@ import {
 } from "../../../context/LayoutGroupContext"
 import { SwitchLayoutGroupContext } from "../../../context/SwitchLayoutGroupContext"
 import { globalProjectionState } from "../../../projection/node/state"
-import { correctBorderRadius } from "../../../projection/styles/scale-border-radius"
-import { correctBoxShadow } from "../../../projection/styles/scale-box-shadow"
-import { addScaleCorrector } from "../../../projection/styles/scale-correction"
 import { VisualElement } from "../../../render/VisualElement"
 import { MotionProps } from "../../types"
 
@@ -45,8 +42,6 @@ class MeasureLayoutWithContext extends Component<MeasureProps> {
         const { visualElement, layoutGroup, switchLayoutGroup, layoutId } =
             this.props
         const { projection } = visualElement
-
-        addScaleCorrector(defaultScaleCorrectors)
 
         if (projection) {
             if (layoutGroup.group) layoutGroup.group.add(projection)
@@ -177,21 +172,4 @@ export function MeasureLayout(
             safeToRemove={safeToRemove}
         />
     )
-}
-
-const defaultScaleCorrectors = {
-    borderRadius: {
-        ...correctBorderRadius,
-        applyTo: [
-            "borderTopLeftRadius",
-            "borderTopRightRadius",
-            "borderBottomLeftRadius",
-            "borderBottomRightRadius",
-        ],
-    },
-    borderTopLeftRadius: correctBorderRadius,
-    borderTopRightRadius: correctBorderRadius,
-    borderBottomLeftRadius: correctBorderRadius,
-    borderBottomRightRadius: correctBorderRadius,
-    boxShadow: correctBoxShadow,
 }
