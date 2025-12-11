@@ -2,110 +2,111 @@ import * as React from "react"
 import { useEffect, useRef } from "react"
 import { scroll } from "framer-motion"
 
-const scrollerStyle: React.CSSProperties = {
-    width: "200px",
-    height: "200px",
-    overflow: "auto",
-    border: "1px solid black",
-    display: "flex",
-    margin: "20px",
+const containerBaseStyle: React.CSSProperties = {
+    minHeight: 0,
+    maxHeight: "24rem",
+    minWidth: "24rem",
+    backgroundColor: "thistle",
+    margin: "2rem",
+    position: "relative",
 }
 
-const contentStyle: React.CSSProperties = {
-    width: "400px",
-    height: "400px",
-    background: "linear-gradient(red, blue)",
+const contentBaseStyle: React.CSSProperties = {
+    flexShrink: 0,
 }
 
-const labelStyle: React.CSSProperties = {
-    position: "fixed",
-    top: "10px",
-    left: "10px",
-    fontSize: "24px",
-    fontFamily: "monospace",
+const progressStyle: React.CSSProperties = {
+    pointerEvents: "none",
+    position: "sticky",
+    textAlign: "center",
+    inset: 0,
+    padding: "1rem",
+    fontSize: "2rem",
 }
 
 export function App() {
-    const colReverseRef = useRef<HTMLDivElement>(null)
-    const rowReverseRef = useRef<HTMLDivElement>(null)
-    const rtlRef = useRef<HTMLDivElement>(null)
+    const containerRefs = [useRef<HTMLDivElement>(null), useRef<HTMLDivElement>(null), useRef<HTMLDivElement>(null), useRef<HTMLDivElement>(null)]
 
     useEffect(() => {
-        if (colReverseRef.current) {
-            const progressEl = document.getElementById("progress-col-reverse")!
-            scroll(
-                ({ y }) => {
-                    progressEl.textContent = y.progress.toFixed(3)
-                },
-                { container: colReverseRef.current }
-            )
-        }
-        if (rowReverseRef.current) {
-            const progressEl = document.getElementById("progress-row-reverse")!
-            scroll(
-                ({ x }) => {
-                    progressEl.textContent = x.progress.toFixed(3)
-                },
-                { container: rowReverseRef.current }
-            )
-        }
-        if (rtlRef.current) {
-            const progressEl = document.getElementById("progress-rtl")!
-            scroll(
-                ({ x }) => {
-                    progressEl.textContent = x.progress.toFixed(3)
-                },
-                { container: rtlRef.current }
-            )
-        }
-    }, [])
+        containerRefs.forEach((containerRef, index) => {
+            if (containerRef.current) {
+                const progressEl = containerRef.current.querySelector(".progress") as HTMLElement
+                scroll(
+                    (latest: number) => {
+                        if (progressEl) {
+                            progressEl.textContent = latest.toFixed(3)
+                        }
+                    },
+                    { container: containerRef.current, axis: index >= 1 ? "x" : "y" }
+                )
+            }
+        })
+    })
 
     return (
-        <div style={{ padding: "40px" }}>
-            <h2>Column Reverse</h2>
+        <div style={{ display: "flex", flexDirection: "column", height: "100%", padding: 0, margin: 0 }}>
             <div
-                id="scroller-col-reverse"
-                ref={colReverseRef}
+                id="scroller-1"
+                ref={containerRefs[0]}
+                className="container"
                 style={{
-                    ...scrollerStyle,
+                    ...containerBaseStyle,
+                    display: "flex",
                     flexDirection: "column-reverse",
+                    overflowY: "auto",
+                    overflowX: "hidden",
                 }}
             >
-                <div style={contentStyle}></div>
+                <div className="content" style={{ ...contentBaseStyle, width: "24rem", height: "200dvh" }}></div>
+                <div className="progress" style={progressStyle}>0.000</div>
             </div>
-            <p>
-                Progress: <span id="progress-col-reverse">0</span>
-            </p>
-
-            <h2>Row Reverse</h2>
             <div
-                id="scroller-row-reverse"
-                ref={rowReverseRef}
+                id="scroller-2"
+                ref={containerRefs[1]}
+                className="container"
                 style={{
-                    ...scrollerStyle,
+                    ...containerBaseStyle,
+                    display: "flex",
                     flexDirection: "row-reverse",
+                    overflowY: "hidden",
+                    overflowX: "auto",
                 }}
             >
-                <div style={contentStyle}></div>
+                <div className="content" style={{ ...contentBaseStyle, height: "24rem", width: "200dvh" }}></div>
+                <div className="progress" style={progressStyle}>0.000</div>
             </div>
-            <p>
-                Progress: <span id="progress-row-reverse">0</span>
-            </p>
-
-            <h2>RTL Direction</h2>
             <div
-                id="scroller-rtl"
-                ref={rtlRef}
+                id="scroller-3"
+                ref={containerRefs[2]}
+                className="container"
                 style={{
-                    ...scrollerStyle,
-                    direction: "rtl",
+                    ...containerBaseStyle,
+                    display: "flex",
+                    flexDirection: "column",
+                    writingMode: "vertical-rl",
+                    overflowY: "hidden",
+                    overflowX: "auto",
                 }}
             >
-                <div style={contentStyle}></div>
+                <div className="content" style={{ ...contentBaseStyle, height: "24rem", width: "200dvh" }}></div>
+                <div className="progress" style={progressStyle}>0.000</div>
             </div>
-            <p>
-                Progress: <span id="progress-rtl">0</span>
-            </p>
+            <div
+                id="scroller-4"
+                ref={containerRefs[3]}
+                className="container"
+                style={{
+                    ...containerBaseStyle,
+                    display: "flex",
+                    flexDirection: "row",
+                    direction: "rtl",
+                    overflowY: "hidden",
+                    overflowX: "auto",
+                }}
+            >
+                <div className="content" style={{ ...contentBaseStyle, height: "24rem", width: "200dvh" }}></div>
+                <div className="progress" style={progressStyle}>0.000</div>
+            </div>
         </div>
     )
 }
