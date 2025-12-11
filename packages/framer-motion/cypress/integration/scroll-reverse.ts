@@ -29,7 +29,7 @@ const calculateExpectedProgress = (
 
 describe("Scroll progress in reverse-direction containers", () => {
     beforeEach(() => {
-        cy.visit("?test=scroll-reverse")
+        cy.visit("?test=scroll-reverse").wait(1000)
         cy.get("#scroller-1").should("be.visible")
     })
 
