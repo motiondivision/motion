@@ -73,10 +73,10 @@ export function PopChild({ children, isPresent, anchorX, root }: Props) {
     })
     const { nonce } = useContext(MotionConfigContext)
     const composedRef = useComposedRefs(
-        ref,
-        (children as { ref?: React.Ref<HTMLElement> })?.ref
+    ref,
+    (children as any)?.props?.ref
     )
-
+    
     /**
      * We create and inject a style block so we can apply this explicit
      * sizing in a non-destructive manner by just deleting the style block.
