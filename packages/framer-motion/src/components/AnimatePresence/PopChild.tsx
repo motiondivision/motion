@@ -72,10 +72,8 @@ export function PopChild({ children, isPresent, anchorX, root }: Props) {
         right: 0,
     })
     const { nonce } = useContext(MotionConfigContext)
-    const composedRef = useComposedRefs(
-    ref,
-    (children as any)?.props?.ref
-    )
+    const childRef = (children as any)?.ref ?? (children as any)?.props?.ref;
+    const composedRef = useComposedRefs(ref, childRef);
     
     /**
      * We create and inject a style block so we can apply this explicit
