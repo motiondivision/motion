@@ -207,3 +207,54 @@ test("can be re-pointed to another `MotionValue`", async () => {
         "transform: translateX(2px)"
     )
 })
+
+describe("CSS logical properties", () => {
+    test("support numeric values with useTransform", async () => {
+        const Component = () => {
+            const scrollY = useMotionValue(0)
+            const paddingBlock = useTransform(scrollY, [0, 100], [0, 100])
+            return <motion.div style={{ paddingBlock }} />
+        }
+
+        const { container } = render(<Component />)
+        expect(container.firstChild).toHaveStyle("padding-block: 0px")
+    })
+
+    test("updates paddingBlock when MotionValue changes", async () => {
+        const scrollY = motionValue(0)
+
+        const Component = () => {
+            const paddingBlock = useTransform(scrollY, [0, 100], [0, 100])
+            return <motion.div style={{ paddingBlock }} />
+        }
+
+        const { container } = render(<Component />)
+
+        await nextFrame()
+        expect(container.firstChild).toHaveStyle("padding-block: 0px")
+
+        scrollY.set(50)
+        await nextFrame()
+        expect(container.firstChild).toHaveStyle("padding-block: 50px")
+    })
+
+    test("supports other CSS logical properties", async () => {
+        const Component = () => {
+            const v = useMotionValue(25)
+
+            return (
+                <motion.div
+                    style={{
+                        paddingInline: useTransform(v, [0, 100], [0, 100]),
+                        marginBlock: useTransform(v, [0, 100], [0, 100]),
+                    }}
+                />
+            )
+        }
+
+        const { container } = render(<Component />)
+
+        expect(container.firstChild).toHaveStyle("padding-inline: 25px")
+        expect(container.firstChild).toHaveStyle("margin-block: 25px")
+    })
+})
