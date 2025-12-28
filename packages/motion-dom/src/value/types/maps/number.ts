@@ -27,6 +27,13 @@ export const numberValueTypes: ValueTypeMap = {
     right: px,
     bottom: px,
     left: px,
+    inset: px,
+    insetBlock: px,
+    insetBlockStart: px,
+    insetBlockEnd: px,
+    insetInline: px,
+    insetInlineStart: px,
+    insetInlineEnd: px,
 
     // Spacing props
     padding: px,

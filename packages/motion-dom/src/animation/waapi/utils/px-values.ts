@@ -20,6 +20,13 @@ export const pxValues = new Set([
     "right",
     "bottom",
     "left",
+    "inset",
+    "insetBlock",
+    "insetBlockStart",
+    "insetBlockEnd",
+    "insetInline",
+    "insetInlineStart",
+    "insetInlineEnd",
     // Spacing props
     "padding",
     "paddingTop",
