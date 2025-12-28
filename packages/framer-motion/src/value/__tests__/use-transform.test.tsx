@@ -257,4 +257,53 @@ describe("CSS logical properties", () => {
         expect(container.firstChild).toHaveStyle("padding-inline: 25px")
         expect(container.firstChild).toHaveStyle("margin-block: 25px")
     })
+
+    test("supports inset shorthand with numeric values", async () => {
+        const Component = () => {
+            const scrollY = useMotionValue(0)
+            const inset = useTransform(scrollY, [0, 100], [0, 100])
+            return <motion.div style={{ inset }} />
+        }
+
+        const { container } = render(<Component />)
+        expect(container.firstChild).toHaveStyle("inset: 0px")
+    })
+
+    test("updates inset when MotionValue changes", async () => {
+        const scrollY = motionValue(0)
+
+        const Component = () => {
+            const inset = useTransform(scrollY, [0, 100], [0, 100])
+            return <motion.div style={{ inset }} />
+        }
+
+        const { container } = render(<Component />)
+
+        await nextFrame()
+        expect(container.firstChild).toHaveStyle("inset: 0px")
+
+        scrollY.set(50)
+        await nextFrame()
+        expect(container.firstChild).toHaveStyle("inset: 50px")
+    })
+
+    test("supports other inset logical properties", async () => {
+        const Component = () => {
+            const v = useMotionValue(30)
+
+            return (
+                <motion.div
+                    style={{
+                        insetBlock: useTransform(v, [0, 100], [0, 100]),
+                        insetInline: useTransform(v, [0, 100], [0, 100]),
+                    }}
+                />
+            )
+        }
+
+        const { container } = render(<Component />)
+
+        expect(container.firstChild).toHaveStyle("inset-block: 30px")
+        expect(container.firstChild).toHaveStyle("inset-inline: 30px")
+    })
 })
