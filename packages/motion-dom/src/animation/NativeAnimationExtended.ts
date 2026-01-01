@@ -1,9 +1,19 @@
 import { secondsToMilliseconds } from "motion-utils"
 import { JSAnimation } from "./JSAnimation"
 import { NativeAnimation, NativeAnimationOptions } from "./NativeAnimation"
-import { AnyResolvedKeyframe, ValueAnimationOptions } from "./types"
+import {
+    AnyResolvedKeyframe,
+    GeneratorFactory,
+    ValueAnimationOptions,
+} from "./types"
 import { replaceTransitionType } from "./utils/replace-transition-type"
 import { replaceStringEasing } from "./waapi/utils/unsupported-easing"
+import { isGenerator } from "./generators/utils/is-generator"
+import {
+    SimulationFrame,
+    pregenerateKeyframesWithVelocity,
+    interpolateFrame,
+} from "./generators/utils/pregenerate-with-velocity"
 
 export type NativeAnimationOptionsExtended<T extends AnyResolvedKeyframe> =
     NativeAnimationOptions & ValueAnimationOptions<T> & NativeAnimationOptions
@@ -19,6 +29,12 @@ export class NativeAnimationExtended<
     T extends AnyResolvedKeyframe
 > extends NativeAnimation<T> {
     options: NativeAnimationOptionsExtended<T>
+
+    /**
+     * SSGOI-style pre-simulated frames for accurate mid-animation state extraction
+     * Instead of creating a JSAnimation for sampling, we use binary search + interpolation
+     */
+    private simulationFrames: SimulationFrame[] | null = null
 
     constructor(options: NativeAnimationOptionsExtended<T>) {
         /**
@@ -48,15 +64,61 @@ export class NativeAnimationExtended<
         }
 
         this.options = options
+
+        /**
+         * SSGOI-style optimization: Pre-generate simulation frames with velocity data
+         * This enables O(log n) state lookup instead of creating a new JSAnimation
+         */
+        this.initSimulationFrames(options)
+    }
+
+    /**
+     * Pre-generate simulation frames for spring/generator-based animations
+     * Based on SSGOI's css-runner approach
+     */
+    private initSimulationFrames(
+        options: NativeAnimationOptionsExtended<T>
+    ): void {
+        const { type, keyframes } = options as any
+
+        // Only for generator-based animations (spring, inertia)
+        if (!isGenerator(type) || !keyframes?.length) {
+            return
+        }
+
+        try {
+            // Create a generator with the same options
+            const generator = (type as GeneratorFactory)({
+                ...options,
+                keyframes: keyframes,
+            })
+
+            // Create resolver function for velocity calculation
+            const resolveValue = (t: number) => generator.next(t).value
+
+            // Pre-generate frames with position and velocity data
+            const { frames } = pregenerateKeyframesWithVelocity(
+                generator,
+                resolveValue
+            )
+
+            this.simulationFrames = frames
+        } catch {
+            // Fallback to JSAnimation method if pre-generation fails
+            this.simulationFrames = null
+        }
     }
 
     /**
      * WAAPI doesn't natively have any interruption capabilities.
      *
-     * Rather than read commited styles back out of the DOM, we can
-     * create a renderless JS animation and sample it twice to calculate
-     * its current value, "previous" value, and therefore allow
-     * Motion to calculate velocity for any subsequent animation.
+     * SSGOI-style optimization:
+     * Instead of creating a JSAnimation and sampling twice, we use
+     * pre-simulated frames with binary search + linear interpolation.
+     * This provides O(log n) performance and no GC overhead.
+     *
+     * Fallback: If simulation frames are not available, use the original
+     * JSAnimation approach.
      */
     updateMotionValue(value?: T) {
         const { motionValue, onUpdate, onComplete, element, ...options } =
@@ -69,12 +131,33 @@ export class NativeAnimationExtended<
             return
         }
 
+        const sampleTime = secondsToMilliseconds(this.finishedTime ?? this.time)
+
+        // SSGOI-style: Use pre-simulated frames if available
+        if (this.simulationFrames && this.simulationFrames.length > 0) {
+            // Binary search + interpolation for O(log n) lookup
+            const currentState = interpolateFrame(
+                this.simulationFrames,
+                sampleTime
+            )
+            const prevState = interpolateFrame(
+                this.simulationFrames,
+                sampleTime - sampleDelta
+            )
+
+            motionValue.setWithVelocity(
+                prevState.position as T,
+                currentState.position as T,
+                sampleDelta
+            )
+            return
+        }
+
+        // Fallback: Original JSAnimation approach
         const sampleAnimation = new JSAnimation({
             ...options,
             autoplay: false,
         })
-
-        const sampleTime = secondsToMilliseconds(this.finishedTime ?? this.time)
 
         motionValue.setWithVelocity(
             sampleAnimation.sample(sampleTime - sampleDelta).value,
