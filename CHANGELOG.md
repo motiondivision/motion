@@ -14,6 +14,7 @@ Undocumented APIs should be considered internal and may change without warning.
 ### Fixed
 
 - Ensure drag gesture updates with latest props every render.
+- Fix missing `JSX` import error.
 
 ## [12.23.28] 2026-01-05
 
