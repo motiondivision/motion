@@ -631,7 +631,13 @@ export class VisualElementDragControls {
             "pointerdown",
             (event) => {
                 const { drag, dragListener = true } = this.getProps()
-                drag && dragListener && this.start(event)
+                if (
+                    drag &&
+                    dragListener &&
+                    !isInteractiveElement(event.target as Element)
+                ) {
+                    this.start(event)
+                }
             }
         )
 
@@ -755,4 +761,27 @@ export function expectsResolvedDragConstraints({
     onMeasureDragConstraints,
 }: MotionProps) {
     return isRefObject(dragConstraints) && !!onMeasureDragConstraints
+}
+
+/**
+ * Check if an element is an interactive form element that should
+ * prevent drag from starting when clicked.
+ */
+const interactiveElements = new Set([
+    "INPUT",
+    "TEXTAREA",
+    "SELECT",
+    "BUTTON",
+    "A",
+])
+
+function isInteractiveElement(element: Element | null): boolean {
+    if (!element) return false
+    if (
+        interactiveElements.has(element.tagName) ||
+        (element as HTMLElement).isContentEditable
+    ) {
+        return true
+    }
+    return false
 }
