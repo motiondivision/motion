@@ -4,7 +4,16 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
-- Fix missing px conversion for CSS logical properties (`paddingBlock`, `paddingInline`, `marginBlock`, `marginInline`) when using numeric ranges in `useTransform`.
+## [12.24.0] 2026-01-05
+
+### Added
+
+- `{ type: "svg" }` option to `motion.create()` for creating custom SVG components.
+- `px` default value type for CSS logical properties (`paddingBlock`, `paddingInline`, `marginBlock`, `marginInline`).
+
+### Fixed
+
+- Ensure drag gesture updates with latest props every render.
 
 ## [12.23.28] 2026-01-05
 
