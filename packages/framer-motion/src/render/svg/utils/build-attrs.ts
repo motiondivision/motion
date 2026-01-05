@@ -5,6 +5,16 @@ import { SVGRenderState } from "../types"
 import { buildSVGPath } from "./path"
 
 /**
+ * CSS Motion Path properties that should remain as CSS styles on SVG elements.
+ */
+const cssMotionPathProperties = [
+    "offsetDistance",
+    "offsetPath",
+    "offsetRotate",
+    "offsetAnchor",
+]
+
+/**
  * Build SVG visual attributes, like cx and style.transform
  */
 export function buildSVGAttrs(
@@ -62,10 +72,7 @@ export function buildSVGAttrs(
         delete attrs.transformBox
     }
 
-    /**
-     * CSS Motion Path properties should remain as CSS styles.
-     */
-    for (const key of ["offsetDistance", "offsetPath", "offsetRotate", "offsetAnchor"]) {
+    for (const key of cssMotionPathProperties) {
         if (attrs[key] !== undefined) {
             style[key] = attrs[key]
             delete attrs[key]
