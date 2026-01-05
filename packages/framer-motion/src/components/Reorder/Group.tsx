@@ -2,7 +2,15 @@
 
 import { invariant } from "motion-utils"
 import * as React from "react"
-import { forwardRef, FunctionComponent, JSX, useEffect, useRef } from "react"
+import {
+    forwardRef,
+    FunctionComponent,
+    JSX,
+    RefObject,
+    useEffect,
+    useMemo,
+    useRef,
+} from "react"
 import { ReorderContext } from "../../context/ReorderContext"
 import { motion } from "../../render/components/motion/proxy"
 import { HTMLMotionProps } from "../../render/html/types"
@@ -13,6 +21,7 @@ import {
     ReorderContextProps,
     ReorderElementTag,
 } from "./types"
+import { AutoScrollOptions, createAutoScroll } from "./utils/auto-scroll"
 import { checkReorder } from "./utils/check-reorder"
 
 export interface Props<
@@ -60,6 +69,36 @@ export interface Props<
      * @public
      */
     values: V[]
+
+    /**
+     * A ref to a scrollable parent element. When provided, the container will
+     * automatically scroll when dragging items near its edges.
+     *
+     * ```jsx
+     * function Component() {
+     *   const scrollRef = useRef(null)
+     *   const [items, setItems] = useState([0, 1, 2])
+     *
+     *   return (
+     *     <div ref={scrollRef} style={{ overflow: "auto", height: 200 }}>
+     *       <Reorder.Group values={items} onReorder={setItems} scrollParent={scrollRef}>
+     *         {items.map((item) => <Reorder.Item key={item} value={item} />)}
+     *       </Reorder.Group>
+     *     </div>
+     *   )
+     * }
+     * ```
+     *
+     * @public
+     */
+    scrollParent?: RefObject<HTMLElement | null>
+
+    /**
+     * Options for auto-scroll behavior when dragging near container edges.
+     *
+     * @public
+     */
+    scrollOptions?: AutoScrollOptions
 }
 
 type ReorderGroupProps<
@@ -79,6 +118,8 @@ export function ReorderGroupComponent<
         axis = "y",
         onReorder,
         values,
+        scrollParent,
+        scrollOptions,
         ...props
     }: ReorderGroupProps<V, TagName>,
     externalRef?: React.ForwardedRef<any>
@@ -96,6 +137,11 @@ export function ReorderGroupComponent<
         Boolean(values),
         "Reorder.Group must be provided a values prop",
         "reorder-values"
+    )
+
+    const autoScroll = useMemo(
+        () => (scrollParent ? createAutoScroll(axis, scrollOptions) : null),
+        [axis, scrollParent, scrollOptions]
     )
 
     const context: ReorderContextProps<V> = {
@@ -124,6 +170,15 @@ export function ReorderGroupComponent<
                 )
             }
         },
+        handleScroll: autoScroll
+            ? (pointerPosition: number) => {
+                  autoScroll.updateScroll(
+                      pointerPosition,
+                      scrollParent?.current ?? null
+                  )
+              }
+            : undefined,
+        stopScroll: autoScroll ? () => autoScroll.stop() : undefined,
     }
 
     useEffect(() => {

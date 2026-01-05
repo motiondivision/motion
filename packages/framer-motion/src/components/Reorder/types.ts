@@ -5,6 +5,8 @@ export interface ReorderContextProps<T> {
     axis: "x" | "y"
     registerItem: (item: T, layout: Box) => void
     updateOrder: (item: T, offset: number, velocity: number) => void
+    handleScroll?: (pointerPosition: number) => void
+    stopScroll?: () => void
 }
 
 export interface ItemData<T> {
