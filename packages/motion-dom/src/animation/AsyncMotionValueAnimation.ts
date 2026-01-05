@@ -138,7 +138,7 @@ export class AsyncMotionValueAnimation<T extends AnyResolvedKeyframe>
          * progress, which would feel snappier.
          *
          * However, if there's a delay (main thread work) between the creation of
-         * the animation and the first commited frame, we prefer to use resolvedAt
+         * the animation and the first committed frame, we prefer to use resolvedAt
          * to avoid a sudden jump into the animation.
          */
         const startTime = sync
