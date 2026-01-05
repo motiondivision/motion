@@ -4,6 +4,8 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+- Fix missing px conversion for CSS logical properties (`paddingBlock`, `paddingInline`, `marginBlock`, `marginInline`) when using numeric ranges in `useTransform`.
+
 ## [12.23.28] 2026-01-05
 
 ### Fixed
