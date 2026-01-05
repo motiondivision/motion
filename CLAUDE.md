@@ -71,6 +71,31 @@ motion (public API)
 - **render/** - Rendering pipeline (HTML, SVG, DOM utilities)
 - **value/** - Motion values and hooks (useMotionValue, useSpring, useScroll, useTransform)
 
+## Bug Fixes: Test-First Approach
+
+When fixing bugs, always follow a TDD workflow:
+
+1. **Write a failing test first** - Create a test that reproduces the bug before writing any fix
+2. **Verify the test fails** - Run the test to confirm it fails as expected
+3. **Implement the fix** - Write the minimal code needed to make the test pass
+4. **Verify the test passes** - Run the test again to confirm the fix works
+
+This ensures:
+- The bug is properly understood and captured
+- The fix actually addresses the issue
+- Regressions are prevented in the future
+
+Example workflow for Cypress E2E tests:
+```bash
+# 1. Add test component to dev/react/src/tests/
+# 2. Add test case to packages/framer-motion/cypress/integration/
+# 3. Run the specific test to verify it fails:
+yarn start-server-and-test "yarn dev-server" http://localhost:9990 \
+  "cd packages/framer-motion && npx cypress run --spec cypress/integration/your-test.ts"
+# 4. Implement the fix
+# 5. Run the test again to verify it passes
+```
+
 ## Writing Tests
 
 When waiting for the next frame in async tests:

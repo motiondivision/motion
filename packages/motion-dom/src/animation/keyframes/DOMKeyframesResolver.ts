@@ -3,7 +3,10 @@ import { MotionValue } from "../../value"
 import { findDimensionValueType } from "../../value/types/dimensions"
 import { AnyResolvedKeyframe } from "../types"
 import { getVariableValue } from "../utils/css-variables-conversion"
-import { isCSSVariableToken } from "../utils/is-css-variable"
+import {
+    containsCSSVariable,
+    isCSSVariableToken,
+} from "../utils/is-css-variable"
 import {
     KeyframeResolver,
     OnKeyframesResolved,
@@ -87,7 +90,20 @@ export class DOMKeyframesResolver<
         /**
          * Either we don't recognise these value types or we can animate between them.
          */
-        if (originType === targetType) return
+        if (originType === targetType) {
+            /**
+             * Even if types match, if one contains embedded CSS variables (e.g. in calc())
+             * and the other doesn't, we need to measure to ensure proper interpolation.
+             * See GitHub issue #3410.
+             */
+            if (
+                positionalValues[name] &&
+                containsCSSVariable(origin) !== containsCSSVariable(target)
+            ) {
+                this.needsMeasurement = true
+            }
+            return
+        }
 
         /**
          * If both values are numbers or pixels, we can animate between them by

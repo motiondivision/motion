@@ -62,3 +62,20 @@ test("mixComplex will only interpolate values outside of CSS variables", () => {
     expect(mixer(0.5)).toBe("rgba(180, 180, 180, 1) 0 var(--grey, 10px) 5px")
     expect(mixer(1)).toBe("rgba(0, 0, 0, 1) 0 var(--grey, 10px) 0px")
 })
+
+test("mixComplex with mismatched var counts falls back to immediate", () => {
+    // GitHub issue #3410: when origin has var and target doesn't,
+    // should use mixImmediate (instant transition), not preserve calc structure
+    const mixer = mixComplex("calc(100% + var(--offset))", "0")
+    // At progress 0, should return origin
+    expect(mixer(0)).toBe("calc(100% + var(--offset))")
+    // At progress > 0, should instantly return target (mixImmediate behavior)
+    expect(mixer(0.5)).toBe("0")
+    expect(mixer(1)).toBe("0")
+
+    // Also test with numeric target (not string)
+    const mixerNumeric = mixComplex("calc(100% + var(--offset))", 0)
+    expect(mixerNumeric(0)).toBe("calc(100% + var(--offset))")
+    expect(mixerNumeric(0.5)).toBe(0)
+    expect(mixerNumeric(1)).toBe(0)
+})

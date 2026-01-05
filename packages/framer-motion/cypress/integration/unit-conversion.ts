@@ -1,4 +1,35 @@
 describe("Unit conversion", () => {
+    /**
+     * Test for GitHub issue #3410
+     * When animating from a calc() with CSS variables to a simple value,
+     * the animation should end at the target value, not preserve the calc structure.
+     */
+    it("Animate x from calc with CSS variable to simple value", () => {
+        cy.visit("?test=unit-conversion-var-to-simple")
+            .wait(100)
+            .get("#box")
+            // First check the initial position (should be at x=calc(100%+50px)=150)
+            .should(([$box]: any) => {
+                const { left } = $box.getBoundingClientRect()
+                expect(left).to.equal(150)
+            })
+            .trigger("click")
+            .wait(200)
+            // After animation, should be at x=0
+            .should(([$box]: any) => {
+                const { left } = $box.getBoundingClientRect()
+                // Log debug info to help diagnose the issue
+                const debugInfo = (window as any).__debugInfo
+                if (debugInfo) {
+                    cy.log(`Motion value: ${debugInfo.motionValue} (${typeof debugInfo.motionValue})`)
+                    cy.log(`Computed transform: ${debugInfo.computedTransform}`)
+                }
+                // The box should be at x=0, not at calc(0 + var(--offset))
+                // which would incorrectly be 50px due to --offset: 50px
+                expect(left).to.equal(0)
+            })
+    })
+
     it("Animate x from 0 to calc", () => {
         cy.visit("?test=unit-conversion")
             .wait(100)
