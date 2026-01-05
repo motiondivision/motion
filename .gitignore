@@ -45,3 +45,7 @@ test_results
 
 # Generated files
 changelog.csv
+
+# Environment files
+.env
+.env.*
