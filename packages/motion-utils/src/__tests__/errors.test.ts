@@ -67,9 +67,7 @@ describe("errors", () => {
             if (process.env.NODE_ENV !== "production") {
                 expect(() => {
                     invariant(false, "Test message", "test-error")
-                }).toThrow(
-                    expect.stringContaining("motion.dev/troubleshooting/test-error")
-                )
+                }).toThrow(/motion\.dev\/troubleshooting\/test-error/)
             }
         })
     })
