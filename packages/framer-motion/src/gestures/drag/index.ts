@@ -26,6 +26,18 @@ export class DragGesture extends Feature<HTMLElement> {
         this.removeListeners = this.controls.addListeners() || noop
     }
 
+    update() {
+        const { dragControls } = this.node.getProps()
+        const { dragControls: prevDragControls } = this.node.prevProps || {}
+
+        if (dragControls !== prevDragControls) {
+            this.removeGroupControls()
+            if (dragControls) {
+                this.removeGroupControls = dragControls.subscribe(this.controls)
+            }
+        }
+    }
+
     unmount() {
         this.removeGroupControls()
         this.removeListeners()
