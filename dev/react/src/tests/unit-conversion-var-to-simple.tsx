@@ -4,14 +4,15 @@ import { motion, useCycle } from "framer-motion"
  * Test for GitHub issue #3410
  * Animating from calc() with CSS variable to a simple value should
  * end at the simple value, not preserve the calc structure.
+ *
+ * Start at 0, click to go to calc (150px), click again to go back to 0.
  */
 
 export const App = () => {
-    // Use a simple calc with var to isolate the issue
-    // calc(100px + 50px) = 150px -> 0
+    // Toggle: 0 <-> calc(100px + 50px) = 150px
     const [x, cycleX] = useCycle<number | string>(
-        "calc(100px + var(--offset))",
-        0
+        0,
+        "calc(100px + var(--offset))"
     )
 
     return (

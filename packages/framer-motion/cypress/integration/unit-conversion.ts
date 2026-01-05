@@ -9,14 +9,22 @@ describe("Unit conversion", () => {
             .wait(200)
             .get("#box", { timeout: 10000 })
             .should(([$box]: any) => {
-                // Initial position should be calc(100px + 50px) = 150px from left edge
+                // Initial position should be 0
                 const { left } = $box.getBoundingClientRect()
-                expect(left).to.equal(150)
+                expect(left).to.equal(0)
             })
+            // First click: 0 -> calc (150px)
             .trigger("click")
             .wait(300)
             .should(([$box]: any) => {
-                // After animation, left should be 0 (transform: translateX(0))
+                const { left } = $box.getBoundingClientRect()
+                expect(left).to.equal(150)
+            })
+            // Second click: calc (150px) -> 0
+            .trigger("click")
+            .wait(300)
+            .should(([$box]: any) => {
+                // After animation back to 0, left should be 0
                 const { left } = $box.getBoundingClientRect()
                 expect(left).to.equal(0)
             })
