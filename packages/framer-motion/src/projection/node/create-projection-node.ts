@@ -400,6 +400,8 @@ export function createProjectionNode<I>({
 
         hasTreeAnimated = false
 
+        layoutVersion: number = 0
+
         constructor(
             latestValues: ResolvedValues = {},
             parent: IProjectionNode | undefined = defaultParent?.()
@@ -586,7 +588,7 @@ export function createProjectionNode<I>({
                             /**
                              * If the layout hasn't changed and we have an animation that hasn't started yet,
                              * finish it immediately. Otherwise it will be animating from a location
-                             * that was probably never commited to screen and look like a jumpy box.
+                             * that was probably never committed to screen and look like a jumpy box.
                              */
 
                             if (!hasLayoutChanged) {
@@ -893,6 +895,7 @@ export function createProjectionNode<I>({
 
             const prevLayout = this.layout
             this.layout = this.measure(false)
+            this.layoutVersion++
             this.layoutCorrected = createBox()
             this.isLayoutDirty = false
             this.projectionDelta = undefined
@@ -1185,31 +1188,30 @@ export function createProjectionNode<I>({
 
             this.resolvedRelativeTargetAt = frameData.timestamp
 
+            const relativeParent = this.getClosestProjectingParent()
+
+            if (
+                relativeParent &&
+                this.linkedParentVersion !== relativeParent.layoutVersion &&
+                !relativeParent.options.layoutRoot
+            ) {
+                this.removeRelativeTarget()
+            }
+
             /**
              * If we don't have a targetDelta but do have a layout, we can attempt to resolve
              * a relativeParent. This will allow a component to perform scale correction
              * even if no animation has started.
              */
             if (!this.targetDelta && !this.relativeTarget) {
-                const relativeParent = this.getClosestProjectingParent()
-                if (
-                    relativeParent &&
-                    relativeParent.layout &&
-                    this.animationProgress !== 1
-                ) {
-                    this.relativeParent = relativeParent
-                    this.forceRelativeParentToResolveTarget()
-                    this.relativeTarget = createBox()
-                    this.relativeTargetOrigin = createBox()
-                    calcRelativePosition(
-                        this.relativeTargetOrigin,
+                if (relativeParent && relativeParent.layout) {
+                    this.createRelativeTarget(
+                        relativeParent,
                         this.layout.layoutBox,
                         relativeParent.layout.layoutBox
                     )
-
-                    copyBoxInto(this.relativeTarget, this.relativeTargetOrigin)
                 } else {
-                    this.relativeParent = this.relativeTarget = undefined
+                    this.removeRelativeTarget()
                 }
             }
 
@@ -1268,7 +1270,6 @@ export function createProjectionNode<I>({
              */
             if (this.attemptToResolveRelativeTarget) {
                 this.attemptToResolveRelativeTarget = false
-                const relativeParent = this.getClosestProjectingParent()
 
                 if (
                     relativeParent &&
@@ -1278,18 +1279,11 @@ export function createProjectionNode<I>({
                     relativeParent.target &&
                     this.animationProgress !== 1
                 ) {
-                    this.relativeParent = relativeParent
-                    this.forceRelativeParentToResolveTarget()
-                    this.relativeTarget = createBox()
-                    this.relativeTargetOrigin = createBox()
-
-                    calcRelativePosition(
-                        this.relativeTargetOrigin,
+                    this.createRelativeTarget(
+                        relativeParent,
                         this.target,
                         relativeParent.target
                     )
-
-                    copyBoxInto(this.relativeTarget, this.relativeTargetOrigin)
                 } else {
                     this.relativeParent = this.relativeTarget = undefined
                 }
@@ -1326,6 +1320,30 @@ export function createProjectionNode<I>({
                     this.options.layoutRoot) &&
                     this.layout
             )
+        }
+
+        linkedParentVersion: number = 0
+        createRelativeTarget(
+            relativeParent: IProjectionNode,
+            layout: Box,
+            parentLayout: Box
+        ) {
+            this.relativeParent = relativeParent
+            this.linkedParentVersion = relativeParent.layoutVersion
+            this.forceRelativeParentToResolveTarget()
+            this.relativeTarget = createBox()
+            this.relativeTargetOrigin = createBox()
+            calcRelativePosition(
+                this.relativeTargetOrigin,
+                layout,
+                parentLayout
+            )
+
+            copyBoxInto(this.relativeTarget, this.relativeTargetOrigin)
+        }
+
+        removeRelativeTarget() {
+            this.relativeParent = this.relativeTarget = undefined
         }
 
         hasProjected: boolean = false

@@ -4,6 +4,32 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.23.28] 2026-01-05
+
+### Fixed
+
+-   Fixing `MotionStyle` type with React 19 when `skipLibCheck` is `false`.
+-   Add guard for `process` check for better compat with ESM environments.
+
+## [12.23.27] 2026-01-05
+
+### Fixed
+
+-   Improved Intellisense detection for `motion` import.
+-   Adding sourcemaps to release.
+
+## [12.23.26] 2025-12-10
+
+### Fixed
+
+-   Moved initialisation of default scale correctors to allow for overwriting existing correctors.
+
+## [12.23.25] 2025-12-01
+
+### Fixed
+
+-   Ensure relative projection boxes are re-measured when parent layout changes.
+
 ## [12.23.24] 2025-10-10
 
 ### Fixed

@@ -95,7 +95,7 @@ test-e2e: test-nextjs test-html test-react test-react-19
 	yarn test-playwright
 
 test-single: build test-mkdir
-	yarn start-server-and-test "yarn dev-server" http://localhost:9991 "cd packages/framer-motion && cypress run --config-file=cypress.react-19.json --headed --spec cypress/integration/scroll.ts"
+	yarn start-server-and-test "yarn dev-server" http://localhost:9991 "cd packages/framer-motion && cypress run --config-file=cypress.react-19.json --headed --spec cypress/integration/layout-group.ts"
 
 lint: bootstrap
 	yarn lint
