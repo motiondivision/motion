@@ -45,6 +45,7 @@ import {
 import { AnimationState } from "./utils/animation-state"
 import {
     isControllingVariants as checkIsControllingVariants,
+    isControllingPrimaryVariants as checkIsControllingPrimaryVariants,
     isVariantNode as checkIsVariantNode,
 } from "./utils/is-controlling-variants"
 import { updateMotionValuesFromProps } from "./utils/motion-values"
@@ -216,6 +217,7 @@ export abstract class VisualElement<
      */
     isVariantNode: boolean = false
     isControllingVariants: boolean = false
+    isControllingPrimaryVariants: boolean = false
 
     /**
      * If this component is part of the variant tree, it should track
@@ -366,6 +368,7 @@ export abstract class VisualElement<
         this.blockInitialAnimation = Boolean(blockInitialAnimation)
 
         this.isControllingVariants = checkIsControllingVariants(props)
+        this.isControllingPrimaryVariants = checkIsControllingPrimaryVariants(props)
         this.isVariantNode = checkIsVariantNode(props)
         if (this.isVariantNode) {
             this.variantChildren = new Set()
@@ -404,7 +407,7 @@ export abstract class VisualElement<
             this.projection.mount(instance)
         }
 
-        if (this.parent && this.isVariantNode && !this.isControllingVariants) {
+        if (this.parent && this.isVariantNode && !this.isControllingPrimaryVariants) {
             this.removeFromVariantTree = this.parent.addVariantChild(this)
         }
 

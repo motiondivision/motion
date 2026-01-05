@@ -747,6 +747,165 @@ describe("animate prop as variant", () => {
         expect(isCorrectlyStaggered).toBe(true)
     })
 
+    test("staggerChildren works correctly when children have whileHover", async () => {
+        const isCorrectlyStaggered = await new Promise((resolve) => {
+            const childVariants = {
+                hidden: { opacity: 0 },
+                visible: { opacity: 1, transition: { duration: 0.1 } },
+                hover: { scale: 1.1 },
+            }
+
+            function Component() {
+                const a = useMotionValue(0)
+                const b = useMotionValue(0)
+
+                useEffect(
+                    () =>
+                        a.on("change", (latest) => {
+                            if (latest >= 1 && b.get() === 0) resolve(true)
+                        }),
+                    [a, b]
+                )
+
+                return (
+                    <motion.div
+                        variants={{
+                            hidden: {},
+                            visible: {
+                                x: 100,
+                                transition: { staggerChildren: 0.15 },
+                            },
+                        }}
+                        initial="hidden"
+                        animate="visible"
+                    >
+                        <motion.div
+                            variants={childVariants}
+                            whileHover="hover"
+                            style={{ opacity: a }}
+                        />
+                        <motion.div
+                            variants={childVariants}
+                            whileHover="hover"
+                            style={{ opacity: b }}
+                        />
+                    </motion.div>
+                )
+            }
+
+            const { rerender } = render(<Component />)
+            rerender(<Component />)
+        })
+
+        expect(isCorrectlyStaggered).toBe(true)
+    })
+
+    test("staggerChildren works correctly when children have whileTap", async () => {
+        const isCorrectlyStaggered = await new Promise((resolve) => {
+            const childVariants = {
+                hidden: { opacity: 0 },
+                visible: { opacity: 1, transition: { duration: 0.1 } },
+                tap: { scale: 0.9 },
+            }
+
+            function Component() {
+                const a = useMotionValue(0)
+                const b = useMotionValue(0)
+
+                useEffect(
+                    () =>
+                        a.on("change", (latest) => {
+                            if (latest >= 1 && b.get() === 0) resolve(true)
+                        }),
+                    [a, b]
+                )
+
+                return (
+                    <motion.div
+                        variants={{
+                            hidden: {},
+                            visible: {
+                                x: 100,
+                                transition: { staggerChildren: 0.15 },
+                            },
+                        }}
+                        initial="hidden"
+                        animate="visible"
+                    >
+                        <motion.div
+                            variants={childVariants}
+                            whileTap="tap"
+                            style={{ opacity: a }}
+                        />
+                        <motion.div
+                            variants={childVariants}
+                            whileTap="tap"
+                            style={{ opacity: b }}
+                        />
+                    </motion.div>
+                )
+            }
+
+            const { rerender } = render(<Component />)
+            rerender(<Component />)
+        })
+
+        expect(isCorrectlyStaggered).toBe(true)
+    })
+
+    test("staggerChildren works correctly when children have whileFocus", async () => {
+        const isCorrectlyStaggered = await new Promise((resolve) => {
+            const childVariants = {
+                hidden: { opacity: 0 },
+                visible: { opacity: 1, transition: { duration: 0.1 } },
+                focus: { scale: 1.05 },
+            }
+
+            function Component() {
+                const a = useMotionValue(0)
+                const b = useMotionValue(0)
+
+                useEffect(
+                    () =>
+                        a.on("change", (latest) => {
+                            if (latest >= 1 && b.get() === 0) resolve(true)
+                        }),
+                    [a, b]
+                )
+
+                return (
+                    <motion.div
+                        variants={{
+                            hidden: {},
+                            visible: {
+                                x: 100,
+                                transition: { staggerChildren: 0.15 },
+                            },
+                        }}
+                        initial="hidden"
+                        animate="visible"
+                    >
+                        <motion.button
+                            variants={childVariants}
+                            whileFocus="focus"
+                            style={{ opacity: a }}
+                        />
+                        <motion.button
+                            variants={childVariants}
+                            whileFocus="focus"
+                            style={{ opacity: b }}
+                        />
+                    </motion.div>
+                )
+            }
+
+            const { rerender } = render(<Component />)
+            rerender(<Component />)
+        })
+
+        expect(isCorrectlyStaggered).toBe(true)
+    })
+
     test("Child variants with value-specific transitions correctly calculate delay based on staggerChildren (deprecated)", async () => {
         const isCorrectlyStaggered = await new Promise((resolve) => {
             const childVariants = {

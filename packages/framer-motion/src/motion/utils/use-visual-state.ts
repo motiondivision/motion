@@ -10,7 +10,7 @@ import {
 } from "../../context/PresenceContext"
 import { ResolvedValues, ScrapeMotionValuesFromProps } from "../../render/types"
 import {
-    isControllingVariants as checkIsControllingVariants,
+    isControllingPrimaryVariants as checkIsControllingPrimaryVariants,
     isVariantNode as checkIsVariantNode,
 } from "../../render/utils/is-controlling-variants"
 import { resolveVariantFromProps } from "../../render/utils/resolve-variants"
@@ -70,13 +70,13 @@ function makeLatestValues(
     }
 
     let { initial, animate } = props
-    const isControllingVariants = checkIsControllingVariants(props)
+    const isControllingPrimaryVariants = checkIsControllingPrimaryVariants(props)
     const isVariantNode = checkIsVariantNode(props)
 
     if (
         context &&
         isVariantNode &&
-        !isControllingVariants &&
+        !isControllingPrimaryVariants &&
         props.inherit !== false
     ) {
         if (initial === undefined) initial = context.initial
