@@ -15,6 +15,8 @@ Undocumented APIs should be considered internal and may change without warning.
 
 -   Ensure drag gesture updates with latest props every render.
 -   Fix missing `JSX` import error.
+-   Fix `motion-dom` build.
+-   Exclude `src` from distributed package.
 
 ## [12.23.28] 2026-01-05
 
