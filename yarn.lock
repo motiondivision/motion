@@ -2135,65 +2135,65 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@next/env@npm:15.4.7":
-  version: 15.4.7
-  resolution: "@next/env@npm:15.4.7"
-  checksum: e24f77a4dbc42e33eedf8db060a5a034217a9f466b97d84046779a506785d2ab4f1a386847dd5636a306b8d9a6a9daa7c83a36a8e36b0d6ad77f7e815e0dee55
+"@next/env@npm:15.4.10":
+  version: 15.4.10
+  resolution: "@next/env@npm:15.4.10"
+  checksum: b89dd1279a53c69d86630b63cb550cbacaed28b8e423f73c492581a17cb4c1bda4429ab3c19b3ec24c2a65f06e55d954b553c6553ee94eb2867c628a3d291e04
   languageName: node
   linkType: hard
 
-"@next/swc-darwin-arm64@npm:15.4.7":
-  version: 15.4.7
-  resolution: "@next/swc-darwin-arm64@npm:15.4.7"
+"@next/swc-darwin-arm64@npm:15.4.8":
+  version: 15.4.8
+  resolution: "@next/swc-darwin-arm64@npm:15.4.8"
   conditions: os=darwin & cpu=arm64
   languageName: node
   linkType: hard
 
-"@next/swc-darwin-x64@npm:15.4.7":
-  version: 15.4.7
-  resolution: "@next/swc-darwin-x64@npm:15.4.7"
+"@next/swc-darwin-x64@npm:15.4.8":
+  version: 15.4.8
+  resolution: "@next/swc-darwin-x64@npm:15.4.8"
   conditions: os=darwin & cpu=x64
   languageName: node
   linkType: hard
 
-"@next/swc-linux-arm64-gnu@npm:15.4.7":
-  version: 15.4.7
-  resolution: "@next/swc-linux-arm64-gnu@npm:15.4.7"
+"@next/swc-linux-arm64-gnu@npm:15.4.8":
+  version: 15.4.8
+  resolution: "@next/swc-linux-arm64-gnu@npm:15.4.8"
   conditions: os=linux & cpu=arm64 & libc=glibc
   languageName: node
   linkType: hard
 
-"@next/swc-linux-arm64-musl@npm:15.4.7":
-  version: 15.4.7
-  resolution: "@next/swc-linux-arm64-musl@npm:15.4.7"
+"@next/swc-linux-arm64-musl@npm:15.4.8":
+  version: 15.4.8
+  resolution: "@next/swc-linux-arm64-musl@npm:15.4.8"
   conditions: os=linux & cpu=arm64 & libc=musl
   languageName: node
   linkType: hard
 
-"@next/swc-linux-x64-gnu@npm:15.4.7":
-  version: 15.4.7
-  resolution: "@next/swc-linux-x64-gnu@npm:15.4.7"
+"@next/swc-linux-x64-gnu@npm:15.4.8":
+  version: 15.4.8
+  resolution: "@next/swc-linux-x64-gnu@npm:15.4.8"
   conditions: os=linux & cpu=x64 & libc=glibc
   languageName: node
   linkType: hard
 
-"@next/swc-linux-x64-musl@npm:15.4.7":
-  version: 15.4.7
-  resolution: "@next/swc-linux-x64-musl@npm:15.4.7"
+"@next/swc-linux-x64-musl@npm:15.4.8":
+  version: 15.4.8
+  resolution: "@next/swc-linux-x64-musl@npm:15.4.8"
   conditions: os=linux & cpu=x64 & libc=musl
   languageName: node
   linkType: hard
 
-"@next/swc-win32-arm64-msvc@npm:15.4.7":
-  version: 15.4.7
-  resolution: "@next/swc-win32-arm64-msvc@npm:15.4.7"
+"@next/swc-win32-arm64-msvc@npm:15.4.8":
+  version: 15.4.8
+  resolution: "@next/swc-win32-arm64-msvc@npm:15.4.8"
   conditions: os=win32 & cpu=arm64
   languageName: node
   linkType: hard
 
-"@next/swc-win32-x64-msvc@npm:15.4.7":
-  version: 15.4.7
-  resolution: "@next/swc-win32-x64-msvc@npm:15.4.7"
+"@next/swc-win32-x64-msvc@npm:15.4.8":
+  version: 15.4.8
+  resolution: "@next/swc-win32-x64-msvc@npm:15.4.8"
   conditions: os=win32 & cpu=x64
   languageName: node
   linkType: hard
@@ -2551,6 +2551,19 @@ __metadata:
     rollup:
       optional: true
   checksum: 5472f659fbb7034488df91eb01ecd2ddf6d2cf203d049aa486139225ad5566254c6ec24aad1f5d1167e35f480212ede5160df9cc80e149a28874f78ed6a7fd9a
+  languageName: node
+  linkType: hard
+
+"@rollup/pluginutils@npm:^3.0.9":
+  version: 3.1.0
+  resolution: "@rollup/pluginutils@npm:3.1.0"
+  dependencies:
+    "@types/estree": 0.0.39
+    estree-walker: ^1.0.1
+    picomatch: ^2.2.2
+  peerDependencies:
+    rollup: ^1.20.0||^2.0.0
+  checksum: 8be16e27863c219edbb25a4e6ec2fe0e1e451d9e917b6a43cf2ae5bc025a6b8faaa40f82a6e53b66d0de37b58ff472c6c3d57a83037ae635041f8df959d6d9aa
   languageName: node
   linkType: hard
 
@@ -3149,6 +3162,13 @@ __metadata:
   dependencies:
     "@babel/types": ^7.20.7
   checksum: 2a2e5ad29c34a8b776162b0fe81c9ccb6459b2b46bf230f756ba0276a0258fcae1cbcfdccbb93a1e8b1df44f4939784ee8a1a269f95afe0c78b24b9cb6d50dd1
+  languageName: node
+  linkType: hard
+
+"@types/estree@npm:0.0.39":
+  version: 0.0.39
+  resolution: "@types/estree@npm:0.0.39"
+  checksum: 412fb5b9868f2c418126451821833414189b75cc6bf84361156feed733e3d92ec220b9d74a89e52722e03d5e241b2932732711b7497374a404fad49087adc248
   languageName: node
   linkType: hard
 
@@ -5848,6 +5868,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"dotenv@npm:^17.2.3":
+  version: 17.2.3
+  resolution: "dotenv@npm:17.2.3"
+  checksum: fde23eb88649041ec7a0f6a47bbe59cac3c454fc2007cf2e40b9c984aaf0636347218c56cfbbf067034b0a73f530a2698a19b4058695787eb650ec69fe234624
+  languageName: node
+  linkType: hard
+
 "dunder-proto@npm:^1.0.0, dunder-proto@npm:^1.0.1":
   version: 1.0.1
   resolution: "dunder-proto@npm:1.0.1"
@@ -6549,6 +6576,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"estree-walker@npm:^1.0.1":
+  version: 1.0.1
+  resolution: "estree-walker@npm:1.0.1"
+  checksum: 7e70da539691f6db03a08e7ce94f394ce2eef4180e136d251af299d41f92fb2d28ebcd9a6e393e3728d7970aeb5358705ddf7209d52fbcb2dd4693f95dcf925f
+  languageName: node
+  linkType: hard
+
 "estree-walker@npm:^2.0.2":
   version: 2.0.2
   resolution: "estree-walker@npm:2.0.2"
@@ -7087,7 +7121,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"framer-motion@^12.23.26, framer-motion@workspace:packages/framer-motion":
+"framer-motion@^12.23.27, framer-motion@workspace:packages/framer-motion":
   version: 0.0.0-use.local
   resolution: "framer-motion@workspace:packages/framer-motion"
   dependencies:
@@ -7851,8 +7885,8 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "html-env@workspace:dev/html"
   dependencies:
-    framer-motion: ^12.23.26
-    motion: ^12.23.26
+    framer-motion: ^12.23.27
+    motion: ^12.23.27
     motion-dom: ^12.23.23
     react: ^18.3.1
     react-dom: ^18.3.1
@@ -10628,6 +10662,7 @@ __metadata:
     concurrently: ^7.3.0
     convert-tsconfig-paths-to-webpack-aliases: ^0.9.2
     cypress: 4
+    dotenv: ^17.2.3
     eslint: ^8.57.0
     eslint-config-prettier: ^8.5.0
     eslint-plugin-import: ^2.26.0
@@ -10652,6 +10687,7 @@ __metadata:
     rollup-plugin-analyzer: ^4.0.0
     rollup-plugin-dts: 6.1.0
     rollup-plugin-preserve-directives: ^0.4.0
+    rollup-plugin-sourcemaps: ^0.6.3
     rollup-plugin-visualizer: ^5.14.0
     start-server-and-test: ^1.14.0
     ts-jest: ^29.1.2
@@ -10670,11 +10706,11 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"motion@^12.23.26, motion@workspace:packages/motion":
+"motion@^12.23.27, motion@workspace:packages/motion":
   version: 0.0.0-use.local
   resolution: "motion@workspace:packages/motion"
   dependencies:
-    framer-motion: ^12.23.26
+    framer-motion: ^12.23.27
     tslib: ^2.4.0
   peerDependencies:
     "@emotion/is-prop-valid": "*"
@@ -10791,26 +10827,26 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "next-env@workspace:dev/next"
   dependencies:
-    motion: ^12.23.26
-    next: 15.4.7
+    motion: ^12.23.27
+    next: 15.4.10
     react: 19.0.0
     react-dom: 19.0.0
   languageName: unknown
   linkType: soft
 
-"next@npm:15.4.7":
-  version: 15.4.7
-  resolution: "next@npm:15.4.7"
+"next@npm:15.4.10":
+  version: 15.4.10
+  resolution: "next@npm:15.4.10"
   dependencies:
-    "@next/env": 15.4.7
-    "@next/swc-darwin-arm64": 15.4.7
-    "@next/swc-darwin-x64": 15.4.7
-    "@next/swc-linux-arm64-gnu": 15.4.7
-    "@next/swc-linux-arm64-musl": 15.4.7
-    "@next/swc-linux-x64-gnu": 15.4.7
-    "@next/swc-linux-x64-musl": 15.4.7
-    "@next/swc-win32-arm64-msvc": 15.4.7
-    "@next/swc-win32-x64-msvc": 15.4.7
+    "@next/env": 15.4.10
+    "@next/swc-darwin-arm64": 15.4.8
+    "@next/swc-darwin-x64": 15.4.8
+    "@next/swc-linux-arm64-gnu": 15.4.8
+    "@next/swc-linux-arm64-musl": 15.4.8
+    "@next/swc-linux-x64-gnu": 15.4.8
+    "@next/swc-linux-x64-musl": 15.4.8
+    "@next/swc-win32-arm64-msvc": 15.4.8
+    "@next/swc-win32-x64-msvc": 15.4.8
     "@swc/helpers": 0.5.15
     caniuse-lite: ^1.0.30001579
     postcss: 8.4.31
@@ -10853,7 +10889,7 @@ __metadata:
       optional: true
   bin:
     next: dist/bin/next
-  checksum: 7f4c9e25444fe0ab30c5874640a762b8061db8eb8ec3abbf9343d91c28f0ccd037a8b8aeefc4930b3e89d5415b2b8eab224597d29440cebe04763e28473454c7
+  checksum: 11f76f5de9f0e734dd3925a48821e29291d82191a099d2e35695d51acbcbd4ee965d2842748e4a95cfdf55f38e3edb2180fd3be4adbe36b01936a7130ad60a11
   languageName: node
   linkType: hard
 
@@ -11827,7 +11863,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"picomatch@npm:^2.0.4, picomatch@npm:^2.2.1, picomatch@npm:^2.2.3, picomatch@npm:^2.3.1":
+"picomatch@npm:^2.0.4, picomatch@npm:^2.2.1, picomatch@npm:^2.2.2, picomatch@npm:^2.2.3, picomatch@npm:^2.3.1":
   version: 2.3.1
   resolution: "picomatch@npm:2.3.1"
   checksum: 050c865ce81119c4822c45d3c84f1ced46f93a0126febae20737bd05ca20589c564d6e9226977df859ed5e03dc73f02584a2b0faad36e896936238238b0446cf
@@ -12255,7 +12291,7 @@ __metadata:
     "@typescript-eslint/parser": ^7.2.0
     "@vitejs/plugin-react-swc": ^3.5.0
     eslint-plugin-react-refresh: ^0.4.6
-    motion: ^12.23.26
+    motion: ^12.23.27
     react: ^19.0.0
     react-dom: ^19.0.0
     vite: ^5.2.0
@@ -12338,7 +12374,7 @@ __metadata:
     "@typescript-eslint/parser": ^7.2.0
     "@vitejs/plugin-react-swc": ^3.5.0
     eslint-plugin-react-refresh: ^0.4.6
-    framer-motion: ^12.23.26
+    framer-motion: ^12.23.27
     react: ^18.3.1
     react-dom: ^18.3.1
     vite: ^5.2.0
@@ -12904,6 +12940,22 @@ __metadata:
   peerDependencies:
     rollup: 2.x || 3.x || 4.x
   checksum: 457ca1f60d2cdbe5485339dbc4b228bec5684a99b6589c771bc2268ffaeb29dce2d248f83a85da2fbf572a23cc592d7f59e6485369965210df1035f22ce67feb
+  languageName: node
+  linkType: hard
+
+"rollup-plugin-sourcemaps@npm:^0.6.3":
+  version: 0.6.3
+  resolution: "rollup-plugin-sourcemaps@npm:0.6.3"
+  dependencies:
+    "@rollup/pluginutils": ^3.0.9
+    source-map-resolve: ^0.6.0
+  peerDependencies:
+    "@types/node": ">=10.0.0"
+    rollup: ">=0.31.2"
+  peerDependenciesMeta:
+    "@types/node":
+      optional: true
+  checksum: bb4909a90f2e824717a67ad146b2cccc40411ee54709ffa548c47c4dfe485bd55039a5850d7640ecb2691de9dc30e3fd57287e4d74331f36fed9c263d86dd4dc
   languageName: node
   linkType: hard
 
@@ -13687,6 +13739,16 @@ __metadata:
     source-map-url: ^0.4.0
     urix: ^0.1.0
   checksum: c73fa44ac00783f025f6ad9e038ab1a2e007cd6a6b86f47fe717c3d0765b4a08d264f6966f3bd7cd9dbcd69e4832783d5472e43247775b2a550d6f2155d24bae
+  languageName: node
+  linkType: hard
+
+"source-map-resolve@npm:^0.6.0":
+  version: 0.6.0
+  resolution: "source-map-resolve@npm:0.6.0"
+  dependencies:
+    atob: ^2.1.2
+    decode-uri-component: ^0.2.0
+  checksum: fe503b9e5dac1c54be835282fcfec10879434e7b3ee08a9774f230299c724a8d403484d9531276d1670c87390e0e4d1d3f92b14cca6e4a2445ea3016b786ecd4
   languageName: node
   linkType: hard
 
