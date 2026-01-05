@@ -48,6 +48,7 @@
         "concurrently": "^7.3.0",
         "convert-tsconfig-paths-to-webpack-aliases": "^0.9.2",
         "cypress": "4",
+        "dotenv": "^17.2.3",
         "eslint": "^8.57.0",
         "eslint-config-prettier": "^8.5.0",
         "eslint-plugin-import": "^2.26.0",

@@ -5848,6 +5848,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"dotenv@npm:^17.2.3":
+  version: 17.2.3
+  resolution: "dotenv@npm:17.2.3"
+  checksum: fde23eb88649041ec7a0f6a47bbe59cac3c454fc2007cf2e40b9c984aaf0636347218c56cfbbf067034b0a73f530a2698a19b4058695787eb650ec69fe234624
+  languageName: node
+  linkType: hard
+
 "dunder-proto@npm:^1.0.0, dunder-proto@npm:^1.0.1":
   version: 1.0.1
   resolution: "dunder-proto@npm:1.0.1"
@@ -10628,6 +10635,7 @@ __metadata:
     concurrently: ^7.3.0
     convert-tsconfig-paths-to-webpack-aliases: ^0.9.2
     cypress: 4
+    dotenv: ^17.2.3
     eslint: ^8.57.0
     eslint-config-prettier: ^8.5.0
     eslint-plugin-import: ^2.26.0
