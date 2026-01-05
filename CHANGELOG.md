@@ -4,6 +4,13 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.23.27] 2026-01-05
+
+### Fixed
+
+-   Improved Intellisense detection for `motion` import.
+-   Adding sourcemaps to release.
+
 ## [12.23.26] 2025-12-10
 
 ### Fixed

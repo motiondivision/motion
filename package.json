@@ -73,6 +73,7 @@
         "rollup-plugin-analyzer": "^4.0.0",
         "rollup-plugin-dts": "6.1.0",
         "rollup-plugin-preserve-directives": "^0.4.0",
+        "rollup-plugin-sourcemaps": "^0.6.3",
         "rollup-plugin-visualizer": "^5.14.0",
         "start-server-and-test": "^1.14.0",
         "ts-jest": "^29.1.2",

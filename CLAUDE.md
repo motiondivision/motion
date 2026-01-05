@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Install dependencies (use make bootstrap for first-time setup)
 make bootstrap
 
-# Build all packages
+# Build all packages (ALWAYS run from repo root, not from individual packages)
 yarn build           # or: make build
 
 # Watch mode for development

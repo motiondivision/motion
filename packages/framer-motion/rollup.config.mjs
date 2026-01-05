@@ -1,6 +1,7 @@
 import alias from "@rollup/plugin-alias"
 import resolve from "@rollup/plugin-node-resolve"
 import replace from "@rollup/plugin-replace"
+import sourcemaps from "rollup-plugin-sourcemaps"
 import terser from "@rollup/plugin-terser"
 import path from "node:path"
 import dts from "rollup-plugin-dts"
@@ -118,9 +119,10 @@ const cjs = Object.assign({}, config, {
         dir: "dist/cjs",
         format: "cjs",
         exports: "named",
-        esModule: true
+        esModule: true,
+        sourcemap: true,
     },
-    plugins: [resolve(), replaceSettings()],
+    plugins: [resolve(), replaceSettings(), sourcemaps()],
     external,
     onwarn(warning, warn) {
         if (warning.code === 'MODULE_LEVEL_DIRECTIVE') {
@@ -147,8 +149,9 @@ export const es = Object.assign({}, config, {
         exports: "named",
         preserveModules: true,
         dir: "dist/es",
+        sourcemap: true,
     },
-    plugins: [resolve(), replaceSettings(), preserveDirectives()],
+    plugins: [resolve(), replaceSettings(), preserveDirectives(), sourcemaps()],
     external,
     onwarn(warning, warn) {
         if (warning.code === 'MODULE_LEVEL_DIRECTIVE') {
