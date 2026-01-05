@@ -32,7 +32,8 @@ export function useVisualElement<
         | VisualState<HTMLElement, HTMLRenderState>,
     props: MotionProps & Partial<MotionConfigContext>,
     createVisualElement?: CreateVisualElement<Props, TagName>,
-    ProjectionNodeConstructor?: any
+    ProjectionNodeConstructor?: any,
+    isSVG?: boolean
 ): VisualElement<HTMLElement | SVGElement> | undefined {
     const { visualElement: parent } = useContext(MotionContext)
     const lazyContext = useContext(LazyContext)
@@ -60,6 +61,7 @@ export function useVisualElement<
                 ? presenceContext.initial === false
                 : false,
             reducedMotionConfig,
+            isSVG,
         })
     }
 

@@ -50,6 +50,14 @@ export type MotionComponent<T, P> = T extends keyof DOMMotionComponents
 
 export interface MotionComponentOptions {
     forwardMotionProps?: boolean
+    /**
+     * Specify whether the component renders an HTML or SVG element.
+     * This is useful when wrapping custom SVG components that need
+     * SVG-specific attribute handling (like viewBox animation).
+     * By default, Motion auto-detects based on the component name,
+     * but custom React components are always treated as HTML.
+     */
+    type?: "html" | "svg"
 }
 
 /**
@@ -66,15 +74,19 @@ export function createMotionComponent<
     TagName extends keyof DOMMotionComponents | string = "div"
 >(
     Component: TagName | string | React.ComponentType<Props>,
-    { forwardMotionProps = false }: MotionComponentOptions = {},
+    { forwardMotionProps = false, type }: MotionComponentOptions = {},
     preloadedFeatures?: FeaturePackages,
     createVisualElement?: CreateVisualElement<Props, TagName>
 ) {
     preloadedFeatures && loadFeatures(preloadedFeatures)
 
-    const useVisualState = isSVGComponent(Component)
-        ? useSVGVisualState
-        : useHTMLVisualState
+    /**
+     * Determine whether to use SVG or HTML rendering based on:
+     * 1. Explicit `type` option (highest priority)
+     * 2. Auto-detection via `isSVGComponent`
+     */
+    const isSVG = type ? type === "svg" : isSVGComponent(Component)
+    const useVisualState = isSVG ? useSVGVisualState : useHTMLVisualState
 
     function MotionDOMComponent(
         props: MotionComponentProps<Props>,
@@ -115,7 +127,8 @@ export function createMotionComponent<
                 visualState,
                 configAndProps,
                 createVisualElement,
-                layoutProjection.ProjectionNode
+                layoutProjection.ProjectionNode,
+                isSVG
             )
         }
 
@@ -140,7 +153,8 @@ export function createMotionComponent<
                     >(visualState, context.visualElement, externalRef),
                     visualState,
                     isStatic,
-                    forwardMotionProps
+                    forwardMotionProps,
+                    isSVG
                 )}
             </MotionContext.Provider>
         )
