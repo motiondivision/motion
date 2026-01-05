@@ -63,24 +63,13 @@ export function buildSVGAttrs(
     }
 
     /**
-     * CSS Motion Path properties (offset-distance, offset-path, offset-rotate, offset-anchor)
-     * should remain as CSS styles and not be converted to SVG attributes.
+     * CSS Motion Path properties should remain as CSS styles.
      */
-    if (attrs.offsetDistance !== undefined) {
-        style.offsetDistance = attrs.offsetDistance
-        delete attrs.offsetDistance
-    }
-    if (attrs.offsetPath !== undefined) {
-        style.offsetPath = attrs.offsetPath
-        delete attrs.offsetPath
-    }
-    if (attrs.offsetRotate !== undefined) {
-        style.offsetRotate = attrs.offsetRotate
-        delete attrs.offsetRotate
-    }
-    if (attrs.offsetAnchor !== undefined) {
-        style.offsetAnchor = attrs.offsetAnchor
-        delete attrs.offsetAnchor
+    for (const key of ["offsetDistance", "offsetPath", "offsetRotate", "offsetAnchor"]) {
+        if (attrs[key] !== undefined) {
+            style[key] = attrs[key]
+            delete attrs[key]
+        }
     }
 
     // Render attrX/attrY/attrScale as attributes
