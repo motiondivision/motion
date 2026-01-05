@@ -18,12 +18,6 @@ describe("Unit conversion", () => {
             // After animation, should be at x=0
             .should(([$box]: any) => {
                 const { left } = $box.getBoundingClientRect()
-                // Log debug info to help diagnose the issue
-                const debugInfo = (window as any).__debugInfo
-                if (debugInfo) {
-                    cy.log(`Motion value: ${debugInfo.motionValue} (${typeof debugInfo.motionValue})`)
-                    cy.log(`Computed transform: ${debugInfo.computedTransform}`)
-                }
                 // The box should be at x=0, not at calc(0 + var(--offset))
                 // which would incorrectly be 50px due to --offset: 50px
                 expect(left).to.equal(0)
