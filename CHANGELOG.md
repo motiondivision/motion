@@ -8,13 +8,13 @@ Undocumented APIs should be considered internal and may change without warning.
 
 ### Added
 
-- `{ type: "svg" }` option to `motion.create()` for creating custom SVG components.
-- `px` default value type for CSS logical properties (`paddingBlock`, `paddingInline`, `marginBlock`, `marginInline`).
+-   `{ type: "svg" }` option to `motion.create()` for creating custom SVG components.
+-   `px` default value type for CSS logical properties (`paddingBlock`, `paddingInline`, `marginBlock`, `marginInline`).
 
 ### Fixed
 
-- Ensure drag gesture updates with latest props every render.
-- Fix missing `JSX` import error.
+-   Ensure drag gesture updates with latest props every render.
+-   Fix missing `JSX` import error.
 
 ## [12.23.28] 2026-01-05
 
