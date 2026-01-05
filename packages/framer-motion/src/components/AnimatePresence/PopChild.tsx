@@ -2,10 +2,30 @@
 
 import { isHTMLElement } from "motion-dom"
 import * as React from "react"
-import { useContext, useId, useInsertionEffect, useRef } from "react"
+import { useContext, useId, useInsertionEffect, useRef, version } from "react"
 
 import { MotionConfigContext } from "../../context/MotionConfigContext"
 import { useComposedRefs } from "../../utils/use-composed-ref"
+
+const majorVersion = parseInt(version.split(".")[0], 10)
+
+/**
+ * Get the ref from a React element, handling the difference between
+ * React 18 (ref on element) and React 19+ (ref as a prop).
+ */
+function getChildRef(
+    children: React.ReactElement
+): React.Ref<HTMLElement> | undefined {
+    if (majorVersion >= 19) {
+        // In React 19+, ref is a regular prop
+        return (children.props as Record<string, unknown>).ref as
+            | React.Ref<HTMLElement>
+            | undefined
+    }
+    // In React 18 and earlier, ref is on the element itself
+    return (children as React.ReactElement & { ref?: React.Ref<HTMLElement> })
+        .ref
+}
 
 interface Size {
     width: number
@@ -72,10 +92,7 @@ export function PopChild({ children, isPresent, anchorX, root }: Props) {
         right: 0,
     })
     const { nonce } = useContext(MotionConfigContext)
-    const composedRef = useComposedRefs(
-        ref,
-        (children as { ref?: React.Ref<HTMLElement> })?.ref
-    )
+    const composedRef = useComposedRefs(ref, getChildRef(children))
 
     /**
      * We create and inject a style block so we can apply this explicit
