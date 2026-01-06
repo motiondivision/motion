@@ -4,6 +4,13 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.24.1] 2026-01-06
+
+### Fixed
+
+-   Ensure CSS Motion Path properties are applied via `style` on SVG elements.
+-   Ensure `JSX` is correctly imported by `Reorder.Item`.
+
 ## [12.24.0] 2026-01-05
 
 ### Added
