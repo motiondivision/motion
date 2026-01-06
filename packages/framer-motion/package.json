@@ -1,6 +1,6 @@
 {
     "name": "framer-motion",
-    "version": "12.24.6",
+    "version": "12.24.7",
     "description": "A simple and powerful JavaScript animation library",
     "main": "dist/cjs/index.js",
     "module": "dist/es/index.mjs",
