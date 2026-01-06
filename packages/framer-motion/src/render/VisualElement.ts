@@ -410,16 +410,21 @@ export abstract class VisualElement<
 
         this.values.forEach((value, key) => this.bindToMotionValue(key, value))
 
-        if (!hasReducedMotionListener.current) {
-            initPrefersReducedMotion()
+        /**
+         * Determine reduced motion preference. Only initialize the matchMedia
+         * listener if we actually need the dynamic value (i.e., when config
+         * is neither "never" nor "always").
+         */
+        if (this.reducedMotionConfig === "never") {
+            this.shouldReduceMotion = false
+        } else if (this.reducedMotionConfig === "always") {
+            this.shouldReduceMotion = true
+        } else {
+            if (!hasReducedMotionListener.current) {
+                initPrefersReducedMotion()
+            }
+            this.shouldReduceMotion = prefersReducedMotion.current
         }
-
-        this.shouldReduceMotion =
-            this.reducedMotionConfig === "never"
-                ? false
-                : this.reducedMotionConfig === "always"
-                ? true
-                : prefersReducedMotion.current
 
         if (process.env.NODE_ENV !== "production") {
             warnOnce(
