@@ -21,8 +21,10 @@
         "version": "yarn install && git stage yarn.lock",
         "prepare": "turbo run build measure",
         "generate-changelog-csv": "node scripts/generate-changelog.js",
-        "new": "yarn generate-changelog-csv && yarn test-playwright && lerna publish from-package",
-        "new-alpha": "turbo run build && lerna publish from-package --canary --preid alpha"
+        "new": "yarn generate-changelog-csv && yarn test-playwright && lerna publish from-package && yarn notify-slack",
+        "new-alpha": "turbo run build && lerna publish from-package --canary --preid alpha",
+        "notify-slack": "NODE_ENV=production node scripts/notify-slack.js",
+        "test-notify-slack": "NODE_ENV=development node scripts/notify-slack.js"
     },
     "devDependencies": {
         "@cypress/webpack-preprocessor": "^6.0.1",
@@ -46,6 +48,7 @@
         "concurrently": "^7.3.0",
         "convert-tsconfig-paths-to-webpack-aliases": "^0.9.2",
         "cypress": "4",
+        "dotenv": "^17.2.3",
         "eslint": "^8.57.0",
         "eslint-config-prettier": "^8.5.0",
         "eslint-plugin-import": "^2.26.0",
@@ -70,6 +73,7 @@
         "rollup-plugin-analyzer": "^4.0.0",
         "rollup-plugin-dts": "6.1.0",
         "rollup-plugin-preserve-directives": "^0.4.0",
+        "rollup-plugin-sourcemaps": "^0.6.3",
         "rollup-plugin-visualizer": "^5.14.0",
         "start-server-and-test": "^1.14.0",
         "ts-jest": "^29.1.2",
@@ -88,5 +92,5 @@
             "@types/react-dom": "^19.0.0"
         }
     },
-    "packageManager": "yarn@3.1.0"
+    "packageManager": "yarn@3.6.4"
 }

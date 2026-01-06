@@ -23,11 +23,11 @@ export function useRender<
         latestValues,
     }: VisualState<HTMLElement | SVGElement, HTMLRenderState | SVGRenderState>,
     isStatic: boolean,
-    forwardMotionProps: boolean = false
+    forwardMotionProps: boolean = false,
+    isSVG?: boolean
 ) {
-    const useVisualProps = isSVGComponent(Component)
-        ? useSVGProps
-        : useHTMLProps
+    const useVisualProps =
+        (isSVG ?? isSVGComponent(Component)) ? useSVGProps : useHTMLProps
 
     const visualProps = useVisualProps(
         props as any,
