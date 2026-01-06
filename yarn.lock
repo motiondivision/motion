@@ -7121,7 +7121,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"framer-motion@^12.24.6, framer-motion@workspace:packages/framer-motion":
+"framer-motion@^12.24.7, framer-motion@workspace:packages/framer-motion":
   version: 0.0.0-use.local
   resolution: "framer-motion@workspace:packages/framer-motion"
   dependencies:
@@ -7885,8 +7885,8 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "html-env@workspace:dev/html"
   dependencies:
-    framer-motion: ^12.24.6
-    motion: ^12.24.6
+    framer-motion: ^12.24.7
+    motion: ^12.24.7
     motion-dom: ^12.24.3
     react: ^18.3.1
     react-dom: ^18.3.1
@@ -10706,11 +10706,11 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"motion@^12.24.6, motion@workspace:packages/motion":
+"motion@^12.24.7, motion@workspace:packages/motion":
   version: 0.0.0-use.local
   resolution: "motion@workspace:packages/motion"
   dependencies:
-    framer-motion: ^12.24.6
+    framer-motion: ^12.24.7
     tslib: ^2.4.0
   peerDependencies:
     "@emotion/is-prop-valid": "*"
@@ -10827,7 +10827,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "next-env@workspace:dev/next"
   dependencies:
-    motion: ^12.24.6
+    motion: ^12.24.7
     next: 15.4.10
     react: 19.0.0
     react-dom: 19.0.0
@@ -12291,7 +12291,7 @@ __metadata:
     "@typescript-eslint/parser": ^7.2.0
     "@vitejs/plugin-react-swc": ^3.5.0
     eslint-plugin-react-refresh: ^0.4.6
-    motion: ^12.24.6
+    motion: ^12.24.7
     react: ^19.0.0
     react-dom: ^19.0.0
     vite: ^5.2.0
@@ -12374,7 +12374,7 @@ __metadata:
     "@typescript-eslint/parser": ^7.2.0
     "@vitejs/plugin-react-swc": ^3.5.0
     eslint-plugin-react-refresh: ^0.4.6
-    framer-motion: ^12.24.6
+    framer-motion: ^12.24.7
     react: ^18.3.1
     react-dom: ^18.3.1
     vite: ^5.2.0

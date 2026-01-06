@@ -1,7 +1,7 @@
 {
     "name": "react-19-env",
     "private": true,
-    "version": "12.24.6",
+    "version": "12.24.7",
     "type": "module",
     "scripts": {
         "dev": "vite",
@@ -11,7 +11,7 @@
         "preview": "vite preview"
     },
     "dependencies": {
-        "motion": "^12.24.6",
+        "motion": "^12.24.7",
         "react": "^19.0.0",
         "react-dom": "^19.0.0"
     },
