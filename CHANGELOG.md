@@ -4,6 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.24.6] 2026-01-06
+
+### Fixed
+
+-   Remove memory leak from retained `matchMedia` callbacks.
+
 ## [12.24.5] 2026-01-06
 
 ### Fixed
