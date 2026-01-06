@@ -552,3 +552,66 @@ describe("Drag & Layout", () => {
             })
     })
 })
+
+describe("Drag Constraints Return", () => {
+    it("Returns to constraints when released outside bounds", () => {
+        cy.visit("?test=drag-constraints-return")
+            .wait(200)
+            .get("[data-testid='draggable']")
+            .wait(100)
+            .trigger("pointerdown", 50, 50, { force: true })
+            .trigger("pointermove", 60, 60, { force: true }) // Gesture will start from first move past threshold
+            .wait(50)
+            // Drag outside constraints (to bottom-right)
+            .trigger("pointermove", 400, 400, { force: true })
+            .wait(50)
+            // Release - element should animate back
+            .trigger("pointerup", { force: true })
+            .wait(2000) // Wait for animation to complete
+            .should(($draggable: any) => {
+                const draggable = $draggable[0] as HTMLDivElement
+                const { left, top, right, bottom } =
+                    draggable.getBoundingClientRect()
+
+                // Constraints box is 300x300, element is 100x100
+                // Element should be within the constraints (max position: 200, 200)
+                expect(right).to.be.at.most(302)
+                expect(bottom).to.be.at.most(302)
+                expect(left).to.be.at.least(-2)
+                expect(top).to.be.at.least(-2)
+            })
+    })
+
+    it("Returns to constraints when released outside and clicked during animation", () => {
+        cy.visit("?test=drag-constraints-return")
+            .wait(200)
+            .get("[data-testid='draggable']")
+            .wait(100)
+            .trigger("pointerdown", 50, 50, { force: true })
+            .trigger("pointermove", 60, 60, { force: true }) // Gesture will start from first move past threshold
+            .wait(50)
+            // Drag outside constraints (to bottom-right)
+            .trigger("pointermove", 400, 400, { force: true })
+            .wait(50)
+            // Release - element should start animating back
+            .trigger("pointerup", { force: true })
+            // Immediately click on element while it's animating back
+            .wait(50)
+            .trigger("pointerdown", 50, 50, { force: true })
+            .wait(50)
+            .trigger("pointerup", { force: true })
+            .wait(2000) // Wait for animation to complete
+            .should(($draggable: any) => {
+                const draggable = $draggable[0] as HTMLDivElement
+                const { left, top, right, bottom } =
+                    draggable.getBoundingClientRect()
+
+                // Constraints box is 300x300, element is 100x100
+                // Element should be within the constraints (max position: 200, 200)
+                expect(right).to.be.at.most(302)
+                expect(bottom).to.be.at.most(302)
+                expect(left).to.be.at.least(-2)
+                expect(top).to.be.at.least(-2)
+            })
+    })
+})
