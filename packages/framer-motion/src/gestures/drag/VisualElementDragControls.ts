@@ -2,6 +2,7 @@ import {
     PanInfo,
     ResolvedConstraints,
     Transition,
+    cancelFrame,
     frame,
     mixNumber,
     percent,
@@ -19,7 +20,7 @@ import {
 } from "../../projection/geometry/conversion"
 import { calcLength } from "../../projection/geometry/delta-calc"
 import { createBox } from "../../projection/geometry/models"
-import { LayoutUpdateData } from "../../projection/node/types"
+import type { LayoutUpdateData } from "../../projection/node/types"
 import { eachAxis } from "../../projection/utils/each-axis"
 import { measurePageBox } from "../../projection/utils/measure"
 import type { VisualElement } from "../../render/VisualElement"
@@ -93,6 +94,16 @@ export class VisualElementDragControls {
      * The latest pan info. Used as fallback when the `cancel` and `stop` functions are called without arguments.
      */
     private latestPanInfo: PanInfo | null = null
+
+    /**
+     * Track scroll positions of ancestors (and window) for scroll-while-drag compensation.
+     */
+    private initialAncestorScrolls: Map<Element | Window, Point> = new Map()
+
+    /**
+     * Cleanup function for the scroll listener.
+     */
+    private removeScrollListener: VoidFunction | null = null
 
     constructor(visualElement: VisualElement<HTMLElement>) {
         this.visualElement = visualElement
@@ -177,6 +188,8 @@ export class VisualElementDragControls {
             }
 
             addValueToWillChange(this.visualElement, "transform")
+
+            this.startScrollTracking()
 
             const { animationState } = this.visualElement
             animationState && animationState.setActive("whileDrag", true)
@@ -305,6 +318,14 @@ export class VisualElementDragControls {
             this.openDragLock()
             this.openDragLock = null
         }
+
+        if (this.removeScrollListener) {
+            this.removeScrollListener()
+            this.removeScrollListener = null
+        }
+
+        // Clear scroll tracking data
+        this.initialAncestorScrolls.clear()
 
         animationState && animationState.setActive("whileDrag", false)
     }
@@ -534,6 +555,103 @@ export class VisualElementDragControls {
                       ? props.initial[axis as keyof typeof props.initial]
                       : undefined) || 0
               )
+    }
+
+    /**
+     * Start tracking scroll on ancestors and window when drag begins.
+     */
+    private startScrollTracking(): void {
+        const element = this.visualElement.current
+        if (!element) return
+
+        // Store initial scroll positions for all element ancestors
+        let current = element.parentElement
+        while (current) {
+            this.initialAncestorScrolls.set(current, {
+                x: current.scrollLeft,
+                y: current.scrollTop,
+            })
+            current = current.parentElement
+        }
+
+        // Also track window scroll using a special key
+        this.initialWindowScroll = { x: window.scrollX, y: window.scrollY }
+
+        // Capture listener catches element scroll events as they propagate down
+        window.addEventListener("scroll", this.onScroll, {
+            capture: true,
+            passive: true,
+        })
+
+        // Use frame loop to poll window scroll (scroll events may not fire reliably during drag)
+        const pollWindowScroll = () => {
+            if (!this.isDragging) return
+            this.checkWindowScroll()
+            frame.read(pollWindowScroll)
+        }
+        frame.read(pollWindowScroll)
+
+        this.removeScrollListener = () => {
+            window.removeEventListener("scroll", this.onScroll, { capture: true })
+            cancelFrame(pollWindowScroll)
+        }
+    }
+
+    private initialWindowScroll: Point = { x: 0, y: 0 }
+
+    /**
+     * Check if window has scrolled and compensate.
+     */
+    private checkWindowScroll(): void {
+        const windowCurrent = { x: window.scrollX, y: window.scrollY }
+
+        eachAxis((axis) => {
+            const delta = windowCurrent[axis] - this.initialWindowScroll[axis]
+            if (delta === 0) return
+
+            const motionValue = this.getAxisMotionValue(axis)
+            if (!motionValue) return
+
+            // For window scroll: only adjust motionValue (pageX/pageY will update automatically)
+            motionValue.set(motionValue.get() + delta)
+        })
+
+        if (
+            windowCurrent.x !== this.initialWindowScroll.x ||
+            windowCurrent.y !== this.initialWindowScroll.y
+        ) {
+            this.initialWindowScroll = windowCurrent
+            this.visualElement.render()
+        }
+    }
+
+    /**
+     * Handle element scroll events during drag.
+     * Window scroll is handled by frame-based polling in checkWindowScroll().
+     */
+    private onScroll = (event: Event): void => {
+        if (!this.isDragging) return
+
+        const target = event.target as Element
+        const initial = this.initialAncestorScrolls.get(target)
+        if (!initial) return
+
+        const current = { x: target.scrollLeft, y: target.scrollTop }
+
+        eachAxis((axis) => {
+            const delta = current[axis] - initial[axis]
+            if (delta === 0) return
+
+            const motionValue = this.getAxisMotionValue(axis)
+            if (!motionValue) return
+
+            // For element scroll: adjust both origin and motionValue
+            this.originPoint[axis] += delta
+            motionValue.set(motionValue.get() + delta)
+        })
+
+        this.initialAncestorScrolls.set(target, current)
+        this.visualElement.render()
     }
 
     private snapToCursor(point: Point) {
