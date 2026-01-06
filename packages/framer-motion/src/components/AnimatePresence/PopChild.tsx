@@ -72,10 +72,14 @@ export function PopChild({ children, isPresent, anchorX, root }: Props) {
         right: 0,
     })
     const { nonce } = useContext(MotionConfigContext)
-    const composedRef = useComposedRefs(
-        ref,
-        (children as { ref?: React.Ref<HTMLElement> })?.ref
-    )
+    /**
+     * In React 19, refs are passed via props.ref instead of element.ref.
+     * We check props.ref first (React 19) and fall back to element.ref (React 18).
+     */
+    const childRef =
+        (children.props as { ref?: React.Ref<HTMLElement> })?.ref ??
+        (children as unknown as { ref?: React.Ref<HTMLElement> })?.ref
+    const composedRef = useComposedRefs(ref, childRef)
 
     /**
      * We create and inject a style block so we can apply this explicit

@@ -26,6 +26,11 @@ export interface VisualElementOptions<Instance, RenderState = any> {
     props: MotionProps
     blockInitialAnimation?: boolean
     reducedMotionConfig?: ReducedMotionConfig
+    /**
+     * Explicit override for SVG detection. When true, uses SVG rendering;
+     * when false, uses HTML rendering. If undefined, auto-detects.
+     */
+    isSVG?: boolean
 }
 
 /**

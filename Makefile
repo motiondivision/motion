@@ -79,10 +79,10 @@ test-jest: bootstrap test-mkdir
 	yarn test
 
 test-react: build test-mkdir
-	yarn start-server-and-test "yarn dev-server" http://localhost:9990 "cd packages/framer-motion && cypress run --headless $(if $(CI), --spec $(shell cd packages/framer-motion && circleci tests glob "cypress/integration/*.ts" | circleci tests split), --reporter spec)"
+	yarn start-server-and-test "yarn dev-server" http://localhost:9990 "cd packages/framer-motion && cypress run --headless $(if $(CI), --spec $(shell cd packages/framer-motion && circleci tests glob "cypress/integration/*.ts" | circleci tests split | paste -sd "," -), --reporter spec)"
 
 test-react-19: build test-mkdir
-	yarn start-server-and-test "yarn dev-server" http://localhost:9991 "cd packages/framer-motion && cypress run --config-file=cypress.react-19.json --headless $(if $(CI), --spec $(shell cd packages/framer-motion && circleci tests glob "cypress/integration/*.ts" | circleci tests split), --reporter spec)"
+	yarn start-server-and-test "yarn dev-server" http://localhost:9991 "cd packages/framer-motion && cypress run --config-file=cypress.react-19.json --headless $(if $(CI), --spec $(shell cd packages/framer-motion && circleci tests glob "cypress/integration/*.ts" | circleci tests split | paste -sd "," -), --reporter spec)"
 
 test-html: build test-mkdir
 	node dev/inc/collect-html-tests.js

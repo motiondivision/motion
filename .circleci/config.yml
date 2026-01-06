@@ -3,7 +3,7 @@
 jobs:
     test:
         docker:
-            - image: cimg/node:lts-browsers
+            - image: cimg/node:20.11.1-browsers
         working_directory: ~/repo
         resource_class: large
         steps:
@@ -38,7 +38,7 @@ jobs:
 
     test-react:
         docker:
-            - image: cimg/node:lts-browsers
+            - image: cimg/node:20.11.1-browsers
         working_directory: ~/repo
         parallelism: 6
         resource_class: large
@@ -75,7 +75,7 @@ jobs:
 
     test-react-19:
         docker:
-            - image: cimg/node:lts-browsers
+            - image: cimg/node:20.11.1-browsers
         working_directory: ~/repo
         parallelism: 6
         resource_class: large
@@ -112,7 +112,7 @@ jobs:
 
     test-html:
         docker:
-            - image: cimg/node:lts-browsers
+            - image: cimg/node:20.11.1-browsers
         resource_class: large
         working_directory: ~/repo
         steps:

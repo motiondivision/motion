@@ -87,6 +87,11 @@ export const AnimatePresence = ({
     const exitComplete = useConstant(() => new Map<ComponentKey, boolean>())
 
     /**
+     * Track which components are currently processing exit to prevent duplicate processing.
+     */
+    const exitingComponents = useRef(new Set<ComponentKey>())
+
+    /**
      * Save children to render as React state. To ensure this component is concurrent-safe,
      * we check for exiting children via an effect.
      */
@@ -109,6 +114,7 @@ export const AnimatePresence = ({
                 }
             } else {
                 exitComplete.delete(key)
+                exitingComponents.current.delete(key)
             }
         }
     }, [renderedChildren, presentKeys.length, presentKeys.join("-")])
@@ -179,6 +185,11 @@ export const AnimatePresence = ({
                           presentKeys.includes(key)
 
                 const onExit = () => {
+                    if (exitingComponents.current.has(key)) {
+                        return
+                    }
+                    exitingComponents.current.add(key)
+
                     if (exitComplete.has(key)) {
                         exitComplete.set(key, true)
                     } else {
