@@ -5,6 +5,16 @@ import { SVGRenderState } from "../types"
 import { buildSVGPath } from "./path"
 
 /**
+ * CSS Motion Path properties that should remain as CSS styles on SVG elements.
+ */
+const cssMotionPathProperties = [
+    "offsetDistance",
+    "offsetPath",
+    "offsetRotate",
+    "offsetAnchor",
+]
+
+/**
  * Build SVG visual attributes, like cx and style.transform
  */
 export function buildSVGAttrs(
@@ -60,6 +70,13 @@ export function buildSVGAttrs(
          */
         style.transformBox = (styleProp?.transformBox as string) ?? "fill-box"
         delete attrs.transformBox
+    }
+
+    for (const key of cssMotionPathProperties) {
+        if (attrs[key] !== undefined) {
+            style[key] = attrs[key]
+            delete attrs[key]
+        }
     }
 
     // Render attrX/attrY/attrScale as attributes
