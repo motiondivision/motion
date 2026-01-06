@@ -4,6 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.24.3] 2026-01-06
+
+### Fixed
+
+-   Ensure `onAnimationStart` and `onAnimationComplete` callbacks fire for `useSpring`.
+
 ## [12.24.2] 2026-01-06
 
 ### Fixed
