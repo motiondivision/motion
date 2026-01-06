@@ -1,0 +1,185 @@
+<html>
+    <!--
+      Transform Rebuild Overhead Benchmark
+
+      This benchmark measures the overhead of rebuilding transforms when
+      animating non-transform properties. In the old renderer, animating
+      backgroundColor would trigger a full transform string rebuild.
+      With atomic updates, only backgroundColor would be updated.
+
+      Phase 1: Animate x, y, scale, rotate, backgroundColor on 200 divs
+      Phase 2 (after 1s): Animate only backgroundColor
+
+      In the old renderer, Phase 2 still rebuilds transform strings.
+      With atomic updates, Phase 2 only touches backgroundColor.
+    -->
+    <head>
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+                font-family: system-ui, sans-serif;
+            }
+
+            .stats {
+                position: fixed;
+                top: 10px;
+                left: 10px;
+                background: rgba(0, 0, 0, 0.8);
+                color: white;
+                padding: 15px;
+                border-radius: 8px;
+                font-size: 14px;
+                z-index: 1000;
+            }
+
+            .stats div {
+                margin: 5px 0;
+            }
+
+            .container {
+                padding: 20px;
+                width: 100%;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 5px;
+            }
+
+            .box {
+                width: 40px;
+                height: 40px;
+                background-color: #ff0000;
+                border-radius: 4px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="stats">
+            <div>Phase: <span id="phase">Initializing...</span></div>
+            <div>Boxes: <span id="boxCount">0</span></div>
+            <div>FPS: <span id="fps">--</span></div>
+            <div>Avg Frame Time: <span id="frameTime">--</span>ms</div>
+        </div>
+        <div class="container"></div>
+        <script type="module" src="/src/imports/framer-motion-dom.js"></script>
+        <script type="module">
+            const { animate } = window.Motion
+
+            const NUM_BOXES = 800
+            const PHASE1_DURATION = 10000 // 1 second
+            const PHASE2_DURATION = 20000 // 2 seconds
+
+            // Create boxes
+            let html = ``
+            for (let i = 0; i < NUM_BOXES; i++) {
+                html += `<div class="box"></div>`
+            }
+            document.querySelector(".container").innerHTML = html
+            const boxes = document.querySelectorAll(".box")
+            document.getElementById("boxCount").textContent = NUM_BOXES
+
+            // FPS tracking
+            let frameCount = 0
+            let frameTimes = []
+            let lastTime = performance.now()
+
+            function trackFrame() {
+                const now = performance.now()
+                const delta = now - lastTime
+                lastTime = now
+                frameCount++
+                frameTimes.push(delta)
+
+                // Keep last 60 frames
+                if (frameTimes.length > 60) {
+                    frameTimes.shift()
+                }
+
+                // Update stats every 10 frames
+                if (frameCount % 10 === 0) {
+                    const avgFrameTime =
+                        frameTimes.reduce((a, b) => a + b, 0) /
+                        frameTimes.length
+                    const fps = 1000 / avgFrameTime
+                    document.getElementById("fps").textContent = fps.toFixed(1)
+                    document.getElementById("frameTime").textContent =
+                        avgFrameTime.toFixed(2)
+                }
+
+                requestAnimationFrame(trackFrame)
+            }
+
+            // Start FPS tracking
+            requestAnimationFrame(trackFrame)
+
+            // Phase 1: Animate all properties
+            document.getElementById("phase").textContent =
+                "Phase 1: All properties (x, y, scale, rotate, backgroundColor)"
+
+            const phase1Animations = []
+            boxes.forEach((box, i) => {
+                // Stagger the animations slightly for visual interest
+                const delay = (i % 20) * 10
+
+                phase1Animations.push(
+                    animate(
+                        box,
+                        {
+                            x: [0, 50, 0],
+                            y: [0, 30, 0],
+                            scale: [1, 1.2, 1],
+                            rotate: [0, 180, 360],
+                            backgroundColor: [
+                                "#ff0000",
+                                "#00ff00",
+                                "#0000ff",
+                                "#ff0000",
+                            ],
+                        },
+                        {
+                            duration: PHASE1_DURATION / 1000,
+                            delay: delay / 1000,
+                            ease: "easeInOut",
+                        }
+                    )
+                )
+            })
+
+            // Phase 2: After 1 second, animate ONLY backgroundColor
+            // This is where the overhead difference shows:
+            // - Old renderer: rebuilds transform string on every backgroundColor change
+            // - Atomic updates: only updates backgroundColor style property
+            setTimeout(() => {
+                document.getElementById("phase").textContent =
+                    "Phase 2: Only backgroundColor (transform overhead test)"
+
+                // Reset frame tracking for phase 2
+                frameTimes = []
+                frameCount = 0
+
+                boxes.forEach((box, i) => {
+                    const delay = (i % 20) * 5
+
+                    animate(
+                        box,
+                        {
+                            backgroundColor: [
+                                "#0000ff",
+                                "#ff00ff",
+                                "#00ffff",
+                                "#ffff00",
+                                "#ff0000",
+                            ],
+                        },
+                        {
+                            duration: PHASE2_DURATION / 1000,
+                            delay: delay / 1000,
+                            ease: "linear",
+                            repeat: Infinity,
+                        }
+                    )
+                })
+            }, PHASE1_DURATION + 500)
+        </script>
+    </body>
+</html>
