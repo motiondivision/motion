@@ -1,26 +1,26 @@
 describe("Unit conversion", () => {
     /**
      * Test for GitHub issue #3410
-     * When animating from a calc() with CSS variables to a simple value,
-     * the animation should end at the target value, not preserve the calc structure.
+     * When animating from a calc() with CSS variables to a simple value (and back),
+     * the animation should complete correctly without getting stuck at intermediate values.
      */
-    it("Animate x from calc with CSS variable to simple value", () => {
-        cy.visit("?test=unit-conversion-var-to-simple")
+    it("Animate x roundtrip: 0 -> calc -> 0", () => {
+        cy.visit("?test=unit-conversion&roundtrip=true")
             .wait(200)
-            .get("#box", { timeout: 10000 })
+            .get("#box")
             .should(([$box]: any) => {
                 // Initial position should be 0
                 const { left } = $box.getBoundingClientRect()
                 expect(left).to.equal(0)
             })
-            // First click: 0 -> calc (150px)
+            // First click: 0 -> calc(300px)
             .trigger("click")
             .wait(300)
             .should(([$box]: any) => {
                 const { left } = $box.getBoundingClientRect()
-                expect(left).to.equal(150)
+                expect(left).to.equal(300)
             })
-            // Second click: calc (150px) -> 0
+            // Second click: calc(300px) -> 0
             .trigger("click")
             .wait(300)
             .should(([$box]: any) => {
