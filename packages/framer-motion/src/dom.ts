@@ -6,6 +6,7 @@ export { animateMini } from "./animation/animators/waapi/animate-style"
 export { scroll } from "./render/dom/scroll"
 export { scrollInfo } from "./render/dom/scroll/track"
 export { inView } from "./render/dom/viewport"
+export { HTMLElements } from "./render/html/supported-elements"
 
 /**
  * Types

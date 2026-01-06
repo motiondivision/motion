@@ -5,7 +5,7 @@ import * as React from "react"
 import { useContext, useId, useInsertionEffect, useRef } from "react"
 
 import { MotionConfigContext } from "../../context/MotionConfigContext"
-import { useComposedRefs } from "./use-composed-ref"
+import { useComposedRefs } from "../../utils/use-composed-ref"
 
 interface Size {
     width: number

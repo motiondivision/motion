@@ -108,21 +108,27 @@ Motion is sustainable thanks to the kind support of its sponsors.
 
 [Become a sponsor](https://motion.dev/sponsor)
 
-### Partner
+### Partners
 
-Motion powers Framer animations, the web builder for creative pros. Design and ship your dream site. Zero code, maximum speed.
+Motion powers the animations for all websites built with Framer, the web builder for creative pros. The Motion website itself is built on Framer, for its delightful canvas-based editing and powerful CMS features.
 
 <a href="https://framer.link/FlnUbQY">
   <img alt="Framer" src="https://github.com/user-attachments/assets/22a79be7-672e-4336-bfb7-5d55d1deb917" width="250px" height="150px">
 </a>
 
+Motion drives the animations on the Cursor homepage, and is working with Cursor to bring powerful AI workflows to the Motion examples and docs.
+
+<a href="https://cursor.com">
+  <img alt="Cursor" src="https://github.com/user-attachments/assets/81c482d3-c2c2-4b35-bbcf-933b28d5b448" width="250px" height="150px" />
+</a>
+
 ### Platinum
 
-<a href="https://linear.app"><img alt="Linear" src="https://github.com/user-attachments/assets/f9ce44b4-af28-4770-bb6e-9515b474bfb2" width="250px" height="150px"></a> <a href="https://figma.com"><img alt="Figma" src="https://github.com/user-attachments/assets/1077d0ab-4305-4a1f-81c8-d5be8c4c6717" width="250px" height="150px"></a> <a href="https://sanity.io"><img alt="Sanity" src="https://github.com/user-attachments/assets/80134088-f456-483f-8edd-940593c120ce" width="250px" height="150px"></a>
+<a href="https://linear.app"><img alt="Linear" src="https://github.com/user-attachments/assets/f9ce44b4-af28-4770-bb6e-9515b474bfb2" width="250px" height="150px"></a> <a href="https://figma.com"><img alt="Figma" src="https://github.com/user-attachments/assets/1077d0ab-4305-4a1f-81c8-d5be8c4c6717" width="250px" height="150px"></a> <a href="https://sanity.io"><img alt="Sanity" src="https://github.com/user-attachments/assets/80134088-f456-483f-8edd-940593c120ce" width="250px" height="150px"></a> <a href="https://animations.dev"><img alt="Sanity" src="https://github.com/user-attachments/assets/7c5ab87d-c7d9-44b4-9c7e-f9e6a9f3ba3b" width="250px" height="150px"></a>
 
 ### Gold
 
-<a href="https://tailwindcss.com"><img alt="Tailwind" src="https://github.com/user-attachments/assets/1d5f2571-8bc3-4367-9fec-14d291168ff0" width="200px" height="120px"></a> <a href="https://emilkowal.ski"><img alt="Emil Kowalski" src="https://github.com/user-attachments/assets/33d1cb98-238a-4eed-a0df-9c7ab097d65b" width="200px" height="120px"></a> <a href="https://liveblocks.io"><img alt="Liveblocks" src="https://github.com/user-attachments/assets/28eddbe5-1617-4e74-969d-2eb6fcd481af" width="200px" height="120px"></a> <a href="https://vercel.com"><img alt="Vercel" src="https://github.com/user-attachments/assets/abc473bd-07ae-4a7d-9833-efe9dadb3773" width="200px" height="120px"></a> <a href="https://lu.ma"><img alt="Luma" src="https://github.com/user-attachments/assets/ac282433-6adb-4ad2-9fd2-5c6ee513c14b" width="200px" height="120px"></a>
+<a href="https://liveblocks.io"><img alt="Liveblocks" src="https://github.com/user-attachments/assets/28eddbe5-1617-4e74-969d-2eb6fcd481af" width="200px" height="120px"></a> <a href="https://lu.ma"><img alt="Luma" src="https://github.com/user-attachments/assets/ac282433-6adb-4ad2-9fd2-5c6ee513c14b" width="200px" height="120px"></a> <a href="https://notion.com"><img alt="Notion" src="https://github.com/user-attachments/assets/a27a6033-3cb0-4232-a6bb-625e1824517b" width="200px" height="120px"></a> <a href="https://lottiefiles.com"><img alt="LottieFiles" src="https://github.com/user-attachments/assets/4e99d8c7-4cba-43ee-93c5-93861ae708ec" width="200px" height="120px"></a>
 
 ### Silver
 

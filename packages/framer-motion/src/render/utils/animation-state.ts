@@ -438,7 +438,12 @@ export function createAnimationState(
         getState: () => state,
         reset: () => {
             state = createState()
-            isInitialRender = true
+            /**
+             * Temporarily disabling resetting this flag as it prevents components
+             * with initial={false} from animating after being remounted, for instance
+             * as the child of an Activity component.
+             */
+            // isInitialRender = true
         },
     }
 }

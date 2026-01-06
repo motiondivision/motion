@@ -3,6 +3,8 @@
  */
 export type * from "./animation/types"
 export { AnimatePresence } from "./components/AnimatePresence"
+export { PopChild } from "./components/AnimatePresence/PopChild"
+export { PresenceChild } from "./components/AnimatePresence/PresenceChild"
 export { LayoutGroup } from "./components/LayoutGroup"
 export { LazyMotion } from "./components/LazyMotion"
 export { MotionConfig } from "./components/MotionConfig"
@@ -27,6 +29,7 @@ export { createBox } from "./projection/geometry/models"
 export { filterProps } from "./render/dom/utils/filter-props"
 export { AnimationType } from "./render/utils/types"
 export { isBrowser } from "./utils/is-browser"
+export { useComposedRefs } from "./utils/use-composed-ref"
 export { useForceUpdate } from "./utils/use-force-update"
 export { useIsomorphicLayoutEffect } from "./utils/use-isomorphic-effect"
 export { useUnmountEffect } from "./utils/use-unmount-effect"
@@ -132,7 +135,10 @@ export type {
 export type { IProjectionNode } from "./projection/node/types"
 export type { DOMMotionComponents } from "./render/dom/types"
 export type { ForwardRefComponent, HTMLMotionProps } from "./render/html/types"
-export type { SVGAttributesAsMotionValues, SVGMotionProps } from "./render/svg/types"
+export type {
+    SVGAttributesAsMotionValues,
+    SVGMotionProps,
+} from "./render/svg/types"
 export type { CreateVisualElement } from "./render/types"
 export type { FlatTree } from "./render/utils/flat-tree"
 export type { ScrollMotionValues } from "./value/scroll/utils"
@@ -145,5 +151,5 @@ export { AnimateSharedLayout } from "./components/AnimateSharedLayout"
 export { DeprecatedLayoutGroupContext } from "./context/DeprecatedLayoutGroupContext"
 export { useInvertedScale as useDeprecatedInvertedScale } from "./value/use-inverted-scale"
 
-// Keep explict delay in milliseconds export for BC with Framer
+// Keep explicit delay in milliseconds export for BC with Framer
 export { delay, DelayedFunction } from "./utils/delay"

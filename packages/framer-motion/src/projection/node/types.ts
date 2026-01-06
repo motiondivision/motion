@@ -35,6 +35,8 @@ export type LayoutEvents =
     | "animationComplete"
 
 export interface IProjectionNode<I = unknown> {
+    linkedParentVersion: number
+    layoutVersion: number
     id: number
     animationId: number
     animationCommitId: number

@@ -4,6 +4,83 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.24.3] 2026-01-06
+
+### Fixed
+
+-   Ensure `onAnimationStart` and `onAnimationComplete` callbacks fire for `useSpring`.
+
+## [12.24.2] 2026-01-06
+
+### Fixed
+
+-   Ensure `useDragControls `snapToCursor: true` works with initial transforms.
+
+## [12.24.1] 2026-01-06
+
+### Fixed
+
+-   Ensure CSS Motion Path properties are applied via `style` on SVG elements.
+-   Ensure `JSX` is correctly imported by `Reorder.Item`.
+
+## [12.24.0] 2026-01-05
+
+### Added
+
+-   `{ type: "svg" }` option to `motion.create()` for creating custom SVG components.
+-   `px` default value type for CSS logical properties (`paddingBlock`, `paddingInline`, `marginBlock`, `marginInline`).
+
+### Fixed
+
+-   Ensure drag gesture updates with latest props every render.
+-   Fix missing `JSX` import error.
+-   Fix `motion-dom` build.
+-   Exclude `src` from distributed package.
+
+## [12.23.28] 2026-01-05
+
+### Fixed
+
+-   Fixing `MotionStyle` type with React 19 when `skipLibCheck` is `false`.
+-   Add guard for `process` check for better compat with ESM environments.
+
+## [12.23.27] 2026-01-05
+
+### Fixed
+
+-   Improved Intellisense detection for `motion` import.
+-   Adding sourcemaps to release.
+
+## [12.23.26] 2025-12-10
+
+### Fixed
+
+-   Moved initialisation of default scale correctors to allow for overwriting existing correctors.
+
+## [12.23.25] 2025-12-01
+
+### Fixed
+
+-   Ensure relative projection boxes are re-measured when parent layout changes.
+
+## [12.23.24] 2025-10-10
+
+### Fixed
+
+-   Ensure that when a component remounts, it continues to fire animations even when `initial={false}`.
+
+## [12.23.23] 2025-10-10
+
+### Added
+
+-   Exporting `PresenceChild` and `PopChild` type for internal use.
+
+## [12.23.22] 2025-09-25
+
+### Added
+
+-   Exporting `HTMLElements` and `useComposedRefs` type for internal use.
+
 ## [12.23.21] 2025-09-24
 
 ### Fixed
