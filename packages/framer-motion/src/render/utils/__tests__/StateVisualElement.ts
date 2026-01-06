@@ -1,3 +1,4 @@
+import { MotionValueState } from "motion-dom"
 import { ResolvedValues } from "../../types"
 import { MotionProps, MotionStyle } from "../../../motion/types"
 import { createBox } from "../../../projection/geometry/models"
@@ -15,6 +16,14 @@ export class StateVisualElement extends VisualElement<
     renderInstance() {}
     scrapeMotionValuesFromProps() {
         return {}
+    }
+    createMotionValueState(): MotionValueState {
+        return new MotionValueState({
+            onValueChange: (key, value) => {
+                this.latestValues[key] = value
+                this.scheduleRender()
+            },
+        })
     }
 
     sortInstanceNodePosition() {

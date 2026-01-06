@@ -1,7 +1,9 @@
 import {
     AnyResolvedKeyframe,
+    frame,
     getDefaultValueType,
     MotionValue,
+    SVGMotionValueState,
     transformProps,
 } from "motion-dom"
 import { MotionProps, MotionStyle } from "../../motion/types"
@@ -27,6 +29,49 @@ export class SVGVisualElement extends DOMVisualElement<
     type = "svg"
 
     isSVGTag = false
+
+    createMotionValueState(): SVGMotionValueState {
+        return new SVGMotionValueState({
+            element: this.current,
+            isSVGTag: this.isSVGTag,
+            getTransformTemplate: () => this.props.transformTemplate,
+            onTransformChange: () => {
+                if (this.projection) {
+                    this.projection.isTransformDirty = true
+                }
+            },
+            onUpdate: () => {
+                if (this.props.onUpdate) {
+                    // Use postRender so onUpdate fires in the current frame
+                    // (render callbacks run in render phase, preRender would go to next frame)
+                    frame.postRender(this.notifyUpdate)
+                }
+            },
+            onValueChange: (key, value) => {
+                // Skip internal computed values
+                if (
+                    key === "transform" ||
+                    key === "transformOrigin" ||
+                    key === "stroke-dasharray"
+                ) {
+                    return
+                }
+
+                // Sync to latestValues
+                this.latestValues[key] = value
+
+                // Mark projection dirty for transforms
+                if (transformProps.has(key) && this.projection) {
+                    this.projection.isTransformDirty = true
+                }
+
+                // Schedule full render for backward compatibility
+                this.scheduleRender()
+            },
+            // Provide access to full latestValues for transform building
+            getLatestValues: () => this.latestValues,
+        })
+    }
 
     getBaseTargetFromProps(
         props: MotionProps,

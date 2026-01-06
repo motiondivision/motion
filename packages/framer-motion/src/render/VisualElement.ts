@@ -8,6 +8,7 @@ import {
     KeyframeResolver,
     microtask,
     motionValue,
+    MotionValueState,
     time,
     transformProps,
     type AnyResolvedKeyframe,
@@ -144,6 +145,13 @@ export abstract class VisualElement<
     ): void
 
     /**
+     * Create the MotionValueState for this visual element type.
+     * Subclasses should implement this to provide atomic rendering behavior.
+     * Return undefined to use the legacy bindToMotionValue path.
+     */
+    abstract createMotionValueState(): MotionValueState | undefined
+
+    /**
      * This method is called when a transform property is bound to a motion value.
      * It's currently used to measure SVG elements when a new transform property is bound.
      */
@@ -255,9 +263,17 @@ export abstract class VisualElement<
     projection?: IProjectionNode
 
     /**
+     * The MotionValueState that manages motion values for this visual element.
+     * Created on mount via createMotionValueState(). May be undefined if the
+     * subclass returns undefined to use the legacy binding path.
+     */
+    protected state?: MotionValueState
+
+    /**
      * A map of all motion values attached to this visual element. Motion
      * values are source of truth for any given animated value. A motion
      * value might be provided externally by the component via props.
+     * @deprecated Use state.get() instead
      */
     values = new Map<string, MotionValue>()
 
@@ -431,7 +447,13 @@ export abstract class VisualElement<
 
         this.parent?.addChild(this)
 
+        // Call update before creating state so initial values use bindToMotionValue
+        // This ensures backward-compatible onUpdate behavior for initial values
         this.update(this.props, this.presenceContext)
+
+        // Create the state AFTER initial update - only NEW values from subsequent
+        // updates will use bindToState for atomic updates
+        this.state = this.createMotionValueState()
     }
 
     unmount() {
@@ -440,6 +462,7 @@ export abstract class VisualElement<
         cancelFrame(this.render)
         this.valueSubscriptions.forEach((remove) => remove())
         this.valueSubscriptions.clear()
+        this.state?.destroy()
         this.removeFromVariantTree && this.removeFromVariantTree()
         this.parent?.removeChild(this)
 
@@ -502,7 +525,8 @@ export abstract class VisualElement<
         this.valueSubscriptions.set(key, () => {
             removeOnChange()
             if (removeSyncCheck) removeSyncCheck()
-            if (value.owner) value.stop()
+            // Note: value.stop() is NOT called here - it's handled in removeValue()
+            // This allows rebinding without stopping owned values
         })
     }
 
@@ -699,7 +723,11 @@ export abstract class VisualElement<
 
         if (value !== existingValue) {
             if (existingValue) this.removeValue(key)
+
+            // Always use bindToMotionValue for backward compatibility
+            // This ensures onUpdate works correctly via the change listener path
             this.bindToMotionValue(key, value)
+
             this.values.set(key, value)
             this.latestValues[key] = value.get()
         }
@@ -709,11 +737,16 @@ export abstract class VisualElement<
      * Remove a motion value and unbind any active subscriptions.
      */
     removeValue(key: string) {
+        const value = this.values.get(key)
         this.values.delete(key)
         const unsubscribe = this.valueSubscriptions.get(key)
         if (unsubscribe) {
             unsubscribe()
             this.valueSubscriptions.delete(key)
+        }
+        // Stop owned values when truly removing (not just rebinding)
+        if (value?.owner) {
+            value.stop()
         }
         delete this.latestValues[key]
         this.removeValueFromRenderState(key, this.renderState)

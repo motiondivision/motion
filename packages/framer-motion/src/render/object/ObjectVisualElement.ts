@@ -1,3 +1,4 @@
+import { MotionValueState } from "motion-dom"
 import { createBox } from "../../projection/geometry/models"
 import { ResolvedValues } from "../types"
 import { VisualElement } from "../VisualElement"
@@ -15,6 +16,18 @@ export class ObjectVisualElement extends VisualElement<
     ObjectRenderState
 > {
     type = "object"
+
+    createMotionValueState(): MotionValueState {
+        return new MotionValueState({
+            // Don't apply value types (e.g., "px") to plain objects
+            useDefaultValueType: false,
+            onValueChange: (key, value) => {
+                // Sync to latestValues and schedule render
+                this.latestValues[key] = value
+                this.scheduleRender()
+            },
+        })
+    }
 
     readValueFromInstance(instance: Object, key: string) {
         if (isObjectKey(key, instance)) {

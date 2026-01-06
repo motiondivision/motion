@@ -33,6 +33,10 @@ class StateVisualElement extends VisualElement<
     getBaseTargetFromProps() {
         return undefined
     }
+    createMotionValueState() {
+        // Return undefined to use legacy bindToMotionValue path
+        return undefined
+    }
 
     readValueFromInstance(
         _state: ResolvedValues,

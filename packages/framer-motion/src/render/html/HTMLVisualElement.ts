@@ -1,6 +1,8 @@
 import {
     AnyResolvedKeyframe,
     defaultTransformValue,
+    frame,
+    HTMLMotionValueState,
     isCSSVariableName,
     readTransformValue,
     transformProps,
@@ -28,6 +30,52 @@ export class HTMLVisualElement extends DOMVisualElement<
     DOMVisualElementOptions
 > {
     type = "html"
+
+    createMotionValueState(): HTMLMotionValueState {
+        return new HTMLMotionValueState({
+            element: this.current,
+            getTransformTemplate: () => this.props.transformTemplate,
+            onTransformChange: () => {
+                if (this.projection) {
+                    this.projection.isTransformDirty = true
+                }
+            },
+            onUpdate: () => {
+                if (this.props.onUpdate) {
+                    // Use postRender so onUpdate fires in the current frame
+                    // (render callbacks run in render phase, preRender would go to next frame)
+                    frame.postRender(this.notifyUpdate)
+                }
+            },
+            onValueChange: (key, value) => {
+                // Skip internal computed values (transform, transformOrigin)
+                // These are internal to the state and shouldn't sync to latestValues
+                if (key === "transform" || key === "transformOrigin") {
+                    return
+                }
+
+                // Skip if value hasn't actually changed - prevents duplicate onUpdate calls
+                if (this.latestValues[key] === value) {
+                    return
+                }
+
+                // Sync to latestValues
+                this.latestValues[key] = value
+
+                // Mark projection dirty for transforms
+                if (transformProps.has(key) && this.projection) {
+                    this.projection.isTransformDirty = true
+                }
+
+                // Note: onUpdate is handled by state's render callbacks for most values,
+                // but we still schedule render for backward compatibility
+                this.scheduleRender()
+            },
+            // Provide access to full latestValues for transform building
+            // This includes values from initial/animate that may not be in state
+            getLatestValues: () => this.latestValues,
+        })
+    }
 
     readValueFromInstance(
         instance: HTMLElement,
