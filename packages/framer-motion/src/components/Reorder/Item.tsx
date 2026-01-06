@@ -65,7 +65,7 @@ export function ReorderItemComponent<
         ...props
     }: ReorderItemProps<V, TagName>,
     externalRef?: React.ForwardedRef<any>
-): JSX.Element {
+): React.JSX.Element {
     const Component = useConstant(
         () => motion[as as keyof typeof motion]
     ) as FunctionComponent<
