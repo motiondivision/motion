@@ -1,6 +1,6 @@
 import { motionValue, MotionValue } from "motion-dom"
 import { useEffect } from "react"
-import { motion } from "../../"
+import { motion, useMotionValueEvent } from "../../"
 import { syncDriver } from "../../animation/animators/__tests__/utils"
 import { render } from "../../jest.setup"
 import { useMotionValue } from "../use-motion-value"
@@ -225,3 +225,57 @@ const runSpringTests = (unit?: string | undefined) => {
 // Run tests for both number values and percentage values
 runSpringTests()
 runSpringTests("%")
+
+describe("useSpring animation events", () => {
+    test("triggers animationStart event when spring animation begins", async () => {
+        const promise = new Promise<boolean>((resolve) => {
+            const Component = () => {
+                const x = useMotionValue(0)
+                const springX = useSpring(x, {
+                    stiffness: 100,
+                    damping: 10,
+                })
+
+                useMotionValueEvent(springX, "animationStart", () => {
+                    resolve(true)
+                })
+
+                useEffect(() => {
+                    x.set(100)
+                }, [x])
+
+                return null
+            }
+
+            render(<Component />)
+        })
+
+        await expect(promise).resolves.toBe(true)
+    })
+
+    test("triggers animationComplete event when spring animation finishes", async () => {
+        const promise = new Promise<boolean>((resolve) => {
+            const Component = () => {
+                const x = useMotionValue(0)
+                const springX = useSpring(x, {
+                    stiffness: 1000,
+                    damping: 50,     
+                })
+
+                useMotionValueEvent(springX, "animationComplete", () => {
+                    resolve(true)
+                })
+
+                useEffect(() => {
+                    x.set(100)
+                }, [x])
+
+                return null
+            }
+
+            render(<Component />)
+        })
+
+        await expect(promise).resolves.toBe(true)
+    })
+})

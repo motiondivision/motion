@@ -550,7 +550,15 @@ export class VisualElementDragControls {
             if (projection && projection.layout) {
                 const { min, max } = projection.layout.layoutBox[axis]
 
-                axisValue.set(point[axis] - mixNumber(min, max, 0.5))
+                /**
+                 * The layout measurement includes the current transform value,
+                 * so we need to add it back to get the correct snap position.
+                 * This fixes an issue where elements with initial coordinates
+                 * would snap to the wrong position on the first drag.
+                 */
+                const current = axisValue.get() || 0
+
+                axisValue.set(point[axis] - mixNumber(min, max, 0.5) + current)
             }
         })
     }
