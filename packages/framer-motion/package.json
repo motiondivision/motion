@@ -92,6 +92,7 @@
         "tslib": "^2.4.0"
     },
     "devDependencies": {
+        "@radix-ui/react-dialog": "^1.1.15",
         "@thednp/dommatrix": "^2.0.11",
         "@types/three": "0.137.0",
         "three": "0.137.0"
