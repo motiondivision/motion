@@ -4,6 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.24.8] 2026-01-07
+
+### Fixed
+
+-   Perform unit conversion when animating to/from `calc()` values.
+
 ## [12.24.7] 2026-01-06
 
 ### Fixed
