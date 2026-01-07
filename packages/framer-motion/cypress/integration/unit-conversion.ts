@@ -1,4 +1,48 @@
 describe("Unit conversion", () => {
+    /**
+     * Test for GitHub issue #3410
+     * When animating from a calc() with CSS variables to a simple value (and back),
+     * the animation should complete correctly without getting stuck at intermediate values.
+     */
+    it("Animate x roundtrip: 0 -> calc -> 0", () => {
+        // Helper to extract translateX value from computed transform matrix
+        const getTranslateX = (element: HTMLElement): number => {
+            const style = window.getComputedStyle(element)
+            const matrix = new DOMMatrix(style.transform)
+            return matrix.m41 // translateX is in m41
+        }
+
+        cy.visit("?test=unit-conversion&roundtrip=true")
+            .wait(200)
+            .get("#box")
+            .should(([$box]: any) => {
+                // Initial position should be 0
+                expect(getTranslateX($box)).to.equal(0)
+                // Initial style should be none or translateX(0px)
+                expect($box.style.transform).to.match(/^(none|translateX\(0px\))$/)
+            })
+            // First click: 0 -> calc(3 * var(--width)) = 300px
+            .trigger("click")
+            .wait(300)
+            .should(([$box]: any) => {
+                // Computed position should be 300px
+                expect(getTranslateX($box)).to.equal(300)
+                // Style should preserve the calc expression
+                expect($box.style.transform).to.equal(
+                    "translateX(calc(3 * var(--width)))"
+                )
+            })
+            // Second click: calc(300px) -> 0
+            .trigger("click")
+            .wait(300)
+            .should(([$box]: any) => {
+                // Computed position should be back to 0
+                expect(getTranslateX($box)).to.equal(0)
+                // Style should be none (transform cleared when returning to default)
+                expect($box.style.transform).to.equal("none")
+            })
+    })
+
     it("Animate x from 0 to calc", () => {
         cy.visit("?test=unit-conversion")
             .wait(100)
