@@ -1,4 +1,4 @@
-import { clamp, secondsToMilliseconds } from "motion-utils"
+import { clamp } from "motion-utils"
 import { time } from "../frameloop/sync-time"
 import { JSAnimation } from "./JSAnimation"
 import { NativeAnimation, NativeAnimationOptions } from "./NativeAnimation"
@@ -44,25 +44,7 @@ export class NativeAnimationExtended<
 
         super(options)
 
-        if (options.startTime !== undefined) {
-            this.manualStartTime = options.startTime
-        }
-
         this.options = options
-    }
-
-    play() {
-        this.manualStartTime = null
-        super.play()
-    }
-
-    set time(newTime: number) {
-        this.manualStartTime = null
-        super.time = newTime
-    }
-
-    get time() {
-        return super.time
     }
 
     /**
@@ -90,15 +72,11 @@ export class NativeAnimationExtended<
         })
 
         /**
-         * Use wall-clock elapsed time when manualStartTime is set,
-         * otherwise fall back to the animation's current time.
+         * Use wall-clock elapsed time for sampling.
          * Under CPU load, WAAPI's currentTime may not reflect actual
          * elapsed time, causing incorrect sampling and visual jumps.
          */
-        const sampleTime =
-            this.manualStartTime !== null
-                ? Math.max(sampleDelta, time.now() - this.manualStartTime)
-                : secondsToMilliseconds(this.finishedTime ?? this.time)
+        const sampleTime = Math.max(sampleDelta, time.now() - this.startTime)
         const delta = clamp(0, sampleDelta, sampleTime - sampleDelta)
 
         motionValue.setWithVelocity(
