@@ -44,6 +44,10 @@ export class NativeAnimationExtended<
 
         super(options)
 
+        if (options.startTime !== undefined) {
+            this.manualStartTime = options.startTime
+        }
+
         this.options = options
     }
 
