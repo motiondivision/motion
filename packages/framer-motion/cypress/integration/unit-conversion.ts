@@ -5,28 +5,32 @@ describe("Unit conversion", () => {
      * the animation should complete correctly without getting stuck at intermediate values.
      */
     it("Animate x roundtrip: 0 -> calc -> 0", () => {
+        // Helper to extract translateX value from computed transform matrix
+        const getTranslateX = (element: HTMLElement): number => {
+            const style = window.getComputedStyle(element)
+            const matrix = new DOMMatrix(style.transform)
+            return matrix.m41 // translateX is in m41
+        }
+
         cy.visit("?test=unit-conversion&roundtrip=true")
             .wait(200)
             .get("#box")
             .should(([$box]: any) => {
                 // Initial position should be 0
-                const { left } = $box.getBoundingClientRect()
-                expect(left).to.equal(0)
+                expect(getTranslateX($box)).to.equal(0)
             })
-            // First click: 0 -> calc(300px)
+            // First click: 0 -> calc(3 * var(--width)) = 300px
             .trigger("click")
             .wait(300)
             .should(([$box]: any) => {
-                const { left } = $box.getBoundingClientRect()
-                expect(left).to.equal(300)
+                expect(getTranslateX($box)).to.equal(300)
             })
             // Second click: calc(300px) -> 0
             .trigger("click")
             .wait(300)
             .should(([$box]: any) => {
-                // After animation back to 0, left should be 0
-                const { left } = $box.getBoundingClientRect()
-                expect(left).to.equal(0)
+                // After animation back to 0
+                expect(getTranslateX($box)).to.equal(0)
             })
     })
 
