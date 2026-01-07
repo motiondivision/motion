@@ -109,12 +109,14 @@ export class VisualElementDragControls {
         if (presenceContext && presenceContext.isPresent === false) return
 
         const onSessionStart = (event: PointerEvent) => {
-            // Pause any animations immediately. This allows the user to throw and catch
-            // the component, and ensures constraint animations can resume if no drag starts.
-            this.pauseAnimation()
-
+            // Stop or pause animations based on context:
+            // - snapToCursor: stop because we'll set new position values
+            // - otherwise: pause to allow resume if no drag starts (for constraint animations)
             if (snapToCursor) {
+                this.stopAnimation()
                 this.snapToCursor(extractEventInfo(event).point)
+            } else {
+                this.pauseAnimation()
             }
         }
 
