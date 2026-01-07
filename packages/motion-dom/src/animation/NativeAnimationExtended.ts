@@ -21,13 +21,6 @@ export class NativeAnimationExtended<
 > extends NativeAnimation<T> {
     options: NativeAnimationOptionsExtended<T>
 
-    /**
-     * Track wall-clock time independently of WAAPI's currentTime.
-     * This ensures accurate sampling when the main thread is blocked
-     * and WAAPI's currentTime hasn't kept pace with real elapsed time.
-     */
-    private startedAt: number
-
     constructor(options: NativeAnimationOptionsExtended<T>) {
         /**
          * The base NativeAnimation function only supports a subset
@@ -51,13 +44,25 @@ export class NativeAnimationExtended<
 
         super(options)
 
-        this.startedAt = time.now()
-
-        if (options.startTime) {
-            this.startTime = options.startTime
+        if (options.startTime !== undefined) {
+            this.manualStartTime = options.startTime
         }
 
         this.options = options
+    }
+
+    play() {
+        this.manualStartTime = null
+        super.play()
+    }
+
+    set time(newTime: number) {
+        this.manualStartTime = null
+        super.time = newTime
+    }
+
+    get time() {
+        return super.time
     }
 
     /**
@@ -89,7 +94,7 @@ export class NativeAnimationExtended<
          * Under CPU load, WAAPI's currentTime may not reflect actual
          * elapsed time, causing incorrect sampling and visual jumps.
          */
-        const elapsedTime = time.now() - this.startedAt
+        const elapsedTime = time.now() - this.startTime
 
         const sampleTime = Math.max(sampleDelta, elapsedTime)
         const delta = clamp(0, sampleDelta, sampleTime - sampleDelta)
