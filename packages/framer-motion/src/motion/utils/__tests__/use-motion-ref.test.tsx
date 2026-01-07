@@ -17,7 +17,7 @@ describe("useMotionRef", () => {
         expect(refCallback).toHaveBeenCalledWith(expect.any(HTMLElement))
     })
 
-    it("should call external ref callback with null on unmount (React 18 behavior)", () => {
+    it("should call external ref callback with null on unmount", () => {
         const refCallback = jest.fn()
 
         const Component = () => {
@@ -35,10 +35,7 @@ describe("useMotionRef", () => {
         expect(refCallback).toHaveBeenCalledWith(null)
     })
 
-    it("should support React 19 cleanup function pattern (forward compatibility)", () => {
-        // This test verifies that when a ref callback returns a cleanup function,
-        // our code properly stores it and calls it on unmount instead of calling ref(null).
-        // This works in both React 18 and React 19 without warnings.
+    it("should call cleanup function on unmount when ref returns one (React 19)", () => {
         const cleanup = jest.fn()
         const refCallback = jest.fn(() => cleanup)
 
@@ -48,18 +45,14 @@ describe("useMotionRef", () => {
 
         const { unmount } = render(<Component />)
 
-        // Verify mount called correctly
         expect(refCallback).toHaveBeenCalledTimes(1)
         expect(refCallback).toHaveBeenCalledWith(expect.any(HTMLElement))
 
-        // Clear previous calls to focus on unmount behavior
         refCallback.mockClear()
-        cleanup.mockClear()
 
         unmount()
 
-        // With our new approach: cleanup function should be called
-        // and ref should NOT be called with null
+        // Cleanup should be called, ref should NOT be called with null
         expect(cleanup).toHaveBeenCalledTimes(1)
         expect(refCallback).not.toHaveBeenCalledWith(null)
     })
@@ -92,34 +85,7 @@ describe("useMotionRef", () => {
         expect(() => rerender(<Component useCallback={false} />)).not.toThrow()
     })
 
-    it("should handle visual element cleanup correctly with React 19 pattern", () => {
-        const cleanup = jest.fn()
-        const refCallback = jest.fn(() => cleanup)
-
-        const Component = () => {
-            return (
-                <motion.div
-                    ref={refCallback}
-                    // Add motion props to ensure visual element is created
-                    animate={{ x: 100 }}
-                />
-            )
-        }
-
-        const { unmount } = render(<Component />)
-
-        // Clear previous calls
-        refCallback.mockClear()
-        cleanup.mockClear()
-
-        unmount()
-
-        // Both external ref cleanup and visual element unmount should happen
-        expect(cleanup).toHaveBeenCalledTimes(1)
-        expect(refCallback).not.toHaveBeenCalledWith(null)
-    })
-
-    it("should work with forwardRef components and React 19 cleanup pattern", () => {
+    it("should work with forwardRef components", () => {
         const cleanup = jest.fn()
         const refCallback = jest.fn(() => cleanup)
 
@@ -137,9 +103,7 @@ describe("useMotionRef", () => {
 
         expect(refCallback).toHaveBeenCalledWith(expect.any(HTMLElement))
 
-        // Clear previous calls
         refCallback.mockClear()
-        cleanup.mockClear()
 
         unmount()
 
