@@ -121,6 +121,10 @@ export class VisualElementDragControls {
         }
 
         const onStart = (event: PointerEvent, info: PanInfo) => {
+            // Stop any paused animation so motion values reflect true current position
+            // (pauseAnimation was called in onSessionStart to allow resume if no drag started)
+            this.stopAnimation()
+
             // Attempt to grab the global drag gesture lock - maybe make this part of PanSession
             const { drag, dragPropagation, onDragStart } = this.getProps()
 

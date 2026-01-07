@@ -614,4 +614,55 @@ describe("Drag Constraints Return", () => {
                 expect(top).to.be.at.least(-2)
             })
     })
+
+    it("Does not jump when dragged again during animation", () => {
+        let positionBeforeRelease = { right: 0, bottom: 0 }
+
+        cy.visit("?test=drag-constraints-return")
+            .wait(200)
+            .get("[data-testid='draggable']")
+            .wait(100)
+            .trigger("pointerdown", 50, 50, { force: true })
+            .trigger("pointermove", 60, 60, { force: true }) // Gesture will start from first move past threshold
+            .wait(50)
+            // Drag outside constraints (to bottom-right)
+            .trigger("pointermove", 400, 400, { force: true })
+            .wait(50)
+            // Release - element should start animating back
+            .trigger("pointerup", { force: true })
+            .wait(50)
+            // Verify element is still animating (not yet within bounds)
+            .should(($draggable: any) => {
+                const draggable = $draggable[0] as HTMLDivElement
+                const { right, bottom } = draggable.getBoundingClientRect()
+                // Element should still be outside constraints (animating back)
+                expect(right).to.be.greaterThan(302)
+                expect(bottom).to.be.greaterThan(302)
+            })
+            // Now grab and DRAG the element again with a LARGE drag (200px)
+            // The bug causes a jump proportional to drag size
+            .trigger("pointerdown", 50, 50, { force: true })
+            .trigger("pointermove", 60, 60, { force: true }) // Start gesture
+            .wait(50)
+            .trigger("pointermove", 250, 250, { force: true }) // Drag by ~200px
+            .wait(50)
+            // Record position before release
+            .then(($draggable: any) => {
+                const draggable = $draggable[0] as HTMLDivElement
+                const rect = draggable.getBoundingClientRect()
+                positionBeforeRelease = { right: rect.right, bottom: rect.bottom }
+            })
+            // Release again
+            .trigger("pointerup", { force: true })
+            .wait(16) // One frame
+            // Verify element hasn't jumped - position should be close to where it was before release
+            .should(($draggable: any) => {
+                const draggable = $draggable[0] as HTMLDivElement
+                const { right, bottom } = draggable.getBoundingClientRect()
+                // Allow small movement from animation starting, but no large jump (max 30px)
+                // Bug: without fix, element jumps back towards first drag end position
+                expect(Math.abs(right - positionBeforeRelease.right)).to.be.lessThan(30)
+                expect(Math.abs(bottom - positionBeforeRelease.bottom)).to.be.lessThan(30)
+            })
+    })
 })
