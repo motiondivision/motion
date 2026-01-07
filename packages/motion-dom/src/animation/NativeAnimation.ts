@@ -225,7 +225,7 @@ export class NativeAnimation<T extends AnyResolvedKeyframe>
     }
 
     get startTime() {
-        return this.manualStartTime ?? Number(this.animation.startTime)
+        return Number(this.animation.startTime)
     }
 
     set startTime(newStartTime: number) {
