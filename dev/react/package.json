@@ -1,7 +1,7 @@
 {
     "name": "react-env",
     "private": true,
-    "version": "12.24.9",
+    "version": "12.24.10",
     "type": "module",
     "scripts": {
         "dev": "yarn vite",
@@ -11,11 +11,12 @@
         "preview": "yarn vite preview"
     },
     "dependencies": {
-        "framer-motion": "^12.24.9",
+        "framer-motion": "^12.24.10",
         "react": "^18.3.1",
         "react-dom": "^18.3.1"
     },
     "devDependencies": {
+        "@radix-ui/react-dialog": "^1.1.15",
         "@types/react": "^18.2.66",
         "@types/react-dom": "^18.2.22",
         "@typescript-eslint/eslint-plugin": "^7.2.0",

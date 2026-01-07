@@ -1,6 +1,6 @@
 {
     "name": "framer-motion",
-    "version": "12.24.9",
+    "version": "12.24.10",
     "description": "A simple and powerful JavaScript animation library",
     "main": "dist/cjs/index.js",
     "module": "dist/es/index.mjs",
@@ -88,11 +88,12 @@
         "measure": "rollup -c ./rollup.size.config.mjs"
     },
     "dependencies": {
-        "motion-dom": "^12.24.8",
-        "motion-utils": "^12.23.28",
+        "motion-dom": "^12.24.10",
+        "motion-utils": "^12.24.10",
         "tslib": "^2.4.0"
     },
     "devDependencies": {
+        "@radix-ui/react-dialog": "^1.1.15",
         "@thednp/dommatrix": "^2.0.11",
         "@types/three": "0.137.0",
         "three": "0.137.0"
