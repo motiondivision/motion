@@ -9,6 +9,7 @@ Undocumented APIs should be considered internal and may change without warning.
 ### Fixed
 
 -   Fixing Radix `Dialog` with `AnimatePresence`.
+-   Ensure drag constraints animation resumes after press interruption.
 
 ## [12.24.8] 2026-01-07
 
