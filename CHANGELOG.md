@@ -4,6 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.24.9] 2026-01-07
+
+### Fixed
+
+-   Fixing Radix `Dialog` with `AnimatePresence`.
+
 ## [12.24.8] 2026-01-07
 
 ### Fixed
