@@ -1,4 +1,5 @@
 import {
+    isElementKeyboardAccessible,
     PanInfo,
     ResolvedConstraints,
     Transition,
@@ -643,7 +644,13 @@ export class VisualElementDragControls {
             "pointerdown",
             (event) => {
                 const { drag, dragListener = true } = this.getProps()
-                drag && dragListener && this.start(event)
+                if (
+                    drag &&
+                    dragListener &&
+                    !isElementKeyboardAccessible(event.target as Element)
+                ) {
+                    this.start(event)
+                }
             }
         )
 

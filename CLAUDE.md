@@ -73,6 +73,8 @@ motion (public API)
 
 ## Writing Tests
 
+**IMPORTANT: Always write a failing test FIRST before implementing any bug fix or feature.** This ensures the issue is reproducible and the fix is verified. For UI interaction bugs (like gesture handling), prefer E2E tests using Playwright or Cypress.
+
 When waiting for the next frame in async tests:
 
 ```javascript
