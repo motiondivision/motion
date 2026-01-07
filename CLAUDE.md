@@ -92,3 +92,7 @@ async function nextFrame() {
 - Prefer arrow callbacks
 - Use strict equality (`===`)
 - No `var` declarations (use `const`/`let`)
+
+## Timing
+
+Use `time.now()` from `motion-dom/src/frameloop/sync-time.ts` instead of `performance.now()` for frame-synced timestamps. This ensures consistent time measurements within synchronous contexts and proper sync with the animation frame loop.

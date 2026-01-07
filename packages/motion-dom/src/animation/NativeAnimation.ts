@@ -45,6 +45,13 @@ export class NativeAnimation<T extends AnyResolvedKeyframe>
 
     private isPseudoElement: boolean
 
+    /**
+     * Tracks a manually-set start time that takes precedence over WAAPI's
+     * dynamic startTime. This is cleared when play() or time setter is called,
+     * allowing WAAPI to take over timing.
+     */
+    protected manualStartTime: number | null = null
+
     constructor(options?: NativeAnimationOptions) {
         super()
 
@@ -118,6 +125,7 @@ export class NativeAnimation<T extends AnyResolvedKeyframe>
     play() {
         if (this.isStopped) return
 
+        this.manualStartTime = null
         this.animation.play()
 
         if (this.state === "finished") {
@@ -192,6 +200,7 @@ export class NativeAnimation<T extends AnyResolvedKeyframe>
     }
 
     set time(newTime: number) {
+        this.manualStartTime = null
         this.finishedTime = null
         this.animation.currentTime = secondsToMilliseconds(newTime)
     }
@@ -218,11 +227,11 @@ export class NativeAnimation<T extends AnyResolvedKeyframe>
     }
 
     get startTime() {
-        return Number(this.animation.startTime)
+        return this.manualStartTime ?? Number(this.animation.startTime)
     }
 
     set startTime(newStartTime: number) {
-        this.animation.startTime = newStartTime
+        this.manualStartTime = this.animation.startTime = newStartTime
     }
 
     /**
