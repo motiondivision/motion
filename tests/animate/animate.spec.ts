@@ -511,3 +511,23 @@ test.describe("NativeAnimation", () => {
         expect(await box.innerText()).toBe("finished")
     })
 })
+
+test.describe("NativeAnimationExtended", () => {
+    test("rapid hover should not cause transform jump", async ({ page }) => {
+        await page.goto("animate/animate-transform-jump.html")
+        await page.waitForTimeout(100)
+
+        // Trigger rapid hover simulation (uses dispatchEvent + requestAnimationFrame)
+        await page.evaluate(() => (window as any).simulateRapidHovers())
+
+        // Wait for simulation to complete (12 hovers + 200ms settle time)
+        await page.waitForTimeout(800)
+
+        const result = page.locator("#result")
+        const text = await result.innerText()
+
+        // The test reports "smooth:X" if no jump detected, "jump:X" if jump detected
+        // We expect smooth behavior (no jump > 80px)
+        expect(text).toMatch(/^smooth:\d+$/)
+    })
+})

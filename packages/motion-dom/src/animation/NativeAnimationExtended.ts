@@ -1,4 +1,5 @@
-import { secondsToMilliseconds } from "motion-utils"
+import { clamp } from "motion-utils"
+import { time } from "../frameloop/sync-time"
 import { JSAnimation } from "./JSAnimation"
 import { NativeAnimation, NativeAnimationOptions } from "./NativeAnimation"
 import { AnyResolvedKeyframe, ValueAnimationOptions } from "./types"
@@ -19,6 +20,13 @@ export class NativeAnimationExtended<
     T extends AnyResolvedKeyframe
 > extends NativeAnimation<T> {
     options: NativeAnimationOptionsExtended<T>
+
+    /**
+     * Track wall-clock time independently of WAAPI's currentTime.
+     * This ensures accurate sampling when the main thread is blocked
+     * and WAAPI's currentTime hasn't kept pace with real elapsed time.
+     */
+    private startedAt: number
 
     constructor(options: NativeAnimationOptionsExtended<T>) {
         /**
@@ -42,6 +50,8 @@ export class NativeAnimationExtended<
         replaceTransitionType(options)
 
         super(options)
+
+        this.startedAt = time.now()
 
         if (options.startTime) {
             this.startTime = options.startTime
@@ -74,12 +84,20 @@ export class NativeAnimationExtended<
             autoplay: false,
         })
 
-        const sampleTime = secondsToMilliseconds(this.finishedTime ?? this.time)
+        /**
+         * Use wall-clock elapsed time instead of WAAPI's currentTime.
+         * Under CPU load, WAAPI's currentTime may not reflect actual
+         * elapsed time, causing incorrect sampling and visual jumps.
+         */
+        const elapsedTime = time.now() - this.startedAt
+
+        const sampleTime = Math.max(sampleDelta, elapsedTime)
+        const delta = clamp(0, sampleDelta, sampleTime - sampleDelta)
 
         motionValue.setWithVelocity(
-            sampleAnimation.sample(sampleTime - sampleDelta).value,
+            sampleAnimation.sample(Math.max(0, sampleTime - delta)).value,
             sampleAnimation.sample(sampleTime).value,
-            sampleDelta
+            delta
         )
 
         sampleAnimation.stop()
