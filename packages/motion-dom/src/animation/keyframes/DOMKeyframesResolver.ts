@@ -3,7 +3,10 @@ import { MotionValue } from "../../value"
 import { findDimensionValueType } from "../../value/types/dimensions"
 import { AnyResolvedKeyframe } from "../types"
 import { getVariableValue } from "../utils/css-variables-conversion"
-import { isCSSVariableToken } from "../utils/is-css-variable"
+import {
+    containsCSSVariable,
+    isCSSVariableToken,
+} from "../utils/is-css-variable"
 import {
     KeyframeResolver,
     OnKeyframesResolved,
@@ -83,6 +86,18 @@ export class DOMKeyframesResolver<
         const [origin, target] = unresolvedKeyframes
         const originType = findDimensionValueType(origin)
         const targetType = findDimensionValueType(target)
+
+        /**
+         * If one keyframe contains embedded CSS variables (e.g. in calc()) and the other
+         * doesn't, we need to measure to convert to pixels. This handles GitHub issue #3410.
+         */
+        const originHasVar = containsCSSVariable(origin)
+        const targetHasVar = containsCSSVariable(target)
+
+        if (originHasVar !== targetHasVar && positionalValues[name]) {
+            this.needsMeasurement = true
+            return
+        }
 
         /**
          * Either we don't recognise these value types or we can animate between them.
