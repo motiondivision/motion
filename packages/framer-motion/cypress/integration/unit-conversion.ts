@@ -18,19 +18,28 @@ describe("Unit conversion", () => {
             .should(([$box]: any) => {
                 // Initial position should be 0
                 expect(getTranslateX($box)).to.equal(0)
+                // Initial style should be none or translateX(0px)
+                expect($box.style.transform).to.match(/^(none|translateX\(0px\))$/)
             })
             // First click: 0 -> calc(3 * var(--width)) = 300px
             .trigger("click")
             .wait(300)
             .should(([$box]: any) => {
+                // Computed position should be 300px
                 expect(getTranslateX($box)).to.equal(300)
+                // Style should preserve the calc expression
+                expect($box.style.transform).to.equal(
+                    "translateX(calc(3 * var(--width)))"
+                )
             })
             // Second click: calc(300px) -> 0
             .trigger("click")
             .wait(300)
             .should(([$box]: any) => {
-                // After animation back to 0
+                // Computed position should be back to 0
                 expect(getTranslateX($box)).to.equal(0)
+                // Style should be none (transform cleared when returning to default)
+                expect($box.style.transform).to.equal("none")
             })
     })
 
