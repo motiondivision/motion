@@ -4,11 +4,17 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.24.11] 2026-01-08
+
+### Fixed
+
+-   Fixed time sampling of GPU animations under heavy CPU load.
+
 ## [12.24.10] 2026-01-07
 
 ### Fixed
 
--   Fixed transform animation jumping when rapidly interrupting animations under CPU load.
+-   Fixing missing import from `motion-dom`.
 
 ## [12.24.9] 2026-01-07
 
