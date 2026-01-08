@@ -20,7 +20,7 @@ import {
 } from "../../projection/geometry/conversion"
 import { calcLength } from "../../projection/geometry/delta-calc"
 import { createBox } from "../../projection/geometry/models"
-import { LayoutUpdateData } from "../../projection/node/types"
+import type { LayoutUpdateData } from "../../projection/node/types"
 import { eachAxis } from "../../projection/utils/each-axis"
 import { measurePageBox } from "../../projection/utils/measure"
 import type { VisualElement } from "../../render/VisualElement"
@@ -265,6 +265,7 @@ export class VisualElementDragControls {
                 dragSnapToOrigin,
                 distanceThreshold,
                 contextWindow: getContextWindow(this.visualElement),
+                element: this.visualElement.current,
             }
         )
     }

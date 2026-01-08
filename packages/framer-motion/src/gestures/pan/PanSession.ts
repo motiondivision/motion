@@ -25,11 +25,19 @@ interface PanSessionOptions {
     dragSnapToOrigin?: boolean
     distanceThreshold?: number
     contextWindow?: (Window & typeof globalThis) | null
+    /**
+     * Element being dragged. When provided, scroll events on its
+     * ancestors and window are compensated so the gesture continues
+     * smoothly during scroll.
+     */
+    element?: HTMLElement | null
 }
 
 interface TimestampedPoint extends Point {
     timestamp: number
 }
+
+const overflowStyles = /*#__PURE__*/ new Set(["auto", "scroll"])
 
 /**
  * @internal
@@ -89,6 +97,18 @@ export class PanSession {
      */
     private contextWindow: PanSessionOptions["contextWindow"] = window
 
+    /**
+     * Scroll positions of scrollable ancestors and window.
+     * @internal
+     */
+    private scrollPositions: Map<Element | Window, Point> = new Map()
+
+    /**
+     * Cleanup function for scroll listeners.
+     * @internal
+     */
+    private removeScrollListeners: (() => void) | null = null
+
     constructor(
         event: PointerEvent,
         handlers: Partial<PanSessionHandlers>,
@@ -97,6 +117,7 @@ export class PanSession {
             contextWindow = window,
             dragSnapToOrigin = false,
             distanceThreshold = 3,
+            element,
         }: PanSessionOptions = {}
     ) {
         // If we have more than one touch, don't start detecting this gesture
@@ -137,6 +158,103 @@ export class PanSession {
                 this.handlePointerUp
             )
         )
+
+        // Start scroll tracking if element provided
+        if (element) {
+            this.startScrollTracking(element)
+        }
+    }
+
+    /**
+     * Start tracking scroll on ancestors and window.
+     */
+    private startScrollTracking(element: HTMLElement): void {
+        // Store initial scroll positions for scrollable ancestors
+        let current = element.parentElement
+        while (current) {
+            const style = getComputedStyle(current)
+            if (
+                overflowStyles.has(style.overflowX) ||
+                overflowStyles.has(style.overflowY)
+            ) {
+                this.scrollPositions.set(current, {
+                    x: current.scrollLeft,
+                    y: current.scrollTop,
+                })
+            }
+            current = current.parentElement
+        }
+
+        // Track window scroll
+        this.scrollPositions.set(window, {
+            x: window.scrollX,
+            y: window.scrollY,
+        })
+
+        // Capture listener catches element scroll events as they bubble
+        window.addEventListener("scroll", this.onElementScroll, {
+            capture: true,
+            passive: true,
+        })
+
+        // Direct window scroll listener (window scroll doesn't bubble)
+        window.addEventListener("scroll", this.onWindowScroll, {
+            passive: true,
+        })
+
+        this.removeScrollListeners = () => {
+            window.removeEventListener("scroll", this.onElementScroll, {
+                capture: true,
+            })
+            window.removeEventListener("scroll", this.onWindowScroll)
+        }
+    }
+
+    private onElementScroll = (event: Event): void => {
+        this.handleScroll(event.target as Element)
+    }
+
+    private onWindowScroll = (): void => {
+        this.handleScroll(window)
+    }
+
+    /**
+     * Handle scroll compensation during drag.
+     *
+     * For element scroll: adjusts history origin since pageX/pageY doesn't change.
+     * For window scroll: adjusts lastMoveEventInfo since pageX/pageY would change.
+     */
+    private handleScroll(target: Element | Window): void {
+        const initial = this.scrollPositions.get(target)
+        if (!initial) return
+
+        const isWindow = target === window
+        const current = isWindow
+            ? { x: window.scrollX, y: window.scrollY }
+            : {
+                  x: (target as Element).scrollLeft,
+                  y: (target as Element).scrollTop,
+              }
+
+        const delta = { x: current.x - initial.x, y: current.y - initial.y }
+        if (delta.x === 0 && delta.y === 0) return
+
+        if (isWindow) {
+            // Window scroll: pageX/pageY changes, so update lastMoveEventInfo
+            if (this.lastMoveEventInfo) {
+                this.lastMoveEventInfo.point.x += delta.x
+                this.lastMoveEventInfo.point.y += delta.y
+            }
+        } else {
+            // Element scroll: pageX/pageY unchanged, so adjust history origin
+            if (this.history.length > 0) {
+                this.history[0].x -= delta.x
+                this.history[0].y -= delta.y
+            }
+        }
+
+        this.scrollPositions.set(target, current)
+        frame.update(this.updatePoint, true)
     }
 
     private updatePoint = () => {
@@ -207,6 +325,8 @@ export class PanSession {
 
     end() {
         this.removeListeners && this.removeListeners()
+        this.removeScrollListeners && this.removeScrollListeners()
+        this.scrollPositions.clear()
         cancelFrame(this.updatePoint)
     }
 }
