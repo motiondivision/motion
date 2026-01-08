@@ -26,11 +26,11 @@ interface PanSessionOptions {
     distanceThreshold?: number
     contextWindow?: (Window & typeof globalThis) | null
     /**
-     * Element to track scroll for during the pan session.
-     * When provided, scroll events on ancestors and window are compensated
-     * so the gesture continues smoothly during scroll.
+     * Element being dragged. When provided, scroll events on its
+     * ancestors and window are compensated so the gesture continues
+     * smoothly during scroll.
      */
-    scrollableElement?: HTMLElement | null
+    element?: HTMLElement | null
 }
 
 interface TimestampedPoint extends Point {
@@ -96,16 +96,10 @@ export class PanSession {
     private contextWindow: PanSessionOptions["contextWindow"] = window
 
     /**
-     * Scroll positions of ancestor elements when scroll tracking started.
+     * Scroll positions of scrollable ancestors and window.
      * @internal
      */
-    private ancestorScrolls: Map<Element, Point> = new Map()
-
-    /**
-     * Window scroll position when scroll tracking started.
-     * @internal
-     */
-    private windowScroll: Point = { x: 0, y: 0 }
+    private scrollPositions: Map<Element | Window, Point> = new Map()
 
     /**
      * Cleanup function for scroll listeners.
@@ -121,7 +115,7 @@ export class PanSession {
             contextWindow = window,
             dragSnapToOrigin = false,
             distanceThreshold = 3,
-            scrollableElement,
+            element,
         }: PanSessionOptions = {}
     ) {
         // If we have more than one touch, don't start detecting this gesture
@@ -164,8 +158,8 @@ export class PanSession {
         )
 
         // Start scroll tracking if element provided
-        if (scrollableElement) {
-            this.startScrollTracking(scrollableElement)
+        if (element) {
+            this.startScrollTracking(element)
         }
     }
 
@@ -173,91 +167,85 @@ export class PanSession {
      * Start tracking scroll on ancestors and window.
      */
     private startScrollTracking(element: HTMLElement): void {
-        // Store initial scroll positions for all ancestors
+        // Store initial scroll positions for scrollable ancestors
         let current = element.parentElement
         while (current) {
-            this.ancestorScrolls.set(current, {
-                x: current.scrollLeft,
-                y: current.scrollTop,
-            })
+            const style = getComputedStyle(current)
+            if (
+                style.overflowX === "auto" ||
+                style.overflowX === "scroll" ||
+                style.overflowY === "auto" ||
+                style.overflowY === "scroll"
+            ) {
+                this.scrollPositions.set(current, {
+                    x: current.scrollLeft,
+                    y: current.scrollTop,
+                })
+            }
             current = current.parentElement
         }
 
         // Track window scroll
-        this.windowScroll = { x: window.scrollX, y: window.scrollY }
+        this.scrollPositions.set(window, { x: window.scrollX, y: window.scrollY })
 
         // Capture listener catches element scroll events as they bubble
-        window.addEventListener("scroll", this.handleElementScroll, {
+        window.addEventListener("scroll", this.onElementScroll, {
             capture: true,
             passive: true,
         })
 
         // Direct window scroll listener (window scroll doesn't bubble)
-        window.addEventListener("scroll", this.handleWindowScroll, {
-            passive: true,
-        })
+        window.addEventListener("scroll", this.onWindowScroll, { passive: true })
 
         this.removeScrollListeners = () => {
-            window.removeEventListener("scroll", this.handleElementScroll, {
+            window.removeEventListener("scroll", this.onElementScroll, {
                 capture: true,
             })
-            window.removeEventListener("scroll", this.handleWindowScroll)
+            window.removeEventListener("scroll", this.onWindowScroll)
         }
     }
 
+    private onElementScroll = (event: Event): void => {
+        this.handleScroll(event.target as Element)
+    }
+
+    private onWindowScroll = (): void => {
+        this.handleScroll(window)
+    }
+
     /**
-     * Handle scroll on ancestor elements.
-     * Adjusts the history origin to compensate for scroll, making it appear
-     * as if the pointer moved in the opposite direction.
+     * Handle scroll compensation during drag.
+     *
+     * For element scroll: adjusts history origin since pageX/pageY doesn't change.
+     * For window scroll: adjusts lastMoveEventInfo since pageX/pageY would change.
      */
-    private handleElementScroll = (event: Event): void => {
-        const target = event.target as Element
-        const initial = this.ancestorScrolls.get(target)
+    private handleScroll(target: Element | Window): void {
+        const initial = this.scrollPositions.get(target)
         if (!initial) return
 
-        const current = { x: target.scrollLeft, y: target.scrollTop }
+        const isWindow = target === window
+        const current = isWindow
+            ? { x: window.scrollX, y: window.scrollY }
+            : { x: (target as Element).scrollLeft, y: (target as Element).scrollTop }
+
         const delta = { x: current.x - initial.x, y: current.y - initial.y }
-
         if (delta.x === 0 && delta.y === 0) return
 
-        // Adjust the origin point in history.
-        // offset = currentPoint - history[0]
-        // To increase offset by delta, decrease history[0] by delta.
-        if (this.history.length > 0) {
-            this.history[0].x -= delta.x
-            this.history[0].y -= delta.y
+        if (isWindow) {
+            // Window scroll: pageX/pageY changes, so update lastMoveEventInfo
+            if (this.lastMoveEventInfo) {
+                this.lastMoveEventInfo.point.x += delta.x
+                this.lastMoveEventInfo.point.y += delta.y
+            }
+        } else {
+            // Element scroll: pageX/pageY unchanged, so adjust history origin
+            if (this.history.length > 0) {
+                this.history[0].x -= delta.x
+                this.history[0].y -= delta.y
+            }
         }
 
-        this.ancestorScrolls.set(target, current)
-
-        // Trigger update to fire onMove with new offset
-        frame.update(this.updatePoint, true)
-    }
-
-    /**
-     * Handle window scroll.
-     * Adjusts lastMoveEventInfo to compensate for scroll, since pageX/pageY
-     * would have changed if a real pointer event had fired.
-     */
-    private handleWindowScroll = (): void => {
-        const current = { x: window.scrollX, y: window.scrollY }
-        const delta = {
-            x: current.x - this.windowScroll.x,
-            y: current.y - this.windowScroll.y,
-        }
-
-        if (delta.x === 0 && delta.y === 0) return
-
-        // For window scroll, pageX/pageY changes with scroll.
-        // Update lastMoveEventInfo to reflect what pageX/pageY would be.
-        if (this.lastMoveEventInfo) {
-            this.lastMoveEventInfo.point.x += delta.x
-            this.lastMoveEventInfo.point.y += delta.y
-        }
-
-        this.windowScroll = current
-
-        // Trigger update to fire onMove
+        this.scrollPositions.set(target, current)
         frame.update(this.updatePoint, true)
     }
 
@@ -326,7 +314,7 @@ export class PanSession {
     end() {
         this.removeListeners && this.removeListeners()
         this.removeScrollListeners && this.removeScrollListeners()
-        this.ancestorScrolls.clear()
+        this.scrollPositions.clear()
         cancelFrame(this.updatePoint)
     }
 }

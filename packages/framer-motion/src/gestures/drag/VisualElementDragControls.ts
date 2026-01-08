@@ -260,7 +260,7 @@ export class VisualElementDragControls {
                 dragSnapToOrigin,
                 distanceThreshold,
                 contextWindow: getContextWindow(this.visualElement),
-                scrollableElement: this.visualElement.current,
+                element: this.visualElement.current,
             }
         )
     }
