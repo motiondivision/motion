@@ -37,6 +37,8 @@ interface TimestampedPoint extends Point {
     timestamp: number
 }
 
+const overflowStyles = /*#__PURE__*/ new Set(["auto", "scroll"])
+
 /**
  * @internal
  */
@@ -172,10 +174,8 @@ export class PanSession {
         while (current) {
             const style = getComputedStyle(current)
             if (
-                style.overflowX === "auto" ||
-                style.overflowX === "scroll" ||
-                style.overflowY === "auto" ||
-                style.overflowY === "scroll"
+                overflowStyles.has(style.overflowX) ||
+                overflowStyles.has(style.overflowY)
             ) {
                 this.scrollPositions.set(current, {
                     x: current.scrollLeft,
@@ -186,7 +186,10 @@ export class PanSession {
         }
 
         // Track window scroll
-        this.scrollPositions.set(window, { x: window.scrollX, y: window.scrollY })
+        this.scrollPositions.set(window, {
+            x: window.scrollX,
+            y: window.scrollY,
+        })
 
         // Capture listener catches element scroll events as they bubble
         window.addEventListener("scroll", this.onElementScroll, {
@@ -195,7 +198,9 @@ export class PanSession {
         })
 
         // Direct window scroll listener (window scroll doesn't bubble)
-        window.addEventListener("scroll", this.onWindowScroll, { passive: true })
+        window.addEventListener("scroll", this.onWindowScroll, {
+            passive: true,
+        })
 
         this.removeScrollListeners = () => {
             window.removeEventListener("scroll", this.onElementScroll, {
@@ -226,7 +231,10 @@ export class PanSession {
         const isWindow = target === window
         const current = isWindow
             ? { x: window.scrollX, y: window.scrollY }
-            : { x: (target as Element).scrollLeft, y: (target as Element).scrollTop }
+            : {
+                  x: (target as Element).scrollLeft,
+                  y: (target as Element).scrollTop,
+              }
 
         const delta = { x: current.x - initial.x, y: current.y - initial.y }
         if (delta.x === 0 && delta.y === 0) return
