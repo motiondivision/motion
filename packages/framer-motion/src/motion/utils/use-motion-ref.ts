@@ -1,9 +1,8 @@
 "use client"
 
 import * as React from "react"
-import { useCallback } from "react"
+import { useCallback, useInsertionEffect, useRef } from "react"
 import type { VisualElement } from "../../render/VisualElement"
-import { isRefObject } from "../../utils/is-ref-object"
 import { VisualState } from "./use-visual-state"
 
 /**
@@ -15,32 +14,48 @@ export function useMotionRef<Instance, RenderState>(
     visualElement?: VisualElement<Instance> | null,
     externalRef?: React.Ref<Instance>
 ): React.Ref<Instance> {
+    /**
+     * Store externalRef in a ref to avoid including it in the useCallback
+     * dependency array. Including externalRef in dependencies causes issues
+     * with libraries like Radix UI that create new callback refs on each render
+     * when using asChild - this would cause the callback to be recreated,
+     * triggering element remounts and breaking AnimatePresence exit animations.
+     */
+    const externalRefContainer = useRef(externalRef)
+    useInsertionEffect(() => {
+        externalRefContainer.current = externalRef
+    })
+
+    // Store cleanup function returned by callback refs (React 19 feature)
+    const refCleanup = useRef<(() => void) | null>(null)
+
     return useCallback(
         (instance: Instance) => {
             if (instance) {
-                visualState.onMount && visualState.onMount(instance)
+                visualState.onMount?.(instance)
             }
 
             if (visualElement) {
-                if (instance) {
-                    visualElement.mount(instance)
-                } else {
-                    visualElement.unmount()
-                }
+                instance ? visualElement.mount(instance) : visualElement.unmount()
             }
 
-            if (externalRef) {
-                if (typeof externalRef === "function") {
-                    externalRef(instance)
-                } else if (isRefObject(externalRef)) {
-                    ;(externalRef as any).current = instance
+            const ref = externalRefContainer.current
+            if (typeof ref === "function") {
+                if (instance) {
+                    const cleanup = ref(instance)
+                    if (typeof cleanup === "function") {
+                        refCleanup.current = cleanup
+                    }
+                } else if (refCleanup.current) {
+                    refCleanup.current()
+                    refCleanup.current = null
+                } else {
+                    ref(instance)
                 }
+            } else if (ref) {
+                ;(ref as React.MutableRefObject<Instance>).current = instance
             }
         },
-        /**
-         * Include externalRef in dependencies to ensure the callback updates
-         * when the ref changes, allowing proper ref forwarding.
-         */
         [visualElement]
     )
 }

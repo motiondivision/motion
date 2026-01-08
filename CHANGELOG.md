@@ -4,6 +4,75 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.24.11] 2026-01-08
+
+### Fixed
+
+-   Fixed time sampling of GPU animations under heavy CPU load.
+
+## [12.24.10] 2026-01-07
+
+### Fixed
+
+-   Fixing missing import from `motion-dom`.
+
+## [12.24.9] 2026-01-07
+
+### Fixed
+
+-   Fixing Radix `Dialog` with `AnimatePresence`.
+-   Ensure drag constraints animation resumes after press interruption.
+-   Prevent drag gesture from triggering when pressing focusable elements.
+
+## [12.24.8] 2026-01-07
+
+### Fixed
+
+-   Perform unit conversion when animating to/from `calc()` values.
+
+## [12.24.7] 2026-01-06
+
+### Fixed
+
+-   Fix duplicate exit animations in `AnimatePresence`.
+
+## [12.24.6] 2026-01-06
+
+### Fixed
+
+-   Remove memory leak from retained `matchMedia` callbacks.
+
+## [12.24.5] 2026-01-06
+
+### Fixed
+
+-   Prevent `ref` access error for `AnimatePresence` `popLayout` mode in React 19.
+
+## [12.24.4] 2026-01-06
+
+### Fixed
+
+-   Support `ref` functions that return a cleanup callback.
+
+## [12.24.3] 2026-01-06
+
+### Fixed
+
+-   Ensure `onAnimationStart` and `onAnimationComplete` callbacks fire for `useSpring`.
+
+## [12.24.2] 2026-01-06
+
+### Fixed
+
+-   Ensure `useDragControls `snapToCursor: true` works with initial transforms.
+
+## [12.24.1] 2026-01-06
+
+### Fixed
+
+-   Ensure CSS Motion Path properties are applied via `style` on SVG elements.
+-   Ensure `JSX` is correctly imported by `Reorder.Item`.
+
 ## [12.24.0] 2026-01-05
 
 ### Added

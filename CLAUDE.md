@@ -73,6 +73,8 @@ motion (public API)
 
 ## Writing Tests
 
+**IMPORTANT: Always write a failing test FIRST before implementing any bug fix or feature.** This ensures the issue is reproducible and the fix is verified. For UI interaction bugs (like gesture handling), prefer E2E tests using Playwright or Cypress.
+
 When waiting for the next frame in async tests:
 
 ```javascript
@@ -90,3 +92,7 @@ async function nextFrame() {
 - Prefer arrow callbacks
 - Use strict equality (`===`)
 - No `var` declarations (use `const`/`let`)
+
+## Timing
+
+Use `time.now()` from `motion-dom/src/frameloop/sync-time.ts` instead of `performance.now()` for frame-synced timestamps. This ensures consistent time measurements within synchronous contexts and proper sync with the animation frame loop.

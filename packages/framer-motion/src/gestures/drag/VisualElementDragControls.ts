@@ -1,4 +1,5 @@
 import {
+    isElementKeyboardAccessible,
     PanInfo,
     ResolvedConstraints,
     Transition,
@@ -109,18 +110,22 @@ export class VisualElementDragControls {
         if (presenceContext && presenceContext.isPresent === false) return
 
         const onSessionStart = (event: PointerEvent) => {
-            const { dragSnapToOrigin } = this.getProps()
-
-            // Stop or pause any animations on both axis values immediately. This allows the user to throw and catch
-            // the component.
-            dragSnapToOrigin ? this.pauseAnimation() : this.stopAnimation()
-
+            // Stop or pause animations based on context:
+            // - snapToCursor: stop because we'll set new position values
+            // - otherwise: pause to allow resume if no drag starts (for constraint animations)
             if (snapToCursor) {
+                this.stopAnimation()
                 this.snapToCursor(extractEventInfo(event).point)
+            } else {
+                this.pauseAnimation()
             }
         }
 
         const onStart = (event: PointerEvent, info: PanInfo) => {
+            // Stop any paused animation so motion values reflect true current position
+            // (pauseAnimation was called in onSessionStart to allow resume if no drag started)
+            this.stopAnimation()
+
             // Attempt to grab the global drag gesture lock - maybe make this part of PanSession
             const { drag, dragPropagation, onDragStart } = this.getProps()
 
@@ -550,7 +555,15 @@ export class VisualElementDragControls {
             if (projection && projection.layout) {
                 const { min, max } = projection.layout.layoutBox[axis]
 
-                axisValue.set(point[axis] - mixNumber(min, max, 0.5))
+                /**
+                 * The layout measurement includes the current transform value,
+                 * so we need to add it back to get the correct snap position.
+                 * This fixes an issue where elements with initial coordinates
+                 * would snap to the wrong position on the first drag.
+                 */
+                const current = axisValue.get() || 0
+
+                axisValue.set(point[axis] - mixNumber(min, max, 0.5) + current)
             }
         })
     }
@@ -632,7 +645,13 @@ export class VisualElementDragControls {
             "pointerdown",
             (event) => {
                 const { drag, dragListener = true } = this.getProps()
-                drag && dragListener && this.start(event)
+                if (
+                    drag &&
+                    dragListener &&
+                    !isElementKeyboardAccessible(event.target as Element)
+                ) {
+                    this.start(event)
+                }
             }
         )
 

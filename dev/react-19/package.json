@@ -1,7 +1,7 @@
 {
     "name": "react-19-env",
     "private": true,
-    "version": "12.24.0",
+    "version": "12.24.11",
     "type": "module",
     "scripts": {
         "dev": "vite",
@@ -11,11 +11,12 @@
         "preview": "vite preview"
     },
     "dependencies": {
-        "motion": "^12.24.0",
+        "motion": "^12.24.11",
         "react": "^19.0.0",
         "react-dom": "^19.0.0"
     },
     "devDependencies": {
+        "@radix-ui/react-dialog": "^1.1.15",
         "@types/react": "^19.0.0",
         "@types/react-dom": "^19.0.0",
         "@typescript-eslint/eslint-plugin": "^7.2.0",

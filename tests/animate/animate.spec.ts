@@ -511,3 +511,4 @@ test.describe("NativeAnimation", () => {
         expect(await box.innerText()).toBe("finished")
     })
 })
+
