@@ -4,6 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.24.12] 2026-01-08
+
+### Fixed
+
+-   Draggable elements now track pointer during page and element scroll.
+
 ## [12.24.11] 2026-01-08
 
 ### Fixed
