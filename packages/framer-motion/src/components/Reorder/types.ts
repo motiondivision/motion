@@ -1,12 +1,12 @@
 import { Axis, Box } from "motion-utils"
+import { RefObject } from "react"
 import { HTMLElements } from "../../render/html/supported-elements"
 
 export interface ReorderContextProps<T> {
     axis: "x" | "y"
     registerItem: (item: T, layout: Box) => void
     updateOrder: (item: T, offset: number, velocity: number) => void
-    handleScroll?: (pointerPosition: number) => void
-    stopScroll?: () => void
+    groupRef: RefObject<Element | null>
 }
 
 export interface ItemData<T> {

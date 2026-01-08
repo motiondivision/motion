@@ -2,15 +2,7 @@
 
 import { invariant } from "motion-utils"
 import * as React from "react"
-import {
-    forwardRef,
-    FunctionComponent,
-    JSX,
-    RefObject,
-    useEffect,
-    useMemo,
-    useRef,
-} from "react"
+import { forwardRef, FunctionComponent, JSX, useEffect, useRef } from "react"
 import { ReorderContext } from "../../context/ReorderContext"
 import { motion } from "../../render/components/motion/proxy"
 import { HTMLMotionProps } from "../../render/html/types"
@@ -21,7 +13,6 @@ import {
     ReorderContextProps,
     ReorderElementTag,
 } from "./types"
-import { AutoScrollOptions, createAutoScroll } from "./utils/auto-scroll"
 import { checkReorder } from "./utils/check-reorder"
 
 export interface Props<
@@ -69,36 +60,6 @@ export interface Props<
      * @public
      */
     values: V[]
-
-    /**
-     * A ref to a scrollable parent element. When provided, the container will
-     * automatically scroll when dragging items near its edges.
-     *
-     * ```jsx
-     * function Component() {
-     *   const scrollRef = useRef(null)
-     *   const [items, setItems] = useState([0, 1, 2])
-     *
-     *   return (
-     *     <div ref={scrollRef} style={{ overflow: "auto", height: 200 }}>
-     *       <Reorder.Group values={items} onReorder={setItems} scrollParent={scrollRef}>
-     *         {items.map((item) => <Reorder.Item key={item} value={item} />)}
-     *       </Reorder.Group>
-     *     </div>
-     *   )
-     * }
-     * ```
-     *
-     * @public
-     */
-    scrollParent?: RefObject<HTMLElement | null>
-
-    /**
-     * Options for auto-scroll behavior when dragging near container edges.
-     *
-     * @public
-     */
-    scrollOptions?: AutoScrollOptions
 }
 
 type ReorderGroupProps<
@@ -118,8 +79,6 @@ export function ReorderGroupComponent<
         axis = "y",
         onReorder,
         values,
-        scrollParent,
-        scrollOptions,
         ...props
     }: ReorderGroupProps<V, TagName>,
     externalRef?: React.ForwardedRef<any>
@@ -132,6 +91,7 @@ export function ReorderGroupComponent<
 
     const order: ItemData<V>[] = []
     const isReordering = useRef(false)
+    const groupRef = useRef<Element>(null)
 
     invariant(
         Boolean(values),
@@ -139,13 +99,9 @@ export function ReorderGroupComponent<
         "reorder-values"
     )
 
-    const autoScroll = useMemo(
-        () => (scrollParent ? createAutoScroll(axis, scrollOptions) : null),
-        [axis, scrollParent, scrollOptions]
-    )
-
     const context: ReorderContextProps<V> = {
         axis,
+        groupRef,
         registerItem: (value, layout) => {
             // If the entry was already added, update it rather than adding it again
             const idx = order.findIndex((entry) => value === entry.value)
@@ -170,23 +126,36 @@ export function ReorderGroupComponent<
                 )
             }
         },
-        handleScroll: autoScroll
-            ? (pointerPosition: number) => {
-                  autoScroll.updateScroll(
-                      pointerPosition,
-                      scrollParent?.current ?? null
-                  )
-              }
-            : undefined,
-        stopScroll: autoScroll ? () => autoScroll.stop() : undefined,
     }
 
     useEffect(() => {
         isReordering.current = false
     })
 
+    // Combine refs if external ref is provided
+    const setRef = (element: Element | null) => {
+        ;(groupRef as React.MutableRefObject<Element | null>).current = element
+        if (typeof externalRef === "function") {
+            externalRef(element)
+        } else if (externalRef) {
+            ;(
+                externalRef as React.MutableRefObject<Element | null>
+            ).current = element
+        }
+    }
+
+    /**
+     * Disable browser scroll anchoring on the group container.
+     * When items reorder, scroll anchoring can cause the browser to adjust
+     * the scroll position, which interferes with drag position calculations.
+     */
+    const groupStyle = {
+        overflowAnchor: "none" as const,
+        ...props.style,
+    }
+
     return (
-        <Component {...props} ref={externalRef} ignoreStrict>
+        <Component {...props} style={groupStyle} ref={setRef} ignoreStrict>
             <ReorderContext.Provider value={context}>
                 {children}
             </ReorderContext.Provider>
