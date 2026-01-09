@@ -4,6 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.25.0] 2026-01-09
+
+### Added
+
+-   Support for auto-scrolling when a `Reorder.Item` reaches the edges of its parent scrollable container.
+
 ## [12.24.12] 2026-01-08
 
 ### Fixed
