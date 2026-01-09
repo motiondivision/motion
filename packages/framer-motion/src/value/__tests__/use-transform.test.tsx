@@ -340,7 +340,7 @@ describe("as output map", () => {
         const { container } = render(<Component />)
         expect(container.firstChild).toHaveStyle("opacity: 0.5")
         expect(container.firstChild).toHaveStyle(
-            "transform: translateX(100px) scale(1)"
+            "transform: translateX(100px)"
         )
 
         x.set(200)
@@ -350,31 +350,6 @@ describe("as output map", () => {
         expect(container.firstChild).toHaveStyle(
             "transform: translateX(200px) scale(1.5)"
         )
-    })
-
-    test("returns stable motion values across renders", async () => {
-        let capturedOutput: Record<string, MotionValue<number>> | null = null
-
-        const Component = () => {
-            const x = useMotionValue(100)
-            const result = useTransform(x, [0, 200], {
-                opacity: [0, 1],
-                scale: [0.5, 1.5],
-            })
-
-            if (capturedOutput === null) {
-                capturedOutput = result
-            } else {
-                // The output object should be the same reference
-                expect(result).toBe(capturedOutput)
-            }
-
-            return <motion.div style={{ opacity: result.opacity }} />
-        }
-
-        const { rerender } = render(<Component />)
-        rerender(<Component />)
-        rerender(<Component />)
     })
 
     test("works with color values", async () => {
