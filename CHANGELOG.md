@@ -4,6 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.26.0] 2026-01-09
+
+### Added
+
+-   Support for multiple output value maps with `useTransform`.
+
 ## [12.25.0] 2026-01-09
 
 ### Added
