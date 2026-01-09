@@ -199,7 +199,7 @@ export function useTransform<I, O, K extends string>(
             inputRangeOrTransformer as InputRange,
             outputRangeOrMap as OutputMap<O>,
             options
-        )
+        ) as { [key in K]: MotionValue<O> }
     }
 
     const outputRange = outputRangeOrMap as O[] | undefined
