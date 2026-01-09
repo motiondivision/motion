@@ -22,6 +22,10 @@ type Transformer<I, O> =
      */
     | MultiTransformer<AnyResolvedKeyframe, O>
 
+interface OutputMap<O> {
+    [key: string]: O[]
+}
+
 /**
  * Create a `MotionValue` that transforms the output of another `MotionValue` by mapping it from one range of values into another.
  *
@@ -126,7 +130,46 @@ export function useTransform<I, O>(
     transformer: MultiTransformer<I, O>
 ): MotionValue<O>
 export function useTransform<I, O>(transformer: () => O): MotionValue<O>
-export function useTransform<I, O>(
+
+/**
+ * Create multiple `MotionValue`s that transform the output of another `MotionValue` by mapping it from one range of values into multiple output ranges.
+ *
+ * @remarks
+ *
+ * This is useful when you want to derive multiple values from a single input value.
+ * The keys of the output map must remain constant across renders.
+ *
+ * ```jsx
+ * export const MyComponent = () => {
+ *   const x = useMotionValue(0)
+ *   const { opacity, scale } = useTransform(x, [0, 100], {
+ *     opacity: [0, 1],
+ *     scale: [0.5, 1]
+ *   })
+ *
+ *   return (
+ *     <motion.div style={{ opacity, scale, x }} />
+ *   )
+ * }
+ * ```
+ *
+ * @param inputValue - `MotionValue`
+ * @param inputRange - A linear series of numbers (either all increasing or decreasing)
+ * @param outputMap - An object where keys map to output ranges. Each output range must be the same length as `inputRange`.
+ * @param options - Transform options applied to all outputs
+ *
+ * @returns An object with the same keys as `outputMap`, where each value is a `MotionValue`
+ *
+ * @public
+ */
+export function useTransform<K extends string, O>(
+    inputValue: MotionValue<number>,
+    inputRange: InputRange,
+    outputMap: { [key in K]: O[] },
+    options?: TransformOptions<O>
+): { [key in K]: MotionValue<O> }
+
+export function useTransform<I, O, K extends string>(
     input:
         | MotionValue<I>
         | MotionValue<string>[]
@@ -134,13 +177,32 @@ export function useTransform<I, O>(
         | MotionValue<AnyResolvedKeyframe>[]
         | (() => O),
     inputRangeOrTransformer?: InputRange | Transformer<I, O>,
-    outputRange?: O[],
+    outputRangeOrMap?: O[] | OutputMap<O>,
     options?: TransformOptions<O>
-): MotionValue<O> {
+): MotionValue<O> | { [key in K]: MotionValue<O> } {
     if (typeof input === "function") {
         return useComputed(input)
     }
 
+    /**
+     * Detect if outputRangeOrMap is an output map (object with keys)
+     * rather than an output range (array).
+     */
+    const isOutputMap =
+        outputRangeOrMap !== undefined &&
+        !Array.isArray(outputRangeOrMap) &&
+        typeof inputRangeOrTransformer !== "function"
+
+    if (isOutputMap) {
+        return useMapTransform(
+            input as MotionValue<number>,
+            inputRangeOrTransformer as InputRange,
+            outputRangeOrMap as OutputMap<O>,
+            options
+        ) as { [key in K]: MotionValue<O> }
+    }
+
+    const outputRange = outputRangeOrMap as O[] | undefined
     const transformer =
         typeof inputRangeOrTransformer === "function"
             ? inputRangeOrTransformer
@@ -171,4 +233,23 @@ function useListTransform<I, O>(
 
         return transformer(latest)
     })
+}
+
+function useMapTransform<O>(
+    inputValue: MotionValue<number>,
+    inputRange: InputRange,
+    outputMap: OutputMap<O>,
+    options?: TransformOptions<O>
+): { [key: string]: MotionValue<O> } {
+    /**
+     * Capture keys once to ensure hooks are called in consistent order.
+     */
+    const keys = useConstant(() => Object.keys(outputMap))
+    const output = useConstant<{ [key: string]: MotionValue<O> }>(() => ({}))
+
+    for (const key of keys) {
+        output[key] = useTransform(inputValue, inputRange, outputMap[key], options)
+    }
+
+    return output
 }
