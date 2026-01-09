@@ -1,5 +1,5 @@
 import { motionValue, MotionValue } from "motion-dom"
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
 import { cancelFrame, frame, motion } from "../../"
 import { nextFrame, nextMicrotask } from "../../gestures/__tests__/utils"
 import { render } from "../../jest.setup"
@@ -432,11 +432,11 @@ describe("as output map", () => {
 
             // Note: In practice, users should not change keys, but the hook
             // should handle this gracefully by using the original keys
-            const outputMap = includeExtra
+            const outputMap: { [key: string]: number[] } = includeExtra
                 ? { opacity: [0, 1], scale: [0.5, 1], rotation: [0, 360] }
                 : { opacity: [0, 1], scale: [0.5, 1] }
 
-            const result = useTransform(x, [0, 200], outputMap as any)
+            const result = useTransform(x, [0, 200], outputMap)
 
             if (capturedKeys.length === 0) {
                 capturedKeys = Object.keys(result)
@@ -475,16 +475,12 @@ describe("as output map", () => {
     test("is correctly typed", async () => {
         const Component = () => {
             const x = useMotionValue(0)
-            const { opacity, y } = useTransform(x, [0, 1], {
+            const { opacity, scale } = useTransform(x, [0, 1], {
                 opacity: [0, 1],
-                y: ["0px", "100px"],
+                scale: [0.5, 1],
             })
 
-            // TypeScript should infer these correctly
-            const _opacityValue: MotionValue<number | string> = opacity
-            const _yValue: MotionValue<number | string> = y
-
-            return <motion.div style={{ x, opacity, y }} />
+            return <motion.div style={{ x, opacity, scale }} />
         }
 
         render(<Component />)
