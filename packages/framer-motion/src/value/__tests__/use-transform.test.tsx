@@ -332,54 +332,49 @@ describe("as output map", () => {
         const Component = () => {
             const { opacity, scale } = useTransform(x, [0, 200], {
                 opacity: [0, 1],
-                scale: [0.5, 1],
+                scale: [0.5, 1.5],
             })
             return <motion.div style={{ x, opacity, scale }} />
         }
 
         const { container } = render(<Component />)
         expect(container.firstChild).toHaveStyle("opacity: 0.5")
+        expect(container.firstChild).toHaveStyle(
+            "transform: translateX(100px) scale(1)"
+        )
 
         x.set(200)
 
         await nextFrame()
         expect(container.firstChild).toHaveStyle("opacity: 1")
         expect(container.firstChild).toHaveStyle(
-            "transform: translateX(200px) scale(1)"
+            "transform: translateX(200px) scale(1.5)"
         )
     })
 
     test("returns stable motion values across renders", async () => {
-        let capturedValues: {
-            opacity: MotionValue<number>
-            scale: MotionValue<number>
-        } | null = null
-        let renderCount = 0
+        let capturedOutput: Record<string, MotionValue<number>> | null = null
 
         const Component = () => {
             const x = useMotionValue(100)
             const result = useTransform(x, [0, 200], {
                 opacity: [0, 1],
-                scale: [0.5, 1],
+                scale: [0.5, 1.5],
             })
 
-            if (capturedValues === null) {
-                capturedValues = result
+            if (capturedOutput === null) {
+                capturedOutput = result
             } else {
-                // Verify the same motion value instances are returned
-                expect(result.opacity).toBe(capturedValues.opacity)
-                expect(result.scale).toBe(capturedValues.scale)
+                // The output object should be the same reference
+                expect(result).toBe(capturedOutput)
             }
 
-            renderCount++
             return <motion.div style={{ opacity: result.opacity }} />
         }
 
         const { rerender } = render(<Component />)
         rerender(<Component />)
         rerender(<Component />)
-
-        expect(renderCount).toBe(3)
     })
 
     test("works with color values", async () => {
@@ -412,7 +407,7 @@ describe("as output map", () => {
                 x,
                 [0, 200],
                 {
-                    opacity: [0, 1],
+                    opacity: [0, 0.5],
                 },
                 { clamp: false }
             )
@@ -420,8 +415,8 @@ describe("as output map", () => {
         }
 
         const { container } = render(<Component />)
-        // Value exceeds 1 because clamp is false
-        expect(container.firstChild).toHaveStyle("opacity: 1.25")
+        // Value exceeds 0.5 because clamp is false (250/200 * 0.5 = 0.625)
+        expect(container.firstChild).toHaveStyle("opacity: 0.625")
     })
 
     test("maintains keys across renders even if outputMap keys change", async () => {
