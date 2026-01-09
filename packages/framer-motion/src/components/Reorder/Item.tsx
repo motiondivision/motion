@@ -12,6 +12,10 @@ import { useMotionValue } from "../../value/use-motion-value"
 import { useTransform } from "../../value/use-transform"
 
 import { DefaultItemElement, ReorderElementTag } from "./types"
+import {
+    autoScrollIfNeeded,
+    resetAutoScrollState,
+} from "./utils/auto-scroll"
 
 export interface Props<
     V,
@@ -61,6 +65,7 @@ export function ReorderItemComponent<
         value,
         as = "li" as TagName,
         onDrag,
+        onDragEnd,
         layout = true,
         ...props
     }: ReorderItemProps<V, TagName>,
@@ -88,7 +93,7 @@ export function ReorderItemComponent<
         "reorder-item-child"
     )
 
-    const { axis, registerItem, updateOrder } = context!
+    const { axis, registerItem, updateOrder, groupRef } = context!
 
     return (
         <Component
@@ -98,13 +103,28 @@ export function ReorderItemComponent<
             style={{ ...style, x: point.x, y: point.y, zIndex }}
             layout={layout}
             onDrag={(event, gesturePoint) => {
-                const { velocity } = gesturePoint
-                velocity[axis] &&
-                    updateOrder(value, point[axis].get(), velocity[axis])
+                const { velocity, point: pointerPoint } = gesturePoint
+                const offset = point[axis].get()
+
+                // Always attempt to update order - checkReorder handles the logic
+                updateOrder(value, offset, velocity[axis])
+
+                autoScrollIfNeeded(
+                    groupRef.current,
+                    pointerPoint[axis],
+                    axis,
+                    velocity[axis]
+                )
 
                 onDrag && onDrag(event, gesturePoint)
             }}
-            onLayoutMeasure={(measured) => registerItem(value, measured)}
+            onDragEnd={(event, gesturePoint) => {
+                resetAutoScrollState()
+                onDragEnd && onDragEnd(event, gesturePoint)
+            }}
+            onLayoutMeasure={(measured) => {
+                registerItem(value, measured)
+            }}
             ref={externalRef}
             ignoreStrict
         >

@@ -91,6 +91,7 @@ export function ReorderGroupComponent<
 
     const order: ItemData<V>[] = []
     const isReordering = useRef(false)
+    const groupRef = useRef<Element>(null)
 
     invariant(
         Boolean(values),
@@ -100,6 +101,7 @@ export function ReorderGroupComponent<
 
     const context: ReorderContextProps<V> = {
         axis,
+        groupRef,
         registerItem: (value, layout) => {
             // If the entry was already added, update it rather than adding it again
             const idx = order.findIndex((entry) => value === entry.value)
@@ -130,8 +132,30 @@ export function ReorderGroupComponent<
         isReordering.current = false
     })
 
+    // Combine refs if external ref is provided
+    const setRef = (element: Element | null) => {
+        ;(groupRef as React.MutableRefObject<Element | null>).current = element
+        if (typeof externalRef === "function") {
+            externalRef(element)
+        } else if (externalRef) {
+            ;(
+                externalRef as React.MutableRefObject<Element | null>
+            ).current = element
+        }
+    }
+
+    /**
+     * Disable browser scroll anchoring on the group container.
+     * When items reorder, scroll anchoring can cause the browser to adjust
+     * the scroll position, which interferes with drag position calculations.
+     */
+    const groupStyle = {
+        overflowAnchor: "none" as const,
+        ...props.style,
+    }
+
     return (
-        <Component {...props} ref={externalRef} ignoreStrict>
+        <Component {...props} style={groupStyle} ref={setRef} ignoreStrict>
             <ReorderContext.Provider value={context}>
                 {children}
             </ReorderContext.Provider>

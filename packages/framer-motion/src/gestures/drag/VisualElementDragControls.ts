@@ -152,7 +152,7 @@ export class VisualElementDragControls {
             }
 
             /**
-             * Record gesture origin
+             * Record gesture origin and pointer offset
              */
             eachAxis((axis) => {
                 let current = this.getAxisMotionValue(axis).get() || 0
