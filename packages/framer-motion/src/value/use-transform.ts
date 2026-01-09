@@ -2,17 +2,13 @@
 
 import {
     AnyResolvedKeyframe,
-    cancelFrame,
-    frame,
     MotionValue,
     transform,
     TransformOptions,
 } from "motion-dom"
 import { useConstant } from "../utils/use-constant"
-import { useIsomorphicLayoutEffect } from "../utils/use-isomorphic-effect"
 import { useCombineMotionValues } from "./use-combine-values"
 import { useComputed } from "./use-computed"
-import { useMotionValue } from "./use-motion-value"
 
 export type InputRange = number[]
 type SingleTransformer<I, O> = (input: I) => O
@@ -246,72 +242,14 @@ function useMapTransform<O>(
     options?: TransformOptions<O>
 ): { [key: string]: MotionValue<O> } {
     /**
-     * Capture the keys once on first render. This ensures hooks are called
-     * in a consistent order across renders, which is required by React's
-     * rules of hooks.
+     * Capture keys once to ensure hooks are called in consistent order.
      */
     const keys = useConstant(() => Object.keys(outputMap))
+    const output = useConstant<{ [key: string]: MotionValue<O> }>(() => ({}))
 
-    /**
-     * Create transform functions for each key. These are recreated when
-     * inputRange or outputMap values change.
-     */
-    const transformers = keys.map((key) =>
-        transform(inputRange, outputMap[key], options)
-    )
-
-    /**
-     * Create the initial values for each output motion value.
-     */
-    const initialInputValue = inputValue.get()
-    const initialValues = transformers.map((t) => t(initialInputValue))
-
-    /**
-     * Create stable motion values for each key. These are created once
-     * and reused across renders.
-     */
-    const motionValues = useConstant(() =>
-        keys.map((_, i) => new MotionValue(initialValues[i]))
-    )
-
-    /**
-     * Create a function that will update all motion values with the latest
-     * transformed values.
-     */
-    const updateValues = () => {
-        const currentInputValue = inputValue.get()
-        for (let i = 0; i < keys.length; i++) {
-            motionValues[i].set(transformers[i](currentInputValue))
-        }
+    for (const key of keys) {
+        output[key] = useTransform(inputValue, inputRange, outputMap[key], options)
     }
 
-    /**
-     * Synchronously update all motion values during render to ensure
-     * DOM styles are up-to-date within a React render.
-     */
-    updateValues()
-
-    /**
-     * Subscribe to the input motion value. When it changes, schedule
-     * an update to all output motion values.
-     */
-    useIsomorphicLayoutEffect(() => {
-        const scheduleUpdate = () => frame.preRender(updateValues, false, true)
-        const unsubscribe = inputValue.on("change", scheduleUpdate)
-
-        return () => {
-            unsubscribe()
-            cancelFrame(updateValues)
-        }
-    })
-
-    /**
-     * Build and return the result object with the same keys as outputMap.
-     */
-    const result: { [key: string]: MotionValue<O> } = {}
-    for (let i = 0; i < keys.length; i++) {
-        result[keys[i]] = motionValues[i]
-    }
-
-    return result
+    return output
 }
