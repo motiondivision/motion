@@ -1,6 +1,5 @@
-import type { VisualElement } from "motion-dom"
+import { Feature, type VisualElement } from "motion-dom"
 import { noop } from "motion-utils"
-import { Feature } from "../../motion/features/Feature"
 import { VisualElementDragControls } from "./VisualElementDragControls"
 
 export class DragGesture extends Feature<HTMLElement> {

@@ -1,13 +1,13 @@
-import {
-    motionValue,
-    resolveVariant,
-    type AnimationDefinition,
-    type AnyResolvedKeyframe,
-    type UnresolvedValueKeyframe,
-    type ValueKeyframesDefinition,
-    type VisualElement,
-} from "motion-dom"
-import { isKeyframesTarget } from "../../animation/utils/is-keyframes-target"
+import { motionValue } from "../../value"
+import { resolveVariant } from "./resolve-dynamic-variants"
+import { isKeyframesTarget } from "./is-keyframes-target"
+import type { AnimationDefinition } from "../../node/types"
+import type {
+    AnyResolvedKeyframe,
+    UnresolvedValueKeyframe,
+    ValueKeyframesDefinition,
+} from "../../animation/types"
+import type { VisualElement } from "../VisualElement"
 
 /**
  * Set VisualElement's MotionValue, creating a new MotionValue for it if

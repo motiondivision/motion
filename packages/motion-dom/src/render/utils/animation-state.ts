@@ -3,9 +3,9 @@ import type {
     TargetAndTransition,
     VariantLabels,
 } from "../../node/types"
-import type { Transition } from "../../animation/types"
 import type { AnimationType } from "../types"
-import { calcChildStagger } from "./calc-child-stagger"
+import type { VisualElementAnimationOptions } from "../../animation/interfaces/types"
+import { calcChildStagger } from "../../animation/utils/calc-child-stagger"
 import { getVariantContext } from "./get-variant-context"
 import { isAnimationControls } from "./is-animation-controls"
 import { isKeyframesTarget } from "./is-keyframes-target"
@@ -14,12 +14,7 @@ import { resolveVariant } from "./resolve-dynamic-variants"
 import { shallowCompare } from "./shallow-compare"
 import { variantPriorityOrder } from "./variant-props"
 
-export interface VisualElementAnimationOptions {
-    delay?: number
-    transitionOverride?: Transition
-    custom?: any
-    type?: AnimationType
-}
+export type { VisualElementAnimationOptions }
 
 export interface AnimationState {
     animateChanges: (type?: AnimationType) => Promise<any>

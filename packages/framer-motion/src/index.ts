@@ -74,7 +74,7 @@ export {
     useAnimation,
     useAnimationControls,
 } from "./animation/hooks/use-animation"
-export { animateVisualElement } from "./animation/interfaces/visual-element"
+export { animateVisualElement } from "motion-dom"
 export {
     useIsPresent,
     usePresence,
@@ -88,7 +88,7 @@ export {
 export { isMotionComponent } from "./motion/utils/is-motion-component"
 export { unwrapMotionComponent } from "./motion/utils/unwrap-motion-component"
 export { isValidMotionProp } from "./motion/utils/valid-prop"
-export { addScaleCorrectors as addScaleCorrector } from "motion-dom"
+export { addScaleCorrector } from "motion-dom"
 export { useInstantLayoutTransition } from "./projection/use-instant-layout-transition"
 export { useResetProjection } from "./projection/use-reset-projection"
 export { buildTransform, visualElementStore, VisualElement } from "motion-dom"
@@ -104,7 +104,7 @@ export { usePageInView } from "./utils/use-page-in-view"
 /**
  * Appear animations
  */
-export { optimizedAppearDataAttribute } from "./animation/optimized-appear/data-id"
+export { optimizedAppearDataAttribute } from "motion-dom"
 export { startOptimizedAppearAnimation } from "./animation/optimized-appear/start"
 
 /**

@@ -1,5 +1,5 @@
+import { Feature } from "motion-dom"
 import { MotionProps } from "../../types"
-import { Feature } from "../Feature"
 import { observeIntersection } from "./observers"
 
 const thresholdNames = {

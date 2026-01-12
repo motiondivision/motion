@@ -1,4 +1,5 @@
 import {
+    animateTarget,
     AnimationPlaybackControlsWithThen,
     AnimationScope,
     AnyResolvedKeyframe,
@@ -13,7 +14,6 @@ import {
     visualElementStore,
 } from "motion-dom"
 import { invariant } from "motion-utils"
-import { animateTarget } from "../interfaces/visual-element-target"
 import { ObjectTarget } from "../sequence/types"
 import {
     createDOMVisualElement,

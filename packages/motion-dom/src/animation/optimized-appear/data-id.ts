@@ -1,4 +1,4 @@
-import { camelToDash } from "motion-dom"
+import { camelToDash } from "../../render/dom/utils/camel-to-dash"
 
 export const optimizedAppearDataId = "framerAppearId"
 

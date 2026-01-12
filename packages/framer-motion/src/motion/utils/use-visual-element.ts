@@ -1,9 +1,13 @@
 "use client"
 
-import type { HTMLRenderState, SVGRenderState, VisualElement } from "motion-dom"
+import {
+    optimizedAppearDataAttribute,
+    type HTMLRenderState,
+    type SVGRenderState,
+    type VisualElement,
+} from "motion-dom"
 import * as React from "react"
 import { useContext, useEffect, useInsertionEffect, useRef } from "react"
-import { optimizedAppearDataAttribute } from "../../animation/optimized-appear/data-id"
 import { LazyContext } from "../../context/LazyContext"
 import { MotionConfigContext } from "../../context/MotionConfigContext"
 import { MotionContext } from "../../context/MotionContext"

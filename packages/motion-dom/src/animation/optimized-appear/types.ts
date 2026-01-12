@@ -1,5 +1,5 @@
-import type { Batcher } from "motion-dom"
-import { MotionValue } from "motion-dom"
+import type { Batcher } from "../../frameloop/types"
+import type { MotionValue } from "../../value"
 import { optimizedAppearDataAttribute } from "./data-id"
 
 /**

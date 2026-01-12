@@ -1,7 +1,11 @@
-import type { AnimationDefinition, LegacyAnimationControls, VisualElement } from "motion-dom"
+import {
+    animateVisualElement,
+    setTarget,
+    type AnimationDefinition,
+    type LegacyAnimationControls,
+    type VisualElement,
+} from "motion-dom"
 import { invariant } from "motion-utils"
-import { setTarget } from "../../render/utils/setters"
-import { animateVisualElement } from "../interfaces/visual-element"
 
 function stopAnimation(visualElement: VisualElement) {
     visualElement.values.forEach((value) => value.stop())

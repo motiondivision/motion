@@ -1,8 +1,6 @@
-import type { PanInfo } from "motion-dom"
-import { frame } from "motion-dom"
+import { Feature, frame, type PanInfo } from "motion-dom"
 import { noop } from "motion-utils"
 import { addPointerEvent } from "../../events/add-pointer-event"
-import { Feature } from "../../motion/features/Feature"
 import { getContextWindow } from "../../utils/get-context-window"
 import { PanSession } from "./PanSession"
 

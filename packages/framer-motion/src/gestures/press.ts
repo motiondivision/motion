@@ -1,6 +1,5 @@
-import { frame, press, type VisualElement } from "motion-dom"
+import { Feature, frame, press, type VisualElement } from "motion-dom"
 import { extractEventInfo } from "../events/event-info"
-import { Feature } from "../motion/features/Feature"
 
 function handlePressEvent(
     node: VisualElement<Element>,

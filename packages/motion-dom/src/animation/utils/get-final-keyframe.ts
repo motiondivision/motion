@@ -1,4 +1,4 @@
-import { AnimationPlaybackOptions } from "motion-dom"
+import type { AnimationPlaybackOptions } from "../types"
 
 const isNotNull = (value: unknown) => value !== null
 

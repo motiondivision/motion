@@ -1,17 +1,15 @@
-import {
-    AnimationPlaybackControlsWithThen,
-    frame,
-    getValueTransition,
-    positionalKeys,
-    type AnimationTypeState,
-    type TargetAndTransition,
-    type VisualElement,
-} from "motion-dom"
+import { frame } from "../../frameloop"
+import { getValueTransition } from "../utils/get-value-transition"
+import { positionalKeys } from "../../render/utils/keys-position"
 import { setTarget } from "../../render/utils/setters"
-import { addValueToWillChange } from "../../value/use-will-change/add-will-change"
+import { addValueToWillChange } from "../../value/will-change/add-will-change"
 import { getOptimisedAppearId } from "../optimized-appear/get-appear-id"
 import { animateMotionValue } from "./motion-value"
 import type { VisualElementAnimationOptions } from "./types"
+import type { AnimationPlaybackControlsWithThen } from "../types"
+import type { TargetAndTransition } from "../../node/types"
+import type { AnimationTypeState } from "../../render/utils/animation-state"
+import type { VisualElement } from "../../render/VisualElement"
 
 /**
  * Decide whether we should block this animation. Previously, we achieved this

@@ -55,7 +55,7 @@ import {
     SubscriptionManager,
 } from "motion-utils"
 import { animateSingleValue } from "../../animation/animate/single-value"
-import { getOptimisedAppearId } from "../../animation/optimized-appear/get-appear-id"
+import { getOptimisedAppearId } from "motion-dom"
 import { MotionStyle } from "../../motion/types"
 import { HTMLVisualElement, ResolvedValues, VisualElement } from "motion-dom"
 import { FlatTree } from "../../render/utils/flat-tree"

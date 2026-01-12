@@ -1,7 +1,10 @@
-import { createAnimationState, type VisualElement } from "motion-dom"
-import { isAnimationControls } from "../../../animation/utils/is-animation-controls"
-import { animateVisualElement } from "../../../animation/interfaces/visual-element"
-import { Feature } from "../Feature"
+import {
+    createAnimationState,
+    Feature,
+    isAnimationControls,
+    animateVisualElement,
+    type VisualElement,
+} from "motion-dom"
 
 /**
  * Creates the animate function that will be used by the animation state

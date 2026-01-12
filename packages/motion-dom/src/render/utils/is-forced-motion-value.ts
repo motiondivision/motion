@@ -5,9 +5,7 @@ import {
     addScaleCorrector,
 } from "../../projection/styles/scale-correction"
 
-// Re-export for backward compatibility
-export { scaleCorrectors }
-export { addScaleCorrector as addScaleCorrectors }
+export { scaleCorrectors, addScaleCorrector }
 
 export function isForcedMotionValue(
     key: string,

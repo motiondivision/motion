@@ -1,5 +1,5 @@
 import { optimizedAppearDataAttribute } from "./data-id"
-import { WithAppearProps } from "./types"
+import type { WithAppearProps } from "./types"
 
 export function getOptimisedAppearId(
     visualElement: WithAppearProps

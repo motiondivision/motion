@@ -11,6 +11,22 @@ export * from "./animation/utils/css-variables-conversion"
 export * from "./animation/utils/get-value-transition"
 export * from "./animation/utils/is-css-variable"
 export * from "./animation/utils/make-animation-instant"
+export { getDefaultTransition } from "./animation/utils/default-transitions"
+export { isTransitionDefined } from "./animation/utils/is-transition-defined"
+export { getFinalKeyframe } from "./animation/utils/get-final-keyframe"
+export { calcChildStagger } from "./animation/utils/calc-child-stagger"
+
+// Animation interfaces
+export { animateMotionValue } from "./animation/interfaces/motion-value"
+export { animateTarget } from "./animation/interfaces/visual-element-target"
+export { animateVariant } from "./animation/interfaces/visual-element-variant"
+export { animateVisualElement } from "./animation/interfaces/visual-element"
+export type { VisualElementAnimationOptions } from "./animation/interfaces/types"
+
+// Optimized appear
+export { optimizedAppearDataId, optimizedAppearDataAttribute } from "./animation/optimized-appear/data-id"
+export { getOptimisedAppearId } from "./animation/optimized-appear/get-appear-id"
+export type { WithAppearProps, HandoffFunction } from "./animation/optimized-appear/types"
 
 export * from "./animation/generators/inertia"
 export * from "./animation/generators/keyframes"
@@ -69,6 +85,7 @@ export * from "./render/dom/style-set"
 export * from "./render/svg/types"
 export * from "./render/utils/keys-position"
 export * from "./render/utils/keys-transform"
+export { isKeyframesTarget } from "./render/utils/is-keyframes-target"
 
 export * from "./resize"
 
@@ -120,6 +137,9 @@ export * from "./value/types/utils/animatable-none"
 export * from "./value/types/utils/find"
 export * from "./value/types/utils/get-as-type"
 export * from "./value/utils/is-motion-value"
+export type { WillChange } from "./value/will-change/types"
+export { isWillChangeMotionValue } from "./value/will-change/is"
+export { addValueToWillChange } from "./value/will-change/add-will-change"
 
 export * from "./view"
 export * from "./view/types"
@@ -165,7 +185,8 @@ export { resolveVariant } from "./render/utils/resolve-dynamic-variants"
 export { updateMotionValuesFromProps } from "./render/utils/motion-values"
 export { variantProps, variantPriorityOrder } from "./render/utils/variant-props"
 export { isAnimationControls } from "./render/utils/is-animation-controls"
-export { isForcedMotionValue, scaleCorrectors, addScaleCorrectors } from "./render/utils/is-forced-motion-value"
+export { isForcedMotionValue, scaleCorrectors, addScaleCorrector } from "./render/utils/is-forced-motion-value"
+export { setTarget } from "./render/utils/setters"
 
 // Reduced motion
 export {

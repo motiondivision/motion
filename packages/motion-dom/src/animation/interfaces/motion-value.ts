@@ -1,21 +1,20 @@
-import {
-    AsyncMotionValueAnimation,
-    frame,
-    getValueTransition,
-    JSAnimation,
-    makeAnimationInstant,
-    type AnyResolvedKeyframe,
-    type MotionValue,
-    type StartAnimation,
-    type UnresolvedKeyframes,
-    type ValueAnimationOptions,
-    type ValueTransition,
-    type VisualElement,
-} from "motion-dom"
 import { MotionGlobalConfig, secondsToMilliseconds } from "motion-utils"
-import { getFinalKeyframe } from "../animators/waapi/utils/get-final-keyframe"
+import { AsyncMotionValueAnimation } from "../AsyncMotionValueAnimation"
+import { JSAnimation } from "../JSAnimation"
+import type {
+    AnyResolvedKeyframe,
+    ValueAnimationOptions,
+    ValueTransition,
+} from "../types"
+import type { UnresolvedKeyframes } from "../keyframes/KeyframesResolver"
+import { getValueTransition } from "../utils/get-value-transition"
+import { makeAnimationInstant } from "../utils/make-animation-instant"
 import { getDefaultTransition } from "../utils/default-transitions"
+import { getFinalKeyframe } from "../utils/get-final-keyframe"
 import { isTransitionDefined } from "../utils/is-transition-defined"
+import { frame } from "../../frameloop"
+import type { MotionValue, StartAnimation } from "../../value"
+import type { VisualElement } from "../../render/VisualElement"
 
 export const animateMotionValue =
     <V extends AnyResolvedKeyframe>(

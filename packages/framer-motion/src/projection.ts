@@ -4,7 +4,7 @@ export {
     calcBoxDelta,
     correctBorderRadius,
     correctBoxShadow,
-    addScaleCorrectors as addScaleCorrector,
+    addScaleCorrector,
     frame,
     frameData,
     mix,

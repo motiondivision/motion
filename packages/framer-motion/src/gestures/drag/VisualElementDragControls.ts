@@ -1,4 +1,6 @@
 import {
+    addValueToWillChange,
+    animateMotionValue,
     calcLength,
     convertBoundingBoxToBox,
     convertBoxToBoundingBox,
@@ -16,7 +18,6 @@ import {
     type VisualElement,
 } from "motion-dom"
 import { Axis, Point, invariant } from "motion-utils"
-import { animateMotionValue } from "../../animation/interfaces/motion-value"
 import { addDomEvent } from "../../events/add-dom-event"
 import { addPointerEvent } from "../../events/add-pointer-event"
 import { extractEventInfo } from "../../events/event-info"
@@ -24,7 +25,6 @@ import { MotionProps } from "../../motion/types"
 import type { LayoutUpdateData } from "../../projection/node/types"
 import { getContextWindow } from "../../utils/get-context-window"
 import { isRefObject } from "../../utils/is-ref-object"
-import { addValueToWillChange } from "../../value/use-will-change/add-will-change"
 import { PanSession } from "../pan/PanSession"
 import {
     applyConstraints,

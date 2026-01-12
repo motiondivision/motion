@@ -1,4 +1,5 @@
-import { type AnyResolvedKeyframe, type Transition } from "motion-dom"
+import type { AnyResolvedKeyframe } from "../types"
+import type { Transition } from "../types"
 
 /**
  * Decide whether a transition is defined on a given Transition.

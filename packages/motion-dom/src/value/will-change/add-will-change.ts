@@ -1,5 +1,5 @@
-import type { VisualElement } from "motion-dom"
 import { MotionGlobalConfig } from "motion-utils"
+import type { VisualElement } from "../../render/VisualElement"
 import { isWillChangeMotionValue } from "./is"
 
 export function addValueToWillChange(

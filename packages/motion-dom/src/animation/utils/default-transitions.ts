@@ -1,4 +1,5 @@
-import { transformProps, ValueAnimationOptions } from "motion-dom"
+import { transformProps } from "../../render/utils/keys-transform"
+import type { ValueAnimationOptions } from "../types"
 
 const underDampedSpring: Partial<ValueAnimationOptions> = {
     type: "spring",
