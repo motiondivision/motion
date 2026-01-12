@@ -455,4 +455,33 @@ describe("as output map", () => {
 
         render(<Component />)
     })
+
+    test("works with mixed types (string and number outputs)", async () => {
+        const progress = motionValue(50)
+
+        const Component = () => {
+            const { filter, scale, opacity } = useTransform(
+                progress,
+                [0, 100],
+                {
+                    filter: ["blur(10px)", "blur(0px)"],
+                    scale: [0.5, 1],
+                    opacity: [0.5, 1],
+                }
+            )
+            return <motion.div style={{ filter, scale, opacity }} />
+        }
+
+        const { container } = render(<Component />)
+        expect(container.firstChild).toHaveStyle("filter: blur(5px)")
+        expect(container.firstChild).toHaveStyle("opacity: 0.75")
+        expect(container.firstChild).toHaveStyle("transform: scale(0.75)")
+
+        progress.set(0)
+
+        await nextFrame()
+        expect(container.firstChild).toHaveStyle("filter: blur(10px)")
+        expect(container.firstChild).toHaveStyle("opacity: 0.5")
+        expect(container.firstChild).toHaveStyle("transform: scale(0.5)")
+    })
 })

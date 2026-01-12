@@ -27,6 +27,44 @@ interface OutputMap<O> {
 }
 
 /**
+ * Create multiple `MotionValue`s that transform the output of another `MotionValue` by mapping it from one range of values into multiple output ranges.
+ *
+ * @remarks
+ *
+ * This is useful when you want to derive multiple values from a single input value.
+ * The keys of the output map must remain constant across renders.
+ *
+ * ```jsx
+ * export const MyComponent = () => {
+ *   const x = useMotionValue(0)
+ *   const { opacity, scale } = useTransform(x, [0, 100], {
+ *     opacity: [0, 1],
+ *     scale: [0.5, 1]
+ *   })
+ *
+ *   return (
+ *     <motion.div style={{ opacity, scale, x }} />
+ *   )
+ * }
+ * ```
+ *
+ * @param inputValue - `MotionValue`
+ * @param inputRange - A linear series of numbers (either all increasing or decreasing)
+ * @param outputMap - An object where keys map to output ranges. Each output range must be the same length as `inputRange`.
+ * @param options - Transform options applied to all outputs
+ *
+ * @returns An object with the same keys as `outputMap`, where each value is a `MotionValue`
+ *
+ * @public
+ */
+export function useTransform<T extends Record<string, any[]>>(
+    inputValue: MotionValue<number>,
+    inputRange: InputRange,
+    outputMap: T,
+    options?: TransformOptions<T[keyof T][number]>
+): { [K in keyof T]: MotionValue<T[K][number]> }
+
+/**
  * Create a `MotionValue` that transforms the output of another `MotionValue` by mapping it from one range of values into another.
  *
  * @remarks
@@ -130,44 +168,6 @@ export function useTransform<I, O>(
     transformer: MultiTransformer<I, O>
 ): MotionValue<O>
 export function useTransform<I, O>(transformer: () => O): MotionValue<O>
-
-/**
- * Create multiple `MotionValue`s that transform the output of another `MotionValue` by mapping it from one range of values into multiple output ranges.
- *
- * @remarks
- *
- * This is useful when you want to derive multiple values from a single input value.
- * The keys of the output map must remain constant across renders.
- *
- * ```jsx
- * export const MyComponent = () => {
- *   const x = useMotionValue(0)
- *   const { opacity, scale } = useTransform(x, [0, 100], {
- *     opacity: [0, 1],
- *     scale: [0.5, 1]
- *   })
- *
- *   return (
- *     <motion.div style={{ opacity, scale, x }} />
- *   )
- * }
- * ```
- *
- * @param inputValue - `MotionValue`
- * @param inputRange - A linear series of numbers (either all increasing or decreasing)
- * @param outputMap - An object where keys map to output ranges. Each output range must be the same length as `inputRange`.
- * @param options - Transform options applied to all outputs
- *
- * @returns An object with the same keys as `outputMap`, where each value is a `MotionValue`
- *
- * @public
- */
-export function useTransform<K extends string, O>(
-    inputValue: MotionValue<number>,
-    inputRange: InputRange,
-    outputMap: { [key in K]: O[] },
-    options?: TransformOptions<O>
-): { [key in K]: MotionValue<O> }
 
 export function useTransform<I, O, K extends string>(
     input:
