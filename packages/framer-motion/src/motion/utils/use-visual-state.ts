@@ -2,13 +2,13 @@
 
 import {
     AnyResolvedKeyframe,
+    isAnimationControls,
     isControllingVariants as checkIsControllingVariants,
     isVariantNode as checkIsVariantNode,
     ResolvedValues,
     resolveVariantFromProps,
 } from "motion-dom"
 import { useContext } from "react"
-import { isAnimationControls } from "../../animation/utils/is-animation-controls"
 import { MotionContext, MotionContextProps } from "../../context/MotionContext"
 import {
     PresenceContext,
