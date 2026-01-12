@@ -125,7 +125,16 @@ export { SwitchLayoutGroupContext } from "./context/SwitchLayoutGroupContext"
 export type { AnimatePresenceProps } from "./components/AnimatePresence/types"
 export type { LazyProps } from "./components/LazyMotion/types"
 export type { MotionConfigProps } from "./components/MotionConfig"
-export type * from "./motion/features/types"
+export type {
+    HydratedFeatureDefinition,
+    HydratedFeatureDefinitions,
+    FeatureDefinition,
+    FeatureDefinitions,
+    FeaturePackage,
+    FeaturePackages,
+    FeatureBundle,
+    LazyFeatureBundle,
+} from "./motion/features/types"
 export type {
     MotionProps,
     MotionStyle,

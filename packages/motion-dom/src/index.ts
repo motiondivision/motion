@@ -126,6 +126,79 @@ export * from "./view/types"
 export * from "./view/utils/get-layer-info"
 export * from "./view/utils/get-view-animations"
 
+// Visual Element
+export { VisualElement, setFeatureDefinitions, getFeatureDefinitions } from "./render/VisualElement"
+export type { MotionStyle } from "./render/VisualElement"
+export { Feature } from "./render/Feature"
+export { DOMVisualElement } from "./render/dom/DOMVisualElement"
+export { HTMLVisualElement } from "./render/html/HTMLVisualElement"
+export { SVGVisualElement } from "./render/svg/SVGVisualElement"
+export { ObjectVisualElement } from "./render/object/ObjectVisualElement"
+export { visualElementStore } from "./render/store"
+export type {
+    ResolvedValues,
+    PresenceContextProps,
+    ReducedMotionConfig,
+    MotionConfigContextProps,
+    VisualState,
+    VisualElementOptions,
+    VisualElementEventCallbacks,
+    LayoutLifecycles,
+    ScrapeMotionValuesFromProps,
+    UseRenderState,
+    AnimationType,
+    FeatureClass,
+} from "./render/types"
+export * from "./render/dom/types"
+export * from "./render/html/types"
+
+// Animation State
+export { createAnimationState, checkVariantsDidChange } from "./render/utils/animation-state"
+export type { AnimationState, AnimationTypeState, AnimationList } from "./render/utils/animation-state"
+
+// Variant utilities
+export { isVariantLabel } from "./render/utils/is-variant-label"
+export { isControllingVariants, isVariantNode } from "./render/utils/is-controlling-variants"
+export { getVariantContext } from "./render/utils/get-variant-context"
+export { resolveVariantFromProps } from "./render/utils/resolve-variants"
+export { resolveVariant } from "./render/utils/resolve-dynamic-variants"
+export { updateMotionValuesFromProps } from "./render/utils/motion-values"
+export { variantProps, variantPriorityOrder } from "./render/utils/variant-props"
+export { isAnimationControls } from "./render/utils/is-animation-controls"
+export { isForcedMotionValue, scaleCorrectors, addScaleCorrectors } from "./render/utils/is-forced-motion-value"
+
+// Reduced motion
+export {
+    initPrefersReducedMotion,
+    hasReducedMotionListener,
+    prefersReducedMotion,
+} from "./render/utils/reduced-motion"
+
+// Projection geometry
+export * from "./projection/geometry"
+export { hasTransform, hasScale, has2DTranslate } from "./projection/utils/has-transform"
+export { measureViewportBox, measurePageBox } from "./projection/utils/measure"
+
+// Projection styles
+export * from "./projection/styles/types"
+export { pixelsToPercent, correctBorderRadius } from "./projection/styles/scale-border-radius"
+export { correctBoxShadow } from "./projection/styles/scale-box-shadow"
+export { buildProjectionTransform } from "./projection/styles/transform"
+
+// Projection animation
+export { mixValues } from "./projection/animation/mix-values"
+
+// HTML/SVG utilities
+export { buildHTMLStyles } from "./render/html/utils/build-styles"
+export { buildTransform } from "./render/html/utils/build-transform"
+export { renderHTML } from "./render/html/utils/render"
+export { buildSVGAttrs } from "./render/svg/utils/build-attrs"
+export { renderSVG } from "./render/svg/utils/render"
+export { buildSVGPath } from "./render/svg/utils/path"
+export { camelCaseAttributes } from "./render/svg/utils/camel-case-attrs"
+export { isSVGTag } from "./render/svg/utils/is-svg-tag"
+export { camelToDash } from "./render/dom/utils/camel-to-dash"
+
 /**
  * Deprecated
  */

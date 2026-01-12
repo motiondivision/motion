@@ -1,4 +1,14 @@
 import { AnyResolvedKeyframe } from "../../animation/types"
+import { ResolvedValues } from "../types"
+import { HTMLRenderState } from "../html/types"
+
+export interface SVGRenderState extends HTMLRenderState {
+    /**
+     * A mutable record of attributes we want to apply directly to the rendered Element
+     * every frame. We use a mutable data structure to reduce GC during animations.
+     */
+    attrs: ResolvedValues
+}
 
 export interface SVGAttributes {
     accentHeight?: AnyResolvedKeyframe | undefined
