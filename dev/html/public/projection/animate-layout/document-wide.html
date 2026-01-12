@@ -40,7 +40,7 @@
     </head>
     <body>
         <div id="container">
-            <!-- Cards now need data-layout attribute to participate in layout animations -->
+            <!-- Cards have data-layout to participate in document-wide animation -->
             <div class="card" data-layout data-layout-correct="true"></div>
             <div class="card" data-layout data-layout-correct="true"></div>
             <div class="card" data-layout data-layout-correct="true"></div>
@@ -49,7 +49,7 @@
         <script type="module" src="/src/imports/animate-layout.js"></script>
         <script type="module" src="/src/imports/script-assert.js"></script>
         <script type="module">
-            console.log("Test: selector.html")
+            console.log("Test: document-wide.html - no selector provided")
 
             const { unstable_animateLayout } = window.AnimateLayout
             const container = document.getElementById("container")
@@ -64,8 +64,8 @@
 
             ;(async () => {
                 try {
-                    // Use CSS selector as scope - finds data-layout elements within #container
-                    const controls = await unstable_animateLayout("#container", () => {
+                    // Test: No selector provided - should find all [data-layout] elements
+                    const controls = await unstable_animateLayout(() => {
                         console.log("Mutation: adding reordered class")
                         cards.forEach(card => card.classList.add("reordered"))
                         container.classList.add("reordered")

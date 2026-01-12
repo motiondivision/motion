@@ -294,31 +294,60 @@ async function executeLayoutAnimation(
 }
 
 /**
- * Animate layout changes for the specified elements.
+ * Selectors for elements that participate in layout animations
+ */
+const LAYOUT_SELECTORS = "[data-layout], [data-layout-id]"
+
+/**
+ * Check if a value is a valid element or selector
+ */
+function isElementOrSelector(
+    value: unknown
+): value is ElementOrSelector {
+    return (
+        value instanceof Element ||
+        typeof value === "string" ||
+        (Array.isArray(value) && value.length > 0 && value[0] instanceof Element) ||
+        value instanceof NodeList
+    )
+}
+
+/**
+ * Animate layout changes for elements with data-layout or data-layout-id attributes.
  * Returns a builder that resolves to a GroupAnimation implementing AnimationPlaybackControls.
  *
+ * When a selector/element is provided, it acts as a **scope** - layout elements
+ * (those with data-layout or data-layout-id) are searched within that scope.
+ *
  * @example
- * // Basic usage with mutation callback
- * const animation = await animateLayout("#box", () => {
- *     box.classList.toggle("expanded")
+ * // Document-wide layout animation (all data-layout elements in document)
+ * const animation = await animateLayout(() => {
+ *     updateDOM()
  * }, { duration: 0.3 })
- * animation.pause()
+ *
+ * @example
+ * // Scoped layout animation - finds data-layout elements within .container
+ * const animation = await animateLayout(".container", () => {
+ *     // Toggle classes, the underline with data-layout-id will animate
+ *     oldTab.classList.remove("selected")
+ *     newTab.classList.add("selected")
+ * }, { duration: 0.3 })
  *
  * @example
  * // Builder pattern with enter/exit animations
- * const animation = await animateLayout(".cards", { duration: 0.3 })
+ * const animation = await animateLayout(".cards-container", { duration: 0.3 })
  *     .enter({ opacity: [0, 1], scale: [0.8, 1] }, { duration: 0.2 })
  *     .exit({ opacity: 0, scale: 0.8 }, { duration: 0.15 })
  * animation.time = 0 // Seek to start
  *
  * @example
- * // Multiple elements with auto-hierarchy
- * const animation = await animateLayout([parent, child1, child2], () => {
- *     parent.style.width = "500px"
+ * // Scope to specific element
+ * const animation = await animateLayout(containerElement, () => {
+ *     containerElement.querySelector('.item').style.width = "500px"
  * })
  */
 export function animateLayout(
-    elementOrSelector: ElementOrSelector,
+    elementOrSelectorOrMutation?: ElementOrSelector | (() => void) | AnimateLayoutOptions,
     mutationOrOptions?: (() => void) | AnimateLayoutOptions,
     options?: AnimateLayoutOptions
 ): LayoutAnimationBuilder {
@@ -331,15 +360,54 @@ export function animateLayout(
     }
 
     const factory = globalFactory
-    const elements = resolveElements(elementOrSelector)
 
-    // Parse overloaded arguments
-    const mutation =
-        typeof mutationOrOptions === "function" ? mutationOrOptions : undefined
-    const opts: AnimateLayoutOptions =
-        typeof mutationOrOptions === "object"
+    // Parse overloaded arguments to support:
+    // animateLayout(mutation, options) - document-wide
+    // animateLayout(options) - document-wide
+    // animateLayout(selector, mutation, options) - scoped
+    // animateLayout(selector, options) - scoped
+    let elements: Element[]
+    let mutation: (() => void) | undefined
+    let opts: AnimateLayoutOptions
+
+    if (!elementOrSelectorOrMutation || !isElementOrSelector(elementOrSelectorOrMutation)) {
+        // No selector provided - scope to entire document
+        elements = Array.from(document.querySelectorAll(LAYOUT_SELECTORS))
+
+        if (typeof elementOrSelectorOrMutation === "function") {
+            // animateLayout(mutation, options)
+            mutation = elementOrSelectorOrMutation
+            opts = (mutationOrOptions as AnimateLayoutOptions) ?? {}
+        } else {
+            // animateLayout(options) or animateLayout()
+            mutation = typeof mutationOrOptions === "function" ? mutationOrOptions : undefined
+            opts = (elementOrSelectorOrMutation as AnimateLayoutOptions) ??
+                   (typeof mutationOrOptions === "object" ? mutationOrOptions : {})
+        }
+    } else {
+        // Selector provided - use as scope for finding layout elements
+        const scopeElements = resolveElements(elementOrSelectorOrMutation)
+        elements = []
+
+        for (const scope of scopeElements) {
+            // Find layout elements within this scope
+            const layoutElements = scope.querySelectorAll(LAYOUT_SELECTORS)
+            elements.push(...Array.from(layoutElements))
+
+            // Also include the scope element itself if it has layout attributes
+            if (scope.matches(LAYOUT_SELECTORS)) {
+                elements.push(scope)
+            }
+        }
+
+        // Remove duplicates (in case nested scopes)
+        elements = [...new Set(elements)]
+
+        mutation = typeof mutationOrOptions === "function" ? mutationOrOptions : undefined
+        opts = typeof mutationOrOptions === "object"
             ? mutationOrOptions
             : options ?? {}
+    }
 
     // Merge with default transition
     const mergedOptions: AnimateLayoutOptions = {

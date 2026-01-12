@@ -12,33 +12,49 @@ import { unstable_animateLayout as animateLayout } from "framer-motion/dom"
 
 ## Basic Usage
 
-### Animate a Layout Change
+### Document-Wide Animation
 
-Wrap your DOM mutation in `animateLayout` to automatically animate elements marked with `data-layout`:
+Call `animateLayout` with just a mutation callback to animate all `data-layout` and `data-layout-id` elements in the document:
 
 ```javascript
-const box = document.querySelector("#box")
-
-await animateLayout("#box", () => {
-    box.classList.toggle("expanded")
+await animateLayout(() => {
+    // Any DOM changes - all layout elements will animate
+    container.classList.toggle("expanded")
 }, { duration: 0.3 })
 ```
 
+### Scoped Animation
+
+Pass a selector to **scope** where layout elements are searched. The selector defines the container, and `data-layout` / `data-layout-id` elements within that container will animate:
+
 ```html
-<div id="box" data-layout class="collapsed"></div>
+<div class="container">
+    <div class="card" data-layout>Card 1</div>
+    <div class="card" data-layout>Card 2</div>
+</div>
+<div class="sidebar" data-layout>This won't animate</div>
 ```
 
-### Using Element References
+```javascript
+// Only cards inside .container will animate
+await animateLayout(".container", () => {
+    container.classList.toggle("grid")
+}, { duration: 0.3 })
+```
 
-You can pass elements directly instead of selectors:
+### Using Element References as Scope
+
+You can pass elements directly as the scope:
 
 ```javascript
-const elements = document.querySelectorAll(".card")
+const container = document.querySelector(".container")
 
-await animateLayout(elements, () => {
+await animateLayout(container, () => {
     container.classList.toggle("grid")
 }, { duration: 0.5 })
 ```
+
+**Note:** The scope element itself is also included if it has `data-layout` or `data-layout-id`.
 
 ## Enter & Exit Animations
 
@@ -113,7 +129,13 @@ Parent-child relationships are automatically detected. Child elements receive sc
 ```
 
 ```javascript
-await animateLayout(["#parent", "#child"], () => {
+// Using parent as scope - both parent and child have data-layout so both animate
+await animateLayout("#parent", () => {
+    parent.style.width = "300px"
+}, { duration: 0.5 })
+
+// Or document-wide - finds all data-layout elements
+await animateLayout(() => {
     parent.style.width = "300px"
 }, { duration: 0.5 })
 ```
@@ -135,7 +157,13 @@ Use `data-layout-id` to animate elements across different DOM positions:
 ```
 
 ```javascript
-await animateLayout('[data-layout-id="hero"]', () => {
+// Scope to a container that contains both views
+await animateLayout('#app', () => {
+    showDetailView()
+}, { duration: 0.5 })
+
+// Or use document-wide animation
+await animateLayout(() => {
     showDetailView()
 }, { duration: 0.5 })
 ```
@@ -167,12 +195,21 @@ interface AnimateLayoutOptions {
 ### animateLayout
 
 ```typescript
+// Document-wide: animates all data-layout/data-layout-id elements
 function animateLayout(
-    elementOrSelector: string | Element | Element[] | NodeList,
-    mutationOrOptions?: (() => void) | AnimateLayoutOptions,
+    mutation: () => void,
+    options?: AnimateLayoutOptions
+): LayoutAnimationBuilder
+
+// Scoped: animates data-layout/data-layout-id elements within the scope
+function animateLayout(
+    scope: string | Element | Element[] | NodeList,
+    mutation?: () => void,
     options?: AnimateLayoutOptions
 ): LayoutAnimationBuilder
 ```
+
+The `scope` parameter defines **where** to search for layout elements (`data-layout` or `data-layout-id`), not which elements to animate directly.
 
 ### LayoutAnimationBuilder
 
@@ -239,7 +276,8 @@ card.addEventListener("click", async () => {
 async function reorder(newOrder) {
     const items = list.querySelectorAll("li")
 
-    await animateLayout(items, () => {
+    // Use #list as scope to find all data-layout children
+    await animateLayout("#list", () => {
         newOrder.forEach(index => {
             list.appendChild(items[index])
         })
@@ -249,8 +287,15 @@ async function reorder(newOrder) {
 
 ### Tab Content with Enter/Exit
 
+```html
+<div id="tab-content">
+    <div data-layout class="panel">Current panel content...</div>
+</div>
+```
+
 ```javascript
 async function switchTab(newContent) {
+    // #tab-content is the scope, data-layout elements within will animate
     await animateLayout("#tab-content", () => {
         tabContent.innerHTML = newContent
     }, { duration: 0.3 })
@@ -260,6 +305,10 @@ async function switchTab(newContent) {
 ```
 
 ### Paused Animation for Scrubbing
+
+```html
+<div id="box" data-layout class="initial-state"></div>
+```
 
 ```javascript
 const animation = await animateLayout("#box", () => {

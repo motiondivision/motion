@@ -1,0 +1,217 @@
+<html>
+    <head>
+        <style>
+            :root {
+                --accent: #0066ff;
+                --black: #1a1a2e;
+            }
+
+            body {
+                padding: 20px;
+                margin: 0;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                background: #f5f5f5;
+            }
+
+            .container {
+                width: 480px;
+                max-height: 360px;
+                border-radius: 10px;
+                background: white;
+                overflow: hidden;
+                box-shadow: 0 1px 1px hsl(0deg 0% 0% / 0.075),
+                    0 2px 2px hsl(0deg 0% 0% / 0.075),
+                    0 4px 4px hsl(0deg 0% 0% / 0.075),
+                    0 8px 8px hsl(0deg 0% 0% / 0.075),
+                    0 16px 16px hsl(0deg 0% 0% / 0.075);
+                display: flex;
+                flex-direction: column;
+            }
+
+            .container nav {
+                background: #fdfdfd;
+                padding: 5px 5px 0;
+                border-radius: 10px;
+                border-bottom-left-radius: 0;
+                border-bottom-right-radius: 0;
+                border-bottom: 1px solid #eeeeee;
+                height: 44px;
+            }
+
+            .tabs {
+                list-style: none;
+                padding: 0;
+                margin: 0;
+                font-weight: 500;
+                font-size: 14px;
+                display: flex;
+                width: 100%;
+            }
+
+            .tab {
+                border-radius: 5px;
+                border-bottom-left-radius: 0;
+                border-bottom-right-radius: 0;
+                width: 100%;
+                padding: 10px 15px;
+                position: relative;
+                background: white;
+                cursor: pointer;
+                height: 24px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                flex: 1;
+                min-width: 0;
+                user-select: none;
+                color: var(--black);
+            }
+
+            .tab.selected {
+                background-color: #eee;
+            }
+
+            .tab-label {
+                position: relative;
+                z-index: 1;
+            }
+
+            /* Underline is always in the DOM, positioned based on which tab is selected */
+            .underline {
+                position: absolute;
+                bottom: -2px;
+                left: 0;
+                right: 0;
+                height: 2px;
+                background: var(--accent);
+                /* Hidden by default */
+                display: none;
+            }
+
+            /* Show underline only in the selected tab */
+            .tab.selected .underline {
+                display: block;
+            }
+
+            .icon-container {
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                flex: 1;
+                min-height: 200px;
+            }
+
+            .icon {
+                font-size: 128px;
+            }
+
+            [data-layout-correct="false"] {
+                background: #dd1144 !important;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <nav>
+                <ul class="tabs">
+                    <li class="tab selected" data-tab="tomato">
+                        <span class="tab-label">Tomato</span>
+                        <div class="underline" data-layout-id="underline"></div>
+                    </li>
+                    <li class="tab" data-tab="lettuce">
+                        <span class="tab-label">Lettuce</span>
+                        <div class="underline" data-layout-id="underline"></div>
+                    </li>
+                    <li class="tab" data-tab="cheese">
+                        <span class="tab-label">Cheese</span>
+                        <div class="underline" data-layout-id="underline"></div>
+                    </li>
+                </ul>
+            </nav>
+            <main class="icon-container">
+                <div class="icon"></div>
+            </main>
+        </div>
+
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module" src="/src/imports/script-assert.js"></script>
+        <script type="module">
+            console.log("Test: tabs-underline.html")
+
+            const { unstable_animateLayout } = window.AnimateLayout
+            const { animate } = await import("motion")
+
+            const tabs = {
+                tomato: "&#x1F345;",
+                lettuce: "&#x1F96C;",
+                cheese: "&#x1F9C0;",
+            }
+
+            let selectedTab = "tomato"
+            const currentIcon = document.querySelector(".icon")
+            currentIcon.innerHTML = tabs[selectedTab]
+
+            const tabElements = document.querySelectorAll(".tab")
+
+            console.log("unstable_animateLayout:", typeof unstable_animateLayout)
+
+            if (!unstable_animateLayout) {
+                console.error("unstable_animateLayout is not defined")
+                throw new Error("unstable_animateLayout is not defined")
+            }
+
+            tabElements.forEach((tab) => {
+                tab.addEventListener("click", async () => {
+                    const newTab = tab.dataset.tab
+                    if (newTab === selectedTab) return
+
+                    const oldTab = selectedTab
+                    selectedTab = newTab
+
+                    console.log(`Switching from ${oldTab} to ${newTab}`)
+
+                    // Animate the underline moving to the new tab
+                    // Use .container as scope - finds all data-layout-id elements within
+                    // The underlines share data-layout-id="underline" for shared layout animation
+                    await unstable_animateLayout(
+                        ".container",
+                        () => {
+                            // Toggle selected class - underlines stay in DOM
+                            document
+                                .querySelector(`.tab[data-tab="${oldTab}"]`)
+                                .classList.remove("selected")
+                            document
+                                .querySelector(`.tab[data-tab="${newTab}"]`)
+                                .classList.add("selected")
+                        },
+                        { duration: 0.3, ease: [0.4, 0, 0.2, 1] }
+                    )
+
+                    console.log("Underline animation complete")
+
+                    // Animate content change
+                    const icon = document.querySelector(".icon")
+
+                    // Exit animation for old content
+                    await animate(
+                        icon,
+                        { y: -10, opacity: 0 },
+                        { duration: 0.2 }
+                    )
+
+                    // Update content
+                    icon.innerHTML = tabs[newTab]
+
+                    // Enter animation for new content
+                    await animate(
+                        icon,
+                        { y: [10, 0], opacity: [0, 1] },
+                        { duration: 0.2 }
+                    )
+                })
+            })
+
+            console.log("Tabs initialized - click to switch tabs")
+        </script>
+    </body>
+</html>
