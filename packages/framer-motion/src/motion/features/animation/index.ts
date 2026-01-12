@@ -2,23 +2,8 @@ import {
     createAnimationState,
     Feature,
     isAnimationControls,
-    animateVisualElement,
     type VisualElement,
 } from "motion-dom"
-
-/**
- * Creates the animate function that will be used by the animation state
- * to perform actual animations using framer-motion's animation system.
- */
-function makeAnimateFunction(visualElement: VisualElement) {
-    return (animations: Array<{ animation: any; options?: any }>) => {
-        return Promise.all(
-            animations.map(({ animation, options }) =>
-                animateVisualElement(visualElement, animation, options)
-            )
-        )
-    }
-}
 
 export class AnimationFeature extends Feature<unknown> {
     unmountControls?: () => void
@@ -30,7 +15,7 @@ export class AnimationFeature extends Feature<unknown> {
      */
     constructor(node: VisualElement) {
         super(node)
-        node.animationState ||= createAnimationState(node, makeAnimateFunction)
+        node.animationState ||= createAnimationState(node)
     }
 
     updateAnimationControlsSubscription() {

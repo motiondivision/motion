@@ -5,6 +5,7 @@ import type {
 } from "../../node/types"
 import type { AnimationType } from "../types"
 import type { VisualElementAnimationOptions } from "../../animation/interfaces/types"
+import { animateVisualElement } from "../../animation/interfaces/visual-element"
 import { calcChildStagger } from "../../animation/utils/calc-child-stagger"
 import { getVariantContext } from "./get-variant-context"
 import { isAnimationControls } from "./is-animation-controls"
@@ -44,20 +45,18 @@ const numAnimationTypes = variantPriorityOrder.length
  */
 export type AnimateFunction = (animations: DefinitionAndOptions[]) => Promise<any>
 
-/**
- * Type for the function that creates an animate function for a visual element.
- */
-export type MakeAnimateFunction = (visualElement: any) => AnimateFunction
-
-function defaultAnimateList(_visualElement: any) {
-    return (_animations: DefinitionAndOptions[]) => Promise.resolve()
+function createAnimateFunction(visualElement: any): AnimateFunction {
+    return (animations: DefinitionAndOptions[]) => {
+        return Promise.all(
+            animations.map(({ animation, options }) =>
+                animateVisualElement(visualElement, animation, options)
+            )
+        )
+    }
 }
 
-export function createAnimationState(
-    visualElement: any,
-    makeAnimateFunction: MakeAnimateFunction = defaultAnimateList
-): AnimationState {
-    let animate = makeAnimateFunction(visualElement)
+export function createAnimationState(visualElement: any): AnimationState {
+    let animate = createAnimateFunction(visualElement)
     let state = createState()
     let isInitialRender = true
 
@@ -91,7 +90,9 @@ export function createAnimationState(
      * This just allows us to inject mocked animation functions
      * @internal
      */
-    function setAnimateFunction(makeAnimator: MakeAnimateFunction) {
+    function setAnimateFunction(
+        makeAnimator: (visualElement: any) => AnimateFunction
+    ) {
         animate = makeAnimator(visualElement)
     }
 

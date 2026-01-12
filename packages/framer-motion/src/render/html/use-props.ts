@@ -1,9 +1,8 @@
 "use client"
 
-import { AnyResolvedKeyframe, buildHTMLStyles, isMotionValue, MotionValue } from "motion-dom"
+import { AnyResolvedKeyframe, buildHTMLStyles, isForcedMotionValue, isMotionValue, MotionValue } from "motion-dom"
 import { HTMLProps, useMemo } from "react"
 import { MotionProps } from "../../motion/types"
-import { isForcedMotionValue } from "../../motion/utils/is-forced-motion-value"
 import { ResolvedValues } from "../types"
 import { createHtmlRenderState } from "./utils/create-render-state"
 

@@ -1,4 +1,4 @@
-import { convertBoundingBoxToBox } from "motion-dom"
+import { convertBoundingBoxToBox } from "../conversion"
 
 describe("convertBoundingBoxToBox", () => {
     it("Correctly converts a bounding box into a box", () => {

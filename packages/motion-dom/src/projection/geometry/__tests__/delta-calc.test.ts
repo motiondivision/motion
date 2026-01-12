@@ -1,12 +1,6 @@
-import {
-    isNear,
-    calcAxisDelta,
-    calcRelativeBox,
-    calcRelativePosition,
-    applyAxisDelta,
-    createBox,
-    createDelta,
-} from "motion-dom"
+import { isNear, calcAxisDelta, calcRelativeBox, calcRelativePosition } from "../delta-calc"
+import { applyAxisDelta } from "../delta-apply"
+import { createBox, createDelta } from "../models"
 
 describe("isNear", () => {
     test("Correctly indicate when the provided value is within maxDistance of the provided target", () => {

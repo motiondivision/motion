@@ -1,4 +1,4 @@
-import { mixValues } from "motion-dom"
+import { mixValues } from "../mix-values"
 
 describe("mixValues", () => {
     test("mixes borderRadius numbers", () => {

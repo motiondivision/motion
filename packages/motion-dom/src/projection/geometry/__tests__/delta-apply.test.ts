@@ -1,4 +1,4 @@
-import { scalePoint, applyPointDelta, applyAxisDelta } from "motion-dom"
+import { scalePoint, applyPointDelta, applyAxisDelta } from "../delta-apply"
 
 describe("scalePoint", () => {
     test("correctly scales a point based on a factor and an originPoint", () => {

@@ -220,11 +220,13 @@ export { mixValues } from "./projection/animation/mix-values"
 export { buildHTMLStyles } from "./render/html/utils/build-styles"
 export { buildTransform } from "./render/html/utils/build-transform"
 export { renderHTML } from "./render/html/utils/render"
+export { scrapeMotionValuesFromProps as scrapeHTMLMotionValuesFromProps } from "./render/html/utils/scrape-motion-values"
 export { buildSVGAttrs } from "./render/svg/utils/build-attrs"
 export { renderSVG } from "./render/svg/utils/render"
 export { buildSVGPath } from "./render/svg/utils/path"
 export { camelCaseAttributes } from "./render/svg/utils/camel-case-attrs"
 export { isSVGTag } from "./render/svg/utils/is-svg-tag"
+export { scrapeMotionValuesFromProps as scrapeSVGMotionValuesFromProps } from "./render/svg/utils/scrape-motion-values"
 export { camelToDash } from "./render/dom/utils/camel-to-dash"
 
 /**

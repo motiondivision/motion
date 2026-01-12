@@ -1,4 +1,5 @@
-import { copyBoxInto, createBox } from "motion-dom"
+import { copyBoxInto } from "../copy"
+import { createBox } from "../models"
 
 describe("copyBoxInto", () => {
     it("copies one box into an existing box", () => {
