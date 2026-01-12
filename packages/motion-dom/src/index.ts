@@ -175,7 +175,13 @@ export {
 } from "./render/utils/reduced-motion"
 
 // Projection geometry
-export * from "./projection/geometry"
+export * from "./projection/geometry/models"
+export * from "./projection/geometry/delta-calc"
+export * from "./projection/geometry/delta-apply"
+export * from "./projection/geometry/delta-remove"
+export * from "./projection/geometry/copy"
+export * from "./projection/geometry/conversion"
+export * from "./projection/geometry/utils"
 export { hasTransform, hasScale, has2DTranslate } from "./projection/utils/has-transform"
 export { measureViewportBox, measurePageBox } from "./projection/utils/measure"
 export { eachAxis } from "./projection/utils/each-axis"

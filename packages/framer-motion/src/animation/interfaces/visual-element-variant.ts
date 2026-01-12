@@ -1,6 +1,4 @@
-import { DynamicOption } from "motion-dom"
-import { resolveVariant } from "../../render/utils/resolve-dynamic-variants"
-import { VisualElement } from "../../render/VisualElement"
+import { DynamicOption, resolveVariant, type VisualElement } from "motion-dom"
 import { calcChildStagger } from "../utils/calc-child-stagger"
 import { VisualElementAnimationOptions } from "./types"
 import { animateTarget } from "./visual-element-target"

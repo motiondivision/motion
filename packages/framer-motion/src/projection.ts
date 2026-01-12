@@ -8,8 +8,8 @@ export {
     frame,
     frameData,
     mix,
+    HTMLVisualElement,
+    buildTransform,
 } from "motion-dom"
 export { nodeGroup } from "./projection/node/group"
 export { HTMLProjectionNode } from "./projection/node/HTMLProjectionNode"
-export { HTMLVisualElement } from "./render/html/HTMLVisualElement"
-export { buildTransform } from "./render/html/utils/build-transform"

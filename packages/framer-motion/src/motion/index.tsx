@@ -17,7 +17,7 @@ import { SVGRenderState } from "../render/svg/types"
 import { useSVGVisualState } from "../render/svg/use-svg-visual-state"
 import { CreateVisualElement } from "../render/types"
 import { isBrowser } from "../utils/is-browser"
-import { featureDefinitions } from "./features/definitions"
+import { getInitializedFeatureDefinitions } from "./features/definitions"
 import { loadFeatures } from "./features/load-features"
 import { FeatureBundle, FeaturePackages } from "./features/types"
 import { MotionProps } from "./types"
@@ -203,6 +203,7 @@ function useStrictMode(
 }
 
 function getProjectionFunctionality(props: MotionProps) {
+    const featureDefinitions = getInitializedFeatureDefinitions()
     const { drag, layout } = featureDefinitions
 
     if (!drag && !layout) return {}

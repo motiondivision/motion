@@ -1,13 +1,13 @@
-import type { TargetAndTransition } from "motion-dom"
 import {
     AnimationPlaybackControlsWithThen,
     frame,
     getValueTransition,
     positionalKeys,
+    type AnimationTypeState,
+    type TargetAndTransition,
+    type VisualElement,
 } from "motion-dom"
-import type { AnimationTypeState } from "../../render/utils/animation-state"
 import { setTarget } from "../../render/utils/setters"
-import type { VisualElement } from "../../render/VisualElement"
 import { addValueToWillChange } from "../../value/use-will-change/add-will-change"
 import { getOptimisedAppearId } from "../optimized-appear/get-appear-id"
 import { animateMotionValue } from "./motion-value"

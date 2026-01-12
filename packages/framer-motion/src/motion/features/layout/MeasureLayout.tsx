@@ -1,6 +1,6 @@
 "use client"
 
-import { frame, microtask } from "motion-dom"
+import { frame, microtask, type VisualElement } from "motion-dom"
 import { Component, useContext } from "react"
 import { usePresence } from "../../../components/AnimatePresence/use-presence"
 import {
@@ -9,7 +9,6 @@ import {
 } from "../../../context/LayoutGroupContext"
 import { SwitchLayoutGroupContext } from "../../../context/SwitchLayoutGroupContext"
 import { globalProjectionState } from "../../../projection/node/state"
-import { VisualElement } from "../../../render/VisualElement"
 import { MotionProps } from "../../types"
 
 interface MeasureContextProps {

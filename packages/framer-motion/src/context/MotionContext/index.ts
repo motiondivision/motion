@@ -1,7 +1,7 @@
 "use client"
 
+import type { VisualElement } from "motion-dom"
 import { createContext } from "react"
-import type { VisualElement } from "../../render/VisualElement"
 
 export interface MotionContextProps<Instance = unknown> {
     visualElement?: VisualElement<Instance>

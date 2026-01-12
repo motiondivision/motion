@@ -1,9 +1,8 @@
 "use client"
 
-import { MotionValue } from "motion-dom"
+import { MotionValue, type VisualElement } from "motion-dom"
 import { useConstant } from "../../utils/use-constant"
 import { useMotionValueEvent } from "../../utils/use-motion-value-event"
-import type { VisualElement } from "../VisualElement"
 
 export function useMotionValueChild(
     children: MotionValue<number | string>,

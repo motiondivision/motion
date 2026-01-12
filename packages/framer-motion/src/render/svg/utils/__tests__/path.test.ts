@@ -1,5 +1,5 @@
+import { buildSVGPath } from "motion-dom"
 import "../../../../jest.setup"
-import { buildSVGPath } from "../path"
 
 describe("buildSVGPath", () => {
     it("correctly generates SVG path props", () => {

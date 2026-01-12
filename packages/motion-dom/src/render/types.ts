@@ -143,6 +143,8 @@ export interface FeatureClass<Props = unknown> {
 export interface FeatureDefinition {
     isEnabled: (props: MotionNodeOptions) => boolean
     Feature?: FeatureClass<unknown>
+    ProjectionNode?: any
+    MeasureLayout?: any
 }
 
 export type FeatureDefinitions = {

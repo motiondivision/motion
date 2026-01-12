@@ -1,7 +1,6 @@
-import type { AnimationDefinition, LegacyAnimationControls } from "motion-dom"
+import type { AnimationDefinition, LegacyAnimationControls, VisualElement } from "motion-dom"
 import { invariant } from "motion-utils"
 import { setTarget } from "../../render/utils/setters"
-import type { VisualElement } from "../../render/VisualElement"
 import { animateVisualElement } from "../interfaces/visual-element"
 
 function stopAnimation(visualElement: VisualElement) {

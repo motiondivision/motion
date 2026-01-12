@@ -1,7 +1,6 @@
-import { isMotionValue, transformPropOrder } from "motion-dom"
+import { isMotionValue, transformPropOrder, type VisualElement } from "motion-dom"
 import { MotionProps } from "../../../motion/types"
 import { scrapeMotionValuesFromProps as scrapeHTMLMotionValuesFromProps } from "../../html/utils/scrape-motion-values"
-import type { VisualElement } from "../../VisualElement"
 
 export function scrapeMotionValuesFromProps(
     props: MotionProps,

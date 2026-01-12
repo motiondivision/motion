@@ -1,4 +1,4 @@
-import type { VisualElement } from "../../render/VisualElement"
+import type { VisualElement } from "motion-dom"
 
 export abstract class Feature<T extends any = any> {
     isMounted = false

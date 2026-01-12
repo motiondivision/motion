@@ -5,14 +5,14 @@ import {
     DOMKeyframesDefinition,
     AnimationOptions as DynamicAnimationOptions,
     ElementOrSelector,
+    isMotionValue,
     MotionValue,
     TargetAndTransition,
     UnresolvedValueKeyframe,
     ValueAnimationTransition,
-    isMotionValue,
+    visualElementStore,
 } from "motion-dom"
 import { invariant } from "motion-utils"
-import { visualElementStore } from "../../render/store"
 import { animateTarget } from "../interfaces/visual-element-target"
 import { ObjectTarget } from "../sequence/types"
 import {

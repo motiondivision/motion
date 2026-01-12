@@ -1,7 +1,6 @@
-import { isVariantLabel } from "motion-dom"
+import { isControllingVariants, isVariantLabel } from "motion-dom"
 import type { MotionContextProps } from "."
 import { MotionProps } from "../../motion/types"
-import { isControllingVariants } from "../../render/utils/is-controlling-variants"
 
 export function getCurrentTreeVariants(
     props: MotionProps,

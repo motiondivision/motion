@@ -1,7 +1,6 @@
-import { isMotionValue } from "motion-dom"
+import { isMotionValue, type VisualElement } from "motion-dom"
 import { MotionProps, MotionStyle } from "../../../motion/types"
 import { isForcedMotionValue } from "../../../motion/utils/is-forced-motion-value"
-import type { VisualElement } from "../../VisualElement"
 
 export function scrapeMotionValuesFromProps(
     props: MotionProps,
