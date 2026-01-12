@@ -1,0 +1,76 @@
+<html>
+    <head>
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+            }
+
+            #box {
+                width: 100px;
+                height: 100px;
+                background-color: #00cc88;
+            }
+
+            [data-layout-correct="false"] {
+                background: #dd1144 !important;
+                opacity: 0.5;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="box" data-layout-correct="true"></div>
+
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module" src="/src/imports/script-assert.js"></script>
+        <script type="module">
+            console.log("Test: no-mutation.html")
+
+            const { unstable_animateLayout } = window.AnimateLayout
+            const { matchViewportBox } = window.Assert
+            const box = document.getElementById("box")
+
+            console.log("unstable_animateLayout:", typeof unstable_animateLayout)
+
+            if (!unstable_animateLayout) {
+                showError(box, "unstable_animateLayout is not defined")
+                throw new Error("unstable_animateLayout is not defined")
+            }
+
+            ;(async () => {
+                try {
+                    // Test animateLayout without mutation callback (just options)
+                    // This should still work and return immediately since no layout change
+                    const controls = await unstable_animateLayout(box, { duration: 0.3 })
+
+                    console.log("Controls:", controls)
+
+                    // Should return a GroupAnimation even with no animations
+                    if (typeof controls.pause !== "function") {
+                        showError(box, "Should return GroupAnimation even with no mutation")
+                    }
+
+                    controls.finished.then(() => {
+                        console.log("Animation finished (immediately since no layout change)")
+
+                        // Box should remain at original position
+                        matchViewportBox(box, {
+                            top: 0,
+                            left: 0,
+                            right: 100,
+                            bottom: 100,
+                        }, 1)
+
+                        console.log("Test passed!")
+                    }).catch(err => {
+                        console.error("Animation error:", err)
+                        showError(box, `Animation error: ${err.message}`)
+                    })
+                } catch (err) {
+                    console.error("Error:", err)
+                    showError(box, `Error: ${err.message}`)
+                }
+            })()
+        </script>
+    </body>
+</html>

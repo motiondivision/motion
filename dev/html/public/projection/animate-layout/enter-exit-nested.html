@@ -1,0 +1,135 @@
+<html>
+    <head>
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+            }
+
+            #container {
+                padding: 20px;
+                position: relative;
+            }
+
+            .parent {
+                width: 200px;
+                height: 200px;
+                background-color: #00cc88;
+                padding: 20px;
+            }
+
+            .child {
+                width: 100px;
+                height: 100px;
+                background-color: #0077ff;
+            }
+
+            [data-layout-correct="false"] {
+                background: #dd1144 !important;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="container" data-layout-correct="true"></div>
+
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module" src="/src/imports/script-assert.js"></script>
+        <script type="module">
+            console.log("Test: enter-exit-nested.html")
+
+            const { unstable_animateLayout } = window.AnimateLayout
+            const container = document.getElementById("container")
+
+            console.log("unstable_animateLayout:", typeof unstable_animateLayout)
+
+            if (!unstable_animateLayout) {
+                showError(container, "unstable_animateLayout is not defined")
+                throw new Error("unstable_animateLayout is not defined")
+            }
+
+            ;(async () => {
+                try {
+                    console.log("Initial state: container empty")
+
+                    // Create parent (with data-layout) and child (without)
+                    const parent = document.createElement("div")
+                    parent.className = "parent"
+                    parent.setAttribute("data-layout", "")
+                    parent.setAttribute("data-layout-correct", "true")
+
+                    const child = document.createElement("div")
+                    child.className = "child"
+                    // Child does NOT have data-layout - should not get enter animation
+                    child.setAttribute("data-layout-correct", "true")
+
+                    parent.appendChild(child)
+
+                    // Don't select elements - just use enter() for new elements
+                    const controls = await unstable_animateLayout(
+                        [],  // No elements to animate layout for
+                        () => {
+                            console.log("Mutation: adding parent with child")
+                            container.appendChild(parent)
+                        },
+                        { duration: 1 }
+                    )
+                        .enter({ opacity: [0, 1] }, { duration: 1 })
+
+                    console.log("Controls:", controls)
+                    console.log("Animations count:", controls.animations?.length)
+
+                    if (!controls || typeof controls.pause !== "function") {
+                        showError(container, "Controls should be a GroupAnimation")
+                        return
+                    }
+
+                    // Pause the animation
+                    controls.pause()
+                    console.log("Animation paused")
+
+                    // Set time to halfway
+                    controls.time = 0.5
+                    console.log("Set time to 0.5s (halfway)")
+
+                    // Wait a frame for the animation to update
+                    requestAnimationFrame(() => {
+                        const parentStyle = window.getComputedStyle(parent)
+                        const childStyle = window.getComputedStyle(child)
+
+                        const parentOpacity = parseFloat(parentStyle.opacity)
+                        const childOpacity = parseFloat(childStyle.opacity)
+
+                        console.log("Parent opacity at halfway:", parentOpacity)
+                        console.log("Child opacity at halfway:", childOpacity)
+
+                        const expectedParentOpacity = 0.5
+                        const tolerance = 0.3
+
+                        // Parent should be at ~0.5 opacity (has data-layout, gets enter animation)
+                        const parentOpacityOk = Math.abs(parentOpacity - expectedParentOpacity) < tolerance
+
+                        // Child should be at full opacity (no data-layout, no enter animation)
+                        const childShouldBeFullOpacity = childOpacity > 0.9
+
+                        console.log("Parent opacity:", parentOpacity, "expected ~", expectedParentOpacity, "ok:", parentOpacityOk)
+                        console.log("Child opacity:", childOpacity, "should be full (1.0):", childShouldBeFullOpacity)
+
+                        if (!parentOpacityOk) {
+                            showError(parent, `Parent opacity at halfway should be ~${expectedParentOpacity}, got ${parentOpacity}`)
+                        } else if (!childShouldBeFullOpacity) {
+                            showError(child, `Child should NOT animate opacity (should be 1.0), got ${childOpacity}`)
+                        } else {
+                            console.log("Enter nested test passed!")
+                        }
+
+                        // Resume and complete the animation
+                        controls.play()
+                    })
+                } catch (err) {
+                    console.error("Error:", err)
+                    showError(container, `Error: ${err.message}`)
+                }
+            })()
+        </script>
+    </body>
+</html>

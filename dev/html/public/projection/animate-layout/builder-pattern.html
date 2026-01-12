@@ -1,0 +1,89 @@
+<html>
+    <head>
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+            }
+
+            #box {
+                width: 100px;
+                height: 100px;
+                background-color: #00cc88;
+            }
+
+            #box.expanded {
+                width: 200px;
+                height: 200px;
+            }
+
+            [data-layout-correct="false"] {
+                background: #dd1144 !important;
+                opacity: 0.5;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="box" data-layout-correct="true"></div>
+
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module" src="/src/imports/script-assert.js"></script>
+        <script type="module">
+            console.log("Test: builder-pattern.html")
+
+            const { unstable_animateLayout } = window.AnimateLayout
+            const { matchViewportBox } = window.Assert
+            const box = document.getElementById("box")
+
+            console.log("unstable_animateLayout:", typeof unstable_animateLayout)
+
+            if (!unstable_animateLayout) {
+                showError(box, "unstable_animateLayout is not defined")
+                throw new Error("unstable_animateLayout is not defined")
+            }
+
+            ;(async () => {
+                try {
+                    // Test builder pattern with enter/exit
+                    const controls = await unstable_animateLayout(
+                        box,
+                        () => {
+                            console.log("Mutation: adding expanded class")
+                            box.classList.add("expanded")
+                        },
+                        { duration: 0.3 }
+                    )
+                        .enter({ opacity: [0, 1] }, { duration: 0.2 })
+                        .exit({ opacity: 0 }, { duration: 0.2 })
+
+                    console.log("Controls from builder:", controls)
+
+                    // Verify controls is a GroupAnimation
+                    if (typeof controls.pause !== "function") {
+                        showError(box, "Builder pattern should return GroupAnimation with pause()")
+                    }
+
+                    controls.finished.then(() => {
+                        console.log("Animation finished")
+
+                        // Verify final position
+                        matchViewportBox(box, {
+                            top: 0,
+                            left: 0,
+                            right: 200,
+                            bottom: 200,
+                        }, 1)
+
+                        console.log("Test passed!")
+                    }).catch(err => {
+                        console.error("Animation error:", err)
+                        showError(box, `Animation error: ${err.message}`)
+                    })
+                } catch (err) {
+                    console.error("Error:", err)
+                    showError(box, `Error: ${err.message}`)
+                }
+            })()
+        </script>
+    </body>
+</html>

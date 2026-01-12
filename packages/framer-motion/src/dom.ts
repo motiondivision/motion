@@ -7,6 +7,11 @@ export { scroll } from "./render/dom/scroll"
 export { scrollInfo } from "./render/dom/scroll/track"
 export { inView } from "./render/dom/viewport"
 export { HTMLElements } from "./render/html/supported-elements"
+export { initVanillaLayout } from "./layout/init"
+
+// Auto-initialize the layout system for vanilla usage
+import { initVanillaLayout } from "./layout/init"
+initVanillaLayout()
 
 /**
  * Types

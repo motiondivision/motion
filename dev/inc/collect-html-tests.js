@@ -1,10 +1,30 @@
 const fs = require("fs")
 const path = require("path")
 
+function collectRecursive(dir, baseDir = "") {
+    const files = []
+    const entries = fs.readdirSync(dir, { withFileTypes: true })
+
+    for (const entry of entries) {
+        const relativePath = baseDir ? `${baseDir}/${entry.name}` : entry.name
+
+        if (entry.isDirectory()) {
+            // Recurse into subdirectory
+            files.push(...collectRecursive(path.join(dir, entry.name), relativePath))
+        } else if (
+            entry.isFile() &&
+            path.extname(entry.name) === ".html" &&
+            !entry.name.includes(".skip.")
+        ) {
+            files.push(relativePath)
+        }
+    }
+
+    return files
+}
+
 function collect(sourceDir, outputFile) {
-    const files = fs
-        .readdirSync(path.join(__dirname, "../html/public/", sourceDir))
-        .filter((f) => path.extname(f) === ".html" && !f.includes(".skip."))
+    const files = collectRecursive(path.join(__dirname, "../html/public/", sourceDir))
 
     fs.writeFile(
         path.join(

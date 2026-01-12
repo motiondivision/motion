@@ -45,6 +45,8 @@ export * from "./effects/svg"
 
 export * from "./frameloop"
 export * from "./frameloop/batcher"
+
+export * from "./layout"
 export * from "./frameloop/microtask"
 export * from "./frameloop/sync-time"
 export * from "./frameloop/types"
@@ -63,7 +65,10 @@ export * from "./gestures/utils/is-primary-pointer"
 
 export * from "./node/types"
 
+export * from "./projection"
+
 export * from "./render/dom/parse-transform"
+export * from "./render/utils/flat-tree"
 export * from "./render/dom/style-computed"
 export * from "./render/dom/style-set"
 export * from "./render/svg/types"
@@ -79,6 +84,7 @@ export * from "./stats/animation-count"
 export * from "./stats/buffer"
 export * from "./stats/types"
 
+export * from "./utils/delay"
 export * from "./utils/interpolate"
 export * from "./utils/is-html-element"
 export * from "./utils/is-svg-element"

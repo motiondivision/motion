@@ -1,0 +1,115 @@
+<html>
+    <head>
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+            }
+
+            #parent {
+                width: 100px;
+                height: 100px;
+                background-color: #00cc88;
+            }
+
+            #child {
+                width: 50px;
+                height: 50px;
+                background-color: #0077ff;
+            }
+
+            #parent.expanded {
+                width: 200px;
+                height: 200px;
+                position: absolute;
+                top: 100px;
+                left: 200px;
+                display: flex;
+                justify-content: flex-end;
+                align-items: flex-end;
+            }
+
+            .expanded #child {
+                width: 100px;
+                height: 100px;
+            }
+
+            [data-layout-correct="false"] {
+                background: #dd1144 !important;
+                opacity: 0.5;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="parent" data-layout-correct="true">
+            <div id="child" data-layout-correct="true"></div>
+        </div>
+
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module" src="/src/imports/script-assert.js"></script>
+        <script type="module">
+            console.log("Test: nested-parent-child.html")
+
+            const { unstable_animateLayout } = window.AnimateLayout
+            const { matchViewportBox } = window.Assert
+            const parent = document.getElementById("parent")
+            const child = document.getElementById("child")
+
+            console.log("unstable_animateLayout:", typeof unstable_animateLayout)
+
+            if (!unstable_animateLayout) {
+                showError(parent, "unstable_animateLayout is not defined")
+                throw new Error("unstable_animateLayout is not defined")
+            }
+
+            ;(async () => {
+                try {
+                    // Pass both parent and child as array - hierarchy is auto-detected
+                    const controls = await unstable_animateLayout(
+                        [parent, child],
+                        () => {
+                            console.log("Mutation: adding expanded class")
+                            parent.classList.add("expanded")
+                        },
+                        { duration: 0.3 }
+                    )
+
+                    console.log("Controls:", controls)
+
+                    controls.finished.then(() => {
+                        console.log("Animation finished")
+
+                        const parentFinal = parent.getBoundingClientRect()
+                        const childFinal = child.getBoundingClientRect()
+                        console.log("Parent final:", parentFinal)
+                        console.log("Child final:", childFinal)
+
+                        // Verify parent final position
+                        matchViewportBox(parent, {
+                            top: 100,
+                            left: 200,
+                            right: 400,
+                            bottom: 300,
+                        }, 1)
+
+                        // Verify child final position (flex-end aligned)
+                        matchViewportBox(child, {
+                            top: 200,
+                            left: 300,
+                            right: 400,
+                            bottom: 300,
+                        }, 1)
+
+                        console.log("Test passed!")
+                    }).catch(err => {
+                        console.error("Animation error:", err)
+                        showError(parent, `Animation error: ${err.message}`)
+                    })
+                } catch (err) {
+                    console.error("Error:", err)
+                    showError(parent, `Error: ${err.message}`)
+                }
+            })()
+        </script>
+    </body>
+</html>

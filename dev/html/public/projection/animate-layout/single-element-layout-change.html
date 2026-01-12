@@ -1,0 +1,86 @@
+<html>
+    <head>
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+            }
+
+            #box {
+                width: 100px;
+                height: 100px;
+                background-color: #00cc88;
+            }
+
+            #box.b {
+                width: 200px;
+                position: absolute;
+                top: 100px;
+                left: 200px;
+                padding: 20px;
+            }
+
+            [data-layout-correct="false"] {
+                background: #dd1144 !important;
+                opacity: 0.5;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="box" data-layout-correct="true"></div>
+
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module" src="/src/imports/script-assert.js"></script>
+        <script type="module">
+            console.log("Test: single-element-layout-change.html")
+
+            const { unstable_animateLayout } = window.AnimateLayout
+            const { matchViewportBox } = window.Assert
+            const box = document.getElementById("box")
+
+            console.log("unstable_animateLayout:", typeof unstable_animateLayout)
+
+            if (!unstable_animateLayout) {
+                showError(box, "unstable_animateLayout is not defined")
+                throw new Error("unstable_animateLayout is not defined")
+            }
+
+            ;(async () => {
+                try {
+                    const controls = await unstable_animateLayout(
+                        "#box",
+                        () => {
+                            console.log("Mutation: adding class b")
+                            box.classList.add("b")
+                        },
+                        { duration: 0.3 }
+                    )
+
+                    console.log("Controls:", controls)
+
+                    controls.finished.then(() => {
+                        console.log("Animation finished")
+                        const boxFinal = box.getBoundingClientRect()
+                        console.log("Box final:", boxFinal)
+
+                        // 200 width + 40 padding = 240 total width
+                        // 100 height + 40 padding = 140 total height
+                        matchViewportBox(box, {
+                            top: 100,
+                            left: 200,
+                            right: 440,
+                            bottom: 240,
+                        }, 1)
+                        console.log("Test passed!")
+                    }).catch(err => {
+                        console.error("Animation error:", err)
+                        showError(box, `Animation error: ${err.message}`)
+                    })
+                } catch (err) {
+                    console.error("Error:", err)
+                    showError(box, `Error: ${err.message}`)
+                }
+            })()
+        </script>
+    </body>
+</html>

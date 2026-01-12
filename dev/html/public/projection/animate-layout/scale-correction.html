@@ -1,0 +1,132 @@
+<html>
+    <head>
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+            }
+
+            #parent {
+                width: 100px;
+                height: 100px;
+                background-color: #00cc88;
+            }
+
+            #child {
+                width: 50px;
+                height: 50px;
+                background-color: #0077ff;
+            }
+
+            #parent.expanded {
+                width: 200px;
+                height: 200px;
+            }
+
+            .expanded #child {
+                width: 100px;
+                height: 100px;
+            }
+
+            [data-layout-correct="false"] {
+                background: #dd1144 !important;
+                opacity: 0.5;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="parent" data-layout-correct="true">
+            <div id="child" data-layout-correct="true"></div>
+        </div>
+
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module" src="/src/imports/script-assert.js"></script>
+        <script type="module">
+            console.log("Test: scale-correction.html")
+
+            const { unstable_animateLayout } = window.AnimateLayout
+            const { matchViewportBox } = window.Assert
+            const parent = document.getElementById("parent")
+            const child = document.getElementById("child")
+
+            console.log("unstable_animateLayout:", typeof unstable_animateLayout)
+
+            if (!unstable_animateLayout) {
+                showError(parent, "unstable_animateLayout is not defined")
+                throw new Error("unstable_animateLayout is not defined")
+            }
+
+            ;(async () => {
+                try {
+                    // Get initial positions
+                    const parentInitial = parent.getBoundingClientRect()
+                    const childInitial = child.getBoundingClientRect()
+                    console.log("Parent initial:", parentInitial)
+                    console.log("Child initial:", childInitial)
+
+                    const controls = await unstable_animateLayout(
+                        [parent, child],
+                        () => {
+                            console.log("Mutation: adding expanded class")
+                            parent.classList.add("expanded")
+                        },
+                        { duration: 1 }
+                    )
+
+                    console.log("Controls:", controls)
+
+                    // Pause the animation
+                    controls.pause()
+                    console.log("Animation paused")
+
+                    // Set time to halfway (0.5 seconds into 1 second animation)
+                    controls.time = 0.5
+                    console.log("Set time to 0.5s (halfway)")
+
+                    // Wait a frame for the animation to update
+                    requestAnimationFrame(() => {
+                        const parentMid = parent.getBoundingClientRect()
+                        const childMid = child.getBoundingClientRect()
+                        console.log("Parent at halfway:", parentMid)
+                        console.log("Child at halfway:", childMid)
+
+                        // At halfway, parent should be ~150x150 (between 100 and 200)
+                        // Child should be ~75x75 (between 50 and 100)
+                        // Allow some tolerance for easing
+                        const parentWidthExpected = 150
+                        const childWidthExpected = 75
+                        const tolerance = 20 // Allow for easing curves
+
+                        const parentWidthOk = Math.abs(parentMid.width - parentWidthExpected) < tolerance
+                        const childWidthOk = Math.abs(childMid.width - childWidthExpected) < tolerance
+
+                        console.log("Parent width:", parentMid.width, "expected ~", parentWidthExpected, "ok:", parentWidthOk)
+                        console.log("Child width:", childMid.width, "expected ~", childWidthExpected, "ok:", childWidthOk)
+
+                        if (!parentWidthOk) {
+                            showError(parent, `Parent width at halfway should be ~${parentWidthExpected}, got ${parentMid.width}`)
+                        }
+
+                        if (!childWidthOk) {
+                            showError(child, `Child width at halfway should be ~${childWidthExpected}, got ${childMid.width}`)
+                        }
+
+                        // Child should still be positioned correctly relative to parent
+                        // (scale correction should make child appear at correct size)
+                        if (childMid.left < parentMid.left || childMid.top < parentMid.top) {
+                            showError(child, "Child should be inside parent bounds")
+                        }
+
+                        console.log("Scale correction test passed!")
+
+                        // Resume and complete the animation
+                        controls.play()
+                    })
+                } catch (err) {
+                    console.error("Error:", err)
+                    showError(parent, `Error: ${err.message}`)
+                }
+            })()
+        </script>
+    </body>
+</html>

@@ -1,0 +1,118 @@
+<html>
+    <head>
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+            }
+
+            .box {
+                width: 100px;
+                height: 100px;
+                position: absolute;
+            }
+
+            #box-b {
+                background-color: #0077ff;
+                top: 0;
+                left: 0;
+            }
+
+            #container {
+                position: relative;
+                height: 200px;
+            }
+
+            [data-layout-correct="false"] {
+                background: #dd1144 !important;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="container" data-layout-correct="true"></div>
+
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module" src="/src/imports/script-assert.js"></script>
+        <script type="module">
+            console.log("Test: enter-exit.html")
+
+            const { unstable_animateLayout } = window.AnimateLayout
+            const container = document.getElementById("container")
+
+            console.log("unstable_animateLayout:", typeof unstable_animateLayout)
+
+            if (!unstable_animateLayout) {
+                showError(container, "unstable_animateLayout is not defined")
+                throw new Error("unstable_animateLayout is not defined")
+            }
+
+            ;(async () => {
+                try {
+                    console.log("Initial state: container empty")
+
+                    // Create box-b to be added during mutation
+                    const boxB = document.createElement("div")
+                    boxB.id = "box-b"
+                    boxB.className = "box"
+                    boxB.setAttribute("data-layout", "")
+                    boxB.setAttribute("data-layout-correct", "true")
+
+                    // Don't select any elements - just use enter() to animate new elements
+                    const controls = await unstable_animateLayout(
+                        [],  // No elements to animate layout for
+                        () => {
+                            console.log("Mutation: adding box-b")
+                            container.appendChild(boxB)
+                        },
+                        { duration: 1 }
+                    )
+                        .enter({ opacity: [0, 1] }, { duration: 1 })
+
+                    console.log("Controls:", controls)
+                    console.log("Animations count:", controls.animations?.length)
+
+                    if (!controls || typeof controls.pause !== "function") {
+                        showError(container, "Controls should be a GroupAnimation")
+                        return
+                    }
+
+                    // Pause the animation
+                    controls.pause()
+                    console.log("Animation paused")
+
+                    // Set time to halfway
+                    controls.time = 0.5
+                    console.log("Set time to 0.5s (halfway)")
+
+                    // Wait a frame for the animation to update
+                    requestAnimationFrame(() => {
+                        // Get computed opacity of box-b (the entering element)
+                        const boxBStyle = window.getComputedStyle(boxB)
+                        const boxBOpacity = parseFloat(boxBStyle.opacity)
+                        console.log("Box B opacity at halfway:", boxBOpacity)
+
+                        // At halfway through enter animation, opacity should be ~0.5
+                        const expectedOpacity = 0.5
+                        const tolerance = 0.3 // Allow for easing curves
+
+                        const boxBOpacityOk = Math.abs(boxBOpacity - expectedOpacity) < tolerance
+
+                        console.log("Box B opacity:", boxBOpacity, "expected ~", expectedOpacity, "ok:", boxBOpacityOk)
+
+                        if (!boxBOpacityOk) {
+                            showError(boxB, `Box B opacity at halfway should be ~${expectedOpacity}, got ${boxBOpacity}`)
+                        } else {
+                            console.log("Enter animation test passed!")
+                        }
+
+                        // Resume and complete the animation
+                        controls.play()
+                    })
+                } catch (err) {
+                    console.error("Error:", err)
+                    showError(container, `Error: ${err.message}`)
+                }
+            })()
+        </script>
+    </body>
+</html>

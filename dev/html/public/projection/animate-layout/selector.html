@@ -1,0 +1,116 @@
+<html>
+    <head>
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+            }
+
+            .card {
+                width: 100px;
+                height: 100px;
+                background-color: #00cc88;
+                margin: 10px;
+                display: inline-block;
+            }
+
+            .card.reordered:nth-child(1) {
+                order: 3;
+            }
+            .card.reordered:nth-child(2) {
+                order: 1;
+            }
+            .card.reordered:nth-child(3) {
+                order: 2;
+            }
+
+            #container {
+                display: flex;
+            }
+
+            #container.reordered {
+                flex-direction: row;
+            }
+
+            [data-layout-correct="false"] {
+                background: #dd1144 !important;
+                opacity: 0.5;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="container">
+            <div class="card" data-layout-correct="true"></div>
+            <div class="card" data-layout-correct="true"></div>
+            <div class="card" data-layout-correct="true"></div>
+        </div>
+
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module" src="/src/imports/script-assert.js"></script>
+        <script type="module">
+            console.log("Test: selector.html")
+
+            const { unstable_animateLayout } = window.AnimateLayout
+            const container = document.getElementById("container")
+            const cards = document.querySelectorAll(".card")
+
+            console.log("unstable_animateLayout:", typeof unstable_animateLayout)
+
+            if (!unstable_animateLayout) {
+                showError(cards[0], "unstable_animateLayout is not defined")
+                throw new Error("unstable_animateLayout is not defined")
+            }
+
+            ;(async () => {
+                try {
+                    // Use CSS selector to select all cards
+                    const controls = await unstable_animateLayout(".card", () => {
+                        console.log("Mutation: adding reordered class")
+                        cards.forEach(card => card.classList.add("reordered"))
+                        container.classList.add("reordered")
+                    }, { duration: 0.3 })
+
+                    console.log("Controls:", controls)
+
+                    // Check playback controls exist
+                    if (typeof controls.pause !== "function") {
+                        showError(cards[0], "controls.pause is not a function")
+                    }
+                    if (typeof controls.play !== "function") {
+                        showError(cards[0], "controls.play is not a function")
+                    }
+                    if (typeof controls.stop !== "function") {
+                        showError(cards[0], "controls.stop is not a function")
+                    }
+
+                    controls.finished.then(() => {
+                        console.log("Animation finished")
+
+                        // Cards should have reordered
+                        const card1Rect = cards[0].getBoundingClientRect()
+                        const card2Rect = cards[1].getBoundingClientRect()
+                        const card3Rect = cards[2].getBoundingClientRect()
+
+                        console.log("Card 1 rect:", card1Rect)
+                        console.log("Card 2 rect:", card2Rect)
+                        console.log("Card 3 rect:", card3Rect)
+
+                        // Card order should now be: 2, 3, 1 (by visual position)
+                        // Card 2 (index 1) has order: 1, so it should be leftmost
+                        if (card2Rect.left > card1Rect.left) {
+                            showError(cards[1], "Card 2 should be leftmost after reorder")
+                        }
+
+                        console.log("Test passed!")
+                    }).catch(err => {
+                        console.error("Animation error:", err)
+                        showError(cards[0], `Animation error: ${err.message}`)
+                    })
+                } catch (err) {
+                    console.error("Error:", err)
+                    showError(cards[0], `Error: ${err.message}`)
+                }
+            })()
+        </script>
+    </body>
+</html>

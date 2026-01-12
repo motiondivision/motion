@@ -1,0 +1,104 @@
+<html>
+    <head>
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+            }
+
+            #container-a, #container-b {
+                padding: 20px;
+                background: #eee;
+                margin: 20px;
+            }
+
+            .hero {
+                width: 100px;
+                height: 100px;
+                background-color: #00cc88;
+            }
+
+            #container-b .hero {
+                width: 200px;
+                height: 200px;
+                background-color: #0077ff;
+            }
+
+            .hidden {
+                display: none;
+            }
+
+            [data-layout-correct="false"] {
+                background: #dd1144 !important;
+                opacity: 0.5;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="container-a">
+            <div class="hero" data-layout-id="hero" data-layout-correct="true"></div>
+        </div>
+        <div id="container-b" class="hidden">
+            <div class="hero" data-layout-id="hero" data-layout-correct="true"></div>
+        </div>
+
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module" src="/src/imports/script-assert.js"></script>
+        <script type="module">
+            console.log("Test: shared-layout-id.html")
+
+            const { unstable_animateLayout } = window.AnimateLayout
+            const { matchViewportBox } = window.Assert
+
+            const containerA = document.getElementById("container-a")
+            const containerB = document.getElementById("container-b")
+            const heroA = containerA.querySelector(".hero")
+            const heroB = containerB.querySelector(".hero")
+
+            console.log("unstable_animateLayout:", typeof unstable_animateLayout)
+
+            if (!unstable_animateLayout) {
+                showError(heroA, "unstable_animateLayout is not defined")
+                throw new Error("unstable_animateLayout is not defined")
+            }
+
+            ;(async () => {
+                try {
+                    // Animate shared layout - both elements have data-layout-id="hero"
+                    const controls = await unstable_animateLayout("[data-layout-id='hero']", () => {
+                        console.log("Mutation: swapping container visibility")
+                        containerA.classList.add("hidden")
+                        containerB.classList.remove("hidden")
+                    }, { duration: 0.3 })
+
+                    console.log("Controls:", controls)
+
+                    // Should return GroupAnimation
+                    if (typeof controls.pause !== "function") {
+                        showError(heroB, "Should return GroupAnimation for shared layout")
+                    }
+
+                    controls.finished.then(() => {
+                        console.log("Animation finished")
+
+                        // heroB should now be visible at its final position
+                        const heroRect = heroB.getBoundingClientRect()
+                        console.log("Hero B rect:", heroRect)
+
+                        if (heroRect.width !== 200) {
+                            showError(heroB, `Hero B width should be 200, got ${heroRect.width}`)
+                        }
+
+                        console.log("Test passed!")
+                    }).catch(err => {
+                        console.error("Animation error:", err)
+                        showError(heroB, `Animation error: ${err.message}`)
+                    })
+                } catch (err) {
+                    console.error("Error:", err)
+                    showError(heroA, `Error: ${err.message}`)
+                }
+            })()
+        </script>
+    </body>
+</html>
