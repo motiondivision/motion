@@ -1,6 +1,5 @@
+import { isVariantLabel, variantProps } from "motion-dom"
 import { VisualElement } from "../VisualElement"
-import { isVariantLabel } from "./is-variant-label"
-import { variantProps } from "./variant-props"
 
 const numVariantProps = variantProps.length
 

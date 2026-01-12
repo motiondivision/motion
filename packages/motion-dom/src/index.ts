@@ -178,6 +178,7 @@ export {
 export * from "./projection/geometry"
 export { hasTransform, hasScale, has2DTranslate } from "./projection/utils/has-transform"
 export { measureViewportBox, measurePageBox } from "./projection/utils/measure"
+export { eachAxis } from "./projection/utils/each-axis"
 
 // Projection styles
 export * from "./projection/styles/types"

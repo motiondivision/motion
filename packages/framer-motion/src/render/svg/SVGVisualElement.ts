@@ -1,11 +1,11 @@
 import {
     AnyResolvedKeyframe,
+    createBox,
     getDefaultValueType,
     MotionValue,
     transformProps,
 } from "motion-dom"
 import { MotionProps, MotionStyle } from "../../motion/types"
-import { createBox } from "../../projection/geometry/models"
 import { IProjectionNode } from "../../projection/node/types"
 import { DOMVisualElement } from "../dom/DOMVisualElement"
 import { DOMVisualElementOptions } from "../dom/types"

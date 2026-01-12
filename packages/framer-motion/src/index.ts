@@ -24,8 +24,7 @@ export {
     makeUseVisualState,
     VisualState,
 } from "./motion/utils/use-visual-state"
-export { calcLength } from "./projection/geometry/delta-calc"
-export { createBox } from "./projection/geometry/models"
+export { calcLength, createBox } from "motion-dom"
 export { filterProps } from "./render/dom/utils/filter-props"
 export { AnimationType } from "./render/utils/types"
 export { isBrowser } from "./utils/is-browser"
@@ -89,7 +88,7 @@ export {
 export { isMotionComponent } from "./motion/utils/is-motion-component"
 export { unwrapMotionComponent } from "./motion/utils/unwrap-motion-component"
 export { isValidMotionProp } from "./motion/utils/valid-prop"
-export { addScaleCorrector } from "./projection/styles/scale-correction"
+export { addScaleCorrectors as addScaleCorrector } from "motion-dom"
 export { useInstantLayoutTransition } from "./projection/use-instant-layout-transition"
 export { useResetProjection } from "./projection/use-reset-projection"
 export { buildTransform } from "./render/html/utils/build-transform"

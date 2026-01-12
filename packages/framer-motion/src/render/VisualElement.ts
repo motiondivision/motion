@@ -1,6 +1,7 @@
 import {
     cancelFrame,
     complex,
+    createBox,
     findValueType,
     frame,
     getAnimatableNone,
@@ -29,7 +30,6 @@ import { featureDefinitions } from "../motion/features/definitions"
 import { Feature } from "../motion/features/Feature"
 import { FeatureDefinitions } from "../motion/features/types"
 import { MotionProps, MotionStyle } from "../motion/types"
-import { createBox } from "../projection/geometry/models"
 import { IProjectionNode } from "../projection/node/types"
 import { initPrefersReducedMotion } from "../utils/reduced-motion"
 import {

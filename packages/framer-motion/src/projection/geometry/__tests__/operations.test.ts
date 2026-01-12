@@ -1,5 +1,4 @@
-import { createAxis } from "../models"
-import { translateAxis } from "../delta-apply"
+import { createAxis, translateAxis } from "motion-dom"
 
 describe("translateAxis", () => {
     it("applies a translation to an Axis", () => {

@@ -1,5 +1,4 @@
-import { buildProjectionTransform } from "../transform"
-import { createDelta } from "../../geometry/models"
+import { buildProjectionTransform, createDelta } from "motion-dom"
 
 describe("buildProjectionTransform", () => {
     it("Returns 'none' when no transform required", () => {

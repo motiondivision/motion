@@ -1,19 +1,45 @@
 import {
     activeAnimations,
+    applyBoxDelta,
+    applyTreeDeltas,
+    aspectRatio,
+    axisDeltaEquals,
+    boxEquals,
+    boxEqualsRounded,
+    buildProjectionTransform,
+    calcBoxDelta,
+    calcLength,
+    calcRelativeBox,
+    calcRelativePosition,
     cancelFrame,
+    copyAxisDeltaInto,
+    copyBoxInto,
+    createBox,
+    createDelta,
+    eachAxis,
     frame,
     frameData,
     frameSteps,
     getValueTransition,
+    has2DTranslate,
+    hasScale,
+    hasTransform,
+    isDeltaZero,
+    isNear,
     isSVGElement,
     isSVGSVGElement,
     JSAnimation,
     microtask,
     mixNumber,
+    mixValues,
     MotionValue,
     motionValue,
+    removeBoxTransforms,
+    scaleCorrectors,
     statsBuffer,
     time,
+    transformBox,
+    translateAxis,
     Transition,
     ValueAnimationOptions,
     type Process,
@@ -37,35 +63,7 @@ import { FlatTree } from "../../render/utils/flat-tree"
 import { VisualElement } from "../../render/VisualElement"
 import { delay } from "../../utils/delay"
 import { resolveMotionValue } from "../../value/utils/resolve-motion-value"
-import { mixValues } from "../animation/mix-values"
-import { copyAxisDeltaInto, copyBoxInto } from "../geometry/copy"
-import {
-    applyBoxDelta,
-    applyTreeDeltas,
-    transformBox,
-    translateAxis,
-} from "../geometry/delta-apply"
-import {
-    calcBoxDelta,
-    calcLength,
-    calcRelativeBox,
-    calcRelativePosition,
-    isNear,
-} from "../geometry/delta-calc"
-import { removeBoxTransforms } from "../geometry/delta-remove"
-import { createBox, createDelta } from "../geometry/models"
-import {
-    aspectRatio,
-    axisDeltaEquals,
-    boxEquals,
-    boxEqualsRounded,
-    isDeltaZero,
-} from "../geometry/utils"
 import { NodeStack } from "../shared/stack"
-import { scaleCorrectors } from "../styles/scale-correction"
-import { buildProjectionTransform } from "../styles/transform"
-import { eachAxis } from "../utils/each-axis"
-import { has2DTranslate, hasScale, hasTransform } from "../utils/has-transform"
 import { globalProjectionState } from "./state"
 import {
     IProjectionNode,

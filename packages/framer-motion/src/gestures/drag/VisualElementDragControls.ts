@@ -1,12 +1,18 @@
 import {
-    isElementKeyboardAccessible,
-    PanInfo,
-    ResolvedConstraints,
-    Transition,
+    calcLength,
+    convertBoundingBoxToBox,
+    convertBoxToBoundingBox,
+    createBox,
+    eachAxis,
     frame,
+    isElementKeyboardAccessible,
+    measurePageBox,
     mixNumber,
+    PanInfo,
     percent,
+    ResolvedConstraints,
     setDragLock,
+    Transition,
 } from "motion-dom"
 import { Axis, Point, invariant } from "motion-utils"
 import { animateMotionValue } from "../../animation/interfaces/motion-value"
@@ -14,15 +20,7 @@ import { addDomEvent } from "../../events/add-dom-event"
 import { addPointerEvent } from "../../events/add-pointer-event"
 import { extractEventInfo } from "../../events/event-info"
 import { MotionProps } from "../../motion/types"
-import {
-    convertBoundingBoxToBox,
-    convertBoxToBoundingBox,
-} from "../../projection/geometry/conversion"
-import { calcLength } from "../../projection/geometry/delta-calc"
-import { createBox } from "../../projection/geometry/models"
 import type { LayoutUpdateData } from "../../projection/node/types"
-import { eachAxis } from "../../projection/utils/each-axis"
-import { measurePageBox } from "../../projection/utils/measure"
 import type { VisualElement } from "../../render/VisualElement"
 import { getContextWindow } from "../../utils/get-context-window"
 import { isRefObject } from "../../utils/is-ref-object"

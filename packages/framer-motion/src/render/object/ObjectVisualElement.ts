@@ -1,4 +1,4 @@
-import { createBox } from "../../projection/geometry/models"
+import { createBox } from "motion-dom"
 import { ResolvedValues } from "../types"
 import { VisualElement } from "../VisualElement"
 

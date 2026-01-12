@@ -1,4 +1,5 @@
 import type { AnimationDefinition, TargetAndTransition } from "motion-dom"
+import { isVariantLabel, variantPriorityOrder } from "motion-dom"
 import { VisualElementAnimationOptions } from "../../animation/interfaces/types"
 import { animateVisualElement } from "../../animation/interfaces/visual-element"
 import { calcChildStagger } from "../../animation/utils/calc-child-stagger"
@@ -8,10 +9,8 @@ import { VariantLabels } from "../../motion/types"
 import { shallowCompare } from "../../utils/shallow-compare"
 import type { VisualElement } from "../VisualElement"
 import { getVariantContext } from "./get-variant-context"
-import { isVariantLabel } from "./is-variant-label"
 import { resolveVariant } from "./resolve-dynamic-variants"
 import { AnimationType } from "./types"
-import { variantPriorityOrder } from "./variant-props"
 
 export interface AnimationState {
     animateChanges: (type?: AnimationType) => Promise<any>

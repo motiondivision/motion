@@ -2,13 +2,13 @@ import {
     AnyResolvedKeyframe,
     defaultTransformValue,
     isCSSVariableName,
+    measureViewportBox,
     readTransformValue,
     transformProps,
 } from "motion-dom"
 import type { Box } from "motion-utils"
 import { MotionConfigContext } from "../../context/MotionConfigContext"
 import { MotionProps } from "../../motion/types"
-import { measureViewportBox } from "../../projection/utils/measure"
 import { DOMVisualElement } from "../dom/DOMVisualElement"
 import { DOMVisualElementOptions } from "../dom/types"
 import type { ResolvedValues } from "../types"

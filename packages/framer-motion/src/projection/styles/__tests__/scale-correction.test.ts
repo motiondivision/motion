@@ -1,7 +1,10 @@
+import {
+    correctBorderRadius,
+    pixelsToPercent,
+    correctBoxShadow,
+} from "motion-dom"
 import { createTestNode } from "../../node/__tests__/TestProjectionNode"
 import { IProjectionNode } from "../../node/types"
-import { correctBorderRadius, pixelsToPercent } from "../scale-border-radius"
-import { correctBoxShadow } from "../scale-box-shadow"
 
 describe("pixelsToPercent", () => {
     test("Correctly converts pixels to percent", () => {

@@ -1,6 +1,6 @@
+import { createBox } from "motion-dom"
 import { ResolvedValues } from "../../types"
 import { MotionProps, MotionStyle } from "../../../motion/types"
-import { createBox } from "../../../projection/geometry/models"
 import { VisualElement } from "../../VisualElement"
 
 export class StateVisualElement extends VisualElement<

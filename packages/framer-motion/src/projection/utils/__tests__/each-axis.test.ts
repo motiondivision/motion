@@ -1,4 +1,4 @@
-import { eachAxis } from "../each-axis"
+import { eachAxis } from "motion-dom"
 
 describe("eachAxis", () => {
     it("calls a function, once for each axis", () => {
