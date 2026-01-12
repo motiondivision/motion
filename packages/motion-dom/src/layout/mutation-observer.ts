@@ -14,11 +14,7 @@ export interface MutationObserverResult {
 /**
  * Selectors for elements that should participate in layout animations
  */
-const LAYOUT_SELECTORS = [
-    "[data-layout]",
-    "[data-layout-id]",
-    "[data-animate-layout]",
-]
+const LAYOUT_SELECTORS = ["[data-layout]", "[data-layout-id]"]
 
 
 /**

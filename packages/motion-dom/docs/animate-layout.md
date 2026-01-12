@@ -55,7 +55,7 @@ await animateLayout(".cards", () => {
 
 ### Enter Animation
 
-Elements added during the mutation that have `data-layout`, `data-layout-id`, or `data-animate-layout` attributes will animate in:
+Elements added during the mutation that have `data-layout` or `data-layout-id` attributes will animate in:
 
 ```javascript
 .enter(keyframes, options)
@@ -148,7 +148,6 @@ Elements with matching `data-layout-id` values will animate between their positi
 |-----------|-------------|
 | `data-layout` | Mark element for layout animation |
 | `data-layout-id` | Enable shared layout animations between elements with the same ID |
-| `data-animate-layout` | Alternative to `data-layout` |
 
 ## Options
 
