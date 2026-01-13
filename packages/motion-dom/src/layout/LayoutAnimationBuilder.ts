@@ -20,7 +20,7 @@ import { frame } from "../frameloop"
 
 export class LayoutAnimationBuilder implements PromiseLike<GroupAnimation> {
     private scope: Element | Document
-    private mutation: () => void
+    private updateDom: () => void
     private defaultOptions?: AnimationOptions
 
     private enterKeyframes?: DOMKeyframesDefinition
@@ -35,11 +35,11 @@ export class LayoutAnimationBuilder implements PromiseLike<GroupAnimation> {
 
     constructor(
         scope: Element | Document,
-        mutation: () => void,
+        updateDom: () => void,
         defaultOptions?: AnimationOptions
     ) {
         this.scope = scope
-        this.mutation = mutation
+        this.updateDom = updateDom
         this.defaultOptions = defaultOptions
 
         this.readyPromise = new Promise<GroupAnimation>((resolve) => {
@@ -112,8 +112,8 @@ export class LayoutAnimationBuilder implements PromiseLike<GroupAnimation> {
                 }
             }
 
-            // Phase 2: Execute mutation
-            this.mutation()
+            // Phase 2: Execute DOM update
+            this.updateDom()
 
             // Phase 3: Post-mutation (Detect & Prepare)
             const mutationResult = detectMutations(beforeSnapshots, this.scope)
@@ -317,30 +317,30 @@ export class LayoutAnimationBuilder implements PromiseLike<GroupAnimation> {
  * Parse arguments for animateLayout overloads
  */
 export function parseAnimateLayoutArgs(
-    scopeOrMutation: ElementOrSelector | (() => void),
-    mutationOrOptions?: (() => void) | AnimationOptions,
+    scopeOrUpdateDom: ElementOrSelector | (() => void),
+    updateDomOrOptions?: (() => void) | AnimationOptions,
     options?: AnimationOptions
 ): {
     scope: Element | Document
-    mutation: () => void
+    updateDom: () => void
     defaultOptions?: AnimationOptions
 } {
-    // animateLayout(mutation)
-    if (typeof scopeOrMutation === "function") {
+    // animateLayout(updateDom)
+    if (typeof scopeOrUpdateDom === "function") {
         return {
             scope: document,
-            mutation: scopeOrMutation,
-            defaultOptions: mutationOrOptions as AnimationOptions | undefined,
+            updateDom: scopeOrUpdateDom,
+            defaultOptions: updateDomOrOptions as AnimationOptions | undefined,
         }
     }
 
-    // animateLayout(scope, mutation, options?)
-    const elements = resolveElements(scopeOrMutation)
+    // animateLayout(scope, updateDom, options?)
+    const elements = resolveElements(scopeOrUpdateDom)
     const scope = elements[0] || document
 
     return {
         scope: scope instanceof Document ? scope : scope,
-        mutation: mutationOrOptions as () => void,
+        updateDom: updateDomOrOptions as () => void,
         defaultOptions: options,
     }
 }

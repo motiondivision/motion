@@ -36,21 +36,21 @@ import {
  * - `data-layout` attribute (layout animation only)
  * - `data-layout-id` attribute (shared element transitions)
  *
- * @param scopeOrMutation - Either a scope selector/element, or the mutation function
- * @param mutationOrOptions - Either the mutation function or animation options
+ * @param scopeOrUpdateDom - Either a scope selector/element, or the DOM update function
+ * @param updateDomOrOptions - Either the DOM update function or animation options
  * @param options - Animation options (when scope is provided)
  * @returns A builder that resolves to animation controls
  */
 export function unstable_animateLayout(
-    scopeOrMutation: ElementOrSelector | (() => void),
-    mutationOrOptions?: (() => void) | AnimationOptions,
+    scopeOrUpdateDom: ElementOrSelector | (() => void),
+    updateDomOrOptions?: (() => void) | AnimationOptions,
     options?: AnimationOptions
 ): LayoutAnimationBuilder {
-    const { scope, mutation, defaultOptions } = parseAnimateLayoutArgs(
-        scopeOrMutation,
-        mutationOrOptions,
+    const { scope, updateDom, defaultOptions } = parseAnimateLayoutArgs(
+        scopeOrUpdateDom,
+        updateDomOrOptions,
         options
     )
 
-    return new LayoutAnimationBuilder(scope, mutation, defaultOptions)
+    return new LayoutAnimationBuilder(scope, updateDom, defaultOptions)
 }
