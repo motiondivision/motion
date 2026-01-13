@@ -7,7 +7,6 @@ export interface RemovedElement {
     element: HTMLElement
     parentElement: HTMLElement
     nextSibling: Node | null
-    bounds: DOMRect
 }
 
 export interface MutationResult {

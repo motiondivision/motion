@@ -17,45 +17,44 @@ export function hasLayout(element: Element): boolean {
     )
 }
 
-interface ElementSnapshot {
+interface ElementRecord {
     element: HTMLElement
     parentElement: HTMLElement
     nextSibling: Node | null
-    bounds: DOMRect
     layoutId: string | null
 }
 
 /**
- * Snapshot elements before mutation to track removals
+ * Track layout elements before mutation.
+ * Does NOT measure bounds - that's handled by the projection system via willUpdate().
  */
-export function snapshotElements(
+export function trackLayoutElements(
     scope: Element | Document
-): Map<HTMLElement, ElementSnapshot> {
+): Map<HTMLElement, ElementRecord> {
     const elements = getLayoutElements(scope)
-    const snapshots = new Map<HTMLElement, ElementSnapshot>()
+    const records = new Map<HTMLElement, ElementRecord>()
 
     for (const element of elements) {
-        snapshots.set(element, {
+        records.set(element, {
             element,
             parentElement: element.parentElement as HTMLElement,
             nextSibling: element.nextSibling,
-            bounds: element.getBoundingClientRect(),
             layoutId: getLayoutId(element),
         })
     }
 
-    return snapshots
+    return records
 }
 
 /**
- * Compare before/after snapshots to detect entering/exiting/persisting elements
+ * Compare before/after records to detect entering/exiting/persisting elements
  */
 export function detectMutations(
-    beforeSnapshots: Map<HTMLElement, ElementSnapshot>,
+    beforeRecords: Map<HTMLElement, ElementRecord>,
     scope: Element | Document
 ): MutationResult {
     const afterElements = new Set(getLayoutElements(scope))
-    const beforeElements = new Set(beforeSnapshots.keys())
+    const beforeElements = new Set(beforeRecords.keys())
 
     const entering: HTMLElement[] = []
     const exiting: RemovedElement[] = []
@@ -66,16 +65,15 @@ export function detectMutations(
     // Find exiting elements (were in before, not in after)
     for (const element of beforeElements) {
         if (!afterElements.has(element)) {
-            const snapshot = beforeSnapshots.get(element)!
+            const record = beforeRecords.get(element)!
             exiting.push({
                 element,
-                parentElement: snapshot.parentElement,
-                nextSibling: snapshot.nextSibling,
-                bounds: snapshot.bounds,
+                parentElement: record.parentElement,
+                nextSibling: record.nextSibling,
             })
 
-            if (snapshot.layoutId) {
-                sharedExiting.set(snapshot.layoutId, element)
+            if (record.layoutId) {
+                sharedExiting.set(record.layoutId, element)
             }
         }
     }

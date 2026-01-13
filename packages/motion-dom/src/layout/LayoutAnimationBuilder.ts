@@ -4,7 +4,8 @@ import { GroupAnimation, type AcceptedAnimations } from "../animation/GroupAnima
 import { animateTarget } from "../animation/interfaces/visual-element-target"
 import type { MutationResult, RemovedElement } from "./types"
 import {
-    snapshotElements,
+    trackLayoutElements,
+    getLayoutElements,
     detectMutations,
     isRootEnteringElement,
     isRootExitingElement,
@@ -91,11 +92,11 @@ export class LayoutAnimationBuilder implements PromiseLike<GroupAnimation> {
         let context: ProjectionContext | undefined
 
         try {
-            // Phase 1: Pre-mutation (Snapshot)
-            const beforeSnapshots = snapshotElements(this.scope)
-            const existingElements = Array.from(beforeSnapshots.keys())
+            // Phase 1: Pre-mutation - Build projection tree and take snapshots
+            const existingElements = getLayoutElements(this.scope)
 
-            // Build projection tree for existing elements
+            // Build projection tree for existing elements FIRST
+            // This allows the projection system to handle measurements correctly
             if (existingElements.length > 0) {
                 context = buildProjectionTree(
                     existingElements,
@@ -106,17 +107,22 @@ export class LayoutAnimationBuilder implements PromiseLike<GroupAnimation> {
                 // Start update cycle
                 context.root.startUpdate()
 
-                // Call willUpdate on all nodes to capture snapshots
+                // Call willUpdate on all nodes to capture snapshots via projection system
+                // This handles transforms, scroll, etc. correctly
                 for (const node of context.nodes.values()) {
                     node.willUpdate()
                 }
             }
 
+            // Track DOM structure (parent, sibling) for detecting removals
+            // No bounds measurement here - projection system already handled that
+            const beforeRecords = trackLayoutElements(this.scope)
+
             // Phase 2: Execute DOM update
             this.updateDom()
 
             // Phase 3: Post-mutation (Detect & Prepare)
-            const mutationResult = detectMutations(beforeSnapshots, this.scope)
+            const mutationResult = detectMutations(beforeRecords, this.scope)
 
             // Reattach exiting elements that are NOT part of shared transitions
             // Shared elements are handled by the projection system via resumeFrom
@@ -126,7 +132,7 @@ export class LayoutAnimationBuilder implements PromiseLike<GroupAnimation> {
                     return !layoutId || !mutationResult.sharedEntering.has(layoutId)
                 }
             )
-            this.reattachExitingElements(nonSharedExiting)
+            this.reattachExitingElements(nonSharedExiting, context)
 
             // Build projection nodes for entering elements
             if (mutationResult.entering.length > 0) {
@@ -214,10 +220,17 @@ export class LayoutAnimationBuilder implements PromiseLike<GroupAnimation> {
         }
     }
 
-    private reattachExitingElements(exiting: RemovedElement[]) {
-        for (const { element, parentElement, nextSibling, bounds } of exiting) {
+    private reattachExitingElements(exiting: RemovedElement[], context?: ProjectionContext) {
+        for (const { element, parentElement, nextSibling } of exiting) {
             // Check if parent still exists in DOM
             if (!parentElement.isConnected) continue
+
+            // Get bounds from projection node snapshot (measured correctly via projection system)
+            const node = context?.nodes.get(element)
+            const snapshot = node?.snapshot
+            if (!snapshot) continue
+
+            const { layoutBox } = snapshot
 
             // Reattach element
             if (nextSibling && nextSibling.parentNode === parentElement) {
@@ -227,12 +240,13 @@ export class LayoutAnimationBuilder implements PromiseLike<GroupAnimation> {
             }
 
             // Apply absolute positioning to prevent layout shift
+            // Use layoutBox from projection system which has transform-free measurements
             const htmlElement = element as HTMLElement
             htmlElement.style.position = "absolute"
-            htmlElement.style.top = `${bounds.top}px`
-            htmlElement.style.left = `${bounds.left}px`
-            htmlElement.style.width = `${bounds.width}px`
-            htmlElement.style.height = `${bounds.height}px`
+            htmlElement.style.top = `${layoutBox.y.min}px`
+            htmlElement.style.left = `${layoutBox.x.min}px`
+            htmlElement.style.width = `${layoutBox.x.max - layoutBox.x.min}px`
+            htmlElement.style.height = `${layoutBox.y.max - layoutBox.y.min}px`
             htmlElement.style.margin = "0"
             htmlElement.style.pointerEvents = "none"
         }
