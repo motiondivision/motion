@@ -163,8 +163,6 @@ export class AsyncMotionValueAnimation<T extends AnyResolvedKeyframe>
          */
         const useWaapi = !isHandoff && supportsBrowserAnimation(resolvedOptions)
         const element = resolvedOptions.motionValue?.owner?.current
-        const el = element as HTMLElement | undefined
-        console.log("[AsyncMotionValueAnimation] useWaapi:", useWaapi, "element:", el?.id || el?.tagName, "duration:", resolvedOptions.duration)
 
         const animation = useWaapi
                 ? new NativeAnimationExtended({
@@ -173,9 +171,7 @@ export class AsyncMotionValueAnimation<T extends AnyResolvedKeyframe>
                   } as any)
                 : new JSAnimation(resolvedOptions)
 
-        console.log("[AsyncMotionValueAnimation] animation created, type:", animation.constructor.name, "duration:", animation.duration)
         animation.finished.then(() => {
-            console.log("[AsyncMotionValueAnimation] underlying animation finished")
             this.notifyFinished()
         }).catch(noop)
 
