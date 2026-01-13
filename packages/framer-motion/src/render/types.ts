@@ -1,12 +1,19 @@
-import type { AnimationDefinition } from "motion-dom"
-import { AnyResolvedKeyframe, MotionValue } from "motion-dom"
-import type { Axis, Box } from "motion-utils"
+import {
+    AnyResolvedKeyframe,
+    MotionValue,
+    ResolvedValues,
+    type VisualElement,
+    type VisualElementEventCallbacks,
+    type LayoutLifecycles,
+    type UseRenderState,
+} from "motion-dom"
 import { ReducedMotionConfig } from "../context/MotionConfigContext"
 import type { PresenceContextProps } from "../context/PresenceContext"
 import { MotionProps } from "../motion/types"
 import { VisualState } from "../motion/utils/use-visual-state"
 import { DOMMotionComponents } from "./dom/types"
-import type { VisualElement } from "./VisualElement"
+
+export type { VisualElementEventCallbacks, LayoutLifecycles, UseRenderState }
 
 export type ScrapeMotionValuesFromProps = (
     props: MotionProps,
@@ -15,8 +22,6 @@ export type ScrapeMotionValuesFromProps = (
 ) => {
     [key: string]: MotionValue | AnyResolvedKeyframe
 }
-
-export type UseRenderState<RenderState = any> = () => RenderState
 
 export interface VisualElementOptions<Instance, RenderState = any> {
     visualState: VisualState<Instance, RenderState>
@@ -33,41 +38,8 @@ export interface VisualElementOptions<Instance, RenderState = any> {
     isSVG?: boolean
 }
 
-/**
- * A generic set of string/number values
- */
-export interface ResolvedValues {
-    [key: string]: AnyResolvedKeyframe
-}
-
-export interface VisualElementEventCallbacks {
-    BeforeLayoutMeasure: () => void
-    LayoutMeasure: (layout: Box, prevLayout?: Box) => void
-    LayoutUpdate: (layout: Axis, prevLayout: Axis) => void
-    Update: (latest: ResolvedValues) => void
-    AnimationStart: (definition: AnimationDefinition) => void
-    AnimationComplete: (definition: AnimationDefinition) => void
-    LayoutAnimationStart: () => void
-    LayoutAnimationComplete: () => void
-    SetAxisTarget: () => void
-    Unmount: () => void
-}
-
-export interface LayoutLifecycles {
-    onBeforeLayoutMeasure?(box: Box): void
-
-    onLayoutMeasure?(box: Box, prevBox: Box): void
-
-    /**
-     * @internal
-     */
-    onLayoutAnimationStart?(): void
-
-    /**
-     * @internal
-     */
-    onLayoutAnimationComplete?(): void
-}
+// Re-export ResolvedValues from motion-dom for backward compatibility
+export type { ResolvedValues }
 
 export type CreateVisualElement<
     Props = {},

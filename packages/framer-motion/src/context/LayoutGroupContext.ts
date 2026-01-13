@@ -1,7 +1,7 @@
 "use client"
 
 import { createContext } from "react"
-import { NodeGroup } from "../projection/node/group"
+import type { NodeGroup } from "motion-dom"
 
 export interface LayoutGroupContextProps {
     id?: string

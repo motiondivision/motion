@@ -24,8 +24,7 @@ export {
     makeUseVisualState,
     VisualState,
 } from "./motion/utils/use-visual-state"
-export { calcLength } from "./projection/geometry/delta-calc"
-export { createBox } from "./projection/geometry/models"
+export { calcLength, createBox } from "motion-dom"
 export { filterProps } from "./render/dom/utils/filter-props"
 export { AnimationType } from "./render/utils/types"
 export { isBrowser } from "./utils/is-browser"
@@ -56,7 +55,7 @@ export { useTransform } from "./value/use-transform"
 export { useVelocity } from "./value/use-velocity"
 export { useWillChange } from "./value/use-will-change"
 export { WillChangeMotionValue } from "./value/use-will-change/WillChangeMotionValue"
-export { resolveMotionValue } from "./value/utils/resolve-motion-value"
+export { resolveMotionValue } from "motion-dom"
 
 /**
  * Accessibility
@@ -75,7 +74,7 @@ export {
     useAnimation,
     useAnimationControls,
 } from "./animation/hooks/use-animation"
-export { animateVisualElement } from "./animation/interfaces/visual-element"
+export { animateVisualElement } from "motion-dom"
 export {
     useIsPresent,
     usePresence,
@@ -89,12 +88,10 @@ export {
 export { isMotionComponent } from "./motion/utils/is-motion-component"
 export { unwrapMotionComponent } from "./motion/utils/unwrap-motion-component"
 export { isValidMotionProp } from "./motion/utils/valid-prop"
-export { addScaleCorrector } from "./projection/styles/scale-correction"
+export { addScaleCorrector } from "motion-dom"
 export { useInstantLayoutTransition } from "./projection/use-instant-layout-transition"
 export { useResetProjection } from "./projection/use-reset-projection"
-export { buildTransform } from "./render/html/utils/build-transform"
-export { visualElementStore } from "./render/store"
-export { VisualElement } from "./render/VisualElement"
+export { buildTransform, visualElementStore, VisualElement } from "motion-dom"
 export { useAnimationFrame } from "./utils/use-animation-frame"
 export { Cycle, CycleState, useCycle } from "./utils/use-cycle"
 export { useInView, UseInViewOptions } from "./utils/use-in-view"
@@ -107,7 +104,7 @@ export { usePageInView } from "./utils/use-page-in-view"
 /**
  * Appear animations
  */
-export { optimizedAppearDataAttribute } from "./animation/optimized-appear/data-id"
+export { optimizedAppearDataAttribute } from "motion-dom"
 export { startOptimizedAppearAnimation } from "./animation/optimized-appear/start"
 
 /**
@@ -125,14 +122,23 @@ export { SwitchLayoutGroupContext } from "./context/SwitchLayoutGroupContext"
 export type { AnimatePresenceProps } from "./components/AnimatePresence/types"
 export type { LazyProps } from "./components/LazyMotion/types"
 export type { MotionConfigProps } from "./components/MotionConfig"
-export type * from "./motion/features/types"
+export type {
+    HydratedFeatureDefinition,
+    HydratedFeatureDefinitions,
+    FeatureDefinition,
+    FeatureDefinitions,
+    FeaturePackage,
+    FeaturePackages,
+    FeatureBundle,
+    LazyFeatureBundle,
+} from "./motion/features/types"
 export type {
     MotionProps,
     MotionStyle,
     MotionTransform,
     VariantLabels,
 } from "./motion/types"
-export type { IProjectionNode } from "./projection/node/types"
+export type { IProjectionNode } from "motion-dom"
 export type { DOMMotionComponents } from "./render/dom/types"
 export type { ForwardRefComponent, HTMLMotionProps } from "./render/html/types"
 export type {
@@ -140,7 +146,7 @@ export type {
     SVGMotionProps,
 } from "./render/svg/types"
 export type { CreateVisualElement } from "./render/types"
-export type { FlatTree } from "./render/utils/flat-tree"
+export type { FlatTree } from "motion-dom"
 export type { ScrollMotionValues } from "./value/scroll/utils"
 
 /**
@@ -152,4 +158,4 @@ export { DeprecatedLayoutGroupContext } from "./context/DeprecatedLayoutGroupCon
 export { useInvertedScale as useDeprecatedInvertedScale } from "./value/use-inverted-scale"
 
 // Keep explicit delay in milliseconds export for BC with Framer
-export { delay, DelayedFunction } from "./utils/delay"
+export { delay, type DelayedFunction } from "motion-dom"

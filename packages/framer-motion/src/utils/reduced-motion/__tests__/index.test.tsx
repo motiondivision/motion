@@ -1,7 +1,7 @@
+import { hasReducedMotionListener } from "motion-dom"
 import { render } from "../../../jest.setup"
 import { motion } from "../../../render/components/motion"
 import { MotionConfig } from "../../../components/MotionConfig"
-import { hasReducedMotionListener } from "../state"
 
 describe("reduced motion listener initialization", () => {
     beforeEach(() => {

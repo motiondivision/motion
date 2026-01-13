@@ -1,4 +1,4 @@
-import { Feature } from "../Feature"
+import { Feature } from "motion-dom"
 
 let id = 0
 

@@ -1,7 +1,7 @@
 "use client"
 
 import { RefObject, useEffect } from "react"
-import { addDomEvent } from "./add-dom-event"
+import { addDomEvent } from "motion-dom"
 
 /**
  * Attaches an event listener directly to the provided DOM element.

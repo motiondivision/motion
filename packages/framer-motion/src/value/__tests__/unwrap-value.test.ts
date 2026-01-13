@@ -1,5 +1,4 @@
-import { MotionValue } from "motion-dom"
-import { resolveMotionValue } from "../utils/resolve-motion-value"
+import { MotionValue, resolveMotionValue } from "motion-dom"
 
 describe("resolveMotionValue", () => {
     it("should leave non-motion values alone", () => {

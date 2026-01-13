@@ -1,11 +1,16 @@
-export { recordStats, statsBuffer } from "motion-dom"
-export { calcBoxDelta } from "./projection/geometry/delta-calc"
-export { nodeGroup } from "./projection/node/group"
-export { HTMLProjectionNode } from "./projection/node/HTMLProjectionNode"
-export { correctBorderRadius } from "./projection/styles/scale-border-radius"
-export { correctBoxShadow } from "./projection/styles/scale-box-shadow"
-export { addScaleCorrector } from "./projection/styles/scale-correction"
-export { HTMLVisualElement } from "./render/html/HTMLVisualElement"
-export { buildTransform } from "./render/html/utils/build-transform"
-export { frame, frameData, mix }
-import { frame, frameData, mix } from "motion-dom"
+export {
+    recordStats,
+    statsBuffer,
+    calcBoxDelta,
+    correctBorderRadius,
+    correctBoxShadow,
+    addScaleCorrector,
+    frame,
+    frameData,
+    mix,
+    HTMLVisualElement,
+    buildTransform,
+    // Re-export projection node system from motion-dom
+    nodeGroup,
+    HTMLProjectionNode,
+} from "motion-dom"

@@ -1,8 +1,11 @@
-import { isSVGElement, isSVGSVGElement } from "motion-dom"
-import { HTMLVisualElement } from "../../render/html/HTMLVisualElement"
-import { ObjectVisualElement } from "../../render/object/ObjectVisualElement"
-import { visualElementStore } from "../../render/store"
-import { SVGVisualElement } from "../../render/svg/SVGVisualElement"
+import {
+    HTMLVisualElement,
+    isSVGElement,
+    isSVGSVGElement,
+    ObjectVisualElement,
+    SVGVisualElement,
+    visualElementStore,
+} from "motion-dom"
 
 export function createDOMVisualElement(element: HTMLElement | SVGElement) {
     const options = {

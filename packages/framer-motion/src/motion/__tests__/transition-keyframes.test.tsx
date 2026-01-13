@@ -1,6 +1,6 @@
+import { checkVariantsDidChange } from "motion-dom"
 import { motion, motionValue } from "../.."
 import { render } from "../../jest.setup"
-import { checkVariantsDidChange } from "../../render/utils/animation-state"
 
 describe("keyframes transition", () => {
     test("keyframes as target", async () => {

@@ -1,9 +1,8 @@
-import { motionValue, stagger } from "motion-dom"
+import { motionValue, stagger, globalProjectionState } from "motion-dom"
 import { useEffect } from "react"
 import { motion, useMotionValue } from "../.."
 import { MotionConfig } from "../../components/MotionConfig"
 import { render } from "../../jest.setup"
-import { globalProjectionState } from "../../projection/node/state"
 
 describe("isStatic prop", () => {
     test("it prevents rendering of animated values", async () => {

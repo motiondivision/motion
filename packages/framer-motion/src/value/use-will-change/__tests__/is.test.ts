@@ -1,5 +1,4 @@
-import { MotionValue } from "motion-dom"
-import { isWillChangeMotionValue } from "../is"
+import { isWillChangeMotionValue, MotionValue } from "motion-dom"
 import { WillChangeMotionValue } from "../WillChangeMotionValue"
 
 describe("isWillChangeMotionValue", () => {

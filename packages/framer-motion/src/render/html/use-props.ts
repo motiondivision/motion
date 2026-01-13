@@ -1,11 +1,9 @@
 "use client"
 
-import { AnyResolvedKeyframe, isMotionValue, MotionValue } from "motion-dom"
+import { AnyResolvedKeyframe, buildHTMLStyles, isForcedMotionValue, isMotionValue, MotionValue } from "motion-dom"
 import { HTMLProps, useMemo } from "react"
 import { MotionProps } from "../../motion/types"
-import { isForcedMotionValue } from "../../motion/utils/is-forced-motion-value"
 import { ResolvedValues } from "../types"
-import { buildHTMLStyles } from "./utils/build-styles"
 import { createHtmlRenderState } from "./utils/create-render-state"
 
 export function copyRawValuesOnly(

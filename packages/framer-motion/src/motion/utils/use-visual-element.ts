@@ -1,8 +1,13 @@
 "use client"
 
+import {
+    optimizedAppearDataAttribute,
+    type HTMLRenderState,
+    type SVGRenderState,
+    type VisualElement,
+} from "motion-dom"
 import * as React from "react"
 import { useContext, useEffect, useInsertionEffect, useRef } from "react"
-import { optimizedAppearDataAttribute } from "../../animation/optimized-appear/data-id"
 import { LazyContext } from "../../context/LazyContext"
 import { MotionConfigContext } from "../../context/MotionConfigContext"
 import { MotionContext } from "../../context/MotionContext"
@@ -12,12 +17,9 @@ import {
     SwitchLayoutGroupContext,
 } from "../../context/SwitchLayoutGroupContext"
 import { MotionProps } from "../../motion/types"
-import { IProjectionNode } from "../../projection/node/types"
+import type { IProjectionNode } from "motion-dom"
 import { DOMMotionComponents } from "../../render/dom/types"
-import { HTMLRenderState } from "../../render/html/types"
-import { SVGRenderState } from "../../render/svg/types"
 import { CreateVisualElement } from "../../render/types"
-import type { VisualElement } from "../../render/VisualElement"
 import { isRefObject } from "../../utils/is-ref-object"
 import { useIsomorphicLayoutEffect } from "../../utils/use-isomorphic-effect"
 import { VisualState } from "./use-visual-state"

@@ -1,4 +1,4 @@
-import { delay } from "../delay"
+import { delay } from "motion-dom"
 
 describe("delay", () => {
     test("resolves after provided duration", async () => {

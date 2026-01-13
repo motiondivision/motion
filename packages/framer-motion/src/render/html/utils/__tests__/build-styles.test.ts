@@ -1,8 +1,7 @@
+import { buildHTMLStyles, ResolvedValues } from "motion-dom"
 import "../../../../jest.setup"
 import { DOMVisualElementOptions } from "../../../dom/types"
-import { ResolvedValues } from "../../../types"
 import { TransformOrigin } from "../../types"
-import { buildHTMLStyles } from "../build-styles"
 
 describe("buildHTMLStyles", () => {
     test("Builds basic styles", () => {

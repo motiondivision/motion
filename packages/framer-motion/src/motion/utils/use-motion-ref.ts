@@ -1,8 +1,8 @@
 "use client"
 
+import type { VisualElement } from "motion-dom"
 import * as React from "react"
 import { useCallback, useInsertionEffect, useRef } from "react"
-import type { VisualElement } from "../../render/VisualElement"
 import { VisualState } from "./use-visual-state"
 
 /**

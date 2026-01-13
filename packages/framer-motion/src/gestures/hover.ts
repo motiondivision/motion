@@ -1,7 +1,5 @@
-import { frame, hover } from "motion-dom"
+import { Feature, frame, hover, type VisualElement } from "motion-dom"
 import { extractEventInfo } from "../events/event-info"
-import { Feature } from "../motion/features/Feature"
-import type { VisualElement } from "../render/VisualElement"
 
 function handleHoverEvent(
     node: VisualElement<Element>,

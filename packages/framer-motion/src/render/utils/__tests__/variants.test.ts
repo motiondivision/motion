@@ -1,4 +1,4 @@
-import { resolveVariantFromProps } from "../resolve-variants"
+import { resolveVariantFromProps } from "motion-dom"
 
 describe("resolveVariantFromProps", () => {
     test("Resolves string", () => {

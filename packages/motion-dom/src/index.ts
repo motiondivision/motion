@@ -11,6 +11,22 @@ export * from "./animation/utils/css-variables-conversion"
 export * from "./animation/utils/get-value-transition"
 export * from "./animation/utils/is-css-variable"
 export * from "./animation/utils/make-animation-instant"
+export { getDefaultTransition } from "./animation/utils/default-transitions"
+export { isTransitionDefined } from "./animation/utils/is-transition-defined"
+export { getFinalKeyframe } from "./animation/utils/get-final-keyframe"
+export { calcChildStagger } from "./animation/utils/calc-child-stagger"
+
+// Animation interfaces
+export { animateMotionValue } from "./animation/interfaces/motion-value"
+export { animateTarget } from "./animation/interfaces/visual-element-target"
+export { animateVariant } from "./animation/interfaces/visual-element-variant"
+export { animateVisualElement } from "./animation/interfaces/visual-element"
+export type { VisualElementAnimationOptions } from "./animation/interfaces/types"
+
+// Optimized appear
+export { optimizedAppearDataId, optimizedAppearDataAttribute } from "./animation/optimized-appear/data-id"
+export { getOptimisedAppearId } from "./animation/optimized-appear/get-appear-id"
+export type { WithAppearProps, HandoffFunction } from "./animation/optimized-appear/types"
 
 export * from "./animation/generators/inertia"
 export * from "./animation/generators/keyframes"
@@ -69,6 +85,7 @@ export * from "./render/dom/style-set"
 export * from "./render/svg/types"
 export * from "./render/utils/keys-position"
 export * from "./render/utils/keys-transform"
+export { isKeyframesTarget } from "./render/utils/is-keyframes-target"
 
 export * from "./resize"
 
@@ -120,11 +137,136 @@ export * from "./value/types/utils/animatable-none"
 export * from "./value/types/utils/find"
 export * from "./value/types/utils/get-as-type"
 export * from "./value/utils/is-motion-value"
+export type { WillChange } from "./value/will-change/types"
+export { isWillChangeMotionValue } from "./value/will-change/is"
+export { addValueToWillChange } from "./value/will-change/add-will-change"
 
 export * from "./view"
 export * from "./view/types"
 export * from "./view/utils/get-layer-info"
 export * from "./view/utils/get-view-animations"
+
+// Visual Element
+export { VisualElement, setFeatureDefinitions, getFeatureDefinitions } from "./render/VisualElement"
+export type { MotionStyle } from "./render/VisualElement"
+export { Feature } from "./render/Feature"
+export { DOMVisualElement } from "./render/dom/DOMVisualElement"
+export { HTMLVisualElement } from "./render/html/HTMLVisualElement"
+export { SVGVisualElement } from "./render/svg/SVGVisualElement"
+export { ObjectVisualElement } from "./render/object/ObjectVisualElement"
+export { visualElementStore } from "./render/store"
+export type {
+    ResolvedValues,
+    PresenceContextProps,
+    ReducedMotionConfig,
+    MotionConfigContextProps,
+    VisualState,
+    VisualElementOptions,
+    VisualElementEventCallbacks,
+    LayoutLifecycles,
+    ScrapeMotionValuesFromProps,
+    UseRenderState,
+    AnimationType,
+    FeatureClass,
+} from "./render/types"
+export * from "./render/dom/types"
+export * from "./render/html/types"
+
+// Animation State
+export { createAnimationState, checkVariantsDidChange } from "./render/utils/animation-state"
+export type { AnimationState, AnimationTypeState, AnimationList } from "./render/utils/animation-state"
+
+// Variant utilities
+export { isVariantLabel } from "./render/utils/is-variant-label"
+export { isControllingVariants, isVariantNode } from "./render/utils/is-controlling-variants"
+export { getVariantContext } from "./render/utils/get-variant-context"
+export { resolveVariantFromProps } from "./render/utils/resolve-variants"
+export { resolveVariant } from "./render/utils/resolve-dynamic-variants"
+export { updateMotionValuesFromProps } from "./render/utils/motion-values"
+export { variantProps, variantPriorityOrder } from "./render/utils/variant-props"
+export { isAnimationControls } from "./render/utils/is-animation-controls"
+export { isForcedMotionValue, scaleCorrectors, addScaleCorrector } from "./render/utils/is-forced-motion-value"
+export { setTarget } from "./render/utils/setters"
+
+// Reduced motion
+export {
+    initPrefersReducedMotion,
+    hasReducedMotionListener,
+    prefersReducedMotion,
+} from "./render/utils/reduced-motion"
+
+// Projection geometry
+export * from "./projection/geometry/models"
+export * from "./projection/geometry/delta-calc"
+export * from "./projection/geometry/delta-apply"
+export * from "./projection/geometry/delta-remove"
+export * from "./projection/geometry/copy"
+export * from "./projection/geometry/conversion"
+export * from "./projection/geometry/utils"
+export { hasTransform, hasScale, has2DTranslate } from "./projection/utils/has-transform"
+export { measureViewportBox, measurePageBox } from "./projection/utils/measure"
+export { eachAxis } from "./projection/utils/each-axis"
+
+// Projection styles
+export * from "./projection/styles/types"
+export { pixelsToPercent, correctBorderRadius } from "./projection/styles/scale-border-radius"
+export { correctBoxShadow } from "./projection/styles/scale-box-shadow"
+export { buildProjectionTransform } from "./projection/styles/transform"
+
+// Projection animation
+export { mixValues } from "./projection/animation/mix-values"
+
+// Utilities (used by projection system)
+export { delay, delayInSeconds } from "./utils/delay"
+export type { DelayedFunction } from "./utils/delay"
+export { addDomEvent } from "./events/add-dom-event"
+export { resolveMotionValue } from "./value/utils/resolve-motion-value"
+export { animateSingleValue } from "./animation/animate/single-value"
+export { FlatTree } from "./projection/utils/flat-tree"
+export { compareByDepth } from "./projection/utils/compare-by-depth"
+export type { WithDepth } from "./projection/utils/compare-by-depth"
+
+// Projection node system
+export {
+    createProjectionNode,
+    propagateDirtyNodes,
+    cleanDirtyNodes,
+} from "./projection/node/create-projection-node"
+export {
+    HTMLProjectionNode,
+    rootProjectionNode,
+} from "./projection/node/HTMLProjectionNode"
+export { DocumentProjectionNode } from "./projection/node/DocumentProjectionNode"
+export { globalProjectionState } from "./projection/node/state"
+export { nodeGroup } from "./projection/node/group"
+export type { NodeGroup } from "./projection/node/group"
+export { NodeStack } from "./projection/shared/stack"
+export type {
+    IProjectionNode,
+    Measurements,
+    Phase,
+    ScrollMeasurements,
+    LayoutEvents,
+    LayoutUpdateData,
+    LayoutUpdateHandler,
+    ProjectionNodeConfig,
+    ProjectionNodeOptions,
+    ProjectionEventName,
+    InitialPromotionConfig,
+} from "./projection/node/types"
+
+// HTML/SVG utilities
+export { buildHTMLStyles } from "./render/html/utils/build-styles"
+export { buildTransform } from "./render/html/utils/build-transform"
+export { renderHTML } from "./render/html/utils/render"
+export { scrapeMotionValuesFromProps as scrapeHTMLMotionValuesFromProps } from "./render/html/utils/scrape-motion-values"
+export { buildSVGAttrs } from "./render/svg/utils/build-attrs"
+export { renderSVG } from "./render/svg/utils/render"
+export { buildSVGPath } from "./render/svg/utils/path"
+export { camelCaseAttributes } from "./render/svg/utils/camel-case-attrs"
+export { isSVGTag } from "./render/svg/utils/is-svg-tag"
+export { scrapeMotionValuesFromProps as scrapeSVGMotionValuesFromProps } from "./render/svg/utils/scrape-motion-values"
+export { camelToDash } from "./render/dom/utils/camel-to-dash"
 
 /**
  * Deprecated

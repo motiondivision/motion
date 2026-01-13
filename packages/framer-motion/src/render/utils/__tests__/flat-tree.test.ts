@@ -1,5 +1,4 @@
-import { WithDepth } from "../compare-by-depth"
-import { FlatTree } from "../flat-tree"
+import { type WithDepth, FlatTree } from "motion-dom"
 
 describe("FlatTree", () => {
     test("Correctly sorts by depth on iteration", () => {

@@ -1,19 +1,19 @@
 import {
+    animateTarget,
     AnimationPlaybackControlsWithThen,
     AnimationScope,
     AnyResolvedKeyframe,
     DOMKeyframesDefinition,
     AnimationOptions as DynamicAnimationOptions,
     ElementOrSelector,
+    isMotionValue,
     MotionValue,
     TargetAndTransition,
     UnresolvedValueKeyframe,
     ValueAnimationTransition,
-    isMotionValue,
+    visualElementStore,
 } from "motion-dom"
 import { invariant } from "motion-utils"
-import { visualElementStore } from "../../render/store"
-import { animateTarget } from "../interfaces/visual-element-target"
 import { ObjectTarget } from "../sequence/types"
 import {
     createDOMVisualElement,
@@ -21,7 +21,7 @@ import {
 } from "../utils/create-visual-element"
 import { isDOMKeyframes } from "../utils/is-dom-keyframes"
 import { resolveSubjects } from "./resolve-subjects"
-import { animateSingleValue } from "./single-value"
+import { animateSingleValue } from "motion-dom"
 
 export type AnimationSubject = Element | MotionValue<any> | any
 
