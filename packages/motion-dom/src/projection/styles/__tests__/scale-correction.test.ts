@@ -1,10 +1,18 @@
-import {
-    correctBorderRadius,
-    pixelsToPercent,
-    correctBoxShadow,
-} from "motion-dom"
-import { createTestNode } from "../../node/__tests__/TestProjectionNode"
-import { IProjectionNode } from "../../node/types"
+import { correctBorderRadius, pixelsToPercent } from "../scale-border-radius"
+import { correctBoxShadow } from "../scale-box-shadow"
+
+interface TestNode {
+    target?: { x: { min: number; max: number }; y: { min: number; max: number } }
+    projectionDelta?: {
+        x: { scale: number; translate: number; origin: number; originPoint: number }
+        y: { scale: number; translate: number; origin: number; originPoint: number }
+    }
+    treeScale?: { x: number; y: number }
+}
+
+function createTestNode(): TestNode {
+    return {}
+}
 
 describe("pixelsToPercent", () => {
     test("Correctly converts pixels to percent", () => {
@@ -17,7 +25,7 @@ describe("pixelsToPercent", () => {
 })
 
 describe("correctBorderRadius", () => {
-    let node: IProjectionNode
+    let node: TestNode
     beforeEach(() => {
         node = createTestNode()
     })
@@ -48,7 +56,7 @@ describe("correctBorderRadius", () => {
 })
 
 describe("correctBoxShadow", () => {
-    let node: IProjectionNode
+    let node: TestNode
     beforeEach(() => {
         node = createTestNode()
         node.projectionDelta = {
