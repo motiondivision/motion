@@ -18,13 +18,17 @@ export function canAnimate(
     type?: AnimationGeneratorType,
     velocity?: number
 ) {
+    console.log("[canAnimate] name:", name, "keyframes:", keyframes, "type:", type, "velocity:", velocity)
     /**
      * Check if we're able to animate between the start and end keyframes,
      * and throw a warning if we're attempting to animate between one that's
      * animatable and another that isn't.
      */
     const originKeyframe = keyframes[0]
-    if (originKeyframe === null) return false
+    if (originKeyframe === null) {
+        console.log("[canAnimate] returning false - originKeyframe is null")
+        return false
+    }
 
     /**
      * These aren't traditionally animatable but we do support them.
@@ -50,8 +54,8 @@ export function canAnimate(
         return false
     }
 
-    return (
-        hasKeyframesChanged(keyframes) ||
-        ((type === "spring" || isGenerator(type)) && velocity)
-    )
+    const changed = hasKeyframesChanged(keyframes)
+    const result = changed || ((type === "spring" || isGenerator(type)) && velocity)
+    console.log("[canAnimate] hasKeyframesChanged:", changed, "result:", result)
+    return result
 }

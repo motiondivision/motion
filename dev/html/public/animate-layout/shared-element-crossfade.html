@@ -1,0 +1,131 @@
+<html>
+    <head>
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+            }
+
+            #container {
+                width: 400px;
+                height: 400px;
+                background-color: #f0f0f0;
+                position: relative;
+            }
+
+            .box-a-style {
+                width: 100px;
+                height: 100px;
+                background-color: #00cc88;
+            }
+
+            .box-b-style {
+                width: 150px;
+                height: 150px;
+                background-color: #09f;
+            }
+
+            [data-layout-correct="false"] {
+                background: #dd1144 !important;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="container">
+            <div id="box-a" class="box-a-style" data-layout-id="hero"></div>
+        </div>
+
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module" src="/src/imports/script-assert.js"></script>
+        <script type="module">
+            const { animateLayout, frame } = window.AnimateLayout
+            const container = document.getElementById("container")
+            const boxA = document.getElementById("box-a")
+
+            // Capture original position and keep reference to box-a
+            const boxAOrigin = boxA.getBoundingClientRect()
+
+            async function runTest() {
+                // Add box-b with same layoutId "hero" while keeping box-a
+                // Both elements present = automatic crossfade
+                // Use progress 0.1 to catch the entering element mid-fade
+                // Crossfade easing: fade-in runs 0-0.5, fade-out runs 0.5-0.95
+                // At 0.1: entering element is fading in (~60% opacity), exiting element is still visible
+                const controls = await animateLayout(
+                    container,
+                    () => {
+                        // Add box-b alongside box-a (both have same layoutId)
+                        const boxB = document.createElement("div")
+                        boxB.id = "box-b"
+                        boxB.className = "box-b-style"
+                        boxB.setAttribute("data-layout-id", "hero")
+                        container.appendChild(boxB)
+                    },
+                    { duration: 10, ease: () => 0.1 }
+                )
+
+                // Wait one frame for the animation to apply
+                await new Promise((resolve) => frame.postRender(resolve))
+
+                const boxB = document.getElementById("box-b")
+
+                // Both elements should be in DOM
+                if (!boxA.isConnected || !boxB) {
+                    window.showError(
+                        container,
+                        "Both box-a and box-b should be in DOM during crossfade"
+                    )
+                    return
+                }
+
+                // Get positions of both elements
+                const boxABounds = boxA.getBoundingClientRect()
+                const boxBBounds = boxB.getBoundingClientRect()
+
+                // Check they are overlapping during shared element transition
+                // Both elements should be visually at a similar position
+                const positionThreshold = 100 // Allow tolerance during morph transition
+
+                const centersOverlap =
+                    Math.abs(
+                        boxABounds.left +
+                            boxABounds.width / 2 -
+                            (boxBBounds.left + boxBBounds.width / 2)
+                    ) < positionThreshold &&
+                    Math.abs(
+                        boxABounds.top +
+                            boxABounds.height / 2 -
+                            (boxBBounds.top + boxBBounds.height / 2)
+                    ) < positionThreshold
+
+                if (!centersOverlap) {
+                    window.showError(
+                        boxB,
+                        `Elements should overlap during crossfade. box-a: (${boxABounds.left}, ${boxABounds.top}), box-b: (${boxBBounds.left}, ${boxBBounds.top})`
+                    )
+                }
+
+                // Check crossfade opacity
+                // When two elements share layoutId, one should be fading out, one fading in
+                const boxAOpacity = parseFloat(
+                    window.getComputedStyle(boxA).opacity
+                )
+                const boxBOpacity = parseFloat(
+                    window.getComputedStyle(boxB).opacity
+                )
+
+                // At progress 0.1:
+                // - box-b (entering) should be fading in (opacity ~0.6)
+                // - box-a (exiting) should still be visible (opacity 1)
+                if (boxBOpacity >= 0.99) {
+                    window.showError(
+                        boxB,
+                        `Expected crossfade - entering element (box-b) should have opacity < 1 at progress 0.1. box-a: ${boxAOpacity}, box-b: ${boxBOpacity}`
+                    )
+                }
+            }
+
+            runTest().catch(console.error)
+        </script>
+    </body>
+</html>

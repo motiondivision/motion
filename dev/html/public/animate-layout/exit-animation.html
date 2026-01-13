@@ -1,0 +1,117 @@
+<html>
+    <head>
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+            }
+
+            #container {
+                width: 300px;
+                height: 300px;
+                background-color: #f0f0f0;
+                padding: 20px;
+            }
+
+            .card {
+                width: 100px;
+                height: 100px;
+                background-color: #00cc88;
+                margin: 10px;
+            }
+
+            [data-layout-correct="false"] {
+                background: #dd1144 !important;
+                opacity: 0.5;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="container">
+            <div
+                class="card"
+                data-layout
+                data-layout-correct="true"
+                id="card1"
+            ></div>
+        </div>
+
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module" src="/src/imports/script-assert.js"></script>
+        <script type="module">
+            const { animateLayout, frame } = window.AnimateLayout
+            const container = document.getElementById("container")
+            const card1 = document.getElementById("card1")
+
+            const cardOrigin = card1.getBoundingClientRect()
+
+            async function runTest() {
+                // Remove element with exit animation (don't await - we need controls before it finishes)
+                const controls = await animateLayout(
+                    container,
+                    () => {
+                        container.innerHTML = ""
+                    },
+                    { duration: 10, ease: "linear" }
+                ).exit({ opacity: 0 }, { duration: 10, ease: "linear" })
+
+                // Pause and seek to 75% (opacity should be 0.25)
+                controls.pause()
+                controls.time = controls.duration * 0.75
+
+                // Card should still be in DOM (reattached for exit animation)
+                if (!card1.isConnected) {
+                    window.showError(
+                        container,
+                        "Card should still be connected during exit animation"
+                    )
+                    return
+                }
+
+                // // Card should be in absolute position at original location
+                const currentBounds = card1.getBoundingClientRect()
+                const threshold = 1 // pixel tolerance
+
+                if (
+                    Math.abs(cardOrigin.top - currentBounds.top) > threshold ||
+                    Math.abs(cardOrigin.left - currentBounds.left) > threshold
+                ) {
+                    window.showError(
+                        card1,
+                        `Card position shifted during exit: expected (${cardOrigin.left}, ${cardOrigin.top}), got (${currentBounds.left}, ${currentBounds.top})`
+                    )
+                }
+
+                // Check opacity is around 0.25 (75% of the way from 1 to 0)
+                // This verifies the animation is going in the exit direction (toward 0)
+                const opacity = parseFloat(
+                    window.getComputedStyle(card1).opacity
+                )
+                const expectedOpacity = 0.25
+                const opacityThreshold = 0.1
+
+                if (Math.abs(opacity - expectedOpacity) > opacityThreshold) {
+                    window.showError(
+                        card1,
+                        `Expected opacity ~${expectedOpacity} during exit, got ${opacity}`
+                    )
+                }
+
+                // Manually complete the animation
+                controls.complete()
+
+                requestAnimationFrame(() => {
+                    if (card1.isConnected) {
+                        window.showError(
+                            container,
+                            "Card should not be connected after exit animation"
+                        )
+                        return
+                    }
+                })
+            }
+
+            runTest().catch(console.error)
+        </script>
+    </body>
+</html>

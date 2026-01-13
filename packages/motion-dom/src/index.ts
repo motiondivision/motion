@@ -269,6 +269,12 @@ export { scrapeMotionValuesFromProps as scrapeSVGMotionValuesFromProps } from ".
 export { camelToDash } from "./render/dom/utils/camel-to-dash"
 
 /**
+ * Layout animations
+ */
+export { unstable_animateLayout } from "./layout/animate-layout"
+export { LayoutAnimationBuilder } from "./layout/LayoutAnimationBuilder"
+
+/**
  * Deprecated
  */
 export { cancelSync, sync } from "./frameloop/index-legacy"

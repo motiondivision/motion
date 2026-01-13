@@ -1,0 +1,88 @@
+<html>
+    <head>
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+            }
+
+            #container {
+                width: 300px;
+                height: 300px;
+                background-color: #f0f0f0;
+                padding: 20px;
+            }
+
+            .card {
+                width: 100px;
+                height: 100px;
+                background-color: #00cc88;
+                margin: 10px;
+            }
+
+            [data-layout-correct="false"] {
+                background: #dd1144 !important;
+                opacity: 0.5;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="container"></div>
+
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module" src="/src/imports/script-assert.js"></script>
+        <script type="module">
+            const { animateLayout, frame } = window.AnimateLayout
+            const { matchOpacity } = window.Assert
+            const container = document.getElementById("container")
+
+            async function runTest() {
+                // Add elements with enter animation
+                // card2 has a nested data-layout child which should NOT animate opacity
+                const controls = await animateLayout(
+                    container,
+                    () => {
+                        container.innerHTML = `
+                        <div class="card" data-layout id="card1"></div>
+                        <div class="card" data-layout id="card2">
+                            <div data-layout id="nested-child" style="width: 50px; height: 50px; background: blue;"></div>
+                        </div>
+                    `
+                    },
+                    { duration: 10, ease: () => 0.5 }
+                ).enter({ opacity: 1 }, { duration: 10, ease: () => 0.5 })
+
+                // Wait one frame for the animation to apply
+                await new Promise((resolve) => frame.postRender(resolve))
+
+                const card1 = document.getElementById("card1")
+                const card2 = document.getElementById("card2")
+                const nestedChild = document.getElementById("nested-child")
+
+                // Root entering elements (card1, card2) should be fading in (opacity < 1)
+                const card1Opacity = parseFloat(
+                    window.getComputedStyle(card1).opacity
+                )
+                if (card1Opacity >= 1) {
+                    window.showError(
+                        card1,
+                        `Expected card1 opacity < 1 during animation, got ${card1Opacity}`
+                    )
+                }
+
+                // Nested child should NOT animate opacity - it should be 1
+                const nestedOpacity = parseFloat(
+                    window.getComputedStyle(nestedChild).opacity
+                )
+                if (nestedOpacity !== 1) {
+                    window.showError(
+                        nestedChild,
+                        `Expected nested child opacity = 1 (no animation), got ${nestedOpacity}`
+                    )
+                }
+            }
+
+            runTest().catch(console.error)
+        </script>
+    </body>
+</html>

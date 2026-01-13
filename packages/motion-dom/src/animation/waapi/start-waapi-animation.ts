@@ -46,6 +46,21 @@ export function startWaapiAnimation(
 
     const animation = element.animate(keyframeOptions, options)
 
+    console.log("[startWaapiAnimation] created animation:", {
+        duration: options.duration,
+        easing: options.easing,
+        keyframes: keyframeOptions,
+        playState: animation.playState,
+        currentTime: animation.currentTime,
+    })
+
+    // Debug: Check when WAAPI animation finishes
+    animation.finished.then(() => {
+        console.log("[startWaapiAnimation] WAAPI finished, currentTime:", animation.currentTime, "playState:", animation.playState)
+    }).catch(e => {
+        console.log("[startWaapiAnimation] WAAPI finished with error:", e)
+    })
+
     if (statsBuffer.value) {
         animation.finished.finally(() => {
             activeAnimations.waapi--

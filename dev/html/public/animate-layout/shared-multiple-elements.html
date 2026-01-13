@@ -1,0 +1,114 @@
+<html>
+    <head>
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+            }
+
+            #container {
+                width: 500px;
+                height: 500px;
+                background-color: #f0f0f0;
+                position: relative;
+            }
+
+            .box-a {
+                width: 80px;
+                height: 80px;
+                background-color: #00cc88;
+                margin: 10px;
+                display: inline-block;
+            }
+
+            #hero-b {
+                position: absolute;
+                top: 300px;
+                left: 50px;
+                width: 120px;
+                height: 120px;
+                background-color: #09f;
+            }
+
+            #sidebar-b {
+                position: absolute;
+                top: 300px;
+                left: 200px;
+                width: 100px;
+                height: 100px;
+                background-color: #f90;
+            }
+
+            [data-layout-correct="false"] {
+                background: #dd1144 !important;
+                opacity: 0.5;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="container">
+            <div id="hero-a" class="box-a" data-layout-id="hero" data-layout-correct="true"></div>
+            <div id="sidebar-a" class="box-a" data-layout-id="sidebar" data-layout-correct="true"></div>
+        </div>
+
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module" src="/src/imports/script-assert.js"></script>
+        <script type="module">
+            const { animateLayout, frame } = window.AnimateLayout
+            const { matchViewportBox } = window.Assert
+            const container = document.getElementById("container")
+
+            // Capture original positions
+            const heroAOrigin = document.getElementById("hero-a").getBoundingClientRect()
+            const sidebarAOrigin = document.getElementById("sidebar-a").getBoundingClientRect()
+
+            async function runTest() {
+                // Configure different transitions for different layoutIds
+                const controls = await animateLayout(container, () => {
+                    container.innerHTML = `
+                        <div id="hero-b" data-layout-id="hero" data-layout-correct="true"></div>
+                        <div id="sidebar-b" data-layout-id="sidebar" data-layout-correct="true"></div>
+                    `
+                }, { duration: 10, ease: () => 0.5 })
+                    .shared("hero", { duration: 10, ease: () => 0.3 })      // hero at 30%
+                    .shared("sidebar", { duration: 10, ease: () => 0.7 })  // sidebar at 70%
+
+                // Wait one frame for the animation to apply
+                await new Promise((resolve) => frame.postRender(resolve))
+
+                const heroB = document.getElementById("hero-b")
+                const sidebarB = document.getElementById("sidebar-b")
+
+                const heroBTarget = { top: 300, left: 50, width: 120, height: 120 }
+                const sidebarBTarget = { top: 300, left: 200, width: 100, height: 100 }
+
+                // Hero should be at 30% progress
+                const heroProgress = 0.3
+                const expectedHero = {
+                    top: heroAOrigin.top + (heroBTarget.top - heroAOrigin.top) * heroProgress,
+                    left: heroAOrigin.left + (heroBTarget.left - heroAOrigin.left) * heroProgress,
+                    right: heroAOrigin.left + heroAOrigin.width +
+                           ((heroBTarget.left + heroBTarget.width) - (heroAOrigin.left + heroAOrigin.width)) * heroProgress,
+                    bottom: heroAOrigin.top + heroAOrigin.height +
+                            ((heroBTarget.top + heroBTarget.height) - (heroAOrigin.top + heroAOrigin.height)) * heroProgress,
+                }
+
+                // Sidebar should be at 70% progress
+                const sidebarProgress = 0.7
+                const expectedSidebar = {
+                    top: sidebarAOrigin.top + (sidebarBTarget.top - sidebarAOrigin.top) * sidebarProgress,
+                    left: sidebarAOrigin.left + (sidebarBTarget.left - sidebarAOrigin.left) * sidebarProgress,
+                    right: sidebarAOrigin.left + sidebarAOrigin.width +
+                           ((sidebarBTarget.left + sidebarBTarget.width) - (sidebarAOrigin.left + sidebarAOrigin.width)) * sidebarProgress,
+                    bottom: sidebarAOrigin.top + sidebarAOrigin.height +
+                            ((sidebarBTarget.top + sidebarBTarget.height) - (sidebarAOrigin.top + sidebarAOrigin.height)) * sidebarProgress,
+                }
+
+                matchViewportBox(heroB, expectedHero)
+                matchViewportBox(sidebarB, expectedSidebar)
+            }
+
+            runTest().catch(console.error)
+        </script>
+    </body>
+</html>
