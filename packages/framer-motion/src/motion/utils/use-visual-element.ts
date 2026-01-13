@@ -17,7 +17,7 @@ import {
     SwitchLayoutGroupContext,
 } from "../../context/SwitchLayoutGroupContext"
 import { MotionProps } from "../../motion/types"
-import { IProjectionNode } from "../../projection/node/types"
+import type { IProjectionNode } from "motion-dom"
 import { DOMMotionComponents } from "../../render/dom/types"
 import { CreateVisualElement } from "../../render/types"
 import { isRefObject } from "../../utils/is-ref-object"

@@ -216,6 +216,45 @@ export { buildProjectionTransform } from "./projection/styles/transform"
 // Projection animation
 export { mixValues } from "./projection/animation/mix-values"
 
+// Utilities (used by projection system)
+export { delay, delayInSeconds } from "./utils/delay"
+export type { DelayedFunction } from "./utils/delay"
+export { addDomEvent } from "./events/add-dom-event"
+export { resolveMotionValue } from "./value/utils/resolve-motion-value"
+export { animateSingleValue } from "./animation/animate/single-value"
+export { FlatTree } from "./projection/utils/flat-tree"
+export { compareByDepth } from "./projection/utils/compare-by-depth"
+export type { WithDepth } from "./projection/utils/compare-by-depth"
+
+// Projection node system
+export {
+    createProjectionNode,
+    propagateDirtyNodes,
+    cleanDirtyNodes,
+} from "./projection/node/create-projection-node"
+export {
+    HTMLProjectionNode,
+    rootProjectionNode,
+} from "./projection/node/HTMLProjectionNode"
+export { DocumentProjectionNode } from "./projection/node/DocumentProjectionNode"
+export { globalProjectionState } from "./projection/node/state"
+export { nodeGroup } from "./projection/node/group"
+export type { NodeGroup } from "./projection/node/group"
+export { NodeStack } from "./projection/shared/stack"
+export type {
+    IProjectionNode,
+    Measurements,
+    Phase,
+    ScrollMeasurements,
+    LayoutEvents,
+    LayoutUpdateData,
+    LayoutUpdateHandler,
+    ProjectionNodeConfig,
+    ProjectionNodeOptions,
+    ProjectionEventName,
+    InitialPromotionConfig,
+} from "./projection/node/types"
+
 // HTML/SVG utilities
 export { buildHTMLStyles } from "./render/html/utils/build-styles"
 export { buildTransform } from "./render/html/utils/build-transform"

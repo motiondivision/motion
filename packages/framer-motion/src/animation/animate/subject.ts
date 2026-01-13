@@ -21,7 +21,7 @@ import {
 } from "../utils/create-visual-element"
 import { isDOMKeyframes } from "../utils/is-dom-keyframes"
 import { resolveSubjects } from "./resolve-subjects"
-import { animateSingleValue } from "./single-value"
+import { animateSingleValue } from "motion-dom"
 
 export type AnimationSubject = Element | MotionValue<any> | any
 

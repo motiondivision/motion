@@ -1,8 +1,9 @@
-import type { JSAnimation, ResolvedValues, Transition, ValueTransition, VisualElement } from "motion-dom"
+import type { JSAnimation } from "../../animation/JSAnimation"
+import type { Transition, ValueTransition } from "../../animation/types"
+import type { ResolvedValues } from "../../render/types"
+import type { VisualElement, MotionStyle } from "../../render/VisualElement"
 import { Box, Delta, Point } from "motion-utils"
-import { InitialPromotionConfig } from "../../context/SwitchLayoutGroupContext"
-import { MotionStyle } from "../../motion/types"
-import { FlatTree } from "../../render/utils/flat-tree"
+import { FlatTree } from "../utils/flat-tree"
 import { NodeStack } from "../shared/stack"
 
 export interface Measurements {
@@ -160,6 +161,23 @@ export interface ProjectionNodeConfig<I> {
     measureScroll: (instance: I) => Point
     checkIsScrollRoot: (instance: I) => boolean
     resetTransform?: (instance: I, value?: string) => void
+}
+
+/**
+ * Configuration for initial promotion of shared layout elements.
+ * This was originally in React's SwitchLayoutGroupContext but is now
+ * framework-agnostic to support vanilla JS usage.
+ */
+export interface InitialPromotionConfig {
+    /**
+     * The initial transition to use when the elements in this group mount (and automatically promoted).
+     * Subsequent updates should provide a transition in the promote method.
+     */
+    transition?: Transition
+    /**
+     * If the follow tree should preserve its opacity when the lead is promoted on mount
+     */
+    shouldPreserveFollowOpacity?: (member: IProjectionNode) => boolean
 }
 
 export interface ProjectionNodeOptions {

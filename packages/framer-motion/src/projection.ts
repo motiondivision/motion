@@ -10,6 +10,7 @@ export {
     mix,
     HTMLVisualElement,
     buildTransform,
+    // Re-export projection node system from motion-dom
+    nodeGroup,
+    HTMLProjectionNode,
 } from "motion-dom"
-export { nodeGroup } from "./projection/node/group"
-export { HTMLProjectionNode } from "./projection/node/HTMLProjectionNode"

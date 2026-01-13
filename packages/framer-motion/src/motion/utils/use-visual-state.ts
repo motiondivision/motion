@@ -16,7 +16,7 @@ import {
 } from "../../context/PresenceContext"
 import { ScrapeMotionValuesFromProps } from "../../render/types"
 import { useConstant } from "../../utils/use-constant"
-import { resolveMotionValue } from "../../value/utils/resolve-motion-value"
+import { resolveMotionValue } from "motion-dom"
 import { MotionProps } from "../types"
 
 export interface VisualState<Instance, RenderState> {

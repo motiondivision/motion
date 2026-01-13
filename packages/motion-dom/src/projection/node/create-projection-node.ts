@@ -1,49 +1,44 @@
+import { activeAnimations } from "../../stats/animation-count"
+import { JSAnimation } from "../../animation/JSAnimation"
+import { Transition, ValueAnimationOptions } from "../../animation/types"
+import { getValueTransition } from "../../animation/utils/get-value-transition"
+import { cancelFrame, frame, frameData, frameSteps } from "../../frameloop"
+import { microtask } from "../../frameloop/microtask"
+import { time } from "../../frameloop/sync-time"
+import type { Process } from "../../frameloop/types"
 import {
-    activeAnimations,
     applyBoxDelta,
     applyTreeDeltas,
-    aspectRatio,
-    axisDeltaEquals,
-    boxEquals,
-    boxEqualsRounded,
-    buildProjectionTransform,
+    transformBox,
+    translateAxis,
+} from "../geometry/delta-apply"
+import {
     calcBoxDelta,
     calcLength,
     calcRelativeBox,
     calcRelativePosition,
-    cancelFrame,
-    copyAxisDeltaInto,
-    copyBoxInto,
-    createBox,
-    createDelta,
-    eachAxis,
-    frame,
-    frameData,
-    frameSteps,
-    getValueTransition,
-    has2DTranslate,
-    hasScale,
-    hasTransform,
-    isDeltaZero,
     isNear,
-    isSVGElement,
-    isSVGSVGElement,
-    JSAnimation,
-    microtask,
-    mixNumber,
-    mixValues,
-    MotionValue,
-    motionValue,
-    removeBoxTransforms,
-    scaleCorrectors,
-    statsBuffer,
-    time,
-    transformBox,
-    translateAxis,
-    Transition,
-    ValueAnimationOptions,
-    type Process,
-} from "motion-dom"
+} from "../geometry/delta-calc"
+import { removeBoxTransforms } from "../geometry/delta-remove"
+import { copyAxisDeltaInto, copyBoxInto } from "../geometry/copy"
+import { createBox, createDelta } from "../geometry/models"
+import {
+    aspectRatio,
+    axisDeltaEquals,
+    boxEquals,
+    boxEqualsRounded,
+    isDeltaZero,
+} from "../geometry/utils"
+import { buildProjectionTransform } from "../styles/transform"
+import { eachAxis } from "../utils/each-axis"
+import { has2DTranslate, hasScale, hasTransform } from "../utils/has-transform"
+import { mixValues } from "../animation/mix-values"
+import { isSVGElement } from "../../utils/is-svg-element"
+import { isSVGSVGElement } from "../../utils/is-svg-svg-element"
+import { mixNumber } from "../../utils/mix/number"
+import { MotionValue, motionValue } from "../../value"
+import { scaleCorrectors } from "../../render/utils/is-forced-motion-value"
+import { statsBuffer } from "../../stats/buffer"
 import {
     Axis,
     AxisDelta,
@@ -55,10 +50,11 @@ import {
     SubscriptionManager,
 } from "motion-utils"
 import { animateSingleValue } from "../../animation/animate/single-value"
-import { getOptimisedAppearId } from "motion-dom"
-import { MotionStyle } from "../../motion/types"
-import { HTMLVisualElement, ResolvedValues, VisualElement } from "motion-dom"
-import { FlatTree } from "../../render/utils/flat-tree"
+import { getOptimisedAppearId } from "../../animation/optimized-appear/get-appear-id"
+import type { ResolvedValues } from "../../render/types"
+import type { MotionStyle, VisualElement } from "../../render/VisualElement"
+import { HTMLVisualElement } from "../../render/html/HTMLVisualElement"
+import { FlatTree } from "../utils/flat-tree"
 import { delay } from "../../utils/delay"
 import { resolveMotionValue } from "../../value/utils/resolve-motion-value"
 import { NodeStack } from "../shared/stack"

@@ -80,20 +80,7 @@ export class NodeStack {
             const { crossfade } = node.options
             if (crossfade === false) {
                 prevLead.hide()
-            } else {
             }
-            /**
-             * TODO:
-             *   - Test border radius when previous node was deleted
-             *   - boxShadow mixing
-             *   - Shared between element A in scrolled container and element B (scroll stays the same or changes)
-             *   - Shared between element A in transformed container and element B (transform stays the same or changes)
-             *   - Shared between element A in scrolled page and element B (scroll stays the same or changes)
-             * ---
-             *   - Crossfade opacity of root nodes
-             *   - layoutId changes after animation
-             *   - layoutId changes mid animation
-             */
         }
     }
 

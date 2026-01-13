@@ -1,6 +1,6 @@
 import { Box } from "motion-utils"
 import { createProjectionNode } from "../create-projection-node"
-import { IProjectionNode, ProjectionNodeOptions } from "../types"
+import type { IProjectionNode, ProjectionNodeOptions } from "../types"
 
 let rootNode: IProjectionNode
 

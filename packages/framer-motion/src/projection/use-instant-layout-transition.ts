@@ -1,4 +1,4 @@
-import { rootProjectionNode } from "./node/HTMLProjectionNode"
+import { rootProjectionNode } from "motion-dom"
 
 export function useInstantLayoutTransition(): (
     cb?: (() => void) | undefined

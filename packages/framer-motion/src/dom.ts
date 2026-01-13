@@ -16,5 +16,5 @@ export * from "./animation/sequence/types"
 /**
  * Utils
  */
-export { delayInSeconds as delay, DelayedFunction } from "./utils/delay"
+export { delayInSeconds as delay, type DelayedFunction } from "motion-dom"
 export * from "./utils/distance"

@@ -1,13 +1,15 @@
-import {
-    animateMotionValue,
+import { animateMotionValue } from "../interfaces/motion-value"
+import type {
     AnimationPlaybackControlsWithThen,
     AnyResolvedKeyframe,
-    motionValue as createMotionValue,
-    isMotionValue,
-    MotionValue,
     UnresolvedValueKeyframe,
     ValueAnimationTransition,
-} from "motion-dom"
+} from "../types"
+import {
+    motionValue as createMotionValue,
+    MotionValue,
+} from "../../value"
+import { isMotionValue } from "../../value/utils/is-motion-value"
 
 export function animateSingleValue<V extends AnyResolvedKeyframe>(
     value: MotionValue<V> | V,

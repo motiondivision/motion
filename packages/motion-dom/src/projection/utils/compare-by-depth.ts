@@ -1,4 +1,4 @@
-import type { VisualElement } from "motion-dom"
+import type { VisualElement } from "../../render/VisualElement"
 
 export interface WithDepth {
     depth: number

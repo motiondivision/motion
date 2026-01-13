@@ -1,6 +1,5 @@
-import { Feature } from "motion-dom"
+import { Feature, addDomEvent } from "motion-dom"
 import { pipe } from "motion-utils"
-import { addDomEvent } from "../events/add-dom-event"
 
 export class FocusGesture extends Feature<Element> {
     private isActive = false

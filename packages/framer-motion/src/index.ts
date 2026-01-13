@@ -55,7 +55,7 @@ export { useTransform } from "./value/use-transform"
 export { useVelocity } from "./value/use-velocity"
 export { useWillChange } from "./value/use-will-change"
 export { WillChangeMotionValue } from "./value/use-will-change/WillChangeMotionValue"
-export { resolveMotionValue } from "./value/utils/resolve-motion-value"
+export { resolveMotionValue } from "motion-dom"
 
 /**
  * Accessibility
@@ -138,7 +138,7 @@ export type {
     MotionTransform,
     VariantLabels,
 } from "./motion/types"
-export type { IProjectionNode } from "./projection/node/types"
+export type { IProjectionNode } from "motion-dom"
 export type { DOMMotionComponents } from "./render/dom/types"
 export type { ForwardRefComponent, HTMLMotionProps } from "./render/html/types"
 export type {
@@ -146,7 +146,7 @@ export type {
     SVGMotionProps,
 } from "./render/svg/types"
 export type { CreateVisualElement } from "./render/types"
-export type { FlatTree } from "./render/utils/flat-tree"
+export type { FlatTree } from "motion-dom"
 export type { ScrollMotionValues } from "./value/scroll/utils"
 
 /**
@@ -158,4 +158,4 @@ export { DeprecatedLayoutGroupContext } from "./context/DeprecatedLayoutGroupCon
 export { useInvertedScale as useDeprecatedInvertedScale } from "./value/use-inverted-scale"
 
 // Keep explicit delay in milliseconds export for BC with Framer
-export { delay, DelayedFunction } from "./utils/delay"
+export { delay, type DelayedFunction } from "motion-dom"

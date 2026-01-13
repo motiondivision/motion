@@ -18,11 +18,10 @@ import {
     type VisualElement,
 } from "motion-dom"
 import { Axis, Point, invariant } from "motion-utils"
-import { addDomEvent } from "../../events/add-dom-event"
+import { addDomEvent, type LayoutUpdateData } from "motion-dom"
 import { addPointerEvent } from "../../events/add-pointer-event"
 import { extractEventInfo } from "../../events/event-info"
 import { MotionProps } from "../../motion/types"
-import type { LayoutUpdateData } from "../../projection/node/types"
 import { getContextWindow } from "../../utils/get-context-window"
 import { isRefObject } from "../../utils/is-ref-object"
 import { PanSession } from "../pan/PanSession"
