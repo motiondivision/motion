@@ -3,7 +3,14 @@ import type { MutationResult, RemovedElement } from "./types"
 const LAYOUT_SELECTOR = "[data-layout], [data-layout-id]"
 
 export function getLayoutElements(scope: Element | Document): HTMLElement[] {
-    return Array.from(scope.querySelectorAll(LAYOUT_SELECTOR)) as HTMLElement[]
+    const elements = Array.from(scope.querySelectorAll(LAYOUT_SELECTOR)) as HTMLElement[]
+
+    // Include scope itself if it's an Element (not Document) and has layout attributes
+    if (scope instanceof Element && hasLayout(scope)) {
+        elements.unshift(scope as HTMLElement)
+    }
+
+    return elements
 }
 
 export function getLayoutId(element: Element): string | null {
