@@ -163,6 +163,18 @@ export class LayoutAnimationBuilder implements PromiseLike<GroupAnimation> {
                 const exitingElement = mutationResult.sharedExiting.get(layoutId)
                 if (exitingElement) {
                     sharedExitingElements.add(exitingElement)
+
+                    // Remove the exiting node from the shared stack so that crossfade
+                    // doesn't trigger. When an element is removed from the DOM, it can't
+                    // participate in crossfade (no element to fade out). The entering
+                    // element still has resumeFrom set for position morphing.
+                    const exitingNode = context?.nodes.get(exitingElement)
+                    if (exitingNode) {
+                        const stack = exitingNode.getStack()
+                        if (stack) {
+                            stack.remove(exitingNode)
+                        }
+                    }
                 }
             }
 
@@ -221,10 +233,6 @@ export class LayoutAnimationBuilder implements PromiseLike<GroupAnimation> {
         return {
             defaultTransition: this.defaultOptions || { duration: 0.3, ease: "easeOut" },
             sharedTransitions: this.sharedTransitions.size > 0 ? this.sharedTransitions : undefined,
-            // Disable crossfade by default for animateLayout - shared elements should
-            // morph position without opacity animation. The old element is removed from
-            // the DOM, so crossfade would just show a fade-in without corresponding fade-out.
-            crossfade: false,
         }
     }
 
