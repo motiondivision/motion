@@ -110,6 +110,10 @@ export class LayoutAnimationBuilder implements PromiseLike<GroupAnimation> {
                 // Call willUpdate on all nodes to capture snapshots via projection system
                 // This handles transforms, scroll, etc. correctly
                 for (const node of context.nodes.values()) {
+                    // Reset isLayoutDirty so willUpdate can take a snapshot.
+                    // When hasTreeAnimated is true on the global root, newly mounted nodes
+                    // get isLayoutDirty=true, which causes willUpdate to skip snapshot capture.
+                    node.isLayoutDirty = false
                     node.willUpdate()
                 }
             }
@@ -217,6 +221,10 @@ export class LayoutAnimationBuilder implements PromiseLike<GroupAnimation> {
         return {
             defaultTransition: this.defaultOptions || { duration: 0.3, ease: "easeOut" },
             sharedTransitions: this.sharedTransitions.size > 0 ? this.sharedTransitions : undefined,
+            // Disable crossfade by default for animateLayout - shared elements should
+            // morph position without opacity animation. The old element is removed from
+            // the DOM, so crossfade would just show a fade-in without corresponding fade-out.
+            crossfade: false,
         }
     }
 

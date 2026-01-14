@@ -120,6 +120,13 @@ function createProjectionNode(
 export interface BuildProjectionTreeOptions {
     defaultTransition?: AnimationOptions
     sharedTransitions?: Map<string, AnimationOptions>
+    /**
+     * Whether to enable opacity crossfade for shared element transitions.
+     * When false (default for animateLayout), shared elements will morph
+     * position without fading. When true, entering shared elements will
+     * crossfade with exiting ones.
+     */
+    crossfade?: boolean
 }
 
 /**
@@ -139,6 +146,7 @@ export function buildProjectionTree(
 
     const defaultTransition = options?.defaultTransition
     const sharedTransitions = options?.sharedTransitions
+    const crossfade = options?.crossfade
 
     // Sort elements by DOM depth (parents before children)
     const sorted = [...elements].sort((a, b) => getDepth(a) - getDepth(b))
@@ -156,6 +164,7 @@ export function buildProjectionTree(
         const nodeOptions: ProjectionNodeOptions = {
             layoutId: layoutId ?? undefined,
             animationType: parseLayoutMode(layoutMode),
+            crossfade,
         }
 
         // Use layoutId-specific transition if available, otherwise use default
