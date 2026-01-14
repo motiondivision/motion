@@ -13,6 +13,14 @@ import { correctBoxShadow } from "../projection/styles/scale-box-shadow"
 
 let scaleCorrectorAdded = false
 
+/**
+ * Track active projection nodes per element to handle animation interruption.
+ * When a new animation starts on an element that already has an active animation,
+ * we need to stop the old animation so the new one can start from the current
+ * visual position.
+ */
+const activeProjectionNodes = new WeakMap<HTMLElement, IProjectionNode>()
+
 function ensureScaleCorrectors() {
     if (scaleCorrectorAdded) return
     scaleCorrectorAdded = true
@@ -72,7 +80,7 @@ function findProjectionParent(
 }
 
 /**
- * Create a single projection node for an element
+ * Create or reuse a projection node for an element
  */
 function createProjectionNode(
     element: HTMLElement,
@@ -80,6 +88,27 @@ function createProjectionNode(
     options: ProjectionNodeOptions,
     transition?: AnimationOptions
 ): { node: IProjectionNode; visualElement: HTMLVisualElement } {
+    // Check for existing active node - reuse it to preserve animation state
+    const existingNode = activeProjectionNodes.get(element)
+    if (existingNode) {
+        const visualElement = existingNode.options.visualElement as HTMLVisualElement
+
+        // Update transition options for the new animation
+        const nodeTransition = transition
+            ? { duration: transition.duration, ease: transition.ease as any }
+            : { duration: 0.3, ease: "easeOut" }
+
+        existingNode.setOptions({
+            ...existingNode.options,
+            animate: true,
+            transition: nodeTransition,
+            ...options,
+        })
+
+        return { node: existingNode, visualElement }
+    }
+
+    // No existing node - create a new one
     const latestValues: Record<string, any> = {}
 
     const visualElement = new HTMLVisualElement({
@@ -113,6 +142,9 @@ function createProjectionNode(
 
     node.mount(element)
     visualElement.projection = node
+
+    // Track this node as the active one for this element
+    activeProjectionNodes.set(element, node)
 
     return { node, visualElement }
 }
@@ -203,9 +235,15 @@ function parseLayoutMode(
  * Clean up projection nodes
  */
 export function cleanupProjectionTree(context: ProjectionContext) {
-    for (const node of context.nodes.values()) {
+    for (const [element, node] of context.nodes.entries()) {
         context.group.remove(node)
         node.unmount()
+
+        // Only clear from activeProjectionNodes if this is still the active node.
+        // A newer animation might have already taken over.
+        if (activeProjectionNodes.get(element) === node) {
+            activeProjectionNodes.delete(element)
+        }
     }
     context.nodes.clear()
     context.visualElements.clear()
