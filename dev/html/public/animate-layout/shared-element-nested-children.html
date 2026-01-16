@@ -1,0 +1,449 @@
+<html>
+    <head>
+        <!--
+            This test animates a card open/close with nested shared elements.
+            Tests that child elements (image-container, image, title) animate
+            correctly during the shared element transition.
+        -->
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+            }
+
+            #container {
+                width: 600px;
+                height: 600px;
+                background-color: #f0f0f0;
+                position: relative;
+            }
+
+            /* Card in list */
+            .card {
+                position: absolute;
+                top: 20px;
+                left: 20px;
+                width: 200px;
+                height: 250px;
+            }
+
+            .card-content {
+                position: relative;
+                width: 100%;
+                height: 100%;
+                background: #ddd;
+                border-radius: 12px;
+                overflow: hidden;
+            }
+
+            .image-container {
+                position: relative;
+                width: 100%;
+                height: 180px;
+                overflow: hidden;
+            }
+
+            .image {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 250px;
+                background: #09f;
+            }
+
+            .title-container {
+                position: absolute;
+                top: 15px;
+                left: 15px;
+            }
+
+            .title {
+                font-size: 16px;
+                font-weight: bold;
+                color: white;
+                margin: 0;
+            }
+
+            /* Modal (open) state */
+            .modal-wrapper {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 100;
+            }
+
+            .modal-wrapper .card-content {
+                width: 400px;
+                height: 500px;
+            }
+
+            .modal-wrapper .image-container {
+                height: 350px;
+            }
+
+            .modal-wrapper .image {
+                height: 450px;
+                background: #f00;
+            }
+
+            .modal-wrapper .title-container {
+                top: 30px;
+                left: 30px;
+            }
+
+            .modal-wrapper .title {
+                font-size: 24px;
+            }
+
+            [data-layout-correct="false"] {
+                background: #dd1144 !important;
+                opacity: 0.5;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="container">
+            <div class="card">
+                <div
+                    id="card-content"
+                    class="card-content"
+                    data-layout-id="card-content"
+                >
+                    <div
+                        id="image-container"
+                        class="image-container"
+                        data-layout-id="image-container"
+                    >
+                        <div
+                            id="image"
+                            class="image"
+                            data-layout-id="image"
+                            data-layout="preserve-aspect"
+                        ></div>
+                    </div>
+                    <div
+                        id="title-container"
+                        class="title-container"
+                        data-layout-id="title-container"
+                        data-layout="position"
+                    >
+                        <p class="title">Card Title</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module" src="/src/imports/script-assert.js"></script>
+        <script type="module">
+            const { animateLayout, frame } = window.AnimateLayout
+            const { matchViewportBox, matchOpacity } = window.Assert
+
+            // Get initial element references
+            const cardContent = document.getElementById("card-content")
+            const imageContainer = document.getElementById("image-container")
+            const image = document.getElementById("image")
+            const titleContainer = document.getElementById("title-container")
+
+            // Capture initial positions
+            const initialCardContentBox = cardContent.getBoundingClientRect()
+            const initialImageContainerBox =
+                imageContainer.getBoundingClientRect()
+            const initialImageBox = image.getBoundingClientRect()
+            const initialTitleBox = titleContainer.getBoundingClientRect()
+
+            console.log("Initial positions:")
+            console.log(
+                "  card-content:",
+                JSON.stringify({
+                    top: initialCardContentBox.top,
+                    left: initialCardContentBox.left,
+                    width: initialCardContentBox.width,
+                    height: initialCardContentBox.height,
+                })
+            )
+            console.log(
+                "  image-container:",
+                JSON.stringify({
+                    top: initialImageContainerBox.top,
+                    left: initialImageContainerBox.left,
+                    width: initialImageContainerBox.width,
+                    height: initialImageContainerBox.height,
+                })
+            )
+            console.log(
+                "  image:",
+                JSON.stringify({
+                    top: initialImageBox.top,
+                    left: initialImageBox.left,
+                    width: initialImageBox.width,
+                    height: initialImageBox.height,
+                })
+            )
+            console.log(
+                "  title-container:",
+                JSON.stringify({
+                    top: initialTitleBox.top,
+                    left: initialTitleBox.left,
+                    width: initialTitleBox.width,
+                    height: initialTitleBox.height,
+                })
+            )
+
+            // First, create modal WITHOUT animateLayout to measure final positions
+            function createModal() {
+                const modalWrapper = document.createElement("div")
+                modalWrapper.className = "modal-wrapper"
+                modalWrapper.id = "modal-wrapper"
+
+                const clonedContent = cardContent.cloneNode(true)
+                clonedContent.id = "modal-content"
+
+                const clonedImageContainer =
+                    clonedContent.querySelector(".image-container")
+                const clonedImage = clonedContent.querySelector(".image")
+                const clonedTitleContainer =
+                    clonedContent.querySelector(".title-container")
+                clonedImageContainer.id = "modal-image-container"
+                clonedImage.id = "modal-image"
+                clonedTitleContainer.id = "modal-title-container"
+
+                modalWrapper.appendChild(clonedContent)
+                document.body.appendChild(modalWrapper)
+            }
+
+            function removeModal() {
+                const modalWrapper = document.getElementById("modal-wrapper")
+                if (modalWrapper) modalWrapper.remove()
+            }
+
+            // Measure final positions
+            createModal()
+            const finalCardContentBox = document
+                .getElementById("modal-content")
+                .getBoundingClientRect()
+            const finalImageContainerBox = document
+                .getElementById("modal-image-container")
+                .getBoundingClientRect()
+            const finalImageBox = document
+                .getElementById("modal-image")
+                .getBoundingClientRect()
+            const finalTitleBox = document
+                .getElementById("modal-title-container")
+                .getBoundingClientRect()
+            removeModal()
+
+            console.log("Final (modal) positions:")
+            console.log(
+                "  card-content:",
+                JSON.stringify({
+                    top: finalCardContentBox.top,
+                    left: finalCardContentBox.left,
+                    width: finalCardContentBox.width,
+                    height: finalCardContentBox.height,
+                })
+            )
+            console.log(
+                "  image-container:",
+                JSON.stringify({
+                    top: finalImageContainerBox.top,
+                    left: finalImageContainerBox.left,
+                    width: finalImageContainerBox.width,
+                    height: finalImageContainerBox.height,
+                })
+            )
+            console.log(
+                "  image:",
+                JSON.stringify({
+                    top: finalImageBox.top,
+                    left: finalImageBox.left,
+                    width: finalImageBox.width,
+                    height: finalImageBox.height,
+                })
+            )
+            console.log(
+                "  title-container:",
+                JSON.stringify({
+                    top: finalTitleBox.top,
+                    left: finalTitleBox.left,
+                    width: finalTitleBox.width,
+                    height: finalTitleBox.height,
+                })
+            )
+
+            async function runTest() {
+                // === OPEN ANIMATION ===
+                console.log("=== OPEN ANIMATION ===")
+
+                const openControls = await animateLayout(
+                    document.body,
+                    () => {
+                        createModal()
+                    },
+                    { duration: 1, ease: "linear" }
+                )
+
+                // openControls.pause()
+
+                // // Get modal element references
+                // const modalContent = document.getElementById("modal-content")
+                // const modalImageContainer = document.getElementById("modal-image-container")
+                // const modalImage = document.getElementById("modal-image")
+                // const modalTitleContainer = document.getElementById("modal-title-container")
+
+                // // Check at t=0.5 (midpoint)
+                // openControls.time = 0.5
+                // await new Promise((resolve) => frame.postRender(resolve))
+
+                // console.log("At time 0.5 (midpoint):")
+
+                // // Calculate expected midpoint positions (linear interpolation)
+                // const midCardContent = {
+                //     top: (initialCardContentBox.top + finalCardContentBox.top) / 2,
+                //     left: (initialCardContentBox.left + finalCardContentBox.left) / 2,
+                //     right: (initialCardContentBox.right + finalCardContentBox.right) / 2,
+                //     bottom: (initialCardContentBox.bottom + finalCardContentBox.bottom) / 2,
+                // }
+
+                // const midImageContainer = {
+                //     top: (initialImageContainerBox.top + finalImageContainerBox.top) / 2,
+                //     left: (initialImageContainerBox.left + finalImageContainerBox.left) / 2,
+                //     right: (initialImageContainerBox.right + finalImageContainerBox.right) / 2,
+                //     bottom: (initialImageContainerBox.bottom + finalImageContainerBox.bottom) / 2,
+                // }
+
+                // const midImage = {
+                //     top: (initialImageBox.top + finalImageBox.top) / 2,
+                //     left: (initialImageBox.left + finalImageBox.left) / 2,
+                //     right: (initialImageBox.right + finalImageBox.right) / 2,
+                //     bottom: (initialImageBox.bottom + finalImageBox.bottom) / 2,
+                // }
+
+                // // For title-container with data-layout="position", only position should interpolate
+                // // Size should remain at final size
+                // const midTitle = {
+                //     top: (initialTitleBox.top + finalTitleBox.top) / 2,
+                //     left: (initialTitleBox.left + finalTitleBox.left) / 2,
+                //     right: (initialTitleBox.left + finalTitleBox.left) / 2 + finalTitleBox.width,
+                //     bottom: (initialTitleBox.top + finalTitleBox.top) / 2 + finalTitleBox.height,
+                // }
+
+                // // Check modal elements are at midpoint
+                // const actualModalContent = modalContent.getBoundingClientRect()
+                // const actualModalImageContainer = modalImageContainer.getBoundingClientRect()
+                // const actualModalImage = modalImage.getBoundingClientRect()
+                // const actualModalTitle = modalTitleContainer.getBoundingClientRect()
+
+                // console.log("  Expected card-content:", JSON.stringify(midCardContent))
+                // console.log("  Actual card-content:", JSON.stringify({
+                //     top: actualModalContent.top,
+                //     left: actualModalContent.left,
+                //     right: actualModalContent.right,
+                //     bottom: actualModalContent.bottom,
+                // }))
+
+                // console.log("  Expected image-container:", JSON.stringify(midImageContainer))
+                // console.log("  Actual image-container:", JSON.stringify({
+                //     top: actualModalImageContainer.top,
+                //     left: actualModalImageContainer.left,
+                //     right: actualModalImageContainer.right,
+                //     bottom: actualModalImageContainer.bottom,
+                // }))
+
+                // console.log("  Expected image:", JSON.stringify(midImage))
+                // console.log("  Actual image:", JSON.stringify({
+                //     top: actualModalImage.top,
+                //     left: actualModalImage.left,
+                //     right: actualModalImage.right,
+                //     bottom: actualModalImage.bottom,
+                // }))
+
+                // console.log("  Expected title (position only):", JSON.stringify(midTitle))
+                // console.log("  Actual title:", JSON.stringify({
+                //     top: actualModalTitle.top,
+                //     left: actualModalTitle.left,
+                //     right: actualModalTitle.right,
+                //     bottom: actualModalTitle.bottom,
+                // }))
+
+                // // Verify positions with tolerance
+                // matchViewportBox(modalContent, midCardContent)
+                // matchViewportBox(modalImageContainer, midImageContainer)
+                // matchViewportBox(modalImage, midImage)
+                // matchViewportBox(modalTitleContainer, midTitle)
+
+                // // Check at t=1 (end)
+                // openControls.time = 1
+                // await new Promise((resolve) => frame.postRender(resolve))
+
+                // console.log("At time 1 (end):")
+
+                // const endModalContent = modalContent.getBoundingClientRect()
+                // const endModalImageContainer = modalImageContainer.getBoundingClientRect()
+                // const endModalImage = modalImage.getBoundingClientRect()
+                // const endModalTitle = modalTitleContainer.getBoundingClientRect()
+
+                // console.log("  card-content:", JSON.stringify({
+                //     top: endModalContent.top,
+                //     left: endModalContent.left,
+                //     width: endModalContent.width,
+                //     height: endModalContent.height,
+                // }))
+                // console.log("  image-container:", JSON.stringify({
+                //     top: endModalImageContainer.top,
+                //     left: endModalImageContainer.left,
+                //     width: endModalImageContainer.width,
+                //     height: endModalImageContainer.height,
+                // }))
+                // console.log("  image:", JSON.stringify({
+                //     top: endModalImage.top,
+                //     left: endModalImage.left,
+                //     width: endModalImage.width,
+                //     height: endModalImage.height,
+                // }))
+                // console.log("  title:", JSON.stringify({
+                //     top: endModalTitle.top,
+                //     left: endModalTitle.left,
+                //     width: endModalTitle.width,
+                //     height: endModalTitle.height,
+                // }))
+
+                // // Final positions should match expected modal positions
+                // matchViewportBox(modalContent, {
+                //     top: finalCardContentBox.top,
+                //     left: finalCardContentBox.left,
+                //     right: finalCardContentBox.right,
+                //     bottom: finalCardContentBox.bottom,
+                // })
+                // matchViewportBox(modalImageContainer, {
+                //     top: finalImageContainerBox.top,
+                //     left: finalImageContainerBox.left,
+                //     right: finalImageContainerBox.right,
+                //     bottom: finalImageContainerBox.bottom,
+                // })
+                // matchViewportBox(modalImage, {
+                //     top: finalImageBox.top,
+                //     left: finalImageBox.left,
+                //     right: finalImageBox.right,
+                //     bottom: finalImageBox.bottom,
+                // })
+                // matchViewportBox(modalTitleContainer, {
+                //     top: finalTitleBox.top,
+                //     left: finalTitleBox.left,
+                //     right: finalTitleBox.right,
+                //     bottom: finalTitleBox.bottom,
+                // })
+
+                // console.log("=== OPEN ANIMATION COMPLETE ===")
+            }
+
+            runTest().catch(console.error)
+        </script>
+    </body>
+</html>

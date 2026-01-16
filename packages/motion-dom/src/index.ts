@@ -272,7 +272,7 @@ export { camelToDash } from "./render/dom/utils/camel-to-dash"
  * Layout animations
  */
 export { unstable_animateLayout } from "./layout/animate-layout"
-export { LayoutAnimationBuilder } from "./layout/LayoutAnimationBuilder"
+export { LayoutAnimationBuilder, parseAnimateLayoutArgs } from "./layout/LayoutAnimationBuilder"
 
 /**
  * Deprecated
