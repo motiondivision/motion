@@ -105,6 +105,12 @@ function createProjectionNode(
             ...options,
         })
 
+        // Re-mount the node if it was previously unmounted
+        // This re-adds it to root.nodes so didUpdate() will process it
+        if (!existingNode.instance) {
+            existingNode.mount(element)
+        }
+
         return { node: existingNode, visualElement }
     }
 
@@ -232,10 +238,22 @@ function parseLayoutMode(
 }
 
 /**
- * Clean up projection nodes
+ * Clean up projection nodes for specific elements.
+ * If elementsToCleanup is provided, only those elements are cleaned up.
+ * If not provided, all nodes are cleaned up.
+ *
+ * This allows persisting elements to keep their nodes between animations,
+ * matching React's behavior where nodes persist for elements that remain in the DOM.
  */
-export function cleanupProjectionTree(context: ProjectionContext) {
-    for (const [element, node] of context.nodes.entries()) {
+export function cleanupProjectionTree(
+    context: ProjectionContext,
+    elementsToCleanup?: Set<HTMLElement>
+) {
+    const elementsToProcess = elementsToCleanup
+        ? [...context.nodes.entries()].filter(([el]) => elementsToCleanup.has(el))
+        : [...context.nodes.entries()]
+
+    for (const [element, node] of elementsToProcess) {
         context.group.remove(node)
         node.unmount()
 
@@ -244,9 +262,10 @@ export function cleanupProjectionTree(context: ProjectionContext) {
         if (activeProjectionNodes.get(element) === node) {
             activeProjectionNodes.delete(element)
         }
+
+        context.nodes.delete(element)
+        context.visualElements.delete(element)
     }
-    context.nodes.clear()
-    context.visualElements.clear()
 }
 
 /**

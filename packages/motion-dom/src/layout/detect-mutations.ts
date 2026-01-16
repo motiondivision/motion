@@ -68,6 +68,7 @@ export function detectMutations(
     const persisting: HTMLElement[] = []
     const sharedEntering = new Map<string, HTMLElement>()
     const sharedExiting = new Map<string, HTMLElement>()
+    const sharedPersisting = new Map<string, HTMLElement>()
 
     // Find exiting elements (were in before, not in after)
     for (const element of beforeElements) {
@@ -98,41 +99,22 @@ export function detectMutations(
         }
     }
 
+    // Find persisting elements that share a layoutId with exiting elements
+    // This handles the A -> AB -> A pattern where A persists and B exits
+    for (const element of persisting) {
+        const layoutId = getLayoutId(element)
+        if (layoutId && sharedExiting.has(layoutId)) {
+            sharedPersisting.set(layoutId, element)
+        }
+    }
+
     return {
         entering,
         exiting,
         persisting,
         sharedEntering,
         sharedExiting,
+        sharedPersisting,
     }
 }
 
-/**
- * Check if an element is a "root" entering element (no entering ancestors)
- */
-export function isRootEnteringElement(
-    element: Element,
-    allEntering: Set<Element>
-): boolean {
-    let parent = element.parentElement
-    while (parent) {
-        if (allEntering.has(parent)) return false
-        parent = parent.parentElement
-    }
-    return true
-}
-
-/**
- * Check if an element is a "root" exiting element (no exiting ancestors)
- */
-export function isRootExitingElement(
-    element: Element,
-    allExiting: Set<Element>
-): boolean {
-    let parent = element.parentElement
-    while (parent) {
-        if (allExiting.has(parent)) return false
-        parent = parent.parentElement
-    }
-    return true
-}

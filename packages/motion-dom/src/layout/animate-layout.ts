@@ -23,12 +23,10 @@ import {
  * // With options
  * await animateLayout(() => update(), { duration: 0.5 })
  *
- * // Builder pattern for enter/exit animations
+ * // Configure shared element transitions
  * animateLayout(".cards", () => {
  *     container.innerHTML = newCards
  * }, { duration: 0.3 })
- *     .enter({ opacity: 1, scale: 1 }, { duration: 0.2 })
- *     .exit({ opacity: 0, scale: 0.8 })
  *     .shared("hero", { type: "spring" })
  * ```
  *

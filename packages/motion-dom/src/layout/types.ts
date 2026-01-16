@@ -15,4 +15,5 @@ export interface MutationResult {
     persisting: HTMLElement[]
     sharedEntering: Map<string, HTMLElement>
     sharedExiting: Map<string, HTMLElement>
+    sharedPersisting: Map<string, HTMLElement>
 }

@@ -1,14 +1,11 @@
 import { noop } from "motion-utils"
-import type { AnimationOptions, DOMKeyframesDefinition } from "../animation/types"
+import type { AnimationOptions } from "../animation/types"
 import { GroupAnimation, type AcceptedAnimations } from "../animation/GroupAnimation"
-import { animateTarget } from "../animation/interfaces/visual-element-target"
-import type { MutationResult, RemovedElement } from "./types"
+import type { RemovedElement } from "./types"
 import {
     trackLayoutElements,
     getLayoutElements,
     detectMutations,
-    isRootEnteringElement,
-    isRootExitingElement,
 } from "./detect-mutations"
 import {
     buildProjectionTree,
@@ -24,10 +21,6 @@ export class LayoutAnimationBuilder implements PromiseLike<GroupAnimation> {
     private updateDom: () => void
     private defaultOptions?: AnimationOptions
 
-    private enterKeyframes?: DOMKeyframesDefinition
-    private enterOptions?: AnimationOptions
-    private exitKeyframes?: DOMKeyframesDefinition
-    private exitOptions?: AnimationOptions
     private sharedTransitions = new Map<string, AnimationOptions>()
 
     private notifyReady: (value: GroupAnimation) => void = noop
@@ -49,18 +42,6 @@ export class LayoutAnimationBuilder implements PromiseLike<GroupAnimation> {
 
         // Queue execution on microtask to allow builder methods to be called
         queueMicrotask(() => this.execute())
-    }
-
-    enter(keyframes: DOMKeyframesDefinition, options?: AnimationOptions): this {
-        this.enterKeyframes = keyframes
-        this.enterOptions = options
-        return this
-    }
-
-    exit(keyframes: DOMKeyframesDefinition, options?: AnimationOptions): this {
-        this.exitKeyframes = keyframes
-        this.exitOptions = options
-        return this
     }
 
     shared(
@@ -128,15 +109,21 @@ export class LayoutAnimationBuilder implements PromiseLike<GroupAnimation> {
             // Phase 3: Post-mutation (Detect & Prepare)
             const mutationResult = detectMutations(beforeRecords, this.scope)
 
-            // Reattach exiting elements that are NOT part of shared transitions
-            // Shared elements are handled by the projection system via resumeFrom
-            const nonSharedExiting = mutationResult.exiting.filter(
+            // Determine which exiting elements should be reattached:
+            // Non-shared exiting elements (no layoutId or no matching entering/persisting element)
+            const exitingToReattach = mutationResult.exiting.filter(
                 ({ element }) => {
                     const layoutId = element.getAttribute("data-layout-id")
-                    return !layoutId || !mutationResult.sharedEntering.has(layoutId)
+                    const isSharedWithEntering =
+                        layoutId && mutationResult.sharedEntering.has(layoutId)
+                    const isSharedWithPersisting =
+                        layoutId && mutationResult.sharedPersisting.has(layoutId)
+
+                    // Reattach if not a shared element
+                    return !isSharedWithEntering && !isSharedWithPersisting
                 }
             )
-            this.reattachExitingElements(nonSharedExiting, context)
+            this.reattachExitingElements(exitingToReattach, context)
 
             // Build projection nodes for entering elements
             if (mutationResult.entering.length > 0) {
@@ -156,24 +143,49 @@ export class LayoutAnimationBuilder implements PromiseLike<GroupAnimation> {
                 )
             }
 
-            // Build set of shared exiting elements to exclude from animation collection
-            // Their nodes are still in the tree for resumeFrom relationship, but we don't animate them
+            // Build set of shared exiting elements (they don't animate separately)
             const sharedExitingElements = new Set<HTMLElement>()
-            for (const [layoutId] of mutationResult.sharedEntering) {
+
+            for (const [layoutId, enteringElement] of mutationResult.sharedEntering) {
                 const exitingElement = mutationResult.sharedExiting.get(layoutId)
                 if (exitingElement) {
                     sharedExitingElements.add(exitingElement)
 
-                    // Remove the exiting node from the shared stack so that crossfade
-                    // doesn't trigger. When an element is removed from the DOM, it can't
-                    // participate in crossfade (no element to fade out). The entering
-                    // element still has resumeFrom set for position morphing.
                     const exitingNode = context?.nodes.get(exitingElement)
-                    if (exitingNode) {
+                    const enteringNode = context?.nodes.get(enteringElement)
+
+                    if (exitingNode && enteringNode) {
+                        // Remove exiting node from stack, no crossfade
                         const stack = exitingNode.getStack()
                         if (stack) {
                             stack.remove(exitingNode)
                         }
+                    } else if (exitingNode && !enteringNode) {
+                        // Fallback: If entering node doesn't exist yet, just handle exiting
+                        const stack = exitingNode.getStack()
+                        if (stack) {
+                            stack.remove(exitingNode)
+                        }
+                    }
+                }
+            }
+
+            // Handle A -> AB -> A pattern: persisting element should become lead again
+            // when exiting element with same layoutId is removed
+            for (const [layoutId, persistingElement] of mutationResult.sharedPersisting) {
+                const exitingElement = mutationResult.sharedExiting.get(layoutId)
+                if (!exitingElement) continue
+
+                sharedExitingElements.add(exitingElement)
+
+                const exitingNode = context?.nodes.get(exitingElement)
+                const persistingNode = context?.nodes.get(persistingElement)
+
+                if (exitingNode && persistingNode) {
+                    // Remove exiting node from stack, no crossfade
+                    const stack = exitingNode.getStack()
+                    if (stack) {
+                        stack.remove(exitingNode)
                     }
                 }
             }
@@ -184,26 +196,17 @@ export class LayoutAnimationBuilder implements PromiseLike<GroupAnimation> {
                 context.root.didUpdate()
 
                 // Wait for animations to be created (they're scheduled via frame.update)
-                await new Promise<void>((resolve) => frame.postRender(() => resolve()))
+                await new Promise<void>((resolve) =>
+                    frame.postRender(() => resolve())
+                )
 
-                // Collect layout animations from projection nodes (excluding shared exiting elements)
+                // Collect layout animations from projection nodes
+                // Skip shared exiting elements (they don't animate)
                 for (const [element, node] of context.nodes.entries()) {
                     if (sharedExitingElements.has(element)) continue
                     if (node.currentAnimation) {
                         animations.push(node.currentAnimation)
                     }
-                }
-
-                // Apply enter keyframes to root entering elements
-                if (this.enterKeyframes) {
-                    const enterAnimations = this.animateEntering(mutationResult, context)
-                    animations.push(...enterAnimations)
-                }
-
-                // Apply exit keyframes to root exiting elements
-                if (this.exitKeyframes) {
-                    const exitAnimations = this.animateExiting(mutationResult, context)
-                    animations.push(...exitAnimations)
                 }
             }
 
@@ -211,17 +214,23 @@ export class LayoutAnimationBuilder implements PromiseLike<GroupAnimation> {
             const groupAnimation = new GroupAnimation(animations)
 
             // Phase 5: Setup cleanup on complete
+            // Only cleanup exiting elements - persisting elements keep their nodes
+            // This matches React's behavior where nodes persist for elements in the DOM
+            const exitingElements = new Set(
+                mutationResult.exiting.map(({ element }) => element)
+            )
             groupAnimation.finished.then(() => {
-                // Only clean up non-shared exiting elements (those we reattached)
-                this.cleanupExitingElements(nonSharedExiting)
+                // Clean up all reattached exiting elements (remove from DOM)
+                this.cleanupExitingElements(exitingToReattach)
                 if (context) {
-                    cleanupProjectionTree(context)
+                    // Only cleanup projection nodes for exiting elements
+                    cleanupProjectionTree(context, exitingElements)
                 }
             })
 
             this.notifyReady(groupAnimation)
         } catch (error) {
-            // Cleanup on error
+            // Cleanup on error - cleanup all nodes since animation failed
             if (context) {
                 cleanupProjectionTree(context)
             }
@@ -231,12 +240,21 @@ export class LayoutAnimationBuilder implements PromiseLike<GroupAnimation> {
 
     private getBuildOptions(): BuildProjectionTreeOptions {
         return {
-            defaultTransition: this.defaultOptions || { duration: 0.3, ease: "easeOut" },
-            sharedTransitions: this.sharedTransitions.size > 0 ? this.sharedTransitions : undefined,
+            defaultTransition: this.defaultOptions || {
+                duration: 0.3,
+                ease: "easeOut",
+            },
+            sharedTransitions:
+                this.sharedTransitions.size > 0
+                    ? this.sharedTransitions
+                    : undefined,
         }
     }
 
-    private reattachExitingElements(exiting: RemovedElement[], context?: ProjectionContext) {
+    private reattachExitingElements(
+        exiting: RemovedElement[],
+        context?: ProjectionContext
+    ) {
         for (const { element, parentElement, nextSibling } of exiting) {
             // Check if parent still exists in DOM
             if (!parentElement.isConnected) continue
@@ -274,72 +292,6 @@ export class LayoutAnimationBuilder implements PromiseLike<GroupAnimation> {
                 element.parentElement.removeChild(element)
             }
         }
-    }
-
-    private animateEntering(
-        mutationResult: MutationResult,
-        context: ProjectionContext
-    ): AcceptedAnimations[] {
-        const enteringSet = new Set(mutationResult.entering)
-
-        // Find root entering elements
-        const rootEntering = mutationResult.entering.filter((el) =>
-            isRootEnteringElement(el, enteringSet)
-        )
-
-        const animations: AcceptedAnimations[] = []
-
-        for (const element of rootEntering) {
-            const visualElement = context.visualElements.get(element)
-            if (!visualElement) continue
-
-            // If entering with opacity: 1, start from opacity: 0
-            const keyframes = { ...this.enterKeyframes }
-            if (keyframes.opacity !== undefined) {
-                const targetOpacity = Array.isArray(keyframes.opacity)
-                    ? keyframes.opacity[keyframes.opacity.length - 1]
-                    : keyframes.opacity
-
-                if (targetOpacity === 1) {
-                    ;(element as HTMLElement).style.opacity = "0"
-                }
-            }
-
-            const options = this.enterOptions || this.defaultOptions || {}
-            const enterAnims = animateTarget(visualElement, keyframes as any, {
-                transitionOverride: options as any,
-            })
-            animations.push(...enterAnims)
-        }
-
-        return animations
-    }
-
-    private animateExiting(
-        mutationResult: MutationResult,
-        context: ProjectionContext
-    ): AcceptedAnimations[] {
-        const exitingSet = new Set(mutationResult.exiting.map((r) => r.element))
-
-        // Find root exiting elements
-        const rootExiting = mutationResult.exiting.filter((r) =>
-            isRootExitingElement(r.element, exitingSet)
-        )
-
-        const animations: AcceptedAnimations[] = []
-
-        for (const { element } of rootExiting) {
-            const visualElement = context.visualElements.get(element)
-            if (!visualElement) continue
-
-            const options = this.exitOptions || this.defaultOptions || {}
-            const exitAnims = animateTarget(visualElement, this.exitKeyframes as any, {
-                transitionOverride: options as any,
-            })
-            animations.push(...exitAnims)
-        }
-
-        return animations
     }
 }
 
