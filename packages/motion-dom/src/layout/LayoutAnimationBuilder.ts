@@ -57,96 +57,83 @@ export class LayoutAnimationBuilder implements PromiseLike<GroupAnimation> {
         if (this.executed) return
         this.executed = true
 
-        const animations: AcceptedAnimations[] = []
         let context: ProjectionContext | undefined
 
-        try {
-            // Phase 1: Pre-mutation - Build projection tree and take snapshots
-            const beforeElements = getLayoutElements(this.scope)
+        // Phase 1: Pre-mutation - Build projection tree and take snapshots
+        const beforeElements = getLayoutElements(this.scope)
 
-            if (beforeElements.length > 0) {
-                context = buildProjectionTree(
-                    beforeElements,
-                    undefined,
-                    this.getBuildOptions()
-                )
+        if (beforeElements.length > 0) {
+            context = buildProjectionTree(
+                beforeElements,
+                undefined,
+                this.getBuildOptions()
+            )
 
-                context.root.startUpdate()
+            context.root.startUpdate()
 
-                for (const node of context.nodes.values()) {
-                    node.isLayoutDirty = false
-                    node.willUpdate()
-                }
+            for (const node of context.nodes.values()) {
+                node.isLayoutDirty = false
+                node.willUpdate()
             }
-
-            // Phase 2: Execute DOM update
-            this.updateDom()
-
-            // Phase 3: Post-mutation - Compare before/after elements
-            const afterElements = getLayoutElements(this.scope)
-            const beforeSet = new Set(beforeElements)
-            const afterSet = new Set(afterElements)
-
-            const entering = afterElements.filter((el) => !beforeSet.has(el))
-            const exiting = beforeElements.filter((el) => !afterSet.has(el))
-
-            // Build projection nodes for entering elements
-            if (entering.length > 0) {
-                context = buildProjectionTree(
-                    entering,
-                    context,
-                    this.getBuildOptions()
-                )
-            }
-
-            // Handle shared elements
-            if (context) {
-                // Remove exiting elements from stack (no exit animation supported)
-                for (const element of exiting) {
-                    const node = context.nodes.get(element)
-                    const stack = node?.getStack()
-                    if (stack) {
-                        stack.remove(node)
-                    }
-                }
-
-                // Promote entering elements to become lead
-                for (const element of entering) {
-                    const node = context.nodes.get(element)
-                    node?.promote()
-                }
-            }
-
-            // Phase 4: Animate
-            if (context) {
-                context.root.didUpdate()
-
-                await new Promise<void>((resolve) =>
-                    frame.postRender(() => resolve())
-                )
-
-                for (const node of context.nodes.values()) {
-                    if (node.currentAnimation) {
-                        animations.push(node.currentAnimation)
-                    }
-                }
-            }
-
-            const groupAnimation = new GroupAnimation(animations)
-
-            groupAnimation.finished.then(() => {
-                if (context) {
-                    cleanupProjectionTree(context)
-                }
-            })
-
-            this.notifyReady(groupAnimation)
-        } catch (error) {
-            if (context) {
-                cleanupProjectionTree(context)
-            }
-            throw error
         }
+
+        // Phase 2: Execute DOM update
+        this.updateDom()
+
+        // Phase 3: Post-mutation - Compare before/after elements
+        const afterElements = getLayoutElements(this.scope)
+        const beforeSet = new Set(beforeElements)
+        const afterSet = new Set(afterElements)
+
+        const entering = afterElements.filter((el) => !beforeSet.has(el))
+        const exiting = beforeElements.filter((el) => !afterSet.has(el))
+
+        // Build projection nodes for entering elements
+        if (entering.length > 0) {
+            context = buildProjectionTree(
+                entering,
+                context,
+                this.getBuildOptions()
+            )
+        }
+
+        // No layout elements - return empty animation
+        if (!context) {
+            this.notifyReady(new GroupAnimation([]))
+            return
+        }
+
+        // Handle shared elements
+        for (const element of exiting) {
+            const node = context.nodes.get(element)
+            node?.getStack()?.remove(node)
+        }
+
+        for (const element of entering) {
+            context.nodes.get(element)?.promote()
+        }
+
+        // Phase 4: Animate
+        context.root.didUpdate()
+
+        await new Promise<void>((resolve) =>
+            frame.postRender(() => resolve())
+        )
+
+        const animations: AcceptedAnimations[] = []
+        for (const node of context.nodes.values()) {
+            if (node.currentAnimation) {
+                animations.push(node.currentAnimation)
+            }
+        }
+
+        const groupAnimation = new GroupAnimation(animations)
+
+        groupAnimation.finished.then(() => {
+            cleanupProjectionTree(context!)
+        })
+
+        this.notifyReady(groupAnimation)
     }
 
     private getBuildOptions(): BuildProjectionTreeOptions {
