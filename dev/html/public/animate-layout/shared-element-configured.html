@@ -1,0 +1,89 @@
+<html>
+    <head>
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+            }
+
+            #container {
+                width: 400px;
+                height: 400px;
+                background-color: #f0f0f0;
+                position: relative;
+            }
+
+            #box-a {
+                width: 100px;
+                height: 100px;
+                background-color: #00cc88;
+            }
+
+            #box-b {
+                position: absolute;
+                top: 200px;
+                left: 200px;
+                width: 150px;
+                height: 150px;
+                background-color: #09f;
+            }
+
+            [data-layout-correct="false"] {
+                background: #dd1144 !important;
+                opacity: 0.5;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="container">
+            <div id="box-a" data-layout-id="hero" data-layout-correct="true"></div>
+        </div>
+
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module" src="/src/imports/script-assert.js"></script>
+        <script type="module">
+            const { animateLayout, frame } = window.AnimateLayout
+            const { matchViewportBox } = window.Assert
+            const container = document.getElementById("container")
+            const boxA = document.getElementById("box-a")
+
+            // Capture original position of box-a
+            const boxAOrigin = boxA.getBoundingClientRect()
+
+            async function runTest() {
+                // Configure a custom transition for the "hero" layoutId
+                // Using a very specific ease to verify it's being applied
+                const customEase = () => 0.25  // Always return 0.25 progress
+
+                const controls = await animateLayout(container, () => {
+                    container.innerHTML = `
+                        <div id="box-b" data-layout-id="hero" data-layout-correct="true"></div>
+                    `
+                }, { duration: 10, ease: () => 0.5 })  // Default ease returns 0.5
+                    .shared("hero", { duration: 10, ease: customEase })  // Override for "hero"
+
+                // Wait one frame for the animation to apply
+                await new Promise((resolve) => frame.postRender(resolve))
+
+                const boxB = document.getElementById("box-b")
+                const boxBTarget = { top: 200, left: 200, width: 150, height: 150 }
+
+                // With ease=0.25, box-b should be 25% of the way from origin to target
+                // (not 50% which would be the default)
+                const progress = 0.25
+                const expected = {
+                    top: boxAOrigin.top + (boxBTarget.top - boxAOrigin.top) * progress,
+                    left: boxAOrigin.left + (boxBTarget.left - boxAOrigin.left) * progress,
+                    right: boxAOrigin.left + boxAOrigin.width +
+                           ((boxBTarget.left + boxBTarget.width) - (boxAOrigin.left + boxAOrigin.width)) * progress,
+                    bottom: boxAOrigin.top + boxAOrigin.height +
+                            ((boxBTarget.top + boxBTarget.height) - (boxAOrigin.top + boxAOrigin.height)) * progress,
+                }
+
+                matchViewportBox(boxB, expected)
+            }
+
+            runTest().catch(console.error)
+        </script>
+    </body>
+</html>

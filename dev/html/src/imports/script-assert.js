@@ -24,7 +24,13 @@ window.Assert = {
             Math.abs(expected.bottom - bbox.bottom) > threshold ||
             Math.abs(expected.left - bbox.left) > threshold
         ) {
-            showError(element, "Viewport box doesn't match")
+            showError(
+                element,
+                "Viewport box doesn't match - " +
+                    JSON.stringify(bbox) +
+                    " vs " +
+                    JSON.stringify(expected)
+            )
         }
     },
     matchVisibility: (element, expected) => {

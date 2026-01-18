@@ -1,0 +1,77 @@
+<html>
+    <head>
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+            }
+
+            #box {
+                width: 100px;
+                height: 100px;
+                background-color: #00cc88;
+            }
+
+            #box.moved {
+                position: absolute;
+                top: 100px;
+                left: 200px;
+            }
+
+            [data-layout-correct="false"] {
+                background: #dd1144 !important;
+                opacity: 0.5;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="box" data-layout></div>
+
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module" src="/src/imports/script-assert.js"></script>
+        <script type="module">
+            const { animateLayout, frame } = window.AnimateLayout
+            const { matchViewportBox, showError } = window.Assert
+            const box = document.getElementById("box")
+
+            async function runTest() {
+                // First animation: move to position
+                const controls1 = await animateLayout(
+                    () => {
+                        box.classList.add("moved")
+                    },
+                    { duration: 0.01, ease: "linear" }
+                )
+
+                // Wait for first animation to complete
+                await controls1.finished
+
+                // Second animation: move back to origin
+                // This should animate, not happen instantly
+                const controls2 = await animateLayout(
+                    () => {
+                        box.classList.remove("moved")
+                    },
+                    { duration: 10, ease: "linear" }
+                )
+
+                // Pause at halfway
+                controls2.pause()
+                controls2.time = controls2.duration * 0.5
+
+                // Wait one frame for the animation to apply
+                await new Promise((resolve) => frame.postRender(resolve))
+
+                // At halfway, the box should be at the midpoint between moved (100, 200) and origin (0, 0)
+                const expectedHalfway = {
+                    top: 50,
+                    left: 100,
+                }
+
+                matchViewportBox(box, expectedHalfway)
+            }
+
+            runTest().catch(console.error)
+        </script>
+    </body>
+</html>

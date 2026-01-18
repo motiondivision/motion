@@ -1,0 +1,140 @@
+<html>
+    <!--
+     This test animates A -> B -> A with a shared element.
+     Neither element has data-layout-exit, so there should be NO crosdfade.
+     Replace: We are replacing the small card with a new small card.
+    -->
+    <head>
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+            }
+
+            #container {
+                width: 400px;
+                height: 400px;
+                background-color: #f0f0f0;
+                position: relative;
+            }
+
+            .card {
+                position: absolute;
+                background-color: #00cc88;
+            }
+
+            .card.small {
+                top: 0;
+                left: 0;
+                width: 100px;
+                height: 100px;
+            }
+
+            .card.big {
+                top: 200px;
+                left: 200px;
+                width: 200px;
+                height: 200px;
+                background-color: #09f;
+            }
+
+            [data-layout-correct="false"] {
+                background: #dd1144 !important;
+                opacity: 0.5;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="container">
+            <div id="card-small" class="card small" data-layout-id="a"></div>
+        </div>
+
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module" src="/src/imports/script-assert.js"></script>
+        <script type="module">
+            const { animateLayout, frame } = window.AnimateLayout
+            const { matchViewportBox, matchOpacity } = window.Assert
+            const { showError } = window
+            const container = document.getElementById("container")
+            const cardSmall = document.getElementById("card-small")
+
+            const endPoint = {
+                top: 200,
+                left: 200,
+                right: 400,
+                bottom: 400,
+            }
+
+            const midPoint = {
+                top: 100,
+                left: 100,
+                right: 250,
+                bottom: 250,
+            }
+
+            async function runTest() {
+                // Add big card
+                const controls = await animateLayout(
+                    container,
+                    () => {
+                        // Add big card
+                        const cardBig = document.createElement("div")
+                        cardBig.id = "card-big"
+                        cardBig.className = "card big"
+                        cardBig.setAttribute("data-layout-id", "a")
+                        container.appendChild(cardBig)
+                        cardSmall.remove()
+                    },
+                    { duration: 0.05, ease: "linear" }
+                )
+
+                await controls.finished
+
+                const cardBig = document.getElementById("card-big")
+                // cardSmall should not be attached to the DOM at this point
+                if (document.body.contains(cardSmall)) {
+                    showError(
+                        cardSmall,
+                        "cardSmall should not be attached to the DOM"
+                    )
+                }
+                matchOpacity(cardBig, 1)
+                matchViewportBox(cardBig, endPoint)
+
+                const returnControls = await animateLayout(
+                    container,
+                    () => {
+                        const newCardSmall = document.createElement("div")
+                        newCardSmall.id = "card-small"
+                        newCardSmall.className = "card small"
+                        newCardSmall.setAttribute("data-layout-id", "a")
+                        container.appendChild(newCardSmall)
+                        cardBig.remove()
+                    },
+                    { duration: 1, ease: "linear" }
+                )
+                returnControls.pause()
+                returnControls.time = 0.1
+
+                await new Promise((resolve) => frame.postRender(resolve))
+
+                const newCardSmall = document.getElementById("card-small")
+                if (document.body.contains(cardBig)) {
+                    showError(
+                        cardBig,
+                        "cardBig should not be attached to the DOM"
+                    )
+                }
+                matchOpacity(newCardSmall, 1)
+                matchViewportBox(newCardSmall, {
+                    left: 180,
+                    top: 180,
+                    right: 370,
+                    bottom: 370,
+                })
+            }
+
+            runTest().catch(console.error)
+        </script>
+    </body>
+</html>

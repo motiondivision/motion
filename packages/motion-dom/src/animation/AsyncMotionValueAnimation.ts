@@ -161,15 +161,19 @@ export class AsyncMotionValueAnimation<T extends AnyResolvedKeyframe>
          * WAAPI. Therefore, this animation must be JS to ensure it runs "under" the
          * optimised animation.
          */
-        const animation =
-            !isHandoff && supportsBrowserAnimation(resolvedOptions)
+        const useWaapi = !isHandoff && supportsBrowserAnimation(resolvedOptions)
+        const element = resolvedOptions.motionValue?.owner?.current
+
+        const animation = useWaapi
                 ? new NativeAnimationExtended({
                       ...resolvedOptions,
-                      element: resolvedOptions.motionValue!.owner!.current,
+                      element,
                   } as any)
                 : new JSAnimation(resolvedOptions)
 
-        animation.finished.then(() => this.notifyFinished()).catch(noop)
+        animation.finished.then(() => {
+            this.notifyFinished()
+        }).catch(noop)
 
         if (this.pendingTimeline) {
             this.stopTimeline = animation.attachTimeline(this.pendingTimeline)
