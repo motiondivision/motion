@@ -6,7 +6,7 @@ import type {
 import { HTMLProjectionNode } from "../projection/node/HTMLProjectionNode"
 import { HTMLVisualElement } from "../render/html/HTMLVisualElement"
 import { nodeGroup, type NodeGroup } from "../projection/node/group"
-import { getLayoutId } from "./detect-mutations"
+import { getLayoutId } from "./get-layout-elements"
 import { addScaleCorrector } from "../render/utils/is-forced-motion-value"
 import { correctBorderRadius } from "../projection/styles/scale-border-radius"
 import { correctBoxShadow } from "../projection/styles/scale-box-shadow"

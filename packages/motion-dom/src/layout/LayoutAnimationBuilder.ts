@@ -1,7 +1,7 @@
 import { noop } from "motion-utils"
 import type { AnimationOptions } from "../animation/types"
 import { GroupAnimation, type AcceptedAnimations } from "../animation/GroupAnimation"
-import { getLayoutElements } from "./detect-mutations"
+import { getLayoutElements } from "./get-layout-elements"
 import {
     buildProjectionTree,
     cleanupProjectionTree,
@@ -99,27 +99,21 @@ export class LayoutAnimationBuilder implements PromiseLike<GroupAnimation> {
                 )
             }
 
-            // Handle presence changes for shared elements
+            // Handle shared elements
             if (context) {
                 // Remove exiting elements from stack (no exit animation supported)
                 for (const element of exiting) {
                     const node = context.nodes.get(element)
-                    if (node) {
-                        node.isPresent = false
-                        const stack = node.getStack()
-                        if (stack) {
-                            stack.remove(node)
-                        }
+                    const stack = node?.getStack()
+                    if (stack) {
+                        stack.remove(node)
                     }
                 }
 
-                // Mark entering elements as present and promote
+                // Promote entering elements to become lead
                 for (const element of entering) {
                     const node = context.nodes.get(element)
-                    if (node) {
-                        node.isPresent = true
-                        node.promote()
-                    }
+                    node?.promote()
                 }
             }
 

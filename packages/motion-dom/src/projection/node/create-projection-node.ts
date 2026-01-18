@@ -368,13 +368,6 @@ export function createProjectionNode<I>({
         resumingFrom?: IProjectionNode
 
         /**
-         * Whether this element is present in the DOM. Used to determine if an element
-         * is exiting (isPresent=false) and should have its animation controlled by
-         * the lead element that is resuming from it.
-         */
-        isPresent?: boolean
-
-        /**
          * A reference to the element's latest animated values. This is a reference shared
          * between the element's VisualElement and the ProjectionNode.
          */
@@ -512,14 +505,6 @@ export function createProjectionNode<I>({
                             return
                         }
 
-                        /**
-                         * Check if this is a follow element in a crossfade (exiting element
-                         * whose lead has resumeFrom pointing to it). These elements should
-                         * NOT create their own animation - they get the lead's animation via
-                         * resumingFrom.currentAnimation in startAnimation().
-                         */
-                        const isFollowInCrossfade = this.isPresent === false && !this.isLead()
-
                         // TODO: Check here if an animation exists
                         const layoutTransition =
                             this.options.transition ||
@@ -553,65 +538,57 @@ export function createProjectionNode<I>({
                         const hasOnlyRelativeTargetChanged =
                             !hasLayoutChanged && hasRelativeLayoutChanged
 
-                        /**
-                         * Skip animation handling for follow elements in a crossfade.
-                         * These elements get the lead's animation via resumingFrom.currentAnimation
-                         * in startAnimation(), so they shouldn't create their own animation.
-                         * They also shouldn't call finishAnimation(), which would reset their state.
-                         */
-                        if (!isFollowInCrossfade) {
+                        if (
+                            this.options.layoutRoot ||
+                            this.resumeFrom ||
+                            hasOnlyRelativeTargetChanged ||
+                            (hasLayoutChanged &&
+                                (hasTargetChanged || !this.currentAnimation))
+                        ) {
+                            if (this.resumeFrom) {
+                                this.resumingFrom = this.resumeFrom
+                                this.resumingFrom.resumingFrom = undefined
+                            }
+
+                            const animationOptions = {
+                                ...getValueTransition(
+                                    layoutTransition,
+                                    "layout"
+                                ),
+                                onPlay: onLayoutAnimationStart,
+                                onComplete: onLayoutAnimationComplete,
+                            }
+
                             if (
-                                this.options.layoutRoot ||
-                                this.resumeFrom ||
-                                hasOnlyRelativeTargetChanged ||
-                                (hasLayoutChanged &&
-                                    (hasTargetChanged || !this.currentAnimation))
+                                visualElement.shouldReduceMotion ||
+                                this.options.layoutRoot
                             ) {
-                                if (this.resumeFrom) {
-                                    this.resumingFrom = this.resumeFrom
-                                    this.resumingFrom.resumingFrom = undefined
-                                }
+                                animationOptions.delay = 0
+                                animationOptions.type = false
+                            }
 
-                                const animationOptions = {
-                                    ...getValueTransition(
-                                        layoutTransition,
-                                        "layout"
-                                    ),
-                                    onPlay: onLayoutAnimationStart,
-                                    onComplete: onLayoutAnimationComplete,
-                                }
+                            this.startAnimation(animationOptions)
+                            /**
+                             * Set animation origin after starting animation to avoid layout jump
+                             * caused by stopping previous layout animation
+                             */
+                            this.setAnimationOrigin(
+                                delta,
+                                hasOnlyRelativeTargetChanged
+                            )
+                        } else {
+                            /**
+                             * If the layout hasn't changed and we have an animation that hasn't started yet,
+                             * finish it immediately. Otherwise it will be animating from a location
+                             * that was probably never committed to screen and look like a jumpy box.
+                             */
 
-                                if (
-                                    visualElement.shouldReduceMotion ||
-                                    this.options.layoutRoot
-                                ) {
-                                    animationOptions.delay = 0
-                                    animationOptions.type = false
-                                }
+                            if (!hasLayoutChanged) {
+                                finishAnimation(this)
+                            }
 
-                                this.startAnimation(animationOptions)
-                                /**
-                                 * Set animation origin after starting animation to avoid layout jump
-                                 * caused by stopping previous layout animation
-                                 */
-                                this.setAnimationOrigin(
-                                    delta,
-                                    hasOnlyRelativeTargetChanged
-                                )
-                            } else {
-                                /**
-                                 * If the layout hasn't changed and we have an animation that hasn't started yet,
-                                 * finish it immediately. Otherwise it will be animating from a location
-                                 * that was probably never committed to screen and look like a jumpy box.
-                                 */
-
-                                if (!hasLayoutChanged) {
-                                    finishAnimation(this)
-                                }
-
-                                if (this.isLead() && this.options.onExitComplete) {
-                                    this.options.onExitComplete()
-                                }
+                            if (this.isLead() && this.options.onExitComplete) {
+                                this.options.onExitComplete()
                             }
                         }
 
