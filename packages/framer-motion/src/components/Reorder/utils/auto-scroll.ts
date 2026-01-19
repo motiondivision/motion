@@ -10,10 +10,18 @@ const initialScrollLimits = new WeakMap<HTMLElement, number>()
 type ActiveEdge = "start" | "end" | null
 const activeScrollEdge = new WeakMap<HTMLElement, ActiveEdge>()
 
+// Track window scroll state separately (since WeakMap can't use sentinel reliably)
+let windowScrollEdge: ActiveEdge = null
+let windowScrollLimit: number | null = null
+
 // Track which group element is currently dragging to clear state on end
 let currentGroupElement: Element | null = null
 
 export function resetAutoScrollState(): void {
+    // Reset window scroll state
+    windowScrollEdge = null
+    windowScrollLimit = null
+
     if (currentGroupElement) {
         const scrollableAncestor = findScrollableAncestor(
             currentGroupElement,
@@ -56,6 +64,36 @@ function findScrollableAncestor(
     return null
 }
 
+function isPageScrollable(axis: "x" | "y"): boolean {
+    if (typeof document === "undefined") return false
+    const docEl = document.documentElement
+    if (axis === "y") {
+        return docEl.scrollHeight > window.innerHeight
+    } else {
+        return docEl.scrollWidth > window.innerWidth
+    }
+}
+
+function getWindowScrollAmount(
+    pointerPosition: number,
+    axis: "x" | "y"
+): { amount: number; edge: ActiveEdge } {
+    const viewportSize = axis === "x" ? window.innerWidth : window.innerHeight
+
+    const distanceFromStart = pointerPosition
+    const distanceFromEnd = viewportSize - pointerPosition
+
+    if (distanceFromStart < threshold) {
+        const intensity = 1 - distanceFromStart / threshold
+        return { amount: -maxSpeed * intensity * intensity, edge: "start" }
+    } else if (distanceFromEnd < threshold) {
+        const intensity = 1 - distanceFromEnd / threshold
+        return { amount: maxSpeed * intensity * intensity, edge: "end" }
+    }
+
+    return { amount: 0, edge: null }
+}
+
 function getScrollAmount(
     pointerPosition: number,
     scrollElement: HTMLElement,
@@ -92,7 +130,54 @@ export function autoScrollIfNeeded(
     currentGroupElement = groupElement
 
     const scrollableAncestor = findScrollableAncestor(groupElement, axis)
-    if (!scrollableAncestor) return
+
+    // If no scrollable ancestor, check if page itself is scrollable
+    if (!scrollableAncestor) {
+        if (!isPageScrollable(axis)) return
+
+        // Handle page-level scrolling
+        const { amount: scrollAmount, edge } = getWindowScrollAmount(
+            pointerPosition,
+            axis
+        )
+
+        // If not in any threshold zone, clear window scroll state
+        if (edge === null) {
+            windowScrollEdge = null
+            windowScrollLimit = null
+            return
+        }
+
+        // If not currently scrolling this edge, check velocity to see if we should start
+        if (windowScrollEdge !== edge) {
+            const shouldStart =
+                (edge === "start" && velocity < 0) ||
+                (edge === "end" && velocity > 0)
+            if (!shouldStart) return
+
+            windowScrollEdge = edge
+            const docEl = document.documentElement
+            windowScrollLimit =
+                axis === "x"
+                    ? docEl.scrollWidth - window.innerWidth
+                    : docEl.scrollHeight - window.innerHeight
+        }
+
+        // Cap scrolling at initial limit (prevents infinite scroll)
+        if (scrollAmount > 0 && windowScrollLimit !== null) {
+            const currentScroll =
+                axis === "x" ? window.scrollX : window.scrollY
+            if (currentScroll >= windowScrollLimit) return
+        }
+
+        // Apply scroll to window
+        if (axis === "x") {
+            window.scrollBy(scrollAmount, 0)
+        } else {
+            window.scrollBy(0, scrollAmount)
+        }
+        return
+    }
 
     const { amount: scrollAmount, edge } = getScrollAmount(
         pointerPosition,
