@@ -368,8 +368,17 @@ export function createAnimationsFromSequence(
             const definition = animationDefinitions.get(element)!
 
             definition.keyframes[key] = keyframes
+
+            /**
+             * Exclude `type` from defaultTransition since springs have been
+             * converted to duration-based easing functions in resolveValueSequence.
+             * Including `type: "spring"` would cause JSAnimation to error when
+             * the merged keyframes array has more than 2 keyframes.
+             */
+            const { type: _type, ...remainingDefaultTransition } =
+                defaultTransition
             definition.transition[key] = {
-                ...defaultTransition,
+                ...remainingDefaultTransition,
                 duration: totalDuration,
                 ease: valueEasing,
                 times: valueOffset,

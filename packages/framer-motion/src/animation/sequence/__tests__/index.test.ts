@@ -641,6 +641,31 @@ describe("createAnimationsFromSequence", () => {
         expect(times).toEqual([0, 0.45454545454545453, 0.45454545454545453, 1])
     })
 
+    test("Does not include type: spring in transition when spring is converted to easing via defaultTransition", () => {
+        const animations = createAnimationsFromSequence(
+            [
+                [a, { x: 0 }, { duration: 0 }],
+                [a, { x: 1.12 }],
+                [a, { x: 0.98 }, { at: "<+0.15" }],
+                [a, { x: 1 }, { at: "<+0.35" }],
+            ],
+            { defaultTransition: { type: "spring", stiffness: 72, damping: 10 } },
+            undefined,
+            { spring }
+        )
+
+        const { keyframes, transition } = animations.get(a)!
+
+        // The spring should be converted to easing functions, not kept as type: "spring"
+        expect(transition.x.type).toBeUndefined()
+
+        // Verify the easing functions are present
+        expect(Array.isArray(transition.x.ease)).toBe(true)
+        const easeArray = transition.x.ease as Easing[]
+        // At least some of the easings should be spring-converted functions
+        expect(easeArray.some((e) => typeof e === "function")).toBe(true)
+    })
+
     test("It correctly repeats keyframes once", () => {
         const animations = createAnimationsFromSequence(
             [[a, { x: [0, 100] }, { duration: 1, repeat: 1, ease: "linear" }]],
