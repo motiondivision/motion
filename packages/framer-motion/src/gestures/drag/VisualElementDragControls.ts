@@ -642,11 +642,18 @@ export class VisualElementDragControls {
             "pointerdown",
             (event) => {
                 const { drag, dragListener = true } = this.getProps()
-                if (
-                    drag &&
-                    dragListener &&
-                    !isElementKeyboardAccessible(event.target as Element)
-                ) {
+                const target = event.target as Element
+
+                /**
+                 * Only block drag if clicking on a keyboard-accessible child element.
+                 * If the draggable element itself is keyboard-accessible (e.g., motion.button),
+                 * dragging should still work when clicking directly on it.
+                 */
+                const isClickingKeyboardAccessibleChild =
+                    target !== element &&
+                    isElementKeyboardAccessible(target)
+
+                if (drag && dragListener && !isClickingKeyboardAccessibleChild) {
                     this.start(event)
                 }
             }
