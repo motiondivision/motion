@@ -83,6 +83,13 @@ export const pointerMove = (element: Element) =>
             new PointerEventFake("pointermove", { isPrimary: true })
         )
     })
+export const pointerCancel = (element: Element) =>
+    act(() => {
+        fireEvent.pointerCancel(
+            element,
+            new PointerEventFake("pointercancel", { isPrimary: true })
+        )
+    })
 export const focus = (element: HTMLElement, testId: string) =>
     act(() => {
         getByTestId(element, testId).focus()

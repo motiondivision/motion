@@ -40,5 +40,6 @@ export class DragGesture extends Feature<HTMLElement> {
     unmount() {
         this.removeGroupControls()
         this.removeListeners()
+        this.controls.cancel()
     }
 }
