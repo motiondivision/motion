@@ -27,27 +27,30 @@ const Item = ({ item }: ItemProps) => {
 
 /**
  * Test case for auto-scroll when the scrollable container is inside a scrollable page.
- * This tests the bug where autoscroll wouldn't trigger because the container's bounds
- * extended beyond the viewport, making the distance calculation incorrect.
+ *
+ * This tests the bug where autoscroll wouldn't work because the gesture system
+ * uses pageX/pageY coordinates but getBoundingClientRect() returns viewport
+ * coordinates. When the page is scrolled, these coordinate systems don't match.
  */
 export const App = () => {
     const [items, setItems] = useState(initialItems)
 
     return (
         <>
-            {/* Spacer to make page scrollable and push container partially off-screen */}
-            <div style={{ height: "200px", background: "#222" }}>
+            {/* Spacer to make page scrollable */}
+            <div style={{ height: "300px", background: "#222" }}>
                 <p style={{ color: "#fff", padding: "20px" }}>
-                    Spacer - page is scrollable
+                    Scroll down to see the reorder list. The page is scrollable.
                 </p>
             </div>
             <div
                 data-testid="scroll-container"
                 style={{
-                    height: "400px",
+                    height: "300px",
                     overflow: "auto",
                     margin: "0 auto",
                     width: "300px",
+                    background: "#444",
                 }}
             >
                 <Reorder.Group axis="y" onReorder={setItems} values={items}>
@@ -57,7 +60,7 @@ export const App = () => {
                 </Reorder.Group>
             </div>
             {/* More spacer to ensure page is scrollable */}
-            <div style={{ height: "400px", background: "#222" }}>
+            <div style={{ height: "500px", background: "#222" }}>
                 <p style={{ color: "#fff", padding: "20px" }}>
                     Bottom spacer
                 </p>
