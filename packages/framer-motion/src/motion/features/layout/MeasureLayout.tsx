@@ -57,6 +57,7 @@ class MeasureLayoutWithContext extends Component<MeasureProps> {
             })
             projection.setOptions({
                 ...projection.options,
+                layoutDependency: this.props.layoutDependency,
                 onExitComplete: () => this.safeToRemove(),
             })
         }
@@ -78,6 +79,13 @@ class MeasureLayoutWithContext extends Component<MeasureProps> {
          * perhaps in didUpdate
          */
         projection.isPresent = isPresent
+
+        if (prevProps.layoutDependency !== layoutDependency) {
+            projection.setOptions({
+                ...projection.options,
+                layoutDependency,
+            })
+        }
 
         hasTakenAnySnapshot = true
 
