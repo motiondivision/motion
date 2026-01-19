@@ -139,4 +139,28 @@ describe("SVG", () => {
             "100 100 200 200"
         )
     })
+
+    // https://github.com/motiondivision/motion/issues/3351
+    test("preserves initial state with delay and spring on rect", async () => {
+        const Component = () => {
+            return (
+                <svg viewBox="0 0 200 200" data-testid="svg">
+                    <motion.rect
+                        data-testid="rect"
+                        initial={{ width: "90%", height: "90%" }}
+                        animate={{ width: "60%", height: "60%" }}
+                        transition={{ delay: 2, type: "spring" }}
+                    />
+                </svg>
+            )
+        }
+        const { getByTestId } = render(<Component />)
+
+        await nextFrame()
+
+        const rect = getByTestId("rect")
+        // During delay phase, the rect should show initial values (90%), not default/full size
+        expect(rect.getAttribute("width")).toBe("90%")
+        expect(rect.getAttribute("height")).toBe("90%")
+    })
 })
