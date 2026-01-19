@@ -550,6 +550,40 @@ export function createProjectionNode<I>({
                                 this.resumingFrom.resumingFrom = undefined
                             }
 
+                            /**
+                             * Calculate restDelta based on the actual pixel distance
+                             * being animated. This ensures the animation stops when
+                             * remaining movement would be sub-pixel (imperceptible).
+                             *
+                             * We compare the snapshot and target bounding boxes to find
+                             * the maximum distance any point on the element will travel.
+                             * This accounts for both translation AND scale changes.
+                             *
+                             * restDelta = 0.5px * (animationTarget / maxPixelDistance)
+                             *
+                             * See: https://github.com/motiondivision/motion/issues/1207
+                             */
+                            const snapshot =
+                                this.resumeFrom?.snapshot?.layoutBox ||
+                                this.snapshot?.layoutBox
+                            let maxPixelDistance = 0
+
+                            if (snapshot) {
+                                // Compare all edges of the bounding boxes to find max distance
+                                // This captures both position changes and size changes
+                                maxPixelDistance = Math.max(
+                                    Math.abs(snapshot.x.min - newLayout.x.min),
+                                    Math.abs(snapshot.x.max - newLayout.x.max),
+                                    Math.abs(snapshot.y.min - newLayout.y.min),
+                                    Math.abs(snapshot.y.max - newLayout.y.max)
+                                )
+                            }
+
+                            const restDelta =
+                                maxPixelDistance > 0
+                                    ? (0.5 * animationTarget) / maxPixelDistance
+                                    : 1
+
                             const animationOptions = {
                                 ...getValueTransition(
                                     layoutTransition,
@@ -557,6 +591,7 @@ export function createProjectionNode<I>({
                                 ),
                                 onPlay: onLayoutAnimationStart,
                                 onComplete: onLayoutAnimationComplete,
+                                restDelta,
                             }
 
                             if (
@@ -1656,7 +1691,7 @@ export function createProjectionNode<I>({
 
                 this.currentAnimation = animateSingleValue(
                     this.motionValue,
-                    [0, 1000],
+                    [0, animationTarget],
                     {
                         ...(options as any),
                         velocity: 0,

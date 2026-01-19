@@ -185,6 +185,81 @@ describe("visualDuration", () => {
     })
 })
 
+describe("slow springs for layout animations", () => {
+    /**
+     * Layout animations use a 0-1000 progress range with restDelta calculated
+     * based on the maximum pixel distance any point on the element travels.
+     * This is derived by comparing snapshot and target bounding boxes,
+     * accounting for both translation AND scale changes.
+     *
+     * Formula: restDelta = 0.5px * (1000 / maxPixelDistance)
+     *
+     * Issue: https://github.com/motiondivision/motion/issues/1207
+     */
+    test("slow overdamped spring completes smoothly with pixel-based restDelta", () => {
+        // Settings from the GitHub issue
+        // Simulating a 500px layout animation:
+        // restDelta = 0.5 * (1000 / 500) = 1
+        const springSettings = {
+            keyframes: [0, 1000],
+            stiffness: 4,
+            damping: 35,
+            mass: 0.5,
+            restDelta: 1, // Equivalent to 0.5px for a 500px animation
+        }
+
+        const generator = spring(springSettings)
+
+        // Use small time step to accurately capture when spring crosses threshold
+        const values: number[] = []
+        const timeStep = 10 // 10ms intervals for precision
+        let state = generator.next(0)
+        values.push(Math.round(state.value))
+
+        while (!state.done && values.length < 2000) {
+            state = generator.next(values.length * timeStep)
+            values.push(Math.round(state.value))
+        }
+
+        // The animation should not cut off early - it should get very close to 1000
+        // before being marked as done
+        const secondToLast = values[values.length - 2]
+        const lastValue = values[values.length - 1]
+
+        // With restDelta=1, the spring should be within 1 unit of target
+        // before snapping. Allow small buffer for time discretization.
+        expect(secondToLast).toBeGreaterThanOrEqual(997)
+
+        // Final value should snap to target
+        expect(lastValue).toBe(1000)
+    })
+
+    test("pixel-based restDelta calculation from bounding box comparison", () => {
+        // The restDelta is calculated by comparing bounding box edges:
+        // maxPixelDistance = max(
+        //   |snapshot.x.min - layout.x.min|,
+        //   |snapshot.x.max - layout.x.max|,
+        //   |snapshot.y.min - layout.y.min|,
+        //   |snapshot.y.max - layout.y.max|
+        // )
+        // restDelta = 0.5px * (1000 / maxPixelDistance)
+        const animationTarget = 1000
+        const thresholdPx = 0.5
+
+        // Example: element moves 200px and grows 300px on one side
+        // Snapshot: x.min=0, x.max=100 -> Layout: x.min=200, x.max=600
+        // maxPixelDistance = max(|0-200|, |100-600|) = max(200, 500) = 500
+        const snapshotX = { min: 0, max: 100 }
+        const layoutX = { min: 200, max: 600 }
+        const maxDist = Math.max(
+            Math.abs(snapshotX.min - layoutX.min),
+            Math.abs(snapshotX.max - layoutX.max)
+        )
+        expect(maxDist).toBe(500)
+        expect((thresholdPx * animationTarget) / maxDist).toBe(1)
+    })
+})
+
 describe("toString", () => {
     test("returns correct string", () => {
         const physicsSpring = spring({
