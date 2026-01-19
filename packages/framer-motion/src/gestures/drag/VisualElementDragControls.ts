@@ -211,9 +211,12 @@ export class VisualElementDragControls {
                 return
             }
 
+            // Transform offset to account for parent rotation
+            const transformedOffset = this.applyParentRotation(offset)
+
             // Update each point with the latest position
-            this.updateAxis("x", info.point, offset)
-            this.updateAxis("y", info.point, offset)
+            this.updateAxis("x", info.point, transformedOffset)
+            this.updateAxis("y", info.point, transformedOffset)
 
             /**
              * Ideally we would leave the renderer to fire naturally at the end of
@@ -278,8 +281,10 @@ export class VisualElementDragControls {
         this.cancel()
         if (!isDragging || !finalPanInfo || !finalEvent) return
 
+        // Transform velocity to account for parent rotation (same as offset)
         const { velocity } = finalPanInfo
-        this.startAnimation(velocity)
+        const transformedVelocity = this.applyParentRotation(velocity)
+        this.startAnimation(transformedVelocity)
 
         const { onDragEnd } = this.getProps()
         if (onDragEnd) {
@@ -331,6 +336,45 @@ export class VisualElementDragControls {
         }
 
         axisValue.set(next)
+    }
+
+    /**
+     * Transform offset to account for cumulative parent rotation.
+     * When a parent element is rotated, the drag offset (calculated in screen space)
+     * needs to be transformed to the element's local coordinate space.
+     */
+    private applyParentRotation(offset: Point): Point {
+        const { projection } = this.visualElement
+        if (!projection) return offset
+
+        // Calculate cumulative rotation from all ancestors
+        let totalRotation = 0
+        const path = projection.path
+        for (let i = 0; i < path.length; i++) {
+            const { latestValues } = path[i]
+            // Accumulate 2D rotation (rotate or rotateZ)
+            if (latestValues.rotate && typeof latestValues.rotate === "number") {
+                totalRotation += latestValues.rotate
+            }
+        }
+
+        // If no rotation, return original offset
+        if (totalRotation === 0) return offset
+
+        // Convert degrees to radians
+        const radians = (totalRotation * Math.PI) / 180
+
+        // Apply inverse rotation to transform from screen space to local space
+        // For a rotation θ, the inverse is -θ
+        // newX = cos(-θ) * x - sin(-θ) * y = cos(θ) * x + sin(θ) * y
+        // newY = sin(-θ) * x + cos(-θ) * y = -sin(θ) * x + cos(θ) * y
+        const cos = Math.cos(radians)
+        const sin = Math.sin(radians)
+
+        return {
+            x: cos * offset.x + sin * offset.y,
+            y: -sin * offset.x + cos * offset.y,
+        }
     }
 
     private resolveConstraints() {
