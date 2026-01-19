@@ -768,4 +768,48 @@ describe("createAnimationsFromSequence", () => {
         expect(duration).toEqual(4)
         expect(times).toEqual([0, 0.25, 0.25, 0.5, 0.5, 0.75, 0.75, 1])
     })
+
+    test("It skips null elements in sequence", () => {
+        const animations = createAnimationsFromSequence(
+            [
+                [a, { opacity: 1 }, { duration: 1 }],
+                [null as unknown as Element, { opacity: 0.5 }, { duration: 1 }],
+                [b, { opacity: 0 }, { duration: 1 }],
+            ],
+            undefined,
+            undefined,
+            { spring }
+        )
+
+        // Should only have animations for a and b, not the null element
+        expect(animations.size).toBe(2)
+        expect(animations.has(a)).toBe(true)
+        expect(animations.has(b)).toBe(true)
+    })
+
+    test("It filters null elements from array of targets", () => {
+        const animations = createAnimationsFromSequence(
+            [[[a, null as unknown as Element, b], { x: 100 }, { duration: 1 }]],
+            undefined,
+            undefined,
+            { spring }
+        )
+
+        // Should only have animations for a and b, not the null element
+        expect(animations.size).toBe(2)
+        expect(animations.has(a)).toBe(true)
+        expect(animations.has(b)).toBe(true)
+    })
+
+    test("It handles sequence with only null element gracefully", () => {
+        const animations = createAnimationsFromSequence(
+            [[null as unknown as Element, { opacity: 1 }, { duration: 1 }]],
+            undefined,
+            undefined,
+            { spring }
+        )
+
+        // Should return empty map when no valid elements
+        expect(animations.size).toBe(0)
+    })
 })

@@ -107,6 +107,11 @@ export function animateSubject<O extends Object>(
             )
         )
     } else {
+        // Gracefully handle null/undefined subjects (e.g., from querySelector returning null)
+        if (subject == null) {
+            return animations
+        }
+
         const subjects = resolveSubjects(
             subject,
             keyframes as DOMKeyframesDefinition,
@@ -123,12 +128,6 @@ export function animateSubject<O extends Object>(
 
         for (let i = 0; i < numSubjects; i++) {
             const thisSubject = subjects[i]
-
-            invariant(
-                thisSubject !== null,
-                "You're trying to perform an animation on null. Ensure that selectors are correctly finding elements and refs are correctly hydrated.",
-                "animate-null"
-            )
 
             const createVisualElement =
                 thisSubject instanceof Element
