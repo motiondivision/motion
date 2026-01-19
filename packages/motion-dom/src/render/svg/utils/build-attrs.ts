@@ -84,8 +84,11 @@ export function buildSVGAttrs(
     if (attrY !== undefined) attrs.y = attrY
     if (attrScale !== undefined) attrs.scale = attrScale
 
-    // Build SVG path if one has been defined
-    if (pathLength !== undefined) {
+    // Build SVG path if one has been defined and user hasn't provided their own strokeDasharray.
+    // When a user provides strokeDasharray for styling (e.g., dashed lines), we shouldn't
+    // override it with our pathLength-based strokeDasharray, as that would also require
+    // setting pathLength="1" on the element, which changes how their dash values are interpreted.
+    if (pathLength !== undefined && attrs.strokeDasharray === undefined) {
         buildSVGPath(
             attrs,
             pathLength as number,

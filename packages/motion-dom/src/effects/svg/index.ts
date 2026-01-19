@@ -15,14 +15,21 @@ function addSVGPathValue(
     key: string,
     value: MotionValue
 ) {
-    frame.render(() => element.setAttribute("pathLength", "1"))
+    // Check if user has set their own stroke-dasharray for styling (e.g., dashed lines).
+    // If so, we shouldn't override it with our pathLength-based stroke-dasharray,
+    // and we shouldn't set pathLength="1" which would change how their dash values are interpreted.
+    const hasUserDasharray = element.hasAttribute("stroke-dasharray")
+
+    if (!hasUserDasharray) {
+        frame.render(() => element.setAttribute("pathLength", "1"))
+    }
 
     if (key === "pathOffset") {
         return state.set(key, value, () =>
             element.setAttribute("stroke-dashoffset", toPx(-state.latest[key]))
         )
     } else {
-        if (!state.get("stroke-dasharray")) {
+        if (!hasUserDasharray && !state.get("stroke-dasharray")) {
             state.set("stroke-dasharray", new MotionValue("1 1"), () => {
                 const { pathLength = 1, pathSpacing } = state.latest
 

@@ -123,4 +123,25 @@ describe("SVG useProps", () => {
             },
         })
     })
+
+    test("should preserve user-defined strokeDasharray when pathLength is also set", () => {
+        const { result } = renderHook(() =>
+            useSVGProps(
+                { style: {} } as any,
+                {
+                    pathLength: 0.5,
+                    strokeDasharray: "3 3",
+                },
+                false,
+                "path"
+            )
+        )
+
+        // User's strokeDasharray should be preserved, not overwritten by pathLength logic
+        // pathLength attribute should NOT be set to 1 because that changes dash value interpretation
+        expect(result.current).toStrictEqual({
+            strokeDasharray: "3 3",
+            style: {},
+        })
+    })
 })
