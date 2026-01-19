@@ -211,10 +211,10 @@ describe("svgEffect", () => {
 
         await nextFrame()
 
-        // Verify initial path properties
+        // Verify initial path properties (uses unitless values to avoid Safari zoom bug)
         expect(element.getAttribute("pathLength")).toBe("1")
-        expect(element.getAttribute("stroke-dashoffset")).toBe("-0.5px")
-        expect(element.getAttribute("stroke-dasharray")).toBe("2px 1px")
+        expect(element.getAttribute("stroke-dashoffset")).toBe("-0.5")
+        expect(element.getAttribute("stroke-dasharray")).toBe("2 1")
 
         // Update values
         pathOffset.set("0.25")
@@ -225,8 +225,8 @@ describe("svgEffect", () => {
 
         // Verify updated path properties
         expect(element.getAttribute("pathLength")).toBe("1")
-        expect(element.getAttribute("stroke-dashoffset")).toBe("-0.25px")
-        expect(element.getAttribute("stroke-dasharray")).toBe("3px 2px")
+        expect(element.getAttribute("stroke-dashoffset")).toBe("-0.25")
+        expect(element.getAttribute("stroke-dasharray")).toBe("3 2")
     })
 
     it("handles path properties with cleanup", async () => {
@@ -247,9 +247,9 @@ describe("svgEffect", () => {
 
         await nextFrame()
 
-        // Verify initial values
-        expect(element.getAttribute("stroke-dashoffset")).toBe("-0.5px")
-        expect(element.getAttribute("stroke-dasharray")).toBe("2px 1px")
+        // Verify initial values (uses unitless values to avoid Safari zoom bug)
+        expect(element.getAttribute("stroke-dashoffset")).toBe("-0.5")
+        expect(element.getAttribute("stroke-dasharray")).toBe("2 1")
 
         // Update values
         pathOffset.set("0.25")
@@ -259,8 +259,8 @@ describe("svgEffect", () => {
         await nextFrame()
 
         // Verify updates
-        expect(element.getAttribute("stroke-dashoffset")).toBe("-0.25px")
-        expect(element.getAttribute("stroke-dasharray")).toBe("3px 2px")
+        expect(element.getAttribute("stroke-dashoffset")).toBe("-0.25")
+        expect(element.getAttribute("stroke-dasharray")).toBe("3 2")
 
         // Cleanup
         cleanup()
@@ -273,7 +273,7 @@ describe("svgEffect", () => {
         await nextFrame()
 
         // Verify values didn't change after cleanup
-        expect(element.getAttribute("stroke-dashoffset")).toBe("-0.25px")
-        expect(element.getAttribute("stroke-dasharray")).toBe("3px 2px")
+        expect(element.getAttribute("stroke-dashoffset")).toBe("-0.25")
+        expect(element.getAttribute("stroke-dasharray")).toBe("3 2")
     })
 })

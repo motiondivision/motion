@@ -54,10 +54,11 @@ describe("SVG useProps", () => {
             )
         )
 
+        // Uses unitless values to avoid Safari zoom bug
         expect(result.current).toStrictEqual({
             pathLength: 1,
-            strokeDasharray: "0.5px 1px",
-            strokeDashoffset: "0px",
+            strokeDasharray: "0.5 1",
+            strokeDashoffset: "0",
             style: {},
         })
     })
