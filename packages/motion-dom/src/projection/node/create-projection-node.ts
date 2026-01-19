@@ -1104,11 +1104,37 @@ export function createProjectionNode<I>({
         }
 
         setOptions(options: ProjectionNodeOptions) {
+            const prevLayoutId = this.options.layoutId
+            const newLayoutId = options.layoutId
+
             this.options = {
                 ...this.options,
                 ...options,
                 crossfade:
                     options.crossfade !== undefined ? options.crossfade : true,
+            }
+
+            /**
+             * Handle layoutId changes. When layoutId changes, we need to:
+             * 1. Remove the node from the old shared nodes stack
+             * 2. Register it with the new shared nodes stack
+             *
+             * This enables dynamic layoutId changes to work correctly,
+             * allowing components to animate between different shared layout groups.
+             */
+            if (this.instance && prevLayoutId !== newLayoutId) {
+                // Remove from old stack if we had a previous layoutId
+                if (prevLayoutId) {
+                    const oldStack = this.root.sharedNodes.get(prevLayoutId)
+                    if (oldStack) {
+                        oldStack.remove(this)
+                    }
+                }
+
+                // Register with new stack if we have a new layoutId
+                if (newLayoutId) {
+                    this.root.registerSharedNode(newLayoutId, this)
+                }
             }
         }
 

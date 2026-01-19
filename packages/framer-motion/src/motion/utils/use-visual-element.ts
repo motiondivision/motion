@@ -97,6 +97,36 @@ export function useVisualElement<
          */
         if (visualElement && isMounted.current) {
             visualElement.update(props, presenceContext)
+
+            /**
+             * Update projection options when props change. This is needed to
+             * handle dynamic layoutId changes, which allows components to
+             * animate between different shared layout groups.
+             */
+            if (visualElement.projection) {
+                const {
+                    layoutId,
+                    layout,
+                    drag,
+                    dragConstraints,
+                    layoutScroll,
+                    layoutRoot,
+                    layoutCrossfade,
+                } = props
+
+                visualElement.projection.setOptions({
+                    layoutId,
+                    layout,
+                    alwaysMeasureLayout:
+                        Boolean(drag) ||
+                        (dragConstraints && isRefObject(dragConstraints)),
+                    visualElement,
+                    animationType: typeof layout === "string" ? layout : "both",
+                    crossfade: layoutCrossfade,
+                    layoutScroll,
+                    layoutRoot,
+                })
+            }
         }
     })
 
