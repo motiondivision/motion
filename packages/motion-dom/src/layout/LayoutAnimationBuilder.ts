@@ -130,7 +130,16 @@ export class LayoutAnimationBuilder implements PromiseLike<GroupAnimation> {
         const groupAnimation = new GroupAnimation(animations)
 
         groupAnimation.finished.then(() => {
-            cleanupProjectionTree(context!)
+            // Only clean up nodes for elements no longer in the document.
+            // Elements still in DOM keep their nodes so subsequent animations
+            // can use the stored position snapshots (A→B→A pattern).
+            const elementsToCleanup = new Set<HTMLElement>()
+            for (const element of context!.nodes.keys()) {
+                if (!document.contains(element)) {
+                    elementsToCleanup.add(element)
+                }
+            }
+            cleanupProjectionTree(context!, elementsToCleanup)
         })
 
         this.notifyReady(groupAnimation)
