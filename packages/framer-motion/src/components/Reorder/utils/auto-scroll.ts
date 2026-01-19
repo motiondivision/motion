@@ -101,8 +101,12 @@ function getScrollAmount(
 ): { amount: number; edge: ActiveEdge } {
     const rect = scrollElement.getBoundingClientRect()
 
-    const start = axis === "x" ? rect.left : rect.top
-    const end = axis === "x" ? rect.right : rect.bottom
+    // Clamp container bounds to the viewport - this ensures autoscroll
+    // triggers when near the visible edge of the container, even if the
+    // container extends beyond the viewport (e.g., when page is scrollable)
+    const viewportSize = axis === "x" ? window.innerWidth : window.innerHeight
+    const start = Math.max(0, axis === "x" ? rect.left : rect.top)
+    const end = Math.min(viewportSize, axis === "x" ? rect.right : rect.bottom)
 
     const distanceFromStart = pointerPosition - start
     const distanceFromEnd = end - pointerPosition

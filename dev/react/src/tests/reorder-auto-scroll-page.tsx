@@ -2,7 +2,7 @@ import * as React from "react"
 import { useState } from "react"
 import { Reorder, useMotionValue } from "framer-motion"
 
-const initialItems = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+const initialItems = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
 
 interface ItemProps {
     item: number
@@ -10,7 +10,7 @@ interface ItemProps {
 
 const Item = ({ item }: ItemProps) => {
     const y = useMotionValue(0)
-    const hue = item * 20
+    const hue = item * 30
 
     return (
         <Reorder.Item
@@ -26,21 +26,41 @@ const Item = ({ item }: ItemProps) => {
 }
 
 /**
- * Test case for auto-scroll when the page itself is scrollable.
- * This differs from reorder-auto-scroll.tsx which uses a wrapper div
- * with overflow: auto. Here, the document/body is the scroll container.
+ * Test case for auto-scroll when the scrollable container is inside a scrollable page.
+ * This tests the bug where autoscroll wouldn't trigger because the container's bounds
+ * extended beyond the viewport, making the distance calculation incorrect.
  */
 export const App = () => {
     const [items, setItems] = useState(initialItems)
 
     return (
         <>
-            <div data-testid="page-container">
+            {/* Spacer to make page scrollable and push container partially off-screen */}
+            <div style={{ height: "200px", background: "#222" }}>
+                <p style={{ color: "#fff", padding: "20px" }}>
+                    Spacer - page is scrollable
+                </p>
+            </div>
+            <div
+                data-testid="scroll-container"
+                style={{
+                    height: "400px",
+                    overflow: "auto",
+                    margin: "0 auto",
+                    width: "300px",
+                }}
+            >
                 <Reorder.Group axis="y" onReorder={setItems} values={items}>
                     {items.map((item) => (
                         <Item key={item} item={item} />
                     ))}
                 </Reorder.Group>
+            </div>
+            {/* More spacer to ensure page is scrollable */}
+            <div style={{ height: "400px", background: "#222" }}>
+                <p style={{ color: "#fff", padding: "20px" }}>
+                    Bottom spacer
+                </p>
             </div>
             <style>{styles}</style>
         </>
@@ -56,11 +76,6 @@ html, body {
     margin: 0;
 }
 
-body {
-    padding: 20px;
-    box-sizing: border-box;
-}
-
 ul,
 li {
     list-style: none;
@@ -70,8 +85,7 @@ li {
 
 ul {
     position: relative;
-    width: 300px;
-    margin: 0 auto;
+    width: 100%;
 }
 
 li {
