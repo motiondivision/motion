@@ -804,6 +804,54 @@ describe("dragging", () => {
         })
     })
 
+    test("drag constraints respect updated values between separate drags", async () => {
+        const x = motionValue(0)
+        const y = motionValue(0)
+        const Component = ({
+            constraints,
+        }: {
+            constraints: Partial<BoundingBox>
+        }) => (
+            <MockDrag>
+                <motion.div
+                    drag
+                    dragConstraints={constraints}
+                    dragElastic={false}
+                    dragMomentum={false}
+                    style={{ x, y }}
+                />
+            </MockDrag>
+        )
+
+        const { container, rerender } = render(
+            <Component constraints={{ left: -100, right: 100 }} />
+        )
+        rerender(<Component constraints={{ left: -100, right: 100 }} />)
+
+        // First drag: should respect initial constraints (right: 100)
+        let pointer = await drag(container.firstChild).to(1, 1)
+        await pointer.to(200, 0)
+        pointer.end()
+        await nextFrame()
+
+        expect(x.get()).toBe(100)
+
+        // Reset position
+        x.set(0)
+
+        // Update constraints (simulating resize)
+        rerender(<Component constraints={{ left: -50, right: 50 }} />)
+        rerender(<Component constraints={{ left: -50, right: 50 }} />)
+
+        // Second drag: should respect new constraints (right: 50)
+        pointer = await drag(container.firstChild).to(1, 1)
+        await pointer.to(200, 0)
+        pointer.end()
+        await nextFrame()
+
+        expect(x.get()).toBe(50)
+    })
+
     // TODO
     test.skip("updates position when updating drag constraints", async () => {
         const x = motionValue(100)
