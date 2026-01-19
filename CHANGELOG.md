@@ -4,9 +4,15 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
-## [12.27.0] 2026-01-18
+## [12.27.1] 2026-01-19
 
 ### Fixed
+
+-   Improving projection node cleanup.
+
+## [12.27.0] 2026-01-18
+
+### Added
 
 -   Adding new exports for internal use.
 
