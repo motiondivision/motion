@@ -194,4 +194,5 @@ workflows:
         jobs:
             - test
             - test-react
+            - test-react-19
             - test-html
