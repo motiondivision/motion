@@ -654,7 +654,7 @@ describe("createAnimationsFromSequence", () => {
             { spring }
         )
 
-        const { keyframes, transition } = animations.get(a)!
+        const { transition } = animations.get(a)!
 
         // The spring should be converted to easing functions, not kept as type: "spring"
         expect(transition.x.type).toBeUndefined()
