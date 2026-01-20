@@ -94,8 +94,14 @@ export function autoScrollIfNeeded(
     const scrollableAncestor = findScrollableAncestor(groupElement, axis)
     if (!scrollableAncestor) return
 
+    // Convert pointer position from page coordinates to viewport coordinates.
+    // The gesture system uses pageX/pageY but getBoundingClientRect() returns
+    // viewport-relative coordinates, so we need to account for page scroll.
+    const viewportPointerPosition =
+        pointerPosition - (axis === "x" ? window.scrollX : window.scrollY)
+
     const { amount: scrollAmount, edge } = getScrollAmount(
-        pointerPosition,
+        viewportPointerPosition,
         scrollableAncestor,
         axis
     )
