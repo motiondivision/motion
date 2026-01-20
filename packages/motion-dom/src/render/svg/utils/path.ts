@@ -1,4 +1,3 @@
-import { px } from "../../../value/types/numbers/units"
 import { ResolvedValues } from "../../types"
 
 const dashKeys = {
@@ -17,6 +16,9 @@ const camelKeys = {
  * and stroke-dasharray attributes.
  *
  * This function is mutative to reduce per-frame GC.
+ *
+ * Note: We use unitless values for stroke-dasharray and stroke-dashoffset
+ * because Safari incorrectly scales px values when the page is zoomed.
  */
 export function buildSVGPath(
     attrs: ResolvedValues,
@@ -32,11 +34,9 @@ export function buildSVGPath(
     // when defining props on a React component.
     const keys = useDashCase ? dashKeys : camelKeys
 
-    // Build the dash offset
-    attrs[keys.offset] = px.transform!(-offset)
+    // Build the dash offset (unitless to avoid Safari zoom bug)
+    attrs[keys.offset] = `${-offset}`
 
-    // Build the dash array
-    const pathLength = px.transform!(length)
-    const pathSpacing = px.transform!(spacing)
-    attrs[keys.array] = `${pathLength} ${pathSpacing}`
+    // Build the dash array (unitless to avoid Safari zoom bug)
+    attrs[keys.array] = `${length} ${spacing}`
 }
