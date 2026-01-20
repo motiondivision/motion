@@ -15,18 +15,18 @@ import { resolveElements, type ElementOrSelector } from "../utils/resolve-elemen
 
 type LayoutAnimationScope = Element | Document
 
-type LayoutElementRecord = {
+interface LayoutElementRecord {
     element: Element
     visualElement: VisualElement
     projection: IProjectionNode
 }
 
-type ExitRecord = LayoutElementRecord & {
+interface ExitRecord extends LayoutElementRecord {
     parent: ParentNode | null
     nextSibling: ChildNode | null
 }
 
-type LayoutAttributes = {
+interface LayoutAttributes {
     layout?: boolean | "position" | "size" | "preserve-aspect"
     layoutId?: string
     layoutExit: boolean
@@ -35,7 +35,7 @@ type LayoutAttributes = {
 type LayoutBuilderResolve = (animation: GroupAnimation) => void
 type LayoutBuilderReject = (error: unknown) => void
 
-type ProjectionOptions = {
+interface ProjectionOptions {
     layout?: boolean | "position" | "size" | "preserve-aspect"
     layoutId?: string
     animationType?: "size" | "position" | "both" | "preserve-aspect"
@@ -69,17 +69,20 @@ export class LayoutAnimationBuilder {
             this.rejectReady = reject
         })
 
-        microtask.read((_frameData) => {
+        microtask.read(() => {
             this.start().then(this.notifyReady).catch(this.rejectReady)
         })
     }
 
-    shared(id: string, transition: AnimationOptions) {
+    shared(id: string, transition: AnimationOptions): this {
         this.sharedTransitions.set(id, transition)
         return this
     }
 
-    then(resolve: LayoutBuilderResolve, reject?: LayoutBuilderReject) {
+    then(
+        resolve: LayoutBuilderResolve,
+        reject?: LayoutBuilderReject
+    ): Promise<void> {
         return this.readyPromise.then(resolve, reject)
     }
 
@@ -89,6 +92,7 @@ export class LayoutAnimationBuilder {
         const exitCandidates = collectExitCandidates(beforeRecords)
 
         beforeRecords.forEach(({ projection }) => {
+            seedProjectionSnapshot(projection)
             projection.isPresent = true
             projection.willUpdate()
         })
@@ -261,6 +265,23 @@ function createVisualState() {
             vars: {},
         },
     }
+}
+
+function seedProjectionSnapshot(projection: IProjectionNode) {
+    const projectionNode = projection as IProjectionNode & {
+        currentAnimation?: unknown
+        pendingAnimation?: unknown
+        animationValues?: Record<string, any>
+    }
+
+    if (!projectionNode.currentAnimation && !projectionNode.pendingAnimation) {
+        return
+    }
+
+    const snapshot = projection.measure(false)
+    snapshot.latestValues =
+        projectionNode.animationValues || projection.latestValues
+    projection.snapshot = snapshot
 }
 
 function getOrCreateRecord(

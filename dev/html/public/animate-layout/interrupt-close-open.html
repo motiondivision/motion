@@ -1,0 +1,135 @@
+<html>
+    <head>
+        <style>
+            body {
+                padding: 40px;
+                margin: 0;
+                background: #1a1a1a;
+                color: #fff;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            }
+
+            #card {
+                width: 180px;
+                height: 130px;
+                background: #2a2a2a;
+                border-radius: 16px;
+            }
+
+            #modal {
+                position: fixed;
+                top: 60px;
+                left: 60px;
+                width: 440px;
+                height: 320px;
+                background: #333;
+                border-radius: 24px;
+            }
+
+            [data-layout-correct="false"] {
+                background: #dd1144 !important;
+                opacity: 0.5;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="card" data-layout-id="card"></div>
+
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module" src="/src/imports/script-assert.js"></script>
+        <script type="module">
+            const { animateLayout, frame } = window.AnimateLayout
+            const { showError } = window.Assert
+            const card = document.getElementById("card")
+
+            function createModal() {
+                if (document.getElementById("modal")) return
+                const modal = document.createElement("div")
+                modal.id = "modal"
+                modal.setAttribute("data-layout-id", "card")
+                document.body.appendChild(modal)
+            }
+
+            function removeModal() {
+                const modal = document.getElementById("modal")
+                if (modal) modal.remove()
+            }
+
+            function getCenter(bounds) {
+                return {
+                    x: bounds.left + bounds.width / 2,
+                    y: bounds.top + bounds.height / 2,
+                }
+            }
+
+            async function runTest() {
+                const openControls = await animateLayout(
+                    () => createModal(),
+                    { duration: 0.5, ease: "linear" }
+                )
+                await openControls.finished
+
+                const closeControls = await animateLayout(
+                    () => removeModal(),
+                    { duration: 2, ease: "linear" }
+                )
+
+                closeControls.pause()
+                closeControls.time = closeControls.duration * 0.35
+                await new Promise((resolve) => frame.postRender(resolve))
+
+                const cardBoundsAtInterrupt = card.getBoundingClientRect()
+
+                const interruptControls = await animateLayout(
+                    () => createModal(),
+                    { duration: 2, ease: "linear" }
+                )
+
+                await new Promise((resolve) => frame.postRender(resolve))
+
+                const modal = document.getElementById("modal")
+                const modalBoundsAtStart = modal.getBoundingClientRect()
+
+                const startDelta = Math.hypot(
+                    modalBoundsAtStart.left - cardBoundsAtInterrupt.left,
+                    modalBoundsAtStart.top - cardBoundsAtInterrupt.top
+                )
+
+                if (startDelta > 2) {
+                    showError(
+                        modal,
+                        `Modal should start from card's visual position. Δ=${startDelta.toFixed(
+                            2
+                        )}px`
+                    )
+                    return
+                }
+
+                interruptControls.pause()
+                interruptControls.time = interruptControls.duration * 0.5
+                await new Promise((resolve) => frame.postRender(resolve))
+
+                const modalBoundsMid = modal.getBoundingClientRect()
+                const cardBoundsMid = card.getBoundingClientRect()
+                const modalCenter = getCenter(modalBoundsMid)
+                const cardCenter = getCenter(cardBoundsMid)
+
+                const centerDelta = Math.hypot(
+                    modalCenter.x - cardCenter.x,
+                    modalCenter.y - cardCenter.y
+                )
+
+                if (centerDelta > 2) {
+                    showError(
+                        modal,
+                        `Modal and card should stay aligned. Center Δ=${centerDelta.toFixed(
+                            2
+                        )}px`
+                    )
+                }
+            }
+
+            runTest().catch(console.error)
+        </script>
+    </body>
+</html>
