@@ -7,8 +7,8 @@ export const DocumentProjectionNode = createProjectionNode<Window>({
         notify: VoidFunction
     ): VoidFunction => addDomEvent(ref, "resize", notify),
     measureScroll: () => ({
-        x: document.documentElement.scrollLeft || document.body.scrollLeft,
-        y: document.documentElement.scrollTop || document.body.scrollTop,
+        x: document.documentElement.scrollLeft || document.body?.scrollLeft || 0,
+        y: document.documentElement.scrollTop || document.body?.scrollTop || 0,
     }),
     checkIsScrollRoot: () => true,
 })
