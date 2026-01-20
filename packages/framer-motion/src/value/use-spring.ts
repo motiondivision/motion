@@ -1,16 +1,7 @@
 "use client"
 
-import {
-    AnyResolvedKeyframe,
-    attachSpring,
-    isMotionValue,
-    MotionValue,
-    SpringOptions,
-} from "motion-dom"
-import { useContext, useInsertionEffect } from "react"
-import { MotionConfigContext } from "../context/MotionConfigContext"
-import { useMotionValue } from "./use-motion-value"
-import { useTransform } from "./use-transform"
+import { MotionValue, SpringOptions } from "motion-dom"
+import { useFollowValue } from "./use-follow-value"
 
 /**
  * Creates a `MotionValue` that, when `set`, will use a spring animation to animate to its new state.
@@ -48,22 +39,8 @@ export function useSpring(
     options?: SpringOptions
 ): MotionValue<number>
 export function useSpring(
-    source: MotionValue<string> | MotionValue<number> | AnyResolvedKeyframe,
+    source: MotionValue<string> | MotionValue<number> | string | number,
     options: SpringOptions = {}
-) {
-    const { isStatic } = useContext(MotionConfigContext)
-    const getFromSource = () => (isMotionValue(source) ? source.get() : source)
-
-    // isStatic will never change, allowing early hooks return
-    if (isStatic) {
-        return useTransform(getFromSource)
-    }
-
-    const value = useMotionValue(getFromSource())
-
-    useInsertionEffect(() => {
-        return attachSpring(value, source, options)
-    }, [value, JSON.stringify(options)])
-
-    return value
+): MotionValue<string> | MotionValue<number> {
+    return useFollowValue(source as any, { type: "spring", ...options })
 }
