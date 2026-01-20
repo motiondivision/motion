@@ -2,7 +2,6 @@ import {
     addValueToWillChange,
     animateMotionValue,
     calcLength,
-    cancelFrame,
     convertBoundingBoxToBox,
     convertBoxToBoundingBox,
     createBox,
@@ -75,12 +74,12 @@ export class VisualElementDragControls {
      * The current screen-space offset from origin.
      * Stored so we can recalculate local position each frame when parent rotates.
      */
-    private currentScreenSpaceOffset: Point = { x: 0, y: 0 }
+    private lastScreenOffset: Point = { x: 0, y: 0 }
 
     /**
-     * The frame update callback, stored so we can cancel it.
+     * The last rotation value, used to detect rotation changes.
      */
-    private frameUpdateCallback: (() => void) | null = null
+    private lastParentRotation: number = 0
 
     /**
      * The permitted boundaries of travel, in pixels.
@@ -195,8 +194,9 @@ export class VisualElementDragControls {
             const { animationState } = this.visualElement
             animationState && animationState.setActive("whileDrag", true)
 
-            // Start frame update loop to handle animated parent rotations
-            this.startFrameUpdate()
+            // Initialize tracking for rotation-aware drag
+            this.lastScreenOffset = { x: 0, y: 0 }
+            this.lastParentRotation = this.getParentRotation()
         }
 
         const onMove = (event: PointerEvent, info: PanInfo) => {
@@ -226,11 +226,18 @@ export class VisualElementDragControls {
                 return
             }
 
-            // Store the screen-space offset for the frame update loop
-            this.currentScreenSpaceOffset = offset
+            // Calculate the screen-space delta since last move
+            const screenDelta = {
+                x: offset.x - this.lastScreenOffset.x,
+                y: offset.y - this.lastScreenOffset.y,
+            }
 
-            // Apply position update immediately (frame loop will also update for animated parents)
-            this.updateDragPosition()
+            // Transform delta using current rotation and apply
+            const transformedDelta = this.applyParentRotation(screenDelta)
+            this.applyDelta(transformedDelta)
+
+            // Store current offset for next move
+            this.lastScreenOffset = { x: offset.x, y: offset.y }
 
             /**
              * This must fire after the render call as it might trigger a state
@@ -304,9 +311,6 @@ export class VisualElementDragControls {
     cancel() {
         this.isDragging = false
 
-        // Stop the frame update loop
-        this.stopFrameUpdate()
-
         const { projection, animationState } = this.visualElement
 
         if (projection) {
@@ -348,52 +352,48 @@ export class VisualElementDragControls {
     }
 
     /**
-     * Update drag position based on current screen-space offset and parent rotation.
-     * Called both from onMove and from the frame update loop.
+     * Apply a delta to the current drag position.
      */
-    private updateDragPosition() {
-        // Transform offset to account for parent rotation
-        const transformedOffset = this.applyParentRotation(
-            this.currentScreenSpaceOffset
-        )
+    private applyDelta(delta: Point) {
+        const { drag } = this.getProps()
 
-        // Update each point with the latest position
-        this.updateAxis("x", { x: 0, y: 0 }, transformedOffset)
-        this.updateAxis("y", { x: 0, y: 0 }, transformedOffset)
+        eachAxis((axis: "x" | "y") => {
+            if (!shouldDrag(axis, drag, this.currentDirection)) return
 
-        /**
-         * Ideally we would leave the renderer to fire naturally at the end of
-         * this frame but if the element is about to change layout as the result
-         * of a re-render we want to ensure the browser can read the latest
-         * bounding box to ensure the pointer and element don't fall out of sync.
-         */
+            const axisValue = this.getAxisMotionValue(axis)
+            let next = (axisValue.get() as number) + delta[axis]
+
+            // Apply constraints
+            if (this.constraints && this.constraints[axis]) {
+                next = applyConstraints(
+                    next,
+                    this.constraints[axis],
+                    this.elastic[axis]
+                )
+            }
+
+            axisValue.set(next)
+        })
+
         this.visualElement.render()
     }
 
     /**
-     * Start a frame update loop to continuously update drag position.
-     * This handles cases where the parent is animating (e.g., rotating).
+     * Get the cumulative rotation from all parent elements.
      */
-    private startFrameUpdate() {
-        const updateFrame = () => {
-            if (!this.isDragging) return
+    private getParentRotation(): number {
+        const { projection } = this.visualElement
+        if (!projection) return 0
 
-            this.updateDragPosition()
-            frame.update(updateFrame)
+        let totalRotation = 0
+        const path = projection.path
+        for (let i = 0; i < path.length; i++) {
+            const { latestValues } = path[i]
+            if (latestValues.rotate && typeof latestValues.rotate === "number") {
+                totalRotation += latestValues.rotate
+            }
         }
-
-        this.frameUpdateCallback = updateFrame
-        frame.update(updateFrame)
-    }
-
-    /**
-     * Stop the frame update loop.
-     */
-    private stopFrameUpdate() {
-        if (this.frameUpdateCallback) {
-            cancelFrame(this.frameUpdateCallback)
-            this.frameUpdateCallback = null
-        }
+        return totalRotation
     }
 
     /**
@@ -402,19 +402,7 @@ export class VisualElementDragControls {
      * needs to be transformed to the element's local coordinate space.
      */
     private applyParentRotation(offset: Point): Point {
-        const { projection } = this.visualElement
-        if (!projection) return offset
-
-        // Calculate cumulative rotation from all ancestors
-        let totalRotation = 0
-        const path = projection.path
-        for (let i = 0; i < path.length; i++) {
-            const { latestValues } = path[i]
-            // Accumulate 2D rotation (rotate or rotateZ)
-            if (latestValues.rotate && typeof latestValues.rotate === "number") {
-                totalRotation += latestValues.rotate
-            }
-        }
+        const totalRotation = this.getParentRotation()
 
         // If no rotation, return original offset
         if (totalRotation === 0) return offset
