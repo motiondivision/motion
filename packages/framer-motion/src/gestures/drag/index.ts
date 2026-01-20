@@ -40,5 +40,11 @@ export class DragGesture extends Feature<HTMLElement> {
     unmount() {
         this.removeGroupControls()
         this.removeListeners()
+        /**
+         * Only clean up the pan session if one exists. We use endPanSession()
+         * instead of cancel() because cancel() also modifies projection animation
+         * state and drag locks, which could interfere with nested drag scenarios.
+         */
+        this.controls.endPanSession()
     }
 }

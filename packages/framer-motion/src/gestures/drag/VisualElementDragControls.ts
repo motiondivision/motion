@@ -299,8 +299,7 @@ export class VisualElementDragControls {
             projection.isAnimationBlocked = false
         }
 
-        this.panSession && this.panSession.end()
-        this.panSession = undefined
+        this.endPanSession()
 
         const { dragPropagation } = this.getProps()
 
@@ -310,6 +309,17 @@ export class VisualElementDragControls {
         }
 
         animationState && animationState.setActive("whileDrag", false)
+    }
+
+    /**
+     * Clean up the pan session without modifying other drag state.
+     * This is used during unmount to ensure event listeners are removed
+     * without affecting projection animations or drag locks.
+     * @internal
+     */
+    endPanSession() {
+        this.panSession && this.panSession.end()
+        this.panSession = undefined
     }
 
     private updateAxis(axis: DragDirection, _point: Point, offset?: Point) {

@@ -6,7 +6,7 @@ import {
     MotionValue,
     useWillChange,
 } from "../../../"
-import { pointerDown, render } from "../../../jest.setup"
+import { pointerDown, pointerMove, render } from "../../../jest.setup"
 import { WillChangeMotionValue } from "../../../value/use-will-change/WillChangeMotionValue"
 import { nextFrame } from "../../__tests__/utils"
 import { deferred, drag, dragFrame, MockDrag, Point, sleep } from "./utils"
@@ -937,6 +937,43 @@ describe("dragging", () => {
         expect(container.firstChild).toHaveStyle(
             "transform: translateX(105px) translateY(0px)"
         )
+    })
+
+    test("cleans up pan session event listeners when unmounting during active gesture", async () => {
+        const x = motionValue(0)
+        const y = motionValue(0)
+        const Component = () => (
+            <MockDrag>
+                <motion.div drag style={{ x, y }} data-testid="draggable" />
+            </MockDrag>
+        )
+
+        const { getByTestId, rerender, unmount } = render(<Component />)
+        rerender(<Component />)
+
+        // Start drag - this creates a PanSession with window event listeners
+        const element = getByTestId("draggable")
+        pointerDown(element)
+
+        await nextFrame()
+
+        // Track if window listeners exist by counting pointermove handlers
+        // We'll fire a pointermove and check if x changed (it shouldn't after unmount)
+        const xBefore = x.get()
+
+        // Unmount while gesture is active
+        unmount()
+
+        await nextFrame()
+
+        // Fire pointermove on window - should not affect anything since listeners should be cleaned up
+        // If listeners weren't cleaned up, this could cause errors or memory leaks
+        pointerMove(document.body)
+
+        await nextFrame()
+
+        // x should still be the same since component unmounted
+        expect(x.get()).toBe(xBefore)
     })
 })
 
