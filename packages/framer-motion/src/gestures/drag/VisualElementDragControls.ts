@@ -2,6 +2,7 @@ import {
     addValueToWillChange,
     animateMotionValue,
     calcLength,
+    cancelFrame,
     convertBoundingBoxToBox,
     convertBoxToBoundingBox,
     createBox,
@@ -69,6 +70,17 @@ export class VisualElementDragControls {
     private currentDirection: DragDirection | null = null
 
     private originPoint: Point = { x: 0, y: 0 }
+
+    /**
+     * The current screen-space offset from origin.
+     * Stored so we can recalculate local position each frame when parent rotates.
+     */
+    private currentScreenSpaceOffset: Point = { x: 0, y: 0 }
+
+    /**
+     * The frame update callback, stored so we can cancel it.
+     */
+    private frameUpdateCallback: (() => void) | null = null
 
     /**
      * The permitted boundaries of travel, in pixels.
@@ -182,6 +194,9 @@ export class VisualElementDragControls {
 
             const { animationState } = this.visualElement
             animationState && animationState.setActive("whileDrag", true)
+
+            // Start frame update loop to handle animated parent rotations
+            this.startFrameUpdate()
         }
 
         const onMove = (event: PointerEvent, info: PanInfo) => {
@@ -211,20 +226,11 @@ export class VisualElementDragControls {
                 return
             }
 
-            // Transform offset to account for parent rotation
-            const transformedOffset = this.applyParentRotation(offset)
+            // Store the screen-space offset for the frame update loop
+            this.currentScreenSpaceOffset = offset
 
-            // Update each point with the latest position
-            this.updateAxis("x", info.point, transformedOffset)
-            this.updateAxis("y", info.point, transformedOffset)
-
-            /**
-             * Ideally we would leave the renderer to fire naturally at the end of
-             * this frame but if the element is about to change layout as the result
-             * of a re-render we want to ensure the browser can read the latest
-             * bounding box to ensure the pointer and element don't fall out of sync.
-             */
-            this.visualElement.render()
+            // Apply position update immediately (frame loop will also update for animated parents)
+            this.updateDragPosition()
 
             /**
              * This must fire after the render call as it might trigger a state
@@ -298,6 +304,9 @@ export class VisualElementDragControls {
     cancel() {
         this.isDragging = false
 
+        // Stop the frame update loop
+        this.stopFrameUpdate()
+
         const { projection, animationState } = this.visualElement
 
         if (projection) {
@@ -336,6 +345,55 @@ export class VisualElementDragControls {
         }
 
         axisValue.set(next)
+    }
+
+    /**
+     * Update drag position based on current screen-space offset and parent rotation.
+     * Called both from onMove and from the frame update loop.
+     */
+    private updateDragPosition() {
+        // Transform offset to account for parent rotation
+        const transformedOffset = this.applyParentRotation(
+            this.currentScreenSpaceOffset
+        )
+
+        // Update each point with the latest position
+        this.updateAxis("x", { x: 0, y: 0 }, transformedOffset)
+        this.updateAxis("y", { x: 0, y: 0 }, transformedOffset)
+
+        /**
+         * Ideally we would leave the renderer to fire naturally at the end of
+         * this frame but if the element is about to change layout as the result
+         * of a re-render we want to ensure the browser can read the latest
+         * bounding box to ensure the pointer and element don't fall out of sync.
+         */
+        this.visualElement.render()
+    }
+
+    /**
+     * Start a frame update loop to continuously update drag position.
+     * This handles cases where the parent is animating (e.g., rotating).
+     */
+    private startFrameUpdate() {
+        const updateFrame = () => {
+            if (!this.isDragging) return
+
+            this.updateDragPosition()
+            frame.update(updateFrame)
+        }
+
+        this.frameUpdateCallback = updateFrame
+        frame.update(updateFrame)
+    }
+
+    /**
+     * Stop the frame update loop.
+     */
+    private stopFrameUpdate() {
+        if (this.frameUpdateCallback) {
+            cancelFrame(this.frameUpdateCallback)
+            this.frameUpdateCallback = null
+        }
     }
 
     /**
