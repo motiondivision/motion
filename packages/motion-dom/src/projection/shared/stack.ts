@@ -53,14 +53,6 @@ export class NodeStack {
 
         if (node === prevLead) return
 
-        console.log("[projection] promote", {
-            layoutId: node.options.layoutId,
-            node: node.id,
-            prevLead: prevLead?.id,
-            prevLeadSnapshot: Boolean(prevLead?.snapshot),
-            prevLeadResumeFrom: Boolean(prevLead?.resumeFrom),
-        })
-
         this.prevLead = prevLead
         this.lead = node
 
