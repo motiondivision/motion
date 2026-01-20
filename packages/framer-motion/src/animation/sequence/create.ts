@@ -109,7 +109,7 @@ export function createAnimationsFromSequence(
             const {
                 delay = 0,
                 times = defaultOffset(valueKeyframesAsList),
-                type = "keyframes",
+                type = defaultTransition.type || "keyframes",
                 repeat,
                 repeatType,
                 repeatDelay = 0,
@@ -151,7 +151,10 @@ export function createAnimationsFromSequence(
                     absoluteDelta = Math.abs(delta)
                 }
 
-                const springTransition = { ...remainingTransition }
+                const springTransition = {
+                    ...defaultTransition,
+                    ...remainingTransition,
+                }
                 if (duration !== undefined) {
                     springTransition.duration = secondsToMilliseconds(duration)
                 }
