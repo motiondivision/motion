@@ -19,7 +19,7 @@ function testNestedDrag(parentLayout: boolean, childLayout: boolean) {
     if (childLayout) url += `&childLayout=true`
 
     cy.visit(url)
-        .wait(50)
+        .wait(200)
         .get("#parent")
         .should(([$parent]: any) => {
             expectBbox($parent, {
@@ -128,7 +128,7 @@ function testNestedDrag(parentLayout: boolean, childLayout: boolean) {
         })
         .get("#parent")
         .trigger("pointerdown", 5, 5)
-        .wait(20)
+        .wait(50)
         .trigger("pointermove", 10, 10) // Gesture will start from first move past threshold
         .wait(50)
         .trigger("pointermove", 50, 50)
@@ -174,6 +174,7 @@ function testNestedDragConstraints(
     if (childLayout) url += `&childLayout=true`
 
     cy.visit(url)
+        .wait(200)
         .get("#parent")
         .trigger("pointerdown", 40, 40)
         .wait(50)
@@ -280,6 +281,7 @@ function testNestedDragConstraintsAndAnimation(
     if (parentLayout) url += `&parentLayout=true`
     if (childLayout) url += `&childLayout=true`
     cy.visit(url)
+        .wait(200)
         .get("#parent")
         .trigger("pointerdown", 5, 10)
         .wait(50)
@@ -367,7 +369,7 @@ function testAlternateAxes(parentLayout: boolean, childLayout: boolean) {
     if (childLayout) url += `&childLayout=true`
     return cy
         .visit(url)
-        .wait(50)
+        .wait(200)
         .get("#child")
         .trigger("pointerdown", 5, 5, { force: true })
         .wait(50)
