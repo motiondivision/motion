@@ -4,6 +4,16 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.27.4] 2026-01-20
+
+### Added
+
+-   `AnimatePresence`: `anchorY` for vertically positioning popped children.
+
+### Fixed
+
+-   Fixed path drawing animations in zoomed Safari contexts by switching to unitless values.
+
 ## [12.27.3] 2026-01-20
 
 ### Fixed
