@@ -10,12 +10,12 @@ export const App = () => {
         const animation = animateMini(
             ref.current,
             { width: 200 },
-            { duration: 0.2 }
+            { duration: 2 }
         )
 
         setTimeout(() => {
             animation.pause()
-        }, 100)
+        }, 200)
 
         return () => animation.cancel()
     }, [])
