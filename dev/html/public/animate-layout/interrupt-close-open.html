@@ -243,7 +243,7 @@
                     { duration: 1, ease: "linear" }
                 )
 
-                closeControls.time = 0.5
+                closeControls.time = 0.05
                 closeControls.pause()
 
                 await new Promise((resolve) => frame.postRender(resolve))
@@ -263,7 +263,7 @@
                     document.querySelector(".card-content-container .card-content").getBoundingClientRect(),1
                 )
 
-                interruptControls.time = 1
+                interruptControls.time = 1.7
 
                 await new Promise((resolve) => frame.postRender(resolve))
 
