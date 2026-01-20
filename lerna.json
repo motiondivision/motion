@@ -1,5 +1,5 @@
 {
-  "version": "12.27.3-alpha.1",
+  "version": "12.27.3-alpha.2",
   "packages": [
     "packages/*",
     "dev/*"
