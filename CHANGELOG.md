@@ -4,6 +4,13 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.27.5] 2026-01-20
+
+### Fixed
+
+-   Ensure pen gesture is correctly cleaned up on drag cancel.
+-   Fix edge case where `DocumentProjectionNode`'s attached element was `null`.
+
 ## [12.27.4] 2026-01-20
 
 ### Added
