@@ -15,11 +15,17 @@ function addSVGPathValue(
     frame.render(() => element.setAttribute("pathLength", "1"))
 
     if (key === "pathOffset") {
-        return state.set(key, value, () => {
-            // Use unitless value to avoid Safari zoom bug
-            const offset = state.latest[key]
-            element.setAttribute("stroke-dashoffset", `${-offset}`)
-        })
+        return state.set(
+            key,
+            value,
+            () => {
+                // Use unitless value to avoid Safari zoom bug
+                const offset = state.latest[key]
+                element.setAttribute("stroke-dashoffset", `${-offset}`)
+            },
+            undefined,
+            false
+        )
     } else {
         if (!state.get("stroke-dasharray")) {
             state.set("stroke-dasharray", new MotionValue("1 1"), () => {
@@ -33,7 +39,13 @@ function addSVGPathValue(
             })
         }
 
-        return state.set(key, value, undefined, state.get("stroke-dasharray"))
+        return state.set(
+            key,
+            value,
+            undefined,
+            state.get("stroke-dasharray"),
+            false
+        )
     }
 }
 
