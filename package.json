@@ -15,7 +15,7 @@
         "dev-server": "turbo run dev-server",
         "lint": "turbo run lint",
         "test": "turbo run test",
-        "test-playwright": "yarn playwright test",
+        "test-playwright": "turbo run build && yarn playwright test",
         "test-ci": "turbo run test-ci --no-cache",
         "measure": "turbo run measure --force && node dev/inc/bundlesize.mjs",
         "version": "yarn install && git stage yarn.lock",
