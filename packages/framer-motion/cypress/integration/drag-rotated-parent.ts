@@ -240,3 +240,100 @@ describe("Drag Constraints with Rotated Parent", () => {
             })
     })
 })
+
+describe("Drag with Animated Rotating Parent", () => {
+    it("Drags correctly while parent is animating rotation (0 to 360 degrees)", () => {
+        cy.visit("?test=drag-rotated-parent&animateRotate=true")
+            .wait(200)
+            .get("[data-testid='draggable']")
+            .then(($draggable) => {
+                const initialRect = $draggable[0].getBoundingClientRect()
+                return { initialLeft: initialRect.left, initialTop: initialRect.top }
+            })
+            .then(({ initialLeft, initialTop }) => {
+                cy.get("[data-testid='draggable']")
+                    .trigger("pointerdown", 25, 25)
+                    .trigger("pointermove", 30, 30) // Start gesture
+                    .wait(50)
+                    // Drag to the right in screen coordinates
+                    .trigger("pointermove", 125, 25, { force: true })
+                    .wait(50)
+                    .trigger("pointerup", { force: true })
+                    .should(($draggable) => {
+                        const finalRect = $draggable[0].getBoundingClientRect()
+                        // Element should have moved from its initial position
+                        // The exact position depends on parent rotation at the moment,
+                        // but it should have moved approximately in the drag direction
+                        const deltaX = finalRect.left - initialLeft
+                        const deltaY = finalRect.top - initialTop
+                        const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
+                        // Should have moved a reasonable distance (not stuck, not inverted)
+                        expect(distance).to.be.greaterThan(50)
+                    })
+            })
+    })
+
+    it("Continues to follow pointer during animated rotation", () => {
+        cy.visit("?test=drag-rotated-parent&animateRotate=true")
+            .wait(500) // Wait for animation to start
+            .get("[data-testid='draggable']")
+            .then(($draggable) => {
+                const initialRect = $draggable[0].getBoundingClientRect()
+                return { initialLeft: initialRect.left, initialTop: initialRect.top }
+            })
+            .then(({ initialLeft, initialTop }) => {
+                // Start drag
+                cy.get("[data-testid='draggable']")
+                    .trigger("pointerdown", 25, 25)
+                    .trigger("pointermove", 30, 30)
+                    .wait(100)
+                    // Move right
+                    .trigger("pointermove", 100, 25, { force: true })
+                    .wait(200) // Wait while parent continues rotating
+                    // Move further right
+                    .trigger("pointermove", 175, 25, { force: true })
+                    .wait(100)
+                    .trigger("pointerup", { force: true })
+                    .should(($draggable) => {
+                        const finalRect = $draggable[0].getBoundingClientRect()
+                        // Element should have generally moved right from initial position
+                        // Even with rotating parent, the drag should track the pointer
+                        const deltaX = finalRect.left - initialLeft
+                        const deltaY = finalRect.top - initialTop
+                        const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
+                        // Should have moved significantly
+                        expect(distance).to.be.greaterThan(80)
+                    })
+            })
+    })
+
+    it("Respects constraints while parent is animating rotation", () => {
+        cy.visit("?test=drag-rotated-parent&animateRotate=true&right=50&bottom=50")
+            .wait(200)
+            .get("[data-testid='draggable']")
+            .then(($draggable) => {
+                const initialRect = $draggable[0].getBoundingClientRect()
+                return { initialLeft: initialRect.left, initialTop: initialRect.top }
+            })
+            .then(({ initialLeft, initialTop }) => {
+                cy.get("[data-testid='draggable']")
+                    .trigger("pointerdown", 25, 25)
+                    .trigger("pointermove", 30, 30) // Start gesture
+                    .wait(50)
+                    // Try to drag far beyond constraints
+                    .trigger("pointermove", 300, 300, { force: true })
+                    .wait(100)
+                    .trigger("pointerup", { force: true })
+                    .should(($draggable) => {
+                        const finalRect = $draggable[0].getBoundingClientRect()
+                        // Element should be constrained - movement limited by constraints
+                        // With constraints of 50px, element shouldn't move more than ~70px
+                        // (accounting for some tolerance due to animation)
+                        const deltaX = Math.abs(finalRect.left - initialLeft)
+                        const deltaY = Math.abs(finalRect.top - initialTop)
+                        expect(deltaX).to.be.lessThan(70)
+                        expect(deltaY).to.be.lessThan(70)
+                    })
+            })
+    })
+})

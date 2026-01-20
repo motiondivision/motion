@@ -10,11 +10,16 @@ import { motion } from "framer-motion"
 export const App = () => {
     const params = new URLSearchParams(window.location.search)
     const rotate = parseFloat(params.get("rotate") || "0")
+    const animateRotate = params.get("animateRotate") === "true"
     const top = parseFloat(params.get("top")) || undefined
     const left = parseFloat(params.get("left")) || undefined
     const right = parseFloat(params.get("right")) || undefined
     const bottom = parseFloat(params.get("bottom")) || undefined
-    const hasConstraints = top !== undefined || left !== undefined || right !== undefined || bottom !== undefined
+    const hasConstraints =
+        top !== undefined ||
+        left !== undefined ||
+        right !== undefined ||
+        bottom !== undefined
 
     return (
         <motion.div
@@ -24,12 +29,26 @@ export const App = () => {
                 width: 300,
                 height: 300,
                 background: "#eee",
-                rotate,
                 transformOrigin: "center center",
                 position: "absolute",
                 top: 100,
                 left: 100,
             }}
+            initial={{ rotate: animateRotate ? 0 : rotate }}
+            animate={
+                animateRotate
+                    ? { rotate: 360 }
+                    : undefined
+            }
+            transition={
+                animateRotate
+                    ? {
+                          duration: 10,
+                          ease: "linear",
+                          repeat: Infinity,
+                      }
+                    : undefined
+            }
         >
             <motion.div
                 id="draggable"
@@ -37,7 +56,9 @@ export const App = () => {
                 drag
                 dragElastic={0}
                 dragMomentum={false}
-                dragConstraints={hasConstraints ? { top, left, right, bottom } : undefined}
+                dragConstraints={
+                    hasConstraints ? { top, left, right, bottom } : undefined
+                }
                 style={{
                     width: 50,
                     height: 50,
