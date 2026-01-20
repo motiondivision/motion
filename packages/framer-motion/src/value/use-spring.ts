@@ -41,6 +41,6 @@ export function useSpring(
 export function useSpring(
     source: MotionValue<string> | MotionValue<number> | string | number,
     options: SpringOptions = {}
-) {
+): MotionValue<string> | MotionValue<number> {
     return useFollowValue(source as any, { type: "spring", ...options })
 }
