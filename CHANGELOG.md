@@ -4,6 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.27.2] 2026-01-20
+
+### Fixed
+
+-   Adding sourcemaps to `motion-dom` and `motion-utils`.
+
 ## [12.27.1] 2026-01-19
 
 ### Fixed
