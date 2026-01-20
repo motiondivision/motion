@@ -185,7 +185,7 @@ function runTests(render: (components: any) => string) {
         )
 
         expect(circle).toBe(
-            '<circle cx="100" stroke-width="10" pathLength="1" stroke-dashoffset="0px" stroke-dasharray="0.5px 1px" style="background:#fff;transform:translateX(100px);transform-origin:50% 50%;transform-box:fill-box"></circle>'
+            '<circle cx="100" stroke-width="10" pathLength="1" stroke-dashoffset="0" stroke-dasharray="0.5 1" style="background:#fff;transform:translateX(100px);transform-origin:50% 50%;transform-box:fill-box"></circle>'
         )
         const rect = render(
             <AnimatePresence>
