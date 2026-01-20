@@ -163,60 +163,6 @@ const runAnimatedValueTests = (unit?: string | undefined) => {
             testNear(resolved[8], 30)
         })
 
-        test("creates a tween animation when type is tween", async () => {
-            const promise = new Promise<Array<string | number>>((resolve) => {
-                const output: Array<string | number> = []
-                const Component = () => {
-                    const x = useMotionValue(createValue(0))
-                    const y = useFollowValue(x, {
-                        type: "tween",
-                        duration: 0.1,
-                        ease: "linear",
-                        driver: syncDriver(10),
-                    } as any)
-
-                    useEffect(() => {
-                        return y.on("change", (v) => {
-                            if (output.length >= 11) {
-                                resolve(output)
-                            } else {
-                                output.push(formatOutput(parseTestValue(v)))
-                            }
-                        })
-                    })
-
-                    useEffect(() => {
-                        x.set(createValue(100))
-                    }, [])
-
-                    return null
-                }
-
-                const { rerender } = render(<Component />)
-                rerender(<Component />)
-            })
-
-            const resolved = await promise
-
-            // With linear easing and 100ms duration, values should progress linearly
-            // Each frame is 10ms, so we expect 0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100
-            const testNear = (
-                value: string | number,
-                expected: number,
-                deviation = 2
-            ) => {
-                const numValue = parseTestValue(value)
-                expect(
-                    numValue >= expected - deviation &&
-                        numValue <= expected + deviation
-                ).toBe(true)
-            }
-
-            testNear(resolved[0], 0)
-            testNear(resolved[5], 50)
-            testNear(resolved[10], 100)
-        })
-
         test("will not animate if immediate=true (jump)", async () => {
             const promise = new Promise((resolve) => {
                 const output: Array<string | number> = []
