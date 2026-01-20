@@ -10,6 +10,11 @@ import { motion } from "framer-motion"
 export const App = () => {
     const params = new URLSearchParams(window.location.search)
     const rotate = parseFloat(params.get("rotate") || "0")
+    const top = parseFloat(params.get("top")) || undefined
+    const left = parseFloat(params.get("left")) || undefined
+    const right = parseFloat(params.get("right")) || undefined
+    const bottom = parseFloat(params.get("bottom")) || undefined
+    const hasConstraints = top !== undefined || left !== undefined || right !== undefined || bottom !== undefined
 
     return (
         <motion.div
@@ -32,6 +37,7 @@ export const App = () => {
                 drag
                 dragElastic={0}
                 dragMomentum={false}
+                dragConstraints={hasConstraints ? { top, left, right, bottom } : undefined}
                 style={{
                     width: 50,
                     height: 50,
