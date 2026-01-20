@@ -9,6 +9,7 @@ Undocumented APIs should be considered internal and may change without warning.
 ### Fixed
 
 -   Adding sourcemaps to `motion-dom` and `motion-utils`.
+-   Fix `Reorder` autoscroll within scrollable pages.
 
 ## [12.27.1] 2026-01-19
 
