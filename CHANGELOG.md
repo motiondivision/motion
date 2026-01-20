@@ -4,6 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.27.3] 2026-01-20
+
+### Fixed
+
+-   Ensure drag gestures trigger from keyboard-accessible elements (`button`, `textarea` etc) if these elements have `drag` applied directly.
+
 ## [12.27.2] 2026-01-20
 
 ### Fixed
