@@ -4,6 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.27.6] 2026-01-20
+
+### Fixed
+
+-   Fix "multiple keyframe" error when using spring animations as default transitions for animation sequences.
+
 ## [12.27.5] 2026-01-20
 
 ### Fixed
