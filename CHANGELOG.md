@@ -4,7 +4,11 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
-## [12.27.6] 2026-01-20
+## [12.28.0] 2026-01-20
+
+### Added
+
+-   `useFollowValue` and `followValue`: `useSpring`-style motion values that can accept any transition.
 
 ### Fixed
 
