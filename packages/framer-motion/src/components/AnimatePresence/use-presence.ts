@@ -32,8 +32,8 @@ type NotPresent = [false, SafeToRemove]
  * }
  * ```
  *
- * If `isPresent` is `false`, it means that a component has been removed the tree, but
- * `AnimatePresence` won't really remove it until `safeToRemove` has been called.
+ * If `isPresent` is `false`, it means that a component has been removed from the tree,
+ * but `AnimatePresence` won't really remove it until `safeToRemove` has been called.
  *
  * @public
  */
