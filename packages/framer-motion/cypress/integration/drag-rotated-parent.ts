@@ -84,7 +84,21 @@ describe("Drag with Rotated Parent", () => {
 })
 
 describe("Drag Constraints with Rotated Parent", () => {
+    /**
+     * NOTE: Constraints are applied in LOCAL coordinate space.
+     * With 180° rotation, screen directions are inverted relative to local:
+     * - Screen right (+X) = Local left (-X)
+     * - Screen left (-X) = Local right (+X)
+     * - Screen down (+Y) = Local up (-Y)
+     * - Screen up (-Y) = Local down (+Y)
+     *
+     * So to test `right: 50` (limits local +X), we drag LEFT in screen space.
+     */
+
     it("Respects right constraint when parent is rotated 180 degrees", () => {
+        // right: 50 limits local +X movement
+        // With 180° rotation, local +X = screen -X (left)
+        // So drag LEFT in screen to test the right constraint
         cy.visit("?test=drag-rotated-parent&rotate=180&right=50")
             .wait(200)
             .get("[data-testid='draggable']")
@@ -95,22 +109,26 @@ describe("Drag Constraints with Rotated Parent", () => {
             .then(({ initialLeft }) => {
                 cy.get("[data-testid='draggable']")
                     .trigger("pointerdown", 25, 25)
-                    .trigger("pointermove", 30, 30) // Start gesture
+                    .trigger("pointermove", 20, 25) // Start gesture going left
                     .wait(50)
-                    // Try to drag far to the right (beyond constraint)
-                    .trigger("pointermove", 300, 25, { force: true })
+                    // Drag far to the LEFT in screen (which is +X in local)
+                    .trigger("pointermove", -200, 25, { force: true })
                     .wait(50)
                     .trigger("pointerup", { force: true })
                     .should(($draggable) => {
                         const finalRect = $draggable[0].getBoundingClientRect()
-                        // Element should be constrained - not move more than 50px right
-                        expect(finalRect.left).to.be.lessThan(initialLeft + 60)
-                        expect(finalRect.left).to.be.greaterThan(initialLeft + 40)
+                        // Element should move left in screen but be constrained
+                        // Should not move more than ~50px left in screen
+                        expect(finalRect.left).to.be.greaterThan(initialLeft - 60)
+                        expect(finalRect.left).to.be.lessThan(initialLeft - 40)
                     })
             })
     })
 
     it("Respects bottom constraint when parent is rotated 180 degrees", () => {
+        // bottom: 50 limits local +Y movement
+        // With 180° rotation, local +Y = screen -Y (up)
+        // So drag UP in screen to test the bottom constraint
         cy.visit("?test=drag-rotated-parent&rotate=180&bottom=50")
             .wait(200)
             .get("[data-testid='draggable']")
@@ -121,22 +139,26 @@ describe("Drag Constraints with Rotated Parent", () => {
             .then(({ initialTop }) => {
                 cy.get("[data-testid='draggable']")
                     .trigger("pointerdown", 25, 25)
-                    .trigger("pointermove", 30, 30) // Start gesture
+                    .trigger("pointermove", 25, 20) // Start gesture going up
                     .wait(50)
-                    // Try to drag far down (beyond constraint)
-                    .trigger("pointermove", 25, 300, { force: true })
+                    // Drag far UP in screen (which is +Y in local)
+                    .trigger("pointermove", 25, -200, { force: true })
                     .wait(50)
                     .trigger("pointerup", { force: true })
                     .should(($draggable) => {
                         const finalRect = $draggable[0].getBoundingClientRect()
-                        // Element should be constrained - not move more than 50px down
-                        expect(finalRect.top).to.be.lessThan(initialTop + 60)
-                        expect(finalRect.top).to.be.greaterThan(initialTop + 40)
+                        // Element should move up in screen but be constrained
+                        // Should not move more than ~50px up in screen
+                        expect(finalRect.top).to.be.greaterThan(initialTop - 60)
+                        expect(finalRect.top).to.be.lessThan(initialTop - 40)
                     })
             })
     })
 
     it("Respects left constraint when parent is rotated 180 degrees", () => {
+        // left: -50 limits local -X movement (allows 50px to the left locally)
+        // With 180° rotation, local -X = screen +X (right)
+        // So drag RIGHT in screen to test the left constraint
         cy.visit("?test=drag-rotated-parent&rotate=180&left=-50")
             .wait(200)
             .get("[data-testid='draggable']")
@@ -147,22 +169,26 @@ describe("Drag Constraints with Rotated Parent", () => {
             .then(({ initialLeft }) => {
                 cy.get("[data-testid='draggable']")
                     .trigger("pointerdown", 25, 25)
-                    .trigger("pointermove", 20, 25) // Start gesture
+                    .trigger("pointermove", 30, 25) // Start gesture going right
                     .wait(50)
-                    // Try to drag far to the left (beyond constraint)
-                    .trigger("pointermove", -200, 25, { force: true })
+                    // Drag far to the RIGHT in screen (which is -X in local)
+                    .trigger("pointermove", 300, 25, { force: true })
                     .wait(50)
                     .trigger("pointerup", { force: true })
                     .should(($draggable) => {
                         const finalRect = $draggable[0].getBoundingClientRect()
-                        // Element should be constrained - not move more than 50px left
-                        expect(finalRect.left).to.be.greaterThan(initialLeft - 60)
-                        expect(finalRect.left).to.be.lessThan(initialLeft - 40)
+                        // Element should move right in screen but be constrained
+                        // Should not move more than ~50px right in screen
+                        expect(finalRect.left).to.be.lessThan(initialLeft + 60)
+                        expect(finalRect.left).to.be.greaterThan(initialLeft + 40)
                     })
             })
     })
 
     it("Respects top constraint when parent is rotated 180 degrees", () => {
+        // top: -50 limits local -Y movement (allows 50px up locally)
+        // With 180° rotation, local -Y = screen +Y (down)
+        // So drag DOWN in screen to test the top constraint
         cy.visit("?test=drag-rotated-parent&rotate=180&top=-50")
             .wait(200)
             .get("[data-testid='draggable']")
@@ -173,17 +199,18 @@ describe("Drag Constraints with Rotated Parent", () => {
             .then(({ initialTop }) => {
                 cy.get("[data-testid='draggable']")
                     .trigger("pointerdown", 25, 25)
-                    .trigger("pointermove", 25, 20) // Start gesture
+                    .trigger("pointermove", 25, 30) // Start gesture going down
                     .wait(50)
-                    // Try to drag far up (beyond constraint)
-                    .trigger("pointermove", 25, -200, { force: true })
+                    // Drag far DOWN in screen (which is -Y in local)
+                    .trigger("pointermove", 25, 300, { force: true })
                     .wait(50)
                     .trigger("pointerup", { force: true })
                     .should(($draggable) => {
                         const finalRect = $draggable[0].getBoundingClientRect()
-                        // Element should be constrained - not move more than 50px up
-                        expect(finalRect.top).to.be.greaterThan(initialTop - 60)
-                        expect(finalRect.top).to.be.lessThan(initialTop - 40)
+                        // Element should move down in screen but be constrained
+                        // Should not move more than ~50px down in screen
+                        expect(finalRect.top).to.be.lessThan(initialTop + 60)
+                        expect(finalRect.top).to.be.greaterThan(initialTop + 40)
                     })
             })
     })
