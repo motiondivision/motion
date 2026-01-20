@@ -1,6 +1,6 @@
 {
     "name": "config",
-    "version": "12.24.10",
+    "version": "12.28.1-alpha.0",
     "main": "index.js",
     "private": true,
     "license": "MIT",
