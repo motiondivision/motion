@@ -660,6 +660,63 @@ describe("AnimatePresence", () => {
         const result = await promise
         return expect(result).toHaveAttribute("data-id", "2")
     })
+
+    test("popLayout mode with anchorY='bottom' preserves bottom positioning", async () => {
+        const ref = createRef<HTMLDivElement>()
+
+        const Component = ({ isVisible }: { isVisible: boolean }) => {
+            return (
+                <div
+                    style={{
+                        position: "relative",
+                        height: "200px",
+                        width: "200px",
+                    }}
+                >
+                    <AnimatePresence mode="popLayout" anchorY="bottom">
+                        {isVisible && (
+                            <motion.div
+                                ref={ref}
+                                style={{
+                                    position: "absolute",
+                                    bottom: 0,
+                                    width: "50px",
+                                    height: "50px",
+                                }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 0.5 }}
+                            />
+                        )}
+                    </AnimatePresence>
+                </div>
+            )
+        }
+
+        const { rerender } = render(<Component isVisible />)
+        rerender(<Component isVisible />)
+
+        await nextFrame()
+
+        // Get initial position (should be at bottom)
+        const initialBottom =
+            ref.current!.parentElement!.offsetHeight -
+            ref.current!.offsetTop -
+            ref.current!.offsetHeight
+
+        await act(async () => {
+            rerender(<Component isVisible={false} />)
+        })
+
+        await nextFrame()
+
+        // After popLayout, element should still be at the same bottom position
+        // Check that the injected style uses bottom positioning
+        const computedStyle = window.getComputedStyle(ref.current!)
+        expect(computedStyle.position).toBe("absolute")
+
+        // The bottom position should be preserved (approximately 0)
+        expect(initialBottom).toBeLessThanOrEqual(1)
+    })
 })
 
 describe("AnimatePresence with custom components", () => {

@@ -13,12 +13,14 @@ interface Size {
     top: number
     left: number
     right: number
+    bottom: number
 }
 
 interface Props {
     children: React.ReactElement
     isPresent: boolean
     anchorX?: "left" | "right"
+    anchorY?: "top" | "bottom"
     root?: HTMLElement | ShadowRoot
 }
 
@@ -39,6 +41,9 @@ class PopChildMeasure extends React.Component<MeasureProps> {
             const parentWidth = isHTMLElement(parent)
                 ? parent.offsetWidth || 0
                 : 0
+            const parentHeight = isHTMLElement(parent)
+                ? parent.offsetHeight || 0
+                : 0
 
             const size = this.props.sizeRef.current!
             size.height = element.offsetHeight || 0
@@ -46,6 +51,7 @@ class PopChildMeasure extends React.Component<MeasureProps> {
             size.top = element.offsetTop
             size.left = element.offsetLeft
             size.right = parentWidth - size.width - size.left
+            size.bottom = parentHeight - size.height - size.top
         }
 
         return null
@@ -61,7 +67,7 @@ class PopChildMeasure extends React.Component<MeasureProps> {
     }
 }
 
-export function PopChild({ children, isPresent, anchorX, root }: Props) {
+export function PopChild({ children, isPresent, anchorX, anchorY, root }: Props) {
     const id = useId()
     const ref = useRef<HTMLElement>(null)
     const size = useRef<Size>({
@@ -70,6 +76,7 @@ export function PopChild({ children, isPresent, anchorX, root }: Props) {
         top: 0,
         left: 0,
         right: 0,
+        bottom: 0,
     })
     const { nonce } = useContext(MotionConfigContext)
     /**
@@ -91,10 +98,11 @@ export function PopChild({ children, isPresent, anchorX, root }: Props) {
      * styles set via the style prop.
      */
     useInsertionEffect(() => {
-        const { width, height, top, left, right } = size.current
+        const { width, height, top, left, right, bottom } = size.current
         if (isPresent || !ref.current || !width || !height) return
 
         const x = anchorX === "left" ? `left: ${left}` : `right: ${right}`
+        const y = anchorY === "bottom" ? `bottom: ${bottom}` : `top: ${top}`
 
         ref.current.dataset.motionPopId = id
 
@@ -111,7 +119,7 @@ export function PopChild({ children, isPresent, anchorX, root }: Props) {
             width: ${width}px !important;
             height: ${height}px !important;
             ${x}px !important;
-            top: ${top}px !important;
+            ${y}px !important;
           }
         `)
         }
