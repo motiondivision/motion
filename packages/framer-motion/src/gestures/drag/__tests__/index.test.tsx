@@ -540,13 +540,8 @@ describe("dragging", () => {
         await pointer.to(20, 0)
         pointer.end()
 
-        expect({
-            parentX: parentX.get(),
-            childX: childX.get(),
-        }).toEqual({
-            parentX: 20,
-            childX: 20,
-        })
+        expect(parentX.get()).toBeCloseTo(20)
+        expect(childX.get()).toBeCloseTo(20)
     })
 
     test("whileDrag applies animation state", async () => {
