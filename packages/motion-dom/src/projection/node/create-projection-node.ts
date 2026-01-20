@@ -76,15 +76,6 @@ const metrics = {
     calculatedProjections: 0,
 }
 
-const logLayout = (...args: any[]) => {
-    console.log("[projection]", ...args)
-}
-
-const serializeBox = (box?: Box): string | undefined =>
-    box
-        ? JSON.stringify(box as any) as string
-        : undefined
-
 const transformAxes = ["", "X", "Y", "Z"]
 
 /**
@@ -707,12 +698,6 @@ export function createProjectionNode<I>({
                 : undefined
 
             this.updateSnapshot()
-            logLayout("snapshot", this.id, {
-                layoutId: this.options.layoutId,
-                hasSnapshot: Boolean(this.snapshot),
-                measuredBox: serializeBox(this.snapshot?.measuredBox),
-                layoutBox: serializeBox(this.snapshot?.layoutBox),
-            })
             shouldNotifyListeners && this.notifyListeners("willUpdate")
         }
 
@@ -906,11 +891,6 @@ export function createProjectionNode<I>({
             this.layoutCorrected = createBox()
             this.isLayoutDirty = false
             this.projectionDelta = undefined
-            logLayout("layout", this.id, {
-                layoutId: this.options.layoutId,
-                measuredBox: serializeBox(this.layout?.measuredBox),
-                layoutBox: serializeBox(this.layout?.layoutBox),
-            })
             this.notifyListeners("measure", this.layout.layoutBox)
 
             const { visualElement } = this.options
