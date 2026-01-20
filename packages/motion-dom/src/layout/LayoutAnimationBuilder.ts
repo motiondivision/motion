@@ -1,3 +1,4 @@
+import type { Box } from "motion-utils"
 import { GroupAnimation } from "../animation/GroupAnimation"
 import type {
   AnimationOptions,
@@ -5,7 +6,8 @@ import type {
   Transition,
 } from "../animation/types"
 import { frame } from "../frameloop"
-import { microtask } from "../frameloop/microtask"
+import { copyBoxInto } from "../projection/geometry/copy"
+import { createBox } from "../projection/geometry/models"
 import { HTMLProjectionNode } from "../projection/node/HTMLProjectionNode"
 import type { IProjectionNode } from "../projection/node/types"
 import { HTMLVisualElement } from "../render/html/HTMLVisualElement"
@@ -45,6 +47,23 @@ interface ProjectionOptions {
 
 const layoutSelector = "[data-layout], [data-layout-id]"
 const noop = () => {}
+function snapshotFromTarget(projection: IProjectionNode): LayoutElementRecord["projection"]["snapshot"] {
+    const target = projection.targetWithTransforms || projection.target
+    if (!target) return undefined
+
+    const measuredBox = createBox()
+    const layoutBox = createBox()
+    copyBoxInto(measuredBox, target as Box)
+    copyBoxInto(layoutBox, target as Box)
+
+    return {
+        animationId: projection.root?.animationId ?? 0,
+        measuredBox,
+        layoutBox,
+        latestValues: projection.animationValues || projection.latestValues || {},
+        source: projection.id,
+    }
+}
 
 export class LayoutAnimationBuilder {
     private scope: LayoutAnimationScope
@@ -69,7 +88,7 @@ export class LayoutAnimationBuilder {
             this.rejectReady = reject
         })
 
-        microtask.read(() => {
+        frame.postRender(() => {
             this.start().then(this.notifyReady).catch(this.rejectReady)
         })
     }
@@ -92,7 +111,21 @@ export class LayoutAnimationBuilder {
         const exitCandidates = collectExitCandidates(beforeRecords)
 
         beforeRecords.forEach(({ projection }) => {
-            seedProjectionSnapshot(projection)
+            const hasCurrentAnimation = Boolean(projection.currentAnimation)
+            const isSharedLayout = Boolean(projection.options.layoutId)
+            if (hasCurrentAnimation && isSharedLayout) {
+                const snapshot = snapshotFromTarget(projection)
+                if (snapshot) {
+                    projection.snapshot = snapshot
+                } else if (projection.snapshot) {
+                    projection.snapshot = undefined
+                }
+            } else if (
+                projection.snapshot &&
+                (projection.currentAnimation || projection.isProjecting())
+            ) {
+                projection.snapshot = undefined
+            }
             projection.isPresent = true
             projection.willUpdate()
         })
@@ -106,6 +139,26 @@ export class LayoutAnimationBuilder {
             afterRecords,
             exitCandidates
         )
+
+        afterRecords.forEach(({ projection }) => {
+            const instance = projection.instance as HTMLElement | undefined
+            const resumeFromInstance = projection.resumeFrom
+                ?.instance as HTMLElement | undefined
+            if (!instance || !resumeFromInstance) return
+            if (!("style" in instance)) return
+
+            const currentTransform = instance.style.transform
+            const resumeFromTransform = resumeFromInstance.style.transform
+
+            if (
+                currentTransform &&
+                resumeFromTransform &&
+                currentTransform === resumeFromTransform
+            ) {
+                instance.style.transform = ""
+                instance.style.transformOrigin = ""
+            }
+        })
 
         afterRecords.forEach(({ projection }) => {
             projection.isPresent = true
@@ -265,23 +318,6 @@ function createVisualState() {
             vars: {},
         },
     }
-}
-
-function seedProjectionSnapshot(projection: IProjectionNode) {
-    const projectionNode = projection as IProjectionNode & {
-        currentAnimation?: unknown
-        pendingAnimation?: unknown
-        animationValues?: Record<string, any>
-    }
-
-    if (!projectionNode.currentAnimation && !projectionNode.pendingAnimation) {
-        return
-    }
-
-    const snapshot = projection.measure(false)
-    snapshot.latestValues =
-        projectionNode.animationValues || projection.latestValues
-    projection.snapshot = snapshot
 }
 
 function getOrCreateRecord(
