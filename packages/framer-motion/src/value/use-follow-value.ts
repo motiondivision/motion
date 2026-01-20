@@ -1,9 +1,9 @@
 "use client"
 
 import {
-    AnimatedValueOptions,
     AnyResolvedKeyframe,
-    attachAnimation,
+    attachFollow,
+    FollowValueOptions,
     isMotionValue,
     MotionValue,
 } from "motion-dom"
@@ -15,7 +15,7 @@ import { useTransform } from "./use-transform"
 /**
  * Creates a `MotionValue` that, when `set`, will use the specified animation transition to animate to its new state.
  *
- * Unlike `useSpring` which is limited to spring animations, `useAnimatedValue` accepts any motion transition
+ * Unlike `useSpring` which is limited to spring animations, `useFollowValue` accepts any motion transition
  * including spring, tween, inertia, and keyframes.
  *
  * It can either work as a stand-alone `MotionValue` by initialising it with a value, or as a subscriber
@@ -25,17 +25,17 @@ import { useTransform } from "./use-transform"
  *
  * ```jsx
  * // Spring animation (default)
- * const x = useAnimatedValue(0, { stiffness: 300 })
+ * const x = useFollowValue(0, { stiffness: 300 })
  *
  * // Tween animation
- * const y = useAnimatedValue(0, { type: "tween", duration: 0.5, ease: "easeOut" })
+ * const y = useFollowValue(0, { type: "tween", duration: 0.5, ease: "easeOut" })
  *
  * // Track another MotionValue with spring
  * const source = useMotionValue(0)
- * const z = useAnimatedValue(source, { type: "spring", damping: 10 })
+ * const z = useFollowValue(source, { type: "spring", damping: 10 })
  *
  * // Inertia animation
- * const w = useAnimatedValue(0, { type: "inertia", velocity: 100 })
+ * const w = useFollowValue(0, { type: "inertia", velocity: 100 })
  * ```
  *
  * @param inputValue - `MotionValue` or number. If provided a `MotionValue`, when the input `MotionValue` changes, the created `MotionValue` will animate towards that value using the specified transition.
@@ -44,25 +44,25 @@ import { useTransform } from "./use-transform"
  *
  * @public
  */
-export function useAnimatedValue(
+export function useFollowValue(
     source: MotionValue<string>,
-    options?: AnimatedValueOptions
+    options?: FollowValueOptions
 ): MotionValue<string>
-export function useAnimatedValue(
+export function useFollowValue(
     source: string,
-    options?: AnimatedValueOptions
+    options?: FollowValueOptions
 ): MotionValue<string>
-export function useAnimatedValue(
+export function useFollowValue(
     source: MotionValue<number>,
-    options?: AnimatedValueOptions
+    options?: FollowValueOptions
 ): MotionValue<number>
-export function useAnimatedValue(
+export function useFollowValue(
     source: number,
-    options?: AnimatedValueOptions
+    options?: FollowValueOptions
 ): MotionValue<number>
-export function useAnimatedValue(
+export function useFollowValue(
     source: MotionValue<string> | MotionValue<number> | AnyResolvedKeyframe,
-    options: AnimatedValueOptions = {}
+    options: FollowValueOptions = {}
 ) {
     const { isStatic } = useContext(MotionConfigContext)
     const getFromSource = () => (isMotionValue(source) ? source.get() : source)
@@ -75,7 +75,7 @@ export function useAnimatedValue(
     const value = useMotionValue(getFromSource())
 
     useInsertionEffect(() => {
-        return attachAnimation(value, source, options)
+        return attachFollow(value, source, options)
     }, [value, JSON.stringify(options)])
 
     return value

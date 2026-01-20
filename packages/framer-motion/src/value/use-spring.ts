@@ -1,7 +1,7 @@
 "use client"
 
 import { MotionValue, SpringOptions } from "motion-dom"
-import { useAnimatedValue } from "./use-animated-value"
+import { useFollowValue } from "./use-follow-value"
 
 /**
  * Creates a `MotionValue` that, when `set`, will use a spring animation to animate to its new state.
@@ -42,5 +42,5 @@ export function useSpring(
     source: MotionValue<string> | MotionValue<number> | string | number,
     options: SpringOptions = {}
 ) {
-    return useAnimatedValue(source as any, { type: "spring", ...options })
+    return useFollowValue(source as any, { type: "spring", ...options })
 }

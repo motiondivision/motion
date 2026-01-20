@@ -1,6 +1,6 @@
 import { MotionValue } from "."
 import { AnyResolvedKeyframe, SpringOptions } from "../animation/types"
-import { animatedValue, attachAnimation } from "./animated-value"
+import { attachFollow, followValue } from "./follow-value"
 
 /**
  * Create a `MotionValue` that animates to its latest value using a spring.
@@ -21,7 +21,7 @@ export function springValue<T extends AnyResolvedKeyframe>(
     source: T | MotionValue<T>,
     options?: SpringOptions
 ) {
-    return animatedValue(source, { type: "spring", ...options })
+    return followValue(source, { type: "spring", ...options })
 }
 
 /**
@@ -39,5 +39,5 @@ export function attachSpring<T extends AnyResolvedKeyframe>(
     source: T | MotionValue<T>,
     options?: SpringOptions
 ): VoidFunction {
-    return attachAnimation(value, source, { type: "spring", ...options })
+    return attachFollow(value, source, { type: "spring", ...options })
 }

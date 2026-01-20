@@ -4,12 +4,12 @@ import { motion, useMotionValueEvent } from "../../"
 import { syncDriver } from "../../animation/animators/__tests__/utils"
 import { render } from "../../jest.setup"
 import { useMotionValue } from "../use-motion-value"
-import { useAnimatedValue } from "../use-animated-value"
+import { useFollowValue } from "../use-follow-value"
 
-describe("useAnimatedValue types", () => {
+describe("useFollowValue types", () => {
     test("can create a motion value from a number", async () => {
         const Component = () => {
-            const x = useAnimatedValue(0)
+            const x = useFollowValue(0)
             expect(x.get()).toBe(0)
             return null
         }
@@ -18,7 +18,7 @@ describe("useAnimatedValue types", () => {
 
     test("can create a motion value from a string with a unit", async () => {
         const Component = () => {
-            const x = useAnimatedValue("0%")
+            const x = useFollowValue("0%")
             expect(x.get()).toBe("0%")
             return null
         }
@@ -28,7 +28,7 @@ describe("useAnimatedValue types", () => {
     test("can create a motion value from a number motion value", async () => {
         const Component = () => {
             const source = motionValue(0)
-            const x = useAnimatedValue(source)
+            const x = useFollowValue(source)
             expect(x.get()).toBe(0)
             return null
         }
@@ -38,7 +38,7 @@ describe("useAnimatedValue types", () => {
     test("can create a motion value from a string motion value with a unit", async () => {
         const Component = () => {
             const source = motionValue("0%")
-            const x = useAnimatedValue(source)
+            const x = useFollowValue(source)
             expect(x.get()).toBe("0%")
             return null
         }
@@ -64,12 +64,12 @@ const runAnimatedValueTests = (unit?: string | undefined) => {
         return Math.round(num)
     }
 
-    describe(`useAnimatedValue ${unit ? `with ${unit}` : "with numbers"}`, () => {
+    describe(`useFollowValue ${unit ? `with ${unit}` : "with numbers"}`, () => {
         test("can create a motion value from a number (default spring)", async () => {
             const promise = new Promise((resolve) => {
                 const Component = () => {
                     const x = useMotionValue(createValue(0))
-                    const animated = useAnimatedValue(x)
+                    const animated = useFollowValue(x)
 
                     useEffect(() => {
                         animated.on("change", (v) => resolve(v))
@@ -93,7 +93,7 @@ const runAnimatedValueTests = (unit?: string | undefined) => {
             const promise = new Promise((resolve) => {
                 const Component = () => {
                     const x = useMotionValue(createValue(0))
-                    const y = useAnimatedValue(x)
+                    const y = useFollowValue(x)
 
                     useEffect(() => {
                         y.on("change", (v) => resolve(v))
@@ -118,7 +118,7 @@ const runAnimatedValueTests = (unit?: string | undefined) => {
                 const output: Array<string | number> = []
                 const Component = () => {
                     const x = useMotionValue(createValue(0))
-                    const y = useAnimatedValue(x, {
+                    const y = useFollowValue(x, {
                         type: "spring",
                         driver: syncDriver(10),
                     } as any)
@@ -168,7 +168,7 @@ const runAnimatedValueTests = (unit?: string | undefined) => {
                 const output: Array<string | number> = []
                 const Component = () => {
                     const x = useMotionValue(createValue(0))
-                    const y = useAnimatedValue(x, {
+                    const y = useFollowValue(x, {
                         type: "tween",
                         duration: 0.1,
                         ease: "linear",
@@ -222,7 +222,7 @@ const runAnimatedValueTests = (unit?: string | undefined) => {
                 const output: Array<string | number> = []
                 const Component = () => {
                     const x = useMotionValue(createValue(0))
-                    const y = useAnimatedValue(x, {
+                    const y = useFollowValue(x, {
                         driver: syncDriver(10),
                     } as any)
 
@@ -260,7 +260,7 @@ const runAnimatedValueTests = (unit?: string | undefined) => {
             const b = motionValue(createValue(0))
             let y: MotionValue<number>
             const Component = ({ target }: { target: MotionValue<number> }) => {
-                y = useAnimatedValue(target)
+                y = useFollowValue(target)
                 return <motion.div style={{ y }} />
             }
 
@@ -281,12 +281,12 @@ const runAnimatedValueTests = (unit?: string | undefined) => {
 runAnimatedValueTests()
 runAnimatedValueTests("%")
 
-describe("useAnimatedValue animation events", () => {
+describe("useFollowValue animation events", () => {
     test("triggers animationStart event when animation begins", async () => {
         const promise = new Promise<boolean>((resolve) => {
             const Component = () => {
                 const x = useMotionValue(0)
-                const animatedX = useAnimatedValue(x, {
+                const animatedX = useFollowValue(x, {
                     type: "spring",
                     stiffness: 100,
                     damping: 10,
@@ -313,7 +313,7 @@ describe("useAnimatedValue animation events", () => {
         const promise = new Promise<boolean>((resolve) => {
             const Component = () => {
                 const x = useMotionValue(0)
-                const animatedX = useAnimatedValue(x, {
+                const animatedX = useFollowValue(x, {
                     type: "spring",
                     stiffness: 1000,
                     damping: 50,
@@ -337,10 +337,10 @@ describe("useAnimatedValue animation events", () => {
     })
 })
 
-describe("useAnimatedValue with different transition types", () => {
+describe("useFollowValue with different transition types", () => {
     test("accepts spring configuration", async () => {
         const Component = () => {
-            const x = useAnimatedValue(0, {
+            const x = useFollowValue(0, {
                 type: "spring",
                 stiffness: 300,
                 damping: 20,
@@ -354,7 +354,7 @@ describe("useAnimatedValue with different transition types", () => {
 
     test("accepts tween configuration", async () => {
         const Component = () => {
-            const x = useAnimatedValue(0, {
+            const x = useFollowValue(0, {
                 type: "tween",
                 duration: 0.5,
                 ease: "easeInOut",
@@ -367,7 +367,7 @@ describe("useAnimatedValue with different transition types", () => {
 
     test("accepts delay configuration", async () => {
         const Component = () => {
-            const x = useAnimatedValue(0, {
+            const x = useFollowValue(0, {
                 type: "spring",
                 delay: 0.5,
             })
@@ -379,7 +379,7 @@ describe("useAnimatedValue with different transition types", () => {
 
     test("accepts repeat configuration", async () => {
         const Component = () => {
-            const x = useAnimatedValue(0, {
+            const x = useFollowValue(0, {
                 type: "tween",
                 duration: 0.2,
                 repeat: 2,

@@ -5,10 +5,10 @@ import { frame } from "../frameloop"
 import { isMotionValue } from "./utils/is-motion-value"
 
 /**
- * Options for useAnimatedValue hook, extending ValueAnimationTransition
+ * Options for useFollowValue hook, extending ValueAnimationTransition
  * but excluding lifecycle callbacks that don't make sense for the hook pattern.
  */
-export type AnimatedValueOptions = Omit<
+export type FollowValueOptions = Omit<
     ValueAnimationTransition,
     "onUpdate" | "onComplete" | "onPlay" | "onRepeat" | "onStop"
 >
@@ -19,9 +19,9 @@ export type AnimatedValueOptions = Omit<
  *
  * ```jsx
  * const x = motionValue(0)
- * const y = animatedValue(x, { type: "spring", stiffness: 300 })
+ * const y = followValue(x, { type: "spring", stiffness: 300 })
  * // or with tween
- * const z = animatedValue(x, { type: "tween", duration: 0.5, ease: "easeOut" })
+ * const z = followValue(x, { type: "tween", duration: 0.5, ease: "easeOut" })
  * ```
  *
  * @param source - Initial value or MotionValue to track
@@ -30,14 +30,14 @@ export type AnimatedValueOptions = Omit<
  *
  * @public
  */
-export function animatedValue<T extends AnyResolvedKeyframe>(
+export function followValue<T extends AnyResolvedKeyframe>(
     source: T | MotionValue<T>,
-    options?: AnimatedValueOptions
+    options?: FollowValueOptions
 ) {
     const initialValue = isMotionValue(source) ? source.get() : source
     const value = motionValue(initialValue)
 
-    attachAnimation(value, source, options)
+    attachFollow(value, source, options)
 
     return value
 }
@@ -53,10 +53,10 @@ export function animatedValue<T extends AnyResolvedKeyframe>(
  *
  * @public
  */
-export function attachAnimation<T extends AnyResolvedKeyframe>(
+export function attachFollow<T extends AnyResolvedKeyframe>(
     value: MotionValue<T>,
     source: T | MotionValue<T>,
-    options: AnimatedValueOptions = {}
+    options: FollowValueOptions = {}
 ): VoidFunction {
     const initialValue = value.get()
 
