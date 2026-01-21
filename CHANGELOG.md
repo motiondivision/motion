@@ -4,6 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.28.1] 2026-01-21
+
+### Fixed
+
+-   Ensure `scale: "0%"` isn't treated as default value.
+
 ## [12.28.0] 2026-01-20
 
 ### Added
