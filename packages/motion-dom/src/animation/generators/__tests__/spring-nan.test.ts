@@ -1,26 +1,17 @@
 import { spring } from "../spring"
 
 /**
- * Tests to isolate NaN conditions in spring animations (issue #2791)
+ * Tests for spring animation NaN prevention (issue #2791)
  *
- * Root cause analysis:
+ * Root cause: When stiffness or mass is 0, the spring calculations produce NaN:
+ *   - dampingRatio = damping / (2 * sqrt(0 * mass)) = Infinity
+ *   - dampedAngularFreq = 0 * sqrt(Infinity² - 1) = 0 * Infinity = NaN
  *
- * 1. Spring generator edge case (stiffness = 0):
- *    - undampedAngularFreq = sqrt(0 / mass) = 0
- *    - dampingRatio = damping / (2 * sqrt(0 * mass)) = damping / 0 = Infinity
- *    - Since dampingRatio > 1, we enter overdamped case
- *    - dampedAngularFreq = 0 * sqrt(Infinity² - 1) = 0 * Infinity = NaN
- *
- * 2. Mixing edge case (delta = 0 with extreme progress):
- *    - When animating polygon points like "550,36" → "720,36"
- *    - The y-coordinate has delta = 0 (36 → 36)
- *    - mixNumber(36, 36, p) = 36 + (36-36) * p = 36 + 0 * p
- *    - If p = Infinity: 36 + 0 * Infinity = 36 + NaN = NaN
- *
- * The defensive fix in sanitize() catches NaN at the output stage,
- * preventing invalid values from being rendered to the DOM.
+ * Fix: The spring generator now falls back to default stiffness/mass values
+ * when they are 0 or falsy, preventing NaN at the source without adding
+ * per-frame overhead in the rendering hot path.
  */
-describe("spring NaN conditions", () => {
+describe("spring NaN prevention (#2791)", () => {
     // Helper to check if any value in the animation sequence is NaN
     function hasNaN(generator: ReturnType<typeof spring>, steps = 20): boolean {
         for (let i = 0; i <= steps; i++) {

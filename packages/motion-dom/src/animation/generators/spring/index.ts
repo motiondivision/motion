@@ -110,11 +110,19 @@ function spring(
     })
 
     const initialVelocity = velocity || 0.0
-    const dampingRatio = damping / (2 * Math.sqrt(stiffness * mass))
+
+    /**
+     * Ensure stiffness and mass are positive to prevent NaN in calculations.
+     * Issue #2791: stiffness=0 causes dampingRatio=Infinity and dampedAngularFreq=NaN
+     */
+    const safeStiffness = stiffness || springDefaults.stiffness
+    const safeMass = mass || springDefaults.mass
+
+    const dampingRatio = damping / (2 * Math.sqrt(safeStiffness * safeMass))
 
     const initialDelta = target - origin
     const undampedAngularFreq = millisecondsToSeconds(
-        Math.sqrt(stiffness / mass)
+        Math.sqrt(safeStiffness / safeMass)
     )
 
     /**
