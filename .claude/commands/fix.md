@@ -20,5 +20,5 @@ git worktree add ../${REPO_NAME}-$ARGUMENTS -b $ARGUMENTS
 
 Then tell me to close Claude and reopen with:
 ```bash
-cd ../<repo>-$ARGUMENTS && claude
+cd ../<repo>-$ARGUMENTS && claude --dangerously-skip-permissions
 ```
