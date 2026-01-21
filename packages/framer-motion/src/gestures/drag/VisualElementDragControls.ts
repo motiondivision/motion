@@ -2,6 +2,7 @@ import {
     addValueToWillChange,
     animateMotionValue,
     calcLength,
+    cancelFrame,
     convertBoundingBoxToBox,
     convertBoxToBoundingBox,
     createBox,
@@ -71,15 +72,15 @@ export class VisualElementDragControls {
     private originPoint: Point = { x: 0, y: 0 }
 
     /**
-     * The current screen-space offset from origin.
-     * Stored so we can recalculate local position each frame when parent rotates.
+     * The cumulative screen-space offset from drag origin.
+     * Updated on each pointer move, used to recalculate position each frame.
      */
-    private lastScreenOffset: Point = { x: 0, y: 0 }
+    private cumulativeScreenOffset: Point = { x: 0, y: 0 }
 
     /**
-     * The last rotation value, used to detect rotation changes.
+     * The frame loop callback for updating position during animated parent rotations.
      */
-    private lastParentRotation: number = 0
+    private frameLoop: VoidFunction | null = null
 
     /**
      * The permitted boundaries of travel, in pixels.
@@ -195,8 +196,10 @@ export class VisualElementDragControls {
             animationState && animationState.setActive("whileDrag", true)
 
             // Initialize tracking for rotation-aware drag
-            this.lastScreenOffset = { x: 0, y: 0 }
-            this.lastParentRotation = this.getParentRotation()
+            this.cumulativeScreenOffset = { x: 0, y: 0 }
+
+            // Start frame loop to keep element under cursor during animated rotations
+            this.startFrameLoop()
         }
 
         const onMove = (event: PointerEvent, info: PanInfo) => {
@@ -226,18 +229,12 @@ export class VisualElementDragControls {
                 return
             }
 
-            // Calculate the screen-space delta since last move
-            const screenDelta = {
-                x: offset.x - this.lastScreenOffset.x,
-                y: offset.y - this.lastScreenOffset.y,
-            }
+            // Store cumulative screen offset - this represents where
+            // the cursor has moved to in screen space since drag start
+            this.cumulativeScreenOffset = { x: offset.x, y: offset.y }
 
-            // Transform delta using current rotation and apply
-            const transformedDelta = this.applyParentRotation(screenDelta)
-            this.applyDelta(transformedDelta)
-
-            // Store current offset for next move
-            this.lastScreenOffset = { x: offset.x, y: offset.y }
+            // Update position based on current rotation
+            this.updatePositionFromScreenOffset()
 
             /**
              * This must fire after the render call as it might trigger a state
@@ -310,6 +307,7 @@ export class VisualElementDragControls {
      */
     cancel() {
         this.isDragging = false
+        this.stopFrameLoop()
 
         const { projection, animationState } = this.visualElement
 
@@ -352,30 +350,44 @@ export class VisualElementDragControls {
     }
 
     /**
-     * Apply a delta to the current drag position.
+     * Update element position based on cumulative screen offset and current rotation.
+     * Called both on pointer move and every frame to handle animated rotations.
      */
-    private applyDelta(delta: Point) {
-        const { drag } = this.getProps()
+    private updatePositionFromScreenOffset() {
+        // Transform the cumulative screen offset to local coordinates
+        const transformedOffset = this.applyParentRotation(
+            this.cumulativeScreenOffset
+        )
 
-        eachAxis((axis: "x" | "y") => {
-            if (!shouldDrag(axis, drag, this.currentDirection)) return
-
-            const axisValue = this.getAxisMotionValue(axis)
-            let next = (axisValue.get() as number) + delta[axis]
-
-            // Apply constraints
-            if (this.constraints && this.constraints[axis]) {
-                next = applyConstraints(
-                    next,
-                    this.constraints[axis],
-                    this.elastic[axis]
-                )
-            }
-
-            axisValue.set(next)
-        })
+        // Update each axis
+        this.updateAxis("x", { x: 0, y: 0 }, transformedOffset)
+        this.updateAxis("y", { x: 0, y: 0 }, transformedOffset)
 
         this.visualElement.render()
+    }
+
+    /**
+     * Start a frame loop to continuously update position during drag.
+     * This keeps the element under the cursor when the parent is animating.
+     */
+    private startFrameLoop() {
+        const update = () => {
+            if (!this.isDragging) return
+            this.updatePositionFromScreenOffset()
+            frame.update(update)
+        }
+        this.frameLoop = update
+        frame.update(update)
+    }
+
+    /**
+     * Stop the frame loop.
+     */
+    private stopFrameLoop() {
+        if (this.frameLoop) {
+            cancelFrame(this.frameLoop)
+            this.frameLoop = null
+        }
     }
 
     /**
