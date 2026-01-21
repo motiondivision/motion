@@ -74,7 +74,7 @@ describe("Reorder auto-scroll", () => {
 
     describe("with scrollable container inside scrollable page", () => {
         it("Auto-scrolls container after page has been scrolled", () => {
-            cy.visit("?test=reorder-auto-scroll-page")
+            cy.visit("?test=reorder-auto-scroll-container")
                 .wait(200)
                 // Scroll the page down so the container is in view
                 .window()
@@ -114,6 +114,42 @@ describe("Reorder auto-scroll", () => {
                                 .trigger("pointerup", { force: true })
                         }
                     )
+                })
+        })
+    })
+
+    describe("without scrollable container inside scrollable page", () => {
+        it("Auto-scrolls page after dragging near the edges", () => {
+            cy.visit("?test=reorder-auto-scroll-page")
+                .wait(200)
+                // Check window position, then scroll
+                .window()
+                .then((win) => {
+                    expect(win.scrollY).to.equal(0)
+                })
+                .wait(100)
+                .get("[data-testid='0']")
+                .then(() => {
+                    cy.window().then((win) => {
+                        const nearBottom =
+                            win.innerHeight - win.screenTop - 20
+
+                        cy.get("[data-testid='0']")
+                        .trigger("pointerdown", 50, 25)
+                        .wait(50)
+                        .trigger("pointermove", 50, 30, { force: true })
+                        .wait(50)
+                        .trigger("pointermove", 50, nearBottom, {
+                            force: true,
+                        })
+                        .wait(300)
+                        .window()
+                        .then((win) => {
+                            expect(win.scrollY).to.greaterThan(0)
+                        })
+                        .get("[data-testid='0']")
+                        .trigger("pointerup", { force: true })
+                    })
                 })
         })
     })
