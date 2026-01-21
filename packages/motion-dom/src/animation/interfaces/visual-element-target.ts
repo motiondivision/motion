@@ -39,6 +39,8 @@ export function animateTarget(
         ...target
     } = targetAndTransition
 
+    const reduceMotion = (transition as { reduceMotion?: boolean })?.reduceMotion
+
     if (transitionOverride) transition = transitionOverride
 
     const animations: AnimationPlaybackControlsWithThen[] = []
@@ -106,12 +108,15 @@ export function animateTarget(
 
         addValueToWillChange(visualElement, key)
 
+        const shouldReduceMotion =
+            reduceMotion ?? visualElement.shouldReduceMotion
+
         value.start(
             animateMotionValue(
                 key,
                 value,
                 valueTarget,
-                visualElement.shouldReduceMotion && positionalKeys.has(key)
+                shouldReduceMotion && positionalKeys.has(key)
                     ? { type: false }
                     : valueTransition,
                 visualElement,
