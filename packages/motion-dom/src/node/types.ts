@@ -4,8 +4,14 @@ import type {
     InertiaOptions,
     Target,
     TransformProperties,
-    Transition,
+    TransitionWithCSSVariables,
 } from "../animation/types"
+
+/**
+ * Transition type that supports CSS variables and time strings
+ * for duration and delay properties.
+ */
+export type Transition = TransitionWithCSSVariables
 import type { DragElastic } from "../gestures/drag/types"
 import { PanInfo } from "../gestures/pan/types"
 import type { MotionValue } from "../value"

@@ -246,14 +246,9 @@ export interface DurationSpringOptions {
     /**
      * The total duration of the animation. Set to `0.3` by default.
      *
-     * Can be specified as:
-     * - A number (in seconds, e.g., `0.3`)
-     * - A CSS time string (e.g., `"2s"`, `"500ms"`)
-     * - A CSS variable (e.g., `"var(--duration)"`)
-     *
      * @public
      */
-    duration?: TimeValue
+    duration?: number
 
     /**
      * If visualDuration is set, this will override duration.
@@ -376,14 +371,9 @@ export interface AnimationOrchestrationOptions {
     /**
      * Delay the animation by this duration (in seconds). Defaults to `0`.
      *
-     * Can be specified as:
-     * - A number (in seconds, e.g., `0.3`)
-     * - A CSS time string (e.g., `"2s"`, `"500ms"`)
-     * - A CSS variable (e.g., `"var(--delay)"`)
-     *
      * @public
      */
-    delay?: TimeValue
+    delay?: number
 
     /**
      * Describes the relationship between the transition and its children. Set
@@ -438,14 +428,9 @@ export interface KeyframeOptions {
     /**
      * The total duration of the animation. Set to `0.3` by default.
      *
-     * Can be specified as:
-     * - A number (in seconds, e.g., `0.3`)
-     * - A CSS time string (e.g., `"2s"`, `"500ms"`)
-     * - A CSS variable (e.g., `"var(--duration)"`)
-     *
      * @public
      */
-    duration?: TimeValue
+    duration?: number
     ease?: Easing | Easing[]
     times?: number[]
 }
@@ -459,14 +444,9 @@ export interface ValueTransition
     /**
      * Delay the animation by this duration (in seconds). Defaults to `0`.
      *
-     * Can be specified as:
-     * - A number (in seconds, e.g., `0.3`)
-     * - A CSS time string (e.g., `"2s"`, `"500ms"`)
-     * - A CSS variable (e.g., `"var(--delay)"`)
-     *
      * @public
      */
-    delay?: TimeValue
+    delay?: number
 
     /**
      * The duration of time already elapsed in the animation. Set to `0` by
@@ -488,14 +468,9 @@ export interface ValueTransition
     /**
      * The duration of the tween animation. Set to `0.3` by default, or `0.8` if animating a series of keyframes.
      *
-     * Can be specified as:
-     * - A number (in seconds, e.g., `0.3`)
-     * - A CSS time string (e.g., `"2s"`, `"500ms"`)
-     * - A CSS variable (e.g., `"var(--duration)"`)
-     *
      * @public
      */
-    duration?: TimeValue
+    duration?: number
     autoplay?: boolean
     startTime?: number
 
@@ -613,22 +588,81 @@ export type TransitionWithValueOverrides<V> = ValueAnimationTransition<V> &
         layout?: ValueTransition
     }
 
+/**
+ * Internal transition type with strictly numeric duration/delay.
+ * Used after CSS variable resolution has occurred.
+ */
 export type Transition<V = any> =
     | ValueAnimationTransition<V>
     | TransitionWithValueOverrides<V>
 
-export type DynamicOption<T> = (i: number, total: number) => T
-
-export type ValueAnimationWithDynamicDelay = Omit<
-    ValueAnimationTransition<any>,
-    "delay"
+/**
+ * Extends Transition with support for CSS variables and time strings
+ * in duration and delay properties.
+ */
+export type TransitionWithCSSVariables<V = any> = Omit<
+    Transition<V>,
+    "delay" | "duration"
 > & {
-    delay?: number | DynamicOption<number>
+    /**
+     * Delay the animation by this duration. Defaults to `0`.
+     *
+     * Can be specified as:
+     * - A number (in seconds, e.g., `0.3`)
+     * - A CSS time string (e.g., `"2s"`, `"500ms"`)
+     * - A CSS variable (e.g., `"var(--delay)"`)
+     */
+    delay?: TimeValue
+    /**
+     * The duration of the animation. Defaults to `0.3`.
+     *
+     * Can be specified as:
+     * - A number (in seconds, e.g., `0.3`)
+     * - A CSS time string (e.g., `"2s"`, `"500ms"`)
+     * - A CSS variable (e.g., `"var(--duration)"`)
+     */
+    duration?: TimeValue
 }
 
+export type DynamicOption<T> = (i: number, total: number) => T
+
+/**
+ * Extends ValueAnimationTransition with support for CSS variables and
+ * time strings in duration and delay, plus dynamic delay functions.
+ */
+export type ValueAnimationWithDynamicOptions = Omit<
+    ValueAnimationTransition<any>,
+    "delay" | "duration"
+> & {
+    /**
+     * Delay the animation by this duration. Defaults to `0`.
+     *
+     * Can be specified as:
+     * - A number (in seconds, e.g., `0.3`)
+     * - A CSS time string (e.g., `"2s"`, `"500ms"`)
+     * - A CSS variable (e.g., `"var(--delay)"`)
+     * - A function for staggering: `(i, total) => i * 0.1`
+     */
+    delay?: TimeValue | DynamicOption<number>
+    /**
+     * The duration of the animation. Defaults to `0.3`.
+     *
+     * Can be specified as:
+     * - A number (in seconds, e.g., `0.3`)
+     * - A CSS time string (e.g., `"2s"`, `"500ms"`)
+     * - A CSS variable (e.g., `"var(--duration)"`)
+     */
+    duration?: TimeValue
+}
+
+/**
+ * @deprecated Use ValueAnimationWithDynamicOptions instead
+ */
+export type ValueAnimationWithDynamicDelay = ValueAnimationWithDynamicOptions
+
 export type AnimationOptions =
-    | ValueAnimationWithDynamicDelay
-    | (ValueAnimationWithDynamicDelay &
+    | ValueAnimationWithDynamicOptions
+    | (ValueAnimationWithDynamicOptions &
           StyleTransitions &
           SVGPathTransitions &
           SVGForcedAttrTransitions &
