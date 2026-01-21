@@ -12,6 +12,7 @@ import { makeAnimationInstant } from "../utils/make-animation-instant"
 import { getDefaultTransition } from "../utils/default-transitions"
 import { getFinalKeyframe } from "../utils/get-final-keyframe"
 import { isTransitionDefined } from "../utils/is-transition-defined"
+import { resolveTransitionValue } from "../utils/resolve-transition-value"
 import { frame } from "../../frameloop"
 import type { MotionValue, StartAnimation } from "../../value"
 import type { VisualElement } from "../../render/VisualElement"
@@ -33,14 +34,30 @@ export const animateMotionValue =
          * transitions. In the future it'd be nicer to blend these transitions. But for now
          * delay actually does inherit from the root transition if not value-specific.
          */
-        const delay = valueTransition.delay || transition.delay || 0
+        const rawDelay = valueTransition.delay ?? transition.delay ?? 0
+
+        /**
+         * Get the DOM element for CSS variable resolution.
+         * If not available, we'll fall back to numeric-only resolution.
+         */
+        const domElement = element?.current as Element | undefined
+
+        /**
+         * Resolve delay, handling CSS variables and time strings.
+         * The resolved value is in milliseconds.
+         */
+        const delayMs = domElement && typeof rawDelay === "string"
+            ? resolveTransitionValue(rawDelay, domElement, 0)
+            : typeof rawDelay === "number"
+                ? secondsToMilliseconds(rawDelay)
+                : 0
 
         /**
          * Elapsed isn't a public transition option but can be passed through from
          * optimized appear effects in milliseconds.
          */
         let { elapsed = 0 } = transition
-        elapsed = elapsed - secondsToMilliseconds(delay)
+        elapsed = elapsed - delayMs
 
         const options: ValueAnimationOptions = {
             keyframes: Array.isArray(target) ? target : [null, target],
@@ -72,10 +89,22 @@ export const animateMotionValue =
         /**
          * Both WAAPI and our internal animation functions use durations
          * as defined by milliseconds, while our external API defines them
-         * as seconds.
+         * as seconds. CSS variables and time strings are also supported.
          */
-        options.duration &&= secondsToMilliseconds(options.duration)
-        options.repeatDelay &&= secondsToMilliseconds(options.repeatDelay)
+        if (options.duration !== undefined) {
+            options.duration = domElement && typeof options.duration === "string"
+                ? resolveTransitionValue(options.duration, domElement, 300)
+                : typeof options.duration === "number"
+                    ? secondsToMilliseconds(options.duration)
+                    : 300
+        }
+        if (options.repeatDelay !== undefined) {
+            options.repeatDelay = domElement && typeof options.repeatDelay === "string"
+                ? resolveTransitionValue(options.repeatDelay, domElement, 0)
+                : typeof options.repeatDelay === "number"
+                    ? secondsToMilliseconds(options.repeatDelay)
+                    : 0
+        }
 
         /**
          * Support deprecated way to set initial value. Prefer keyframe syntax.

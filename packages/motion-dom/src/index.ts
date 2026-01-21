@@ -15,6 +15,7 @@ export * from "./animation/utils/get-value-transition"
 export * from "./animation/utils/is-css-variable"
 export { isTransitionDefined } from "./animation/utils/is-transition-defined"
 export * from "./animation/utils/make-animation-instant"
+export * from "./animation/utils/resolve-transition-value"
 
 // Animation interfaces
 export { animateMotionValue } from "./animation/interfaces/motion-value"

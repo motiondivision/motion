@@ -13,10 +13,11 @@ import {
     NativeAnimation,
     NativeAnimationOptions,
     resolveElements,
+    resolveTransitionValue,
     UnresolvedValueKeyframe,
     ValueKeyframe,
 } from "motion-dom"
-import { invariant, secondsToMilliseconds } from "motion-utils"
+import { invariant } from "motion-utils"
 
 interface AnimationDefinition {
     map: Map<string, NativeAnimation<any>>
@@ -93,11 +94,22 @@ export function animateElements(
                 ...getValueTransition(elementTransition as any, valueName),
             }
 
-            valueOptions.duration &&= secondsToMilliseconds(
-                valueOptions.duration
-            )
+            // Resolve duration and delay, handling CSS variables and time strings
+            if (valueOptions.duration !== undefined) {
+                valueOptions.duration = resolveTransitionValue(
+                    valueOptions.duration,
+                    element,
+                    300 // default 0.3s in ms
+                )
+            }
 
-            valueOptions.delay &&= secondsToMilliseconds(valueOptions.delay)
+            if (valueOptions.delay !== undefined) {
+                valueOptions.delay = resolveTransitionValue(
+                    valueOptions.delay,
+                    element,
+                    0
+                )
+            }
 
             /**
              * If there's an existing animation playing on this element then stop it

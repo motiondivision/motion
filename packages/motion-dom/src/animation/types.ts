@@ -7,6 +7,14 @@ import { WithRender } from "./keyframes/types"
 
 export type AnyResolvedKeyframe = string | number
 
+/**
+ * A time value that can be specified as:
+ * - A number (in seconds, e.g., 0.3)
+ * - A CSS time string (e.g., "2s", "500ms")
+ * - A CSS variable (e.g., "var(--duration)")
+ */
+export type TimeValue = number | string
+
 export interface ProgressTimeline {
     currentTime: null | { value: number }
 
@@ -238,9 +246,14 @@ export interface DurationSpringOptions {
     /**
      * The total duration of the animation. Set to `0.3` by default.
      *
+     * Can be specified as:
+     * - A number (in seconds, e.g., `0.3`)
+     * - A CSS time string (e.g., `"2s"`, `"500ms"`)
+     * - A CSS variable (e.g., `"var(--duration)"`)
+     *
      * @public
      */
-    duration?: number
+    duration?: TimeValue
 
     /**
      * If visualDuration is set, this will override duration.
@@ -363,9 +376,14 @@ export interface AnimationOrchestrationOptions {
     /**
      * Delay the animation by this duration (in seconds). Defaults to `0`.
      *
+     * Can be specified as:
+     * - A number (in seconds, e.g., `0.3`)
+     * - A CSS time string (e.g., `"2s"`, `"500ms"`)
+     * - A CSS variable (e.g., `"var(--delay)"`)
+     *
      * @public
      */
-    delay?: number
+    delay?: TimeValue
 
     /**
      * Describes the relationship between the transition and its children. Set
@@ -420,9 +438,14 @@ export interface KeyframeOptions {
     /**
      * The total duration of the animation. Set to `0.3` by default.
      *
+     * Can be specified as:
+     * - A number (in seconds, e.g., `0.3`)
+     * - A CSS time string (e.g., `"2s"`, `"500ms"`)
+     * - A CSS variable (e.g., `"var(--duration)"`)
+     *
      * @public
      */
-    duration?: number
+    duration?: TimeValue
     ease?: Easing | Easing[]
     times?: number[]
 }
@@ -436,9 +459,14 @@ export interface ValueTransition
     /**
      * Delay the animation by this duration (in seconds). Defaults to `0`.
      *
+     * Can be specified as:
+     * - A number (in seconds, e.g., `0.3`)
+     * - A CSS time string (e.g., `"2s"`, `"500ms"`)
+     * - A CSS variable (e.g., `"var(--delay)"`)
+     *
      * @public
      */
-    delay?: number
+    delay?: TimeValue
 
     /**
      * The duration of time already elapsed in the animation. Set to `0` by
@@ -458,11 +486,16 @@ export interface ValueTransition
     type?: AnimationGeneratorType
 
     /**
-     * The duration of the tween animation. Set to `0.3` by default, 0r `0.8` if animating a series of keyframes.
+     * The duration of the tween animation. Set to `0.3` by default, or `0.8` if animating a series of keyframes.
+     *
+     * Can be specified as:
+     * - A number (in seconds, e.g., `0.3`)
+     * - A CSS time string (e.g., `"2s"`, `"500ms"`)
+     * - A CSS variable (e.g., `"var(--duration)"`)
      *
      * @public
      */
-    duration?: number
+    duration?: TimeValue
     autoplay?: boolean
     startTime?: number
 
