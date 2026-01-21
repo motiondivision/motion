@@ -9,6 +9,27 @@ async function nextFrame() {
 }
 
 describe("svgEffect", () => {
+    it("sets feMorphology radius as unitless number (issue #2779)", async () => {
+        const element = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "feMorphology"
+        )
+
+        // Create motion value for radius
+        const radius = motionValue(4)
+
+        // Apply svg effect
+        svgEffect(element, {
+            radius,
+        })
+
+        await nextFrame()
+
+        // Verify radius is set as unitless number, not with "px" suffix
+        // This was the bug - radius was being set as "4px" instead of "4"
+        expect(element.getAttribute("radius")).toBe("4")
+    })
+
     it("sets SVG attributes and styles after svgEffect is applied", async () => {
         const element = document.createElementNS(
             "http://www.w3.org/2000/svg",
