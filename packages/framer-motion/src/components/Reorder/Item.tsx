@@ -3,7 +3,7 @@
 import { isMotionValue } from "motion-dom"
 import { invariant } from "motion-utils"
 import * as React from "react"
-import { forwardRef, FunctionComponent, useContext } from "react"
+import { forwardRef, FunctionComponent, useContext, useRef } from "react"
 import { ReorderContext } from "../../context/ReorderContext"
 import { motion } from "../../render/components/motion/proxy"
 import { HTMLMotionProps } from "../../render/html/types"
@@ -78,6 +78,7 @@ export function ReorderItemComponent<
     >
 
     const context = useContext(ReorderContext)
+    const itemRef = useRef<HTMLElement | null>(null)
     const point = {
         x: useDefaultMotionValue(style.x),
         y: useDefaultMotionValue(style.y),
@@ -106,8 +107,25 @@ export function ReorderItemComponent<
                 const { velocity, point: pointerPoint } = gesturePoint
                 const offset = point[axis].get()
 
+                // Compute the effective scale from parent transforms by comparing
+                // visual size (getBoundingClientRect) with layout size (offsetWidth/Height).
+                // This accounts for scaled parent transforms that affect how CSS
+                // transforms are visually rendered.
+                let scale = 1
+                const element = itemRef.current
+                if (element) {
+                    const rect = element.getBoundingClientRect()
+                    const visualSize = axis === "x" ? rect.width : rect.height
+                    const layoutSize =
+                        axis === "x" ? element.offsetWidth : element.offsetHeight
+                    if (layoutSize > 0) {
+                        scale = visualSize / layoutSize
+                    }
+                }
+                const scaledOffset = offset * scale
+
                 // Always attempt to update order - checkReorder handles the logic
-                updateOrder(value, offset, velocity[axis])
+                updateOrder(value, scaledOffset, velocity[axis])
 
                 autoScrollIfNeeded(
                     groupRef.current,
@@ -125,7 +143,16 @@ export function ReorderItemComponent<
             onLayoutMeasure={(measured) => {
                 registerItem(value, measured)
             }}
-            ref={externalRef}
+            ref={(element: HTMLElement | null) => {
+                itemRef.current = element
+                if (typeof externalRef === "function") {
+                    externalRef(element)
+                } else if (externalRef) {
+                    ;(
+                        externalRef as React.MutableRefObject<HTMLElement | null>
+                    ).current = element
+                }
+            }}
             ignoreStrict
         >
             {children}
