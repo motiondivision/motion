@@ -58,6 +58,9 @@ export const numberValueTypes: ValueTypeMap = {
     marginInlineStart: px,
     marginInlineEnd: px,
 
+    // Typography
+    fontSize: px,
+
     // Misc
     backgroundPositionX: px,
     backgroundPositionY: px,

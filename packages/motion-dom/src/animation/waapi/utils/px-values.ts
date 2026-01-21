@@ -49,6 +49,8 @@ export const pxValues = new Set([
     "marginInline",
     "marginInlineStart",
     "marginInlineEnd",
+    // Typography
+    "fontSize",
     // Misc
     "backgroundPositionX",
     "backgroundPositionY",
