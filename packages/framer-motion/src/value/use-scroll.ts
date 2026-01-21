@@ -4,6 +4,7 @@ import { motionValue } from "motion-dom"
 import { invariant } from "motion-utils"
 import { RefObject, useCallback, useEffect, useRef } from "react"
 import { scroll } from "../render/dom/scroll"
+import { requestMeasure } from "../render/dom/scroll/track"
 import { ScrollInfoOptions } from "../render/dom/scroll/types"
 import { useConstant } from "../utils/use-constant"
 import { useIsomorphicLayoutEffect } from "../utils/use-isomorphic-effect"
@@ -34,6 +35,7 @@ export function useScroll({
     const values = useConstant(createScrollMotionValues)
     const scrollAnimation = useRef<VoidFunction | null>(null)
     const needsStart = useRef(false)
+    const targetOffsetRef = useRef<{ top: number; left: number } | null>(null)
 
     const start = useCallback(() => {
         scrollAnimation.current = scroll(
@@ -92,6 +94,35 @@ export function useScroll({
             return
         }
     }, [start])
+
+    /**
+     * When tracking a target element, detect if the target's position has changed
+     * (e.g., after DOM reordering) and request re-measurement if needed.
+     *
+     * Fixes: #2746, #2748
+     */
+    useIsomorphicLayoutEffect(() => {
+        if (!scrollAnimation.current || !target?.current) return
+
+        const targetElement = target.current
+        const currentOffset = {
+            top: targetElement.offsetTop,
+            left: targetElement.offsetLeft,
+        }
+
+        // Only request measurement if position has changed
+        if (
+            targetOffsetRef.current &&
+            (targetOffsetRef.current.top !== currentOffset.top ||
+                targetOffsetRef.current.left !== currentOffset.left)
+        ) {
+            requestMeasure(
+                container?.current || (document.scrollingElement as Element)
+            )
+        }
+
+        targetOffsetRef.current = currentOffset
+    })
 
     return values
 }

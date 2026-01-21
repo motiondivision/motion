@@ -373,3 +373,105 @@ describe("scroll() dynamic content", () => {
         })
     })
 })
+
+describe("scroll() programmatic scrolling", () => {
+    it("Updates scroll progress after programmatic window.scrollTo()", () => {
+        cy.visit("?test=scroll-programmatic").wait(100).viewport(400, 400)
+
+        // Verify initial progress is 0
+        cy.get("#progress").should(([$element]: any) => {
+            expect(parseFloat($element.innerText)).to.equal(0)
+        })
+
+        // Click button to trigger programmatic scrollTo
+        // The test page checks progress after 2 animation frames
+        cy.get("#scroll-to-btn")
+            .click()
+            .wait(200)
+            .get("#immediate-progress")
+            .should(([$element]: any) => {
+                const progress = parseFloat($element.innerText)
+                // Should be approximately 0.5 (middle of page)
+                const isClose = progress >= 0.49 && progress <= 0.51
+                expect(isClose).to.equal(true)
+            })
+    })
+
+    it("Updates scroll progress after programmatic window.scrollBy()", () => {
+        cy.visit("?test=scroll-programmatic").wait(100).viewport(400, 400)
+
+        // Verify initial progress is 0
+        cy.get("#progress").should(([$element]: any) => {
+            expect(parseFloat($element.innerText)).to.equal(0)
+        })
+
+        // Click button to trigger programmatic scrollBy
+        // The test page checks progress after 2 animation frames
+        cy.get("#scroll-by-btn")
+            .click()
+            .wait(300)
+            .get("#immediate-progress")
+            .should(([$element]: any) => {
+                const progress = parseFloat($element.innerText)
+                // Should be approximately 0.5 (middle of page)
+                const isClose = progress >= 0.49 && progress <= 0.51
+                expect(isClose).to.equal(true)
+            })
+    })
+
+    it("Reports correct initial progress when scroll tracking starts after page is scrolled", () => {
+        // This tests the scenario where scroll tracking is set up AFTER
+        // the page has already been scrolled (e.g., browser restored scroll position)
+        cy.visit("?test=scroll-programmatic-initial").viewport(400, 400)
+
+        // Wait for tracker to be mounted (page scrolls first, then tracker mounts)
+        cy.get("#tracker-mounted")
+            .should(([$element]: any) => {
+                expect($element.innerText).to.equal("true")
+            })
+            .wait(200)
+
+        // The initial progress should be approximately 0.5 since page was scrolled to middle
+        cy.get("#initial-progress").should(([$element]: any) => {
+            const progress = parseFloat($element.innerText)
+            // Should be approximately 0.5 (middle of page)
+            const isClose = progress >= 0.49 && progress <= 0.51
+            expect(isClose).to.equal(true)
+        })
+    })
+
+    it("Updates target scroll progress after DOM reorder - #2748", () => {
+        // This tests issue #2748 where useScroll with target doesn't
+        // recognize position changes after DOM reordering
+        cy.visit("?test=scroll-target-reorder").viewport(400, 800).wait(200)
+
+        // Store initial progress for comparison
+        let initialProgress = 0
+
+        // Get initial progress (target is in position 3)
+        cy.get("#progress")
+            .should(([$element]: any) => {
+                initialProgress = parseFloat(
+                    $element.innerText.replace("Progress: ", "")
+                )
+                // Should be some value based on target's initial position
+                expect(initialProgress).to.be.greaterThan(0)
+            })
+            // Reorder items - moves target from position 3 to position 1 (top)
+            .get("#reorder-btn")
+            .click()
+            .wait(200)
+
+        // After reorder, progress should CHANGE since target moved up in DOM
+        // If the library doesn't re-measure, the progress will be the SAME
+        // This is the bug described in #2748
+        cy.get("#progress").should(([$element]: any) => {
+            const newProgress = parseFloat(
+                $element.innerText.replace("Progress: ", "")
+            )
+            // Progress should be DIFFERENT after reorder
+            // Target moved from position 3 to position 1, so its offset changed
+            expect(newProgress).not.to.equal(initialProgress)
+        })
+    })
+})
