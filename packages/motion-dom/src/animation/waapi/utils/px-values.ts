@@ -6,7 +6,6 @@ export const pxValues = new Set([
     "borderBottomWidth",
     "borderLeftWidth",
     "borderRadius",
-    "radius",
     "borderTopLeftRadius",
     "borderTopRightRadius",
     "borderBottomRightRadius",

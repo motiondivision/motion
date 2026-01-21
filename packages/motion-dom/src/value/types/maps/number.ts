@@ -12,7 +12,6 @@ export const numberValueTypes: ValueTypeMap = {
     borderBottomWidth: px,
     borderLeftWidth: px,
     borderRadius: px,
-    radius: px,
     borderTopLeftRadius: px,
     borderTopRightRadius: px,
     borderBottomRightRadius: px,
