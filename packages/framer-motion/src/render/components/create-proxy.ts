@@ -33,7 +33,10 @@ export function createMotionProxy(
      */
     const componentCache = new Map<string, any>()
 
-    const factory = (Component: string, options?: MotionComponentOptions) => {
+    const factory = <Props>(
+        Component: string | React.ComponentType<Props>,
+        options?: MotionComponentOptions
+    ) => {
         return createMotionComponent(
             Component,
             options,
@@ -45,8 +48,8 @@ export function createMotionProxy(
     /**
      * Support for deprecated`motion(Component)` pattern
      */
-    const deprecatedFactoryFunction = (
-        Component: string,
+    const deprecatedFactoryFunction = <Props>(
+        Component: string | React.ComponentType<Props>,
         options?: MotionComponentOptions
     ) => {
         if (process.env.NODE_ENV !== "production") {
