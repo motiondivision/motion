@@ -11,15 +11,23 @@ export function animateVisualElement(
     options: VisualElementAnimationOptions = {}
 ) {
     visualElement.notify("AnimationStart", definition)
+
+    // Create onDelayComplete callback that fires "AnimationPlay" event once
+    const onDelayComplete = () => {
+        visualElement.notify("AnimationPlay", definition)
+    }
+
+    const optionsWithDelayComplete = { ...options, onDelayComplete }
+
     let animation: Promise<any>
 
     if (Array.isArray(definition)) {
         const animations = definition.map((variant) =>
-            animateVariant(visualElement, variant, options)
+            animateVariant(visualElement, variant, optionsWithDelayComplete)
         )
         animation = Promise.all(animations)
     } else if (typeof definition === "string") {
-        animation = animateVariant(visualElement, definition, options)
+        animation = animateVariant(visualElement, definition, optionsWithDelayComplete)
     } else {
         const resolvedDefinition =
             typeof definition === "function"
@@ -27,7 +35,7 @@ export function animateVisualElement(
                 : definition
 
         animation = Promise.all(
-            animateTarget(visualElement, resolvedDefinition, options)
+            animateTarget(visualElement, resolvedDefinition, optionsWithDelayComplete)
         )
     }
 

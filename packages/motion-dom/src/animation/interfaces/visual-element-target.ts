@@ -31,7 +31,7 @@ function shouldBlockAnimation(
 export function animateTarget(
     visualElement: VisualElement,
     targetAndTransition: TargetAndTransition,
-    { delay = 0, transitionOverride, type }: VisualElementAnimationOptions = {}
+    { delay = 0, transitionOverride, type, onDelayComplete }: VisualElementAnimationOptions = {}
 ): AnimationPlaybackControlsWithThen[] {
     let {
         transition = visualElement.getDefaultTransition(),
@@ -47,6 +47,18 @@ export function animateTarget(
         type &&
         visualElement.animationState &&
         visualElement.animationState.getState()[type]
+
+    // Create a "fire once" wrapper for onDelayComplete so it only fires
+    // when the first animation exits its delay phase
+    let hasDelayCompleted = false
+    const onFirstDelayComplete = onDelayComplete
+        ? () => {
+              if (!hasDelayCompleted) {
+                  hasDelayCompleted = true
+                  onDelayComplete()
+              }
+          }
+        : undefined
 
     for (const key in target) {
         const value = visualElement.getValue(
@@ -66,6 +78,7 @@ export function animateTarget(
         const valueTransition = {
             delay,
             ...getValueTransition(transition || {}, key),
+            onDelayComplete: onFirstDelayComplete,
         }
 
         /**

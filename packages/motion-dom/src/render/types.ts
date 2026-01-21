@@ -95,6 +95,7 @@ export interface VisualElementEventCallbacks {
     Update: (latest: ResolvedValues) => void
     AnimationStart: (definition: AnimationDefinition) => void
     AnimationComplete: (definition: AnimationDefinition) => void
+    AnimationPlay: (definition: AnimationDefinition) => void
     LayoutAnimationStart: () => void
     LayoutAnimationComplete: () => void
     SetAxisTarget: () => void

@@ -52,6 +52,11 @@ export class NativeAnimation<T extends AnyResolvedKeyframe>
      */
     protected manualStartTime: number | null = null
 
+    /**
+     * Timeout ID for the onDelayComplete callback, so we can clear it on stop/cancel.
+     */
+    private delayCompleteTimeout: ReturnType<typeof setTimeout> | undefined
+
     constructor(options?: NativeAnimationOptions) {
         super()
 
@@ -65,6 +70,8 @@ export class NativeAnimation<T extends AnyResolvedKeyframe>
             allowFlatten = false,
             finalKeyframe,
             onComplete,
+            onDelayComplete,
+            delay = 0,
         } = options as any
 
         this.isPseudoElement = Boolean(pseudoElement)
@@ -90,6 +97,17 @@ export class NativeAnimation<T extends AnyResolvedKeyframe>
 
         if (transition.autoplay === false) {
             this.animation.pause()
+        }
+
+        // Set up onDelayComplete callback
+        if (onDelayComplete) {
+            if (delay <= 0) {
+                // No delay, fire immediately on next microtask
+                Promise.resolve().then(onDelayComplete)
+            } else {
+                // Fire after delay duration
+                this.delayCompleteTimeout = setTimeout(onDelayComplete, delay)
+            }
         }
 
         this.animation.onfinish = () => {
@@ -142,6 +160,12 @@ export class NativeAnimation<T extends AnyResolvedKeyframe>
     }
 
     cancel() {
+        // Clear the delay complete timeout
+        if (this.delayCompleteTimeout) {
+            clearTimeout(this.delayCompleteTimeout)
+            this.delayCompleteTimeout = undefined
+        }
+
         try {
             this.animation.cancel()
         } catch (e) {}
@@ -150,6 +174,13 @@ export class NativeAnimation<T extends AnyResolvedKeyframe>
     stop() {
         if (this.isStopped) return
         this.isStopped = true
+
+        // Clear the delay complete timeout
+        if (this.delayCompleteTimeout) {
+            clearTimeout(this.delayCompleteTimeout)
+            this.delayCompleteTimeout = undefined
+        }
+
         const { state } = this
 
         if (state === "idle" || state === "finished") {

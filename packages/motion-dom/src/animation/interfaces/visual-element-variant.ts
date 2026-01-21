@@ -86,11 +86,21 @@ function animateChildren(
 ) {
     const animations: Promise<any>[] = []
 
+    // Don't pass parent's onDelayComplete to children - each child gets its own
+    const { onDelayComplete: _parentOnDelayComplete, ...childOptions } = options
+
     for (const child of visualElement.variantChildren!) {
         child.notify("AnimationStart", variant)
+
+        // Create onDelayComplete callback for this specific child
+        const onDelayComplete = () => {
+            child.notify("AnimationPlay", variant)
+        }
+
         animations.push(
             animateVariant(child, variant, {
-                ...options,
+                ...childOptions,
+                onDelayComplete,
                 delay:
                     delay +
                     (typeof delayChildren === "function" ? 0 : delayChildren) +

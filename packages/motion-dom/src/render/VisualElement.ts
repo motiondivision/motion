@@ -45,6 +45,7 @@ import { Feature } from "./Feature"
 const propEventHandlers = [
     "AnimationStart",
     "AnimationComplete",
+    "AnimationPlay",
     "Update",
     "BeforeLayoutMeasure",
     "LayoutMeasure",

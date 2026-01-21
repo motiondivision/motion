@@ -311,6 +311,33 @@ export interface MotionNodeEventOptions {
      * ```
      */
     onAnimationComplete?(definition: AnimationDefinition): void
+
+    /**
+     * Callback when animation defined in `animate` actually begins playing,
+     * after any delays have completed.
+     *
+     * This is useful when you want to know when the animation truly starts
+     * in the DOM, accounting for any `delay` or `staggerChildren` settings.
+     *
+     * The provided callback will be called with the triggering animation definition.
+     * If this is a variant, it'll be the variant name, and if a target object
+     * then it'll be the target object.
+     *
+     * ```jsx
+     * function onPlay() {
+     *   console.log("Animation is now playing")
+     * }
+     *
+     * <motion.div
+     *   animate={{ x: 100 }}
+     *   transition={{ delay: 0.5 }}
+     *   onAnimationPlay={definition => {
+     *     console.log('Animation started playing after delay', definition)
+     *   }}
+     * />
+     * ```
+     */
+    onAnimationPlay?(definition: AnimationDefinition): void
     onBeforeLayoutMeasure?(box: Box): void
 
     onLayoutMeasure?(box: Box, prevBox: Box): void

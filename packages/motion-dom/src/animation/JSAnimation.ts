@@ -79,6 +79,12 @@ export class JSAnimation<T extends number | string>
 
     private mirroredGenerator: KeyframeGenerator<T> | undefined
 
+    /**
+     * Tracks whether we've exited the delay phase to ensure onDelayComplete
+     * fires only once.
+     */
+    private hasExitedDelayPhase = false
+
     constructor(options: ValueAnimationOptions<T>) {
         super()
         activeAnimations.mainThread++
@@ -198,6 +204,7 @@ export class JSAnimation<T extends number | string>
             repeatDelay,
             type,
             onUpdate,
+            onDelayComplete,
             finalKeyframe,
         } = this.options
 
@@ -230,6 +237,12 @@ export class JSAnimation<T extends number | string>
                 ? timeWithoutDelay < 0
                 : timeWithoutDelay > totalDuration
         this.currentTime = Math.max(timeWithoutDelay, 0)
+
+        // Fire onDelayComplete when we first exit the delay phase
+        if (!isInDelayPhase && !this.hasExitedDelayPhase) {
+            this.hasExitedDelayPhase = true
+            onDelayComplete?.()
+        }
 
         // If this animation has finished, set the current time  to the total duration.
         if (this.state === "finished" && this.holdTime === null) {

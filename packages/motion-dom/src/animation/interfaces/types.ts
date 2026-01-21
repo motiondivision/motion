@@ -6,4 +6,9 @@ export interface VisualElementAnimationOptions {
     transitionOverride?: Transition
     custom?: any
     type?: AnimationType
+    /**
+     * Callback that fires when the first animation exits its delay phase.
+     * This is used internally to fire the AnimationPlay event.
+     */
+    onDelayComplete?: () => void
 }

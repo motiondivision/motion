@@ -169,6 +169,13 @@ export interface AnimationPlaybackLifecycles<V> {
     onRepeat?: () => void
     onStop?: () => void
 
+    /**
+     * Callback that fires when the animation exits its delay phase and
+     * actually begins animating. If there is no delay, this fires immediately
+     * when the animation starts.
+     */
+    onDelayComplete?: () => void
+
     // @internal
     onCancel?: () => void
 }
