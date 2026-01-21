@@ -6,9 +6,14 @@ Undocumented APIs should be considered internal and may change without warning.
 
 ## [12.28.2] 2026-01-21
 
+### Added
+
+-   Add default value type `px` for `fontSize`.
+
 ### Fixed
 
 -   Removed default value type from `radius`.
+-   Ensure `LazyMotion` animates initial state even when state has changed before Motion is loaded.
 
 ## [12.28.1] 2026-01-21
 
