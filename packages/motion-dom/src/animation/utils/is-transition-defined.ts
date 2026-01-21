@@ -17,7 +17,8 @@ export function isTransitionDefined({
     repeatDelay,
     from,
     elapsed,
+    onDelayComplete: _onDelayComplete,
     ...transition
-}: Transition & { elapsed?: number; from?: AnyResolvedKeyframe }) {
+}: Transition & { elapsed?: number; from?: AnyResolvedKeyframe; onDelayComplete?: () => void }) {
     return !!Object.keys(transition).length
 }
