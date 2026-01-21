@@ -4,6 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.28.2] 2026-01-21
+
+### Fixed
+
+-   Removed default value type from `radius`.
+
 ## [12.28.1] 2026-01-21
 
 ### Fixed
