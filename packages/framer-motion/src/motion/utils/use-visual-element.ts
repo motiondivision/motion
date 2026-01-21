@@ -47,6 +47,12 @@ export function useVisualElement<
     > | null>(null)
 
     /**
+     * Track whether the component has been through React's commit phase.
+     * Used to detect when LazyMotion features load after the component has mounted.
+     */
+    const hasMountedOnce = useRef(false)
+
+    /**
      * If we haven't preloaded a renderer, check to see if we have one lazy-loaded
      */
     createVisualElement =
@@ -65,6 +71,16 @@ export function useVisualElement<
             reducedMotionConfig,
             isSVG,
         })
+
+        /**
+         * If the component has already mounted before features loaded (e.g. via
+         * LazyMotion with async feature loading), we need to force the initial
+         * animation to run. Otherwise state changes that occurred before features
+         * loaded will be lost and the element will snap to its final state.
+         */
+        if (hasMountedOnce.current && visualElementRef.current) {
+            visualElementRef.current.manuallyAnimateOnMount = true
+        }
     }
 
     const visualElement = visualElementRef.current
@@ -113,6 +129,12 @@ export function useVisualElement<
     )
 
     useIsomorphicLayoutEffect(() => {
+        /**
+         * Track that this component has mounted. This is used to detect when
+         * LazyMotion features load after the component has already committed.
+         */
+        hasMountedOnce.current = true
+
         if (!visualElement) return
 
         isMounted.current = true
