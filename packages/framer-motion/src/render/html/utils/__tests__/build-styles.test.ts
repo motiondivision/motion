@@ -12,6 +12,14 @@ describe("buildHTMLStyles", () => {
         expect(style).toEqual({ width: "100px" })
     })
 
+    test("Builds fontSize with px unit", () => {
+        const latest = { fontSize: 16 }
+        const style = {}
+        build(latest, { style })
+
+        expect(style).toEqual({ fontSize: "16px" })
+    })
+
     test("Builds vars", () => {
         const latest = { "--width": 100 }
         const vars = {}
