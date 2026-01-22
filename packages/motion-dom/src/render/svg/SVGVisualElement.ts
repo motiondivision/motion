@@ -15,7 +15,6 @@ import { camelCaseAttributes } from "./utils/camel-case-attrs"
 import { isSVGTag } from "./utils/is-svg-tag"
 import { renderSVG } from "./utils/render"
 import { scrapeMotionValuesFromProps } from "./utils/scrape-motion-values"
-
 export class SVGVisualElement extends DOMVisualElement<
     SVGElement,
     SVGRenderState,

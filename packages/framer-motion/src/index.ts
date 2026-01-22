@@ -102,6 +102,7 @@ export {
     useInstantTransition,
 } from "./utils/use-instant-transition"
 export { usePageInView } from "./utils/use-page-in-view"
+export { transformViewBoxPoint } from "./utils/transform-viewbox-point"
 
 /**
  * Appear animations
