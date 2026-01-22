@@ -193,6 +193,7 @@ export interface ProjectionNodeOptions {
     crossfade?: boolean
     transition?: Transition
     initialPromotionConfig?: InitialPromotionConfig
+    layoutDependency?: unknown
 }
 
 export type ProjectionEventName = "layoutUpdate" | "projectionUpdate"

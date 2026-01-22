@@ -61,20 +61,36 @@ export class NodeStack {
         if (prevLead) {
             prevLead.instance && prevLead.scheduleRender()
             node.scheduleRender()
-            node.resumeFrom = prevLead
 
-            if (preserveFollowOpacity) {
-                node.resumeFrom.preserveOpacity = true
-            }
+            /**
+             * If both the new and previous lead have the same defined layoutDependency,
+             * skip the shared layout animation. This allows components with layoutId
+             * to opt-out of animations when their layoutDependency hasn't changed,
+             * even when the component unmounts and remounts in a different location.
+             */
+            const prevDep = prevLead.options.layoutDependency
+            const nextDep = node.options.layoutDependency
+            const dependencyMatches =
+                prevDep !== undefined &&
+                nextDep !== undefined &&
+                prevDep === nextDep
 
-            if (prevLead.snapshot) {
-                node.snapshot = prevLead.snapshot
-                node.snapshot.latestValues =
-                    prevLead.animationValues || prevLead.latestValues
-            }
+            if (!dependencyMatches) {
+                node.resumeFrom = prevLead
 
-            if (node.root && node.root.isUpdating) {
-                node.isLayoutDirty = true
+                if (preserveFollowOpacity) {
+                    node.resumeFrom.preserveOpacity = true
+                }
+
+                if (prevLead.snapshot) {
+                    node.snapshot = prevLead.snapshot
+                    node.snapshot.latestValues =
+                        prevLead.animationValues || prevLead.latestValues
+                }
+
+                if (node.root && node.root.isUpdating) {
+                    node.isLayoutDirty = true
+                }
             }
 
             const { crossfade } = node.options
