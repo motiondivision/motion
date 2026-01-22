@@ -1,5 +1,5 @@
-import type { RefObject } from "react"
 import type { Point, TransformPoint } from "motion-utils"
+import type { RefObject } from "react"
 
 /**
  * Creates a `transformPagePoint` function that accounts for SVG viewBox scaling.
