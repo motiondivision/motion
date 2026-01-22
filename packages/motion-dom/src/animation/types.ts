@@ -593,9 +593,21 @@ export type ValueAnimationWithDynamicDelay = Omit<
     delay?: number | DynamicOption<number>
 }
 
+interface ReduceMotionOption {
+    /**
+     * Whether to reduce motion for transform/layout animations.
+     *
+     * - `true`: Skip transform/layout animations (instant transition)
+     * - `false`: Always animate transforms/layout
+     * - `undefined`: Use device preference (default behavior)
+     */
+    reduceMotion?: boolean
+}
+
 export type AnimationOptions =
-    | ValueAnimationWithDynamicDelay
+    | (ValueAnimationWithDynamicDelay & ReduceMotionOption)
     | (ValueAnimationWithDynamicDelay &
+          ReduceMotionOption &
           StyleTransitions &
           SVGPathTransitions &
           SVGForcedAttrTransitions &

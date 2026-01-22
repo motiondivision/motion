@@ -74,6 +74,7 @@ export interface SequenceOptions extends AnimationPlaybackOptions {
     delay?: number
     duration?: number
     defaultTransition?: Transition
+    reduceMotion?: boolean
 }
 
 export interface AbsoluteKeyframe {
