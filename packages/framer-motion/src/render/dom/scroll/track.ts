@@ -10,19 +10,6 @@ const onScrollHandlers = new WeakMap<Element, Set<OnScrollHandler>>()
 const scrollSize = new WeakMap<Element, { width: number; height: number }>()
 const dimensionCheckProcesses = new WeakMap<Element, Process>()
 
-/**
- * Request a re-measurement of scroll progress for the given container.
- * This is useful when DOM elements have moved (e.g., after reordering)
- * but no scroll event has fired.
- */
-export function requestMeasure(container: Element = document.scrollingElement as Element) {
-    if (!container) return
-    const listener = scrollListeners.get(container)
-    if (listener) {
-        frame.read(listener, false, true)
-    }
-}
-
 export type ScrollTargets = Array<HTMLElement>
 
 const getEventTarget = (element: Element) =>
