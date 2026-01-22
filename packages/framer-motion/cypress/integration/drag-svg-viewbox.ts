@@ -117,4 +117,33 @@ describe("Drag SVG with viewBox", () => {
                 expect(y).to.be.closeTo(50, 8)
             })
     })
+
+    it("Handles viewBox with non-zero origin", () => {
+        // viewBox starts at (50, 50) with size 100x100, rendered at 500x500
+        // Scale factor: 100/500 = 0.2
+        // The viewBox origin offset shouldn't affect drag deltas
+        cy.visit(
+            "?test=drag-svg-viewbox&viewBoxX=50&viewBoxY=50&viewBoxWidth=100&viewBoxHeight=100&svgWidth=500&svgHeight=500"
+        )
+            .wait(50)
+            .get("[data-testid='draggable']")
+            .trigger("pointerdown", 10, 10, { force: true })
+            .wait(50)
+            .trigger("pointermove", 20, 20, { force: true }) // Move past threshold
+            .wait(50)
+            // Move 100 pixels in screen space
+            // This should translate to 20 SVG units (100 * 0.2)
+            .trigger("pointermove", 110, 110, { force: true })
+            .wait(50)
+            .trigger("pointerup", { force: true })
+            .wait(50)
+            .should(($draggable: any) => {
+                const draggable = $draggable[0] as SVGRectElement
+                const { x, y } = parseTranslate(draggable.style.transform)
+                // The element should have moved ~20 SVG units (100px * 0.2 scale)
+                // ViewBox origin offset should not affect the drag delta
+                expect(x).to.be.closeTo(20, 3)
+                expect(y).to.be.closeTo(20, 3)
+            })
+    })
 })

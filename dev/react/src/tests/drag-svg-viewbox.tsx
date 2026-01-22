@@ -16,6 +16,8 @@ export const App = () => {
 
     // Default: viewBox is 100x100 but rendered size is 500x500
     // This creates a 5x scale factor
+    const viewBoxX = parseFloat(params.get("viewBoxX") || "0")
+    const viewBoxY = parseFloat(params.get("viewBoxY") || "0")
     const viewBoxWidth = parseFloat(params.get("viewBoxWidth") || "100")
     const viewBoxHeight = parseFloat(params.get("viewBoxHeight") || "100")
     const svgWidth = parseFloat(params.get("svgWidth") || "500")
@@ -25,7 +27,7 @@ export const App = () => {
         <MotionConfig transformPagePoint={transformViewBoxPoint(svgRef)}>
             <svg
                 ref={svgRef}
-                viewBox={`0 0 ${viewBoxWidth} ${viewBoxHeight}`}
+                viewBox={`${viewBoxX} ${viewBoxY} ${viewBoxWidth} ${viewBoxHeight}`}
                 width={svgWidth}
                 height={svgHeight}
                 style={{ border: "1px solid black" }}
