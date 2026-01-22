@@ -1,9 +1,9 @@
 import type { Box } from "motion-utils"
 import { GroupAnimation } from "../animation/GroupAnimation"
 import type {
-  AnimationOptions,
-  AnimationPlaybackControls,
-  Transition,
+    AnimationOptions,
+    AnimationPlaybackControls,
+    Transition,
 } from "../animation/types"
 import { frame } from "../frameloop"
 import { copyBoxInto } from "../projection/geometry/copy"
@@ -23,15 +23,9 @@ interface LayoutElementRecord {
     projection: IProjectionNode
 }
 
-interface ExitRecord extends LayoutElementRecord {
-    parent: ParentNode | null
-    nextSibling: ChildNode | null
-}
-
 interface LayoutAttributes {
     layout?: boolean | "position" | "size" | "preserve-aspect"
     layoutId?: string
-    layoutExit: boolean
 }
 
 type LayoutBuilderResolve = (animation: GroupAnimation) => void
@@ -108,7 +102,6 @@ export class LayoutAnimationBuilder {
     private async start(): Promise<GroupAnimation> {
         const beforeElements = collectLayoutElements(this.scope)
         const beforeRecords = this.buildRecords(beforeElements)
-        const exitCandidates = collectExitCandidates(beforeRecords)
 
         beforeRecords.forEach(({ projection }) => {
             const hasCurrentAnimation = Boolean(projection.currentAnimation)
@@ -134,11 +127,7 @@ export class LayoutAnimationBuilder {
 
         const afterElements = collectLayoutElements(this.scope)
         const afterRecords = this.buildRecords(afterElements)
-        const exitRecords = this.handleExitingElements(
-            beforeRecords,
-            afterRecords,
-            exitCandidates
-        )
+        this.handleExitingElements(beforeRecords, afterRecords)
 
         afterRecords.forEach(({ projection }) => {
             const instance = projection.instance as HTMLElement | undefined
@@ -171,22 +160,8 @@ export class LayoutAnimationBuilder {
             frame.postRender(() => resolve())
         })
 
-        const animations = collectAnimations(afterRecords, exitRecords)
+        const animations = collectAnimations(afterRecords)
         const animation = new GroupAnimation(animations)
-
-        if (exitRecords.length) {
-            const cleanup = () => {
-                exitRecords.forEach(({ element, visualElement }) => {
-                    if (element.isConnected) {
-                        element.remove()
-                    }
-                    visualElement.unmount()
-                    visualElementStore.delete(element)
-                })
-            }
-
-            animation.finished.then(cleanup, cleanup)
-        }
 
         return animation
     }
@@ -217,35 +192,40 @@ export class LayoutAnimationBuilder {
 
     private handleExitingElements(
         beforeRecords: LayoutElementRecord[],
-        afterRecords: LayoutElementRecord[],
-        exitCandidates: Map<Element, ExitRecord>
-    ): LayoutElementRecord[] {
+        afterRecords: LayoutElementRecord[]
+    ): void {
         const afterElementsSet = new Set(afterRecords.map((record) => record.element))
-        const exiting: LayoutElementRecord[] = []
 
         beforeRecords.forEach((record) => {
             if (afterElementsSet.has(record.element)) return
 
-            const exitRecord = exitCandidates.get(record.element)
-            if (!exitRecord) {
-                record.visualElement.unmount()
-                visualElementStore.delete(record.element)
-                return
-            }
-
-            if (!exitRecord.element.isConnected) {
-                reinstateExitElement(exitRecord)
-            }
-
-            record.projection.isPresent = false
+            // For shared layout elements, relegate to set up resumeFrom
+            // so the remaining element animates from this position
             if (record.projection.options.layoutId) {
+                record.projection.isPresent = false
                 record.projection.relegate()
             }
 
-            exiting.push(record)
+            record.visualElement.unmount()
+            visualElementStore.delete(record.element)
         })
 
-        return exiting
+        // Clear resumeFrom on EXISTING nodes that point to unmounted projections
+        // This prevents crossfade animation when the source element was removed entirely
+        // But preserve resumeFrom for NEW nodes so they can animate from the old position
+        // Also preserve resumeFrom for lead nodes that were just promoted via relegate
+        const beforeElementsSet = new Set(beforeRecords.map((record) => record.element))
+        afterRecords.forEach(({ element, projection }) => {
+            if (
+                beforeElementsSet.has(element) &&
+                projection.resumeFrom &&
+                !projection.resumeFrom.instance &&
+                !projection.isLead()
+            ) {
+                projection.resumeFrom = undefined
+                projection.snapshot = undefined
+            }
+        })
     }
 }
 
@@ -304,7 +284,6 @@ function readLayoutAttributes(element: Element): LayoutAttributes {
     return {
         layout,
         layoutId,
-        layoutExit: element.hasAttribute("data-layout-exit"),
     }
 }
 
@@ -382,33 +361,6 @@ function findParentRecord(
     return undefined
 }
 
-function collectExitCandidates(records: LayoutElementRecord[]) {
-    const exitCandidates = new Map<Element, ExitRecord>()
-
-    records.forEach((record) => {
-        const { layoutExit } = readLayoutAttributes(record.element)
-        if (!layoutExit) return
-
-        exitCandidates.set(record.element, {
-            ...record,
-            parent: record.element.parentNode,
-            nextSibling: record.element.nextSibling,
-        })
-    })
-
-    return exitCandidates
-}
-
-function reinstateExitElement(record: ExitRecord) {
-    if (!record.parent) return
-
-    if (record.nextSibling && record.nextSibling.parentNode === record.parent) {
-        record.parent.insertBefore(record.element, record.nextSibling)
-    } else {
-        record.parent.appendChild(record.element)
-    }
-}
-
 function getProjectionRoot(
     afterRecords: LayoutElementRecord[],
     beforeRecords: LayoutElementRecord[]
@@ -417,19 +369,13 @@ function getProjectionRoot(
     return record?.projection.root
 }
 
-function collectAnimations(
-    afterRecords: LayoutElementRecord[],
-    exitRecords: LayoutElementRecord[]
-) {
+function collectAnimations(afterRecords: LayoutElementRecord[]) {
     const animations = new Set<AnimationPlaybackControls>()
 
-    const addAnimation = (record: LayoutElementRecord) => {
+    afterRecords.forEach((record) => {
         const animation = record.projection.currentAnimation
         if (animation) animations.add(animation)
-    }
-
-    afterRecords.forEach(addAnimation)
-    exitRecords.forEach(addAnimation)
+    })
 
     return Array.from(animations)
 }

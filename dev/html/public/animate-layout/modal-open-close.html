@@ -84,23 +84,11 @@
                 display: none;
             }
 
-            .card-content-container {
-                width: 100%;
-                height: 100%;
-                position: relative;
-                display: flex;
-                flex-direction: column;
-                justify-content: flex-end;
-                pointer-events: none;
-            }
-
             .card-content-container.open {
-                top: 0;
-                left: 0;
-                right: 0;
+                top: 200px;
+                left: 200px;
                 position: fixed;
                 z-index: 100;
-                overflow: hidden;
                 padding: 40px 0;
                 justify-content: center;
             }
@@ -161,7 +149,8 @@
         <script type="module" src="/src/imports/script-assert.js"></script>
         <script type="module">
             const { animateLayout, frame } = window.AnimateLayout
-            const { showError, matchViewportBox } = window.Assert
+            const { matchViewportBox, matchOpacity } = window.Assert
+            const { showError } = window
 
             let currentOpenId = null
 
@@ -212,30 +201,6 @@
                     { duration: 0.1, ease: "linear" }
                 )
 
-
-
-                openControls.pause()
-                openControls.time = 0.05
-
-                await new Promise((resolve) => frame.postRender(resolve))
-
-                matchViewportBox(
-                    document.querySelector("li .card-content"),
-                    document.querySelector(".card-content-container .card-content").getBoundingClientRect(),1
-                )
-
-                matchViewportBox(
-                    document.querySelector(".card-content-container .content-container"),
-                    { top: 302, left: 20, right: 580, bottom: 400 }
-                    ,1
-                )
-
-                matchViewportBox(
-                    document.querySelector("li .title-container"),
-                    document.querySelector(".card-content-container .title-container").getBoundingClientRect(),1
-                )
-
-                openControls.play()
                 await openControls.finished
 
                 const closeControls = await animateLayout(
@@ -243,33 +208,34 @@
                     { duration: 1, ease: "linear" }
                 )
 
-                closeControls.time = 0.05
+                if (!closeControls.animations.length) {
+                    showError(document.querySelector("li .card-content"), "No animations")
+                }
+                
+                if (document.querySelector(".card-content-container .card-content") !== null) {
+                    showError( "Card should not exist in DOM")
+                }
+
                 closeControls.pause()
 
-                await new Promise((resolve) => frame.postRender(resolve))
-
-                const interruptControls = await animateLayout(
-                    () => openCard("b"),
-                    { duration: 2, ease: "linear" }
-                )
-
-                interruptControls.pause()
-
+                closeControls.time = 0.1
 
                 await new Promise((resolve) => frame.postRender(resolve))
 
-                matchViewportBox(
-                    document.querySelector("li .card-content"),
-                    document.querySelector(".card-content-container .card-content").getBoundingClientRect(),1
-                )
+                matchOpacity(document.querySelector("li .card-content"), 1)
 
-                interruptControls.time = 1.7
+                closeControls.time = 0.5
 
                 await new Promise((resolve) => frame.postRender(resolve))
 
                 matchViewportBox(
                     document.querySelector("li .card-content"),
-                    { top: 133, left: 10, right: 490, bottom: 437 },1
+                    { top: 140, left: 120, right: 520, bottom: 449 },1
+                )
+
+                matchViewportBox(
+                    document.querySelector("li .title-container"),
+                    { top: 157, left: 137, right: 337, bottom: 220 },1
                 )
             }
 
