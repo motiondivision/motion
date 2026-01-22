@@ -4,7 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
-## [12.28.3] 2026-01-22
+## [12.29.0] 2026-01-22
+
+### Added
+
+-   `transformViewBoxPoint`: Scale drag gestures within `<svg>` elements where `viewBox` and rendered `width`/`height` are mismatched.
+-   `trackContentSize`: New `scroll` and `useScroll` option for tracking changes to content size.
 
 ### Fixed
 
