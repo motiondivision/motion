@@ -10,6 +10,7 @@ Undocumented APIs should be considered internal and may change without warning.
 
 -   Add React 19 test suite to CI.
 -   Fix types with `motion.create()`.
+-   Shared element animations now respect `layoutDependency`.
 
 ## [12.28.2] 2026-01-22
 
