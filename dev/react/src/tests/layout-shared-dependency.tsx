@@ -16,7 +16,7 @@ import { useState } from "react"
 function Items() {
     const [selected, setSelected] = useState(0)
     const backgroundColor = useMotionValue("#f00")
-
+console.log('render')
     return (
         <>
             <article style={{ marginBottom: 20 }}>
