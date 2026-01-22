@@ -41,10 +41,17 @@ export class DragGesture extends Feature<HTMLElement> {
         this.removeGroupControls()
         this.removeListeners()
         /**
-         * Only clean up the pan session if one exists. We use endPanSession()
-         * instead of cancel() because cancel() also modifies projection animation
-         * state and drag locks, which could interfere with nested drag scenarios.
+         * In React 19, during list reorder reconciliation, components may
+         * briefly unmount and remount while the drag is still active. If we're
+         * actively dragging, we should NOT end the pan session - it will
+         * continue tracking pointer events via its window-level listeners.
+         *
+         * The pan session will be properly cleaned up when:
+         * 1. The drag ends naturally (pointerup/pointercancel)
+         * 2. The component is truly removed from the DOM
          */
-        this.controls.endPanSession()
+        if (!this.controls.isDragging) {
+            this.controls.endPanSession()
+        }
     }
 }
