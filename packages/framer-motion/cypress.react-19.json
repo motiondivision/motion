@@ -3,6 +3,7 @@
     "video": true,
     "screenshots": false,
     "retries": 2,
+    "experimentalShadowDomSupport": true,
     "reporter": "junit",
     "reporterOptions": {
         "mochaFile": "../../test_reports/framer-motion-react-19.xml"
