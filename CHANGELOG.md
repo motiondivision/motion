@@ -4,7 +4,14 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
-## [12.28.2] 2026-01-21
+## [12.28.3] 2026-01-22
+
+### Fixed
+
+-   Add React 19 test suite to CI.
+-   Fix types with `motion.create()`.
+
+## [12.28.2] 2026-01-22
 
 ### Added
 
