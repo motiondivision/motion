@@ -493,6 +493,35 @@ export class JSAnimation<T extends number | string>
         return this.tick(sampleTime, true)
     }
 
+    /**
+     * Returns whether this animation can provide accurate velocity sampling.
+     * This is false for animations using mixKeyframes (non-numeric values)
+     * or animations that aren't currently running.
+     */
+    get canSampleVelocity(): boolean {
+        return (
+            this.state === "running" &&
+            !this.isStopped &&
+            !this.mixKeyframes &&
+            !!this.generator
+        )
+    }
+
+    /**
+     * Sample the animation's value at a specific time in milliseconds.
+     * Used for velocity calculations via finite differencing.
+     */
+    sampleAt(t: number): number {
+        return this.generator.next(t).value as number
+    }
+
+    /**
+     * The current elapsed time of the animation in milliseconds.
+     */
+    get elapsed(): number {
+        return this.currentTime
+    }
+
     attachTimeline(timeline: TimelineWithFallback): VoidFunction {
         if (this.options.allowFlatten) {
             this.options.type = "keyframes"

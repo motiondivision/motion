@@ -190,3 +190,101 @@ const runSpringTests = (unit?: string | undefined) => {
 // Run tests for both number values and percentage values
 runSpringTests()
 runSpringTests("%")
+
+describe("springValue velocity preservation", () => {
+    test("preserves velocity when animation is interrupted with new target", async () => {
+        const promise = new Promise<{
+            velocityAtInterrupt: number
+            velocityAfterInterrupt: number
+        }>((resolve) => {
+            const x = motionValue(0)
+            let frameCount = 0
+            let velocityAtInterrupt = 0
+            let velocityAfterInterrupt = 0
+
+            // Use stiff spring for faster velocity buildup
+            const spring = springValue(x, {
+                stiffness: 100,
+                damping: 10,
+                driver: syncDriver(10),
+            } as any)
+
+            spring.on("change", () => {
+                frameCount++
+
+                // After 5 frames, record velocity and change target
+                if (frameCount === 5) {
+                    velocityAtInterrupt = spring.getVelocity()
+                    // Change target from 100 to 200
+                    x.set(200)
+                }
+
+                // After 6 frames (1 frame after interrupt), record new velocity
+                if (frameCount === 6) {
+                    velocityAfterInterrupt = spring.getVelocity()
+                    resolve({ velocityAtInterrupt, velocityAfterInterrupt })
+                }
+            })
+
+            // Start animation towards 100
+            x.set(100)
+        })
+
+        const { velocityAtInterrupt, velocityAfterInterrupt } = await promise
+
+        // Both velocities should be non-zero
+        expect(velocityAtInterrupt).not.toBe(0)
+        expect(velocityAfterInterrupt).not.toBe(0)
+
+        // Velocities should have the same sign (both positive, moving right)
+        expect(Math.sign(velocityAtInterrupt)).toBe(
+            Math.sign(velocityAfterInterrupt)
+        )
+
+        // The velocity after interrupt should be reasonably close to before
+        // (not exactly equal due to the target change, but should be continuous)
+        // Allow up to 50% difference to account for spring physics adjustment
+        const ratio = velocityAfterInterrupt / velocityAtInterrupt
+        expect(ratio).toBeGreaterThan(0.5)
+        expect(ratio).toBeLessThan(2)
+    })
+
+    test("velocity should not drop to zero on rapid target changes", async () => {
+        const promise = new Promise<number[]>((resolve) => {
+            const x = motionValue(0)
+            const velocities: number[] = []
+            let frameCount = 0
+
+            const spring = springValue(x, {
+                stiffness: 50,
+                damping: 3,
+                driver: syncDriver(4), // Simulate 240Hz with 4ms frames
+            } as any)
+
+            spring.on("change", () => {
+                frameCount++
+                velocities.push(spring.getVelocity())
+
+                // Change target every 3 frames to simulate rapid mouse movement
+                if (frameCount % 3 === 0 && frameCount < 15) {
+                    x.set(frameCount * 20)
+                }
+
+                if (frameCount >= 20) {
+                    resolve(velocities)
+                }
+            })
+
+            x.set(100)
+        })
+
+        const velocities = await promise
+
+        // After initial ramp-up (first 3 frames), velocity should never drop to zero
+        const velocitiesAfterRampUp = velocities.slice(3)
+        const zeroVelocities = velocitiesAfterRampUp.filter((v) => v === 0)
+
+        // Should have very few (ideally zero) zero-velocity frames
+        expect(zeroVelocities.length).toBeLessThanOrEqual(1)
+    })
+})
