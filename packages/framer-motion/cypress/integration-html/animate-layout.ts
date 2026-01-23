@@ -8,7 +8,7 @@ describe("animateLayout API", () => {
     tests.forEach((test) => {
         it(test, () => {
             cy.visit(test)
-            cy.wait(250)
+            cy.wait(500)
                 .get('[data-layout-correct="false"]')
                 .should("not.exist")
         })

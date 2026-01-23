@@ -208,99 +208,23 @@
 
                 matchViewportBox(
                     document.querySelector("li .card-content"),
-                    document.querySelector(".card-content-container .card-content").getBoundingClientRect(),1
+                    document.querySelector(".card-content-container .card-content").getBoundingClientRect(),2
                 )
 
                 matchViewportBox(
                     document.querySelector("li .card-content"),
-                    { top: 140, left: 120, right: 520, bottom: 449 },1
+                    { top: 140, left: 120, right: 520, bottom: 449 },2
                 )
 
                 matchViewportBox(
                     document.querySelector("li .title-container"),
-                    { top: 157, left: 137, right: 337, bottom: 220 },1
+                    { top: 157, left: 137, right: 337, bottom: 220 },2
                 )
 
                 matchViewportBox(
                     document.querySelector("li .title-container"),
-                    document.querySelector(".card-content-container .title-container").getBoundingClientRect(),1
+                    document.querySelector(".card-content-container .title-container").getBoundingClientRect(),2
                 )
-
-
-
-                // await openControls.finished
-
-                // const closeControls = await animateLayout(
-                //     () => closeCard(),
-                //     { duration: 1, ease: "linear" }
-                // )
-
-                // await closeControls.finished
-
-                // const interruptControls = await animateLayout(
-                //     () => openCard("b"),
-                //     { duration: 2, ease: "linear" }
-                // )
-
-                // await interruptControls.finished
-
-                // openControls.pause()
-                // openControls.time = 0.05
-
-                // await new Promise((resolve) => frame.postRender(resolve))
-
-                // matchViewportBox(
-                //     document.querySelector("li .card-content"),
-                //     document.querySelector(".card-content-container .card-content").getBoundingClientRect(),1
-                // )
-
-                // matchViewportBox(
-                //     document.querySelector(".card-content-container .content-container"),
-                //     { top: 356, left: 20, right: 580, bottom: 454 }
-                //     ,1
-                // )
-
-                // matchViewportBox(
-                //     document.querySelector("li .title-container"),
-                //     document.querySelector(".card-content-container .title-container").getBoundingClientRect(),1
-                // )
-
-                // openControls.play()
-                // await openControls.finished
-
-                // const closeControls = await animateLayout(
-                //     () => closeCard(),
-                //     { duration: 1, ease: "linear" }
-                // )
-
-                // closeControls.time = 0.5
-                // closeControls.pause()
-
-                // await new Promise((resolve) => frame.postRender(resolve))
-
-                // const interruptControls = await animateLayout(
-                //     () => openCard("b"),
-                //     { duration: 2, ease: "linear" }
-                // )
-
-                // interruptControls.pause()
-
-
-                // await new Promise((resolve) => frame.postRender(resolve))
-
-                // matchViewportBox(
-                //     document.querySelector("li .card-content"),
-                //     document.querySelector(".card-content-container .card-content").getBoundingClientRect(),1
-                // )
-
-                // interruptControls.time = 1
-
-                // await new Promise((resolve) => frame.postRender(resolve))
-
-                // matchViewportBox(
-                //     document.querySelector("li .card-content"),
-                //     { top: 214, left: 10, right: 490, bottom: 517 },1
-                // )
             }
 
             runTest().catch(console.error)

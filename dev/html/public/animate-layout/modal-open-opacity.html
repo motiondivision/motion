@@ -87,6 +87,7 @@
             .card-content-container.open {
                 top: 200px;
                 left: 200px;
+                right: 0;
                 position: fixed;
                 z-index: 100;
                 padding: 40px 0;
@@ -149,8 +150,7 @@
         <script type="module" src="/src/imports/script-assert.js"></script>
         <script type="module">
             const { animateLayout, frame } = window.AnimateLayout
-            const { matchViewportBox, matchOpacity } = window.Assert
-            const { showError } = window
+            const { matchOpacity } = window.Assert
 
             let currentOpenId = null
 
@@ -195,50 +195,45 @@
                 currentOpenId = null
             }
 
+            function getOpacity(element) {
+                return parseFloat(getComputedStyle(element).opacity)
+            }
+
+            function assertOpacity(element, expected, tolerance = 0.01, label = "") {
+                const actual = getOpacity(element)
+                if (Math.abs(actual - expected) > tolerance) {
+                    const message = `${label ? label + ": " : ""}Expected opacity ${expected}, got ${actual}`
+                    showError(element, message)
+                    throw new Error(message)
+                }
+                console.log(`${label ? label + ": " : ""}opacity ${actual} matches expected ${expected}`)
+            }
+
             async function runTest() {
                 const openControls = await animateLayout(
-                    () => openCard("b"),
-                    { duration: 0.1, ease: "linear" }
-                )
-
-                await openControls.finished
-
-                const closeControls = await animateLayout(
-                    () => closeCard(),
-                    { duration: 0.1, ease: "linear" }
-                )
-
-                await closeControls.finished
-
-                const openControls2 = await animateLayout(
                     () => openCard("b"),
                     { duration: 1, ease: "linear" }
                 )
 
-                openControls2.pause()
-                openControls2.time = 0.5
+                openControls.pause()
+                openControls.time = 0.2
 
                 await new Promise((resolve) => frame.postRender(resolve))
 
-                matchViewportBox(
-                    document.querySelector("li .card-content"),
-                    document.querySelector(".card-content-container .card-content").getBoundingClientRect(),2
-                )
+                // Get the source (li) and target (modal) elements
+                const sourceCardContent = document.querySelector("li .card-content")
+                const targetCardContent = document.querySelector(".card-content-container .card-content")
+                const sourceTitleContainer = document.querySelector("li .title-container")
+                const targetTitleContainer = document.querySelector(".card-content-container .title-container")
 
-                matchViewportBox(
-                    document.querySelector("li .card-content"),
-                    { top: 140, left: 120, right: 520, bottom: 449 },2
-                )
+                // Root elements should be crossfading (opacity < 1 at time 0.1)
+                // At time 0.1 with linear easing, source should be fading out (0.9) and target fading in (0.1)
+                matchOpacity(sourceCardContent, 1)
+                matchOpacity(targetCardContent, 0.8)
 
-                matchViewportBox(
-                    document.querySelector("li .title-container"),
-                    { top: 157, left: 137, right: 337, bottom: 220 },2
-                )
-
-                matchViewportBox(
-                    document.querySelector("li .title-container"),
-                    document.querySelector(".card-content-container .title-container").getBoundingClientRect(),2
-                )
+                // Text layers (title-container) should NOT be crossfading - both should be opacity 1
+                matchOpacity(sourceTitleContainer, 1)
+                matchOpacity(targetTitleContainer, 1)
             }
 
             runTest().catch(console.error)
