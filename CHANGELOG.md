@@ -4,6 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.29.1] 2026-01-22
+
+### Fixed
+
+-   `useAnimate`: Now respects reduced motion settings set via `MotionConfig`.
+
 ## [12.29.0] 2026-01-22
 
 ### Added
