@@ -39,7 +39,12 @@ export function resetAutoScrollState(): void {
 function isScrollableElement(element: Element, axis: "x" | "y"): boolean {
     const style = getComputedStyle(element)
     const overflow = axis === "x" ? style.overflowX : style.overflowY
-    return overflowStyles.has(overflow)
+
+    const isDocumentScroll =
+        element === document.body ||
+        element === document.documentElement
+
+    return overflowStyles.has(overflow) || isDocumentScroll
 }
 
 function findScrollableAncestor(
@@ -63,8 +68,8 @@ function getScrollAmount(
 ): { amount: number; edge: ActiveEdge } {
     const rect = scrollElement.getBoundingClientRect()
 
-    const start = axis === "x" ? rect.left : rect.top
-    const end = axis === "x" ? rect.right : rect.bottom
+    const start = axis === "x" ? Math.max(0, rect.left) : Math.max(0, rect.top)
+    const end = axis === "x" ? Math.min(window.innerWidth, rect.right) : Math.min(window.innerHeight, rect.bottom)
 
     const distanceFromStart = pointerPosition - start
     const distanceFromEnd = end - pointerPosition
@@ -115,6 +120,10 @@ export function autoScrollIfNeeded(
 
     const currentActiveEdge = activeScrollEdge.get(scrollableAncestor)
 
+    const isDocumentScroll =
+        scrollableAncestor === document.body ||
+        scrollableAncestor === document.documentElement
+
     // If not currently scrolling this edge, check velocity to see if we should start
     if (currentActiveEdge !== edge) {
         // Only start scrolling if velocity is towards the edge
@@ -129,10 +138,9 @@ export function autoScrollIfNeeded(
         // Record initial scroll limit (prevents infinite scroll)
         const maxScroll =
             axis === "x"
-                ? scrollableAncestor.scrollWidth -
-                  scrollableAncestor.clientWidth
-                : scrollableAncestor.scrollHeight -
-                  scrollableAncestor.clientHeight
+                ? scrollableAncestor.scrollWidth - (isDocumentScroll ? window.innerWidth : scrollableAncestor.clientWidth)
+                : scrollableAncestor.scrollHeight - (isDocumentScroll ? window.innerHeight : scrollableAncestor.clientHeight)
+
         initialScrollLimits.set(scrollableAncestor, maxScroll)
     }
 
@@ -141,15 +149,23 @@ export function autoScrollIfNeeded(
         const initialLimit = initialScrollLimits.get(scrollableAncestor)!
         const currentScroll =
             axis === "x"
-                ? scrollableAncestor.scrollLeft
-                : scrollableAncestor.scrollTop
+                ? (isDocumentScroll ? window.scrollX : scrollableAncestor.scrollLeft)
+                : (isDocumentScroll ? window.scrollY : scrollableAncestor.scrollTop)
         if (currentScroll >= initialLimit) return
     }
 
     // Apply scroll
     if (axis === "x") {
-        scrollableAncestor.scrollLeft += scrollAmount
+        if (isDocumentScroll) {
+            window.scrollBy({ left: scrollAmount })
+        } else {
+            scrollableAncestor.scrollLeft += scrollAmount
+        }
     } else {
-        scrollableAncestor.scrollTop += scrollAmount
+        if (isDocumentScroll) {
+            window.scrollBy({ top: scrollAmount })
+        } else {
+            scrollableAncestor.scrollTop += scrollAmount
+        }
     }
 }
