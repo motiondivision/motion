@@ -330,6 +330,10 @@ function getOrCreateRecord(
 
     if (!visualElement.current) {
         visualElement.mount(element as HTMLElement)
+    } else if (!visualElement.projection.instance) {
+        // Mount projection if VisualElement is already mounted but projection isn't
+        // This happens when animate() was called before animateLayout()
+        visualElement.projection.mount(element as HTMLElement)
     }
 
     if (!existing) {
