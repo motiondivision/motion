@@ -4,6 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [Unreleased]
+
+### Fixed
+
+-   Fixed drag animations with `dragSnapToOrigin` and `layoutId` overshooting when layout changes occur after drag ends. The transform animation now stops and resets when layout changes, allowing the `layoutId` animation to position elements correctly.
+
 ## [12.29.2] 2026-01-26
 
 ### Fixed

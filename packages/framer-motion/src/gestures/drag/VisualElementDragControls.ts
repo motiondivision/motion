@@ -717,6 +717,27 @@ export class VisualElementDragControls {
                     })
 
                     this.visualElement.render()
+                } else if (!this.isDragging && hasLayoutChanged) {
+                    /**
+                     * After dragging ends, if layout changes (e.g., due to tiles swapping),
+                     * we must STOP all drag animations and reset motion values to 0.
+                     * 
+                     * When using layoutId with dragSnapToOrigin:
+                     * - layoutId animates the CSS position
+                     * - dragSnapToOrigin animates the transform back to 0
+                     * 
+                     * If layout changes while dragSnapToOrigin animation is running,
+                     * the transform offset + new CSS position = overshoot.
+                     * 
+                     * Solution: Stop the animation completely, then reset all motion values to 0.
+                     * This allows layoutId animation to position the element correctly.
+                     */
+                    this.stopAnimation()
+                    eachAxis((axis) => {
+                        const motionValue = this.getAxisMotionValue(axis)
+                        if (!motionValue) return
+                        motionValue.set(0)
+                    })
                 }
             }) as any
         )
