@@ -7,6 +7,43 @@ export class NodeStack {
     members: IProjectionNode[] = []
 
     add(node: IProjectionNode) {
+        /**
+         * Prune disconnected DOM instances to avoid stale stack members
+         * after SPA-style navigations.
+         */
+        const validMembers = this.members.filter((member) => {
+            const instance = member.instance as
+                | {
+                      isConnected?: boolean
+                  }
+                | undefined
+            const hasSnapshot = Boolean(member.snapshot)
+            const isPresent = member.isPresent !== false
+
+            if (!instance) {
+                return !isPresent || hasSnapshot
+            }
+
+            const isConnected =
+                typeof instance.isConnected === "boolean"
+                    ? instance.isConnected
+                    : true
+
+            return isConnected || !isPresent || hasSnapshot
+        })
+        if (validMembers.length !== this.members.length) {
+            this.members = validMembers
+            if (this.lead && !validMembers.includes(this.lead)) {
+                this.lead =
+                    validMembers.length > 0
+                        ? validMembers[validMembers.length - 1]
+                        : undefined
+            }
+            if (this.prevLead && !validMembers.includes(this.prevLead)) {
+                this.prevLead = undefined
+            }
+        }
+
         addUniqueItem(this.members, node)
         node.scheduleRender()
     }
@@ -53,13 +90,39 @@ export class NodeStack {
 
         if (node === prevLead) return
 
-        this.prevLead = prevLead
+        const prevLeadInstance = prevLead?.instance as
+            | {
+                  isConnected?: boolean
+              }
+            | undefined
+        const hasConnectedPrevLead =
+            !!prevLeadInstance &&
+            (typeof prevLeadInstance.isConnected !== "boolean" ||
+                prevLeadInstance.isConnected)
+        const canResumeFrom = Boolean(
+            prevLead &&
+                (hasConnectedPrevLead ||
+                    prevLead.snapshot ||
+                    prevLead.isPresent === false)
+        )
+
+        this.prevLead = canResumeFrom ? prevLead : undefined
         this.lead = node
 
         node.show()
 
-        if (prevLead) {
-            prevLead.instance && prevLead.scheduleRender()
+        if (prevLead && canResumeFrom) {
+            /**
+             * Capture the snapshot if we haven't yet. promote() can run before
+             * willUpdate() during shared transitions.
+             */
+            if (!prevLead.snapshot && hasConnectedPrevLead) {
+                prevLead.updateSnapshot()
+            }
+
+            if (hasConnectedPrevLead) {
+                prevLead.scheduleRender()
+            }
             node.scheduleRender()
 
             /**
