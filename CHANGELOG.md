@@ -4,6 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.30.0] 2026-01-30
+
+### Fixed
+
+-   Avoid stale shared layout nodes during SPA navigations.
+
 ## [12.29.2] 2026-01-26
 
 ### Fixed

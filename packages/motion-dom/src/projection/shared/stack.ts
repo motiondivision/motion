@@ -7,6 +7,36 @@ export class NodeStack {
     members: IProjectionNode[] = []
 
     add(node: IProjectionNode) {
+        /**
+         * Prune disconnected DOM instances to avoid stale stack members
+         * after SPA-style navigations.
+         */
+        const validMembers = this.members.filter((member) => {
+            const instance = member.instance as
+                | {
+                      isConnected?: boolean
+                  }
+                | undefined
+
+            if (!instance) return false
+
+            return typeof instance.isConnected !== "boolean"
+                ? true
+                : instance.isConnected
+        })
+        if (validMembers.length !== this.members.length) {
+            this.members = validMembers
+            if (this.lead && !validMembers.includes(this.lead)) {
+                this.lead =
+                    validMembers.length > 0
+                        ? validMembers[validMembers.length - 1]
+                        : undefined
+            }
+            if (this.prevLead && !validMembers.includes(this.prevLead)) {
+                this.prevLead = undefined
+            }
+        }
+
         addUniqueItem(this.members, node)
         node.scheduleRender()
     }
@@ -53,13 +83,31 @@ export class NodeStack {
 
         if (node === prevLead) return
 
-        this.prevLead = prevLead
+        const prevLeadInstance = prevLead?.instance as
+            | {
+                  isConnected?: boolean
+              }
+            | undefined
+        const hasConnectedPrevLead =
+            !!prevLeadInstance &&
+            (typeof prevLeadInstance.isConnected !== "boolean" ||
+                prevLeadInstance.isConnected)
+
+        this.prevLead = hasConnectedPrevLead ? prevLead : undefined
         this.lead = node
 
         node.show()
 
-        if (prevLead) {
-            prevLead.instance && prevLead.scheduleRender()
+        if (prevLead && hasConnectedPrevLead) {
+            /**
+             * Capture the snapshot if we haven't yet. promote() can run before
+             * willUpdate() during shared transitions.
+             */
+            if (!prevLead.snapshot) {
+                prevLead.updateSnapshot()
+            }
+
+            prevLead.scheduleRender()
             node.scheduleRender()
 
             /**

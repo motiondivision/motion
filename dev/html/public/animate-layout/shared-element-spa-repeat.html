@@ -1,0 +1,110 @@
+<html>
+    <!--
+     This test simulates stale shared layout nodes across SPA navigations.
+     It verifies resumeFrom is not set to a disconnected instance.
+    -->
+    <head>
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+            }
+
+            #container {
+                width: 400px;
+                height: 400px;
+                background-color: #f0f0f0;
+                position: relative;
+            }
+
+            .card {
+                position: absolute;
+                background-color: #00cc88;
+            }
+
+            .card.small {
+                top: 0;
+                left: 0;
+                width: 100px;
+                height: 100px;
+            }
+
+            .card.big {
+                top: 200px;
+                left: 200px;
+                width: 200px;
+                height: 200px;
+                background-color: #09f;
+            }
+
+            [data-layout-correct="false"] {
+                background: #dd1144 !important;
+                opacity: 0.5;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="container"></div>
+
+        <script type="module" src="/src/imports/projection.js"></script>
+        <script type="module" src="/src/imports/script-animate.js"></script>
+        <script type="module" src="/src/imports/script-assert.js"></script>
+        <script type="module">
+            const { showError } = window
+            const { createNode } = window.Animate
+            const container = document.getElementById("container")
+
+            // Root projection node for shared layout tracking.
+            const root = createNode(container, undefined, { layout: true })
+
+            // Create an initial shared element and register it.
+            const staleElement = document.createElement("div")
+            staleElement.className = "card small"
+            staleElement.setAttribute("data-layout-id", "hero")
+            container.appendChild(staleElement)
+            createNode(staleElement, root, { layoutId: "hero" })
+
+            // Simulate navigation away: remove element without unmount.
+            staleElement.remove()
+
+            // Create a new shared element that exits and relegate it.
+            const exitingElement = document.createElement("div")
+            exitingElement.className = "card small"
+            exitingElement.setAttribute("data-layout-id", "hero")
+            container.appendChild(exitingElement)
+            const exitingNode = createNode(exitingElement, root, {
+                layoutId: "hero",
+            })
+            exitingNode.isPresent = false
+            exitingNode.relegate()
+
+            // Create the next shared element and check resumeFrom.
+            const nextElement = document.createElement("div")
+            nextElement.className = "card big"
+            nextElement.setAttribute("data-layout-id", "hero")
+            container.appendChild(nextElement)
+            const nextNode = createNode(nextElement, root, {
+                layoutId: "hero",
+            })
+
+            const resumeFrom = nextNode.resumeFrom
+            const resumeFromConnected = Boolean(
+                resumeFrom?.instance && resumeFrom.instance.isConnected
+            )
+            const resumeFromInvalid =
+                resumeFrom && (!resumeFrom.instance || !resumeFromConnected)
+            window.__debugResumeFrom = {
+                exists: Boolean(resumeFrom),
+                connected: resumeFromConnected,
+                invalid: Boolean(resumeFromInvalid),
+            }
+
+            if (resumeFromInvalid) {
+                nextElement.dataset.layoutCorrect = "false"
+                console.error(
+                    "resumeFrom should not point to a disconnected instance"
+                )
+            }
+        </script>
+    </body>
+</html>
