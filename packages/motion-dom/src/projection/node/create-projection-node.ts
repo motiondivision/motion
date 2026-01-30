@@ -1753,18 +1753,18 @@ export function createProjectionNode<I>({
                 globalProjectionState.hasAnimatedSinceResize = true
                 activeAnimations.layout++
 
-                /**
-                 * Check if we can use hardware-accelerated WAAPI animation.
-                 * This is only possible for isolated nodes (no projecting parents/children).
-                 */
+                // Always run the JS animation - it handles all the complexity
+                // (scale correction, relative targets, shared layouts, etc.)
+                this.startJavaScriptAnimation(options)
+
+                // Additionally overlay WAAPI for smoother transform interpolation
+                // on eligible nodes. The JS animation still runs underneath.
                 if (
                     this.canUseHardwareAcceleration() &&
                     this.instance &&
                     this.animationDelta
                 ) {
-                    this.startHardwareAcceleratedAnimation(options)
-                } else {
-                    this.startJavaScriptAnimation(options)
+                    this.startHardwareAcceleratedTransform(options)
                 }
 
                 this.pendingAnimation = undefined
@@ -1772,16 +1772,18 @@ export function createProjectionNode<I>({
         }
 
         /**
-         * Start a hardware-accelerated WAAPI animation for layout transitions.
-         * Only used when the node is isolated (no projecting parents/children).
+         * Overlay a hardware-accelerated WAAPI animation for the transform.
+         * This runs alongside the JS animation which handles all other concerns
+         * (scale correction, relative targets, etc.). WAAPI just provides
+         * smoother transform interpolation on the compositor thread.
          */
-        startHardwareAcceleratedAnimation(
+        startHardwareAcceleratedTransform(
             options: ValueAnimationOptions<number>
         ) {
             const element = this.instance as HTMLElement
             const delta = this.animationDelta!
 
-            // Mark that we're using hardware acceleration
+            // Mark that we're using hardware acceleration for transform
             this.isUsingHardwareAcceleration = true
 
             // Build keyframes: from initial delta to identity
@@ -1803,7 +1805,7 @@ export function createProjectionNode<I>({
                 duration
             )
 
-            // Create WAAPI animation
+            // Create WAAPI animation for transform only
             this.nativeAnimation = element.animate(
                 {
                     transform: [startTransform, endTransform],
@@ -1816,30 +1818,13 @@ export function createProjectionNode<I>({
                 }
             )
 
-            // If easing is an array, we need to apply it per-keyframe
-            // For now, we use linear and let the browser handle it
-            // TODO: Support array easing by generating intermediate keyframes
-
-            this.nativeAnimation.onfinish = () => {
-                activeAnimations.layout--
-                // Commit the final state
-                element.style.transform = endTransform
-                element.style.transformOrigin = ""
-
-                options.onComplete?.()
-                this.completeAnimation()
-            }
-
-            // Track animation progress for scale correction
-            // We use a frame loop to sample the WAAPI animation time
-            if (this.hasScaleCorrectedStyles()) {
-                this.runScaleCorrectionLoop()
-            }
+            // No onfinish handler needed - the JS animation handles completion
         }
 
         /**
          * Start a JavaScript-driven animation for layout transitions.
-         * Used when hardware acceleration is not possible.
+         * Handles all the complexity: scale correction, relative targets,
+         * shared layouts, dirty flags, etc.
          */
         startJavaScriptAnimation(
             options: ValueAnimationOptions<number>
@@ -1873,62 +1858,6 @@ export function createProjectionNode<I>({
             }
         }
 
-        /**
-         * Check if this node has styles that need scale correction
-         * (e.g., borderRadius, boxShadow).
-         */
-        hasScaleCorrectedStyles(): boolean {
-            for (const key in scaleCorrectors) {
-                if (this.latestValues[key] !== undefined) {
-                    return true
-                }
-            }
-            return false
-        }
-
-        /**
-         * Run a frame loop to apply scale correction while WAAPI animation runs.
-         * This samples the WAAPI animation's progress and applies corrections.
-         */
-        scaleCorrectionProcess?: Process
-        runScaleCorrectionLoop() {
-            const delta = this.animationDelta
-            if (!delta) return
-
-            const targetDelta = createDelta()
-
-            const runCorrection = () => {
-                if (!this.nativeAnimation || !this.animationDelta) return
-
-                const { currentTime, effect } = this.nativeAnimation
-                if (currentTime === null || !effect) return
-
-                const duration =
-                    (effect.getComputedTiming().duration as number) || 1
-                const progress = Math.min(1, (currentTime as number) / duration)
-
-                // Update animationProgress for scale correction calculations
-                this.animationProgress = progress
-
-                // Interpolate targetDelta from initial to identity
-                mixAxisDelta(targetDelta.x, delta.x, progress)
-                mixAxisDelta(targetDelta.y, delta.y, progress)
-
-                // Update targetDelta which triggers projection recalculation
-                this.setTargetDelta(targetDelta)
-
-                // Continue loop if animation is still running
-                if (
-                    this.nativeAnimation &&
-                    this.nativeAnimation.playState === "running"
-                ) {
-                    this.scaleCorrectionProcess = frame.update(runCorrection)
-                }
-            }
-
-            this.scaleCorrectionProcess = frame.update(runCorrection)
-        }
-
         completeAnimation() {
             if (this.resumingFrom) {
                 this.resumingFrom.currentAnimation = undefined
@@ -1937,15 +1866,10 @@ export function createProjectionNode<I>({
 
             // Clean up WAAPI animation
             if (this.nativeAnimation) {
+                this.nativeAnimation.cancel()
                 this.nativeAnimation = undefined
             }
             this.isUsingHardwareAcceleration = false
-
-            // Clean up scale correction loop
-            if (this.scaleCorrectionProcess) {
-                cancelFrame(this.scaleCorrectionProcess)
-                this.scaleCorrectionProcess = undefined
-            }
 
             // Clean up animation delta
             this.animationDelta = undefined
