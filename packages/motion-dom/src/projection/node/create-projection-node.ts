@@ -10,6 +10,7 @@ import {
 } from "motion-utils"
 import { animateSingleValue } from "../../animation/animate/single-value"
 import { JSAnimation } from "../../animation/JSAnimation"
+import { mapEasingToNativeEasing } from "../../animation/waapi/easing/map-easing"
 import { getOptimisedAppearId } from "../../animation/optimized-appear/get-appear-id"
 import { Transition, ValueAnimationOptions } from "../../animation/types"
 import { getValueTransition } from "../../animation/utils/get-value-transition"
@@ -1314,6 +1315,53 @@ export function createProjectionNode<I>({
             )
         }
 
+        /**
+         * Check if any ancestor in the path is currently projecting.
+         */
+        hasProjectingAncestor(): boolean {
+            for (let i = 0; i < this.path.length; i++) {
+                if (this.path[i].isProjecting()) return true
+            }
+            return false
+        }
+
+        /**
+         * Check if any descendant is currently projecting.
+         */
+        hasProjectingDescendant(): boolean {
+            for (const child of this.children) {
+                if (child.isProjecting() || child.hasProjectingDescendant()) {
+                    return true
+                }
+            }
+            return false
+        }
+
+        /**
+         * Determine if this node can use hardware-accelerated WAAPI animation
+         * for layout animations. A node is eligible if:
+         * 1. No ancestors are projecting (would affect treeScale/layoutCorrected)
+         * 2. No descendants are projecting (would need to read this node's state)
+         * 3. Not crossfading between shared layout members (multi-member stack)
+         * 4. Not resuming from another element
+         */
+        canUseHardwareAcceleration(): boolean {
+            // Not resuming from another element
+            if (this.resumeFrom || this.resumingFrom) return false
+
+            // Not a multi-member shared layout stack
+            const stack = this.getStack()
+            if (stack && stack.members.length > 1) return false
+
+            // No projecting ancestors
+            if (this.hasProjectingAncestor()) return false
+
+            // No projecting descendants
+            if (this.hasProjectingDescendant()) return false
+
+            return true
+        }
+
         linkedParentVersion: number = 0
         createRelativeTarget(
             relativeParent: IProjectionNode,
@@ -1530,13 +1578,30 @@ export function createProjectionNode<I>({
         animationValues?: ResolvedValues
         pendingAnimation?: Process
         currentAnimation?: JSAnimation<number>
+        /**
+         * WAAPI animation for hardware-accelerated layout animations.
+         * Used when the node is eligible for HW acceleration.
+         */
+        nativeAnimation?: Animation
+        /**
+         * Flag to indicate this node is using WAAPI for transform animation.
+         * When true, applyProjectionStyles will skip setting transform.
+         */
+        isUsingHardwareAcceleration = false
         mixTargetDelta: (progress: number) => void
         animationProgress = 0
+        /**
+         * The initial animation delta, stored for WAAPI keyframe building.
+         */
+        animationDelta?: Delta
 
         setAnimationOrigin(
             delta: Delta,
             hasOnlyRelativeTargetChanged: boolean = false
         ) {
+            // Store the initial delta for WAAPI keyframe building
+            this.animationDelta = delta
+
             const snapshot = this.snapshot
             const snapshotLatestValues = snapshot ? snapshot.latestValues : {}
             const mixedValues = { ...this.latestValues }
@@ -1631,11 +1696,47 @@ export function createProjectionNode<I>({
             this.mixTargetDelta(this.options.layoutRoot ? 1000 : 0)
         }
 
+        /**
+         * Build the layout animation transform for a given progress.
+         * Progress is 0-1 where 0 = initial delta, 1 = identity (no transform).
+         * Used for generating WAAPI keyframes.
+         */
+        buildLayoutAnimationTransform(progress: number): string {
+            if (!this.animationDelta) return "none"
+
+            const delta = this.animationDelta
+            // For isolated nodes, treeScale is always {1, 1}
+            const treeScale = { x: 1, y: 1 }
+
+            // Interpolate delta from initial to identity
+            const interpolatedDelta: Delta = {
+                x: {
+                    translate: mixNumber(delta.x.translate, 0, progress),
+                    scale: mixNumber(delta.x.scale, 1, progress),
+                    origin: delta.x.origin,
+                    originPoint: delta.x.originPoint,
+                },
+                y: {
+                    translate: mixNumber(delta.y.translate, 0, progress),
+                    scale: mixNumber(delta.y.scale, 1, progress),
+                    origin: delta.y.origin,
+                    originPoint: delta.y.originPoint,
+                },
+            }
+
+            return buildProjectionTransform(
+                interpolatedDelta,
+                treeScale,
+                this.latestValues
+            )
+        }
+
         motionValue?: MotionValue<number>
         startAnimation(options: ValueAnimationOptions<number>) {
             this.notifyListeners("animationStart")
 
             this.currentAnimation?.stop()
+            this.nativeAnimation?.cancel()
             this.resumingFrom?.currentAnimation?.stop()
 
             if (this.pendingAnimation) {
@@ -1650,38 +1751,182 @@ export function createProjectionNode<I>({
              */
             this.pendingAnimation = frame.update(() => {
                 globalProjectionState.hasAnimatedSinceResize = true
-
                 activeAnimations.layout++
-                this.motionValue ||= motionValue(0)
 
-                this.currentAnimation = animateSingleValue(
-                    this.motionValue,
-                    [0, 1000],
-                    {
-                        ...(options as any),
-                        velocity: 0,
-                        isSync: true,
-                        onUpdate: (latest: number) => {
-                            this.mixTargetDelta(latest)
-                            options.onUpdate && options.onUpdate(latest)
-                        },
-                        onStop: () => {
-                            activeAnimations.layout--
-                        },
-                        onComplete: () => {
-                            activeAnimations.layout--
-                            options.onComplete && options.onComplete()
-                            this.completeAnimation()
-                        },
-                    }
-                ) as JSAnimation<number>
-
-                if (this.resumingFrom) {
-                    this.resumingFrom.currentAnimation = this.currentAnimation
+                /**
+                 * Check if we can use hardware-accelerated WAAPI animation.
+                 * This is only possible for isolated nodes (no projecting parents/children).
+                 */
+                if (
+                    this.canUseHardwareAcceleration() &&
+                    this.instance &&
+                    this.animationDelta
+                ) {
+                    this.startHardwareAcceleratedAnimation(options)
+                } else {
+                    this.startJavaScriptAnimation(options)
                 }
 
                 this.pendingAnimation = undefined
             })
+        }
+
+        /**
+         * Start a hardware-accelerated WAAPI animation for layout transitions.
+         * Only used when the node is isolated (no projecting parents/children).
+         */
+        startHardwareAcceleratedAnimation(
+            options: ValueAnimationOptions<number>
+        ) {
+            const element = this.instance as HTMLElement
+            const delta = this.animationDelta!
+
+            // Mark that we're using hardware acceleration
+            this.isUsingHardwareAcceleration = true
+
+            // Build keyframes: from initial delta to identity
+            const startTransform = this.buildLayoutAnimationTransform(0)
+            const endTransform = this.buildLayoutAnimationTransform(1)
+
+            // Set transform-origin based on the delta's origin
+            const transformOrigin = `${delta.x.origin * 100}% ${delta.y.origin * 100}% 0`
+            element.style.transformOrigin = transformOrigin
+
+            // Calculate duration from options
+            const duration = options.duration
+                ? options.duration * 1000
+                : 300
+
+            // Map easing to native format
+            const easing = mapEasingToNativeEasing(
+                options.ease || [0.4, 0, 0.1, 1],
+                duration
+            )
+
+            // Create WAAPI animation
+            this.nativeAnimation = element.animate(
+                {
+                    transform: [startTransform, endTransform],
+                },
+                {
+                    duration,
+                    easing: Array.isArray(easing) ? "linear" : easing,
+                    fill: "both",
+                    delay: options.delay ? options.delay * 1000 : 0,
+                }
+            )
+
+            // If easing is an array, we need to apply it per-keyframe
+            // For now, we use linear and let the browser handle it
+            // TODO: Support array easing by generating intermediate keyframes
+
+            this.nativeAnimation.onfinish = () => {
+                activeAnimations.layout--
+                // Commit the final state
+                element.style.transform = endTransform
+                element.style.transformOrigin = ""
+
+                options.onComplete?.()
+                this.completeAnimation()
+            }
+
+            // Track animation progress for scale correction
+            // We use a frame loop to sample the WAAPI animation time
+            if (this.hasScaleCorrectedStyles()) {
+                this.runScaleCorrectionLoop()
+            }
+        }
+
+        /**
+         * Start a JavaScript-driven animation for layout transitions.
+         * Used when hardware acceleration is not possible.
+         */
+        startJavaScriptAnimation(
+            options: ValueAnimationOptions<number>
+        ) {
+            this.motionValue ||= motionValue(0)
+
+            this.currentAnimation = animateSingleValue(
+                this.motionValue,
+                [0, 1000],
+                {
+                    ...(options as any),
+                    velocity: 0,
+                    isSync: true,
+                    onUpdate: (latest: number) => {
+                        this.mixTargetDelta(latest)
+                        options.onUpdate && options.onUpdate(latest)
+                    },
+                    onStop: () => {
+                        activeAnimations.layout--
+                    },
+                    onComplete: () => {
+                        activeAnimations.layout--
+                        options.onComplete && options.onComplete()
+                        this.completeAnimation()
+                    },
+                }
+            ) as JSAnimation<number>
+
+            if (this.resumingFrom) {
+                this.resumingFrom.currentAnimation = this.currentAnimation
+            }
+        }
+
+        /**
+         * Check if this node has styles that need scale correction
+         * (e.g., borderRadius, boxShadow).
+         */
+        hasScaleCorrectedStyles(): boolean {
+            for (const key in scaleCorrectors) {
+                if (this.latestValues[key] !== undefined) {
+                    return true
+                }
+            }
+            return false
+        }
+
+        /**
+         * Run a frame loop to apply scale correction while WAAPI animation runs.
+         * This samples the WAAPI animation's progress and applies corrections.
+         */
+        scaleCorrectionProcess?: Process
+        runScaleCorrectionLoop() {
+            const delta = this.animationDelta
+            if (!delta) return
+
+            const targetDelta = createDelta()
+
+            const runCorrection = () => {
+                if (!this.nativeAnimation || !this.animationDelta) return
+
+                const { currentTime, effect } = this.nativeAnimation
+                if (currentTime === null || !effect) return
+
+                const duration =
+                    (effect.getComputedTiming().duration as number) || 1
+                const progress = Math.min(1, (currentTime as number) / duration)
+
+                // Update animationProgress for scale correction calculations
+                this.animationProgress = progress
+
+                // Interpolate targetDelta from initial to identity
+                mixAxisDelta(targetDelta.x, delta.x, progress)
+                mixAxisDelta(targetDelta.y, delta.y, progress)
+
+                // Update targetDelta which triggers projection recalculation
+                this.setTargetDelta(targetDelta)
+
+                // Continue loop if animation is still running
+                if (
+                    this.nativeAnimation &&
+                    this.nativeAnimation.playState === "running"
+                ) {
+                    this.scaleCorrectionProcess = frame.update(runCorrection)
+                }
+            }
+
+            this.scaleCorrectionProcess = frame.update(runCorrection)
         }
 
         completeAnimation() {
@@ -1689,6 +1934,21 @@ export function createProjectionNode<I>({
                 this.resumingFrom.currentAnimation = undefined
                 this.resumingFrom.preserveOpacity = undefined
             }
+
+            // Clean up WAAPI animation
+            if (this.nativeAnimation) {
+                this.nativeAnimation = undefined
+            }
+            this.isUsingHardwareAcceleration = false
+
+            // Clean up scale correction loop
+            if (this.scaleCorrectionProcess) {
+                cancelFrame(this.scaleCorrectionProcess)
+                this.scaleCorrectionProcess = undefined
+            }
+
+            // Clean up animation delta
+            this.animationDelta = undefined
 
             const stack = this.getStack()
             stack && stack.exitAnimationComplete()
@@ -1704,6 +1964,11 @@ export function createProjectionNode<I>({
             if (this.currentAnimation) {
                 this.mixTargetDelta && this.mixTargetDelta(animationTarget)
                 this.currentAnimation.stop()
+            }
+
+            if (this.nativeAnimation) {
+                // Finish WAAPI animation immediately
+                this.nativeAnimation.finish()
             }
 
             this.completeAnimation()
@@ -1968,12 +2233,18 @@ export function createProjectionNode<I>({
                 transform = transformTemplate(valuesToRender, transform)
             }
 
-            targetStyle.transform = transform
+            /**
+             * Skip setting transform and transformOrigin when using WAAPI
+             * for hardware-accelerated layout animation. WAAPI handles these.
+             */
+            if (!this.isUsingHardwareAcceleration) {
+                targetStyle.transform = transform
 
-            const { x, y } = this.projectionDelta
-            targetStyle.transformOrigin = `${x.origin * 100}% ${
-                y.origin * 100
-            }% 0`
+                const { x, y } = this.projectionDelta
+                targetStyle.transformOrigin = `${x.origin * 100}% ${
+                    y.origin * 100
+                }% 0`
+            }
 
             if (lead.animationValues) {
                 /**

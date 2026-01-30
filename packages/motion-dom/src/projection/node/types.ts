@@ -112,6 +112,10 @@ export interface IProjectionNode<I = unknown> {
     resetTree(): void
 
     isProjecting(): boolean
+    hasProjectingAncestor(): boolean
+    hasProjectingDescendant(): boolean
+    canUseHardwareAcceleration(): boolean
+    isUsingHardwareAcceleration?: boolean
     animationValues?: ResolvedValues
     currentAnimation?: JSAnimation<number>
     isTreeAnimating?: boolean
