@@ -17,12 +17,19 @@ export class NodeStack {
                       isConnected?: boolean
                   }
                 | undefined
+            const hasSnapshot = Boolean(member.snapshot)
+            const isPresent = member.isPresent !== false
 
-            if (!instance) return false
+            if (!instance) {
+                return !isPresent || hasSnapshot
+            }
 
-            return typeof instance.isConnected !== "boolean"
-                ? true
-                : instance.isConnected
+            const isConnected =
+                typeof instance.isConnected === "boolean"
+                    ? instance.isConnected
+                    : true
+
+            return isConnected || !isPresent || hasSnapshot
         })
         if (validMembers.length !== this.members.length) {
             this.members = validMembers
@@ -92,22 +99,30 @@ export class NodeStack {
             !!prevLeadInstance &&
             (typeof prevLeadInstance.isConnected !== "boolean" ||
                 prevLeadInstance.isConnected)
+        const canResumeFrom = Boolean(
+            prevLead &&
+                (hasConnectedPrevLead ||
+                    prevLead.snapshot ||
+                    prevLead.isPresent === false)
+        )
 
-        this.prevLead = hasConnectedPrevLead ? prevLead : undefined
+        this.prevLead = canResumeFrom ? prevLead : undefined
         this.lead = node
 
         node.show()
 
-        if (prevLead && hasConnectedPrevLead) {
+        if (prevLead && canResumeFrom) {
             /**
              * Capture the snapshot if we haven't yet. promote() can run before
              * willUpdate() during shared transitions.
              */
-            if (!prevLead.snapshot) {
+            if (!prevLead.snapshot && hasConnectedPrevLead) {
                 prevLead.updateSnapshot()
             }
 
-            prevLead.scheduleRender()
+            if (hasConnectedPrevLead) {
+                prevLead.scheduleRender()
+            }
             node.scheduleRender()
 
             /**

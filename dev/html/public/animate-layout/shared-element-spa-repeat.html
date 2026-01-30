@@ -91,12 +91,19 @@
             const resumeFromConnected = Boolean(
                 resumeFrom?.instance && resumeFrom.instance.isConnected
             )
+            const resumeFromHasSnapshot = Boolean(resumeFrom?.snapshot)
+            const resumeFromIsPresent = resumeFrom?.isPresent !== false
             const resumeFromInvalid =
-                resumeFrom && (!resumeFrom.instance || !resumeFromConnected)
+                resumeFrom &&
+                resumeFromIsPresent &&
+                !resumeFromConnected &&
+                !resumeFromHasSnapshot
             window.__debugResumeFrom = {
                 exists: Boolean(resumeFrom),
                 connected: resumeFromConnected,
                 invalid: Boolean(resumeFromInvalid),
+                hasSnapshot: resumeFromHasSnapshot,
+                isPresent: resumeFromIsPresent,
             }
 
             if (resumeFromInvalid) {
