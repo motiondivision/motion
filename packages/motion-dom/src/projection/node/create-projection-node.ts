@@ -2157,6 +2157,7 @@ export function createProjectionNode<I>({
             }
 
             const transformTemplate = this.getTransformTemplate()
+            const isUsingNativeLayoutAnimation = Boolean(this.nativeAnimation)
 
             if (this.needsReset) {
                 this.needsReset = false
