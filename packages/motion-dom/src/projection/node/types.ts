@@ -1,5 +1,9 @@
-import type { JSAnimation } from "../../animation/JSAnimation"
-import type { Transition, ValueTransition } from "../../animation/types"
+import type { Process } from "../../frameloop/types"
+import type {
+    AnimationPlaybackControlsWithThen,
+    Transition,
+    ValueAnimationOptions,
+} from "../../animation/types"
 import type { ResolvedValues } from "../../render/types"
 import type { VisualElement, MotionStyle } from "../../render/VisualElement"
 import { Box, Delta, Point } from "motion-utils"
@@ -113,12 +117,18 @@ export interface IProjectionNode<I = unknown> {
 
     isProjecting(): boolean
     animationValues?: ResolvedValues
-    currentAnimation?: JSAnimation<number>
+    currentAnimation?: AnimationPlaybackControlsWithThen
+    pendingNativeAnimation?: Process
+    pendingNativeAnimationOptions?: ValueAnimationOptions<number>
+    nativeAnimation?: AnimationPlaybackControlsWithThen
+    nativeAnimationOptions?: ValueAnimationOptions<number>
     isTreeAnimating?: boolean
     isAnimationBlocked?: boolean
     isTreeAnimationBlocked: () => boolean
+    stopCurrentAnimation: () => void
+    stopNativeLayoutAnimation: () => void
     setAnimationOrigin(delta: Delta): void
-    startAnimation(transition: ValueTransition): void
+    startAnimation(transition: ValueAnimationOptions<number>): void
     finishAnimation(): void
     hasCheckedOptimisedAppear: boolean
 

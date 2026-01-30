@@ -6,12 +6,17 @@ import {
     Delta,
     noop,
     Point,
+    secondsToMilliseconds,
     SubscriptionManager,
 } from "motion-utils"
 import { animateSingleValue } from "../../animation/animate/single-value"
-import { JSAnimation } from "../../animation/JSAnimation"
+import { NativeAnimationExtended } from "../../animation/NativeAnimationExtended"
 import { getOptimisedAppearId } from "../../animation/optimized-appear/get-appear-id"
-import { Transition, ValueAnimationOptions } from "../../animation/types"
+import {
+    AnimationPlaybackControlsWithThen,
+    Transition,
+    ValueAnimationOptions,
+} from "../../animation/types"
 import { getValueTransition } from "../../animation/utils/get-value-transition"
 import { cancelFrame, frame, frameData, frameSteps } from "../../frameloop"
 import { microtask } from "../../frameloop/microtask"
@@ -86,6 +91,20 @@ const animationTarget = 1000
 
 let id = 0
 
+const isHTMLElement = (instance: unknown): instance is HTMLElement =>
+    typeof HTMLElement !== "undefined" && instance instanceof HTMLElement
+
+const hasScaleCorrectedValues = (values: ResolvedValues) => {
+    for (const key in scaleCorrectors) {
+        if (values[key] !== undefined) return true
+    }
+
+    return false
+}
+
+const toMilliseconds = (value?: number) =>
+    value === undefined ? value : secondsToMilliseconds(value)
+
 function resetDistortingTransform(
     key: string,
     visualElement: VisualElement,
@@ -130,6 +149,13 @@ function cancelTreeOptimisedTransformAnimations(
     if (parent && !parent.hasCheckedOptimisedAppear) {
         cancelTreeOptimisedTransformAnimations(parent)
     }
+}
+
+function cancelTreeNativeLayoutAnimations(projectionNode: IProjectionNode) {
+    projectionNode.stopNativeLayoutAnimation()
+
+    const { parent } = projectionNode
+    if (parent) cancelTreeNativeLayoutAnimations(parent)
 }
 
 export function createProjectionNode<I>({
@@ -672,6 +698,7 @@ export function createProjectionNode<I>({
             ) {
                 cancelTreeOptimisedTransformAnimations(this)
             }
+            cancelTreeNativeLayoutAnimations(this)
 
             !this.root.isUpdating && this.root.startUpdate()
 
@@ -1384,7 +1411,8 @@ export function createProjectionNode<I>({
             this.isTreeAnimating = Boolean(
                 (this.parent && this.parent.isTreeAnimating) ||
                     this.currentAnimation ||
-                    this.pendingAnimation
+                    this.pendingAnimation ||
+                    this.pendingNativeAnimation
             )
             if (!this.isTreeAnimating) {
                 this.targetDelta = this.relativeTarget = undefined
@@ -1529,7 +1557,11 @@ export function createProjectionNode<I>({
          */
         animationValues?: ResolvedValues
         pendingAnimation?: Process
-        currentAnimation?: JSAnimation<number>
+        pendingNativeAnimation?: Process
+        pendingNativeAnimationOptions?: ValueAnimationOptions<number>
+        currentAnimation?: AnimationPlaybackControlsWithThen
+        nativeAnimation?: AnimationPlaybackControlsWithThen
+        nativeAnimationOptions?: ValueAnimationOptions<number>
         mixTargetDelta: (progress: number) => void
         animationProgress = 0
 
@@ -1629,13 +1661,17 @@ export function createProjectionNode<I>({
             }
 
             this.mixTargetDelta(this.options.layoutRoot ? 1000 : 0)
+
+            if (this.pendingNativeAnimationOptions) {
+                this.scheduleNativeLayoutAnimation()
+            }
         }
 
         motionValue?: MotionValue<number>
         startAnimation(options: ValueAnimationOptions<number>) {
             this.notifyListeners("animationStart")
 
-            this.currentAnimation?.stop()
+            this.stopCurrentAnimation()
             this.resumingFrom?.currentAnimation?.stop()
 
             if (this.pendingAnimation) {
@@ -1643,11 +1679,78 @@ export function createProjectionNode<I>({
                 this.pendingAnimation = undefined
             }
 
+            if (this.pendingNativeAnimation) {
+                cancelFrame(this.pendingNativeAnimation)
+                this.pendingNativeAnimation = undefined
+            }
+
+            this.pendingNativeAnimationOptions = undefined
+
+            if (this.canUseNativeLayoutAnimation()) {
+                this.pendingNativeAnimationOptions = options
+                return
+            }
+
             /**
              * Start the animation in the next frame to have a frame with progress 0,
              * where the target is the same as when the animation started, so we can
              * calculate the relative positions correctly for instant transitions.
              */
+            this.startJsAnimation(options)
+        }
+
+        stopCurrentAnimation() {
+            if (this.nativeAnimation || this.pendingNativeAnimation) {
+                this.stopNativeLayoutAnimation()
+            } else {
+                this.currentAnimation?.stop()
+            }
+        }
+
+        canUseNativeLayoutAnimation() {
+            if (!this.instance || !isHTMLElement(this.instance)) return false
+            if (this.isSVG) return false
+            if (this.options.layoutId || this.resumeFrom || this.resumingFrom)
+                return false
+            if (this.getTransformTemplate()) return false
+            if (hasScaleCorrectedValues(this.latestValues)) return false
+            if (this.hasProjectingAncestor() || this.hasProjectingDescendant())
+                return false
+
+            return true
+        }
+
+        hasProjectingAncestor() {
+            let current = this.parent
+            while (current) {
+                if (current.isProjecting()) return true
+                current = current.parent
+            }
+
+            return false
+        }
+
+        hasProjectingDescendant() {
+            const stack = Array.from(this.children)
+
+            while (stack.length) {
+                const child = stack.pop()!
+                if (child.isProjecting()) return true
+                child.children.forEach((grandChild) => stack.push(grandChild))
+            }
+
+            return false
+        }
+
+        scheduleNativeLayoutAnimation() {
+            if (this.pendingNativeAnimation) return
+
+            this.pendingNativeAnimation = frame.postRender(() =>
+                this.startNativeLayoutAnimation()
+            )
+        }
+
+        startJsAnimation(options: ValueAnimationOptions<number>) {
             this.pendingAnimation = frame.update(() => {
                 globalProjectionState.hasAnimatedSinceResize = true
 
@@ -1674,7 +1777,7 @@ export function createProjectionNode<I>({
                             this.completeAnimation()
                         },
                     }
-                ) as JSAnimation<number>
+                )
 
                 if (this.resumingFrom) {
                     this.resumingFrom.currentAnimation = this.currentAnimation
@@ -1682,6 +1785,141 @@ export function createProjectionNode<I>({
 
                 this.pendingAnimation = undefined
             })
+        }
+
+        startNativeLayoutAnimation() {
+            const options = this.pendingNativeAnimationOptions
+
+            if (!options) return
+
+            this.pendingNativeAnimation = undefined
+            this.pendingNativeAnimationOptions = undefined
+
+            if (!this.canUseNativeLayoutAnimation()) {
+                this.startJsAnimation(options)
+                return
+            }
+
+            if (!isHTMLElement(this.instance)) {
+                this.startJsAnimation(options)
+                return
+            }
+
+            if (
+                options.type === false ||
+                (options.duration === 0 && !options.repeatDelay)
+            ) {
+                this.mixTargetDelta && this.mixTargetDelta(animationTarget)
+                options.onComplete && options.onComplete()
+                this.completeAnimation()
+                return
+            }
+
+            const lead = this.getLead()
+
+            if (!this.projectionDelta || !this.layout || !lead.target) {
+                this.startJsAnimation(options)
+                return
+            }
+
+            if (!this.projectionDeltaWithTransform) {
+                this.createProjectionDeltas()
+            }
+
+            this.applyTransformsToTarget()
+
+            if (!this.projectionDeltaWithTransform) {
+                this.startJsAnimation(options)
+                return
+            }
+
+            const valuesToRender = lead.animationValues || lead.latestValues
+            const transformTemplate = this.getTransformTemplate()
+
+            let fromTransform = buildProjectionTransform(
+                this.projectionDeltaWithTransform,
+                this.treeScale,
+                valuesToRender
+            )
+            let toTransform = buildProjectionTransform(
+                createDelta(),
+                this.treeScale,
+                valuesToRender
+            )
+
+            if (transformTemplate) {
+                fromTransform = transformTemplate(valuesToRender, fromTransform)
+                toTransform = transformTemplate(valuesToRender, toTransform)
+            }
+
+            const element = this.instance
+            const { x, y } = this.projectionDelta
+            element.style.transformOrigin = `${x.origin * 100}% ${
+                y.origin * 100
+            }% 0`
+
+            globalProjectionState.hasAnimatedSinceResize = true
+            activeAnimations.layout++
+
+            const onComplete = options.onComplete
+            const onPlay = options.onPlay
+            const nativeOptions = {
+                ...(options as any),
+                velocity: 0,
+                delay: toMilliseconds(options.delay),
+                duration: toMilliseconds(options.duration),
+                repeatDelay: toMilliseconds(options.repeatDelay),
+                element,
+                name: "transform",
+                keyframes: [fromTransform, toTransform],
+                onComplete: () => {
+                    activeAnimations.layout--
+                    onComplete && onComplete()
+                    this.finishNativeLayoutAnimation()
+                },
+            }
+
+            onPlay && onPlay()
+
+            this.nativeAnimationOptions = options
+            this.nativeAnimation = new NativeAnimationExtended(nativeOptions)
+            this.currentAnimation = this.nativeAnimation
+        }
+
+        finishNativeLayoutAnimation() {
+            this.mixTargetDelta && this.mixTargetDelta(animationTarget)
+            this.clearNativeAnimation()
+            this.completeAnimation()
+        }
+
+        stopNativeLayoutAnimation() {
+            if (!this.nativeAnimation) return
+
+            if (this.pendingNativeAnimation) {
+                cancelFrame(this.pendingNativeAnimation)
+                this.pendingNativeAnimation = undefined
+                this.pendingNativeAnimationOptions = undefined
+            }
+
+            if (!this.nativeAnimation) return
+
+            this.nativeAnimation.stop()
+            activeAnimations.layout--
+            this.nativeAnimationOptions?.onStop?.()
+            this.clearNativeAnimation()
+            this.scheduleRender()
+        }
+
+        clearNativeAnimation() {
+            if (this.pendingNativeAnimation) {
+                cancelFrame(this.pendingNativeAnimation)
+                this.pendingNativeAnimation = undefined
+            }
+
+            this.pendingNativeAnimationOptions = undefined
+            this.nativeAnimation = undefined
+            this.nativeAnimationOptions = undefined
+            this.currentAnimation = undefined
         }
 
         completeAnimation() {
@@ -1703,7 +1941,7 @@ export function createProjectionNode<I>({
         finishAnimation() {
             if (this.currentAnimation) {
                 this.mixTargetDelta && this.mixTargetDelta(animationTarget)
-                this.currentAnimation.stop()
+                this.stopCurrentAnimation()
             }
 
             this.completeAnimation()
@@ -1943,7 +2181,11 @@ export function createProjectionNode<I>({
                     targetStyle.pointerEvents =
                         resolveMotionValue(styleProp?.pointerEvents) || ""
                 }
-                if (this.hasProjected && !hasTransform(this.latestValues)) {
+                if (
+                    !isUsingNativeLayoutAnimation &&
+                    this.hasProjected &&
+                    !hasTransform(this.latestValues)
+                ) {
                     targetStyle.transform = transformTemplate
                         ? transformTemplate({}, "")
                         : "none"
@@ -1968,12 +2210,14 @@ export function createProjectionNode<I>({
                 transform = transformTemplate(valuesToRender, transform)
             }
 
-            targetStyle.transform = transform
+            if (!isUsingNativeLayoutAnimation) {
+                targetStyle.transform = transform
 
-            const { x, y } = this.projectionDelta
-            targetStyle.transformOrigin = `${x.origin * 100}% ${
-                y.origin * 100
-            }% 0`
+                const { x, y } = this.projectionDelta
+                targetStyle.transformOrigin = `${x.origin * 100}% ${
+                    y.origin * 100
+                }% 0`
+            }
 
             if (lead.animationValues) {
                 /**
@@ -2061,7 +2305,7 @@ export function createProjectionNode<I>({
         // Only run on root
         resetTree() {
             this.root.nodes!.forEach((node: IProjectionNode) =>
-                node.currentAnimation?.stop()
+                node.stopCurrentAnimation()
             )
             this.root.nodes!.forEach(clearMeasurements)
             this.root.sharedNodes.clear()
