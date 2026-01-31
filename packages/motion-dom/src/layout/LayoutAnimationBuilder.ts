@@ -61,30 +61,80 @@ function snapshotFromTarget(projection: IProjectionNode): LayoutElementRecord["p
 
 export class LayoutAnimationBuilder {
     private scope: LayoutAnimationScope
-    private updateDom: () => void | Promise<void>
+    private updateDom?: () => void | Promise<void>
     private defaultOptions?: AnimationOptions
     private sharedTransitions = new Map<string, AnimationOptions>()
     private notifyReady: LayoutBuilderResolve = noop
     private rejectReady: LayoutBuilderReject = noop
     private readyPromise: Promise<GroupAnimation>
 
+    // Deferred execution state
+    private isDeferred: boolean
+    private snapshotRecords?: LayoutElementRecord[]
+    private snapshotTaken = false
+
     constructor(
         scope: LayoutAnimationScope,
-        updateDom: () => void | Promise<void>,
+        updateDom?: () => void | Promise<void>,
         defaultOptions?: AnimationOptions
     ) {
         this.scope = scope
         this.updateDom = updateDom
         this.defaultOptions = defaultOptions
+        this.isDeferred = updateDom === undefined
 
         this.readyPromise = new Promise<GroupAnimation>((resolve, reject) => {
             this.notifyReady = resolve
             this.rejectReady = reject
         })
 
-        frame.postRender(() => {
-            this.start().then(this.notifyReady).catch(this.rejectReady)
-        })
+        if (this.isDeferred) {
+            // Deferred mode: take snapshot immediately, wait for play()
+            frame.postRender(() => {
+                this.takeSnapshot()
+            })
+        } else {
+            // Immediate mode: run the full animation
+            frame.postRender(() => {
+                this.start().then(this.notifyReady).catch(this.rejectReady)
+            })
+        }
+    }
+
+    /**
+     * Play the deferred layout animation.
+     * Call this after creating a deferred LayoutAnimationBuilder to trigger the animation.
+     * @param updateDom - Optional DOM update function. If not provided, uses the one from constructor.
+     * @param options - Optional animation options to override defaults.
+     */
+    play(
+        updateDom?: () => void | Promise<void>,
+        options?: AnimationOptions
+    ): this {
+        if (updateDom) {
+            this.updateDom = updateDom
+        }
+
+        if (options) {
+            this.defaultOptions = options
+        }
+
+        if (!this.updateDom) {
+            throw new Error(
+                "LayoutAnimationBuilder: play() requires an updateDom function"
+            )
+        }
+
+        // If snapshot wasn't taken yet (play called before postRender), take it now
+        if (!this.snapshotTaken) {
+            this.takeSnapshot()
+        }
+
+        this.continueFromSnapshot()
+            .then(this.notifyReady)
+            .catch(this.rejectReady)
+
+        return this
     }
 
     shared(id: string, transition: AnimationOptions): this {
@@ -99,11 +149,18 @@ export class LayoutAnimationBuilder {
         return this.readyPromise.then(resolve, reject)
     }
 
-    private async start(): Promise<GroupAnimation> {
-        const beforeElements = collectLayoutElements(this.scope)
-        const beforeRecords = this.buildRecords(beforeElements)
+    /**
+     * Take a snapshot of the current layout state (before DOM update).
+     * This is called automatically in deferred mode.
+     */
+    private takeSnapshot(): void {
+        if (this.snapshotTaken) return
+        this.snapshotTaken = true
 
-        beforeRecords.forEach(({ projection }) => {
+        const beforeElements = collectLayoutElements(this.scope)
+        this.snapshotRecords = this.buildRecords(beforeElements)
+
+        this.snapshotRecords.forEach(({ projection }) => {
             const hasCurrentAnimation = Boolean(projection.currentAnimation)
             const isSharedLayout = Boolean(projection.options.layoutId)
             if (hasCurrentAnimation && isSharedLayout) {
@@ -122,8 +179,16 @@ export class LayoutAnimationBuilder {
             projection.isPresent = true
             projection.willUpdate()
         })
+    }
 
-        await this.updateDom()
+    /**
+     * Continue the animation after snapshot was taken.
+     * Performs DOM update and triggers the layout animation.
+     */
+    private async continueFromSnapshot(): Promise<GroupAnimation> {
+        const beforeRecords = this.snapshotRecords || []
+
+        await this.updateDom!()
 
         const afterElements = collectLayoutElements(this.scope)
         const afterRecords = this.buildRecords(afterElements)
@@ -164,6 +229,11 @@ export class LayoutAnimationBuilder {
         const animation = new GroupAnimation(animations)
 
         return animation
+    }
+
+    private async start(): Promise<GroupAnimation> {
+        this.takeSnapshot()
+        return this.continueFromSnapshot()
     }
 
     private buildRecords(elements: Element[]): LayoutElementRecord[] {
@@ -235,10 +305,10 @@ export function parseAnimateLayoutArgs(
     options?: AnimationOptions
 ): {
     scope: Element | Document
-    updateDom: () => void
+    updateDom?: () => void
     defaultOptions?: AnimationOptions
 } {
-    // animateLayout(updateDom)
+    // animateLayout(updateDom, options?)
     if (typeof scopeOrUpdateDom === "function") {
         return {
             scope: document,
@@ -248,13 +318,25 @@ export function parseAnimateLayoutArgs(
     }
 
     // animateLayout(scope, updateDom, options?)
+    // animateLayout(scope, options?) - deferred mode
+    // animateLayout(scope) - deferred mode
     const elements = resolveElements(scopeOrUpdateDom)
     const scope = elements[0] || document
 
+    // Check if second argument is a function (updateDom) or options object
+    if (typeof updateDomOrOptions === "function") {
+        return {
+            scope,
+            updateDom: updateDomOrOptions,
+            defaultOptions: options,
+        }
+    }
+
+    // Deferred mode: no updateDom function provided
     return {
         scope,
-        updateDom: updateDomOrOptions as () => void,
-        defaultOptions: options,
+        updateDom: undefined,
+        defaultOptions: updateDomOrOptions as AnimationOptions | undefined,
     }
 }
 

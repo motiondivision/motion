@@ -1,0 +1,84 @@
+<html>
+    <head>
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+            }
+
+            #scope {
+                position: relative;
+            }
+
+            #box {
+                width: 100px;
+                height: 100px;
+                background-color: #00cc88;
+            }
+
+            #box.moved {
+                position: absolute;
+                top: 100px;
+                left: 200px;
+            }
+
+            [data-layout-correct="false"] {
+                background: #dd1144 !important;
+                opacity: 0.5;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="scope">
+            <div id="box" data-layout></div>
+        </div>
+
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module" src="/src/imports/script-assert.js"></script>
+        <script type="module">
+            const { animateLayout, frame } = window.AnimateLayout
+            const { matchViewportBox, showError } = window.Assert
+            const scope = document.getElementById("scope")
+            const box = document.getElementById("box")
+
+            const boxOrigin = box.getBoundingClientRect()
+
+            async function runTest() {
+                // Target position from .moved class
+                const targetTop = 100
+                const targetLeft = 200
+
+                // Create a deferred layout animation with scope element
+                const builder = animateLayout(scope)
+
+                // Wait one frame to ensure snapshot is taken
+                await new Promise((resolve) => frame.postRender(resolve))
+
+                // Now play with the updateDom and options
+                const controls = await builder.play(
+                    () => {
+                        box.classList.add("moved")
+                    },
+                    { duration: 10, ease: "linear" }
+                )
+
+                // Pause at halfway
+                controls.pause()
+                controls.time = controls.duration * 0.5
+
+                // Wait one frame for the animation to apply
+                await new Promise((resolve) => frame.postRender(resolve))
+
+                // At halfway, the box should be at the midpoint between origin and target
+                const expectedHalfway = {
+                    top: 50,
+                    left: 100,
+                }
+
+                matchViewportBox(box, expectedHalfway)
+            }
+
+            runTest().catch(console.error)
+        </script>
+    </body>
+</html>
