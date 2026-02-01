@@ -81,6 +81,31 @@ export function createRenderBatcher(
         }
     }
 
+    /**
+     * Manually process all scheduled frame callbacks.
+     * Used for manual frame rendering in environments without requestAnimationFrame
+     * (e.g., WebXR, Remotion, server-side rendering of videos).
+     */
+    const processFrame = (timestamp: number, delta?: number) => {
+        runNextFrame = false
+
+        state.delta = delta !== undefined ? delta : 1000 / 60
+        state.timestamp = timestamp
+        state.isProcessing = true
+
+        // Unrolled render loop for better per-frame performance
+        setup.process(state)
+        read.process(state)
+        resolveKeyframes.process(state)
+        preUpdate.process(state)
+        update.process(state)
+        preRender.process(state)
+        render.process(state)
+        postRender.process(state)
+
+        state.isProcessing = false
+    }
+
     const schedule = stepsOrder.reduce((acc, key) => {
         const step = steps[key]
         acc[key] = (process: Process, keepAlive = false, immediate = false) => {
@@ -97,5 +122,5 @@ export function createRenderBatcher(
         }
     }
 
-    return { schedule, cancel, state, steps }
+    return { schedule, cancel, state, steps, processFrame }
 }

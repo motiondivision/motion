@@ -6,6 +6,7 @@ export const {
     cancel: cancelFrame,
     state: frameData,
     steps: frameSteps,
+    processFrame,
 } = /* @__PURE__ */ createRenderBatcher(
     typeof requestAnimationFrame !== "undefined" ? requestAnimationFrame : noop,
     true

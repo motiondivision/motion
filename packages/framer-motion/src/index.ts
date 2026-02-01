@@ -95,6 +95,7 @@ export { useInstantLayoutTransition } from "./projection/use-instant-layout-tran
 export { useResetProjection } from "./projection/use-reset-projection"
 export { buildTransform, visualElementStore, VisualElement } from "motion-dom"
 export { useAnimationFrame } from "./utils/use-animation-frame"
+export { useManualFrame } from "./utils/use-manual-frame"
 export { Cycle, CycleState, useCycle } from "./utils/use-cycle"
 export { useInView, UseInViewOptions } from "./utils/use-in-view"
 export {
