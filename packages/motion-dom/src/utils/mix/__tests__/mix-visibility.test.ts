@@ -15,4 +15,16 @@ describe("mixVisibility", () => {
         expect(mixVisibility("none", "block")(0.5)).toBe("block")
         expect(mixVisibility("none", "block")(1)).toBe("block")
     })
+
+    test("mixes identical visibility values", () => {
+        // When both values are the same visible value, should return that value
+        expect(mixVisibility("visible", "visible")(0)).toBe("visible")
+        expect(mixVisibility("visible", "visible")(0.5)).toBe("visible")
+        expect(mixVisibility("visible", "visible")(1)).toBe("visible")
+
+        // When both values are the same invisible value, should return that value
+        expect(mixVisibility("hidden", "hidden")(0)).toBe("hidden")
+        expect(mixVisibility("hidden", "hidden")(0.5)).toBe("hidden")
+        expect(mixVisibility("hidden", "hidden")(1)).toBe("hidden")
+    })
 })

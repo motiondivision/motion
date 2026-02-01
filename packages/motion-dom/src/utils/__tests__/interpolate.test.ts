@@ -152,3 +152,52 @@ test("interpolate - color to CSS variables", () => {
         "linear-gradient(var(--10), var(--20, rgba(0,0,0,0)), grey)"
     )
 })
+
+test("interpolate visibility keyframes", () => {
+    // Test case from issue #2515: visibility keyframe arrays don't work
+    // When animating visibility: ["hidden", "visible", "visible", "hidden"]
+    // the element should become visible in the middle of the animation
+
+    const f = interpolate(
+        [0, 0.33, 0.67, 1],
+        ["hidden", "visible", "visible", "hidden"]
+    )
+
+    // At start, should be hidden
+    expect(f(0)).toBe("hidden")
+
+    // Shortly after start, should switch to visible
+    expect(f(0.17)).toBe("visible")
+
+    // In the middle, should be visible
+    expect(f(0.5)).toBe("visible")
+
+    // Near the end but before 1, should still be visible
+    expect(f(0.8)).toBe("visible")
+
+    // At the very end, should be hidden
+    expect(f(1)).toBe("hidden")
+})
+
+test("interpolate display keyframes", () => {
+    // Similar test for display property
+    const f = interpolate(
+        [0, 0.33, 0.67, 1],
+        ["none", "block", "block", "none"]
+    )
+
+    // At start, should be none
+    expect(f(0)).toBe("none")
+
+    // Shortly after start, should switch to block
+    expect(f(0.17)).toBe("block")
+
+    // In the middle, should be block
+    expect(f(0.5)).toBe("block")
+
+    // Near the end but before 1, should still be block
+    expect(f(0.8)).toBe("block")
+
+    // At the very end, should be none
+    expect(f(1)).toBe("none")
+})

@@ -365,6 +365,80 @@ describe("animate prop as object", () => {
         return expect(promise).resolves.toEqual([true, "hidden"])
     })
 
+    test("animate visibility with keyframe array transitions through all values", async () => {
+        // Test case from issue #2515: visibility keyframe arrays don't work
+        const promise = new Promise((resolve) => {
+            const visibilityValues: string[] = []
+            const Component = () => {
+                const visibility = useMotionValue("hidden")
+
+                return (
+                    <motion.div
+                        animate={{
+                            visibility: ["hidden", "visible", "visible", "hidden"],
+                        }}
+                        style={{ visibility }}
+                        transition={{ duration: 0.2, ease: "linear" }}
+                        onUpdate={(latest) => {
+                            const val = latest.visibility as string
+                            // Only record when value changes
+                            if (visibilityValues[visibilityValues.length - 1] !== val) {
+                                visibilityValues.push(val)
+                            }
+                        }}
+                        onAnimationComplete={() => {
+                            resolve(visibilityValues)
+                        }}
+                    />
+                )
+            }
+            const { rerender } = render(<Component />)
+            rerender(<Component />)
+        })
+        // Should transition: hidden -> visible -> hidden
+        // The "visible" value should appear at some point during the animation
+        const result = await promise as string[]
+        expect(result).toContain("visible")
+        expect(result[result.length - 1]).toBe("hidden")
+    })
+
+    test("animate display with keyframe array transitions through all values", async () => {
+        // Similar test for display property
+        const promise = new Promise((resolve) => {
+            const displayValues: string[] = []
+            const Component = () => {
+                const display = useMotionValue("none")
+
+                return (
+                    <motion.div
+                        animate={{
+                            display: ["none", "block", "block", "none"],
+                        }}
+                        style={{ display }}
+                        transition={{ duration: 0.2, ease: "linear" }}
+                        onUpdate={(latest) => {
+                            const val = latest.display as string
+                            // Only record when value changes
+                            if (displayValues[displayValues.length - 1] !== val) {
+                                displayValues.push(val)
+                            }
+                        }}
+                        onAnimationComplete={() => {
+                            resolve(displayValues)
+                        }}
+                    />
+                )
+            }
+            const { rerender } = render(<Component />)
+            rerender(<Component />)
+        })
+        // Should transition: none -> block -> none
+        // The "block" value should appear at some point during the animation
+        const result = await promise as string[]
+        expect(result).toContain("block")
+        expect(result[result.length - 1]).toBe("none")
+    })
+
     test("keyframes - accepts ease as an array", async () => {
         const promise = new Promise((resolve) => {
             const x = motionValue(0)
