@@ -1,18 +1,15 @@
-const interactiveElements = new Set([
-    "BUTTON",
-    "INPUT",
-    "SELECT",
-    "TEXTAREA",
-    "A",
-])
+const interactiveElements = new Set(["INPUT", "SELECT", "TEXTAREA"])
 
 /**
  * Checks if an element is an interactive form element that should prevent
  * drag gestures from starting when clicked.
  *
- * This specifically targets form controls, buttons, and links - not just any
- * element with tabIndex, since motion elements with tap handlers automatically
- * get tabIndex=0 for keyboard accessibility.
+ * This specifically targets form controls where the user might want to select
+ * text or interact with the control (e.g., sliders, dropdowns).
+ *
+ * Buttons and links are NOT included because they don't have click-and-move
+ * actions of their own - they only respond to click events, so dragging
+ * should still work when initiated from these elements.
  */
 export function isElementKeyboardAccessible(element: Element) {
     return (
