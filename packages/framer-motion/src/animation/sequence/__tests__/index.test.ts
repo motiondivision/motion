@@ -1,6 +1,26 @@
 import { motionValue, spring, stagger } from "motion-dom"
 import { Easing } from "motion-utils"
 import { createAnimationsFromSequence } from "../create"
+import { AnimationSequence, SequenceOptions } from "../types"
+
+/**
+ * Helper to maintain backward compatibility with tests.
+ * Extracts just the animationDefinitions map from the new return structure.
+ */
+function getAnimationDefinitions(
+    sequence: AnimationSequence,
+    options?: SequenceOptions,
+    scope?: undefined,
+    generators?: { spring: typeof spring }
+) {
+    const result = createAnimationsFromSequence(
+        sequence,
+        options,
+        scope,
+        generators
+    )
+    return result.animationDefinitions
+}
 
 describe("createAnimationsFromSequence", () => {
     const a = document.createElement("div")
@@ -9,7 +29,7 @@ describe("createAnimationsFromSequence", () => {
     const value = motionValue(0)
 
     test("It creates a single animation", () => {
-        const animations = createAnimationsFromSequence(
+        const animations = getAnimationDefinitions(
             [
                 [
                     a,
@@ -34,7 +54,7 @@ describe("createAnimationsFromSequence", () => {
     })
 
     test("It orders grouped keyframes correctly", () => {
-        const animations = createAnimationsFromSequence(
+        const animations = getAnimationDefinitions(
             [
                 [a, { x: 100 }],
                 [a, { x: [200, 300] }],
@@ -48,7 +68,7 @@ describe("createAnimationsFromSequence", () => {
     })
 
     test("It creates a single animation with defaults", () => {
-        const animations = createAnimationsFromSequence(
+        const animations = getAnimationDefinitions(
             [[a, { opacity: 1 }, { duration: 1 }]],
             undefined,
             undefined,
@@ -64,7 +84,7 @@ describe("createAnimationsFromSequence", () => {
     })
 
     test("It creates a single animation with defaults - 2", () => {
-        const animations = createAnimationsFromSequence(
+        const animations = getAnimationDefinitions(
             [
                 [
                     a,
@@ -89,7 +109,7 @@ describe("createAnimationsFromSequence", () => {
     })
 
     test("It assigns the correct easing to the correct keyframes", () => {
-        const animations = createAnimationsFromSequence(
+        const animations = getAnimationDefinitions(
             [
                 [a, { x: 1 }, { duration: 1, ease: "circIn" }],
                 [a, { x: 2, opacity: 0 }, { duration: 1, ease: "backInOut" }],
@@ -115,7 +135,7 @@ describe("createAnimationsFromSequence", () => {
     })
 
     test("It sequences one animation after another", () => {
-        const animations = createAnimationsFromSequence(
+        const animations = getAnimationDefinitions(
             [
                 [
                     a,
@@ -159,7 +179,7 @@ describe("createAnimationsFromSequence", () => {
     })
 
     test("It accepts motion values", () => {
-        const animations = createAnimationsFromSequence(
+        const animations = getAnimationDefinitions(
             [[value, 100, { duration: 0.5 }]],
             undefined,
             undefined,
@@ -175,7 +195,7 @@ describe("createAnimationsFromSequence", () => {
     })
 
     test("It accepts motion values keyframes", () => {
-        const animations = createAnimationsFromSequence(
+        const animations = getAnimationDefinitions(
             [[value, [50, 100], { duration: 0.5 }]],
             undefined,
             undefined,
@@ -191,7 +211,7 @@ describe("createAnimationsFromSequence", () => {
     })
 
     test("It adds relative time to another animation", () => {
-        const animations = createAnimationsFromSequence(
+        const animations = getAnimationDefinitions(
             [
                 [a, { x: 100 }, { duration: 1 }],
                 [b, { y: 500 }, { duration: 0.5, at: "+0.5" }],
@@ -217,7 +237,7 @@ describe("createAnimationsFromSequence", () => {
     })
 
     test("It adds moves the playhead back to the previous animation", () => {
-        const animations = createAnimationsFromSequence(
+        const animations = getAnimationDefinitions(
             [
                 [a, { x: 100 }, { duration: 1 }],
                 [b, { y: 500 }, { duration: 0.5, at: "<" }],
@@ -243,7 +263,7 @@ describe("createAnimationsFromSequence", () => {
     })
 
     test("It adds subtracts time to another animation", () => {
-        const animations = createAnimationsFromSequence(
+        const animations = getAnimationDefinitions(
             [
                 [a, { x: 100 }, { duration: 1 }],
                 [b, { y: 500 }, { duration: 0.5, at: "-1" }],
@@ -269,7 +289,7 @@ describe("createAnimationsFromSequence", () => {
     })
 
     test("It sets another animation at a specific time", () => {
-        const animations = createAnimationsFromSequence(
+        const animations = getAnimationDefinitions(
             [
                 [a, { x: 100 }, { duration: 1 }],
                 [b, { y: 500 }, { duration: 0.5, at: 1.5 }],
@@ -295,7 +315,7 @@ describe("createAnimationsFromSequence", () => {
     })
 
     test("It sets labels from strings", () => {
-        const animations = createAnimationsFromSequence(
+        const animations = getAnimationDefinitions(
             [
                 [a, { x: 100 }, { duration: 1 }],
                 "my label",
@@ -330,7 +350,7 @@ describe("createAnimationsFromSequence", () => {
     })
 
     test("Can set label as first item in sequence", () => {
-        const animations = createAnimationsFromSequence(
+        const animations = getAnimationDefinitions(
             [
                 "my label",
                 [a, { opacity: 0 }, { duration: 1 }],
@@ -357,7 +377,7 @@ describe("createAnimationsFromSequence", () => {
     })
 
     test("It sets annotated labels with absolute at times", () => {
-        const animations = createAnimationsFromSequence(
+        const animations = getAnimationDefinitions(
             [
                 [a, { x: 100 }, { duration: 1 }],
                 { name: "my label", at: 0 },
@@ -392,7 +412,7 @@ describe("createAnimationsFromSequence", () => {
     })
 
     test("It sets annotated labels with relative at times", () => {
-        const animations = createAnimationsFromSequence(
+        const animations = getAnimationDefinitions(
             [
                 [a, { x: 100 }, { duration: 1 }],
                 { name: "my label", at: "-1" },
@@ -427,7 +447,7 @@ describe("createAnimationsFromSequence", () => {
     })
 
     test("It advances time by the maximum defined in individual value options", () => {
-        const animations = createAnimationsFromSequence([
+        const animations = getAnimationDefinitions([
             [a, { x: 1, y: 1 }, { duration: 1, y: { duration: 2 } }],
             [b, { y: 1 }, { duration: 0.5 }],
         ])
@@ -437,7 +457,7 @@ describe("createAnimationsFromSequence", () => {
     })
 
     test("It creates multiple animations for multiple targets", () => {
-        const animations = createAnimationsFromSequence([[[a, b, c], { x: 1 }]])
+        const animations = getAnimationDefinitions([[[a, b, c], { x: 1 }]])
 
         expect(animations.get(a)).toBeTruthy()
         expect(animations.get(b)).toBeTruthy()
@@ -445,7 +465,7 @@ describe("createAnimationsFromSequence", () => {
     })
 
     test("It creates multiple animations, staggered", () => {
-        const animations = createAnimationsFromSequence([
+        const animations = getAnimationDefinitions([
             [[a, b, c], { x: 1 }, { delay: stagger(1), duration: 1 }],
             [a, { opacity: 1 }, { duration: 1 }],
         ])
@@ -479,7 +499,7 @@ describe("createAnimationsFromSequence", () => {
     })
 
     test("It scales the whole animation based on the provided duration", () => {
-        const animations = createAnimationsFromSequence(
+        const animations = getAnimationDefinitions(
             [
                 [
                     a,
@@ -499,7 +519,7 @@ describe("createAnimationsFromSequence", () => {
     })
 
     test("It passes timeline options to children", () => {
-        const animations = createAnimationsFromSequence(
+        const animations = getAnimationDefinitions(
             [
                 [
                     a,
@@ -525,7 +545,7 @@ describe("createAnimationsFromSequence", () => {
     })
 
     test("It passes default options to children", () => {
-        const animations = createAnimationsFromSequence(
+        const animations = getAnimationDefinitions(
             [[a, { opacity: 1 }, { times: [0, 1] }]],
             { defaultTransition: { duration: 2, ease: "easeInOut" } }
         )
@@ -539,7 +559,7 @@ describe("createAnimationsFromSequence", () => {
     })
 
     test("It correctly passes easing cubic bezier array to children", () => {
-        const animations = createAnimationsFromSequence(
+        const animations = getAnimationDefinitions(
             [[a, { opacity: 1 }, { times: [0, 1] }]],
             { defaultTransition: { duration: 2, ease: [0, 1, 2, 3] } }
         )
@@ -556,7 +576,7 @@ describe("createAnimationsFromSequence", () => {
     })
 
     test("Adds spring as duration-based easing when only one keyframe defined", () => {
-        const animations = createAnimationsFromSequence(
+        const animations = getAnimationDefinitions(
             [
                 [a, { x: 200 }, { duration: 1 }],
                 [a, { x: 0 }, { duration: 1, type: "spring", bounce: 0 }],
@@ -577,7 +597,7 @@ describe("createAnimationsFromSequence", () => {
     })
 
     test("Adds spring as duration-based easing when only one keyframe defined", () => {
-        const animations = createAnimationsFromSequence(
+        const animations = getAnimationDefinitions(
             [[a, { x: [0, 100] }, { type: "spring" }]],
             undefined,
             undefined,
@@ -592,7 +612,7 @@ describe("createAnimationsFromSequence", () => {
     })
 
     test("Adds springs as duration-based simulation when two keyframes defined", () => {
-        const animations = createAnimationsFromSequence(
+        const animations = getAnimationDefinitions(
             [
                 [a, { x: 200 }, { duration: 1, ease: "linear" }],
                 [
@@ -617,7 +637,7 @@ describe("createAnimationsFromSequence", () => {
     })
 
     test("It correctly adds type: spring to timeline with simulated spring", () => {
-        const animations = createAnimationsFromSequence(
+        const animations = getAnimationDefinitions(
             [
                 [a, { x: 200 }, { duration: 1 }],
                 [
@@ -642,7 +662,7 @@ describe("createAnimationsFromSequence", () => {
     })
 
     test("Does not include type: spring in transition when spring is converted to easing via defaultTransition", () => {
-        const animations = createAnimationsFromSequence(
+        const animations = getAnimationDefinitions(
             [
                 [a, { x: 0 }, { duration: 0 }],
                 [a, { x: 1.12 }],
@@ -667,7 +687,7 @@ describe("createAnimationsFromSequence", () => {
     })
 
     test("It correctly repeats keyframes once", () => {
-        const animations = createAnimationsFromSequence(
+        const animations = getAnimationDefinitions(
             [[a, { x: [0, 100] }, { duration: 1, repeat: 1, ease: "linear" }]],
             undefined,
             undefined,
@@ -682,7 +702,7 @@ describe("createAnimationsFromSequence", () => {
     })
 
     test("It correctly repeats easing", () => {
-        const animations = createAnimationsFromSequence(
+        const animations = getAnimationDefinitions(
             [
                 [
                     a,
@@ -710,7 +730,7 @@ describe("createAnimationsFromSequence", () => {
     })
 
     test("Repeating a segment correctly places the next segment at the end", () => {
-        const animations = createAnimationsFromSequence(
+        const animations = getAnimationDefinitions(
             [
                 [a, { x: [0, 100] }, { duration: 1, repeat: 1 }],
                 [a, { y: [0, 100] }, { duration: 2 }],
@@ -731,7 +751,7 @@ describe("createAnimationsFromSequence", () => {
     })
 
     test.skip("It correctly adds repeatDelay between repeated keyframes", () => {
-        const animations = createAnimationsFromSequence(
+        const animations = getAnimationDefinitions(
             [
                 [
                     a,
@@ -751,7 +771,7 @@ describe("createAnimationsFromSequence", () => {
     })
 
     test.skip("It correctly mirrors repeated keyframes", () => {
-        const animations = createAnimationsFromSequence(
+        const animations = getAnimationDefinitions(
             [
                 [
                     a,
@@ -773,7 +793,7 @@ describe("createAnimationsFromSequence", () => {
     })
 
     test.skip("It correctly reverses repeated keyframes", () => {
-        const animations = createAnimationsFromSequence(
+        const animations = getAnimationDefinitions(
             [
                 [
                     a,
@@ -795,7 +815,7 @@ describe("createAnimationsFromSequence", () => {
     })
 
     test("It skips null elements in sequence", () => {
-        const animations = createAnimationsFromSequence(
+        const animations = getAnimationDefinitions(
             [
                 [a, { opacity: 1 }, { duration: 1 }],
                 [null as unknown as Element, { opacity: 0.5 }, { duration: 1 }],
@@ -813,7 +833,7 @@ describe("createAnimationsFromSequence", () => {
     })
 
     test("It filters null elements from array of targets", () => {
-        const animations = createAnimationsFromSequence(
+        const animations = getAnimationDefinitions(
             [[[a, null as unknown as Element, b], { x: 100 }, { duration: 1 }]],
             undefined,
             undefined,
@@ -827,7 +847,7 @@ describe("createAnimationsFromSequence", () => {
     })
 
     test("It handles sequence with only null element gracefully", () => {
-        const animations = createAnimationsFromSequence(
+        const animations = getAnimationDefinitions(
             [[null as unknown as Element, { opacity: 1 }, { duration: 1 }]],
             undefined,
             undefined,
@@ -836,5 +856,161 @@ describe("createAnimationsFromSequence", () => {
 
         // Should return empty map when no valid elements
         expect(animations.size).toBe(0)
+    })
+})
+
+describe("Sequence callbacks", () => {
+    const a = document.createElement("div")
+    const b = document.createElement("div")
+
+    test("It extracts callbacks with default timing", () => {
+        const { callbacks, totalDuration } = createAnimationsFromSequence(
+            [
+                [a, { x: 100 }, { duration: 1 }],
+                [{ onEnter: () => {} }, {}],
+                [b, { y: 200 }, { duration: 1 }],
+            ],
+            undefined,
+            undefined,
+            { spring }
+        )
+
+        expect(callbacks.length).toBe(1)
+        expect(callbacks[0].time).toBe(1) // After first animation
+        expect(typeof callbacks[0].onEnter).toBe("function")
+        expect(totalDuration).toBe(2)
+    })
+
+    test("It extracts callbacks with explicit at timing", () => {
+        const { callbacks } = createAnimationsFromSequence(
+            [
+                [a, { x: 100 }, { duration: 2 }],
+                [{ onEnter: () => {} }, { at: 0.5 }],
+            ],
+            undefined,
+            undefined,
+            { spring }
+        )
+
+        expect(callbacks.length).toBe(1)
+        expect(callbacks[0].time).toBe(0.5)
+    })
+
+    test("It extracts callbacks with relative timing", () => {
+        const { callbacks } = createAnimationsFromSequence(
+            [
+                [a, { x: 100 }, { duration: 1 }],
+                [{ onEnter: () => {} }, { at: "+0.5" }],
+            ],
+            undefined,
+            undefined,
+            { spring }
+        )
+
+        expect(callbacks.length).toBe(1)
+        expect(callbacks[0].time).toBe(1.5) // 1s (after anim) + 0.5s offset
+    })
+
+    test("It extracts callbacks with < timing", () => {
+        const { callbacks } = createAnimationsFromSequence(
+            [
+                [a, { x: 100 }, { duration: 1 }],
+                [b, { y: 200 }, { duration: 1 }],
+                [{ onEnter: () => {} }, { at: "<" }],
+            ],
+            undefined,
+            undefined,
+            { spring }
+        )
+
+        expect(callbacks.length).toBe(1)
+        expect(callbacks[0].time).toBe(1) // Start of previous animation
+    })
+
+    test("It extracts multiple callbacks sorted by time", () => {
+        const onEnter1 = () => {}
+        const onEnter2 = () => {}
+        const onEnter3 = () => {}
+
+        const { callbacks } = createAnimationsFromSequence(
+            [
+                [{ onEnter: onEnter2 }, { at: 1 }],
+                [a, { x: 100 }, { duration: 2 }],
+                [{ onEnter: onEnter3 }, { at: 1.5 }],
+                [{ onEnter: onEnter1 }, { at: 0.5 }],
+            ],
+            undefined,
+            undefined,
+            { spring }
+        )
+
+        expect(callbacks.length).toBe(3)
+        // Should be sorted by time
+        expect(callbacks[0].time).toBe(0.5)
+        expect(callbacks[0].onEnter).toBe(onEnter1)
+        expect(callbacks[1].time).toBe(1)
+        expect(callbacks[1].onEnter).toBe(onEnter2)
+        expect(callbacks[2].time).toBe(1.5)
+        expect(callbacks[2].onEnter).toBe(onEnter3)
+    })
+
+    test("It extracts callbacks with onEnter and onLeave", () => {
+        const onEnter = () => {}
+        const onLeave = () => {}
+
+        const { callbacks } = createAnimationsFromSequence(
+            [
+                [a, { x: 100 }, { duration: 1 }],
+                [{ onEnter, onLeave }, { at: 0.5 }],
+            ],
+            undefined,
+            undefined,
+            { spring }
+        )
+
+        expect(callbacks.length).toBe(1)
+        expect(callbacks[0].onEnter).toBe(onEnter)
+        expect(callbacks[0].onLeave).toBe(onLeave)
+    })
+
+    test("It extracts callbacks with label-based timing", () => {
+        const { callbacks } = createAnimationsFromSequence(
+            [
+                "my-label",
+                [a, { x: 100 }, { duration: 1 }],
+                [{ onEnter: () => {} }, { at: "my-label" }],
+            ],
+            undefined,
+            undefined,
+            { spring }
+        )
+
+        expect(callbacks.length).toBe(1)
+        expect(callbacks[0].time).toBe(0) // Label was set at time 0
+    })
+
+    test("Callbacks don't affect animation timing", () => {
+        const { animationDefinitions, totalDuration } =
+            createAnimationsFromSequence(
+                [
+                    [a, { x: 100 }, { duration: 1 }],
+                    [{ onEnter: () => {} }, {}],
+                    [{ onEnter: () => {} }, {}],
+                    [{ onEnter: () => {} }, {}],
+                    [b, { y: 200 }, { duration: 1 }],
+                ],
+                undefined,
+                undefined,
+                { spring }
+            )
+
+        // Callbacks should not add to the timeline duration
+        expect(totalDuration).toBe(2)
+
+        // Animations should be positioned correctly
+        expect(animationDefinitions.get(a)!.transition.x.times).toEqual([0, 0.5])
+        expect(animationDefinitions.get(b)!.transition.y.times).toEqual([
+            0, 0.5, 1,
+        ])
     })
 })

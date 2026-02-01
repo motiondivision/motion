@@ -25,6 +25,8 @@ import {
     AnimationSequence,
     At,
     ResolvedAnimationDefinitions,
+    ResolvedSequenceCallback,
+    SequenceCallback,
     SequenceMap,
     SequenceOptions,
     ValueSequence,
@@ -39,15 +41,22 @@ const defaultSegmentEasing = "easeInOut"
 
 const MAX_REPEAT = 20
 
+export interface CreateAnimationsResult {
+    animationDefinitions: ResolvedAnimationDefinitions
+    callbacks: ResolvedSequenceCallback[]
+    totalDuration: number
+}
+
 export function createAnimationsFromSequence(
     sequence: AnimationSequence,
     { defaultTransition = {}, ...sequenceTransition }: SequenceOptions = {},
     scope?: AnimationScope,
     generators?: { [key: string]: GeneratorFactory }
-): ResolvedAnimationDefinitions {
+): CreateAnimationsResult {
     const defaultDuration = defaultTransition.duration || 0.3
     const animationDefinitions: ResolvedAnimationDefinitions = new Map()
     const sequences = new Map<Element | MotionValue, SequenceMap>()
+    const callbacks: ResolvedSequenceCallback[] = []
     const elementCache = {}
     const timeLabels = new Map<string, number>()
 
@@ -74,6 +83,24 @@ export function createAnimationsFromSequence(
                 segment.name,
                 calcNextTime(currentTime, segment.at, prevTime, timeLabels)
             )
+            continue
+        }
+
+        /**
+         * If this is a callback segment, extract the callback and its timing
+         */
+        if (isCallbackSegment(segment)) {
+            const [callback, options] = segment
+            const callbackTime =
+                options.at !== undefined
+                    ? calcNextTime(currentTime, options.at, prevTime, timeLabels)
+                    : currentTime
+
+            callbacks.push({
+                time: callbackTime,
+                onEnter: callback.onEnter,
+                onLeave: callback.onLeave,
+            })
             continue
         }
 
@@ -390,7 +417,10 @@ export function createAnimationsFromSequence(
         }
     })
 
-    return animationDefinitions
+    // Sort callbacks by time for efficient lookup during playback
+    callbacks.sort((a, b) => a.time - b.time)
+
+    return { animationDefinitions, callbacks, totalDuration }
 }
 
 function getSubjectSequence<O extends {}>(
@@ -428,3 +458,20 @@ const isNumber = (keyframe: unknown) => typeof keyframe === "number"
 const isNumberKeyframesArray = (
     keyframes: UnresolvedValueKeyframe[]
 ): keyframes is number[] => keyframes.every(isNumber)
+
+/**
+ * Check if a segment is a callback segment: [{ onEnter?, onLeave? }, { at? }]
+ */
+function isCallbackSegment(
+    segment: unknown
+): segment is [SequenceCallback, At] {
+    if (!Array.isArray(segment) || segment.length !== 2) return false
+    const [callback, options] = segment
+    if (typeof callback !== "object" || callback === null) return false
+    // It's a callback if it has onEnter or onLeave and no other animation properties
+    return (
+        ("onEnter" in callback || "onLeave" in callback) &&
+        !("duration" in options) &&
+        !("ease" in options)
+    )
+}

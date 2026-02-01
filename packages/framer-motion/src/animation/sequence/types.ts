@@ -58,6 +58,18 @@ export type ObjectSegmentWithTransition<O extends {} = {}> = [
     DynamicAnimationOptions & At
 ]
 
+/**
+ * Callback to be invoked at a specific point in the sequence.
+ * - `onEnter`: Called when time crosses this point moving forward
+ * - `onLeave`: Called when time crosses this point moving backward (for scrubbing)
+ */
+export interface SequenceCallback {
+    onEnter?: VoidFunction
+    onLeave?: VoidFunction
+}
+
+export type CallbackSegment = [SequenceCallback, At]
+
 export type Segment =
     | ObjectSegment
     | ObjectSegmentWithTransition
@@ -67,6 +79,7 @@ export type Segment =
     | MotionValueSegmentWithTransition
     | DOMSegment
     | DOMSegmentWithTransition
+    | CallbackSegment
 
 export type AnimationSequence = Segment[]
 
@@ -98,3 +111,12 @@ export type ResolvedAnimationDefinitions = Map<
     Element | MotionValue,
     ResolvedAnimationDefinition
 >
+
+/**
+ * A callback positioned at an absolute time in the sequence
+ */
+export interface ResolvedSequenceCallback {
+    time: number
+    onEnter?: VoidFunction
+    onLeave?: VoidFunction
+}
