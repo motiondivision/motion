@@ -175,7 +175,7 @@ export class VisualElementDragControls {
 
             // Fire onDragStart event
             if (onDragStart) {
-                frame.postRender(() => onDragStart(event, info))
+                frame.update(() => onDragStart(event, info), false, true)
             }
 
             addValueToWillChange(this.visualElement, "transform")
@@ -227,7 +227,9 @@ export class VisualElementDragControls {
              * This must fire after the render call as it might trigger a state
              * change which itself might trigger a layout update.
              */
-            onDrag && onDrag(event, info)
+            if (onDrag) {
+                frame.update(() => onDrag(event, info), false, true)
+            }
         }
 
         const onSessionEnd = (event: PointerEvent, info: PanInfo) => {

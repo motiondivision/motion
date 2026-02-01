@@ -44,6 +44,40 @@ describe("pan", () => {
         expect(count).toBeGreaterThan(0)
     })
 
+    test("onPanStart fires before onPan", async () => {
+        const events: string[] = []
+        const onPanEnd = deferred()
+        const Component = () => {
+            return (
+                <MockDrag>
+                    <motion.div
+                        onPanStart={() => events.push("start")}
+                        onPan={() => events.push("pan")}
+                        onPanEnd={() => {
+                            events.push("end")
+                            onPanEnd.resolve()
+                        }}
+                    />
+                </MockDrag>
+            )
+        }
+
+        const { container, rerender } = render(<Component />)
+        rerender(<Component />)
+
+        const pointer = await drag(container.firstChild).to(100, 100)
+        await dragFrame.postRender()
+        pointer.end()
+        await onPanEnd.promise
+
+        // onPanStart should fire before the first onPan
+        const startIndex = events.indexOf("start")
+        const firstPanIndex = events.indexOf("pan")
+        expect(startIndex).toBeGreaterThanOrEqual(0)
+        expect(firstPanIndex).toBeGreaterThanOrEqual(0)
+        expect(startIndex).toBeLessThan(firstPanIndex)
+    })
+
     test("onPanEnd doesn't fire unless onPanStart has", async () => {
         const onPanStart = jest.fn()
         const onPanEnd = jest.fn()
