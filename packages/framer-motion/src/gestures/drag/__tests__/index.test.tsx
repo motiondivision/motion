@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useRef, useState } from "react"
 import {
     BoundingBox,
     motion,
@@ -1117,5 +1117,84 @@ describe("keyboard accessible elements", () => {
 
         expect(onDragStart).toBeCalledTimes(0)
         expect(x.get()).toBe(0)
+    })
+})
+
+describe("ref-based drag constraints", () => {
+    test("works with ref-based drag constraints", async () => {
+        const x = motionValue(0)
+        const y = motionValue(0)
+
+        const Component = () => {
+            const constraintsRef = useRef<HTMLDivElement>(null)
+            return (
+                <MockDrag>
+                    <motion.div
+                        ref={constraintsRef}
+                        data-testid="container"
+                        style={{ width: 500, height: 500 }}
+                    >
+                        <motion.div
+                            data-testid="draggable"
+                            drag
+                            dragConstraints={constraintsRef}
+                            dragElastic={false}
+                            style={{ x, y, width: 100, height: 100 }}
+                        />
+                    </motion.div>
+                </MockDrag>
+            )
+        }
+
+        const { getByTestId, rerender } = render(<Component />)
+        rerender(<Component />)
+
+        const pointer = await drag(getByTestId("draggable")).to(1, 1)
+        await pointer.to(50, 50)
+        pointer.end()
+
+        await nextFrame()
+
+        // Verify drag works with ref-based constraints
+        expect(x.get()).toBeGreaterThan(0)
+        expect(y.get()).toBeGreaterThan(0)
+    })
+
+    /**
+     * Note: Full testing of constraint updates on element resize requires
+     * E2E tests (Playwright) since the Jest ResizeObserver stub doesn't
+     * trigger callbacks. See issue #2458 for the bug this addresses.
+     */
+    test("cleans up resize observers on unmount", async () => {
+        const x = motionValue(0)
+        const y = motionValue(0)
+
+        const Component = () => {
+            const constraintsRef = useRef<HTMLDivElement>(null)
+            return (
+                <MockDrag>
+                    <motion.div
+                        ref={constraintsRef}
+                        data-testid="container"
+                        style={{ width: 500, height: 500 }}
+                    >
+                        <motion.div
+                            data-testid="draggable"
+                            drag
+                            dragConstraints={constraintsRef}
+                            style={{ x, y, width: 100, height: 100 }}
+                        />
+                    </motion.div>
+                </MockDrag>
+            )
+        }
+
+        const { unmount, rerender } = render(<Component />)
+        rerender(<Component />)
+
+        await nextFrame()
+
+        // Should not throw when unmounting (cleanup of resize observers)
+        expect(() => unmount()).not.toThrow()
     })
 })

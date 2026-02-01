@@ -13,6 +13,7 @@ import {
     PanInfo,
     percent,
     ResolvedConstraints,
+    resize,
     setDragLock,
     Transition,
     type VisualElement,
@@ -698,6 +699,35 @@ export class VisualElementDragControls {
             this.scalePositionWithinConstraints()
         )
 
+        const { dragConstraints } = this.getProps()
+
+        /**
+         * If using ref-based constraints, observe both the draggable element and
+         * the constraint container for size changes. This ensures constraints
+         * are recalculated when either element resizes (e.g., via CSS resize).
+         */
+        let stopElementResizeObserver: VoidFunction | undefined
+        let stopContainerResizeObserver: VoidFunction | undefined
+
+        if (isRefObject(dragConstraints) && dragConstraints.current) {
+            const onResize = () => {
+                // Update the layout before recalculating constraints
+                if (projection) {
+                    projection.updateLayout()
+                }
+                measureDragConstraints()
+            }
+
+            // Observe the draggable element for size changes
+            stopElementResizeObserver = resize(element, onResize)
+
+            // Observe the constraint container for size changes
+            stopContainerResizeObserver = resize(
+                dragConstraints.current,
+                onResize
+            )
+        }
+
         /**
          * If the element's layout changes, calculate the delta and apply that to
          * the drag gesture's origin point.
@@ -726,6 +756,8 @@ export class VisualElementDragControls {
             stopPointerListener()
             stopMeasureLayoutListener()
             stopLayoutUpdateListener && stopLayoutUpdateListener()
+            stopElementResizeObserver && stopElementResizeObserver()
+            stopContainerResizeObserver && stopContainerResizeObserver()
         }
     }
 
