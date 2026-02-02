@@ -4,6 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.29.3] 2026-02-02
+
+### Fixed
+
+-   `Reorder`: Fixed viewport autoscroll.
+
 ## [12.29.2] 2026-01-26
 
 ### Fixed
