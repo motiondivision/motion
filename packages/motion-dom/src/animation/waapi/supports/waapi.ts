@@ -23,9 +23,9 @@ const supportsWaapi = /*@__PURE__*/ memo(() =>
 export function supportsBrowserAnimation<T extends AnyResolvedKeyframe>(
     options: ValueAnimationOptionsWithRenderContext<T>
 ) {
-    // Disable WAAPI when manual timing or a custom driver is active
-    // In these cases, timing is controlled externally and WAAPI would desync
-    if (MotionGlobalConfig.useManualTiming || MotionGlobalConfig.driver) {
+    // Disable WAAPI when a custom driver is set (e.g., Remotion)
+    // Custom drivers control timing externally, so WAAPI would desync
+    if (MotionGlobalConfig.driver) {
         return false
     }
 

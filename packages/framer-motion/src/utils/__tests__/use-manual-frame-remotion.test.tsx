@@ -7,24 +7,34 @@
  * In production, use the `motion-remotion` package which provides `useRemotionFrame`.
  */
 
-import { motionValue, Variants, renderFrame, setManualTiming } from "motion-dom"
+import { motionValue, Variants, renderFrame, frame as frameLoop, cancelFrame, frameData } from "motion-dom"
+import { MotionGlobalConfig } from "motion-utils"
 import { createContext, useContext, ReactNode, useEffect, useRef } from "react"
 import { act } from "react"
 import { motion, AnimatePresence } from "../../"
 import { render } from "../../jest.setup"
 
+// Mock driver that doesn't auto-schedule rAF (similar to remotionDriver)
+const mockRemotionDriver = (update: (t: number) => void) => {
+    const passTimestamp = ({ timestamp }: { timestamp: number }) => update(timestamp)
+    return {
+        start: (keepAlive = true) => frameLoop.update(passTimestamp, keepAlive),
+        stop: () => cancelFrame(passTimestamp),
+        now: () => frameData.timestamp,
+    }
+}
+
 /**
  * Local implementation of frame syncing for tests.
  * In production, use `useRemotionFrame` from `motion-remotion`.
+ *
+ * Note: The driver is set in beforeEach() to ensure it's set before
+ * any component renders. This is important because animations start
+ * during component initialization.
  */
 function useManualFrame({ frame, fps = 30 }: { frame: number; fps?: number }) {
     const prevFrame = useRef<number>(-1)
     const hasInitialized = useRef(false)
-
-    useEffect(() => {
-        setManualTiming(true)
-        return () => setManualTiming(false)
-    }, [])
 
     useEffect(() => {
         if (frame !== prevFrame.current || !hasInitialized.current) {
@@ -129,8 +139,13 @@ function MotionRemotionBridge({ children }: { children: ReactNode }) {
 }
 
 describe("Remotion Integration - useManualFrame", () => {
+    beforeEach(() => {
+        // Set driver before any component renders
+        MotionGlobalConfig.driver = mockRemotionDriver
+    })
+
     afterEach(() => {
-        setManualTiming(false)
+        MotionGlobalConfig.driver = undefined
     })
 
     describe("Mocked Remotion Environment", () => {

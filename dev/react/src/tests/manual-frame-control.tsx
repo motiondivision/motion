@@ -1,6 +1,17 @@
-import { motion, useMotionValue, MotionGlobalConfig } from "framer-motion"
-import { renderFrame, setManualTiming, frameData } from "motion-dom"
-import { useState, useEffect, useCallback } from "react"
+import { motion, useMotionValue } from "framer-motion"
+import { renderFrame, frame, cancelFrame } from "motion-dom"
+import { MotionGlobalConfig } from "motion-utils"
+import { useCallback, useEffect, useState } from "react"
+
+// Manual driver that doesn't auto-schedule rAF
+const manualDriver = (update: (t: number) => void) => {
+    const passTimestamp = ({ timestamp }: { timestamp: number }) => update(timestamp)
+    return {
+        start: (keepAlive = true) => frame.update(passTimestamp, keepAlive),
+        stop: () => cancelFrame(passTimestamp),
+        now: () => 0,
+    }
+}
 
 /**
  * Demo: Manual Frame Control
@@ -22,15 +33,19 @@ export const App = () => {
     // Calculate current time in ms
     const currentTime = (currentFrame / fps) * 1000
 
-    // Enable/disable manual timing mode
+    // Enable/disable manual timing mode via custom driver
     useEffect(() => {
-        setManualTiming(manualMode)
         if (manualMode) {
+            MotionGlobalConfig.driver = manualDriver
             // Reset to frame 0 when entering manual mode
             setCurrentFrame(0)
             renderFrame({ frame: 0, fps })
+        } else {
+            MotionGlobalConfig.driver = undefined
         }
-        return () => setManualTiming(false)
+        return () => {
+            MotionGlobalConfig.driver = undefined
+        }
     }, [manualMode, fps])
 
     // Render the current frame when it changes (in manual mode)
@@ -163,6 +178,15 @@ export const App = () => {
                 <div style={indicatorStyle}>
                     X Position: {Math.round(x.get())}px
                 </div>
+            </div>
+
+            <div style={stageStyle}>
+                <motion.div
+                    style={{ ...boxStyle, left: isAnimating ? 400 : 0 }}
+                    layout
+                    layoutDependency={isAnimating}
+                    transition={{ duration: 2 }}
+                />
             </div>
 
             {/* Info panel */}

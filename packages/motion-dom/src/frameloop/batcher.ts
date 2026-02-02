@@ -40,16 +40,12 @@ export function createRenderBatcher(
     } = steps
 
     const processBatch = () => {
-        const timestamp = MotionGlobalConfig.useManualTiming
-            ? state.timestamp
-            : performance.now()
+        const timestamp = performance.now()
         runNextFrame = false
 
-        if (!MotionGlobalConfig.useManualTiming) {
-            state.delta = useDefaultElapsed
-                ? 1000 / 60
-                : Math.max(Math.min(timestamp - state.timestamp, maxElapsed), 1)
-        }
+        state.delta = useDefaultElapsed
+            ? 1000 / 60
+            : Math.max(Math.min(timestamp - state.timestamp, maxElapsed), 1)
 
         state.timestamp = timestamp
         state.isProcessing = true
@@ -66,10 +62,8 @@ export function createRenderBatcher(
 
         state.isProcessing = false
 
-        // Skip rAF scheduling when using manual timing or a custom driver
-        const skipScheduling =
-            MotionGlobalConfig.useManualTiming || MotionGlobalConfig.driver
-        if (runNextFrame && allowKeepAlive && !skipScheduling) {
+        // Skip rAF scheduling when using a custom driver (e.g., Remotion)
+        if (runNextFrame && allowKeepAlive && !MotionGlobalConfig.driver) {
             useDefaultElapsed = false
             scheduleNextBatch(processBatch)
         }
@@ -79,11 +73,9 @@ export function createRenderBatcher(
         runNextFrame = true
         useDefaultElapsed = true
 
-        // Skip rAF scheduling when using manual timing or a custom driver
-        // In these cases, processFrame() is called manually to advance animations
-        const skipScheduling =
-            MotionGlobalConfig.useManualTiming || MotionGlobalConfig.driver
-        if (!state.isProcessing && !skipScheduling) {
+        // Skip rAF scheduling when using a custom driver (e.g., Remotion)
+        // In this case, processFrame() is called manually to advance animations
+        if (!state.isProcessing && !MotionGlobalConfig.driver) {
             scheduleNextBatch(processBatch)
         }
     }

@@ -2,7 +2,7 @@
 
 import { renderFrame } from "motion-dom"
 import { MotionGlobalConfig } from "motion-utils"
-import { useEffect, useRef } from "react"
+import { useEffect, useLayoutEffect, useRef } from "react"
 import { remotionDriver } from "./driver"
 
 interface UseRemotionFrameOptions {
@@ -64,7 +64,8 @@ export function useRemotionFrame({ frame, fps = 30 }: UseRemotionFrameOptions) {
     const hasInitialized = useRef(false)
 
     // Set the global driver on mount, restore on unmount
-    useEffect(() => {
+    // Use layout effect to ensure driver is set before animations start
+    useLayoutEffect(() => {
         const previousDriver = MotionGlobalConfig.driver
         MotionGlobalConfig.driver = remotionDriver
 

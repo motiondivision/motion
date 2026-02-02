@@ -1,15 +1,22 @@
 import { MotionGlobalConfig } from "motion-utils"
 import { frame, cancelFrame } from ".."
-import {
-    renderFrame,
-    setManualTiming,
-    isManualTiming,
-} from "../render-frame"
+import { renderFrame } from "../render-frame"
+
+// Mock driver that doesn't auto-schedule rAF
+const mockDriver = () => ({
+    start: () => {},
+    stop: () => {},
+    now: () => 0,
+})
 
 describe("renderFrame", () => {
+    beforeEach(() => {
+        // Set mock driver to prevent rAF scheduling
+        MotionGlobalConfig.driver = mockDriver
+    })
+
     afterEach(() => {
-        // Reset manual timing after each test
-        setManualTiming(false)
+        MotionGlobalConfig.driver = undefined
     })
 
     it("processes scheduled callbacks with provided timestamp", () => {
@@ -101,35 +108,6 @@ describe("renderFrame", () => {
         expect(values).toEqual([16])
     })
 
-    it("temporarily enables manual timing during frame processing", () => {
-        let timingDuringRender: boolean | undefined
-
-        frame.update(() => {
-            timingDuringRender = MotionGlobalConfig.useManualTiming
-        })
-
-        // Ensure manual timing is off before
-        expect(MotionGlobalConfig.useManualTiming).toBeFalsy()
-
-        renderFrame({ timestamp: 0 })
-
-        // Manual timing was enabled during render
-        expect(timingDuringRender).toBe(true)
-
-        // Manual timing is restored after render
-        expect(MotionGlobalConfig.useManualTiming).toBeFalsy()
-    })
-
-    it("preserves previous manual timing setting after render", () => {
-        setManualTiming(true)
-
-        frame.update(() => {})
-        renderFrame({ timestamp: 0 })
-
-        // Should still be true
-        expect(MotionGlobalConfig.useManualTiming).toBe(true)
-    })
-
     it("supports incremental frame rendering", () => {
         const timestamps: number[] = []
 
@@ -147,42 +125,5 @@ describe("renderFrame", () => {
         cancelFrame(cleanup)
 
         expect(timestamps).toEqual([0, 1000 / 30, (2 * 1000) / 30])
-    })
-})
-
-describe("setManualTiming", () => {
-    afterEach(() => {
-        setManualTiming(false)
-    })
-
-    it("enables manual timing mode", () => {
-        expect(MotionGlobalConfig.useManualTiming).toBeFalsy()
-
-        setManualTiming(true)
-
-        expect(MotionGlobalConfig.useManualTiming).toBe(true)
-    })
-
-    it("disables manual timing mode", () => {
-        setManualTiming(true)
-        expect(MotionGlobalConfig.useManualTiming).toBe(true)
-
-        setManualTiming(false)
-        expect(MotionGlobalConfig.useManualTiming).toBe(false)
-    })
-})
-
-describe("isManualTiming", () => {
-    afterEach(() => {
-        setManualTiming(false)
-    })
-
-    it("returns false when manual timing is disabled", () => {
-        expect(isManualTiming()).toBe(false)
-    })
-
-    it("returns true when manual timing is enabled", () => {
-        setManualTiming(true)
-        expect(isManualTiming()).toBe(true)
     })
 })
