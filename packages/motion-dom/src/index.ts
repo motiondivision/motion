@@ -310,6 +310,7 @@ export {
     LayoutAnimationBuilder,
     parseAnimateLayoutArgs,
 } from "./layout/LayoutAnimationBuilder"
+export { layoutAnimation } from "./layout/layout-animation"
 
 /**
  * Deprecated

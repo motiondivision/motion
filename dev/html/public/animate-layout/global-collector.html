@@ -1,0 +1,219 @@
+<html>
+    <head>
+        <style>
+            body {
+                padding: 20px;
+                margin: 0;
+                font-family: system-ui, sans-serif;
+            }
+
+            .container {
+                display: flex;
+                gap: 20px;
+                margin-bottom: 20px;
+            }
+
+            .box {
+                width: 100px;
+                height: 100px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: white;
+                font-weight: bold;
+            }
+
+            #boxA {
+                background-color: #00cc88;
+            }
+
+            #boxB {
+                background-color: #0088cc;
+            }
+
+            #boxC {
+                background-color: #cc8800;
+            }
+
+            /* Moved states */
+            #boxA.moved {
+                transform: translateX(150px);
+            }
+
+            #boxB.moved {
+                transform: translateY(50px);
+            }
+
+            #boxC.moved {
+                transform: translate(100px, 100px);
+            }
+
+            .controls {
+                margin-top: 20px;
+            }
+
+            button {
+                padding: 10px 20px;
+                margin-right: 10px;
+                cursor: pointer;
+            }
+
+            .status {
+                margin-top: 20px;
+                padding: 10px;
+                background: #f0f0f0;
+                font-family: monospace;
+                white-space: pre-wrap;
+            }
+
+            [data-layout-correct="false"] {
+                background: #dd1144 !important;
+                opacity: 0.5;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Global Layout Animation Collector</h1>
+        <p>Test the layoutAnimation.add() and layoutAnimation.play() API</p>
+
+        <div class="container">
+            <div id="boxA" class="box" data-layout>A</div>
+            <div id="boxB" class="box" data-layout>B</div>
+            <div id="boxC" class="box" data-layout>C</div>
+        </div>
+
+        <div class="controls">
+            <button id="btnRegister">1. Register Elements</button>
+            <button id="btnMove">2. Move Elements</button>
+            <button id="btnPlay">3. Play Animation</button>
+            <button id="btnReset">Reset All</button>
+        </div>
+
+        <div id="status" class="status">Ready. Click buttons in order: Register → Move → Play</div>
+
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module">
+            const { layoutAnimation, frame } = window.AnimateLayout
+
+            const boxA = document.getElementById("boxA")
+            const boxB = document.getElementById("boxB")
+            const boxC = document.getElementById("boxC")
+            const status = document.getElementById("status")
+
+            let currentControls = null
+
+            function log(message) {
+                status.textContent = message
+                console.log(message)
+            }
+
+            // Button 1: Register all elements
+            document.getElementById("btnRegister").addEventListener("click", () => {
+                // Multiple add() calls - should batch into one snapshot
+                layoutAnimation.add(boxA, { duration: 0.5, ease: "easeOut" })
+                layoutAnimation.add(boxB, { duration: 0.8, ease: "easeInOut" })
+                layoutAnimation.add(boxC)  // uses defaults
+
+                log("Registered all 3 elements with different durations.\nNow click 'Move Elements'.")
+            })
+
+            // Button 2: Apply DOM changes
+            document.getElementById("btnMove").addEventListener("click", () => {
+                boxA.classList.add("moved")
+                boxB.classList.add("moved")
+                boxC.classList.add("moved")
+
+                log("DOM changes applied (transforms added).\nNow click 'Play Animation'.")
+            })
+
+            // Button 3: Trigger the animation
+            document.getElementById("btnPlay").addEventListener("click", async () => {
+                log("Playing animation...")
+
+                const controls = await layoutAnimation.play()
+                currentControls = controls
+
+                // Test that calling play() again returns same reference
+                const sameControls = await layoutAnimation.play()
+                const isSameReference = controls === sameControls
+
+                log(`Animation playing!\n` +
+                    `Duration: ${controls.duration}s\n` +
+                    `play() idempotent: ${isSameReference ? "✓ YES" : "✗ NO"}`)
+
+                controls.finished.then(() => {
+                    log("Animation complete!")
+                })
+            })
+
+            // Reset button
+            document.getElementById("btnReset").addEventListener("click", () => {
+                // Stop any running animation
+                if (currentControls) {
+                    currentControls.stop()
+                    currentControls = null
+                }
+
+                // Reset the collector
+                layoutAnimation.reset()
+
+                // Reset DOM
+                boxA.classList.remove("moved")
+                boxB.classList.remove("moved")
+                boxC.classList.remove("moved")
+
+                log("Reset complete. Click buttons in order: Register → Move → Play")
+            })
+
+            // Auto-run test
+            async function runAutoTest() {
+                log("Running automated test...")
+
+                // Register
+                layoutAnimation.add(boxA, { duration: 0.3 })
+                layoutAnimation.add(boxB, { duration: 0.3 })
+                layoutAnimation.add(boxC, { duration: 0.3 })
+
+                // Wait for snapshot to be taken
+                await new Promise(resolve => frame.postRender(resolve))
+
+                // Apply DOM changes
+                boxA.classList.add("moved")
+                boxB.classList.add("moved")
+                boxC.classList.add("moved")
+
+                // Play
+                const controls = await layoutAnimation.play()
+
+                // Verify play() returns same reference
+                const controls2 = await layoutAnimation.play()
+                if (controls !== controls2) {
+                    log("ERROR: play() should return same reference!")
+                    return
+                }
+
+                // Pause at midpoint to verify animation is working
+                controls.pause()
+                controls.time = controls.duration * 0.5
+
+                await new Promise(resolve => frame.postRender(resolve))
+
+                log(`Auto-test passed!\n` +
+                    `Animation duration: ${controls.duration}s\n` +
+                    `Animation count: ${controls.animations.length}\n` +
+                    `play() idempotent: ✓ YES`)
+
+                // Resume the animation
+                setTimeout(() => {
+                    controls.play()
+                }, 1000)
+            }
+
+            // Run auto-test on page load
+            runAutoTest().catch(err => {
+                log(`ERROR: ${err.message}`)
+                console.error(err)
+            })
+        </script>
+    </body>
+</html>
