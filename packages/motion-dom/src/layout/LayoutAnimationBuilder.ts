@@ -72,6 +72,7 @@ export class LayoutAnimationBuilder {
     private isDeferred: boolean
     private snapshotRecords?: LayoutElementRecord[]
     private snapshotTaken = false
+    private hasPlayed = false
 
     constructor(
         scope: LayoutAnimationScope,
@@ -106,11 +107,19 @@ export class LayoutAnimationBuilder {
      * Call this after creating a deferred LayoutAnimationBuilder to trigger the animation.
      * @param updateDom - Optional DOM update function. If not provided, uses the one from constructor.
      * @param options - Optional animation options to override defaults.
+     * @returns Promise that resolves with the GroupAnimation when the animation starts.
      */
     play(
         updateDom?: () => void | Promise<void>,
         options?: AnimationOptions
-    ): this {
+    ): Promise<GroupAnimation> {
+        if (this.hasPlayed) {
+            throw new Error(
+                "LayoutAnimationBuilder: play() can only be called once"
+            )
+        }
+        this.hasPlayed = true
+
         if (updateDom) {
             this.updateDom = updateDom
         }
@@ -125,16 +134,17 @@ export class LayoutAnimationBuilder {
             )
         }
 
-        // If snapshot wasn't taken yet (play called before postRender), take it now
+        // If snapshot wasn't taken yet (play called before postRender), wait for it
         if (!this.snapshotTaken) {
-            this.takeSnapshot()
+            return new Promise((resolve, reject) => {
+                frame.postRender(() => {
+                    this.takeSnapshot()
+                    this.continueFromSnapshot().then(resolve).catch(reject)
+                })
+            })
         }
 
-        this.continueFromSnapshot()
-            .then(this.notifyReady)
-            .catch(this.rejectReady)
-
-        return this
+        return this.continueFromSnapshot()
     }
 
     shared(id: string, transition: AnimationOptions): this {
