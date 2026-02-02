@@ -4,11 +4,16 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
-## [12.29.4] 2026-02-02
+## [12.30.0] 2026-02-02
+
+### Added
+
+-   `MotionConfig`: Add `skipAnimations` option.
 
 ### Fixed
 
 -   `animate`: Prevent error when calling `stop()` on removed elements.
+-   `animateLayout`: Fixing shared element animations when `animate` called before `animateLayout`.
 
 ## [12.29.3] 2026-02-02
 
