@@ -35,26 +35,20 @@ interface RenderFrameOptions {
  * Use this in environments where `requestAnimationFrame` is unavailable
  * or when you need manual control over frame timing, such as:
  * - WebXR immersive sessions
- * - Remotion video rendering
+ * - Remotion video rendering (use with motion-remotion package)
  * - Server-side rendering of animations
  * - Custom animation loops
+ *
+ * Note: For Remotion, use the `useRemotionFrame` hook from `motion-remotion`
+ * which handles driver setup and frame synchronization automatically.
  *
  * @example
  * // Using timestamp directly
  * renderFrame({ timestamp: 1000 }) // Render at 1 second
  *
  * @example
- * // Using frame number (Remotion-style)
+ * // Using frame number
  * renderFrame({ frame: 30, fps: 30 }) // Render at frame 30 (1 second at 30fps)
- *
- * @example
- * // In a Remotion component
- * const frame = useCurrentFrame()
- * const { fps } = useVideoConfig()
- *
- * useEffect(() => {
- *   renderFrame({ frame, fps })
- * }, [frame, fps])
  *
  * @example
  * // In a WebXR session
@@ -82,14 +76,14 @@ export function renderFrame(options: RenderFrameOptions = {}): void {
         frameTimestamp = frameData.timestamp + frameDelta
     }
 
-    // Enable manual timing mode
+    // Temporarily enable manual timing mode during frame processing
     const previousManualTiming = MotionGlobalConfig.useManualTiming
     MotionGlobalConfig.useManualTiming = true
 
     // Set the synchronized time
     time.set(frameTimestamp)
 
-    // Process the frame
+    // Process the frame - this runs all registered callbacks
     processFrame(frameTimestamp, frameDelta)
 
     // Restore previous manual timing setting
@@ -100,6 +94,9 @@ export function renderFrame(options: RenderFrameOptions = {}): void {
  * Enable manual timing mode globally.
  * When enabled, animations will not auto-advance with requestAnimationFrame.
  * You must call `renderFrame()` to advance animations.
+ *
+ * For Remotion integration, use the `motion-remotion` package instead,
+ * which provides a more complete solution with automatic WAAPI disabling.
  *
  * @example
  * // Enable manual timing for the entire session

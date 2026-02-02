@@ -2,6 +2,7 @@ import {
     clamp,
     invariant,
     millisecondsToSeconds,
+    MotionGlobalConfig,
     pipe,
     secondsToMilliseconds,
 } from "motion-utils"
@@ -394,7 +395,12 @@ export class JSAnimation<T extends number | string>
     play() {
         if (this.isStopped) return
 
-        const { driver = frameloopDriver, startTime } = this.options
+        const { startTime } = this.options
+        // Priority: global driver > options driver > default frameloop driver
+        const driver =
+            MotionGlobalConfig.driver ??
+            this.options.driver ??
+            frameloopDriver
 
         if (!this.driver) {
             this.driver = driver((timestamp) => this.tick(timestamp))

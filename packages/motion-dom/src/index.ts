@@ -72,6 +72,10 @@ export * from "./frameloop/microtask"
 export * from "./frameloop/sync-time"
 export * from "./frameloop/types"
 
+// Animation drivers
+export * from "./animation/drivers/types"
+export { frameloopDriver } from "./animation/drivers/frame"
+
 export * from "./gestures/drag/state/is-active"
 export * from "./gestures/drag/state/set-active"
 export * from "./gestures/drag/types"

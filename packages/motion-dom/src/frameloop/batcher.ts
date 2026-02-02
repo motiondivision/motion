@@ -66,7 +66,10 @@ export function createRenderBatcher(
 
         state.isProcessing = false
 
-        if (runNextFrame && allowKeepAlive) {
+        // Skip rAF scheduling when using manual timing or a custom driver
+        const skipScheduling =
+            MotionGlobalConfig.useManualTiming || MotionGlobalConfig.driver
+        if (runNextFrame && allowKeepAlive && !skipScheduling) {
             useDefaultElapsed = false
             scheduleNextBatch(processBatch)
         }
@@ -76,7 +79,11 @@ export function createRenderBatcher(
         runNextFrame = true
         useDefaultElapsed = true
 
-        if (!state.isProcessing) {
+        // Skip rAF scheduling when using manual timing or a custom driver
+        // In these cases, processFrame() is called manually to advance animations
+        const skipScheduling =
+            MotionGlobalConfig.useManualTiming || MotionGlobalConfig.driver
+        if (!state.isProcessing && !skipScheduling) {
             scheduleNextBatch(processBatch)
         }
     }

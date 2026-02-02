@@ -11026,6 +11026,22 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"motion-remotion@workspace:packages/motion-remotion":
+  version: 0.0.0-use.local
+  resolution: "motion-remotion@workspace:packages/motion-remotion"
+  dependencies:
+    motion-dom: ^12.29.2
+    motion-utils: ^12.29.2
+    tslib: ^2.4.0
+  peerDependencies:
+    react: ^18.0.0 || ^19.0.0
+    remotion: ">=4.0.0"
+  peerDependenciesMeta:
+    remotion:
+      optional: true
+  languageName: unknown
+  linkType: soft
+
 "motion-utils@^12.29.2, motion-utils@workspace:packages/motion-utils":
   version: 0.0.0-use.local
   resolution: "motion-utils@workspace:packages/motion-utils"

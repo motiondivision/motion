@@ -1,4 +1,4 @@
-import { memo } from "motion-utils"
+import { memo, MotionGlobalConfig } from "motion-utils"
 import {
     AnyResolvedKeyframe,
     ValueAnimationOptionsWithRenderContext,
@@ -23,6 +23,12 @@ const supportsWaapi = /*@__PURE__*/ memo(() =>
 export function supportsBrowserAnimation<T extends AnyResolvedKeyframe>(
     options: ValueAnimationOptionsWithRenderContext<T>
 ) {
+    // Disable WAAPI when manual timing or a custom driver is active
+    // In these cases, timing is controlled externally and WAAPI would desync
+    if (MotionGlobalConfig.useManualTiming || MotionGlobalConfig.driver) {
+        return false
+    }
+
     const { motionValue, name, repeatDelay, repeatType, damping, type } =
         options
 
