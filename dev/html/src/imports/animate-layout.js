@@ -2,6 +2,7 @@ import {
     LayoutAnimationBuilder,
     frame,
     parseAnimateLayoutArgs,
+    animate,
 } from "framer-motion/dom"
 
 export function unstable_animateLayout(
@@ -22,4 +23,5 @@ window.AnimateLayout = {
     animateLayout: unstable_animateLayout,
     LayoutAnimationBuilder,
     frame,
+    animate,
 }
