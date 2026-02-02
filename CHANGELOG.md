@@ -4,6 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.29.4] 2026-02-02
+
+### Fixed
+
+-   `animate`: Prevent error when calling `stop()` on removed elements.
+
 ## [12.29.3] 2026-02-02
 
 ### Fixed
