@@ -11,7 +11,7 @@
     },
     "dependencies": {
         "motion": "^12.29.3",
-        "next": "15.4.10",
+        "next": "16.1.5",
         "react": "19.0.0",
         "react-dom": "19.0.0"
     }
