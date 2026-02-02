@@ -1,12 +1,41 @@
 import {
+    animateSingleValue,
     AnimationPlaybackControls,
     GroupAnimationWithThen,
-    SequenceCallbackAnimation,
 } from "motion-dom"
-import { secondsToMilliseconds } from "motion-utils"
 import { createAnimationsFromSequence } from "../../sequence/create"
-import { AnimationSequence, SequenceOptions } from "../../sequence/types"
+import {
+    AnimationSequence,
+    ResolvedSequenceCallback,
+    SequenceOptions,
+} from "../../sequence/types"
 import { animateElements } from "./animate-elements"
+
+/**
+ * Creates an onUpdate callback that fires sequence callbacks when time crosses their thresholds.
+ */
+function createCallbackUpdater(
+    callbacks: ResolvedSequenceCallback[],
+    totalDuration: number
+) {
+    let prevProgress = 0
+
+    return (progress: number) => {
+        const currentTime = progress * totalDuration
+
+        for (const callback of callbacks) {
+            const prevTime = prevProgress * totalDuration
+
+            if (prevTime < callback.time && currentTime >= callback.time) {
+                callback.forward?.()
+            } else if (prevTime >= callback.time && currentTime < callback.time) {
+                callback.backward?.()
+            }
+        }
+
+        prevProgress = progress
+    }
+}
 
 export function animateSequence(
     definition: AnimationSequence,
@@ -23,13 +52,14 @@ export function animateSequence(
         }
     )
 
-    // Add callback animation if there are any callbacks
+    // Add a 0→1 animation with onUpdate to track callbacks
     if (callbacks.length > 0) {
-        const callbackAnimation = new SequenceCallbackAnimation(
-            callbacks,
-            secondsToMilliseconds(totalDuration)
-        )
-        animations.push(callbackAnimation as unknown as AnimationPlaybackControls)
+        const callbackAnimation = animateSingleValue(0, 1, {
+            duration: totalDuration,
+            ease: "linear",
+            onUpdate: createCallbackUpdater(callbacks, totalDuration),
+        })
+        animations.push(callbackAnimation)
     }
 
     return new GroupAnimationWithThen(animations)

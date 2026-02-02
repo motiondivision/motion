@@ -1,13 +1,45 @@
 import {
+    animateSingleValue,
     AnimationPlaybackControlsWithThen,
     AnimationScope,
-    SequenceCallbackAnimation,
     spring,
 } from "motion-dom"
-import { secondsToMilliseconds } from "motion-utils"
 import { createAnimationsFromSequence } from "../sequence/create"
-import { AnimationSequence, SequenceOptions } from "../sequence/types"
+import {
+    AnimationSequence,
+    ResolvedSequenceCallback,
+    SequenceOptions,
+} from "../sequence/types"
 import { animateSubject } from "./subject"
+
+/**
+ * Creates an onUpdate callback that fires sequence callbacks when time crosses their thresholds.
+ * Tracks previous progress to detect direction (forward/backward).
+ */
+function createCallbackUpdater(
+    callbacks: ResolvedSequenceCallback[],
+    totalDuration: number
+) {
+    let prevProgress = 0
+
+    return (progress: number) => {
+        const currentTime = progress * totalDuration
+
+        for (const callback of callbacks) {
+            const prevTime = prevProgress * totalDuration
+
+            if (prevTime < callback.time && currentTime >= callback.time) {
+                // Crossed forward
+                callback.forward?.()
+            } else if (prevTime >= callback.time && currentTime < callback.time) {
+                // Crossed backward
+                callback.backward?.()
+            }
+        }
+
+        prevProgress = progress
+    }
+}
 
 export function animateSequence(
     sequence: AnimationSequence,
@@ -23,15 +55,14 @@ export function animateSequence(
         animations.push(...animateSubject(subject, keyframes, transition))
     })
 
-    // Add callback animation if there are any callbacks
+    // Add a 0→1 animation with onUpdate to track callbacks
     if (callbacks.length > 0) {
-        const callbackAnimation = new SequenceCallbackAnimation(
-            callbacks,
-            secondsToMilliseconds(totalDuration)
-        )
-        animations.push(
-            callbackAnimation as unknown as AnimationPlaybackControlsWithThen
-        )
+        const callbackAnimation = animateSingleValue(0, 1, {
+            duration: totalDuration,
+            ease: "linear",
+            onUpdate: createCallbackUpdater(callbacks, totalDuration),
+        })
+        animations.push(callbackAnimation)
     }
 
     return animations

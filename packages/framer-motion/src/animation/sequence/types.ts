@@ -60,12 +60,12 @@ export type ObjectSegmentWithTransition<O extends {} = {}> = [
 
 /**
  * Callback to be invoked at a specific point in the sequence.
- * - `onEnter`: Called when time crosses this point moving forward
- * - `onLeave`: Called when time crosses this point moving backward (for scrubbing)
+ * - `forward`: Called when time crosses this point moving forward
+ * - `backward`: Called when time crosses this point moving backward (for scrubbing)
  */
 export interface SequenceCallback {
-    onEnter?: VoidFunction
-    onLeave?: VoidFunction
+    forward?: VoidFunction
+    backward?: VoidFunction
 }
 
 export type CallbackSegment = [SequenceCallback, At]
@@ -117,6 +117,6 @@ export type ResolvedAnimationDefinitions = Map<
  */
 export interface ResolvedSequenceCallback {
     time: number
-    onEnter?: VoidFunction
-    onLeave?: VoidFunction
+    forward?: VoidFunction
+    backward?: VoidFunction
 }

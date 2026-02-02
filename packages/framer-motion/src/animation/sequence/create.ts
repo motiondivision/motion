@@ -98,8 +98,8 @@ export function createAnimationsFromSequence(
 
             callbacks.push({
                 time: callbackTime,
-                onEnter: callback.onEnter,
-                onLeave: callback.onLeave,
+                forward: callback.forward,
+                backward: callback.backward,
             })
             continue
         }
@@ -460,7 +460,7 @@ const isNumberKeyframesArray = (
 ): keyframes is number[] => keyframes.every(isNumber)
 
 /**
- * Check if a segment is a callback segment: [{ onEnter?, onLeave? }, { at? }]
+ * Check if a segment is a callback segment: [{ forward?, backward? }, { at? }]
  */
 function isCallbackSegment(
     segment: unknown
@@ -468,9 +468,9 @@ function isCallbackSegment(
     if (!Array.isArray(segment) || segment.length !== 2) return false
     const [callback, options] = segment
     if (typeof callback !== "object" || callback === null) return false
-    // It's a callback if it has onEnter or onLeave and no other animation properties
+    // It's a callback if it has forward or backward and no other animation properties
     return (
-        ("onEnter" in callback || "onLeave" in callback) &&
+        ("forward" in callback || "backward" in callback) &&
         !("duration" in options) &&
         !("ease" in options)
     )

@@ -867,7 +867,7 @@ describe("Sequence callbacks", () => {
         const { callbacks, totalDuration } = createAnimationsFromSequence(
             [
                 [a, { x: 100 }, { duration: 1 }],
-                [{ onEnter: () => {} }, {}],
+                [{ forward: () => {} }, {}],
                 [b, { y: 200 }, { duration: 1 }],
             ],
             undefined,
@@ -877,7 +877,7 @@ describe("Sequence callbacks", () => {
 
         expect(callbacks.length).toBe(1)
         expect(callbacks[0].time).toBe(1) // After first animation
-        expect(typeof callbacks[0].onEnter).toBe("function")
+        expect(typeof callbacks[0].forward).toBe("function")
         expect(totalDuration).toBe(2)
     })
 
@@ -885,7 +885,7 @@ describe("Sequence callbacks", () => {
         const { callbacks } = createAnimationsFromSequence(
             [
                 [a, { x: 100 }, { duration: 2 }],
-                [{ onEnter: () => {} }, { at: 0.5 }],
+                [{ forward: () => {} }, { at: 0.5 }],
             ],
             undefined,
             undefined,
@@ -900,7 +900,7 @@ describe("Sequence callbacks", () => {
         const { callbacks } = createAnimationsFromSequence(
             [
                 [a, { x: 100 }, { duration: 1 }],
-                [{ onEnter: () => {} }, { at: "+0.5" }],
+                [{ forward: () => {} }, { at: "+0.5" }],
             ],
             undefined,
             undefined,
@@ -916,7 +916,7 @@ describe("Sequence callbacks", () => {
             [
                 [a, { x: 100 }, { duration: 1 }],
                 [b, { y: 200 }, { duration: 1 }],
-                [{ onEnter: () => {} }, { at: "<" }],
+                [{ forward: () => {} }, { at: "<" }],
             ],
             undefined,
             undefined,
@@ -928,16 +928,16 @@ describe("Sequence callbacks", () => {
     })
 
     test("It extracts multiple callbacks sorted by time", () => {
-        const onEnter1 = () => {}
-        const onEnter2 = () => {}
-        const onEnter3 = () => {}
+        const forward1 = () => {}
+        const forward2 = () => {}
+        const forward3 = () => {}
 
         const { callbacks } = createAnimationsFromSequence(
             [
-                [{ onEnter: onEnter2 }, { at: 1 }],
+                [{ forward: forward2 }, { at: 1 }],
                 [a, { x: 100 }, { duration: 2 }],
-                [{ onEnter: onEnter3 }, { at: 1.5 }],
-                [{ onEnter: onEnter1 }, { at: 0.5 }],
+                [{ forward: forward3 }, { at: 1.5 }],
+                [{ forward: forward1 }, { at: 0.5 }],
             ],
             undefined,
             undefined,
@@ -947,21 +947,21 @@ describe("Sequence callbacks", () => {
         expect(callbacks.length).toBe(3)
         // Should be sorted by time
         expect(callbacks[0].time).toBe(0.5)
-        expect(callbacks[0].onEnter).toBe(onEnter1)
+        expect(callbacks[0].forward).toBe(forward1)
         expect(callbacks[1].time).toBe(1)
-        expect(callbacks[1].onEnter).toBe(onEnter2)
+        expect(callbacks[1].forward).toBe(forward2)
         expect(callbacks[2].time).toBe(1.5)
-        expect(callbacks[2].onEnter).toBe(onEnter3)
+        expect(callbacks[2].forward).toBe(forward3)
     })
 
-    test("It extracts callbacks with onEnter and onLeave", () => {
-        const onEnter = () => {}
-        const onLeave = () => {}
+    test("It extracts callbacks with forward and backward", () => {
+        const forward = () => {}
+        const backward = () => {}
 
         const { callbacks } = createAnimationsFromSequence(
             [
                 [a, { x: 100 }, { duration: 1 }],
-                [{ onEnter, onLeave }, { at: 0.5 }],
+                [{ forward, backward }, { at: 0.5 }],
             ],
             undefined,
             undefined,
@@ -969,8 +969,8 @@ describe("Sequence callbacks", () => {
         )
 
         expect(callbacks.length).toBe(1)
-        expect(callbacks[0].onEnter).toBe(onEnter)
-        expect(callbacks[0].onLeave).toBe(onLeave)
+        expect(callbacks[0].forward).toBe(forward)
+        expect(callbacks[0].backward).toBe(backward)
     })
 
     test("It extracts callbacks with label-based timing", () => {
@@ -978,7 +978,7 @@ describe("Sequence callbacks", () => {
             [
                 "my-label",
                 [a, { x: 100 }, { duration: 1 }],
-                [{ onEnter: () => {} }, { at: "my-label" }],
+                [{ forward: () => {} }, { at: "my-label" }],
             ],
             undefined,
             undefined,
@@ -994,9 +994,9 @@ describe("Sequence callbacks", () => {
             createAnimationsFromSequence(
                 [
                     [a, { x: 100 }, { duration: 1 }],
-                    [{ onEnter: () => {} }, {}],
-                    [{ onEnter: () => {} }, {}],
-                    [{ onEnter: () => {} }, {}],
+                    [{ forward: () => {} }, {}],
+                    [{ forward: () => {} }, {}],
+                    [{ forward: () => {} }, {}],
                     [b, { y: 200 }, { duration: 1 }],
                 ],
                 undefined,
