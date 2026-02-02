@@ -1,8 +1,27 @@
-const interactiveElements = new Set(["INPUT", "SELECT", "TEXTAREA"])
+const keyboardAccessibleElements = new Set([
+    "BUTTON",
+    "INPUT",
+    "SELECT",
+    "TEXTAREA",
+    "A",
+])
 
 /**
- * Checks if an element is an interactive form element that should prevent
- * drag gestures from starting when clicked.
+ * Checks if an element is natively keyboard accessible (focusable).
+ * Used by the press gesture to determine if we need to add tabIndex.
+ */
+export function isElementKeyboardAccessible(element: Element) {
+    return (
+        keyboardAccessibleElements.has(element.tagName) ||
+        (element as HTMLElement).isContentEditable === true
+    )
+}
+
+const textInputElements = new Set(["INPUT", "SELECT", "TEXTAREA"])
+
+/**
+ * Checks if an element has text selection or direct interaction behavior
+ * that should block drag gestures from starting.
  *
  * This specifically targets form controls where the user might want to select
  * text or interact with the control (e.g., sliders, dropdowns).
@@ -11,9 +30,9 @@ const interactiveElements = new Set(["INPUT", "SELECT", "TEXTAREA"])
  * actions of their own - they only respond to click events, so dragging
  * should still work when initiated from these elements.
  */
-export function isElementKeyboardAccessible(element: Element) {
+export function isElementTextInput(element: Element) {
     return (
-        interactiveElements.has(element.tagName) ||
+        textInputElements.has(element.tagName) ||
         (element as HTMLElement).isContentEditable === true
     )
 }
