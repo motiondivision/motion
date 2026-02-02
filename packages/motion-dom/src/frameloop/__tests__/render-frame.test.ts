@@ -1,5 +1,5 @@
 import { MotionGlobalConfig } from "motion-utils"
-import { frame, cancelFrame, frameData } from ".."
+import { frame, cancelFrame } from ".."
 import {
     renderFrame,
     setManualTiming,
