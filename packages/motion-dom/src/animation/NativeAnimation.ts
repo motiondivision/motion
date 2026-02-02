@@ -178,7 +178,8 @@ export class NativeAnimation<T extends AnyResolvedKeyframe>
      * while deferring the commit until the next animation frame.
      */
     protected commitStyles() {
-        if (!this.isPseudoElement) {
+        const element = this.options?.element
+        if (!this.isPseudoElement && element?.isConnected) {
             this.animation.commitStyles?.()
         }
     }
