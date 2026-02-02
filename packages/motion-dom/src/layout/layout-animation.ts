@@ -40,8 +40,9 @@ export interface LayoutAnimationCollector {
     play(): Promise<GroupAnimation>
 
     /**
-     * Reset the collector for a new animation batch.
-     * Called automatically when animation completes, or manually.
+     * Reset the collector completely, clearing all state and projection nodes.
+     * Only needed for complete teardown (e.g., unmounting a component tree).
+     * Not required between animation cycles - the collector handles that automatically.
      */
     reset(): void
 }
@@ -114,11 +115,6 @@ function createLayoutAnimationCollector(): LayoutAnimationCollector {
 
     return {
         add(scope: ElementOrSelector, options?: AnimationOptions): void {
-            // If already played, ignore subsequent adds
-            if (currentAnimation) {
-                return
-            }
-
             // Resolve scope to element(s)
             const elements = resolveElements(scope)
             const resolvedScope =
@@ -140,8 +136,8 @@ function createLayoutAnimationCollector(): LayoutAnimationCollector {
         },
 
         async play(): Promise<GroupAnimation> {
-            // Return existing controls if already played
-            if (currentAnimation) {
+            // If no new pending scopes, return existing animation (idempotent within batch)
+            if (pendingScopes.length === 0 && currentAnimation) {
                 return currentAnimation
             }
 
@@ -153,6 +149,10 @@ function createLayoutAnimationCollector(): LayoutAnimationCollector {
             // No elements to animate
             if (!context || pendingRecords.length === 0) {
                 currentAnimation = new GroupAnimation([])
+                // Clear pending state for next batch
+                pendingScopes = []
+                pendingRecords = []
+                snapshotsTaken = false
                 return currentAnimation
             }
 
@@ -174,7 +174,12 @@ function createLayoutAnimationCollector(): LayoutAnimationCollector {
 
             currentAnimation = new GroupAnimation(animations)
 
-            // Auto-reset when animation completes
+            // Clear pending state so new add() calls can queue up for next batch
+            pendingScopes = []
+            pendingRecords = []
+            snapshotsTaken = false
+
+            // Auto-cleanup when animation completes
             const capturedContext = context
             currentAnimation.finished.then(() => {
                 // Only clean up nodes for elements no longer in the document.
@@ -215,6 +220,10 @@ function createLayoutAnimationCollector(): LayoutAnimationCollector {
  * This API is designed for frameworks like Solid and Svelte where components
  * register themselves individually, then animations are triggered globally.
  *
+ * Animations can be interrupted - calling add() and play() while an animation
+ * is in progress will start a new animation from the current positions.
+ * No manual reset() is required between animation cycles.
+ *
  * @example
  * ```typescript
  * // Registration phase - each component registers itself
@@ -228,10 +237,14 @@ function createLayoutAnimationCollector(): LayoutAnimationCollector {
  *
  * // Trigger phase - one call animates everything
  * const controls = await layoutAnimation.play()
- * // Returns GroupAnimation with controls for ALL elements
  *
- * // Subsequent play() calls return same controls (no-op)
+ * // Subsequent play() calls within same batch return same controls
  * const sameControls = await layoutAnimation.play()  // same reference
+ *
+ * // New animation cycle - no reset() needed
+ * layoutAnimation.add(elementA)
+ * elementA.classList.remove("moved")
+ * const newControls = await layoutAnimation.play()  // interrupts previous
  * ```
  */
 export const layoutAnimation: LayoutAnimationCollector =

@@ -209,11 +209,67 @@
                 }, 1000)
             }
 
+            // Test interruption: can start new animation without reset()
+            async function runInterruptionTest() {
+                log("Running interruption test...")
+
+                // First animation
+                layoutAnimation.add(boxA, { duration: 0.5 })
+                layoutAnimation.add(boxB, { duration: 0.5 })
+
+                await new Promise(resolve => frame.postRender(resolve))
+
+                boxA.classList.add("moved")
+                boxB.classList.add("moved")
+
+                const controls1 = await layoutAnimation.play()
+
+                // Wait a bit (animation still running)
+                await new Promise(resolve => setTimeout(resolve, 100))
+
+                // Start new animation WITHOUT calling reset()
+                layoutAnimation.add(boxA, { duration: 0.3 })
+                layoutAnimation.add(boxB, { duration: 0.3 })
+
+                await new Promise(resolve => frame.postRender(resolve))
+
+                // Move back
+                boxA.classList.remove("moved")
+                boxB.classList.remove("moved")
+
+                const controls2 = await layoutAnimation.play()
+
+                // Should be a NEW animation, not the same reference
+                if (controls1 === controls2) {
+                    log("ERROR: New animation should have different controls!")
+                    return false
+                }
+
+                await controls2.finished
+
+                log(`Interruption test passed!\n` +
+                    `First animation had ${controls1.animations.length} animations\n` +
+                    `Second animation had ${controls2.animations.length} animations\n` +
+                    `No reset() required: ✓ YES`)
+
+                return true
+            }
+
             // Run auto-test on page load
-            runAutoTest().catch(err => {
-                log(`ERROR: ${err.message}`)
-                console.error(err)
-            })
+            runAutoTest()
+                .then(() => new Promise(resolve => setTimeout(resolve, 2000)))
+                .then(() => {
+                    // Reset state for interruption test
+                    boxA.classList.remove("moved")
+                    boxB.classList.remove("moved")
+                    boxC.classList.remove("moved")
+                    layoutAnimation.reset()
+                    return runInterruptionTest()
+                })
+                .catch(err => {
+                    log(`ERROR: ${err.message}`)
+                    console.error(err)
+                })
         </script>
     </body>
 </html>
