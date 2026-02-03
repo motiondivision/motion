@@ -489,17 +489,17 @@ describe("Sequence callbacks", () => {
         return new Promise((resolve) => setTimeout(resolve, 50))
     }
 
-    test("Scrubbing fires enter/leave at correct thresholds", async () => {
+    test("Scrubbing fires enter/exit at correct thresholds", async () => {
         const element = document.createElement("div")
         let enterCount = 0
-        let leaveCount = 0
+        let exitCount = 0
 
         const animation = animate([
             [element, { opacity: 1 }, { duration: 1 }],
             [
                 {
                     enter: () => enterCount++,
-                    leave: () => leaveCount++,
+                    exit: () => exitCount++,
                 },
                 {},
             ],
@@ -514,44 +514,44 @@ describe("Sequence callbacks", () => {
         animation.time = 0.5
         await waitForFrame()
         expect(enterCount).toBe(0)
-        expect(leaveCount).toBe(0)
+        expect(exitCount).toBe(0)
 
         // Scrub to 1 - enter called
         animation.time = 1
         await waitForFrame()
         expect(enterCount).toBe(1)
-        expect(leaveCount).toBe(0)
+        expect(exitCount).toBe(0)
 
         // Scrub to 1.5 - enter still called once (no re-fire)
         animation.time = 1.5
         await waitForFrame()
         expect(enterCount).toBe(1)
-        expect(leaveCount).toBe(0)
+        expect(exitCount).toBe(0)
 
         // Scrub back to 0.5 - leave called once
         animation.time = 0.5
         await waitForFrame()
         expect(enterCount).toBe(1)
-        expect(leaveCount).toBe(1)
+        expect(exitCount).toBe(1)
 
         // Scrub to 1.5 again - enter called twice total
         animation.time = 1.5
         await waitForFrame()
         expect(enterCount).toBe(2)
-        expect(leaveCount).toBe(1)
+        expect(exitCount).toBe(1)
     })
 
     test("complete() fires enter once", async () => {
         const element = document.createElement("div")
         let enterCount = 0
-        let leaveCount = 0
+        let exitCount = 0
 
         const animation = animate([
             [element, { opacity: 1 }, { duration: 1 }],
             [
                 {
                     enter: () => enterCount++,
-                    leave: () => leaveCount++,
+                    exit: () => exitCount++,
                 },
                 {},
             ],
@@ -562,20 +562,20 @@ describe("Sequence callbacks", () => {
         await waitForFrame()
 
         expect(enterCount).toBe(1)
-        expect(leaveCount).toBe(0)
+        expect(exitCount).toBe(0)
     })
 
-    test("cancel() without scrubbing fires neither enter nor leave", async () => {
+    test("cancel() without scrubbing fires neither enter nor exit", async () => {
         const element = document.createElement("div")
         let enterCount = 0
-        let leaveCount = 0
+        let exitCount = 0
 
         const animation = animate([
             [element, { opacity: 1 }, { duration: 1 }],
             [
                 {
                     enter: () => enterCount++,
-                    leave: () => leaveCount++,
+                    exit: () => exitCount++,
                 },
                 {},
             ],
@@ -585,20 +585,20 @@ describe("Sequence callbacks", () => {
         animation.cancel()
 
         expect(enterCount).toBe(0)
-        expect(leaveCount).toBe(0)
+        expect(exitCount).toBe(0)
     })
 
-    test("cancel() after scrubbing forward fires leave", async () => {
+    test("cancel() after scrubbing forward fires exit", async () => {
         const element = document.createElement("div")
         let enterCount = 0
-        let leaveCount = 0
+        let exitCount = 0
 
         const animation = animate([
             [element, { opacity: 1 }, { duration: 1 }],
             [
                 {
                     enter: () => enterCount++,
-                    leave: () => leaveCount++,
+                    exit: () => exitCount++,
                 },
                 {},
             ],
@@ -613,6 +613,6 @@ describe("Sequence callbacks", () => {
 
         animation.cancel()
 
-        expect(leaveCount).toBe(1)
+        expect(exitCount).toBe(1)
     })
 })

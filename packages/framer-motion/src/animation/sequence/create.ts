@@ -24,9 +24,9 @@ import { resolveSubjects } from "../animate/resolve-subjects"
 import {
     AnimationSequence,
     At,
+    CallbackSegment,
     ResolvedAnimationDefinitions,
-    ResolvedSequenceCallback,
-    SequenceCallback,
+    SequenceCallbackData,
     SequenceMap,
     SequenceOptions,
     ValueSequence,
@@ -46,7 +46,7 @@ export function createAnimationsFromSequence(
     { defaultTransition = {}, ...sequenceTransition }: SequenceOptions = {},
     scope?: AnimationScope,
     generators?: { [key: string]: GeneratorFactory },
-    outCallbacks?: ResolvedSequenceCallback[]
+    callbackData?: SequenceCallbackData
 ): ResolvedAnimationDefinitions {
     const defaultDuration = defaultTransition.duration || 0.3
     const animationDefinitions: ResolvedAnimationDefinitions = new Map()
@@ -84,24 +84,22 @@ export function createAnimationsFromSequence(
          * If this is a callback segment, extract the callback and its timing
          */
         if (isCallbackSegment(segment)) {
-            if (outCallbacks) {
-                const [callback, options] = segment
-                const callbackTime =
-                    options.at !== undefined
-                        ? calcNextTime(
-                              currentTime,
-                              options.at,
-                              prevTime,
-                              timeLabels
-                          )
-                        : currentTime
+            const [callback, options] = segment
+            const callbackTime =
+                options.at !== undefined
+                    ? calcNextTime(
+                          currentTime,
+                          options.at,
+                          prevTime,
+                          timeLabels
+                      )
+                    : currentTime
 
-                outCallbacks.push({
-                    time: callbackTime,
-                    enter: callback.enter,
-                    leave: callback.leave,
-                })
-            }
+            callbackData?.callbacks.push({
+                time: callbackTime,
+                enter: callback.enter,
+                exit: callback.exit,
+            })
             continue
         }
 
@@ -418,8 +416,9 @@ export function createAnimationsFromSequence(
         }
     })
 
-    if (outCallbacks) {
-        outCallbacks.sort((a, b) => a.time - b.time)
+    if (callbackData) {
+        callbackData.callbacks.sort((a, b) => a.time - b.time)
+        callbackData.totalDuration = totalDuration
     }
 
     return animationDefinitions
@@ -462,18 +461,10 @@ const isNumberKeyframesArray = (
 ): keyframes is number[] => keyframes.every(isNumber)
 
 /**
- * Check if a segment is a callback segment: [{ forward?, backward? }, { at? }]
+ * Check if a segment is a callback segment: [{ enter?, exit? }, { at? }]
  */
 function isCallbackSegment(
-    segment: unknown
-): segment is [SequenceCallback, At] {
-    if (!Array.isArray(segment) || segment.length !== 2) return false
-    const [callback, options] = segment
-    if (typeof callback !== "object" || callback === null) return false
-    // It's a callback if it has enter or leave and no other animation properties
-    return (
-        ("enter" in callback || "leave" in callback) &&
-        !("duration" in options) &&
-        !("ease" in options)
-    )
+    segment: any[]
+): segment is CallbackSegment {
+    return "enter" in segment[0] || "exit" in segment[0]
 }

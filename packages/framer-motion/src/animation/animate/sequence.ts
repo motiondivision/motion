@@ -8,6 +8,7 @@ import { createAnimationsFromSequence } from "../sequence/create"
 import {
     AnimationSequence,
     ResolvedSequenceCallback,
+    SequenceCallbackData,
     SequenceOptions,
 } from "../sequence/types"
 import { animateSubject } from "./subject"
@@ -31,7 +32,7 @@ function createCallbackUpdater(
             if (prevTime < callback.time && currentTime >= callback.time) {
                 callback.enter?.()
             } else if (prevTime >= callback.time && currentTime < callback.time) {
-                callback.leave?.()
+                callback.exit?.()
             }
         }
 
@@ -45,35 +46,28 @@ export function animateSequence(
     scope?: AnimationScope
 ) {
     const animations: AnimationPlaybackControlsWithThen[] = []
-    const callbacks: ResolvedSequenceCallback[] = []
+    const callbackData: SequenceCallbackData = { callbacks: [], totalDuration: 0 }
 
     const animationDefinitions = createAnimationsFromSequence(
         sequence,
         options,
         scope,
         { spring },
-        callbacks
+        callbackData
     )
 
     animationDefinitions.forEach(({ keyframes, transition }, subject) => {
         animations.push(...animateSubject(subject, keyframes, transition))
     })
 
-    if (callbacks.length > 0) {
-        /**
-         * Read totalDuration from the first animation's transition,
-         * since all animations in a sequence share the same duration.
-         */
-        const firstTransition = animationDefinitions.values().next().value
-            ?.transition
-        const totalDuration = firstTransition
-            ? (Object.values(firstTransition)[0] as any)?.duration ?? 0
-            : 0
-
+    if (callbackData.callbacks.length) {
         const callbackAnimation = animateSingleValue(0, 1, {
-            duration: totalDuration,
+            duration: callbackData.totalDuration,
             ease: "linear",
-            onUpdate: createCallbackUpdater(callbacks, totalDuration),
+            onUpdate: createCallbackUpdater(
+                callbackData.callbacks,
+                callbackData.totalDuration
+            ),
         })
         animations.push(callbackAnimation)
     }
