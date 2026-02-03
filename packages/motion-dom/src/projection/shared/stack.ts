@@ -7,6 +7,18 @@ export class NodeStack {
     members: IProjectionNode[] = []
 
     add(node: IProjectionNode) {
+        // Remove stale members with disconnected DOM instances (e.g., from SPA navigations)
+        this.members = this.members.filter(
+            (m) =>
+                !m.instance || (m.instance as Element).isConnected
+        )
+        if (this.prevLead && !this.members.includes(this.prevLead)) {
+            this.prevLead = undefined
+        }
+        if (this.lead && !this.members.includes(this.lead)) {
+            this.lead = undefined
+        }
+
         addUniqueItem(this.members, node)
         node.scheduleRender()
     }
@@ -58,7 +70,9 @@ export class NodeStack {
 
         node.show()
 
-        if (prevLead) {
+        // Only use prevLead for shared element transitions if its instance is still connected.
+        // In SPA navigations, stale nodes may remain in the stack with disconnected instances.
+        if (prevLead && (prevLead.instance as Element)?.isConnected) {
             prevLead.instance && prevLead.scheduleRender()
             node.scheduleRender()
 
