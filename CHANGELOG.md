@@ -4,6 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.30.1] 2026-02-03
+
+### Fixed
+
+-   Allow drag to be initiated by child `a` and `button` elements.
+
 ## [12.30.0] 2026-02-02
 
 ### Added
