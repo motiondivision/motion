@@ -114,7 +114,7 @@ export class NodeStack {
 
     private isValid(n: IProjectionNode): boolean {
         const inst = n.instance as DOMInstance
-        const isConnected = inst?.isConnected !== false
+        const isConnected = inst ? inst.isConnected !== false : false
         return isConnected || n.isPresent === false || !!n.snapshot
     }
 }
