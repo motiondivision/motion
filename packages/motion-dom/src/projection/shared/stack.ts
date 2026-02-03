@@ -2,7 +2,7 @@ import { addUniqueItem, removeItem } from "motion-utils"
 import { IProjectionNode } from "../node/types"
 
 /**
- * Manages temporal history of projection nodes for a single layoutId.
+ * Tracks history of projection nodes for a single layoutId.
  */
 export class NodeStack {
     lead?: IProjectionNode
@@ -10,14 +10,10 @@ export class NodeStack {
     members: IProjectionNode[] = []
 
     /**
-     * Add node to stack. Preserves existing leads during filtering to ensure 
-     * shared layout transitions can capture snapshots from unmounting components.
+     * Add node to stack. Cleanup happens lazily in promote() to avoid 
+     * interfering with active gestures (e.g., drag) and React render cycles.
      */
     add(node: IProjectionNode) {
-        this.members = this.members.filter(m => 
-            m === this.lead || m === this.prevLead || this.isAlive(m)
-        )
-        
         addUniqueItem(this.members, node)
         node.scheduleRender()
     }
@@ -60,23 +56,21 @@ export class NodeStack {
         const prevLead = this.lead
         if (node === prevLead) return
 
-        this.prevLead = prevLead
+        this.prevLead = this.isAlive(prevLead) ? prevLead : undefined
         this.lead = node
         node.show()
 
-        if (this.prevLead && this.isAlive(this.prevLead)) {
+        if (this.prevLead) {
             this.prevLead.scheduleRender()
             
             const prevDep = this.prevLead.options.layoutDependency
             const nextDep = node.options.layoutDependency
             
             if (prevDep !== undefined && nextDep !== undefined && prevDep === nextDep) {
-                // Dependencies match: skip shared animation, just render
                 node.scheduleRender()
                 return
             }
 
-            // Setup shared layout transition
             if (this.prevLead.snapshot) {
                 node.snapshot = this.prevLead.snapshot
                 node.snapshot.latestValues = this.prevLead.animationValues || this.prevLead.latestValues
