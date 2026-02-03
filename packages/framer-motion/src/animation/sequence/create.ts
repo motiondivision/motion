@@ -41,22 +41,16 @@ const defaultSegmentEasing = "easeInOut"
 
 const MAX_REPEAT = 20
 
-export interface CreateAnimationsResult {
-    animationDefinitions: ResolvedAnimationDefinitions
-    callbacks: ResolvedSequenceCallback[]
-    totalDuration: number
-}
-
 export function createAnimationsFromSequence(
     sequence: AnimationSequence,
     { defaultTransition = {}, ...sequenceTransition }: SequenceOptions = {},
     scope?: AnimationScope,
-    generators?: { [key: string]: GeneratorFactory }
-): CreateAnimationsResult {
+    generators?: { [key: string]: GeneratorFactory },
+    outCallbacks?: ResolvedSequenceCallback[]
+): ResolvedAnimationDefinitions {
     const defaultDuration = defaultTransition.duration || 0.3
     const animationDefinitions: ResolvedAnimationDefinitions = new Map()
     const sequences = new Map<Element | MotionValue, SequenceMap>()
-    const callbacks: ResolvedSequenceCallback[] = []
     const elementCache = {}
     const timeLabels = new Map<string, number>()
 
@@ -90,17 +84,24 @@ export function createAnimationsFromSequence(
          * If this is a callback segment, extract the callback and its timing
          */
         if (isCallbackSegment(segment)) {
-            const [callback, options] = segment
-            const callbackTime =
-                options.at !== undefined
-                    ? calcNextTime(currentTime, options.at, prevTime, timeLabels)
-                    : currentTime
+            if (outCallbacks) {
+                const [callback, options] = segment
+                const callbackTime =
+                    options.at !== undefined
+                        ? calcNextTime(
+                              currentTime,
+                              options.at,
+                              prevTime,
+                              timeLabels
+                          )
+                        : currentTime
 
-            callbacks.push({
-                time: callbackTime,
-                forward: callback.forward,
-                backward: callback.backward,
-            })
+                outCallbacks.push({
+                    time: callbackTime,
+                    forward: callback.forward,
+                    backward: callback.backward,
+                })
+            }
             continue
         }
 
@@ -417,10 +418,11 @@ export function createAnimationsFromSequence(
         }
     })
 
-    // Sort callbacks by time for efficient lookup during playback
-    callbacks.sort((a, b) => a.time - b.time)
+    if (outCallbacks) {
+        outCallbacks.sort((a, b) => a.time - b.time)
+    }
 
-    return { animationDefinitions, callbacks, totalDuration }
+    return animationDefinitions
 }
 
 function getSubjectSequence<O extends {}>(

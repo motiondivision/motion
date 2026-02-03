@@ -9,12 +9,7 @@ export function animateSequence(
 ) {
     const animations: AnimationPlaybackControls[] = []
 
-    const { animationDefinitions } = createAnimationsFromSequence(
-        definition,
-        options
-    )
-
-    animationDefinitions.forEach(
+    createAnimationsFromSequence(definition, options).forEach(
         ({ keyframes, transition }, element: Element) => {
             animations.push(...animateElements(element, keyframes, transition))
         }

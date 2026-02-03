@@ -29,10 +29,8 @@ function createCallbackUpdater(
             const prevTime = prevProgress * totalDuration
 
             if (prevTime < callback.time && currentTime >= callback.time) {
-                // Crossed forward
                 callback.forward?.()
             } else if (prevTime >= callback.time && currentTime < callback.time) {
-                // Crossed backward
                 callback.backward?.()
             }
         }
@@ -47,16 +45,31 @@ export function animateSequence(
     scope?: AnimationScope
 ) {
     const animations: AnimationPlaybackControlsWithThen[] = []
+    const callbacks: ResolvedSequenceCallback[] = []
 
-    const { animationDefinitions, callbacks, totalDuration } =
-        createAnimationsFromSequence(sequence, options, scope, { spring })
+    const animationDefinitions = createAnimationsFromSequence(
+        sequence,
+        options,
+        scope,
+        { spring },
+        callbacks
+    )
 
     animationDefinitions.forEach(({ keyframes, transition }, subject) => {
         animations.push(...animateSubject(subject, keyframes, transition))
     })
 
-    // Add a 0→1 animation with onUpdate to track callbacks
     if (callbacks.length > 0) {
+        /**
+         * Read totalDuration from the first animation's transition,
+         * since all animations in a sequence share the same duration.
+         */
+        const firstTransition = animationDefinitions.values().next().value
+            ?.transition
+        const totalDuration = firstTransition
+            ? (Object.values(firstTransition)[0] as any)?.duration ?? 0
+            : 0
+
         const callbackAnimation = animateSingleValue(0, 1, {
             duration: totalDuration,
             ease: "linear",
