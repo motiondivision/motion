@@ -843,13 +843,17 @@ describe("Sequence callbacks", () => {
     const a = document.createElement("div")
     const b = document.createElement("div")
 
-    test("Callbacks don't affect animation timing", () => {
+    test("Function segments as MotionValues don't affect element animation timing", () => {
+        const mv1 = motionValue(0)
+        const mv2 = motionValue(0)
+        const mv3 = motionValue(0)
+
         const animations = createAnimationsFromSequence(
             [
                 [a, { x: 100 }, { duration: 1 }],
-                [{ do: () => {} }, {}],
-                [{ do: () => {} }, {}],
-                [{ do: () => {} }, {}],
+                [mv1, [0, 1], { duration: 0 }],
+                [mv2, [0, 1], { duration: 0 }],
+                [mv3, [0, 1], { duration: 0 }],
                 [b, { y: 200 }, { duration: 1 }],
             ],
             undefined,
@@ -862,19 +866,20 @@ describe("Sequence callbacks", () => {
         expect(animations.get(b)!.transition.y.times).toEqual([0, 0.5, 1])
     })
 
-    test("Callback segments are skipped in animation definitions", () => {
+    test("Function segments appear as MotionValue entries in animation definitions", () => {
+        const mv = motionValue(0)
+
         const animations = createAnimationsFromSequence(
             [
                 [a, { x: 100 }, { duration: 1 }],
-                [{ do: () => {} }, { at: 0.5 }],
+                [mv, [0, 1], { duration: 0.5 }],
             ],
             undefined,
             undefined,
             { spring }
         )
 
-        // Only the element animation, no callback artifacts
-        expect(animations.size).toBe(1)
         expect(animations.has(a)).toBe(true)
+        expect(animations.has(mv)).toBe(true)
     })
 })

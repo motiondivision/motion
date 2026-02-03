@@ -378,19 +378,87 @@ describe("Sequence callbacks", () => {
         return new Promise((resolve) => setTimeout(resolve, 50))
     }
 
-    test("Scrubbing fires do/undo at correct thresholds", async () => {
+    test("Progress callback receives interpolated values", async () => {
+        const element = document.createElement("div")
+        const values: number[] = []
+
+        const animation = animate(
+            [
+                [element, { opacity: 1 }, { duration: 0.5 }],
+                [(p: number) => values.push(p), { duration: 0.5 }],
+            ],
+            {
+                defaultTransition: {
+                    ease: "linear",
+                },
+            }
+        )
+
+        await animation.then(() => {
+            expect(values.length).toBeGreaterThan(0)
+            expect(values[values.length - 1]).toBe(1)
+            for (const v of values) {
+                expect(v).toBeGreaterThanOrEqual(0)
+                expect(v).toBeLessThanOrEqual(1)
+            }
+        })
+    })
+
+    test("Progress callback with custom keyframes", async () => {
+        const element = document.createElement("div")
+        const values: number[] = []
+
+        const animation = animate(
+            [
+                [element, { opacity: 1 }, { duration: 0.5 }],
+                [(v: number) => values.push(v), [0, 100], { duration: 0.5 }],
+            ],
+            {
+                defaultTransition: {
+                    ease: "linear",
+                },
+            }
+        )
+
+        await animation.then(() => {
+            expect(values.length).toBeGreaterThan(0)
+            expect(values[values.length - 1]).toBe(100)
+            for (const v of values) {
+                expect(v).toBeGreaterThanOrEqual(0)
+                expect(v).toBeLessThanOrEqual(100)
+            }
+        })
+    })
+
+    test("Toggle helper for do/undo pattern", async () => {
         const element = document.createElement("div")
         let doCount = 0
         let undoCount = 0
 
+        function toggle(
+            onDo: VoidFunction,
+            onUndo?: VoidFunction
+        ) {
+            let done = false
+            return (p: number) => {
+                if (p >= 1 && !done) {
+                    done = true
+                    onDo()
+                } else if (p < 1 && done) {
+                    done = false
+                    onUndo?.()
+                }
+            }
+        }
+
         const animation = animate([
             [element, { opacity: 1 }, { duration: 1 }],
             [
-                {
-                    do: () => doCount++,
-                    undo: () => undoCount++,
-                },
-                {},
+                toggle(
+                    () => doCount++,
+                    () => undoCount++
+                ),
+                { duration: 0 },
             ],
             [element, { opacity: 0 }, { duration: 1 }],
         ])
@@ -399,109 +467,28 @@ describe("Sequence callbacks", () => {
 
         animation.pause()
 
-        // Scrub to 0.5 - do not called (callback is at t=1)
+        // Scrub to 0.5 - toggle not yet fired (callback is at t=1)
         animation.time = 0.5
         await waitForFrame()
         expect(doCount).toBe(0)
         expect(undoCount).toBe(0)
 
-        // Scrub to 1 - do called
-        animation.time = 1
-        await waitForFrame()
-        expect(doCount).toBe(1)
-        expect(undoCount).toBe(0)
-
-        // Scrub to 1.5 - do still called once (no re-fire)
+        // Scrub past threshold - do fires
         animation.time = 1.5
         await waitForFrame()
         expect(doCount).toBe(1)
         expect(undoCount).toBe(0)
 
-        // Scrub back to 0.5 - undo called once
+        // Scrub back before threshold - undo fires
         animation.time = 0.5
         await waitForFrame()
         expect(doCount).toBe(1)
         expect(undoCount).toBe(1)
 
-        // Scrub to 1.5 again - do called twice total
+        // Scrub forward again - do fires again
         animation.time = 1.5
         await waitForFrame()
         expect(doCount).toBe(2)
-        expect(undoCount).toBe(1)
-    })
-
-    test("complete() fires do once", async () => {
-        const element = document.createElement("div")
-        let doCount = 0
-        let undoCount = 0
-
-        const animation = animate([
-            [element, { opacity: 1 }, { duration: 1 }],
-            [
-                {
-                    do: () => doCount++,
-                    undo: () => undoCount++,
-                },
-                {},
-            ],
-            [element, { opacity: 0 }, { duration: 1 }],
-        ])
-
-        animation.complete()
-        await waitForFrame()
-
-        expect(doCount).toBe(1)
-        expect(undoCount).toBe(0)
-    })
-
-    test("cancel() without scrubbing fires neither do nor undo", async () => {
-        const element = document.createElement("div")
-        let doCount = 0
-        let undoCount = 0
-
-        const animation = animate([
-            [element, { opacity: 1 }, { duration: 1 }],
-            [
-                {
-                    do: () => doCount++,
-                    undo: () => undoCount++,
-                },
-                {},
-            ],
-            [element, { opacity: 0 }, { duration: 1 }],
-        ])
-
-        animation.cancel()
-
-        expect(doCount).toBe(0)
-        expect(undoCount).toBe(0)
-    })
-
-    test("cancel() after scrubbing forward fires undo", async () => {
-        const element = document.createElement("div")
-        let doCount = 0
-        let undoCount = 0
-
-        const animation = animate([
-            [element, { opacity: 1 }, { duration: 1 }],
-            [
-                {
-                    do: () => doCount++,
-                    undo: () => undoCount++,
-                },
-                {},
-            ],
-            [element, { opacity: 0 }, { duration: 1 }],
-        ])
-
-        animation.pause()
-        animation.time = 1.5
-        await waitForFrame()
-
-        expect(doCount).toBe(1)
-
-        animation.cancel()
-
         expect(undoCount).toBe(1)
     })
 })
