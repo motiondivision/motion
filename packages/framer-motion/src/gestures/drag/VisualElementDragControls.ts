@@ -785,27 +785,24 @@ export class VisualElementDragControls {
     }
 }
 
+function skipFirstCall(callback: VoidFunction): VoidFunction {
+    let isFirst = true
+    return () => {
+        if (isFirst) {
+            isFirst = false
+            return
+        }
+        callback()
+    }
+}
+
 function startResizeObservers(
     element: HTMLElement,
     constraintsElement: HTMLElement,
     onResize: VoidFunction
 ): VoidFunction {
-    /**
-     * ResizeObserver fires on initial observation, but we only want to
-     * respond to actual resizes. Track how many initial callbacks remain
-     * (one per observed element) and skip them.
-     */
-    let initialCallbacksRemaining = 2
-    const handler = () => {
-        if (initialCallbacksRemaining > 0) {
-            initialCallbacksRemaining--
-            return
-        }
-        onResize()
-    }
-
-    const stopElement = resize(element, handler)
-    const stopContainer = resize(constraintsElement, handler)
+    const stopElement = resize(element, skipFirstCall(onResize))
+    const stopContainer = resize(constraintsElement, skipFirstCall(onResize))
     return () => {
         stopElement()
         stopContainer()
