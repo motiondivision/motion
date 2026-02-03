@@ -98,8 +98,8 @@ export function createAnimationsFromSequence(
 
                 outCallbacks.push({
                     time: callbackTime,
-                    forward: callback.forward,
-                    backward: callback.backward,
+                    enter: callback.enter,
+                    leave: callback.leave,
                 })
             }
             continue
@@ -470,9 +470,9 @@ function isCallbackSegment(
     if (!Array.isArray(segment) || segment.length !== 2) return false
     const [callback, options] = segment
     if (typeof callback !== "object" || callback === null) return false
-    // It's a callback if it has forward or backward and no other animation properties
+    // It's a callback if it has enter or leave and no other animation properties
     return (
-        ("forward" in callback || "backward" in callback) &&
+        ("enter" in callback || "leave" in callback) &&
         !("duration" in options) &&
         !("ease" in options)
     )

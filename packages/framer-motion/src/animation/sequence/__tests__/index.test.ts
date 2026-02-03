@@ -847,9 +847,9 @@ describe("Sequence callbacks", () => {
         const animations = createAnimationsFromSequence(
             [
                 [a, { x: 100 }, { duration: 1 }],
-                [{ forward: () => {} }, {}],
-                [{ forward: () => {} }, {}],
-                [{ forward: () => {} }, {}],
+                [{ enter: () => {} }, {}],
+                [{ enter: () => {} }, {}],
+                [{ enter: () => {} }, {}],
                 [b, { y: 200 }, { duration: 1 }],
             ],
             undefined,
@@ -858,7 +858,7 @@ describe("Sequence callbacks", () => {
         )
 
         expect(animations.get(a)!.transition.x.duration).toBe(2)
-        expect(animations.get(a)!.transition.x.times).toEqual([0, 0.5])
+        expect(animations.get(a)!.transition.x.times).toEqual([0, 0.5, 1])
         expect(animations.get(b)!.transition.y.times).toEqual([0, 0.5, 1])
     })
 
@@ -866,7 +866,7 @@ describe("Sequence callbacks", () => {
         const animations = createAnimationsFromSequence(
             [
                 [a, { x: 100 }, { duration: 1 }],
-                [{ forward: () => {} }, { at: 0.5 }],
+                [{ enter: () => {} }, { at: 0.5 }],
             ],
             undefined,
             undefined,
