@@ -8,14 +8,20 @@ export type MockIntersectionObserverCallback = (
 ) => void
 
 let activeIntersectionObserver: MockIntersectionObserverCallback | undefined
+let lastObserverOptions: IntersectionObserverInit | undefined
 
 export const getActiveObserver = () => activeIntersectionObserver
+export const getLastObserverOptions = () => lastObserverOptions
 
 window.IntersectionObserver = class MockIntersectionObserver {
     callback: MockIntersectionObserverCallback
 
-    constructor(callback: MockIntersectionObserverCallback) {
+    constructor(
+        callback: MockIntersectionObserverCallback,
+        options?: IntersectionObserverInit
+    ) {
         this.callback = callback
+        lastObserverOptions = options
     }
 
     observe(_element: Element) {

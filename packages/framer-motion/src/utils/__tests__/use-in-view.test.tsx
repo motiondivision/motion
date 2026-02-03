@@ -1,7 +1,10 @@
 import { act, useEffect, useRef } from "react"
 import { render } from "../../jest.setup"
 import { useInView } from "../use-in-view"
-import { getActiveObserver } from "./mock-intersection-observer"
+import {
+    getActiveObserver,
+    getLastObserverOptions,
+} from "./mock-intersection-observer"
 
 const target = document.createElement("div")
 
@@ -107,6 +110,19 @@ describe("useInView", () => {
         act(leave)
 
         expect(results).toEqual([false, true, false, true, false])
+    })
+
+    test("Passes margin to IntersectionObserver as rootMargin", () => {
+        const Component = () => {
+            const ref = useRef(null)
+            useInView(ref, { margin: "100px 0px" })
+
+            return <div ref={ref} />
+        }
+
+        render(<Component />)
+
+        expect(getLastObserverOptions()?.rootMargin).toBe("100px 0px")
     })
 
     test("Only triggers true once, if once is set", async () => {
