@@ -90,6 +90,8 @@ export * from "./gestures/utils/is-primary-pointer"
 
 export * from "./node/types"
 
+export { clearFrameCache, setCurrentFrame } from "./render/frame-cache"
+
 export * from "./render/dom/parse-transform"
 export * from "./render/dom/style-computed"
 export * from "./render/dom/style-set"
