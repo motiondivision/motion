@@ -1,7 +1,8 @@
 <html>
     <!--
-     This test simulates stale shared layout nodes across SPA navigations.
-     It verifies resumeFrom is not set to a disconnected instance.
+     Test for stale shared layout nodes across SPA navigations.
+     Verifies that resumeFrom is not set to disconnected instances and
+     that the stack maintains correct references through multiple navigations.
     -->
     <head>
         <style>
@@ -50,24 +51,25 @@
         <script type="module" src="/src/imports/script-animate.js"></script>
         <script type="module" src="/src/imports/script-assert.js"></script>
         <script type="module">
-            const { showError } = window
             const { createNode } = window.Animate
             const container = document.getElementById("container")
 
-            // Root projection node for shared layout tracking.
+            // Root projection node for shared layout tracking
             const root = createNode(container, undefined, { layout: true })
 
-            // Create an initial shared element and register it.
+            // Simulate first navigation: create element then remove from DOM without cleanup
             const staleElement = document.createElement("div")
             staleElement.className = "card small"
             staleElement.setAttribute("data-layout-id", "hero")
             container.appendChild(staleElement)
-            createNode(staleElement, root, { layoutId: "hero" })
+            const staleNode = createNode(staleElement, root, {
+                layoutId: "hero",
+            })
 
-            // Simulate navigation away: remove element without unmount.
+            // Simulate navigation away: DOM removed but projection node remains in stack
             staleElement.remove()
 
-            // Create a new shared element that exits and relegate it.
+            // Simulate second navigation: create exiting element
             const exitingElement = document.createElement("div")
             exitingElement.className = "card small"
             exitingElement.setAttribute("data-layout-id", "hero")
@@ -75,42 +77,104 @@
             const exitingNode = createNode(exitingElement, root, {
                 layoutId: "hero",
             })
+
+            // Mark as exiting and relegate to find previous valid state
             exitingNode.isPresent = false
             exitingNode.relegate()
 
-            // Create the next shared element and check resumeFrom.
-            const nextElement = document.createElement("div")
-            nextElement.className = "card big"
-            nextElement.setAttribute("data-layout-id", "hero")
-            container.appendChild(nextElement)
-            const nextNode = createNode(nextElement, root, {
+            // Create current element that should animate from exiting state
+            const currentElement = document.createElement("div")
+            currentElement.className = "card big"
+            currentElement.setAttribute("data-layout-id", "hero")
+            container.appendChild(currentElement)
+            const currentNode = createNode(currentElement, root, {
                 layoutId: "hero",
             })
 
-            const resumeFrom = nextNode.resumeFrom
+            // Test 1: resumeFrom should not point to disconnected stale node
+            const resumeFrom = currentNode.resumeFrom
             const resumeFromConnected = Boolean(
                 resumeFrom?.instance && resumeFrom.instance.isConnected
             )
             const resumeFromHasSnapshot = Boolean(resumeFrom?.snapshot)
             const resumeFromIsPresent = resumeFrom?.isPresent !== false
-            const resumeFromInvalid =
+
+            // Invalid if: exists, marked as present, but disconnected and no snapshot
+            const isInvalid =
                 resumeFrom &&
                 resumeFromIsPresent &&
                 !resumeFromConnected &&
                 !resumeFromHasSnapshot
-            window.__debugResumeFrom = {
-                exists: Boolean(resumeFrom),
-                connected: resumeFromConnected,
-                invalid: Boolean(resumeFromInvalid),
-                hasSnapshot: resumeFromHasSnapshot,
-                isPresent: resumeFromIsPresent,
+
+            if (isInvalid) {
+                currentElement.dataset.layoutCorrect = "false"
+                console.error(
+                    "resumeFrom points to disconnected zombie instance"
+                )
             }
 
-            if (resumeFromInvalid) {
-                nextElement.dataset.layoutCorrect = "false"
-                console.error(
-                    "resumeFrom should not point to a disconnected instance"
+            // Test 2: Verify stack members array doesn't accumulate zombies
+            // Access internal stack if exposed, or check via root
+            const stack = currentNode.getStack?.() || currentNode.stack
+            if (stack) {
+                const zombies = stack.members.filter(
+                    (m) =>
+                        m.instance &&
+                        m.instance.isConnected === false &&
+                        !m.snapshot &&
+                        m.isPresent !== false
                 )
+
+                if (zombies.length > 0) {
+                    currentElement.dataset.layoutCorrect = "false"
+                    console.error(
+                        `Stack contains ${zombies.length} zombie nodes`
+                    )
+                }
+            }
+
+            // Test 3: Chain continuity - simulate third navigation
+            // Remove current node and create a new one to verify the chain isn't broken
+            if (currentNode.remove) currentNode.remove()
+
+            const finalElement = document.createElement("div")
+            finalElement.className = "card small"
+            finalElement.setAttribute("data-layout-id", "hero")
+            container.appendChild(finalElement)
+            const finalNode = createNode(finalElement, root, {
+                layoutId: "hero",
+            })
+
+            // Should animate from currentNode (the previous valid lead), not staleNode
+            const finalResumeFrom = finalNode.resumeFrom
+            const chainBroken =
+                finalResumeFrom &&
+                finalResumeFrom !== currentNode &&
+                finalResumeFrom === staleNode
+
+            if (chainBroken) {
+                finalElement.dataset.layoutCorrect = "false"
+                console.error(
+                    "Chain broken: animating from stale node instead of previous"
+                )
+            }
+
+            // Debug output for CI visibility
+            window.__testResults = {
+                resumeFromExists: Boolean(resumeFrom),
+                resumeFromConnected,
+                resumeFromHasSnapshot,
+                isInvalid,
+                zombieCount: stack
+                    ? stack.members.filter(
+                          (m) =>
+                              m.instance &&
+                              m.instance.isConnected === false &&
+                              !m.snapshot &&
+                              m.isPresent !== false
+                      ).length
+                    : -1,
+                chainBroken,
             }
         </script>
     </body>
