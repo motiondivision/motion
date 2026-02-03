@@ -466,5 +466,5 @@ const isNumberKeyframesArray = (
 function isCallbackSegment(
     segment: any[]
 ): segment is CallbackSegment {
-    return "enter" in segment[0] || "exit" in segment[0]
+    return segment[0] && ("enter" in segment[0] || "exit" in segment[0])
 }
