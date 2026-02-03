@@ -1,6 +1,11 @@
 /**
- * Tests for issue #1674: Interactive elements inside draggable elements should not trigger drag
- * https://github.com/motiondivision/motion/issues/1674
+ * Tests for drag behavior with interactive elements inside draggable elements.
+ *
+ * Form controls where text selection or direct interaction is expected
+ * (input, textarea, select, contenteditable) should NOT trigger drag.
+ *
+ * Buttons and links SHOULD allow drag since they don't have click-and-move
+ * actions of their own.
  */
 describe("Drag Input Propagation", () => {
     it("Should not drag when clicking and dragging on an input inside draggable", () => {
@@ -60,7 +65,7 @@ describe("Drag Input Propagation", () => {
         })
     })
 
-    it("Should not drag when clicking and dragging on a button inside draggable", () => {
+    it("Should drag when clicking and dragging on a button inside draggable", () => {
         cy.visit("?test=drag-input-propagation")
             .wait(200)
             .get("[data-testid='draggable']")
@@ -70,7 +75,7 @@ describe("Drag Input Propagation", () => {
                 expect(top).to.equal(100)
             })
 
-        // Attempt to drag by clicking on the button
+        // Drag by clicking on the button - buttons don't have click-and-move actions
         cy.get("[data-testid='button']")
             .trigger("pointerdown", 5, 5)
             .trigger("pointermove", 10, 10)
@@ -79,15 +84,16 @@ describe("Drag Input Propagation", () => {
             .wait(50)
             .trigger("pointerup", { force: true })
 
-        // Verify the draggable element did NOT move
+        // Verify the draggable element DID move
         cy.get("[data-testid='draggable']").should(($draggable) => {
             const { left, top } = $draggable[0].getBoundingClientRect()
-            expect(left).to.equal(100)
-            expect(top).to.equal(100)
+            // Element should have moved
+            expect(left).to.be.greaterThan(200)
+            expect(top).to.be.greaterThan(200)
         })
     })
 
-    it("Should not drag when clicking and dragging on a link inside draggable", () => {
+    it("Should drag when clicking and dragging on a link inside draggable", () => {
         cy.visit("?test=drag-input-propagation")
             .wait(200)
             .get("[data-testid='draggable']")
@@ -97,7 +103,7 @@ describe("Drag Input Propagation", () => {
                 expect(top).to.equal(100)
             })
 
-        // Attempt to drag by clicking on the link
+        // Drag by clicking on the link - links don't have click-and-move actions
         cy.get("[data-testid='link']")
             .trigger("pointerdown", 5, 5)
             .trigger("pointermove", 10, 10)
@@ -106,11 +112,12 @@ describe("Drag Input Propagation", () => {
             .wait(50)
             .trigger("pointerup", { force: true })
 
-        // Verify the draggable element did NOT move
+        // Verify the draggable element DID move
         cy.get("[data-testid='draggable']").should(($draggable) => {
             const { left, top } = $draggable[0].getBoundingClientRect()
-            expect(left).to.equal(100)
-            expect(top).to.equal(100)
+            // Element should have moved
+            expect(left).to.be.greaterThan(200)
+            expect(top).to.be.greaterThan(200)
         })
     })
 

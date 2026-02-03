@@ -7,7 +7,7 @@ import {
     createBox,
     eachAxis,
     frame,
-    isElementKeyboardAccessible,
+    isElementTextInput,
     measurePageBox,
     mixNumber,
     PanInfo,
@@ -655,15 +655,17 @@ export class VisualElementDragControls {
                 const target = event.target as Element
 
                 /**
-                 * Only block drag if clicking on a keyboard-accessible child element.
-                 * If the draggable element itself is keyboard-accessible (e.g., motion.button),
-                 * dragging should still work when clicking directly on it.
+                 * Only block drag if clicking on a text input child element
+                 * (input, textarea, select, contenteditable) where users might
+                 * want to select text or interact with the control.
+                 *
+                 * Buttons and links don't block drag since they don't have
+                 * click-and-move actions of their own.
                  */
-                const isClickingKeyboardAccessibleChild =
-                    target !== element &&
-                    isElementKeyboardAccessible(target)
+                const isClickingTextInputChild =
+                    target !== element && isElementTextInput(target)
 
-                if (drag && dragListener && !isClickingKeyboardAccessibleChild) {
+                if (drag && dragListener && !isClickingTextInputChild) {
                     this.start(event)
                 }
             }
