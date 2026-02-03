@@ -17,7 +17,7 @@ export class NodeStack {
         if (valid.length !== this.members.length) {
             this.members = valid
             if (this.lead && !valid.includes(this.lead)) {
-                this.lead = valid.at(-1)
+                this.lead = valid[valid.length - 1]
             }
             if (this.prevLead && !valid.includes(this.prevLead)) {
                 this.prevLead = undefined
