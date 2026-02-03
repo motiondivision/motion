@@ -373,6 +373,139 @@ describe("animate", () => {
     })
 })
 
+describe("Sequence callbacks", () => {
+    function waitForFrame(): Promise<void> {
+        return new Promise((resolve) => setTimeout(resolve, 50))
+    }
+
+    test("Scrubbing fires do/undo at correct thresholds", async () => {
+        const element = document.createElement("div")
+        let doCount = 0
+        let undoCount = 0
+
+        const animation = animate([
+            [element, { opacity: 1 }, { duration: 1 }],
+            [
+                {
+                    do: () => doCount++,
+                    undo: () => undoCount++,
+                },
+                {},
+            ],
+            [element, { opacity: 0 }, { duration: 1 }],
+        ])
+
+        expect(animation.duration).toBe(2)
+
+        animation.pause()
+
+        // Scrub to 0.5 - do not called (callback is at t=1)
+        animation.time = 0.5
+        await waitForFrame()
+        expect(doCount).toBe(0)
+        expect(undoCount).toBe(0)
+
+        // Scrub to 1 - do called
+        animation.time = 1
+        await waitForFrame()
+        expect(doCount).toBe(1)
+        expect(undoCount).toBe(0)
+
+        // Scrub to 1.5 - do still called once (no re-fire)
+        animation.time = 1.5
+        await waitForFrame()
+        expect(doCount).toBe(1)
+        expect(undoCount).toBe(0)
+
+        // Scrub back to 0.5 - undo called once
+        animation.time = 0.5
+        await waitForFrame()
+        expect(doCount).toBe(1)
+        expect(undoCount).toBe(1)
+
+        // Scrub to 1.5 again - do called twice total
+        animation.time = 1.5
+        await waitForFrame()
+        expect(doCount).toBe(2)
+        expect(undoCount).toBe(1)
+    })
+
+    test("complete() fires do once", async () => {
+        const element = document.createElement("div")
+        let doCount = 0
+        let undoCount = 0
+
+        const animation = animate([
+            [element, { opacity: 1 }, { duration: 1 }],
+            [
+                {
+                    do: () => doCount++,
+                    undo: () => undoCount++,
+                },
+                {},
+            ],
+            [element, { opacity: 0 }, { duration: 1 }],
+        ])
+
+        animation.complete()
+        await waitForFrame()
+
+        expect(doCount).toBe(1)
+        expect(undoCount).toBe(0)
+    })
+
+    test("cancel() without scrubbing fires neither do nor undo", async () => {
+        const element = document.createElement("div")
+        let doCount = 0
+        let undoCount = 0
+
+        const animation = animate([
+            [element, { opacity: 1 }, { duration: 1 }],
+            [
+                {
+                    do: () => doCount++,
+                    undo: () => undoCount++,
+                },
+                {},
+            ],
+            [element, { opacity: 0 }, { duration: 1 }],
+        ])
+
+        animation.cancel()
+
+        expect(doCount).toBe(0)
+        expect(undoCount).toBe(0)
+    })
+
+    test("cancel() after scrubbing forward fires undo", async () => {
+        const element = document.createElement("div")
+        let doCount = 0
+        let undoCount = 0
+
+        const animation = animate([
+            [element, { opacity: 1 }, { duration: 1 }],
+            [
+                {
+                    do: () => doCount++,
+                    undo: () => undoCount++,
+                },
+                {},
+            ],
+            [element, { opacity: 0 }, { duration: 1 }],
+        ])
+
+        animation.pause()
+        animation.time = 1.5
+        await waitForFrame()
+
+        expect(doCount).toBe(1)
+
+        animation.cancel()
+
+        expect(undoCount).toBe(1)
+    })
+})
+
 describe("animate: Objects", () => {
     test("Types: Object to object", () => {
         animate({ x: 100 }, { x: 200 })

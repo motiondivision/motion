@@ -253,6 +253,12 @@ export abstract class VisualElement<
     shouldReduceMotion: boolean | null = null
 
     /**
+     * Decides whether animations should be skipped for this VisualElement.
+     * Useful for E2E tests and visual regression testing.
+     */
+    shouldSkipAnimations: boolean = false
+
+    /**
      * Normally, if a component is controlled by a parent's variants, it can
      * rely on that ancestor to trigger animations further down the tree.
      * However, if a component is created after its parent is mounted, the parent
@@ -321,6 +327,11 @@ export abstract class VisualElement<
     private reducedMotionConfig: ReducedMotionConfig | undefined
 
     /**
+     * A reference to the skipAnimations config passed to the VisualElement's host React component.
+     */
+    private skipAnimationsConfig: boolean | undefined
+
+    /**
      * On mount, this will be hydrated with a callback to disconnect
      * this visual element from its parent on unmount.
      */
@@ -366,6 +377,7 @@ export abstract class VisualElement<
             props,
             presenceContext,
             reducedMotionConfig,
+            skipAnimations,
             blockInitialAnimation,
             visualState,
         }: VisualElementOptions<Instance, RenderState>,
@@ -381,6 +393,7 @@ export abstract class VisualElement<
         this.presenceContext = presenceContext
         this.depth = parent ? parent.depth + 1 : 0
         this.reducedMotionConfig = reducedMotionConfig
+        this.skipAnimationsConfig = skipAnimations
         this.options = options
         this.blockInitialAnimation = Boolean(blockInitialAnimation)
 
@@ -452,6 +465,11 @@ export abstract class VisualElement<
                 "reduced-motion-disabled"
             )
         }
+
+        /**
+         * Set whether animations should be skipped based on the config.
+         */
+        this.shouldSkipAnimations = this.skipAnimationsConfig ?? false
 
         this.parent?.addChild(this)
 

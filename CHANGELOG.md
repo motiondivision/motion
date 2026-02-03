@@ -4,11 +4,38 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
-## [12.30.0] 2026-01-30
+## [12.31.0] 2026-02-03
+
+### Added
+
+-   `animate`: Support for bi-directional callbacks within animation sequences.
 
 ### Fixed
 
--   Avoid stale shared layout nodes during SPA navigations.
+-   Ensure `onPan` never fires before `onPanStart`.
+
+## [12.30.1] 2026-02-03
+
+### Fixed
+
+-   Allow drag to be initiated by child `a` and `button` elements.
+
+## [12.30.0] 2026-02-02
+
+### Added
+
+-   `MotionConfig`: Add `skipAnimations` option.
+
+### Fixed
+
+-   `animate`: Prevent error when calling `stop()` on removed elements.
+-   `animateLayout`: Fixing shared element animations when `animate` called before `animateLayout`.
+
+## [12.29.3] 2026-02-02
+
+### Fixed
+
+-   `Reorder`: Fixed viewport autoscroll.
 
 ## [12.29.2] 2026-01-26
 

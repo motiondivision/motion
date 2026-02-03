@@ -40,7 +40,9 @@ export function useVisualElement<
     const { visualElement: parent } = useContext(MotionContext)
     const lazyContext = useContext(LazyContext)
     const presenceContext = useContext(PresenceContext)
-    const reducedMotionConfig = useContext(MotionConfigContext).reducedMotion
+    const motionConfig = useContext(MotionConfigContext)
+    const reducedMotionConfig = motionConfig.reducedMotion
+    const skipAnimations = motionConfig.skipAnimations
 
     const visualElementRef = useRef<VisualElement<
         HTMLElement | SVGElement
@@ -69,6 +71,7 @@ export function useVisualElement<
                 ? presenceContext.initial === false
                 : false,
             reducedMotionConfig,
+            skipAnimations,
             isSVG,
         })
 

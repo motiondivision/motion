@@ -32,6 +32,11 @@ export interface VisualElementOptions<Instance, RenderState = any> {
     blockInitialAnimation?: boolean
     reducedMotionConfig?: ReducedMotionConfig
     /**
+     * If true, all animations will be skipped and values will be set instantly.
+     * Useful for E2E tests and visual regression testing.
+     */
+    skipAnimations?: boolean
+    /**
      * Explicit override for SVG detection. When true, uses SVG rendering;
      * when false, uses HTML rendering. If undefined, auto-detects.
      */

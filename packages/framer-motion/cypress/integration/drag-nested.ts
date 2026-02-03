@@ -372,9 +372,9 @@ function testAlternateAxes(parentLayout: boolean, childLayout: boolean) {
         .wait(200)
         .get("#child")
         .trigger("pointerdown", 5, 5, { force: true })
-        .wait(50)
+        .wait(80)
         .trigger("pointermove", 10, 10, { force: true })
-        .wait(50)
+        .wait(80)
         .trigger("pointermove", 100, 100, { force: true })
         .wait(80)
         .should(([$child]: any) => {

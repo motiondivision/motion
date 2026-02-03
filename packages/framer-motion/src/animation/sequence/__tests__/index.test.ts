@@ -838,3 +838,43 @@ describe("createAnimationsFromSequence", () => {
         expect(animations.size).toBe(0)
     })
 })
+
+describe("Sequence callbacks", () => {
+    const a = document.createElement("div")
+    const b = document.createElement("div")
+
+    test("Callbacks don't affect animation timing", () => {
+        const animations = createAnimationsFromSequence(
+            [
+                [a, { x: 100 }, { duration: 1 }],
+                [{ do: () => {} }, {}],
+                [{ do: () => {} }, {}],
+                [{ do: () => {} }, {}],
+                [b, { y: 200 }, { duration: 1 }],
+            ],
+            undefined,
+            undefined,
+            { spring }
+        )
+
+        expect(animations.get(a)!.transition.x.duration).toBe(2)
+        expect(animations.get(a)!.transition.x.times).toEqual([0, 0.5, 1])
+        expect(animations.get(b)!.transition.y.times).toEqual([0, 0.5, 1])
+    })
+
+    test("Callback segments are skipped in animation definitions", () => {
+        const animations = createAnimationsFromSequence(
+            [
+                [a, { x: 100 }, { duration: 1 }],
+                [{ do: () => {} }, { at: 0.5 }],
+            ],
+            undefined,
+            undefined,
+            { spring }
+        )
+
+        // Only the element animation, no callback artifacts
+        expect(animations.size).toBe(1)
+        expect(animations.has(a)).toBe(true)
+    })
+})

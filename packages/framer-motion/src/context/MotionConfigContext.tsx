@@ -44,6 +44,14 @@ export interface MotionConfigContext {
      * @public
      */
     nonce?: string
+
+    /**
+     * If true, all animations will be skipped and values will be set instantly.
+     * Useful for E2E tests and visual regression testing.
+     *
+     * @public
+     */
+    skipAnimations?: boolean
 }
 
 /**
