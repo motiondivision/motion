@@ -373,6 +373,139 @@ describe("animate", () => {
     })
 })
 
+describe("Sequence callbacks", () => {
+    function waitForFrame(): Promise<void> {
+        return new Promise((resolve) => setTimeout(resolve, 50))
+    }
+
+    test("Scrubbing fires enter/exit at correct thresholds", async () => {
+        const element = document.createElement("div")
+        let enterCount = 0
+        let exitCount = 0
+
+        const animation = animate([
+            [element, { opacity: 1 }, { duration: 1 }],
+            [
+                {
+                    enter: () => enterCount++,
+                    exit: () => exitCount++,
+                },
+                {},
+            ],
+            [element, { opacity: 0 }, { duration: 1 }],
+        ])
+
+        expect(animation.duration).toBe(2)
+
+        animation.pause()
+
+        // Scrub to 0.5 - enter not called (callback is at t=1)
+        animation.time = 0.5
+        await waitForFrame()
+        expect(enterCount).toBe(0)
+        expect(exitCount).toBe(0)
+
+        // Scrub to 1 - enter called
+        animation.time = 1
+        await waitForFrame()
+        expect(enterCount).toBe(1)
+        expect(exitCount).toBe(0)
+
+        // Scrub to 1.5 - enter still called once (no re-fire)
+        animation.time = 1.5
+        await waitForFrame()
+        expect(enterCount).toBe(1)
+        expect(exitCount).toBe(0)
+
+        // Scrub back to 0.5 - exit called once
+        animation.time = 0.5
+        await waitForFrame()
+        expect(enterCount).toBe(1)
+        expect(exitCount).toBe(1)
+
+        // Scrub to 1.5 again - enter called twice total
+        animation.time = 1.5
+        await waitForFrame()
+        expect(enterCount).toBe(2)
+        expect(exitCount).toBe(1)
+    })
+
+    test("complete() fires enter once", async () => {
+        const element = document.createElement("div")
+        let enterCount = 0
+        let exitCount = 0
+
+        const animation = animate([
+            [element, { opacity: 1 }, { duration: 1 }],
+            [
+                {
+                    enter: () => enterCount++,
+                    exit: () => exitCount++,
+                },
+                {},
+            ],
+            [element, { opacity: 0 }, { duration: 1 }],
+        ])
+
+        animation.complete()
+        await waitForFrame()
+
+        expect(enterCount).toBe(1)
+        expect(exitCount).toBe(0)
+    })
+
+    test("cancel() without scrubbing fires neither enter nor exit", async () => {
+        const element = document.createElement("div")
+        let enterCount = 0
+        let exitCount = 0
+
+        const animation = animate([
+            [element, { opacity: 1 }, { duration: 1 }],
+            [
+                {
+                    enter: () => enterCount++,
+                    exit: () => exitCount++,
+                },
+                {},
+            ],
+            [element, { opacity: 0 }, { duration: 1 }],
+        ])
+
+        animation.cancel()
+
+        expect(enterCount).toBe(0)
+        expect(exitCount).toBe(0)
+    })
+
+    test("cancel() after scrubbing forward fires exit", async () => {
+        const element = document.createElement("div")
+        let enterCount = 0
+        let exitCount = 0
+
+        const animation = animate([
+            [element, { opacity: 1 }, { duration: 1 }],
+            [
+                {
+                    enter: () => enterCount++,
+                    exit: () => exitCount++,
+                },
+                {},
+            ],
+            [element, { opacity: 0 }, { duration: 1 }],
+        ])
+
+        animation.pause()
+        animation.time = 1.5
+        await waitForFrame()
+
+        expect(enterCount).toBe(1)
+
+        animation.cancel()
+
+        expect(exitCount).toBe(1)
+    })
+})
+
 describe("animate: Objects", () => {
     test("Types: Object to object", () => {
         animate({ x: 100 }, { x: 200 })

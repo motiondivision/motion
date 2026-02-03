@@ -24,7 +24,9 @@ import { resolveSubjects } from "../animate/resolve-subjects"
 import {
     AnimationSequence,
     At,
+    CallbackSegment,
     ResolvedAnimationDefinitions,
+    SequenceCallbackData,
     SequenceMap,
     SequenceOptions,
     ValueSequence,
@@ -43,7 +45,8 @@ export function createAnimationsFromSequence(
     sequence: AnimationSequence,
     { defaultTransition = {}, ...sequenceTransition }: SequenceOptions = {},
     scope?: AnimationScope,
-    generators?: { [key: string]: GeneratorFactory }
+    generators?: { [key: string]: GeneratorFactory },
+    callbackData?: SequenceCallbackData
 ): ResolvedAnimationDefinitions {
     const defaultDuration = defaultTransition.duration || 0.3
     const animationDefinitions: ResolvedAnimationDefinitions = new Map()
@@ -74,6 +77,29 @@ export function createAnimationsFromSequence(
                 segment.name,
                 calcNextTime(currentTime, segment.at, prevTime, timeLabels)
             )
+            continue
+        }
+
+        /**
+         * If this is a callback segment, extract the callback and its timing
+         */
+        if (isCallbackSegment(segment)) {
+            const [callback, options] = segment
+            const callbackTime =
+                options.at !== undefined
+                    ? calcNextTime(
+                          currentTime,
+                          options.at,
+                          prevTime,
+                          timeLabels
+                      )
+                    : currentTime
+
+            callbackData?.callbacks.push({
+                time: callbackTime,
+                enter: callback.enter,
+                exit: callback.exit,
+            })
             continue
         }
 
@@ -390,6 +416,11 @@ export function createAnimationsFromSequence(
         }
     })
 
+    if (callbackData) {
+        callbackData.callbacks.sort((a, b) => a.time - b.time)
+        callbackData.totalDuration = totalDuration
+    }
+
     return animationDefinitions
 }
 
@@ -428,3 +459,12 @@ const isNumber = (keyframe: unknown) => typeof keyframe === "number"
 const isNumberKeyframesArray = (
     keyframes: UnresolvedValueKeyframe[]
 ): keyframes is number[] => keyframes.every(isNumber)
+
+/**
+ * Check if a segment is a callback segment: [{ enter?, exit? }, { at? }]
+ */
+function isCallbackSegment(
+    segment: any[]
+): segment is CallbackSegment {
+    return segment[0] && ("enter" in segment[0] || "exit" in segment[0])
+}
