@@ -213,20 +213,16 @@ export const App = () => {
 
                 <h3>Remotion Integration:</h3>
                 <pre style={codeStyle}>
-                    {`import { useCurrentFrame, useVideoConfig } from 'remotion'
-import { useManualFrame } from 'motion/react'
+                    {`import { MotionRemotion } from 'motion-remotion'
 
-function MyComponent() {
-  const frame = useCurrentFrame()
-  const { fps } = useVideoConfig()
-
-  useManualFrame({ frame, fps })
-
+function MyComposition() {
   return (
-    <motion.div
-      animate={{ x: 100 }}
-      transition={{ duration: 1 }}
-    />
+    <MotionRemotion>
+      <motion.div
+        animate={{ x: 100 }}
+        transition={{ duration: 1 }}
+      />
+    </MotionRemotion>
   )
 }`}
                 </pre>

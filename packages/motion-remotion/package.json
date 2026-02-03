@@ -45,5 +45,8 @@
         "remotion": {
             "optional": true
         }
+    },
+    "devDependencies": {
+        "remotion": "^4.0.417"
     }
 }

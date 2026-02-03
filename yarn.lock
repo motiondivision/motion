@@ -11032,6 +11032,7 @@ __metadata:
   dependencies:
     motion-dom: ^12.29.2
     motion-utils: ^12.29.2
+    remotion: ^4.0.417
     tslib: ^2.4.0
   peerDependencies:
     react: ^18.0.0 || ^19.0.0
@@ -13073,6 +13074,16 @@ __metadata:
     gopd: ^1.2.0
     set-function-name: ^2.0.2
   checksum: 18cb667e56cb328d2dda569d7f04e3ea78f2683135b866d606538cf7b1d4271f7f749f09608c877527799e6cf350e531368f3c7a20ccd1bb41048a48926bdeeb
+  languageName: node
+  linkType: hard
+
+"remotion@npm:^4.0.417":
+  version: 4.0.417
+  resolution: "remotion@npm:4.0.417"
+  peerDependencies:
+    react: ">=16.8.0"
+    react-dom: ">=16.8.0"
+  checksum: 88c08e7fa1d4c243bdb9327734a6d94aa81afa3f94fe9c7767eef7b2b2fc2125eae464b0e5ea5759aa7a95cf17f7cc102a4c0c300f22571b14f2929a77382a9a
   languageName: node
   linkType: hard
 

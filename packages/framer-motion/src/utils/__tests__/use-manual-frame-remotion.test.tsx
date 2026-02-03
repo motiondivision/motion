@@ -1,10 +1,7 @@
 /**
  * Remotion Integration Tests
  *
- * These tests demonstrate realistic Remotion usage patterns with Motion,
- * simulating how developers would use Motion animations in video rendering.
- *
- * In production, use the `motion-remotion` package which provides `useRemotionFrame`.
+ * In production, wrap your composition with `<MotionRemotion>` from `motion-remotion`.
  */
 
 import { motionValue, Variants, renderFrame, frame as frameLoop, cancelFrame, frameData } from "motion-dom"
@@ -14,7 +11,7 @@ import { act } from "react"
 import { motion, AnimatePresence } from "../../"
 import { render } from "../../jest.setup"
 
-// Mock driver that doesn't auto-schedule rAF (similar to remotionDriver)
+// Mock driver (same as remotionDriver but inline for tests)
 const mockRemotionDriver = (update: (t: number) => void) => {
     const passTimestamp = ({ timestamp }: { timestamp: number }) => update(timestamp)
     return {
@@ -24,14 +21,7 @@ const mockRemotionDriver = (update: (t: number) => void) => {
     }
 }
 
-/**
- * Local implementation of frame syncing for tests.
- * In production, use `useRemotionFrame` from `motion-remotion`.
- *
- * Note: The driver is set in beforeEach() to ensure it's set before
- * any component renders. This is important because animations start
- * during component initialization.
- */
+// Local implementation - in production use `<MotionRemotion>` from `motion-remotion`
 function useManualFrame({ frame, fps = 30 }: { frame: number; fps?: number }) {
     const prevFrame = useRef<number>(-1)
     const hasInitialized = useRef(false)
@@ -50,10 +40,7 @@ function useManualFrame({ frame, fps = 30 }: { frame: number; fps?: number }) {
     }, [frame, fps])
 }
 
-/**
- * Mock Remotion API
- * Simulates the core hooks and components developers use in Remotion
- */
+// Mock Remotion API
 interface VideoConfig {
     fps: number
     width: number
@@ -69,7 +56,6 @@ interface RemotionContextValue {
 
 const RemotionContext = createContext<RemotionContextValue | null>(null)
 
-// Mock Remotion hooks
 function useCurrentFrame(): number {
     const ctx = useContext(RemotionContext)
     if (!ctx) throw new Error("useCurrentFrame must be used within Remotion context")
@@ -82,7 +68,6 @@ function useVideoConfig(): VideoConfig {
     return ctx.config
 }
 
-// Mock Remotion Sequence component - time-shifts children
 function Sequence({
     from = 0,
     children,
@@ -93,8 +78,6 @@ function Sequence({
 }) {
     const parentFrame = useCurrentFrame()
     const config = useVideoConfig()
-
-    // Sequence shifts the frame for children, similar to real Remotion
     const relativeFrame = parentFrame - from
 
     return (
@@ -106,7 +89,6 @@ function Sequence({
     )
 }
 
-// Mock AbsoluteFill component
 function AbsoluteFill({ children, style }: { children: ReactNode; style?: React.CSSProperties }) {
     return (
         <div
@@ -124,15 +106,9 @@ function AbsoluteFill({ children, style }: { children: ReactNode; style?: React.
     )
 }
 
-/**
- * A Motion-enhanced component that integrates with Remotion
- * This is how developers would typically use Motion in Remotion
- */
 function MotionRemotionBridge({ children }: { children: ReactNode }) {
     const frame = useCurrentFrame()
     const { fps } = useVideoConfig()
-
-    // Bridge Motion's animation system to Remotion's frame-based rendering
     useManualFrame({ frame, fps })
 
     return <>{children}</>
@@ -140,7 +116,6 @@ function MotionRemotionBridge({ children }: { children: ReactNode }) {
 
 describe("Remotion Integration - useManualFrame", () => {
     beforeEach(() => {
-        // Set driver before any component renders
         MotionGlobalConfig.driver = mockRemotionDriver
     })
 
@@ -695,18 +670,8 @@ describe("Remotion Integration - useManualFrame", () => {
     })
 
     describe("Sequential Frame Rendering (Video Export)", () => {
-        /**
-         * Note: useManualFrame is designed for sequential forward rendering,
-         * which is the primary use case for Remotion video export.
-         *
-         * Backward scrubbing (for preview UX) is not supported because Motion
-         * animations are stateful - once they complete, they don't "un-complete".
-         * This is a fundamental difference from Remotion's stateless model where
-         * each frame is a pure function of the frame number.
-         *
-         * Users who need preview scrubbing should use Remotion's native
-         * interpolation functions instead.
-         */
+        // Note: Designed for sequential forward rendering (video export).
+        // Backward scrubbing not supported - Motion animations are stateful.
 
         test("sequential frame-by-frame rendering for video export", async () => {
             const x = motionValue(0)
