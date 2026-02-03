@@ -847,9 +847,9 @@ describe("Sequence callbacks", () => {
         const animations = createAnimationsFromSequence(
             [
                 [a, { x: 100 }, { duration: 1 }],
-                [{ enter: () => {} }, {}],
-                [{ enter: () => {} }, {}],
-                [{ enter: () => {} }, {}],
+                [{ do: () => {} }, {}],
+                [{ do: () => {} }, {}],
+                [{ do: () => {} }, {}],
                 [b, { y: 200 }, { duration: 1 }],
             ],
             undefined,
@@ -866,7 +866,7 @@ describe("Sequence callbacks", () => {
         const animations = createAnimationsFromSequence(
             [
                 [a, { x: 100 }, { duration: 1 }],
-                [{ enter: () => {} }, { at: 0.5 }],
+                [{ do: () => {} }, { at: 0.5 }],
             ],
             undefined,
             undefined,

@@ -30,9 +30,9 @@ function createCallbackUpdater(
             const prevTime = prevProgress * totalDuration
 
             if (prevTime < callback.time && currentTime >= callback.time) {
-                callback.enter?.()
+                callback.do?.()
             } else if (prevTime >= callback.time && currentTime < callback.time) {
-                callback.exit?.()
+                callback.undo?.()
             }
         }
 

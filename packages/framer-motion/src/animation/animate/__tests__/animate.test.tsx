@@ -378,17 +378,17 @@ describe("Sequence callbacks", () => {
         return new Promise((resolve) => setTimeout(resolve, 50))
     }
 
-    test("Scrubbing fires enter/exit at correct thresholds", async () => {
+    test("Scrubbing fires do/undo at correct thresholds", async () => {
         const element = document.createElement("div")
-        let enterCount = 0
-        let exitCount = 0
+        let doCount = 0
+        let undoCount = 0
 
         const animation = animate([
             [element, { opacity: 1 }, { duration: 1 }],
             [
                 {
-                    enter: () => enterCount++,
-                    exit: () => exitCount++,
+                    do: () => doCount++,
+                    undo: () => undoCount++,
                 },
                 {},
             ],
@@ -399,48 +399,48 @@ describe("Sequence callbacks", () => {
 
         animation.pause()
 
-        // Scrub to 0.5 - enter not called (callback is at t=1)
+        // Scrub to 0.5 - do not called (callback is at t=1)
         animation.time = 0.5
         await waitForFrame()
-        expect(enterCount).toBe(0)
-        expect(exitCount).toBe(0)
+        expect(doCount).toBe(0)
+        expect(undoCount).toBe(0)
 
-        // Scrub to 1 - enter called
+        // Scrub to 1 - do called
         animation.time = 1
         await waitForFrame()
-        expect(enterCount).toBe(1)
-        expect(exitCount).toBe(0)
+        expect(doCount).toBe(1)
+        expect(undoCount).toBe(0)
 
-        // Scrub to 1.5 - enter still called once (no re-fire)
+        // Scrub to 1.5 - do still called once (no re-fire)
         animation.time = 1.5
         await waitForFrame()
-        expect(enterCount).toBe(1)
-        expect(exitCount).toBe(0)
+        expect(doCount).toBe(1)
+        expect(undoCount).toBe(0)
 
-        // Scrub back to 0.5 - exit called once
+        // Scrub back to 0.5 - undo called once
         animation.time = 0.5
         await waitForFrame()
-        expect(enterCount).toBe(1)
-        expect(exitCount).toBe(1)
+        expect(doCount).toBe(1)
+        expect(undoCount).toBe(1)
 
-        // Scrub to 1.5 again - enter called twice total
+        // Scrub to 1.5 again - do called twice total
         animation.time = 1.5
         await waitForFrame()
-        expect(enterCount).toBe(2)
-        expect(exitCount).toBe(1)
+        expect(doCount).toBe(2)
+        expect(undoCount).toBe(1)
     })
 
-    test("complete() fires enter once", async () => {
+    test("complete() fires do once", async () => {
         const element = document.createElement("div")
-        let enterCount = 0
-        let exitCount = 0
+        let doCount = 0
+        let undoCount = 0
 
         const animation = animate([
             [element, { opacity: 1 }, { duration: 1 }],
             [
                 {
-                    enter: () => enterCount++,
-                    exit: () => exitCount++,
+                    do: () => doCount++,
+                    undo: () => undoCount++,
                 },
                 {},
             ],
@@ -450,21 +450,21 @@ describe("Sequence callbacks", () => {
         animation.complete()
         await waitForFrame()
 
-        expect(enterCount).toBe(1)
-        expect(exitCount).toBe(0)
+        expect(doCount).toBe(1)
+        expect(undoCount).toBe(0)
     })
 
-    test("cancel() without scrubbing fires neither enter nor exit", async () => {
+    test("cancel() without scrubbing fires neither do nor undo", async () => {
         const element = document.createElement("div")
-        let enterCount = 0
-        let exitCount = 0
+        let doCount = 0
+        let undoCount = 0
 
         const animation = animate([
             [element, { opacity: 1 }, { duration: 1 }],
             [
                 {
-                    enter: () => enterCount++,
-                    exit: () => exitCount++,
+                    do: () => doCount++,
+                    undo: () => undoCount++,
                 },
                 {},
             ],
@@ -473,21 +473,21 @@ describe("Sequence callbacks", () => {
 
         animation.cancel()
 
-        expect(enterCount).toBe(0)
-        expect(exitCount).toBe(0)
+        expect(doCount).toBe(0)
+        expect(undoCount).toBe(0)
     })
 
-    test("cancel() after scrubbing forward fires exit", async () => {
+    test("cancel() after scrubbing forward fires undo", async () => {
         const element = document.createElement("div")
-        let enterCount = 0
-        let exitCount = 0
+        let doCount = 0
+        let undoCount = 0
 
         const animation = animate([
             [element, { opacity: 1 }, { duration: 1 }],
             [
                 {
-                    enter: () => enterCount++,
-                    exit: () => exitCount++,
+                    do: () => doCount++,
+                    undo: () => undoCount++,
                 },
                 {},
             ],
@@ -498,11 +498,11 @@ describe("Sequence callbacks", () => {
         animation.time = 1.5
         await waitForFrame()
 
-        expect(enterCount).toBe(1)
+        expect(doCount).toBe(1)
 
         animation.cancel()
 
-        expect(exitCount).toBe(1)
+        expect(undoCount).toBe(1)
     })
 })
 

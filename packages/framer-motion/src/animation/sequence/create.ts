@@ -97,8 +97,8 @@ export function createAnimationsFromSequence(
 
             callbackData?.callbacks.push({
                 time: callbackTime,
-                enter: callback.enter,
-                exit: callback.exit,
+                do: callback.do,
+                undo: callback.undo,
             })
             continue
         }
@@ -461,10 +461,10 @@ const isNumberKeyframesArray = (
 ): keyframes is number[] => keyframes.every(isNumber)
 
 /**
- * Check if a segment is a callback segment: [{ enter?, exit? }, { at? }]
+ * Check if a segment is a callback segment: [{ do?, undo? }, { at? }]
  */
 function isCallbackSegment(
     segment: any[]
 ): segment is CallbackSegment {
-    return segment[0] && ("enter" in segment[0] || "exit" in segment[0])
+    return segment[0] && ("do" in segment[0] || "undo" in segment[0])
 }
