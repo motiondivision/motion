@@ -15,6 +15,7 @@ import {
     ObjectTarget,
     SequenceOptions,
 } from "../sequence/types"
+import { sequenceCache } from "../sequence/utils/flatten"
 import { animateSequence } from "./sequence"
 import { animateSubject } from "./subject"
 
@@ -134,6 +135,13 @@ export function createScopedAnimate(options: ScopedAnimateOptions = {}) {
         }
 
         const animation = new GroupAnimationWithThen(animations)
+
+        if (isSequence(subjectOrSequence)) {
+            sequenceCache.set(
+                animation,
+                subjectOrSequence as AnimationSequence
+            )
+        }
 
         if (animationOnComplete) {
             animation.finished.then(animationOnComplete)

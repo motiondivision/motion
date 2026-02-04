@@ -1,6 +1,8 @@
 import { motionValue, spring, stagger } from "motion-dom"
 import { Easing } from "motion-utils"
 import { createAnimationsFromSequence } from "../create"
+import { flattenSequence } from "../utils/flatten"
+import type { AnimationSequence } from "../types"
 
 describe("createAnimationsFromSequence", () => {
     const a = document.createElement("div")
@@ -881,5 +883,272 @@ describe("Sequence callbacks", () => {
 
         expect(animations.has(a)).toBe(true)
         expect(animations.has(mv)).toBe(true)
+    })
+})
+
+describe("flattenSequence", () => {
+    const a = document.createElement("div")
+    const b = document.createElement("div")
+    const c = document.createElement("div")
+
+    test("Returns original array when no nesting detected", () => {
+        const sequence: AnimationSequence = [
+            [a, { x: 100 }, { duration: 1 }],
+            [b, { y: 200 }, { duration: 1 }],
+        ]
+        const result = flattenSequence(sequence)
+        expect(result).toBe(sequence) // same reference
+    })
+
+    test("Bare nested sequence produces correct keyframes and timing", () => {
+        const subSequence: AnimationSequence = [
+            [a, { opacity: [0, 1] }, { duration: 0.5 }],
+            [a, { x: [0, 100] }, { duration: 0.5 }],
+        ]
+
+        const animations = createAnimationsFromSequence(
+            flattenSequence([subSequence as any]),
+            undefined,
+            undefined,
+            { spring }
+        )
+
+        expect(animations.get(a)!.keyframes.opacity).toEqual([0, 1, null])
+        expect(animations.get(a)!.transition.opacity.duration).toBe(1)
+        expect(animations.get(a)!.keyframes.x).toEqual([0, 0, 100])
+        expect(animations.get(a)!.transition.x.duration).toBe(1)
+    })
+
+    test("Wrapped nested sequence [seq] with no options", () => {
+        const subSequence: AnimationSequence = [
+            [a, { x: 100 }, { duration: 0.5 }],
+        ]
+
+        const animations = createAnimationsFromSequence(
+            flattenSequence([[subSequence]]),
+            undefined,
+            undefined,
+            { spring }
+        )
+
+        expect(animations.get(a)!.keyframes.x).toEqual([null, 100])
+        expect(animations.get(a)!.transition.x.duration).toBe(0.5)
+    })
+
+    test("Nested sequence with at positioning", () => {
+        const subSequence: AnimationSequence = [
+            [a, { x: 100 }, { duration: 0.5 }],
+        ]
+
+        const animations = createAnimationsFromSequence(
+            flattenSequence([
+                [b, { y: 200 }, { duration: 1 }],
+                [subSequence, { at: 0 }],
+            ]),
+            undefined,
+            undefined,
+            { spring }
+        )
+
+        // sub-sequence should start at time 0 (concurrent with b)
+        expect(animations.get(a)!.keyframes.x).toEqual([null, 100, null])
+        expect(animations.get(b)!.keyframes.y).toEqual([null, 200])
+    })
+
+    test("Nested sequence with repeat", () => {
+        const subSequence: AnimationSequence = [
+            [a, { x: [0, 100] }, { duration: 0.5 }],
+        ]
+
+        const flattened = flattenSequence([
+            [subSequence, { repeat: 2 }],
+        ])
+
+        // repeat:2 means the sub-sequence appears 3 times total (1 + 2)
+        expect(flattened.length).toBe(3)
+    })
+
+    test("Nested sequence with at + repeat", () => {
+        const subSequence: AnimationSequence = [
+            [a, { x: [0, 100] }, { duration: 0.5 }],
+        ]
+
+        const flattened = flattenSequence([
+            [b, { y: 200 }, { duration: 1 }],
+            [subSequence, { at: 0, repeat: 1 }],
+        ])
+
+        // at:0 should be applied to the first instance's first segment
+        const firstSub = flattened[1] as any
+        expect(firstSub[2]?.at ?? firstSub[1]?.at).toBe(0)
+    })
+
+    test("Deep nesting (3 levels)", () => {
+        const inner: AnimationSequence = [
+            [a, { x: 100 }, { duration: 0.5 }],
+        ]
+        const middle: AnimationSequence = [inner as any]
+        const outer: AnimationSequence = [middle as any]
+
+        const flattened = flattenSequence(outer)
+
+        const animations = createAnimationsFromSequence(
+            flattened,
+            undefined,
+            undefined,
+            { spring }
+        )
+
+        expect(animations.get(a)!.keyframes.x).toEqual([null, 100])
+        expect(animations.get(a)!.transition.x.duration).toBe(0.5)
+    })
+
+    test("Duration scaling stretches sub-sequence", () => {
+        const subSequence: AnimationSequence = [
+            [a, { x: 100 }, { duration: 0.5 }],
+            [a, { y: 200 }, { duration: 0.5 }],
+        ]
+
+        // Natural duration is 1s, scale to 2s
+        const flattened = flattenSequence([
+            [subSequence, { duration: 2 }],
+        ])
+
+        const animations = createAnimationsFromSequence(
+            flattened,
+            undefined,
+            undefined,
+            { spring }
+        )
+
+        expect(animations.get(a)!.transition.x.duration).toBe(2)
+    })
+
+    test("Duration scaling compresses sub-sequence", () => {
+        const subSequence: AnimationSequence = [
+            [a, { x: 100 }, { duration: 1 }],
+            [a, { y: 200 }, { duration: 1 }],
+        ]
+
+        // Natural duration is 2s, compress to 1s
+        const flattened = flattenSequence([
+            [subSequence, { duration: 1 }],
+        ])
+
+        const animations = createAnimationsFromSequence(
+            flattened,
+            undefined,
+            undefined,
+            { spring }
+        )
+
+        expect(animations.get(a)!.transition.x.duration).toBe(1)
+    })
+
+    test("Duration scaling scales relative at values in sub-sequence", () => {
+        const subSequence: AnimationSequence = [
+            [a, { x: 100 }, { duration: 0.5 }],
+            [b, { y: 200 }, { duration: 0.5, at: "+0.5" }],
+        ]
+
+        // Natural duration is 1.5s, scale to 3s (2x)
+        const flattened = flattenSequence([
+            [subSequence, { duration: 3 }],
+        ])
+
+        // The second segment should have its at scaled
+        const secondSegment = flattened[1] as any[]
+        const transition = secondSegment[secondSegment.length - 1]
+        expect(parseFloat(transition.at)).toBe(1) // +0.5 * 2 = +1.0
+    })
+
+    test("Sub-sequence with internal '<' timing preserved", () => {
+        const subSequence: AnimationSequence = [
+            [a, { x: 100 }, { duration: 0.5 }],
+            [b, { y: 200 }, { duration: 0.5, at: "<" }],
+        ]
+
+        const animations = createAnimationsFromSequence(
+            flattenSequence([subSequence as any]),
+            undefined,
+            undefined,
+            { spring }
+        )
+
+        // Both should run concurrently (at: "<" means start of previous)
+        expect(animations.get(a)!.transition.x.duration).toBe(0.5)
+        expect(animations.get(b)!.transition.y.duration).toBe(0.5)
+    })
+
+    test("Bare sequence mixed with normal segments", () => {
+        const subSequence: AnimationSequence = [
+            [a, { x: 100 }, { duration: 0.5 }],
+        ]
+
+        const flattened = flattenSequence([
+            [b, { y: 200 }, { duration: 1 }],
+            subSequence as any,
+        ])
+
+        const animations = createAnimationsFromSequence(
+            flattened,
+            undefined,
+            undefined,
+            { spring }
+        )
+
+        expect(animations.get(b)!.keyframes.y).toEqual([null, 200, null])
+        expect(animations.get(a)!.keyframes.x).toEqual([null, null, 100])
+    })
+
+    test("Does not misfire on multi-target segments", () => {
+        const sequence: AnimationSequence = [
+            [[a, b], { x: 100 }, { duration: 1 }],
+        ]
+
+        const flattened = flattenSequence(sequence)
+
+        // Should pass through unchanged (not detected as nested)
+        expect(flattened).toBe(sequence)
+    })
+
+    test("Does not misfire on multi-target segment without transition", () => {
+        const sequence: AnimationSequence = [
+            [[a, b], { x: 100 }],
+        ]
+
+        const flattened = flattenSequence(sequence)
+
+        // [a, b] is an array but elements are not arrays, so
+        // isWrappedSequence should reject it
+        expect(flattened).toBe(sequence)
+    })
+
+    test("Regression: existing flat sequences produce identical output", () => {
+        const sequence: AnimationSequence = [
+            [a, { x: 100 }, { duration: 1 }],
+            [b, { y: 200 }, { duration: 0.5, at: "<" }],
+            "label",
+            [c, { opacity: 0 }, { duration: 1, at: "label" }],
+        ]
+
+        const flatResult = createAnimationsFromSequence(
+            sequence,
+            undefined,
+            undefined,
+            { spring }
+        )
+
+        const flattenedResult = createAnimationsFromSequence(
+            flattenSequence(sequence),
+            undefined,
+            undefined,
+            { spring }
+        )
+
+        // Both should produce identical animations
+        expect(flattenedResult.get(a)).toEqual(flatResult.get(a))
+        expect(flattenedResult.get(b)).toEqual(flatResult.get(b))
+        expect(flattenedResult.get(c)).toEqual(flatResult.get(c))
     })
 })

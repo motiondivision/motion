@@ -69,6 +69,11 @@ export type FunctionSegment =
           DynamicAnimationOptions & At
       ]
 
+export interface NestedSequenceOptions extends At {
+    repeat?: number
+    duration?: number
+}
+
 export type Segment =
     | ObjectSegment
     | ObjectSegmentWithTransition
@@ -79,6 +84,8 @@ export type Segment =
     | DOMSegment
     | DOMSegmentWithTransition
     | FunctionSegment
+    | [AnimationSequence]
+    | [AnimationSequence, NestedSequenceOptions]
 
 export type AnimationSequence = Segment[]
 

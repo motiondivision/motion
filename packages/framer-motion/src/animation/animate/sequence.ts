@@ -6,6 +6,7 @@ import {
 } from "motion-dom"
 import { createAnimationsFromSequence } from "../sequence/create"
 import { AnimationSequence, SequenceOptions } from "../sequence/types"
+import { flattenSequence } from "../sequence/utils/flatten"
 import { animateSubject } from "./subject"
 
 export function animateSequence(
@@ -14,6 +15,8 @@ export function animateSequence(
     scope?: AnimationScope
 ) {
     const animations: AnimationPlaybackControlsWithThen[] = []
+
+    sequence = flattenSequence(sequence)
 
     /**
      * Pre-process: replace function segments with MotionValue segments,
