@@ -538,6 +538,19 @@ export interface MotionNodeTapHandlers {
      * Note: This is not supported publically.
      */
     globalTapTarget?: boolean
+
+    /**
+     * If `true`, this element's tap gesture will prevent any parent
+     * element's tap gesture handlers (`onTap`, `onTapStart`, `whileTap`)
+     * from firing.
+     *
+     * ```jsx
+     * <motion.div onTap={onParentTap}>
+     *   <motion.div onTap={onChildTap} stopTapPropagation />
+     * </motion.div>
+     * ```
+     */
+    stopTapPropagation?: boolean
 }
 
 /**

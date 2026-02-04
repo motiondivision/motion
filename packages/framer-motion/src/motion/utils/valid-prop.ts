@@ -35,6 +35,7 @@ const validMotionProps = new Set<keyof MotionProps>([
     "onViewportEnter",
     "onViewportLeave",
     "globalTapTarget",
+    "stopTapPropagation",
     "ignoreStrict",
     "viewport",
 ])
