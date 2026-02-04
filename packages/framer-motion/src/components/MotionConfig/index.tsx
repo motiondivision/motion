@@ -41,7 +41,12 @@ export function MotionConfig({
     /**
      * Inherit props from any parent MotionConfig components
      */
-    config = { ...useContext(MotionConfigContext), ...config }
+    const parentConfig = useContext(MotionConfigContext)
+    config = { ...parentConfig, ...config }
+
+    if (config.inheritTransition) {
+        config.transition = { ...parentConfig.transition, ...config.transition }
+    }
 
     /**
      * Don't allow isStatic to change between renders as it affects how many hooks
@@ -60,6 +65,7 @@ export function MotionConfig({
             config.transformPagePoint,
             config.reducedMotion,
             config.skipAnimations,
+            config.inheritTransition,
         ]
     )
 

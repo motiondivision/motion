@@ -52,6 +52,14 @@ export interface MotionConfigContext {
      * @public
      */
     skipAnimations?: boolean
+
+    /**
+     * If true, this MotionConfig's transition will be shallow-merged with the
+     * parent MotionConfig's transition instead of replacing it.
+     *
+     * @public
+     */
+    inheritTransition?: boolean
 }
 
 /**
