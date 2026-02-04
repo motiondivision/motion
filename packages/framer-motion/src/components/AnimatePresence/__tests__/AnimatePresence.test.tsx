@@ -717,6 +717,58 @@ describe("AnimatePresence", () => {
         // The bottom position should be preserved (approximately 0)
         expect(initialBottom).toBeLessThanOrEqual(1)
     })
+
+    test("Switching mode from wait to popLayout doesn't break animations", async () => {
+        const opacity = motionValue(0)
+        const Component = ({ mode }: { mode: "wait" | "popLayout" }) => (
+            <AnimatePresence mode={mode}>
+                <motion.div
+                    key="stable"
+                    animate={{ opacity: 1 }}
+                    transition={{ type: false }}
+                    style={{ opacity }}
+                />
+            </AnimatePresence>
+        )
+
+        const { rerender } = render(<Component mode="wait" />)
+        rerender(<Component mode="wait" />)
+        await nextFrame()
+
+        expect(opacity.get()).toBe(1)
+
+        rerender(<Component mode="popLayout" />)
+        rerender(<Component mode="popLayout" />)
+        await nextFrame()
+
+        expect(opacity.get()).toBe(1)
+    })
+
+    test("Switching mode from popLayout to wait doesn't break animations", async () => {
+        const opacity = motionValue(0)
+        const Component = ({ mode }: { mode: "wait" | "popLayout" }) => (
+            <AnimatePresence mode={mode}>
+                <motion.div
+                    key="stable"
+                    animate={{ opacity: 1 }}
+                    transition={{ type: false }}
+                    style={{ opacity }}
+                />
+            </AnimatePresence>
+        )
+
+        const { rerender } = render(<Component mode="popLayout" />)
+        rerender(<Component mode="popLayout" />)
+        await nextFrame()
+
+        expect(opacity.get()).toBe(1)
+
+        rerender(<Component mode="wait" />)
+        rerender(<Component mode="wait" />)
+        await nextFrame()
+
+        expect(opacity.get()).toBe(1)
+    })
 })
 
 describe("AnimatePresence with custom components", () => {
@@ -1106,6 +1158,7 @@ describe("AnimatePresence with custom components", () => {
 
         await new Promise<void>(async (resolve) => {
             async function complete() {
+                await nextFrame()
                 await nextFrame()
 
                 expect(outerOpacity.get()).toBe(0)
