@@ -4,6 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.31.1] 2026-02-04
+
+### Added
+
+-   Drag constraints updated even when draggable or constraints resize outside of React renders.
+
 ## [12.31.0] 2026-02-03
 
 ### Added
