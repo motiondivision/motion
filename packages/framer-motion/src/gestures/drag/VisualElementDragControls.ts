@@ -13,6 +13,7 @@ import {
     PanInfo,
     percent,
     ResolvedConstraints,
+    resize,
     setDragLock,
     Transition,
     type VisualElement,
@@ -375,10 +376,13 @@ export class VisualElementDragControls {
 
         /**
          * If we're outputting to external MotionValues, we want to rebase the measured constraints
-         * from viewport-relative to component-relative.
+         * from viewport-relative to component-relative. This only applies to relative (non-ref)
+         * constraints, as ref-based constraints from calcViewportConstraints are already in the
+         * correct coordinate space for the motion value transform offset.
          */
         if (
             prevConstraints !== this.constraints &&
+            !isRefObject(dragConstraints) &&
             layout &&
             this.constraints &&
             !this.hasMutatedConstraints
@@ -621,6 +625,12 @@ export class VisualElementDragControls {
             : "none"
         projection.root && projection.root.updateScroll()
         projection.updateLayout()
+
+        /**
+         * Reset constraints so resolveConstraints() will recalculate them
+         * with the freshly measured layout rather than returning the cached value.
+         */
+        this.constraints = false
         this.resolveConstraints()
 
         /**
@@ -639,6 +649,13 @@ export class VisualElementDragControls {
             ] as Axis
             axisValue.set(mixNumber(min, max, boxProgress[axis]))
         })
+
+        /**
+         * Flush the updated transform to the DOM synchronously to prevent
+         * a visual flash at the element's CSS layout position (0,0) when
+         * the transform was stripped for measurement.
+         */
+        this.visualElement.render()
     }
 
     addListeners() {
@@ -673,10 +690,26 @@ export class VisualElementDragControls {
             }
         )
 
+        /**
+         * If using ref-based constraints, observe both the draggable element
+         * and the constraint container for size changes via ResizeObserver.
+         * Setup is deferred because dragConstraints.current is null when
+         * addListeners first runs (React hasn't committed the ref yet).
+         */
+        let stopResizeObservers: VoidFunction | undefined
+
         const measureDragConstraints = () => {
             const { dragConstraints } = this.getProps()
             if (isRefObject(dragConstraints) && dragConstraints.current) {
                 this.constraints = this.resolveRefConstraints()
+
+                if (!stopResizeObservers) {
+                    stopResizeObservers = startResizeObservers(
+                        element,
+                        dragConstraints.current as HTMLElement,
+                        () => this.scalePositionWithinConstraints()
+                    )
+                }
             }
         }
 
@@ -730,6 +763,7 @@ export class VisualElementDragControls {
             stopPointerListener()
             stopMeasureLayoutListener()
             stopLayoutUpdateListener && stopLayoutUpdateListener()
+            stopResizeObservers && stopResizeObservers()
         }
     }
 
@@ -752,6 +786,30 @@ export class VisualElementDragControls {
             dragElastic,
             dragMomentum,
         }
+    }
+}
+
+function skipFirstCall(callback: VoidFunction): VoidFunction {
+    let isFirst = true
+    return () => {
+        if (isFirst) {
+            isFirst = false
+            return
+        }
+        callback()
+    }
+}
+
+function startResizeObservers(
+    element: HTMLElement,
+    constraintsElement: HTMLElement,
+    onResize: VoidFunction
+): VoidFunction {
+    const stopElement = resize(element, skipFirstCall(onResize))
+    const stopContainer = resize(constraintsElement, skipFirstCall(onResize))
+    return () => {
+        stopElement()
+        stopContainer()
     }
 }
 
