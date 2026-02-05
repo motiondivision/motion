@@ -538,6 +538,7 @@ export interface MotionNodeTapHandlers {
      * Note: This is not supported publically.
      */
     globalTapTarget?: boolean
+
 }
 
 /**
@@ -1043,6 +1044,15 @@ export interface MotionNodeAdvancedOptions {
     "data-framer-appear-id"?: string
 }
 
+export interface PropagateOptions {
+    /**
+     * If `false`, this element's tap gesture will prevent any parent
+     * element's tap gesture handlers (`onTap`, `onTapStart`, `whileTap`)
+     * from firing. Defaults to `true`.
+     */
+    tap?: boolean
+}
+
 export interface MotionNodeOptions
     extends MotionNodeAnimationOptions,
         MotionNodeEventOptions,
@@ -1054,4 +1064,17 @@ export interface MotionNodeOptions
         MotionNodeDragHandlers,
         MotionNodeDraggableOptions,
         MotionNodeLayoutOptions,
-        MotionNodeAdvancedOptions {}
+        MotionNodeAdvancedOptions {
+    /**
+     * Controls whether gesture events propagate to parent motion components.
+     * By default all gestures propagate. Set individual gestures to `false`
+     * to prevent parent handlers from firing.
+     *
+     * ```jsx
+     * <motion.div onTap={onParentTap}>
+     *   <motion.div onTap={onChildTap} propagate={{ tap: false }} />
+     * </motion.div>
+     * ```
+     */
+    propagate?: PropagateOptions
+}

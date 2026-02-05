@@ -767,6 +767,130 @@ describe("press", () => {
         ])
     })
 
+    test("propagate={{ tap: false }} prevents parent onTap from firing", async () => {
+        const parentTap = jest.fn()
+        const childTap = jest.fn()
+        const Component = () => (
+            <motion.div onTap={() => parentTap()}>
+                <motion.div
+                    data-testid="child"
+                    onTap={() => childTap()}
+                    propagate={{ tap: false }}
+                />
+            </motion.div>
+        )
+
+        const { getByTestId, rerender } = render(<Component />)
+        rerender(<Component />)
+
+        pointerDown(getByTestId("child"))
+        pointerUp(getByTestId("child"))
+        await nextFrame()
+
+        expect(childTap).toBeCalledTimes(1)
+        expect(parentTap).toBeCalledTimes(0)
+    })
+
+    test("without propagate both parent and child onTap fire", async () => {
+        const parentTap = jest.fn()
+        const childTap = jest.fn()
+        const Component = () => (
+            <motion.div onTap={() => parentTap()}>
+                <motion.div
+                    data-testid="child"
+                    onTap={() => childTap()}
+                />
+            </motion.div>
+        )
+
+        const { getByTestId, rerender } = render(<Component />)
+        rerender(<Component />)
+
+        pointerDown(getByTestId("child"))
+        pointerUp(getByTestId("child"))
+        await nextFrame()
+
+        expect(childTap).toBeCalledTimes(1)
+        expect(parentTap).toBeCalledTimes(1)
+    })
+
+    test("propagate={{ tap: false }} isolates whileTap to child only", () => {
+        const promise = new Promise(async (resolve) => {
+            const parentOpacityHistory: number[] = []
+            const childOpacityHistory: number[] = []
+            const parentOpacity = motionValue(0.5)
+            const childOpacity = motionValue(0.5)
+            const logOpacities = () => {
+                parentOpacityHistory.push(parentOpacity.get())
+                childOpacityHistory.push(childOpacity.get())
+            }
+            const Component = () => (
+                <motion.div
+                    initial={{ opacity: 0.5 }}
+                    transition={{ type: false }}
+                    whileTap={{ opacity: 1 }}
+                    style={{ opacity: parentOpacity }}
+                >
+                    <motion.div
+                        data-testid="child"
+                        initial={{ opacity: 0.5 }}
+                        transition={{ type: false }}
+                        whileTap={{ opacity: 1 }}
+                        style={{ opacity: childOpacity }}
+                        propagate={{ tap: false }}
+                    />
+                </motion.div>
+            )
+
+            const { getByTestId } = render(<Component />)
+            await nextFrame()
+            logOpacities() // both 0.5
+
+            pointerDown(getByTestId("child"))
+            await nextFrame()
+            logOpacities() // child 1, parent 0.5
+
+            pointerUp(getByTestId("child"))
+            await nextFrame()
+            logOpacities() // both 0.5
+
+            resolve({ parentOpacityHistory, childOpacityHistory })
+        })
+
+        return expect(promise).resolves.toEqual({
+            parentOpacityHistory: [0.5, 0.5, 0.5],
+            childOpacityHistory: [0.5, 1, 0.5],
+        })
+    })
+
+    test("propagate={{ tap: false }} prevents all ancestor onTap handlers (three levels)", async () => {
+        const grandparentTap = jest.fn()
+        const parentTap = jest.fn()
+        const childTap = jest.fn()
+        const Component = () => (
+            <motion.div onTap={() => grandparentTap()}>
+                <motion.div onTap={() => parentTap()}>
+                    <motion.div
+                        data-testid="child"
+                        onTap={() => childTap()}
+                        propagate={{ tap: false }}
+                    />
+                </motion.div>
+            </motion.div>
+        )
+
+        const { getByTestId, rerender } = render(<Component />)
+        rerender(<Component />)
+
+        pointerDown(getByTestId("child"))
+        pointerUp(getByTestId("child"))
+        await nextFrame()
+
+        expect(childTap).toBeCalledTimes(1)
+        expect(parentTap).toBeCalledTimes(0)
+        expect(grandparentTap).toBeCalledTimes(0)
+    })
+
     test("ignore press event when button is disabled", async () => {
         const press = jest.fn()
         const Component = () => <motion.button onTap={() => press()} disabled />

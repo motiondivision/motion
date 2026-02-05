@@ -18,8 +18,11 @@ function isValidPressEvent(event: PointerEvent) {
     return isPrimaryPointer(event) && !isDragActive()
 }
 
+const claimedPointerDownEvents = new WeakSet<Event>()
+
 export interface PointerEventOptions extends EventOptions {
     useGlobalTarget?: boolean
+    stopPropagation?: boolean
 }
 
 /**
@@ -55,8 +58,13 @@ export function press(
         const target = startEvent.currentTarget as Element
 
         if (!isValidPressEvent(startEvent)) return
+        if (claimedPointerDownEvents.has(startEvent)) return
 
         isPressing.add(target)
+
+        if (options.stopPropagation) {
+            claimedPointerDownEvents.add(startEvent)
+        }
 
         const onPressEnd = onPressStart(target, startEvent)
 

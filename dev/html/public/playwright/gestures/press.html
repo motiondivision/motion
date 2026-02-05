@@ -33,6 +33,10 @@
         <div class="box" id="press-div-nested">
             <button id="press-click-button">click</button>
         </div>
+        <div class="box" id="propagate-parent">
+            <div class="box" id="propagate-child" style="width: 50px; height: 50px">child</div>
+        </div>
+        <input type="text" id="propagate-output" value="" />
         <script type="module" src="/src/inc.js"></script>
         <script type="module">
             const { press } = window.MotionDOM
@@ -100,6 +104,21 @@
                         : "cancel"
                 }
             })
+
+            // Propagation test: child with stopPropagation prevents parent press
+            const propagateOutput = document.getElementById("propagate-output")
+            press("#propagate-parent", () => {
+                propagateOutput.value += "parent-start,"
+                return (_, { success }) => {
+                    propagateOutput.value += success ? "parent-end," : "parent-cancel,"
+                }
+            })
+            press("#propagate-child", () => {
+                propagateOutput.value += "child-start,"
+                return (_, { success }) => {
+                    propagateOutput.value += success ? "child-end," : "child-cancel,"
+                }
+            }, { stopPropagation: true })
         </script>
     </body>
 </html>
