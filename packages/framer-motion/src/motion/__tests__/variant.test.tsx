@@ -1380,6 +1380,63 @@ describe("animate prop as variant", () => {
         expect(element).toHaveStyle("transform: translateX(100px)")
     })
 
+    test("transitionEnd from instant animation does not override subsequent variant", async () => {
+        /**
+         * This test targets the race condition from
+         * https://github.com/motiondivision/motion/issues/1668
+         *
+         * When using type: false (instant transitions), the animation
+         * completion is deferred to frame.update() but returns no
+         * animation object. When a new variant switch happens before
+         * that frame.update fires, the old transitionEnd can override
+         * the new variant's values because there's no animation object
+         * to cancel.
+         */
+        const Component = ({ variant }: { variant: string }) => (
+            <motion.div
+                data-testid="target"
+                animate={variant}
+                initial="off"
+                variants={{
+                    on: {
+                        opacity: 1,
+                        transition: { type: false },
+                        transitionEnd: { display: "flex" },
+                    },
+                    off: {
+                        opacity: 0.5,
+                        display: "none",
+                        transition: { type: false },
+                    },
+                }}
+                style={{ display: "none" }}
+            />
+        )
+
+        const { getByTestId, rerender } = render(
+            <Component variant="off" />
+        )
+        const element = getByTestId("target")
+
+        await nextFrame()
+
+        // Switch to "on" - with type:false, animation completes instantly
+        // but onComplete is deferred to frame.update
+        rerender(<Component variant="on" />)
+        rerender(<Component variant="on" />)
+
+        // Switch to "off" BEFORE the frame fires - the "on" variant's
+        // transitionEnd (display: "flex") should NOT override "off"'s
+        // display: "none"
+        rerender(<Component variant="off" />)
+        rerender(<Component variant="off" />)
+
+        await nextFrame()
+        await nextFrame()
+
+        expect(element).toHaveStyle("display: none")
+    })
+
     test("staggerChildren is calculated correctly for new children", async () => {
         const Component = ({ items }: { items: string[] }) => {
             return (

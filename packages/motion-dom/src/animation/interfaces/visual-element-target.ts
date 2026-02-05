@@ -132,11 +132,16 @@ export function animateTarget(
     }
 
     if (transitionEnd) {
-        Promise.all(animations).then(() => {
+        const applyTransitionEnd = () =>
             frame.update(() => {
                 transitionEnd && setTarget(visualElement, transitionEnd)
             })
-        })
+
+        if (animations.length) {
+            Promise.all(animations).then(applyTransitionEnd)
+        } else {
+            applyTransitionEnd()
+        }
     }
 
     return animations
