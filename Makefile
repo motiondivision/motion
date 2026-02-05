@@ -95,7 +95,7 @@ test-e2e: test-nextjs test-html test-react test-react-19
 	yarn test-playwright
 
 test-single: build test-mkdir
-	yarn start-server-and-test "yarn dev-server" http://localhost:9991 "cd packages/framer-motion && cypress run --config-file=cypress.react.json --headed --spec cypress/integration/drag-nested.ts"
+	yarn start-server-and-test "yarn dev-server" http://localhost:9990 "cd packages/framer-motion && cypress run --config-file=cypress.json --headed --spec cypress/integration/drag-momentum.ts"
 
 lint: bootstrap
 	yarn lint

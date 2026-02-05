@@ -10,7 +10,7 @@ export const App = () => {
                 dragMomentum={true}
                 initial={{
                     width: 50,
-                    height: 50,
+                    height: 1000,
                     background: "red",
                     x: 0,
                     y: 0,
