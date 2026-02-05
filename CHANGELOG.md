@@ -9,6 +9,8 @@ Undocumented APIs should be considered internal and may change without warning.
 ### Fixed
 
 -   `onHoverStart` and `onHoverEnd` first argument now correctly typed as `PointerEvent`.
+-   `whileHover`: No longer persists after drag end.
+-   `AnimatePresence`: Allow changing `mode` prop.
 
 ## [12.31.1] 2026-02-04
 
