@@ -4,6 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.31.2] 2026-02-05
+
+### Fixed
+
+-   `onHoverStart` and `onHoverEnd` first argument now correctly typed as `PointerEvent`.
+
 ## [12.31.1] 2026-02-04
 
 ### Added
