@@ -382,6 +382,22 @@ function getVelocity(history: TimestampedPoint[], timeDelta: number): Point {
         return { x: 0, y: 0 }
     }
 
+    /**
+     * If the selected point is the pointer-down origin (history[0]),
+     * there are better movement points available, and the time gap
+     * is suspiciously large (>2x timeDelta), use the next point instead.
+     * This prevents stale pointer-down points from diluting velocity
+     * in hold-then-flick gestures.
+     */
+    if (
+        timestampedPoint === history[0] &&
+        history.length > 2 &&
+        lastPoint.timestamp - timestampedPoint.timestamp >
+            secondsToMilliseconds(timeDelta) * 2
+    ) {
+        timestampedPoint = history[1]
+    }
+
     const time = millisecondsToSeconds(
         lastPoint.timestamp - timestampedPoint.timestamp
     )
