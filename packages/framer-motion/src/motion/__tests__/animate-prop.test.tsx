@@ -1,4 +1,4 @@
-import { createRef, useRef } from "react"
+import { createRef, Suspense, useRef, useState } from "react"
 import {
     frame,
     motion,
@@ -9,6 +9,7 @@ import {
 } from "../../"
 import { nextFrame } from "../../gestures/__tests__/utils"
 import { render } from "../../jest.setup"
+import { act } from "react"
 
 describe("animate prop as object", () => {
     test("animates to set prop", async () => {
@@ -1307,5 +1308,67 @@ describe("animate prop as object", () => {
         })
 
         return expect(result).toBe(true)
+    })
+
+    test("Resets motion values to initial after Suspense remount", async () => {
+        const opacity = motionValue(1)
+        const scale = motionValue(1)
+
+        let triggerSuspense: () => void
+        let resolveSuspense: () => void
+
+        // A component that suspends when triggered
+        const SuspendingChild = () => {
+            const [suspended, setSuspended] = useState(false)
+            triggerSuspense = () => setSuspended(true)
+
+            if (suspended) {
+                throw new Promise<void>((resolve) => {
+                    resolveSuspense = () => {
+                        setSuspended(false)
+                        resolve()
+                    }
+                })
+            }
+
+            return (
+                <motion.div
+                    initial={{ opacity: 0, scale: 0 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.05 }}
+                    style={{ opacity, scale }}
+                />
+            )
+        }
+
+        const Component = () => (
+            <Suspense fallback={<div>Loading...</div>}>
+                <SuspendingChild />
+            </Suspense>
+        )
+
+        const { rerender } = render(<Component />)
+        rerender(<Component />)
+
+        // Wait for initial animation to progress
+        await act(async () => {
+            await nextFrame()
+            await nextFrame()
+        })
+
+        // Trigger suspension mid-animation
+        await act(async () => {
+            triggerSuspense!()
+        })
+
+        // Resolve suspension to remount
+        await act(async () => {
+            resolveSuspense!()
+        })
+
+        // After remount, values should be reset to initial (not stuck at
+        // intermediate animation values)
+        expect(opacity.get()).toBe(0)
+        expect(scale.get()).toBe(0)
     })
 })

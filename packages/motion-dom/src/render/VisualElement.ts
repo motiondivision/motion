@@ -356,6 +356,12 @@ export abstract class VisualElement<
     private initialValues: ResolvedValues
 
     /**
+     * Track whether this element has been mounted before, to detect
+     * remounts after Suspense unmount/remount cycles.
+     */
+    private hasBeenMounted = false
+
+    /**
      * An object containing a SubscriptionManager for each active event.
      */
     private events: {
@@ -428,6 +434,18 @@ export abstract class VisualElement<
     }
 
     mount(instance: Instance) {
+        /**
+         * If this element has been mounted before (e.g. after a Suspense
+         * unmount/remount), reset motion values to their initial state
+         * so animations replay correctly from initial → animate.
+         */
+        if (this.hasBeenMounted) {
+            for (const key in this.initialValues) {
+                this.values.get(key)?.jump(this.initialValues[key])
+                this.latestValues[key] = this.initialValues[key]
+            }
+        }
+
         this.current = instance
 
         visualElementStore.set(instance, this)
@@ -474,6 +492,8 @@ export abstract class VisualElement<
         this.parent?.addChild(this)
 
         this.update(this.props, this.presenceContext)
+
+        this.hasBeenMounted = true
     }
 
     unmount() {
