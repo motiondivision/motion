@@ -4,6 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.31.3] 2026-02-05
+
+### Fixed
+
+-   `<motion />`: Ensure animation state is reset after being re-suspended.
+
 ## [12.31.2] 2026-02-05
 
 ### Fixed
