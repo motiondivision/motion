@@ -4,6 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.32.0] 2026-02-05
+
+### Added
+
+-   `transition.inherit`: When `true`, inherit transition values from less-specific transitions.
+
 ## [12.31.3] 2026-02-05
 
 ### Fixed

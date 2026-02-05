@@ -6082,6 +6082,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"devalue@npm:^5.6.2":
+  version: 5.6.2
+  resolution: "devalue@npm:5.6.2"
+  checksum: 9d031092e3a6ff3a98820261375826ae88846c006857713816b7c1c007224982bdf94abc93b0f33218baff40f4b9d635001d1dfef0860a9e4074d8b7eac4f476
+  languageName: node
+  linkType: hard
+
 "dezalgo@npm:^1.0.0":
   version: 1.0.4
   resolution: "dezalgo@npm:1.0.4"
@@ -7417,6 +7424,16 @@ __metadata:
   dependencies:
     map-cache: ^0.2.2
   checksum: 1cbbd0b0116b67d5790175de0038a11df23c1cd2e8dcdbade58ebba5594c2d641dade6b4f126d82a7b4a6ffc2ea12e3d387dbb64ea2ae97cf02847d436f60fdc
+  languageName: node
+  linkType: hard
+
+"framer-api@npm:^0.1.0":
+  version: 0.1.0
+  resolution: "framer-api@npm:0.1.0"
+  dependencies:
+    devalue: ^5.6.2
+    std-env: ^3.10.0
+  checksum: 8224594208a42d5c52ea164a649b9ad8a8eb6608a4a1840f6a4b44badcda3facbffdb301ee66e2df4ebacd98bbe04c867a0c1b9bf5f6ae30e23ccae127d03003
   languageName: node
   linkType: hard
 
@@ -10978,6 +10995,7 @@ __metadata:
     eslint-plugin-react-hooks: ^4.6.0
     eslint-plugin-redos-detector: ^2.4.0
     eslint-plugin-regexp: ^2.2.0
+    framer-api: ^0.1.0
     gsap: ^3.12.5
     jest: ^29.7.0
     jest-environment-jsdom: ^29.7.0
@@ -10985,6 +11003,7 @@ __metadata:
     jest-watch-typeahead: ^2.2.2
     lerna: ^4.0.0
     lint-staged: ^8.0.4
+    papaparse: ^5.5.3
     path-browserify: ^1.0.1
     prettier: ^2.5.1
     react: ^18.3.1
@@ -11984,6 +12003,13 @@ __metadata:
   bin:
     pacote: lib/bin.js
   checksum: 4fae0b1429be77e69972402dad24775999c92198dadc20f1f7a418f24e268e8bf85faaffc3f778d94c21348645f99bb65ef519fb82776902b556eef934afd932
+  languageName: node
+  linkType: hard
+
+"papaparse@npm:^5.5.3":
+  version: 5.5.3
+  resolution: "papaparse@npm:5.5.3"
+  checksum: 369d68a16340e5fad95d411a0efca34bedbf93550744e6374fa9b60aaf6bc655e29a6d1a39a56afea0cf7dbc4454fd190f50a9ad76db80987b43d6c6c319f018
   languageName: node
   linkType: hard
 
@@ -14342,6 +14368,13 @@ __metadata:
     define-property: ^0.2.5
     object-copy: ^0.1.0
   checksum: 8657485b831f79e388a437260baf22784540417a9b29e11572c87735df24c22b84eda42107403a64b30861b2faf13df9f7fc5525d51f9d1d2303aba5cbf4e12c
+  languageName: node
+  linkType: hard
+
+"std-env@npm:^3.10.0":
+  version: 3.10.0
+  resolution: "std-env@npm:3.10.0"
+  checksum: 51d641b36b0fae494a546fb8446d39a837957fbf902c765c62bd12af8e50682d141c4087ca032f1192fa90330c4f6ff23fd6c9795324efacd1684e814471e0e0
   languageName: node
   linkType: hard
 
