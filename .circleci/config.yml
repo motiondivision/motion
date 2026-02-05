@@ -1,7 +1,7 @@
 # Check https://circleci.com/docs/2.0/language-javascript/ for more details
 #
 jobs:
-    test:
+    setup:
         docker:
             - image: cimg/node:20.11.1-browsers
         working_directory: ~/repo
@@ -9,11 +9,6 @@ jobs:
         steps:
             - checkout
 
-            - run:
-                  name: Yarn version
-                  command: yarn --version
-
-            # Download and cache dependencies (Yarn artifacts, not node_modules)
             - restore_cache:
                   keys:
                       - v3-yarn-{{ checksum "yarn.lock" }}
@@ -28,6 +23,24 @@ jobs:
                       - .yarn/plugins
                       - .yarn/patches
                   key: v3-yarn-{{ checksum "yarn.lock" }}
+
+            - run:
+                  name: Build
+                  command: yarn build
+
+            - persist_to_workspace:
+                  root: .
+                  paths:
+                      - .
+
+    test:
+        docker:
+            - image: cimg/node:20.11.1-browsers
+        working_directory: ~/repo
+        resource_class: large
+        steps:
+            - attach_workspace:
+                  at: ~/repo
 
             - run:
                   name: Test Jest
@@ -40,29 +53,11 @@ jobs:
         docker:
             - image: cimg/node:20.11.1-browsers
         working_directory: ~/repo
-        parallelism: 6
-        resource_class: xlarge
+        parallelism: 4
+        resource_class: large
         steps:
-            - checkout
-
-            - run:
-                  name: Yarn version
-                  command: yarn --version
-
-            - restore_cache:
-                  keys:
-                      - v3-yarn-{{ checksum "yarn.lock" }}
-                      - v3-yarn-
-            - run:
-                  name: Install dependencies (immutable)
-                  command: yarn install --immutable
-            - save_cache:
-                  paths:
-                      - .yarn/cache
-                      - .yarn/releases
-                      - .yarn/plugins
-                      - .yarn/patches
-                  key: v3-yarn-{{ checksum "yarn.lock" }}
+            - attach_workspace:
+                  at: ~/repo
 
             - run:
                   name: React tests
@@ -77,32 +72,14 @@ jobs:
         docker:
             - image: cimg/node:20.11.1-browsers
         working_directory: ~/repo
-        parallelism: 6
+        parallelism: 4
         resource_class: large
         steps:
-            - checkout
+            - attach_workspace:
+                  at: ~/repo
 
             - run:
-                  name: Yarn version
-                  command: yarn --version
-
-            - restore_cache:
-                  keys:
-                      - v3-yarn-{{ checksum "yarn.lock" }}
-                      - v3-yarn-
-            - run:
-                  name: Install dependencies (immutable)
-                  command: yarn install --immutable
-            - save_cache:
-                  paths:
-                      - .yarn/cache
-                      - .yarn/releases
-                      - .yarn/plugins
-                      - .yarn/patches
-                  key: v3-yarn-{{ checksum "yarn.lock" }}
-
-            - run:
-                  name: React tests
+                  name: React 19 tests
                   command: make test-react-19
                   environment:
                       JEST_JUNIT_OUTPUT: test_reports/framer-motion-react-19.xml
@@ -116,26 +93,8 @@ jobs:
         resource_class: large
         working_directory: ~/repo
         steps:
-            - checkout
-
-            - run:
-                  name: Yarn version
-                  command: yarn --version
-
-            - restore_cache:
-                  keys:
-                      - v3-yarn-{{ checksum "yarn.lock" }}
-                      - v3-yarn-
-            - run:
-                  name: Install dependencies (immutable)
-                  command: yarn install --immutable
-            - save_cache:
-                  paths:
-                      - .yarn/cache
-                      - .yarn/releases
-                      - .yarn/plugins
-                      - .yarn/patches
-                  key: v3-yarn-{{ checksum "yarn.lock" }}
+            - attach_workspace:
+                  at: ~/repo
 
             - run:
                   name: HTML tests
@@ -152,47 +111,20 @@ jobs:
             - store_test_results:
                   path: test_reports
 
-    test-playwright:
-        docker:
-            - image: mcr.microsoft.com/playwright:v1.51.1-noble
-        resource_class: large
-        working_directory: ~/repo
-        steps:
-            - checkout
-
-            - run:
-                  name: Yarn version
-                  command: yarn --version
-
-            - restore_cache:
-                  keys:
-                      - v3-yarn-{{ checksum "yarn.lock" }}
-                      - v3-yarn-
-            - run:
-                  name: Install dependencies (immutable)
-                  command: yarn install --immutable
-            - save_cache:
-                  paths:
-                      - .yarn/cache
-                      - .yarn/releases
-                      - .yarn/plugins
-                      - .yarn/patches
-                  key: v3-yarn-{{ checksum "yarn.lock" }}
-
-            - run:
-                  name: Playwright tests
-                  command: yarn test-playwright
-                  environment:
-                      JEST_JUNIT_OUTPUT: test_reports/framer-motion-playwright.xml
-
-            - store_test_results:
-                  path: test_reports
-
 workflows:
     version: 2
     build:
         jobs:
-            - test
-            - test-react
-            - test-react-19
-            - test-html
+            - setup
+            - test:
+                  requires:
+                      - setup
+            - test-react:
+                  requires:
+                      - setup
+            - test-react-19:
+                  requires:
+                      - setup
+            - test-html:
+                  requires:
+                      - setup
