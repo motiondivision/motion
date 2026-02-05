@@ -6,6 +6,8 @@ jobs:
             - image: cimg/node:20.11.1-browsers
         working_directory: ~/repo
         resource_class: large
+        environment:
+            CYPRESS_CACHE_FOLDER: ~/repo/.cache/Cypress
         steps:
             - checkout
 
@@ -55,6 +57,8 @@ jobs:
         working_directory: ~/repo
         parallelism: 4
         resource_class: large
+        environment:
+            CYPRESS_CACHE_FOLDER: ~/repo/.cache/Cypress
         steps:
             - attach_workspace:
                   at: ~/repo
@@ -74,6 +78,8 @@ jobs:
         working_directory: ~/repo
         parallelism: 4
         resource_class: large
+        environment:
+            CYPRESS_CACHE_FOLDER: ~/repo/.cache/Cypress
         steps:
             - attach_workspace:
                   at: ~/repo
@@ -92,6 +98,8 @@ jobs:
             - image: cimg/node:20.11.1-browsers
         resource_class: large
         working_directory: ~/repo
+        environment:
+            CYPRESS_CACHE_FOLDER: ~/repo/.cache/Cypress
         steps:
             - attach_workspace:
                   at: ~/repo
