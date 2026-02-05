@@ -424,7 +424,7 @@ export interface MotionNodeHoverHandlers {
      * <motion.div onHoverStart={() => console.log('Hover starts')} />
      * ```
      */
-    onHoverStart?(event: MouseEvent, info: EventInfo): void
+    onHoverStart?(event: PointerEvent, info: EventInfo): void
 
     /**
      * Callback function that fires when pointer stops hovering over the component.
@@ -433,7 +433,7 @@ export interface MotionNodeHoverHandlers {
      * <motion.div onHoverEnd={() => console.log("Hover ends")} />
      * ```
      */
-    onHoverEnd?(event: MouseEvent, info: EventInfo): void
+    onHoverEnd?(event: PointerEvent, info: EventInfo): void
 }
 
 /**
