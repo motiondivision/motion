@@ -21,8 +21,9 @@
         "version": "yarn install && git stage yarn.lock",
         "prepare": "turbo run build measure",
         "generate-changelog-csv": "node scripts/generate-changelog.js",
-        "new": "yarn generate-changelog-csv && yarn test-playwright && lerna publish from-package && yarn notify-slack",
+        "new": "yarn generate-changelog-csv && yarn test-playwright && lerna publish from-package && yarn notify-slack && yarn push-to-site",
         "new-alpha": "turbo run build && lerna publish from-package --canary --preid alpha",
+        "push-to-site": "node scripts/push-to-site.js",
         "notify-slack": "NODE_ENV=production node scripts/notify-slack.js",
         "test-notify-slack": "NODE_ENV=development node scripts/notify-slack.js"
     },
