@@ -41,7 +41,7 @@ jobs:
             - image: cimg/node:20.11.1-browsers
         working_directory: ~/repo
         parallelism: 6
-        resource_class: large
+        resource_class: xlarge
         steps:
             - checkout
 
@@ -78,7 +78,7 @@ jobs:
             - image: cimg/node:20.11.1-browsers
         working_directory: ~/repo
         parallelism: 6
-        resource_class: large
+        resource_class: xlarge
         steps:
             - checkout
 
