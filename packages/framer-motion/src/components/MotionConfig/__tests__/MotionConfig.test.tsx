@@ -41,7 +41,7 @@ it("Passes down transition changes", () => {
     expect(getByTestId(consumerId).textContent).toBe("tween")
 })
 
-it("Nested MotionConfig without inheritTransition fully replaces parent transition", () => {
+it("Nested MotionConfig without inherit fully replaces parent transition", () => {
     const { getByTestId } = render(
         <MotionConfig transition={{ type: "spring", duration: 1 }}>
             <MotionConfig transition={{ delay: 0.5 }}>
@@ -58,10 +58,10 @@ it("Nested MotionConfig without inheritTransition fully replaces parent transiti
     expect(transition.duration).toBeUndefined()
 })
 
-it("Nested MotionConfig with inheritTransition shallow-merges with parent transition", () => {
+it("Nested MotionConfig with inherit shallow-merges with parent transition", () => {
     const { getByTestId } = render(
         <MotionConfig transition={{ type: "spring", duration: 1 }}>
-            <MotionConfig inheritTransition transition={{ delay: 0.5 }}>
+            <MotionConfig transition={{ inherit: true, delay: 0.5 }}>
                 <TransitionConsumer />
             </MotionConfig>
         </MotionConfig>
@@ -75,12 +75,26 @@ it("Nested MotionConfig with inheritTransition shallow-merges with parent transi
     expect(transition.delay).toBe(0.5)
 })
 
-it("inheritTransition inner keys win over parent keys", () => {
+it("inherit key is stripped from resulting transition", () => {
+    const { getByTestId } = render(
+        <MotionConfig transition={{ type: "spring" }}>
+            <MotionConfig transition={{ inherit: true, delay: 0.5 }}>
+                <TransitionConsumer />
+            </MotionConfig>
+        </MotionConfig>
+    )
+
+    const transition: Transition = JSON.parse(
+        getByTestId(consumerId).textContent!
+    )
+    expect(transition).not.toHaveProperty("inherit")
+})
+
+it("inherit inner keys win over parent keys", () => {
     const { getByTestId } = render(
         <MotionConfig transition={{ type: "spring", duration: 1 }}>
             <MotionConfig
-                inheritTransition
-                transition={{ duration: 2, delay: 0.5 }}
+                transition={{ inherit: true, duration: 2, delay: 0.5 }}
             >
                 <TransitionConsumer />
             </MotionConfig>
@@ -95,13 +109,12 @@ it("inheritTransition inner keys win over parent keys", () => {
     expect(transition.delay).toBe(0.5)
 })
 
-it("inheritTransition cascades through deeply nested MotionConfigs", () => {
+it("inherit cascades through deeply nested MotionConfigs", () => {
     const { getByTestId } = render(
         <MotionConfig transition={{ type: "spring", duration: 1 }}>
-            <MotionConfig inheritTransition transition={{ delay: 0.5 }}>
+            <MotionConfig transition={{ inherit: true, delay: 0.5 }}>
                 <MotionConfig
-                    inheritTransition
-                    transition={{ ease: "easeIn" }}
+                    transition={{ inherit: true, ease: "easeIn" }}
                 >
                     <TransitionConsumer />
                 </MotionConfig>

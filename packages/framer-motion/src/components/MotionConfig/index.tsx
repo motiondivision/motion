@@ -44,8 +44,9 @@ export function MotionConfig({
     const parentConfig = useContext(MotionConfigContext)
     config = { ...parentConfig, ...config }
 
-    if (config.inheritTransition) {
-        config.transition = { ...parentConfig.transition, ...config.transition }
+    if (config.transition?.inherit) {
+        const { inherit: _, ...childTransition } = config.transition
+        config.transition = { ...parentConfig.transition, ...childTransition }
     }
 
     /**
@@ -65,7 +66,6 @@ export function MotionConfig({
             config.transformPagePoint,
             config.reducedMotion,
             config.skipAnimations,
-            config.inheritTransition,
         ]
     )
 
