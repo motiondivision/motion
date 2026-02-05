@@ -86,13 +86,11 @@ export const PresenceChild = ({
             onExitComplete()
     }, [isPresent])
 
-    if (mode === "popLayout") {
-        children = (
-            <PopChild isPresent={isPresent} anchorX={anchorX} anchorY={anchorY} root={root}>
-                {children}
-            </PopChild>
-        )
-    }
+    children = (
+        <PopChild pop={mode === "popLayout"} isPresent={isPresent} anchorX={anchorX} anchorY={anchorY} root={root}>
+            {children}
+        </PopChild>
+    )
 
     return (
         <PresenceContext.Provider value={context}>
