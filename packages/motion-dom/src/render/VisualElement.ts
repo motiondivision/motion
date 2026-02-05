@@ -439,7 +439,7 @@ export abstract class VisualElement<
          * unmount/remount), reset motion values to their initial state
          * so animations replay correctly from initial → animate.
          */
-        if (this.hasBeenMounted && Object.keys(this.initialValues).length) {
+        if (this.hasBeenMounted) {
             for (const key in this.initialValues) {
                 const value = this.values.get(key)
                 if (value) {
