@@ -52,6 +52,7 @@ export interface MotionConfigContext {
      * @public
      */
     skipAnimations?: boolean
+
 }
 
 /**

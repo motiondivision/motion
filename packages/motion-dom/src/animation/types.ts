@@ -468,6 +468,14 @@ export interface ValueTransition
 
     // @deprecated
     from?: any
+
+    /**
+     * If true, this transition will shallow-merge with its parent transition
+     * instead of replacing it. Inner keys win.
+     *
+     * @public
+     */
+    inherit?: boolean
 }
 
 /**

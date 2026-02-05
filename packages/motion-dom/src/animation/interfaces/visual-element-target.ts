@@ -1,5 +1,6 @@
 import { frame } from "../../frameloop"
 import { getValueTransition } from "../utils/get-value-transition"
+import { resolveTransition } from "../utils/resolve-transition"
 import { positionalKeys } from "../../render/utils/keys-position"
 import { setTarget } from "../../render/utils/setters"
 import { addValueToWillChange } from "../../value/will-change/add-will-change"
@@ -34,10 +35,15 @@ export function animateTarget(
     { delay = 0, transitionOverride, type }: VisualElementAnimationOptions = {}
 ): AnimationPlaybackControlsWithThen[] {
     let {
-        transition = visualElement.getDefaultTransition(),
+        transition,
         transitionEnd,
         ...target
     } = targetAndTransition
+
+    const defaultTransition = visualElement.getDefaultTransition()
+    transition = transition
+        ? resolveTransition(transition, defaultTransition)
+        : defaultTransition
 
     const reduceMotion = (transition as { reduceMotion?: boolean })?.reduceMotion
 
