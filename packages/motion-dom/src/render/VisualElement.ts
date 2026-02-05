@@ -441,10 +441,7 @@ export abstract class VisualElement<
          */
         if (this.hasBeenMounted) {
             for (const key in this.initialValues) {
-                const value = this.values.get(key)
-                if (value) {
-                    value.jump(this.initialValues[key])
-                }
+                this.values.get(key)?.jump(this.initialValues[key])
                 this.latestValues[key] = this.initialValues[key]
             }
         }
