@@ -87,6 +87,8 @@ async function nextFrame() {
 
 ## Code Style
 
+- **Prioritise small file size** — this is a library shipped to end users. Prefer concise patterns that minimise output bytes.
+- Prefer optional chaining (`value?.jump()`) over explicit `if` statements
 - Use `interface` for type definitions (enforced by ESLint)
 - No default exports (use named exports)
 - Prefer arrow callbacks
