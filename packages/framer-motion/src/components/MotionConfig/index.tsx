@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { useContext, useMemo } from "react"
+import { resolveTransition } from "motion-dom"
 import { MotionConfigContext } from "../../context/MotionConfigContext"
 import {
     loadExternalIsValidProp,
@@ -44,10 +45,10 @@ export function MotionConfig({
     const parentConfig = useContext(MotionConfigContext)
     config = { ...parentConfig, ...config }
 
-    if (config.transition?.inherit) {
-        const { inherit: _, ...childTransition } = config.transition
-        config.transition = { ...parentConfig.transition, ...childTransition }
-    }
+    config.transition = resolveTransition(
+        config.transition,
+        parentConfig.transition
+    )
 
     /**
      * Don't allow isStatic to change between renders as it affects how many hooks
