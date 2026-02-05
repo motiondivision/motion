@@ -84,12 +84,6 @@ export class VisualElementDragControls {
     private elastic = createBox()
 
     /**
-     * The pointer ID captured via setPointerCapture during drag.
-     * Used to ensure correct hover state after drag ends.
-     */
-    private capturedPointerId: number | undefined = undefined
-
-    /**
      * The latest pointer event. Used as fallback when the `cancel` and `stop` functions are called without arguments.
      */
     private latestPointerEvent: PointerEvent | null = null
@@ -145,22 +139,6 @@ export class VisualElementDragControls {
             this.latestPointerEvent = event
             this.latestPanInfo = info
             this.isDragging = true
-
-            // Capture the pointer so the browser suppresses pointerleave during drag.
-            // On implicit release (pointerup), the browser re-evaluates pointer position
-            // and fires boundary events, correctly ending whileHover if pointer is
-            // no longer over the element.
-            const element = this.visualElement.current
-            if (element && element.setPointerCapture) {
-                try {
-                    element.setPointerCapture(event.pointerId)
-                    this.capturedPointerId = event.pointerId
-                } catch {
-                    // Pointer capture can fail with synthetic events (e.g. in
-                    // test environments) where the browser doesn't track the
-                    // pointerId as an active pointer.
-                }
-            }
 
             this.currentDirection = null
 
@@ -317,20 +295,6 @@ export class VisualElementDragControls {
      */
     cancel() {
         this.isDragging = false
-
-        // Release pointer capture if held. For pointerup-triggered ends this is
-        // already released implicitly, but programmatic cancel() calls need
-        // explicit release. hasPointerCapture guards against double-release.
-        const element = this.visualElement.current
-        if (
-            element &&
-            this.capturedPointerId !== undefined &&
-            element.hasPointerCapture &&
-            element.hasPointerCapture(this.capturedPointerId)
-        ) {
-            element.releasePointerCapture(this.capturedPointerId)
-        }
-        this.capturedPointerId = undefined
 
         const { projection, animationState } = this.visualElement
 

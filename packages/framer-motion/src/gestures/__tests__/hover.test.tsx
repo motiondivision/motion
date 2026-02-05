@@ -4,6 +4,7 @@ import {
     pointerDown,
     pointerEnter,
     pointerLeave,
+    pointerUp,
     render,
 } from "../../jest.setup"
 import { nextFrame } from "./utils"
@@ -229,20 +230,18 @@ describe("hover", () => {
         await nextFrame()
         expect(opacity.get()).toBe(0.5)
 
-        // Simulate drag active state
+        // Press and start drag
+        pointerDown(element)
         isDragging.x = true
 
-        // pointerLeave during drag is blocked by isValidHover
+        // pointerLeave during drag is deferred
         pointerLeave(element)
         await nextFrame()
         expect(opacity.get()).toBe(0.5)
 
-        // End drag
+        // End drag, then release pointer
         isDragging.x = false
-
-        // Simulate boundary event after pointer capture release
-        // (browser fires pointerleave when pointer is not over element)
-        pointerLeave(element)
+        pointerUp(element)
         await nextFrame()
         expect(opacity.get()).toBe(1)
     })
@@ -264,15 +263,84 @@ describe("hover", () => {
         await nextFrame()
         expect(opacity.get()).toBe(0.5)
 
-        // Simulate drag active state
+        // Press and start drag
+        pointerDown(element)
         isDragging.x = true
 
         // End drag without pointerLeave (pointer still over element)
         isDragging.x = false
+        pointerUp(element)
 
         await nextFrame()
         // Hover should still be active since pointer never left
         expect(opacity.get()).toBe(0.5)
+    })
+
+    test("whileHover stays active during press and deactivates on release outside element", async () => {
+        const opacity = motionValue(1)
+        const Component = () => (
+            <motion.div
+                whileHover={{ opacity: 0.5 }}
+                transition={{ type: false }}
+                style={{ opacity }}
+            />
+        )
+
+        const { container } = render(<Component />)
+        const element = container.firstChild as Element
+
+        pointerEnter(element)
+        await nextFrame()
+        expect(opacity.get()).toBe(0.5)
+
+        // Press down
+        pointerDown(element)
+
+        // Pointer leaves while pressed (no drag involved)
+        pointerLeave(element)
+        await nextFrame()
+        // Hover should stay active because pointer is still pressed
+        expect(opacity.get()).toBe(0.5)
+
+        // Release pointer (outside element)
+        pointerUp(element)
+        await nextFrame()
+        // Now hover should deactivate
+        expect(opacity.get()).toBe(1)
+    })
+
+    test("whileHover stays active during press when pointer leaves before drag starts", async () => {
+        const opacity = motionValue(1)
+        const Component = () => (
+            <motion.div
+                drag
+                whileHover={{ opacity: 0.5 }}
+                transition={{ type: false }}
+                style={{ opacity }}
+            />
+        )
+
+        const { container } = render(<Component />)
+        const element = container.firstChild as Element
+
+        pointerEnter(element)
+        await nextFrame()
+        expect(opacity.get()).toBe(0.5)
+
+        // Press down (drag hasn't started yet — needs movement threshold)
+        pointerDown(element)
+
+        // Pointer leaves before drag starts
+        pointerLeave(element)
+        await nextFrame()
+        // Hover should stay active because pointer is pressed
+        expect(opacity.get()).toBe(0.5)
+
+        // Release pointer
+        pointerUp(element)
+        await nextFrame()
+        // Now hover should deactivate
+        expect(opacity.get()).toBe(1)
     })
 
     test("whileHover only animates values that aren't being controlled by a higher-priority gesture ", () => {
