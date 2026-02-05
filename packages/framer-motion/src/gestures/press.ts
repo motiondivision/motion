@@ -32,7 +32,7 @@ export class PressGesture extends Feature<Element> {
         const { current } = this.node
         if (!current) return
 
-        const { globalTapTarget, stopTapPropagation } = this.node.props
+        const { globalTapTarget, propagate } = this.node.props
 
         this.unmount = press(
             current,
@@ -48,7 +48,7 @@ export class PressGesture extends Feature<Element> {
             },
             {
                 useGlobalTarget: globalTapTarget,
-                stopPropagation: stopTapPropagation,
+                stopPropagation: propagate?.tap === false,
             }
         )
     }

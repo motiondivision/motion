@@ -767,7 +767,7 @@ describe("press", () => {
         ])
     })
 
-    test("stopTapPropagation prevents parent onTap from firing", async () => {
+    test("propagate={{ tap: false }} prevents parent onTap from firing", async () => {
         const parentTap = jest.fn()
         const childTap = jest.fn()
         const Component = () => (
@@ -775,7 +775,7 @@ describe("press", () => {
                 <motion.div
                     data-testid="child"
                     onTap={() => childTap()}
-                    stopTapPropagation
+                    propagate={{ tap: false }}
                 />
             </motion.div>
         )
@@ -791,7 +791,7 @@ describe("press", () => {
         expect(parentTap).toBeCalledTimes(0)
     })
 
-    test("without stopTapPropagation both parent and child onTap fire", async () => {
+    test("without propagate both parent and child onTap fire", async () => {
         const parentTap = jest.fn()
         const childTap = jest.fn()
         const Component = () => (
@@ -814,7 +814,7 @@ describe("press", () => {
         expect(parentTap).toBeCalledTimes(1)
     })
 
-    test("stopTapPropagation isolates whileTap to child only", () => {
+    test("propagate={{ tap: false }} isolates whileTap to child only", () => {
         const promise = new Promise(async (resolve) => {
             const parentOpacityHistory: number[] = []
             const childOpacityHistory: number[] = []
@@ -837,7 +837,7 @@ describe("press", () => {
                         transition={{ type: false }}
                         whileTap={{ opacity: 1 }}
                         style={{ opacity: childOpacity }}
-                        stopTapPropagation
+                        propagate={{ tap: false }}
                     />
                 </motion.div>
             )
@@ -863,7 +863,7 @@ describe("press", () => {
         })
     })
 
-    test("stopTapPropagation prevents all ancestor onTap handlers (three levels)", async () => {
+    test("propagate={{ tap: false }} prevents all ancestor onTap handlers (three levels)", async () => {
         const grandparentTap = jest.fn()
         const parentTap = jest.fn()
         const childTap = jest.fn()
@@ -873,7 +873,7 @@ describe("press", () => {
                     <motion.div
                         data-testid="child"
                         onTap={() => childTap()}
-                        stopTapPropagation
+                        propagate={{ tap: false }}
                     />
                 </motion.div>
             </motion.div>
