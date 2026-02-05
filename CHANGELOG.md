@@ -9,6 +9,7 @@ Undocumented APIs should be considered internal and may change without warning.
 ### Fixed
 
 -   `<motion />`: Ensure animation state is reset after being re-suspended.
+-   Prevent stale values when mixing `transitionEnd` and `transition.type: false`.
 
 ## [12.31.2] 2026-02-05
 
