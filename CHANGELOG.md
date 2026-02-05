@@ -4,6 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.33.0] 2026-02-05
+
+### Added
+
+-   `<motion />`: New `propagate.tap` prop prevents tap gestures from propagating to parents.
+
 ## [12.32.0] 2026-02-05
 
 ### Added
