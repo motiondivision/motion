@@ -26,12 +26,12 @@ export { animateVariant } from "./animation/interfaces/visual-element-variant"
 // Optimized appear
 export {
     optimizedAppearDataAttribute,
-    optimizedAppearDataId,
+    optimizedAppearDataId
 } from "./animation/optimized-appear/data-id"
 export { getOptimisedAppearId } from "./animation/optimized-appear/get-appear-id"
 export type {
     HandoffFunction,
-    WithAppearProps,
+    WithAppearProps
 } from "./animation/optimized-appear/types"
 
 export * from "./animation/generators/inertia"
@@ -174,24 +174,23 @@ export type {
     UseRenderState,
     VisualElementEventCallbacks,
     VisualElementOptions,
-    VisualState,
+    VisualState
 } from "./render/types"
 export {
-    getFeatureDefinitions,
-    setFeatureDefinitions,
-    VisualElement,
+    VisualElement, getFeatureDefinitions,
+    setFeatureDefinitions
 } from "./render/VisualElement"
 export type { MotionStyle } from "./render/VisualElement"
 
 // Animation State
 export {
     checkVariantsDidChange,
-    createAnimationState,
+    createAnimationState
 } from "./render/utils/animation-state"
 export type {
     AnimationList,
     AnimationState,
-    AnimationTypeState,
+    AnimationTypeState
 } from "./render/utils/animation-state"
 
 // Variant utilities
@@ -199,12 +198,12 @@ export { getVariantContext } from "./render/utils/get-variant-context"
 export { isAnimationControls } from "./render/utils/is-animation-controls"
 export {
     isControllingVariants,
-    isVariantNode,
+    isVariantNode
 } from "./render/utils/is-controlling-variants"
 export {
     addScaleCorrector,
     isForcedMotionValue,
-    scaleCorrectors,
+    scaleCorrectors
 } from "./render/utils/is-forced-motion-value"
 export { isVariantLabel } from "./render/utils/is-variant-label"
 export { updateMotionValuesFromProps } from "./render/utils/motion-values"
@@ -213,14 +212,14 @@ export { resolveVariantFromProps } from "./render/utils/resolve-variants"
 export { setTarget } from "./render/utils/setters"
 export {
     variantPriorityOrder,
-    variantProps,
+    variantProps
 } from "./render/utils/variant-props"
 
 // Reduced motion
 export {
     hasReducedMotionListener,
     initPrefersReducedMotion,
-    prefersReducedMotion,
+    prefersReducedMotion
 } from "./render/utils/reduced-motion"
 
 // Projection geometry
@@ -235,14 +234,14 @@ export { eachAxis } from "./projection/utils/each-axis"
 export {
     has2DTranslate,
     hasScale,
-    hasTransform,
+    hasTransform
 } from "./projection/utils/has-transform"
 export { measurePageBox, measureViewportBox } from "./projection/utils/measure"
 
 // Projection styles
 export {
     correctBorderRadius,
-    pixelsToPercent,
+    pixelsToPercent
 } from "./projection/styles/scale-border-radius"
 export { correctBoxShadow } from "./projection/styles/scale-box-shadow"
 export { buildProjectionTransform } from "./projection/styles/transform"
@@ -265,20 +264,18 @@ export { resolveMotionValue } from "./value/utils/resolve-motion-value"
 export {
     cleanDirtyNodes,
     createProjectionNode,
-    propagateDirtyNodes,
+    propagateDirtyNodes
 } from "./projection/node/create-projection-node"
 export { DocumentProjectionNode } from "./projection/node/DocumentProjectionNode"
 export { nodeGroup } from "./projection/node/group"
 export type { NodeGroup } from "./projection/node/group"
 export {
     HTMLProjectionNode,
-    rootProjectionNode,
+    rootProjectionNode
 } from "./projection/node/HTMLProjectionNode"
 export { globalProjectionState } from "./projection/node/state"
 export type {
-    InitialPromotionConfig,
-    IProjectionNode,
-    LayoutEvents,
+    IProjectionNode, InitialPromotionConfig, LayoutEvents,
     LayoutUpdateData,
     LayoutUpdateHandler,
     Measurements,
@@ -286,7 +283,7 @@ export type {
     ProjectionEventName,
     ProjectionNodeConfig,
     ProjectionNodeOptions,
-    ScrollMeasurements,
+    ScrollMeasurements
 } from "./projection/node/types"
 export { NodeStack } from "./projection/shared/stack"
 
@@ -308,7 +305,8 @@ export { scrapeMotionValuesFromProps as scrapeSVGMotionValuesFromProps } from ".
  */
 export {
     LayoutAnimationBuilder,
-    parseAnimateLayoutArgs,
+    layoutAnimation,
+    parseAnimateLayoutArgs
 } from "./layout/LayoutAnimationBuilder"
 
 /**

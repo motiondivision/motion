@@ -1,0 +1,122 @@
+<html>
+    <head>
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+            }
+
+            #box {
+                width: 100px;
+                height: 100px;
+                background-color: #00cc88;
+            }
+
+            #box.moved {
+                position: absolute;
+                left: 200px;
+            }
+
+            #box.moved-far {
+                position: absolute;
+                left: 400px;
+            }
+
+            [data-layout-correct="false"] {
+                background: #dd1144 !important;
+                opacity: 0.5;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="box" data-layout></div>
+
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module" src="/src/imports/script-assert.js"></script>
+        <script type="module">
+            const { runLayoutAnimation, frame } = window.AnimateLayout
+            const { matchViewportBox, showError } = window.Assert
+            const box = document.getElementById("box")
+
+            async function runTest() {
+                console.log("Starting test...")
+
+                // First animation: move from 0 to 200
+                const controls1 = await runLayoutAnimation(
+                    () => {
+                        box.classList.add("moved")
+                    },
+                    { duration: 0.5, ease: "linear" }
+                )
+
+                console.log("First animation started")
+
+                // Wait ~halfway through the animation (250ms)
+                await new Promise((resolve) => setTimeout(resolve, 250))
+
+                // Get the current visual position before interrupting
+                const midpointBounds = box.getBoundingClientRect()
+                const visualPositionBeforeInterrupt = midpointBounds.left
+
+                console.log(
+                    `Position before interrupt: ${visualPositionBeforeInterrupt}`
+                )
+
+                // Should be somewhere between 0 and 200 (roughly 100)
+                if (
+                    visualPositionBeforeInterrupt < 20 ||
+                    visualPositionBeforeInterrupt > 180
+                ) {
+                    showError(
+                        box,
+                        `Box should be mid-animation (~100), but is at x=${visualPositionBeforeInterrupt}`
+                    )
+                    return
+                }
+
+                // Now interrupt with a second animation: move to 400
+                // The animation should start from where the box visually is, not from 200
+                console.log("Starting second animation...")
+
+                const controls2 = await runLayoutAnimation(
+                    () => {
+                        box.classList.remove("moved")
+                        box.classList.add("moved-far")
+                    },
+                    { duration: 0.5, ease: "linear" }
+                )
+
+                console.log("Second animation started")
+
+                // Wait one frame for the second animation to start
+                await new Promise((resolve) => frame.postRender(resolve))
+
+                // Get the position right after the second animation starts
+                const afterInterruptBounds = box.getBoundingClientRect()
+                const positionAfterInterrupt = afterInterruptBounds.left
+
+                console.log(`Position after interrupt: ${positionAfterInterrupt}`)
+
+                // The box should still be near where it was when interrupted (~100)
+                // NOT jumped to 200 (end of first animation) or 0 or 400
+                const jumpDistance = Math.abs(
+                    positionAfterInterrupt - visualPositionBeforeInterrupt
+                )
+
+                console.log(`Jump distance: ${jumpDistance}px`)
+
+                // Allow some small movement since one frame of the new animation has run
+                // But it shouldn't have jumped more than ~50px
+                if (jumpDistance > 50) {
+                    box.dataset.layoutCorrect = "false"
+                    showError(
+                        box,
+                        `Animation jumped from ${visualPositionBeforeInterrupt} to ${positionAfterInterrupt} (${jumpDistance}px). Should start smoothly from interrupted position.`
+                    )
+                }
+            }
+
+            runTest().catch(console.error)
+        </script>
+    </body>
+</html>

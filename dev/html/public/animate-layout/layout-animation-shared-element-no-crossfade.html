@@ -1,0 +1,129 @@
+<html>
+    <head>
+        <style>
+            body {
+                padding: 20px;
+                margin: 0;
+            }
+
+            .container {
+                background-color: #333;
+                border-radius: 10px;
+                padding: 5px;
+                display: inline-block;
+            }
+
+            .container ul {
+                display: flex;
+                gap: 5px;
+                flex-direction: row;
+                list-style: none;
+                padding: 0;
+                margin: 0;
+            }
+
+            .container li {
+                color: white;
+                position: relative;
+            }
+
+            .container .selected-indicator {
+                background-color: #00cc88;
+                position: absolute;
+                top: 0;
+                left: 0;
+                bottom: 0;
+                right: 0;
+                z-index: 1;
+                border-radius: 5px;
+            }
+
+            .container button {
+                z-index: 2;
+                position: relative;
+                padding: 10px 14px;
+                background: none;
+                border: none;
+                color: inherit;
+            }
+
+            [data-layout-correct="false"] {
+                background: #dd1144 !important;
+                opacity: 0.5;
+            }
+        </style>
+    </head>
+    <body>
+        <nav class="container">
+            <ul>
+                <li class="selected">
+                    <div
+                        class="selected-indicator"
+                        data-layout-id="selected-indicator"
+                    ></div>
+                    <button>Home</button>
+                </li>
+                <li>
+                    <button>React</button>
+                </li>
+                <li>
+                    <button>Vue</button>
+                </li>
+            </ul>
+        </nav>
+
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module" src="/src/imports/script-assert.js"></script>
+        <script type="module">
+            const { runLayoutAnimation, frame } = window.AnimateLayout
+            const { showError } = window.Assert
+
+            let selectedIndex = 0
+            const tabs = document.querySelectorAll(".container li")
+
+            async function runTest() {
+                // Switch from tab 0 to tab 1
+                const controls = await runLayoutAnimation(
+                    ".container",
+                    () => {
+                        // Remove indicator from old tab
+                        tabs[0].classList.remove("selected")
+                        tabs[0].querySelector(".selected-indicator")?.remove()
+
+                        // Add indicator to new tab
+                        tabs[1].classList.add("selected")
+                        const indicator = document.createElement("div")
+                        indicator.className = "selected-indicator"
+                        indicator.dataset.layoutId = "selected-indicator"
+                        tabs[1].insertBefore(indicator, tabs[1].firstChild)
+                    },
+                    { duration: 10, ease: "linear" }
+                )
+
+                // Pause at start
+                controls.pause()
+                controls.time = 0
+
+                // Wait one frame
+                await new Promise((resolve) => frame.postRender(resolve))
+
+                // Get the indicator element
+                const indicator = document.querySelector(".selected-indicator")
+                const style = window.getComputedStyle(indicator)
+
+                // Check that opacity is 1 (not fading in from 0)
+                // With crossfade disabled, shared elements should have full opacity
+                const opacity = parseFloat(style.opacity)
+                if (opacity < 0.99) {
+                    indicator.dataset.layoutCorrect = "false"
+                    showError(
+                        indicator,
+                        `Expected opacity 1, got ${opacity}. Shared element should not fade in.`
+                    )
+                }
+            }
+
+            runTest().catch(console.error)
+        </script>
+    </body>
+</html>

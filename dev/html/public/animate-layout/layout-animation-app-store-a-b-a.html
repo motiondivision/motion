@@ -1,0 +1,324 @@
+<html>
+    <head>
+        <style>
+            * {
+                box-sizing: border-box;
+                margin: 0;
+                padding: 0;
+            }
+
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                    sans-serif;
+                background: #1a1a1a;
+                color: #fff;
+                min-height: 100vh;
+                padding: 40px;
+            }
+
+            .card-list {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 20px;
+                list-style: none;
+                max-width: 800px;
+            }
+
+            .card {
+                width: 240px;
+                height: 320px;
+                cursor: pointer;
+                position: relative;
+            }
+
+            .card-content {
+                width: 100%;
+                height: 100%;
+                border-radius: 16px;
+                overflow: hidden;
+                background: #2a2a2a;
+                position: relative;
+            }
+
+            .card-image-container {
+                overflow: hidden;
+                height: 200px;
+                display: flex;
+                justify-content: stretch;
+                flex-direction: column;
+                position: relative;
+            }
+
+            .card-image {
+                width: 100%;
+                height: 240px;
+                background: #3b3b3b;
+                position: absolute;
+                top: -40px;
+            }
+
+            .title-container {
+                position: absolute;
+                top: 12px;
+                left: 12px;
+                max-width: 200px;
+            }
+
+            .title-container h2 {
+                color: #fff;
+                margin: 6px 0;
+                font-size: 16px;
+            }
+
+            .title-container span {
+                color: #fff;
+                font-size: 11px;
+                text-transform: uppercase;
+            }
+
+            .content-container {
+                padding: 20px;
+            }
+
+            .card-description {
+                color: #aaa;
+                font-size: 12px;
+                margin-top: 10px;
+                line-height: 1.4;
+            }
+
+            .card-content-container.open {
+                top: 200px;
+                left: 200px;
+                right: 0;
+                position: fixed;
+                z-index: 100;
+                padding: 40px 0;
+                justify-content: center;
+            }
+
+            .open .card-content {
+                width: unset;
+                height: unset;
+                max-width: 560px;
+                pointer-events: none;
+            }
+
+            .open .title-container {
+                top: 22px;
+                left: 22px;
+            }
+
+            .overlay {
+                position: fixed;
+                inset: 0;
+                background: rgba(0, 0, 0, 0.6);
+                z-index: 99;
+            }
+
+            .modal-container {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 100;
+                pointer-events: none;
+            }
+
+            .modal-container .card-content {
+                pointer-events: auto;
+            }
+
+            [data-layout-correct="false"] {
+                background: #dd1144 !important;
+                opacity: 0.5;
+            }
+        </style>
+    </head>
+    <body>
+        <ul class="card-list">
+            <li class="card" data-id="a">
+                <div class="card-content" data-layout-id="card-container-a">
+                    <div
+                        class="card-image-container"
+                        data-layout-id="card-image-container-a"
+                    >
+                        <div
+                            class="card-image"
+                            data-layout-id="card-image-a"
+                            data-layout="preserve-aspect"
+                        ></div>
+                    </div>
+                    <div
+                        class="title-container"
+                        data-layout-id="title-container-a"
+                        data-layout="position"
+                    >
+                        <span>Travel</span>
+                        <h2>Mountain Escapes</h2>
+                    </div>
+                    <p class="card-description">
+                        Escape to breathtaking mountain vistas and alpine trails.
+                    </p>
+                </div>
+            </li>
+            <li class="card" data-id="b">
+                <div class="card-content" data-layout-id="card-container-b">
+                    <div
+                        class="card-image-container"
+                        data-layout-id="card-image-container-b"
+                    >
+                        <div
+                            class="card-image"
+                            data-layout-id="card-image-b"
+                            data-layout="preserve-aspect"
+                        ></div>
+                    </div>
+                    <div
+                        class="title-container"
+                        data-layout-id="title-container-b"
+                        data-layout="position"
+                    >
+                        <span>Nature</span>
+                        <h2>Forest Retreats</h2>
+                    </div>
+                    <p class="card-description">
+                        Immerse yourself in ancient forests and discover hidden trails.
+                    </p>
+                </div>
+            </li>
+        </ul>
+
+        <div class="debug">
+            Animation count: <span id="count">0</span>
+        </div>
+
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module" src="/src/imports/framer-motion-dom.js"></script>
+        <script type="module">
+            const { runLayoutAnimation, frame } = window.AnimateLayout
+            const { animate } = window.Motion
+
+            let currentOpenId = null
+            let animationCount = 0
+            const countEl = document.getElementById("count")
+
+            const transition = {
+                duration: 0.5,
+                ease: [0.39, 0.14, 0.26, 1],
+            }
+
+            function updateCount() {
+                animationCount++
+                countEl.textContent = animationCount
+            }
+
+            // Open card
+            async function openCard(id) {
+                if (currentOpenId) return
+
+                currentOpenId = id
+                updateCount()
+                console.log(
+                    `=== OPEN ANIMATION ${animationCount}: Opening card ${id} ===`
+                )
+
+                const sourceCard = document.querySelector(
+                    `.card[data-id="${id}"]`
+                )
+
+                // Create overlay
+                const overlay = document.createElement("div")
+                overlay.className = "overlay"
+                overlay.style.opacity = "0"
+                overlay.addEventListener("click", closeCard)
+                document.body.appendChild(overlay)
+                animate(overlay, { opacity: 1 }, transition)
+
+                // Clone card content
+                const clonedContent = sourceCard
+                    .querySelector(".card-content")
+                    .cloneNode(true)
+
+                // Create modal container
+                const modalContainer = document.createElement("div")
+                modalContainer.className = "modal-container"
+                modalContainer.appendChild(clonedContent)
+
+                const controls = await runLayoutAnimation(() => {
+                    document.body.appendChild(modalContainer)
+                }, transition)
+
+                console.log("Open animation started, waiting for finish...")
+                await controls.finished
+                console.log("Open animation finished")
+            }
+
+            // Close card
+            async function closeCard() {
+                if (!currentOpenId) return
+
+                const id = currentOpenId
+                const overlay = document.querySelector(".overlay")
+                const modalContainer = document.querySelector(".modal-container")
+                const sourceCard = document.querySelector(`.card[data-id="${id}"]`)
+
+                updateCount()
+                console.log(
+                    `=== CLOSE ANIMATION ${animationCount}: Closing card ${id} ===`
+                )
+
+                // Raise source card z-index during close
+                if (sourceCard) {
+                    sourceCard.style.zIndex = "10"
+                    sourceCard.style.position = "relative"
+                }
+
+                // Fade out overlay
+                if (overlay) {
+                    animate(overlay, { opacity: 0 }, transition).finished.then(
+                        () => {
+                            overlay.remove()
+                        }
+                    )
+                }
+
+                const controls = await runLayoutAnimation(() => {
+                    if (modalContainer) modalContainer.remove()
+                }, transition)
+
+                console.log("Close animation started, waiting for finish...")
+
+                controls.finished.then(() => {
+                    console.log("Close animation finished")
+                    if (sourceCard) {
+                        sourceCard.style.zIndex = ""
+                        sourceCard.style.position = ""
+                    }
+                })
+
+                currentOpenId = null
+            }
+
+            // Card click handlers
+            document.querySelectorAll(".card").forEach((card) => {
+                card.addEventListener("click", () => {
+                    if (!currentOpenId) {
+                        openCard(card.dataset.id)
+                    }
+                })
+            })
+
+            // Escape key to close
+            document.addEventListener("keydown", (e) => {
+                if (e.key === "Escape" && currentOpenId) {
+                    closeCard()
+                }
+            })
+        </script>
+    </body>
+</html>

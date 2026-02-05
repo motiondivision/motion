@@ -1,0 +1,261 @@
+<html>
+    <head>
+        <style>
+            * {
+                box-sizing: border-box;
+                margin: 0;
+                padding: 0;
+            }
+
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                    sans-serif;
+                background: #1a1a1a;
+                color: #fff;
+                min-height: 100vh;
+                padding: 40px;
+            }
+
+            .card-list {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 20px;
+                list-style: none;
+                max-width: 800px;
+            }
+
+            .card {
+                width: 240px;
+                height: 320px;
+                cursor: pointer;
+                position: relative;
+            }
+
+            .card-content {
+                width: 100%;
+                height: 100%;
+                border-radius: 16px;
+                overflow: hidden;
+                background: #2a2a2a;
+                position: relative;
+            }
+
+            .card-image-container {
+                overflow: hidden;
+                height: 200px;
+                display: flex;
+                justify-content: stretch;
+                flex-direction: column;
+                position: relative;
+            }
+
+            .card-image {
+                width: 100%;
+                height: 240px;
+                background: #3b3b3b;
+                position: absolute;
+                top: -40px;
+            }
+
+            .title-container {
+                position: absolute;
+                top: 12px;
+                left: 12px;
+                max-width: 200px;
+            }
+
+            .title-container h2 {
+                color: #fff;
+                margin: 6px 0;
+                font-size: 16px;
+            }
+
+            .title-container span {
+                color: #fff;
+                font-size: 11px;
+                text-transform: uppercase;
+            }
+
+            .content-container {
+                padding: 20px;
+            }
+
+            .hidden {
+                display: none;
+            }
+
+            .card-content-container.open {
+                top: 200px;
+                left: 200px;
+                right: 0;
+                position: fixed;
+                z-index: 100;
+                padding: 40px 0;
+                justify-content: center;
+            }
+
+            .open .card-content {
+                width: unset;
+                height: unset;
+                max-width: 560px;
+                pointer-events: none;
+            }
+
+            .open .title-container {
+                top: 22px;
+                left: 22px;
+            }
+
+            [data-layout-correct="false"] {
+                background: #dd1144 !important;
+                opacity: 0.5;
+            }
+        </style>
+    </head>
+    <body>
+        <ul class="card-list">
+            <li class="card" data-id="b">
+                <div class="card-content" data-layout-id="card-container-b">
+                    <div
+                        class="card-image-container"
+                        data-layout-id="card-image-container-b"
+                    >
+                        <div
+                            class="card-image"
+                            data-layout-id="card-image-b"
+                            data-layout="preserve-aspect"
+                        ></div>
+                    </div>
+                    <div
+                        class="title-container"
+                        data-layout-id="title-container-b"
+                        data-layout="position"
+                    >
+                        <span>Hats</span>
+                        <h2>Take Control of Your Hat Life</h2>
+                    </div>
+                    <div class="content-container hidden" data-layout="position">
+                        <p>
+                            Stay up to date with the latest hat trends, get
+                            personalized hat care reminders, and use predictive
+                            analytics to discover the last place you left your
+                            hat.
+                        </p>
+                    </div>
+                </div>
+            </li>
+        </ul>
+
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module" src="/src/imports/script-assert.js"></script>
+        <script type="module">
+            const { runLayoutAnimation, frame } = window.AnimateLayout
+            const { showError, matchViewportBox } = window.Assert
+
+            let currentOpenId = null
+
+            function openCard(id) {
+                if (currentOpenId) {
+                    closeCard()
+                }
+
+                currentOpenId = id
+
+                const sourceCard = document.querySelector(
+                    `.card[data-id="${id}"]`
+                )
+                const clonedContent = sourceCard
+                    .querySelector(".card-content")
+                    .cloneNode(true)
+
+                clonedContent.id = "modal"
+
+                const expandedCardContainer = document.createElement("div")
+                expandedCardContainer.className = "card-content-container open"
+                expandedCardContainer.appendChild(clonedContent)
+
+                const contentContainer =
+                    expandedCardContainer.querySelector(".content-container")
+                contentContainer.classList.remove("hidden")
+
+                document.body.appendChild(expandedCardContainer)
+
+                return expandedCardContainer
+            }
+
+            function closeCard() {
+                if (!currentOpenId) return
+
+                const expandedCardContainer = document.querySelector(
+                    ".card-content-container.open"
+                )
+
+                if (expandedCardContainer) expandedCardContainer.remove()
+
+                currentOpenId = null
+            }
+
+            async function runTest() {
+                const openControls = await runLayoutAnimation(
+                    () => openCard("b"),
+                    { duration: 1, ease: "linear" }
+                )
+
+                openControls.pause()
+                openControls.time = 0.5
+
+                await new Promise((resolve) => frame.postRender(resolve))
+
+                const closeControls = await runLayoutAnimation(
+                    () => closeCard(),
+                    { duration: 1, ease: "linear" }
+                )
+
+                closeControls.pause()
+                closeControls.time = 0.5
+
+                await new Promise((resolve) => frame.postRender(resolve))
+
+                const openControls2 = await runLayoutAnimation(
+                    () => openCard("b"),
+                    { duration: 1, ease: "linear" }
+                )
+
+                openControls2.pause()
+                openControls2.time = 0.5
+
+                await new Promise((resolve) => frame.postRender(resolve))
+
+                matchViewportBox(
+                    document.querySelector("li .card-content"),
+                    document.querySelector(
+                        ".card-content-container .card-content"
+                    ).getBoundingClientRect(),
+                    5
+                )
+
+                matchViewportBox(
+                    document.querySelector("li .card-content"),
+                    { top: 140, left: 120, right: 520, bottom: 449 },
+                    5
+                )
+
+                matchViewportBox(
+                    document.querySelector("li .title-container"),
+                    { top: 157, left: 137, right: 337, bottom: 220 },
+                    5
+                )
+
+                matchViewportBox(
+                    document.querySelector("li .title-container"),
+                    document.querySelector(
+                        ".card-content-container .title-container"
+                    ).getBoundingClientRect(),
+                    5
+                )
+            }
+
+            runTest().catch(console.error)
+        </script>
+    </body>
+</html>

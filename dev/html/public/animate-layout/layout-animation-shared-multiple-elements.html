@@ -1,0 +1,157 @@
+<html>
+    <head>
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+            }
+
+            #container {
+                width: 500px;
+                height: 500px;
+                background-color: #f0f0f0;
+                position: relative;
+            }
+
+            .box-a {
+                width: 80px;
+                height: 80px;
+                background-color: #00cc88;
+                margin: 10px;
+                display: inline-block;
+            }
+
+            #hero-b {
+                position: absolute;
+                top: 300px;
+                left: 50px;
+                width: 120px;
+                height: 120px;
+                background-color: #09f;
+            }
+
+            #sidebar-b {
+                position: absolute;
+                top: 300px;
+                left: 200px;
+                width: 100px;
+                height: 100px;
+                background-color: #f90;
+            }
+
+            [data-layout-correct="false"] {
+                background: #dd1144 !important;
+                opacity: 0.5;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="container">
+            <div
+                id="hero-a"
+                class="box-a"
+                data-layout-id="hero"
+                data-layout-correct="true"
+            ></div>
+            <div
+                id="sidebar-a"
+                class="box-a"
+                data-layout-id="sidebar"
+                data-layout-correct="true"
+            ></div>
+        </div>
+
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module" src="/src/imports/script-assert.js"></script>
+        <script type="module">
+            const { runLayoutAnimation, frame } = window.AnimateLayout
+            const { matchViewportBox } = window.Assert
+            const container = document.getElementById("container")
+
+            // Capture original positions
+            const heroAOrigin = document
+                .getElementById("hero-a")
+                .getBoundingClientRect()
+            const sidebarAOrigin = document
+                .getElementById("sidebar-a")
+                .getBoundingClientRect()
+
+            async function runTest() {
+                const controls = await runLayoutAnimation(
+                    container,
+                    () => {
+                        container.innerHTML = `
+                        <div id="hero-b" data-layout-id="hero" data-layout-correct="true"></div>
+                        <div id="sidebar-b" data-layout-id="sidebar" data-layout-correct="true"></div>
+                    `
+                    },
+                    { duration: 10, ease: () => 0.5 }
+                )
+
+                // Wait one frame for the animation to apply
+                await new Promise((resolve) => frame.postRender(resolve))
+
+                const heroB = document.getElementById("hero-b")
+                const sidebarB = document.getElementById("sidebar-b")
+
+                const heroBTarget = {
+                    top: 300,
+                    left: 50,
+                    width: 120,
+                    height: 120,
+                }
+                const sidebarBTarget = {
+                    top: 300,
+                    left: 200,
+                    width: 100,
+                    height: 100,
+                }
+
+                // Both elements should be at 50% progress
+                const progress = 0.5
+                const expectedHero = {
+                    top: heroAOrigin.top + (heroBTarget.top - heroAOrigin.top) * progress,
+                    left: heroAOrigin.left + (heroBTarget.left - heroAOrigin.left) * progress,
+                    right:
+                        heroAOrigin.left +
+                        heroAOrigin.width +
+                        ((heroBTarget.left + heroBTarget.width) -
+                            (heroAOrigin.left + heroAOrigin.width)) *
+                            progress,
+                    bottom:
+                        heroAOrigin.top +
+                        heroAOrigin.height +
+                        ((heroBTarget.top + heroBTarget.height) -
+                            (heroAOrigin.top + heroAOrigin.height)) *
+                            progress,
+                }
+
+                const expectedSidebar = {
+                    top:
+                        sidebarAOrigin.top +
+                        (sidebarBTarget.top - sidebarAOrigin.top) * progress,
+                    left:
+                        sidebarAOrigin.left +
+                        (sidebarBTarget.left - sidebarAOrigin.left) * progress,
+                    right:
+                        sidebarAOrigin.left +
+                        sidebarAOrigin.width +
+                        ((sidebarBTarget.left + sidebarBTarget.width) -
+                            (sidebarAOrigin.left + sidebarAOrigin.width)) *
+                            progress,
+                    bottom:
+                        sidebarAOrigin.top +
+                        sidebarAOrigin.height +
+                        ((sidebarBTarget.top + sidebarBTarget.height) -
+                            (sidebarAOrigin.top + sidebarAOrigin.height)) *
+                            progress,
+                }
+
+                matchViewportBox(heroB, expectedHero)
+                matchViewportBox(sidebarB, expectedSidebar)
+            }
+
+            runTest().catch(console.error)
+        </script>
+    </body>
+</html>

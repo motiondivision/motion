@@ -1,0 +1,71 @@
+<html>
+    <head>
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+            }
+
+            #box {
+                width: 100px;
+                height: 100px;
+                background-color: #00cc88;
+            }
+
+            #box.moved {
+                position: absolute;
+                top: 100px;
+                left: 200px;
+            }
+
+            [data-layout-correct="false"] {
+                background: #dd1144 !important;
+                opacity: 0.5;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="box" data-layout></div>
+
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module" src="/src/imports/script-assert.js"></script>
+        <script type="module">
+            const { runLayoutAnimation, frame } = window.AnimateLayout
+            const { matchViewportBox, showError } = window.Assert
+            const box = document.getElementById("box")
+
+            async function runTest() {
+                // Target position from .moved class
+                const targetTop = 100
+                const targetLeft = 200
+
+                // Use the box element itself as the scope
+                // It has data-layout so it should be included in the animation
+                const controls = await runLayoutAnimation(
+                    box,
+                    () => {
+                        box.classList.add("moved")
+                    },
+                    { duration: 10, ease: "linear" }
+                )
+
+                // Pause at halfway
+                controls.pause()
+                controls.time = controls.duration * 0.5
+
+                // Wait one frame for the animation to apply
+                await new Promise((resolve) => frame.postRender(resolve))
+
+                // At halfway, the box should be at the midpoint between origin and target
+                const expectedHalfway = {
+                    top: 50,
+                    left: 100,
+                }
+
+                matchViewportBox(box, expectedHalfway)
+            }
+
+            runTest().catch(console.error)
+        </script>
+    </body>
+</html>
