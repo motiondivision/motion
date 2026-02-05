@@ -10,6 +10,8 @@ Undocumented APIs should be considered internal and may change without warning.
 
 -   `<motion />`: Ensure animation state is reset after being re-suspended.
 -   Prevent stale values when mixing `transitionEnd` and `transition.type: false`.
+-   Drag: Fix "sticky" throw velocity on initial interaciton.
+-   Drag: Ensure catching a thrown element kills its velocity.
 
 ## [12.31.2] 2026-02-05
 
