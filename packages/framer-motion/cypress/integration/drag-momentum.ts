@@ -4,11 +4,11 @@ describe("Drag Momentum", () => {
             .wait(200)
             .get("[data-testid='draggable']")
             .wait(200)
-            .trigger("pointerdown", 25, 900)
+            .trigger("pointerdown", 25, 900, { force: true })
             .wait(300) // Simulate holding before flick
-            .trigger("pointermove", 25, 895) // Cross distance threshold
+            .trigger("pointermove", 25, 895, { force: true }) // Cross distance threshold
             .wait(50)
-            .trigger("pointermove", 25, 800) // Quick flick upward
+            .trigger("pointermove", 25, 800, { force: true }) // Quick flick upward
             .wait(50)
             .trigger("pointerup", { force: true })
             .wait(500) // Wait for momentum to carry element
@@ -29,10 +29,10 @@ describe("Drag Momentum", () => {
             .get("[data-testid='draggable']")
             .wait(200)
             // Perform a drag-and-throw upward
-            .trigger("pointerdown", 25, 900)
-            .trigger("pointermove", 25, 895) // Cross distance threshold
+            .trigger("pointerdown", 25, 900, { force: true })
+            .trigger("pointermove", 25, 895, { force: true }) // Cross distance threshold
             .wait(50)
-            .trigger("pointermove", 25, 700)
+            .trigger("pointermove", 25, 700, { force: true })
             .wait(50)
             .trigger("pointerup", { force: true })
             // Wait for momentum to start
