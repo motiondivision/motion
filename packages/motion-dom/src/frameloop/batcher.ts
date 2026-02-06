@@ -73,9 +73,15 @@ export function createRenderBatcher(
         runNextFrame = true
         useDefaultElapsed = true
 
-        // Skip rAF scheduling when using a custom driver (e.g., Remotion)
-        // In this case, processFrame() is called manually to advance animations
-        if (!state.isProcessing && !MotionGlobalConfig.driver) {
+        // Skip rAF scheduling when using a custom driver (e.g., Remotion).
+        // In this case, processFrame() is called manually to advance animations.
+        // But always allow scheduling for non-keepAlive batchers (microtask batcher)
+        // since those use queueMicrotask, not rAF, and are needed for
+        // layout animation setup regardless of driver.
+        if (
+            !state.isProcessing &&
+            (!MotionGlobalConfig.driver || !allowKeepAlive)
+        ) {
             scheduleNextBatch(processBatch)
         }
     }
