@@ -1,17 +1,7 @@
 import { motion, useMotionValue } from "framer-motion"
-import { renderFrame, frame, cancelFrame } from "motion-dom"
+import { renderFrame } from "motion-dom"
 import { MotionGlobalConfig } from "motion-utils"
 import { useCallback, useEffect, useState } from "react"
-
-// Manual driver that doesn't auto-schedule rAF
-const manualDriver = (update: (t: number) => void) => {
-    const passTimestamp = ({ timestamp }: { timestamp: number }) => update(timestamp)
-    return {
-        start: (keepAlive = true) => frame.update(passTimestamp, keepAlive),
-        stop: () => cancelFrame(passTimestamp),
-        now: () => 0,
-    }
-}
 
 /**
  * Demo: Manual Frame Control
@@ -33,18 +23,18 @@ export const App = () => {
     // Calculate current time in ms
     const currentTime = (currentFrame / fps) * 1000
 
-    // Enable/disable manual timing mode via custom driver
+    // Enable/disable manual timing mode
     useEffect(() => {
         if (manualMode) {
-            MotionGlobalConfig.driver = manualDriver
+            MotionGlobalConfig.useManualTiming = true
             // Reset to frame 0 when entering manual mode
             setCurrentFrame(0)
             renderFrame({ frame: 0, fps })
         } else {
-            MotionGlobalConfig.driver = undefined
+            MotionGlobalConfig.useManualTiming = undefined
         }
         return () => {
-            MotionGlobalConfig.driver = undefined
+            MotionGlobalConfig.useManualTiming = undefined
         }
     }, [manualMode, fps])
 

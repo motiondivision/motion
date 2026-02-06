@@ -19,7 +19,8 @@ export const time = {
     now: (): number => {
         if (now === undefined) {
             time.set(
-                frameData.isProcessing || MotionGlobalConfig.driver
+                frameData.isProcessing ||
+                    MotionGlobalConfig.useManualTiming
                     ? frameData.timestamp
                     : performance.now()
             )

@@ -1,3 +1,4 @@
+import { MotionGlobalConfig } from "motion-utils"
 import { processFrame, frameData } from "./frame"
 import { time } from "./sync-time"
 
@@ -31,15 +32,10 @@ interface RenderFrameOptions {
 /**
  * Manually render a single animation frame.
  *
- * Use this with a custom driver (`MotionGlobalConfig.driver`) to control
- * animation timing externally. The custom driver prevents
- * requestAnimationFrame from auto-advancing animations.
+ * Temporarily enables `useManualTiming` mode during frame processing
+ * to prevent requestAnimationFrame from auto-advancing animations.
  *
  * @example
- * // Set up custom driver first
- * MotionGlobalConfig.driver = myCustomDriver
- *
- * // Then render frames manually
  * renderFrame({ timestamp: 1000 }) // Render at 1 second
  *
  * @example
@@ -65,9 +61,16 @@ export function renderFrame(options: RenderFrameOptions = {}): void {
         frameTimestamp = frameData.timestamp + frameDelta
     }
 
+    // Temporarily enable manual timing mode during frame processing
+    const previousManualTiming = MotionGlobalConfig.useManualTiming
+    MotionGlobalConfig.useManualTiming = true
+
     // Set the synchronized time
     time.set(frameTimestamp)
 
     // Process the frame - this runs all registered callbacks
     processFrame(frameTimestamp, frameDelta)
+
+    // Restore previous manual timing setting
+    MotionGlobalConfig.useManualTiming = previousManualTiming
 }

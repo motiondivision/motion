@@ -23,12 +23,6 @@ const supportsWaapi = /*@__PURE__*/ memo(() =>
 export function supportsBrowserAnimation<T extends AnyResolvedKeyframe>(
     options: ValueAnimationOptionsWithRenderContext<T>
 ) {
-    // Disable WAAPI when a custom driver is set (e.g., Remotion)
-    // Custom drivers control timing externally, so WAAPI would desync
-    if (MotionGlobalConfig.driver) {
-        return false
-    }
-
     const { motionValue, name, repeatDelay, repeatType, damping, type } =
         options
 
@@ -47,6 +41,7 @@ export function supportsBrowserAnimation<T extends AnyResolvedKeyframe>(
     const { onUpdate, transformTemplate } = motionValue!.owner!.getProps()
 
     return (
+        !MotionGlobalConfig.useManualTiming &&
         supportsWaapi() &&
         name &&
         acceleratedValues.has(name) &&

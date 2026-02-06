@@ -234,7 +234,7 @@ export class JSAnimation<T extends number | string>
 
         // If this animation has finished, set the current time  to the total duration.
         if (this.state === "finished" && this.holdTime === null) {
-            if (MotionGlobalConfig.driver && this.currentTime < totalDuration) {
+            if (MotionGlobalConfig.useManualTiming && this.currentTime < totalDuration) {
                 this.state = "running"
             } else {
                 this.currentTime = totalDuration
@@ -400,11 +400,7 @@ export class JSAnimation<T extends number | string>
         if (this.isStopped) return
 
         const { startTime } = this.options
-        // Priority: global driver > options driver > default frameloop driver
-        const driver =
-            MotionGlobalConfig.driver ??
-            this.options.driver ??
-            frameloopDriver
+        const driver = this.options.driver ?? frameloopDriver
 
         if (!this.driver) {
             this.driver = driver((timestamp) => this.tick(timestamp))
@@ -471,7 +467,7 @@ export class JSAnimation<T extends number | string>
 
     finish() {
         this.notifyFinished()
-        if (!MotionGlobalConfig.driver) {
+        if (!MotionGlobalConfig.useManualTiming) {
             this.teardown()
         }
         this.state = "finished"

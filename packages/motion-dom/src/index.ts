@@ -72,9 +72,6 @@ export * from "./frameloop/microtask"
 export * from "./frameloop/sync-time"
 export * from "./frameloop/types"
 
-// Animation drivers
-export * from "./animation/drivers/types"
-export { frameloopDriver } from "./animation/drivers/frame"
 
 export * from "./gestures/drag/state/is-active"
 export * from "./gestures/drag/state/set-active"
@@ -89,8 +86,6 @@ export * from "./gestures/utils/is-node-or-child"
 export * from "./gestures/utils/is-primary-pointer"
 
 export * from "./node/types"
-
-export { clearFrameCache, setCurrentFrame } from "./render/frame-cache"
 
 export * from "./render/dom/parse-transform"
 export * from "./render/dom/style-computed"

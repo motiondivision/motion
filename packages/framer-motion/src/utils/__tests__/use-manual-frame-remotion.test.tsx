@@ -4,22 +4,12 @@
  * In production, wrap your composition with `<MotionRemotion>` from `motion-remotion`.
  */
 
-import { motionValue, Variants, renderFrame, setCurrentFrame, clearFrameCache, frame as frameLoop, cancelFrame, frameData } from "motion-dom"
+import { motionValue, Variants, renderFrame } from "motion-dom"
 import { MotionGlobalConfig } from "motion-utils"
-import { createContext, useContext, ReactNode, useEffect, useLayoutEffect, useRef } from "react"
+import { createContext, useContext, ReactNode, useInsertionEffect, useLayoutEffect, useRef } from "react"
 import { act } from "react"
 import { motion, AnimatePresence } from "../../"
 import { render } from "../../jest.setup"
-
-// Mock driver (same as remotionDriver but inline for tests)
-const mockRemotionDriver = (update: (t: number) => void) => {
-    const passTimestamp = ({ timestamp }: { timestamp: number }) => update(timestamp)
-    return {
-        start: (keepAlive = true) => frameLoop.update(passTimestamp, keepAlive),
-        stop: () => cancelFrame(passTimestamp),
-        now: () => frameData.timestamp,
-    }
-}
 
 // Mock Remotion API
 interface VideoConfig {
@@ -89,48 +79,80 @@ function AbsoluteFill({ children, style }: { children: ReactNode; style?: React.
 
 /**
  * Test bridge that mirrors MotionRemotion from the plus repo.
- * Uses renderFrame + setCurrentFrame directly (no useManualFrame hook).
+ * Uses renderFrame with style-capture for backward scrubbing.
  */
 function MotionRemotionBridge({ children }: { children: ReactNode }) {
     const currentFrame = useCurrentFrame()
     const { fps } = useVideoConfig()
     const prevFrame = useRef<number>(-1)
+    const containerRef = useRef<HTMLDivElement>(null)
+    const styleCacheRef = useRef<Map<number, Map<Element, { style: string; attrs?: Record<string, string> }>>>(new Map())
+
+    useInsertionEffect(() => {
+        MotionGlobalConfig.useManualTiming = true
+        return () => { MotionGlobalConfig.useManualTiming = undefined }
+    }, [])
 
     useLayoutEffect(() => {
-        setCurrentFrame(currentFrame)
+        const captureStyles = (frameNum: number) => {
+            if (!containerRef.current) return
+            const elements = containerRef.current.querySelectorAll('*')
+            const frameStyles = new Map<Element, { style: string; attrs?: Record<string, string> }>()
+            elements.forEach((el) => {
+                const entry: { style: string; attrs?: Record<string, string> } = {
+                    style: (el as HTMLElement).style.cssText,
+                }
+                if (el instanceof SVGElement && !(el instanceof HTMLElement)) {
+                    const attrs: Record<string, string> = {}
+                    el.getAttributeNames().forEach((name) => {
+                        attrs[name] = el.getAttribute(name)!
+                    })
+                    entry.attrs = attrs
+                }
+                frameStyles.set(el, entry)
+            })
+            styleCacheRef.current.set(frameNum, frameStyles)
+        }
+
+        const applyCachedStyles = (frameNum: number) => {
+            const frameStyles = styleCacheRef.current.get(frameNum)
+            if (!frameStyles) return false
+            frameStyles.forEach((cached, el) => {
+                (el as HTMLElement).style.cssText = cached.style
+                if (cached.attrs) {
+                    for (const name in cached.attrs) {
+                        (el as SVGElement).setAttribute(name, cached.attrs[name])
+                    }
+                }
+            })
+            return true
+        }
 
         if (prevFrame.current < 0) {
             renderFrame({ frame: currentFrame, fps })
+            captureStyles(currentFrame)
         } else if (currentFrame > prevFrame.current) {
-            // Forward: render intermediate frames to build cache
+            // Forward: render intermediate frames
             for (let i = prevFrame.current + 1; i <= currentFrame; i++) {
-                setCurrentFrame(i)
+                renderFrame({ frame: i, fps })
+                captureStyles(i)
+            }
+        } else if (currentFrame < prevFrame.current) {
+            // Backward: re-render from 0 to update motionValues,
+            // then apply cached styles for layout animations
+            for (let i = 0; i <= currentFrame; i++) {
                 renderFrame({ frame: i, fps })
             }
-            setCurrentFrame(currentFrame)
-        } else if (currentFrame < prevFrame.current) {
-            // Backward: JSAnimation fix handles time reversal
-            renderFrame({ frame: currentFrame, fps })
+            applyCachedStyles(currentFrame)
         }
 
         prevFrame.current = currentFrame
-        return () => setCurrentFrame(undefined)
     }, [currentFrame, fps])
 
-    useEffect(() => () => clearFrameCache(), [])
-
-    return <>{children}</>
+    return <div ref={containerRef} style={{ display: 'contents' }}>{children}</div>
 }
 
 describe("Remotion Integration", () => {
-    beforeEach(() => {
-        MotionGlobalConfig.driver = mockRemotionDriver
-    })
-
-    afterEach(() => {
-        MotionGlobalConfig.driver = undefined
-    })
-
     describe("Mocked Remotion Environment", () => {
         test("renders correctly at typical Remotion FPS values (30fps)", async () => {
             const x = motionValue(0)
@@ -932,21 +954,22 @@ describe("Remotion Integration", () => {
                 const { fps } = useVideoConfig()
                 const prevFrame = useRef<number>(-1)
 
+                useInsertionEffect(() => {
+                    MotionGlobalConfig.useManualTiming = true
+                    return () => { MotionGlobalConfig.useManualTiming = undefined }
+                }, [])
+
                 useLayoutEffect(() => {
-                    setCurrentFrame(frame)
                     if (prevFrame.current < 0) {
                         renderFrame({ frame, fps })
                     } else if (frame > prevFrame.current) {
                         for (let i = prevFrame.current + 1; i <= frame; i++) {
-                            setCurrentFrame(i)
                             renderFrame({ frame: i, fps })
                         }
-                        setCurrentFrame(frame)
                     } else if (frame < prevFrame.current) {
                         renderFrame({ frame, fps })
                     }
                     prevFrame.current = frame
-                    return () => setCurrentFrame(undefined)
                 }, [frame, fps])
 
                 return (
@@ -1013,21 +1036,22 @@ describe("Remotion Integration", () => {
                 const { fps } = useVideoConfig()
                 const prevFrame = useRef<number>(-1)
 
+                useInsertionEffect(() => {
+                    MotionGlobalConfig.useManualTiming = true
+                    return () => { MotionGlobalConfig.useManualTiming = undefined }
+                }, [])
+
                 useLayoutEffect(() => {
-                    setCurrentFrame(frame)
                     if (prevFrame.current < 0) {
                         renderFrame({ frame, fps })
                     } else if (frame > prevFrame.current) {
                         for (let i = prevFrame.current + 1; i <= frame; i++) {
-                            setCurrentFrame(i)
                             renderFrame({ frame: i, fps })
                         }
-                        setCurrentFrame(frame)
                     } else if (frame < prevFrame.current) {
                         renderFrame({ frame, fps })
                     }
                     prevFrame.current = frame
-                    return () => setCurrentFrame(undefined)
                 }, [frame, fps])
 
                 return <>{children}</>

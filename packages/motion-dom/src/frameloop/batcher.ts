@@ -40,12 +40,19 @@ export function createRenderBatcher(
     } = steps
 
     const processBatch = () => {
-        const timestamp = performance.now()
+        const timestamp = MotionGlobalConfig.useManualTiming
+            ? state.timestamp
+            : performance.now()
         runNextFrame = false
 
-        state.delta = useDefaultElapsed
-            ? 1000 / 60
-            : Math.max(Math.min(timestamp - state.timestamp, maxElapsed), 1)
+        if (!MotionGlobalConfig.useManualTiming) {
+            state.delta = useDefaultElapsed
+                ? 1000 / 60
+                : Math.max(
+                      Math.min(timestamp - state.timestamp, maxElapsed),
+                      1
+                  )
+        }
 
         state.timestamp = timestamp
         state.isProcessing = true
@@ -62,8 +69,7 @@ export function createRenderBatcher(
 
         state.isProcessing = false
 
-        // Skip rAF scheduling when using a custom driver (e.g., Remotion)
-        if (runNextFrame && allowKeepAlive && !MotionGlobalConfig.driver) {
+        if (runNextFrame && allowKeepAlive && !MotionGlobalConfig.useManualTiming) {
             useDefaultElapsed = false
             scheduleNextBatch(processBatch)
         }
@@ -73,14 +79,9 @@ export function createRenderBatcher(
         runNextFrame = true
         useDefaultElapsed = true
 
-        // Skip rAF scheduling when using a custom driver (e.g., Remotion).
-        // In this case, processFrame() is called manually to advance animations.
-        // But always allow scheduling for non-keepAlive batchers (microtask batcher)
-        // since those use queueMicrotask, not rAF, and are needed for
-        // layout animation setup regardless of driver.
         if (
             !state.isProcessing &&
-            (!MotionGlobalConfig.driver || !allowKeepAlive)
+            (!MotionGlobalConfig.useManualTiming || !allowKeepAlive)
         ) {
             scheduleNextBatch(processBatch)
         }

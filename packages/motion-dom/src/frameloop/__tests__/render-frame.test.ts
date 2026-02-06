@@ -2,21 +2,14 @@ import { MotionGlobalConfig } from "motion-utils"
 import { frame, cancelFrame } from ".."
 import { renderFrame } from "../render-frame"
 
-// Mock driver that doesn't auto-schedule rAF
-const mockDriver = () => ({
-    start: () => {},
-    stop: () => {},
-    now: () => 0,
-})
-
 describe("renderFrame", () => {
     beforeEach(() => {
-        // Set mock driver to prevent rAF scheduling
-        MotionGlobalConfig.driver = mockDriver
+        // Set useManualTiming to prevent rAF scheduling
+        MotionGlobalConfig.useManualTiming = true
     })
 
     afterEach(() => {
-        MotionGlobalConfig.driver = undefined
+        MotionGlobalConfig.useManualTiming = undefined
     })
 
     it("processes scheduled callbacks with provided timestamp", () => {
