@@ -1245,4 +1245,149 @@ describe("AnimatePresence with custom components", () => {
             })
         })
     })
+
+    test("Removes exiting children during rapid key switches with dynamic custom variants", async () => {
+        const variants: Variants = {
+            enter: (custom: string) => ({
+                ...(custom === "fade"
+                    ? { opacity: 0 }
+                    : { x: -100 }),
+                transition: { duration: 0.1 },
+            }),
+            center: {
+                opacity: 1,
+                x: 0,
+                transition: { duration: 0.1 },
+            },
+            exit: (custom: string) => ({
+                ...(custom === "fade"
+                    ? { opacity: 0 }
+                    : { x: 100 }),
+                transition: { duration: 0.1 },
+            }),
+        }
+
+        const items = [
+            { id: "a", transition: "fade" },
+            { id: "b", transition: "slide" },
+            { id: "c", transition: "fade" },
+            { id: "d", transition: "slide" },
+        ]
+
+        const Component = ({ active }: { active: number }) => {
+            const item = items[active]
+            return (
+                <AnimatePresence custom={item.transition}>
+                    <motion.div
+                        key={item.id}
+                        data-testid={item.id}
+                        variants={variants}
+                        initial="enter"
+                        animate="center"
+                        exit="exit"
+                        custom={item.transition}
+                    />
+                </AnimatePresence>
+            )
+        }
+
+        const { container, rerender } = render(<Component active={0} />)
+        rerender(<Component active={0} />)
+
+        // Rapidly switch through all items
+        await act(async () => {
+            rerender(<Component active={1} />)
+        })
+        await act(async () => {
+            rerender(<Component active={2} />)
+        })
+        await act(async () => {
+            rerender(<Component active={3} />)
+        })
+
+        // Wait for all exit animations to complete
+        await new Promise((resolve) => setTimeout(resolve, 500))
+        await act(async () => {
+            await nextFrame()
+            await nextFrame()
+        })
+
+        // Only the last item should remain
+        expect(container.childElementCount).toBe(1)
+    })
+
+    test("Fires onExitComplete during rapid key switches with dynamic custom variants", async () => {
+        const variants: Variants = {
+            enter: (custom: string) => ({
+                ...(custom === "fade"
+                    ? { opacity: 0 }
+                    : { x: -100 }),
+                transition: { duration: 0.1 },
+            }),
+            center: {
+                opacity: 1,
+                x: 0,
+                transition: { duration: 0.1 },
+            },
+            exit: (custom: string) => ({
+                ...(custom === "fade"
+                    ? { opacity: 0 }
+                    : { x: 100 }),
+                transition: { duration: 0.1 },
+            }),
+        }
+
+        const items = [
+            { id: "a", transition: "fade" },
+            { id: "b", transition: "slide" },
+            { id: "c", transition: "fade" },
+            { id: "d", transition: "slide" },
+        ]
+
+        let exitCompleteCount = 0
+
+        const Component = ({ active }: { active: number }) => {
+            const item = items[active]
+            return (
+                <AnimatePresence
+                    custom={item.transition}
+                    onExitComplete={() => {
+                        exitCompleteCount++
+                    }}
+                >
+                    <motion.div
+                        key={item.id}
+                        variants={variants}
+                        initial="enter"
+                        animate="center"
+                        exit="exit"
+                        custom={item.transition}
+                    />
+                </AnimatePresence>
+            )
+        }
+
+        const { rerender } = render(<Component active={0} />)
+        rerender(<Component active={0} />)
+
+        // Rapidly switch through all items
+        await act(async () => {
+            rerender(<Component active={1} />)
+        })
+        await act(async () => {
+            rerender(<Component active={2} />)
+        })
+        await act(async () => {
+            rerender(<Component active={3} />)
+        })
+
+        // Wait for all exit animations to complete
+        await new Promise((resolve) => setTimeout(resolve, 500))
+        await act(async () => {
+            await nextFrame()
+            await nextFrame()
+        })
+
+        expect(exitCompleteCount).toBeGreaterThan(0)
+    })
 })
