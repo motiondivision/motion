@@ -8,6 +8,16 @@ export class NodeStack {
 
     add(node: IProjectionNode) {
         addUniqueItem(this.members, node)
+
+        for (let i = this.members.length - 1; i >= 0; i--) {
+            const m = this.members[i]
+            if (m === node || m === this.lead || m === this.prevLead) continue
+            const inst = m.instance as HTMLElement | undefined
+            if (inst && inst.isConnected === false && m.isPresent !== false && !m.snapshot) {
+                removeItem(this.members, m)
+            }
+        }
+
         node.scheduleRender()
     }
 
@@ -34,7 +44,8 @@ export class NodeStack {
         let prevLead: IProjectionNode | undefined
         for (let i = indexOfNode; i >= 0; i--) {
             const member = this.members[i]
-            if (member.isPresent !== false) {
+            const inst = member.instance as HTMLElement | undefined
+            if (member.isPresent !== false && (!inst || inst.isConnected !== false)) {
                 prevLead = member
                 break
             }
@@ -76,20 +87,25 @@ export class NodeStack {
                 prevDep === nextDep
 
             if (!dependencyMatches) {
-                node.resumeFrom = prevLead
+                const prevInstance = prevLead.instance as HTMLElement | undefined
+                const isStale = prevInstance && prevInstance.isConnected === false && !prevLead.snapshot
 
-                if (preserveFollowOpacity) {
-                    node.resumeFrom.preserveOpacity = true
-                }
+                if (!isStale) {
+                    node.resumeFrom = prevLead
 
-                if (prevLead.snapshot) {
-                    node.snapshot = prevLead.snapshot
-                    node.snapshot.latestValues =
-                        prevLead.animationValues || prevLead.latestValues
-                }
+                    if (preserveFollowOpacity) {
+                        node.resumeFrom.preserveOpacity = true
+                    }
 
-                if (node.root && node.root.isUpdating) {
-                    node.isLayoutDirty = true
+                    if (prevLead.snapshot) {
+                        node.snapshot = prevLead.snapshot
+                        node.snapshot.latestValues =
+                            prevLead.animationValues || prevLead.latestValues
+                    }
+
+                    if (node.root && node.root.isUpdating) {
+                        node.isLayoutDirty = true
+                    }
                 }
             }
 
