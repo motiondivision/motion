@@ -198,6 +198,23 @@ export function createAnimationState(visualElement: any): AnimationState {
             }
 
             /**
+             * If exit is already active and wasn't just activated, skip
+             * re-processing to prevent interrupting running exit animations.
+             * Re-resolving exit with a changed custom value can start new
+             * value animations that stop the originals, leaving the exit
+             * animation promise unresolved and the component stuck in the DOM.
+             */
+            if (type === "exit" && typeState.isActive && activeDelta !== true) {
+                if (typeState.prevResolvedValues) {
+                    encounteredKeys = {
+                        ...encounteredKeys,
+                        ...typeState.prevResolvedValues,
+                    }
+                }
+                continue
+            }
+
+            /**
              * As we go look through the values defined on this type, if we detect
              * a changed value or a value that was removed in a higher priority, we set
              * this to true and add this prop to the animation list.
