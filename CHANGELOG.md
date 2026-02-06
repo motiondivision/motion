@@ -4,6 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.33.1] 2026-02-06
+
+### Fixed
+
+-   `AnimatePresence`: Ensure exiting nodes are correctly removed when rapidly switching children.
+
 ## [12.33.0] 2026-02-05
 
 ### Added
