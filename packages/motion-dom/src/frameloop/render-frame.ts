@@ -31,25 +31,20 @@ interface RenderFrameOptions {
 /**
  * Manually render a single animation frame.
  *
- * Use this with a custom driver (e.g., `remotionDriver` from `motion-remotion`)
- * to control animation timing externally. The custom driver prevents
+ * Use this with a custom driver (`MotionGlobalConfig.driver`) to control
+ * animation timing externally. The custom driver prevents
  * requestAnimationFrame from auto-advancing animations.
  *
  * @example
  * // Set up custom driver first
- * import { remotionDriver } from 'motion-remotion'
- * MotionGlobalConfig.driver = remotionDriver
+ * MotionGlobalConfig.driver = myCustomDriver
  *
  * // Then render frames manually
  * renderFrame({ timestamp: 1000 }) // Render at 1 second
  *
  * @example
- * // Using frame number (Remotion-style)
+ * // Using frame number
  * renderFrame({ frame: 30, fps: 30 }) // Render at frame 30 (1 second at 30fps)
- *
- * @example
- * // For Remotion, use the useRemotionFrame hook which handles this automatically
- * import { useRemotionFrame } from 'motion-remotion'
  */
 export function renderFrame(options: RenderFrameOptions = {}): void {
     const { timestamp, frame, fps = 30, delta } = options
