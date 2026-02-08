@@ -1,7 +1,9 @@
 import { MotionValue, motionValue } from "."
 import { JSAnimation } from "../animation/JSAnimation"
+import { spring } from "../animation/generators/spring"
 import { AnyResolvedKeyframe, ValueAnimationTransition } from "../animation/types"
 import { frame } from "../frameloop"
+import { supportsLinearEasing } from "../utils/supports/linear-easing"
 import { isMotionValue } from "./utils/is-motion-value"
 
 /**
@@ -111,6 +113,22 @@ export function attachFollow<T extends AnyResolvedKeyframe>(
             })
         })
     }, stopAnimation)
+
+    const resolvedType = options.type ?? "spring"
+    if (
+        resolvedType === "spring" &&
+        options.damping !== 0 &&
+        supportsLinearEasing()
+    ) {
+        const { type, onUpdate, onComplete, onPlay, onRepeat, onStop, ...springOptions } = options as any
+        value.accelerate = {
+            factory: spring,
+            options: springOptions,
+            times: [0, 1],
+            keyframes: [0, 1],
+            ease: "linear",
+        }
+    }
 
     if (isMotionValue(source)) {
         const removeSourceOnChange = source.on("change", (v) =>

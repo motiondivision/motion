@@ -1,5 +1,8 @@
 import { syncDriver } from "../../animation/__tests__/utils"
+import { spring } from "../../animation/generators/spring"
+import { supportsFlags } from "../../utils/supports/flags"
 import { motionValue } from "../index"
+import { attachFollow } from "../follow-value"
 import { attachSpring, springValue } from "../spring-value"
 
 describe("springValue types", () => {
@@ -190,3 +193,92 @@ const runSpringTests = (unit?: string | undefined) => {
 // Run tests for both number values and percentage values
 runSpringTests()
 runSpringTests("%")
+
+describe("spring accelerate config", () => {
+    afterEach(() => {
+        supportsFlags.linearEasing = undefined
+    })
+
+    test("sets .accelerate on MotionValue when spring type and linear easing supported", () => {
+        supportsFlags.linearEasing = true
+
+        const source = motionValue(0)
+        const value = motionValue(0)
+        attachFollow(value, source, { type: "spring" })
+
+        expect(value.accelerate).toBeDefined()
+        expect(value.accelerate!.factory).toBe(spring)
+        expect(value.accelerate!.times).toEqual([0, 1])
+        expect(value.accelerate!.keyframes).toEqual([0, 1])
+        expect(value.accelerate!.ease).toBe("linear")
+    })
+
+    test("does not set .accelerate when linear easing is not supported", () => {
+        supportsFlags.linearEasing = false
+
+        const source = motionValue(0)
+        const value = motionValue(0)
+        attachFollow(value, source, { type: "spring" })
+
+        expect(value.accelerate).toBeUndefined()
+    })
+
+    test("does not set .accelerate when damping is 0", () => {
+        supportsFlags.linearEasing = true
+
+        const source = motionValue(0)
+        const value = motionValue(0)
+        attachFollow(value, source, { type: "spring", damping: 0 })
+
+        expect(value.accelerate).toBeUndefined()
+    })
+
+    test("does not set .accelerate for non-spring type", () => {
+        supportsFlags.linearEasing = true
+
+        const source = motionValue(0)
+        const value = motionValue(0)
+        attachFollow(value, source, { type: "keyframes" })
+
+        expect(value.accelerate).toBeUndefined()
+    })
+
+    test("passes spring options through accelerate config", () => {
+        supportsFlags.linearEasing = true
+
+        const source = motionValue(0)
+        const value = motionValue(0)
+        attachFollow(value, source, {
+            type: "spring",
+            stiffness: 300,
+            damping: 20,
+            mass: 2,
+        })
+
+        expect(value.accelerate).toBeDefined()
+        expect(value.accelerate!.options.stiffness).toBe(300)
+        expect(value.accelerate!.options.damping).toBe(20)
+        expect(value.accelerate!.options.mass).toBe(2)
+    })
+
+    test("springValue sets .accelerate when linear easing supported", () => {
+        supportsFlags.linearEasing = true
+
+        const source = motionValue(0)
+        const sv = springValue(source)
+
+        expect(sv.accelerate).toBeDefined()
+        expect(sv.accelerate!.factory).toBe(spring)
+    })
+
+    test("attachSpring sets .accelerate when linear easing supported", () => {
+        supportsFlags.linearEasing = true
+
+        const source = motionValue(0)
+        const value = motionValue(0)
+        attachSpring(value, source)
+
+        expect(value.accelerate).toBeDefined()
+        expect(value.accelerate!.factory).toBe(spring)
+    })
+})

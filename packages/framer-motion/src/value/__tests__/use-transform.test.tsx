@@ -1,9 +1,10 @@
-import { motionValue, MotionValue } from "motion-dom"
+import { motionValue, MotionValue, spring, supportsFlags } from "motion-dom"
 import { useEffect } from "react"
 import { cancelFrame, frame, motion } from "../../"
 import { nextFrame, nextMicrotask } from "../../gestures/__tests__/utils"
 import { render } from "../../jest.setup"
 import { useMotionValue } from "../use-motion-value"
+import { useSpring } from "../use-spring"
 import { useTransform } from "../use-transform"
 
 describe("as function", () => {
@@ -483,5 +484,108 @@ describe("as output map", () => {
         expect(container.firstChild).toHaveStyle("filter: blur(10px)")
         expect(container.firstChild).toHaveStyle("opacity: 0.5")
         expect(container.firstChild).toHaveStyle("transform: scale(0.5)")
+    })
+})
+
+describe("accelerate propagation", () => {
+    afterEach(() => {
+        supportsFlags.linearEasing = undefined
+    })
+
+    test("propagates .accelerate from useSpring through range-based useTransform", async () => {
+        supportsFlags.linearEasing = true
+
+        let outputAccelerate: any
+
+        const Component = () => {
+            const x = useSpring(0)
+            const opacity = useTransform(x, [0, 1], [0, 1])
+            outputAccelerate = opacity.accelerate
+            return <motion.div style={{ opacity }} />
+        }
+
+        render(<Component />)
+
+        expect(outputAccelerate).toBeDefined()
+        expect(outputAccelerate.factory).toBe(spring)
+        expect(outputAccelerate.times).toEqual([0, 1])
+        expect(outputAccelerate.keyframes).toEqual([0, 1])
+        expect(outputAccelerate.ease).toBe("linear")
+    })
+
+    test("replaces times and keyframes from useTransform ranges", async () => {
+        supportsFlags.linearEasing = true
+
+        let outputAccelerate: any
+
+        const Component = () => {
+            const x = useSpring(0)
+            const opacity = useTransform(x, [0, 0.5, 1], [0, 0.8, 1])
+            outputAccelerate = opacity.accelerate
+            return <motion.div style={{ opacity }} />
+        }
+
+        render(<Component />)
+
+        expect(outputAccelerate).toBeDefined()
+        expect(outputAccelerate.times).toEqual([0, 0.5, 1])
+        expect(outputAccelerate.keyframes).toEqual([0, 0.8, 1])
+    })
+
+    test("does not propagate .accelerate when clamp is false", async () => {
+        supportsFlags.linearEasing = true
+
+        let outputAccelerate: any
+
+        const Component = () => {
+            const x = useSpring(0)
+            const opacity = useTransform(x, [0, 1], [0, 1], {
+                clamp: false,
+            })
+            outputAccelerate = opacity.accelerate
+            return <motion.div style={{ opacity }} />
+        }
+
+        render(<Component />)
+
+        expect(outputAccelerate).toBeUndefined()
+    })
+
+    test("does not propagate .accelerate for function-based useTransform", async () => {
+        supportsFlags.linearEasing = true
+
+        let outputAccelerate: any
+
+        const Component = () => {
+            const x = useSpring(0)
+            const opacity = useTransform(x, (v) => v)
+            outputAccelerate = opacity.accelerate
+            return <motion.div style={{ opacity }} />
+        }
+
+        render(<Component />)
+
+        expect(outputAccelerate).toBeUndefined()
+    })
+
+    test("uses custom ease from useTransform options", async () => {
+        supportsFlags.linearEasing = true
+
+        let outputAccelerate: any
+        const customEase = (v: number) => v * v
+
+        const Component = () => {
+            const x = useSpring(0)
+            const opacity = useTransform(x, [0, 1], [0, 1], {
+                ease: customEase,
+            })
+            outputAccelerate = opacity.accelerate
+            return <motion.div style={{ opacity }} />
+        }
+
+        render(<Component />)
+
+        expect(outputAccelerate).toBeDefined()
+        expect(outputAccelerate.ease).toBe(customEase)
     })
 })

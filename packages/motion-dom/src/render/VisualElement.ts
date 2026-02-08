@@ -12,6 +12,8 @@ import { motionValue, MotionValue } from "../value"
 import { isMotionValue } from "../value/utils/is-motion-value"
 import { KeyframeResolver } from "../animation/keyframes/KeyframesResolver"
 import type { AnyResolvedKeyframe } from "../animation/types"
+import { acceleratedValues } from "../animation/waapi/utils/accelerated-values"
+import { mapEasingToNativeEasing } from "../animation/waapi/easing/map-easing"
 import { transformProps } from "./utils/keys-transform"
 import { complex } from "../value/types/complex"
 import { findValueType } from "../value/types/utils/find"
@@ -556,6 +558,81 @@ export abstract class VisualElement<
             }
         )
 
+        /**
+         * If the value has an accelerate config and this key can be
+         * hardware-accelerated, set up a WAAPI animation driven by
+         * the spring's easing curve whenever the spring starts.
+         */
+        let activeAcceleration: Animation | undefined
+        let removeAnimationStart: VoidFunction | undefined
+
+        if (
+            value.accelerate &&
+            this.current instanceof HTMLElement &&
+            acceleratedValues.has(key)
+        ) {
+            const element = this.current
+
+            removeAnimationStart = value.on("animationStart", () => {
+                if (activeAcceleration) {
+                    try { activeAcceleration.cancel() } catch (e) {}
+                    activeAcceleration = undefined
+                }
+
+                const accel = value.accelerate
+                if (!accel) return
+
+                const {
+                    factory,
+                    options: springOptions,
+                    keyframes,
+                    times,
+                    ease,
+                } = accel
+
+                // Use factory.applyToOptions to compute spring easing + duration
+                const transition = { ...springOptions }
+                factory.applyToOptions!(transition)
+
+                const springDuration = transition.duration as number
+                const springEase = transition.ease
+
+                // Build keyframe options
+                const keyframeOptions: PropertyIndexedKeyframes = {
+                    [key]: keyframes as string[],
+                }
+                if (times) keyframeOptions.offset = times
+
+                // Apply per-segment easing from useTransform
+                const segmentEasing = mapEasingToNativeEasing(
+                    ease as any,
+                    springDuration
+                )
+                if (Array.isArray(segmentEasing)) {
+                    keyframeOptions.easing = segmentEasing
+                }
+
+                // Convert spring easing to linear() CSS string
+                const overallEasing = mapEasingToNativeEasing(
+                    springEase as any,
+                    springDuration
+                )
+
+                activeAcceleration = element.animate(keyframeOptions, {
+                    duration: springDuration,
+                    easing:
+                        typeof overallEasing === "string"
+                            ? overallEasing
+                            : "linear",
+                    fill: "both",
+                })
+
+                activeAcceleration.onfinish = () => {
+                    activeAcceleration = undefined
+                }
+            })
+        }
+
         let removeSyncCheck: VoidFunction | void
         if (typeof window !== "undefined" && (window as any).MotionCheckAppearSync) {
             removeSyncCheck = (window as any).MotionCheckAppearSync(this, key, value)
@@ -563,6 +640,10 @@ export abstract class VisualElement<
 
         this.valueSubscriptions.set(key, () => {
             removeOnChange()
+            removeAnimationStart?.()
+            if (activeAcceleration) {
+                try { activeAcceleration.cancel() } catch (e) {}
+            }
             if (removeSyncCheck) removeSyncCheck()
             if (value.owner) value.stop()
         })

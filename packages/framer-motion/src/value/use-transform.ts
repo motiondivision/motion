@@ -203,19 +203,43 @@ export function useTransform<I, O, K extends string>(
     }
 
     const outputRange = outputRangeOrMap as O[] | undefined
+    const inputRange = inputRangeOrTransformer as InputRange | undefined
     const transformer =
         typeof inputRangeOrTransformer === "function"
             ? inputRangeOrTransformer
             : transform(inputRangeOrTransformer!, outputRange!, options)
 
-    return Array.isArray(input)
-        ? useListTransform(
-              input,
-              transformer as MultiTransformer<AnyResolvedKeyframe, O>
-          )
-        : useListTransform([input], ([latest]) =>
-              (transformer as SingleTransformer<I, O>)(latest)
-          )
+    if (Array.isArray(input)) {
+        return useListTransform(
+            input,
+            transformer as MultiTransformer<AnyResolvedKeyframe, O>
+        )
+    }
+
+    const result = useListTransform([input], ([latest]) =>
+        (transformer as SingleTransformer<I, O>)(latest)
+    )
+
+    /**
+     * If the input value has an accelerate config and this is a
+     * range-based transform with clamp enabled (default), propagate
+     * the accelerate config with the transform's ranges and easing.
+     */
+    if (
+        input.accelerate &&
+        inputRange &&
+        outputRange &&
+        options?.clamp !== false
+    ) {
+        result.accelerate = {
+            ...input.accelerate,
+            times: inputRange,
+            keyframes: outputRange as AnyResolvedKeyframe[],
+            ease: options?.ease || input.accelerate.ease,
+        }
+    }
+
+    return result
 }
 
 function useListTransform<I, O>(

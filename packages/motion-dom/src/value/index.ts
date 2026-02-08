@@ -1,7 +1,8 @@
-import { SubscriptionManager, velocityPerSecond, warnOnce } from "motion-utils"
+import { Easing, SubscriptionManager, velocityPerSecond, warnOnce } from "motion-utils"
 import {
     AnimationPlaybackControlsWithThen,
     AnyResolvedKeyframe,
+    GeneratorFactory,
     TransformProperties,
 } from "../animation/types"
 import { frame } from "../frameloop"
@@ -52,6 +53,14 @@ export interface Owner {
             generatedTransform: string
         ) => string
     }
+}
+
+export interface AccelerateConfig {
+    factory: GeneratorFactory
+    options: Record<string, any>
+    times: number[]
+    keyframes: AnyResolvedKeyframe[]
+    ease: Easing | Easing[]
 }
 
 export interface MotionValueOptions {
@@ -140,6 +149,12 @@ export class MotionValue<V = any> {
      * Tracks whether this value should be removed
      */
     liveStyle?: boolean
+
+    /**
+     * If set, this value can be hardware-accelerated via WAAPI.
+     * Carries the animation recipe through useSpring → useTransform → bindToMotionValue.
+     */
+    accelerate?: AccelerateConfig
 
     /**
      * @param init - The initiating value
