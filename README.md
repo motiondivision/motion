@@ -104,7 +104,7 @@ A one-time payment, lifetime-updates membership:
 
 ## 💎 Contribute
 
--   Want to contribute to Motion? Our [contributing guide](https://github.com/motiondivision/motion/blob/master/CONTRIBUTING.md) has you covered.
+-   Want to contribute to Motion? Our [contributing guide](CONTRIBUTING.md) has you covered.
 
 ## ✨ Sponsors
 
