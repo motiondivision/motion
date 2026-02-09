@@ -4,6 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.34.0] 2026-02-09
+
+### Fixed
+
+-   `useScroll`: Hardware accelerated animations.
+
 ## [12.33.2] 2026-02-06
 
 ### Fixed
