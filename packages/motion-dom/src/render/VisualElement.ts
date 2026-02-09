@@ -1,49 +1,49 @@
-import { Box } from "motion-utils"
 import {
+    Box,
     isNumericalString,
     isZeroValueString,
     secondsToMilliseconds,
     SubscriptionManager,
     warnOnce,
 } from "motion-utils"
+import { KeyframeResolver } from "../animation/keyframes/KeyframesResolver"
 import { NativeAnimation } from "../animation/NativeAnimation"
+import type { AnyResolvedKeyframe } from "../animation/types"
 import { acceleratedValues } from "../animation/waapi/utils/accelerated-values"
 import { cancelFrame, frame } from "../frameloop"
 import { microtask } from "../frameloop/microtask"
 import { time } from "../frameloop/sync-time"
-import { motionValue, MotionValue } from "../value"
-import { isMotionValue } from "../value/utils/is-motion-value"
-import { KeyframeResolver } from "../animation/keyframes/KeyframesResolver"
-import type { AnyResolvedKeyframe } from "../animation/types"
-import { transformProps } from "./utils/keys-transform"
-import { complex } from "../value/types/complex"
-import { findValueType } from "../value/types/utils/find"
-import { getAnimatableNone } from "../value/types/utils/animatable-none"
 import type { MotionNodeOptions } from "../node/types"
 import { createBox } from "../projection/geometry/models"
-import {
-    initPrefersReducedMotion,
-    hasReducedMotionListener,
-    prefersReducedMotion,
-} from "./utils/reduced-motion"
+import { motionValue, MotionValue } from "../value"
+import { complex } from "../value/types/complex"
+import { getAnimatableNone } from "../value/types/utils/animatable-none"
+import { findValueType } from "../value/types/utils/find"
+import { isMotionValue } from "../value/utils/is-motion-value"
+import { Feature } from "./Feature"
 import { visualElementStore } from "./store"
 import {
+    FeatureDefinitions,
+    MotionConfigContextProps,
+    PresenceContextProps,
+    ReducedMotionConfig,
     ResolvedValues,
     VisualElementEventCallbacks,
     VisualElementOptions,
-    PresenceContextProps,
-    ReducedMotionConfig,
-    FeatureDefinitions,
-    MotionConfigContextProps,
 } from "./types"
 import { AnimationState } from "./utils/animation-state"
 import {
     isControllingVariants as checkIsControllingVariants,
     isVariantNode as checkIsVariantNode,
 } from "./utils/is-controlling-variants"
+import { transformProps } from "./utils/keys-transform"
 import { updateMotionValuesFromProps } from "./utils/motion-values"
+import {
+    hasReducedMotionListener,
+    initPrefersReducedMotion,
+    prefersReducedMotion,
+} from "./utils/reduced-motion"
 import { resolveVariantFromProps } from "./utils/resolve-variants"
-import { Feature } from "./Feature"
 
 const propEventHandlers = [
     "AnimationStart",
@@ -64,7 +64,9 @@ let featureDefinitions: Partial<FeatureDefinitions> = {}
  * Set feature definitions for all VisualElements.
  * This should be called by the framework layer (e.g., framer-motion) during initialization.
  */
-export function setFeatureDefinitions(definitions: Partial<FeatureDefinitions>) {
+export function setFeatureDefinitions(
+    definitions: Partial<FeatureDefinitions>
+) {
     featureDefinitions = definitions
 }
 
@@ -545,7 +547,7 @@ export abstract class VisualElement<
         ) {
             const { factory, keyframes, times, ease, duration } =
                 value.accelerate
-
+            console.log(name, keyframes, times, ease)
             const animation = new NativeAnimation({
                 element: this.current,
                 name: key,
@@ -553,7 +555,6 @@ export abstract class VisualElement<
                 times,
                 ease,
                 duration: secondsToMilliseconds(duration),
-                autoplay: false,
             })
 
             const cleanup = factory(animation)
@@ -587,8 +588,15 @@ export abstract class VisualElement<
         )
 
         let removeSyncCheck: VoidFunction | void
-        if (typeof window !== "undefined" && (window as any).MotionCheckAppearSync) {
-            removeSyncCheck = (window as any).MotionCheckAppearSync(this, key, value)
+        if (
+            typeof window !== "undefined" &&
+            (window as any).MotionCheckAppearSync
+        ) {
+            removeSyncCheck = (window as any).MotionCheckAppearSync(
+                this,
+                key,
+                value
+            )
         }
 
         this.valueSubscriptions.set(key, () => {
@@ -701,7 +709,10 @@ export abstract class VisualElement<
      * Update the provided props. Ensure any newly-added motion values are
      * added to our map, old ones removed, and listeners updated.
      */
-    update(props: MotionNodeOptions, presenceContext: PresenceContextProps | null) {
+    update(
+        props: MotionNodeOptions,
+        presenceContext: PresenceContextProps | null
+    ) {
         if (props.transformTemplate || this.props.transformTemplate) {
             this.scheduleRender()
         }
