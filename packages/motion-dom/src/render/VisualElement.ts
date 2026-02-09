@@ -547,7 +547,7 @@ export abstract class VisualElement<
         ) {
             const { factory, keyframes, times, ease, duration } =
                 value.accelerate
-            console.log(name, keyframes, times, ease)
+
             const animation = new NativeAnimation({
                 element: this.current,
                 name: key,
