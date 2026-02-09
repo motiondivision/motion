@@ -1,6 +1,6 @@
 "use client"
 
-import { motionValue } from "motion-dom"
+import { AnimationPlaybackControls, motionValue } from "motion-dom"
 import { invariant } from "motion-utils"
 import { RefObject, useCallback, useEffect, useRef } from "react"
 import { scroll } from "../render/dom/scroll"
@@ -32,6 +32,34 @@ export function useScroll({
     ...options
 }: UseScrollOptions = {}) {
     const values = useConstant(createScrollMotionValues)
+
+    values.scrollXProgress.accelerate = {
+        factory: (animation: AnimationPlaybackControls) =>
+            scroll(animation, {
+                ...options,
+                axis: "x",
+                container: container?.current || undefined,
+                target: target?.current || undefined,
+            }),
+        times: [0, 1],
+        keyframes: [0, 1],
+        ease: (v: number) => v,
+        duration: 1,
+    }
+    values.scrollYProgress.accelerate = {
+        factory: (animation: AnimationPlaybackControls) =>
+            scroll(animation, {
+                ...options,
+                axis: "y",
+                container: container?.current || undefined,
+                target: target?.current || undefined,
+            }),
+        times: [0, 1],
+        keyframes: [0, 1],
+        ease: (v: number) => v,
+        duration: 1,
+    }
+
     const scrollAnimation = useRef<VoidFunction | null>(null)
     const needsStart = useRef(false)
 

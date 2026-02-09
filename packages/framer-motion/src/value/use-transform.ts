@@ -208,7 +208,7 @@ export function useTransform<I, O, K extends string>(
             ? inputRangeOrTransformer
             : transform(inputRangeOrTransformer!, outputRange!, options)
 
-    return Array.isArray(input)
+    const result = Array.isArray(input)
         ? useListTransform(
               input,
               transformer as MultiTransformer<AnyResolvedKeyframe, O>
@@ -216,6 +216,23 @@ export function useTransform<I, O, K extends string>(
         : useListTransform([input], ([latest]) =>
               (transformer as SingleTransformer<I, O>)(latest)
           )
+
+    if (
+        !Array.isArray(input) &&
+        typeof inputRangeOrTransformer !== "function" &&
+        Array.isArray(outputRangeOrMap) &&
+        (input as MotionValue).accelerate &&
+        options?.clamp !== false
+    ) {
+        result.accelerate = {
+            ...(input as MotionValue).accelerate!,
+            times: inputRangeOrTransformer as number[],
+            keyframes: outputRangeOrMap,
+            ...(options?.ease ? { ease: options.ease } : {}),
+        }
+    }
+
+    return result
 }
 
 function useListTransform<I, O>(

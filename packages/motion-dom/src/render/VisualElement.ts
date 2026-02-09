@@ -2,9 +2,12 @@ import { Box } from "motion-utils"
 import {
     isNumericalString,
     isZeroValueString,
+    secondsToMilliseconds,
     SubscriptionManager,
     warnOnce,
 } from "motion-utils"
+import { NativeAnimation } from "../animation/NativeAnimation"
+import { acceleratedValues } from "../animation/waapi/utils/accelerated-values"
 import { cancelFrame, frame } from "../frameloop"
 import { microtask } from "../frameloop/microtask"
 import { time } from "../frameloop/sync-time"
@@ -533,6 +536,33 @@ export abstract class VisualElement<
     private bindToMotionValue(key: string, value: MotionValue) {
         if (this.valueSubscriptions.has(key)) {
             this.valueSubscriptions.get(key)!()
+        }
+
+        if (
+            value.accelerate &&
+            acceleratedValues.has(key) &&
+            this.current instanceof HTMLElement
+        ) {
+            const { factory, keyframes, times, ease, duration } =
+                value.accelerate
+
+            const animation = new NativeAnimation({
+                element: this.current,
+                name: key,
+                keyframes,
+                times,
+                ease,
+                duration: secondsToMilliseconds(duration),
+                autoplay: false,
+            })
+
+            const cleanup = factory(animation)
+
+            this.valueSubscriptions.set(key, () => {
+                cleanup()
+                animation.cancel()
+            })
+            return
         }
 
         const valueIsTransform = transformProps.has(key)
