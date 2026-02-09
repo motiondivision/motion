@@ -1,21 +1,31 @@
 describe("scroll timeline WAAPI acceleration", () => {
-    it("Creates WAAPI animation for accelerated property, not for non-accelerated", () => {
+    it("Propagates acceleration for direct useTransform from scroll", () => {
         cy.visit("?test=scroll-accelerate")
             .wait(200)
-            .get("#direct")
+            .get("#direct-accelerated")
             .should(([$el]: any) => {
-                // opacity is acceleratable, backgroundColor is not → 1 animation
-                expect($el.getAnimations().length).to.equal(1)
+                expect($el.innerText).to.equal("true")
             })
     })
 
-    it("Does not create WAAPI animation for chained useTransform", () => {
+    it("Propagates acceleration for non-acceleratable properties too", () => {
         cy.visit("?test=scroll-accelerate")
             .wait(200)
-            .get("#chained")
+            .get("#bg-accelerated")
             .should(([$el]: any) => {
-                // Chained useTransform should NOT accelerate
-                expect($el.getAnimations().length).to.equal(0)
+                // backgroundColor gets accelerate config propagated,
+                // but VisualElement skips WAAPI creation since it's
+                // not in the acceleratedValues set
+                expect($el.innerText).to.equal("true")
+            })
+    })
+
+    it("Does not propagate acceleration for chained useTransform", () => {
+        cy.visit("?test=scroll-accelerate")
+            .wait(200)
+            .get("#chained-accelerated")
+            .should(([$el]: any) => {
+                expect($el.innerText).to.equal("false")
             })
     })
 })

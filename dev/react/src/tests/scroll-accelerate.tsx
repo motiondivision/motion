@@ -27,6 +27,15 @@ export const App = () => {
                 id="chained"
                 style={{ ...box, opacity: chainedOpacity, top: 110 }}
             />
+            <span id="direct-accelerated">
+                {opacity.accelerate ? "true" : "false"}
+            </span>
+            <span id="chained-accelerated">
+                {chainedOpacity.accelerate ? "true" : "false"}
+            </span>
+            <span id="bg-accelerated">
+                {backgroundColor.accelerate ? "true" : "false"}
+            </span>
         </>
     )
 }
