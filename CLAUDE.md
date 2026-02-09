@@ -73,7 +73,21 @@ motion (public API)
 
 ## Writing Tests
 
-**IMPORTANT: Always write a failing test FIRST before implementing any bug fix or feature.** This ensures the issue is reproducible and the fix is verified. For UI interaction bugs (like gesture handling), prefer E2E tests using Playwright or Cypress.
+**IMPORTANT: Always write tests for every bug fix AND every new feature.** Write a failing test FIRST before implementing, to ensure the issue is reproducible and the fix is verified.
+
+### Test types by feature
+
+- **Unit tests (Jest)**: For pure logic, value transformations, utilities. Located in `__tests__/` directories alongside source.
+- **E2E tests (Cypress)**: For UI behavior that involves DOM rendering, scroll interactions, gesture handling, or WAAPI animations. Test specs in `packages/framer-motion/cypress/integration/`, test pages in `dev/react/src/tests/`.
+- **E2E tests (Playwright)**: For cross-browser testing and HTML/vanilla JS tests. Specs in `tests/`, test pages in `dev/html/public/playwright/`.
+
+### Creating Cypress E2E tests
+
+1. **Create a test page** in `dev/react/src/tests/<test-name>.tsx` exporting a named `App` component. It's automatically available at `?test=<test-name>`.
+2. **Create a spec** in `packages/framer-motion/cypress/integration/<test-name>.ts`.
+3. **Verify WAAPI acceleration** using `element.getAnimations()` in Cypress `should` callbacks to check that native animations are (or aren't) created.
+
+### Async test helpers
 
 When waiting for the next frame in async tests:
 
