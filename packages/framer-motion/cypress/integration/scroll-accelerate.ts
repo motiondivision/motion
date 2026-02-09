@@ -2,20 +2,20 @@ describe("scroll timeline WAAPI acceleration", () => {
     it("Creates WAAPI animation for accelerated property, not for non-accelerated", () => {
         cy.visit("?test=scroll-accelerate")
             .wait(200)
-            .get("#direct-count")
+            .get("#direct")
             .should(([$el]: any) => {
                 // opacity is acceleratable, backgroundColor is not → 1 animation
-                expect($el.innerText).to.equal("1")
+                expect($el.getAnimations().length).to.equal(1)
             })
     })
 
     it("Does not create WAAPI animation for chained useTransform", () => {
         cy.visit("?test=scroll-accelerate")
             .wait(200)
-            .get("#chained-count")
+            .get("#chained")
             .should(([$el]: any) => {
                 // Chained useTransform should NOT accelerate
-                expect($el.innerText).to.equal("0")
+                expect($el.getAnimations().length).to.equal(0)
             })
     })
 })
