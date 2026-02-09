@@ -5,8 +5,8 @@
 
 <p align="center">
   <a href="https://www.npmjs.com/package/motion" rel="noopener noreferrer nofollow" ><img src="https://img.shields.io/npm/v/motion?color=0368FF&label=version" alt="npm version"></a>
-  <a href="https://www.npmjs.com/package/motion" rel="noopener noreferrer nofollow" ><img src="https://img.shields.io/npm/dm/framer-motion?color=8D30FF&label=npm" alt="npm downloads per month"></a>
-  <a target="_blank" rel="noopener noreferrer nofollow" href="https://www.jsdelivr.com/package/npm/motion"><img alt="jsDelivr hits (npm)" src="https://img.shields.io/jsdelivr/npm/hm/framer-motion?logo=jsdeliver&color=FF4FBA"></a>
+  <a href="https://www.npmjs.com/package/motion" rel="noopener noreferrer nofollow" ><img src="https://img.shields.io/npm/dm/motion?color=8D30FF&label=npm" alt="npm downloads per month"></a>
+  <a target="_blank" rel="noopener noreferrer nofollow" href="https://www.jsdelivr.com/package/npm/motion"><img alt="jsDelivr hits (npm)" src="https://img.shields.io/jsdelivr/npm/hm/motion?logo=jsdelivr&color=FF4FBA"></a>
   <img alt="NPM License" src="https://img.shields.io/npm/l/motion?color=FF2B6E">
 </p>
 
