@@ -87,20 +87,6 @@ motion (public API)
 2. **Create a spec** in `packages/framer-motion/cypress/integration/<test-name>.ts`.
 3. **Verify WAAPI acceleration** using `element.getAnimations()` in Cypress `should` callbacks to check that native animations are (or aren't) created.
 
-### What to test for scroll timeline acceleration
-
-When adding scroll-driven WAAPI acceleration features, always write Cypress tests that:
-
-- **Verify acceleration fires**: Use `element.getAnimations().length` to confirm WAAPI animations exist for acceleratable properties (opacity, clipPath, filter).
-- **Verify non-accelerated properties fall back to JS**: Properties like backgroundColor run on the main thread — check they do NOT produce WAAPI animations.
-- **Verify chained useTransform does NOT accelerate**: If a useTransform output is fed into a second useTransform, the scroll-to-value mapping is lost. The second transform's input range is in the output space of the first, not the original scroll space. Acceleration must be disabled. Example:
-  ```jsx
-  const { scrollYProgress } = useScroll()
-  const a = useTransform(scrollYProgress, [0, 1], [0, 0.5])
-  const b = useTransform(a, [0, 0.5], [0, 0.25])
-  // b must NOT have a WAAPI animation — the times/keyframes don't map to scroll progress
-  ```
-
 ### Async test helpers
 
 When waiting for the next frame in async tests:

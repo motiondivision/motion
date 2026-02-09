@@ -223,20 +223,16 @@ export function useTransform<I, O, K extends string>(
 
     if (
         inputAccelerate &&
+        !inputAccelerate.isTransformed &&
         typeof inputRangeOrTransformer !== "function" &&
         Array.isArray(outputRangeOrMap) &&
-        options?.clamp !== false &&
-        inputAccelerate.times.length === 2 &&
-        inputAccelerate.times[0] === 0 &&
-        inputAccelerate.times[1] === 1 &&
-        inputAccelerate.keyframes.length === 2 &&
-        inputAccelerate.keyframes[0] === 0 &&
-        inputAccelerate.keyframes[1] === 1
+        options?.clamp !== false
     ) {
         result.accelerate = {
             ...inputAccelerate,
             times: inputRangeOrTransformer as number[],
             keyframes: outputRangeOrMap,
+            isTransformed: true,
             ...(options?.ease ? { ease: options.ease } : {}),
         }
     }

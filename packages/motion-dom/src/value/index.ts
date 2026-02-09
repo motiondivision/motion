@@ -65,6 +65,7 @@ export interface AccelerateConfig {
     keyframes: any[]
     ease?: EasingFunction | EasingFunction[]
     duration: number
+    isTransformed?: boolean
 }
 
 export interface MotionValueOptions {
