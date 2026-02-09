@@ -217,15 +217,24 @@ export function useTransform<I, O, K extends string>(
               (transformer as SingleTransformer<I, O>)(latest)
           )
 
+    const inputAccelerate = !Array.isArray(input)
+        ? (input as MotionValue).accelerate
+        : undefined
+
     if (
-        !Array.isArray(input) &&
+        inputAccelerate &&
         typeof inputRangeOrTransformer !== "function" &&
         Array.isArray(outputRangeOrMap) &&
-        (input as MotionValue).accelerate &&
-        options?.clamp !== false
+        options?.clamp !== false &&
+        inputAccelerate.times.length === 2 &&
+        inputAccelerate.times[0] === 0 &&
+        inputAccelerate.times[1] === 1 &&
+        inputAccelerate.keyframes.length === 2 &&
+        inputAccelerate.keyframes[0] === 0 &&
+        inputAccelerate.keyframes[1] === 1
     ) {
         result.accelerate = {
-            ...(input as MotionValue).accelerate!,
+            ...inputAccelerate,
             times: inputRangeOrTransformer as number[],
             keyframes: outputRangeOrMap,
             ...(options?.ease ? { ease: options.ease } : {}),
