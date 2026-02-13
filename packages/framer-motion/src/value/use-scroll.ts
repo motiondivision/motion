@@ -49,7 +49,7 @@ export function useScroll({
 }: UseScrollOptions = {}) {
     const values = useConstant(createScrollMotionValues)
 
-    if (canUseNativeTimeline(target?.current || undefined)) {
+    if (!target && canUseNativeTimeline()) {
         const resolvedContainer = container?.current || undefined
         values.scrollXProgress.accelerate = makeAccelerateConfig(
             "x",
