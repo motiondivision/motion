@@ -1,112 +1,67 @@
-<h1 align="center"> <img width="35" height="35" alt="Motion logo" src="https://github.com/user-attachments/assets/00d6d1c3-72c4-4c2f-a664-69da13182ffc" /><br />Motion</h1>
-<h3 align="center">
-  An open source animation library<br />for JavaScript, React and Vue
-</h3>
 
-<p align="center">
-  <a href="https://www.npmjs.com/package/motion" rel="noopener noreferrer nofollow" ><img src="https://img.shields.io/npm/v/motion?color=0368FF&label=version" alt="npm version"></a>
-  <a href="https://www.npmjs.com/package/motion" rel="noopener noreferrer nofollow" ><img src="https://img.shields.io/npm/dm/framer-motion?color=8D30FF&label=npm" alt="npm downloads per month"></a>
-  <a target="_blank" rel="noopener noreferrer nofollow" href="https://www.jsdelivr.com/package/npm/motion"><img alt="jsDelivr hits (npm)" src="https://img.shields.io/jsdelivr/npm/hm/framer-motion?logo=jsdeliver&color=FF4FBA"></a>
-  <img alt="NPM License" src="https://img.shields.io/npm/l/motion?color=FF2B6E">
-</p>
+<
+## ✨ import React from "react"; import { motion } from "framer-motion"; import { Card, CardContent } from "@/components/ui/card"; import { Button } from "@/components/ui/button"; import { ShoppingCart, Star } from "lucide-react";
 
-```bash
-# React / JavaScript
-npm install motion
+export default function SaikouNoSite() { return ( <div className="min-h-screen bg-black text-white"> {/* Hero Section */} <section className="relative flex flex-col items-center justify-center text-center py-24 px-6 bg-gradient-to-b from-black via-zinc-900 to-black"> <motion.h1 initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }} className="text-5xl md:text-7xl font-bold tracking-widest text-red-600" > SAIKOU NO </motion.h1> <p className="mt-6 text-lg md:text-xl text-zinc-300 max-w-2xl"> Experimente o melhor da culinária japonesa com sabor autêntico, frescor incomparável e uma experiência única. </p> <Button className="mt-8 bg-red-600 hover:bg-red-700 text-white rounded-2xl px-8 py-6 text-lg shadow-lg"> Ver Cardápio </Button> </section>
 
-# Vue
-npm install motion-v
-```
+{/* Sobre */}
+  <section className="py-20 px-6 bg-zinc-950 text-center">
+    <h2 className="text-3xl md:text-4xl font-semibold mb-6">Sobre Nós</h2>
+    <p className="text-zinc-400 max-w-3xl mx-auto">
+      No SAIKOU NO, cada prato é preparado com ingredientes selecionados e técnicas tradicionais japonesas. Nosso objetivo é proporcionar uma explosão de sabores a cada mordida.
+    </p>
+  </section>
 
-## Table of Contents
+  {/* Cardápio */}
+  <section className="py-20 px-6 bg-black">
+    <h2 className="text-3xl md:text-4xl font-semibold text-center mb-12">Destaques do Cardápio</h2>
+    <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+      {["Combo Sushi Especial", "Temaki Salmão Premium", "Hot Roll Crocante"].map((item, index) => (
+        <motion.div
+          key={index}
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: index * 0.2 }}
+          viewport={{ once: true }}
+        >
+          <Card className="bg-zinc-900 border border-zinc-800 rounded-2xl shadow-xl">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-semibold">{item}</h3>
+                <Star className="text-red-500" />
+              </div>
+              <p className="text-zinc-400 mb-6">
+                Preparado com ingredientes frescos e selecionados para oferecer o melhor sabor.
+              </p>
+              <Button className="w-full bg-red-600 hover:bg-red-700 rounded-2xl">
+                <ShoppingCart className="mr-2 h-4 w-4" />
+                Pedir Agora
+              </Button>
+            </CardContent>
+          </Card>
+        </motion.div>
+      ))}
+    </div>
+  </section>
 
-1. [Why Motion?](#why-motion)
-2. [🍦 Platforms](#-platforms)
-3. [🎓 Examples](#-examples)
-4. [⚡️ Motion+](#-motion)
-5. [👩🏻‍⚖️ License](#-license)
-6. [💎 Contribute](#-contribute)
-7. [✨ Sponsors](#-sponsors)
+  {/* Contato */}
+  <section className="py-20 px-6 bg-zinc-950 text-center">
+    <h2 className="text-3xl md:text-4xl font-semibold mb-6">Contato</h2>
+    <p className="text-zinc-400">📍 Rua Exemplo, 123 - São Paulo, SP</p>
+    <p className="text-zinc-400">📞 (11) 99999-9999</p>
+    <p className="text-zinc-400">🕒 Terça a Domingo - 18h às 23h</p>
+    <Button className="mt-8 bg-red-600 hover:bg-red-700 rounded-2xl px-8 py-6 text-lg">
+      Reservar Mesa
+    </Button>
+  </section>
 
-## Why Motion?
+  {/* Footer */}
+  <footer className="bg-black border-t border-zinc-800 py-6 text-center text-zinc-500">
+    © {new Date().getFullYear()} SAIKOU NO - Todos os direitos reservados.
+  </footer>
+</div>
 
--   **Simple API:** First-class React, JavaScript, and Vue packages.
--   **Hybrid engine:** Power of JavaScript combined with native browser APIs for 120fps, GPU-accelerated animations.
--   **Production-ready:** TypeScript, extensive test suite, tree-shakable, tiny footprint.
-    **Batteries included:** Gestures, springs, layout transitions, scroll-linked effects, timelines.
-
-## 🍦 Platforms
-
-Motion is available for [React](https://motion.dev/docs/react), [JavaScript](https://motion.dev/docs/quick-start) and [Vue](https://motion.dev/docs/vue).
-
-<details>
-<summary>React</summary>
-
-```jsx
-import { motion } from "motion/react"
-
-function Component() {
-    return <motion.div animate={{ x: 100 }} />
-}
-```
-
-Get started with [Motion for React](https://motion.dev/docs/react).
-
-</details>
-
-<details>
-<summary>JavaScript</summary>
-
-```javascript
-import { animate } from "motion"
-
-animate("#box", { x: 100 })
-```
-
-Get started with [JavaScript](https://motion.dev/docs/quick-start).
-
-</details>
-
-<details>
-<summary>Vue</summary>
-
-```html
-<script>
-    import { motion } from "motion-v"
-</script>
-
-<template> <motion.div :animate={{ x: 100 }} /> </template>
-```
-
-Get started with [Motion for Vue](https://motion.dev/docs/vue).
-
-</details>
-
-## 🎓 Examples
-
-Browse 100+ free and 180+ premium [Motion Examples](https://motion.dev/examples), with copy-paste code that'll level-up your animations whether you're a beginner or an expert.
-
-## ⚡️ Motion+
-
-A one-time payment, lifetime-updates membership:
-
--   **180+ premium examples**
--   **Premium APIs** like [Cursor](https://motion.dev/docs/cursor) and [Ticker](https://motion.dev/docs/react-ticker)
--   **Visual editing** for VS Code (alpha)
--   **Private Discord**
--   **Early access content**
-
-[Get Motion+](https://motion.dev/plus)
-
-## 👩🏻‍⚖️ License
-
--   Motion is MIT licensed.
-
-## 💎 Contribute
-
--   Want to contribute to Motion? Our [contributing guide](https://github.com/motiondivision/motion/blob/master/CONTRIBUTING.md) has you covered.
-
-## ✨ Sponsors
+); }
 
 Motion is sustainable thanks to the kind support of its sponsors.
 
