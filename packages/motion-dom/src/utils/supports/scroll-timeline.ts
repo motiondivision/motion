@@ -1,5 +1,5 @@
-import { memo } from "motion-utils"
 import { ProgressTimeline } from "../.."
+import { memoSupports } from "./memo"
 
 declare global {
     interface Window {
@@ -15,6 +15,7 @@ declare class ScrollTimeline implements ProgressTimeline {
     cancel?: VoidFunction
 }
 
-export const supportsScrollTimeline = /* @__PURE__ */ memo(
-    () => window.ScrollTimeline !== undefined
+export const supportsScrollTimeline = /* @__PURE__ */ memoSupports(
+    () => window.ScrollTimeline !== undefined,
+    "scrollTimeline"
 )

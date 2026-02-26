@@ -194,13 +194,10 @@ export class PanSession {
         // Capture listener catches element scroll events as they bubble
         window.addEventListener("scroll", this.onElementScroll, {
             capture: true,
-            passive: true,
         })
 
         // Direct window scroll listener (window scroll doesn't bubble)
-        window.addEventListener("scroll", this.onWindowScroll, {
-            passive: true,
-        })
+        window.addEventListener("scroll", this.onWindowScroll)
 
         this.removeScrollListeners = () => {
             window.removeEventListener("scroll", this.onElementScroll, {

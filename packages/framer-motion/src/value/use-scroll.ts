@@ -5,6 +5,7 @@ import { invariant } from "motion-utils"
 import { RefObject, useCallback, useEffect, useRef } from "react"
 import { scroll } from "../render/dom/scroll"
 import { ScrollInfoOptions } from "../render/dom/scroll/types"
+import { canUseNativeTimeline } from "../render/dom/scroll/utils/can-use-native-timeline"
 import { useConstant } from "../utils/use-constant"
 import { useIsomorphicLayoutEffect } from "../utils/use-isomorphic-effect"
 
@@ -26,6 +27,21 @@ const isRefPending = (ref?: RefObject<HTMLElement | null>) => {
     return !ref.current
 }
 
+function makeAccelerateConfig(
+    axis: "x" | "y",
+    options: Omit<UseScrollOptions, "container" | "target">,
+    container?: Element
+) {
+    return {
+        factory: (animation: AnimationPlaybackControls) =>
+            scroll(animation, { ...options, axis, container }),
+        times: [0, 1],
+        keyframes: [0, 1],
+        ease: (v: number) => v,
+        duration: 1,
+    }
+}
+
 export function useScroll({
     container,
     target,
@@ -33,31 +49,18 @@ export function useScroll({
 }: UseScrollOptions = {}) {
     const values = useConstant(createScrollMotionValues)
 
-    values.scrollXProgress.accelerate = {
-        factory: (animation: AnimationPlaybackControls) =>
-            scroll(animation, {
-                ...options,
-                axis: "x",
-                container: container?.current || undefined,
-                target: target?.current || undefined,
-            }),
-        times: [0, 1],
-        keyframes: [0, 1],
-        ease: (v: number) => v,
-        duration: 1,
-    }
-    values.scrollYProgress.accelerate = {
-        factory: (animation: AnimationPlaybackControls) =>
-            scroll(animation, {
-                ...options,
-                axis: "y",
-                container: container?.current || undefined,
-                target: target?.current || undefined,
-            }),
-        times: [0, 1],
-        keyframes: [0, 1],
-        ease: (v: number) => v,
-        duration: 1,
+    if (!target && canUseNativeTimeline()) {
+        const resolvedContainer = container?.current || undefined
+        values.scrollXProgress.accelerate = makeAccelerateConfig(
+            "x",
+            options,
+            resolvedContainer
+        )
+        values.scrollYProgress.accelerate = makeAccelerateConfig(
+            "y",
+            options,
+            resolvedContainer
+        )
     }
 
     const scrollAnimation = useRef<VoidFunction | null>(null)

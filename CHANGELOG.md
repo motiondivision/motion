@@ -4,9 +4,28 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
-## [12.34.0] 2026-02-09
+## [12.34.3] 2026-02-20
 
 ### Fixed
+
+-   Ensure `velocity` is never transferred to a time-derived spring.
+
+## [12.34.2] 2026-02-18
+
+### Fixed
+
+-   Layout animations: Reset motion value velocity when starting a new layout animation.
+
+## [12.34.1] 2026-02-17
+
+### Fixed
+
+-   `useScroll`: Ensure animations aren't hardware accelerated when `target` is set.
+-   Improve animatable `"none"` generation for mask values.
+
+## [12.34.0] 2026-02-09
+
+### Added
 
 -   `useScroll`: Hardware accelerated animations.
 

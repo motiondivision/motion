@@ -141,16 +141,54 @@ describe("spring", () => {
         expect(withoutDuration.length).toBeGreaterThan(4)
     })
 
-    test("Spring defined as bounce and duration is resolved with correct velocity", () => {
+    test("Time-defined spring ignores velocity", () => {
         const settings = {
             keyframes: [500, 10],
             bounce: 0.2,
             duration: 1000,
         }
-        const resolvedSpring = spring({ ...settings, velocity: 1000 })
+        const withVelocity = spring({ ...settings, velocity: 1000 })
+        const withoutVelocity = spring(settings)
 
-        expect(resolvedSpring.next(0).value).toBe(500)
-        expect(Math.floor(resolvedSpring.next(100).value)).toBe(420)
+        // Time-defined springs ignore velocity to prevent wild oscillation
+        // from interrupted animations
+        expect(withVelocity.next(0).value).toBe(withoutVelocity.next(0).value)
+        expect(withVelocity.next(100).value).toBe(
+            withoutVelocity.next(100).value
+        )
+    })
+
+    test("Time-defined spring with velocity does not wildly oscillate", () => {
+        /**
+         * Time-defined springs (duration/bounce) must ignore inherited
+         * velocity. When an animation is interrupted, the motionValue
+         * carries velocity from the in-progress animation. If this leaks
+         * into findSpring(), it changes the computed spring parameters
+         * and causes massive oscillation on small-range animations.
+         */
+        const settings = {
+            keyframes: [0, 100],
+            bounce: 0.2,
+            duration: 400,
+        }
+
+        const noVelocity = spring(settings)
+        const withVelocity = spring({ ...settings, velocity: 5000 })
+
+        let maxNoVelocity = 0
+        let maxWithVelocity = 0
+
+        for (let t = 0; t <= 400; t += 5) {
+            const noVel = noVelocity.next(t).value
+            const withVel = withVelocity.next(t).value
+
+            if (noVel > maxNoVelocity) maxNoVelocity = noVel
+            if (withVel > maxWithVelocity) maxWithVelocity = withVel
+        }
+
+        // Both should have identical mild overshoot (velocity is ignored)
+        expect(maxNoVelocity - 100).toBeLessThan(5)
+        expect(maxWithVelocity - 100).toBeLessThan(5)
     })
 
     test("Spring animating back to same number returns correct duration", () => {

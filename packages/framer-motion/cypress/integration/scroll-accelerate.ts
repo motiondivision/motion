@@ -4,7 +4,10 @@ describe("scroll timeline WAAPI acceleration", () => {
             .wait(200)
             .get("#direct-accelerated")
             .should(([$el]: any) => {
-                expect($el.innerText).to.equal("true")
+                const expected = (window as any).ScrollTimeline
+                    ? "true"
+                    : "false"
+                expect($el.innerText).to.equal(expected)
             })
     })
 
@@ -16,7 +19,10 @@ describe("scroll timeline WAAPI acceleration", () => {
                 // backgroundColor gets accelerate config propagated,
                 // but VisualElement skips WAAPI creation since it's
                 // not in the acceleratedValues set
-                expect($el.innerText).to.equal("true")
+                const expected = (window as any).ScrollTimeline
+                    ? "true"
+                    : "false"
+                expect($el.innerText).to.equal(expected)
             })
     })
 

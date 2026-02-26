@@ -1653,6 +1653,7 @@ export function createProjectionNode<I>({
 
                 activeAnimations.layout++
                 this.motionValue ||= motionValue(0)
+                this.motionValue.jump(0, false)
 
                 this.currentAnimation = animateSingleValue(
                     this.motionValue,

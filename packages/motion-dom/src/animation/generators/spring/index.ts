@@ -41,6 +41,12 @@ function getSpringOptions(options: SpringOptions) {
         !isSpringType(options, physicsKeys) &&
         isSpringType(options, durationKeys)
     ) {
+        // Time-defined springs should ignore inherited velocity.
+        // Velocity from interrupted animations can cause findSpring()
+        // to compute wildly different spring parameters, leading to
+        // massive oscillation on small-range animations.
+        springOptions.velocity = 0
+
         if (options.visualDuration) {
             const visualDuration = options.visualDuration
             const root = (2 * Math.PI) / (visualDuration * 1.2)
@@ -57,7 +63,7 @@ function getSpringOptions(options: SpringOptions) {
                 damping,
             }
         } else {
-            const derived = findSpring(options)
+            const derived = findSpring({ ...options, velocity: 0 })
 
             springOptions = {
                 ...springOptions,

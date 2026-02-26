@@ -1,6 +1,7 @@
-import { ProgressTimeline, supportsScrollTimeline } from "motion-dom"
+import { ProgressTimeline } from "motion-dom"
 import { scrollInfo } from "../track"
 import { ScrollOptionsWithDefaults } from "../types"
+import { canUseNativeTimeline } from "./can-use-native-timeline"
 
 declare global {
     interface Window {
@@ -50,7 +51,7 @@ export function getTimeline({
 
     if (!targetCache[axisKey]) {
         targetCache[axisKey] =
-            !options.target && supportsScrollTimeline()
+            canUseNativeTimeline(options.target)
                 ? new ScrollTimeline({ source: container, axis } as any)
                 : scrollTimelineFallback({ container, ...options })
     }

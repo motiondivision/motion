@@ -54,7 +54,7 @@ const stackStyle: React.CSSProperties = {
     backgroundColor: "blue",
 }
 
-const List: React.FunctionComponent<{}> = (props) => {
+const List: React.FunctionComponent<React.PropsWithChildren> = (props) => {
     return (
         <LayoutGroup id="list">
             <motion.div style={{ display: "contents" }}>
