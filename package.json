@@ -72,7 +72,7 @@
         "react": "^18.3.1",
         "react-dev-utils": "^12.0.1",
         "react-dom": "^18.3.1",
-        "rollup": "4.22.4",
+        "rollup": "4.59.0",
         "rollup-plugin-analyzer": "^4.0.0",
         "rollup-plugin-dts": "6.1.0",
         "rollup-plugin-preserve-directives": "^0.4.0",
