@@ -63,9 +63,11 @@ export function createAnimationState(visualElement: any): AnimationState {
     /**
      * This function will be used to reduce the animation definitions for
      * each active animation type into an object of resolved values for it.
+     * An optional lockedCustom value can be provided to override props.custom
+     * for non-exit types, used to prevent custom-change-only re-animation.
      */
     const buildResolvedTypeValues =
-        (type: AnimationType) =>
+        (type: AnimationType, lockedCustom?: any) =>
         (
             acc: { [key: string]: any },
             definition: string | TargetAndTransition | undefined
@@ -75,7 +77,7 @@ export function createAnimationState(visualElement: any): AnimationState {
                 definition,
                 type === "exit"
                     ? visualElement.presenceContext?.custom
-                    : undefined
+                    : lockedCustom
             )
 
             if (resolved) {
@@ -243,13 +245,39 @@ export function createAnimationState(visualElement: any): AnimationState {
             const definitionList = Array.isArray(prop) ? prop : [prop]
 
             /**
-             * Build an object of all the resolved values. We'll use this in the subsequent
-             * animateChanges calls to determine whether a value has changed.
+             * When a variant label stays the same but the `custom` prop changes, we
+             * want to resolve with the previously-locked custom value so the comparison
+             * against prevResolvedValues only detects real variant definition changes,
+             * not custom-change-only differences (see issue #3545).
+             *
+             * We only lock when we have a concrete (non-undefined) prevCustom, because
+             * when prevCustom.value is undefined it can't be passed explicitly to
+             * resolveVariant (it would fall back to props.custom anyway).
              */
+            const lockedCustom =
+                type !== "exit" &&
+                propIsVariant &&
+                !variantDidChange &&
+                activeDelta === null &&
+                typeState.prevProp !== undefined &&
+                typeState.prevCustom !== undefined &&
+                typeState.prevCustom.value !== undefined
+                    ? typeState.prevCustom.value
+                    : undefined
+
             let resolvedValues = definitionList.reduce(
-                buildResolvedTypeValues(type),
+                buildResolvedTypeValues(type, lockedCustom),
                 {}
             )
+
+            /**
+             * Track the custom value used for this resolution so we can lock to it
+             * on future renders where the variant label is unchanged. Only update
+             * when we resolved without a lock (i.e. lockedCustom is undefined).
+             */
+            if (type !== "exit" && propIsVariant && lockedCustom === undefined) {
+                typeState.prevCustom = { value: props.custom }
+            }
 
             if (activeDelta === false) resolvedValues = {}
 
@@ -492,6 +520,7 @@ export interface AnimationTypeState {
     needsAnimating: { [key: string]: boolean }
     prevResolvedValues: { [key: string]: any }
     prevProp?: VariantLabels | TargetAndTransition
+    prevCustom?: { value: any }
 }
 
 function createTypeState(isActive = false): AnimationTypeState {

@@ -1390,4 +1390,45 @@ describe("AnimatePresence with custom components", () => {
 
         expect(exitCompleteCount).toBeGreaterThan(0)
     })
+
+    test("Updating custom prop with stable key does not cause style bleeding", async () => {
+        const variants: Variants = {
+            animate: (custom: number) => ({
+                ...(custom === 0 ? { x: 100 } : { opacity: 0.5 }),
+                transition: { type: false },
+            }),
+        }
+
+        const xValue = motionValue(0)
+        const opacityValue = motionValue(1)
+
+        const Component = ({ index }: { index: number }) => (
+            <AnimatePresence custom={index}>
+                <motion.div
+                    key="stable"
+                    custom={index}
+                    animate="animate"
+                    variants={variants}
+                    style={{ x: xValue, opacity: opacityValue }}
+                />
+            </AnimatePresence>
+        )
+
+        const { rerender } = render(<Component index={0} />)
+        await nextFrame()
+
+        // After index=0: x should be 100 (animate variant with custom=0)
+        expect(xValue.get()).toBe(100)
+        expect(opacityValue.get()).toBe(1)
+
+        await act(async () => {
+            rerender(<Component index={1} />)
+        })
+        await nextFrame()
+
+        // After index=1 with same key: custom changed but key is stable.
+        // x should remain 100 (no removal), opacity should remain 1 (no new animation).
+        expect(xValue.get()).toBe(100)
+        expect(opacityValue.get()).toBe(1)
+    })
 })
