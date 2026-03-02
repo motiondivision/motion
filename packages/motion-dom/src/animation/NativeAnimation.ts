@@ -104,13 +104,16 @@ export class NativeAnimation<T extends AnyResolvedKeyframe>
                 )
                 if (this.updateMotionValue) {
                     this.updateMotionValue(keyframe)
-                } else {
-                    /**
-                     * If we can, we want to commit the final style as set by the user,
-                     * rather than the computed keyframe value supplied by the animation.
-                     */
-                    setStyle(element, name, keyframe)
                 }
+
+                /**
+                 * If we can, we want to commit the final style as set by the user,
+                 * rather than the computed keyframe value supplied by the animation.
+                 * We always do this, even when a motion value is present, to prevent
+                 * a visual flash in Firefox where the WAAPI animation's fill is removed
+                 * during cancel() before the scheduled render can apply the correct value.
+                 */
+                setStyle(element, name, keyframe)
 
                 this.animation.cancel()
             }
