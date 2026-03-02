@@ -23,6 +23,8 @@ export interface ValueAnimationOptionsWithRenderContext<
 
 export interface TimelineWithFallback {
     timeline?: ProgressTimeline
+    rangeStart?: string
+    rangeEnd?: string
     observe: (animation: AnimationPlaybackControls) => VoidFunction
 }
 

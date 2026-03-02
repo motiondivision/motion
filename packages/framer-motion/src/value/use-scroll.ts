@@ -1,11 +1,16 @@
 "use client"
 
-import { AnimationPlaybackControls, motionValue } from "motion-dom"
+import {
+    AnimationPlaybackControls,
+    motionValue,
+    supportsScrollTimeline,
+    supportsViewTimeline,
+} from "motion-dom"
 import { invariant } from "motion-utils"
 import { RefObject, useCallback, useEffect, useRef } from "react"
 import { scroll } from "../render/dom/scroll"
 import { ScrollInfoOptions } from "../render/dom/scroll/types"
-import { canUseNativeTimeline } from "../render/dom/scroll/utils/can-use-native-timeline"
+import { offsetToViewTimelineRange } from "../render/dom/scroll/utils/offset-to-range"
 import { useConstant } from "../utils/use-constant"
 import { useIsomorphicLayoutEffect } from "../utils/use-isomorphic-effect"
 
@@ -30,16 +35,35 @@ const isRefPending = (ref?: RefObject<HTMLElement | null>) => {
 function makeAccelerateConfig(
     axis: "x" | "y",
     options: Omit<UseScrollOptions, "container" | "target">,
-    container?: Element
+    container?: RefObject<HTMLElement | null>,
+    target?: RefObject<HTMLElement | null>
 ) {
     return {
         factory: (animation: AnimationPlaybackControls) =>
-            scroll(animation, { ...options, axis, container }),
+            scroll(animation, {
+                ...options,
+                axis,
+                container: container?.current || undefined,
+                target: target?.current || undefined,
+            }),
         times: [0, 1],
         keyframes: [0, 1],
         ease: (v: number) => v,
         duration: 1,
     }
+}
+
+function canAccelerateScroll(
+    target?: RefObject<HTMLElement | null>,
+    offset?: ScrollInfoOptions["offset"]
+) {
+    if (typeof window === "undefined") return false
+
+    if (target) {
+        return supportsViewTimeline() && !!offsetToViewTimelineRange(offset)
+    }
+
+    return supportsScrollTimeline()
 }
 
 export function useScroll({
@@ -49,17 +73,18 @@ export function useScroll({
 }: UseScrollOptions = {}) {
     const values = useConstant(createScrollMotionValues)
 
-    if (!target && canUseNativeTimeline()) {
-        const resolvedContainer = container?.current || undefined
+    if (canAccelerateScroll(target, options.offset)) {
         values.scrollXProgress.accelerate = makeAccelerateConfig(
             "x",
             options,
-            resolvedContainer
+            container,
+            target
         )
         values.scrollYProgress.accelerate = makeAccelerateConfig(
             "y",
             options,
-            resolvedContainer
+            container,
+            target
         )
     }
 
