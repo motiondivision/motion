@@ -491,6 +491,48 @@ describe("Sequence callbacks", () => {
         expect(doCount).toBe(2)
         expect(undoCount).toBe(1)
     })
+
+    test("onComplete fires when sequence finishes", async () => {
+        const element = document.createElement("div")
+        let completed = false
+
+        const animation = animate(
+            [
+                [element, { opacity: 0 }, { duration: 0.01 }],
+                [element, { opacity: 1 }, { duration: 0.01 }],
+            ],
+            {
+                onComplete: () => {
+                    completed = true
+                },
+            }
+        )
+
+        await animation.finished
+
+        expect(completed).toBe(true)
+    })
+
+    test("onComplete fires once when sequence finishes", async () => {
+        const element = document.createElement("div")
+        let completedCount = 0
+
+        const animation = animate(
+            [
+                [element, { opacity: 0 }, { duration: 0.01 }],
+                [element, { opacity: 1 }, { duration: 0.01 }],
+            ],
+            {
+                onComplete: () => {
+                    completedCount++
+                },
+            }
+        )
+
+        await animation.finished
+
+        expect(completedCount).toBe(1)
+    })
 })
 
 describe("animate: Objects", () => {
