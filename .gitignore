@@ -17,6 +17,7 @@ yarn-error.log
 /packages/*/cypress/screenshots
 /packages/*/cypress/videos
 .cache-loader
+.claude/*
 
 .yarn/*
 !.yarn/patches

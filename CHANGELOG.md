@@ -4,6 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.34.4] 2026-03-02
+
+### Fixed
+
+-   Ensure `onComplete` fires at the end of an animation sequence.
+
 ## [12.34.3] 2026-02-20
 
 ### Fixed
