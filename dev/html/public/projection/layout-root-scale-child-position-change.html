@@ -1,0 +1,86 @@
+<html>
+    <head>
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+            }
+
+            #parent {
+                width: 100px;
+                height: 100px;
+                background-color: #00cc88;
+                position: absolute;
+                top: 100px;
+                left: 100px;
+                display: flex;
+                justify-content: flex-start;
+                align-items: flex-start;
+            }
+
+            #parent.b {
+                justify-content: flex-end;
+                align-items: flex-end;
+            }
+
+            #child {
+                width: 50px;
+                height: 50px;
+                background-color: #0077ff;
+            }
+
+            #trigger-overflow {
+                width: 1px;
+                height: 1px;
+                position: absolute;
+                top: 2000px;
+                left: 2000px;
+            }
+
+            [data-layout-correct="false"] {
+                background: #dd1144 !important;
+                opacity: 0.5;
+            }
+        </style>
+    </head>
+
+    <body>
+        <div id="parent"><div id="child"></div></div>
+        <div id="trigger-overflow"></div>
+
+        <script type="module" src="/src/imports/projection.js"></script>
+        <script type="module" src="/src/imports/script-assert.js"></script>
+        <script type="module" src="/src/imports/script-undo.js"></script>
+        <script type="module">
+            const { createNode } = window.Undo
+            const { matchViewportBox } = window.Assert
+            const { frame } = window.Projection
+            const parent = document.getElementById("parent")
+            const child = document.getElementById("child")
+
+            // Parent has layoutRoot: true and CSS scale: 2 (issue #3356 scenario)
+            const parentProjection = createNode(parent, undefined, {
+                layoutRoot: true,
+            })
+            const childProjection = createNode(child, parentProjection)
+
+            parentProjection.setValue("scale", 2)
+
+            frame.postRender(() => {
+                const parentOrigin = parent.getBoundingClientRect()
+                const childOrigin = child.getBoundingClientRect()
+
+                childProjection.willUpdate()
+
+                parent.classList.add("b")
+
+                childProjection.root.didUpdate()
+
+                frame.postRender(() => {
+                    matchViewportBox(parent, parentOrigin)
+                    matchViewportBox(child, childOrigin)
+                })
+            })
+        </script>
+    </body>
+</html>

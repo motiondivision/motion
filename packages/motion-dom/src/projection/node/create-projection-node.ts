@@ -86,6 +86,43 @@ const animationTarget = 1000
 
 let id = 0
 
+/**
+ * When scale is applied as a motion value but transform-origin is set via raw CSS
+ * (e.g. style={{ transformOrigin: "0 0" }}), latestValues.originX/Y will be undefined.
+ * In that case, read the actual transform-origin from the computed style so that
+ * removeBoxTransforms uses the correct origin point when computing the natural box.
+ */
+function resolveTransformOrigin(
+    instance: unknown,
+    latestValues: ResolvedValues
+): ResolvedValues {
+    if (
+        !hasScale(latestValues) ||
+        !(instance instanceof Element) ||
+        isSVGElement(instance) ||
+        (latestValues.originX !== undefined && latestValues.originY !== undefined)
+    ) {
+        return latestValues
+    }
+
+    const { transformOrigin } = getComputedStyle(instance)
+    const parts = transformOrigin.split(" ")
+    if (parts.length < 2) return latestValues
+
+    const ox = parseFloat(parts[0])
+    const oy = parseFloat(parts[1])
+    if (isNaN(ox) || isNaN(oy)) return latestValues
+
+    const { offsetWidth, offsetHeight } = instance as HTMLElement
+    if (!offsetWidth || !offsetHeight) return latestValues
+
+    return {
+        ...latestValues,
+        originX: latestValues.originX ?? ox / offsetWidth,
+        originY: latestValues.originY ?? oy / offsetHeight,
+    }
+}
+
 function resetDistortingTransform(
     key: string,
     visualElement: VisualElement,
@@ -1084,14 +1121,17 @@ export function createProjectionNode<I>({
 
                 removeBoxTransforms(
                     boxWithoutTransform,
-                    node.latestValues,
+                    resolveTransformOrigin(node.instance, node.latestValues),
                     node.snapshot ? node.snapshot.layoutBox : undefined,
                     sourceBox
                 )
             }
 
             if (hasTransform(this.latestValues)) {
-                removeBoxTransforms(boxWithoutTransform, this.latestValues)
+                removeBoxTransforms(
+                    boxWithoutTransform,
+                    resolveTransformOrigin(this.instance, this.latestValues)
+                )
             }
 
             return boxWithoutTransform
