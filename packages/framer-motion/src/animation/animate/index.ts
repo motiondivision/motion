@@ -110,11 +110,16 @@ export function createScopedAnimate(options: ScopedAnimateOptions = {}) {
         let animationOnComplete: VoidFunction | undefined
 
         if (isSequence(subjectOrSequence)) {
+            const { onComplete, ...sequenceOptions } =
+                (optionsOrKeyframes as SequenceOptions) || {}
+            if (typeof onComplete === "function") {
+                animationOnComplete = onComplete as VoidFunction
+            }
             animations = animateSequence(
                 subjectOrSequence,
                 reduceMotion !== undefined
-                    ? { reduceMotion, ...(optionsOrKeyframes as SequenceOptions) }
-                    : (optionsOrKeyframes as SequenceOptions),
+                    ? { reduceMotion, ...sequenceOptions }
+                    : (sequenceOptions as SequenceOptions),
                 scope
             )
         } else {
