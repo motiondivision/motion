@@ -1,6 +1,7 @@
 import { MotionValue, motionValue } from "."
 import { JSAnimation } from "../animation/JSAnimation"
 import { AnyResolvedKeyframe, ValueAnimationTransition } from "../animation/types"
+import { calcGeneratorVelocity } from "../animation/generators/utils/velocity"
 import { frame } from "../frameloop"
 import { isMotionValue } from "./utils/is-motion-value"
 
@@ -77,19 +78,35 @@ export function attachFollow<T extends AnyResolvedKeyframe>(
     }
 
     const startAnimation = () => {
-        stopAnimation()
-
         const currentValue = asNumber(value.get())
         const targetValue = asNumber(latestValue)
 
         // Don't animate if we're already at the target
         if (currentValue === targetValue) {
+            stopAnimation()
             return
         }
 
+        // Get velocity from the running animation before stopping it.
+        // Reading directly from the spring generator (5ms window) is more
+        // accurate than the motion value's cross-frame finite difference,
+        // especially when the animation is interrupted after only one frame
+        // (which Chrome does consistently due to vsync-aligned mousemove).
+        let velocity = value.getVelocity()
+        if (activeAnimation?.canSampleVelocity) {
+            const elapsed = activeAnimation.elapsed
+            velocity = calcGeneratorVelocity(
+                (t) => activeAnimation!.sampleAt(t),
+                elapsed,
+                activeAnimation.sampleAt(elapsed)
+            )
+        }
+
+        stopAnimation()
+
         activeAnimation = new JSAnimation({
             keyframes: [currentValue, targetValue],
-            velocity: value.getVelocity(),
+            velocity,
             // Default to spring if no type specified (matches useSpring behavior)
             type: "spring",
             restDelta: 0.001,

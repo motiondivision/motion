@@ -1,6 +1,8 @@
 import { noop, reverseEasing } from "motion-utils"
 import { frame } from "../../frameloop"
 import { JSAnimation, animateValue } from "../JSAnimation"
+import { spring } from "../generators/spring"
+import { calcGeneratorVelocity } from "../generators/utils/velocity"
 import { AnyResolvedKeyframe, ValueAnimationOptions } from "../types"
 import { syncDriver } from "./utils"
 
@@ -1406,5 +1408,89 @@ describe("JSAnimation", () => {
                 type: "spring",
             }).duration
         ).toEqual(1.2)
+    })
+})
+
+describe("JSAnimation velocity sampling (for spring interruption fix)", () => {
+    test("canSampleVelocity is true for a running spring animation", () => {
+        const anim = new JSAnimation<number>({
+            keyframes: [0, 100],
+            type: spring,
+            stiffness: 100,
+            damping: 10,
+        })
+
+        expect(anim.canSampleVelocity).toBe(true)
+        anim.stop()
+    })
+
+    test("canSampleVelocity is false after stopping", () => {
+        const anim = new JSAnimation<number>({
+            keyframes: [0, 100],
+            type: spring,
+            stiffness: 100,
+            damping: 10,
+        })
+
+        anim.stop()
+        expect(anim.canSampleVelocity).toBe(false)
+    })
+
+    test("sampleAt returns origin at t=0", () => {
+        const anim = new JSAnimation<number>({
+            keyframes: [0, 100],
+            type: spring,
+            stiffness: 100,
+            damping: 10,
+        })
+
+        expect(anim.sampleAt(0)).toBe(0)
+        anim.stop()
+    })
+
+    test("sampleAt returns non-zero position at t > 0", () => {
+        const anim = new JSAnimation<number>({
+            keyframes: [0, 100],
+            type: spring,
+            stiffness: 100,
+            damping: 10,
+        })
+
+        const pos = anim.sampleAt(50)
+        expect(pos).toBeGreaterThan(0)
+        anim.stop()
+    })
+
+    test("elapsed is 0 for a new animation before ticking", () => {
+        const anim = new JSAnimation<number>({
+            keyframes: [0, 100],
+            type: spring,
+            stiffness: 100,
+            damping: 10,
+            autoplay: false,
+        })
+
+        expect(anim.elapsed).toBe(0)
+        anim.stop()
+    })
+
+    test("calcGeneratorVelocity with sampleAt returns non-zero spring velocity at t > 0", () => {
+        const anim = new JSAnimation<number>({
+            keyframes: [0, 100],
+            type: spring,
+            stiffness: 100,
+            damping: 10,
+        })
+
+        const t = 16
+        const velocity = calcGeneratorVelocity(
+            (ms) => anim.sampleAt(ms),
+            t,
+            anim.sampleAt(t)
+        )
+
+        // Spring generator velocity should be positive (moving toward target)
+        expect(velocity).toBeGreaterThan(0)
+        anim.stop()
     })
 })
