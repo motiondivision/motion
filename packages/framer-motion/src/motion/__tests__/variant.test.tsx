@@ -1,5 +1,5 @@
 import { motionValue, stagger, Variants } from "motion-dom"
-import { Fragment, memo, useEffect, useState } from "react"
+import { Fragment, act, memo, useEffect, useState } from "react"
 import { frame, motion, MotionConfig, useMotionValue } from "../../"
 import { nextFrame } from "../../gestures/__tests__/utils"
 import { pointerDown, pointerEnter, pointerUp, render } from "../../jest.setup"
@@ -1489,5 +1489,109 @@ describe("animate prop as variant", () => {
         // All opacities should be unique
         const uniqueOpacities = new Set(opacities)
         expect(uniqueOpacities.size).toBe(opacities.length)
+    })
+})
+
+describe("Variant propagation to asynchronously mounted children", () => {
+    test("child that mounts after parent has started animating should animate from initial variant", async () => {
+        const childOpacity = motionValue(0)
+        const onAnimationStart = jest.fn()
+
+        function Component() {
+            const [showChild, setShowChild] = useState(false)
+
+            useEffect(() => {
+                setShowChild(true)
+            }, [])
+
+            return (
+                <motion.div
+                    initial="hidden"
+                    animate="visible"
+                    variants={{
+                        hidden: { opacity: 0 },
+                        visible: { opacity: 1, transition: { type: false } },
+                    }}
+                >
+                    {showChild && (
+                        <motion.div
+                            variants={{
+                                hidden: { opacity: 0 },
+                                visible: {
+                                    opacity: 1,
+                                    transition: { type: false },
+                                },
+                            }}
+                            style={{ opacity: childOpacity }}
+                            onAnimationStart={onAnimationStart}
+                        />
+                    )}
+                </motion.div>
+            )
+        }
+
+        const { rerender } = render(<Component />)
+        rerender(<Component />)
+
+        // Wait for useEffect to mount the child, then for its animation to start
+        await act(async () => {
+            await nextFrame()
+            await nextFrame()
+        })
+
+        expect(onAnimationStart).toHaveBeenCalled()
+        expect(childOpacity.get()).toBe(1)
+    })
+
+    test("child that mounts after parent should animate from initial variant values, not jump to animate", async () => {
+        const childOpacity = motionValue(0)
+        const onAnimationComplete = jest.fn()
+
+        function Component() {
+            const [showChild, setShowChild] = useState(false)
+
+            useEffect(() => {
+                setShowChild(true)
+            }, [])
+
+            return (
+                <motion.div
+                    initial="hidden"
+                    animate="visible"
+                    variants={{
+                        hidden: { opacity: 0 },
+                        visible: { opacity: 1, transition: { type: false } },
+                    }}
+                >
+                    {showChild && (
+                        <motion.div
+                            data-testid="child"
+                            variants={{
+                                hidden: { opacity: 0 },
+                                visible: {
+                                    opacity: 1,
+                                    transition: { type: false },
+                                },
+                            }}
+                            style={{ opacity: childOpacity }}
+                            onAnimationComplete={onAnimationComplete}
+                        />
+                    )}
+                </motion.div>
+            )
+        }
+
+        const { rerender } = render(<Component />)
+        rerender(<Component />)
+
+        // Wait for child to mount and animation to complete
+        await act(async () => {
+            await nextFrame()
+            await nextFrame()
+        })
+
+        // Child should have animated to the visible state (not stayed at initial)
+        expect(onAnimationComplete).toHaveBeenCalled()
+        expect(childOpacity.get()).toBe(1)
     })
 })
