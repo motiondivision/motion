@@ -4,6 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.35.0] 2026-03-03
+
+### Added
+
+-   `ViewTimeline` support for `scroll` and `useScroll`.
+
 ## [12.34.6] 2026-03-03
 
 ### Fixed
