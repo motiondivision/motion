@@ -16,7 +16,6 @@ import { useHTMLVisualState } from "../render/html/use-html-visual-state"
 import { SVGRenderState } from "../render/svg/types"
 import { useSVGVisualState } from "../render/svg/use-svg-visual-state"
 import { CreateVisualElement } from "../render/types"
-import { isBrowser } from "../utils/is-browser"
 import { getInitializedFeatureDefinitions } from "./features/definitions"
 import { loadFeatures } from "./features/load-features"
 import { FeatureBundle, FeaturePackages } from "./features/types"
@@ -110,7 +109,7 @@ export function createMotionComponent<
 
         const visualState = useVisualState(props, isStatic)
 
-        if (!isStatic && isBrowser) {
+        if (!isStatic && typeof window !== "undefined") {
             useStrictMode(configAndProps, preloadedFeatures)
 
             const layoutProjection = getProjectionFunctionality(configAndProps)

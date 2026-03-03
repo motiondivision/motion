@@ -127,6 +127,7 @@ export function useVisualElement<
         props[optimizedAppearDataAttribute as keyof typeof props]
     const wantsHandoff = useRef(
         Boolean(optimisedAppearId) &&
+            typeof window !== "undefined" &&
             !window.MotionHandoffIsComplete?.(optimisedAppearId) &&
             window.MotionHasOptimisedAnimation?.(optimisedAppearId)
     )
