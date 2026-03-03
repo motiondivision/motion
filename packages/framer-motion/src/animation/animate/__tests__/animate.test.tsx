@@ -618,6 +618,46 @@ describe("animate: Objects", () => {
         expect(obj.rotation.x).toBe(10)
     })
 
+    test("No updates fire after stop() on object animation", async () => {
+        let updateCount = 0
+        const proxy = new Proxy(
+            { rotation: 0 },
+            {
+                set: (target, p, newValue) => {
+                    if (p === "rotation") {
+                        updateCount++
+                        ;(target as any)[p] = newValue
+                    }
+                    return true
+                },
+            }
+        )
+
+        const a = animate(
+            proxy,
+            { rotation: 1 },
+            {
+                duration: 10,
+                repeat: Infinity,
+                repeatType: "loop",
+                ease: "linear",
+            }
+        )
+
+        // Wait for animation to run
+        await new Promise<void>((resolve) => setTimeout(resolve, 100))
+
+        expect(updateCount).toBeGreaterThan(0)
+
+        a.stop()
+        const countAfterStop = updateCount
+
+        // Wait for any pending frames/renders to fire
+        await new Promise<void>((resolve) => setTimeout(resolve, 100))
+
+        expect(updateCount).toBe(countAfterStop)
+    })
+
     test("sets motion value to target when animating non-animatable color with type: false", async () => {
         const colorValue = motionValue("#000")
 

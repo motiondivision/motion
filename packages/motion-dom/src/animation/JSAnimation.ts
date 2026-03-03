@@ -439,9 +439,14 @@ export class JSAnimation<T extends number | string>
      * animation.stop is returned as a reference from a useEffect.
      */
     stop = () => {
-        const { motionValue } = this.options
+        const { motionValue, onUpdate } = this.options
         if (motionValue && motionValue.updatedAt !== time.now()) {
-            this.tick(time.now())
+            // Suppress onUpdate to avoid triggering motionValue.set()
+            // which would schedule a VisualElement render after stop
+            this.options.onUpdate = undefined
+            const state = this.tick(time.now())
+            this.options.onUpdate = onUpdate
+            motionValue.setCurrent(state.value)
         }
 
         this.isStopped = true
