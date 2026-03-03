@@ -59,6 +59,14 @@ export function createAnimationState(visualElement: any): AnimationState {
     let animate = createAnimateFunction(visualElement)
     let state = createState()
     let isInitialRender = true
+    /**
+     * Track whether the animation state has been reset (e.g. via StrictMode
+     * double-invocation or Suspense unmount/remount). On the first
+     * animateChanges() call after a reset we need to behave like the initial
+     * render for variant-inheritance checks, even though isInitialRender is
+     * already false.
+     */
+    let wasReset = false
 
     /**
      * This function will be used to reduce the animation definitions for
@@ -172,7 +180,7 @@ export function createAnimationState(visualElement: any): AnimationState {
 
             if (
                 isInherited &&
-                isInitialRender &&
+                (isInitialRender || wasReset) &&
                 visualElement.manuallyAnimateOnMount
             ) {
                 isInherited = false
@@ -331,7 +339,10 @@ export function createAnimationState(visualElement: any): AnimationState {
                 encounteredKeys = { ...encounteredKeys, ...resolvedValues }
             }
 
-            if (isInitialRender && visualElement.blockInitialAnimation) {
+            if (
+                (isInitialRender || wasReset) &&
+                visualElement.blockInitialAnimation
+            ) {
                 shouldAnimateType = false
             }
 
@@ -353,7 +364,7 @@ export function createAnimationState(visualElement: any): AnimationState {
                          */
                         if (
                             typeof animation === "string" &&
-                            isInitialRender &&
+                            (isInitialRender || wasReset) &&
                             !willAnimateViaParent &&
                             visualElement.manuallyAnimateOnMount &&
                             visualElement.parent
@@ -433,6 +444,7 @@ export function createAnimationState(visualElement: any): AnimationState {
         }
 
         isInitialRender = false
+        wasReset = false
         return shouldAnimate ? animate(animations) : Promise.resolve()
     }
 
@@ -466,12 +478,7 @@ export function createAnimationState(visualElement: any): AnimationState {
         getState: () => state,
         reset: () => {
             state = createState()
-            /**
-             * Temporarily disabling resetting this flag as it prevents components
-             * with initial={false} from animating after being remounted, for instance
-             * as the child of an Activity component.
-             */
-            // isInitialRender = true
+            wasReset = true
         },
     }
 }

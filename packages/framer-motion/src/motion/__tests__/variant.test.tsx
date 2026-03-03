@@ -1,6 +1,6 @@
 import { motionValue, stagger, Variants } from "motion-dom"
-import { Fragment, memo, useEffect, useState } from "react"
-import { frame, motion, MotionConfig, useMotionValue } from "../../"
+import { Fragment, Suspense, act, memo, useEffect, useState } from "react"
+import { frame, motion, MotionConfig, useMotionValue, visualElementStore } from "../../"
 import { nextFrame } from "../../gestures/__tests__/utils"
 import { pointerDown, pointerEnter, pointerUp, render } from "../../jest.setup"
 
@@ -1489,5 +1489,231 @@ describe("animate prop as variant", () => {
         // All opacities should be unique
         const uniqueOpacities = new Set(opacities)
         expect(uniqueOpacities.size).toBe(opacities.length)
+    })
+})
+
+describe("Variant propagation to asynchronously mounted children", () => {
+    /**
+     * Simulates a child that is inside a Suspense boundary and mounts
+     * asynchronously — after the parent variant animation has already started.
+     *
+     * Uses the same throw-a-Promise pattern that React.lazy uses internally,
+     * which gives us reliable act() flushing without the scheduling ambiguity
+     * of React.lazy's module-loading machinery.
+     */
+    test("child inside Suspense boundary should animate from initial variant when parent is already animating", async () => {
+        const childOpacity = motionValue(0)
+        const onAnimationStart = jest.fn()
+
+        // resolveChild() lets us control exactly when the Suspense boundary resolves
+        let resolveChild!: () => void
+        let isSuspended = true
+
+        function SuspendingChild() {
+            if (isSuspended) {
+                // Throw a promise to trigger Suspense — same mechanism as React.lazy
+                throw new Promise<void>((resolve) => {
+                    resolveChild = () => {
+                        isSuspended = false
+                        resolve()
+                    }
+                })
+            }
+
+            return (
+                <motion.div
+                    variants={{
+                        hidden: { opacity: 0 },
+                        visible: { opacity: 1, transition: { type: false } },
+                    }}
+                    style={{ opacity: childOpacity }}
+                    onAnimationStart={onAnimationStart}
+                />
+            )
+        }
+
+        render(
+            <motion.div
+                initial="hidden"
+                animate="visible"
+                variants={{
+                    hidden: { opacity: 0 },
+                    visible: { opacity: 1, transition: { type: false } },
+                }}
+            >
+                <Suspense fallback={null}>
+                    <SuspendingChild />
+                </Suspense>
+            </motion.div>
+        )
+
+        // Let the parent commit and fire its effects — animateChanges runs,
+        // parent animation starts, isInitialRender flips to false
+        await act(async () => {
+            await nextFrame()
+        })
+
+        // Resolve the Suspense boundary — child mounts into an already-animated
+        // parent tree, exactly as with React.lazy on first load
+        await act(async () => {
+            resolveChild()
+        })
+
+        // Let the child's animation run to completion
+        await act(async () => {
+            await nextFrame()
+            await nextFrame()
+        })
+
+        // Child should have fired its own initial→animate transition
+        expect(onAnimationStart).toHaveBeenCalled()
+        expect(childOpacity.get()).toBe(1)
+    })
+
+    test("child inside Suspense boundary should not skip directly to animate variant values", async () => {
+        const childOpacity = motionValue(1) // start at 1 so we can detect if it's wrongly skipped
+
+        let resolveChild!: () => void
+        let isSuspended = true
+
+        function SuspendingChild() {
+            if (isSuspended) {
+                throw new Promise<void>((resolve) => {
+                    resolveChild = () => {
+                        isSuspended = false
+                        resolve()
+                    }
+                })
+            }
+
+            return (
+                <motion.div
+                    variants={{
+                        hidden: { opacity: 0 },
+                        visible: { opacity: 1, transition: { duration: 10 } },
+                    }}
+                    style={{ opacity: childOpacity }}
+                />
+            )
+        }
+
+        render(
+            <motion.div
+                initial="hidden"
+                animate="visible"
+                variants={{
+                    hidden: { opacity: 0 },
+                    visible: { opacity: 1, transition: { duration: 10 } },
+                }}
+            >
+                <Suspense fallback={null}>
+                    <SuspendingChild />
+                </Suspense>
+            </motion.div>
+        )
+
+        // Let parent commit and start its animation
+        await act(async () => {
+            await nextFrame()
+        })
+
+        // Resolve the Suspense boundary
+        await act(async () => {
+            resolveChild()
+        })
+
+        // One frame into a 10-second animation — should be near 0, not 1
+        await act(async () => {
+            await nextFrame()
+        })
+
+        // Bug scenario: child jumps straight to opacity:1 (animate state)
+        // Fix: child starts at opacity:0 (initial state) and is animating
+        expect(childOpacity.get()).toBeLessThan(0.5)
+    })
+
+    test("child inside Suspense boundary should re-animate after animationState reset (StrictMode remount)", async () => {
+        /**
+         * Simulates React StrictMode's double-invocation: after the initial mount
+         * and animation, AnimationFeature.unmount() calls animationState.reset(),
+         * then a second animateChanges() fires. The child should animate again
+         * because wasReset=true preserves the manuallyAnimateOnMount override.
+         */
+        const childOpacity = motionValue(0)
+        const onAnimationStart = jest.fn()
+
+        let resolveChild!: () => void
+        let isSuspended = true
+
+        function SuspendingChild() {
+            if (isSuspended) {
+                throw new Promise<void>((resolve) => {
+                    resolveChild = () => {
+                        isSuspended = false
+                        resolve()
+                    }
+                })
+            }
+
+            return (
+                <motion.div
+                    id="reset-test-child"
+                    variants={{
+                        hidden: { opacity: 0 },
+                        visible: { opacity: 1, transition: { type: false } },
+                    }}
+                    style={{ opacity: childOpacity }}
+                    onAnimationStart={onAnimationStart}
+                />
+            )
+        }
+
+        const { container } = render(
+            <motion.div
+                initial="hidden"
+                animate="visible"
+                variants={{
+                    hidden: { opacity: 0 },
+                    visible: { opacity: 1, transition: { type: false } },
+                }}
+            >
+                <Suspense fallback={null}>
+                    <SuspendingChild />
+                </Suspense>
+            </motion.div>
+        )
+
+        await act(async () => {
+            await nextFrame()
+        })
+        await act(async () => {
+            resolveChild()
+        })
+        await act(async () => {
+            await nextFrame()
+            await nextFrame()
+        })
+
+        expect(childOpacity.get()).toBe(1)
+
+        // Simulate StrictMode remount: reset animation state (as AnimationFeature.unmount() does)
+        const childEl = container.querySelector("#reset-test-child")
+        const ve = childEl && visualElementStore.get(childEl as Element)
+        expect(ve?.animationState).toBeDefined()
+
+        ve!.animationState!.reset()
+        childOpacity.set(0) // Simulate DOM reset to initial value
+
+        await act(async () => {
+            ve!.animationState!.animateChanges()
+        })
+
+        await act(async () => {
+            await nextFrame()
+            await nextFrame()
+        })
+
+        // After reset + re-animate, the child should have animated to 1 again
+        expect(childOpacity.get()).toBe(1)
     })
 })
