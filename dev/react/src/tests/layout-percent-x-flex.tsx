@@ -1,10 +1,29 @@
 import { useState } from "react"
 import { motion } from "framer-motion"
 
-export const App = () => {
-    const [items, setItems] = useState<number[]>([])
+/**
+ * Regression test for https://github.com/motiondivision/motion/issues/3401
+ *
+ * Matches the reporter's sandbox pattern: only the most-recently-added item
+ * has initial/animate props. When the next item is added, shouldAnimate flips
+ * false for the previous item — its x animation stops and latestValues.x
+ * stays at "100%" indefinitely. The layout update then fires with an
+ * unresolved percentage, triggering the teleport bug.
+ */
 
-    const addItem = () => setItems((prev) => [...prev, prev.length])
+interface Item {
+    id: number
+    isAdded: boolean
+}
+
+export const App = () => {
+    const [items, setItems] = useState<Item[]>([
+        { id: 0, isAdded: false },
+        { id: 1, isAdded: false },
+    ])
+
+    const addItem = () =>
+        setItems((prev) => [...prev, { id: prev.length, isAdded: true }])
 
     return (
         <div
@@ -19,25 +38,29 @@ export const App = () => {
                 Add
             </button>
             <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
-                {items.map((id) => (
-                    <motion.div
-                        key={id}
-                        layout
-                        id={`item-${id}`}
-                        initial={{ x: "100%" }}
-                        animate={{ x: 0 }}
-                        transition={{
-                            duration: 0.1,
-                            layout: { duration: 10 },
-                        }}
-                        style={{
-                            width: 100,
-                            height: 100,
-                            background: "red",
-                            flexShrink: 0,
-                        }}
-                    />
-                ))}
+                {items.map((item, i) => {
+                    const shouldAnimate =
+                        i === items.length - 1 && item.isAdded
+
+                    return (
+                        <motion.div
+                            key={item.id}
+                            layout
+                            id={`item-${item.id}`}
+                            initial={
+                                shouldAnimate ? { x: "100%" } : undefined
+                            }
+                            animate={shouldAnimate ? { x: 0 } : undefined}
+                            transition={{ duration: 10 }}
+                            style={{
+                                width: 100,
+                                height: 100,
+                                background: "red",
+                                flexShrink: 0,
+                            }}
+                        />
+                    )
+                })}
             </div>
         </div>
     )
