@@ -109,7 +109,7 @@ export function createMotionComponent<
 
         const visualState = useVisualState(props, isStatic)
 
-        if (!isStatic) {
+        if (!isStatic && typeof window !== "undefined") {
             useStrictMode(configAndProps, preloadedFeatures)
 
             const layoutProjection = getProjectionFunctionality(configAndProps)
