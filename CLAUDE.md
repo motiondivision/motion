@@ -77,9 +77,17 @@ motion (public API)
 
 ### Test types by feature
 
-- **Unit tests (Jest)**: For pure logic, value transformations, utilities. Located in `__tests__/` directories alongside source.
+- **Unit tests (Jest)**: For pure logic, value transformations, utilities. Located in `__tests__/` directories alongside source. **JSDOM does not support WAAPI** (`Element.animate()`), so Jest tests only cover the JS animation fallback path.
 - **E2E tests (Cypress)**: For UI behavior that involves DOM rendering, scroll interactions, gesture handling, or WAAPI animations. Test specs in `packages/framer-motion/cypress/integration/`, test pages in `dev/react/src/tests/`.
 - **E2E tests (Playwright)**: For cross-browser testing and HTML/vanilla JS tests. Specs in `tests/`, test pages in `dev/html/public/playwright/`.
+
+### When to escalate from unit tests to Cypress
+
+**If a bug is reported with a reproduction but your unit test passes, do NOT conclude "already works."** JSDOM lacks WAAPI, real layout, and real browser rendering. The bug is likely in the browser code path. You MUST:
+
+1. Create a Cypress E2E test that matches the reporter's reproduction as closely as possible.
+2. Verify the Cypress test fails before implementing a fix.
+3. If the bug involves `opacity`, `transform`, React.lazy/Suspense, scroll, layout animations, or any visual behavior — **start with Cypress**, skip the unit test entirely.
 
 ### Creating Cypress E2E tests
 
