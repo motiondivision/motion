@@ -1,3 +1,4 @@
+import { ScrollOffset as ScrollOffsetPresets } from "../offsets/presets"
 import { ProgressIntersection, ScrollOffset } from "../types"
 
 interface ViewTimelineRange {
@@ -11,34 +12,10 @@ interface ViewTimelineRange {
  * which signals the caller to fall back to JS-based scroll tracking.
  */
 const presets: [ProgressIntersection[], string][] = [
-    [
-        [
-            [0, 1],
-            [1, 1],
-        ],
-        "entry",
-    ],
-    [
-        [
-            [0, 0],
-            [1, 0],
-        ],
-        "exit",
-    ],
-    [
-        [
-            [1, 0],
-            [0, 1],
-        ],
-        "cover",
-    ],
-    [
-        [
-            [0, 0],
-            [1, 1],
-        ],
-        "contain",
-    ],
+    [ScrollOffsetPresets.Enter, "entry"],
+    [ScrollOffsetPresets.Exit, "exit"],
+    [ScrollOffsetPresets.Any, "cover"],
+    [ScrollOffsetPresets.All, "contain"],
 ]
 
 function matchesPreset(
