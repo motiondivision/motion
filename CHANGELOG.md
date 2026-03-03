@@ -9,6 +9,7 @@ Undocumented APIs should be considered internal and may change without warning.
 ### Fixed
 
 -   Ensure final WAAPI styles are always committed synchronously to prevent flash of incorrect styles in Firefox.
+-   Prevent Next.js from caching `typeof window` checks.
 
 ## [12.34.4] 2026-03-02
 
