@@ -4,6 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.34.6] 2026-03-03
+
+### Fixed
+
+-   Handle `%` translate values in layout animations.
+
 ## [12.34.5] 2026-03-03
 
 ### Fixed

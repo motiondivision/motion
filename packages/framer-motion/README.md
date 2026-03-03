@@ -128,7 +128,7 @@ Motion drives the animations on the Cursor homepage, and is working with Cursor 
 
 ### Gold
 
-<a href="https://lottiefiles.com"><img alt="LottieFiles" src="https://github.com/user-attachments/assets/4e99d8c7-4cba-43ee-93c5-93861ae708ec" width="200px" height="120px"></a>
+<a href="https://lottiefiles.com"><img alt="LottieFiles" src="https://github.com/user-attachments/assets/4e99d8c7-4cba-43ee-93c5-93861ae708ec" width="200px" height="120px"></a> <a href="https://mintlify.com"><img alt="Mintlify" src="https://github.com/user-attachments/assets/2740db2f-1877-49ae-ae80-ba5d19ef1587" width="200px" height="120px"></a>
 
 ### Silver
 
