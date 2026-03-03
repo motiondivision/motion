@@ -75,6 +75,8 @@ motion (public API)
 
 **IMPORTANT: Always write tests for every bug fix AND every new feature.** Write a failing test FIRST before implementing, to ensure the issue is reproducible and the fix is verified.
 
+**"Failing test" means a test that reproduces the reported bug.** The test should assert the expected behavior and fail because of the bug — not because your planned code doesn't exist yet. A TypeScript compile error for an API you're about to add is not a failing test. Write the test against the existing codebase, see it fail for the right reason, then implement the fix.
+
 ### Test types by feature
 
 - **Unit tests (Jest)**: For pure logic, value transformations, utilities. Located in `__tests__/` directories alongside source. **JSDOM does not support WAAPI** (`Element.animate()`), so Jest tests only cover the JS animation fallback path.
@@ -94,6 +96,24 @@ motion (public API)
 1. **Create a test page** in `dev/react/src/tests/<test-name>.tsx` exporting a named `App` component. It's automatically available at `?test=<test-name>`.
 2. **Create a spec** in `packages/framer-motion/cypress/integration/<test-name>.ts`.
 3. **Verify WAAPI acceleration** using `element.getAnimations()` in Cypress `should` callbacks to check that native animations are (or aren't) created.
+
+### Running Cypress tests locally
+
+**You MUST run every new Cypress test against both React 18 and React 19 before creating a PR.** CI runs both and will break if you skip this.
+
+Use the `test-single` pattern from the Makefile, adapted per spec:
+
+```bash
+# React 18 (port 9990, default cypress.json)
+yarn start-server-and-test "yarn dev-server" http://localhost:9990 \
+  "cd packages/framer-motion && cypress run --headed --spec cypress/integration/<test-name>.ts"
+
+# React 19 (port 9991, cypress.react-19.json)
+yarn start-server-and-test "yarn dev-server" http://localhost:9991 \
+  "cd packages/framer-motion && cypress run --config-file=cypress.react-19.json --headed --spec cypress/integration/<test-name>.ts"
+```
+
+Both must pass. If a test fails on one React version but not the other, investigate — do not skip it.
 
 ### Async test helpers
 
@@ -116,6 +136,14 @@ async function nextFrame() {
 - Prefer arrow callbacks
 - Use strict equality (`===`)
 - No `var` declarations (use `const`/`let`)
+
+## Fixing Issues from Bug Reports
+
+When working on a bug fix from a GitHub issue:
+
+1. **The reporter's reproduction code is the basis for your test.** If the issue links to a CodeSandbox/StackBlitz, fetch it. Try multiple URL patterns if the first fails. If the issue has inline code, use that directly.
+2. **If you cannot get the reproduction code, STOP and ask for help.** Do not guess at what the reporter meant — that leads to tests that prove nothing. Message the team lead with the URL and ask them to provide the code.
+3. **Do not proceed to a fix without a test that fails for the right reason.** See the "Writing Tests" section above.
 
 ## Notes
 
