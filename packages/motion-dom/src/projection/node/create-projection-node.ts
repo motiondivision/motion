@@ -395,6 +395,14 @@ export function createProjectionNode<I>({
         treeScale: Point = { x: 1, y: 1 }
 
         /**
+         * CSS scale applied to this node via an untracked raw CSS transform (e.g.
+         * style={{ transform: "scale(2)" }}). Only populated for layoutRoot nodes
+         * where hasScale(latestValues) is false. Used to correct treeScale so
+         * buildProjectionTransform divides translate by the right amount.
+         */
+        cssScale?: Point
+
+        /**
          * Is hydrated with a projection node if an element is animating from another.
          */
         resumeFrom?: IProjectionNode
@@ -924,6 +932,32 @@ export function createProjectionNode<I>({
 
             const prevLayout = this.layout
             this.layout = this.measure(false)
+
+            /**
+             * For layoutRoot nodes with an untracked CSS scale (e.g. style={{ transform:
+             * "scale(2)" }}), measure the ratio of visual size to natural size so we can
+             * later correct treeScale in resolveTargetDelta (issue #3356).
+             */
+            if (
+                this.options.layoutRoot &&
+                !hasScale(this.latestValues) &&
+                this.instance instanceof HTMLElement
+            ) {
+                const { offsetWidth, offsetHeight } =
+                    this.instance as HTMLElement
+                if (offsetWidth && offsetHeight) {
+                    const scaleX =
+                        calcLength(this.layout.measuredBox.x) / offsetWidth
+                    const scaleY =
+                        calcLength(this.layout.measuredBox.y) / offsetHeight
+                    this.cssScale =
+                        Math.abs(scaleX - 1) > 0.001 ||
+                        Math.abs(scaleY - 1) > 0.001
+                            ? { x: scaleX, y: scaleY }
+                            : undefined
+                }
+            }
+
             this.layoutVersion++
             this.layoutCorrected = createBox()
             this.isLayoutDirty = false
@@ -1160,6 +1194,7 @@ export function createProjectionNode<I>({
             this.targetDelta = undefined
             this.target = undefined
             this.isLayoutDirty = false
+            this.cssScale = undefined
         }
 
         forceRelativeParentToResolveTarget() {
@@ -1453,6 +1488,20 @@ export function createProjectionNode<I>({
                 this.path,
                 isShared
             )
+
+            /**
+             * Account for any untracked CSS scale on layoutRoot ancestors (issue #3356).
+             * When a layoutRoot has transform: scale(N) set as raw CSS (not a motion value),
+             * the measurements are in visual (scaled) space. We must include that scale in
+             * treeScale so buildProjectionTransform divides the translate correctly.
+             */
+            for (let i = 0; i < this.path.length; i++) {
+                const node = this.path[i]
+                if (node.cssScale) {
+                    this.treeScale.x *= node.cssScale.x
+                    this.treeScale.y *= node.cssScale.y
+                }
+            }
 
             /**
              * If this layer needs to perform scale correction but doesn't have a target,

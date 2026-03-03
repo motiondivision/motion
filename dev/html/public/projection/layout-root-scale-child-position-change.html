@@ -16,6 +16,8 @@
                 display: flex;
                 justify-content: flex-start;
                 align-items: flex-start;
+                transform: scale(2);
+                transform-origin: 0 0;
             }
 
             #parent.b {
@@ -58,13 +60,17 @@
             const parent = document.getElementById("parent")
             const child = document.getElementById("child")
 
-            // Parent has layoutRoot: true and CSS scale: 2 (issue #3356 scenario)
+            /**
+             * Issue #3356: parent has layoutRoot + raw CSS transform: scale(2).
+             * The scale is NOT a tracked motion value — it is set directly in CSS.
+             * Child layout animations must start from the correct visual position.
+             */
             const parentProjection = createNode(parent, undefined, {
                 layoutRoot: true,
             })
             const childProjection = createNode(child, parentProjection)
 
-            parentProjection.setValue("scale", 2)
+            // No setValue("scale", …) — the scale is raw CSS only.
 
             frame.postRender(() => {
                 const parentOrigin = parent.getBoundingClientRect()

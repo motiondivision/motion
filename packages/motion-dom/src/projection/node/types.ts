@@ -60,6 +60,7 @@ export interface IProjectionNode<I = unknown> {
     targetWithTransforms?: Box
     scroll?: ScrollMeasurements
     treeScale?: Point
+    cssScale?: Point
     projectionDelta?: Delta
     projectionDeltaWithTransform?: Delta
     latestValues: ResolvedValues
