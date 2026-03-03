@@ -4,13 +4,6 @@ import { ScrollOptionsWithDefaults } from "../types"
 import { canUseNativeTimeline } from "./can-use-native-timeline"
 import { offsetToViewTimelineRange } from "./offset-to-range"
 
-declare global {
-    interface Window {
-        ScrollTimeline: ScrollTimeline
-        ViewTimeline: ViewTimeline
-    }
-}
-
 declare class ScrollTimeline implements ProgressTimeline {
     constructor(options: ScrollOptions)
 
@@ -51,11 +44,18 @@ export function getTimeline({
 
     if (source) container = source
 
-    const containerCache = timelineCache.get(container) ?? new Map()
-    timelineCache.set(container, containerCache)
+    let containerCache = timelineCache.get(container)
+    if (!containerCache) {
+        containerCache = new Map()
+        timelineCache.set(container, containerCache)
+    }
 
     const targetKey = options.target ?? "self"
-    const targetCache = containerCache.get(targetKey) ?? {}
+    let targetCache = containerCache.get(targetKey)
+    if (!targetCache) {
+        targetCache = {}
+        containerCache.set(targetKey, targetCache)
+    }
 
     const axisKey = axis + (options.offset ?? []).join(",")
 
@@ -85,8 +85,6 @@ export function getTimeline({
             })
         }
     }
-
-    containerCache.set(targetKey, targetCache)
 
     return targetCache[axisKey]!
 }

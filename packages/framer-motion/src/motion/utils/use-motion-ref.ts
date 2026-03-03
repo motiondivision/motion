@@ -35,10 +35,6 @@ export function useMotionRef<Instance, RenderState>(
                 visualState.onMount?.(instance)
             }
 
-            if (visualElement) {
-                instance ? visualElement.mount(instance) : visualElement.unmount()
-            }
-
             const ref = externalRefContainer.current
             if (typeof ref === "function") {
                 if (instance) {
@@ -54,6 +50,10 @@ export function useMotionRef<Instance, RenderState>(
                 }
             } else if (ref) {
                 ;(ref as React.MutableRefObject<Instance>).current = instance
+            }
+
+            if (visualElement) {
+                instance ? visualElement.mount(instance) : visualElement.unmount()
             }
         },
         [visualElement]
