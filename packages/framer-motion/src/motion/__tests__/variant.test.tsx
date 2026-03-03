@@ -1,5 +1,5 @@
 import { motionValue, stagger, Variants } from "motion-dom"
-import { Fragment, act, memo, useEffect, useState } from "react"
+import { Fragment, Suspense, act, memo, useEffect, useState } from "react"
 import { frame, motion, MotionConfig, useMotionValue } from "../../"
 import { nextFrame } from "../../gestures/__tests__/utils"
 import { pointerDown, pointerEnter, pointerUp, render } from "../../jest.setup"
@@ -1493,105 +1493,142 @@ describe("animate prop as variant", () => {
 })
 
 describe("Variant propagation to asynchronously mounted children", () => {
-    test("child that mounts after parent has started animating should animate from initial variant", async () => {
+    /**
+     * Simulates a child that is inside a Suspense boundary and mounts
+     * asynchronously — after the parent variant animation has already started.
+     *
+     * Uses the same throw-a-Promise pattern that React.lazy uses internally,
+     * which gives us reliable act() flushing without the scheduling ambiguity
+     * of React.lazy's module-loading machinery.
+     */
+    test("child inside Suspense boundary should animate from initial variant when parent is already animating", async () => {
         const childOpacity = motionValue(0)
         const onAnimationStart = jest.fn()
 
-        function Component() {
-            const [showChild, setShowChild] = useState(false)
+        // resolveChild() lets us control exactly when the Suspense boundary resolves
+        let resolveChild!: () => void
+        let isSuspended = true
 
-            useEffect(() => {
-                setShowChild(true)
-            }, [])
+        function SuspendingChild() {
+            if (isSuspended) {
+                // Throw a promise to trigger Suspense — same mechanism as React.lazy
+                throw new Promise<void>((resolve) => {
+                    resolveChild = () => {
+                        isSuspended = false
+                        resolve()
+                    }
+                })
+            }
 
             return (
                 <motion.div
-                    initial="hidden"
-                    animate="visible"
                     variants={{
                         hidden: { opacity: 0 },
                         visible: { opacity: 1, transition: { type: false } },
                     }}
-                >
-                    {showChild && (
-                        <motion.div
-                            variants={{
-                                hidden: { opacity: 0 },
-                                visible: {
-                                    opacity: 1,
-                                    transition: { type: false },
-                                },
-                            }}
-                            style={{ opacity: childOpacity }}
-                            onAnimationStart={onAnimationStart}
-                        />
-                    )}
-                </motion.div>
+                    style={{ opacity: childOpacity }}
+                    onAnimationStart={onAnimationStart}
+                />
             )
         }
 
-        const { rerender } = render(<Component />)
-        rerender(<Component />)
+        render(
+            <motion.div
+                initial="hidden"
+                animate="visible"
+                variants={{
+                    hidden: { opacity: 0 },
+                    visible: { opacity: 1, transition: { type: false } },
+                }}
+            >
+                <Suspense fallback={null}>
+                    <SuspendingChild />
+                </Suspense>
+            </motion.div>
+        )
 
-        // Wait for useEffect to mount the child, then for its animation to start
+        // Let the parent commit and fire its effects — animateChanges runs,
+        // parent animation starts, isInitialRender flips to false
+        await act(async () => {
+            await nextFrame()
+        })
+
+        // Resolve the Suspense boundary — child mounts into an already-animated
+        // parent tree, exactly as with React.lazy on first load
+        await act(async () => {
+            resolveChild()
+        })
+
+        // Let the child's animation run to completion
         await act(async () => {
             await nextFrame()
             await nextFrame()
         })
 
+        // Child should have fired its own initial→animate transition
         expect(onAnimationStart).toHaveBeenCalled()
         expect(childOpacity.get()).toBe(1)
     })
 
-    test("child that mounts after parent should animate from initial variant values, not jump to animate", async () => {
-        const childOpacity = motionValue(0)
-        const onAnimationComplete = jest.fn()
+    test("child inside Suspense boundary should not skip directly to animate variant values", async () => {
+        const childOpacity = motionValue(1) // start at 1 so we can detect if it's wrongly skipped
 
-        function Component() {
-            const [showChild, setShowChild] = useState(false)
+        let resolveChild!: () => void
+        let isSuspended = true
 
-            useEffect(() => {
-                setShowChild(true)
-            }, [])
+        function SuspendingChild() {
+            if (isSuspended) {
+                throw new Promise<void>((resolve) => {
+                    resolveChild = () => {
+                        isSuspended = false
+                        resolve()
+                    }
+                })
+            }
 
             return (
                 <motion.div
-                    initial="hidden"
-                    animate="visible"
                     variants={{
                         hidden: { opacity: 0 },
-                        visible: { opacity: 1, transition: { type: false } },
+                        visible: { opacity: 1, transition: { duration: 10 } },
                     }}
-                >
-                    {showChild && (
-                        <motion.div
-                            data-testid="child"
-                            variants={{
-                                hidden: { opacity: 0 },
-                                visible: {
-                                    opacity: 1,
-                                    transition: { type: false },
-                                },
-                            }}
-                            style={{ opacity: childOpacity }}
-                            onAnimationComplete={onAnimationComplete}
-                        />
-                    )}
-                </motion.div>
+                    style={{ opacity: childOpacity }}
+                />
             )
         }
 
-        const { rerender } = render(<Component />)
-        rerender(<Component />)
+        render(
+            <motion.div
+                initial="hidden"
+                animate="visible"
+                variants={{
+                    hidden: { opacity: 0 },
+                    visible: { opacity: 1, transition: { duration: 10 } },
+                }}
+            >
+                <Suspense fallback={null}>
+                    <SuspendingChild />
+                </Suspense>
+            </motion.div>
+        )
 
-        // Wait for child to mount and animation to complete
+        // Let parent commit and start its animation
         await act(async () => {
-            await nextFrame()
             await nextFrame()
         })
 
-        // Child should have animated to the visible state (not stayed at initial)
-        expect(onAnimationComplete).toHaveBeenCalled()
-        expect(childOpacity.get()).toBe(1)
+        // Resolve the Suspense boundary
+        await act(async () => {
+            resolveChild()
+        })
+
+        // One frame into a 10-second animation — should be near 0, not 1
+        await act(async () => {
+            await nextFrame()
+        })
+
+        // Bug scenario: child jumps straight to opacity:1 (animate state)
+        // Fix: child starts at opacity:0 (initial state) and is animating
+        expect(childOpacity.get()).toBeLessThan(0.5)
     })
 })
