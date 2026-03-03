@@ -1372,3 +1372,118 @@ describe("animate prop as object", () => {
         expect(scale.get()).toBe(0)
     })
 })
+
+describe("settled prop", () => {
+    test("applies values instantly when settled is false", async () => {
+        const promise = new Promise<number>((resolve) => {
+            const x = motionValue(0)
+            const Component = ({ target }: { target: number }) => (
+                <motion.div
+                    animate={{ x: target }}
+                    transition={{ duration: 1 }}
+                    settled={false}
+                    style={{ x }}
+                />
+            )
+            const { rerender } = render(<Component target={100} />)
+            rerender(<Component target={100} />)
+
+            // Value should be at target instantly despite duration: 1
+            requestAnimationFrame(() => resolve(x.get()))
+        })
+        return expect(promise).resolves.toBe(100)
+    })
+
+    test("applies rapid changes instantly when settled is false", async () => {
+        const promise = new Promise<number>((resolve) => {
+            const x = motionValue(0)
+            const Component = ({ target }: { target: number }) => (
+                <motion.div
+                    animate={{ x: target }}
+                    transition={{ duration: 1 }}
+                    settled={false}
+                    style={{ x }}
+                />
+            )
+            const { rerender } = render(<Component target={50} />)
+            rerender(<Component target={100} />)
+            rerender(<Component target={0} />)
+            rerender(<Component target={200} />)
+
+            // After rapid changes, should be at final value instantly
+            requestAnimationFrame(() => resolve(x.get()))
+        })
+        return expect(promise).resolves.toBe(200)
+    })
+
+    test("animates normally after settled becomes true", async () => {
+        const promise = new Promise<number>((resolve) => {
+            const x = motionValue(0)
+            const Component = ({
+                target,
+                settled,
+            }: {
+                target: number
+                settled: boolean
+            }) => (
+                <motion.div
+                    animate={{ x: target }}
+                    transition={{ type: "tween", ease: () => 0.5 }}
+                    settled={settled}
+                    style={{ x }}
+                />
+            )
+
+            // Start unsettled at 0
+            const { rerender } = render(
+                <Component target={0} settled={false} />
+            )
+            rerender(<Component target={0} settled={false} />)
+
+            // Become settled (no target change)
+            rerender(<Component target={0} settled={true} />)
+
+            // Now change target while settled - should animate via tween
+            rerender(<Component target={100} settled={true} />)
+
+            // With ease: () => 0.5 the value should settle at 50
+            // (midway), not 100 (instant). If settled leaked, it'd be 100.
+            requestAnimationFrame(() => resolve(x.get()))
+        })
+        return expect(promise).resolves.toBe(50)
+    })
+
+    test("settled false-to-true transition applies instantly", async () => {
+        const promise = new Promise<number>((resolve) => {
+            const x = motionValue(0)
+            const Component = ({
+                target,
+                settled,
+            }: {
+                target: number
+                settled: boolean
+            }) => (
+                <motion.div
+                    animate={{ x: target }}
+                    transition={{ duration: 1 }}
+                    settled={settled}
+                    style={{ x }}
+                />
+            )
+
+            // Start unsettled at 0
+            const { rerender } = render(
+                <Component target={0} settled={false} />
+            )
+            rerender(<Component target={0} settled={false} />)
+
+            // Change both settled and target simultaneously
+            // This simulates the settling moment where the final value is applied
+            rerender(<Component target={100} settled={true} />)
+
+            // Value should be at target instantly (no catch-up animation)
+            requestAnimationFrame(() => resolve(x.get()))
+        })
+        return expect(promise).resolves.toBe(100)
+    })
+})

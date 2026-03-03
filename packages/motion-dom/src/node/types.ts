@@ -253,6 +253,25 @@ export interface MotionNodeAnimationOptions {
      * ```
      */
     transition?: Transition
+
+    /**
+     * When `false`, all animations are applied instantly with no interpolation
+     * (equivalent to CSS `transition: none`). When set to `true` or left
+     * `undefined`, animations use the configured `transition`.
+     *
+     * This is useful for suppressing animations during measurement
+     * initialization, where async observers (e.g. `IntersectionObserver`)
+     * may fire several corrections before settling on a stable value.
+     *
+     * ```jsx
+     * <motion.div
+     *   animate={{ opacity: isVisible ? 1 : 0 }}
+     *   transition={{ duration: 0.3 }}
+     *   settled={isSettled}
+     * />
+     * ```
+     */
+    settled?: boolean
 }
 
 export interface MotionNodeEventOptions {

@@ -119,6 +119,15 @@ export function createAnimationState(visualElement: any): AnimationState {
         const context = getVariantContext(visualElement.parent) || {}
 
         /**
+         * When settled is false, or just transitioned from false,
+         * force all animations to apply instantly (no interpolation).
+         */
+        const isUnsettled =
+            props.settled === false ||
+            (props.settled !== false &&
+                visualElement.prevProps?.settled === false)
+
+        /**
          * A list of animations that we'll build into as we iterate through the animation
          * types. This will get executed at the end of the function.
          */
@@ -384,6 +393,10 @@ export function createAnimationState(visualElement: any): AnimationState {
                                     delayChildren
                                 )
                             }
+                        }
+
+                        if (isUnsettled) {
+                            options.transitionOverride = { type: false }
                         }
 
                         return {
