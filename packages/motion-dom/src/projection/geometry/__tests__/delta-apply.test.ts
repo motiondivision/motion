@@ -1,4 +1,4 @@
-import { scalePoint, applyPointDelta, applyAxisDelta } from "../delta-apply"
+import { scalePoint, applyPointDelta, applyAxisDelta, transformBox } from "../delta-apply"
 
 describe("scalePoint", () => {
     test("correctly scales a point based on a factor and an originPoint", () => {
@@ -32,6 +32,39 @@ describe("applyAxisDelta", () => {
         const axis = { min: 100, max: 200 }
         applyAxisDelta(axis, 100, 2, 150, 2)
         expect(axis).toEqual({ min: 50, max: 450 })
+    })
+})
+
+describe("transformBox", () => {
+    test("correctly handles percentage x values by resolving to axis width", () => {
+        const box = {
+            x: { min: 100, max: 300 },
+            y: { min: 0, max: 100 },
+        }
+        // 100% of width (200px) should translate x by 200px
+        transformBox(box, { x: "100%" } as any)
+        expect(box.x).toEqual({ min: 300, max: 500 })
+        expect(box.y).toEqual({ min: 0, max: 100 })
+    })
+
+    test("correctly handles percentage y values by resolving to axis height", () => {
+        const box = {
+            x: { min: 0, max: 100 },
+            y: { min: 100, max: 300 },
+        }
+        // 50% of height (200px) = 100px
+        transformBox(box, { y: "50%" } as any)
+        expect(box.y).toEqual({ min: 200, max: 400 })
+        expect(box.x).toEqual({ min: 0, max: 100 })
+    })
+
+    test("correctly handles 0% as no translation", () => {
+        const box = {
+            x: { min: 100, max: 300 },
+            y: { min: 0, max: 100 },
+        }
+        transformBox(box, { x: "0%" } as any)
+        expect(box.x).toEqual({ min: 100, max: 300 })
     })
 })
 

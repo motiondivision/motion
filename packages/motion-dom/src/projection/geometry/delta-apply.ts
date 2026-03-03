@@ -172,20 +172,30 @@ export function transformAxis(
     applyAxisDelta(axis, axisTranslate, axisScale, originPoint, boxScale)
 }
 
+function resolveAxisTranslate(
+    value: number | string | undefined,
+    axis: Axis
+): number | undefined {
+    if (typeof value === "string") {
+        return (parseFloat(value) / 100) * (axis.max - axis.min)
+    }
+    return value as number | undefined
+}
+
 /**
  * Apply a transform to a box from the latest resolved motion values.
  */
 export function transformBox(box: Box, transform: ResolvedValues) {
     transformAxis(
         box.x,
-        transform.x as number,
+        resolveAxisTranslate(transform.x, box.x),
         transform.scaleX as number,
         transform.scale as number,
         transform.originX as number
     )
     transformAxis(
         box.y,
-        transform.y as number,
+        resolveAxisTranslate(transform.y, box.y),
         transform.scaleY as number,
         transform.scale as number,
         transform.originY as number
