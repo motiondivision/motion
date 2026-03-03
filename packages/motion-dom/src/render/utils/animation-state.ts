@@ -260,8 +260,7 @@ export function createAnimationState(visualElement: any): AnimationState {
                 !variantDidChange &&
                 activeDelta === null &&
                 typeState.prevProp !== undefined &&
-                typeState.prevCustom !== undefined &&
-                typeState.prevCustom.value !== undefined
+                typeState.prevCustom?.value !== undefined
                     ? typeState.prevCustom.value
                     : undefined
 
