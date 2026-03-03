@@ -492,6 +492,27 @@ describe("Sequence callbacks", () => {
         expect(undoCount).toBe(1)
     })
 
+    test("onPlay fires when sequence starts", async () => {
+        const element = document.createElement("div")
+        let played = false
+
+        const animation = animate(
+            [
+                [element, { opacity: 0 }, { duration: 0.01 }],
+                [element, { opacity: 1 }, { duration: 0.01 }],
+            ],
+            {
+                onPlay: () => {
+                    played = true
+                },
+            }
+        )
+
+        await animation.finished
+
+        expect(played).toBe(true)
+    })
+
     test("onComplete fires when sequence finishes", async () => {
         const element = document.createElement("div")
         let completed = false

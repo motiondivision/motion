@@ -108,12 +108,16 @@ export function createScopedAnimate(options: ScopedAnimateOptions = {}) {
     ): AnimationPlaybackControlsWithThen {
         let animations: AnimationPlaybackControlsWithThen[] = []
         let animationOnComplete: VoidFunction | undefined
+        let animationOnPlay: VoidFunction | undefined
 
         if (isSequence(subjectOrSequence)) {
-            const { onComplete, ...sequenceOptions } =
+            const { onComplete, onPlay, ...sequenceOptions } =
                 (optionsOrKeyframes as SequenceOptions) || {}
             if (typeof onComplete === "function") {
                 animationOnComplete = onComplete as VoidFunction
+            }
+            if (typeof onPlay === "function") {
+                animationOnPlay = onPlay as VoidFunction
             }
             animations = animateSequence(
                 subjectOrSequence,
@@ -139,6 +143,8 @@ export function createScopedAnimate(options: ScopedAnimateOptions = {}) {
         }
 
         const animation = new GroupAnimationWithThen(animations)
+
+        animationOnPlay?.()
 
         if (animationOnComplete) {
             animation.finished.then(animationOnComplete)
