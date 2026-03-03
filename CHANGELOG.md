@@ -4,6 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.34.5] 2026-03-03
+
+### Fixed
+
+-   Ensure final WAAPI styles are always committed synchronously to prevent flash of incorrect styles in Firefox.
+
 ## [12.34.4] 2026-03-02
 
 ### Fixed
