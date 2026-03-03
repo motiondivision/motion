@@ -145,6 +145,10 @@ When working on a bug fix from a GitHub issue:
 2. **If you cannot get the reproduction code, STOP and ask for help.** Do not guess at what the reporter meant — that leads to tests that prove nothing. Message the team lead with the URL and ask them to provide the code.
 3. **Do not proceed to a fix without a test that fails for the right reason.** See the "Writing Tests" section above.
 
+## Known GitHub CLI Issues
+
+`gh pr edit` fails on this repo due to GitHub's Projects Classic deprecation blocking the GraphQL mutation. **This is expected — do not investigate, retry, or work around it.** If `gh pr create` succeeded and the code is pushed, you're done. Move on.
+
 ## Notes
 
 Be thorough - I am at risk of losing my job.
