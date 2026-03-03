@@ -161,21 +161,25 @@ export function translateAxis(axis: Axis, distance: number) {
  */
 export function transformAxis(
     axis: Axis,
-    axisTranslate?: number | string,
+    axisTranslate?: number,
     axisScale?: number,
     boxScale?: number,
     axisOrigin: number = 0.5
 ): void {
-    // Resolve percentage strings (e.g. "100%") to pixel values relative to axis size
-    if (typeof axisTranslate === "string" && axisTranslate.endsWith("%")) {
-        axisTranslate =
-            (parseFloat(axisTranslate) / 100) * (axis.max - axis.min)
-    }
-
     const originPoint = mixNumber(axis.min, axis.max, axisOrigin)
 
     // Apply the axis delta to the final axis
-    applyAxisDelta(axis, axisTranslate as number, axisScale, originPoint, boxScale)
+    applyAxisDelta(axis, axisTranslate, axisScale, originPoint, boxScale)
+}
+
+function resolveAxisTranslate(
+    value: number | string | undefined,
+    axis: Axis
+): number | undefined {
+    if (typeof value === "string") {
+        return (parseFloat(value) / 100) * (axis.max - axis.min)
+    }
+    return value as number | undefined
 }
 
 /**
@@ -184,14 +188,14 @@ export function transformAxis(
 export function transformBox(box: Box, transform: ResolvedValues) {
     transformAxis(
         box.x,
-        transform.x as number,
+        resolveAxisTranslate(transform.x, box.x),
         transform.scaleX as number,
         transform.scale as number,
         transform.originX as number
     )
     transformAxis(
         box.y,
-        transform.y as number,
+        resolveAxisTranslate(transform.y, box.y),
         transform.scaleY as number,
         transform.scale as number,
         transform.originY as number
