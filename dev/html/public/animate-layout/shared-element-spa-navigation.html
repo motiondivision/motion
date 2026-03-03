@@ -2,30 +2,43 @@
     <head>
         <style>
             body {
-                padding: 0;
                 margin: 0;
             }
 
-            #container {
-                width: 400px;
-                height: 400px;
-                background-color: #f0f0f0;
+            #c {
                 position: relative;
+                width: 360px;
+                height: 220px;
+                background: #f0f0f0;
+                overflow: hidden;
             }
 
-            .box-a {
-                width: 100px;
-                height: 100px;
-                background-color: #00cc88;
-            }
-
-            .box-b {
+            #slot {
                 position: absolute;
-                top: 200px;
-                left: 200px;
-                width: 150px;
-                height: 150px;
-                background-color: #09f;
+                top: 8px;
+                right: 8px;
+            }
+
+            #view {
+                position: absolute;
+                inset: 0;
+            }
+
+            .src {
+                width: 64px;
+                height: 20px;
+                border-radius: 999px;
+                background: #09f;
+            }
+
+            .dst {
+                position: absolute;
+                top: 56px;
+                left: 112px;
+                width: 160px;
+                height: 84px;
+                border-radius: 12px;
+                background: #0b9;
             }
 
             [data-layout-correct="false"] {
@@ -35,64 +48,97 @@
         </style>
     </head>
     <body>
-        <div id="container">
-            <div class="box-a" data-layout-id="hero"></div>
+        <div id="c">
+            <div id="slot"></div>
+            <div id="noise-a" hidden></div>
+            <div id="noise-b" hidden></div>
+            <div id="view"></div>
         </div>
 
         <script type="module" src="/src/imports/animate-layout.js"></script>
-        <script type="module" src="/src/imports/script-assert.js"></script>
         <script type="module">
             const { animateLayout, frame } = window.AnimateLayout
-            const { matchViewportBox } = window.Assert
-            const container = document.getElementById("container")
 
-            async function nextFrame() {
-                return new Promise((resolve) => frame.postRender(resolve))
+            const c = document.getElementById("c")
+            const slot = document.getElementById("slot")
+            const noiseA = document.getElementById("noise-a")
+            const noiseB = document.getElementById("noise-b")
+            const view = document.getElementById("view")
+
+            const source = '<div class="src" data-layout-id="shared"></div>'
+            const target = '<div class="dst" data-layout-id="shared"></div>'
+            const noiseSourceA = '<span data-layout-id="route-a"></span>'
+            const noiseSourceB = '<span data-layout-id="route-b"></span>'
+            const runs = 5
+
+            const nextFrame = () =>
+                new Promise((resolve) => frame.postRender(resolve))
+
+            const maxDelta = (a, b) =>
+                Math.max(
+                    Math.abs(a.top - b.top),
+                    Math.abs(a.left - b.left),
+                    Math.abs(a.width - b.width),
+                    Math.abs(a.height - b.height)
+                )
+
+            const fail = (message) => {
+                c.dataset.layoutCorrect = "false"
+                document.body.dataset.error = message
+                throw new Error(message)
+            }
+
+            function initialPage() {
+                slot.innerHTML = source
+                view.innerHTML = ""
+            }
+
+            function softwarePage() {
+                view.innerHTML = target
+                noiseA.innerHTML = noiseSourceA
+                noiseB.innerHTML = noiseSourceB
+            }
+
+            async function assertTargetMount(label) {
+                const node = view.firstElementChild
+                const restingBox = node?.getBoundingClientRect()
+                const controls = await animateLayout(() => {}, {})
+                const animations = Array.isArray(controls.animations)
+                    ? controls.animations.length
+                    : 0
+
+                if (!(node instanceof HTMLElement) || !restingBox) {
+                    fail(`${label} navigation invalid: missing target`)
+                }
+                if (animations <= 0) {
+                    fail(`${label} navigation invalid: no animations`)
+                }
+
+                let displacement = 0
+                for (let i = 0; i < 10; i++) {
+                    await nextFrame()
+                    displacement = Math.max(
+                        displacement,
+                        maxDelta(node.getBoundingClientRect(), restingBox)
+                    )
+                }
+
+                if (displacement <= 1) {
+                    fail(`${label} navigation invalid: no geometric movement`)
+                }
             }
 
             async function runTest() {
-                // Simulate SPA navigation: externally remove the old element
-                // (as a router would), then use animateLayout to add a new
-                // element with the same layoutId.
-                container.innerHTML = ""
+                initialPage()
 
-                const controls1 = await animateLayout(
-                    container,
-                    () => {
-                        container.innerHTML = `
-                            <div class="box-b" data-layout-id="hero"></div>
-                        `
-                    },
-                    { duration: 0.01 }
-                )
+                for (let i = 0; i < runs; i++) {
+                    softwarePage()
+                    const mountTask = assertTargetMount(`Run ${i + 1}`)
+                    await nextFrame()
+                    slot.innerHTML = ""
+                    await mountTask
 
-                await controls1
-
-                // Second navigation: repeat to verify no zombie accumulation
-                container.innerHTML = ""
-
-                const controls2 = await animateLayout(
-                    container,
-                    () => {
-                        container.innerHTML = `
-                            <div class="box-a" data-layout-id="hero"></div>
-                        `
-                    },
-                    { duration: 0.01 }
-                )
-
-                await controls2
-
-                await nextFrame()
-
-                // Verify no elements are marked as incorrectly laid out
-                const incorrect = document.querySelectorAll(
-                    '[data-layout-correct="false"]'
-                )
-                if (incorrect.length > 0) {
-                    throw new Error(
-                        `Found ${incorrect.length} elements with data-layout-correct="false"`
-                    )
+                    initialPage()
                 }
             }
 
