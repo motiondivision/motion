@@ -241,7 +241,12 @@ export class NativeAnimation<T extends AnyResolvedKeyframe>
     /**
      * Attaches a timeline to the animation, for instance the `ScrollTimeline`.
      */
-    attachTimeline({ timeline, observe }: TimelineWithFallback): VoidFunction {
+    attachTimeline({
+        timeline,
+        rangeStart,
+        rangeEnd,
+        observe,
+    }: TimelineWithFallback): VoidFunction {
         if (this.allowFlatten) {
             this.animation.effect?.updateTiming({ easing: "linear" })
         }
@@ -250,6 +255,9 @@ export class NativeAnimation<T extends AnyResolvedKeyframe>
 
         if (timeline && supportsScrollTimeline()) {
             this.animation.timeline = timeline as any
+
+            if (rangeStart) (this.animation as any).rangeStart = rangeStart
+            if (rangeEnd) (this.animation as any).rangeEnd = rangeEnd
 
             return noop<void>
         } else {
