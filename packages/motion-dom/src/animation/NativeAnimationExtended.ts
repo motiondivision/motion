@@ -1,5 +1,7 @@
 import { clamp } from "motion-utils"
 import { time } from "../frameloop/sync-time"
+import { getComputedStyle } from "../render/dom/style-computed"
+import { setStyle } from "../render/dom/style-set"
 import { JSAnimation } from "./JSAnimation"
 import { NativeAnimation, NativeAnimationOptions } from "./NativeAnimation"
 import { AnyResolvedKeyframe, ValueAnimationOptions } from "./types"
@@ -70,6 +72,26 @@ export class NativeAnimationExtended<
             return
         }
 
+        const { name } = this.options
+
+        /**
+         * Read the current animated value from the browser while the
+         * WAAPI animation is still active. This is more accurate than
+         * JSAnimation estimation for CSS properties that WAAPI
+         * interpolates natively (e.g. transform strings).
+         *
+         * We also write this value to the element's inline style so
+         * it persists after cancel(), preventing a one-frame flash
+         * to the pre-animation value.
+         */
+        let computedValue: string | undefined
+        if (element && name) {
+            computedValue = getComputedStyle(element, name)
+            if (computedValue) {
+                setStyle(element, name, computedValue)
+            }
+        }
+
         const sampleAnimation = new JSAnimation({
             ...options,
             autoplay: false,
@@ -83,9 +105,12 @@ export class NativeAnimationExtended<
         const sampleTime = Math.max(sampleDelta, time.now() - this.startTime)
         const delta = clamp(0, sampleDelta, sampleTime - sampleDelta)
 
+        const current = (computedValue ||
+            sampleAnimation.sample(sampleTime).value) as T
+
         motionValue.setWithVelocity(
-            sampleAnimation.sample(Math.max(0, sampleTime - delta)).value,
-            sampleAnimation.sample(sampleTime).value,
+            sampleAnimation.sample(Math.max(0, sampleTime - delta)).value as T,
+            current,
             delta
         )
 
