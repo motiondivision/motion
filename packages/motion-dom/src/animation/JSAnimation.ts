@@ -4,7 +4,6 @@ import {
     millisecondsToSeconds,
     pipe,
     secondsToMilliseconds,
-    velocityPerSecond,
 } from "motion-utils"
 import { time } from "../frameloop/sync-time"
 import { activeAnimations } from "../stats/animation-count"
@@ -15,6 +14,7 @@ import { DriverControls } from "./drivers/types"
 import { inertia } from "./generators/inertia"
 import { keyframes as keyframesGenerator } from "./generators/keyframes"
 import { calcGeneratorDuration } from "./generators/utils/calc-duration"
+import { calcGeneratorVelocity } from "./generators/utils/velocity"
 import { getFinalKeyframe } from "./keyframes/get-final"
 import {
     AnimationPlaybackControlsWithThen,
@@ -391,12 +391,13 @@ export class JSAnimation<T extends number | string>
             return this.generator.velocity(t)
         }
 
-        // Fallback: finite difference via calcGeneratorVelocity
-        const sampleDuration = 5
-        const prevT = Math.max(t - sampleDuration, 0)
-        const prev = this.generator.next(prevT).value as number
+        // Fallback: finite difference
         const current = this.generator.next(t).value as number
-        return velocityPerSecond(current - prev, t - prevT)
+        return calcGeneratorVelocity(
+            (s) => this.generator.next(s).value as number,
+            t,
+            current
+        )
     }
 
     get speed() {

@@ -8,8 +8,9 @@ import { time } from "../../frameloop/sync-time"
  * Process a single frame at the given timestamp, running all frame loop steps.
  */
 function processFrame(timestamp: number) {
+    const prevTimestamp = frameData.timestamp
     frameData.timestamp = timestamp
-    frameData.delta = timestamp - (frameData.timestamp || 0) || 1000 / 60
+    frameData.delta = timestamp - (prevTimestamp || 0) || 1000 / 60
     frameData.isProcessing = true
     time.set(timestamp)
     frameSteps.setup.process(frameData)
