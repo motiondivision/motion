@@ -1407,4 +1407,19 @@ describe("JSAnimation", () => {
             }).duration
         ).toEqual(1.2)
     })
+
+    // https://github.com/motiondivision/motion/issues/3351
+    test("Spring with delay and string keyframes returns initial value during delay", () => {
+        const animation = animateValue({
+            keyframes: ["90%", "60%"],
+            type: "spring",
+            delay: 2000,
+            autoplay: false,
+        })
+
+        // During the delay phase, should return the initial keyframe "90%"
+        expect(animation.sample(0).value).toBe("90%")
+        expect(animation.sample(1000).value).toBe("90%")
+        expect(animation.sample(1999).value).toBe("90%")
+    })
 })

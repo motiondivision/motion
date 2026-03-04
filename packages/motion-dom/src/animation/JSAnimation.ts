@@ -300,7 +300,7 @@ export class JSAnimation<T extends number | string>
             ? { done: false, value: keyframes[0] }
             : frameGenerator.next(elapsed)
 
-        if (mixKeyframes) {
+        if (mixKeyframes && !isInDelayPhase) {
             state.value = mixKeyframes(state.value as number)
         }
 
