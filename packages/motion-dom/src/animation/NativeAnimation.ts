@@ -159,11 +159,8 @@ export class NativeAnimation<T extends AnyResolvedKeyframe>
             return
         }
 
-        if (this.updateMotionValue) {
-            this.updateMotionValue()
-        } else {
-            this.commitStyles()
-        }
+        this.commitStyles()
+        this.updateMotionValue?.()
 
         if (!this.isPseudoElement) this.cancel()
     }
