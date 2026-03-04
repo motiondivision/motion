@@ -397,6 +397,112 @@ describe("scrollInfo", () => {
             resolve()
         })
     })
+
+    test("Reports non-negative progress for negative scroll values (reverse directions).", async () => {
+        let latest: ScrollInfo
+
+        const container = document.createElement("div")
+
+        const setContainerHeight = createMockMeasurement(
+            container,
+            "clientHeight"
+        )
+        const setContainerLength = createMockMeasurement(
+            container,
+            "scrollHeight"
+        )
+        const setContainerScrollTop = createMockMeasurement(
+            container,
+            "scrollTop"
+        )
+
+        setContainerHeight(100)
+        setContainerLength(1000)
+
+        const fireElementScroll = async (distance: number = 0) => {
+            setContainerScrollTop(distance)
+            container.dispatchEvent(new window.Event("scroll"))
+            await nextFrame()
+        }
+
+        const stopScroll = scrollInfo(
+            (info) => {
+                latest = info
+            },
+            { container }
+        )
+
+        return new Promise<void>(async (resolve) => {
+            // Simulate reverse direction (column-reverse/row-reverse/writing-mode: vertical-rl)
+            // where browsers report negative scrollTop/scrollLeft
+            await fireElementScroll(-100)
+
+            expect(latest.y.current).toEqual(100)
+            expect(latest.y.scrollLength).toEqual(900)
+            expect(latest.y.progress).toBeCloseTo(0.1, 1)
+
+            await fireElementScroll(-450)
+
+            expect(latest.y.current).toEqual(450)
+            expect(latest.y.progress).toEqual(0.5)
+
+            await fireElementScroll(-900)
+
+            expect(latest.y.current).toEqual(900)
+            expect(latest.y.progress).toEqual(1)
+
+            stopScroll()
+
+            resolve()
+        })
+    })
+
+    test("Reports non-negative progress for negative scrollLeft (x axis, reverse directions).", async () => {
+        let latest: ScrollInfo
+
+        const container = document.createElement("div")
+
+        const setContainerWidth = createMockMeasurement(
+            container,
+            "clientWidth"
+        )
+        const setContainerScrollWidth = createMockMeasurement(
+            container,
+            "scrollWidth"
+        )
+        const setContainerScrollLeft = createMockMeasurement(
+            container,
+            "scrollLeft"
+        )
+
+        setContainerWidth(100)
+        setContainerScrollWidth(1000)
+
+        const fireElementScroll = async (distance: number = 0) => {
+            setContainerScrollLeft(distance)
+            container.dispatchEvent(new window.Event("scroll"))
+            await nextFrame()
+        }
+
+        const stopScroll = scrollInfo(
+            (info) => {
+                latest = info
+            },
+            { container }
+        )
+
+        return new Promise<void>(async (resolve) => {
+            await fireElementScroll(-450)
+
+            expect(latest.x.current).toEqual(450)
+            expect(latest.x.scrollLength).toEqual(900)
+            expect(latest.x.progress).toEqual(0.5)
+
+            stopScroll()
+
+            resolve()
+        })
+    })
 })
 
 describe("scroll", () => {
