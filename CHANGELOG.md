@@ -4,6 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.35.1] 2026-03-05
+
+### Fixed
+
+-   Fixing combination of string keyframes, spring and `delay`.
+
 ## [12.35.0] 2026-03-03
 
 ### Added
