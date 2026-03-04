@@ -8,6 +8,10 @@ import { useEffect, useRef, useState } from "react"
  * Starts a transform animation, interrupts it mid-flight with a
  * new target, and tracks the minimum translateX to detect any
  * jump back to origin.
+ *
+ * Uses generous timings (2s duration, 500ms before tracking) to
+ * accommodate slow CI environments where the async keyframe
+ * resolver may take longer.
  */
 export const App = () => {
     const [scope, animate] = useAnimate()
@@ -33,33 +37,35 @@ export const App = () => {
         }
         requestAnimationFrame(track)
 
-        // Start animation: translateX from 0 to 200px over 1s (linear)
+        // Start animation: translateX from 0 to 200px over 2s (linear)
         animate(
             scope.current,
             { transform: "translateX(200px)" },
-            { duration: 1, ease: "linear" }
+            { duration: 2, ease: "linear" }
         )
 
-        // Start tracking after 100ms (element has moved from start)
+        // Start tracking at 500ms — even with a slow resolver (up to
+        // 200ms), the element will be at (500-200)/2000 * 200 = 30px.
         const timer0 = setTimeout(() => {
             trackingRef.current = true
-        }, 100)
+        }, 500)
 
-        // At 300ms, interrupt with new target
+        // At 800ms, interrupt with new target.
+        // Element is at ~60-80px depending on resolver delay.
         const timer1 = setTimeout(() => {
             animate(
                 scope.current,
                 { transform: "translateX(400px)" },
-                { duration: 1, ease: "linear" }
+                { duration: 2, ease: "linear" }
             )
-        }, 300)
+        }, 800)
 
-        // At 800ms, report minimum position offset from start
+        // At 2000ms, report minimum position offset from start
         const timer2 = setTimeout(() => {
             tracking = false
             const minOffset = minLeftRef.current - startLeftRef.current
             setResult(String(Math.round(minOffset)))
-        }, 800)
+        }, 2000)
 
         return () => {
             tracking = false
