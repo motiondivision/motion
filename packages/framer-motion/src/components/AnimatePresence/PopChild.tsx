@@ -39,16 +39,16 @@ class PopChildMeasure extends React.Component<MeasureProps> {
         const element = this.props.childRef.current
         if (element && prevProps.isPresent && !this.props.isPresent && this.props.pop !== false) {
             const parent = element.offsetParent
-            const parentWidth = isHTMLElement(parent)
-                ? parent.offsetWidth || 0
-                : 0
-            const parentHeight = isHTMLElement(parent)
-                ? parent.offsetHeight || 0
-                : 0
+            const parentRect = isHTMLElement(parent)
+                ? parent.getBoundingClientRect()
+                : undefined
+            const parentWidth = parentRect?.width || 0
+            const parentHeight = parentRect?.height || 0
 
+            const elementRect = element.getBoundingClientRect()
             const size = this.props.sizeRef.current!
-            size.height = element.offsetHeight || 0
-            size.width = element.offsetWidth || 0
+            size.height = elementRect.height
+            size.width = elementRect.width
             size.top = element.offsetTop
             size.left = element.offsetLeft
             size.right = parentWidth - size.width - size.left
