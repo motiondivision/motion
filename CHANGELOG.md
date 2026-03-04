@@ -9,6 +9,7 @@ Undocumented APIs should be considered internal and may change without warning.
 ### Fixed
 
 -   Fixing combination of string keyframes, spring and `delay`.
+-   Gracefully handle negative scroll values.
 
 ## [12.35.0] 2026-03-03
 
