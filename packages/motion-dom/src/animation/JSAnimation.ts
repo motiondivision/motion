@@ -4,6 +4,7 @@ import {
     millisecondsToSeconds,
     pipe,
     secondsToMilliseconds,
+    velocityPerSecond,
 } from "motion-utils"
 import { time } from "../frameloop/sync-time"
 import { activeAnimations } from "../stats/animation-count"
@@ -382,6 +383,27 @@ export class JSAnimation<T extends number | string>
             this.holdTime = newTime
             this.tick(newTime)
         }
+    }
+
+    /**
+     * Returns the generator's velocity at the current time in units/second.
+     * Uses the analytical derivative when available (springs), avoiding
+     * the MotionValue's frame-dependent velocity estimation.
+     */
+    get generatorVelocity(): number {
+        const t = this.currentTime
+        if (t <= 0) return this.options.velocity || 0
+
+        if (this.generator.velocity) {
+            return this.generator.velocity(t)
+        }
+
+        // Fallback: finite difference via calcGeneratorVelocity
+        const sampleDuration = 5
+        const prevT = Math.max(t - sampleDuration, 0)
+        const prev = this.generator.next(prevT).value as number
+        const current = this.generator.next(t).value as number
+        return velocityPerSecond(current - prev, t - prevT)
     }
 
     get speed() {

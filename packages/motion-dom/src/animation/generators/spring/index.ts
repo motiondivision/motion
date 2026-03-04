@@ -139,8 +139,15 @@ function spring(
         : springDefaults.restDelta.default
 
     let resolveSpring: (v: number) => number
+    let resolveVelocity: (t: number) => number
     if (dampingRatio < 1) {
         const angularFreq = calcAngularFreq(undampedAngularFreq, dampingRatio)
+
+        const A =
+            (initialVelocity +
+                dampingRatio * undampedAngularFreq * initialDelta) /
+            angularFreq
+        const B = initialDelta
 
         // Underdamped spring
         resolveSpring = (t: number) => {
@@ -149,12 +156,21 @@ function spring(
             return (
                 target -
                 envelope *
-                    (((initialVelocity +
-                        dampingRatio * undampedAngularFreq * initialDelta) /
-                        angularFreq) *
-                        Math.sin(angularFreq * t) +
-                        initialDelta * Math.cos(angularFreq * t))
+                    (A * Math.sin(angularFreq * t) +
+                        B * Math.cos(angularFreq * t))
             )
+        }
+
+        // Analytical derivative of underdamped spring (px/ms)
+        const sinCoeff =
+            dampingRatio * undampedAngularFreq * A + B * angularFreq
+        const cosCoeff =
+            dampingRatio * undampedAngularFreq * B - A * angularFreq
+        resolveVelocity = (t: number) => {
+            const envelope = Math.exp(-dampingRatio * undampedAngularFreq * t)
+            return envelope *
+                (sinCoeff * Math.sin(angularFreq * t) +
+                    cosCoeff * Math.cos(angularFreq * t))
         }
     } else if (dampingRatio === 1) {
         // Critically damped spring
@@ -163,6 +179,12 @@ function spring(
             Math.exp(-undampedAngularFreq * t) *
                 (initialDelta +
                     (initialVelocity + undampedAngularFreq * initialDelta) * t)
+
+        // Analytical derivative of critically damped spring (px/ms)
+        const C = initialVelocity + undampedAngularFreq * initialDelta
+        resolveVelocity = (t: number) =>
+            Math.exp(-undampedAngularFreq * t) *
+                (undampedAngularFreq * C * t - initialVelocity)
     } else {
         // Overdamped spring
         const dampedAngularFreq =
@@ -186,10 +208,29 @@ function spring(
                     dampedAngularFreq
             )
         }
+
+        // Analytical derivative of overdamped spring (px/ms)
+        const P =
+            (initialVelocity +
+                dampingRatio * undampedAngularFreq * initialDelta) /
+            dampedAngularFreq
+        const Q = initialDelta
+        const sinhCoeff =
+            dampingRatio * undampedAngularFreq * P - Q * dampedAngularFreq
+        const coshCoeff =
+            dampingRatio * undampedAngularFreq * Q - P * dampedAngularFreq
+        resolveVelocity = (t: number) => {
+            const envelope = Math.exp(-dampingRatio * undampedAngularFreq * t)
+            const freqForT = Math.min(dampedAngularFreq * t, 300)
+            return envelope *
+                (sinhCoeff * Math.sinh(freqForT) +
+                    coshCoeff * Math.cosh(freqForT))
+        }
     }
 
     const generator = {
         calculatedDuration: isResolvedFromDuration ? duration || null : null,
+        velocity: (t: number) => secondsToMilliseconds(resolveVelocity(t)),
         next: (t: number) => {
             const current = resolveSpring(t)
 
