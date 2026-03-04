@@ -77,19 +77,27 @@ export function attachFollow<T extends AnyResolvedKeyframe>(
     }
 
     const startAnimation = () => {
-        stopAnimation()
-
         const currentValue = asNumber(value.get())
         const targetValue = asNumber(latestValue)
 
         // Don't animate if we're already at the target
         if (currentValue === targetValue) {
+            stopAnimation()
             return
         }
 
+        // Use the running animation's analytical velocity for accuracy,
+        // falling back to the MotionValue's velocity for the initial animation.
+        // This prevents systematic velocity loss at high frame rates (240hz+).
+        const velocity = activeAnimation
+            ? activeAnimation.generatorVelocity
+            : value.getVelocity()
+
+        stopAnimation()
+
         activeAnimation = new JSAnimation({
             keyframes: [currentValue, targetValue],
-            velocity: value.getVelocity(),
+            velocity,
             // Default to spring if no type specified (matches useSpring behavior)
             type: "spring",
             restDelta: 0.001,
@@ -99,17 +107,20 @@ export function attachFollow<T extends AnyResolvedKeyframe>(
         })
     }
 
+    // Use a stable function reference so the frame loop Set deduplicates
+    // multiple calls within the same frame (e.g. rapid mouse events)
+    const scheduleAnimation = () => {
+        startAnimation()
+        value["events"].animationStart?.notify()
+        activeAnimation?.then(() => {
+            value["events"].animationComplete?.notify()
+        })
+    }
+
     value.attach((v, set) => {
         latestValue = v
         latestSetter = (latest) => set(parseValue(latest, unit) as T)
-
-        frame.postRender(() => {
-            startAnimation()
-            value["events"].animationStart?.notify()
-            activeAnimation?.then(() => {
-                value["events"].animationComplete?.notify()
-            })
-        })
+        frame.postRender(scheduleAnimation)
     }, stopAnimation)
 
     if (isMotionValue(source)) {
