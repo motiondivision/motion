@@ -147,7 +147,6 @@ function spring(
             (initialVelocity +
                 dampingRatio * undampedAngularFreq * initialDelta) /
             angularFreq
-        const B = initialDelta
 
         // Underdamped spring
         resolveSpring = (t: number) => {
@@ -157,15 +156,15 @@ function spring(
                 target -
                 envelope *
                     (A * Math.sin(angularFreq * t) +
-                        B * Math.cos(angularFreq * t))
+                        initialDelta * Math.cos(angularFreq * t))
             )
         }
 
         // Analytical derivative of underdamped spring (px/ms)
         const sinCoeff =
-            dampingRatio * undampedAngularFreq * A + B * angularFreq
+            dampingRatio * undampedAngularFreq * A + initialDelta * angularFreq
         const cosCoeff =
-            dampingRatio * undampedAngularFreq * B - A * angularFreq
+            dampingRatio * undampedAngularFreq * initialDelta - A * angularFreq
         resolveVelocity = (t: number) => {
             const envelope = Math.exp(-dampingRatio * undampedAngularFreq * t)
             return envelope *
