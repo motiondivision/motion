@@ -2,6 +2,8 @@
  * Components
  */
 export type * from "./animation/types"
+export { AnimateNumber } from "./components/AnimateNumber"
+export type { AnimateNumberProps } from "./components/AnimateNumber"
 export { AnimatePresence } from "./components/AnimatePresence"
 export { PopChild } from "./components/AnimatePresence/PopChild"
 export { PresenceChild } from "./components/AnimatePresence/PresenceChild"
