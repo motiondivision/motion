@@ -1,14 +1,10 @@
 import { AnimatePresence, motion } from "framer-motion"
 import { useState } from "react"
 
-/**
- * Reproduction for #3260: popLayout rounds sub-pixel dimensions to integers.
- *
- * The container is 400.4px wide. The child stretches to that width.
- * When the child exits, popLayout should preserve the sub-pixel width.
- */
 export const App = () => {
     const [show, setShow] = useState(true)
+    const params = new URLSearchParams(window.location.search)
+    const withPadding = params.get("padding") === "true"
 
     return (
         <div
@@ -23,6 +19,18 @@ export const App = () => {
                         initial={{ opacity: 1 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0, transition: { duration: 10 } }}
+                        style={
+                            withPadding
+                                ? {
+                                      width: 200,
+                                      padding: 20,
+                                      borderWidth: 5,
+                                      borderStyle: "solid",
+                                      borderColor: "red",
+                                      boxSizing: "content-box" as const,
+                                  }
+                                : undefined
+                        }
                     >
                         Content
                     </motion.div>
