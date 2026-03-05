@@ -1,6 +1,5 @@
 import { clamp } from "motion-utils"
 import { time } from "../frameloop/sync-time"
-import { setStyle } from "../render/dom/style-set"
 import { JSAnimation } from "./JSAnimation"
 import { NativeAnimation, NativeAnimationOptions } from "./NativeAnimation"
 import { AnyResolvedKeyframe, ValueAnimationOptions } from "./types"
@@ -53,29 +52,6 @@ export class NativeAnimationExtended<
     }
 
     /**
-     * Commit the current animated value to the element's inline style.
-     *
-     * Uses WAAPI commitStyles when available, otherwise falls back to
-     * getComputedStyle (same approach as animateMini's 3-step process).
-     */
-    protected commitStyles() {
-        const element = this.options?.element
-        if (this.options?.pseudoElement || !element?.isConnected) return
-
-        if (this.animation.commitStyles) {
-            try {
-                this.animation.commitStyles()
-            } catch (e) {}
-        } else {
-            const { name } = this.options
-            if (name) {
-                const computed = window.getComputedStyle(element)[name as any]
-                if (computed) setStyle(element, name, computed)
-            }
-        }
-    }
-
-    /**
      * WAAPI doesn't natively have any interruption capabilities.
      *
      * Rather than read committed styles back out of the DOM, we can
@@ -107,32 +83,9 @@ export class NativeAnimationExtended<
         const sampleTime = Math.max(sampleDelta, time.now() - this.startTime)
         const delta = clamp(0, sampleDelta, sampleTime - sampleDelta)
 
-        /**
-         * For keyframes with complex CSS strings (e.g. transform
-         * functions like "translateX(100px)") that JSAnimation cannot
-         * properly interpolate, read the committed value from the
-         * element's inline style. commitStyles() is called by stop()
-         * before this method, and element.style reads are cheap
-         * (no layout reflow unlike getComputedStyle).
-         */
-        const { name } = this.options
-        const useCommitted =
-            name &&
-            element?.style &&
-            options.keyframes?.some(
-                (k: unknown) =>
-                    typeof k === "string" && isNaN(parseFloat(k as string))
-            )
-        const committed = useCommitted
-            ? (element!.style[name as any] as string)
-            : undefined
-
-        const current = (committed ||
-            sampleAnimation.sample(sampleTime).value) as T
-
         motionValue.setWithVelocity(
-            sampleAnimation.sample(Math.max(0, sampleTime - delta)).value as T,
-            current,
+            sampleAnimation.sample(Math.max(0, sampleTime - delta)).value,
+            sampleAnimation.sample(sampleTime).value,
             delta
         )
 
