@@ -682,6 +682,10 @@ export function createProjectionNode<I>({
                 const node = this.path[i]
                 node.shouldResetTransform = true
 
+                if (hasTransform(node.latestValues)) {
+                    node.isLayoutDirty = true
+                }
+
                 node.updateScroll("snapshot")
 
                 if (node.options.layoutRoot) {
@@ -1057,11 +1061,19 @@ export function createProjectionNode<I>({
                 }
 
                 if (!hasTransform(node.latestValues)) continue
-                transformBox(withTransforms, node.latestValues)
+                transformBox(
+                    withTransforms,
+                    node.latestValues,
+                    node.layout?.layoutBox
+                )
             }
 
             if (hasTransform(this.latestValues)) {
-                transformBox(withTransforms, this.latestValues)
+                transformBox(
+                    withTransforms,
+                    this.latestValues,
+                    this.layout?.layoutBox
+                )
             }
 
             return withTransforms
