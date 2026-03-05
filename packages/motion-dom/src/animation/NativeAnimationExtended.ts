@@ -1,5 +1,6 @@
 import { clamp } from "motion-utils"
 import { time } from "../frameloop/sync-time"
+import { setStyle } from "../render/dom/style-set"
 import { JSAnimation } from "./JSAnimation"
 import { NativeAnimation, NativeAnimationOptions } from "./NativeAnimation"
 import { AnyResolvedKeyframe, ValueAnimationOptions } from "./types"
@@ -82,10 +83,19 @@ export class NativeAnimationExtended<
          */
         const sampleTime = Math.max(sampleDelta, time.now() - this.startTime)
         const delta = clamp(0, sampleDelta, sampleTime - sampleDelta)
+        const current = sampleAnimation.sample(sampleTime).value
+
+        /**
+         * Write the estimated value to inline style so it persists
+         * after cancel(), covering the async gap before the next
+         * animation starts.
+         */
+        const { name } = this.options
+        if (element && name) setStyle(element, name, current)
 
         motionValue.setWithVelocity(
             sampleAnimation.sample(Math.max(0, sampleTime - delta)).value,
-            sampleAnimation.sample(sampleTime).value,
+            current,
             delta
         )
 
