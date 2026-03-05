@@ -5,8 +5,15 @@ import { backIn, backInOut, backOut } from "../back"
 import { circIn, circInOut, circOut } from "../circ"
 import { cubicBezier } from "../cubic-bezier"
 import { easeIn, easeInOut, easeOut } from "../ease"
-import { Easing, EasingFunction } from "../types"
+import { Easing, EasingFunction, NativeEasing } from "../types"
 import { isBezierDefinition } from "./is-bezier-definition"
+
+export const isNativeEasing = (
+    easing: Easing | Easing[]
+): easing is NativeEasing =>
+    typeof easing === "object" &&
+    !Array.isArray(easing) &&
+    "native" in easing
 
 const easingLookup = {
     linear: noop,
@@ -29,7 +36,9 @@ const isValidEasing = (easing: Easing): easing is keyof typeof easingLookup => {
 export const easingDefinitionToFunction = (
     definition: Easing
 ): EasingFunction => {
-    if (isBezierDefinition(definition)) {
+    if (isNativeEasing(definition)) {
+        return noop
+    } else if (isBezierDefinition(definition)) {
         // If cubic bezier definition, create bezier curve
         invariant(
             definition.length === 4,

@@ -1,4 +1,5 @@
 import { Easing, isBezierDefinition } from "motion-utils"
+import { isNativeEasing } from "../../../utils/is-native-easing"
 import { supportsLinearEasing } from "../../../utils/supports/linear-easing"
 import { generateLinearEasing } from "../utils/linear"
 import { cubicBezierAsString } from "./cubic-bezier"
@@ -10,6 +11,8 @@ export function mapEasingToNativeEasing(
 ): undefined | string | string[] {
     if (!easing) {
         return undefined
+    } else if (isNativeEasing(easing)) {
+        return easing.native
     } else if (typeof easing === "function") {
         return supportsLinearEasing()
             ? generateLinearEasing(easing, duration)

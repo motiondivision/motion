@@ -18,13 +18,19 @@ export type EasingDefinition =
     | "backInOut"
     | "anticipate"
 
+export interface NativeEasing {
+    native: string
+}
+
 /**
  * The easing function to use. Set as one of:
  *
  * - The name of an in-built easing function.
  * - An array of four numbers to define a cubic bezier curve.
  * - An easing function, that accepts and returns a progress value between `0` and `1`.
+ * - A `{ native: string }` object to pass a CSS easing string directly to the browser.
+ *   This will only work with WAAPI-powered animations.
  *
  * @public
  */
-export type Easing = EasingDefinition | EasingFunction
+export type Easing = EasingDefinition | EasingFunction | NativeEasing

@@ -20,6 +20,26 @@ describe("mapEasingToNativeEasing", () => {
         )
     })
 
+    test("should pass through native easing directly", () => {
+        expect(
+            mapEasingToNativeEasing({ native: "steps(6, end)" }, 1000)
+        ).toBe("steps(6, end)")
+    })
+
+    test("should pass through native easing in array", () => {
+        const easings: Easing[] = [
+            "linear",
+            { native: "steps(6, end)" },
+            "easeOut",
+        ]
+        const result = mapEasingToNativeEasing(easings, 1000) as string[]
+
+        expect(Array.isArray(result)).toBe(true)
+        expect(result[0]).toBe("linear")
+        expect(result[1]).toBe("steps(6, end)")
+        expect(result[2]).toBe("ease-out")
+    })
+
     test("should map array of easings to array of strings", () => {
         // Only test with known easings that don't require mocking
         const easings: Easing[] = ["linear", "easeIn", "easeOut"]
