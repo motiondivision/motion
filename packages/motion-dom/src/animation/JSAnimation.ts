@@ -374,7 +374,14 @@ export class JSAnimation<T extends number | string>
             this.startTime = this.driver.now() - newTime / this.playbackSpeed
         }
 
-        this.driver?.start(false)
+        if (this.driver) {
+            this.driver.start(false)
+        } else {
+            this.startTime = 0
+            this.state = "paused"
+            this.holdTime = newTime
+            this.tick(newTime)
+        }
     }
 
     get speed() {
