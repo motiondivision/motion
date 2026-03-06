@@ -37,7 +37,7 @@ interface MeasureProps extends Props {
 class PopChildMeasure extends React.Component<MeasureProps> {
     getSnapshotBeforeUpdate(prevProps: MeasureProps) {
         const element = this.props.childRef.current
-        if (element && prevProps.isPresent && !this.props.isPresent && this.props.pop !== false) {
+        if (isHTMLElement(element) && prevProps.isPresent && !this.props.isPresent && this.props.pop !== false) {
             const parent = element.offsetParent
             const parentWidth = isHTMLElement(parent)
                 ? parent.offsetWidth || 0
