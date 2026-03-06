@@ -389,11 +389,11 @@ export class JSAnimation<T extends number | string>
     }
 
     set speed(newSpeed: number) {
-        this.updateTime(time.now())
         const hasChanged = this.playbackSpeed !== newSpeed
         this.playbackSpeed = newSpeed
 
-        if (hasChanged) {
+        if (hasChanged && this.driver) {
+            this.updateTime(time.now())
             this.time = millisecondsToSeconds(this.currentTime)
         }
     }
