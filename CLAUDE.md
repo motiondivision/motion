@@ -101,16 +101,18 @@ motion (public API)
 
 **You MUST run every new Cypress test against both React 18 and React 19 before creating a PR.** CI runs both and will break if you skip this.
 
-Use the `test-single` pattern from the Makefile, adapted per spec:
+Use the `test-single` pattern from the Makefile, adapted per spec. **Always pick a unique port** using `$RANDOM` to avoid conflicts when multiple agents run tests concurrently:
 
 ```bash
-# React 18 (port 9990, default cypress.json)
-yarn start-server-and-test "yarn dev-server" http://localhost:9990 \
-  "cd packages/framer-motion && cypress run --headed --spec cypress/integration/<test-name>.ts"
+# React 18 — pick a random port, override both Vite and Cypress
+PORT=$((10000 + RANDOM % 50000))
+TEST_PORT=$PORT yarn start-server-and-test "yarn dev-server" http://localhost:$PORT \
+  "cd packages/framer-motion && cypress run --headed --config baseUrl=http://localhost:$PORT --spec cypress/integration/<test-name>.ts"
 
-# React 19 (port 9991, cypress.react-19.json)
-yarn start-server-and-test "yarn dev-server" http://localhost:9991 \
-  "cd packages/framer-motion && cypress run --config-file=cypress.react-19.json --headed --spec cypress/integration/<test-name>.ts"
+# React 19 — same pattern, new random port
+PORT=$((10000 + RANDOM % 50000))
+TEST_PORT=$PORT yarn start-server-and-test "yarn dev-server" http://localhost:$PORT \
+  "cd packages/framer-motion && cypress run --config-file=cypress.react-19.json --config baseUrl=http://localhost:$PORT --headed --spec cypress/integration/<test-name>.ts"
 ```
 
 Both must pass. If a test fails on one React version but not the other, investigate — do not skip it.
