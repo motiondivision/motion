@@ -204,9 +204,14 @@ export class NativeAnimation<T extends AnyResolvedKeyframe>
     }
 
     set time(newTime: number) {
+        const wasFinished = this.finishedTime !== null
         this.manualStartTime = null
         this.finishedTime = null
         this.animation.currentTime = secondsToMilliseconds(newTime)
+
+        if (wasFinished) {
+            this.animation.pause()
+        }
     }
 
     /**
