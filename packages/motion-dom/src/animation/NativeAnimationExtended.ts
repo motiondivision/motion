@@ -45,7 +45,7 @@ export class NativeAnimationExtended<
 
         super(options)
 
-        if (options.startTime !== undefined) {
+        if (options.startTime !== undefined && options.autoplay !== false) {
             this.startTime = options.startTime
         }
 
