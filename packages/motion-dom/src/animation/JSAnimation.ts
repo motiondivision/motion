@@ -14,7 +14,7 @@ import { DriverControls } from "./drivers/types"
 import { inertia } from "./generators/inertia"
 import { keyframes as keyframesGenerator } from "./generators/keyframes"
 import { calcGeneratorDuration } from "./generators/utils/calc-duration"
-import { calcGeneratorVelocity } from "./generators/utils/velocity"
+import { getGeneratorVelocity } from "./generators/utils/velocity"
 import { getFinalKeyframe } from "./keyframes/get-final"
 import {
     AnimationPlaybackControlsWithThen,
@@ -400,7 +400,7 @@ export class JSAnimation<T extends number | string>
 
         // Fallback: finite difference
         const current = this.generator.next(t).value as number
-        return calcGeneratorVelocity(
+        return getGeneratorVelocity(
             (s) => this.generator.next(s).value as number,
             t,
             current
