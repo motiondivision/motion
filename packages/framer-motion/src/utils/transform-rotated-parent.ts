@@ -9,6 +9,8 @@ import type { RefObject } from "react"
  * pointer coordinates need to be transformed through the inverse of the
  * parent's rotation/scale matrix so the drag offset is in local space.
  *
+ * Works with both static and continuously animating rotations.
+ *
  * @example
  * ```jsx
  * function App() {
@@ -36,34 +38,49 @@ export function transformRotatedParent(
         const parent = parentRef.current
         if (!parent) return point
 
-        const { transform } = getComputedStyle(parent)
-        if (!transform || transform === "none") return point
+        const inv = getInverseMatrix(parent)
+        if (!inv) return point
 
-        // Parse matrix(a,b,c,d,tx,ty) or matrix3d(...)
-        const match =
-            transform.match(/^matrix3d\((.*)\)$/u) ||
-            transform.match(/^matrix\((.*)\)$/u)
-        if (!match) return point
+        // Get center of rotation in page space
+        const rect = parent.getBoundingClientRect()
+        const cx = rect.left + window.scrollX + rect.width / 2
+        const cy = rect.top + window.scrollY + rect.height / 2
 
-        const v = match[1].split(",").map(Number)
-        const is3d = transform.startsWith("matrix3d")
-        const a = v[0],
-            b = v[1]
-        const c = is3d ? v[4] : v[2]
-        const d = is3d ? v[5] : v[3]
-
-        // Invert the 2×2 linear part (rotation + scale)
-        const det = a * d - b * c
-        if (Math.abs(det) < 1e-10) return point
-
-        const ia = d / det,
-            ib = -b / det
-        const ic = -c / det,
-            id = a / det
-
+        // Transform (point - center) through inverse rotation
+        const dx = point.x - cx
+        const dy = point.y - cy
         return {
-            x: ia * point.x + ic * point.y,
-            y: ib * point.x + id * point.y,
+            x: inv.a * dx + inv.c * dy,
+            y: inv.b * dx + inv.d * dy,
         }
     }
+}
+
+interface InverseMatrix {
+    a: number
+    b: number
+    c: number
+    d: number
+}
+
+function getInverseMatrix(element: HTMLElement): InverseMatrix | null {
+    const { transform } = getComputedStyle(element)
+    if (!transform || transform === "none") return null
+
+    const match =
+        transform.match(/^matrix3d\((.*)\)$/u) ||
+        transform.match(/^matrix\((.*)\)$/u)
+    if (!match) return null
+
+    const v = match[1].split(",").map(Number)
+    const is3d = transform.startsWith("matrix3d")
+    const a = v[0],
+        b = v[1]
+    const c = is3d ? v[4] : v[2]
+    const d = is3d ? v[5] : v[3]
+
+    const det = a * d - b * c
+    if (Math.abs(det) < 1e-10) return null
+
+    return { a: d / det, b: -b / det, c: -c / det, d: a / det }
 }
