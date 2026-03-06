@@ -128,7 +128,7 @@ test.describe("animate() methods", () => {
         })
     })
 
-    test("time=0 + pause() reverts a finished animation", async ({ page }) => {
+    test("time=0 reverts a finished animation", async ({ page }) => {
         await waitForAnimation(
             "animate/animate-revert-after-finish.html",
             page
@@ -139,7 +139,7 @@ test.describe("animate() methods", () => {
             const boundingBox = await box.boundingBox()
             expect(
                 boundingBox?.x,
-                `${id} (${text}) should be at x=0 after time=0 + pause`
+                `${id} (${text}) should be at x=0 after time=0`
             ).toBeCloseTo(0)
         })
     })

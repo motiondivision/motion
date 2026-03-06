@@ -44,21 +44,15 @@
                 options
             )
 
-            // Wait for animations to finish, then revert with time=0 + pause
+            // Wait for animations to finish, then revert with time=0
             delay(() => {
                 const boxes = document.querySelectorAll(".box")
-                try {
-                    mini.time = 0
-                    mini.pause()
-                } catch(e) { boxes[0].innerHTML = `err:${e.message}` }
-                try {
-                    js.time = 0
-                    js.pause()
-                } catch(e) { boxes[1].innerHTML = `err:${e.message}` }
-                try {
-                    waapi.time = 0
-                    waapi.pause()
-                } catch(e) { boxes[2].innerHTML = `err:${e.message}` }
+                try { mini.time = 0 }
+                catch(e) { boxes[0].innerHTML = `err:${e.message}` }
+                try { js.time = 0 }
+                catch(e) { boxes[1].innerHTML = `err:${e.message}` }
+                try { waapi.time = 0 }
+                catch(e) { boxes[2].innerHTML = `err:${e.message}` }
 
                 // Wait a frame for motion value renders to flush
                 requestAnimationFrame(() => {
