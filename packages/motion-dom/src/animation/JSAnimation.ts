@@ -390,10 +390,14 @@ export class JSAnimation<T extends number | string>
 
     set speed(newSpeed: number) {
         const hasChanged = this.playbackSpeed !== newSpeed
-        this.playbackSpeed = newSpeed
 
         if (hasChanged && this.driver) {
             this.updateTime(time.now())
+        }
+
+        this.playbackSpeed = newSpeed
+
+        if (hasChanged && this.driver) {
             this.time = millisecondsToSeconds(this.currentTime)
         }
     }
