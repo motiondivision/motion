@@ -111,9 +111,18 @@ const convertNumbersToZero = (v: number | string) =>
     typeof v === "number" ? 0 : color.test(v) ? color.getAnimatableNone(v) : v
 
 function getAnimatableNone(v: AnyResolvedKeyframe) {
-    const parsed = parseComplexValue(v)
+    const { values, split } = analyseComplexValue(v)
     const transformer = createTransformer(v)
-    return transformer(parsed.map(convertNumbersToZero))
+    return transformer(
+        values.map((value, i) => {
+            if (typeof value === "number") {
+                // Don't zero out divisors in calc() to avoid division by zero (NaN)
+                if (split[i]?.trim().endsWith("/")) return value
+                return 0
+            }
+            return convertNumbersToZero(value as string)
+        })
+    )
 }
 
 export const complex = {
