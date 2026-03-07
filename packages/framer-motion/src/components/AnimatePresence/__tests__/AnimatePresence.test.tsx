@@ -1390,4 +1390,85 @@ describe("AnimatePresence with custom components", () => {
 
         expect(exitCompleteCount).toBeGreaterThan(0)
     })
+
+    test("Re-entering child replays enter animation with correct direction when key reused during exit", async () => {
+        const enterCustomValues: number[] = []
+
+        const variants: Variants = {
+            enter: (direction: number) => {
+                enterCustomValues.push(direction)
+                return {
+                    x: direction > 0 ? 1000 : -1000,
+                    opacity: 0,
+                }
+            },
+            center: {
+                x: 0,
+                opacity: 1,
+            },
+            exit: (direction: number) => ({
+                x: direction < 0 ? 1000 : -1000,
+                opacity: 0,
+            }),
+        }
+
+        const Component = ({
+            page,
+            direction,
+        }: {
+            page: number
+            direction: number
+        }) => {
+            return (
+                <AnimatePresence initial={false} custom={direction}>
+                    <motion.div
+                        key={page}
+                        custom={direction}
+                        variants={variants}
+                        initial="enter"
+                        animate="center"
+                        exit="exit"
+                        transition={{ duration: 10 }}
+                    />
+                </AnimatePresence>
+            )
+        }
+
+        // Start at page 0
+        const { rerender } = render(
+            <Component page={0} direction={0} />
+        )
+        rerender(<Component page={0} direction={0} />)
+        await act(async () => {
+            await nextFrame()
+        })
+
+        // Go left: page -1 enters, page 0 starts exiting (won't complete - duration 10s)
+        await act(async () => {
+            rerender(<Component page={-1} direction={-1} />)
+        })
+        await nextFrame()
+
+        // Go left again: page -2 enters, page -1 starts exiting
+        await act(async () => {
+            rerender(<Component page={-2} direction={-1} />)
+        })
+        await nextFrame()
+
+        // Now key=-1 is still exiting (10s duration not elapsed).
+        // Go right: page -1 re-enters. Since key=-1 is still exiting,
+        // AnimatePresence reuses the same PresenceChild component instance.
+        // The enter animation should replay with the new direction (1).
+        enterCustomValues.length = 0
+        await act(async () => {
+            rerender(<Component page={-1} direction={1} />)
+        })
+        await nextFrame()
+
+        // The re-entering child (page=-1) should have its enter variant
+        // resolved with direction=1 so it enters from the right (x: 1000).
+        // Without the fix, the component just reverses its exit without
+        // replaying the enter animation, resulting in wrong direction.
+        expect(enterCustomValues).toContain(1)
+    })
 })
