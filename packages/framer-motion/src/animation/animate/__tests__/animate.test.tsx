@@ -618,6 +618,27 @@ describe("animate: Objects", () => {
         expect(obj.rotation.x).toBe(10)
     })
 
+    test("Object animates in sequence with onUpdate", async () => {
+        const obj = { x: 0 }
+        const updates: number[] = []
+
+        await animate([
+            [
+                obj,
+                { x: 100 },
+                {
+                    duration: 0.01,
+                    onUpdate: (v: any) => {
+                        updates.push(v)
+                    },
+                },
+            ],
+        ])
+
+        expect(obj.x).toBe(100)
+        expect(updates.length).toBeGreaterThan(0)
+    })
+
     test("sets motion value to target when animating non-animatable color with type: false", async () => {
         const colorValue = motionValue("#000")
 
