@@ -10,7 +10,6 @@ export function createEffect<Subject extends object>(
     ) => VoidFunction
 ) {
     const stateCache = new WeakMap<Subject, MotionValueState>()
-    const subscriptions: VoidFunction[] = []
 
     return (
         subject: Subject,
@@ -19,6 +18,8 @@ export function createEffect<Subject extends object>(
         const state = stateCache.get(subject) ?? new MotionValueState()
 
         stateCache.set(subject, state)
+
+        const subscriptions: VoidFunction[] = []
 
         for (const key in values) {
             const value = values[key]
