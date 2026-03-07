@@ -1073,8 +1073,21 @@ export function createProjectionNode<I>({
 
             for (let i = 0; i < this.path.length; i++) {
                 const node = this.path[i]
-                if (!node.instance) continue
                 if (!hasTransform(node.latestValues)) continue
+
+                if (!node.instance) {
+                    /**
+                     * If the node has been unmounted (e.g. during
+                     * StrictMode double-render) but still has transform
+                     * values, remove them mathematically without
+                     * measuring the page box.
+                     */
+                    removeBoxTransforms(
+                        boxWithoutTransform,
+                        node.latestValues
+                    )
+                    continue
+                }
 
                 hasScale(node.latestValues) && node.updateSnapshot()
 
