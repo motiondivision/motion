@@ -4,6 +4,17 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.36.0] 2026-03-09
+
+### Added
+
+-   Support drag gesture within a rotated parent via `transformRotatedParent`.
+
+### Fixed
+
+-   Reduced filesize of `styleEffect`.
+-   Fix rounding from `popLayout`.
+
 ## [12.35.1] 2026-03-06
 
 ### Fixed
