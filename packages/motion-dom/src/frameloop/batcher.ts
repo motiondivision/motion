@@ -39,10 +39,25 @@ export function createRenderBatcher(
         postRender,
     } = steps
 
+    let lastProcessedTimestamp = 0
+
     const processBatch = () => {
         const timestamp = MotionGlobalConfig.useManualTiming
             ? state.timestamp
             : performance.now()
+
+        // Throttle frame rate if configured
+        const { frameRate } = MotionGlobalConfig
+        if (frameRate && frameRate < 60) {
+            const interval = 1000 / frameRate
+            if (lastProcessedTimestamp && timestamp - lastProcessedTimestamp < interval) {
+                // Skip this frame but keep the loop alive
+                if (allowKeepAlive) scheduleNextBatch(processBatch)
+                return
+            }
+        }
+        lastProcessedTimestamp = timestamp
+
         runNextFrame = false
 
         if (!MotionGlobalConfig.useManualTiming) {
