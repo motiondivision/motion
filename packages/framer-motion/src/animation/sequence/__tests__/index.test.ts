@@ -794,6 +794,36 @@ describe("createAnimationsFromSequence", () => {
         expect(times).toEqual([0, 0.25, 0.25, 0.5, 0.5, 0.75, 0.75, 1])
     })
 
+    test("Spring defaultTransition does not leak type into multi-element sequence (#3158)", () => {
+        const img = document.createElement("img")
+        const h1 = document.createElement("h1")
+
+        const animations = createAnimationsFromSequence(
+            [
+                [img, { x: [0, 20], y: [0, 20] }],
+                [h1, { scale: [1, 2] }],
+            ],
+            { defaultTransition: { type: "spring" } },
+            undefined,
+            { spring }
+        )
+
+        // type: "spring" must be stripped — sequence converts springs to easing
+        const imgTransition = animations.get(img)!.transition
+        expect(imgTransition.x.type).toBeUndefined()
+        expect(imgTransition.y.type).toBeUndefined()
+
+        const h1Transition = animations.get(h1)!.transition
+        expect(h1Transition.scale.type).toBeUndefined()
+
+        // Verify easing functions were generated from spring
+        expect(
+            (imgTransition.x.ease as Easing[]).some(
+                (e) => typeof e === "function"
+            )
+        ).toBe(true)
+    })
+
     test("It skips null elements in sequence", () => {
         const animations = createAnimationsFromSequence(
             [
