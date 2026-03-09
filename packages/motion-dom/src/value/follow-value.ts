@@ -124,9 +124,14 @@ export function attachFollow<T extends AnyResolvedKeyframe>(
     }, stopAnimation)
 
     if (isMotionValue(source)) {
-        const removeSourceOnChange = source.on("change", (v) =>
-            value.set(parseValue(v, unit) as T)
-        )
+        const removeSourceOnChange = source.on("change", (v) => {
+            if (source.jumping) {
+                stopAnimation()
+                value.jump(parseValue(v, unit) as T, false)
+            } else {
+                value.set(parseValue(v, unit) as T)
+            }
+        })
 
         const removeValueOnDestroy = value.on("destroy", removeSourceOnChange)
 

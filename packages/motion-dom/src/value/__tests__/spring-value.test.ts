@@ -166,6 +166,34 @@ const runSpringTests = (unit?: string | undefined) => {
             expect((source as any).events.change.getSize()).toBe(0)
         })
 
+        test("jumps follower when source is jumped", async () => {
+            const promise = new Promise<Array<string | number>>(
+                (resolve) => {
+                    const output: Array<string | number> = []
+                    const x = motionValue(createValue(0))
+                    const y = springValue(x, {
+                        driver: syncDriver(10),
+                    } as any)
+
+                    y.on("change", (v) => {
+                        output.push(formatOutput(parseTestValue(v)))
+                    })
+
+                    // jump() on source should propagate to follower
+                    x.jump(createValue(100))
+
+                    setTimeout(() => {
+                        resolve(output)
+                    }, 100)
+                }
+            )
+
+            const resolved = await promise
+
+            // Should jump directly to 100 without intermediate spring values
+            expect(resolved).toEqual([createValue(100)])
+        })
+
         test("Cleanup function works as expected", () => {
             const source = motionValue(createValue(0))
             const spring = motionValue(createValue(0))
