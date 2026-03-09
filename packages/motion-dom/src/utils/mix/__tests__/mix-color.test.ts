@@ -134,3 +134,11 @@ test("mixColor mixes immediately with unknown color", () => {
     expect(mixColor("red", "rgba(0, 0, 0, 0)")(0.5)).toBe("rgba(0, 0, 0, 0)")
     expect(mixColor("red", "rgba(0, 0, 0, 0)")(1)).toBe("rgba(0, 0, 0, 0)")
 })
+
+test("mixColor hex without # prefix", () => {
+    expect(mixColor("f00", "00f")(0)).toBe("rgba(255, 0, 0, 1)")
+    expect(mixColor("f00", "00f")(1)).toBe("rgba(0, 0, 255, 1)")
+    expect(mixColor("#f00", "00f")(0.5)).toBe(
+        mixColor("#f00", "#00f")(0.5)
+    )
+})

@@ -2,7 +2,15 @@ import { RGBA } from "../types"
 import { rgba } from "./rgba"
 import { isColorString } from "./utils"
 
+/**
+ * Matches 3, 4, 6, or 8 character hex strings without #,
+ * requiring at least one a-f letter to avoid matching pure numbers.
+ */
+const isHexWithoutHash = /^[\da-f]*[a-f][\da-f]*$/iu
+
 function parseHex(v: string): RGBA {
+    if (!v.startsWith("#")) v = "#" + v
+
     let r = ""
     let g = ""
     let b = ""
@@ -35,8 +43,15 @@ function parseHex(v: string): RGBA {
     }
 }
 
+const testHash = /*@__PURE__*/ isColorString("#")
+
 export const hex = {
-    test: /*@__PURE__*/ isColorString("#"),
+    test: (v: any) =>
+        testHash(v) ||
+        (typeof v === "string" &&
+            v.length >= 3 &&
+            v.length <= 8 &&
+            isHexWithoutHash.test(v)),
     parse: parseHex,
     transform: rgba.transform,
 }

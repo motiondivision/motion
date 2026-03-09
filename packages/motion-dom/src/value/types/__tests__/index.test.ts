@@ -217,6 +217,16 @@ describe("hex()", () => {
         expect(hex.test(undefined)).toEqual(false)
     })
 
+    it("should correctly test for hex colors without #", () => {
+        expect(hex.test("00f")).toEqual(true)
+        expect(hex.test("f00")).toEqual(true)
+        expect(hex.test("ff0000")).toEqual(true)
+        expect(hex.test("FF0000")).toEqual(true)
+        expect(hex.test("ff0000ff")).toEqual(true)
+        expect(hex.test("f0")).toEqual(false)
+        expect(hex.test("xyz")).toEqual(false)
+    })
+
     it("should split a hex value into the correct params", () => {
         expect(hex.parse("#f00")).toEqual(red)
         expect(hex.parse("#ff0000")).toEqual(red)
@@ -225,6 +235,17 @@ describe("hex()", () => {
         expect(hex.parse("#ff000000")).not.toEqual(red)
         expect(hex.parse("#f00f")).toEqual(red)
         expect(hex.parse("#f000")).not.toEqual(red)
+    })
+
+    it("should parse hex colors without #", () => {
+        expect(hex.parse("f00")).toEqual(red)
+        expect(hex.parse("ff0000")).toEqual(red)
+        expect(hex.parse("00f")).toEqual({
+            red: 0,
+            green: 0,
+            blue: 255,
+            alpha: 1,
+        })
     })
 
     it("should correctly combine a hex value", () => {
@@ -375,6 +396,14 @@ describe("color()", () => {
         expect(color.test("hsla(180, 360%, 360%, 0.5) 0px")).toBe(false)
         expect(color.test("greensock")).toBe(false)
         expect(color.test("filter(190deg)")).toBe(false)
+    })
+
+    it("should correctly identify hex colors without #", () => {
+        expect(color.test("f00")).toBe(true)
+        expect(color.test("00f")).toBe(true)
+        expect(color.test("ff0000")).toBe(true)
+        expect(color.test("180")).toBe(false)
+        expect(color.test("100")).toBe(false)
     })
 
     it("should create animatable none", () => {
