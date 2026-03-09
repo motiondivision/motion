@@ -281,10 +281,17 @@ function spring(
 
     let resolveSpring: (v: number) => number
     let resolveVelocity: (t: number) => number
-    if (dampingRatio < 1) {
-        const angularFreq = calcAngularFreq(undampedAngularFreq, dampingRatio)
 
-        const A =
+    // Underdamped coefficients, hoisted for use in the inlined next() hot path
+    let angularFreq: number
+    let A: number
+    let sinCoeff: number
+    let cosCoeff: number
+
+    if (dampingRatio < 1) {
+        angularFreq = calcAngularFreq(undampedAngularFreq, dampingRatio)
+
+        A =
             (initialVelocity +
                 dampingRatio * undampedAngularFreq * initialDelta) /
             angularFreq
@@ -302,9 +309,9 @@ function spring(
         }
 
         // Analytical derivative of underdamped spring (px/ms)
-        const sinCoeff =
+        sinCoeff =
             dampingRatio * undampedAngularFreq * A + initialDelta * angularFreq
-        const cosCoeff =
+        cosCoeff =
             dampingRatio * undampedAngularFreq * initialDelta - A * angularFreq
         resolveVelocity = (t: number) => {
             const envelope = Math.exp(-dampingRatio * undampedAngularFreq * t)
@@ -371,28 +378,40 @@ function spring(
         calculatedDuration: isResolvedFromDuration ? duration || null : null,
         velocity: (t: number) => secondsToMilliseconds(resolveVelocity(t)),
         next: (t: number) => {
+            /**
+             * For underdamped physics springs we need both position and
+             * velocity each tick. Compute shared trig values once to avoid
+             * duplicate Math.exp/sin/cos calls on the hot path.
+             */
+            if (!isResolvedFromDuration && dampingRatio < 1) {
+                const envelope = Math.exp(
+                    -dampingRatio * undampedAngularFreq * t
+                )
+                const sin = Math.sin(angularFreq * t)
+                const cos = Math.cos(angularFreq * t)
+
+                const current =
+                    target -
+                    envelope *
+                        (A * sin + initialDelta * cos)
+                const currentVelocity = secondsToMilliseconds(
+                    envelope *
+                        (sinCoeff * sin + cosCoeff * cos)
+                )
+
+                state.done =
+                    Math.abs(currentVelocity) <= restSpeed! &&
+                    Math.abs(target - current) <= restDelta!
+                state.value = state.done ? target : current
+
+                return state
+            }
+
             const current = resolveSpring(t)
 
             if (!isResolvedFromDuration) {
-                let currentVelocity = 0.0
-
-                /**
-                 * We only need to calculate velocity for under-damped springs
-                 * as over- and critically-damped springs can't overshoot, so
-                 * checking only for displacement is enough.
-                 */
-                if (dampingRatio < 1) {
-                    currentVelocity =
-                        secondsToMilliseconds(resolveVelocity(t))
-                }
-
-                const isBelowVelocityThreshold =
-                    Math.abs(currentVelocity) <= restSpeed!
-                const isBelowDisplacementThreshold =
-                    Math.abs(target - current) <= restDelta!
-
                 state.done =
-                    isBelowVelocityThreshold && isBelowDisplacementThreshold
+                    Math.abs(target - current) <= restDelta!
             } else {
                 state.done = t >= duration!
             }
