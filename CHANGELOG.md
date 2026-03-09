@@ -4,6 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.36.0] 2026-03-09
+
+### Added
+
+-   Allow `dragSnapToOrigin` to accept `"x"` or `"y"` for per-axis snapping.
+
 ## [12.35.2] 2026-03-09
 
 ### Fixed
