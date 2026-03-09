@@ -127,7 +127,7 @@ export function applyTreeDeltas(
         }
 
         if (isSharedTransition && hasTransform(node.latestValues)) {
-            transformBox(box, node.latestValues)
+            transformBox(box, node.latestValues, node.layout?.layoutBox)
         }
     }
 
@@ -185,17 +185,22 @@ function resolveAxisTranslate(
 /**
  * Apply a transform to a box from the latest resolved motion values.
  */
-export function transformBox(box: Box, transform: ResolvedValues) {
+export function transformBox(
+    box: Box,
+    transform: ResolvedValues,
+    sourceBox?: Box
+) {
+    const resolveBox = sourceBox ?? box
     transformAxis(
         box.x,
-        resolveAxisTranslate(transform.x, box.x),
+        resolveAxisTranslate(transform.x, resolveBox.x),
         transform.scaleX as number,
         transform.scale as number,
         transform.originX as number
     )
     transformAxis(
         box.y,
-        resolveAxisTranslate(transform.y, box.y),
+        resolveAxisTranslate(transform.y, resolveBox.y),
         transform.scaleY as number,
         transform.scale as number,
         transform.originY as number

@@ -682,6 +682,17 @@ export function createProjectionNode<I>({
                 const node = this.path[i]
                 node.shouldResetTransform = true
 
+                /**
+                 * Percentage translates resolve against layoutBox dimensions,
+                 * so ancestors with them must be re-measured after transform reset.
+                 */
+                if (
+                    typeof node.latestValues.x === "string" ||
+                    typeof node.latestValues.y === "string"
+                ) {
+                    node.isLayoutDirty = true
+                }
+
                 node.updateScroll("snapshot")
 
                 if (node.options.layoutRoot) {
@@ -1057,11 +1068,19 @@ export function createProjectionNode<I>({
                 }
 
                 if (!hasTransform(node.latestValues)) continue
-                transformBox(withTransforms, node.latestValues)
+                transformBox(
+                    withTransforms,
+                    node.latestValues,
+                    node.layout?.layoutBox
+                )
             }
 
             if (hasTransform(this.latestValues)) {
-                transformBox(withTransforms, this.latestValues)
+                transformBox(
+                    withTransforms,
+                    this.latestValues,
+                    this.layout?.layoutBox
+                )
             }
 
             return withTransforms
