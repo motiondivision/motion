@@ -2,7 +2,7 @@ import { velocityPerSecond } from "motion-utils"
 
 const velocitySampleDuration = 5 // ms
 
-export function calcGeneratorVelocity(
+export function getGeneratorVelocity(
     resolveValue: (v: number) => number,
     t: number,
     current: number
