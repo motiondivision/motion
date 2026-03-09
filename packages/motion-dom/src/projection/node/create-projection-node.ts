@@ -682,7 +682,10 @@ export function createProjectionNode<I>({
                 const node = this.path[i]
                 node.shouldResetTransform = true
 
-                if (hasTransform(node.latestValues)) {
+                if (
+                    typeof node.latestValues.x === "string" ||
+                    typeof node.latestValues.y === "string"
+                ) {
                     node.isLayoutDirty = true
                 }
 
