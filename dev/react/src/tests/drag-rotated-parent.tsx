@@ -1,5 +1,5 @@
 import { useRef } from "react"
-import { motion, MotionConfig, transformRotatedParent } from "framer-motion"
+import { motion, MotionConfig, correctParentTransform } from "framer-motion"
 
 export const App = () => {
     const ref = useRef<HTMLDivElement>(null)
@@ -16,7 +16,7 @@ export const App = () => {
                 rotate: 180,
             }}
         >
-            <MotionConfig transformPagePoint={transformRotatedParent(ref)}>
+            <MotionConfig transformPagePoint={correctParentTransform(ref)}>
                 <motion.div
                     data-testid="draggable"
                     drag

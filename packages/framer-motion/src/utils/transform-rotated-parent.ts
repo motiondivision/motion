@@ -3,13 +3,13 @@ import type { RefObject } from "react"
 
 /**
  * Creates a `transformPagePoint` function that corrects pointer coordinates
- * for a rotated/scaled parent container.
+ * for a parent container with CSS transforms (rotation, scale, skew).
  *
- * When dragging elements inside a parent that has CSS rotation or scale,
- * pointer coordinates need to be transformed through the inverse of the
- * parent's rotation/scale matrix so the drag offset is in local space.
+ * When dragging elements inside a transformed parent, pointer coordinates
+ * need to be transformed through the inverse of the parent's transform
+ * so the drag offset is in local space.
  *
- * Works with both static and continuously animating rotations.
+ * Works with both static and continuously animating transforms.
  *
  * @example
  * ```jsx
@@ -18,7 +18,7 @@ import type { RefObject } from "react"
  *
  *   return (
  *     <motion.div ref={ref} style={{ rotate: 90 }}>
- *       <MotionConfig transformPagePoint={transformRotatedParent(ref)}>
+ *       <MotionConfig transformPagePoint={correctParentTransform(ref)}>
  *         <motion.div drag />
  *       </MotionConfig>
  *     </motion.div>
@@ -26,12 +26,12 @@ import type { RefObject } from "react"
  * }
  * ```
  *
- * @param parentRef - A React ref to the rotated/scaled parent element
+ * @param parentRef - A React ref to the transformed parent element
  * @returns A transformPagePoint function for use with MotionConfig
  *
  * @public
  */
-export function transformRotatedParent(
+export function correctParentTransform(
     parentRef: RefObject<HTMLElement | null>
 ): TransformPoint {
     return (point: Point): Point => {
@@ -46,12 +46,12 @@ export function transformRotatedParent(
         const cx = rect.left + window.scrollX + rect.width / 2
         const cy = rect.top + window.scrollY + rect.height / 2
 
-        // Transform (point - center) through inverse rotation
+        // Transform (point - center) through inverse, then add center back
         const dx = point.x - cx
         const dy = point.y - cy
         return {
-            x: inv.a * dx + inv.c * dy,
-            y: inv.b * dx + inv.d * dy,
+            x: cx + inv.a * dx + inv.c * dy,
+            y: cy + inv.b * dx + inv.d * dy,
         }
     }
 }

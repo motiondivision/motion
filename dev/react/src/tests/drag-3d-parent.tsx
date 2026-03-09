@@ -13,12 +13,18 @@ export const App = () => {
                 justifyContent: "center",
                 alignItems: "center",
                 background: "#111",
+                perspective: 800,
             }}
         >
             <motion.div
                 ref={ref}
-                animate={{ rotate: 360 }}
-                transition={{ repeat: Infinity, duration: 4, ease: "linear" }}
+                animate={{ rotateY: [45, -45] }}
+                transition={{
+                    repeat: Infinity,
+                    repeatType: "reverse",
+                    duration: 3,
+                    ease: "easeInOut",
+                }}
                 style={{
                     width: 300,
                     height: 300,

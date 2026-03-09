@@ -103,7 +103,7 @@ export {
 } from "./utils/use-instant-transition"
 export { usePageInView } from "./utils/use-page-in-view"
 export { transformViewBoxPoint } from "./utils/transform-viewbox-point"
-export { transformRotatedParent } from "./utils/transform-rotated-parent"
+export { correctParentTransform } from "./utils/transform-rotated-parent"
 
 /**
  * Appear animations

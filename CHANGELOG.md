@@ -8,12 +8,13 @@ Undocumented APIs should be considered internal and may change without warning.
 
 ### Added
 
--   Support drag gesture within a rotated parent via `transformRotatedParent`.
+-   Support drag gesture within a transformed parent via `correctParentTransform`.
 
 ### Fixed
 
 -   Reduced filesize of `styleEffect`.
 -   Fix rounding from `popLayout`.
+-   `opacity` animations in React Strict Mode in development.
 
 ## [12.35.1] 2026-03-06
 
