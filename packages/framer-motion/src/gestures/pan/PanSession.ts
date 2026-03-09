@@ -22,7 +22,7 @@ interface PanSessionHandlers {
 
 interface PanSessionOptions {
     transformPagePoint?: TransformPoint
-    dragSnapToOrigin?: boolean
+    dragSnapToOrigin?: boolean | "x" | "y"
     distanceThreshold?: number
     contextWindow?: (Window & typeof globalThis) | null
     /**
@@ -90,7 +90,7 @@ export class PanSession {
      *
      * @internal
      */
-    private dragSnapToOrigin: boolean
+    private dragSnapToOrigin: boolean | "x" | "y"
 
     /**
      * The distance after which panning should start.

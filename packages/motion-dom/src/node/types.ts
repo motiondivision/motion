@@ -723,14 +723,15 @@ export interface MotionNodeDraggableOptions {
     dragControls?: any // TODO: Replace with DragControls when ported to motion-dom
 
     /**
-     * If true, element will snap back to its origin when dragging ends.
+     * If `true`, element will snap back to its origin when dragging ends.
+     * Set to `"x"` or `"y"` to only snap back on a specific axis.
      *
      * Enabling this is the equivalent of setting all `dragConstraints` axes to `0`
      * with `dragElastic={1}`, but when used together `dragConstraints` can define
      * a wider draggable area and `dragSnapToOrigin` will ensure the element
      * animates back to its origin on release.
      */
-    dragSnapToOrigin?: boolean
+    dragSnapToOrigin?: boolean | "x" | "y"
 
     /**
      * By default, if `drag` is defined on a component then an event listener will be attached
