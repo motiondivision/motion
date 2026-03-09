@@ -1,7 +1,10 @@
 "use client"
 
-import { MotionValue, SpringOptions } from "motion-dom"
+import { FollowValueOptions, MotionValue, SpringOptions } from "motion-dom"
 import { useFollowValue } from "./use-follow-value"
+
+type UseSpringOptions = SpringOptions &
+    Pick<FollowValueOptions, "skipInitialAnimation">
 
 /**
  * Creates a `MotionValue` that, when `set`, will use a spring animation to animate to its new state.
@@ -24,23 +27,23 @@ import { useFollowValue } from "./use-follow-value"
  */
 export function useSpring(
     source: MotionValue<string>,
-    options?: SpringOptions
+    options?: UseSpringOptions
 ): MotionValue<string>
 export function useSpring(
     source: string,
-    options?: SpringOptions
+    options?: UseSpringOptions
 ): MotionValue<string>
 export function useSpring(
     source: MotionValue<number>,
-    options?: SpringOptions
+    options?: UseSpringOptions
 ): MotionValue<number>
 export function useSpring(
     source: number,
-    options?: SpringOptions
+    options?: UseSpringOptions
 ): MotionValue<number>
 export function useSpring(
     source: MotionValue<string> | MotionValue<number> | string | number,
-    options: SpringOptions = {}
+    options: UseSpringOptions = {}
 ): MotionValue<string> | MotionValue<number> {
     return useFollowValue(source as any, { type: "spring", ...options })
 }

@@ -226,6 +226,46 @@ const runSpringTests = (unit?: string | undefined) => {
 runSpringTests()
 runSpringTests("%")
 
+describe("useSpring skipInitialAnimation", () => {
+    test("skips animation on first source change when skipInitialAnimation is true", async () => {
+        const promise = new Promise<number[]>((resolve) => {
+            const output: number[] = []
+            const Component = () => {
+                const x = useMotionValue(0)
+                const y = useSpring(x, {
+                    skipInitialAnimation: true,
+                    driver: syncDriver(10),
+                } as any)
+
+                useEffect(() => {
+                    return y.on("change", (v) => {
+                        output.push(Math.round(v))
+                    })
+                })
+
+                useEffect(() => {
+                    // Simulate scroll restoration: source jumps to 100
+                    x.set(100)
+
+                    setTimeout(() => {
+                        resolve(output)
+                    }, 100)
+                }, [])
+
+                return null
+            }
+
+            const { rerender } = render(<Component />)
+            rerender(<Component />)
+        })
+
+        const resolved = await promise
+
+        // Should jump directly to 100, no intermediate values
+        expect(resolved).toEqual([100])
+    })
+})
+
 describe("useSpring animation events", () => {
     test("triggers animationStart event when spring animation begins", async () => {
         const promise = new Promise<boolean>((resolve) => {

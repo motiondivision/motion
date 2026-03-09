@@ -11,7 +11,17 @@ import { isMotionValue } from "./utils/is-motion-value"
 export type FollowValueOptions = Omit<
     ValueAnimationTransition,
     "onUpdate" | "onComplete" | "onPlay" | "onRepeat" | "onStop"
->
+> & {
+    /**
+     * When true, the first change from a tracked `MotionValue` source
+     * will jump to the new value instead of animating. Subsequent
+     * changes animate normally. This prevents unwanted animations
+     * on page refresh or back navigation (e.g. `useScroll` + `useSpring`).
+     *
+     * @default false
+     */
+    skipInitialAnimation?: boolean
+}
 
 /**
  * Create a `MotionValue` that animates to its latest value using any transition type.
@@ -124,9 +134,16 @@ export function attachFollow<T extends AnyResolvedKeyframe>(
     }, stopAnimation)
 
     if (isMotionValue(source)) {
-        const removeSourceOnChange = source.on("change", (v) =>
-            value.set(parseValue(v, unit) as T)
-        )
+        let skipNextAnimation = options.skipInitialAnimation === true
+
+        const removeSourceOnChange = source.on("change", (v) => {
+            if (skipNextAnimation) {
+                skipNextAnimation = false
+                value.jump(parseValue(v, unit) as T, false)
+            } else {
+                value.set(parseValue(v, unit) as T)
+            }
+        })
 
         const removeValueOnDestroy = value.on("destroy", removeSourceOnChange)
 
