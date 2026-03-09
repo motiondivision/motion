@@ -4,17 +4,19 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
-## [12.36.0] 2026-03-09
-
-### Added
-
--   Support drag gesture within a transformed parent via `correctParentTransform`.
+## [12.35.2] 2026-03-09
 
 ### Fixed
 
 -   Reduced filesize of `styleEffect`.
 -   Fix rounding from `popLayout`.
 -   `opacity` animations in React Strict Mode in development.
+-   Ensure `useSpring` is not affected by monitor framerate.
+-   Updating animations sequence segment types to exclude lifecycle handlers.
+-   Fix layout animations with parents offset by a `%`-based translation.
+-   Fix `autoplay: false` with WAAPI animations.
+-   Fix layout jump in React Strict Mode in development.
+-   Detect divide-by-zero in CSS `calc()` values before making animatable templates.
 
 ## [12.35.1] 2026-03-06
 
