@@ -253,11 +253,22 @@ export function createAnimationState(visualElement: any): AnimationState {
             /**
              * Build an object of all the resolved values. We'll use this in the subsequent
              * animateChanges calls to determine whether a value has changed.
+             *
+             * When the variant label hasn't changed, reuse previous resolved
+             * values so a `custom` prop change alone doesn't trigger
+             * re-animation (#3545).
              */
-            let resolvedValues = definitionList.reduce(
-                buildResolvedTypeValues(type),
-                {}
-            )
+            let resolvedValues =
+                propIsVariant &&
+                !variantDidChange &&
+                !isInitialRender &&
+                !wasReset &&
+                activeDelta === null
+                    ? { ...typeState.prevResolvedValues }
+                    : definitionList.reduce(
+                          buildResolvedTypeValues(type),
+                          {}
+                      )
 
             if (activeDelta === false) resolvedValues = {}
 

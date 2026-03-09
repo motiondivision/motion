@@ -260,6 +260,55 @@ describe("Animation state - Setting props", () => {
         })
     })
 
+    test("No change, dynamic variant with same custom", () => {
+        const { state } = createTest()
+
+        state.update({
+            animate: "test",
+            custom: 0,
+            variants: {
+                test: (c: number) => ({ x: c * 100 }),
+            },
+        })
+
+        const animate = mockAnimate(state)
+
+        state.update({
+            animate: "test",
+            custom: 0,
+            variants: {
+                test: (c: number) => ({ x: c * 100 }),
+            },
+        })
+
+        expect(animate).not.toBeCalled()
+    })
+
+    test("No change, dynamic variant with changed custom", () => {
+        const { state } = createTest()
+
+        state.update({
+            animate: "test",
+            custom: 0,
+            variants: {
+                test: (c: number) => ({ x: c * 100 }),
+            },
+        })
+
+        const animate = mockAnimate(state)
+
+        // Changing custom alone should NOT trigger re-animation when variant label is unchanged
+        state.update({
+            animate: "test",
+            custom: 1,
+            variants: {
+                test: (c: number) => ({ x: c * 100 }),
+            },
+        })
+
+        expect(animate).not.toBeCalled()
+    })
+
     test("Change single value, target", () => {
         const { state } = createTest()
 
