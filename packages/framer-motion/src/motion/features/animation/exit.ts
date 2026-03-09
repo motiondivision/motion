@@ -1,9 +1,10 @@
-import { Feature } from "motion-dom"
+import { Feature, resolveVariant } from "motion-dom"
 
 let id = 0
 
 export class ExitAnimationFeature extends Feature<unknown> {
     private id: number = id++
+    private isExitComplete = false
 
     update() {
         if (!this.node.presenceContext) return
@@ -15,6 +16,46 @@ export class ExitAnimationFeature extends Feature<unknown> {
             return
         }
 
+        if (isPresent && prevIsPresent === false) {
+            /**
+             * When re-entering, if the exit animation already completed
+             * (element is at rest), reset to initial values so the enter
+             * animation replays from the correct position.
+             */
+            if (this.isExitComplete) {
+                const { initial, custom } = this.node.getProps()
+
+                if (typeof initial === "string") {
+                    const resolved = resolveVariant(
+                        this.node,
+                        initial,
+                        custom
+                    )
+                    if (resolved) {
+                        const { transition, transitionEnd, ...target } =
+                            resolved
+                        for (const key in target) {
+                            this.node
+                                .getValue(key)
+                                ?.jump(
+                                    target[
+                                        key as keyof typeof target
+                                    ] as any
+                                )
+                        }
+                    }
+                }
+
+                this.node.animationState.reset()
+                this.node.animationState.animateChanges()
+            } else {
+                this.node.animationState.setActive("exit", false)
+            }
+
+            this.isExitComplete = false
+            return
+        }
+
         const exitAnimation = this.node.animationState.setActive(
             "exit",
             !isPresent
@@ -22,6 +63,7 @@ export class ExitAnimationFeature extends Feature<unknown> {
 
         if (onExitComplete && !isPresent) {
             exitAnimation.then(() => {
+                this.isExitComplete = true
                 onExitComplete(this.id)
             })
         }

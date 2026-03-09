@@ -1390,4 +1390,114 @@ describe("AnimatePresence with custom components", () => {
 
         expect(exitCompleteCount).toBeGreaterThan(0)
     })
+
+    test("Re-entering child replays enter animation when exit was complete", async () => {
+        const enterCustomValues: number[] = []
+
+        const variants: Variants = {
+            enter: (direction: number) => {
+                enterCustomValues.push(direction)
+                return {
+                    x: direction > 0 ? 1000 : -1000,
+                    opacity: 0,
+                }
+            },
+            center: {
+                x: 0,
+                opacity: 1,
+            },
+            exit: (direction: number) => ({
+                x: direction < 0 ? 1000 : -1000,
+                opacity: 0,
+            }),
+        }
+
+        /**
+         * Use two children with different exit durations.
+         * Child "b" exits instantly (type: false), child "a" exits slowly (10s).
+         * After one frame: b's exit is complete but a's isn't,
+         * so isEveryExitComplete=false and b stays in the DOM.
+         * Then b re-enters — a genuine re-entry of a completed-exit element.
+         */
+        const Component = ({
+            showA,
+            showB,
+            direction,
+        }: {
+            showA: boolean
+            showB: boolean
+            direction: number
+        }) => {
+            return (
+                <AnimatePresence initial={false} custom={direction}>
+                    {showA && (
+                        <motion.div
+                            key="a"
+                            custom={direction}
+                            variants={variants}
+                            initial="enter"
+                            animate="center"
+                            exit="exit"
+                            transition={{ duration: 10 }}
+                        />
+                    )}
+                    {showB && (
+                        <motion.div
+                            key="b"
+                            custom={direction}
+                            variants={variants}
+                            initial="enter"
+                            animate="center"
+                            exit="exit"
+                            transition={{ type: false }}
+                        />
+                    )}
+                </AnimatePresence>
+            )
+        }
+
+        // Render both children
+        const { rerender } = render(
+            <Component showA showB direction={0} />
+        )
+        await act(async () => {
+            await nextFrame()
+        })
+
+        // Remove both: a exits slowly (10s), b exits instantly
+        await act(async () => {
+            rerender(
+                <Component
+                    showA={false}
+                    showB={false}
+                    direction={-1}
+                />
+            )
+        })
+        await act(async () => {
+            await nextFrame()
+        })
+
+        // b's exit completed (type:false = instant).
+        // a's exit is still running (duration: 10s).
+        // isEveryExitComplete = false, so both stay in the DOM.
+        // Now re-add b with new direction — genuine re-entry.
+        enterCustomValues.length = 0
+        await act(async () => {
+            rerender(
+                <Component
+                    showA={false}
+                    showB={true}
+                    direction={1}
+                />
+            )
+        })
+        await act(async () => {
+            await nextFrame()
+        })
+
+        // With fix: enter variant called with direction=1 (reset + replay)
+        // Without fix: no enter animation replayed (element stuck at exit position)
+        expect(enterCustomValues).toContain(1)
+    })
 })
