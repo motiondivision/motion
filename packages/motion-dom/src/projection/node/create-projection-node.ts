@@ -682,6 +682,10 @@ export function createProjectionNode<I>({
                 const node = this.path[i]
                 node.shouldResetTransform = true
 
+                /**
+                 * Percentage translates resolve against layoutBox dimensions,
+                 * so ancestors with them must be re-measured after transform reset.
+                 */
                 if (
                     typeof node.latestValues.x === "string" ||
                     typeof node.latestValues.y === "string"

@@ -184,24 +184,23 @@ function resolveAxisTranslate(
 
 /**
  * Apply a transform to a box from the latest resolved motion values.
- * sourceBox is the element's own box for resolving percentage translates.
- * If not provided, percentages are resolved against the box being transformed.
  */
 export function transformBox(
     box: Box,
     transform: ResolvedValues,
     sourceBox?: Box
 ) {
+    const resolveBox = sourceBox ?? box
     transformAxis(
         box.x,
-        resolveAxisTranslate(transform.x, sourceBox ? sourceBox.x : box.x),
+        resolveAxisTranslate(transform.x, resolveBox.x),
         transform.scaleX as number,
         transform.scale as number,
         transform.originX as number
     )
     transformAxis(
         box.y,
-        resolveAxisTranslate(transform.y, sourceBox ? sourceBox.y : box.y),
+        resolveAxisTranslate(transform.y, resolveBox.y),
         transform.scaleY as number,
         transform.scale as number,
         transform.originY as number
