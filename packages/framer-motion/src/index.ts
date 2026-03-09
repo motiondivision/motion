@@ -43,6 +43,7 @@ export { domMin } from "./render/dom/features-min"
 /**
  * Motion values
  */
+export { useAnimationComplete } from "./utils/use-animation-complete"
 export { useMotionValueEvent } from "./utils/use-motion-value-event"
 export { useElementScroll } from "./value/scroll/use-element-scroll"
 export { useViewportScroll } from "./value/scroll/use-viewport-scroll"
