@@ -739,7 +739,7 @@ describe("WAAPI animations", () => {
                 delay: -0,
                 direction: "normal",
                 duration: 50,
-                easing: "linear(0, -0.0336, 0.5, 0.9844, 0.9995)",
+                easing: "linear(0, -0.0336, 0.5, 0.9844, 1)",
                 fill: "both",
                 iterations: 1,
             }
