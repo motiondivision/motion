@@ -1,4 +1,4 @@
-import { Feature } from "motion-dom"
+import { Feature, resolveVariant } from "motion-dom"
 
 let id = 0
 
@@ -23,26 +23,24 @@ export class ExitAnimationFeature extends Feature<unknown> {
              * animation replays from the correct position.
              */
             if (this.isExitComplete) {
-                const { initial, custom, variants } = this.node.getProps()
+                const { initial, custom } = this.node.getProps()
 
-                if (typeof initial === "string" && variants?.[initial]) {
-                    const variant = variants[initial]
-                    const resolved =
-                        typeof variant === "function"
-                            ? variant(custom, {}, {})
-                            : variant
-
-                    if (typeof resolved === "object") {
-                        for (const key in resolved) {
-                            if (
-                                key === "transition" ||
-                                key === "transitionEnd"
-                            )
-                                continue
+                if (typeof initial === "string") {
+                    const resolved = resolveVariant(
+                        this.node,
+                        initial,
+                        custom
+                    )
+                    if (resolved) {
+                        const { transition, transitionEnd, ...target } =
+                            resolved
+                        for (const key in target) {
                             this.node
                                 .getValue(key)
                                 ?.jump(
-                                    (resolved as Record<string, any>)[key]
+                                    target[
+                                        key as keyof typeof target
+                                    ] as any
                                 )
                         }
                     }
