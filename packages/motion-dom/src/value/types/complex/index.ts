@@ -83,9 +83,7 @@ function parseComplexValue(v: AnyResolvedKeyframe) {
     return analyseComplexValue(v).values
 }
 
-function createTransformer(source: AnyResolvedKeyframe) {
-    const { split, types } = analyseComplexValue(source)
-
+function buildTransformer({ split, types }: ComplexValueInfo) {
     const numSections = split.length
     return (v: Array<CSSVariableToken | Color | number | string>) => {
         let output = ""
@@ -107,17 +105,21 @@ function createTransformer(source: AnyResolvedKeyframe) {
     }
 }
 
+function createTransformer(source: AnyResolvedKeyframe) {
+    return buildTransformer(analyseComplexValue(source))
+}
+
 const convertNumbersToZero = (v: number | string) =>
     typeof v === "number" ? 0 : color.test(v) ? color.getAnimatableNone(v) : v
 
 function getAnimatableNone(v: AnyResolvedKeyframe) {
-    const { values, split } = analyseComplexValue(v)
-    const transformer = createTransformer(v)
+    const info = analyseComplexValue(v)
+    const transformer = buildTransformer(info)
     return transformer(
-        values.map((value, i) => {
+        info.values.map((value, i) => {
             if (typeof value === "number") {
                 // Don't zero out divisors in calc() to avoid division by zero (NaN)
-                if (split[i]?.trim().endsWith("/")) return value
+                if (info.split[i]?.trim().endsWith("/")) return value
                 return 0
             }
             return convertNumbersToZero(value as string)
