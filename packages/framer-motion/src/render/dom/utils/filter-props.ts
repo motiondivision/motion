@@ -31,8 +31,12 @@ try {
      * We attempt to import this package but require won't be defined in esm environments, in that case
      * isPropValid will have to be provided via `MotionContext`. In a 6.0.0 this should probably be removed
      * in favour of explicit injection.
+     *
+     * String concatenation prevents bundlers like webpack (e.g. Storybook)
+     * from statically resolving this optional dependency at build time.
      */
-    loadExternalIsValidProp(require("@emotion/is-prop-valid").default)
+    const emotionPkg = "@emotion/is-prop-" + "valid"
+    loadExternalIsValidProp(require(emotionPkg).default)
 } catch {
     // We don't need to actually do anything here - the fallback is the existing `isPropValid`.
 }
