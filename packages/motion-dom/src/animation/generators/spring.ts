@@ -410,7 +410,11 @@ function spring(
             const current = resolveSpring(t)
 
             if (!isResolvedFromDuration) {
+                const currentVelocity = secondsToMilliseconds(
+                    resolveVelocity(t)
+                )
                 state.done =
+                    Math.abs(currentVelocity) <= restSpeed! &&
                     Math.abs(target - current) <= restDelta!
             } else {
                 state.done = t >= duration!

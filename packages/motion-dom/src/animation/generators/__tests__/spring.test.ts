@@ -191,6 +191,34 @@ describe("spring", () => {
         expect(maxWithVelocity - 100).toBeLessThan(5)
     })
 
+    test("Overdamped spring with velocity and zero delta is not immediately done", () => {
+        const generator = spring({
+            keyframes: [1, 1],
+            stiffness: 700,
+            damping: 80,
+            velocity: 50,
+        })
+
+        const firstFrame = generator.next(0)
+        expect(firstFrame.done).toBe(false)
+
+        // Should overshoot on subsequent frames due to velocity
+        const laterFrame = generator.next(0.01)
+        expect(laterFrame.value).not.toBe(1)
+    })
+
+    test("Critically damped spring with velocity and zero delta is not immediately done", () => {
+        const generator = spring({
+            keyframes: [1, 1],
+            stiffness: 100,
+            damping: 20,
+            velocity: 50,
+        })
+
+        const firstFrame = generator.next(0)
+        expect(firstFrame.done).toBe(false)
+    })
+
     test("Spring animating back to same number returns correct duration", () => {
         const duration = calcGeneratorDuration(
             spring({
