@@ -50,10 +50,6 @@ export function createAnimationsFromSequence(
     const sequences = new Map<Element | MotionValue, SequenceMap>()
     const elementCache = {}
     const timeLabels = new Map<string, number>()
-    const subjectCallbacks = new Map<
-        any,
-        { [key: string]: Record<string, any> }
-    >()
 
     let prevTime = 0
     let currentTime = 0
@@ -269,12 +265,6 @@ export function createAnimationsFromSequence(
                 transition,
                 getValueSequence("default", subjectSequence)
             )
-            collectCallbacks(
-                transition as DynamicAnimationOptions,
-                subject,
-                "default",
-                subjectCallbacks
-            )
         } else {
             const subjects = resolveSubjects(
                 subject,
@@ -314,12 +304,6 @@ export function createAnimationsFromSequence(
                         getValueSequence(key, subjectSequence),
                         subjectIndex,
                         numSubjects
-                    )
-                    collectCallbacks(
-                        transition,
-                        thisSubject,
-                        key,
-                        subjectCallbacks
                     )
                 }
             }
@@ -402,7 +386,6 @@ export function createAnimationsFromSequence(
                 ease: valueEasing,
                 times: valueOffset,
                 ...sequenceTransition,
-                ...subjectCallbacks.get(element)?.[key],
             }
         }
     })
@@ -439,31 +422,6 @@ export function getValueTransition(
               ...(transition[key as keyof typeof transition] as Transition),
           }
         : { ...transition }
-}
-
-const lifecycleCallbackNames = [
-    "onUpdate",
-    "onPlay",
-    "onComplete",
-    "onRepeat",
-    "onStop",
-]
-
-function collectCallbacks<O extends {}>(
-    transition: DynamicAnimationOptions,
-    subject: Element | MotionValue | O,
-    key: string,
-    store: Map<any, { [key: string]: Record<string, any> }>
-) {
-    for (const name of lifecycleCallbackNames) {
-        const callback = transition[name as keyof typeof transition]
-        if (typeof callback === "function") {
-            if (!store.has(subject)) store.set(subject, {})
-            const subjectCallbacks = store.get(subject)!
-            if (!subjectCallbacks[key]) subjectCallbacks[key] = {}
-            subjectCallbacks[key][name] = callback
-        }
-    }
 }
 
 const isNumber = (keyframe: unknown) => typeof keyframe === "number"
