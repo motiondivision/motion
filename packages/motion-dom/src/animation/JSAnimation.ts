@@ -390,7 +390,7 @@ export class JSAnimation<T extends number | string>
      * Uses the analytical derivative when available (springs), avoiding
      * the MotionValue's frame-dependent velocity estimation.
      */
-    get generatorVelocity(): number {
+    getGeneratorVelocity(): number {
         const t = this.currentTime
         if (t <= 0) return this.options.velocity || 0
 

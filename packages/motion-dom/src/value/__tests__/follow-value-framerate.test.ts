@@ -81,9 +81,9 @@ describe("Spring follow at different frame rates (issue #3265)", () => {
 
         // Both frame rates should produce similar spring positions.
         // Before the fix, 240hz was ~34% behind 60hz.
-        // After the fix, they should be within 15% of each other.
+        // After the fix, they should be within 10% of each other.
         const ratio = pos240 / pos60
-        expect(ratio).toBeGreaterThan(0.85)
-        expect(ratio).toBeLessThan(1.15)
+        expect(ratio).toBeGreaterThan(0.9)
+        expect(ratio).toBeLessThan(1.1)
     })
 })

@@ -90,7 +90,7 @@ export function attachFollow<T extends AnyResolvedKeyframe>(
         // falling back to the MotionValue's velocity for the initial animation.
         // This prevents systematic velocity loss at high frame rates (240hz+).
         const velocity = activeAnimation
-            ? activeAnimation.generatorVelocity
+            ? activeAnimation.getGeneratorVelocity()
             : value.getVelocity()
 
         stopAnimation()
