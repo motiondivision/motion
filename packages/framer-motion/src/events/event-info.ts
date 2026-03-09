@@ -14,9 +14,7 @@ export function extractEventInfo(event: PointerEvent): EventInfo {
     }
 }
 
-export const addPointerInfo = (
-    handler: EventListenerWithPointInfo
-): EventListener => {
-    return (event: PointerEvent) =>
+export const addPointerInfo =
+    (handler: EventListenerWithPointInfo): EventListener =>
+    (event: PointerEvent) =>
         isPrimaryPointer(event) && handler(event, extractEventInfo(event))
-}
