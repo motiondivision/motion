@@ -186,14 +186,14 @@ const runSpringTests = (unit?: string | undefined) => {
             expect((spring as any).events.destroy.getSize()).toBe(0)
         })
 
-        test("skips animation on first change when animateOnHydrate is false", async () => {
+        test("skips animation on first change when skipInitialAnimation is true", async () => {
             const promise = new Promise<Array<string | number>>(
                 (resolve) => {
                     const output: Array<string | number> = []
                     const x = motionValue(createValue(0))
                     const y = followValue(x, {
                         type: "spring",
-                        animateOnHydrate: false,
+                        skipInitialAnimation: true,
                         driver: syncDriver(10),
                     } as any)
 
@@ -216,14 +216,14 @@ const runSpringTests = (unit?: string | undefined) => {
             expect(resolved).toEqual([createValue(100)])
         })
 
-        test("animates on second change when animateOnHydrate is false", async () => {
+        test("animates on second change when skipInitialAnimation is true", async () => {
             const promise = new Promise<Array<string | number>>(
                 (resolve) => {
                     const output: Array<string | number> = []
                     const x = motionValue(createValue(0))
                     const y = followValue(x, {
                         type: "spring",
-                        animateOnHydrate: false,
+                        skipInitialAnimation: true,
                         driver: syncDriver(10),
                     } as any)
 

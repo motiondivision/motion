@@ -13,14 +13,14 @@ export type FollowValueOptions = Omit<
     "onUpdate" | "onComplete" | "onPlay" | "onRepeat" | "onStop"
 > & {
     /**
-     * When false, the first change from a tracked `MotionValue` source
+     * When true, the first change from a tracked `MotionValue` source
      * will jump to the new value instead of animating. Subsequent
      * changes animate normally. This prevents unwanted animations
-     * on hydration (e.g. page refresh with `useScroll` + `useSpring`).
+     * on page refresh or back navigation (e.g. `useScroll` + `useSpring`).
      *
-     * @default true
+     * @default false
      */
-    animateOnHydrate?: boolean
+    skipInitialAnimation?: boolean
 }
 
 /**
@@ -134,13 +134,11 @@ export function attachFollow<T extends AnyResolvedKeyframe>(
     }, stopAnimation)
 
     if (isMotionValue(source)) {
-        let skipNextAnimation =
-            options.animateOnHydrate === false ? true : false
+        let skipNextAnimation = options.skipInitialAnimation === true
 
         const removeSourceOnChange = source.on("change", (v) => {
             if (skipNextAnimation) {
                 skipNextAnimation = false
-                stopAnimation()
                 value.jump(parseValue(v, unit) as T, false)
             } else {
                 value.set(parseValue(v, unit) as T)

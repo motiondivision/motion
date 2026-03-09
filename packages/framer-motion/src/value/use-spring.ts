@@ -4,7 +4,7 @@ import { FollowValueOptions, MotionValue, SpringOptions } from "motion-dom"
 import { useFollowValue } from "./use-follow-value"
 
 type UseSpringOptions = SpringOptions &
-    Pick<FollowValueOptions, "animateOnHydrate">
+    Pick<FollowValueOptions, "skipInitialAnimation">
 
 /**
  * Creates a `MotionValue` that, when `set`, will use a spring animation to animate to its new state.

@@ -226,14 +226,14 @@ const runSpringTests = (unit?: string | undefined) => {
 runSpringTests()
 runSpringTests("%")
 
-describe("useSpring animateOnHydrate", () => {
-    test("skips animation on first source change when animateOnHydrate is false", async () => {
+describe("useSpring skipInitialAnimation", () => {
+    test("skips animation on first source change when skipInitialAnimation is true", async () => {
         const promise = new Promise<number[]>((resolve) => {
             const output: number[] = []
             const Component = () => {
                 const x = useMotionValue(0)
                 const y = useSpring(x, {
-                    animateOnHydrate: false,
+                    skipInitialAnimation: true,
                     driver: syncDriver(10),
                 } as any)
 
