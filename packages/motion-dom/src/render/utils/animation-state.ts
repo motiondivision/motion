@@ -73,7 +73,7 @@ export function createAnimationState(visualElement: any): AnimationState {
      * each active animation type into an object of resolved values for it.
      */
     const buildResolvedTypeValues =
-        (type: AnimationType) =>
+        (type: AnimationType, lockedCustom?: any, useLocked?: boolean) =>
         (
             acc: { [key: string]: any },
             definition: string | TargetAndTransition | undefined
@@ -83,7 +83,9 @@ export function createAnimationState(visualElement: any): AnimationState {
                 definition,
                 type === "exit"
                     ? visualElement.presenceContext?.custom
-                    : undefined
+                    : useLocked
+                      ? lockedCustom
+                      : undefined
             )
 
             if (resolved) {
@@ -254,21 +256,26 @@ export function createAnimationState(visualElement: any): AnimationState {
              * Build an object of all the resolved values. We'll use this in the subsequent
              * animateChanges calls to determine whether a value has changed.
              *
-             * When the variant label hasn't changed, reuse previous resolved
-             * values so a `custom` prop change alone doesn't trigger
-             * re-animation (#3545).
+             * When the variant label hasn't changed, resolve with the
+             * previous custom value so a custom prop change alone doesn't
+             * trigger re-animation, while still detecting changes to the
+             * variant definition itself (#3545).
              */
-            let resolvedValues =
+            const shouldLockCustom =
                 propIsVariant &&
                 !variantDidChange &&
                 !isInitialRender &&
                 !wasReset &&
                 activeDelta === null
-                    ? { ...typeState.prevResolvedValues }
-                    : definitionList.reduce(
-                          buildResolvedTypeValues(type),
-                          {}
-                      )
+
+            let resolvedValues = definitionList.reduce(
+                buildResolvedTypeValues(
+                    type,
+                    typeState.prevCustom,
+                    shouldLockCustom
+                ),
+                {}
+            )
 
             if (activeDelta === false) resolvedValues = {}
 
@@ -345,6 +352,10 @@ export function createAnimationState(visualElement: any): AnimationState {
              */
             typeState.prevProp = prop
             typeState.prevResolvedValues = resolvedValues
+
+            if (!shouldLockCustom) {
+                typeState.prevCustom = props.custom
+            }
 
             if (typeState.isActive) {
                 encounteredKeys = { ...encounteredKeys, ...resolvedValues }
@@ -510,6 +521,7 @@ export interface AnimationTypeState {
     needsAnimating: { [key: string]: boolean }
     prevResolvedValues: { [key: string]: any }
     prevProp?: VariantLabels | TargetAndTransition
+    prevCustom?: any
 }
 
 function createTypeState(isActive = false): AnimationTypeState {
