@@ -3,6 +3,10 @@ import { motion } from "framer-motion"
 /**
  * Reproduction for #3147: height: auto with box-sizing: border-box
  * ignores padding, causing animation jumps.
+ *
+ * Uses a long linear animation so Cypress can sample the computed height
+ * mid-animation. With the bug, the target is 100px (padding subtracted);
+ * with the fix, the target is 140px (border-box includes padding).
  */
 export const App = () => {
     return (

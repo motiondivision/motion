@@ -1,19 +1,16 @@
 describe("height: auto with border-box", () => {
     it("animates to correct target height when box-sizing is border-box with padding", () => {
         cy.visit("?test=animate-height-border-box")
-            // At 5s into a 10s linear animation from 0 to target, height = target/2
+            // Sample at 50% of a 10s linear animation (0 → target).
+            // Correct target is 140px (border-box: 100 content + 40 padding),
+            // so midpoint ≈ 70px. Bug target was 100px, midpoint ≈ 50px.
             .wait(5000)
             .get("#box")
             .then(($el: any) => {
-                const el = $el[0] as HTMLElement
-                const computedHeight = parseFloat(
-                    getComputedStyle(el).height
+                const height = parseFloat(
+                    getComputedStyle($el[0] as HTMLElement).height
                 )
-                // With border-box, the animation target should be 140px
-                // (100px content + 20px top padding + 20px bottom padding)
-                // At 50% through linear animation: height ≈ 70px
-                // Bug: padding is subtracted, target is 100px, so height ≈ 50px
-                expect(computedHeight).to.be.greaterThan(60)
+                expect(height).to.be.greaterThan(60)
             })
     })
 })

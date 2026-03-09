@@ -22,4 +22,26 @@ describe("Unit conversion", () => {
             positionalValues.height(testDimensions, { paddingBottom: "25px" })
         ).toBe(275)
     })
+
+    test("Does not subtract padding when box-sizing is border-box", () => {
+        const testDimensions = {
+            x: { min: 0, max: 100 },
+            y: { min: 0, max: 300 },
+        }
+        expect(
+            positionalValues.width(testDimensions, {
+                paddingLeft: "50px",
+                paddingRight: "25px",
+                boxSizing: "border-box",
+            })
+        ).toBe(100)
+
+        expect(
+            positionalValues.height(testDimensions, {
+                paddingTop: "50px",
+                paddingBottom: "25px",
+                boxSizing: "border-box",
+            })
+        ).toBe(300)
+    })
 })
