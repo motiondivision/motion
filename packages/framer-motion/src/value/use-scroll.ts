@@ -18,14 +18,6 @@ export interface UseScrollOptions
     extends Omit<ScrollInfoOptions, "container" | "target"> {
     container?: RefObject<HTMLElement | null>
     target?: RefObject<HTMLElement | null>
-    /**
-     * When false, initializes scroll values to the current scroll position
-     * instead of 0. This prevents springs attached to scroll values from
-     * animating on page refresh or back navigation.
-     *
-     * @default true
-     */
-    startAtZero?: boolean
 }
 
 const createScrollMotionValues = () => ({
@@ -34,19 +26,6 @@ const createScrollMotionValues = () => ({
     scrollXProgress: motionValue(0),
     scrollYProgress: motionValue(0),
 })
-
-function readScrollPosition(el: Element) {
-    const x = Math.abs(el.scrollLeft)
-    const y = Math.abs(el.scrollTop)
-    const xLen = el.scrollWidth - el.clientWidth
-    const yLen = el.scrollHeight - el.clientHeight
-    return {
-        scrollX: motionValue(x),
-        scrollY: motionValue(y),
-        scrollXProgress: motionValue(xLen > 0 ? x / xLen : 0),
-        scrollYProgress: motionValue(yLen > 0 ? y / yLen : 0),
-    }
-}
 
 const isRefPending = (ref?: RefObject<HTMLElement | null>) => {
     if (!ref) return false
@@ -87,16 +66,9 @@ function canAccelerateScroll(
 export function useScroll({
     container,
     target,
-    startAtZero,
     ...options
 }: UseScrollOptions = {}) {
-    const values = useConstant(() => {
-        if (startAtZero === false && typeof document !== "undefined") {
-            const el = container?.current || document.scrollingElement
-            if (el) return readScrollPosition(el)
-        }
-        return createScrollMotionValues()
-    })
+    const values = useConstant(createScrollMotionValues)
 
     if (canAccelerateScroll(target, options.offset)) {
         values.scrollXProgress.accelerate = makeAccelerateConfig(
@@ -116,8 +88,6 @@ export function useScroll({
     const scrollAnimation = useRef<VoidFunction | null>(null)
     const needsStart = useRef(false)
 
-    const needsJump = useRef(startAtZero === false && !!container)
-
     const start = useCallback(() => {
         scrollAnimation.current = scroll(
             (
@@ -130,14 +100,6 @@ export function useScroll({
                     y: { current: number; progress: number }
                 }
             ) => {
-                if (needsJump.current) {
-                    needsJump.current = false
-                    values.scrollX.jump(x.current)
-                    values.scrollXProgress.jump(x.progress)
-                    values.scrollY.jump(y.current)
-                    values.scrollYProgress.jump(y.progress)
-                    return
-                }
                 values.scrollX.set(x.current)
                 values.scrollXProgress.set(x.progress)
                 values.scrollY.set(y.current)

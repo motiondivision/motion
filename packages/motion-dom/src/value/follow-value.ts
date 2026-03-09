@@ -11,7 +11,17 @@ import { isMotionValue } from "./utils/is-motion-value"
 export type FollowValueOptions = Omit<
     ValueAnimationTransition,
     "onUpdate" | "onComplete" | "onPlay" | "onRepeat" | "onStop"
->
+> & {
+    /**
+     * When false, the first change from a tracked `MotionValue` source
+     * will jump to the new value instead of animating. Subsequent
+     * changes animate normally. This prevents unwanted animations
+     * on hydration (e.g. page refresh with `useScroll` + `useSpring`).
+     *
+     * @default true
+     */
+    animateOnHydrate?: boolean
+}
 
 /**
  * Create a `MotionValue` that animates to its latest value using any transition type.
@@ -124,8 +134,12 @@ export function attachFollow<T extends AnyResolvedKeyframe>(
     }, stopAnimation)
 
     if (isMotionValue(source)) {
+        let skipNextAnimation =
+            options.animateOnHydrate === false ? true : false
+
         const removeSourceOnChange = source.on("change", (v) => {
-            if (source.jumping) {
+            if (skipNextAnimation) {
+                skipNextAnimation = false
                 stopAnimation()
                 value.jump(parseValue(v, unit) as T, false)
             } else {

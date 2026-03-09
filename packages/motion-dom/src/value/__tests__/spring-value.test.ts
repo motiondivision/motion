@@ -1,4 +1,5 @@
 import { syncDriver } from "../../animation/__tests__/utils"
+import { followValue } from "../follow-value"
 import { motionValue } from "../index"
 import { attachSpring, springValue } from "../spring-value"
 
@@ -166,34 +167,6 @@ const runSpringTests = (unit?: string | undefined) => {
             expect((source as any).events.change.getSize()).toBe(0)
         })
 
-        test("jumps follower when source is jumped", async () => {
-            const promise = new Promise<Array<string | number>>(
-                (resolve) => {
-                    const output: Array<string | number> = []
-                    const x = motionValue(createValue(0))
-                    const y = springValue(x, {
-                        driver: syncDriver(10),
-                    } as any)
-
-                    y.on("change", (v) => {
-                        output.push(formatOutput(parseTestValue(v)))
-                    })
-
-                    // jump() on source should propagate to follower
-                    x.jump(createValue(100))
-
-                    setTimeout(() => {
-                        resolve(output)
-                    }, 100)
-                }
-            )
-
-            const resolved = await promise
-
-            // Should jump directly to 100 without intermediate spring values
-            expect(resolved).toEqual([createValue(100)])
-        })
-
         test("Cleanup function works as expected", () => {
             const source = motionValue(createValue(0))
             const spring = motionValue(createValue(0))
@@ -211,6 +184,71 @@ const runSpringTests = (unit?: string | undefined) => {
 
             expect((source as any).events.change.getSize()).toBe(0)
             expect((spring as any).events.destroy.getSize()).toBe(0)
+        })
+
+        test("skips animation on first change when animateOnHydrate is false", async () => {
+            const promise = new Promise<Array<string | number>>(
+                (resolve) => {
+                    const output: Array<string | number> = []
+                    const x = motionValue(createValue(0))
+                    const y = followValue(x, {
+                        type: "spring",
+                        animateOnHydrate: false,
+                        driver: syncDriver(10),
+                    } as any)
+
+                    y.on("change", (v) => {
+                        output.push(formatOutput(parseTestValue(v)))
+                    })
+
+                    // First change should jump, not animate
+                    x.set(createValue(100))
+
+                    setTimeout(() => {
+                        resolve(output)
+                    }, 100)
+                }
+            )
+
+            const resolved = await promise
+
+            // Should jump directly to 100 without intermediate spring values
+            expect(resolved).toEqual([createValue(100)])
+        })
+
+        test("animates on second change when animateOnHydrate is false", async () => {
+            const promise = new Promise<Array<string | number>>(
+                (resolve) => {
+                    const output: Array<string | number> = []
+                    const x = motionValue(createValue(0))
+                    const y = followValue(x, {
+                        type: "spring",
+                        animateOnHydrate: false,
+                        driver: syncDriver(10),
+                    } as any)
+
+                    // First change: jump
+                    x.set(createValue(50))
+
+                    // Second change: should animate
+                    y.on("change", (v) => {
+                        if (output.length >= 10) {
+                            resolve(output)
+                        } else {
+                            output.push(formatOutput(parseTestValue(v)))
+                        }
+                    })
+
+                    x.set(createValue(100))
+                }
+            )
+
+            const resolved = await promise
+
+            // Should contain intermediate spring values (not just [100])
+            expect(resolved.length).toBeGreaterThan(1)
+            // First value should not be the target
+            expect(resolved[0]).not.toBe(createValue(100))
         })
     })
 }

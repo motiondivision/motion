@@ -163,13 +163,6 @@ export class MotionValue<V = any> {
     accelerate?: AccelerateConfig
 
     /**
-     * Set to `true` while `jump()` is executing. Allows followers
-     * (e.g. springs via `attachFollow`) to detect a jump and also
-     * jump instead of animating.
-     */
-    jumping = false
-
-    /**
      * @param init - The initiating value
      * @param config - Optional configuration options
      *
@@ -329,13 +322,11 @@ export class MotionValue<V = any> {
      * effects, and resets velocity to `0`.
      */
     jump(v: V, endAnimation = true) {
-        this.jumping = true
         this.updateAndNotify(v)
         this.prev = v
         this.prevUpdatedAt = this.prevFrameValue = undefined
         endAnimation && this.stop()
         if (this.stopPassiveEffect) this.stopPassiveEffect()
-        this.jumping = false
     }
 
     dirty() {
