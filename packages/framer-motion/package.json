@@ -6,6 +6,11 @@
     "module": "dist/es/index.mjs",
     "exports": {
         ".": {
+            "react-server": {
+                "types": "./dist/types/index.d.ts",
+                "require": "./dist/cjs/server.js",
+                "import": "./dist/es/server.mjs"
+            },
             "types": "./dist/types/index.d.ts",
             "require": "./dist/cjs/index.js",
             "import": "./dist/es/index.mjs",

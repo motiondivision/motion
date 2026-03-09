@@ -1,3 +1,5 @@
+"use client"
+
 import { createDomVisualElement } from "../../dom/create-visual-element"
 import { createMotionProxy } from "../create-proxy"
 import { featureBundle } from "./feature-bundle"

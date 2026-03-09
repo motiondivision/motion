@@ -113,7 +113,7 @@ const umdDomProd = createUmd("lib/dom.js", `dist/dom.js`)
 const umdDomMiniProd = createUmd("lib/dom-mini.js", `dist/dom-mini.js`)
 
 const cjs = Object.assign({}, config, {
-    input: ["lib/index.js", "lib/client.js"],
+    input: ["lib/index.js", "lib/client.js", "lib/server.js"],
     output: {
         entryFileNames: `[name].js`,
         dir: "dist/cjs",
@@ -142,7 +142,7 @@ const cjsDomMini = Object.assign({}, cjs, { input : "lib/dom-mini.js" })
 const cjsM = Object.assign({}, cjs, { input : "lib/m.js" })
 
 export const es = Object.assign({}, config, {
-    input: ["lib/index.js", "lib/mini.js", "lib/debug.js", "lib/dom.js", "lib/dom-mini.js", "lib/client.js", "lib/m.js","lib/projection.js"],
+    input: ["lib/index.js", "lib/mini.js", "lib/debug.js", "lib/dom.js", "lib/dom-mini.js", "lib/client.js", "lib/server.js", "lib/m.js","lib/projection.js"],
     output: {
         entryFileNames: "[name].mjs",
         format: "es",

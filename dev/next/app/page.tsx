@@ -1,5 +1,4 @@
-import { AnimatePresence, MotionConfig } from "motion/react"
-import * as motion from "motion/react-client"
+import { AnimatePresence, motion, MotionConfig } from "motion/react"
 import { MotionM } from "./motion-m"
 import {
     MotionCustom,

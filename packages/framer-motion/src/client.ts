@@ -1,3 +1,5 @@
+export * as motion from "./render/components/motion/namespace"
+
 export {
     a,
     abbr,
