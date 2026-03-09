@@ -64,6 +64,13 @@ export class PanSession {
     private lastMoveEventInfo: EventInfo | null = null
 
     /**
+     * Raw (untransformed) event info, re-transformed each frame
+     * so transformPagePoint sees the current parent matrix.
+     * @internal
+     */
+    private lastRawMoveEventInfo: EventInfo | null = null
+
+    /**
      * @internal
      */
     private transformPagePoint?: TransformPoint
@@ -257,6 +264,15 @@ export class PanSession {
     private updatePoint = () => {
         if (!(this.lastMoveEvent && this.lastMoveEventInfo)) return
 
+        // Re-transform raw point through current transformPagePoint so
+        // animated parent transforms (e.g. rotation) are picked up each frame
+        if (this.lastRawMoveEventInfo) {
+            this.lastMoveEventInfo = transformPoint(
+                this.lastRawMoveEventInfo,
+                this.transformPagePoint
+            )
+        }
+
         const info = getPanInfo(this.lastMoveEventInfo, this.history)
         const isPanStarted = this.startEvent !== null
 
@@ -284,6 +300,7 @@ export class PanSession {
 
     private handlePointerMove = (event: PointerEvent, info: EventInfo) => {
         this.lastMoveEvent = event
+        this.lastRawMoveEventInfo = info
         this.lastMoveEventInfo = transformPoint(info, this.transformPagePoint)
 
         // Throttle mouse move event to once per frame
