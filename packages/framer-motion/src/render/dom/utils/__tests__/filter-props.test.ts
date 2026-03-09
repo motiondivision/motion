@@ -13,7 +13,7 @@ describe("filter-props", () => {
         // installed — even if the require is inside a try-catch.
         // The optional dependency must be loaded via a non-analyzable pattern.
         expect(source).not.toMatch(
-            /require\s*\(\s*["']@emotion\/is-prop-valid["']\s*\)/
+            /require\s*\(\s*["'`]@emotion\/is-prop-valid["'`]\s*\)/
         )
     })
 })
