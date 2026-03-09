@@ -157,6 +157,22 @@ describe("complex value type", () => {
             "linear-gradient(0turn, rgba(255, 255, 255, 0)) 0px, rgba(0, 255, 255, 0)) 0px"
         )
     })
+
+    it('does not zero out divisors in calc() expressions', () => {
+        // calc() with division: divisor must not become 0 (division by zero => NaN)
+        expect(
+            complex.getAnimatableNone("calc(var(--spacing) / 5)")
+        ).toBe("calc(var(--spacing) / 5)")
+
+        expect(
+            complex.getAnimatableNone("calc(20% + 200px / 2)")
+        ).toBe("calc(0% + 0px / 2)")
+
+        // Multiplication should still zero out normally
+        expect(
+            complex.getAnimatableNone("calc(20% + 200px * 2)")
+        ).toBe("calc(0% + 0px * 0)")
+    })
 })
 
 const red = {
