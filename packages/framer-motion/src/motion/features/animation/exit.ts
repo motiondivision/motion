@@ -4,6 +4,7 @@ let id = 0
 
 export class ExitAnimationFeature extends Feature<unknown> {
     private id: number = id++
+    private isExitComplete = false
 
     update() {
         if (!this.node.presenceContext) return
@@ -15,14 +16,45 @@ export class ExitAnimationFeature extends Feature<unknown> {
             return
         }
 
-        /**
-         * When a child re-enters (isPresent goes from false back to true),
-         * e.g. during rapid carousel navigation where the same key reappears,
-         * we need to replay the enter animation from the correct initial
-         * position rather than just reversing the exit.
-         */
         if (isPresent && prevIsPresent === false) {
-            this.replayEnter()
+            /**
+             * When re-entering, if the exit animation already completed
+             * (element is at rest), reset to initial values so the enter
+             * animation replays from the correct position.
+             */
+            if (this.isExitComplete) {
+                const { initial, custom, variants } = this.node.getProps()
+
+                if (typeof initial === "string" && variants?.[initial]) {
+                    const variant = variants[initial]
+                    const resolved =
+                        typeof variant === "function"
+                            ? variant(custom, {}, {})
+                            : variant
+
+                    if (typeof resolved === "object") {
+                        for (const key in resolved) {
+                            if (
+                                key === "transition" ||
+                                key === "transitionEnd"
+                            )
+                                continue
+                            this.node
+                                .getValue(key)
+                                ?.jump(
+                                    (resolved as Record<string, any>)[key]
+                                )
+                        }
+                    }
+                }
+
+                this.node.animationState.reset()
+                this.node.animationState.animateChanges()
+            } else {
+                this.node.animationState.setActive("exit", false)
+            }
+
+            this.isExitComplete = false
             return
         }
 
@@ -33,38 +65,10 @@ export class ExitAnimationFeature extends Feature<unknown> {
 
         if (onExitComplete && !isPresent) {
             exitAnimation.then(() => {
+                this.isExitComplete = true
                 onExitComplete(this.id)
             })
         }
-    }
-
-    private replayEnter() {
-        const props = this.node.getProps()
-        const { initial, custom, variants } = props
-
-        if (typeof initial === "string" && variants) {
-            const variant = variants[initial]
-            if (variant) {
-                const resolved =
-                    typeof variant === "function"
-                        ? variant(custom, {}, {})
-                        : variant
-                if (typeof resolved === "object") {
-                    for (const key in resolved) {
-                        if (key === "transition" || key === "transitionEnd")
-                            continue
-                        this.node
-                            .getValue(key)
-                            ?.jump(
-                                (resolved as Record<string, any>)[key]
-                            )
-                    }
-                }
-            }
-        }
-
-        this.node.animationState!.reset()
-        this.node.animationState!.animateChanges()
     }
 
     mount() {
