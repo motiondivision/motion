@@ -33,8 +33,7 @@ export function buildTransform(state: MotionValueState) {
         if (!valueIsDefault) {
             transformIsDefault = false
             const transformName = translateAlias[key] || key
-            const valueToRender = state.latest[key]
-            transform += `${transformName}(${valueToRender}) `
+            transform += `${transformName}(${value}) `
         }
     }
 

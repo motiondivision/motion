@@ -4,7 +4,7 @@ import { defineConfig } from "vite"
 // https://vitejs.dev/config/
 export default defineConfig({
     server: {
-        port: 9990,
+        port: parseInt(process.env.TEST_PORT || "9990"),
         hmr: false,
     },
     plugins: [react()],

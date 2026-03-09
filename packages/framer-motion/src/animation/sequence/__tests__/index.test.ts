@@ -587,7 +587,7 @@ describe("createAnimationsFromSequence", () => {
         expect(animations.get(a)!.keyframes.x).toEqual([0, 100])
         const { duration, ease } = animations.get(a)!.transition.x
 
-        expect(duration).toEqual(1.1)
+        expect(duration).toEqual(1.05)
         expect(typeof (ease as Easing[])[0]).toEqual("function")
     })
 

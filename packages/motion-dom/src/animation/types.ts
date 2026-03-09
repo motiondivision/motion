@@ -116,6 +116,7 @@ export interface AnimationState<V> {
 export interface KeyframeGenerator<V> {
     calculatedDuration: null | number
     next: (t: number) => AnimationState<V>
+    velocity?: (t: number) => number
     toString: () => string
 }
 

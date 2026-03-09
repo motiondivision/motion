@@ -45,6 +45,11 @@ export class NativeAnimationExtended<
 
         super(options)
 
+        /**
+         * Only set startTime when the animation should autoplay.
+         * Setting startTime on a paused WAAPI animation unpauses it
+         * (per the WAAPI spec), which breaks autoplay: false.
+         */
         if (options.startTime !== undefined && options.autoplay !== false) {
             this.startTime = options.startTime
         }

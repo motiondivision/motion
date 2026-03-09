@@ -4,12 +4,25 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
-## [12.35.1] 2026-03-05
+## [12.36.0] 2026-03-09
+
+### Added
+
+-   Support drag gesture within a rotated parent via `transformRotatedParent`.
+
+### Fixed
+
+-   Reduced filesize of `styleEffect`.
+-   Fix rounding from `popLayout`.
+
+## [12.35.1] 2026-03-06
 
 ### Fixed
 
 -   Fixing combination of string keyframes, spring and `delay`.
 -   Gracefully handle negative scroll values.
+-   Fix one-frame visual gap when rapidly switching WAAPI animations.
+-   `animation.time = 0` on a finished animation sets the playhead in a paused state.
 
 ## [12.35.0] 2026-03-03
 
