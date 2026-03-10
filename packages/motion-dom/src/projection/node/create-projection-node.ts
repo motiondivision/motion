@@ -2119,6 +2119,18 @@ function notifyLayoutUpdate(node: IProjectionNode) {
                 axisSnapshot.min = layout[axis].min
                 axisSnapshot.max = axisSnapshot.min + length
             })
+        } else if (animationType === "x" || animationType === "y") {
+            const snapAxis = animationType === "x" ? "y" : "x"
+            const axisSnapshot = isShared
+                ? snapshot.measuredBox[snapAxis]
+                : snapshot.layoutBox[snapAxis]
+            axisSnapshot.min = layout[snapAxis].min
+            axisSnapshot.max = layout[snapAxis].max
+
+            if (isShared) {
+                snapshot.measuredBox[snapAxis].min = layout[snapAxis].min
+                snapshot.measuredBox[snapAxis].max = layout[snapAxis].max
+            }
         } else if (
             shouldAnimatePositionOnly(animationType, snapshot.layoutBox, layout)
         ) {

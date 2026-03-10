@@ -389,6 +389,54 @@ describe("Layout animation", () => {
             })
     })
 
+    it(`It correctly fires layout="x" animations, only animating the x axis`, () => {
+        cy.visit("?test=layout&type=x")
+            .wait(50)
+            .get("#box")
+            .should(([$box]: any) => {
+                expectBbox($box, {
+                    top: 0,
+                    left: 0,
+                    width: 100,
+                    height: 200,
+                })
+            })
+            .trigger("click")
+            .wait(50)
+            .should(([$box]: any) => {
+                expectBbox($box, {
+                    top: 100,
+                    left: 100,
+                    width: 200,
+                    height: 300,
+                })
+            })
+    })
+
+    it(`It correctly fires layout="y" animations, only animating the y axis`, () => {
+        cy.visit("?test=layout&type=y")
+            .wait(50)
+            .get("#box")
+            .should(([$box]: any) => {
+                expectBbox($box, {
+                    top: 0,
+                    left: 0,
+                    width: 100,
+                    height: 200,
+                })
+            })
+            .trigger("click")
+            .wait(50)
+            .should(([$box]: any) => {
+                expectBbox($box, {
+                    top: 50,
+                    left: 200,
+                    width: 300,
+                    height: 250,
+                })
+            })
+    })
+
     it("Disabling crossfade works as expected", () => {
         cy.visit("?test=layout-crossfade")
             .wait(50)
