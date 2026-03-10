@@ -40,12 +40,13 @@ export function createRenderBatcher(
     } = steps
 
     const processBatch = () => {
-        const timestamp = MotionGlobalConfig.useManualTiming
+        const useManualTiming = MotionGlobalConfig.useManualTiming
+        const timestamp = useManualTiming
             ? state.timestamp
             : performance.now()
         runNextFrame = false
 
-        if (!MotionGlobalConfig.useManualTiming) {
+        if (!useManualTiming) {
             state.delta = useDefaultElapsed
                 ? 1000 / 60
                 : Math.max(Math.min(timestamp - state.timestamp, maxElapsed), 1)
