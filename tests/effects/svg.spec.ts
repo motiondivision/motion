@@ -66,6 +66,17 @@ test.describe("svgEffect", () => {
         expect(numOctaves).toBe("4")
     })
 
+    test("sets transform as SVG attribute (not CSS style)", async ({ page }) => {
+        await page.goto("effects/svg-transform.html")
+        const rect = page.locator("#rect")
+        const attrTransform = await rect.getAttribute("transform")
+        expect(attrTransform).toBe("rotate(45)")
+        const styleTransform = await rect.evaluate(
+            (el) => (el as HTMLElement).style.transform
+        )
+        expect(styleTransform).toBe("")
+    })
+
     test("applies transform-box: fill-box via style if element has transform", async ({
         page,
     }) => {

@@ -195,4 +195,35 @@ describe("SVG", () => {
         expect(rect).toHaveAttribute("transform", "translate(50 50)")
         expect(rect).not.toHaveAttribute("transform", "[object Object]")
     })
+
+    test("animate={{ transform }} keeps transform as SVG attribute on child elements", async () => {
+        // For SVG child elements (non-<svg> tags), a user-supplied transform value
+        // is kept as an SVG attribute rather than being promoted to CSS style.transform.
+        // This is intentional: SVG-syntax transforms (e.g. "translate(50 50)" without
+        // units) only work as SVG attributes, not as CSS properties.
+        const Component = () => {
+            return (
+                <svg>
+                    <motion.rect
+                        data-testid="rect"
+                        animate={{ transform: "translate(50 50)" }}
+                        initial={{ transform: "translate(0 0)" }}
+                        transition={{ type: false }}
+                        x={0}
+                        y={0}
+                        width={50}
+                        height={50}
+                    />
+                </svg>
+            )
+        }
+
+        const { getByTestId } = render(<Component />)
+        await nextFrame()
+
+        const rect = getByTestId("rect")
+        // transform stays as SVG attribute, not promoted to CSS style
+        expect(rect).toHaveAttribute("transform", "translate(50 50)")
+        expect(rect).not.toHaveStyle("transform: translate(50 50)")
+    })
 })

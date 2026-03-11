@@ -51,10 +51,12 @@ export function buildSVGAttrs(
     const { attrs, style } = state
 
     /**
-     * However, we apply motion-synthesized transforms (from x/y/scale/rotate props) as CSS
-     * transforms. If the user has explicitly provided a `transform` value (e.g. as a native
-     * SVG attribute or MotionValue), we keep it as an SVG attribute so it renders correctly
-     * and overrides any leaked MotionValue object from React props.
+     * Motion-synthesized transforms (from x/y/scale/rotate props) are applied as CSS
+     * transforms. If the user has explicitly provided a `transform` value — whether
+     * as a MotionValue prop or via `animate={{ transform }}` — we keep it as an SVG
+     * attribute. This allows SVG-syntax values (e.g. "rotate(45)" without units) to
+     * render correctly, and ensures the resolved string overrides any MotionValue
+     * object that would otherwise leak into the DOM from React's filteredProps.
      */
     if (attrs.transform) {
         if (latest.transform === undefined) {

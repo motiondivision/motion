@@ -1,4 +1,3 @@
-import { isSVGAnimatedProperty } from "../utils/is-svg-animated-property"
 import { frame } from "../../frameloop"
 import { MotionValue } from "../../value"
 import { addAttrValue } from "../attr"
@@ -6,6 +5,7 @@ import { MotionValueState } from "../MotionValueState"
 import { addStyleValue } from "../style"
 import { createSelectorEffect } from "../utils/create-dom-effect"
 import { createEffect } from "../utils/create-effect"
+import { isSVGTransformProperty } from "../utils/is-svg-animated-property"
 
 function addSVGPathValue(
     element: SVGElement,
@@ -50,10 +50,11 @@ const addSVGValue = (
         return addAttrValue(element, state, convertAttrKey(key), value)
     }
 
-    // SVGAnimated* properties (like transform) exist in both element.style
-    // and as IDL properties, but must be set via setAttribute when using
-    // SVG-syntax values.
-    if (isSVGAnimatedProperty(element, key)) {
+    // `transform` on SVG elements is an SVGAnimatedTransformList — a complex
+    // object that cannot be set directly with a string value via element.style.
+    // Route it through setAttribute so SVG-syntax values (e.g. "rotate(45)"
+    // without units) work correctly.
+    if (isSVGTransformProperty(element, key)) {
         return addAttrValue(element, state, key, value)
     }
 

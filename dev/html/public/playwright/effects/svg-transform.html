@@ -1,0 +1,30 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+                font-family: sans-serif;
+            }
+        </style>
+    </head>
+    <body>
+        <svg width="200" height="200" viewBox="0 0 200 200">
+            <rect
+                id="rect"
+                x="50"
+                y="50"
+                width="100"
+                height="100"
+                fill="#0077ff"
+            />
+        </svg>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            const { motionValue, svgEffect } = window.Motion
+
+            // SVG-syntax transform (no units) — must go through setAttribute,
+            // not element.style.transform, so the value is preserved correctly.
+            svgEffect("#rect", { transform: motionValue("rotate(45)") })
+        </script>
+    </body>
+</html>
