@@ -1,0 +1,66 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+                font-family: sans-serif;
+                display: flex;
+                gap: 10px;
+                flex-direction: column;
+            }
+
+            .box {
+                width: 100px;
+                height: 100px;
+                background-color: #0077ff;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                text-align: center;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="box" id="mini">mini</div>
+        <div class="box" id="js">js</div>
+        <div class="box" id="waapi">waapi</div>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            const { animateMini, animate, delay } = window.Motion
+
+            const options = {
+                duration: 0.1,
+            }
+
+            const mini = animateMini(
+                "#mini",
+                { transform: "translateX(100px)" },
+                options
+            )
+            const js = animate("#js", { x: 100 }, options)
+            const waapi = animate(
+                "#waapi",
+                { transform: "translateX(100px)" },
+                options
+            )
+
+            // Wait for animations to finish, then revert with time=0
+            delay(() => {
+                const boxes = document.querySelectorAll(".box")
+                try { mini.time = 0 }
+                catch(e) { boxes[0].innerHTML = `err:${e.message}` }
+                try { js.time = 0 }
+                catch(e) { boxes[1].innerHTML = `err:${e.message}` }
+                try { waapi.time = 0 }
+                catch(e) { boxes[2].innerHTML = `err:${e.message}` }
+
+                // Wait a frame for motion value renders to flush
+                requestAnimationFrame(() => {
+                    boxes[0].innerHTML = `x:${boxes[0].getBoundingClientRect().x}`
+                    boxes[1].innerHTML = `x:${boxes[1].getBoundingClientRect().x}`
+                    boxes[2].innerHTML = `x:${boxes[2].getBoundingClientRect().x}`
+                })
+            }, 0.3)
+        </script>
+    </body>
+</html>

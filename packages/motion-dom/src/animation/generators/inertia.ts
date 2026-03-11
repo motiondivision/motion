@@ -4,7 +4,7 @@ import {
     ValueAnimationOptions,
 } from "../types"
 import { spring as createSpring } from "./spring"
-import { calcGeneratorVelocity } from "./utils/velocity"
+import { getGeneratorVelocity } from "./utils/velocity"
 
 export function inertia({
     keyframes,
@@ -73,7 +73,7 @@ export function inertia({
 
         spring = createSpring({
             keyframes: [state.value, nearestBoundary(state.value)!],
-            velocity: calcGeneratorVelocity(calcLatest, t, state.value), // TODO: This should be passing * 1000
+            velocity: getGeneratorVelocity(calcLatest, t, state.value), // TODO: This should be passing * 1000
             damping: bounceDamping,
             stiffness: bounceStiffness,
             restDelta,

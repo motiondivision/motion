@@ -16,8 +16,7 @@ import { useHTMLVisualState } from "../render/html/use-html-visual-state"
 import { SVGRenderState } from "../render/svg/types"
 import { useSVGVisualState } from "../render/svg/use-svg-visual-state"
 import { CreateVisualElement } from "../render/types"
-import { isBrowser } from "../utils/is-browser"
-import { featureDefinitions } from "./features/definitions"
+import { getInitializedFeatureDefinitions } from "./features/definitions"
 import { loadFeatures } from "./features/load-features"
 import { FeatureBundle, FeaturePackages } from "./features/types"
 import { MotionProps } from "./types"
@@ -50,6 +49,14 @@ export type MotionComponent<T, P> = T extends keyof DOMMotionComponents
 
 export interface MotionComponentOptions {
     forwardMotionProps?: boolean
+    /**
+     * Specify whether the component renders an HTML or SVG element.
+     * This is useful when wrapping custom SVG components that need
+     * SVG-specific attribute handling (like viewBox animation).
+     * By default, Motion auto-detects based on the component name,
+     * but custom React components are always treated as HTML.
+     */
+    type?: "html" | "svg"
 }
 
 /**
@@ -66,15 +73,19 @@ export function createMotionComponent<
     TagName extends keyof DOMMotionComponents | string = "div"
 >(
     Component: TagName | string | React.ComponentType<Props>,
-    { forwardMotionProps = false }: MotionComponentOptions = {},
+    { forwardMotionProps = false, type }: MotionComponentOptions = {},
     preloadedFeatures?: FeaturePackages,
     createVisualElement?: CreateVisualElement<Props, TagName>
 ) {
     preloadedFeatures && loadFeatures(preloadedFeatures)
 
-    const useVisualState = isSVGComponent(Component)
-        ? useSVGVisualState
-        : useHTMLVisualState
+    /**
+     * Determine whether to use SVG or HTML rendering based on:
+     * 1. Explicit `type` option (highest priority)
+     * 2. Auto-detection via `isSVGComponent`
+     */
+    const isSVG = type ? type === "svg" : isSVGComponent(Component)
+    const useVisualState = isSVG ? useSVGVisualState : useHTMLVisualState
 
     function MotionDOMComponent(
         props: MotionComponentProps<Props>,
@@ -98,7 +109,7 @@ export function createMotionComponent<
 
         const visualState = useVisualState(props, isStatic)
 
-        if (!isStatic && isBrowser) {
+        if (!isStatic && typeof window !== "undefined") {
             useStrictMode(configAndProps, preloadedFeatures)
 
             const layoutProjection = getProjectionFunctionality(configAndProps)
@@ -115,7 +126,8 @@ export function createMotionComponent<
                 visualState,
                 configAndProps,
                 createVisualElement,
-                layoutProjection.ProjectionNode
+                layoutProjection.ProjectionNode,
+                isSVG
             )
         }
 
@@ -140,7 +152,8 @@ export function createMotionComponent<
                     >(visualState, context.visualElement, externalRef),
                     visualState,
                     isStatic,
-                    forwardMotionProps
+                    forwardMotionProps,
+                    isSVG
                 )}
             </MotionContext.Provider>
         )
@@ -189,6 +202,7 @@ function useStrictMode(
 }
 
 function getProjectionFunctionality(props: MotionProps) {
+    const featureDefinitions = getInitializedFeatureDefinitions()
     const { drag, layout } = featureDefinitions
 
     if (!drag && !layout) return {}

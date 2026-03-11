@@ -1,8 +1,13 @@
 "use client"
 
+import {
+    optimizedAppearDataAttribute,
+    type HTMLRenderState,
+    type SVGRenderState,
+    type VisualElement,
+} from "motion-dom"
 import * as React from "react"
 import { useContext, useEffect, useInsertionEffect, useRef } from "react"
-import { optimizedAppearDataAttribute } from "../../animation/optimized-appear/data-id"
 import { LazyContext } from "../../context/LazyContext"
 import { MotionConfigContext } from "../../context/MotionConfigContext"
 import { MotionContext } from "../../context/MotionContext"
@@ -12,12 +17,9 @@ import {
     SwitchLayoutGroupContext,
 } from "../../context/SwitchLayoutGroupContext"
 import { MotionProps } from "../../motion/types"
-import { IProjectionNode } from "../../projection/node/types"
+import type { IProjectionNode } from "motion-dom"
 import { DOMMotionComponents } from "../../render/dom/types"
-import { HTMLRenderState } from "../../render/html/types"
-import { SVGRenderState } from "../../render/svg/types"
 import { CreateVisualElement } from "../../render/types"
-import type { VisualElement } from "../../render/VisualElement"
 import { isRefObject } from "../../utils/is-ref-object"
 import { useIsomorphicLayoutEffect } from "../../utils/use-isomorphic-effect"
 import { VisualState } from "./use-visual-state"
@@ -32,16 +34,25 @@ export function useVisualElement<
         | VisualState<HTMLElement, HTMLRenderState>,
     props: MotionProps & Partial<MotionConfigContext>,
     createVisualElement?: CreateVisualElement<Props, TagName>,
-    ProjectionNodeConstructor?: any
+    ProjectionNodeConstructor?: any,
+    isSVG?: boolean
 ): VisualElement<HTMLElement | SVGElement> | undefined {
     const { visualElement: parent } = useContext(MotionContext)
     const lazyContext = useContext(LazyContext)
     const presenceContext = useContext(PresenceContext)
-    const reducedMotionConfig = useContext(MotionConfigContext).reducedMotion
+    const motionConfig = useContext(MotionConfigContext)
+    const reducedMotionConfig = motionConfig.reducedMotion
+    const skipAnimations = motionConfig.skipAnimations
 
     const visualElementRef = useRef<VisualElement<
         HTMLElement | SVGElement
     > | null>(null)
+
+    /**
+     * Track whether the component has been through React's commit phase.
+     * Used to detect when LazyMotion features load after the component has mounted.
+     */
+    const hasMountedOnce = useRef(false)
 
     /**
      * If we haven't preloaded a renderer, check to see if we have one lazy-loaded
@@ -60,7 +71,19 @@ export function useVisualElement<
                 ? presenceContext.initial === false
                 : false,
             reducedMotionConfig,
+            skipAnimations,
+            isSVG,
         })
+
+        /**
+         * If the component has already mounted before features loaded (e.g. via
+         * LazyMotion with async feature loading), we need to force the initial
+         * animation to run. Otherwise state changes that occurred before features
+         * loaded will be lost and the element will snap to its final state.
+         */
+        if (hasMountedOnce.current && visualElementRef.current) {
+            visualElementRef.current.manuallyAnimateOnMount = true
+        }
     }
 
     const visualElement = visualElementRef.current
@@ -104,11 +127,18 @@ export function useVisualElement<
         props[optimizedAppearDataAttribute as keyof typeof props]
     const wantsHandoff = useRef(
         Boolean(optimisedAppearId) &&
+            typeof window !== "undefined" &&
             !window.MotionHandoffIsComplete?.(optimisedAppearId) &&
             window.MotionHasOptimisedAnimation?.(optimisedAppearId)
     )
 
     useIsomorphicLayoutEffect(() => {
+        /**
+         * Track that this component has mounted. This is used to detect when
+         * LazyMotion features load after the component has already committed.
+         */
+        hasMountedOnce.current = true
+
         if (!visualElement) return
 
         isMounted.current = true

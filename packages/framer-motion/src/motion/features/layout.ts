@@ -1,4 +1,4 @@
-import { HTMLProjectionNode } from "../../projection/node/HTMLProjectionNode"
+import { HTMLProjectionNode } from "motion-dom"
 import { MeasureLayout } from "./layout/MeasureLayout"
 import { FeaturePackages } from "./types"
 

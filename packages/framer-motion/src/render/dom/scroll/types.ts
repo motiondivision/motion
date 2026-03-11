@@ -68,4 +68,11 @@ export interface ScrollInfoOptions {
     target?: Element
     axis?: "x" | "y"
     offset?: ScrollOffset
+    /**
+     * When true, enables per-frame checking of scrollWidth/scrollHeight
+     * to detect content size changes and recalculate scroll progress.
+     *
+     * @default false
+     */
+    trackContentSize?: boolean
 }

@@ -1,0 +1,328 @@
+<html>
+    <head>
+        <!--
+         App Store card test for A -> B -> A pattern.
+         Click a card to open (A -> B), click overlay/press Escape to close (B -> A).
+         The second animation should smoothly return to the original position.
+        -->
+        <style>
+            * {
+                box-sizing: border-box;
+                margin: 0;
+                padding: 0;
+            }
+
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                background: #1a1a1a;
+                color: #fff;
+                min-height: 100vh;
+                padding: 40px;
+            }
+
+            h1 {
+                margin-bottom: 10px;
+                font-size: 20px;
+            }
+
+            .instructions {
+                margin-bottom: 20px;
+                color: #888;
+                font-size: 14px;
+            }
+
+            .card-list {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 20px;
+                list-style: none;
+                max-width: 800px;
+            }
+
+            .card {
+                width: 220px;
+                height: 280px;
+                cursor: pointer;
+                position: relative;
+            }
+
+            .card-content {
+                width: 100%;
+                height: 100%;
+                border-radius: 16px;
+                overflow: hidden;
+                background: #2a2a2a;
+                position: relative;
+            }
+
+            .card-image {
+                width: 100%;
+                height: 180px;
+                object-fit: cover;
+            }
+
+            .card-title {
+                padding: 12px;
+                position: absolute;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                background: linear-gradient(transparent, rgba(0,0,0,0.9));
+            }
+
+            .card-title h2 {
+                font-size: 16px;
+                margin-bottom: 4px;
+            }
+
+            .card-title span {
+                font-size: 11px;
+                color: #999;
+                text-transform: uppercase;
+            }
+
+            .overlay {
+                position: fixed;
+                inset: 0;
+                background: rgba(0, 0, 0, 0.8);
+                z-index: 100;
+            }
+
+            .modal-container {
+                position: fixed;
+                inset: 0;
+                z-index: 101;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 40px;
+                pointer-events: none;
+            }
+
+            .modal-container .card-content {
+                max-width: 500px;
+                width: 100%;
+                height: auto;
+                pointer-events: auto;
+            }
+
+            .modal-container .card-image {
+                height: 300px;
+            }
+
+            .modal-container .card-title {
+                position: relative;
+                background: #2a2a2a;
+                padding: 16px;
+            }
+
+            .modal-container .card-title h2 {
+                font-size: 20px;
+            }
+
+            .card-description {
+                padding: 0 16px 16px;
+                color: #aaa;
+                line-height: 1.5;
+                font-size: 14px;
+                display: none;
+            }
+
+            .modal-container .card-description {
+                display: block;
+            }
+
+            .debug {
+                position: fixed;
+                bottom: 20px;
+                left: 20px;
+                background: #333;
+                padding: 10px 15px;
+                border-radius: 8px;
+                font-size: 12px;
+                font-family: monospace;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>App Store Card Test (A → B → A)</h1>
+        <p class="instructions">Click a card to open, click overlay or press Escape to close. Try opening the same card multiple times.</p>
+
+        <ul class="card-list">
+            <li class="card" data-id="a">
+                <div class="card-content" data-layout-id="card-a">
+                    <img
+                        class="card-image"
+                        data-layout-id="image-a"
+                        data-layout="preserve-aspect"
+                        src="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600&h=400&fit=crop"
+                        alt=""
+                    />
+                    <div class="card-title" data-layout-id="title-a" data-layout="position">
+                        <span>Travel</span>
+                        <h2>Mountain Adventures</h2>
+                    </div>
+                    <p class="card-description">
+                        Discover breathtaking mountain landscapes and plan your next hiking adventure.
+                    </p>
+                </div>
+            </li>
+
+            <li class="card" data-id="b">
+                <div class="card-content" data-layout-id="card-b">
+                    <img
+                        class="card-image"
+                        data-layout-id="image-b"
+                        data-layout="preserve-aspect"
+                        src="https://images.unsplash.com/photo-1518837695005-2083093ee35b?w=600&h=400&fit=crop"
+                        alt=""
+                    />
+                    <div class="card-title" data-layout-id="title-b" data-layout="position">
+                        <span>Ocean</span>
+                        <h2>Coastal Escapes</h2>
+                    </div>
+                    <p class="card-description">
+                        From serene beaches to dramatic cliffs, explore stunning coastlines.
+                    </p>
+                </div>
+            </li>
+
+            <li class="card" data-id="c">
+                <div class="card-content" data-layout-id="card-c">
+                    <img
+                        class="card-image"
+                        data-layout-id="image-c"
+                        data-layout="preserve-aspect"
+                        src="https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=600&h=400&fit=crop"
+                        alt=""
+                    />
+                    <div class="card-title" data-layout-id="title-c" data-layout="position">
+                        <span>Nature</span>
+                        <h2>Forest Retreats</h2>
+                    </div>
+                    <p class="card-description">
+                        Immerse yourself in ancient forests and discover hidden trails.
+                    </p>
+                </div>
+            </li>
+        </ul>
+
+        <div class="debug">
+            Animation count: <span id="count">0</span>
+        </div>
+
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module" src="/src/imports/framer-motion-dom.js"></script>
+        <script type="module">
+            const { animateLayout, frame } = window.AnimateLayout
+            const { animate } = window.Motion
+
+            let currentOpenId = null
+            let animationCount = 0
+            const countEl = document.getElementById("count")
+
+            const transition = {
+                duration: 0.5,
+                ease: [0.39, 0.14, 0.26, 1],
+            }
+
+            function updateCount() {
+                animationCount++
+                countEl.textContent = animationCount
+            }
+
+            // Open card
+            async function openCard(id) {
+                if (currentOpenId) return
+
+                currentOpenId = id
+                updateCount()
+                console.log(`=== OPEN ANIMATION ${animationCount}: Opening card ${id} ===`)
+
+                const sourceCard = document.querySelector(`.card[data-id="${id}"]`)
+
+                // Create overlay
+                const overlay = document.createElement("div")
+                overlay.className = "overlay"
+                overlay.style.opacity = "0"
+                overlay.addEventListener("click", closeCard)
+                document.body.appendChild(overlay)
+                animate(overlay, { opacity: 1 }, transition)
+
+                // Clone card content
+                const clonedContent = sourceCard.querySelector(".card-content").cloneNode(true)
+
+                // Create modal container
+                const modalContainer = document.createElement("div")
+                modalContainer.className = "modal-container"
+                modalContainer.appendChild(clonedContent)
+
+                const controls = await animateLayout(() => {
+                    document.body.appendChild(modalContainer)
+                }, transition)
+
+                console.log("Open animation started, waiting for finish...")
+                await controls.finished
+                console.log("Open animation finished")
+            }
+
+            // Close card
+            async function closeCard() {
+                if (!currentOpenId) return
+
+                const id = currentOpenId
+                const overlay = document.querySelector(".overlay")
+                const modalContainer = document.querySelector(".modal-container")
+                const sourceCard = document.querySelector(`.card[data-id="${id}"]`)
+
+                updateCount()
+                console.log(`=== CLOSE ANIMATION ${animationCount}: Closing card ${id} ===`)
+
+                // Raise source card z-index during close
+                if (sourceCard) {
+                    sourceCard.style.zIndex = "10"
+                    sourceCard.style.position = "relative"
+                }
+
+                // Fade out overlay
+                if (overlay) {
+                    animate(overlay, { opacity: 0 }, transition).finished.then(() => {
+                        overlay.remove()
+                    })
+                }
+
+                const controls = await animateLayout(() => {
+                    if (modalContainer) modalContainer.remove()
+                }, transition)
+
+                console.log("Close animation started, waiting for finish...")
+
+                controls.finished.then(() => {
+                    console.log("Close animation finished")
+                    if (sourceCard) {
+                        sourceCard.style.zIndex = ""
+                        sourceCard.style.position = ""
+                    }
+                })
+
+                currentOpenId = null
+            }
+
+            // Card click handlers
+            document.querySelectorAll(".card").forEach((card) => {
+                card.addEventListener("click", () => {
+                    if (!currentOpenId) {
+                        openCard(card.dataset.id)
+                    }
+                })
+            })
+
+            // Escape key to close
+            document.addEventListener("keydown", (e) => {
+                if (e.key === "Escape" && currentOpenId) {
+                    closeCard()
+                }
+            })
+        </script>
+    </body>
+</html>

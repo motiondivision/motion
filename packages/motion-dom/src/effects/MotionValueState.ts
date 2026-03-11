@@ -58,10 +58,4 @@ export class MotionValueState {
     get(name: string): MotionValue | undefined {
         return this.values.get(name)?.value
     }
-
-    destroy() {
-        for (const value of this.values.values()) {
-            value.onRemove()
-        }
-    }
 }

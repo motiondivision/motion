@@ -587,7 +587,7 @@ describe("createAnimationsFromSequence", () => {
         expect(animations.get(a)!.keyframes.x).toEqual([0, 100])
         const { duration, ease } = animations.get(a)!.transition.x
 
-        expect(duration).toEqual(1.1)
+        expect(duration).toEqual(1.05)
         expect(typeof (ease as Easing[])[0]).toEqual("function")
     })
 
@@ -639,6 +639,31 @@ describe("createAnimationsFromSequence", () => {
         expect((ease as Easing[])[1]).toEqual("easeOut")
         expect(typeof (ease as Easing[])[2]).toEqual("function")
         expect(times).toEqual([0, 0.45454545454545453, 0.45454545454545453, 1])
+    })
+
+    test("Does not include type: spring in transition when spring is converted to easing via defaultTransition", () => {
+        const animations = createAnimationsFromSequence(
+            [
+                [a, { x: 0 }, { duration: 0 }],
+                [a, { x: 1.12 }],
+                [a, { x: 0.98 }, { at: "<+0.15" }],
+                [a, { x: 1 }, { at: "<+0.35" }],
+            ],
+            { defaultTransition: { type: "spring", stiffness: 72, damping: 10 } },
+            undefined,
+            { spring }
+        )
+
+        const { transition } = animations.get(a)!
+
+        // The spring should be converted to easing functions, not kept as type: "spring"
+        expect(transition.x.type).toBeUndefined()
+
+        // Verify the easing functions are present
+        expect(Array.isArray(transition.x.ease)).toBe(true)
+        const easeArray = transition.x.ease as Easing[]
+        // At least some of the easings should be spring-converted functions
+        expect(easeArray.some((e) => typeof e === "function")).toBe(true)
     })
 
     test("It correctly repeats keyframes once", () => {
@@ -767,5 +792,124 @@ describe("createAnimationsFromSequence", () => {
         const { duration, times } = animations.get(a)!.transition.x
         expect(duration).toEqual(4)
         expect(times).toEqual([0, 0.25, 0.25, 0.5, 0.5, 0.75, 0.75, 1])
+    })
+
+    test("Spring defaultTransition does not leak type into multi-element sequence (#3158)", () => {
+        const img = document.createElement("img")
+        const h1 = document.createElement("h1")
+
+        const animations = createAnimationsFromSequence(
+            [
+                [img, { x: [0, 20], y: [0, 20] }],
+                [h1, { scale: [1, 2] }],
+            ],
+            { defaultTransition: { type: "spring" } },
+            undefined,
+            { spring }
+        )
+
+        // type: "spring" must be stripped — sequence converts springs to easing
+        const imgTransition = animations.get(img)!.transition
+        expect(imgTransition.x.type).toBeUndefined()
+        expect(imgTransition.y.type).toBeUndefined()
+
+        const h1Transition = animations.get(h1)!.transition
+        expect(h1Transition.scale.type).toBeUndefined()
+
+        // Verify easing functions were generated from spring
+        expect(
+            (imgTransition.x.ease as Easing[]).some(
+                (e) => typeof e === "function"
+            )
+        ).toBe(true)
+    })
+
+    test("It skips null elements in sequence", () => {
+        const animations = createAnimationsFromSequence(
+            [
+                [a, { opacity: 1 }, { duration: 1 }],
+                [null as unknown as Element, { opacity: 0.5 }, { duration: 1 }],
+                [b, { opacity: 0 }, { duration: 1 }],
+            ],
+            undefined,
+            undefined,
+            { spring }
+        )
+
+        // Should only have animations for a and b, not the null element
+        expect(animations.size).toBe(2)
+        expect(animations.has(a)).toBe(true)
+        expect(animations.has(b)).toBe(true)
+    })
+
+    test("It filters null elements from array of targets", () => {
+        const animations = createAnimationsFromSequence(
+            [[[a, null as unknown as Element, b], { x: 100 }, { duration: 1 }]],
+            undefined,
+            undefined,
+            { spring }
+        )
+
+        // Should only have animations for a and b, not the null element
+        expect(animations.size).toBe(2)
+        expect(animations.has(a)).toBe(true)
+        expect(animations.has(b)).toBe(true)
+    })
+
+    test("It handles sequence with only null element gracefully", () => {
+        const animations = createAnimationsFromSequence(
+            [[null as unknown as Element, { opacity: 1 }, { duration: 1 }]],
+            undefined,
+            undefined,
+            { spring }
+        )
+
+        // Should return empty map when no valid elements
+        expect(animations.size).toBe(0)
+    })
+})
+
+describe("Sequence callbacks", () => {
+    const a = document.createElement("div")
+    const b = document.createElement("div")
+
+    test("Function segments as MotionValues don't affect element animation timing", () => {
+        const mv1 = motionValue(0)
+        const mv2 = motionValue(0)
+        const mv3 = motionValue(0)
+
+        const animations = createAnimationsFromSequence(
+            [
+                [a, { x: 100 }, { duration: 1 }],
+                [mv1, [0, 1], { duration: 0 }],
+                [mv2, [0, 1], { duration: 0 }],
+                [mv3, [0, 1], { duration: 0 }],
+                [b, { y: 200 }, { duration: 1 }],
+            ],
+            undefined,
+            undefined,
+            { spring }
+        )
+
+        expect(animations.get(a)!.transition.x.duration).toBe(2)
+        expect(animations.get(a)!.transition.x.times).toEqual([0, 0.5, 1])
+        expect(animations.get(b)!.transition.y.times).toEqual([0, 0.5, 1])
+    })
+
+    test("Function segments appear as MotionValue entries in animation definitions", () => {
+        const mv = motionValue(0)
+
+        const animations = createAnimationsFromSequence(
+            [
+                [a, { x: 100 }, { duration: 1 }],
+                [mv, [0, 1], { duration: 0.5 }],
+            ],
+            undefined,
+            undefined,
+            { spring }
+        )
+
+        expect(animations.has(a)).toBe(true)
+        expect(animations.has(mv)).toBe(true)
     })
 })

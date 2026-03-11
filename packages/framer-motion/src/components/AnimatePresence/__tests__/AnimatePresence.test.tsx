@@ -660,6 +660,115 @@ describe("AnimatePresence", () => {
         const result = await promise
         return expect(result).toHaveAttribute("data-id", "2")
     })
+
+    test("popLayout mode with anchorY='bottom' preserves bottom positioning", async () => {
+        const ref = createRef<HTMLDivElement>()
+
+        const Component = ({ isVisible }: { isVisible: boolean }) => {
+            return (
+                <div
+                    style={{
+                        position: "relative",
+                        height: "200px",
+                        width: "200px",
+                    }}
+                >
+                    <AnimatePresence mode="popLayout" anchorY="bottom">
+                        {isVisible && (
+                            <motion.div
+                                ref={ref}
+                                style={{
+                                    position: "absolute",
+                                    bottom: 0,
+                                    width: "50px",
+                                    height: "50px",
+                                }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 0.5 }}
+                            />
+                        )}
+                    </AnimatePresence>
+                </div>
+            )
+        }
+
+        const { rerender } = render(<Component isVisible />)
+        rerender(<Component isVisible />)
+
+        await nextFrame()
+
+        // Get initial position (should be at bottom)
+        const initialBottom =
+            ref.current!.parentElement!.offsetHeight -
+            ref.current!.offsetTop -
+            ref.current!.offsetHeight
+
+        await act(async () => {
+            rerender(<Component isVisible={false} />)
+        })
+
+        await nextFrame()
+
+        // After popLayout, element should still be at the same bottom position
+        // Check that the injected style uses bottom positioning
+        const computedStyle = window.getComputedStyle(ref.current!)
+        expect(computedStyle.position).toBe("absolute")
+
+        // The bottom position should be preserved (approximately 0)
+        expect(initialBottom).toBeLessThanOrEqual(1)
+    })
+
+    test("Switching mode from wait to popLayout doesn't break animations", async () => {
+        const opacity = motionValue(0)
+        const Component = ({ mode }: { mode: "wait" | "popLayout" }) => (
+            <AnimatePresence mode={mode}>
+                <motion.div
+                    key="stable"
+                    animate={{ opacity: 1 }}
+                    transition={{ type: false }}
+                    style={{ opacity }}
+                />
+            </AnimatePresence>
+        )
+
+        const { rerender } = render(<Component mode="wait" />)
+        rerender(<Component mode="wait" />)
+        await nextFrame()
+
+        expect(opacity.get()).toBe(1)
+
+        rerender(<Component mode="popLayout" />)
+        rerender(<Component mode="popLayout" />)
+        await nextFrame()
+
+        expect(opacity.get()).toBe(1)
+    })
+
+    test("Switching mode from popLayout to wait doesn't break animations", async () => {
+        const opacity = motionValue(0)
+        const Component = ({ mode }: { mode: "wait" | "popLayout" }) => (
+            <AnimatePresence mode={mode}>
+                <motion.div
+                    key="stable"
+                    animate={{ opacity: 1 }}
+                    transition={{ type: false }}
+                    style={{ opacity }}
+                />
+            </AnimatePresence>
+        )
+
+        const { rerender } = render(<Component mode="popLayout" />)
+        rerender(<Component mode="popLayout" />)
+        await nextFrame()
+
+        expect(opacity.get()).toBe(1)
+
+        rerender(<Component mode="wait" />)
+        rerender(<Component mode="wait" />)
+        await nextFrame()
+
+        expect(opacity.get()).toBe(1)
+    })
 })
 
 describe("AnimatePresence with custom components", () => {
@@ -1050,6 +1159,7 @@ describe("AnimatePresence with custom components", () => {
         await new Promise<void>(async (resolve) => {
             async function complete() {
                 await nextFrame()
+                await nextFrame()
 
                 expect(outerOpacity.get()).toBe(0)
                 expect(innerOpacity.get()).toBe(1)
@@ -1134,5 +1244,260 @@ describe("AnimatePresence with custom components", () => {
                 rerender(<Component isVisible={false} />)
             })
         })
+    })
+
+    test("Removes exiting children during rapid key switches with dynamic custom variants", async () => {
+        const variants: Variants = {
+            enter: (custom: string) => ({
+                ...(custom === "fade"
+                    ? { opacity: 0 }
+                    : { x: -100 }),
+                transition: { duration: 0.1 },
+            }),
+            center: {
+                opacity: 1,
+                x: 0,
+                transition: { duration: 0.1 },
+            },
+            exit: (custom: string) => ({
+                ...(custom === "fade"
+                    ? { opacity: 0 }
+                    : { x: 100 }),
+                transition: { duration: 0.1 },
+            }),
+        }
+
+        const items = [
+            { id: "a", transition: "fade" },
+            { id: "b", transition: "slide" },
+            { id: "c", transition: "fade" },
+            { id: "d", transition: "slide" },
+        ]
+
+        const Component = ({ active }: { active: number }) => {
+            const item = items[active]
+            return (
+                <AnimatePresence custom={item.transition}>
+                    <motion.div
+                        key={item.id}
+                        data-testid={item.id}
+                        variants={variants}
+                        initial="enter"
+                        animate="center"
+                        exit="exit"
+                        custom={item.transition}
+                    />
+                </AnimatePresence>
+            )
+        }
+
+        const { container, rerender } = render(<Component active={0} />)
+        rerender(<Component active={0} />)
+
+        // Rapidly switch through all items
+        await act(async () => {
+            rerender(<Component active={1} />)
+        })
+        await act(async () => {
+            rerender(<Component active={2} />)
+        })
+        await act(async () => {
+            rerender(<Component active={3} />)
+        })
+
+        // Wait for all exit animations to complete
+        await new Promise((resolve) => setTimeout(resolve, 500))
+        await act(async () => {
+            await nextFrame()
+            await nextFrame()
+        })
+
+        // Only the last item should remain
+        expect(container.childElementCount).toBe(1)
+    })
+
+    test("Fires onExitComplete during rapid key switches with dynamic custom variants", async () => {
+        const variants: Variants = {
+            enter: (custom: string) => ({
+                ...(custom === "fade"
+                    ? { opacity: 0 }
+                    : { x: -100 }),
+                transition: { duration: 0.1 },
+            }),
+            center: {
+                opacity: 1,
+                x: 0,
+                transition: { duration: 0.1 },
+            },
+            exit: (custom: string) => ({
+                ...(custom === "fade"
+                    ? { opacity: 0 }
+                    : { x: 100 }),
+                transition: { duration: 0.1 },
+            }),
+        }
+
+        const items = [
+            { id: "a", transition: "fade" },
+            { id: "b", transition: "slide" },
+            { id: "c", transition: "fade" },
+            { id: "d", transition: "slide" },
+        ]
+
+        let exitCompleteCount = 0
+
+        const Component = ({ active }: { active: number }) => {
+            const item = items[active]
+            return (
+                <AnimatePresence
+                    custom={item.transition}
+                    onExitComplete={() => {
+                        exitCompleteCount++
+                    }}
+                >
+                    <motion.div
+                        key={item.id}
+                        variants={variants}
+                        initial="enter"
+                        animate="center"
+                        exit="exit"
+                        custom={item.transition}
+                    />
+                </AnimatePresence>
+            )
+        }
+
+        const { rerender } = render(<Component active={0} />)
+        rerender(<Component active={0} />)
+
+        // Rapidly switch through all items
+        await act(async () => {
+            rerender(<Component active={1} />)
+        })
+        await act(async () => {
+            rerender(<Component active={2} />)
+        })
+        await act(async () => {
+            rerender(<Component active={3} />)
+        })
+
+        // Wait for all exit animations to complete
+        await new Promise((resolve) => setTimeout(resolve, 500))
+        await act(async () => {
+            await nextFrame()
+            await nextFrame()
+        })
+
+        expect(exitCompleteCount).toBeGreaterThan(0)
+    })
+
+    test("Re-entering child replays enter animation when exit was complete", async () => {
+        const enterCustomValues: number[] = []
+
+        const variants: Variants = {
+            enter: (direction: number) => {
+                enterCustomValues.push(direction)
+                return {
+                    x: direction > 0 ? 1000 : -1000,
+                    opacity: 0,
+                }
+            },
+            center: {
+                x: 0,
+                opacity: 1,
+            },
+            exit: (direction: number) => ({
+                x: direction < 0 ? 1000 : -1000,
+                opacity: 0,
+            }),
+        }
+
+        /**
+         * Use two children with different exit durations.
+         * Child "b" exits instantly (type: false), child "a" exits slowly (10s).
+         * After one frame: b's exit is complete but a's isn't,
+         * so isEveryExitComplete=false and b stays in the DOM.
+         * Then b re-enters — a genuine re-entry of a completed-exit element.
+         */
+        const Component = ({
+            showA,
+            showB,
+            direction,
+        }: {
+            showA: boolean
+            showB: boolean
+            direction: number
+        }) => {
+            return (
+                <AnimatePresence initial={false} custom={direction}>
+                    {showA && (
+                        <motion.div
+                            key="a"
+                            custom={direction}
+                            variants={variants}
+                            initial="enter"
+                            animate="center"
+                            exit="exit"
+                            transition={{ duration: 10 }}
+                        />
+                    )}
+                    {showB && (
+                        <motion.div
+                            key="b"
+                            custom={direction}
+                            variants={variants}
+                            initial="enter"
+                            animate="center"
+                            exit="exit"
+                            transition={{ type: false }}
+                        />
+                    )}
+                </AnimatePresence>
+            )
+        }
+
+        // Render both children
+        const { rerender } = render(
+            <Component showA showB direction={0} />
+        )
+        await act(async () => {
+            await nextFrame()
+        })
+
+        // Remove both: a exits slowly (10s), b exits instantly
+        await act(async () => {
+            rerender(
+                <Component
+                    showA={false}
+                    showB={false}
+                    direction={-1}
+                />
+            )
+        })
+        await act(async () => {
+            await nextFrame()
+        })
+
+        // b's exit completed (type:false = instant).
+        // a's exit is still running (duration: 10s).
+        // isEveryExitComplete = false, so both stay in the DOM.
+        // Now re-add b with new direction — genuine re-entry.
+        enterCustomValues.length = 0
+        await act(async () => {
+            rerender(
+                <Component
+                    showA={false}
+                    showB={true}
+                    direction={1}
+                />
+            )
+        })
+        await act(async () => {
+            await nextFrame()
+        })
+
+        // With fix: enter variant called with direction=1 (reset + replay)
+        // Without fix: no enter animation replayed (element stuck at exit position)
+        expect(enterCustomValues).toContain(1)
     })
 })

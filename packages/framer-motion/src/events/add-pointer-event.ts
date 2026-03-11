@@ -1,4 +1,4 @@
-import { addDomEvent } from "./add-dom-event"
+import { addDomEvent } from "motion-dom"
 import { addPointerInfo, EventListenerWithPointInfo } from "./event-info"
 
 export function addPointerEvent(

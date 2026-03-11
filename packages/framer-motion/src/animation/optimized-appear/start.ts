@@ -1,18 +1,17 @@
 import {
     AnyResolvedKeyframe,
     Batcher,
+    getOptimisedAppearId,
     MotionValue,
+    optimizedAppearDataId,
     startWaapiAnimation,
     ValueAnimationTransition,
+    type WithAppearProps,
 } from "motion-dom"
 import { noop } from "motion-utils"
-import { optimizedAppearDataId } from "./data-id"
-import { getOptimisedAppearId } from "./get-appear-id"
 import { handoffOptimizedAppearAnimation } from "./handoff"
 import { appearAnimationStore, appearComplete, AppearStoreEntry } from "./store"
 import { appearStoreId } from "./store-id"
-import "./types"
-import type { WithAppearProps } from "./types"
 
 /**
  * A single time to use across all animations to manually set startTime

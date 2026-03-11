@@ -1,13 +1,15 @@
 "use client"
 
-import { TargetAndTransition } from "motion-dom"
+import {
+    animateVisualElement,
+    createBox,
+    ResolvedValues,
+    TargetAndTransition,
+    VisualElement,
+} from "motion-dom"
 import { useLayoutEffect, useState } from "react"
 import { makeUseVisualState } from "../../motion/utils/use-visual-state"
-import { createBox } from "../../projection/geometry/models"
-import { ResolvedValues } from "../../render/types"
-import { VisualElement } from "../../render/VisualElement"
 import { useConstant } from "../../utils/use-constant"
-import { animateVisualElement } from "../interfaces/visual-element"
 
 interface AnimatedStateOptions {
     initialState: ResolvedValues

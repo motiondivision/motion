@@ -1,4 +1,6 @@
-import { secondsToMilliseconds } from "motion-utils"
+import { clamp } from "motion-utils"
+import { time } from "../frameloop/sync-time"
+import { setStyle } from "../render/dom/style-set"
 import { JSAnimation } from "./JSAnimation"
 import { NativeAnimation, NativeAnimationOptions } from "./NativeAnimation"
 import { AnyResolvedKeyframe, ValueAnimationOptions } from "./types"
@@ -43,7 +45,12 @@ export class NativeAnimationExtended<
 
         super(options)
 
-        if (options.startTime) {
+        /**
+         * Only set startTime when the animation should autoplay.
+         * Setting startTime on a paused WAAPI animation unpauses it
+         * (per the WAAPI spec), which breaks autoplay: false.
+         */
+        if (options.startTime !== undefined && options.autoplay !== false) {
             this.startTime = options.startTime
         }
 
@@ -53,7 +60,7 @@ export class NativeAnimationExtended<
     /**
      * WAAPI doesn't natively have any interruption capabilities.
      *
-     * Rather than read commited styles back out of the DOM, we can
+     * Rather than read committed styles back out of the DOM, we can
      * create a renderless JS animation and sample it twice to calculate
      * its current value, "previous" value, and therefore allow
      * Motion to calculate velocity for any subsequent animation.
@@ -74,12 +81,27 @@ export class NativeAnimationExtended<
             autoplay: false,
         })
 
-        const sampleTime = secondsToMilliseconds(this.finishedTime ?? this.time)
+        /**
+         * Use wall-clock elapsed time for sampling.
+         * Under CPU load, WAAPI's currentTime may not reflect actual
+         * elapsed time, causing incorrect sampling and visual jumps.
+         */
+        const sampleTime = Math.max(sampleDelta, time.now() - this.startTime)
+        const delta = clamp(0, sampleDelta, sampleTime - sampleDelta)
+        const current = sampleAnimation.sample(sampleTime).value
+
+        /**
+         * Write the estimated value to inline style so it persists
+         * after cancel(), covering the async gap before the next
+         * animation starts.
+         */
+        const { name } = this.options
+        if (element && name) setStyle(element, name, current)
 
         motionValue.setWithVelocity(
-            sampleAnimation.sample(sampleTime - sampleDelta).value,
-            sampleAnimation.sample(sampleTime).value,
-            sampleDelta
+            sampleAnimation.sample(Math.max(0, sampleTime - delta)).value,
+            current,
+            delta
         )
 
         sampleAnimation.stop()

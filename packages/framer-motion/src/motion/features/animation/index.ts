@@ -1,7 +1,9 @@
-import { isAnimationControls } from "../../../animation/utils/is-animation-controls"
-import { createAnimationState } from "../../../render/utils/animation-state"
-import { VisualElement } from "../../../render/VisualElement"
-import { Feature } from "../Feature"
+import {
+    createAnimationState,
+    Feature,
+    isAnimationControls,
+    type VisualElement,
+} from "motion-dom"
 
 export class AnimationFeature extends Feature<unknown> {
     unmountControls?: () => void

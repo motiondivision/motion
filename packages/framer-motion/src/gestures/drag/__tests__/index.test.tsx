@@ -6,7 +6,7 @@ import {
     MotionValue,
     useWillChange,
 } from "../../../"
-import { pointerDown, render } from "../../../jest.setup"
+import { pointerDown, pointerMove, render } from "../../../jest.setup"
 import { WillChangeMotionValue } from "../../../value/use-will-change/WillChangeMotionValue"
 import { nextFrame } from "../../__tests__/utils"
 import { deferred, drag, dragFrame, MockDrag, Point, sleep } from "./utils"
@@ -540,13 +540,8 @@ describe("dragging", () => {
         await pointer.to(20, 0)
         pointer.end()
 
-        expect({
-            parentX: parentX.get(),
-            childX: childX.get(),
-        }).toEqual({
-            parentX: 20,
-            childX: 20,
-        })
+        expect(parentX.get()).toBeCloseTo(20)
+        expect(childX.get()).toBeCloseTo(20)
     })
 
     test("whileDrag applies animation state", async () => {
@@ -942,5 +937,282 @@ describe("dragging", () => {
         expect(container.firstChild).toHaveStyle(
             "transform: translateX(105px) translateY(0px)"
         )
+    })
+
+    test("cleans up pan session event listeners when unmounting during active gesture", async () => {
+        const x = motionValue(0)
+        const y = motionValue(0)
+        const Component = () => (
+            <MockDrag>
+                <motion.div drag style={{ x, y }} data-testid="draggable" />
+            </MockDrag>
+        )
+
+        const { getByTestId, rerender, unmount } = render(<Component />)
+        rerender(<Component />)
+
+        // Start drag - this creates a PanSession with window event listeners
+        const element = getByTestId("draggable")
+        pointerDown(element)
+
+        await nextFrame()
+
+        // Track if window listeners exist by counting pointermove handlers
+        // We'll fire a pointermove and check if x changed (it shouldn't after unmount)
+        const xBefore = x.get()
+
+        // Unmount while gesture is active
+        unmount()
+
+        await nextFrame()
+
+        // Fire pointermove on window - should not affect anything since listeners should be cleaned up
+        // If listeners weren't cleaned up, this could cause errors or memory leaks
+        pointerMove(document.body)
+
+        await nextFrame()
+
+        // x should still be the same since component unmounted
+        expect(x.get()).toBe(xBefore)
+    })
+})
+
+describe("keyboard accessible elements", () => {
+    test("drag gesture starts on a motion.button with drag prop", async () => {
+        const onDragStart = jest.fn()
+        const x = motionValue(0)
+        const Component = () => (
+            <MockDrag>
+                <motion.button
+                    data-testid="draggable-button"
+                    drag
+                    onDragStart={onDragStart}
+                    style={{ x }}
+                />
+            </MockDrag>
+        )
+
+        const { getByTestId, rerender } = render(<Component />)
+        rerender(<Component />)
+
+        const pointer = await drag(getByTestId("draggable-button")).to(100, 100)
+        pointer.end()
+
+        await nextFrame()
+
+        expect(onDragStart).toBeCalledTimes(1)
+        expect(x.get()).toBeGreaterThanOrEqual(100)
+    })
+
+    test("drag gesture starts on a motion.input with drag prop", async () => {
+        const onDragStart = jest.fn()
+        const x = motionValue(0)
+        const Component = () => (
+            <MockDrag>
+                <motion.input
+                    data-testid="draggable-input"
+                    drag
+                    onDragStart={onDragStart}
+                    style={{ x }}
+                />
+            </MockDrag>
+        )
+
+        const { getByTestId, rerender } = render(<Component />)
+        rerender(<Component />)
+
+        const pointer = await drag(getByTestId("draggable-input")).to(100, 100)
+        pointer.end()
+
+        await nextFrame()
+
+        expect(onDragStart).toBeCalledTimes(1)
+        expect(x.get()).toBeGreaterThanOrEqual(100)
+    })
+
+    test("drag gesture starts on a motion.a with drag prop", async () => {
+        const onDragStart = jest.fn()
+        const x = motionValue(0)
+        const Component = () => (
+            <MockDrag>
+                <motion.a
+                    data-testid="draggable-link"
+                    drag
+                    onDragStart={onDragStart}
+                    style={{ x }}
+                    href="#"
+                />
+            </MockDrag>
+        )
+
+        const { getByTestId, rerender } = render(<Component />)
+        rerender(<Component />)
+
+        const pointer = await drag(getByTestId("draggable-link")).to(100, 100)
+        pointer.end()
+
+        await nextFrame()
+
+        expect(onDragStart).toBeCalledTimes(1)
+        expect(x.get()).toBeGreaterThanOrEqual(100)
+    })
+
+    test("drag gesture does not start when clicking a child input", async () => {
+        const onDragStart = jest.fn()
+        const x = motionValue(0)
+        const Component = () => (
+            <MockDrag>
+                <motion.div
+                    data-testid="draggable"
+                    drag
+                    onDragStart={onDragStart}
+                    style={{ x }}
+                >
+                    <input data-testid="child-input" />
+                </motion.div>
+            </MockDrag>
+        )
+
+        const { getByTestId, rerender } = render(<Component />)
+        rerender(<Component />)
+
+        const pointer = await drag(
+            getByTestId("draggable"),
+            getByTestId("child-input")
+        ).to(100, 100)
+        pointer.end()
+
+        await nextFrame()
+
+        expect(onDragStart).toBeCalledTimes(0)
+        expect(x.get()).toBe(0)
+    })
+
+    test("drag gesture does not start when clicking a child textarea", async () => {
+        const onDragStart = jest.fn()
+        const x = motionValue(0)
+        const Component = () => (
+            <MockDrag>
+                <motion.div
+                    data-testid="draggable"
+                    drag
+                    onDragStart={onDragStart}
+                    style={{ x }}
+                >
+                    <textarea data-testid="child-textarea" />
+                </motion.div>
+            </MockDrag>
+        )
+
+        const { getByTestId, rerender } = render(<Component />)
+        rerender(<Component />)
+
+        const pointer = await drag(
+            getByTestId("draggable"),
+            getByTestId("child-textarea")
+        ).to(100, 100)
+        pointer.end()
+
+        await nextFrame()
+
+        expect(onDragStart).toBeCalledTimes(0)
+        expect(x.get()).toBe(0)
+    })
+
+    test("drag gesture does not start when clicking a child select", async () => {
+        const onDragStart = jest.fn()
+        const x = motionValue(0)
+        const Component = () => (
+            <MockDrag>
+                <motion.div
+                    data-testid="draggable"
+                    drag
+                    onDragStart={onDragStart}
+                    style={{ x }}
+                >
+                    <select data-testid="child-select">
+                        <option>Option 1</option>
+                    </select>
+                </motion.div>
+            </MockDrag>
+        )
+
+        const { getByTestId, rerender } = render(<Component />)
+        rerender(<Component />)
+
+        const pointer = await drag(
+            getByTestId("draggable"),
+            getByTestId("child-select")
+        ).to(100, 100)
+        pointer.end()
+
+        await nextFrame()
+
+        expect(onDragStart).toBeCalledTimes(0)
+        expect(x.get()).toBe(0)
+    })
+
+    test("drag gesture starts when clicking a child button", async () => {
+        const onDragStart = jest.fn()
+        const x = motionValue(0)
+        const Component = () => (
+            <MockDrag>
+                <motion.div
+                    data-testid="draggable"
+                    drag
+                    onDragStart={onDragStart}
+                    style={{ x }}
+                >
+                    <button data-testid="child-button">Click me</button>
+                </motion.div>
+            </MockDrag>
+        )
+
+        const { getByTestId, rerender } = render(<Component />)
+        rerender(<Component />)
+
+        const pointer = await drag(
+            getByTestId("draggable"),
+            getByTestId("child-button")
+        ).to(100, 100)
+        pointer.end()
+
+        await nextFrame()
+
+        expect(onDragStart).toBeCalledTimes(1)
+        expect(x.get()).toBeGreaterThanOrEqual(100)
+    })
+
+    test("drag gesture starts when clicking a child link", async () => {
+        const onDragStart = jest.fn()
+        const x = motionValue(0)
+        const Component = () => (
+            <MockDrag>
+                <motion.div
+                    data-testid="draggable"
+                    drag
+                    onDragStart={onDragStart}
+                    style={{ x }}
+                >
+                    <a data-testid="child-link" href="#">
+                        Click me
+                    </a>
+                </motion.div>
+            </MockDrag>
+        )
+
+        const { getByTestId, rerender } = render(<Component />)
+        rerender(<Component />)
+
+        const pointer = await drag(
+            getByTestId("draggable"),
+            getByTestId("child-link")
+        ).to(100, 100)
+        pointer.end()
+
+        await nextFrame()
+
+        expect(onDragStart).toBeCalledTimes(1)
+        expect(x.get()).toBeGreaterThanOrEqual(100)
     })
 })

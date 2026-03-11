@@ -1,12 +1,11 @@
 "use client"
 
+import { buildSVGAttrs, isSVGTag } from "motion-dom"
 import { useMemo } from "react"
 import { MotionProps } from "../../motion/types"
 import { copyRawValuesOnly } from "../html/use-props"
 import { ResolvedValues } from "../types"
-import { buildSVGAttrs } from "./utils/build-attrs"
 import { createSvgRenderState } from "./utils/create-render-state"
-import { isSVGTag } from "./utils/is-svg-tag"
 
 export function useSVGProps(
     props: MotionProps,

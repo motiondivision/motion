@@ -1,6 +1,7 @@
 import * as React from "react"
-import { ForwardedRef } from "react"
+import { ForwardedRef, SVGProps } from "react"
 import { motion, useMotionValue } from "../.."
+import { nextFrame } from "../../gestures/__tests__/utils"
 import { render } from "../../jest.setup"
 import { MotionProps } from "../types"
 
@@ -140,3 +141,41 @@ function runTests(name: string, motionFactory: typeof motion.create) {
 }
 
 runTests("motion.create()", motion.create)
+
+describe("motion.create() with type: 'svg'", () => {
+    test("animates SVG-specific attributes like viewBox when type is 'svg'", async () => {
+        // Custom SVG component that wraps an <svg> element
+        const CustomSVG = React.forwardRef(
+            (
+                props: SVGProps<SVGSVGElement>,
+                ref: ForwardedRef<SVGSVGElement>
+            ) => {
+                return <svg ref={ref} {...props} />
+            }
+        )
+
+        // Without type: "svg", viewBox won't animate correctly
+        // because motion treats custom components as HTML by default
+        const MotionCustomSVG = motion.create(CustomSVG, { type: "svg" })
+
+        const Component = () => {
+            return (
+                <MotionCustomSVG
+                    data-testid="custom-svg"
+                    viewBox="0 0 100 100"
+                    transition={{ type: false }}
+                    animate={{ viewBox: "100 100 200 200" }}
+                />
+            )
+        }
+
+        const { getByTestId } = render(<Component />)
+
+        await nextFrame()
+
+        expect(getByTestId("custom-svg")).toHaveAttribute(
+            "viewBox",
+            "100 100 200 200"
+        )
+    })
+})

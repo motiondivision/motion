@@ -245,6 +245,30 @@ test.describe("press events", () => {
         // await expect(windowOutput).toHaveValue("cancel")
     })
 
+    test("stopPropagation prevents parent press from firing", async ({
+        page,
+    }) => {
+        const child = page.locator("#propagate-child")
+        const output = page.locator("#propagate-output")
+
+        // Press child - only child handlers should fire
+        await child.dispatchEvent("pointerdown", pointerOptions)
+        await child.dispatchEvent("pointerup", pointerOptions)
+        await expect(output).toHaveValue("child-start,child-end,")
+    })
+
+    test("parent press fires when clicking outside child", async ({
+        page,
+    }) => {
+        const parent = page.locator("#propagate-parent")
+        const output = page.locator("#propagate-output")
+
+        // Press parent directly - parent handlers should fire
+        await parent.dispatchEvent("pointerdown", pointerOptions)
+        await parent.dispatchEvent("pointerup", pointerOptions)
+        await expect(output).toHaveValue("parent-start,parent-end,")
+    })
+
     test("nested click handlers", async ({ page }) => {
         const button = page.locator("#press-click-button")
         const box = await button.boundingBox()

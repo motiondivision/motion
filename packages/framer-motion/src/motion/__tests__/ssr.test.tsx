@@ -185,7 +185,7 @@ function runTests(render: (components: any) => string) {
         )
 
         expect(circle).toBe(
-            '<circle cx="100" stroke-width="10" pathLength="1" stroke-dashoffset="0px" stroke-dasharray="0.5px 1px" style="background:#fff;transform:translateX(100px);transform-origin:50% 50%;transform-box:fill-box"></circle>'
+            '<circle cx="100" stroke-width="10" pathLength="1" stroke-dashoffset="0" stroke-dasharray="0.5 1" style="background:#fff;transform:translateX(100px);transform-origin:50% 50%;transform-box:fill-box"></circle>'
         )
         const rect = render(
             <AnimatePresence>
@@ -285,7 +285,7 @@ function runTests(render: (components: any) => string) {
         const div = render(<Component />)
 
         expect(div).toBe(
-            `<ul><li draggable="false" style="z-index:unset;transform:none;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;touch-action:pan-x"></li></ul>`
+            `<ul style="overflow-anchor:none"><li draggable="false" style="z-index:unset;transform:none;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;touch-action:pan-x"></li></ul>`
         )
     })
 
@@ -301,7 +301,7 @@ function runTests(render: (components: any) => string) {
         const div = render(<Component />)
 
         expect(div).toBe(
-            `<ul><li style="z-index:unset;transform:none"></li></ul>`
+            `<ul style="overflow-anchor:none"><li style="z-index:unset;transform:none"></li></ul>`
         )
     })
 
@@ -317,7 +317,7 @@ function runTests(render: (components: any) => string) {
         const div = render(<Component />)
 
         expect(div).toBe(
-            `<div><div draggable="false" style="z-index:unset;transform:none;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;touch-action:pan-x"></div></div>`
+            `<div style="overflow-anchor:none"><div draggable="false" style="z-index:unset;transform:none;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;touch-action:pan-x"></div></div>`
         )
     })
 

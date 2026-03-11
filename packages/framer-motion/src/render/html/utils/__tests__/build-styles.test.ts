@@ -1,8 +1,7 @@
+import { buildHTMLStyles, ResolvedValues } from "motion-dom"
 import "../../../../jest.setup"
 import { DOMVisualElementOptions } from "../../../dom/types"
-import { ResolvedValues } from "../../../types"
 import { TransformOrigin } from "../../types"
-import { buildHTMLStyles } from "../build-styles"
 
 describe("buildHTMLStyles", () => {
     test("Builds basic styles", () => {
@@ -11,6 +10,14 @@ describe("buildHTMLStyles", () => {
         build(latest, { style })
 
         expect(style).toEqual({ width: "100px" })
+    })
+
+    test("Builds fontSize with px unit", () => {
+        const latest = { fontSize: 16 }
+        const style = {}
+        build(latest, { style })
+
+        expect(style).toEqual({ fontSize: "16px" })
     })
 
     test("Builds vars", () => {

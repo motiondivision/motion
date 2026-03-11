@@ -12,7 +12,6 @@ export const numberValueTypes: ValueTypeMap = {
     borderBottomWidth: px,
     borderLeftWidth: px,
     borderRadius: px,
-    radius: px,
     borderTopLeftRadius: px,
     borderTopRightRadius: px,
     borderBottomRightRadius: px,
@@ -27,6 +26,13 @@ export const numberValueTypes: ValueTypeMap = {
     right: px,
     bottom: px,
     left: px,
+    inset: px,
+    insetBlock: px,
+    insetBlockStart: px,
+    insetBlockEnd: px,
+    insetInline: px,
+    insetInlineStart: px,
+    insetInlineEnd: px,
 
     // Spacing props
     padding: px,
@@ -34,11 +40,26 @@ export const numberValueTypes: ValueTypeMap = {
     paddingRight: px,
     paddingBottom: px,
     paddingLeft: px,
+    paddingBlock: px,
+    paddingBlockStart: px,
+    paddingBlockEnd: px,
+    paddingInline: px,
+    paddingInlineStart: px,
+    paddingInlineEnd: px,
     margin: px,
     marginTop: px,
     marginRight: px,
     marginBottom: px,
     marginLeft: px,
+    marginBlock: px,
+    marginBlockStart: px,
+    marginBlockEnd: px,
+    marginInline: px,
+    marginInlineStart: px,
+    marginInlineEnd: px,
+
+    // Typography
+    fontSize: px,
 
     // Misc
     backgroundPositionX: px,

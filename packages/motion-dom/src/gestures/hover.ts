@@ -44,35 +44,97 @@ export function hover(
         options
     )
 
-    const onPointerEnter = (enterEvent: PointerEvent) => {
-        if (!isValidHover(enterEvent)) return
+    elements.forEach((element) => {
+        let isPressed = false
+        let deferredHoverEnd = false
+        let hoverEndCallback: OnHoverEndEvent | undefined
 
-        const { target } = enterEvent
-        const onHoverEnd = onHoverStart(target as Element, enterEvent)
-
-        if (typeof onHoverEnd !== "function" || !target) return
-
-        const onPointerLeave = (leaveEvent: PointerEvent) => {
-            if (!isValidHover(leaveEvent)) return
-
-            onHoverEnd(leaveEvent)
-            target.removeEventListener(
+        const removePointerLeave = () => {
+            element.removeEventListener(
                 "pointerleave",
                 onPointerLeave as EventListener
             )
         }
 
-        target.addEventListener(
-            "pointerleave",
-            onPointerLeave as EventListener,
-            eventOptions
-        )
-    }
+        const endHover = (event: PointerEvent) => {
+            if (hoverEndCallback) {
+                hoverEndCallback(event)
+                hoverEndCallback = undefined
+            }
+            removePointerLeave()
+        }
 
-    elements.forEach((element) => {
+        const onPointerUp = (event: Event) => {
+            isPressed = false
+            window.removeEventListener(
+                "pointerup",
+                onPointerUp as EventListener
+            )
+            window.removeEventListener(
+                "pointercancel",
+                onPointerUp as EventListener
+            )
+
+            if (deferredHoverEnd) {
+                deferredHoverEnd = false
+                endHover(event as PointerEvent)
+            }
+        }
+
+        const onPointerDown = () => {
+            isPressed = true
+            window.addEventListener(
+                "pointerup",
+                onPointerUp as EventListener,
+                eventOptions
+            )
+            window.addEventListener(
+                "pointercancel",
+                onPointerUp as EventListener,
+                eventOptions
+            )
+        }
+
+        const onPointerLeave = (leaveEvent: PointerEvent) => {
+            if (leaveEvent.pointerType === "touch") return
+
+            if (isPressed) {
+                deferredHoverEnd = true
+                return
+            }
+
+            endHover(leaveEvent)
+        }
+
+        const onPointerEnter = (enterEvent: PointerEvent) => {
+            if (!isValidHover(enterEvent)) return
+
+            deferredHoverEnd = false
+
+            const onHoverEnd = onHoverStart(
+                element as Element,
+                enterEvent
+            )
+
+            if (typeof onHoverEnd !== "function") return
+
+            hoverEndCallback = onHoverEnd
+
+            element.addEventListener(
+                "pointerleave",
+                onPointerLeave as EventListener,
+                eventOptions
+            )
+        }
+
         element.addEventListener(
             "pointerenter",
             onPointerEnter as EventListener,
+            eventOptions
+        )
+        element.addEventListener(
+            "pointerdown",
+            onPointerDown as EventListener,
             eventOptions
         )
     })

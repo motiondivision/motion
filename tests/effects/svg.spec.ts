@@ -1,11 +1,13 @@
 import { expect, test } from "@playwright/test"
 
 test.describe("svgEffect", () => {
+    // Uses unitless values for stroke-dasharray and stroke-dashoffset
+    // to avoid Safari zoom bug where px values are incorrectly scaled
     test("draws pathLength as stroke-dasharray", async ({ page }) => {
         await page.goto("effects/path-length.html")
         const path = page.locator("#tick")
         const strokeDasharray = await path.getAttribute("stroke-dasharray")
-        expect(strokeDasharray).toBe("0.25px 0.75px")
+        expect(strokeDasharray).toBe("0.25 0.75")
         const pathLength = await path.getAttribute("pathLength")
         expect(pathLength).toBe("1")
     })
@@ -14,7 +16,7 @@ test.describe("svgEffect", () => {
         await page.goto("effects/path-offset.html")
         const path = page.locator("#tick")
         const strokeDashoffset = await path.getAttribute("stroke-dashoffset")
-        expect(strokeDashoffset).toBe("-0.5px")
+        expect(strokeDashoffset).toBe("-0.5")
     })
 
     test("ensures default pathSpacing correctly creates looping effect by calculating remaining amount", async ({
@@ -23,9 +25,9 @@ test.describe("svgEffect", () => {
         await page.goto("effects/path-offset-loop.html")
         const circle = page.locator("#circle")
         const strokeDasharray = await circle.getAttribute("stroke-dasharray")
-        expect(strokeDasharray).toBe("0.5px 0.5px")
+        expect(strokeDasharray).toBe("0.5 0.5")
         const strokeDashoffset = await circle.getAttribute("stroke-dashoffset")
-        expect(strokeDashoffset).toBe("-0.75px")
+        expect(strokeDashoffset).toBe("-0.75")
     })
 
     test("draws attrX as x", async ({ page }) => {

@@ -24,7 +24,9 @@ export function canAnimate(
      * animatable and another that isn't.
      */
     const originKeyframe = keyframes[0]
-    if (originKeyframe === null) return false
+    if (originKeyframe === null) {
+        return false
+    }
 
     /**
      * These aren't traditionally animatable but we do support them.

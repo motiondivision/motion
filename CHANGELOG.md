@@ -4,6 +4,407 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.35.2] 2026-03-09
+
+### Fixed
+
+-   Reduced filesize of `styleEffect`.
+-   Fix rounding from `popLayout`.
+-   `opacity` animations in React Strict Mode in development.
+-   Ensure `useSpring` is not affected by monitor framerate.
+-   Updating animations sequence segment types to exclude lifecycle handlers.
+-   Fix layout animations with parents offset by a `%`-based translation.
+-   Fix `autoplay: false` with WAAPI animations.
+-   Fix layout jump in React Strict Mode in development.
+-   Detect divide-by-zero in CSS `calc()` values before making animatable templates.
+
+## [12.35.1] 2026-03-06
+
+### Fixed
+
+-   Fixing combination of string keyframes, spring and `delay`.
+-   Gracefully handle negative scroll values.
+-   Fix one-frame visual gap when rapidly switching WAAPI animations.
+-   `animation.time = 0` on a finished animation sets the playhead in a paused state.
+
+## [12.35.0] 2026-03-03
+
+### Added
+
+-   `ViewTimeline` support for `scroll` and `useScroll`.
+
+## [12.34.6] 2026-03-03
+
+### Fixed
+
+-   Handle `%` translate values in layout animations.
+
+## [12.34.5] 2026-03-03
+
+### Fixed
+
+-   Ensure final WAAPI styles are always committed synchronously to prevent flash of incorrect styles in Firefox.
+-   Prevent Next.js from caching `typeof window` checks.
+-   Improve projection node cleanup.
+-   Variant propagation fixed for asynchronously-mounted children.
+
+## [12.34.4] 2026-03-02
+
+### Fixed
+
+-   Ensure `onComplete` fires at the end of an animation sequence.
+
+## [12.34.3] 2026-02-20
+
+### Fixed
+
+-   Ensure `velocity` is never transferred to a time-derived spring.
+
+## [12.34.2] 2026-02-18
+
+### Fixed
+
+-   Layout animations: Reset motion value velocity when starting a new layout animation.
+
+## [12.34.1] 2026-02-17
+
+### Fixed
+
+-   `useScroll`: Ensure animations aren't hardware accelerated when `target` is set.
+-   Improve animatable `"none"` generation for mask values.
+
+## [12.34.0] 2026-02-09
+
+### Added
+
+-   `useScroll`: Hardware accelerated animations.
+
+## [12.33.2] 2026-02-06
+
+### Fixed
+
+-   Improve detection of detached elements with vanilla layout animations.
+
+## [12.33.1] 2026-02-06
+
+### Fixed
+
+-   `AnimatePresence`: Ensure exiting nodes are correctly removed when rapidly switching children.
+
+## [12.33.0] 2026-02-05
+
+### Added
+
+-   `<motion />`: New `propagate.tap` prop prevents tap gestures from propagating to parents.
+
+## [12.32.0] 2026-02-05
+
+### Added
+
+-   `transition.inherit`: When `true`, inherit transition values from less-specific transitions.
+
+## [12.31.3] 2026-02-05
+
+### Fixed
+
+-   `<motion />`: Ensure animation state is reset after being re-suspended.
+-   Prevent stale values when mixing `transitionEnd` and `transition.type: false`.
+-   Drag: Fix "sticky" throw velocity on initial interaciton.
+-   Drag: Ensure catching a thrown element kills its velocity.
+
+## [12.31.2] 2026-02-05
+
+### Fixed
+
+-   `onHoverStart` and `onHoverEnd` first argument now correctly typed as `PointerEvent`.
+-   `whileHover`: No longer persists after drag end.
+-   `AnimatePresence`: Allow changing `mode` prop.
+
+## [12.31.1] 2026-02-04
+
+### Added
+
+-   Drag constraints updated even when draggable or constraints resize outside of React renders.
+
+## [12.31.0] 2026-02-03
+
+### Added
+
+-   `animate`: Support for bi-directional callbacks within animation sequences.
+
+### Fixed
+
+-   Ensure `onPan` never fires before `onPanStart`.
+
+## [12.30.1] 2026-02-03
+
+### Fixed
+
+-   Allow drag to be initiated by child `a` and `button` elements.
+
+## [12.30.0] 2026-02-02
+
+### Added
+
+-   `MotionConfig`: Add `skipAnimations` option.
+
+### Fixed
+
+-   `animate`: Prevent error when calling `stop()` on removed elements.
+-   `animateLayout`: Fixing shared element animations when `animate` called before `animateLayout`.
+
+## [12.29.3] 2026-02-02
+
+### Fixed
+
+-   `Reorder`: Fixed viewport autoscroll.
+
+## [12.29.2] 2026-01-26
+
+### Fixed
+
+-   Updates to layout animations.
+
+## [12.29.1] 2026-01-22
+
+### Fixed
+
+-   `useAnimate`: Now respects reduced motion settings set via `MotionConfig`.
+
+## [12.29.0] 2026-01-22
+
+### Added
+
+-   `transformViewBoxPoint`: Scale drag gestures within `<svg>` elements where `viewBox` and rendered `width`/`height` are mismatched.
+-   `trackContentSize`: New `scroll` and `useScroll` option for tracking changes to content size.
+
+### Fixed
+
+-   Add React 19 test suite to CI.
+-   Fix types with `motion.create()`.
+-   Shared element animations now respect `layoutDependency`.
+
+## [12.28.2] 2026-01-22
+
+### Added
+
+-   Add default value type `px` for `fontSize`.
+
+### Fixed
+
+-   Removed default value type from `radius`.
+-   Ensure `LazyMotion` animates initial state even when state has changed before Motion is loaded.
+
+## [12.28.1] 2026-01-21
+
+### Fixed
+
+-   Ensure `scale: "0%"` isn't treated as default value.
+
+## [12.28.0] 2026-01-20
+
+### Added
+
+-   `useFollowValue` and `followValue`: `useSpring`-style motion values that can accept any transition.
+
+### Fixed
+
+-   Fix "multiple keyframe" error when using spring animations as default transitions for animation sequences.
+
+## [12.27.5] 2026-01-20
+
+### Fixed
+
+-   Ensure pen gesture is correctly cleaned up on drag cancel.
+-   Fix edge case where `DocumentProjectionNode`'s attached element was `null`.
+
+## [12.27.4] 2026-01-20
+
+### Added
+
+-   `AnimatePresence`: `anchorY` for vertically positioning popped children.
+
+### Fixed
+
+-   Fixed path drawing animations in zoomed Safari contexts by switching to unitless values.
+
+## [12.27.3] 2026-01-20
+
+### Fixed
+
+-   Ensure drag gestures trigger from keyboard-accessible elements (`button`, `textarea` etc) if these elements have `drag` applied directly.
+
+## [12.27.2] 2026-01-20
+
+### Fixed
+
+-   Adding sourcemaps to `motion-dom` and `motion-utils`.
+-   Fix `Reorder` autoscroll within scrollable pages.
+-   Gracefully handle missing elements in animation sequences.
+
+## [12.27.1] 2026-01-19
+
+### Fixed
+
+-   Improving projection node cleanup.
+
+## [12.27.0] 2026-01-18
+
+### Added
+
+-   Adding new exports for internal use.
+
+## [12.26.2] 2026-01-13
+
+### Fixed
+
+-   Internal refactor of projection system into `motion-dom`.
+
+## [12.26.1] 2026-01-12
+
+### Fixed
+
+-   Improve overload selection for `useTransform`.
+
+## [12.26.0] 2026-01-12
+
+### Added
+
+-   Support for multiple output value maps with `useTransform`.
+
+## [12.25.0] 2026-01-09
+
+### Added
+
+-   Support for auto-scrolling when a `Reorder.Item` reaches the edges of its parent scrollable container.
+
+## [12.24.12] 2026-01-08
+
+### Fixed
+
+-   Draggable elements now track pointer during page and element scroll.
+
+## [12.24.11] 2026-01-08
+
+### Fixed
+
+-   Fixed time sampling of GPU animations under heavy CPU load.
+
+## [12.24.10] 2026-01-07
+
+### Fixed
+
+-   Fixing missing import from `motion-dom`.
+
+## [12.24.9] 2026-01-07
+
+### Fixed
+
+-   Fixing Radix `Dialog` with `AnimatePresence`.
+-   Ensure drag constraints animation resumes after press interruption.
+-   Prevent drag gesture from triggering when pressing focusable elements.
+
+## [12.24.8] 2026-01-07
+
+### Fixed
+
+-   Perform unit conversion when animating to/from `calc()` values.
+
+## [12.24.7] 2026-01-06
+
+### Fixed
+
+-   Fix duplicate exit animations in `AnimatePresence`.
+
+## [12.24.6] 2026-01-06
+
+### Fixed
+
+-   Remove memory leak from retained `matchMedia` callbacks.
+
+## [12.24.5] 2026-01-06
+
+### Fixed
+
+-   Prevent `ref` access error for `AnimatePresence` `popLayout` mode in React 19.
+
+## [12.24.4] 2026-01-06
+
+### Fixed
+
+-   Support `ref` functions that return a cleanup callback.
+
+## [12.24.3] 2026-01-06
+
+### Fixed
+
+-   Ensure `onAnimationStart` and `onAnimationComplete` callbacks fire for `useSpring`.
+
+## [12.24.2] 2026-01-06
+
+### Fixed
+
+-   Ensure `useDragControls `snapToCursor: true` works with initial transforms.
+
+## [12.24.1] 2026-01-06
+
+### Fixed
+
+-   Ensure CSS Motion Path properties are applied via `style` on SVG elements.
+-   Ensure `JSX` is correctly imported by `Reorder.Item`.
+
+## [12.24.0] 2026-01-05
+
+### Added
+
+-   `{ type: "svg" }` option to `motion.create()` for creating custom SVG components.
+-   `px` default value type for CSS logical properties (`paddingBlock`, `paddingInline`, `marginBlock`, `marginInline`).
+
+### Fixed
+
+-   Ensure drag gesture updates with latest props every render.
+-   Fix missing `JSX` import error.
+-   Fix `motion-dom` build.
+-   Exclude `src` from distributed package.
+
+## [12.23.28] 2026-01-05
+
+### Fixed
+
+-   Fixing `MotionStyle` type with React 19 when `skipLibCheck` is `false`.
+-   Add guard for `process` check for better compat with ESM environments.
+
+## [12.23.27] 2026-01-05
+
+### Fixed
+
+-   Improved Intellisense detection for `motion` import.
+-   Adding sourcemaps to release.
+
+## [12.23.26] 2025-12-10
+
+### Fixed
+
+-   Moved initialisation of default scale correctors to allow for overwriting existing correctors.
+
+## [12.23.25] 2025-12-01
+
+### Fixed
+
+-   Ensure relative projection boxes are re-measured when parent layout changes.
+
+## [12.23.24] 2025-10-10
+
+### Fixed
+
+-   Ensure that when a component remounts, it continues to fire animations even when `initial={false}`.
+
+## [12.23.23] 2025-10-10
+
+### Added
+
+-   Exporting `PresenceChild` and `PopChild` type for internal use.
+
 ## [12.23.22] 2025-09-25
 
 ### Added

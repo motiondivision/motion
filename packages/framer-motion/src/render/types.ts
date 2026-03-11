@@ -1,12 +1,19 @@
-import type { AnimationDefinition } from "motion-dom"
-import { AnyResolvedKeyframe, MotionValue } from "motion-dom"
-import type { Axis, Box } from "motion-utils"
+import {
+    AnyResolvedKeyframe,
+    MotionValue,
+    ResolvedValues,
+    type VisualElement,
+    type VisualElementEventCallbacks,
+    type LayoutLifecycles,
+    type UseRenderState,
+} from "motion-dom"
 import { ReducedMotionConfig } from "../context/MotionConfigContext"
 import type { PresenceContextProps } from "../context/PresenceContext"
 import { MotionProps } from "../motion/types"
 import { VisualState } from "../motion/utils/use-visual-state"
 import { DOMMotionComponents } from "./dom/types"
-import type { VisualElement } from "./VisualElement"
+
+export type { VisualElementEventCallbacks, LayoutLifecycles, UseRenderState }
 
 export type ScrapeMotionValuesFromProps = (
     props: MotionProps,
@@ -16,8 +23,6 @@ export type ScrapeMotionValuesFromProps = (
     [key: string]: MotionValue | AnyResolvedKeyframe
 }
 
-export type UseRenderState<RenderState = any> = () => RenderState
-
 export interface VisualElementOptions<Instance, RenderState = any> {
     visualState: VisualState<Instance, RenderState>
     parent?: VisualElement<unknown>
@@ -26,43 +31,20 @@ export interface VisualElementOptions<Instance, RenderState = any> {
     props: MotionProps
     blockInitialAnimation?: boolean
     reducedMotionConfig?: ReducedMotionConfig
-}
-
-/**
- * A generic set of string/number values
- */
-export interface ResolvedValues {
-    [key: string]: AnyResolvedKeyframe
-}
-
-export interface VisualElementEventCallbacks {
-    BeforeLayoutMeasure: () => void
-    LayoutMeasure: (layout: Box, prevLayout?: Box) => void
-    LayoutUpdate: (layout: Axis, prevLayout: Axis) => void
-    Update: (latest: ResolvedValues) => void
-    AnimationStart: (definition: AnimationDefinition) => void
-    AnimationComplete: (definition: AnimationDefinition) => void
-    LayoutAnimationStart: () => void
-    LayoutAnimationComplete: () => void
-    SetAxisTarget: () => void
-    Unmount: () => void
-}
-
-export interface LayoutLifecycles {
-    onBeforeLayoutMeasure?(box: Box): void
-
-    onLayoutMeasure?(box: Box, prevBox: Box): void
-
     /**
-     * @internal
+     * If true, all animations will be skipped and values will be set instantly.
+     * Useful for E2E tests and visual regression testing.
      */
-    onLayoutAnimationStart?(): void
-
+    skipAnimations?: boolean
     /**
-     * @internal
+     * Explicit override for SVG detection. When true, uses SVG rendering;
+     * when false, uses HTML rendering. If undefined, auto-detects.
      */
-    onLayoutAnimationComplete?(): void
+    isSVG?: boolean
 }
+
+// Re-export ResolvedValues from motion-dom for backward compatibility
+export type { ResolvedValues }
 
 export type CreateVisualElement<
     Props = {},

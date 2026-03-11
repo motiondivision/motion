@@ -54,10 +54,11 @@ describe("SVG useProps", () => {
             )
         )
 
+        // Uses unitless values to avoid Safari zoom bug
         expect(result.current).toStrictEqual({
             pathLength: 1,
-            strokeDasharray: "0.5px 1px",
-            strokeDashoffset: "0px",
+            strokeDasharray: "0.5 1",
+            strokeDashoffset: "0",
             style: {},
         })
     })
@@ -75,6 +76,52 @@ describe("SVG useProps", () => {
         expect(result.current).toStrictEqual({
             y: 3,
             style: {},
+        })
+    })
+
+    test("should keep offsetDistance as CSS style, not SVG attribute", () => {
+        const { result } = renderHook(() =>
+            useSVGProps(
+                { style: {} } as any,
+                {
+                    offsetDistance: "50%",
+                    offsetPath: "path('M 0 0 L 100 100')",
+                },
+                false,
+                "circle"
+            )
+        )
+
+        expect(result.current).toStrictEqual({
+            style: {
+                offsetDistance: "50%",
+                offsetPath: "path('M 0 0 L 100 100')",
+            },
+        })
+    })
+
+    test("should keep all CSS motion path properties as styles", () => {
+        const { result } = renderHook(() =>
+            useSVGProps(
+                { style: {} } as any,
+                {
+                    offsetDistance: "25%",
+                    offsetPath: "path('M 0 0 L 100 100')",
+                    offsetRotate: "auto",
+                    offsetAnchor: "center",
+                },
+                false,
+                "rect"
+            )
+        )
+
+        expect(result.current).toStrictEqual({
+            style: {
+                offsetDistance: "25%",
+                offsetPath: "path('M 0 0 L 100 100')",
+                offsetRotate: "auto",
+                offsetAnchor: "center",
+            },
         })
     })
 })

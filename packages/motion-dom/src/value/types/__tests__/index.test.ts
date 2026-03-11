@@ -4,6 +4,7 @@ import { hsla } from "../color/hsla"
 import { rgba, rgbUnit } from "../color/rgba"
 import { complex } from "../complex"
 import { filter } from "../complex/filter"
+import { mask } from "../complex/mask"
 import { alpha } from "../numbers"
 import { degrees, percent, progressPercentage, px } from "../numbers/units"
 import { colorRegex } from "../utils/color-regex"
@@ -155,6 +156,22 @@ describe("complex value type", () => {
         ).toBe(
             "linear-gradient(0turn, rgba(255, 255, 255, 0)) 0px, rgba(0, 255, 255, 0)) 0px"
         )
+    })
+
+    it('does not zero out divisors in calc() expressions', () => {
+        // calc() with division: divisor must not become 0 (division by zero => NaN)
+        expect(
+            complex.getAnimatableNone("calc(var(--spacing) / 5)")
+        ).toBe("calc(var(--spacing) / 5)")
+
+        expect(
+            complex.getAnimatableNone("calc(20% + 200px / 2)")
+        ).toBe("calc(0% + 0px / 2)")
+
+        // Multiplication should still zero out normally
+        expect(
+            complex.getAnimatableNone("calc(20% + 200px * 2)")
+        ).toBe("calc(0% + 0px * 0)")
     })
 })
 
@@ -572,6 +589,38 @@ describe("filter", () => {
             )
         ).toEqual(
             "blur(0rem) brightness(1) contrast(1) drop-shadow(10px 10px #fff) grayscale(0) hue-rotate(0turn) invert(0) opacity(1) saturate(1) sepia(0)"
+        )
+    })
+})
+
+describe("mask", () => {
+    it("should create an animatableNone with opaque colors", () => {
+        expect(
+            mask.getAnimatableNone(
+                "linear-gradient(0deg, rgba(0,0,0,0) 0%, rgb(0,0,0) 100%)"
+            )
+        ).toBe(
+            "linear-gradient(0deg, rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 1) 0%)"
+        )
+    })
+
+    it("should zero numbers but keep colors opaque with hex", () => {
+        expect(
+            mask.getAnimatableNone(
+                "linear-gradient(180deg, #000000 0%, #000000 50%, rgba(0,0,0,0) 100%)"
+            )
+        ).toBe(
+            "linear-gradient(0deg, rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 1) 0%)"
+        )
+    })
+
+    it("should handle radial gradients", () => {
+        expect(
+            mask.getAnimatableNone(
+                "radial-gradient(circle at 50% 25%, rgba(0,0,0,1), rgba(0,0,0,0))"
+            )
+        ).toBe(
+            "radial-gradient(circle at 0% 0%, rgba(0, 0, 0, 1), rgba(0, 0, 0, 1))"
         )
     })
 })

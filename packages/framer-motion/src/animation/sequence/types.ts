@@ -9,6 +9,37 @@ import {
 } from "motion-dom"
 import { Easing } from "motion-utils"
 
+/**
+ * Lifecycle callbacks are not supported on individual sequence segments
+ * because segments are consolidated into a single animation per subject.
+ * Use sequence-level options (e.g. SequenceOptions.onComplete) instead.
+ */
+type LifecycleCallbacks =
+    | "onUpdate"
+    | "onPlay"
+    | "onComplete"
+    | "onRepeat"
+    | "onStop"
+
+/**
+ * Distributive Omit preserves union branches (unlike plain Omit).
+ */
+type DistributiveOmit<T, K extends string> = T extends any
+    ? Omit<T, K>
+    : never
+
+export type SegmentTransitionOptions = DistributiveOmit<
+    DynamicAnimationOptions,
+    LifecycleCallbacks
+> &
+    At
+
+export type SegmentValueTransitionOptions = DistributiveOmit<
+    Transition,
+    LifecycleCallbacks
+> &
+    At
+
 export type ObjectTarget<O> = {
     [K in keyof O]?: O[K] | UnresolvedValueKeyframe[]
 }
@@ -39,7 +70,7 @@ export type MotionValueSegment = [
 export type MotionValueSegmentWithTransition = [
     MotionValue,
     UnresolvedValueKeyframe | UnresolvedValueKeyframe[],
-    Transition & At
+    SegmentValueTransitionOptions
 ]
 
 export type DOMSegment = [ElementOrSelector, DOMKeyframesDefinition]
@@ -47,7 +78,7 @@ export type DOMSegment = [ElementOrSelector, DOMKeyframesDefinition]
 export type DOMSegmentWithTransition = [
     ElementOrSelector,
     DOMKeyframesDefinition,
-    DynamicAnimationOptions & At
+    SegmentTransitionOptions
 ]
 
 export type ObjectSegment<O extends {} = {}> = [O, ObjectTarget<O>]
@@ -55,8 +86,19 @@ export type ObjectSegment<O extends {} = {}> = [O, ObjectTarget<O>]
 export type ObjectSegmentWithTransition<O extends {} = {}> = [
     O,
     ObjectTarget<O>,
-    DynamicAnimationOptions & At
+    SegmentTransitionOptions
 ]
+
+export type SequenceProgressCallback = (value: any) => void
+
+export type FunctionSegment =
+    | [SequenceProgressCallback]
+    | [SequenceProgressCallback, SegmentTransitionOptions]
+    | [
+          SequenceProgressCallback,
+          UnresolvedValueKeyframe | UnresolvedValueKeyframe[],
+          SegmentTransitionOptions
+      ]
 
 export type Segment =
     | ObjectSegment
@@ -67,6 +109,7 @@ export type Segment =
     | MotionValueSegmentWithTransition
     | DOMSegment
     | DOMSegmentWithTransition
+    | FunctionSegment
 
 export type AnimationSequence = Segment[]
 
@@ -74,6 +117,8 @@ export interface SequenceOptions extends AnimationPlaybackOptions {
     delay?: number
     duration?: number
     defaultTransition?: Transition
+    reduceMotion?: boolean
+    onComplete?: () => void
 }
 
 export interface AbsoluteKeyframe {
@@ -97,3 +142,4 @@ export type ResolvedAnimationDefinitions = Map<
     Element | MotionValue,
     ResolvedAnimationDefinition
 >
+

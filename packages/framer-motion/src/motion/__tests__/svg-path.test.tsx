@@ -18,8 +18,8 @@ describe("SVG path", () => {
             rerender(<Component />)
         })
 
-        expect(element).toHaveAttribute("stroke-dashoffset", "0px")
-        expect(element).toHaveAttribute("stroke-dasharray", "1px 1px")
+        expect(element).toHaveAttribute("stroke-dashoffset", "0")
+        expect(element).toHaveAttribute("stroke-dasharray", "1 1")
         expect(element).toHaveAttribute("pathLength", "1")
     })
 })

@@ -477,4 +477,35 @@ describe("styleEffect", () => {
         // Verify mixed values are handled correctly
         expect(element.style.transformOrigin).toBe("50% 100% 0px")
     })
+
+    it("correctly handles string scale values of zero", async () => {
+        const element = document.createElement("div")
+
+        // Create motion values with string scale of zero
+        const scale = motionValue("0")
+        const scaleX = motionValue("0")
+        const scaleY = motionValue("0")
+
+        // Apply style effect
+        styleEffect(element, {
+            scale,
+            scaleX,
+            scaleY,
+        })
+
+        await nextFrame()
+
+        // scale: "0" should produce scale(0), not be treated as default
+        expect(element.style.transform).toBe("scale(0) scaleX(0) scaleY(0)")
+
+        // Change to non-zero values
+        scale.set("1")
+        scaleX.set("1")
+        scaleY.set("1")
+
+        await nextFrame()
+
+        // All values are now default (1), so transform should be "none"
+        expect(element.style.transform).toBe("none")
+    })
 })

@@ -1,5 +1,5 @@
 import "../../../../jest.setup"
-import { camelToDash } from "../camel-to-dash"
+import { camelToDash } from "motion-dom"
 
 describe("camelToDash", () => {
     it("Converts camel case to dash case", () => {

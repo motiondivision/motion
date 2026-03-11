@@ -1,5 +1,9 @@
-import { acceleratedValues, MotionValue, transformProps } from "motion-dom"
-import { WillChange } from "./types"
+import {
+    acceleratedValues,
+    MotionValue,
+    transformProps,
+    type WillChange,
+} from "motion-dom"
 
 export class WillChangeMotionValue
     extends MotionValue<string>

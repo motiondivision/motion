@@ -22,11 +22,17 @@ function isSequence(value: unknown): value is AnimationSequence {
     return Array.isArray(value) && value.some(Array.isArray)
 }
 
+interface ScopedAnimateOptions {
+    scope?: AnimationScope
+    reduceMotion?: boolean
+}
+
 /**
  * Creates an animation function that is optionally scoped
  * to a specific element.
  */
-export function createScopedAnimate(scope?: AnimationScope) {
+export function createScopedAnimate(options: ScopedAnimateOptions = {}) {
+    const { scope, reduceMotion } = options
     /**
      * Animate a sequence
      */
@@ -104,9 +110,16 @@ export function createScopedAnimate(scope?: AnimationScope) {
         let animationOnComplete: VoidFunction | undefined
 
         if (isSequence(subjectOrSequence)) {
+            const { onComplete, ...sequenceOptions } =
+                (optionsOrKeyframes as SequenceOptions) || {}
+            if (typeof onComplete === "function") {
+                animationOnComplete = onComplete as VoidFunction
+            }
             animations = animateSequence(
                 subjectOrSequence,
-                optionsOrKeyframes as SequenceOptions,
+                reduceMotion !== undefined
+                    ? { reduceMotion, ...sequenceOptions }
+                    : (sequenceOptions as SequenceOptions),
                 scope
             )
         } else {
@@ -118,7 +131,9 @@ export function createScopedAnimate(scope?: AnimationScope) {
             animations = animateSubject(
                 subjectOrSequence as ElementOrSelector,
                 optionsOrKeyframes as DOMKeyframesDefinition,
-                rest as DynamicAnimationOptions,
+                (reduceMotion !== undefined
+                    ? { reduceMotion, ...rest }
+                    : rest) as DynamicAnimationOptions,
                 scope
             )
         }

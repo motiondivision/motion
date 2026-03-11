@@ -1,6 +1,6 @@
+import type { Feature } from "motion-dom"
 import { CreateVisualElement } from "../../render/types"
 import { MotionProps } from "../types"
-import type { Feature } from "./Feature"
 import { MeasureLayout } from "./layout/MeasureLayout"
 
 interface FeatureClass<Props = unknown> {

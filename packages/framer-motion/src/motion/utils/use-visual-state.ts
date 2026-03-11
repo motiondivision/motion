@@ -1,21 +1,22 @@
 "use client"
 
-import { AnyResolvedKeyframe } from "motion-dom"
+import {
+    AnyResolvedKeyframe,
+    isAnimationControls,
+    isControllingVariants as checkIsControllingVariants,
+    isVariantNode as checkIsVariantNode,
+    ResolvedValues,
+    resolveVariantFromProps,
+} from "motion-dom"
 import { useContext } from "react"
-import { isAnimationControls } from "../../animation/utils/is-animation-controls"
 import { MotionContext, MotionContextProps } from "../../context/MotionContext"
 import {
     PresenceContext,
     type PresenceContextProps,
 } from "../../context/PresenceContext"
-import { ResolvedValues, ScrapeMotionValuesFromProps } from "../../render/types"
-import {
-    isControllingVariants as checkIsControllingVariants,
-    isVariantNode as checkIsVariantNode,
-} from "../../render/utils/is-controlling-variants"
-import { resolveVariantFromProps } from "../../render/utils/resolve-variants"
+import { ScrapeMotionValuesFromProps } from "../../render/types"
 import { useConstant } from "../../utils/use-constant"
-import { resolveMotionValue } from "../../value/utils/resolve-motion-value"
+import { resolveMotionValue } from "motion-dom"
 import { MotionProps } from "../types"
 
 export interface VisualState<Instance, RenderState> {

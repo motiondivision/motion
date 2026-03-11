@@ -1,5 +1,6 @@
 import { color } from "../color"
 import { filter } from "../complex/filter"
+import { mask } from "../complex/mask"
 import { numberValueTypes } from "./number"
 import { ValueTypeMap } from "./types"
 
@@ -24,6 +25,8 @@ export const defaultValueTypes: ValueTypeMap = {
     borderLeftColor: color,
     filter,
     WebkitFilter: filter,
+    mask,
+    WebkitMask: mask,
 }
 
 /**

@@ -373,6 +373,168 @@ describe("animate", () => {
     })
 })
 
+describe("Sequence callbacks", () => {
+    function waitForFrame(): Promise<void> {
+        return new Promise((resolve) => setTimeout(resolve, 50))
+    }
+
+    test("Progress callback receives interpolated values", async () => {
+        const element = document.createElement("div")
+        const values: number[] = []
+
+        const animation = animate(
+            [
+                [element, { opacity: 1 }, { duration: 0.5 }],
+                [(p: number) => values.push(p), { duration: 0.5 }],
+            ],
+            {
+                defaultTransition: {
+                    ease: "linear",
+                },
+            }
+        )
+
+        await animation.then(() => {
+            expect(values.length).toBeGreaterThan(0)
+            expect(values[values.length - 1]).toBe(1)
+            for (const v of values) {
+                expect(v).toBeGreaterThanOrEqual(0)
+                expect(v).toBeLessThanOrEqual(1)
+            }
+        })
+    })
+
+    test("Progress callback with custom keyframes", async () => {
+        const element = document.createElement("div")
+        const values: number[] = []
+
+        const animation = animate(
+            [
+                [element, { opacity: 1 }, { duration: 0.5 }],
+                [(v: number) => values.push(v), [0, 100], { duration: 0.5 }],
+            ],
+            {
+                defaultTransition: {
+                    ease: "linear",
+                },
+            }
+        )
+
+        await animation.then(() => {
+            expect(values.length).toBeGreaterThan(0)
+            expect(values[values.length - 1]).toBe(100)
+            for (const v of values) {
+                expect(v).toBeGreaterThanOrEqual(0)
+                expect(v).toBeLessThanOrEqual(100)
+            }
+        })
+    })
+
+    test("Toggle helper for do/undo pattern", async () => {
+        const element = document.createElement("div")
+        let doCount = 0
+        let undoCount = 0
+
+        function toggle(
+            onDo: VoidFunction,
+            onUndo?: VoidFunction
+        ) {
+            let done = false
+            return (p: number) => {
+                if (p >= 1 && !done) {
+                    done = true
+                    onDo()
+                } else if (p < 1 && done) {
+                    done = false
+                    onUndo?.()
+                }
+            }
+        }
+
+        const animation = animate([
+            [element, { opacity: 1 }, { duration: 1 }],
+            [
+                toggle(
+                    () => doCount++,
+                    () => undoCount++
+                ),
+                { duration: 0 },
+            ],
+            [element, { opacity: 0 }, { duration: 1 }],
+        ])
+
+        expect(animation.duration).toBe(2)
+
+        animation.pause()
+
+        // Scrub to 0.5 - toggle not yet fired (callback is at t=1)
+        animation.time = 0.5
+        await waitForFrame()
+        expect(doCount).toBe(0)
+        expect(undoCount).toBe(0)
+
+        // Scrub past threshold - do fires
+        animation.time = 1.5
+        await waitForFrame()
+        expect(doCount).toBe(1)
+        expect(undoCount).toBe(0)
+
+        // Scrub back before threshold - undo fires
+        animation.time = 0.5
+        await waitForFrame()
+        expect(doCount).toBe(1)
+        expect(undoCount).toBe(1)
+
+        // Scrub forward again - do fires again
+        animation.time = 1.5
+        await waitForFrame()
+        expect(doCount).toBe(2)
+        expect(undoCount).toBe(1)
+    })
+
+    test("onComplete fires when sequence finishes", async () => {
+        const element = document.createElement("div")
+        let completed = false
+
+        const animation = animate(
+            [
+                [element, { opacity: 0 }, { duration: 0.01 }],
+                [element, { opacity: 1 }, { duration: 0.01 }],
+            ],
+            {
+                onComplete: () => {
+                    completed = true
+                },
+            }
+        )
+
+        await animation.finished
+
+        expect(completed).toBe(true)
+    })
+
+    test("onComplete fires once when sequence finishes", async () => {
+        const element = document.createElement("div")
+        let completedCount = 0
+
+        const animation = animate(
+            [
+                [element, { opacity: 0 }, { duration: 0.01 }],
+                [element, { opacity: 1 }, { duration: 0.01 }],
+            ],
+            {
+                onComplete: () => {
+                    completedCount++
+                },
+            }
+        )
+
+        await animation.finished
+
+        expect(completedCount).toBe(1)
+    })
+})
+
 describe("animate: Objects", () => {
     test("Types: Object to object", () => {
         animate({ x: 100 }, { x: 200 })

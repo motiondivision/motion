@@ -14,6 +14,7 @@ import { DriverControls } from "./drivers/types"
 import { inertia } from "./generators/inertia"
 import { keyframes as keyframesGenerator } from "./generators/keyframes"
 import { calcGeneratorDuration } from "./generators/utils/calc-duration"
+import { getGeneratorVelocity } from "./generators/utils/velocity"
 import { getFinalKeyframe } from "./keyframes/get-final"
 import {
     AnimationPlaybackControlsWithThen,
@@ -300,7 +301,7 @@ export class JSAnimation<T extends number | string>
             ? { done: false, value: keyframes[0] }
             : frameGenerator.next(elapsed)
 
-        if (mixKeyframes) {
+        if (mixKeyframes && !isInDelayPhase) {
             state.value = mixKeyframes(state.value as number)
         }
 
@@ -374,7 +375,36 @@ export class JSAnimation<T extends number | string>
             this.startTime = this.driver.now() - newTime / this.playbackSpeed
         }
 
-        this.driver?.start(false)
+        if (this.driver) {
+            this.driver.start(false)
+        } else {
+            this.startTime = 0
+            this.state = "paused"
+            this.holdTime = newTime
+            this.tick(newTime)
+        }
+    }
+
+    /**
+     * Returns the generator's velocity at the current time in units/second.
+     * Uses the analytical derivative when available (springs), avoiding
+     * the MotionValue's frame-dependent velocity estimation.
+     */
+    getGeneratorVelocity(): number {
+        const t = this.currentTime
+        if (t <= 0) return this.options.velocity || 0
+
+        if (this.generator.velocity) {
+            return this.generator.velocity(t)
+        }
+
+        // Fallback: finite difference
+        const current = this.generator.next(t).value as number
+        return getGeneratorVelocity(
+            (s) => this.generator.next(s).value as number,
+            t,
+            current
+        )
     }
 
     get speed() {
@@ -382,11 +412,15 @@ export class JSAnimation<T extends number | string>
     }
 
     set speed(newSpeed: number) {
-        this.updateTime(time.now())
         const hasChanged = this.playbackSpeed !== newSpeed
+
+        if (hasChanged && this.driver) {
+            this.updateTime(time.now())
+        }
+
         this.playbackSpeed = newSpeed
 
-        if (hasChanged) {
+        if (hasChanged && this.driver) {
             this.time = millisecondsToSeconds(this.currentTime)
         }
     }

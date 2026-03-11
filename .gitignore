@@ -17,6 +17,7 @@ yarn-error.log
 /packages/*/cypress/screenshots
 /packages/*/cypress/videos
 .cache-loader
+.claude/*
 
 .yarn/*
 !.yarn/patches
@@ -45,3 +46,7 @@ test_results
 
 # Generated files
 changelog.csv
+
+# Environment files
+.env
+.env.*

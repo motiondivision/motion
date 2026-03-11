@@ -1,6 +1,6 @@
 "use client"
 
-import { frame, microtask } from "motion-dom"
+import { frame, microtask, globalProjectionState, type VisualElement } from "motion-dom"
 import { Component, useContext } from "react"
 import { usePresence } from "../../../components/AnimatePresence/use-presence"
 import {
@@ -8,11 +8,6 @@ import {
     LayoutGroupContextProps,
 } from "../../../context/LayoutGroupContext"
 import { SwitchLayoutGroupContext } from "../../../context/SwitchLayoutGroupContext"
-import { globalProjectionState } from "../../../projection/node/state"
-import { correctBorderRadius } from "../../../projection/styles/scale-border-radius"
-import { correctBoxShadow } from "../../../projection/styles/scale-box-shadow"
-import { addScaleCorrector } from "../../../projection/styles/scale-correction"
-import { VisualElement } from "../../../render/VisualElement"
 import { MotionProps } from "../../types"
 
 interface MeasureContextProps {
@@ -46,8 +41,6 @@ class MeasureLayoutWithContext extends Component<MeasureProps> {
             this.props
         const { projection } = visualElement
 
-        addScaleCorrector(defaultScaleCorrectors)
-
         if (projection) {
             if (layoutGroup.group) layoutGroup.group.add(projection)
 
@@ -64,6 +57,7 @@ class MeasureLayoutWithContext extends Component<MeasureProps> {
             })
             projection.setOptions({
                 ...projection.options,
+                layoutDependency: this.props.layoutDependency,
                 onExitComplete: () => this.safeToRemove(),
             })
         }
@@ -85,6 +79,13 @@ class MeasureLayoutWithContext extends Component<MeasureProps> {
          * perhaps in didUpdate
          */
         projection.isPresent = isPresent
+
+        if (prevProps.layoutDependency !== layoutDependency) {
+            projection.setOptions({
+                ...projection.options,
+                layoutDependency,
+            })
+        }
 
         hasTakenAnySnapshot = true
 
@@ -177,21 +178,4 @@ export function MeasureLayout(
             safeToRemove={safeToRemove}
         />
     )
-}
-
-const defaultScaleCorrectors = {
-    borderRadius: {
-        ...correctBorderRadius,
-        applyTo: [
-            "borderTopLeftRadius",
-            "borderTopRightRadius",
-            "borderBottomLeftRadius",
-            "borderBottomRightRadius",
-        ],
-    },
-    borderTopLeftRadius: correctBorderRadius,
-    borderTopRightRadius: correctBorderRadius,
-    borderBottomLeftRadius: correctBorderRadius,
-    borderBottomRightRadius: correctBorderRadius,
-    boxShadow: correctBoxShadow,
 }

@@ -83,9 +83,7 @@ function parseComplexValue(v: AnyResolvedKeyframe) {
     return analyseComplexValue(v).values
 }
 
-function createTransformer(source: AnyResolvedKeyframe) {
-    const { split, types } = analyseComplexValue(source)
-
+function buildTransformer({ split, types }: ComplexValueInfo) {
     const numSections = split.length
     return (v: Array<CSSVariableToken | Color | number | string>) => {
         let output = ""
@@ -107,13 +105,43 @@ function createTransformer(source: AnyResolvedKeyframe) {
     }
 }
 
+function createTransformer(source: AnyResolvedKeyframe) {
+    return buildTransformer(analyseComplexValue(source))
+}
+
 const convertNumbersToZero = (v: number | string) =>
     typeof v === "number" ? 0 : color.test(v) ? color.getAnimatableNone(v) : v
 
+/**
+ * Convert a parsed value to its zero equivalent, but preserve numbers
+ * that act as divisors in CSS calc() expressions.
+ *
+ * analyseComplexValue extracts numbers from CSS strings and puts the
+ * surrounding text into a `split` template array. For example:
+ *   "calc(var(--gap) / 5)"  →  values: [var(--gap), 5]
+ *                               split:  ["calc(", " / ", ")"]
+ *
+ * When building a zero-equivalent for animation, naively zeroing all
+ * numbers turns the divisor into 0 → "calc(var(--gap) / 0)" → NaN.
+ * We detect this by checking whether the text preceding a number
+ * (split[i]) ends with "/" — the CSS calc division operator.
+ */
+const convertToZero = (
+    value: ComplexValues[number],
+    splitBefore: string
+): ComplexValues[number] => {
+    if (typeof value === "number") {
+        return splitBefore?.trim().endsWith("/") ? value : 0
+    }
+    return convertNumbersToZero(value as string)
+}
+
 function getAnimatableNone(v: AnyResolvedKeyframe) {
-    const parsed = parseComplexValue(v)
-    const transformer = createTransformer(v)
-    return transformer(parsed.map(convertNumbersToZero))
+    const info = analyseComplexValue(v)
+    const transformer = buildTransformer(info)
+    return transformer(
+        info.values.map((value, i) => convertToZero(value, info.split[i]))
+    )
 }
 
 export const complex = {

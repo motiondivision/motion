@@ -199,6 +199,47 @@ describe("Layout animation", () => {
             })
     })
 
+    it("Doesn't animate shared layout components when layoutDependency hasn't changed (issue #1436)", () => {
+        cy.visit("?test=layout-shared-dependency")
+            .wait(50)
+            .get("#box")
+            .should(([$box]: any) => {
+                // Color should be red (no animation started)
+                expect(getComputedStyle($box).backgroundColor).to.equal(
+                    "rgb(255, 0, 0)"
+                )
+            })
+            // Switch to section B - same layoutDependency, should NOT animate
+            .get("#section-b-btn")
+            .trigger("click")
+            .wait(50)
+            .get("#box")
+            .should(([$box]: any) => {
+                /**
+                 * After switching sections, the box should NOT animate because
+                 * layoutDependency (selected=0) is the same. If an animation started,
+                 * the color would change to green.
+                 */
+                expect(getComputedStyle($box).backgroundColor).to.equal(
+                    "rgb(255, 0, 0)"
+                )
+            })
+            // Click "Jump here" to change layoutDependency - SHOULD animate
+            .get("#jump-1")
+            .trigger("click")
+            .wait(50)
+            .get("#box")
+            .should(([$box]: any) => {
+                /**
+                 * After clicking "Jump here", the layoutDependency changes from 0 to 1,
+                 * so the box SHOULD animate. The color changes to green when animation starts.
+                 */
+                expect(getComputedStyle($box).backgroundColor).to.not.equal(
+                    "rgb(255, 0, 0)"
+                )
+            })
+    })
+
     it("Has a correct bounding box when a transform is applied", () => {
         cy.visit("?test=layout-scaled-child-in-transformed-parent")
             .wait(50)

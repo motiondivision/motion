@@ -10,14 +10,17 @@ export const App = () => {
         const animation = animateMini(
             ref.current,
             { width: 200 },
-            { duration: 0.2 }
+            { duration: 1 } // Longer duration for CI timing reliability
         )
 
-        setTimeout(() => {
+        const timeoutId = setTimeout(() => {
             animation.pause()
         }, 100)
 
-        return () => animation.cancel()
+        return () => {
+            clearTimeout(timeoutId)
+            animation.cancel()
+        }
     }, [])
 
     return <div id="box" ref={ref} style={style} />

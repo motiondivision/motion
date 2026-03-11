@@ -33,6 +33,11 @@ export function animateElements(
     options?: DynamicAnimationOptions,
     scope?: AnimationScope
 ) {
+    // Gracefully handle null/undefined elements (e.g., from querySelector returning null)
+    if (elementOrSelector == null) {
+        return []
+    }
+
     const elements = resolveElements(elementOrSelector, scope) as Array<
         HTMLElement | SVGElement
     >

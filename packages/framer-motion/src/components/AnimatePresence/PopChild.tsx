@@ -13,13 +13,16 @@ interface Size {
     top: number
     left: number
     right: number
+    bottom: number
 }
 
 interface Props {
     children: React.ReactElement
     isPresent: boolean
     anchorX?: "left" | "right"
+    anchorY?: "top" | "bottom"
     root?: HTMLElement | ShadowRoot
+    pop?: boolean
 }
 
 interface MeasureProps extends Props {
@@ -34,18 +37,23 @@ interface MeasureProps extends Props {
 class PopChildMeasure extends React.Component<MeasureProps> {
     getSnapshotBeforeUpdate(prevProps: MeasureProps) {
         const element = this.props.childRef.current
-        if (element && prevProps.isPresent && !this.props.isPresent) {
+        if (isHTMLElement(element) && prevProps.isPresent && !this.props.isPresent && this.props.pop !== false) {
             const parent = element.offsetParent
             const parentWidth = isHTMLElement(parent)
                 ? parent.offsetWidth || 0
                 : 0
+            const parentHeight = isHTMLElement(parent)
+                ? parent.offsetHeight || 0
+                : 0
 
+            const computedStyle = getComputedStyle(element)
             const size = this.props.sizeRef.current!
-            size.height = element.offsetHeight || 0
-            size.width = element.offsetWidth || 0
+            size.height = parseFloat(computedStyle.height)
+            size.width = parseFloat(computedStyle.width)
             size.top = element.offsetTop
             size.left = element.offsetLeft
             size.right = parentWidth - size.width - size.left
+            size.bottom = parentHeight - size.height - size.top
         }
 
         return null
@@ -61,7 +69,7 @@ class PopChildMeasure extends React.Component<MeasureProps> {
     }
 }
 
-export function PopChild({ children, isPresent, anchorX, root }: Props) {
+export function PopChild({ children, isPresent, anchorX, anchorY, root, pop }: Props) {
     const id = useId()
     const ref = useRef<HTMLElement>(null)
     const size = useRef<Size>({
@@ -70,12 +78,17 @@ export function PopChild({ children, isPresent, anchorX, root }: Props) {
         top: 0,
         left: 0,
         right: 0,
+        bottom: 0,
     })
     const { nonce } = useContext(MotionConfigContext)
-    const composedRef = useComposedRefs(
-        ref,
-        (children as { ref?: React.Ref<HTMLElement> })?.ref
-    )
+    /**
+     * In React 19, refs are passed via props.ref instead of element.ref.
+     * We check props.ref first (React 19) and fall back to element.ref (React 18).
+     */
+    const childRef =
+        (children.props as { ref?: React.Ref<HTMLElement> })?.ref ??
+        (children as unknown as { ref?: React.Ref<HTMLElement> })?.ref
+    const composedRef = useComposedRefs(ref, childRef)
 
     /**
      * We create and inject a style block so we can apply this explicit
@@ -87,10 +100,11 @@ export function PopChild({ children, isPresent, anchorX, root }: Props) {
      * styles set via the style prop.
      */
     useInsertionEffect(() => {
-        const { width, height, top, left, right } = size.current
-        if (isPresent || !ref.current || !width || !height) return
+        const { width, height, top, left, right, bottom } = size.current
+        if (isPresent || pop === false || !ref.current || !width || !height) return
 
         const x = anchorX === "left" ? `left: ${left}` : `right: ${right}`
+        const y = anchorY === "bottom" ? `bottom: ${bottom}` : `top: ${top}`
 
         ref.current.dataset.motionPopId = id
 
@@ -107,7 +121,7 @@ export function PopChild({ children, isPresent, anchorX, root }: Props) {
             width: ${width}px !important;
             height: ${height}px !important;
             ${x}px !important;
-            top: ${top}px !important;
+            ${y}px !important;
           }
         `)
         }
@@ -120,8 +134,10 @@ export function PopChild({ children, isPresent, anchorX, root }: Props) {
     }, [isPresent])
 
     return (
-        <PopChildMeasure isPresent={isPresent} childRef={ref} sizeRef={size}>
-            {React.cloneElement(children as any, { ref: composedRef })}
+        <PopChildMeasure isPresent={isPresent} childRef={ref} sizeRef={size} pop={pop}>
+            {pop === false
+                ? children
+                : React.cloneElement(children as any, { ref: composedRef })}
         </PopChildMeasure>
     )
 }

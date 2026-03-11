@@ -163,4 +163,145 @@ describe("usePresence", () => {
 
         await promise
     })
+
+    test("Calling safeToRemove multiple times only triggers exit once", async () => {
+        const promise = new Promise<void>((resolve) => {
+            let safeToRemoveRef: CB
+            let onExitCompleteCount = 0
+
+            const Child = () => {
+                const [isPresent, safeToRemove] = usePresence()
+
+                useEffect(() => {
+                    if (safeToRemove) safeToRemoveRef = safeToRemove
+                }, [isPresent, safeToRemove])
+
+                return <div />
+            }
+
+            const Parent = ({ isVisible }: { isVisible: boolean }) => (
+                <AnimatePresence onExitComplete={() => onExitCompleteCount++}>
+                    {isVisible && <Child />}
+                </AnimatePresence>
+            )
+
+            const { container, rerender } = render(<Parent isVisible />)
+
+            rerender(<Parent isVisible={false} />)
+
+            // Simulate rapid events calling safeToRemove multiple times
+            act(() => {
+                safeToRemoveRef()
+                safeToRemoveRef()
+                safeToRemoveRef()
+            })
+
+            setTimeout(() => {
+                // onExitComplete should only be called once
+                expect(onExitCompleteCount).toBe(1)
+                // Child should be removed
+                expect(container.firstChild).toBeFalsy()
+                resolve()
+            }, 150)
+        })
+
+        await promise
+    })
+
+    test("Rapid rerenders during exit only triggers exit once", async () => {
+        const promise = new Promise<void>((resolve) => {
+            let safeToRemoveRef: CB
+            let onExitCompleteCount = 0
+
+            const Child = () => {
+                const [isPresent, safeToRemove] = usePresence()
+
+                useEffect(() => {
+                    if (safeToRemove) safeToRemoveRef = safeToRemove
+                }, [isPresent, safeToRemove])
+
+                return <div />
+            }
+
+            const Parent = ({ isVisible }: { isVisible: boolean }) => (
+                <AnimatePresence onExitComplete={() => onExitCompleteCount++}>
+                    {isVisible && <Child />}
+                </AnimatePresence>
+            )
+
+            const { container, rerender } = render(<Parent isVisible />)
+
+            // Rapid re-renders with isVisible={false}
+            rerender(<Parent isVisible={false} />)
+            rerender(<Parent isVisible={false} />)
+            rerender(<Parent isVisible={false} />)
+
+            // Now call safeToRemove
+            act(() => safeToRemoveRef())
+
+            setTimeout(() => {
+                // onExitComplete should only be called once
+                expect(onExitCompleteCount).toBe(1)
+                // Child should be removed
+                expect(container.firstChild).toBeFalsy()
+                resolve()
+            }, 150)
+        })
+
+        await promise
+    })
+
+    test("Component can exit again after re-entering", async () => {
+        const promise = new Promise<void>((resolve) => {
+            let safeToRemoveRef: CB
+            let onExitCompleteCount = 0
+
+            const Child = () => {
+                const [isPresent, safeToRemove] = usePresence()
+
+                useEffect(() => {
+                    if (safeToRemove) safeToRemoveRef = safeToRemove
+                }, [isPresent, safeToRemove])
+
+                return <div />
+            }
+
+            const Parent = ({ isVisible }: { isVisible: boolean }) => (
+                <AnimatePresence onExitComplete={() => onExitCompleteCount++}>
+                    {isVisible && <Child />}
+                </AnimatePresence>
+            )
+
+            const { container, rerender } = render(<Parent isVisible />)
+
+            // First exit
+            rerender(<Parent isVisible={false} />)
+            act(() => safeToRemoveRef())
+
+            setTimeout(() => {
+                expect(onExitCompleteCount).toBe(1)
+                expect(container.firstChild).toBeFalsy()
+
+                // Re-enter
+                rerender(<Parent isVisible />)
+
+                setTimeout(() => {
+                    expect(container.firstChild).toBeTruthy()
+
+                    // Second exit
+                    rerender(<Parent isVisible={false} />)
+                    act(() => safeToRemoveRef())
+
+                    setTimeout(() => {
+                        // onExitComplete should be called twice (once per exit cycle)
+                        expect(onExitCompleteCount).toBe(2)
+                        expect(container.firstChild).toBeFalsy()
+                        resolve()
+                    }, 150)
+                }, 150)
+            }, 150)
+        })
+
+        await promise
+    })
 })

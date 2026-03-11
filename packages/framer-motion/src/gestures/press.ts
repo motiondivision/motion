@@ -1,7 +1,5 @@
-import { frame, press } from "motion-dom"
+import { Feature, frame, press, type VisualElement } from "motion-dom"
 import { extractEventInfo } from "../events/event-info"
-import { Feature } from "../motion/features/Feature"
-import { VisualElement } from "../render/VisualElement"
 
 function handlePressEvent(
     node: VisualElement<Element>,
@@ -34,6 +32,8 @@ export class PressGesture extends Feature<Element> {
         const { current } = this.node
         if (!current) return
 
+        const { globalTapTarget, propagate } = this.node.props
+
         this.unmount = press(
             current,
             (_element, startEvent) => {
@@ -46,7 +46,10 @@ export class PressGesture extends Feature<Element> {
                         success ? "End" : "Cancel"
                     )
             },
-            { useGlobalTarget: this.node.props.globalTapTarget }
+            {
+                useGlobalTarget: globalTapTarget,
+                stopPropagation: propagate?.tap === false,
+            }
         )
     }
 

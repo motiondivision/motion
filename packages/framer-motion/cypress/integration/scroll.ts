@@ -328,3 +328,48 @@ describe.skip("scroll() container tracking", () => {
             })
     })
 })
+
+describe("scroll() dynamic content", () => {
+    it("Recalculates window scrollYProgress when content is added below", () => {
+        cy.visit("?test=scroll-progress-dynamic-content")
+            .wait(100)
+            .viewport(100, 400)
+
+        // Scroll to bottom (100% with 2 screens of content)
+        cy.scrollTo("bottom")
+            .wait(200)
+            .get("#progress")
+            .should(([$element]: any) => {
+                expect(parseFloat($element.innerText)).to.be.greaterThan(0.95)
+            })
+
+        // Wait for dynamic content to load
+        cy.get("#content-loaded").should("contain", "loaded").wait(200)
+
+        // Progress should recalculate WITHOUT scrolling - now we're ~50% down
+        cy.get("#progress").should(([$element]: any) => {
+            expect(parseFloat($element.innerText)).to.be.lessThan(0.7)
+        })
+    })
+
+    it("Recalculates element scrollYProgress when content is added", () => {
+        cy.visit("?test=scroll-progress-dynamic-content-element").wait(100)
+
+        // Scroll to bottom of element (100% with 2 screens of content)
+        cy.get("#scroller")
+            .scrollTo("bottom")
+            .wait(200)
+            .get("#progress")
+            .should(([$element]: any) => {
+                expect(parseFloat($element.innerText)).to.be.greaterThan(0.95)
+            })
+
+        // Wait for dynamic content to load
+        cy.get("#content-loaded").should("contain", "loaded").wait(200)
+
+        // Progress should recalculate WITHOUT scrolling - now we're ~50% down
+        cy.get("#progress").should(([$element]: any) => {
+            expect(parseFloat($element.innerText)).to.be.lessThan(0.7)
+        })
+    })
+})

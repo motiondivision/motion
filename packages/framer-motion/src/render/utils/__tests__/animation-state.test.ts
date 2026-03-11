@@ -1,7 +1,6 @@
-import { AnimationState, createAnimationState } from "../animation-state"
+import { createAnimationState, type AnimationState, type VisualElement } from "motion-dom"
 import { MotionProps } from "../../../motion/types"
 import { createHtmlRenderState } from "../../html/utils/create-render-state"
-import { VisualElement } from "../../VisualElement"
 import { StateVisualElement } from "./StateVisualElement"
 
 function createTest(

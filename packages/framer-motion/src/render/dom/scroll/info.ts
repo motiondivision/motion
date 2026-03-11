@@ -46,7 +46,7 @@ function updateAxisInfo(
     const prev = axis.current
     const prevTime = info.time
 
-    axis.current = element[`scroll${position}`]
+    axis.current = Math.abs(element[`scroll${position}`])
     axis.scrollLength = element[`scroll${length}`] - element[`client${length}`]
 
     axis.offset.length = 0

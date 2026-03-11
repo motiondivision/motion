@@ -23,6 +23,8 @@ export interface ValueAnimationOptionsWithRenderContext<
 
 export interface TimelineWithFallback {
     timeline?: ProgressTimeline
+    rangeStart?: string
+    rangeEnd?: string
     observe: (animation: AnimationPlaybackControls) => VoidFunction
 }
 
@@ -114,6 +116,7 @@ export interface AnimationState<V> {
 export interface KeyframeGenerator<V> {
     calculatedDuration: null | number
     next: (t: number) => AnimationState<V>
+    velocity?: (t: number) => number
     toString: () => string
 }
 
@@ -468,6 +471,14 @@ export interface ValueTransition
 
     // @deprecated
     from?: any
+
+    /**
+     * If true, this transition will shallow-merge with its parent transition
+     * instead of replacing it. Inner keys win.
+     *
+     * @public
+     */
+    inherit?: boolean
 }
 
 /**
@@ -593,9 +604,21 @@ export type ValueAnimationWithDynamicDelay = Omit<
     delay?: number | DynamicOption<number>
 }
 
+interface ReduceMotionOption {
+    /**
+     * Whether to reduce motion for transform/layout animations.
+     *
+     * - `true`: Skip transform/layout animations (instant transition)
+     * - `false`: Always animate transforms/layout
+     * - `undefined`: Use device preference (default behavior)
+     */
+    reduceMotion?: boolean
+}
+
 export type AnimationOptions =
-    | ValueAnimationWithDynamicDelay
+    | (ValueAnimationWithDynamicDelay & ReduceMotionOption)
     | (ValueAnimationWithDynamicDelay &
+          ReduceMotionOption &
           StyleTransitions &
           SVGPathTransitions &
           SVGForcedAttrTransitions &

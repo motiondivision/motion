@@ -1,6 +1,7 @@
 import resolve from "@rollup/plugin-node-resolve"
 import replace from "@rollup/plugin-replace"
 import terser from "@rollup/plugin-terser"
+import sourcemaps from "rollup-plugin-sourcemaps"
 import dts from "rollup-plugin-dts"
 import preserveDirectives from "rollup-plugin-preserve-directives"
 import pkg from "./package.json" with { type: "json" }
@@ -83,9 +84,10 @@ const cjs = Object.assign({}, config, {
         dir: "dist/cjs",
         format: "cjs",
         exports: "named",
-        esModule: true
+        esModule: true,
+        sourcemap: true,
     },
-    plugins: [resolve(), replaceSettings()],
+    plugins: [resolve(), replaceSettings(), sourcemaps()],
     external,
     onwarn(warning, warn) {
         if (warning.code === 'MODULE_LEVEL_DIRECTIVE') {
@@ -104,8 +106,9 @@ export const es = Object.assign({}, config, {
         exports: "named",
         preserveModules: true,
         dir: "dist/es",
+        sourcemap: true,
     },
-    plugins: [resolve(), replaceSettings(), preserveDirectives()],
+    plugins: [resolve(), replaceSettings(), preserveDirectives(), sourcemaps()],
     external,
     onwarn(warning, warn) {
         if (warning.code === 'MODULE_LEVEL_DIRECTIVE') {

@@ -1,4 +1,4 @@
-import { cancelFrame, frame, frameData, resize } from "motion-dom"
+import { cancelFrame, frame, frameData, resize, Process } from "motion-dom"
 import { noop } from "motion-utils"
 import { createScrollInfo } from "./info"
 import { createOnScrollHandler } from "./on-scroll-handler"
@@ -7,6 +7,8 @@ import { OnScrollHandler, OnScrollInfo, ScrollInfoOptions } from "./types"
 const scrollListeners = new WeakMap<Element, VoidFunction>()
 const resizeListeners = new WeakMap<Element, VoidFunction>()
 const onScrollHandlers = new WeakMap<Element, Set<OnScrollHandler>>()
+const scrollSize = new WeakMap<Element, { width: number; height: number }>()
+const dimensionCheckProcesses = new WeakMap<Element, Process>()
 
 export type ScrollTargets = Array<HTMLElement>
 
@@ -17,6 +19,7 @@ export function scrollInfo(
     onScroll: OnScrollInfo,
     {
         container = document.scrollingElement as Element,
+        trackContentSize = false,
         ...options
     }: ScrollInfoOptions = {}
 ) {
@@ -69,14 +72,44 @@ export function scrollInfo(
         scrollListeners.set(container, listener)
 
         const target = getEventTarget(container)
-        window.addEventListener("resize", listener, { passive: true })
+        window.addEventListener("resize", listener)
         if (container !== document.documentElement) {
             resizeListeners.set(container, resize(container, listener))
         }
 
-        target.addEventListener("scroll", listener, { passive: true })
+        target.addEventListener("scroll", listener)
 
         listener()
+    }
+
+    /**
+     * Enable content size tracking if requested and not already enabled.
+     */
+    if (trackContentSize && !dimensionCheckProcesses.has(container)) {
+        const listener = scrollListeners.get(container)!
+
+        // Store initial scroll dimensions (object is reused to avoid allocation)
+        const size = {
+            width: container.scrollWidth,
+            height: container.scrollHeight,
+        }
+        scrollSize.set(container, size)
+
+        // Add frame-based scroll dimension checking to detect content changes
+        const checkScrollDimensions: Process = () => {
+            const newWidth = container.scrollWidth
+            const newHeight = container.scrollHeight
+
+            if (size.width !== newWidth || size.height !== newHeight) {
+                listener()
+                size.width = newWidth
+                size.height = newHeight
+            }
+        }
+
+        // Schedule with keepAlive=true to run every frame
+        const dimensionCheckProcess = frame.read(checkScrollDimensions, true)
+        dimensionCheckProcesses.set(container, dimensionCheckProcess)
     }
 
     const listener = scrollListeners.get(container)!
@@ -109,5 +142,13 @@ export function scrollInfo(
             resizeListeners.get(container)?.()
             window.removeEventListener("resize", scrollListener)
         }
+
+        // Clean up scroll dimension checking
+        const dimensionCheckProcess = dimensionCheckProcesses.get(container)
+        if (dimensionCheckProcess) {
+            cancelFrame(dimensionCheckProcess)
+            dimensionCheckProcesses.delete(container)
+        }
+        scrollSize.delete(container)
     }
 }

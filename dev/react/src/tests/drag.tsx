@@ -22,7 +22,11 @@ export const App = () => {
     const right = parseFloat(params.get("right")) || undefined
     const bottom = parseFloat(params.get("bottom")) || undefined
     const showChild = Boolean(params.get("showChild"))
-    const snapToOrigin = Boolean(params.get("return"))
+    const returnParam = params.get("return")
+    const snapToOrigin: boolean | "x" | "y" =
+        returnParam === "x" || returnParam === "y"
+            ? returnParam
+            : Boolean(returnParam)
     const x = getValueParam(params, "x", isPercentage)
     const y = getValueParam(params, "y", isPercentage)
     const layout = params.get("layout") || undefined

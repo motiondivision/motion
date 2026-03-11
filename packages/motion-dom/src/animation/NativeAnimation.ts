@@ -45,6 +45,13 @@ export class NativeAnimation<T extends AnyResolvedKeyframe>
 
     private isPseudoElement: boolean
 
+    /**
+     * Tracks a manually-set start time that takes precedence over WAAPI's
+     * dynamic startTime. This is cleared when play() or time setter is called,
+     * allowing WAAPI to take over timing.
+     */
+    protected manualStartTime: number | null = null
+
     constructor(options?: NativeAnimationOptions) {
         super()
 
@@ -97,13 +104,16 @@ export class NativeAnimation<T extends AnyResolvedKeyframe>
                 )
                 if (this.updateMotionValue) {
                     this.updateMotionValue(keyframe)
-                } else {
-                    /**
-                     * If we can, we want to commit the final style as set by the user,
-                     * rather than the computed keyframe value supplied by the animation.
-                     */
-                    setStyle(element, name, keyframe)
                 }
+
+                /**
+                 * If we can, we want to commit the final style as set by the user,
+                 * rather than the computed keyframe value supplied by the animation.
+                 * We always do this, even when a motion value is present, to prevent
+                 * a visual flash in Firefox where the WAAPI animation's fill is removed
+                 * during cancel() before the scheduled render can apply the correct value.
+                 */
+                setStyle(element, name, keyframe)
 
                 this.animation.cancel()
             }
@@ -118,6 +128,7 @@ export class NativeAnimation<T extends AnyResolvedKeyframe>
     play() {
         if (this.isStopped) return
 
+        this.manualStartTime = null
         this.animation.play()
 
         if (this.state === "finished") {
@@ -170,7 +181,8 @@ export class NativeAnimation<T extends AnyResolvedKeyframe>
      * while deferring the commit until the next animation frame.
      */
     protected commitStyles() {
-        if (!this.isPseudoElement) {
+        const element = this.options?.element
+        if (!this.isPseudoElement && element?.isConnected) {
             this.animation.commitStyles?.()
         }
     }
@@ -192,8 +204,14 @@ export class NativeAnimation<T extends AnyResolvedKeyframe>
     }
 
     set time(newTime: number) {
+        const wasFinished = this.finishedTime !== null
+        this.manualStartTime = null
         this.finishedTime = null
         this.animation.currentTime = secondsToMilliseconds(newTime)
+
+        if (wasFinished) {
+            this.animation.pause()
+        }
     }
 
     /**
@@ -218,17 +236,22 @@ export class NativeAnimation<T extends AnyResolvedKeyframe>
     }
 
     get startTime() {
-        return Number(this.animation.startTime)
+        return this.manualStartTime ?? Number(this.animation.startTime)
     }
 
     set startTime(newStartTime: number) {
-        this.animation.startTime = newStartTime
+        this.manualStartTime = this.animation.startTime = newStartTime
     }
 
     /**
      * Attaches a timeline to the animation, for instance the `ScrollTimeline`.
      */
-    attachTimeline({ timeline, observe }: TimelineWithFallback): VoidFunction {
+    attachTimeline({
+        timeline,
+        rangeStart,
+        rangeEnd,
+        observe,
+    }: TimelineWithFallback): VoidFunction {
         if (this.allowFlatten) {
             this.animation.effect?.updateTiming({ easing: "linear" })
         }
@@ -237,6 +260,9 @@ export class NativeAnimation<T extends AnyResolvedKeyframe>
 
         if (timeline && supportsScrollTimeline()) {
             this.animation.timeline = timeline as any
+
+            if (rangeStart) (this.animation as any).rangeStart = rangeStart
+            if (rangeEnd) (this.animation as any).rangeEnd = rangeEnd
 
             return noop<void>
         } else {

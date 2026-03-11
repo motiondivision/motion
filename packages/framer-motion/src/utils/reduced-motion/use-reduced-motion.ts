@@ -1,9 +1,12 @@
 "use client"
 
+import {
+    hasReducedMotionListener,
+    initPrefersReducedMotion,
+    prefersReducedMotion,
+} from "motion-dom"
 import { warnOnce } from "motion-utils"
 import { useState } from "react"
-import { initPrefersReducedMotion } from "."
-import { hasReducedMotionListener, prefersReducedMotion } from "./state"
 
 /**
  * A hook that returns `true` if we should be using reduced motion based on the current device's Reduced Motion setting.

@@ -115,6 +115,7 @@ describe("Drag SVG", () => {
         cy.visit("?test=drag-svg&right=100&bottom=100")
             .wait(200)
             .get("[data-testid='draggable']")
+            .wait(100)
             .trigger("pointerdown", 50, 50, { force: true })
             .trigger("pointermove", 60, 60, { force: true }) // Gesture will start from first move past threshold
             .wait(50)
@@ -134,6 +135,7 @@ describe("Drag SVG", () => {
         cy.visit("?test=drag-svg&left=-10&top=-10")
             .wait(200)
             .get("[data-testid='draggable']")
+            .wait(100)
             .trigger("pointerdown", 50, 50, { force: true })
             .trigger("pointermove", 60, 60, { force: true }) // Gesture will start from first move past threshold
             .wait(50)

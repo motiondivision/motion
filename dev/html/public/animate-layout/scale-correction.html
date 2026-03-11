@@ -1,0 +1,98 @@
+<html>
+    <head>
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+            }
+
+            #parent {
+                width: 200px;
+                height: 200px;
+                background-color: #ddd;
+            }
+
+            #parent.resized {
+                width: 400px;
+                height: 100px;
+            }
+
+            #child {
+                width: 50px;
+                height: 50px;
+                background-color: #00cc88;
+            }
+
+            [data-layout-correct="false"] {
+                background: #dd1144 !important;
+                opacity: 0.5;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="parent" data-layout>
+            <div id="child" data-layout></div>
+        </div>
+
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module" src="/src/imports/script-assert.js"></script>
+        <script type="module">
+            const { animateLayout, frame } = window.AnimateLayout
+            const parent = document.getElementById("parent")
+            const child = document.getElementById("child")
+
+            async function runTest() {
+                const controls = await animateLayout(
+                    () => {
+                        parent.classList.add("resized")
+                    },
+                    { duration: 10, ease: "linear" }
+                )
+
+                // Pause at halfway
+                controls.pause()
+                controls.time = controls.duration * 0.5
+
+                // Wait one frame for the animation to apply
+                await new Promise((resolve) => frame.postRender(resolve))
+
+                // The child should remain square (50x50) throughout the animation
+                // even though the parent is being scaled from 200x200 to 400x100
+                const childBounds = child.getBoundingClientRect()
+                const aspectRatio = childBounds.width / childBounds.height
+                const threshold = 0.1
+
+                // Aspect ratio should be ~1 (square)
+                if (Math.abs(aspectRatio - 1) > threshold) {
+                    window.showError(
+                        child,
+                        `Child should remain square during parent scale. Got aspect ratio: ${aspectRatio.toFixed(
+                            2
+                        )} (${childBounds.width.toFixed(
+                            1
+                        )}x${childBounds.height.toFixed(1)})`
+                    )
+                }
+
+                // Child should still be approximately 50x50
+                const expectedSize = 50
+                const sizeThreshold = 5
+
+                if (
+                    Math.abs(childBounds.width - expectedSize) >
+                        sizeThreshold ||
+                    Math.abs(childBounds.height - expectedSize) > sizeThreshold
+                ) {
+                    window.showError(
+                        child,
+                        `Child size should be ~${expectedSize}x${expectedSize}, got ${childBounds.width.toFixed(
+                            1
+                        )}x${childBounds.height.toFixed(1)}`
+                    )
+                }
+            }
+
+            runTest().catch(console.error)
+        </script>
+    </body>
+</html>

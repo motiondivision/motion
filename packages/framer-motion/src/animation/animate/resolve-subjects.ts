@@ -8,17 +8,29 @@ import { ObjectTarget } from "../sequence/types"
 import { isDOMKeyframes } from "../utils/is-dom-keyframes"
 
 export function resolveSubjects<O extends {}>(
-    subject: string | Element | Element[] | NodeListOf<Element> | O | O[],
+    subject:
+        | string
+        | Element
+        | Element[]
+        | NodeListOf<Element>
+        | O
+        | O[]
+        | null
+        | undefined,
     keyframes: DOMKeyframesDefinition | ObjectTarget<O>,
     scope?: AnimationScope,
     selectorCache?: SelectorCache
 ) {
+    if (subject == null) {
+        return []
+    }
+
     if (typeof subject === "string" && isDOMKeyframes(keyframes)) {
         return resolveElements(subject, scope, selectorCache)
     } else if (subject instanceof NodeList) {
         return Array.from(subject)
     } else if (Array.isArray(subject)) {
-        return subject
+        return subject.filter((s) => s != null)
     } else {
         return [subject]
     }

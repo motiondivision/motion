@@ -1,5 +1,4 @@
-import type { DragElastic, ResolvedConstraints } from "motion-dom"
-import { mixNumber } from "motion-dom"
+import { calcLength, mixNumber, type DragElastic, type ResolvedConstraints } from "motion-dom"
 import {
     Axis,
     BoundingBox,
@@ -8,7 +7,6 @@ import {
     clamp,
     Point,
 } from "motion-utils"
-import { calcLength } from "../../../projection/geometry/delta-calc"
 
 /**
  * Apply constraints to a point. These constraints are both physical along an

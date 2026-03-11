@@ -75,4 +75,11 @@ export interface AnimatePresenceProps {
      * when using `mode="popLayout"`.
      */
     anchorX?: "left" | "right"
+
+    /**
+     * Internal. Set whether to anchor the y position of the exiting element to the top or bottom
+     * when using `mode="popLayout"`. Use `"bottom"` for elements originally positioned with
+     * `bottom: 0` to prevent them from shifting during exit animations.
+     */
+    anchorY?: "top" | "bottom"
 }

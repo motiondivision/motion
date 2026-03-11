@@ -1,19 +1,9 @@
 "use client"
 
 import { createContext } from "react"
-import { VariantLabels } from "../motion/types"
+import type { PresenceContextProps } from "motion-dom"
 
-/**
- * @public
- */
-export interface PresenceContextProps {
-    id: string
-    isPresent: boolean
-    register: (id: string | number) => () => void
-    onExitComplete?: (id: string | number) => void
-    initial?: false | VariantLabels
-    custom?: any
-}
+export type { PresenceContextProps }
 
 /**
  * @public

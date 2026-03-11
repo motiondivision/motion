@@ -35,6 +35,7 @@
         <div class="box" id="autoplay">autoplay</div>
         <div class="box" id="time">time</div>
         <div class="box" id="custom-easing">custom easing</div>
+        <div class="box" id="stop-after-remove">stop after remove</div>
         <script type="module" src="/src/inc.js"></script>
         <script type="module">
             const { animateMini, spring } = window.Motion
@@ -161,6 +162,35 @@
             customEasingFunction.pause()
             customEasingFunction.time = 0.1
             customEasingFunction.stop()
+
+            // Test stop() doesn't crash when element is removed from DOM (issue #3509)
+            const stopAfterRemoveElement = document.getElementById("stop-after-remove")
+            const stopAfterRemoveAnimation = animateMini(
+                stopAfterRemoveElement,
+                { opacity: [0, 1] },
+                { duration: 1 }
+            )
+
+            try {
+                // Remove element from DOM
+                stopAfterRemoveElement.remove()
+                // Stop animation - this should not throw
+                stopAfterRemoveAnimation.stop()
+                // If we get here without throwing, the test passed
+                // Create a new element to show success
+                const successElement = document.createElement("div")
+                successElement.id = "stop-after-remove-result"
+                successElement.className = "box"
+                successElement.textContent = "complete"
+                document.body.appendChild(successElement)
+            } catch (e) {
+                // If we catch an error, the test failed
+                const errorElement = document.createElement("div")
+                errorElement.id = "stop-after-remove-result"
+                errorElement.className = "box"
+                errorElement.textContent = "error: " + e.message
+                document.body.appendChild(errorElement)
+            }
         </script>
     </body>
 </html>

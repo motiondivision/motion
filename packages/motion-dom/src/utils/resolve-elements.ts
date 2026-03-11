@@ -3,6 +3,8 @@ export type ElementOrSelector =
     | Element[]
     | NodeListOf<Element>
     | string
+    | null
+    | undefined
 
 export interface WithQuerySelectorAll {
     querySelectorAll: Element["querySelectorAll"]
@@ -22,6 +24,10 @@ export function resolveElements(
     scope?: AnimationScope,
     selectorCache?: SelectorCache
 ): Element[] {
+    if (elementOrSelector == null) {
+        return []
+    }
+
     if (elementOrSelector instanceof EventTarget) {
         return [elementOrSelector]
     } else if (typeof elementOrSelector === "string") {
@@ -38,5 +44,7 @@ export function resolveElements(
         return elements ? Array.from(elements) : []
     }
 
-    return Array.from(elementOrSelector)
+    return Array.from(elementOrSelector).filter(
+        (element): element is Element => element != null
+    )
 }

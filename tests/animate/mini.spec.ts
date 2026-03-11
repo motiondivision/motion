@@ -62,4 +62,11 @@ test.describe("animateMini", () => {
         const element = page.locator("#custom-easing")
         await expect(element).toHaveCSS("opacity", "0.25")
     })
+
+    test("stop() does not crash when element is removed from DOM", async ({
+        page,
+    }) => {
+        const element = page.locator("#stop-after-remove-result")
+        await expect(element).toHaveText("complete")
+    })
 })

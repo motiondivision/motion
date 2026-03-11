@@ -1,6 +1,5 @@
-import { transformProps } from "motion-dom"
+import { buildTransform, transformProps } from "motion-dom"
 import "../../../../jest.setup"
-import { buildTransform } from "../build-transform"
 
 describe("transformProps.has", () => {
     it("Correctly identifies only transformPerspective as a transform prop", () => {
@@ -101,5 +100,12 @@ describe("buildTransform", () => {
         ).toBe(
             "translateX(1px) translateY(10px) scale(2) rotate(90deg) rotateZ(190deg)"
         )
+    })
+
+    it("Correctly handles string scale values of zero", () => {
+        // scale: "0" should produce scale(0), not be treated as default
+        expect(buildTransform({ scale: "0" }, {})).toBe("scale(0)")
+        expect(buildTransform({ scaleX: "0" }, {})).toBe("scaleX(0)")
+        expect(buildTransform({ scaleY: "0" }, {})).toBe("scaleY(0)")
     })
 })

@@ -1,12 +1,8 @@
-import { ProgressTimeline, supportsScrollTimeline } from "motion-dom"
+import { ProgressTimeline } from "motion-dom"
 import { scrollInfo } from "../track"
 import { ScrollOptionsWithDefaults } from "../types"
-
-declare global {
-    interface Window {
-        ScrollTimeline: ScrollTimeline
-    }
-}
+import { canUseNativeTimeline } from "./can-use-native-timeline"
+import { offsetToViewTimelineRange } from "./offset-to-range"
 
 declare class ScrollTimeline implements ProgressTimeline {
     constructor(options: ScrollOptions)
@@ -16,9 +12,17 @@ declare class ScrollTimeline implements ProgressTimeline {
     cancel?: VoidFunction
 }
 
+declare class ViewTimeline implements ProgressTimeline {
+    constructor(options: { subject: Element; axis?: string })
+
+    currentTime: null | { value: number }
+
+    cancel?: VoidFunction
+}
+
 const timelineCache = new Map<
     Element,
-    Map<Element | "self", { x?: ProgressTimeline; y?: ProgressTimeline }>
+    Map<Element | "self", Record<string, ProgressTimeline>>
 >()
 
 function scrollTimelineFallback(options: ScrollOptionsWithDefaults) {
@@ -40,19 +44,46 @@ export function getTimeline({
 
     if (source) container = source
 
-    const containerCache = timelineCache.get(container) ?? new Map()
-    timelineCache.set(container, containerCache)
+    let containerCache = timelineCache.get(container)
+    if (!containerCache) {
+        containerCache = new Map()
+        timelineCache.set(container, containerCache)
+    }
 
     const targetKey = options.target ?? "self"
-    const targetCache = containerCache.get(targetKey) ?? {}
+    let targetCache = containerCache.get(targetKey)
+    if (!targetCache) {
+        targetCache = {}
+        containerCache.set(targetKey, targetCache)
+    }
 
     const axisKey = axis + (options.offset ?? []).join(",")
 
     if (!targetCache[axisKey]) {
-        targetCache[axisKey] =
-            !options.target && supportsScrollTimeline()
-                ? new ScrollTimeline({ source: container, axis } as any)
-                : scrollTimelineFallback({ container, ...options })
+        if (options.target && canUseNativeTimeline(options.target)) {
+            const range = offsetToViewTimelineRange(options.offset)
+            if (range) {
+                targetCache[axisKey] = new ViewTimeline({
+                    subject: options.target,
+                    axis,
+                })
+            } else {
+                targetCache[axisKey] = scrollTimelineFallback({
+                    container,
+                    ...options,
+                })
+            }
+        } else if (canUseNativeTimeline()) {
+            targetCache[axisKey] = new ScrollTimeline({
+                source: container,
+                axis,
+            } as any)
+        } else {
+            targetCache[axisKey] = scrollTimelineFallback({
+                container,
+                ...options,
+            })
+        }
     }
 
     return targetCache[axisKey]!

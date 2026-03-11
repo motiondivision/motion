@@ -1,4 +1,9 @@
-import { SubscriptionManager, velocityPerSecond, warnOnce } from "motion-utils"
+import {
+    EasingFunction,
+    SubscriptionManager,
+    velocityPerSecond,
+    warnOnce,
+} from "motion-utils"
 import {
     AnimationPlaybackControlsWithThen,
     AnyResolvedKeyframe,
@@ -52,6 +57,15 @@ export interface Owner {
             generatedTransform: string
         ) => string
     }
+}
+
+export interface AccelerateConfig {
+    factory: (animation: AnimationPlaybackControlsWithThen) => VoidFunction
+    times: number[]
+    keyframes: any[]
+    ease?: EasingFunction | EasingFunction[]
+    duration: number
+    isTransformed?: boolean
 }
 
 export interface MotionValueOptions {
@@ -140,6 +154,13 @@ export class MotionValue<V = any> {
      * Tracks whether this value should be removed
      */
     liveStyle?: boolean
+
+    /**
+     * Scroll timeline acceleration metadata. When set, VisualElement
+     * can create a native WAAPI animation attached to a scroll timeline
+     * instead of driving updates through JS.
+     */
+    accelerate?: AccelerateConfig
 
     /**
      * @param init - The initiating value

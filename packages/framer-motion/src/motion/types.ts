@@ -31,7 +31,7 @@ type MakeCustomValueTypeHelper<T> = MakeMotionHelper<T>
 export type MakeMotion<T> = MakeCustomValueTypeHelper<T>
 
 export type MotionCSS = MakeMotion<
-    Omit<CSSProperties, "rotate" | "scale" | "perspective">
+    Omit<CSSProperties, "rotate" | "scale" | "perspective" | "x" | "y" | "z">
 >
 
 /**
