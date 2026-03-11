@@ -116,6 +116,13 @@ export function useVisualElement<
          */
         if (visualElement && isMounted.current) {
             visualElement.update(props, presenceContext)
+
+            if (visualElement.projection) {
+                visualElement.projection.setOptions({
+                    ...visualElement.projection.options,
+                    layoutArc: props.layoutArc,
+                })
+            }
         }
     })
 
@@ -203,7 +210,7 @@ function createProjectionNode(
         layoutRoot,
         layoutAnchor,
         layoutCrossfade,
-        layoutCurve,
+        layoutArc,
     } = props
 
     visualElement.projection = new ProjectionNodeConstructor(
@@ -229,7 +236,7 @@ function createProjectionNode(
         animationType: typeof layout === "string" ? layout : "both",
         initialPromotionConfig,
         crossfade: layoutCrossfade,
-        layoutCurve,
+        layoutArc,
         layoutScroll,
         layoutRoot,
         layoutAnchor,

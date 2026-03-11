@@ -1,19 +1,17 @@
 "use client"
-import { LayoutGroup, motion } from "motion/react"
+import { Arc, LayoutGroup, motion } from "motion/react"
 import { useState } from "react"
 
 function NavigationItem({
     title,
-    current,
-    onClick,
     id,
-    layoutCurveAmplitude,
+    arc,
+    isActive,
 }: {
     title: string
-    current?: boolean
-    onClick?: () => void
     id: string
-    layoutCurveAmplitude?: number
+    arc: Arc
+    isActive?: boolean
 }) {
     return (
         <div
@@ -22,14 +20,16 @@ function NavigationItem({
                 padding: 10,
             }}
         >
-            {current && (
+            {isActive && (
                 <motion.span
                     id="current-indicator"
                     layoutId="current-indicator"
-                    layoutCurve={{
-                        amplitude: layoutCurveAmplitude,
+                    layoutArc={{
+                        amplitude: arc.amplitude,
+                        peak: arc.peak,
+                        direction: arc.direction,
                     }}
-                    transition={{ duration: 1, ease: "easeInOut" }}
+                    transition={{ duration: 1, ease: "linear" }}
                     style={{
                         zIndex: -1,
                         position: "absolute",
@@ -38,24 +38,23 @@ function NavigationItem({
                     }}
                 />
             )}
-            <button
+            <div
                 id={id}
                 style={{
                     position: "relative",
                     padding: "1rem",
                     width: "100%",
                 }}
-                onClick={onClick}
             >
                 {title}
-            </button>
+            </div>
         </div>
     )
 }
 
 export default function Page() {
     const [state, setState] = useState("a")
-    const [layoutCurveAmplitude, setCurveAmplitude] = useState(1)
+    const [layoutArc, setLayoutArc] = useState<Arc>({ amplitude: 1, peak: 0.5 })
 
     return (
         <div
@@ -76,16 +75,79 @@ export default function Page() {
                 }}
             >
                 <label>
-                    <code>layoutCurveAmplitude: {layoutCurveAmplitude}</code>
+                    <code
+                        style={{
+                            display: "block",
+                            minWidth: 340,
+                            whiteSpace: "pre",
+                            backgroundColor: "#00000020",
+                            padding: 24,
+                            borderRadius: 4,
+                        }}
+                    >{`<motion.div
+    layout="position"
+    layoutArc={{
+        amplitude: ${layoutArc.amplitude},
+        peak: ${layoutArc.peak},${
+                        layoutArc.direction
+                            ? `\n        direction: ${layoutArc.direction},`
+                            : ""
+                    }
+    }}
+/>`}</code>
                 </label>
+                <label style={{ marginTop: 12 }}>amplitude</label>
                 <input
                     type="range"
                     min={-1}
                     step={0.1}
                     max={1}
-                    value={layoutCurveAmplitude}
-                    onChange={(e) => setCurveAmplitude(Number(e.target.value))}
+                    value={layoutArc.amplitude}
+                    onChange={(e) =>
+                        setLayoutArc({
+                            ...layoutArc,
+                            amplitude: Number(e.target.value),
+                        })
+                    }
                 />
+                <label style={{ marginTop: 8 }}>peak</label>
+                <input
+                    type="range"
+                    min={0}
+                    step={0.1}
+                    max={1}
+                    value={layoutArc.peak}
+                    onChange={(e) =>
+                        setLayoutArc({
+                            ...layoutArc,
+                            peak: Number(e.target.value),
+                        })
+                    }
+                />
+                <label style={{ marginTop: 8 }}>direction</label>
+                <select
+                    value={layoutArc.direction ?? "auto"}
+                    onChange={(e) => {
+                        const val = e.target.value
+                        setLayoutArc({
+                            ...layoutArc,
+                            direction:
+                                val === "auto"
+                                    ? undefined
+                                    : (Number(val) as 1 | -1),
+                        })
+                    }}
+                >
+                    <option value="auto">auto</option>
+                    <option value="1">1</option>
+                    <option value="-1">-1</option>
+                </select>
+                <button
+                    style={{ marginTop: 12 }}
+                    onClick={() => setState(state === "a" ? "b" : "a")}
+                >
+                    Toggle
+                </button>
             </div>
             <div
                 style={{
@@ -105,17 +167,15 @@ export default function Page() {
                         <NavigationItem
                             id="a"
                             title="Primary Location"
-                            current={state === "a"}
-                            onClick={() => setState("a")}
-                            layoutCurveAmplitude={layoutCurveAmplitude}
+                            isActive={state === "a"}
+                            arc={layoutArc}
                         />
 
                         <NavigationItem
                             id="b"
                             title="Secondary Location"
-                            current={state === "b"}
-                            onClick={() => setState("b")}
-                            layoutCurveAmplitude={layoutCurveAmplitude}
+                            isActive={state === "b"}
+                            arc={layoutArc}
                         />
                     </LayoutGroup>
                 </div>
@@ -139,17 +199,15 @@ export default function Page() {
                         <NavigationItem
                             id="ab"
                             title="Primary Location"
-                            current={state === "a"}
-                            onClick={() => setState("a")}
-                            layoutCurveAmplitude={layoutCurveAmplitude}
+                            isActive={state === "a"}
+                            arc={layoutArc}
                         />
 
                         <NavigationItem
                             id="bb"
                             title="Secondary Location"
-                            current={state === "b"}
-                            onClick={() => setState("b")}
-                            layoutCurveAmplitude={layoutCurveAmplitude}
+                            isActive={state === "b"}
+                            arc={layoutArc}
                         />
                     </LayoutGroup>
                 </div>
@@ -174,18 +232,16 @@ export default function Page() {
                             <NavigationItem
                                 id="ac"
                                 title="Primary Location"
-                                current={state === "a"}
-                                onClick={() => setState("a")}
-                                layoutCurveAmplitude={layoutCurveAmplitude}
+                                isActive={state === "a"}
+                                arc={layoutArc}
                             />
                         </div>
 
                         <NavigationItem
                             id="bc"
                             title="Secondary Location"
-                            current={state === "b"}
-                            onClick={() => setState("b")}
-                            layoutCurveAmplitude={layoutCurveAmplitude}
+                            isActive={state === "b"}
+                            arc={layoutArc}
                         />
                     </LayoutGroup>
                 </div>
