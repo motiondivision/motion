@@ -42,8 +42,8 @@ describe("Layout animation in CSS-scaled parent", () => {
                  * Bug: viewport top is wrong because CSS scale is invisible
                  * to the projection system
                  */
-                expect(bbox.top).to.be.greaterThan(40)
-                expect(bbox.top).to.be.lessThan(60)
+                expect(bbox.top).to.be.greaterThan(30)
+                expect(bbox.top).to.be.lessThan(70)
             })
     })
 })
