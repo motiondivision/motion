@@ -19,6 +19,20 @@ describe("isHTMLElement", () => {
         expect(isHTMLElement(element)).toBe(false)
     })
 
+    it("should return false for inner SVG elements", () => {
+        const rect = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "rect"
+        )
+        expect(isHTMLElement(rect)).toBe(false)
+
+        const g = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "g"
+        )
+        expect(isHTMLElement(g)).toBe(false)
+    })
+
     it("should return false for a null element", () => {
         const element = null
         expect(isHTMLElement(element)).toBe(false)
