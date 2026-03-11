@@ -1,11 +1,12 @@
-describe("Layout animation in scaled parent", () => {
-    it("Correctly animates layout in a CSS-scaled layoutRoot parent", () => {
+describe("Layout animation in CSS-scaled parent", () => {
+    it("Correctly animates layout when parent has CSS transform: scale()", () => {
         /**
-         * #3356: When a parent has CSS transform: scale(2) and layoutRoot,
-         * children's layout animations should account for the parent scale.
+         * #3356: When a parent has CSS transform: scale(2) (as a string,
+         * not a motion value) and layoutRoot, children's layout animations
+         * should account for the parent scale.
          *
          * Setup:
-         *   Parent: layoutRoot, transform: scale(2), transformOrigin: 0 0
+         *   Parent: layoutRoot, CSS transform: "scale(2)", transformOrigin: "top left"
          *   Child: layout, toggles CSS top from 0 to 50
          *   Transition: duration 10s, ease: () => 0.5 (constant midpoint)
          *
@@ -14,12 +15,12 @@ describe("Layout animation in scaled parent", () => {
          *   End: child at viewport top=100 (CSS top=50 * 2)
          *   Midpoint: child at viewport top=50
          *
-         * Bug behavior: treeScale doesn't include parent CSS scale,
-         * so the translateY is over-applied by a factor of 2, causing the
-         * child to appear at viewport top=0 instead of top=50.
+         * Bug behavior: the projection system doesn't see the parent's CSS
+         * transform string, so treeScale is 1 instead of 2, causing the
+         * translateY to be over-applied.
          */
-        cy.visit("?test=layout-scaled-parent")
-            .wait(50)
+        cy.visit("?test=layout-scaled-parent-css")
+            .wait(100)
             .get("#child")
             .should(([$child]: any) => {
                 const bbox = $child.getBoundingClientRect()
@@ -31,14 +32,15 @@ describe("Layout animation in scaled parent", () => {
             })
             .get("#toggle")
             .trigger("click")
-            .wait(100)
+            .wait(200)
             .get("#child")
             .should(([$child]: any) => {
                 const bbox = $child.getBoundingClientRect()
                 /**
                  * During animation with constant ease 0.5:
                  * Expected: viewport top ≈ 50 (midpoint between 0 and 100)
-                 * Bug: viewport top ≈ 0 (translation over-applied by parent scale)
+                 * Bug: viewport top is wrong because CSS scale is invisible
+                 * to the projection system
                  */
                 expect(bbox.top).to.be.greaterThan(40)
                 expect(bbox.top).to.be.lessThan(60)

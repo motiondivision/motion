@@ -63,12 +63,15 @@ export interface IProjectionNode<I = unknown> {
     projectionDelta?: Delta
     projectionDeltaWithTransform?: Delta
     latestValues: ResolvedValues
+    cssTransformValues?: ResolvedValues
+    updateCSSTransformValues(): void
     isLayoutDirty: boolean
     isProjectionDirty: boolean
     isSharedProjectionDirty: boolean
     isTransformDirty: boolean
     resolvedRelativeTargetAt?: number
     shouldResetTransform: boolean
+    wasTransformReset: boolean
     prevTransformTemplateValue: string | undefined
     isUpdateBlocked(): boolean
     updateManuallyBlocked: boolean

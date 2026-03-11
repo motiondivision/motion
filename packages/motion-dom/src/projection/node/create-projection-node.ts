@@ -86,6 +86,46 @@ const animationTarget = 1000
 
 let id = 0
 
+/**
+ * Parse a CSS transform string to extract scale values.
+ * Returns ResolvedValues with scale/scaleX/scaleY and originX/originY if found.
+ */
+function parseCSSTransformScale(
+    transform: string,
+    transformOrigin?: string
+): ResolvedValues | undefined {
+    // Match scale(N) or scale(X, Y)
+    const scaleMatch = transform.match(
+        /scale\(\s*([0-9.e-]+)(?:\s*,\s*([0-9.e-]+))?\s*\)/
+    )
+    if (!scaleMatch) return undefined
+
+    const values: ResolvedValues = {}
+    if (scaleMatch[2] !== undefined) {
+        values.scaleX = parseFloat(scaleMatch[1])
+        values.scaleY = parseFloat(scaleMatch[2])
+    } else {
+        values.scale = parseFloat(scaleMatch[1])
+    }
+
+    if (transformOrigin) {
+        const parseKeyword = (v: string): number | undefined => {
+            if (v === "left" || v === "top") return 0
+            if (v === "center") return 0.5
+            if (v === "right" || v === "bottom") return 1
+            if (v.endsWith("%")) return parseFloat(v) / 100
+            return undefined
+        }
+        const parts = transformOrigin.trim().split(/\s+/)
+        const ox = parseKeyword(parts[0])
+        const oy = parseKeyword(parts[1] ?? parts[0])
+        if (ox !== undefined) values.originX = ox
+        if (oy !== undefined) values.originY = oy
+    }
+
+    return values
+}
+
 function resetDistortingTransform(
     key: string,
     visualElement: VisualElement,
@@ -340,6 +380,12 @@ export function createProjectionNode<I>({
         shouldResetTransform = false
 
         /**
+         * Flag set when this node's transform was reset for measurement.
+         * Used to avoid double-removing transforms in removeTransform().
+         */
+        wasTransformReset = false
+
+        /**
          * Store whether this node has been checked for optimised appear animations. As
          * effects fire bottom-up, and we want to look up the tree for appear animations,
          * this makes sure we only check each path once, stopping at nodes that
@@ -356,6 +402,13 @@ export function createProjectionNode<I>({
          * TODO: Lazy-init
          */
         treeScale: Point = { x: 1, y: 1 }
+
+        /**
+         * Parsed CSS transform values from the element's style.transform prop.
+         * Used when a CSS transform string (e.g. "scale(2)") is applied to a
+         * motion element but not tracked by the motion value system.
+         */
+        cssTransformValues?: ResolvedValues
 
         /**
          * Is hydrated with a projection node if an element is animating from another.
@@ -646,6 +699,41 @@ export function createProjectionNode<I>({
             return visualElement && visualElement.getProps().transformTemplate
         }
 
+        /**
+         * Parse CSS transform values from the element's style prop.
+         * This detects CSS transform strings like "scale(2)" that aren't
+         * tracked by the motion value system, so the projection system
+         * can account for them during layout animations.
+         */
+        updateCSSTransformValues() {
+            if (hasTransform(this.latestValues)) {
+                this.cssTransformValues = undefined
+                return
+            }
+
+            const { visualElement } = this.options
+            if (!visualElement) return
+
+            const style = (visualElement.getProps() as any).style
+            if (!style) return
+
+            const cssTransform = resolveMotionValue(
+                style.transform as any
+            ) as string | undefined
+
+            if (!cssTransform || typeof cssTransform !== "string") {
+                this.cssTransformValues = undefined
+                return
+            }
+
+            this.cssTransformValues = parseCSSTransformScale(
+                cssTransform,
+                resolveMotionValue(style.transformOrigin as any) as
+                    | string
+                    | undefined
+            )
+        }
+
         willUpdate(shouldNotifyListeners = true) {
             this.root.hasTreeAnimated = true
 
@@ -681,6 +769,12 @@ export function createProjectionNode<I>({
             for (let i = 0; i < this.path.length; i++) {
                 const node = this.path[i]
                 node.shouldResetTransform = true
+
+                /**
+                 * Detect CSS transform strings on ancestor nodes so the
+                 * projection system can account for them.
+                 */
+                node.updateCSSTransformValues()
 
                 /**
                  * Percentage translates resolve against layoutBox dimensions,
@@ -941,6 +1035,8 @@ export function createProjectionNode<I>({
         resetTransform() {
             if (!resetTransform) return
 
+            this.wasTransformReset = false
+
             const isResetRequested =
                 this.isLayoutDirty ||
                 this.shouldResetTransform ||
@@ -962,10 +1058,12 @@ export function createProjectionNode<I>({
                 this.instance &&
                 (hasProjection ||
                     hasTransform(this.latestValues) ||
+                    this.cssTransformValues ||
                     transformTemplateHasChanged)
             ) {
                 resetTransform(this.instance, transformTemplateValue)
                 this.shouldResetTransform = false
+                this.wasTransformReset = true
                 this.scheduleRender()
             }
         }
@@ -1067,7 +1165,16 @@ export function createProjectionNode<I>({
                     })
                 }
 
-                if (!hasTransform(node.latestValues)) continue
+                if (!hasTransform(node.latestValues)) {
+                    if (node.cssTransformValues) {
+                        transformBox(
+                            withTransforms,
+                            node.cssTransformValues,
+                            node.layout?.layoutBox
+                        )
+                    }
+                    continue
+                }
                 transformBox(
                     withTransforms,
                     node.latestValues,
@@ -1081,6 +1188,12 @@ export function createProjectionNode<I>({
                     this.latestValues,
                     this.layout?.layoutBox
                 )
+            } else if (this.cssTransformValues) {
+                transformBox(
+                    withTransforms,
+                    this.cssTransformValues,
+                    this.layout?.layoutBox
+                )
             }
 
             return withTransforms
@@ -1092,26 +1205,41 @@ export function createProjectionNode<I>({
 
             for (let i = 0; i < this.path.length; i++) {
                 const node = this.path[i]
-                if (!hasTransform(node.latestValues)) continue
+
+                /**
+                 * If this node's transform was already removed from the DOM
+                 * by resetTransform(), skip it to avoid double-removing.
+                 */
+                if (node.wasTransformReset) continue
+
+                const hasCSSTransform = node.cssTransformValues && hasScale(node.cssTransformValues)
+
+                if (!hasTransform(node.latestValues) && !hasCSSTransform) continue
+
+                const values = hasTransform(node.latestValues)
+                    ? node.latestValues
+                    : node.cssTransformValues!
 
                 let sourceBox: Box | undefined
 
                 if (node.instance) {
-                    hasScale(node.latestValues) && node.updateSnapshot()
+                    hasScale(values) && node.updateSnapshot()
                     sourceBox = createBox()
                     copyBoxInto(sourceBox, node.measurePageBox())
                 }
 
                 removeBoxTransforms(
                     boxWithoutTransform,
-                    node.latestValues,
+                    values,
                     node.snapshot?.layoutBox,
                     sourceBox
                 )
             }
 
-            if (hasTransform(this.latestValues)) {
+            if (hasTransform(this.latestValues) && !this.wasTransformReset) {
                 removeBoxTransforms(boxWithoutTransform, this.latestValues)
+            } else if (this.cssTransformValues && hasScale(this.cssTransformValues) && !this.wasTransformReset) {
+                removeBoxTransforms(boxWithoutTransform, this.cssTransformValues)
             }
 
             return boxWithoutTransform
@@ -1433,6 +1561,22 @@ export function createProjectionNode<I>({
                 this.path,
                 isShared
             )
+
+            /**
+             * Include ancestor CSS transform scales in treeScale.
+             * These are from CSS transform strings (e.g. "scale(2)") that
+             * aren't tracked by the motion value system but still affect
+             * the coordinate space of children.
+             */
+            for (let i = 0; i < this.path.length; i++) {
+                const css = this.path[i].cssTransformValues
+                if (!css) continue
+                const s = (css.scale as number) ?? 1
+                const sx = (css.scaleX as number) ?? 1
+                const sy = (css.scaleY as number) ?? 1
+                this.treeScale.x *= s * sx
+                this.treeScale.y *= s * sy
+            }
 
             /**
              * If this layer needs to perform scale correction but doesn't have a target,
@@ -1770,6 +1914,14 @@ export function createProjectionNode<I>({
              * applying it to the corrected box.
              */
             transformBox(targetWithTransforms, latestValues)
+
+            /**
+             * If the lead has CSS transform values (e.g. transform: "scale(2)"),
+             * apply those to the target as well so the projection delta accounts for them.
+             */
+            if (lead.cssTransformValues) {
+                transformBox(targetWithTransforms, lead.cssTransformValues, layout.layoutBox)
+            }
 
             /**
              * Update the delta between the corrected box and the final target box, after
