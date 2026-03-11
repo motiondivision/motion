@@ -595,6 +595,19 @@ export type Transition<V = any> =
     | ValueAnimationTransition<V>
     | TransitionWithValueOverrides<V>
 
+export interface Arc {
+    amplitude: number
+    peak: number
+    /**
+     * Controls which side of the straight-line path the arc bulges toward.
+     *
+     * `1` arcs one way, `-1` arcs the other. When unset, the direction
+     * automatically reverses based on the dominant axis of movement so the
+     * arc feels natural in both directions.
+     */
+    direction?: 1 | -1
+}
+
 export type DynamicOption<T> = (i: number, total: number) => T
 
 export type ValueAnimationWithDynamicDelay = Omit<

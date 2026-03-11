@@ -1,5 +1,5 @@
 import type { JSAnimation } from "../../animation/JSAnimation"
-import type { Transition, ValueTransition } from "../../animation/types"
+import type { Arc, Transition, ValueTransition } from "../../animation/types"
 import type { ResolvedValues } from "../../render/types"
 import type { VisualElement, MotionStyle } from "../../render/VisualElement"
 import { Box, Delta, Point } from "motion-utils"
@@ -191,9 +191,7 @@ export interface ProjectionNodeOptions {
     layout?: boolean | string
     visualElement?: VisualElement
     crossfade?: boolean
-    layoutCurve?: {
-        amplitude: number
-    }
+    layoutArc?: Arc
     transition?: Transition
     initialPromotionConfig?: InitialPromotionConfig
     layoutDependency?: unknown

@@ -1549,7 +1549,8 @@ export function createProjectionNode<I>({
             originY: number,
             targetX: number,
             targetY: number,
-            amplitude: number
+            amplitude: number,
+            peak: number
         ) {
             const deltaX = targetX - originX
             const deltaY = targetY - originY
@@ -1563,8 +1564,8 @@ export function createProjectionNode<I>({
                 const normalPerpX = perpX / distance
                 const normalPerpY = perpY / distance
 
-                const midX = originX + deltaX * 0.5
-                const midY = originY + deltaY * 0.5
+                const midX = originX + deltaX * peak
+                const midY = originY + deltaY * peak
 
                 const desiredHeight = amplitude * distance
 
@@ -1624,27 +1625,45 @@ export function createProjectionNode<I>({
             this.mixTargetDelta = (latest: number) => {
                 const progress = latest / 1000
 
-                let amplitude = this.options.layoutCurve?.amplitude ?? 0
-                if (delta.x.translate <= 0) amplitude *= -1
+                const layoutArc = this.options.layoutArc
 
-                const controlDelta = this.options.layoutCurve
-                    ? this.computeControlPoints(
-                          delta.x.translate,
-                          delta.y.translate,
-                          0,
-                          0,
-                          amplitude
-                      )
-                    : {
-                          x: 0,
-                          y: 0,
-                      }
+                if (layoutArc) {
+                    let amplitude = layoutArc.amplitude
+                    if (layoutArc.direction) {
+                        amplitude *= layoutArc.direction
+                    } else {
+                        const dominantDelta =
+                            Math.abs(delta.x.translate) >=
+                            Math.abs(delta.y.translate)
+                                ? delta.x.translate
+                                : delta.y.translate
+                        if (dominantDelta < 0) amplitude *= -1
+                    }
 
-                // deltaTarget = target
-                // delta = origin
-
-                mixAxisDelta(targetDelta.x, delta.x, controlDelta.x, progress)
-                mixAxisDelta(targetDelta.y, delta.y, controlDelta.y, progress)
+                    const controlDelta = this.computeControlPoints(
+                        delta.x.translate,
+                        delta.y.translate,
+                        0,
+                        0,
+                        amplitude,
+                        layoutArc.peak
+                    )
+                    mixAxisDelta(
+                        targetDelta.x,
+                        delta.x,
+                        controlDelta.x,
+                        progress
+                    )
+                    mixAxisDelta(
+                        targetDelta.y,
+                        delta.y,
+                        controlDelta.y,
+                        progress
+                    )
+                } else {
+                    mixAxisDeltaLinear(targetDelta.x, delta.x, progress)
+                    mixAxisDeltaLinear(targetDelta.y, delta.y, progress)
+                }
 
                 // targetDelta now = interpolated
 
@@ -2367,6 +2386,13 @@ function bezierPoint(
         2 * (1 - t) * t * control +
         Math.pow(t, 2) * target
     )
+}
+
+function mixAxisDeltaLinear(output: AxisDelta, delta: AxisDelta, p: number) {
+    output.translate = mixNumber(delta.translate, 0, p)
+    output.scale = mixNumber(delta.scale, 1, p)
+    output.origin = delta.origin
+    output.originPoint = delta.originPoint
 }
 
 export function mixAxisDelta(

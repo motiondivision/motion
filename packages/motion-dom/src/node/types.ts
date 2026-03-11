@@ -1,6 +1,7 @@
 import type { BoundingBox, Box, Point } from "motion-utils"
 import type {
     AnyResolvedKeyframe,
+    Arc,
     InertiaOptions,
     Target,
     TransformProperties,
@@ -72,7 +73,7 @@ export interface Variants {
 /**
  * @deprecated
  */
-export type LegacyAnimationControls = {
+export interface LegacyAnimationControls {
     /**
      * Subscribes a component's animation controls to this.
      *
@@ -538,7 +539,6 @@ export interface MotionNodeTapHandlers {
      * Note: This is not supported publically.
      */
     globalTapTarget?: boolean
-
 }
 
 /**
@@ -970,15 +970,21 @@ export interface MotionNodeLayoutOptions {
     layoutCrossfade?: boolean
 
     /**
-     * By default, layout animations animate from a straight line between the two bounding boxes.
-     * By setting this to a number, the animation will animate along a curve with the given
-     * amplitude.
+     * By default, layout animations animate along a straight line between the two bounding boxes.
+     * Setting this prop makes the animation travel along a curved (quadratic Bezier) arc.
+     *
+     * - `layoutArc={{ amplitude: 1, peak: 0.5 }}` — object form with symmetric arc
+     * - `layoutArc={{ amplitude: 0.7, peak: 0.3 }}` — object form with asymmetric arc
+     * - `layoutArc={{ amplitude: 0.7, direction: -1 }}` — force arc to the other side
+     *
+     * `amplitude` controls how far the arc bulges perpendicular to the straight-line path.
+     * `peak` (0-1, default 0.5) shifts where along the path the arc reaches its maximum height.
+     * `direction` (`1` or `-1`) overrides the automatic arc side. When omitted, the arc
+     * direction reverses automatically based on the direction of movement.
      *
      * @public
      */
-    layoutCurve?: {
-        amplitude: number
-    }
+    layoutArc?: Arc
 }
 
 /**
