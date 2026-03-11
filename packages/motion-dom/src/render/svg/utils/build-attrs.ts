@@ -51,12 +51,16 @@ export function buildSVGAttrs(
     const { attrs, style } = state
 
     /**
-     * However, we apply transforms as CSS transforms.
-     * So if we detect a transform, transformOrigin we take it from attrs and copy it into style.
+     * However, we apply motion-synthesized transforms (from x/y/scale/rotate props) as CSS
+     * transforms. If the user has explicitly provided a `transform` value (e.g. as a native
+     * SVG attribute or MotionValue), we keep it as an SVG attribute so it renders correctly
+     * and overrides any leaked MotionValue object from React props.
      */
     if (attrs.transform) {
-        style.transform = attrs.transform
-        delete attrs.transform
+        if (latest.transform === undefined) {
+            style.transform = attrs.transform
+            delete attrs.transform
+        }
     }
     if (style.transform || attrs.transformOrigin) {
         style.transformOrigin = attrs.transformOrigin ?? "50% 50%"

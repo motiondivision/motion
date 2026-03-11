@@ -3,9 +3,15 @@ import { MotionValue } from "../../value"
 import { MotionValueState } from "../MotionValueState"
 import { createSelectorEffect } from "../utils/create-dom-effect"
 import { createEffect } from "../utils/create-effect"
+import { isSVGAnimatedProperty } from "../utils/is-svg-animated-property"
 
 function canSetAsProperty(element: HTMLElement | SVGElement, name: string) {
     if (!(name in element)) return false
+
+    // SVGAnimated* properties (SVGAnimatedTransformList, SVGAnimatedLength, etc.)
+    // expose a setter but are not directly settable with primitive values.
+    // They must be set via setAttribute instead.
+    if (isSVGAnimatedProperty(element, name)) return false
 
     const descriptor =
         Object.getOwnPropertyDescriptor(Object.getPrototypeOf(element), name) ||

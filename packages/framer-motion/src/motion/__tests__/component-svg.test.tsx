@@ -1,5 +1,6 @@
-import { useRef } from "react"
+import { useEffect, useRef } from "react"
 import {
+    animate,
     motion,
     motionValue,
     TargetAndTransition,
@@ -138,5 +139,60 @@ describe("SVG", () => {
             "viewBox",
             "100 100 200 200"
         )
+    })
+
+    test("transform MotionValue used as SVG attribute doesn't render as [object Object]", async () => {
+        const transform = motionValue("translate(0 0)")
+        const { getByTestId } = render(
+            <svg>
+                <motion.rect
+                    data-testid="rect"
+                    transform={transform}
+                    x={0}
+                    y={0}
+                    width={50}
+                    height={50}
+                />
+            </svg>
+        )
+
+        await nextFrame()
+
+        const rect = getByTestId("rect")
+        expect(rect).toHaveAttribute("transform", "translate(0 0)")
+        expect(rect).not.toHaveAttribute("transform", "[object Object]")
+    })
+
+    test("animates transform MotionValue as SVG attribute", async () => {
+        const transform = motionValue("translate(0 0)")
+
+        const Component = () => {
+            useEffect(() => {
+                animate(transform, "translate(50 50)", {
+                    duration: 0,
+                    ease: "linear",
+                })
+            }, [])
+
+            return (
+                <svg>
+                    <motion.rect
+                        data-testid="rect"
+                        transform={transform}
+                        x={0}
+                        y={0}
+                        width={50}
+                        height={50}
+                    />
+                </svg>
+            )
+        }
+
+        const { getByTestId } = render(<Component />)
+        await nextFrame()
+
+        const rect = getByTestId("rect")
+        expect(rect).toHaveAttribute("transform", "translate(50 50)")
+        expect(rect).not.toHaveAttribute("transform", "[object Object]")
     })
 })

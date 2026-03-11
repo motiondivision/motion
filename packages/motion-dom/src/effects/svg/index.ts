@@ -1,3 +1,4 @@
+import { isSVGAnimatedProperty } from "../utils/is-svg-animated-property"
 import { frame } from "../../frameloop"
 import { MotionValue } from "../../value"
 import { addAttrValue } from "../attr"
@@ -49,6 +50,13 @@ const addSVGValue = (
         return addAttrValue(element, state, convertAttrKey(key), value)
     }
 
+    // SVGAnimated* properties (like transform) exist in both element.style
+    // and as IDL properties, but must be set via setAttribute when using
+    // SVG-syntax values.
+    if (isSVGAnimatedProperty(element, key)) {
+        return addAttrValue(element, state, key, value)
+    }
+
     const handler = key in element.style ? addStyleValue : addAttrValue
     return handler(element, state, key, value)
 }
@@ -58,7 +66,7 @@ export const svgEffect = /*@__PURE__*/ createSelectorEffect(
 )
 
 function convertAttrKey(key: string) {
-    return key.replace(/^attr([A-Z])/, (_, firstChar) =>
+    return key.replace(/^attr([A-Z])/u, (_, firstChar) =>
         firstChar.toLowerCase()
     )
 }
