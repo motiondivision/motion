@@ -20,7 +20,7 @@ describe("layout arc", () => {
             .wait(50)
             // Confirm starting position
             .get("#indicator")
-            .should(([$el]: any) => {
+            .then(([$el]: any) => {
                 const { top } = $el.getBoundingClientRect()
                 expect(top).to.be.closeTo(200, 10)
             })
@@ -30,7 +30,7 @@ describe("layout arc", () => {
             .wait(100)
             // At 50% progress the arc displaces the element ~200px from baseline
             .get("#indicator")
-            .should(([$el]: any) => {
+            .then(([$el]: any) => {
                 const { top } = $el.getBoundingClientRect()
                 expect(Math.abs(top - 200)).to.be.greaterThan(80)
             })
@@ -40,7 +40,7 @@ describe("layout arc", () => {
         cy.visit("?test=transition-arc&variant=none")
             .wait(50)
             .get("#indicator")
-            .should(([$el]: any) => {
+            .then(([$el]: any) => {
                 const { top } = $el.getBoundingClientRect()
                 expect(top).to.be.closeTo(200, 10)
             })
@@ -49,7 +49,7 @@ describe("layout arc", () => {
             .wait(100)
             // No arc — y stays at ≈200 throughout
             .get("#indicator")
-            .should(([$el]: any) => {
+            .then(([$el]: any) => {
                 const { top } = $el.getBoundingClientRect()
                 expect(top).to.be.closeTo(200, 20)
             })
@@ -59,7 +59,7 @@ describe("layout arc", () => {
         cy.visit("?test=transition-arc&variant=small")
             .wait(50)
             .get("#indicator")
-            .should(([$el]: any) => {
+            .then(([$el]: any) => {
                 const { top } = $el.getBoundingClientRect()
                 expect(top).to.be.closeTo(200, 10)
             })
@@ -68,7 +68,7 @@ describe("layout arc", () => {
             .wait(100)
             // 10px movement — below threshold, stays linear
             .get("#indicator")
-            .should(([$el]: any) => {
+            .then(([$el]: any) => {
                 const { top } = $el.getBoundingClientRect()
                 expect(top).to.be.closeTo(200, 20)
             })
