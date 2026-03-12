@@ -13,14 +13,15 @@ export const App = () => {
     const isSmall = variant === "small"
     const itemB = isSmall ? ITEM_B_NEAR : ITEM_B
 
-    const arcConfig =
+    /**
+     * Place arc and ease at the top level so getValueTransition("layout")
+     * picks them both up (it falls back to the full transition when no
+     * "layout" key is present). This mirrors how layout.tsx freezes at 50%.
+     */
+    const transition =
         variant === "none"
-            ? undefined
-            : { amplitude: 1 }
-
-    const layoutTransition = arcConfig
-        ? { layout: { arc: arcConfig, duration: 4, ease: () => 0.5 } }
-        : { duration: 4, ease: () => 0.5 }
+            ? { duration: 4, ease: () => 0.5 }
+            : { duration: 4, ease: () => 0.5, arc: { amplitude: 1 } }
 
     return (
         <div
@@ -40,7 +41,7 @@ export const App = () => {
                         <motion.div
                             id="indicator"
                             layoutId="indicator"
-                            transition={layoutTransition}
+                            transition={transition}
                             style={{
                                 position: "absolute",
                                 inset: 0,
@@ -54,7 +55,7 @@ export const App = () => {
                         <motion.div
                             id="indicator"
                             layoutId="indicator"
-                            transition={layoutTransition}
+                            transition={transition}
                             style={{
                                 position: "absolute",
                                 inset: 0,

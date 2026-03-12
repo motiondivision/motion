@@ -16,7 +16,7 @@
 
 describe("layout arc", () => {
     it("deviates from the straight-line path mid-animation", () => {
-        cy.visit("?test=layout-arc")
+        cy.visit("?test=transition-arc")
             .wait(50)
             // Confirm starting position
             .get("#indicator")
@@ -37,7 +37,7 @@ describe("layout arc", () => {
     })
 
     it("stays on the straight-line path without arc config", () => {
-        cy.visit("?test=layout-arc&variant=none")
+        cy.visit("?test=transition-arc&variant=none")
             .wait(50)
             .get("#indicator")
             .should(([$el]: any) => {
@@ -56,7 +56,7 @@ describe("layout arc", () => {
     })
 
     it("does not arc for movements below the 20px minimum distance", () => {
-        cy.visit("?test=layout-arc&variant=small")
+        cy.visit("?test=transition-arc&variant=small")
             .wait(50)
             .get("#indicator")
             .should(([$el]: any) => {
