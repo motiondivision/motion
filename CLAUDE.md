@@ -167,6 +167,17 @@ When working on a bug fix from a GitHub issue:
 5. **Do not proceed to a fix without a test that fails for the right reason.** See the "Writing Tests" section above.
 6. **Run one clean install, then wait for it to finish.** Do not run `make bootstrap`, `yarn install`, or `corepack enable && yarn install` as overlapping background tasks — they interfere with each other. One install command, foreground, wait for completion.
 
+### Debugging strategy
+
+- **Get to a test fast.** Do not spend extended time on static code analysis trying to find the bug by reading code. Read enough to form an initial theory (~5 min of tracing), then write a test and start experimenting. Most bugs are found faster through testing than through code reading. This is the single most common mistake — it has caused excessive time waste in multiple sessions.
+- **Use targeted searches, not broad exploration.** Prefer `grep`/`glob` for specific functions (e.g. `isHTMLElement`, `supportsBrowserAnimation`) over large Explore agent calls. Two targeted searches beat one broad sweep.
+- **Pivot quickly when your theory is wrong.** If tracing a code path (e.g. the render pipeline) is inconclusive after 2-3 rounds of investigation, step back and look at adjacent systems — utility functions, type guards, environment checks. The bug is often one level removed from where you expect it.
+- **When a bug can't be reproduced in the test environment, stop after 2-3 attempts.** Electron/JSDOM differ from Chrome in significant ways (e.g. `offsetHeight` on SVGElement, WAAPI support, React reconciliation in dev mode). If your test passes from the start: (1) do a web search for the behavioral difference between environments, (2) if the fix is clearly correct and defensive, apply it and write a test that validates the desired behavior — do not spend 10 Cypress runs trying to force a local failure. A test that can't fail without the fix is acceptable when the bug is environment-specific; note this in the PR.
+- **Capture Cypress output on the first run.** Use `tail -60` on the output. Do not re-run Cypress with different grep patterns to capture errors — it wastes time and the information is in the first run.
+- **Think defensively, not forensically.** You don't always need to trace the exact scenario that produces bad input. If a function can receive invalid values and pass them to a browser API, the fix is to guard against that — regardless of which upstream path produces those values. Ask: "should this value ever reach this API?" If no, add the guard and move on.
+- **Choose the right test layer.** Some behaviors can't be directly asserted in tests (e.g. Chrome WAAPI console warnings can't be intercepted via `console.warn` spy). In these cases, unit-test the underlying logic (e.g. `canAnimate`, `isAnimatable`) rather than writing an E2E test that can't actually prove the bug is fixed. Write the E2E test too if it adds value, but recognize which test is the real regression gate.
+- **Avoid background task sprawl.** Do not launch multiple background exploration tasks early in a session. They complete after they're needed and generate noise. Launch tasks when you need their results, not speculatively.
+
 ## Known GitHub CLI Issues
 
 `gh pr edit` fails on this repo due to GitHub's Projects Classic deprecation blocking the GraphQL mutation. **This is expected — do not investigate, retry, or work around it.** If `gh pr create` succeeded and the code is pushed, you're done. Move on.

@@ -9,10 +9,20 @@ Undocumented APIs should be considered internal and may change without warning.
 ### Added
 
 -   Allow `dragSnapToOrigin` to accept `"x"` or `"y"` for per-axis snapping.
+-   Added axis-locked layout animations with `layout="x"` and `layout="y"`.
+-   Added `skipInitialAnimation` to `useSpring`.
 
 ### Fixed
 
 -   Fixed `height` and `width: auto` animations with `box-sizing: border-box`.
+-   Reset component values when exit animation finishes.
+-   Ensure `anticipate` easing returns `1` at `p === 1`.
+-   Fix `@emotion/is-prop-valid` resolve error in Storybook.
+-   Remove `data-pop-layout-id` from exiting elements when animation interrupted.
+-   Ensure we skip WAAPI for non-animatable keyframes.
+-   Ensure we skip WAAPI for SVG transforms.
+-   Ensure `MotionValue` props are not passed to SVG.
+-   `AnimatePresence`: Prevent `mode="wait"` elements from getting stuck when switched rapidly.
 
 ## [12.35.2] 2026-03-09
 
