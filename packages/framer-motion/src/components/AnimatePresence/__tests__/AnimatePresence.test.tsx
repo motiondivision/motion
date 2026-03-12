@@ -1,5 +1,6 @@
 import { waitFor } from "@testing-library/dom"
 import { motionValue, Variants } from "motion-dom"
+import * as React from "react"
 import { act, createRef } from "react"
 import {
     AnimatePresence,
@@ -1499,5 +1500,130 @@ describe("AnimatePresence with custom components", () => {
         // With fix: enter variant called with direction=1 (reset + replay)
         // Without fix: no enter animation replayed (element stuck at exit position)
         expect(enterCustomValues).toContain(1)
+    })
+
+    test("Does not get stuck when state changes cause rapid key alternation in mode='wait'", async () => {
+        /**
+         * Reproduction from #3141: A loading/loaded pattern where
+         * useEffect immediately flips loading to false, causing
+         * the key to change twice per selection (loading-N → document-N).
+         * On mount, multiple selections are batched, and the component
+         * gets stuck showing a stale child.
+         */
+        const Component = () => {
+            const [selected, setSelected] = React.useState({
+                key: 0,
+                loading: true,
+            })
+
+            React.useEffect(() => {
+                if (selected.loading === true) {
+                    setSelected((prev) => ({ ...prev, loading: false }))
+                }
+            }, [selected])
+
+            React.useEffect(() => {
+                // Rapidly cycle through keys on mount
+                setSelected((prev) => ({
+                    key: prev.key + 1,
+                    loading: true,
+                }))
+                setSelected((prev) => ({
+                    key: prev.key + 1,
+                    loading: true,
+                }))
+                setSelected((prev) => ({
+                    key: prev.key + 1,
+                    loading: true,
+                }))
+                setSelected((prev) => ({
+                    key: prev.key + 1,
+                    loading: true,
+                }))
+            }, [])
+
+            const contentKey = selected.loading
+                ? "loading-" + selected.key
+                : "document-" + selected.key
+
+            return (
+                <AnimatePresence mode="wait">
+                    <motion.div
+                        key={contentKey}
+                        data-testid="content"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.1 }}
+                    >
+                        {contentKey}
+                    </motion.div>
+                </AnimatePresence>
+            )
+        }
+
+        const { getByTestId } = render(<Component />)
+
+        // Wait for all state changes and exit animations to settle
+        await act(async () => {
+            await new Promise((resolve) => setTimeout(resolve, 1000))
+        })
+        await act(async () => {
+            await nextFrame()
+            await nextFrame()
+        })
+
+        // The final state should be document-4 (4 increments, loading=false)
+        const content = getByTestId("content")
+        expect(content.textContent).toContain("document-")
+        // Should NOT be stuck on a "loading-" key
+        expect(content.textContent).not.toContain("loading-")
+    })
+
+    test("Shows latest child after rapid key switches in mode='wait'", async () => {
+        /**
+         * Simplified reproduction: rapidly change keys in mode="wait"
+         * before exit animations complete. The last key should be
+         * visible after all animations settle.
+         */
+        const Component = ({ i }: { i: number }) => {
+            return (
+                <AnimatePresence mode="wait">
+                    <motion.div
+                        key={i}
+                        data-testid="content"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.1 }}
+                    >
+                        {i}
+                    </motion.div>
+                </AnimatePresence>
+            )
+        }
+
+        const { container, rerender, getByTestId } = render(
+            <Component i={0} />
+        )
+        rerender(<Component i={0} />)
+
+        // Rapidly switch keys without waiting for exit animations
+        rerender(<Component i={1} />)
+        rerender(<Component i={2} />)
+        rerender(<Component i={3} />)
+
+        // Wait for exit animations to complete
+        await act(async () => {
+            await new Promise((resolve) => setTimeout(resolve, 500))
+        })
+        await act(async () => {
+            await nextFrame()
+            await nextFrame()
+        })
+
+        // Only the last item should remain
+        expect(container.childElementCount).toBe(1)
+        expect(getByTestId("content").textContent).toBe("3")
     })
 })

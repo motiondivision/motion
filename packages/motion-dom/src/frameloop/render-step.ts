@@ -54,7 +54,7 @@ export function createRenderStep(
 
             if (keepAlive) toKeepAlive.add(callback)
 
-            if (!queue.has(callback)) queue.add(callback)
+            queue.add(callback)
 
             return callback
         },
@@ -86,7 +86,9 @@ export function createRenderStep(
             isProcessing = true
 
             // Swap this frame and the next to avoid GC
-            ;[thisFrame, nextFrame] = [nextFrame, thisFrame]
+            const prevFrame = thisFrame
+            thisFrame = nextFrame
+            nextFrame = prevFrame
 
             // Execute this frame
             thisFrame.forEach(triggerCallback)

@@ -189,9 +189,9 @@ export const AnimatePresence = ({
                     if (exitingComponents.current.has(key)) {
                         return
                     }
-                    exitingComponents.current.add(key)
 
                     if (exitComplete.has(key)) {
+                        exitingComponents.current.add(key)
                         exitComplete.set(key, true)
                     } else {
                         return

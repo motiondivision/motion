@@ -24,7 +24,7 @@ interface LayoutElementRecord {
 }
 
 interface LayoutAttributes {
-    layout?: boolean | "position" | "size" | "preserve-aspect"
+    layout?: boolean | "position" | "size" | "preserve-aspect" | "x" | "y"
     layoutId?: string
 }
 
@@ -32,9 +32,9 @@ type LayoutBuilderResolve = (animation: GroupAnimation) => void
 type LayoutBuilderReject = (error: unknown) => void
 
 interface ProjectionOptions {
-    layout?: boolean | "position" | "size" | "preserve-aspect"
+    layout?: boolean | "position" | "size" | "preserve-aspect" | "x" | "y"
     layoutId?: string
-    animationType?: "size" | "position" | "both" | "preserve-aspect"
+    animationType?: "size" | "position" | "both" | "preserve-aspect" | "x" | "y"
     transition?: Transition
     crossfade?: boolean
 }

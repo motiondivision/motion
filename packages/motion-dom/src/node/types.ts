@@ -900,7 +900,7 @@ export interface MotionNodeLayoutOptions {
      *
      * @public
      */
-    layout?: boolean | "position" | "size" | "preserve-aspect"
+    layout?: boolean | "position" | "size" | "preserve-aspect" | "x" | "y"
 
     /**
      * Enable shared layout transitions between different components with the same `layoutId`.

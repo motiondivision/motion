@@ -120,6 +120,30 @@ describe("SVG", () => {
         )
     })
 
+    test("MotionValue can be used for transform attribute on g element", async () => {
+        const Component = () => {
+            const transformValue = useMotionValue("translate(50, 50)")
+
+            return (
+                <svg>
+                    <motion.g transform={transformValue as any}>
+                        <motion.rect width={50} height={50} />
+                    </motion.g>
+                </svg>
+            )
+        }
+
+        const { container } = render(<Component />)
+
+        await nextFrame()
+
+        const gElement = container.querySelector("g")!
+        // The transform should NOT be rendered as "[object Object]"
+        expect(gElement.getAttribute("transform")).not.toBe("[object Object]")
+        // It should be applied as a CSS style transform
+        expect(gElement).toHaveStyle("transform: translate(50, 50)")
+    })
+
     test("animates viewBox", async () => {
         const Component = () => {
             return (

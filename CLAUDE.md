@@ -95,25 +95,42 @@ motion (public API)
 
 1. **Create a test page** in `dev/react/src/tests/<test-name>.tsx` exporting a named `App` component. It's automatically available at `?test=<test-name>`.
 2. **Create a spec** in `packages/framer-motion/cypress/integration/<test-name>.ts`.
-3. **Verify WAAPI acceleration** using `element.getAnimations()` in Cypress `should` callbacks to check that native animations are (or aren't) created.
+3. **Verify WAAPI acceleration** using `element.getAnimations()` in Cypress callbacks — but **only for compositor properties** (opacity, transform). `getAnimations()` won't return WAAPI animations for non-compositor properties like height/width in Electron. Don't use it for those.
+
+### Cypress animation testing patterns
+
+- **Use `.then()`, not `.should()`, for mid-animation measurements.** `cy.should()` retries assertions until they pass or timeout — so it will keep retrying until the animation completes, masking bugs where the target value is wrong. `.then()` captures the value at a single point in time.
+- **For animation target bugs, use long duration + linear easing + mid-animation measurement.** Set `transition={{ type: "tween", ease: "linear", duration: 10 }}`, wait 5s (50% through), then check the computed style with `.then()`. If the target is wrong, the value will be proportionally wrong and easy to detect.
+- **Don't try `getAnimations()` for non-compositor properties** (height, width, etc.) in Cypress/Electron. It likely won't have WAAPI animations to inspect. Stick to computed style checks for these.
+- **Don't use `onUpdate` for mid-animation pixel values.** For keyword targets like `"auto"`, `onUpdate` reports the keyword, not the resolved pixel value. Use `getComputedStyle()` instead.
+- **Always run Cypress tests in the foreground.** Background bash commands hang silently and produce empty output, making debugging impossible. Cypress needs reliable stdout/stderr.
 
 ### Running Cypress tests locally
 
 **You MUST run every new Cypress test against both React 18 and React 19 before creating a PR.** CI runs both and will break if you skip this.
 
-Use the `test-single` pattern from the Makefile, adapted per spec. **Always pick a unique port** using `$RANDOM` to avoid conflicts when multiple agents run tests concurrently:
+**Start the Vite dev server directly** — do NOT use `yarn start-server-and-test` with `yarn dev-server` (turbo). Turbo starts ALL dev servers including Next.js, which is slow and unreliable. Starting Vite directly is instant:
 
 ```bash
-# React 18 — pick a random port, override both Vite and Cypress
+# React 18 — start Vite directly, then run Cypress
 PORT=$((10000 + RANDOM % 50000))
-TEST_PORT=$PORT yarn start-server-and-test "yarn dev-server" http://localhost:$PORT \
-  "cd packages/framer-motion && cypress run --headed --config baseUrl=http://localhost:$PORT --spec cypress/integration/<test-name>.ts"
+cd dev/react && TEST_PORT=$PORT yarn vite --port $PORT &
+DEV_PID=$!
+# Wait for server to be ready
+npx wait-on http://localhost:$PORT
+cd packages/framer-motion && cypress run --headed --config baseUrl=http://localhost:$PORT --spec cypress/integration/<test-name>.ts
+kill $DEV_PID
 
-# React 19 — same pattern, new random port
+# React 19 — same pattern, start its Vite server independently
 PORT=$((10000 + RANDOM % 50000))
-TEST_PORT=$PORT yarn start-server-and-test "yarn dev-server" http://localhost:$PORT \
-  "cd packages/framer-motion && cypress run --config-file=cypress.react-19.json --config baseUrl=http://localhost:$PORT --headed --spec cypress/integration/<test-name>.ts"
+cd dev/react-19 && TEST_PORT=$PORT yarn vite --port $PORT &
+DEV_PID=$!
+npx wait-on http://localhost:$PORT
+cd packages/framer-motion && cypress run --config-file=cypress.react-19.json --config baseUrl=http://localhost:$PORT --headed --spec cypress/integration/<test-name>.ts
+kill $DEV_PID
 ```
+
+**Do NOT set `TEST_PORT` globally with turbo** — it affects both React 18 and 19 dev servers, causing port conflicts. Start each server independently on its own port as shown above.
 
 Both must pass. If a test fails on one React version but not the other, investigate — do not skip it.
 
@@ -143,9 +160,23 @@ async function nextFrame() {
 
 When working on a bug fix from a GitHub issue:
 
-1. **The reporter's reproduction code is the basis for your test.** If the issue links to a CodeSandbox/StackBlitz, fetch it. Try multiple URL patterns if the first fails. If the issue has inline code, use that directly.
-2. **If you cannot get the reproduction code, STOP and ask for help.** Do not guess at what the reporter meant — that leads to tests that prove nothing. Message the team lead with the URL and ask them to provide the code.
-3. **Do not proceed to a fix without a test that fails for the right reason.** See the "Writing Tests" section above.
+1. **Read the issue first.** Run `gh issue view <number>` before doing anything else. Do not infer the ask from code context or agent exploration — read the actual issue to understand what's being requested.
+2. **Check git history early.** Before tracing code, run `git log --grep="<keyword>" -- <relevant-file>` to see if the bug was already fixed or if prior commits reveal the root cause. This can save an entire session of manual code tracing.
+3. **The reporter's reproduction code is the basis for your test.** If the issue links to a CodeSandbox/StackBlitz, fetch it. Try multiple URL patterns if the first fails. If the issue has inline code, use that directly.
+4. **If you cannot get the reproduction code, STOP and ask for help.** Do not guess at what the reporter meant — that leads to tests that prove nothing. Message the team lead with the URL and ask them to provide the code.
+5. **Do not proceed to a fix without a test that fails for the right reason.** See the "Writing Tests" section above.
+6. **Run one clean install, then wait for it to finish.** Do not run `make bootstrap`, `yarn install`, or `corepack enable && yarn install` as overlapping background tasks — they interfere with each other. One install command, foreground, wait for completion.
+
+### Debugging strategy
+
+- **Get to a test fast.** Do not spend extended time on static code analysis trying to find the bug by reading code. Read enough to form an initial theory (~5 min of tracing), then write a test and start experimenting. Most bugs are found faster through testing than through code reading. This is the single most common mistake — it has caused excessive time waste in multiple sessions.
+- **Use targeted searches, not broad exploration.** Prefer `grep`/`glob` for specific functions (e.g. `isHTMLElement`, `supportsBrowserAnimation`) over large Explore agent calls. Two targeted searches beat one broad sweep.
+- **Pivot quickly when your theory is wrong.** If tracing a code path (e.g. the render pipeline) is inconclusive after 2-3 rounds of investigation, step back and look at adjacent systems — utility functions, type guards, environment checks. The bug is often one level removed from where you expect it.
+- **When a bug can't be reproduced in the test environment, stop after 2-3 attempts.** Electron/JSDOM differ from Chrome in significant ways (e.g. `offsetHeight` on SVGElement, WAAPI support, React reconciliation in dev mode). If your test passes from the start: (1) do a web search for the behavioral difference between environments, (2) if the fix is clearly correct and defensive, apply it and write a test that validates the desired behavior — do not spend 10 Cypress runs trying to force a local failure. A test that can't fail without the fix is acceptable when the bug is environment-specific; note this in the PR.
+- **Capture Cypress output on the first run.** Use `tail -60` on the output. Do not re-run Cypress with different grep patterns to capture errors — it wastes time and the information is in the first run.
+- **Think defensively, not forensically.** You don't always need to trace the exact scenario that produces bad input. If a function can receive invalid values and pass them to a browser API, the fix is to guard against that — regardless of which upstream path produces those values. Ask: "should this value ever reach this API?" If no, add the guard and move on.
+- **Choose the right test layer.** Some behaviors can't be directly asserted in tests (e.g. Chrome WAAPI console warnings can't be intercepted via `console.warn` spy). In these cases, unit-test the underlying logic (e.g. `canAnimate`, `isAnimatable`) rather than writing an E2E test that can't actually prove the bug is fixed. Write the E2E test too if it adds value, but recognize which test is the real regression gate.
+- **Avoid background task sprawl.** Do not launch multiple background exploration tasks early in a session. They complete after they're needed and generate noise. Launch tasks when you need their results, not speculatively.
 
 ## Known GitHub CLI Issues
 
