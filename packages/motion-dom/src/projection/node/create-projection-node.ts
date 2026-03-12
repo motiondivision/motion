@@ -1586,6 +1586,7 @@ export function createProjectionNode<I>({
         currentAnimation?: JSAnimation<number>
         mixTargetDelta: (progress: number) => void
         animationProgress = 0
+        prevArcAmplitude?: number
 
         setAnimationOrigin(
             delta: Delta,
@@ -1618,19 +1619,55 @@ export function createProjectionNode<I>({
                     !this.path.some(hasOpacityCrossfade)
             )
 
+            /**
+             * If we were mid-animation, this is an interruption. Unless the
+             * arc is configured with interrupt: "arc", fall back to linear
+             * so the element takes a direct path to its new target.
+             */
+            const isInterrupted = this.animationProgress > 0
+
             this.animationProgress = 0
 
             let prevRelativeTarget: Box
 
-            this.mixTargetDelta = (latest: number) => {
-                const progress = latest / 1000
+            /**
+             * Pre-compute whether the arc should be applied for this animation.
+             * Skip if the distance is below the minimum threshold to avoid
+             * a visible wobble on very small layout shifts.
+             */
+            const layoutArc = this.options.layoutArc
+            const shouldArc =
+                layoutArc &&
+                Math.sqrt(
+                    delta.x.translate * delta.x.translate +
+                        delta.y.translate * delta.y.translate
+                ) >= 20
 
-                const layoutArc = this.options.layoutArc
+            let arcControlDelta: { x: number; y: number } | undefined
 
-                if (layoutArc) {
-                    let amplitude = layoutArc.amplitude
-                    if (layoutArc.direction) {
-                        amplitude *= layoutArc.direction
+            if (shouldArc && layoutArc) {
+                let amplitude: number
+
+                /**
+                 * When interrupted, reuse the signed amplitude from the
+                 * previous arc so the new arc bulges to the same side —
+                 * producing a U-curve rather than an S-curve on reversal.
+                 */
+                if (isInterrupted && this.prevArcAmplitude !== undefined) {
+                    amplitude = this.prevArcAmplitude
+                } else {
+                    amplitude = layoutArc.amplitude
+                    const { direction } = layoutArc
+                    if (direction === 1 || direction === -1) {
+                        amplitude *= direction
+                    } else if (direction) {
+                        const { x, y } = delta
+                        const shouldFlip =
+                            (direction === "up" && x.translate > 0) ||
+                            (direction === "down" && x.translate < 0) ||
+                            (direction === "left" && y.translate < 0) ||
+                            (direction === "right" && y.translate > 0)
+                        if (shouldFlip) amplitude *= -1
                     } else {
                         const dominantDelta =
                             Math.abs(delta.x.translate) >=
@@ -1639,25 +1676,34 @@ export function createProjectionNode<I>({
                                 : delta.y.translate
                         if (dominantDelta < 0) amplitude *= -1
                     }
+                }
 
-                    const controlDelta = this.computeControlPoints(
-                        delta.x.translate,
-                        delta.y.translate,
-                        0,
-                        0,
-                        amplitude,
-                        layoutArc.peak
-                    )
+                this.prevArcAmplitude = amplitude
+
+                arcControlDelta = this.computeControlPoints(
+                    delta.x.translate,
+                    delta.y.translate,
+                    0,
+                    0,
+                    amplitude,
+                    layoutArc.peak ?? 0.5
+                )
+            }
+
+            this.mixTargetDelta = (latest: number) => {
+                const progress = latest / 1000
+
+                if (arcControlDelta) {
                     mixAxisDelta(
                         targetDelta.x,
                         delta.x,
-                        controlDelta.x,
+                        arcControlDelta.x,
                         progress
                     )
                     mixAxisDelta(
                         targetDelta.y,
                         delta.y,
-                        controlDelta.y,
+                        arcControlDelta.y,
                         progress
                     )
                 } else {
@@ -1790,6 +1836,7 @@ export function createProjectionNode<I>({
             this.resumingFrom =
                 this.currentAnimation =
                 this.animationValues =
+                this.prevArcAmplitude =
                     undefined
 
             this.notifyListeners("animationComplete")

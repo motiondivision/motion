@@ -479,6 +479,7 @@ export interface ValueTransition
      * @public
      */
     inherit?: boolean
+
 }
 
 /**
@@ -596,16 +597,32 @@ export type Transition<V = any> =
     | TransitionWithValueOverrides<V>
 
 export interface Arc {
+    /**
+     * How far the arc bulges perpendicular to the straight-line path,
+     * as a fraction of the total distance. A value of `1` means the arc
+     * peaks at a height equal to the full travel distance. Should be >= 0;
+     * use `direction` to control which side the arc bulges toward.
+     */
     amplitude: number
-    peak: number
+    /**
+     * Where along the path (0–1) the arc reaches its maximum height.
+     * `0.5` (the default) produces a symmetric arc; lower values peak
+     * earlier, higher values peak later.
+     *
+     * Default: `0.5`
+     */
+    peak?: number
     /**
      * Controls which side of the straight-line path the arc bulges toward.
      *
-     * `1` arcs one way, `-1` arcs the other. When unset, the direction
-     * automatically reverses based on the dominant axis of movement so the
-     * arc feels natural in both directions.
+     * - `1` / `-1` — relative: flips the automatically-detected side.
+     * - `"up"` / `"down"` / `"left"` / `"right"` — absolute: the arc always
+     *   bulges in that screen direction regardless of movement direction.
+     *
+     * When unset, the direction automatically reverses based on the dominant
+     * axis of movement so the arc feels natural in both directions.
      */
-    direction?: 1 | -1
+    direction?: 1 | -1 | "up" | "down" | "left" | "right"
 }
 
 export type DynamicOption<T> = (i: number, total: number) => T
