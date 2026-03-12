@@ -2,58 +2,6 @@
 import { Arc, LayoutGroup, motion } from "motion/react"
 import { useState } from "react"
 
-function NavigationItem({
-    title,
-    id,
-    arc,
-    isActive,
-}: {
-    title: string
-    id: string
-    arc: Arc
-    isActive?: boolean
-}) {
-    return (
-        <div
-            style={{
-                position: "relative",
-                padding: 10,
-                boxShadow: "0 0 0 1px #00000020",
-                borderRadius: 8,
-            }}
-        >
-            {isActive && (
-                <motion.span
-                    id="current-indicator"
-                    layoutId="current-indicator"
-                    transition={{
-                        duration: 1,
-                        ease: "linear",
-                        layout: { arc },
-                    }}
-                    style={{
-                        zIndex: -1,
-                        position: "absolute",
-                        inset: 0,
-                        backgroundColor: "#ffaca9",
-                        borderRadius: "inherit",
-                    }}
-                />
-            )}
-            <div
-                id={id}
-                style={{
-                    position: "relative",
-                    padding: "1rem",
-                    width: "100%",
-                }}
-            >
-                {title}
-            </div>
-        </div>
-    )
-}
-
 export default function Page() {
     const [state, setState] = useState("a")
     const [arc, setArc] = useState<Arc>({ amplitude: 1 })
@@ -61,7 +9,8 @@ export default function Page() {
     return (
         <div
             style={{
-                display: "flex",
+                display: "grid",
+                gridTemplateColumns: "320px 1fr",
                 justifyContent: "center",
                 alignItems: "center",
                 height: "100svh",
@@ -69,46 +18,40 @@ export default function Page() {
         >
             <div
                 style={{
-                    position: "fixed",
-                    top: 24,
-                    left: 24,
                     display: "flex",
                     flexDirection: "column",
+                    height: "100%",
+                    background: "#ffffffcc",
+                    borderRight: "solid 1px #00000020",
+                    padding: 24,
                 }}
             >
-                <label>
-                    <code
-                        style={{
-                            display: "block",
-                            minWidth: 340,
-                            whiteSpace: "pre",
-                            backgroundColor: "#00000020",
-                            padding: 24,
-                            borderRadius: 4,
-                        }}
-                    >{`<motion.span
+                <code
+                    style={{
+                        display: "block",
+                        whiteSpace: "pre",
+                        backgroundColor: "#0000000a",
+                        padding: 12,
+                        borderRadius: 4,
+                    }}
+                >{`<motion.span
     layoutId="indicator"
     transition={{
         layout: {
             arc: {
                 amplitude: ${arc.amplitude},${
-                        arc.peak !== undefined
-                            ? `\n                peak: ${arc.peak},`
-                            : ""
-                    }${
-                        arc.direction !== undefined
-                            ? `\n                direction: ${
-                                  typeof arc.direction === "string"
-                                      ? `"${arc.direction}"`
-                                      : arc.direction
-                              },`
-                            : ""
-                    }
+                    arc.peak !== undefined
+                        ? `\n                peak: ${arc.peak},`
+                        : ""
+                }${
+                    arc.direction !== undefined
+                        ? `\n                direction: "${arc.direction}",`
+                        : ""
+                }
             },
         },
     }}
 />`}</code>
-                </label>
                 <label style={{ marginTop: 12 }}>amplitude</label>
                 <input
                     type="range"
@@ -143,21 +86,13 @@ export default function Page() {
                     onChange={(e) => {
                         const val = e.target.value
                         const direction: Arc["direction"] =
-                            val === "auto"
-                                ? undefined
-                                : val === "1" || val === "-1"
-                                ? (Number(val) as 1 | -1)
-                                : (val as "up" | "down" | "left" | "right")
+                            val === "auto" ? undefined : (val as "cw" | "ccw")
                         setArc({ ...arc, direction })
                     }}
                 >
                     <option value="auto">auto</option>
-                    <option value="1">1 (relative)</option>
-                    <option value="-1">-1 (relative)</option>
-                    <option value="up">up</option>
-                    <option value="down">down</option>
-                    <option value="left">left</option>
-                    <option value="right">right</option>
+                    <option value="cw">cw</option>
+                    <option value="ccw">ccw</option>
                 </select>
                 <button
                     style={{ marginTop: 12 }}
@@ -166,102 +101,169 @@ export default function Page() {
                     Toggle
                 </button>
             </div>
-            <div
-                style={{
-                    maxWidth: "64rem",
-                }}
-            >
-                <div
-                    style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        gap: "18rem",
-                        padding: "8rem",
-                    }}
-                >
-                    <LayoutGroup id="nav-horizontal">
-                        <NavigationItem
-                            id="a"
-                            title="Primary Location"
-                            isActive={state === "a"}
-                            arc={arc}
-                        />
-
-                        <NavigationItem
-                            id="b"
-                            title="Secondary Location"
-                            isActive={state === "b"}
-                            arc={arc}
-                        />
-                    </LayoutGroup>
-                </div>
+            <div>
+                <Examples state={state} arc={arc} />
             </div>
+        </div>
+    )
+}
+
+const Example = ({
+    children,
+    variant,
+}: {
+    children: React.ReactNode
+    variant?: string
+}) => {
+    return (
+        <div
+            style={{
+                display: "grid",
+                alignItems: "center",
+                justifyItems: "center",
+                borderBottom: "solid 1px #00000020",
+                width: "100%",
+                height: "100%",
+                padding: "2rem",
+                ...(variant === "horizontal" && {
+                    gridTemplateColumns: "1fr 1fr",
+                }),
+                ...(variant === "vertical" && {
+                    gridTemplateRows: "1fr 1fr",
+                }),
+                ...(variant === "diagonal" && {
+                    gridTemplateColumns: "1fr 1fr",
+                    gridTemplateRows: "1fr 1fr",
+                }),
+            }}
+        >
+            {children}
+        </div>
+    )
+}
+
+const Examples = ({ state, arc }: { state: string; arc: Arc }) => {
+    return (
+        <div style={{ display: "flex", flexDirection: "column", gap: "8rem" }}>
+            <Example>
+                <motion.div
+                    animate={{ x: [-200, 200] }}
+                    transition={{
+                        repeat: Infinity,
+                        repeatType: "mirror",
+                        duration: 1,
+                        ease: "easeInOut",
+                        arc,
+                    }}
+                    style={{
+                        width: 64,
+                        height: 64,
+                        borderRadius: 10,
+                        backgroundColor: "#a9c1ff",
+                    }}
+                />
+            </Example>
+            <Example variant="horizontal">
+                <LayoutGroup id="nav-horizontal">
+                    <NavigationItem
+                        id="a"
+                        title="Primary Location"
+                        isActive={state === "a"}
+                        arc={arc}
+                    />
+
+                    <NavigationItem
+                        id="b"
+                        title="Secondary Location"
+                        isActive={state === "b"}
+                        arc={arc}
+                    />
+                </LayoutGroup>
+            </Example>
+            <Example variant="vertical">
+                <LayoutGroup id="nav-vertical">
+                    <NavigationItem
+                        id="a2"
+                        title="Primary Location"
+                        isActive={state === "a"}
+                        arc={arc}
+                    />
+
+                    <NavigationItem
+                        id="b2"
+                        title="Secondary Location"
+                        isActive={state === "b"}
+                        arc={arc}
+                    />
+                </LayoutGroup>
+            </Example>
+            <Example variant="diagonal">
+                <LayoutGroup id="nav-diagonal">
+                    <NavigationItem
+                        id="a3"
+                        title="Primary Location"
+                        isActive={state === "a"}
+                        arc={arc}
+                    />
+                    <div />
+                    <div />
+                    <NavigationItem
+                        id="b3"
+                        title="Secondary Location"
+                        isActive={state === "b"}
+                        arc={arc}
+                    />
+                </LayoutGroup>
+            </Example>
+        </div>
+    )
+}
+
+function NavigationItem({
+    title,
+    id,
+    arc,
+    isActive,
+}: {
+    title: string
+    id: string
+    arc: Arc
+    isActive?: boolean
+}) {
+    return (
+        <div
+            style={{
+                position: "relative",
+                padding: 10,
+                boxShadow: "0 0 0 1px #00000020",
+                borderRadius: 8,
+            }}
+        >
+            {isActive && (
+                <motion.span
+                    id="current-indicator"
+                    layoutId="current-indicator"
+                    transition={{
+                        layout: { arc, duration: 1, ease: "easeInOut" },
+                    }}
+                    style={{
+                        zIndex: -1,
+                        position: "absolute",
+                        inset: 0,
+                        backgroundColor: "#a9c1ff",
+                        borderRadius: "inherit",
+                    }}
+                />
+            )}
             <div
+                id={id}
                 style={{
-                    maxWidth: "64rem",
+                    position: "relative",
+                    padding: "1rem",
+                    width: "100%",
                 }}
             >
-                <div
-                    style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        gap: "8rem",
-                        padding: "8rem",
-                    }}
-                >
-                    <LayoutGroup id="nav-vertical">
-                        <NavigationItem
-                            id="ab"
-                            title="Primary Location"
-                            isActive={state === "a"}
-                            arc={arc}
-                        />
-
-                        <NavigationItem
-                            id="bb"
-                            title="Secondary Location"
-                            isActive={state === "b"}
-                            arc={arc}
-                        />
-                    </LayoutGroup>
-                </div>
-            </div>
-            <div
-                style={{
-                    maxWidth: "64rem",
-                }}
-            >
-                <div
-                    style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        gap: "8rem",
-                        padding: "8rem",
-                    }}
-                >
-                    <LayoutGroup id="nav-diagonal">
-                        <div style={{ paddingRight: "25rem" }}>
-                            <NavigationItem
-                                id="ac"
-                                title="Primary Location"
-                                isActive={state === "a"}
-                                arc={arc}
-                            />
-                        </div>
-
-                        <NavigationItem
-                            id="bc"
-                            title="Secondary Location"
-                            isActive={state === "b"}
-                            arc={arc}
-                        />
-                    </LayoutGroup>
-                </div>
+                {title}
             </div>
         </div>
     )
