@@ -1603,9 +1603,8 @@ export function createProjectionNode<I>({
              * Skip if the distance is below the minimum threshold to avoid
              * a visible wobble on very small layout shifts.
              */
-            const layoutArc = arc
             const shouldArc =
-                layoutArc &&
+                arc &&
                 Math.sqrt(
                     delta.x.translate * delta.x.translate +
                         delta.y.translate * delta.y.translate
@@ -1613,7 +1612,7 @@ export function createProjectionNode<I>({
 
             let arcControlDelta: { x: number; y: number } | undefined
 
-            if (shouldArc && layoutArc) {
+            if (shouldArc && arc) {
                 let amplitude: number
 
                 /**
@@ -1625,7 +1624,7 @@ export function createProjectionNode<I>({
                     amplitude = this.prevArcAmplitude
                 } else {
                     amplitude = resolveArcAmplitude(
-                        layoutArc,
+                        arc,
                         delta.x.translate,
                         delta.y.translate
                     )
@@ -1639,7 +1638,7 @@ export function createProjectionNode<I>({
                     0,
                     0,
                     amplitude,
-                    layoutArc.peak ?? 0.5
+                    arc.peak ?? 0.5
                 )
             }
 
