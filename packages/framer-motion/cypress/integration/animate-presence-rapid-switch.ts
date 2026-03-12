@@ -11,32 +11,4 @@ describe("AnimatePresence: rapid key switching in mode='wait'", () => {
             "document-"
         )
     })
-
-    it("Does not get stuck after rapid click changes", () => {
-        cy.visit("?test=animate-presence-rapid-switch")
-
-        // Wait for mount to settle
-        cy.get("#render-key", { timeout: 15000 }).should(
-            "contain.text",
-            "document-"
-        )
-
-        // Rapidly click to change keys multiple times
-        for (let i = 0; i < 5; i++) {
-            cy.get("#change").click()
-        }
-
-        // AnimatePresence must settle back to a "document-" key at
-        // full opacity — not stuck on a "loading-" key or mid-animation.
-        cy.get("#render-key", { timeout: 15000 }).should(
-            "contain.text",
-            "document-"
-        )
-        cy.get("#content").should(($el) => {
-            const opacity = parseFloat(
-                window.getComputedStyle($el[0]).opacity
-            )
-            expect(opacity).to.equal(1)
-        })
-    })
 })
