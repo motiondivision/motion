@@ -1592,11 +1592,6 @@ export function createProjectionNode<I>({
                     !this.path.some(hasOpacityCrossfade)
             )
 
-            /**
-             * If we were mid-animation, this is an interruption. Unless the
-             * arc is configured with interrupt: "arc", fall back to linear
-             * so the element takes a direct path to its new target.
-             */
             const isInterrupted = this.animationProgress > 0
 
             this.animationProgress = 0
@@ -1668,8 +1663,6 @@ export function createProjectionNode<I>({
                     mixAxisDeltaLinear(targetDelta.x, delta.x, progress)
                     mixAxisDeltaLinear(targetDelta.y, delta.y, progress)
                 }
-
-                // targetDelta now = interpolated
 
                 this.setTargetDelta(targetDelta)
 
