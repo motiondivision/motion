@@ -494,6 +494,17 @@ export interface ValueTransition
      * @public
      */
     skipAnimations?: boolean
+
+    /**
+     * Configures an arc path for layout animations. The element will travel
+     * along a curved path rather than a straight line between its old and
+     * new positions.
+     *
+     * Only applies when used inside `transition.layout`.
+     *
+     * @public
+     */
+    arc?: Arc
 }
 
 /**
