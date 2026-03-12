@@ -1,15 +1,8 @@
 "use client"
-import {
-    Arc,
-    LayoutGroup,
-    motion,
-    TargetAndTransition,
-    Transition,
-} from "motion/react"
-import { useState } from "react"
+import { Arc, LayoutGroup, motion, useAnimate } from "motion/react"
+import { useEffect, useState } from "react"
 
 export default function Page() {
-    const [state, setState] = useState("a")
     const [arc, setArc] = useState<Arc>({ amplitude: 1 })
 
     return (
@@ -17,8 +10,6 @@ export default function Page() {
             style={{
                 display: "grid",
                 gridTemplateColumns: "320px 1fr",
-                justifyContent: "center",
-                alignItems: "center",
                 height: "100svh",
             }}
         >
@@ -30,6 +21,7 @@ export default function Page() {
                     background: "#ffffffcc",
                     borderRight: "solid 1px #00000020",
                     padding: 24,
+                    gap: 8,
                 }}
             >
                 <code
@@ -39,26 +31,18 @@ export default function Page() {
                         backgroundColor: "#0000000a",
                         padding: 12,
                         borderRadius: 4,
+                        fontSize: 12,
                     }}
-                >{`<motion.span
-    layoutId="indicator"
-    transition={{
-        layout: {
-            arc: {
-                amplitude: ${arc.amplitude},${
-                    arc.peak !== undefined
-                        ? `\n                peak: ${arc.peak},`
-                        : ""
+                >{`arc: {
+    amplitude: ${arc.amplitude},${
+                    arc.peak !== undefined ? `\n    peak: ${arc.peak},` : ""
                 }${
                     arc.direction !== undefined
-                        ? `\n                direction: "${arc.direction}",`
+                        ? `\n    direction: "${arc.direction}",`
                         : ""
                 }
-            },
-        },
-    }}
-/>`}</code>
-                <label style={{ marginTop: 12 }}>amplitude</label>
+}`}</code>
+                <label>amplitude</label>
                 <input
                     type="range"
                     min={0}
@@ -66,13 +50,10 @@ export default function Page() {
                     max={2}
                     value={arc.amplitude}
                     onChange={(e) =>
-                        setArc({
-                            ...arc,
-                            amplitude: Number(e.target.value),
-                        })
+                        setArc({ ...arc, amplitude: Number(e.target.value) })
                     }
                 />
-                <label style={{ marginTop: 8 }}>peak (default 0.5)</label>
+                <label>peak (default 0.5)</label>
                 <input
                     type="range"
                     min={0}
@@ -80,13 +61,10 @@ export default function Page() {
                     max={1}
                     value={arc.peak ?? 0.5}
                     onChange={(e) =>
-                        setArc({
-                            ...arc,
-                            peak: Number(e.target.value),
-                        })
+                        setArc({ ...arc, peak: Number(e.target.value) })
                     }
                 />
-                <label style={{ marginTop: 8 }}>direction</label>
+                <label>direction</label>
                 <select
                     value={arc.direction ?? "auto"}
                     onChange={(e) => {
@@ -100,154 +78,152 @@ export default function Page() {
                     <option value="cw">cw</option>
                     <option value="ccw">ccw</option>
                 </select>
-                <button
-                    style={{ marginTop: 12 }}
-                    onClick={() => setState(state === "a" ? "b" : "a")}
-                >
-                    Toggle
-                </button>
             </div>
-            <div>
-                <Examples state={state} arc={arc} />
+            <div style={{ overflowY: "auto" }}>
+                <Examples arc={arc} />
             </div>
         </div>
     )
 }
 
-const Example = ({
+const Section = ({
+    title,
     children,
-    variant,
 }: {
+    title: string
     children: React.ReactNode
-    variant?: string
-}) => {
-    return (
+}) => (
+    <div style={{ borderBottom: "solid 1px #00000020", padding: "2rem" }}>
         <div
             style={{
-                display: "grid",
-                alignItems: "center",
-                justifyItems: "center",
-                borderBottom: "solid 1px #00000020",
-                width: "100%",
-                height: "100%",
-                padding: "2rem",
-                ...(variant === "horizontal" && {
-                    gridTemplateColumns: "1fr 1fr",
-                }),
-                ...(variant === "vertical" && {
-                    gridTemplateRows: "1fr 1fr",
-                }),
-                ...(variant === "diagonal" && {
-                    gridTemplateColumns: "1fr 1fr",
-                    gridTemplateRows: "1fr 1fr",
-                }),
+                fontFamily: "sans-serif",
+                fontSize: 11,
+                fontWeight: 600,
+                textTransform: "uppercase",
+                letterSpacing: "0.08em",
+                color: "#00000060",
+                marginBottom: "1.5rem",
             }}
         >
-            {children}
+            {title}
+        </div>
+        {children}
+    </div>
+)
+
+const Examples = ({ arc }: { arc: Arc }) => {
+    return (
+        <div style={{ display: "flex", flexDirection: "column" }}>
+            <Section title="useAnimate">
+                <UseAnimateExample arc={arc} />
+            </Section>
+
+            <Section title="animate — x">
+                <MotionExample
+                    animate={{ x: [-200, 200] }}
+                    baseTransition={{ duration: 1, ease: "easeInOut" }}
+                    arc={arc}
+                />
+            </Section>
+
+            <Section title="animate — y">
+                <MotionExample
+                    animate={{ y: [-100, 100] }}
+                    baseTransition={{ duration: 1, ease: "easeInOut" }}
+                    arc={arc}
+                />
+            </Section>
+
+            <Section title="animate — x + y">
+                <MotionExample
+                    animate={{ x: [-200, 200], y: [-100, 100] }}
+                    baseTransition={{ duration: 1, ease: "easeInOut" }}
+                    arc={arc}
+                />
+            </Section>
+
+            <Section title="animate — x + y + scale">
+                <MotionExample
+                    animate={{
+                        x: [-200, 200],
+                        y: [-100, 100],
+                        scale: [1, 1.5],
+                    }}
+                    baseTransition={{ duration: 1, ease: "easeInOut" }}
+                    arc={arc}
+                />
+            </Section>
+
+            <Section title="layoutId — horizontal">
+                <LayoutExample
+                    id="nav-horizontal"
+                    arc={arc}
+                    layout="horizontal"
+                />
+            </Section>
+
+            <Section title="layoutId — vertical">
+                <LayoutExample id="nav-vertical" arc={arc} layout="vertical" />
+            </Section>
+
+            <Section title="layoutId — diagonal">
+                <LayoutExample id="nav-diagonal" arc={arc} layout="diagonal" />
+            </Section>
         </div>
     )
 }
 
-const Examples = ({ state, arc }: { state: string; arc: Arc }) => {
+function LayoutExample({
+    id,
+    arc,
+    layout,
+}: {
+    id: string
+    arc: Arc
+    layout: "horizontal" | "vertical" | "diagonal"
+}) {
+    const [active, setActive] = useState("a")
+
+    const containerStyle =
+        layout === "horizontal"
+            ? { display: "flex", gap: 8 }
+            : layout === "vertical"
+            ? {
+                  display: "flex",
+                  flexDirection: "column" as const,
+                  gap: 8,
+                  alignItems: "flex-start" as const,
+              }
+            : {
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 8,
+                  maxWidth: 400,
+              }
+
     return (
-        <div
-            style={{ display: "flex", flexDirection: "column", gap: "8rem" }}
-            key={state}
-        >
-            <Example variant="diagonal">
-                <MotionExample
-                    animate={{ x: [0, 168] }}
-                    transition={{
-                        repeat: Infinity,
-                        repeatType: "mirror",
-                        duration: 1,
-                        ease: "easeInOut",
-                    }}
-                    arc={arc}
-                />
-                <MotionExample
-                    animate={{ y: [0, 168] }}
-                    transition={{
-                        repeat: Infinity,
-                        repeatType: "mirror",
-                        duration: 1,
-                        ease: "easeInOut",
-                    }}
-                    arc={arc}
-                />
-                <MotionExample
-                    animate={{ x: [0, 168], y: [0, 168] }}
-                    transition={{
-                        repeat: Infinity,
-                        repeatType: "mirror",
-                        duration: 1,
-                        ease: "easeInOut",
-                    }}
-                    arc={arc}
-                />
-                <MotionExample
-                    animate={{ x: [0, 168], y: [0, 168], scale: [1, 2, 1] }}
-                    transition={{
-                        repeat: Infinity,
-                        repeatType: "mirror",
-                        duration: 1,
-                        ease: "easeInOut",
-                    }}
-                    arc={arc}
-                />
-            </Example>
-            <Example variant="horizontal">
-                <LayoutGroup id="nav-horizontal">
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <LayoutGroup id={id}>
+                <div style={containerStyle}>
                     <NavigationItem
-                        id="a"
-                        title="Primary Location"
-                        isActive={state === "a"}
+                        id={`${id}-a`}
+                        title="Primary"
+                        isActive={active === "a"}
                         arc={arc}
                     />
-
+                    {layout === "diagonal" && <div />}
+                    {layout === "diagonal" && <div />}
                     <NavigationItem
-                        id="b"
-                        title="Secondary Location"
-                        isActive={state === "b"}
+                        id={`${id}-b`}
+                        title="Secondary"
+                        isActive={active === "b"}
                         arc={arc}
                     />
-                </LayoutGroup>
-            </Example>
-            <Example variant="vertical">
-                <LayoutGroup id="nav-vertical">
-                    <NavigationItem
-                        id="a2"
-                        title="Primary Location"
-                        isActive={state === "a"}
-                        arc={arc}
-                    />
-
-                    <NavigationItem
-                        id="b2"
-                        title="Secondary Location"
-                        isActive={state === "b"}
-                        arc={arc}
-                    />
-                </LayoutGroup>
-            </Example>
-            <Example variant="diagonal">
-                <LayoutGroup id="nav-diagonal">
-                    <NavigationItem
-                        id="a3"
-                        title="Primary Location"
-                        isActive={state === "a"}
-                        arc={arc}
-                    />
-                    <div />
-                    <div />
-                    <NavigationItem
-                        id="b3"
-                        title="Secondary Location"
-                        isActive={state === "b"}
-                        arc={arc}
-                    />
-                </LayoutGroup>
-            </Example>
+                </div>
+            </LayoutGroup>
+            <button onClick={() => setActive((s) => (s === "a" ? "b" : "a"))}>
+                Toggle
+            </button>
         </div>
     )
 }
@@ -274,7 +250,6 @@ function NavigationItem({
         >
             {isActive && (
                 <motion.span
-                    id="current-indicator"
                     layoutId="current-indicator"
                     transition={{
                         layout: { arc, duration: 1, ease: "easeInOut" },
@@ -292,8 +267,7 @@ function NavigationItem({
                 id={id}
                 style={{
                     position: "relative",
-                    padding: "1rem",
-                    width: "100%",
+                    padding: "0.5rem 1rem",
                 }}
             >
                 {title}
@@ -302,47 +276,115 @@ function NavigationItem({
     )
 }
 
+function UseAnimateExample({ arc }: { arc: Arc }) {
+    const [scope, animate] = useAnimate()
+    const [toggled, setToggled] = useState(false)
+
+    useEffect(() => {
+        animate(
+            scope.current,
+            { x: toggled ? 168 : 0, y: toggled ? 168 : 0 },
+            { duration: 1, ease: "easeInOut", arc }
+        )
+    }, [toggled, arc, animate, scope])
+
+    return (
+        <div
+            style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "flex-start",
+                gap: 16,
+            }}
+        >
+            <div
+                style={{
+                    position: "relative",
+                    width: 200,
+                    height: 200,
+                    border: "1px dashed #00000020",
+                    borderRadius: 8,
+                }}
+            >
+                <div
+                    ref={scope}
+                    style={{
+                        position: "absolute",
+                        width: 32,
+                        height: 32,
+                        borderRadius: 10,
+                        backgroundColor: "#a9c1ff",
+                    }}
+                />
+            </div>
+            <button onClick={() => setToggled((t) => !t)}>Toggle</button>
+        </div>
+    )
+}
+
 const MotionExample = ({
     animate,
-    transition,
+    baseTransition,
     arc,
 }: {
-    animate: TargetAndTransition
-    transition: Transition
+    animate: { x?: number[]; y?: number[]; scale?: number[] }
+    baseTransition: { duration: number; ease: "easeInOut" }
     arc: Arc
 }) => {
     return (
         <div
+            key={JSON.stringify(arc)}
             style={{
-                position: "relative",
-                width: 200,
-                height: 200,
-                border: "1px dashed #00000020",
-                borderRadius: 8,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "flex-start",
+                gap: 16,
             }}
         >
-            <motion.div
-                animate={animate}
-                transition={transition}
+            <div
                 style={{
-                    position: "absolute",
-                    width: 32,
-                    height: 32,
-                    borderRadius: 10,
+                    position: "relative",
+                    width: "100%",
+                    height: 200,
                     border: "1px dashed #00000020",
+                    borderRadius: 8,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
                 }}
-            />
-            <motion.div
-                animate={animate}
-                transition={{ ...transition, arc }}
-                style={{
-                    position: "absolute",
-                    width: 32,
-                    height: 32,
-                    borderRadius: 10,
-                    backgroundColor: "#a9c1ff",
-                }}
-            />
+            >
+                <motion.div
+                    animate={animate}
+                    transition={{
+                        ...baseTransition,
+                        repeat: Infinity,
+                        repeatType: "mirror",
+                    }}
+                    style={{
+                        position: "absolute",
+                        width: 32,
+                        height: 32,
+                        borderRadius: 10,
+                        border: "1px dashed #00000060",
+                    }}
+                />
+                <motion.div
+                    animate={animate}
+                    transition={{
+                        ...baseTransition,
+                        repeat: Infinity,
+                        repeatType: "mirror",
+                        arc,
+                    }}
+                    style={{
+                        position: "absolute",
+                        width: 32,
+                        height: 32,
+                        borderRadius: 10,
+                        backgroundColor: "#a9c1ff",
+                    }}
+                />
+            </div>
         </div>
     )
 }
