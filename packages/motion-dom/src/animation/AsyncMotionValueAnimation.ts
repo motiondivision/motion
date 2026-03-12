@@ -118,7 +118,10 @@ export class AsyncMotionValueAnimation<T extends AnyResolvedKeyframe>
          * If we can't animate this value with the resolved keyframes
          * then we should complete it immediately.
          */
+        let canAnimateValue = true
         if (!canAnimate(keyframes, name, type, velocity)) {
+            canAnimateValue = false
+
             if (MotionGlobalConfig.instantAnimations || !delay) {
                 onUpdate?.(getFinalKeyframe(keyframes, options, finalKeyframe))
             }
@@ -160,8 +163,14 @@ export class AsyncMotionValueAnimation<T extends AnyResolvedKeyframe>
          * Animate via WAAPI if possible. If this is a handoff animation, the optimised animation will be running via
          * WAAPI. Therefore, this animation must be JS to ensure it runs "under" the
          * optimised animation.
+         *
+         * Also skip WAAPI when keyframes aren't animatable, as the resolved
+         * values may not be valid CSS and would trigger browser warnings.
          */
-        const useWaapi = !isHandoff && supportsBrowserAnimation(resolvedOptions)
+        const useWaapi =
+            canAnimateValue &&
+            !isHandoff &&
+            supportsBrowserAnimation(resolvedOptions)
         const element = resolvedOptions.motionValue?.owner?.current
 
         const animation = useWaapi
