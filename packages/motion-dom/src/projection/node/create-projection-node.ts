@@ -30,7 +30,7 @@ import { mixNumber } from "../../utils/mix/number"
 import { MotionValue, motionValue } from "../../value"
 import { resolveMotionValue } from "../../value/utils/resolve-motion-value"
 import { mixValues } from "../animation/mix-values"
-import { copyAxisDeltaInto, copyBoxInto } from "../geometry/copy"
+import { copyAxisDeltaInto, copyAxisInto, copyBoxInto } from "../geometry/copy"
 import {
     applyBoxDelta,
     applyTreeDeltas,
@@ -2119,6 +2119,14 @@ function notifyLayoutUpdate(node: IProjectionNode) {
                 axisSnapshot.min = layout[axis].min
                 axisSnapshot.max = axisSnapshot.min + length
             })
+        } else if (animationType === "x" || animationType === "y") {
+            const snapAxis = animationType === "x" ? "y" : "x"
+            copyAxisInto(
+                isShared
+                    ? snapshot.measuredBox[snapAxis]
+                    : snapshot.layoutBox[snapAxis],
+                layout[snapAxis]
+            )
         } else if (
             shouldAnimatePositionOnly(animationType, snapshot.layoutBox, layout)
         ) {
