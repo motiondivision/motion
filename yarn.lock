@@ -435,7 +435,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@babel/runtime@npm:^7.28.4, @babel/runtime@npm:^7.28.6":
+"@babel/runtime@npm:^7.28.4":
   version: 7.28.6
   resolution: "@babel/runtime@npm:7.28.6"
   checksum: 42d8a868c2fc2e9a77927945a6daa7ec03c7ea49e611e0d15442933cdabb12f20e3a6849c729259076c10a4247adec229331d1f94c2d0073ea0979d7853e29fd
@@ -516,46 +516,6 @@ __metadata:
     "@types/react":
       optional: true
   checksum: 2e6261fecfd1dc5f6cbdab454fca9b0f5d1b4c5fa9e16936a093d30f177aba26d63024f4d1ebe11b875122374bf44dff5bccd1b0a0af9a21221a19b1486a242e
-  languageName: node
-  linkType: hard
-
-"@base-ui/react@npm:^1.2.0":
-  version: 1.2.0
-  resolution: "@base-ui/react@npm:1.2.0"
-  dependencies:
-    "@babel/runtime": ^7.28.6
-    "@base-ui/utils": 0.2.5
-    "@floating-ui/react-dom": ^2.1.6
-    "@floating-ui/utils": ^0.2.10
-    tabbable: ^6.4.0
-    use-sync-external-store: ^1.6.0
-  peerDependencies:
-    "@types/react": ^17 || ^18 || ^19
-    react: ^17 || ^18 || ^19
-    react-dom: ^17 || ^18 || ^19
-  peerDependenciesMeta:
-    "@types/react":
-      optional: true
-  checksum: 0f41fc11e701ee6a65bc79949932fe8a8585db2cba19fb9d98b2497c9310c00340877b386d3d65994fd2760a7cd1b8faaf59e5ae637f1441a27ee9d8efa9871a
-  languageName: node
-  linkType: hard
-
-"@base-ui/utils@npm:0.2.5":
-  version: 0.2.5
-  resolution: "@base-ui/utils@npm:0.2.5"
-  dependencies:
-    "@babel/runtime": ^7.28.6
-    "@floating-ui/utils": ^0.2.10
-    reselect: ^5.1.1
-    use-sync-external-store: ^1.6.0
-  peerDependencies:
-    "@types/react": ^17 || ^18 || ^19
-    react: ^17 || ^18 || ^19
-    react-dom: ^17 || ^18 || ^19
-  peerDependenciesMeta:
-    "@types/react":
-      optional: true
-  checksum: fc2e5d02d6b39f0c759241a0c48ac6938de1d9552a9ebc75b0892c95c6f07513fcc833c4bb9f937a1bdf38a6293b8d4e3581442184a5624158525c411e5b0175
   languageName: node
   linkType: hard
 
@@ -7619,15 +7579,15 @@ __metadata:
   languageName: node
   linkType: hard
 
-"framer-motion@^12.35.2, framer-motion@workspace:packages/framer-motion":
+"framer-motion@^12.36.0, framer-motion@workspace:packages/framer-motion":
   version: 0.0.0-use.local
   resolution: "framer-motion@workspace:packages/framer-motion"
   dependencies:
     "@radix-ui/react-dialog": ^1.1.15
     "@thednp/dommatrix": ^2.0.11
     "@types/three": 0.137.0
-    motion-dom: ^12.35.2
-    motion-utils: ^12.29.2
+    motion-dom: ^12.36.0
+    motion-utils: ^12.36.0
     three: 0.137.0
     tslib: ^2.4.0
   peerDependencies:
@@ -8391,9 +8351,9 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "html-env@workspace:dev/html"
   dependencies:
-    framer-motion: ^12.35.2
-    motion: ^12.35.2
-    motion-dom: ^12.35.2
+    framer-motion: ^12.36.0
+    motion: ^12.36.0
+    motion-dom: ^12.36.0
     react: ^18.3.1
     react-dom: ^18.3.1
     vite: ^5.2.0
@@ -11135,11 +11095,11 @@ __metadata:
   languageName: node
   linkType: hard
 
-"motion-dom@^12.35.2, motion-dom@workspace:packages/motion-dom":
+"motion-dom@^12.36.0, motion-dom@workspace:packages/motion-dom":
   version: 0.0.0-use.local
   resolution: "motion-dom@workspace:packages/motion-dom"
   dependencies:
-    motion-utils: ^12.29.2
+    motion-utils: ^12.36.0
   languageName: unknown
   linkType: soft
 
@@ -11208,17 +11168,17 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"motion-utils@^12.29.2, motion-utils@workspace:packages/motion-utils":
+"motion-utils@^12.36.0, motion-utils@workspace:packages/motion-utils":
   version: 0.0.0-use.local
   resolution: "motion-utils@workspace:packages/motion-utils"
   languageName: unknown
   linkType: soft
 
-"motion@^12.35.2, motion@workspace:packages/motion":
+"motion@^12.36.0, motion@workspace:packages/motion":
   version: 0.0.0-use.local
   resolution: "motion@workspace:packages/motion"
   dependencies:
-    framer-motion: ^12.35.2
+    framer-motion: ^12.36.0
     tslib: ^2.4.0
   peerDependencies:
     "@emotion/is-prop-valid": "*"
@@ -11335,7 +11295,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "next-env@workspace:dev/next"
   dependencies:
-    motion: ^12.35.2
+    motion: ^12.36.0
     next: 15.5.10
     react: 19.0.0
     react-dom: 19.0.0
@@ -12807,7 +12767,7 @@ __metadata:
     "@typescript-eslint/parser": ^7.2.0
     "@vitejs/plugin-react-swc": ^3.5.0
     eslint-plugin-react-refresh: ^0.4.6
-    motion: ^12.35.2
+    motion: ^12.36.0
     react: ^19.0.0
     react-dom: ^19.0.0
     vite: ^5.2.0
@@ -12885,7 +12845,6 @@ __metadata:
   resolution: "react-env@workspace:dev/react"
   dependencies:
     "@base-ui-components/react": ^1.0.0-rc.0
-    "@base-ui/react": ^1.2.0
     "@radix-ui/react-dialog": ^1.1.15
     "@types/react": ^18.2.66
     "@types/react-dom": ^18.2.22
@@ -12893,7 +12852,7 @@ __metadata:
     "@typescript-eslint/parser": ^7.2.0
     "@vitejs/plugin-react-swc": ^3.5.0
     eslint-plugin-react-refresh: ^0.4.6
-    framer-motion: ^12.35.2
+    framer-motion: ^12.36.0
     react: ^18.3.1
     react-dom: ^18.3.1
     vite: ^5.2.0
@@ -14961,7 +14920,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"tabbable@npm:^6.3.0, tabbable@npm:^6.4.0":
+"tabbable@npm:^6.3.0":
   version: 6.4.0
   resolution: "tabbable@npm:6.4.0"
   checksum: 7084cba269ebbc7dcdeed5aca7f90c0a0fb59a295dd1e83703ab89cca5e6c53b78d02020e3d1065481984cd64bba7dd1ea3c0a48e92fdba83d586e6e86d62a74

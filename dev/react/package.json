@@ -1,7 +1,7 @@
 {
     "name": "react-env",
     "private": true,
-    "version": "12.35.2",
+    "version": "12.36.0",
     "type": "module",
     "scripts": {
         "dev": "yarn vite",
@@ -12,7 +12,7 @@
     },
     "dependencies": {
         "@base-ui-components/react": "^1.0.0-rc.0",
-        "framer-motion": "^12.35.2",
+        "framer-motion": "^12.36.0",
         "react": "^18.3.1",
         "react-dom": "^18.3.1"
     },
