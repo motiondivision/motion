@@ -72,7 +72,7 @@ export const App = () => {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    transition={{ ease: [0.6, 0.6, 0, 1] }}
+                    transition={{ ease: [0.6, 0.6, 0, 1], duration: 0.05 }}
                 >
                     <span id="render-key">{"render: " + content.key}</span>
                     {content.element}

@@ -35,8 +35,15 @@ describe("AnimatePresence: rapid key switching in mode='wait'", () => {
             cy.get("#change").click()
         }
 
-        // Capture the final expected key, then wait for render to catch
-        // up through all queued AnimatePresence transitions.
+        // Wait for React state to fully settle (loading→document cycle)
+        // before capturing, so we don't snapshot a transient loading- key.
+        cy.get("#current-key", { timeout: 10000 }).should(
+            "contain.text",
+            "document-"
+        )
+
+        // Capture the settled key, then wait for AnimatePresence render
+        // to catch up through all queued transitions.
         cy.get("#current-key")
             .invoke("text")
             .then((currentKey) => {
