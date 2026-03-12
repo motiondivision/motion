@@ -127,6 +127,7 @@ export function PopChild({ children, isPresent, anchorX, anchorY, root, pop }: P
         }
 
         return () => {
+            ref.current?.removeAttribute("data-motion-pop-id")
             if (parent.contains(style)) {
                 parent.removeChild(style)
             }
