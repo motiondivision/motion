@@ -24,12 +24,11 @@ function NavigationItem({
                 <motion.span
                     id="current-indicator"
                     layoutId="current-indicator"
-                    layoutArc={{
-                        amplitude: arc.amplitude,
-                        peak: arc.peak,
-                        direction: arc.direction,
+                    layoutArc={arc}
+                    transition={{
+                        duration: 1,
+                        ease: "linear",
                     }}
-                    transition={{ duration: 1, ease: "linear" }}
                     style={{
                         zIndex: -1,
                         position: "absolute",
@@ -54,7 +53,7 @@ function NavigationItem({
 
 export default function Page() {
     const [state, setState] = useState("a")
-    const [layoutArc, setLayoutArc] = useState<Arc>({ amplitude: 1, peak: 0.5 })
+    const [layoutArc, setLayoutArc] = useState<Arc>({ amplitude: 1 })
 
     return (
         <div
@@ -84,24 +83,27 @@ export default function Page() {
                             padding: 24,
                             borderRadius: 4,
                         }}
-                    >{`<motion.div
-    layout="position"
+                    >{`<motion.span
+    layoutId="indicator"
     layoutArc={{
-        amplitude: ${layoutArc.amplitude},
-        peak: ${layoutArc.peak},${
-                        layoutArc.direction
-                            ? `\n        direction: ${layoutArc.direction},`
-                            : ""
-                    }
+        amplitude: ${layoutArc.amplitude},${
+            layoutArc.peak !== undefined
+                ? `\n        peak: ${layoutArc.peak},`
+                : ""
+        }${
+            layoutArc.direction !== undefined
+                ? `\n        direction: ${typeof layoutArc.direction === "string" ? `"${layoutArc.direction}"` : layoutArc.direction},`
+                : ""
+        }
     }}
 />`}</code>
                 </label>
                 <label style={{ marginTop: 12 }}>amplitude</label>
                 <input
                     type="range"
-                    min={-1}
+                    min={0}
                     step={0.1}
-                    max={1}
+                    max={2}
                     value={layoutArc.amplitude}
                     onChange={(e) =>
                         setLayoutArc({
@@ -110,13 +112,13 @@ export default function Page() {
                         })
                     }
                 />
-                <label style={{ marginTop: 8 }}>peak</label>
+                <label style={{ marginTop: 8 }}>peak (default 0.5)</label>
                 <input
                     type="range"
                     min={0}
                     step={0.1}
                     max={1}
-                    value={layoutArc.peak}
+                    value={layoutArc.peak ?? 0.5}
                     onChange={(e) =>
                         setLayoutArc({
                             ...layoutArc,
@@ -129,18 +131,22 @@ export default function Page() {
                     value={layoutArc.direction ?? "auto"}
                     onChange={(e) => {
                         const val = e.target.value
-                        setLayoutArc({
-                            ...layoutArc,
-                            direction:
-                                val === "auto"
-                                    ? undefined
-                                    : (Number(val) as 1 | -1),
-                        })
+                        const direction: Arc["direction"] =
+                            val === "auto"
+                                ? undefined
+                                : val === "1" || val === "-1"
+                                  ? (Number(val) as 1 | -1)
+                                  : (val as "up" | "down" | "left" | "right")
+                        setLayoutArc({ ...layoutArc, direction })
                     }}
                 >
                     <option value="auto">auto</option>
-                    <option value="1">1</option>
-                    <option value="-1">-1</option>
+                    <option value="1">1 (relative)</option>
+                    <option value="-1">-1 (relative)</option>
+                    <option value="up">up</option>
+                    <option value="down">down</option>
+                    <option value="left">left</option>
+                    <option value="right">right</option>
                 </select>
                 <button
                     style={{ marginTop: 12 }}
@@ -163,7 +169,7 @@ export default function Page() {
                         padding: "8rem",
                     }}
                 >
-                    <LayoutGroup id={state}>
+                    <LayoutGroup id="nav-horizontal">
                         <NavigationItem
                             id="a"
                             title="Primary Location"
@@ -195,7 +201,7 @@ export default function Page() {
                         padding: "8rem",
                     }}
                 >
-                    <LayoutGroup id={`${state}b`}>
+                    <LayoutGroup id="nav-vertical">
                         <NavigationItem
                             id="ab"
                             title="Primary Location"
@@ -227,7 +233,7 @@ export default function Page() {
                         padding: "8rem",
                     }}
                 >
-                    <LayoutGroup id={`${state}c`}>
+                    <LayoutGroup id="nav-diagonal">
                         <div style={{ paddingRight: "25rem" }}>
                             <NavigationItem
                                 id="ac"
