@@ -624,16 +624,16 @@ export interface Arc {
      */
     peak?: number
     /**
-     * Controls which side of the straight-line path the arc bulges toward.
+     * Controls which side of the straight-line path the arc bulges toward,
+     * relative to the direction of travel.
      *
-     * - `1` / `-1` — relative: flips the automatically-detected side.
-     * - `"up"` / `"down"` / `"left"` / `"right"` — absolute: the arc always
-     *   bulges in that screen direction regardless of movement direction.
+     * - `"cw"` — the arc bulges clockwise relative to the direction of travel.
+     * - `"ccw"` — the arc bulges counterclockwise relative to the direction of travel.
      *
-     * When unset, the direction automatically reverses based on the dominant
-     * axis of movement so the arc feels natural in both directions.
+     * When unset, the side is chosen automatically so the arc always bulges
+     * toward the same screen side regardless of movement direction.
      */
-    direction?: 1 | -1 | "up" | "down" | "left" | "right"
+    direction?: "cw" | "ccw"
 }
 
 export type DynamicOption<T> = (i: number, total: number) => T

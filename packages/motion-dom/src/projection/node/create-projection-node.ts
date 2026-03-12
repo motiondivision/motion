@@ -1660,17 +1660,9 @@ export function createProjectionNode<I>({
                 } else {
                     amplitude = layoutArc.amplitude
                     const { direction } = layoutArc
-                    if (direction === 1 || direction === -1) {
-                        amplitude *= direction
-                    } else if (direction) {
-                        const { x, y } = delta
-                        const shouldFlip =
-                            (direction === "up" && x.translate > 0) ||
-                            (direction === "down" && x.translate < 0) ||
-                            (direction === "left" && y.translate < 0) ||
-                            (direction === "right" && y.translate > 0)
-                        if (shouldFlip) amplitude *= -1
-                    } else {
+                    if (direction === "cw") {
+                        amplitude *= -1
+                    } else if (!direction) {
                         const dominantDelta =
                             Math.abs(delta.x.translate) >=
                             Math.abs(delta.y.translate)
