@@ -12,6 +12,11 @@ import { animateSingleValue } from "../../animation/animate/single-value"
 import { JSAnimation } from "../../animation/JSAnimation"
 import { getOptimisedAppearId } from "../../animation/optimized-appear/get-appear-id"
 import { Arc, Transition, ValueAnimationOptions } from "../../animation/types"
+import {
+    bezierPoint,
+    computeArcControlPoint,
+    resolveArcAmplitude,
+} from "../../animation/utils/arc"
 import { getValueTransition } from "../../animation/utils/get-value-transition"
 import { cancelFrame, frame, frameData, frameSteps } from "../../frameloop"
 import { microtask } from "../../frameloop/microtask"
@@ -1545,40 +1550,6 @@ export function createProjectionNode<I>({
             this.projectionDeltaWithTransform = createDelta()
         }
 
-        computeControlPoints(
-            originX: number,
-            originY: number,
-            targetX: number,
-            targetY: number,
-            amplitude: number,
-            peak: number
-        ) {
-            const deltaX = targetX - originX
-            const deltaY = targetY - originY
-
-            const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
-
-            if (distance > 0) {
-                const perpX = -deltaY
-                const perpY = deltaX
-
-                const normalPerpX = perpX / distance
-                const normalPerpY = perpY / distance
-
-                const midX = originX + deltaX * peak
-                const midY = originY + deltaY * peak
-
-                const desiredHeight = amplitude * distance
-
-                return {
-                    x: midX + normalPerpX * desiredHeight,
-                    y: midY + normalPerpY * desiredHeight,
-                }
-            } else {
-                return { x: originX, y: originY }
-            }
-        }
-
         /**
          * Animation
          */
@@ -1658,23 +1629,16 @@ export function createProjectionNode<I>({
                 if (isInterrupted && this.prevArcAmplitude !== undefined) {
                     amplitude = this.prevArcAmplitude
                 } else {
-                    amplitude = layoutArc.amplitude
-                    const { direction } = layoutArc
-                    if (direction === "cw") {
-                        amplitude *= -1
-                    } else if (!direction) {
-                        const dominantDelta =
-                            Math.abs(delta.x.translate) >=
-                            Math.abs(delta.y.translate)
-                                ? delta.x.translate
-                                : delta.y.translate
-                        if (dominantDelta < 0) amplitude *= -1
-                    }
+                    amplitude = resolveArcAmplitude(
+                        layoutArc,
+                        delta.x.translate,
+                        delta.y.translate
+                    )
                 }
 
                 this.prevArcAmplitude = amplitude
 
-                arcControlDelta = this.computeControlPoints(
+                arcControlDelta = computeArcControlPoint(
                     delta.x.translate,
                     delta.y.translate,
                     0,
@@ -2422,19 +2386,6 @@ function resetSkewAndRotation(node: IProjectionNode) {
 
 function removeLeadSnapshots(stack: NodeStack) {
     stack.removeLeadSnapshot()
-}
-
-function bezierPoint(
-    t: number,
-    origin: number,
-    control: number,
-    target: number
-) {
-    return (
-        Math.pow(1 - t, 2) * origin +
-        2 * (1 - t) * t * control +
-        Math.pow(t, 2) * target
-    )
 }
 
 function mixAxisDeltaLinear(output: AxisDelta, delta: AxisDelta, p: number) {

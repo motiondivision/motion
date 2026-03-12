@@ -1,5 +1,11 @@
 "use client"
-import { Arc, LayoutGroup, motion } from "motion/react"
+import {
+    Arc,
+    LayoutGroup,
+    motion,
+    TargetAndTransition,
+    Transition,
+} from "motion/react"
 import { useState } from "react"
 
 export default function Page() {
@@ -144,23 +150,50 @@ const Example = ({
 
 const Examples = ({ state, arc }: { state: string; arc: Arc }) => {
     return (
-        <div style={{ display: "flex", flexDirection: "column", gap: "8rem" }}>
-            <Example>
-                <motion.div
-                    animate={{ x: [-200, 200] }}
+        <div
+            style={{ display: "flex", flexDirection: "column", gap: "8rem" }}
+            key={state}
+        >
+            <Example variant="diagonal">
+                <MotionExample
+                    animate={{ x: [0, 168] }}
                     transition={{
                         repeat: Infinity,
                         repeatType: "mirror",
                         duration: 1,
                         ease: "easeInOut",
-                        arc,
                     }}
-                    style={{
-                        width: 64,
-                        height: 64,
-                        borderRadius: 10,
-                        backgroundColor: "#a9c1ff",
+                    arc={arc}
+                />
+                <MotionExample
+                    animate={{ y: [0, 168] }}
+                    transition={{
+                        repeat: Infinity,
+                        repeatType: "mirror",
+                        duration: 1,
+                        ease: "easeInOut",
                     }}
+                    arc={arc}
+                />
+                <MotionExample
+                    animate={{ x: [0, 168], y: [0, 168] }}
+                    transition={{
+                        repeat: Infinity,
+                        repeatType: "mirror",
+                        duration: 1,
+                        ease: "easeInOut",
+                    }}
+                    arc={arc}
+                />
+                <MotionExample
+                    animate={{ x: [0, 168], y: [0, 168], scale: [1, 2, 1] }}
+                    transition={{
+                        repeat: Infinity,
+                        repeatType: "mirror",
+                        duration: 1,
+                        ease: "easeInOut",
+                    }}
+                    arc={arc}
                 />
             </Example>
             <Example variant="horizontal">
@@ -265,6 +298,51 @@ function NavigationItem({
             >
                 {title}
             </div>
+        </div>
+    )
+}
+
+const MotionExample = ({
+    animate,
+    transition,
+    arc,
+}: {
+    animate: TargetAndTransition
+    transition: Transition
+    arc: Arc
+}) => {
+    return (
+        <div
+            style={{
+                position: "relative",
+                width: 200,
+                height: 200,
+                border: "1px dashed #00000020",
+                borderRadius: 8,
+            }}
+        >
+            <motion.div
+                animate={animate}
+                transition={transition}
+                style={{
+                    position: "absolute",
+                    width: 32,
+                    height: 32,
+                    borderRadius: 10,
+                    border: "1px dashed #00000020",
+                }}
+            />
+            <motion.div
+                animate={animate}
+                transition={{ ...transition, arc }}
+                style={{
+                    position: "absolute",
+                    width: 32,
+                    height: 32,
+                    borderRadius: 10,
+                    backgroundColor: "#a9c1ff",
+                }}
+            />
         </div>
     )
 }

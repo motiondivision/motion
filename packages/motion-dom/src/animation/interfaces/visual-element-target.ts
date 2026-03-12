@@ -6,6 +6,13 @@ import { setTarget } from "../../render/utils/setters"
 import { addValueToWillChange } from "../../value/will-change/add-will-change"
 import { getOptimisedAppearId } from "../optimized-appear/get-appear-id"
 import { animateMotionValue } from "./motion-value"
+import {
+    bezierPoint,
+    computeArcControlPoint,
+    resolveArcAmplitude,
+} from "../utils/arc"
+import { motionValue } from "../../value"
+import type { Arc } from "../types"
 import type { VisualElementAnimationOptions } from "./types"
 import type { AnimationPlaybackControlsWithThen } from "../types"
 import type { TargetAndTransition } from "../../node/types"
@@ -55,6 +62,73 @@ export function animateTarget(
         type &&
         visualElement.animationState &&
         visualElement.animationState.getState()[type]
+
+    const arc = (transition as any)?.arc as Arc | undefined
+    if (arc && ("x" in target || "y" in target)) {
+        const xValue = visualElement.getValue(
+            "x",
+            visualElement.latestValues["x"] ?? 0
+        )
+        const yValue = visualElement.getValue(
+            "y",
+            visualElement.latestValues["y"] ?? 0
+        )
+
+        const xRaw = target.x as number | number[] | undefined
+        const yRaw = target.y as number | number[] | undefined
+
+        const xFrom = (Array.isArray(xRaw) && xRaw[0] != null
+            ? xRaw[0]
+            : xValue?.get()) as number ?? 0
+        const yFrom = (Array.isArray(yRaw) && yRaw[0] != null
+            ? yRaw[0]
+            : yValue?.get()) as number ?? 0
+        const xTo = (Array.isArray(xRaw)
+            ? xRaw[xRaw.length - 1]
+            : xRaw ?? xFrom) as number
+        const yTo = (Array.isArray(yRaw)
+            ? yRaw[yRaw.length - 1]
+            : yRaw ?? yFrom) as number
+
+        const amplitude = resolveArcAmplitude(arc, xTo - xFrom, yTo - yFrom)
+        const control = computeArcControlPoint(
+            xFrom,
+            yFrom,
+            xTo,
+            yTo,
+            amplitude,
+            arc.peak ?? 0.5
+        )
+
+        const arcTransition = {
+            delay,
+            ...getValueTransition(transition || {}, "x"),
+        }
+        delete (arcTransition as any).arc
+
+        const progress = motionValue(0)
+        progress.start(
+            animateMotionValue("", progress, [0, 1000] as any, {
+                ...arcTransition,
+                isSync: true,
+                velocity: 0,
+                onUpdate: (latest: number) => {
+                    const t = latest / 1000
+                    xValue?.set(bezierPoint(t, xFrom, control.x, xTo))
+                    yValue?.set(bezierPoint(t, yFrom, control.y, yTo))
+                },
+                onComplete: () => {
+                    xValue?.set(xTo)
+                    yValue?.set(yTo)
+                },
+            })
+        )
+
+        if (progress.animation) animations.push(progress.animation)
+
+        delete (target as any).x
+        delete (target as any).y
+    }
 
     for (const key in target) {
         const value = visualElement.getValue(
