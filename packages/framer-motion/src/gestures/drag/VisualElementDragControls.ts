@@ -461,7 +461,7 @@ export class VisualElementDragControls {
 
             if (
                 dragSnapToOrigin === true ||
-                dragSnapToOrigin === axis
+                (dragSnapToOrigin as unknown) === axis
             )
                 transition = { min: 0, max: 0 }
 

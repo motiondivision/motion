@@ -1,3 +1,4 @@
+import { isMotionValue } from "motion-dom"
 import type { MotionProps } from "../../../motion/types"
 import { isValidMotionProp } from "../../../motion/utils/valid-prop"
 
@@ -57,6 +58,8 @@ export function filterProps(
          * element, which we support.
          */
         if (key === "values" && typeof props.values === "object") continue
+
+        if (isMotionValue(props[key as keyof typeof props])) continue
 
         if (
             shouldForward(key) ||
