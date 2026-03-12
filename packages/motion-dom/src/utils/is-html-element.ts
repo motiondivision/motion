@@ -5,5 +5,9 @@ import { isObject } from "motion-utils"
  * that works across iframes
  */
 export function isHTMLElement(element: unknown): element is HTMLElement {
-    return isObject(element) && "offsetHeight" in element
+    return (
+        isObject(element) &&
+        "offsetHeight" in element &&
+        !("ownerSVGElement" in element)
+    )
 }
