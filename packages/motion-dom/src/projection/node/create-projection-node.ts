@@ -11,7 +11,7 @@ import {
 import { animateSingleValue } from "../../animation/animate/single-value"
 import { JSAnimation } from "../../animation/JSAnimation"
 import { getOptimisedAppearId } from "../../animation/optimized-appear/get-appear-id"
-import { Transition, ValueAnimationOptions } from "../../animation/types"
+import { Arc, Transition, ValueAnimationOptions } from "../../animation/types"
 import { getValueTransition } from "../../animation/utils/get-value-transition"
 import { cancelFrame, frame, frameData, frameSteps } from "../../frameloop"
 import { microtask } from "../../frameloop/microtask"
@@ -574,7 +574,8 @@ export function createProjectionNode<I>({
                              */
                             this.setAnimationOrigin(
                                 delta,
-                                hasOnlyRelativeTargetChanged
+                                hasOnlyRelativeTargetChanged,
+                                animationOptions.arc
                             )
                         } else {
                             /**
@@ -1590,7 +1591,8 @@ export function createProjectionNode<I>({
 
         setAnimationOrigin(
             delta: Delta,
-            hasOnlyRelativeTargetChanged: boolean = false
+            hasOnlyRelativeTargetChanged: boolean = false,
+            arc?: Arc
         ) {
             const snapshot = this.snapshot
             const snapshotLatestValues = snapshot ? snapshot.latestValues : {}
@@ -1635,7 +1637,7 @@ export function createProjectionNode<I>({
              * Skip if the distance is below the minimum threshold to avoid
              * a visible wobble on very small layout shifts.
              */
-            const layoutArc = this.options.layoutArc
+            const layoutArc = arc
             const shouldArc =
                 layoutArc &&
                 Math.sqrt(

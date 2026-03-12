@@ -18,22 +18,25 @@ function NavigationItem({
             style={{
                 position: "relative",
                 padding: 10,
+                boxShadow: "0 0 0 1px #00000020",
+                borderRadius: 8,
             }}
         >
             {isActive && (
                 <motion.span
                     id="current-indicator"
                     layoutId="current-indicator"
-                    layoutArc={arc}
                     transition={{
                         duration: 1,
                         ease: "linear",
+                        layout: { arc },
                     }}
                     style={{
                         zIndex: -1,
                         position: "absolute",
                         inset: 0,
-                        backgroundColor: "#DECADE",
+                        backgroundColor: "#ffaca9",
+                        borderRadius: "inherit",
                     }}
                 />
             )}
@@ -53,7 +56,7 @@ function NavigationItem({
 
 export default function Page() {
     const [state, setState] = useState("a")
-    const [layoutArc, setLayoutArc] = useState<Arc>({ amplitude: 1 })
+    const [arc, setArc] = useState<Arc>({ amplitude: 1 })
 
     return (
         <div
@@ -85,16 +88,24 @@ export default function Page() {
                         }}
                     >{`<motion.span
     layoutId="indicator"
-    layoutArc={{
-        amplitude: ${layoutArc.amplitude},${
-            layoutArc.peak !== undefined
-                ? `\n        peak: ${layoutArc.peak},`
-                : ""
-        }${
-            layoutArc.direction !== undefined
-                ? `\n        direction: ${typeof layoutArc.direction === "string" ? `"${layoutArc.direction}"` : layoutArc.direction},`
-                : ""
-        }
+    transition={{
+        layout: {
+            arc: {
+                amplitude: ${arc.amplitude},${
+                        arc.peak !== undefined
+                            ? `\n                peak: ${arc.peak},`
+                            : ""
+                    }${
+                        arc.direction !== undefined
+                            ? `\n                direction: ${
+                                  typeof arc.direction === "string"
+                                      ? `"${arc.direction}"`
+                                      : arc.direction
+                              },`
+                            : ""
+                    }
+            },
+        },
     }}
 />`}</code>
                 </label>
@@ -104,10 +115,10 @@ export default function Page() {
                     min={0}
                     step={0.1}
                     max={2}
-                    value={layoutArc.amplitude}
+                    value={arc.amplitude}
                     onChange={(e) =>
-                        setLayoutArc({
-                            ...layoutArc,
+                        setArc({
+                            ...arc,
                             amplitude: Number(e.target.value),
                         })
                     }
@@ -118,26 +129,26 @@ export default function Page() {
                     min={0}
                     step={0.1}
                     max={1}
-                    value={layoutArc.peak ?? 0.5}
+                    value={arc.peak ?? 0.5}
                     onChange={(e) =>
-                        setLayoutArc({
-                            ...layoutArc,
+                        setArc({
+                            ...arc,
                             peak: Number(e.target.value),
                         })
                     }
                 />
                 <label style={{ marginTop: 8 }}>direction</label>
                 <select
-                    value={layoutArc.direction ?? "auto"}
+                    value={arc.direction ?? "auto"}
                     onChange={(e) => {
                         const val = e.target.value
                         const direction: Arc["direction"] =
                             val === "auto"
                                 ? undefined
                                 : val === "1" || val === "-1"
-                                  ? (Number(val) as 1 | -1)
-                                  : (val as "up" | "down" | "left" | "right")
-                        setLayoutArc({ ...layoutArc, direction })
+                                ? (Number(val) as 1 | -1)
+                                : (val as "up" | "down" | "left" | "right")
+                        setArc({ ...arc, direction })
                     }}
                 >
                     <option value="auto">auto</option>
@@ -174,14 +185,14 @@ export default function Page() {
                             id="a"
                             title="Primary Location"
                             isActive={state === "a"}
-                            arc={layoutArc}
+                            arc={arc}
                         />
 
                         <NavigationItem
                             id="b"
                             title="Secondary Location"
                             isActive={state === "b"}
-                            arc={layoutArc}
+                            arc={arc}
                         />
                     </LayoutGroup>
                 </div>
@@ -206,14 +217,14 @@ export default function Page() {
                             id="ab"
                             title="Primary Location"
                             isActive={state === "a"}
-                            arc={layoutArc}
+                            arc={arc}
                         />
 
                         <NavigationItem
                             id="bb"
                             title="Secondary Location"
                             isActive={state === "b"}
-                            arc={layoutArc}
+                            arc={arc}
                         />
                     </LayoutGroup>
                 </div>
@@ -239,7 +250,7 @@ export default function Page() {
                                 id="ac"
                                 title="Primary Location"
                                 isActive={state === "a"}
-                                arc={layoutArc}
+                                arc={arc}
                             />
                         </div>
 
@@ -247,7 +258,7 @@ export default function Page() {
                             id="bc"
                             title="Secondary Location"
                             isActive={state === "b"}
-                            arc={layoutArc}
+                            arc={arc}
                         />
                     </LayoutGroup>
                 </div>
