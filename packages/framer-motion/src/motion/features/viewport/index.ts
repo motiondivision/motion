@@ -12,8 +12,10 @@ export class InViewFeature extends Feature<Element> {
 
     private isInView = false
 
+    private stopObserver?: () => void
+
     private startObserver() {
-        this.unmount()
+        this.stopObserver?.()
 
         const { viewport = {} } = this.node.getProps()
         const { root, margin: rootMargin, amount = "some", once } = viewport
@@ -61,7 +63,7 @@ export class InViewFeature extends Feature<Element> {
             callback && callback(entry)
         }
 
-        return observeIntersection(
+        this.stopObserver = observeIntersection(
             this.node.current!,
             options,
             onIntersectionUpdate
@@ -85,7 +87,11 @@ export class InViewFeature extends Feature<Element> {
         }
     }
 
-    unmount() {}
+    unmount() {
+        this.stopObserver?.()
+        this.hasEnteredView = false
+        this.isInView = false
+    }
 }
 
 function hasViewportOptionChanged(
