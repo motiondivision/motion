@@ -173,12 +173,19 @@ export class AsyncMotionValueAnimation<T extends AnyResolvedKeyframe>
             supportsBrowserAnimation(resolvedOptions)
         const element = resolvedOptions.motionValue?.owner?.current
 
-        const animation = useWaapi
-                ? new NativeAnimationExtended({
-                      ...resolvedOptions,
-                      element,
-                  } as any)
-                : new JSAnimation(resolvedOptions)
+        let animation: AnimationPlaybackControls
+        if (useWaapi) {
+            try {
+                animation = new NativeAnimationExtended({
+                    ...resolvedOptions,
+                    element,
+                } as any)
+            } catch {
+                animation = new JSAnimation(resolvedOptions)
+            }
+        } else {
+            animation = new JSAnimation(resolvedOptions)
+        }
 
         animation.finished.then(() => {
             this.notifyFinished()
