@@ -80,6 +80,15 @@ export class JSAnimation<T extends number | string>
 
     private mirroredGenerator: KeyframeGenerator<T> | undefined
 
+    /**
+     * Reusable state object for the delay phase to avoid
+     * allocating a new object every frame.
+     */
+    private delayState: AnimationState<T> = {
+        done: false,
+        value: undefined as unknown as T,
+    }
+
     constructor(options: ValueAnimationOptions<T>) {
         super()
         activeAnimations.mainThread++
@@ -297,9 +306,13 @@ export class JSAnimation<T extends number | string>
          * This prevents delay: x, duration: 0 animations from finishing
          * instantly.
          */
-        const state = isInDelayPhase
-            ? { done: false, value: keyframes[0] }
-            : frameGenerator.next(elapsed)
+        let state: AnimationState<T>
+        if (isInDelayPhase) {
+            this.delayState.value = keyframes[0]
+            state = this.delayState
+        } else {
+            state = frameGenerator.next(elapsed)
+        }
 
         if (mixKeyframes && !isInDelayPhase) {
             state.value = mixKeyframes(state.value as number)
