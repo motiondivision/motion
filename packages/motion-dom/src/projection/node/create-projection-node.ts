@@ -746,6 +746,15 @@ export function createProjectionNode<I>({
                 this.isUpdating = false
 
                 /**
+                 * Ensure animation-blocked nodes (e.g. during drag) are
+                 * measured even when their component didn't re-render
+                 * (memoized). Use the previous layout as the snapshot so
+                 * that any layout shift from sibling changes is detected
+                 * and compensated by the drag gesture.
+                 */
+                this.nodes!.forEach(ensureDraggedNodesSnapshotted)
+
+                /**
                  * Write
                  */
                 this.nodes!.forEach(resetTransformStyle)
@@ -2276,6 +2285,23 @@ function clearMeasurements(node: IProjectionNode) {
 
 function clearIsLayoutDirty(node: IProjectionNode) {
     node.isLayoutDirty = false
+}
+
+/**
+ * When a node is animation-blocked (e.g. during drag) and its component
+ * didn't re-render (memoized), willUpdate() is never called and the node
+ * has no snapshot. This means the update cycle skips it entirely and any
+ * layout shift from sibling changes goes uncompensated.
+ *
+ * Fix: use the previous layout as the snapshot and mark the node dirty
+ * so resetTransform/updateLayout/notifyLayoutUpdate process it normally.
+ */
+function ensureDraggedNodesSnapshotted(node: IProjectionNode) {
+    if (node.isAnimationBlocked && node.layout && !node.isLayoutDirty) {
+        node.snapshot = node.layout
+        node.isLayoutDirty = true
+        node.shouldResetTransform = true
+    }
 }
 
 function resetTransformStyle(node: IProjectionNode) {
