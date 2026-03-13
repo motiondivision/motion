@@ -1,6 +1,6 @@
 "use client"
 
-import { invariant } from "motion-utils"
+import { Box, invariant } from "motion-utils"
 import * as React from "react"
 import { forwardRef, FunctionComponent, JSX, useEffect, useRef } from "react"
 import { ReorderContext } from "../../context/ReorderContext"
@@ -89,7 +89,14 @@ export function ReorderGroupComponent<
         React.PropsWithChildren<HTMLMotionProps<any> & { ref?: React.Ref<any> }>
     >
 
-    const order: ItemData<V>[] = []
+    /**
+     * Persist full Box measurements from the projection system across renders.
+     * When the projection system's resize block prevents onLayoutMeasure from
+     * firing (e.g. during window resize), we can still derive order from
+     * previously stored measurements. (#3022)
+     */
+    const itemBoxes = useRef(new Map<V, Box>())
+
     const isReordering = useRef(false)
     const groupRef = useRef<Element>(null)
 
@@ -99,11 +106,25 @@ export function ReorderGroupComponent<
         "reorder-values"
     )
 
+    // Clean up removed values
+    itemBoxes.current.forEach((_, key) => {
+        if (values.indexOf(key) === -1) itemBoxes.current.delete(key)
+    })
+
+    // Initialize order from persisted measurements
+    const order: ItemData<V>[] = []
+    itemBoxes.current.forEach((box, value) => {
+        order.push({ value, layout: box[axis] })
+    })
+    order.sort(compareMin)
+
     const context: ReorderContextProps<V> = {
         axis,
         groupRef,
         registerItem: (value, layout) => {
-            // If the entry was already added, update it rather than adding it again
+            // Persist full Box so we can re-derive when axis changes
+            itemBoxes.current.set(value, layout)
+
             const idx = order.findIndex((entry) => value === entry.value)
             if (idx !== -1) {
                 order[idx].layout = layout[axis]
