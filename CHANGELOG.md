@@ -4,6 +4,16 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.37.0] 2026-03-16
+
+### Added
+
+-   Support for hardware accelerating `"start"` and `"end"` offsets in `scroll` and `useScroll`.
+
+### Fixed
+
+-   Fix `whileInView` with client-side navigation.
+
 ## [12.36.0] 2026-03-09
 
 ### Added
