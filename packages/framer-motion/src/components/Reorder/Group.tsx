@@ -128,8 +128,9 @@ export function ReorderGroupComponent<
                     if (order[i].value !== newOrder[i].value) {
                         const a = values.indexOf(order[i].value)
                         const b = values.indexOf(newOrder[i].value)
-                        newValues[a] = newOrder[i].value
-                        newValues[b] = order[i].value
+                        if (a !== -1 && b !== -1) {
+                            ;[newValues[a], newValues[b]] = [newValues[b], newValues[a]]
+                        }
                         break
                     }
                 }
