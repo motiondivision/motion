@@ -43,9 +43,9 @@ export const App = () => {
                             layoutId="indicator"
                             transition={transition}
                             style={{
-                                position: "absolute",
-                                inset: 0,
-                                background: "blue",
+                                width: 100,
+                                height: 100,
+                                background: "red",
                             }}
                         />
                     )}
@@ -57,9 +57,9 @@ export const App = () => {
                             layoutId="indicator"
                             transition={transition}
                             style={{
-                                position: "absolute",
-                                inset: 0,
-                                background: "blue",
+                                width: 100,
+                                height: 100,
+                                background: "red",
                             }}
                         />
                     )}
