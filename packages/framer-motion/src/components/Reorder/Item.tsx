@@ -3,7 +3,13 @@
 import { isMotionValue } from "motion-dom"
 import { invariant } from "motion-utils"
 import * as React from "react"
-import { forwardRef, FunctionComponent, useContext } from "react"
+import {
+    forwardRef,
+    FunctionComponent,
+    useContext,
+    useLayoutEffect,
+    useRef,
+} from "react"
 import { ReorderContext } from "../../context/ReorderContext"
 import { motion } from "../../render/components/motion/proxy"
 import { HTMLMotionProps } from "../../render/html/types"
@@ -95,6 +101,34 @@ export function ReorderItemComponent<
 
     const { axis, registerItem, updateOrder, groupRef } = context!
 
+    const itemRef = useRef<HTMLElement | null>(null)
+
+    /**
+     * Measure and register this item's layout directly via getBoundingClientRect.
+     * This acts as a fallback for when the projection system's onLayoutMeasure
+     * doesn't fire (e.g. when layout updates are blocked during window resize).
+     */
+    useLayoutEffect(() => {
+        if (itemRef.current) {
+            const rect = itemRef.current.getBoundingClientRect()
+            registerItem(value, {
+                x: { min: rect.left, max: rect.right },
+                y: { min: rect.top, max: rect.bottom },
+            })
+        }
+    })
+
+    const setRef = (element: HTMLElement | null) => {
+        itemRef.current = element
+        if (typeof externalRef === "function") {
+            externalRef(element)
+        } else if (externalRef) {
+            ;(
+                externalRef as React.MutableRefObject<HTMLElement | null>
+            ).current = element
+        }
+    }
+
     return (
         <Component
             drag={axis}
@@ -125,7 +159,7 @@ export function ReorderItemComponent<
             onLayoutMeasure={(measured) => {
                 registerItem(value, measured)
             }}
-            ref={externalRef}
+            ref={setRef}
             ignoreStrict
         >
             {children}
