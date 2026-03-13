@@ -119,11 +119,21 @@ export function ReorderGroupComponent<
 
             if (order !== newOrder) {
                 isReordering.current = true
-                onReorder(
-                    newOrder
-                        .map(getValue)
-                        .filter((value) => values.indexOf(value) !== -1)
-                )
+
+                // Find which two values swapped and apply that swap
+                // to the full values array. This preserves unmeasured
+                // items (e.g. in virtualized lists).
+                const newValues = [...values]
+                for (let i = 0; i < newOrder.length; i++) {
+                    if (order[i].value !== newOrder[i].value) {
+                        const a = values.indexOf(order[i].value)
+                        const b = values.indexOf(newOrder[i].value)
+                        newValues[a] = newOrder[i].value
+                        newValues[b] = order[i].value
+                        break
+                    }
+                }
+                onReorder(newValues)
             }
         },
     }
@@ -169,10 +179,6 @@ export const ReorderGroup = /*@__PURE__*/ forwardRef(ReorderGroupComponent) as <
 >(
     props: ReorderGroupProps<V, TagName> & { ref?: React.ForwardedRef<any> }
 ) => ReturnType<typeof ReorderGroupComponent>
-
-function getValue<V>(item: ItemData<V>) {
-    return item.value
-}
 
 function compareMin<V>(a: ItemData<V>, b: ItemData<V>) {
     return a.layout.min - b.layout.min
