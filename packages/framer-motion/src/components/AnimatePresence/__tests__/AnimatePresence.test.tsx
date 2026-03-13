@@ -1626,4 +1626,113 @@ describe("AnimatePresence with custom components", () => {
         expect(container.childElementCount).toBe(1)
         expect(getByTestId("content").textContent).toBe("3")
     })
+
+    test("Removes child when nested variant children have exit matching current values", async () => {
+        /**
+         * Reproduction for #3078: When a child motion component uses
+         * variants for enter animation and has exit={{ opacity: 1, scale: 1 }}
+         * (same as animated values), AnimatePresence should still remove
+         * the parent after exit completes. The bug was that
+         * value.isAnimating (property access, always truthy) was used
+         * instead of value.isAnimating() (method call), preventing the
+         * skip check from ever working. Without the fix, the
+         * exit animation starts a long tween that blocks removal.
+         */
+        const Component = ({ isVisible }: { isVisible: boolean }) => {
+            return (
+                <AnimatePresence mode="wait">
+                    {isVisible && (
+                        <motion.div
+                            key="modal"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ type: false }}
+                        >
+                            <motion.ul
+                                initial="hidden"
+                                animate="visible"
+                                variants={{
+                                    hidden: {},
+                                    visible: {
+                                        transition: {
+                                            staggerChildren: 0.05,
+                                        },
+                                    },
+                                }}
+                            >
+                                <motion.li
+                                    variants={{
+                                        hidden: {
+                                            opacity: 0,
+                                            scale: 0.5,
+                                        },
+                                        visible: {
+                                            opacity: 1,
+                                            scale: 1,
+                                        },
+                                    }}
+                                    exit={{
+                                        opacity: 1,
+                                        scale: 1,
+                                        transition: { duration: 100 },
+                                    }}
+                                    transition={{ type: false }}
+                                />
+                                <motion.li
+                                    variants={{
+                                        hidden: {
+                                            opacity: 0,
+                                            scale: 0.5,
+                                        },
+                                        visible: {
+                                            opacity: 1,
+                                            scale: 1,
+                                        },
+                                    }}
+                                    exit={{
+                                        opacity: 1,
+                                        scale: 1,
+                                        transition: { duration: 100 },
+                                    }}
+                                    transition={{ type: false }}
+                                />
+                            </motion.ul>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+            )
+        }
+
+        const { container, rerender } = render(<Component isVisible />)
+        rerender(<Component isVisible />)
+
+        // Wait for enter animations to complete (type: "tween", duration: 100s
+        // applies to enter too, but the enter target values use variants
+        // which have their own transition, not the component's transition prop)
+        await act(async () => {
+            await new Promise((resolve) => setTimeout(resolve, 200))
+        })
+
+        expect(container.childElementCount).toBe(1)
+
+        // Trigger exit - children have exit targets matching their
+        // current values. With the fix, the skip check detects the
+        // values are at rest and skips animation. Without the fix,
+        // a 100-second tween starts, blocking removal.
+        await act(async () => {
+            rerender(<Component isVisible={false} />)
+        })
+
+        await act(async () => {
+            await new Promise((resolve) => setTimeout(resolve, 500))
+        })
+        await act(async () => {
+            await nextFrame()
+            await nextFrame()
+        })
+
+        // Child should have been removed after exit animation completes
+        expect(container.childElementCount).toBe(0)
+    })
 })
