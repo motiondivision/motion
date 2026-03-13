@@ -3,18 +3,7 @@ import {
     AnyResolvedKeyframe,
     ValueAnimationOptionsWithRenderContext,
 } from "../../types"
-
-/**
- * A list of values that can be hardware-accelerated.
- */
-const acceleratedValues = new Set<string>([
-    "opacity",
-    "clipPath",
-    "filter",
-    "transform",
-    // TODO: Could be re-enabled now we have support for linear() easing
-    // "background-color"
-])
+import { acceleratedValues } from "../utils/accelerated-values"
 
 const supportsWaapi = /*@__PURE__*/ memo(() =>
     Object.hasOwnProperty.call(Element.prototype, "animate")
