@@ -509,6 +509,8 @@ export function createProjectionNode<I>({
                         const layoutTransition =
                             this.options.transition ||
                             visualElement.getDefaultTransition() ||
+                            this.getClosestProjectingParent()?.options
+                                .transition ||
                             defaultLayoutTransition
 
                         const {
@@ -761,6 +763,7 @@ export function createProjectionNode<I>({
                  */
                 // Notify listeners that the layout is updated
                 this.nodes!.forEach(notifyLayoutUpdate)
+                this.nodes!.forEach(clearTransition)
             }
 
             this.clearAllSnapshots()
@@ -2217,6 +2220,9 @@ function notifyLayoutUpdate(node: IProjectionNode) {
         onExitComplete && onExitComplete()
     }
 
+}
+
+function clearTransition(node: IProjectionNode) {
     /**
      * Clearing transition
      * TODO: Investigate why this transition is being passed in as {type: false } from Framer
