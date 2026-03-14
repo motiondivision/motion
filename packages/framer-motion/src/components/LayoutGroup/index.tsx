@@ -21,6 +21,28 @@ const shouldInheritGroup = (inherit: InheritOption) => inherit === true
 const shouldInheritId = (inherit: InheritOption) =>
     shouldInheritGroup(inherit === true) || inherit === "id"
 
+/**
+ * `LayoutGroup` provides a context for coordinating layout animations
+ * across multiple components. It does **not** animate layout changes on its
+ * own — use the `layout` prop on `motion` components for that.
+ *
+ * Wrap sibling or nested components in a `LayoutGroup` when they need to
+ * share or coordinate layout animations (e.g., shared layout transitions,
+ * accordions, or tab bars).
+ *
+ * Also exported as `LayoutProvider` for clarity.
+ *
+ * ```jsx
+ * // Local layout animation (single component)
+ * <motion.div layout />
+ *
+ * // Cross-component coordination
+ * <LayoutGroup>
+ *   <ComponentA />
+ *   <ComponentB />
+ * </LayoutGroup>
+ * ```
+ */
 export const LayoutGroup: React.FunctionComponent<
     React.PropsWithChildren<Props>
 > = ({ children, id, inherit = true }) => {
@@ -58,3 +80,11 @@ export const LayoutGroup: React.FunctionComponent<
         </LayoutGroupContext.Provider>
     )
 }
+
+/**
+ * Alias for `LayoutGroup`. Use whichever name best communicates intent:
+ *
+ * - `LayoutGroup` — groups components that share layout animations
+ * - `LayoutProvider` — provides layout-animation context to descendants
+ */
+export const LayoutProvider = LayoutGroup

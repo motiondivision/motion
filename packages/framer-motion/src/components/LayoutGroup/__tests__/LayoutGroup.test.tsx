@@ -1,6 +1,6 @@
 import { render } from "@testing-library/react"
 import { useContext } from "react";
-import { LayoutGroup } from "../index"
+import { LayoutGroup, LayoutProvider } from "../index"
 import { LayoutGroupContext } from "../../../context/LayoutGroupContext"
 
 const Consumer = ({ id = "1" }: any) => {
@@ -55,6 +55,38 @@ it("if the parent group id is undefined, child LayoutGroups still append the gro
                     <Consumer />
                 </LayoutGroup>
             </LayoutGroup>
+        </LayoutGroup>
+    )
+
+    const { getByTestId } = render(tree)
+
+    expect(getByTestId("1").textContent).toBe("a-b")
+})
+
+it("LayoutProvider is an alias for LayoutGroup", () => {
+    expect(LayoutProvider).toBe(LayoutGroup)
+})
+
+it("LayoutProvider works as a drop-in replacement for LayoutGroup", () => {
+    const tree = (
+        <LayoutProvider id={"a"}>
+            <LayoutProvider id={"b"}>
+                <Consumer />
+            </LayoutProvider>
+        </LayoutProvider>
+    )
+
+    const { getByTestId } = render(tree)
+
+    expect(getByTestId("1").textContent).toBe("a-b")
+})
+
+it("LayoutProvider and LayoutGroup can be nested interchangeably", () => {
+    const tree = (
+        <LayoutGroup id={"a"}>
+            <LayoutProvider id={"b"}>
+                <Consumer />
+            </LayoutProvider>
         </LayoutGroup>
     )
 
