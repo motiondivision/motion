@@ -40,7 +40,7 @@ export default function Page() {
                     arc.direction !== undefined
                         ? `\n    direction: "${arc.direction}",`
                         : ""
-                }
+                }${arc.orientToPath ? `\n    orientToPath: ${arc.orientToPath === true ? "true" : arc.orientToPath},` : ""}
 }`}</code>
                 <label>amplitude</label>
                 <input
@@ -78,6 +78,27 @@ export default function Page() {
                     <option value="cw">cw</option>
                     <option value="ccw">ccw</option>
                 </select>
+                <label>orientToPath (0 = off, 1 = full)</label>
+                <input
+                    type="range"
+                    min={0}
+                    step={0.1}
+                    max={1}
+                    value={
+                        typeof arc.orientToPath === "number"
+                            ? arc.orientToPath
+                            : arc.orientToPath
+                            ? 0.5
+                            : 0
+                    }
+                    onChange={(e) =>
+                        setArc({
+                            ...arc,
+                            orientToPath:
+                                Number(e.target.value) || undefined,
+                        })
+                    }
+                />
             </div>
             <div style={{ overflowY: "auto" }}>
                 <Examples arc={arc} />

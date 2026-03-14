@@ -1,5 +1,6 @@
 import {
     bezierPoint,
+    bezierTangentAngle,
     computeArcControlPoint,
     resolveArcAmplitude,
 } from "../arc"
@@ -80,6 +81,36 @@ describe("computeArcControlPoint", () => {
         const cp = computeArcControlPoint(0, 0, 100, 100, 1, 0.5)
         expect(cp.x).toBeCloseTo(-50, 0)
         expect(cp.y).toBeCloseTo(150, 0)
+    })
+})
+
+describe("bezierTangentAngle", () => {
+    test("horizontal line returns 0°", () => {
+        // from=(0,0) control=(50,0) to=(100,0) — straight horizontal
+        expect(bezierTangentAngle(0.5, 0, 50, 100, 0, 0, 0)).toBeCloseTo(0)
+    })
+
+    test("vertical line returns 90°", () => {
+        // from=(0,0) control=(0,50) to=(0,100) — straight vertical
+        expect(bezierTangentAngle(0.5, 0, 0, 0, 0, 50, 100)).toBeCloseTo(90)
+    })
+
+    test("t=0 with arc reflects initial tangent direction", () => {
+        // Horizontal path with downward arc: from=(0,0) control=(50,100) to=(100,0)
+        // At t=0: dx=2*(control.x-origin.x)=100, dy=2*(control.y-origin.y)=200
+        // angle = atan2(200,100) ≈ 63.43°
+        const angle = bezierTangentAngle(0, 0, 50, 100, 0, 100, 0)
+        expect(angle).toBeCloseTo(63.43, 0)
+    })
+
+    test("t=0.5 with symmetric arc is parallel to chord", () => {
+        // Symmetric arc: from=(0,0) control=(50,100) to=(100,0)
+        // At t=0.5: dx=(50-0)+(100-50)=100, dy=(100-0)+(0-100)=0 → 0°
+        expect(bezierTangentAngle(0.5, 0, 50, 100, 0, 100, 0)).toBeCloseTo(0)
+    })
+
+    test("zero-length path returns 0°", () => {
+        expect(bezierTangentAngle(0.5, 5, 5, 5, 10, 10, 10)).toBeCloseTo(0)
     })
 })
 
