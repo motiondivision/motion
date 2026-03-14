@@ -10,6 +10,8 @@ export function attachToAnimation(
 ) {
     const timeline = getTimeline(options)
 
+    const hasUserRange = options.rangeStart || options.rangeEnd
+
     const range = options.target
         ? offsetToViewTimelineRange(options.offset)
         : undefined
@@ -26,11 +28,17 @@ export function attachToAnimation(
 
     return animation.attachTimeline({
         timeline: useNative ? timeline : undefined,
-        ...(range &&
-            useNative && {
-                rangeStart: range.rangeStart,
-                rangeEnd: range.rangeEnd,
-            }),
+        ...(hasUserRange
+            ? {
+                  rangeStart: options.rangeStart,
+                  rangeEnd: options.rangeEnd,
+                  fill: "auto",
+              }
+            : range &&
+              useNative && {
+                  rangeStart: range.rangeStart,
+                  rangeEnd: range.rangeEnd,
+              }),
         observe: (valueAnimation) => {
             valueAnimation.pause()
 

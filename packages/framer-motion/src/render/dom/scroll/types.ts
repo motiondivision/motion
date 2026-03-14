@@ -6,6 +6,8 @@ export interface ScrollOptions {
     target?: Element
     axis?: "x" | "y"
     offset?: ScrollOffset
+    rangeStart?: string
+    rangeEnd?: string
 }
 
 export interface ScrollOptionsWithDefaults extends ScrollOptions {
