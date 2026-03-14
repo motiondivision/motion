@@ -256,3 +256,64 @@ const runSpringTests = (unit?: string | undefined) => {
 // Run tests for both number values and percentage values
 runSpringTests()
 runSpringTests("%")
+
+describe("spring isAnimating and animationComplete", () => {
+    test("isAnimating returns true during spring animation via set()", async () => {
+        const spring = followValue(0 as number, {
+            type: "spring",
+            driver: syncDriver(10),
+        } as any)
+
+        const isAnimatingValues: boolean[] = []
+
+        spring.on("change", () => {
+            isAnimatingValues.push(spring.isAnimating())
+        })
+
+        spring.set(100)
+
+        await new Promise<void>((resolve) => {
+            setTimeout(() => resolve(), 100)
+        })
+
+        // isAnimating should have been true during the animation
+        expect(isAnimatingValues.length).toBeGreaterThan(0)
+        expect(isAnimatingValues[0]).toBe(true)
+    })
+
+    test("animationComplete fires after spring animation via set()", async () => {
+        const spring = followValue(0 as number, {
+            type: "spring",
+            driver: syncDriver(10),
+        } as any)
+
+        const completed = await new Promise<boolean>((resolve) => {
+            spring.on("animationComplete", () => {
+                resolve(true)
+            })
+
+            spring.set(100)
+
+            // Timeout fallback if animationComplete never fires
+            setTimeout(() => resolve(false), 2000)
+        })
+
+        expect(completed).toBe(true)
+    })
+
+    test("isAnimating returns false after spring animation completes", async () => {
+        const spring = followValue(0 as number, {
+            type: "spring",
+            driver: syncDriver(10),
+        } as any)
+
+        await new Promise<void>((resolve) => {
+            spring.on("animationComplete", () => {
+                resolve()
+            })
+            spring.set(100)
+        })
+
+        expect(spring.isAnimating()).toBe(false)
+    })
+})
