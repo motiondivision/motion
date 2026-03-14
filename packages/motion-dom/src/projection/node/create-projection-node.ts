@@ -899,7 +899,7 @@ export function createProjectionNode<I>({
             const prevLayout = this.layout
             this.layout = this.measure(false)
             this.layoutVersion++
-            this.layoutCorrected = createBox()
+            if (!this.layoutCorrected) this.layoutCorrected = createBox()
             this.isLayoutDirty = false
             this.projectionDelta = undefined
             this.notifyListeners("measure", this.layout.layoutBox)
@@ -1061,10 +1061,8 @@ export function createProjectionNode<I>({
                     node.scroll &&
                     node !== node.root
                 ) {
-                    transformBox(withTransforms, {
-                        x: -node.scroll.offset.x,
-                        y: -node.scroll.offset.y,
-                    })
+                    translateAxis(withTransforms.x, -node.scroll.offset.x)
+                    translateAxis(withTransforms.y, -node.scroll.offset.y)
                 }
 
                 if (!hasTransform(node.latestValues)) continue
@@ -1263,8 +1261,37 @@ export function createProjectionNode<I>({
                  */
             } else if (this.targetDelta) {
                 if (Boolean(this.resumingFrom)) {
-                    // TODO: This is creating a new object every frame
-                    this.target = this.applyTransform(this.layout.layoutBox)
+                    copyBoxInto(this.target, this.layout.layoutBox)
+                    for (let i = 0; i < this.path.length; i++) {
+                        const node = this.path[i]
+                        if (
+                            node.options.layoutScroll &&
+                            node.scroll &&
+                            node !== node.root
+                        ) {
+                            translateAxis(
+                                this.target.x,
+                                -node.scroll.offset.x
+                            )
+                            translateAxis(
+                                this.target.y,
+                                -node.scroll.offset.y
+                            )
+                        }
+                        if (!hasTransform(node.latestValues)) continue
+                        transformBox(
+                            this.target,
+                            node.latestValues,
+                            node.layout?.layoutBox
+                        )
+                    }
+                    if (hasTransform(this.latestValues)) {
+                        transformBox(
+                            this.target,
+                            this.latestValues,
+                            this.layout?.layoutBox
+                        )
+                    }
                 } else {
                     copyBoxInto(this.target, this.layout.layoutBox)
                 }
