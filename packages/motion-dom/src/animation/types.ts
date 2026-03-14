@@ -479,6 +479,19 @@ export interface ValueTransition
      * @public
      */
     inherit?: boolean
+
+    /**
+     * Configures an arc path for animations. The element will travel
+     * along a curved path rather than a straight line between its old and
+     * new positions.
+     *
+     * Can be used in keyframe animations (`transition.arc`) and layout
+     * animations (`transition.layout.arc`), including with `useAnimate`.
+     *
+     * @public
+     */
+    arc?: Arc
+
 }
 
 /**
@@ -594,6 +607,43 @@ export type TransitionWithValueOverrides<V> = ValueAnimationTransition<V> &
 export type Transition<V = any> =
     | ValueAnimationTransition<V>
     | TransitionWithValueOverrides<V>
+
+export interface Arc {
+    /**
+     * How far the arc bulges perpendicular to the straight-line path,
+     * as a fraction of the total distance. A value of `1` means the arc
+     * peaks at a height equal to the full travel distance. Should be >= 0;
+     * use `direction` to control which side the arc bulges toward.
+     */
+    amplitude: number
+    /**
+     * Where along the path (0–1) the arc reaches its maximum height.
+     * `0.5` (the default) produces a symmetric arc; lower values peak
+     * earlier, higher values peak later.
+     *
+     * Default: `0.5`
+     */
+    peak?: number
+    /**
+     * Controls which side of the straight-line path the arc bulges toward,
+     * relative to the direction of travel.
+     *
+     * - `"cw"` — the arc bulges clockwise relative to the direction of travel.
+     * - `"ccw"` — the arc bulges counterclockwise relative to the direction of travel.
+     *
+     * When unset, the side is chosen automatically so the arc always bulges
+     * toward the same screen side regardless of movement direction.
+     */
+    direction?: "cw" | "ccw"
+    /**
+     * Rotates the element to follow the tangent of the arc path.
+     *
+     * - `true` — follow with a default intensity of `0.5`
+     * - `number` (0–1) — scale factor for the tangent rotation.
+     *   `0` = no rotation, `1` = full tangent following.
+     */
+    orientToPath?: boolean | number
+}
 
 export type DynamicOption<T> = (i: number, total: number) => T
 

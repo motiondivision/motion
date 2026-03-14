@@ -116,6 +116,7 @@ export function useVisualElement<
          */
         if (visualElement && isMounted.current) {
             visualElement.update(props, presenceContext)
+
         }
     })
 
