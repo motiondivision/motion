@@ -1049,8 +1049,8 @@ export function createProjectionNode<I>({
             return boxWithoutScroll
         }
 
-        applyTransform(box: Box, transformOnly = false): Box {
-            const withTransforms = createBox()
+        applyTransform(box: Box, transformOnly = false, output?: Box): Box {
+            const withTransforms = output || createBox()
             copyBoxInto(withTransforms, box)
             for (let i = 0; i < this.path.length; i++) {
                 const node = this.path[i]
@@ -1261,37 +1261,11 @@ export function createProjectionNode<I>({
                  */
             } else if (this.targetDelta) {
                 if (Boolean(this.resumingFrom)) {
-                    copyBoxInto(this.target, this.layout.layoutBox)
-                    for (let i = 0; i < this.path.length; i++) {
-                        const node = this.path[i]
-                        if (
-                            node.options.layoutScroll &&
-                            node.scroll &&
-                            node !== node.root
-                        ) {
-                            translateAxis(
-                                this.target.x,
-                                -node.scroll.offset.x
-                            )
-                            translateAxis(
-                                this.target.y,
-                                -node.scroll.offset.y
-                            )
-                        }
-                        if (!hasTransform(node.latestValues)) continue
-                        transformBox(
-                            this.target,
-                            node.latestValues,
-                            node.layout?.layoutBox
-                        )
-                    }
-                    if (hasTransform(this.latestValues)) {
-                        transformBox(
-                            this.target,
-                            this.latestValues,
-                            this.layout?.layoutBox
-                        )
-                    }
+                    this.applyTransform(
+                        this.layout.layoutBox,
+                        false,
+                        this.target
+                    )
                 } else {
                     copyBoxInto(this.target, this.layout.layoutBox)
                 }
