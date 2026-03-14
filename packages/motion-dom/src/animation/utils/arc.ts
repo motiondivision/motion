@@ -13,6 +13,30 @@ export function bezierPoint(
     )
 }
 
+export function bezierTangentAngle(
+    t: number,
+    originX: number,
+    controlX: number,
+    targetX: number,
+    originY: number,
+    controlY: number,
+    targetY: number
+): number {
+    const dx =
+        2 * (1 - t) * (controlX - originX) + 2 * t * (targetX - controlX)
+    const dy =
+        2 * (1 - t) * (controlY - originY) + 2 * t * (targetY - controlY)
+    return Math.atan2(dy, dx) * (180 / Math.PI)
+}
+
+/**
+ * Wraps an angle difference into the [-180, 180] range to prevent
+ * flips when the tangent crosses the ±180° atan2 boundary.
+ */
+export function normalizeAngle(angle: number): number {
+    return ((((angle + 180) % 360) + 360) % 360) - 180
+}
+
 export function computeArcControlPoint(
     fromX: number,
     fromY: number,

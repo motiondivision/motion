@@ -14,7 +14,9 @@ import { getOptimisedAppearId } from "../../animation/optimized-appear/get-appea
 import { Arc, Transition, ValueAnimationOptions } from "../../animation/types"
 import {
     bezierPoint,
+    bezierTangentAngle,
     computeArcControlPoint,
+    normalizeAngle,
     resolveArcAmplitude,
 } from "../../animation/utils/arc"
 import { getValueTransition } from "../../animation/utils/get-value-transition"
@@ -1642,6 +1644,31 @@ export function createProjectionNode<I>({
                 )
             }
 
+            const arcRotationScale =
+                arc?.orientToPath === true
+                    ? 0.5
+                    : typeof arc?.orientToPath === "number"
+                    ? arc.orientToPath
+                    : 0
+
+            // Pre-compute start/end tangent angles for normalized rotation
+            const arcTangentAt0 =
+                arcControlDelta && arcRotationScale
+                    ? bezierTangentAngle(
+                          0,
+                          delta.x.translate, arcControlDelta.x, 0,
+                          delta.y.translate, arcControlDelta.y, 0
+                      )
+                    : 0
+            const arcTangentAt1 =
+                arcControlDelta && arcRotationScale
+                    ? bezierTangentAngle(
+                          1,
+                          delta.x.translate, arcControlDelta.x, 0,
+                          delta.y.translate, arcControlDelta.y, 0
+                      )
+                    : 0
+
             this.mixTargetDelta = (latest: number) => {
                 const progress = latest / 1000
 
@@ -1710,6 +1737,26 @@ export function createProjectionNode<I>({
                         shouldCrossfadeOpacity,
                         isOnlyMember
                     )
+                }
+
+                if (arcControlDelta && arcRotationScale) {
+                    if (!this.animationValues)
+                        this.animationValues = mixedValues
+                    const raw = bezierTangentAngle(
+                        progress,
+                        delta.x.translate,
+                        arcControlDelta.x,
+                        0,
+                        delta.y.translate,
+                        arcControlDelta.y,
+                        0
+                    )
+                    const baseline =
+                        arcTangentAt0 +
+                        normalizeAngle(arcTangentAt1 - arcTangentAt0) *
+                            progress
+                    this.animationValues.rotate =
+                        normalizeAngle(raw - baseline) * arcRotationScale
                 }
 
                 this.root.scheduleUpdateProjection()

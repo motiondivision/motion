@@ -635,6 +635,14 @@ export interface Arc {
      * toward the same screen side regardless of movement direction.
      */
     direction?: "cw" | "ccw"
+    /**
+     * Rotates the element to follow the tangent of the arc path.
+     *
+     * - `true` — follow with a default intensity of `0.5`
+     * - `number` (0–1) — scale factor for the tangent rotation.
+     *   `0` = no rotation, `1` = full tangent following.
+     */
+    orientToPath?: boolean | number
 }
 
 export type DynamicOption<T> = (i: number, total: number) => T
