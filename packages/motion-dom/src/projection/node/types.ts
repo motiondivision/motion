@@ -120,6 +120,7 @@ export interface IProjectionNode<I = unknown> {
     setAnimationOrigin(delta: Delta): void
     startAnimation(transition: ValueTransition): void
     finishAnimation(): void
+    animationProgress: number
     hasCheckedOptimisedAppear: boolean
 
     // Shared element
