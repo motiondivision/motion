@@ -1216,7 +1216,11 @@ export function createProjectionNode<I>({
              * even if no animation has started.
              */
             if (!this.targetDelta && !this.relativeTarget) {
-                if (relativeParent && relativeParent.layout) {
+                if (
+                    this.options.layoutAnchor !== false &&
+                    relativeParent &&
+                    relativeParent.layout
+                ) {
                     this.createRelativeTarget(
                         relativeParent,
                         this.layout.layoutBox,
@@ -1255,7 +1259,8 @@ export function createProjectionNode<I>({
                 calcRelativeBox(
                     this.target,
                     this.relativeTarget,
-                    this.relativeParent.target
+                    this.relativeParent.target,
+                    this.options.layoutAnchor || undefined
                 )
 
                 /**
@@ -1348,7 +1353,8 @@ export function createProjectionNode<I>({
             calcRelativePosition(
                 this.relativeTargetOrigin,
                 layout,
-                parentLayout
+                parentLayout,
+                this.options.layoutAnchor || undefined
             )
 
             copyBoxInto(this.relativeTarget, this.relativeTargetOrigin)
@@ -1605,7 +1611,8 @@ export function createProjectionNode<I>({
                     calcRelativePosition(
                         relativeLayout,
                         this.layout.layoutBox,
-                        this.relativeParent.layout.layoutBox
+                        this.relativeParent.layout.layoutBox,
+                        this.options.layoutAnchor || undefined
                     )
                     mixBox(
                         this.relativeTarget,
@@ -2177,18 +2184,23 @@ function notifyLayoutUpdate(node: IProjectionNode) {
                     relativeParent
 
                 if (parentSnapshot && parentLayout) {
+                    const anchor =
+                        node.options.layoutAnchor || undefined
+
                     const relativeSnapshot = createBox()
                     calcRelativePosition(
                         relativeSnapshot,
                         snapshot.layoutBox,
-                        parentSnapshot.layoutBox
+                        parentSnapshot.layoutBox,
+                        anchor
                     )
 
                     const relativeLayout = createBox()
                     calcRelativePosition(
                         relativeLayout,
                         layout,
-                        parentLayout.layoutBox
+                        parentLayout.layoutBox,
+                        anchor
                     )
 
                     if (!boxEqualsRounded(relativeSnapshot, relativeLayout)) {

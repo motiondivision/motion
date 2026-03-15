@@ -958,6 +958,17 @@ export interface MotionNodeLayoutOptions {
     layoutRoot?: boolean
 
     /**
+     * The anchor point for relative layout projection. This defines which
+     * point on the parent is used as the reference for the child's position.
+     *
+     * `{ x: 0, y: 0 }` (default) anchors to the top-left corner.
+     * `{ x: 0.5, y: 0.5 }` anchors to the center, useful for centered layouts
+     * (e.g., flexbox) to prevent drift during parent layout animations.
+     * `false` disables relative projection entirely.
+     */
+    layoutAnchor?: { x: number; y: number } | false
+
+    /**
      * Attached to a portal root to ensure we attach the child to the document root and don't
      * perform scale correction on it.
      */

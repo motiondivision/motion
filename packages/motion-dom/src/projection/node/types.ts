@@ -194,6 +194,7 @@ export interface ProjectionNodeOptions {
     transition?: Transition
     initialPromotionConfig?: InitialPromotionConfig
     layoutDependency?: unknown
+    layoutAnchor?: Point | false
 }
 
 export type ProjectionEventName = "layoutUpdate" | "projectionUpdate"

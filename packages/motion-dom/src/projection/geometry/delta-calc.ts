@@ -1,4 +1,4 @@
-import { Axis, AxisDelta, Box, Delta } from "motion-utils"
+import { Axis, AxisDelta, Box, Delta, Point } from "motion-utils"
 import { mixNumber } from "../../utils/mix/number"
 import { ResolvedValues } from "../../render/types"
 
@@ -69,26 +69,48 @@ export function calcBoxDelta(
     )
 }
 
-export function calcRelativeAxis(target: Axis, relative: Axis, parent: Axis) {
-    target.min = parent.min + relative.min
+export function calcRelativeAxis(
+    target: Axis,
+    relative: Axis,
+    parent: Axis,
+    anchor: number = 0
+) {
+    const anchorPoint = anchor
+        ? mixNumber(parent.min, parent.max, anchor)
+        : parent.min
+    target.min = anchorPoint + relative.min
     target.max = target.min + calcLength(relative)
 }
 
-export function calcRelativeBox(target: Box, relative: Box, parent: Box) {
-    calcRelativeAxis(target.x, relative.x, parent.x)
-    calcRelativeAxis(target.y, relative.y, parent.y)
+export function calcRelativeBox(
+    target: Box,
+    relative: Box,
+    parent: Box,
+    anchor?: Point
+) {
+    calcRelativeAxis(target.x, relative.x, parent.x, anchor?.x)
+    calcRelativeAxis(target.y, relative.y, parent.y, anchor?.y)
 }
 
 export function calcRelativeAxisPosition(
     target: Axis,
     layout: Axis,
-    parent: Axis
+    parent: Axis,
+    anchor: number = 0
 ) {
-    target.min = layout.min - parent.min
+    const anchorPoint = anchor
+        ? mixNumber(parent.min, parent.max, anchor)
+        : parent.min
+    target.min = layout.min - anchorPoint
     target.max = target.min + calcLength(layout)
 }
 
-export function calcRelativePosition(target: Box, layout: Box, parent: Box) {
-    calcRelativeAxisPosition(target.x, layout.x, parent.x)
-    calcRelativeAxisPosition(target.y, layout.y, parent.y)
+export function calcRelativePosition(
+    target: Box,
+    layout: Box,
+    parent: Box,
+    anchor?: Point
+) {
+    calcRelativeAxisPosition(target.x, layout.x, parent.x, anchor?.x)
+    calcRelativeAxisPosition(target.y, layout.y, parent.y, anchor?.y)
 }
