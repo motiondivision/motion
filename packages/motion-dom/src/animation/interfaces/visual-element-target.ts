@@ -78,15 +78,18 @@ export function animateTarget(
 
         /**
          * If the value is already at the defined target, skip the animation.
+         * We still re-assert the value via frame.update to take precedence
+         * over any stale transitionEnd callbacks from previous animations.
          */
         const currentValue = value.get()
         if (
             currentValue !== undefined &&
-            !value.isAnimating &&
+            !value.isAnimating() &&
             !Array.isArray(valueTarget) &&
             valueTarget === currentValue &&
             !valueTransition.velocity
         ) {
+            frame.update(() => value.set(valueTarget as any))
             continue
         }
 
