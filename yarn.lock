@@ -3477,6 +3477,25 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@tanstack/react-virtual@npm:^3.13.22":
+  version: 3.13.22
+  resolution: "@tanstack/react-virtual@npm:3.13.22"
+  dependencies:
+    "@tanstack/virtual-core": 3.13.22
+  peerDependencies:
+    react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+    react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+  checksum: f669a3c99cfd670223122797fce2f30f69bce56c4a751672569ca25d30af399bfd71b8c499f496a67cba8c2bdb8f1790d2b305ccc9357d3f8429e1afafd35da0
+  languageName: node
+  linkType: hard
+
+"@tanstack/virtual-core@npm:3.13.22":
+  version: 3.13.22
+  resolution: "@tanstack/virtual-core@npm:3.13.22"
+  checksum: c050614bbcb559f6ee8dbb67b338705822b23cace4ac399a33ef37edfdf9f1e7236829daf982852bf369796ace14a9f130ada0afce2f2b4cf136defe804bab04
+  languageName: node
+  linkType: hard
+
 "@testing-library/dom@npm:^8.16.0":
   version: 8.20.1
   resolution: "@testing-library/dom@npm:8.20.1"
@@ -12761,6 +12780,7 @@ __metadata:
   resolution: "react-19-env@workspace:dev/react-19"
   dependencies:
     "@radix-ui/react-dialog": ^1.1.15
+    "@tanstack/react-virtual": ^3.13.22
     "@types/react": ^19.0.0
     "@types/react-dom": ^19.0.0
     "@typescript-eslint/eslint-plugin": ^7.2.0
@@ -12846,6 +12866,7 @@ __metadata:
   dependencies:
     "@base-ui-components/react": ^1.0.0-rc.0
     "@radix-ui/react-dialog": ^1.1.15
+    "@tanstack/react-virtual": ^3.13.22
     "@types/react": ^18.2.66
     "@types/react-dom": ^18.2.22
     "@typescript-eslint/eslint-plugin": ^7.2.0
