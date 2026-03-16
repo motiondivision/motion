@@ -111,10 +111,8 @@ export function applyTreeDeltas(
             node.scroll &&
             node !== node.root
         ) {
-            transformBox(box, {
-                x: -node.scroll.offset.x,
-                y: -node.scroll.offset.y,
-            })
+            translateAxis(box.x, -node.scroll.offset.x)
+            translateAxis(box.y, -node.scroll.offset.y)
         }
 
         if (delta) {
@@ -150,8 +148,8 @@ export function applyTreeDeltas(
 }
 
 export function translateAxis(axis: Axis, distance: number) {
-    axis.min = axis.min + distance
-    axis.max = axis.max + distance
+    axis.min += distance
+    axis.max += distance
 }
 
 /**
