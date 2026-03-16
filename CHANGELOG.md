@@ -15,6 +15,8 @@ Undocumented APIs should be considered internal and may change without warning.
 
 -   Fix `whileInView` with client-side navigation.
 -   Fix draggable elements when layout updates due to surrounding element re-renders.
+-   Improved memory pressure of layout animations.
+-   Ensure motion value returned from `useSpring` reports correct `isAnimating()`.
 
 ## [12.36.0] 2026-03-09
 
