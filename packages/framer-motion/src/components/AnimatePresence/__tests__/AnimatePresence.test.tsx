@@ -1626,4 +1626,102 @@ describe("AnimatePresence with custom components", () => {
         expect(container.childElementCount).toBe(1)
         expect(getByTestId("content").textContent).toBe("3")
     })
+
+    test("Does not produce React key warning for conditional children without explicit keys", async () => {
+        const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {})
+
+        const Component = ({ show }: { show: boolean }) => {
+            return (
+                <AnimatePresence>
+                    {show && (
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            data-testid="child"
+                        />
+                    )}
+                </AnimatePresence>
+            )
+        }
+
+        const { rerender } = render(<Component show={false} />)
+
+        rerender(<Component show={true} />)
+
+        await act(async () => {
+            await nextFrame()
+        })
+
+        rerender(<Component show={false} />)
+
+        await act(async () => {
+            await nextFrame()
+        })
+
+        rerender(<Component show={true} />)
+
+        await act(async () => {
+            await nextFrame()
+        })
+
+        const keyWarnings = errorSpy.mock.calls.filter((call) =>
+            call.some(
+                (arg: any) =>
+                    typeof arg === "string" &&
+                    arg.includes("unique") &&
+                    arg.includes("key")
+            )
+        )
+
+        errorSpy.mockRestore()
+
+        expect(keyWarnings).toHaveLength(0)
+    })
+
+    test("Does not produce React key warning for multiple children without explicit keys", async () => {
+        const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {})
+
+        const Component = ({ show }: { show: boolean }) => {
+            return (
+                <AnimatePresence>
+                    {show && (
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                        />
+                    )}
+                    {show && (
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                        />
+                    )}
+                </AnimatePresence>
+            )
+        }
+
+        const { rerender } = render(<Component show={false} />)
+
+        rerender(<Component show={true} />)
+
+        await act(async () => {
+            await nextFrame()
+        })
+
+        const keyWarnings = errorSpy.mock.calls.filter((call) =>
+            call.some(
+                (arg: any) =>
+                    typeof arg === "string" &&
+                    arg.includes("unique") &&
+                    arg.includes("key")
+            )
+        )
+
+        errorSpy.mockRestore()
+
+        expect(keyWarnings).toHaveLength(0)
+    })
 })
