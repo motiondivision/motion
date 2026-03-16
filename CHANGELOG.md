@@ -4,6 +4,13 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.37.1] 2026-03-16
+
+### Fixed
+
+-   `Reorder`: Fix axis switching after window resize.
+-   `Reorder`: Fix with virtualised lists.
+
 ## [12.37.0] 2026-03-16
 
 ### Added
