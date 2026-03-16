@@ -1289,6 +1289,7 @@ export function createProjectionNode<I>({
                 this.attemptToResolveRelativeTarget = false
 
                 if (
+                    this.options.layoutAnchor !== false &&
                     relativeParent &&
                     Boolean(relativeParent.resumingFrom) ===
                         Boolean(this.resumingFrom) &&
