@@ -201,6 +201,7 @@ function createProjectionNode(
         dragConstraints,
         layoutScroll,
         layoutRoot,
+        layoutAnchor,
         layoutCrossfade,
     } = props
 
@@ -229,6 +230,7 @@ function createProjectionNode(
         crossfade: layoutCrossfade,
         layoutScroll,
         layoutRoot,
+        layoutAnchor,
     })
 }
 
