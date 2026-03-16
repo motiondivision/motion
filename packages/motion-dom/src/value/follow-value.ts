@@ -84,6 +84,7 @@ export function attachFollow<T extends AnyResolvedKeyframe>(
             activeAnimation.stop()
             activeAnimation = null
         }
+        value.animation = undefined
     }
 
     const startAnimation = () => {
@@ -121,8 +122,10 @@ export function attachFollow<T extends AnyResolvedKeyframe>(
     // multiple calls within the same frame (e.g. rapid mouse events)
     const scheduleAnimation = () => {
         startAnimation()
+        value.animation = activeAnimation ?? undefined
         value["events"].animationStart?.notify()
         activeAnimation?.then(() => {
+            value.animation = undefined
             value["events"].animationComplete?.notify()
         })
     }
