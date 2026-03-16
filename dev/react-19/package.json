@@ -1,7 +1,7 @@
 {
     "name": "react-19-env",
     "private": true,
-    "version": "12.37.0",
+    "version": "12.38.0",
     "type": "module",
     "scripts": {
         "dev": "vite",
@@ -12,7 +12,7 @@
     },
     "dependencies": {
         "@tanstack/react-virtual": "^3.13.22",
-        "motion": "^12.37.0",
+        "motion": "^12.38.0",
         "react": "^19.0.0",
         "react-dom": "^19.0.0"
     },
