@@ -107,8 +107,9 @@ export function ReorderGroupComponent<
     )
 
     // Clean up removed values
+    const valuesSet = new Set(values)
     itemBoxes.current.forEach((_, key) => {
-        if (values.indexOf(key) === -1) itemBoxes.current.delete(key)
+        if (!valuesSet.has(key)) itemBoxes.current.delete(key)
     })
 
     // Initialize order from persisted measurements
