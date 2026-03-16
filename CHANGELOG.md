@@ -9,10 +9,12 @@ Undocumented APIs should be considered internal and may change without warning.
 ### Added
 
 -   Support for hardware accelerating `"start"` and `"end"` offsets in `scroll` and `useScroll`.
+-   Support for `oklch`, `oklab`, `lab`, `lch`, `color`, `color-mix`, `light-dark` color types.
 
 ### Fixed
 
 -   Fix `whileInView` with client-side navigation.
+-   Fix draggable elements when layout updates due to surrounding element re-renders.
 
 ## [12.36.0] 2026-03-09
 
