@@ -39,8 +39,7 @@ npm install motion-v
 
 Motion is available for [React](https://motion.dev/docs/react), [JavaScript](https://motion.dev/docs/quick-start) and [Vue](https://motion.dev/docs/vue).
 
-<details>
-<summary>React</summary>
+### React
 
 ```jsx
 import { motion } from "motion/react"
@@ -52,10 +51,9 @@ function Component() {
 
 Get started with [Motion for React](https://motion.dev/docs/react).
 
-</details>
+**Note:** Framer Motion is now Motion. Import from `motion/react` instead of `framer-motion`.
 
-<details>
-<summary>JavaScript</summary>
+### JS
 
 ```javascript
 import { animate } from "motion"
@@ -65,10 +63,7 @@ animate("#box", { x: 100 })
 
 Get started with [JavaScript](https://motion.dev/docs/quick-start).
 
-</details>
-
-<details>
-<summary>Vue</summary>
+### Vue
 
 ```html
 <script>
@@ -80,19 +75,21 @@ Get started with [JavaScript](https://motion.dev/docs/quick-start).
 
 Get started with [Motion for Vue](https://motion.dev/docs/vue).
 
-</details>
+## 🎓 Examples & tutorials
 
-## 🎓 Examples
+Browse 330+ [official examples](https://motion.dev/examples), with copy-paste code that'll level-up your animations whether you're a beginner or an expert.
 
-Browse 100+ free and 180+ premium [Motion Examples](https://motion.dev/examples), with copy-paste code that'll level-up your animations whether you're a beginner or an expert.
+Over 100 examples come with a full step-by-step [tutorial](https://motion.dev/tutorials).
 
 ## ⚡️ Motion+
 
 A one-time payment, lifetime-updates membership:
 
--   **180+ premium examples**
+-   **330+ examples**
+-   **100+ tutorials**
 -   **Premium APIs** like [Cursor](https://motion.dev/docs/cursor) and [Ticker](https://motion.dev/docs/react-ticker)
--   **Visual editing** for VS Code (alpha)
+-   **Transition editor** for Cursor and VS Code
+-   **AI skills**
 -   **Private Discord**
 -   **Early access content**
 
@@ -132,7 +129,7 @@ Motion drives the animations on the Cursor homepage, and is working with Cursor 
 
 ### Gold
 
-<a href="https://lottiefiles.com"><img alt="LottieFiles" src="https://github.com/user-attachments/assets/4e99d8c7-4cba-43ee-93c5-93861ae708ec" width="200px" height="120px"></a> <a href="https://mintlify.com"><img alt="Mintlify" src="https://github.com/user-attachments/assets/2740db2f-1877-49ae-ae80-ba5d19ef1587" width="200px" height="120px"></a>
+<a href="https://mintlify.com"><img alt="Mintlify" src="https://github.com/user-attachments/assets/2740db2f-1877-49ae-ae80-ba5d19ef1587" width="200px" height="120px"></a>
 
 ### Silver
 
