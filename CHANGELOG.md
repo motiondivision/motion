@@ -4,12 +4,17 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
-## [12.37.1] 2026-03-16
+## [12.38.0] 2026-03-16
+
+### Added
+
+-   Added `layoutAnchor` prop to configure custom anchor point for resolving relative projection boxes.
 
 ### Fixed
 
 -   `Reorder`: Fix axis switching after window resize.
 -   `Reorder`: Fix with virtualised lists.
+-   `AnimatePresence`: Ensure children are removed when exit animation matches current values.
 
 ## [12.37.0] 2026-03-16
 
