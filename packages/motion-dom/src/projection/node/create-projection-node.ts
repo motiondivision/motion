@@ -724,8 +724,21 @@ export function createProjectionNode<I>({
             // but should still clean up the measurements so that the next
             // snapshot could be taken correctly.
             if (updateWasBlocked) {
+                const wasBlockedByResize = this.updateBlockedByResize
+
                 this.unblockUpdate()
+                this.updateBlockedByResize = false
                 this.clearAllSnapshots()
+
+                /**
+                 * When blocked by resize, still measure layouts so
+                 * callbacks like onLayoutMeasure fire (e.g. Reorder).
+                 * Skip notifyLayoutUpdate to prevent animations.
+                 */
+                if (wasBlockedByResize) {
+                    this.nodes!.forEach(forceLayoutMeasure)
+                }
+
                 this.nodes!.forEach(clearMeasurements)
                 return
             }
@@ -2272,6 +2285,11 @@ function clearSnapshot(node: IProjectionNode) {
 
 function clearMeasurements(node: IProjectionNode) {
     node.clearMeasurements()
+}
+
+function forceLayoutMeasure(node: IProjectionNode) {
+    node.isLayoutDirty = true
+    node.updateLayout()
 }
 
 function clearIsLayoutDirty(node: IProjectionNode) {
