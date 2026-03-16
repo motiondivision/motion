@@ -122,8 +122,11 @@ class MeasureLayoutWithContext extends Component<MeasureProps> {
     }
 
     componentDidUpdate() {
-        const { projection } = this.props.visualElement
+        const { visualElement, layoutAnchor } = this.props
+        const { projection } = visualElement
         if (projection) {
+            projection.options.layoutAnchor = layoutAnchor
+
             projection.root!.didUpdate()
 
             microtask.postRender(() => {
