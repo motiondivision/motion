@@ -52,7 +52,7 @@ function updateAxisInfo(
     axis.offset.length = 0
     axis.offset[0] = 0
     axis.offset[1] = axis.scrollLength
-    axis.progress = progress(0, axis.scrollLength, axis.current)
+    axis.progress = axis.scrollLength ? progress(0, axis.scrollLength, axis.current) : 0
 
     const elapsed = time - prevTime
     axis.velocity =

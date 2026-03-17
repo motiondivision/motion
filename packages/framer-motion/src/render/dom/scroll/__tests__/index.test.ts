@@ -398,6 +398,53 @@ describe("scrollInfo", () => {
         })
     })
 
+    test("Reports zero progress when container has no scroll overflow.", async () => {
+        let latest: ScrollInfo
+
+        const container = document.createElement("div")
+
+        const setContainerHeight = createMockMeasurement(
+            container,
+            "clientHeight"
+        )
+        const setContainerLength = createMockMeasurement(
+            container,
+            "scrollHeight"
+        )
+        const setContainerScrollTop = createMockMeasurement(
+            container,
+            "scrollTop"
+        )
+
+        // Content fits exactly in container — no overflow
+        setContainerHeight(500)
+        setContainerLength(500)
+
+        const fireElementScroll = async (distance: number = 0) => {
+            setContainerScrollTop(distance)
+            container.dispatchEvent(new window.Event("scroll"))
+            await nextFrame()
+        }
+
+        const stopScroll = scrollInfo(
+            (info) => {
+                latest = info
+            },
+            { container }
+        )
+
+        return new Promise<void>(async (resolve) => {
+            await fireElementScroll(0)
+
+            expect(latest.y.scrollLength).toEqual(0)
+            expect(latest.y.progress).toEqual(0)
+
+            stopScroll()
+
+            resolve()
+        })
+    })
+
     test("Reports non-negative progress for negative scroll values (reverse directions).", async () => {
         let latest: ScrollInfo
 
