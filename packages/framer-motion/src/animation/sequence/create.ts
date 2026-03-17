@@ -16,7 +16,6 @@ import {
 import {
     Easing,
     getEasingForSegment,
-    invariant,
     progress,
     secondsToMilliseconds,
 } from "motion-utils"
@@ -50,6 +49,16 @@ export function createAnimationsFromSequence(
     const sequences = new Map<Element | MotionValue, SequenceMap>()
     const elementCache = {}
     const timeLabels = new Map<string, number>()
+
+    /**
+     * Store per-value repeat options that can't be expanded into keyframes
+     * (e.g. repeat: Infinity) and need to be passed through to the
+     * final transition for the animation engine to handle.
+     */
+    const repeatPassthrough = new Map<
+        ValueSequence,
+        Pick<Transition, "repeat" | "repeatType" | "repeatDelay">
+    >()
 
     let prevTime = 0
     let currentTime = 0
@@ -198,46 +207,58 @@ export function createAnimationsFromSequence(
              * Handle repeat options
              */
             if (repeat) {
-                invariant(
-                    repeat < MAX_REPEAT,
-                    "Repeat count too high, must be less than 20",
-                    "repeat-count-high"
-                )
+                if (repeat >= MAX_REPEAT) {
+                    /**
+                     * For large/infinite repeat counts, don't expand keyframes.
+                     * Pass repeat options through to the final transition
+                     * and let the animation engine handle repeating.
+                     */
+                    repeatPassthrough.set(valueSequence, {
+                        repeat,
+                        repeatType: repeatType as Transition["repeatType"],
+                        repeatDelay: repeatDelay || undefined,
+                    })
+                } else {
+                    duration = calculateRepeatDuration(
+                        duration,
+                        repeat,
+                        repeatDelay
+                    )
 
-                duration = calculateRepeatDuration(
-                    duration,
-                    repeat,
-                    repeatDelay
-                )
-
-                const originalKeyframes = [...valueKeyframesAsList]
-                const originalTimes = [...times]
-                ease = Array.isArray(ease) ? [...ease] : [ease]
-                const originalEase = [...ease]
-
-                for (let repeatIndex = 0; repeatIndex < repeat; repeatIndex++) {
-                    valueKeyframesAsList.push(...originalKeyframes)
+                    const originalKeyframes = [...valueKeyframesAsList]
+                    const originalTimes = [...times]
+                    ease = Array.isArray(ease) ? [...ease] : [ease]
+                    const originalEase = [...ease]
 
                     for (
-                        let keyframeIndex = 0;
-                        keyframeIndex < originalKeyframes.length;
-                        keyframeIndex++
+                        let repeatIndex = 0;
+                        repeatIndex < repeat;
+                        repeatIndex++
                     ) {
-                        times.push(
-                            originalTimes[keyframeIndex] + (repeatIndex + 1)
-                        )
-                        ease.push(
-                            keyframeIndex === 0
-                                ? "linear"
-                                : getEasingForSegment(
-                                      originalEase,
-                                      keyframeIndex - 1
-                                  )
-                        )
-                    }
-                }
+                        valueKeyframesAsList.push(...originalKeyframes)
 
-                normalizeTimes(times, repeat)
+                        for (
+                            let keyframeIndex = 0;
+                            keyframeIndex < originalKeyframes.length;
+                            keyframeIndex++
+                        ) {
+                            times.push(
+                                originalTimes[keyframeIndex] +
+                                    (repeatIndex + 1)
+                            )
+                            ease.push(
+                                keyframeIndex === 0
+                                    ? "linear"
+                                    : getEasingForSegment(
+                                          originalEase,
+                                          keyframeIndex - 1
+                                      )
+                            )
+                        }
+                    }
+
+                    normalizeTimes(times, repeat)
+                }
             }
 
             const targetTime = startTime + duration
@@ -386,6 +407,7 @@ export function createAnimationsFromSequence(
                 ease: valueEasing,
                 times: valueOffset,
                 ...sequenceTransition,
+                ...repeatPassthrough.get(valueSequence),
             }
         }
     })
