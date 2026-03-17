@@ -730,6 +730,29 @@ describe("createAnimationsFromSequence", () => {
         expect(transition.y.times).toEqual([0, 0.5, 1])
     })
 
+    test("It passes repeat: Infinity through to the final transition (#2915)", () => {
+        const animations = createAnimationsFromSequence(
+            [
+                [
+                    a,
+                    { x: [0, 100] },
+                    { duration: 1, repeat: Infinity, ease: "linear" },
+                ],
+            ],
+            undefined,
+            undefined,
+            { spring }
+        )
+
+        expect(animations.get(a)!.keyframes.x).toEqual([0, 100])
+        const { duration, times, ease, repeat } =
+            animations.get(a)!.transition.x
+        expect(duration).toEqual(1)
+        expect(times).toEqual([0, 1])
+        expect(ease).toEqual(["linear", "linear"])
+        expect(repeat).toEqual(Infinity)
+    })
+
     test.skip("It correctly adds repeatDelay between repeated keyframes", () => {
         const animations = createAnimationsFromSequence(
             [
