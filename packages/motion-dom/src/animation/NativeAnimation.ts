@@ -4,7 +4,7 @@ import {
     noop,
     secondsToMilliseconds,
 } from "motion-utils"
-import { setStyle } from "../render/dom/style-set"
+import { removeStyle, setStyle } from "../render/dom/style-set"
 import { supportsScrollTimeline } from "../utils/supports/scroll-timeline"
 import { getFinalKeyframe } from "./keyframes/get-final"
 import {
@@ -148,6 +148,11 @@ export class NativeAnimation<T extends AnyResolvedKeyframe>
         try {
             this.animation.cancel()
         } catch (e) {}
+
+        const { element, name } = this.options || {}
+        if (element && name && !this.isPseudoElement) {
+            removeStyle(element, name)
+        }
     }
 
     stop() {
@@ -165,7 +170,11 @@ export class NativeAnimation<T extends AnyResolvedKeyframe>
             this.commitStyles()
         }
 
-        if (!this.isPseudoElement) this.cancel()
+        if (!this.isPseudoElement) {
+            try {
+                this.animation.cancel()
+            } catch (e) {}
+        }
     }
 
     /**

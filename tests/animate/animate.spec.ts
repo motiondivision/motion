@@ -112,19 +112,19 @@ test.describe("animate() methods", () => {
         })
     })
 
-    test("cancel() after finish is a no-op", async ({ page }) => {
+    test("cancel() after finish removes persisted styles", async ({ page }) => {
         await waitForAnimation(
             "animate/animate-cancel-after-finish.html",
             page
         )
         await eachBox(page, async (box) => {
             const id = await box.getAttribute("id")
-            // cancel() after finish should not revert — the final value is committed
+            // cancel() after finish should revert — removing persisted inline styles
             const boundingBox = await box.boundingBox()
             expect(
                 boundingBox?.x,
-                `${id} should remain at final position after cancel`
-            ).toBeCloseTo(100)
+                `${id} should revert to original position after cancel`
+            ).toBeCloseTo(0)
         })
     })
 
