@@ -175,10 +175,16 @@ export function ReorderGroupComponent<
 }
 
 export const ReorderGroup = /*@__PURE__*/ forwardRef(ReorderGroupComponent) as <
-    V,
+    Values extends any[],
     TagName extends ReorderElementTag = DefaultGroupElement
 >(
-    props: ReorderGroupProps<V, TagName> & { ref?: React.ForwardedRef<any> }
+    props: Omit<
+        ReorderGroupProps<Values[number], TagName>,
+        "values" | "onReorder"
+    > & {
+        values: Values
+        onReorder: (newOrder: Values) => void
+    } & { ref?: React.ForwardedRef<any> }
 ) => ReturnType<typeof ReorderGroupComponent>
 
 function compareMin<V>(a: ItemData<V>, b: ItemData<V>) {

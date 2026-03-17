@@ -1,9 +1,36 @@
-import { useContext, useLayoutEffect, useRef } from "react"
+import { useContext, useLayoutEffect, useRef, useState } from "react"
 import { Reorder } from ".."
 import { ReorderContext } from "../../../context/ReorderContext"
 import { render } from "../../../jest.setup"
 
 describe("Reorder", () => {
+    it("Accepts union array types for values prop", () => {
+        const Component = () => {
+            const [items, setItems] = useState<number[] | string[]>([
+                "a",
+                "b",
+                "c",
+            ])
+
+            return (
+                <Reorder.Group
+                    values={items}
+                    onReorder={setItems}
+                    axis="y"
+                >
+                    {items.map((item) => (
+                        <Reorder.Item key={item} value={item}>
+                            {item}
+                        </Reorder.Item>
+                    ))}
+                </Reorder.Group>
+            )
+        }
+
+        const { container } = render(<Component />)
+        expect(container.querySelectorAll("li")).toHaveLength(3)
+    })
+
     it("Correctly hydrates ref", () => {
         let groupRefPass = false
         let itemRefPass = false
