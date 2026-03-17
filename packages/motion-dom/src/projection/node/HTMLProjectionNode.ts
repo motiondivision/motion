@@ -25,4 +25,12 @@ export const HTMLProjectionNode = createProjectionNode<HTMLElement>({
     },
     checkIsScrollRoot: (instance) =>
         Boolean(window.getComputedStyle(instance).position === "fixed"),
+    hasStickyAncestor: (instance) => {
+        let el = instance.parentElement
+        while (el) {
+            if (window.getComputedStyle(el).position === "sticky") return true
+            el = el.parentElement
+        }
+        return false
+    },
 })

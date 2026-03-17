@@ -137,6 +137,7 @@ export function createProjectionNode<I>({
     defaultParent,
     measureScroll,
     checkIsScrollRoot,
+    hasStickyAncestor,
     resetTransform,
 }: ProjectionNodeConfig<I>) {
     return class ProjectionNode implements IProjectionNode<I> {
@@ -1021,7 +1022,11 @@ export function createProjectionNode<I>({
             const box = visualElement.measureViewportBox()
 
             const wasInScrollRoot =
-                this.scroll?.wasRoot || this.path.some(checkNodeWasScrollRoot)
+                this.scroll?.wasRoot ||
+                this.path.some(checkNodeWasScrollRoot) ||
+                (hasStickyAncestor &&
+                    this.instance &&
+                    hasStickyAncestor(this.instance))
 
             if (!wasInScrollRoot) {
                 // Remove viewport scroll to give page-relative coordinates
