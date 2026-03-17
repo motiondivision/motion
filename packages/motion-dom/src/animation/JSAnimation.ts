@@ -517,6 +517,7 @@ export class JSAnimation<T extends number | string>
     cancel() {
         this.holdTime = null
         this.startTime = 0
+        this.state = "running"
         this.tick(0)
         this.teardown()
         this.options.onCancel?.()
