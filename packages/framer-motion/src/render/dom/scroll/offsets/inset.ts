@@ -1,5 +1,28 @@
 import { isHTMLElement } from "motion-dom"
 
+function addTranslateOffset(
+    inset: { x: number; y: number },
+    element: HTMLElement
+) {
+    const style = getComputedStyle(element)
+    const { translate, transform } = style
+
+    if (translate && translate !== "none") {
+        const parts = translate.split(" ")
+        inset.x += parseFloat(parts[0]) || 0
+        inset.y += parseFloat(parts[1] || "0") || 0
+    }
+
+    if (transform && transform !== "none") {
+        const match = transform.match(/matrix\(([^)]+)\)/)
+        if (match) {
+            const values = match[1].split(",")
+            inset.x += parseFloat(values[4])
+            inset.y += parseFloat(values[5])
+        }
+    }
+}
+
 export function calcInset(element: Element, container: Element) {
     const inset = { x: 0, y: 0 }
 
@@ -8,6 +31,7 @@ export function calcInset(element: Element, container: Element) {
         if (isHTMLElement(current)) {
             inset.x += current.offsetLeft
             inset.y += current.offsetTop
+            addTranslateOffset(inset, current)
             current = current.offsetParent
         } else if (current.tagName === "svg") {
             /**
