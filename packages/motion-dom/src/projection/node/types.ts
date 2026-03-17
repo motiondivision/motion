@@ -160,6 +160,7 @@ export interface ProjectionNodeConfig<I> {
     ) => VoidFunction
     measureScroll: (instance: I) => Point
     checkIsScrollRoot: (instance: I) => boolean
+    hasStickyAncestor?: (instance: I) => boolean
     resetTransform?: (instance: I, value?: string) => void
 }
 
