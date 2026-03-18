@@ -18,32 +18,12 @@ const presets: [ProgressIntersection[], string][] = [
     [ScrollOffsetPresets.All, "contain"],
 ]
 
-const stringToProgress: Record<string, number> = {
-    start: 0,
-    end: 1,
-}
-
-function parseStringOffset(
-    s: string
-): ProgressIntersection | undefined {
-    const parts = s.trim().split(/\s+/)
-    if (parts.length !== 2) return undefined
-    const a = stringToProgress[parts[0]]
-    const b = stringToProgress[parts[1]]
-    if (a === undefined || b === undefined) return undefined
-    return [a, b]
-}
-
 function normaliseOffset(offset: ScrollOffset): ProgressIntersection[] | undefined {
     if (offset.length !== 2) return undefined
     const result: ProgressIntersection[] = []
     for (const item of offset) {
         if (Array.isArray(item)) {
             result.push(item as ProgressIntersection)
-        } else if (typeof item === "string") {
-            const parsed = parseStringOffset(item)
-            if (!parsed) return undefined
-            result.push(parsed)
         } else {
             return undefined
         }
