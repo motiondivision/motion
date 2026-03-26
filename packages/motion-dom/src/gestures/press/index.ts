@@ -91,7 +91,7 @@ export function press(
             onPointerEnd(
                 upEvent,
                 (target as any) === targetWindow ||
-                    (target as any) === document ||
+                    (target as any) === targetWindow.document ||
                     options.useGlobalTarget ||
                     isNodeOrChild(target, upEvent.target as Element)
             )

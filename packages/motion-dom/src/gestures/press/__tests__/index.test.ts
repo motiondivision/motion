@@ -12,6 +12,32 @@ function dispatchPointerEvent(target: EventTarget, type: string) {
 }
 
 describe("press", () => {
+    test("handles pointer lifecycle on the current document", () => {
+        const button = document.createElement("button")
+        const onPressStart = jest.fn()
+        const onPressEnd = jest.fn()
+
+        document.body.appendChild(button)
+
+        const cancel = press(document, () => {
+            onPressStart()
+            return onPressEnd
+        })
+
+        dispatchPointerEvent(button, "pointerdown")
+        dispatchPointerEvent(button, "pointerup")
+
+        expect(onPressStart).toHaveBeenCalledTimes(1)
+        expect(onPressEnd).toHaveBeenCalledTimes(1)
+        expect(onPressEnd).toHaveBeenCalledWith(
+            expect.any(Event),
+            expect.objectContaining({ success: true })
+        )
+
+        cancel()
+        button.remove()
+    })
+
     test("handles pointer lifecycle in the current window", () => {
         const button = document.createElement("button")
         const onPressStart = jest.fn()
@@ -49,6 +75,35 @@ describe("press", () => {
         iframe.contentDocument!.body.appendChild(button)
 
         const cancel = press(button, () => {
+            onPressStart()
+            return onPressEnd
+        })
+
+        dispatchPointerEvent(button, "pointerdown")
+        dispatchPointerEvent(button, "pointerup")
+
+        expect(onPressStart).toHaveBeenCalledTimes(1)
+        expect(onPressEnd).toHaveBeenCalledTimes(1)
+        expect(onPressEnd).toHaveBeenCalledWith(
+            expect.any(Event),
+            expect.objectContaining({ success: true })
+        )
+
+        cancel()
+        iframe.remove()
+    })
+
+    test("handles pointer lifecycle on an owning iframe document", () => {
+        const iframe = document.createElement("iframe")
+        const onPressStart = jest.fn()
+        const onPressEnd = jest.fn()
+
+        document.body.appendChild(iframe)
+
+        const button = iframe.contentDocument!.createElement("button")
+        iframe.contentDocument!.body.appendChild(button)
+
+        const cancel = press(iframe.contentDocument!, () => {
             onPressStart()
             return onPressEnd
         })
