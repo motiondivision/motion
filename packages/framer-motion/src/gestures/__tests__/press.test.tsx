@@ -1,6 +1,7 @@
 import { fireEvent } from "@testing-library/dom"
 import { motionValue } from "motion-dom"
 import { useState } from "react"
+import { createPortal } from "react-dom"
 import { motion } from "../.."
 import {
     pointerDown,
@@ -30,6 +31,59 @@ describe("press", () => {
         await nextFrame()
 
         expect(press).toBeCalledTimes(1)
+    })
+
+    test("press gestures work for elements portaled into another window", async () => {
+        const pressStart = jest.fn()
+        const press = jest.fn()
+        const pressCancel = jest.fn()
+        const opacity = motionValue(0.5)
+        const iframe = document.createElement("iframe")
+
+        document.body.appendChild(iframe)
+
+        const portalTarget = iframe.contentDocument!.createElement("div")
+        iframe.contentDocument!.body.appendChild(portalTarget)
+
+        const Component = () =>
+            createPortal(
+                <motion.button
+                    data-testid="portal-button"
+                    initial={{ opacity: 0.5 }}
+                    onTapStart={pressStart}
+                    onTap={press}
+                    onTapCancel={pressCancel}
+                    style={{ opacity }}
+                    transition={{ type: false }}
+                    whileTap={{ opacity: 1 }}
+                />,
+                portalTarget
+            )
+
+        const { unmount } = render(<Component />)
+        const button = portalTarget.querySelector(
+            "[data-testid='portal-button']"
+        ) as Element
+
+        await nextFrame()
+        expect(opacity.get()).toBe(0.5)
+
+        pointerDown(button)
+        await nextFrame()
+
+        expect(pressStart).toBeCalledTimes(1)
+        expect(opacity.get()).toBe(1)
+
+        pointerUp(button)
+        await nextFrame()
+
+        expect(pressStart).toBeCalledTimes(1)
+        expect(press).toBeCalledTimes(1)
+        expect(pressCancel).toBeCalledTimes(0)
+        expect(opacity.get()).toBe(0.5)
+
+        unmount()
+        iframe.remove()
     })
 
     test("press event listeners don't fire if element is disabled", async () => {
@@ -796,10 +850,7 @@ describe("press", () => {
         const childTap = jest.fn()
         const Component = () => (
             <motion.div onTap={() => parentTap()}>
-                <motion.div
-                    data-testid="child"
-                    onTap={() => childTap()}
-                />
+                <motion.div data-testid="child" onTap={() => childTap()} />
             </motion.div>
         )
 

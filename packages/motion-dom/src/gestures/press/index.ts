@@ -1,4 +1,5 @@
 import { isHTMLElement } from "../../utils/is-html-element"
+import { getEventTargetWindow } from "../../utils/get-event-target-window"
 import { ElementOrSelector } from "../../utils/resolve-elements"
 import { isDragActive } from "../drag/state/is-active"
 import { EventOptions } from "../types"
@@ -56,6 +57,7 @@ export function press(
 
     const startPress = (startEvent: PointerEvent) => {
         const target = startEvent.currentTarget as Element
+        const targetWindow = getEventTargetWindow(target)
 
         if (!isValidPressEvent(startEvent)) return
         if (claimedPointerDownEvents.has(startEvent)) return
@@ -69,8 +71,8 @@ export function press(
         const onPressEnd = onPressStart(target, startEvent)
 
         const onPointerEnd = (endEvent: PointerEvent, success: boolean) => {
-            window.removeEventListener("pointerup", onPointerUp)
-            window.removeEventListener("pointercancel", onPointerCancel)
+            targetWindow.removeEventListener("pointerup", onPointerUp)
+            targetWindow.removeEventListener("pointercancel", onPointerCancel)
 
             if (isPressing.has(target)) {
                 isPressing.delete(target)
@@ -88,7 +90,7 @@ export function press(
         const onPointerUp = (upEvent: PointerEvent) => {
             onPointerEnd(
                 upEvent,
-                (target as any) === window ||
+                (target as any) === targetWindow ||
                     (target as any) === document ||
                     options.useGlobalTarget ||
                     isNodeOrChild(target, upEvent.target as Element)
@@ -99,8 +101,12 @@ export function press(
             onPointerEnd(cancelEvent, false)
         }
 
-        window.addEventListener("pointerup", onPointerUp, eventOptions)
-        window.addEventListener("pointercancel", onPointerCancel, eventOptions)
+        targetWindow.addEventListener("pointerup", onPointerUp, eventOptions)
+        targetWindow.addEventListener(
+            "pointercancel",
+            onPointerCancel,
+            eventOptions
+        )
     }
 
     targets.forEach((target: EventTarget) => {
