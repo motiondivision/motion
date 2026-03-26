@@ -19,7 +19,7 @@ describe("press", () => {
 
         document.body.appendChild(button)
 
-        const cancel = press(document, () => {
+        const cancel = press(document as unknown as Element, () => {
             onPressStart()
             return onPressEnd
         })
@@ -103,10 +103,13 @@ describe("press", () => {
         const button = iframe.contentDocument!.createElement("button")
         iframe.contentDocument!.body.appendChild(button)
 
-        const cancel = press(iframe.contentDocument!, () => {
-            onPressStart()
-            return onPressEnd
-        })
+        const cancel = press(
+            iframe.contentDocument! as unknown as Element,
+            () => {
+                onPressStart()
+                return onPressEnd
+            }
+        )
 
         dispatchPointerEvent(button, "pointerdown")
         dispatchPointerEvent(button, "pointerup")
