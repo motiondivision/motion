@@ -10469,12 +10469,12 @@ __metadata:
   linkType: hard
 
 "lodash.template@npm:^4.5.0":
-  version: 4.5.0
-  resolution: "lodash.template@npm:4.5.0"
+  version: 4.18.1
+  resolution: "lodash.template@npm:4.18.1"
   dependencies:
     lodash._reinterpolate: ^3.0.0
     lodash.templatesettings: ^4.0.0
-  checksum: ca64e5f07b6646c9d3dbc0fe3aaa995cb227c4918abd1cef7a9024cd9c924f2fa389a0ec4296aa6634667e029bc81d4bbdb8efbfde11df76d66085e6c529b450
+  checksum: 9c1f2bd844344d1cc9658d3d31451f00b5adcded6d745319194df97b9d6e469333ea280b3e01a60d3a5254c4db6937e53902759456ea45ae086ed063d3e8e848
   languageName: node
   linkType: hard
 
