@@ -25,7 +25,12 @@ export class ExitAnimationFeature extends Feature<unknown> {
             if (this.isExitComplete) {
                 const { initial, custom } = this.node.getProps()
 
-                if (typeof initial === "string") {
+                if (
+                    typeof initial === "string" ||
+                    (typeof initial === "object" &&
+                        initial !== null &&
+                        !Array.isArray(initial))
+                ) {
                     const resolved = resolveVariant(
                         this.node,
                         initial,

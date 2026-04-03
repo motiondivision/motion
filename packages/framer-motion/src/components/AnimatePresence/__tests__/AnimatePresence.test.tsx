@@ -1502,6 +1502,72 @@ describe("AnimatePresence with custom components", () => {
         expect(enterCustomValues).toContain(1)
     })
 
+    test("Re-entering child with object-form initial resets to initial values when exit was complete", async () => {
+        const opacity = motionValue(1)
+        const opacityChanges: number[] = []
+
+        opacity.on("change", (v) => {
+            opacityChanges.push(v)
+        })
+
+        const Component = ({
+            showA,
+            showB,
+        }: {
+            showA: boolean
+            showB: boolean
+        }) => {
+            return (
+                <AnimatePresence>
+                    {showA && (
+                        <motion.div
+                            key="a"
+                            initial={{ x: 0 }}
+                            animate={{ x: 100 }}
+                            exit={{ x: -100 }}
+                            transition={{ duration: 10 }}
+                        />
+                    )}
+                    {showB && (
+                        <motion.div
+                            key="b"
+                            initial={{ opacity: 0.5 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            style={{ opacity }}
+                            transition={{ type: false }}
+                        />
+                    )}
+                </AnimatePresence>
+            )
+        }
+
+        const { rerender } = render(<Component showA showB />)
+        await act(async () => {
+            await nextFrame()
+        })
+
+        await act(async () => {
+            rerender(<Component showA={false} showB={false} />)
+        })
+        await act(async () => {
+            await nextFrame()
+        })
+
+        expect(opacity.get()).toBe(0)
+
+        opacityChanges.length = 0
+        await act(async () => {
+            rerender(<Component showA={false} showB />)
+        })
+        await act(async () => {
+            await nextFrame()
+        })
+
+        expect(opacityChanges.length).toBeGreaterThan(0)
+        expect(opacityChanges[0]).toBe(0.5)
+    })
+
     test("Does not get stuck when state changes cause rapid key alternation in mode='wait'", async () => {
         /**
          * Reproduction from #3141: A loading/loaded pattern where
