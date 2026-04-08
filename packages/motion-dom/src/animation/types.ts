@@ -277,6 +277,8 @@ export interface SpringOptions extends DurationSpringOptions, VelocityOptions {
      * Stiffness of the spring. Higher values will create more sudden movement.
      * Set to `100` by default.
      *
+     * @default 100
+     *
      * @public
      */
     stiffness?: number
@@ -285,6 +287,8 @@ export interface SpringOptions extends DurationSpringOptions, VelocityOptions {
      * Strength of opposing force. If set to 0, spring will oscillate
      * indefinitely. Set to `10` by default.
      *
+     * @default 10
+     *
      * @public
      */
     damping?: number
@@ -292,6 +296,8 @@ export interface SpringOptions extends DurationSpringOptions, VelocityOptions {
     /**
      * Mass of the moving object. Higher values will result in more lethargic
      * movement. Set to `1` by default.
+     *
+     * @default 1
      *
      * @public
      */
