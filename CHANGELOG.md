@@ -4,6 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [Unreleased]
+
+### Fixed
+
+-   `AnimatePresence`: Fix object-form `initial` values not applied on re-entry after exit completes.
+
 ## [12.38.0] 2026-03-16
 
 ### Added
