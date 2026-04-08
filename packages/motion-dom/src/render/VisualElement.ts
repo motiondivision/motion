@@ -45,6 +45,15 @@ import {
 } from "./utils/reduced-motion"
 import { resolveVariantFromProps } from "./utils/resolve-variants"
 
+const layoutKeys = new Set([
+    "width",
+    "height",
+    "top",
+    "left",
+    "right",
+    "bottom",
+])
+
 const propEventHandlers = [
     "AnimationStart",
     "AnimationComplete",
@@ -567,6 +576,7 @@ export abstract class VisualElement<
         }
 
         const valueIsTransform = transformProps.has(key)
+        const valueIsLayout = !valueIsTransform && layoutKeys.has(key)
 
         if (valueIsTransform && this.onBindTransform) {
             this.onBindTransform()
@@ -579,8 +589,15 @@ export abstract class VisualElement<
 
                 this.props.onUpdate && frame.preRender(this.notifyUpdate)
 
-                if (valueIsTransform && this.projection) {
-                    this.projection.isTransformDirty = true
+                if (this.projection) {
+                    if (valueIsTransform) {
+                        this.projection.isTransformDirty = true
+                    } else if (valueIsLayout) {
+                        this.projection.willUpdate()
+                        frame.postRender(
+                            () => this.projection?.root?.didUpdate()
+                        )
+                    }
                 }
 
                 this.scheduleRender()
