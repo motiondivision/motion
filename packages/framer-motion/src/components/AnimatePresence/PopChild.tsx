@@ -14,6 +14,7 @@ interface Size {
     left: number
     right: number
     bottom: number
+    direction: string
 }
 
 interface Props {
@@ -54,6 +55,7 @@ class PopChildMeasure extends React.Component<MeasureProps> {
             size.left = element.offsetLeft
             size.right = parentWidth - size.width - size.left
             size.bottom = parentHeight - size.height - size.top
+            size.direction = computedStyle.direction
         }
 
         return null
@@ -79,6 +81,7 @@ export function PopChild({ children, isPresent, anchorX, anchorY, root, pop }: P
         left: 0,
         right: 0,
         bottom: 0,
+        direction: "ltr",
     })
     const { nonce } = useContext(MotionConfigContext)
     /**
@@ -100,10 +103,13 @@ export function PopChild({ children, isPresent, anchorX, anchorY, root, pop }: P
      * styles set via the style prop.
      */
     useInsertionEffect(() => {
-        const { width, height, top, left, right, bottom } = size.current
+        const { width, height, top, left, right, bottom, direction } = size.current
         if (isPresent || pop === false || !ref.current || !width || !height) return
 
-        const x = anchorX === "left" ? `left: ${left}` : `right: ${right}`
+        const isRTL = direction === "rtl"
+        const x = anchorX === "left"
+            ? (isRTL ? `right: ${right}` : `left: ${left}`)
+            : (isRTL ? `left: ${left}` : `right: ${right}`)
         const y = anchorY === "bottom" ? `bottom: ${bottom}` : `top: ${top}`
 
         ref.current.dataset.motionPopId = id
