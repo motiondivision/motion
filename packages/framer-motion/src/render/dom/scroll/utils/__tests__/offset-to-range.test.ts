@@ -56,52 +56,19 @@ describe("offsetToViewTimelineRange", () => {
         })
     })
 
-    it("returns Enter preset for string offsets", () => {
+    it("returns undefined for string offsets (not accelerated)", () => {
         expect(
             offsetToViewTimelineRange(["start end", "end end"])
-        ).toEqual({
-            rangeStart: "entry 0%",
-            rangeEnd: "entry 100%",
-        })
-    })
-
-    it("returns Exit preset for string offsets", () => {
+        ).toBeUndefined()
         expect(
             offsetToViewTimelineRange(["start start", "end start"])
-        ).toEqual({
-            rangeStart: "exit 0%",
-            rangeEnd: "exit 100%",
-        })
-    })
-
-    it("returns Any preset for string offsets", () => {
+        ).toBeUndefined()
         expect(
             offsetToViewTimelineRange(["end start", "start end"])
-        ).toEqual({
-            rangeStart: "cover 0%",
-            rangeEnd: "cover 100%",
-        })
-    })
-
-    it("returns All preset for string offsets", () => {
+        ).toBeUndefined()
         expect(
             offsetToViewTimelineRange(["start start", "end end"])
-        ).toEqual({
-            rangeStart: "contain 0%",
-            rangeEnd: "contain 100%",
-        })
-    })
-
-    it("returns All preset for string offsets", () => {
-        expect(
-            offsetToViewTimelineRange(["start start", "end end"])
-        ).toEqual({
-            rangeStart: "contain 0%",
-            rangeEnd: "contain 100%",
-        })
-    })
-
-    it("returns undefined for other string offsets", () => {
+        ).toBeUndefined()
         expect(
             offsetToViewTimelineRange(["start center", "end start"])
         ).toBeUndefined()
