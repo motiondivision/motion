@@ -1,4 +1,5 @@
 import { motionValue } from "../../value"
+import { NativeAnimation } from "../NativeAnimation"
 import { NativeAnimationExtended } from "../NativeAnimationExtended"
 
 /**
@@ -9,6 +10,107 @@ import { NativeAnimationExtended } from "../NativeAnimationExtended"
  * the scheduled render could apply the correct value, causing a visual flash
  * back to the initial value.
  */
+describe("NativeAnimation - cancel removes persisted styles", () => {
+    let mockAnimation: any
+
+    beforeEach(() => {
+        mockAnimation = {
+            cancel: jest.fn(),
+            onfinish: null,
+            playbackRate: 1,
+            currentTime: 300,
+            playState: "running",
+            effect: {
+                getComputedTiming: () => ({ duration: 300 }),
+                updateTiming: jest.fn(),
+            },
+        }
+
+        Element.prototype.animate = jest
+            .fn()
+            .mockImplementation(() => mockAnimation)
+    })
+
+    afterEach(() => {
+        ;(Element.prototype as any).animate = undefined
+        jest.restoreAllMocks()
+    })
+
+    test("cancel() removes persisted inline style after animation finishes", () => {
+        const element = document.createElement("div")
+        const mv = motionValue(0)
+
+        const anim = new NativeAnimationExtended({
+            element,
+            name: "opacity",
+            keyframes: [0, 1],
+            motionValue: mv,
+            finalKeyframe: 1,
+            onComplete: jest.fn(),
+            duration: 300,
+            ease: "easeOut",
+        } as any)
+
+        // Simulate the WAAPI onfinish event firing
+        mockAnimation.onfinish?.()
+
+        // After finish, inline style should be persisted
+        expect(element.style.opacity).toBe("1")
+
+        // Now cancel - should remove the persisted style
+        anim.cancel()
+        expect(element.style.opacity).toBe("")
+    })
+
+    test("cancel() removes persisted inline style for CSS custom properties", () => {
+        const element = document.createElement("div")
+        const mv = motionValue(0)
+
+        const anim = new NativeAnimationExtended({
+            element,
+            name: "--my-color",
+            keyframes: ["red", "blue"],
+            motionValue: mv,
+            finalKeyframe: "blue",
+            onComplete: jest.fn(),
+            duration: 300,
+            ease: "easeOut",
+        } as any)
+
+        // Simulate finish
+        mockAnimation.onfinish?.()
+        expect(element.style.getPropertyValue("--my-color")).toBe("blue")
+
+        // Cancel should remove
+        anim.cancel()
+        expect(element.style.getPropertyValue("--my-color")).toBe("")
+    })
+
+    test("stop() preserves committed inline styles", () => {
+        const element = document.createElement("div")
+        document.body.appendChild(element)
+
+        const anim = new NativeAnimation({
+            element,
+            name: "opacity",
+            keyframes: [0, 1],
+            finalKeyframe: 1,
+            onComplete: jest.fn(),
+            duration: 300,
+            ease: "easeOut",
+        } as any)
+
+        // Mock commitStyles to set inline style (simulating WAAPI behavior)
+        mockAnimation.commitStyles = jest.fn(() => {
+            element.style.opacity = "0.5"
+        })
+
+        // stop() should preserve the committed style
+        anim.stop()
+        expect(element.style.opacity).toBe("0.5")
+    })
+})
+
 describe("NativeAnimation - onfinish style commit", () => {
     let mockAnimation: any
 
