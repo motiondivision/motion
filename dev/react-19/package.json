@@ -24,7 +24,7 @@
         "@typescript-eslint/parser": "^7.2.0",
         "@vitejs/plugin-react-swc": "^3.5.0",
         "eslint-plugin-react-refresh": "^0.4.6",
-        "vite": "^5.2.0"
+        "vite": "^6.4.2"
     },
     "resolutions": {
         "@types/react": "^19.0.0",
