@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom"
 import { render } from "@testing-library/react"
 import { useEffect } from "react"
+import { MotionConfig } from "../../../components/MotionConfig"
 import { useAnimate } from "../use-animate"
 
 describe("useAnimate", () => {
@@ -114,5 +115,40 @@ describe("useAnimate", () => {
         })
 
         expect(frameCount).toEqual(3)
+    })
+
+    test("Skips animations when MotionConfig skipAnimations is true", () => {
+        return new Promise<void>((resolve) => {
+            const Component = () => {
+                const [scope, animate] = useAnimate()
+
+                useEffect(() => {
+                    const animation = animate(
+                        scope.current,
+                        { opacity: 0.5 },
+                        { duration: 1 }
+                    )
+
+                    // Animation should not be tracked in scope
+                    expect(scope.animations.length).toBe(0)
+
+                    animation.then(() => {
+                        // Element style should not be changed
+                        expect(scope.current).not.toHaveStyle(
+                            "opacity: 0.5;"
+                        )
+                        resolve()
+                    })
+                })
+
+                return <div ref={scope} />
+            }
+
+            render(
+                <MotionConfig skipAnimations>
+                    <Component />
+                </MotionConfig>
+            )
+        })
     })
 })
