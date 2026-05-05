@@ -1,6 +1,7 @@
 import { createProjectionNode } from "./create-projection-node"
 import { DocumentProjectionNode } from "./DocumentProjectionNode"
 import { IProjectionNode } from "./types"
+import { hasStuckAncestor } from "./utils/has-stuck-ancestor"
 
 export const rootProjectionNode: { current: IProjectionNode | undefined } = {
     current: undefined,
@@ -25,12 +26,5 @@ export const HTMLProjectionNode = createProjectionNode<HTMLElement>({
     },
     checkIsScrollRoot: (instance) =>
         Boolean(window.getComputedStyle(instance).position === "fixed"),
-    hasStickyAncestor: (instance) => {
-        let el = instance.parentElement
-        while (el) {
-            if (window.getComputedStyle(el).position === "sticky") return true
-            el = el.parentElement
-        }
-        return false
-    },
+    hasStickyAncestor: hasStuckAncestor,
 })
