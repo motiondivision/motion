@@ -4,7 +4,7 @@ import {
     noop,
     secondsToMilliseconds,
 } from "motion-utils"
-import { removeStyle, setStyle } from "../render/dom/style-set"
+import { setStyle } from "../render/dom/style-set"
 import { supportsScrollTimeline } from "../utils/supports/scroll-timeline"
 import { getFinalKeyframe } from "./keyframes/get-final"
 import {
@@ -149,10 +149,25 @@ export class NativeAnimation<T extends AnyResolvedKeyframe>
             this.animation.cancel()
         } catch (e) {}
 
-        const { element, name } = this.options || {}
-        if (element && name && !this.isPseudoElement) {
-            removeStyle(element, name)
+        if (this.isPseudoElement) return
+
+        const { element, name, keyframes } = this.options || {}
+        if (!element || !name || !keyframes) return
+
+        /**
+         * Revert to the value at animation start so cancel matches
+         * JSAnimation's tick(0) behaviour. If the first keyframe is a
+         * null/undefined placeholder we don't know the resolved start
+         * value — leave the inline style alone rather than risk
+         * stripping a value persisted by an earlier animation.
+         */
+        const initialValue = (keyframes as AnyResolvedKeyframe[])[0]
+        if (initialValue === null || initialValue === undefined) return
+
+        if (this.updateMotionValue) {
+            this.updateMotionValue(initialValue as T)
         }
+        setStyle(element, name, initialValue)
     }
 
     stop() {

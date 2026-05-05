@@ -3,14 +3,12 @@ import { NativeAnimation } from "../NativeAnimation"
 import { NativeAnimationExtended } from "../NativeAnimationExtended"
 
 /**
- * Tests for the Firefox opacity bug (issue #3552) where the WAAPI animation's
- * onfinish handler needed to commit the final style to the element's inline
- * styles before cancelling the animation. Without this, there was a timing
- * window in Firefox where the WAAPI fill was removed (via cancel()) before
- * the scheduled render could apply the correct value, causing a visual flash
- * back to the initial value.
+ * cancel() must revert the element to the value at animation start so that
+ * its behaviour matches JSAnimation.cancel() (which calls tick(0) to render
+ * the first keyframe). Stripping the inline style entirely would lose any
+ * value that was persisted by an earlier animation.
  */
-describe("NativeAnimation - cancel removes persisted styles", () => {
+describe("NativeAnimation - cancel reverts to first keyframe", () => {
     let mockAnimation: any
 
     beforeEach(() => {
@@ -36,14 +34,14 @@ describe("NativeAnimation - cancel removes persisted styles", () => {
         jest.restoreAllMocks()
     })
 
-    test("cancel() removes persisted inline style after animation finishes", () => {
+    test("cancel() reverts inline style to first keyframe after finish", () => {
         const element = document.createElement("div")
         const mv = motionValue(0)
 
         const anim = new NativeAnimationExtended({
             element,
             name: "opacity",
-            keyframes: [0, 1],
+            keyframes: [0.25, 1],
             motionValue: mv,
             finalKeyframe: 1,
             onComplete: jest.fn(),
@@ -51,18 +49,14 @@ describe("NativeAnimation - cancel removes persisted styles", () => {
             ease: "easeOut",
         } as any)
 
-        // Simulate the WAAPI onfinish event firing
         mockAnimation.onfinish?.()
-
-        // After finish, inline style should be persisted
         expect(element.style.opacity).toBe("1")
 
-        // Now cancel - should remove the persisted style
         anim.cancel()
-        expect(element.style.opacity).toBe("")
+        expect(element.style.opacity).toBe("0.25")
     })
 
-    test("cancel() removes persisted inline style for CSS custom properties", () => {
+    test("cancel() reverts CSS custom property to first keyframe", () => {
         const element = document.createElement("div")
         const mv = motionValue(0)
 
@@ -77,13 +71,59 @@ describe("NativeAnimation - cancel removes persisted styles", () => {
             ease: "easeOut",
         } as any)
 
-        // Simulate finish
         mockAnimation.onfinish?.()
         expect(element.style.getPropertyValue("--my-color")).toBe("blue")
 
-        // Cancel should remove
         anim.cancel()
-        expect(element.style.getPropertyValue("--my-color")).toBe("")
+        expect(element.style.getPropertyValue("--my-color")).toBe("red")
+    })
+
+    test("cancel() preserves a value previously persisted by another animation", () => {
+        const element = document.createElement("div")
+
+        // Earlier animation persisted opacity = "0.5".
+        element.style.opacity = "0.5"
+
+        const mv = motionValue(0.5)
+
+        const anim = new NativeAnimationExtended({
+            element,
+            name: "opacity",
+            keyframes: [0.5, 1],
+            motionValue: mv,
+            finalKeyframe: 1,
+            onComplete: jest.fn(),
+            duration: 300,
+            ease: "easeOut",
+        } as any)
+
+        anim.cancel()
+        // Must revert to 0.5 — the value before this animation ran —
+        // not strip the inline style.
+        expect(element.style.opacity).toBe("0.5")
+    })
+
+    test("cancel() leaves inline style alone when first keyframe is unresolved", () => {
+        const element = document.createElement("div")
+        element.style.opacity = "0.5"
+
+        const mv = motionValue(0.5)
+
+        const anim = new NativeAnimationExtended({
+            element,
+            name: "opacity",
+            keyframes: [null, 1],
+            motionValue: mv,
+            finalKeyframe: 1,
+            onComplete: jest.fn(),
+            duration: 300,
+            ease: "easeOut",
+        } as any)
+
+        anim.cancel()
+        // First keyframe is null — we don't know the start value, so the
+        // pre-existing inline style is preserved rather than overwritten.
+        expect(element.style.opacity).toBe("0.5")
     })
 
     test("stop() preserves committed inline styles", () => {
