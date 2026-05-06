@@ -53,6 +53,22 @@ Get started with [Motion for React](https://motion.dev/docs/react).
 
 **Note:** Framer Motion is now Motion. Import from `motion/react` instead of `framer-motion`.
 
+#### Next.js / React Server Components
+
+To use `motion` directly inside a [React Server Component](https://react.dev/reference/rsc/server-components) (e.g. the Next.js App Router) without adding `"use client"` to your file, import from `motion/react-client`:
+
+```jsx
+import * as motion from "motion/react-client"
+
+export default function Page() {
+    return <motion.div animate={{ x: 100 }} />
+}
+```
+
+Other client-only APIs (`AnimatePresence`, `MotionConfig`, `useMotionValue` and friends) can still be imported from `motion/react` — they include the `"use client"` directive internally and work from Server Components without further setup.
+
+Custom motion components created with `motion.create()` must live in a file marked with `"use client"`, because the call runs at render time. Define them in a client module and render them from your Server Component.
+
 ### JS
 
 ```javascript
