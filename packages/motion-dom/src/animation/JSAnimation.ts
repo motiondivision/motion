@@ -515,13 +515,7 @@ export class JSAnimation<T extends number | string>
     }
 
     cancel() {
-        /**
-         * Hold currentTime at 0 so tick() renders the first keyframe.
-         * A non-null holdTime bypasses both the "finished" clamp (which
-         * would force currentTime to totalDuration) and the
-         * isAnimationFinished override (which would replace the value
-         * with getFinalKeyframe).
-         */
+        // holdTime=0 (not null) so tick() doesn't clamp to totalDuration when state is "finished".
         this.holdTime = 0
         this.startTime = 0
         this.tick(0)
