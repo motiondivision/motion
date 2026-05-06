@@ -22,7 +22,7 @@ export function attachToAnimation(
      */
     const useNative = options.target
         ? canUseNativeTimeline(options.target) && !!range
-        : canUseNativeTimeline()
+        : canUseNativeTimeline() && !options.offset
 
     return animation.attachTimeline({
         timeline: useNative ? timeline : undefined,

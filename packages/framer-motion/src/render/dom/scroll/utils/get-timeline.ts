@@ -73,7 +73,7 @@ export function getTimeline({
                     ...options,
                 })
             }
-        } else if (canUseNativeTimeline()) {
+        } else if (!options.offset && canUseNativeTimeline()) {
             targetCache[axisKey] = new ScrollTimeline({
                 source: container,
                 axis,

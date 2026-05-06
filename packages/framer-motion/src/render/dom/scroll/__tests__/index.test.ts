@@ -1,4 +1,4 @@
-import { frame } from "motion-dom"
+import { frame, supportsFlags } from "motion-dom"
 import { scroll } from "../"
 import { ScrollOffset } from "../offsets/presets"
 import { scrollInfo } from "../track"
@@ -833,5 +833,45 @@ describe("scroll", () => {
 
             resolve()
         })
+    })
+
+    test("Honors offset option with single-argument callback when ScrollTimeline is supported (#3668).", async () => {
+        class MockScrollTimeline {
+            currentTime: { value: number } | null = { value: 0 }
+            constructor(_options: any) {}
+        }
+
+        const originalScrollTimeline = (window as any).ScrollTimeline
+        ;(window as any).ScrollTimeline = MockScrollTimeline
+        supportsFlags.scrollTimeline = true
+
+        try {
+            let oneArgProgress = -1
+
+            setWindowHeight(1000)
+            setDocumentHeight(3000)
+
+            const stopOneArg = scroll(
+                (progress: number) => {
+                    oneArgProgress = progress
+                },
+                { offset: ["start start", "end end"] }
+            )
+
+            await nextFrame()
+            await fireScroll(500)
+            // Fallback path needs an additional frame for the timeline value
+            // to propagate from scrollInfo notify → observeTimeline preUpdate.
+            await nextFrame()
+
+            // With offset honored, progress should reflect actual scroll
+            // position (500 / (3000 - 1000) = 0.25), not stay at 0.
+            expect(oneArgProgress).toBeCloseTo(0.25, 5)
+
+            stopOneArg()
+        } finally {
+            ;(window as any).ScrollTimeline = originalScrollTimeline
+            delete supportsFlags.scrollTimeline
+        }
     })
 })
