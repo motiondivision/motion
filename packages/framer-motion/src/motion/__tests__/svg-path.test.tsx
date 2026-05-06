@@ -22,4 +22,26 @@ describe("SVG path", () => {
         expect(element).toHaveAttribute("stroke-dasharray", "1 1")
         expect(element).toHaveAttribute("pathLength", "1")
     })
+
+    test("animates d between paths with matching command structure", async () => {
+        const element = await new Promise<SVGPathElement | null>((resolve) => {
+            const ref = createRef<SVGPathElement>()
+            const Component = ({ d }: { d: string }) => (
+                <svg>
+                    <motion.path
+                        ref={ref}
+                        initial={{ d: "M 0 0 L 100 0 L 100 100 L 0 100 Z" }}
+                        animate={{ d }}
+                        transition={{ duration: 0.01 }}
+                        onAnimationComplete={() => resolve(ref.current)}
+                    />
+                </svg>
+            )
+            const target = "M 50 0 L 100 50 L 50 100 L 0 50 Z"
+            const { rerender } = render(<Component d={target} />)
+            rerender(<Component d={target} />)
+        })
+
+        expect(element).toHaveAttribute("d", "M 50 0 L 100 50 L 50 100 L 0 50 Z")
+    })
 })
