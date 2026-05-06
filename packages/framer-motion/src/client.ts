@@ -23,6 +23,7 @@ export {
     code,
     col,
     colgroup,
+    create,
     data,
     datalist,
     dd,
