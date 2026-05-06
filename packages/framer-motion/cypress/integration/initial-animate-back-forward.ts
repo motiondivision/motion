@@ -1,6 +1,3 @@
-// Cypress runs in Electron, which does not exercise Chrome's BFCache —
-// these specs validate the desired outcome (opacity reaches 1) rather
-// than directly reproducing the paused-mid-flight bug.
 const PAGE = "?test=initial-animate-back-forward"
 const OTHER = "?test=initial-animate-back-forward-other"
 
