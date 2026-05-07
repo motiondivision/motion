@@ -634,6 +634,12 @@ export type AnimationOptions =
               layout?: ValueTransition
           })
 
+/**
+ * Public alias matching the parameter name used in `animate()` signatures.
+ * @public
+ */
+export type DynamicAnimationOptions = AnimationOptions
+
 export interface TransformProperties {
     x?: AnyResolvedKeyframe
     y?: AnyResolvedKeyframe

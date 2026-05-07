@@ -4,6 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [Unreleased]
+
+### Added
+
+-   Export `DynamicAnimationOptions` (alias of `AnimationOptions`) and `MotionProps` (framework-agnostic alias of `MotionNodeOptions`) from `motion` to support typing wrappers in non-React frameworks (Svelte, Vue, etc.).
+
 ## [12.38.1] 2026-05-05
 
 ### Fixed
