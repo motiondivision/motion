@@ -11,14 +11,12 @@ import {
 import { animateSingleValue } from "../../animation/animate/single-value"
 import { JSAnimation } from "../../animation/JSAnimation"
 import { getOptimisedAppearId } from "../../animation/optimized-appear/get-appear-id"
-import { Arc, Transition, ValueAnimationOptions } from "../../animation/types"
 import {
-    bezierPoint,
-    bezierTangentAngle,
-    computeArcControlPoint,
-    normalizeAngle,
-    resolveArcAmplitude,
-} from "../../animation/utils/arc"
+    Path,
+    PathInterpolator,
+    Transition,
+    ValueAnimationOptions,
+} from "../../animation/types"
 import { getValueTransition } from "../../animation/utils/get-value-transition"
 import { cancelFrame, frame, frameData, frameSteps } from "../../frameloop"
 import { microtask } from "../../frameloop/microtask"
@@ -582,7 +580,7 @@ export function createProjectionNode<I>({
                             this.setAnimationOrigin(
                                 delta,
                                 hasOnlyRelativeTargetChanged,
-                                animationOptions.arc
+                                (animationOptions as { path?: Path }).path
                             )
                         } else {
                             /**
@@ -1587,12 +1585,11 @@ export function createProjectionNode<I>({
         currentAnimation?: JSAnimation<number>
         mixTargetDelta: (progress: number) => void
         animationProgress = 0
-        prevArcAmplitude?: number
 
         setAnimationOrigin(
             delta: Delta,
             hasOnlyRelativeTargetChanged: boolean = false,
-            arc?: Arc
+            pathFn?: Path
         ) {
             const snapshot = this.snapshot
             const snapshotLatestValues = snapshot ? snapshot.latestValues : {}
@@ -1621,97 +1618,43 @@ export function createProjectionNode<I>({
                     !this.path.some(hasOpacityCrossfade)
             )
 
-            const isInterrupted = this.animationProgress > 0
-
             this.animationProgress = 0
 
             let prevRelativeTarget: Box
 
             /**
-             * Pre-compute whether the arc should be applied for this animation.
-             * Skip if the distance is below the minimum threshold to avoid
-             * a visible wobble on very small layout shifts.
+             * Resolve the path interpolator if a `path` factory is set
+             * and the layout shift is large enough to be worth curving.
+             * The 20px threshold avoids visible wobble on tiny shifts.
+             *
+             * `from` is the current translate offset (carries any in-flight
+             * displacement when interrupted); `to` is the new layout origin.
              */
-            const shouldArc =
-                arc &&
-                Math.sqrt(
-                    delta.x.translate * delta.x.translate +
-                        delta.y.translate * delta.y.translate
-                ) >= 20
-
-            let arcControlDelta: { x: number; y: number } | undefined
-
-            if (shouldArc && arc) {
-                let amplitude: number
-
-                /**
-                 * When interrupted, reuse the signed amplitude from the
-                 * previous arc so the new arc bulges to the same side —
-                 * producing a U-curve rather than an S-curve on reversal.
-                 */
-                if (isInterrupted && this.prevArcAmplitude !== undefined) {
-                    amplitude = this.prevArcAmplitude
-                } else {
-                    amplitude = resolveArcAmplitude(
-                        arc,
-                        delta.x.translate,
-                        delta.y.translate
-                    )
-                }
-
-                this.prevArcAmplitude = amplitude
-
-                arcControlDelta = computeArcControlPoint(
-                    delta.x.translate,
-                    delta.y.translate,
-                    0,
-                    0,
-                    amplitude,
-                    arc.peak ?? 0.5
-                )
-            }
-
-            const arcRotationScale =
-                arc?.orientToPath === true
-                    ? 0.5
-                    : typeof arc?.orientToPath === "number"
-                    ? arc.orientToPath
-                    : 0
-
-            // Pre-compute start/end tangent angles for normalized rotation
-            const arcTangentAt0 =
-                arcControlDelta && arcRotationScale
-                    ? bezierTangentAngle(
-                          0,
-                          delta.x.translate, arcControlDelta.x, 0,
-                          delta.y.translate, arcControlDelta.y, 0
+            const distance = Math.sqrt(
+                delta.x.translate * delta.x.translate +
+                    delta.y.translate * delta.y.translate
+            )
+            const interpolate: PathInterpolator | undefined =
+                pathFn && distance >= 20
+                    ? pathFn(
+                          { x: delta.x.translate, y: delta.y.translate },
+                          { x: 0, y: 0 }
                       )
-                    : 0
-            const arcTangentAt1 =
-                arcControlDelta && arcRotationScale
-                    ? bezierTangentAngle(
-                          1,
-                          delta.x.translate, arcControlDelta.x, 0,
-                          delta.y.translate, arcControlDelta.y, 0
-                      )
-                    : 0
+                    : undefined
 
             this.mixTargetDelta = (latest: number) => {
                 const progress = latest / 1000
 
-                if (arcControlDelta) {
-                    mixAxisDelta(
-                        targetDelta.x,
-                        delta.x,
-                        arcControlDelta.x,
-                        progress
-                    )
-                    mixAxisDelta(
-                        targetDelta.y,
-                        delta.y,
-                        arcControlDelta.y,
-                        progress
-                    )
+                if (interpolate) {
+                    const point = interpolate(progress)
+                    targetDelta.x.translate = point.x
+                    targetDelta.x.scale = mixNumber(delta.x.scale, 1, progress)
+                    targetDelta.x.origin = delta.x.origin
+                    targetDelta.x.originPoint = delta.x.originPoint
+                    targetDelta.y.translate = point.y
+                    targetDelta.y.scale = mixNumber(delta.y.scale, 1, progress)
+                    targetDelta.y.origin = delta.y.origin
+                    targetDelta.y.originPoint = delta.y.originPoint
                 } else {
                     mixAxisDeltaLinear(targetDelta.x, delta.x, progress)
                     mixAxisDeltaLinear(targetDelta.y, delta.y, progress)
@@ -1767,24 +1710,13 @@ export function createProjectionNode<I>({
                     )
                 }
 
-                if (arcControlDelta && arcRotationScale) {
-                    if (!this.animationValues)
-                        this.animationValues = mixedValues
-                    const raw = bezierTangentAngle(
-                        progress,
-                        delta.x.translate,
-                        arcControlDelta.x,
-                        0,
-                        delta.y.translate,
-                        arcControlDelta.y,
-                        0
-                    )
-                    const baseline =
-                        arcTangentAt0 +
-                        normalizeAngle(arcTangentAt1 - arcTangentAt0) *
-                            progress
-                    this.animationValues.rotate =
-                        normalizeAngle(raw - baseline) * arcRotationScale
+                if (interpolate) {
+                    const point = interpolate(progress)
+                    if (point.rotate !== undefined) {
+                        if (!this.animationValues)
+                            this.animationValues = mixedValues
+                        this.animationValues.rotate = point.rotate
+                    }
                 }
 
                 this.root.scheduleUpdateProjection()
@@ -1861,7 +1793,6 @@ export function createProjectionNode<I>({
             this.resumingFrom =
                 this.currentAnimation =
                 this.animationValues =
-                this.prevArcAmplitude =
                     undefined
 
             this.notifyListeners("animationComplete")
@@ -2480,18 +2411,6 @@ function removeLeadSnapshots(stack: NodeStack) {
 
 function mixAxisDeltaLinear(output: AxisDelta, delta: AxisDelta, p: number) {
     output.translate = mixNumber(delta.translate, 0, p)
-    output.scale = mixNumber(delta.scale, 1, p)
-    output.origin = delta.origin
-    output.originPoint = delta.originPoint
-}
-
-export function mixAxisDelta(
-    output: AxisDelta,
-    delta: AxisDelta,
-    control: number,
-    p: number
-) {
-    output.translate = bezierPoint(p, delta.translate, control, 0)
     output.scale = mixNumber(delta.scale, 1, p)
     output.origin = delta.origin
     output.originPoint = delta.originPoint

@@ -6,15 +6,8 @@ import { setTarget } from "../../render/utils/setters"
 import { addValueToWillChange } from "../../value/will-change/add-will-change"
 import { getOptimisedAppearId } from "../optimized-appear/get-appear-id"
 import { animateMotionValue } from "./motion-value"
-import {
-    bezierPoint,
-    bezierTangentAngle,
-    computeArcControlPoint,
-    normalizeAngle,
-    resolveArcAmplitude,
-} from "../utils/arc"
 import { motionValue } from "../../value"
-import type { Arc } from "../types"
+import type { Path } from "../types"
 import type { VisualElementAnimationOptions } from "./types"
 import type { AnimationPlaybackControlsWithThen } from "../types"
 import type { TargetAndTransition } from "../../node/types"
@@ -66,8 +59,8 @@ export function animateTarget(
         visualElement.animationState &&
         visualElement.animationState.getState()[type]
 
-    const arc = (transition as any)?.arc as Arc | undefined
-    if (arc && ("x" in target || "y" in target)) {
+    const path = (transition as { path?: Path } | undefined)?.path
+    if (path && ("x" in target || "y" in target)) {
         const xValue = visualElement.getValue(
             "x",
             visualElement.latestValues["x"] ?? 0
@@ -93,23 +86,18 @@ export function animateTarget(
             ? yRaw[yRaw.length - 1]
             : yRaw ?? yFrom) as number
 
-        const amplitude = resolveArcAmplitude(arc, xTo - xFrom, yTo - yFrom)
-        const control = computeArcControlPoint(
-            xFrom,
-            yFrom,
-            xTo,
-            yTo,
-            amplitude,
-            arc.peak ?? 0.5
+        const interpolate = path(
+            { x: xFrom, y: yFrom },
+            { x: xTo, y: yTo }
         )
+        // Note: the keyframe consumer doesn't need to flag interruption.
+        // If this animation is replacing an in-flight one, x/y motion
+        // values already hold the displaced (mid-arc) position, so
+        // `xFrom`/`yFrom` carry the necessary continuity geometry.
 
-        const rotationScale =
-            arc.orientToPath === true
-                ? 0.5
-                : typeof arc.orientToPath === "number"
-                ? arc.orientToPath
-                : 0
-        const rotateValue = rotationScale
+        // Probe whether this path produces rotation, and capture/restore base.
+        const probe = interpolate(0)
+        const rotateValue = probe.rotate !== undefined
             ? visualElement.getValue(
                   "rotate",
                   visualElement.latestValues["rotate"] ?? 0
@@ -119,45 +107,24 @@ export function animateTarget(
             ? ((rotateValue.get() as number) ?? 0)
             : 0
 
-        // Pre-compute start/end tangent angles so we can normalize
-        // the rotation to 0 at both endpoints (no jump in/out)
-        const tangentAt0 = rotateValue
-            ? bezierTangentAngle(0, xFrom, control.x, xTo, yFrom, control.y, yTo)
-            : 0
-        const tangentAt1 = rotateValue
-            ? bezierTangentAngle(1, xFrom, control.x, xTo, yFrom, control.y, yTo)
-            : 0
-
-        const arcTransition = {
+        const pathTransition = {
             delay,
             ...getValueTransition(transition || {}, "x"),
         }
-        delete (arcTransition as any).arc
+        delete (pathTransition as { path?: Path }).path
 
         const progress = motionValue(0)
         progress.start(
             animateMotionValue("", progress, [0, 1000] as any, {
-                ...arcTransition,
+                ...pathTransition,
                 isSync: true,
                 velocity: 0,
                 onUpdate: (latest: number) => {
-                    const t = latest / 1000
-                    xValue?.set(bezierPoint(t, xFrom, control.x, xTo))
-                    yValue?.set(bezierPoint(t, yFrom, control.y, yTo))
-                    if (rotateValue) {
-                        const raw = bezierTangentAngle(
-                            t,
-                            xFrom, control.x, xTo,
-                            yFrom, control.y, yTo
-                        )
-                        const baseline =
-                            tangentAt0 +
-                            normalizeAngle(tangentAt1 - tangentAt0) * t
-                        rotateValue.set(
-                            baseRotation +
-                                normalizeAngle(raw - baseline) *
-                                    rotationScale
-                        )
+                    const point = interpolate(latest / 1000)
+                    xValue?.set(point.x)
+                    yValue?.set(point.y)
+                    if (rotateValue && point.rotate !== undefined) {
+                        rotateValue.set(baseRotation + point.rotate)
                     }
                 },
                 onComplete: () => {
@@ -170,9 +137,9 @@ export function animateTarget(
 
         if (progress.animation) animations.push(progress.animation)
 
-        delete (target as any).x
-        delete (target as any).y
-        if (arc.orientToPath) delete (target as any).rotate
+        delete (target as { x?: unknown }).x
+        delete (target as { y?: unknown }).y
+        if (rotateValue) delete (target as { rotate?: unknown }).rotate
     }
 
     for (const key in target) {
