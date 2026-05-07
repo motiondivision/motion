@@ -481,16 +481,16 @@ export interface ValueTransition
     inherit?: boolean
 
     /**
-     * Configures an arc path for animations. The element will travel
-     * along a curved path rather than a straight line between its old and
-     * new positions.
+     * The path the element travels between its old and new x/y positions.
+     * Slot in a path factory (e.g. `arc()`) to swap the default
+     * straight-line interpolation for something curved.
      *
-     * Can be used in keyframe animations (`transition.arc`) and layout
-     * animations (`transition.layout.arc`), including with `useAnimate`.
+     * Can be used in keyframe animations (`transition.path`) and layout
+     * animations (`transition.layout.path`), including with `useAnimate`.
      *
      * @public
      */
-    arc?: Arc
+    path?: Path
 
 }
 
@@ -608,41 +608,39 @@ export type Transition<V = any> =
     | ValueAnimationTransition<V>
     | TransitionWithValueOverrides<V>
 
-export interface Arc {
+export interface Point2D {
+    x: number
+    y: number
+}
+
+export interface PathState {
+    x: number
+    y: number
     /**
-     * How far the arc bulges perpendicular to the straight-line path,
-     * as a fraction of the total distance. A value of `1` means the arc
-     * peaks at a height equal to the full travel distance. Should be >= 0;
-     * use `direction` to control which side the arc bulges toward.
+     * Optional rotation in degrees. If returned, the engine will apply it
+     * to the element's `rotate` value for the duration of the animation.
      */
-    amplitude: number
-    /**
-     * Where along the path (0–1) the arc reaches its maximum height.
-     * `0.5` (the default) produces a symmetric arc; lower values peak
-     * earlier, higher values peak later.
-     *
-     * Default: `0.5`
-     */
-    peak?: number
-    /**
-     * Controls which side of the straight-line path the arc bulges toward,
-     * relative to the direction of travel.
-     *
-     * - `"cw"` — the arc bulges clockwise relative to the direction of travel.
-     * - `"ccw"` — the arc bulges counterclockwise relative to the direction of travel.
-     *
-     * When unset, the side is chosen automatically so the arc always bulges
-     * toward the same screen side regardless of movement direction.
-     */
-    direction?: "cw" | "ccw"
-    /**
-     * Rotates the element to follow the tangent of the arc path.
-     *
-     * - `true` — follow with a default intensity of `0.5`
-     * - `number` (0–1) — scale factor for the tangent rotation.
-     *   `0` = no rotation, `1` = full tangent following.
-     */
-    orientToPath?: boolean | number
+    rotate?: number
+}
+
+/**
+ * Sampling function — returns position (and optionally rotation) at
+ * progress `t` (0–1).
+ */
+export interface PathInterpolator {
+    (t: number): PathState
+}
+
+/**
+ * Resolves into an interpolator given the from/to points of an animation.
+ *
+ * Modifiers that need cross-call continuity (e.g. an arc that wants to
+ * keep bulging the same side after an interruption) should track that
+ * via closure on the factory return value. Reuse the factory (module
+ * scope, useMemo) to keep that closure alive across renders.
+ */
+export interface Path {
+    (from: Point2D, to: Point2D): PathInterpolator
 }
 
 export type DynamicOption<T> = (i: number, total: number) => T

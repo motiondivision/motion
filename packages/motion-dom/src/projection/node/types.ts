@@ -117,7 +117,11 @@ export interface IProjectionNode<I = unknown> {
     isTreeAnimating?: boolean
     isAnimationBlocked?: boolean
     isTreeAnimationBlocked: () => boolean
-    setAnimationOrigin(delta: Delta, hasOnlyRelativeTargetChanged?: boolean): void
+    setAnimationOrigin(
+        delta: Delta,
+        hasOnlyRelativeTargetChanged?: boolean,
+        pathFn?: import("../../animation/types").Path
+    ): void
     startAnimation(transition: ValueTransition): void
     finishAnimation(): void
     hasCheckedOptimisedAppear: boolean
