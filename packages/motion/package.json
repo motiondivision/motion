@@ -69,7 +69,7 @@
         "waapi"
     ],
     "scripts": {
-        "build": "yarn clean && tsc -p . && rollup -c",
+        "build": "yarn clean && tsc -p . && rollup -c && node ./scripts/check-bundle.js",
         "dev": "concurrently -c blue,red -n tsc,rollup --kill-others \"tsc --watch -p . --preserveWatchOutput\" \"rollup --config --watch --no-watch.clearScreen\"",
         "clean": "rm -rf types dist lib",
         "prepack": "yarn build",

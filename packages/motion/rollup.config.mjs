@@ -145,69 +145,48 @@ export const es = Object.assign({}, config, {
     }
 })
 
-const typePlugins = [dts({compilerOptions: {...tsconfig, baseUrl:"types"}})]
+const typePlugins = [dts({compilerOptions: {...tsconfig, baseUrl:"types"}, respectExternal: true})]
 
+/**
+ * Inline workspace packages so consumers get a single self-contained
+ * .d.ts per entry point. See issue #2900.
+ */
+const internalToInline = ["framer-motion", "motion-dom", "motion-utils"]
+const typesExternal = (id) => {
+    if (id.startsWith(".")) return false
+    if (internalToInline.some((pkg) => id === pkg || id.startsWith(pkg + "/"))) {
+        return false
+    }
+    if (internalToInline.some((pkg) => id.includes(`/packages/${pkg}/`))) {
+        return false
+    }
+    return true
+}
+
+/**
+ * Single multi-input bundle so shared types (including global `Window`
+ * augmentations from motion-dom) are extracted into a shared chunk rather
+ * than duplicated per entry — duplication would cause TS2717 conflicts
+ * when consumers import more than one entry.
+ */
 const types = {
-    input: "types/index.d.ts",
+    input: {
+        index: "types/index.d.ts",
+        debug: "types/debug.d.ts",
+        react: "types/react.d.ts",
+        mini: "types/mini.d.ts",
+        "react-m": "types/react-m.d.ts",
+        "react-mini": "types/react-mini.d.ts",
+        "react-client": "types/react-client.d.ts",
+    },
     output: {
         format: "es",
-        file: "dist/index.d.ts",
+        dir: "dist",
+        entryFileNames: "[name].d.ts",
+        chunkFileNames: "shared/[name]-[hash].d.ts",
     },
     plugins: typePlugins,
-}
-
-const debugTypes = {
-    input: "types/debug.d.ts",
-    output: {
-        format: "es",
-        file: "dist/debug.d.ts",
-    },
-    plugins: typePlugins,
-}
-
-const reactTypes = {
-    input: "types/react.d.ts",
-    output: {
-        format: "es",
-        file: "dist/react.d.ts",
-    },
-    plugins: typePlugins,
-}
-
-const miniTypes = {
-    input: "types/mini.d.ts",
-    output: {
-        format: "es",
-        file: "dist/mini.d.ts",
-    },
-    plugins: typePlugins,
-}
-
-const mTypes = {
-    input: "types/react-m.d.ts",
-    output: {
-        format: "es",
-        file: "dist/react-m.d.ts",
-    },
-    plugins: typePlugins,
-}
-
-const reactMiniTypes = {
-    input: "types/react-mini.d.ts",
-    output: {
-        format: "es",
-        file: "dist/react-mini.d.ts",
-    },
-    plugins: typePlugins,
-}
-
-const clientTypes = {
-    input: "types/react-client.d.ts",
-    output: {
-        format: "es",
-        file: "dist/react-client.d.ts",
-    },
-    plugins: typePlugins,
+    external: typesExternal,
 }
 
 // eslint-disable-next-line import/no-default-export
@@ -223,10 +202,4 @@ export default [
     cjsM,
     es,
     types,
-    debugTypes,
-    reactTypes,
-    reactMiniTypes,
-    mTypes,
-    miniTypes,
-    clientTypes,
 ]
