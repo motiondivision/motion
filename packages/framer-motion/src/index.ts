@@ -36,7 +36,10 @@ export { useUnmountEffect } from "./utils/use-unmount-effect"
 /**
  * Features
  */
-export { domAnimation } from "./render/dom/features-animation"
+export {
+    domAnimation,
+    domAnimation as domAnimations,
+} from "./render/dom/features-animation"
 export { domMax } from "./render/dom/features-max"
 export { domMin } from "./render/dom/features-min"
 

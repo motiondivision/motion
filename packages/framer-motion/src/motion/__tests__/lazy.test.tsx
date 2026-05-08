@@ -1,5 +1,6 @@
 import { motionValue } from "motion-dom"
 import { LazyMotion, domAnimation, domMax, m, motion } from "../.."
+import * as motionExports from "../.."
 import { render } from "../../jest.setup"
 
 describe("Lazy feature loading", () => {
@@ -23,6 +24,35 @@ describe("Lazy feature loading", () => {
         })
 
         return expect(promise).resolves.not.toBe(20)
+    })
+
+    test("Exports domAnimations as alias for domAnimation", () => {
+        expect((motionExports as any).domAnimations).toBeDefined()
+        expect((motionExports as any).domAnimations).toBe(domAnimation)
+    })
+
+    test("Does animate with synchronously-loaded domAnimations alias", async () => {
+        const domAnimations = (motionExports as any).domAnimations
+        const promise = new Promise((resolve) => {
+            const x = motionValue(0)
+            const onComplete = () => resolve(x.get())
+
+            const Component = () => (
+                <LazyMotion features={domAnimations}>
+                    <m.div
+                        animate={{ x: 20 }}
+                        transition={{ duration: 0.01 }}
+                        style={{ x }}
+                        onAnimationComplete={onComplete}
+                    />
+                </LazyMotion>
+            )
+
+            const { rerender } = render(<Component />)
+            rerender(<Component />)
+        })
+
+        return expect(promise).resolves.toBe(20)
     })
 
     test("Does animate with synchronously-loaded domAnimation", async () => {
