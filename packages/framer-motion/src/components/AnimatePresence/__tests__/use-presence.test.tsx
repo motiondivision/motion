@@ -304,4 +304,64 @@ describe("usePresence", () => {
 
         await promise
     })
+
+    test("Propagates parent isPresent through nested AnimatePresence", async () => {
+        const promise = new Promise<void>((resolve) => {
+            const presenceLog: { parent: boolean; child: boolean }[] = []
+            let removeParent: CB | null = null
+
+            const Child = () => {
+                const [isPresent] = usePresence()
+                presenceLog.push({
+                    parent: presenceLog[presenceLog.length - 1]?.parent ?? true,
+                    child: isPresent,
+                })
+                return <div data-testid="child" />
+            }
+
+            const Parent = () => {
+                const [isPresent, safeToRemove] = usePresence()
+
+                useEffect(() => {
+                    if (safeToRemove) removeParent = safeToRemove
+                }, [isPresent, safeToRemove])
+
+                presenceLog.push({ parent: isPresent, child: true })
+
+                return (
+                    <AnimatePresence>
+                        <Child key="child" />
+                    </AnimatePresence>
+                )
+            }
+
+            const App = ({ isVisible }: { isVisible: boolean }) => (
+                <AnimatePresence>
+                    {isVisible && <Parent key="parent" />}
+                </AnimatePresence>
+            )
+
+            const { rerender } = render(<App isVisible />)
+
+            rerender(<App isVisible={false} />)
+
+            setTimeout(() => {
+                const lastChildEntry = [...presenceLog]
+                    .reverse()
+                    .find((entry) => entry.child !== undefined)
+                const lastParentEntry = [...presenceLog]
+                    .reverse()
+                    .find((entry) => entry.parent !== undefined)
+
+                expect(lastParentEntry?.parent).toBe(false)
+                expect(lastChildEntry?.child).toBe(false)
+
+                if (removeParent) act(() => removeParent!())
+
+                resolve()
+            }, 50)
+        })
+
+        await promise
+    })
 })

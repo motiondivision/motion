@@ -17,6 +17,13 @@ export type { ResolvedValues }
 export interface PresenceContextProps {
     id: string
     isPresent: boolean
+    /**
+     * Reflects whether the ancestor `AnimatePresence` chain is fully present.
+     * `false` if any ancestor is exiting. Allows `usePresence` consumers in
+     * nested `AnimatePresence` trees to react to ancestor exits without
+     * requiring `propagate` to be set on the inner `AnimatePresence`.
+     */
+    isAncestorPresent?: boolean
     register: (id: string | number) => () => void
     onExitComplete?: (id: string | number) => void
     initial?: false | VariantLabels

@@ -44,7 +44,7 @@ export function usePresence(
 
     if (context === null) return [true, null]
 
-    const { isPresent, onExitComplete, register } = context
+    const { isPresent, isAncestorPresent, onExitComplete, register } = context
 
     // It's safe to call the following hooks conditionally (after an early return) because the context will always
     // either be null or non-null for the lifespan of the component.
@@ -61,7 +61,11 @@ export function usePresence(
         [id, onExitComplete, subscribe]
     )
 
-    return !isPresent && onExitComplete ? [false, safeToRemove] : [true]
+    const effectiveIsPresent = isPresent && (isAncestorPresent ?? true)
+
+    return !effectiveIsPresent && onExitComplete
+        ? [false, safeToRemove]
+        : [true]
 }
 
 /**
@@ -89,5 +93,6 @@ export function useIsPresent() {
 }
 
 export function isPresent(context: PresenceContextProps | null) {
-    return context === null ? true : context.isPresent
+    if (context === null) return true
+    return context.isPresent && (context.isAncestorPresent ?? true)
 }

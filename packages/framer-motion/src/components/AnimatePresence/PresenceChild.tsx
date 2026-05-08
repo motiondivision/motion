@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { useId, useMemo } from "react"
+import { useContext, useId, useMemo } from "react"
 import {
     PresenceContext,
     type PresenceContextProps,
@@ -38,6 +38,19 @@ export const PresenceChild = ({
     const presenceChildren = useConstant(newChildrenMap)
     const id = useId()
 
+    /**
+     * Propagate the effective presence of the ancestor `AnimatePresence` chain
+     * so that `usePresence` consumers in nested children become "not present"
+     * when any ancestor is exiting, even without `propagate` set on the inner
+     * `AnimatePresence`. Motion components continue to read the local `isPresent`
+     * so their own exit-animation behaviour is unchanged.
+     */
+    const parentContext = useContext(PresenceContext)
+    const isAncestorPresent = parentContext
+        ? parentContext.isPresent &&
+          (parentContext.isAncestorPresent ?? true)
+        : true
+
     let isReusedContext = true
     let context = useMemo((): PresenceContextProps => {
         isReusedContext = false
@@ -45,6 +58,7 @@ export const PresenceChild = ({
             id,
             initial,
             isPresent,
+            isAncestorPresent,
             custom,
             onExitComplete: (childId: string) => {
                 presenceChildren.set(childId, true)
@@ -60,7 +74,7 @@ export const PresenceChild = ({
                 return () => presenceChildren.delete(childId)
             },
         }
-    }, [isPresent, presenceChildren, onExitComplete])
+    }, [isPresent, isAncestorPresent, presenceChildren, onExitComplete])
 
     /**
      * If the presence of a child affects the layout of the components around it,

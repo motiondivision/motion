@@ -3,6 +3,7 @@
 import { frame, microtask, globalProjectionState, type VisualElement } from "motion-dom"
 import { Component, useContext } from "react"
 import { usePresence } from "../../../components/AnimatePresence/use-presence"
+import { PresenceContext } from "../../../context/PresenceContext"
 import {
     LayoutGroupContext,
     LayoutGroupContextProps,
@@ -169,7 +170,17 @@ class MeasureLayoutWithContext extends Component<MeasureProps> {
 export function MeasureLayout(
     props: MotionProps & { visualElement: VisualElement }
 ) {
-    const [isPresent, safeToRemove] = usePresence()
+    const [, safeToRemove] = usePresence()
+    /**
+     * Read presence directly from the nearest `PresenceContext` so that
+     * projection state reflects the local `AnimatePresence` only.
+     * `usePresence` factors in ancestor exits, which would incorrectly
+     * relegate this projection when nested `AnimatePresence` is used
+     * without `propagate`.
+     */
+    const presenceContext = useContext(PresenceContext)
+    const isPresent =
+        presenceContext === null ? true : presenceContext.isPresent
     const layoutGroup = useContext(LayoutGroupContext)
 
     return (
