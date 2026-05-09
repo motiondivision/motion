@@ -2,6 +2,7 @@ import { activeAnimations } from "../../stats/animation-count"
 import { statsBuffer } from "../../stats/buffer"
 import { ValueKeyframesDefinition, ValueTransition } from "../types"
 import { mapEasingToNativeEasing } from "./easing/map-easing"
+import { normaliseAcceleratedKeyframes } from "./utils/normalize-keyframes"
 
 export function startWaapiAnimation(
     element: Element,
@@ -18,7 +19,10 @@ export function startWaapiAnimation(
     pseudoElement: string | undefined = undefined
 ) {
     const keyframeOptions: PropertyIndexedKeyframes = {
-        [valueName]: keyframes as string[],
+        [valueName]: normaliseAcceleratedKeyframes(
+            valueName,
+            keyframes
+        ) as string[],
     }
     if (times) keyframeOptions.offset = times
 
