@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { useId, useMemo } from "react"
+import { useId, useMemo, useRef } from "react"
 import {
     PresenceContext,
     type PresenceContextProps,
@@ -38,6 +38,16 @@ export const PresenceChild = ({
     const presenceChildren = useConstant(newChildrenMap)
     const id = useId()
 
+    /**
+     * Track the latest `isPresent` and `onExitComplete` so the cleanup
+     * returned from `register` can read up-to-date values. The cleanup
+     * fires whenever a motion child unmounts; if it unmounts during exit
+     * and was the last registered child, we need to fire `onExitComplete`
+     * here because the parent useEffect won't re-run.
+     */
+    const latest = useRef({ isPresent, onExitComplete })
+    latest.current = { isPresent, onExitComplete }
+
     let isReusedContext = true
     let context = useMemo((): PresenceContextProps => {
         isReusedContext = false
@@ -57,7 +67,15 @@ export const PresenceChild = ({
             },
             register: (childId: string) => {
                 presenceChildren.set(childId, false)
-                return () => presenceChildren.delete(childId)
+                return () => {
+                    presenceChildren.delete(childId)
+                    if (
+                        !latest.current.isPresent &&
+                        !presenceChildren.size
+                    ) {
+                        latest.current.onExitComplete?.()
+                    }
+                }
             },
         }
     }, [isPresent, presenceChildren, onExitComplete])
