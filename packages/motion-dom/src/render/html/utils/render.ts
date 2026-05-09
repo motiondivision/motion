@@ -9,10 +9,20 @@ export function renderHTML(
 ) {
     const elementStyle = element.style
 
+    /**
+     * Elements like <meta> have no rendered styles, so animated values
+     * are applied as attributes (e.g. `content` on <meta name="theme-color">).
+     */
+    const renderAsAttrs = element.tagName === "META"
+
     let key: string
     for (key in style) {
-        // CSSStyleDeclaration has [index: number]: string; in the types, so we use that as key type.
-        elementStyle[key as unknown as number] = style[key] as string
+        if (renderAsAttrs) {
+            element.setAttribute(key, style[key] as string)
+        } else {
+            // CSSStyleDeclaration has [index: number]: string; in the types, so we use that as key type.
+            elementStyle[key as unknown as number] = style[key] as string
+        }
     }
 
     // Write projection styles directly to element style
