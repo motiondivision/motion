@@ -3,6 +3,7 @@
  */
 export type * from "./animation/types"
 export { AnimatePresence } from "./components/AnimatePresence"
+export { AnimateSuspense } from "./components/AnimateSuspense"
 export { PopChild } from "./components/AnimatePresence/PopChild"
 export { PresenceChild } from "./components/AnimatePresence/PresenceChild"
 export { LayoutGroup } from "./components/LayoutGroup"
@@ -124,6 +125,7 @@ export { SwitchLayoutGroupContext } from "./context/SwitchLayoutGroupContext"
  * Types
  */
 export type { AnimatePresenceProps } from "./components/AnimatePresence/types"
+export type { AnimateSuspenseProps } from "./components/AnimateSuspense/types"
 export type { LazyProps } from "./components/LazyMotion/types"
 export type { MotionConfigProps } from "./components/MotionConfig"
 export type {
