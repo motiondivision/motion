@@ -8,6 +8,7 @@ import {
 } from "../../context/PresenceContext"
 import { VariantLabels } from "../../motion/types"
 import { useConstant } from "../../utils/use-constant"
+import { useIsomorphicLayoutEffect } from "../../utils/use-isomorphic-effect"
 import { PopChild } from "./PopChild"
 
 interface PresenceChildProps {
@@ -39,14 +40,18 @@ export const PresenceChild = ({
     const id = useId()
 
     /**
-     * Track the latest `isPresent` and `onExitComplete` so the cleanup
-     * returned from `register` can read up-to-date values. The cleanup
-     * fires whenever a motion child unmounts; if it unmounts during exit
-     * and was the last registered child, we need to fire `onExitComplete`
-     * here because the parent useEffect won't re-run.
+     * Track the latest committed `isPresent` and `onExitComplete` so the
+     * cleanup returned from `register` can read up-to-date values when a
+     * motion child unmounts mid-exit. The ref is written in a layout
+     * effect — not during render — so discarded concurrent renders never
+     * leave it pointing at uncommitted state.
      */
-    const latest = useRef({ isPresent, onExitComplete })
-    latest.current = { isPresent, onExitComplete }
+    const isPresentRef = useRef(isPresent)
+    const onExitCompleteRef = useRef(onExitComplete)
+    useIsomorphicLayoutEffect(() => {
+        isPresentRef.current = isPresent
+        onExitCompleteRef.current = onExitComplete
+    })
 
     let isReusedContext = true
     let context = useMemo((): PresenceContextProps => {
@@ -70,10 +75,10 @@ export const PresenceChild = ({
                 return () => {
                     presenceChildren.delete(childId)
                     if (
-                        !latest.current.isPresent &&
+                        !isPresentRef.current &&
                         !presenceChildren.size
                     ) {
-                        latest.current.onExitComplete?.()
+                        onExitCompleteRef.current?.()
                     }
                 }
             },
