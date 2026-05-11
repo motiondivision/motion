@@ -44,7 +44,7 @@ export const addAttrValue = (
               }
           }
 
-    return state.set(key, value, render)
+    return state.set(key, value, render, undefined, false)
 }
 
 export const attrEffect = /*@__PURE__*/ createSelectorEffect(

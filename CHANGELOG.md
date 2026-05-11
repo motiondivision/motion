@@ -9,6 +9,7 @@ Undocumented APIs should be considered internal and may change without warning.
 ### Fixed
 
 -   Variants: Re-run keyframe animations when switching between variant labels even when they share identical keyframe arrays.
+-   Apply default unit to unitless numeric strings (e.g. `"42"`) in transform/style values, so values like `animate={{ x: "42" }}` produce valid CSS.
 
 ## [12.39.0] 2026-05-05
 

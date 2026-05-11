@@ -108,4 +108,13 @@ describe("buildTransform", () => {
         expect(buildTransform({ scaleX: "0" }, {})).toBe("scaleX(0)")
         expect(buildTransform({ scaleY: "0" }, {})).toBe("scaleY(0)")
     })
+
+    it("Adds default unit to unitless numeric strings", () => {
+        // Reproduces #3086: strings like "15" must be treated like numbers
+        // and have the default unit applied, otherwise the browser ignores the
+        // resulting transform (e.g. translateX(15) is invalid CSS).
+        expect(buildTransform({ x: "15" }, {})).toBe("translateX(15px)")
+        expect(buildTransform({ y: "42" }, {})).toBe("translateY(42px)")
+        expect(buildTransform({ rotate: "90" }, {})).toBe("rotate(90deg)")
+    })
 })

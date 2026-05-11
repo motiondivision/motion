@@ -48,4 +48,10 @@ describe("getValueAsType", () => {
         expect(getValueAsType("100%", px)).toBe("100%")
         expect(getValueAsType(100)).toBe(100)
     })
+
+    it("Applies the default unit to unitless numeric strings (issue #3086)", () => {
+        expect(getValueAsType("15", px)).toBe("15px")
+        expect(getValueAsType("0", px)).toBe("0px")
+        expect(getValueAsType("-1.5", px)).toBe("-1.5px")
+    })
 })
