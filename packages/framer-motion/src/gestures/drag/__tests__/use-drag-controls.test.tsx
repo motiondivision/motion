@@ -2,6 +2,7 @@ import { useState } from "react"
 import { motion, useDragControls, DragControls, motionValue } from "../../../"
 import { render } from "../../../jest.setup"
 import { nextFrame } from "../../__tests__/utils"
+import { VisualElementDragControls } from "../VisualElementDragControls"
 import { MockDrag, drag } from "./utils"
 
 describe("useDragControls", () => {
@@ -207,5 +208,69 @@ describe("useDragControls", () => {
         expect(y.get()).toBeCloseTo(yAfterFirstSnap, 0)
 
         pointer2.end()
+    })
+})
+
+describe("dragSnapToCursor prop", () => {
+    test("forwards snapToCursor option to start when prop is true", async () => {
+        const startSpy = jest.spyOn(
+            VisualElementDragControls.prototype,
+            "start"
+        )
+
+        const Component = () => (
+            <MockDrag>
+                <motion.div
+                    drag
+                    dragSnapToCursor
+                    data-testid="draggable"
+                />
+            </MockDrag>
+        )
+
+        const { rerender, getByTestId } = render(<Component />)
+        rerender(<Component />)
+
+        startSpy.mockClear()
+
+        const pointer = await drag(getByTestId("draggable")).to(50, 50)
+        pointer.end()
+        await nextFrame()
+
+        expect(startSpy).toHaveBeenCalled()
+        const [, options] = startSpy.mock.calls[0]
+        expect(options).toEqual(
+            expect.objectContaining({ snapToCursor: true })
+        )
+
+        startSpy.mockRestore()
+    })
+
+    test("does not forward snapToCursor option when prop is not set", async () => {
+        const startSpy = jest.spyOn(
+            VisualElementDragControls.prototype,
+            "start"
+        )
+
+        const Component = () => (
+            <MockDrag>
+                <motion.div drag data-testid="draggable" />
+            </MockDrag>
+        )
+
+        const { rerender, getByTestId } = render(<Component />)
+        rerender(<Component />)
+
+        startSpy.mockClear()
+
+        const pointer = await drag(getByTestId("draggable")).to(50, 50)
+        pointer.end()
+        await nextFrame()
+
+        expect(startSpy).toHaveBeenCalled()
+        const [, options] = startSpy.mock.calls[0]
+        expect(options?.snapToCursor).toBeFalsy()
+
+        startSpy.mockRestore()
     })
 })
