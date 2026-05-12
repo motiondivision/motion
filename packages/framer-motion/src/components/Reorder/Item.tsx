@@ -5,7 +5,7 @@ import { invariant } from "motion-utils"
 import * as React from "react"
 import { forwardRef, FunctionComponent, useContext } from "react"
 import { ReorderContext } from "../../context/ReorderContext"
-import { motion } from "../../render/components/motion/proxy"
+import * as m from "../../render/components/m/namespace"
 import { HTMLMotionProps } from "../../render/html/types"
 import { useConstant } from "../../utils/use-constant"
 import { useMotionValue } from "../../value/use-motion-value"
@@ -72,7 +72,7 @@ export function ReorderItemComponent<
     externalRef?: React.ForwardedRef<any>
 ): React.JSX.Element {
     const Component = useConstant(
-        () => motion[as as keyof typeof motion]
+        () => m[as as keyof typeof m]
     ) as FunctionComponent<
         React.PropsWithChildren<HTMLMotionProps<any> & { ref?: React.Ref<any> }>
     >
@@ -126,7 +126,6 @@ export function ReorderItemComponent<
                 registerItem(value, measured)
             }}
             ref={externalRef}
-            ignoreStrict
         >
             {children}
         </Component>
