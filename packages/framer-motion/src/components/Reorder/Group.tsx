@@ -4,7 +4,7 @@ import { invariant } from "motion-utils"
 import * as React from "react"
 import { forwardRef, FunctionComponent, JSX, useEffect, useRef } from "react"
 import { ReorderContext } from "../../context/ReorderContext"
-import { motion } from "../../render/components/motion/proxy"
+import * as m from "../../render/components/m/namespace"
 import { HTMLMotionProps } from "../../render/html/types"
 import { useConstant } from "../../utils/use-constant"
 import {
@@ -84,7 +84,7 @@ export function ReorderGroupComponent<
     externalRef?: React.ForwardedRef<any>
 ): JSX.Element {
     const Component = useConstant(
-        () => motion[as as keyof typeof motion]
+        () => m[as as keyof typeof m]
     ) as FunctionComponent<
         React.PropsWithChildren<HTMLMotionProps<any> & { ref?: React.Ref<any> }>
     >
@@ -166,7 +166,7 @@ export function ReorderGroupComponent<
     }
 
     return (
-        <Component {...props} style={groupStyle} ref={setRef} ignoreStrict>
+        <Component {...props} style={groupStyle} ref={setRef}>
             <ReorderContext.Provider value={context}>
                 {children}
             </ReorderContext.Provider>
