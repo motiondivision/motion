@@ -734,6 +734,18 @@ export interface MotionNodeDraggableOptions {
     dragSnapToOrigin?: boolean | "x" | "y"
 
     /**
+     * If `true`, the element will snap so that the cursor is centered on it
+     * when a drag gesture starts. This is the equivalent of passing
+     * `{ snapToCursor: true }` to a `dragControls.start()` call but works
+     * for any drag-enabled motion component.
+     *
+     * ```jsx
+     * <motion.div drag dragSnapToCursor />
+     * ```
+     */
+    dragSnapToCursor?: boolean
+
+    /**
      * By default, if `drag` is defined on a component then an event listener will be attached
      * to automatically initiate dragging when a user presses down on it.
      *

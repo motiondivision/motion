@@ -657,7 +657,11 @@ export class VisualElementDragControls {
             element,
             "pointerdown",
             (event) => {
-                const { drag, dragListener = true } = this.getProps()
+                const {
+                    drag,
+                    dragListener = true,
+                    dragSnapToCursor,
+                } = this.getProps()
                 const target = event.target as Element
 
                 /**
@@ -672,7 +676,7 @@ export class VisualElementDragControls {
                     target !== element && isElementTextInput(target)
 
                 if (drag && dragListener && !isClickingTextInputChild) {
-                    this.start(event)
+                    this.start(event, { snapToCursor: dragSnapToCursor })
                 }
             }
         )
