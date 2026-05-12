@@ -2,6 +2,7 @@ import "@testing-library/jest-dom"
 import { render } from "@testing-library/react"
 import { useEffect } from "react"
 import { MotionConfig } from "../../../components/MotionConfig"
+import { nextFrame } from "../../../gestures/__tests__/utils"
 import { useAnimate } from "../use-animate"
 
 describe("useAnimate", () => {
@@ -115,6 +116,80 @@ describe("useAnimate", () => {
         })
 
         expect(frameCount).toEqual(3)
+    })
+
+    test("reducedMotion='always' option makes transforms animate instantly", async () => {
+        const result = await new Promise<{ x: string; opacity: string }>(
+            (resolve) => {
+                const Component = () => {
+                    const [scope, animate] = useAnimate<HTMLDivElement>({
+                        reducedMotion: "always",
+                    })
+
+                    useEffect(() => {
+                        animate(
+                            scope.current,
+                            { x: 100, opacity: 1 },
+                            { duration: 2 }
+                        )
+
+                        nextFrame().then(() => {
+                            const style = getComputedStyle(scope.current)
+                            resolve({
+                                x: style.transform,
+                                opacity: style.opacity,
+                            })
+                        })
+                    })
+
+                    return <div ref={scope} />
+                }
+
+                render(<Component />)
+            }
+        )
+
+        expect(result.x).toContain("translateX(100px)")
+        expect(result.opacity).not.toEqual("1")
+    })
+
+    test("reducedMotion='never' option overrides parent MotionConfig reducedMotion='always'", async () => {
+        const result = await new Promise<{ x: string; opacity: string }>(
+            (resolve) => {
+                const Component = () => {
+                    const [scope, animate] = useAnimate<HTMLDivElement>({
+                        reducedMotion: "never",
+                    })
+
+                    useEffect(() => {
+                        animate(
+                            scope.current,
+                            { x: 100, opacity: 1 },
+                            { duration: 2 }
+                        )
+
+                        nextFrame().then(() => {
+                            const style = getComputedStyle(scope.current)
+                            resolve({
+                                x: style.transform,
+                                opacity: style.opacity,
+                            })
+                        })
+                    })
+
+                    return <div ref={scope} />
+                }
+
+                render(
+                    <MotionConfig reducedMotion="always">
+                        <Component />
+                    </MotionConfig>
+                )
+            }
+        )
+
+        expect(result.x).not.toContain("translateX(100px)")
+        expect(result.opacity).not.toEqual("1")
     })
 
     test("Applies final value instantly when MotionConfig skipAnimations is true", () => {
