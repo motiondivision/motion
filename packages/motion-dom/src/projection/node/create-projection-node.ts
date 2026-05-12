@@ -1997,6 +1997,13 @@ export function createProjectionNode<I>({
                         ? transformTemplate({}, "")
                         : "none"
                     this.hasProjected = false
+
+                    // Flush layout so Chrome's IntersectionObserver re-evaluates
+                    // after the projection transform is removed (see #2679).
+                    if (this.instance) {
+                        void (this.instance as unknown as HTMLElement)
+                            .offsetWidth
+                    }
                 }
 
                 return
