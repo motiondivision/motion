@@ -39,13 +39,8 @@ export const PresenceChild = ({
     const presenceChildren = useConstant(newChildrenMap)
     const id = useId()
 
-    /**
-     * Track the latest committed `isPresent` and `onExitComplete` so the
-     * cleanup returned from `register` can read up-to-date values when a
-     * motion child unmounts mid-exit. The ref is written in a layout
-     * effect — not during render — so discarded concurrent renders never
-     * leave it pointing at uncommitted state.
-     */
+    // Written in a layout effect (not render) so discarded concurrent
+    // renders can't leave the refs pointing at uncommitted state.
     const isPresentRef = useRef(isPresent)
     const onExitCompleteRef = useRef(onExitComplete)
     useIsomorphicLayoutEffect(() => {
@@ -74,12 +69,9 @@ export const PresenceChild = ({
                 presenceChildren.set(childId, false)
                 return () => {
                     presenceChildren.delete(childId)
-                    if (
-                        !isPresentRef.current &&
-                        !presenceChildren.size
-                    ) {
+                    !isPresentRef.current &&
+                        !presenceChildren.size &&
                         onExitCompleteRef.current?.()
-                    }
                 }
             },
         }
