@@ -49,14 +49,23 @@ export function buildHTMLStyles(
         }
     }
 
-    if (!latestValues.transform) {
+    /**
+     * If x or y motion values are present they take precedence over any
+     * `transform` string in latestValues. This allows drag (and other gestures
+     * that drive x/y) to keep working when a variant or style sets a literal
+     * `transform` string. See #2807.
+     */
+    const hasTranslate =
+        latestValues.x !== undefined || latestValues.y !== undefined
+
+    if (!latestValues.transform || hasTranslate) {
         if (hasTransform || transformTemplate) {
             style.transform = buildTransform(
                 latestValues,
                 state.transform,
                 transformTemplate
             )
-        } else if (style.transform) {
+        } else if (!latestValues.transform && style.transform) {
             /**
              * If we have previously created a transform but currently don't have any,
              * reset transform style to none.
