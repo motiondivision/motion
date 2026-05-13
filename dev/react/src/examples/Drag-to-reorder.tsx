@@ -1,11 +1,44 @@
 import { useEffect, useState } from "react"
-import { Reorder, useMotionValue, animate } from "framer-motion"
+import {
+    Reorder,
+    useMotionValue,
+    animate,
+    MotionValue,
+} from "framer-motion"
 
 const inactiveShadow = "0px 0px 0px rgba(0,0,0,0.8)"
+const activeShadow = "5px 5px 10px rgba(0,0,0,0.3)"
 
-const Item = ({ item, axis }) => {
-    const y = useMotionValue(0)
+function useRaisedShadow(value: MotionValue<number>) {
     const boxShadow = useMotionValue(inactiveShadow)
+
+    useEffect(() => {
+        let isActive = false
+
+        const unsubscribe = value.on("change", (latest) => {
+            const wasActive = isActive
+            if (latest !== 0) {
+                isActive = true
+                if (isActive !== wasActive) {
+                    animate(boxShadow, activeShadow)
+                }
+            } else {
+                isActive = false
+                if (isActive !== wasActive) {
+                    animate(boxShadow, inactiveShadow)
+                }
+            }
+        })
+
+        return () => unsubscribe()
+    }, [value, boxShadow])
+
+    return boxShadow
+}
+
+const Item = ({ item }) => {
+    const y = useMotionValue(0)
+    const boxShadow = useRaisedShadow(y)
 
     return (
         <Reorder.Item
@@ -22,17 +55,16 @@ const Item = ({ item, axis }) => {
 
 export const App = () => {
     const [items, setItems] = useState(initialItems)
-    const axis = "y"
 
     return (
         <Reorder.Group
             axis="y"
             onReorder={setItems}
-            style={axis === "y" ? verticalList : horizontalList}
+            style={verticalList}
             values={items}
         >
             {items.map((item) => (
-                <Item axis={axis} key={item} item={item} />
+                <Item key={item} item={item} />
             ))}
             <style>{styles}</style>
         </Reorder.Group>
@@ -97,10 +129,6 @@ function ReorderIcon() {
 }
 
 const verticalList = {}
-
-const horizontalList = {
-    display: "flex",
-}
 
 const styles = `body {
   width: 100vw;
