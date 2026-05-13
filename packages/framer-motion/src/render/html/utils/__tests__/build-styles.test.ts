@@ -110,6 +110,16 @@ describe("buildHTMLStyles", () => {
             transform: "translateY(2) translateX(1px)",
         })
     })
+
+    test("Individual transform props take precedence over transform string", () => {
+        const latest = { x: 50, transform: "translateX(100px)" }
+        const style = {}
+        build(latest, { style })
+
+        expect(style).toEqual({
+            transform: "translateX(50px)",
+        })
+    })
 })
 
 interface BuildProps {
