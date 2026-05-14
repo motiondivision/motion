@@ -214,6 +214,50 @@ describe("GroupAnimation", () => {
         expect(controls.startTime).toEqual(2)
     })
 
+    test("Gets active properties when first animation is finished", () => {
+        const a = createTestAnimationControls({
+            speed: 0,
+            time: 1,
+            startTime: 0,
+            state: "finished",
+        })
+        const b = createTestAnimationControls({
+            speed: 3,
+            time: 2,
+            startTime: 10,
+            state: "running",
+        })
+
+        const controls = new GroupAnimation([a, b])
+
+        expect(controls.state).toEqual("running")
+        expect(controls.speed).toEqual(3)
+        expect(controls.time).toEqual(2)
+        expect(controls.startTime).toEqual(10)
+    })
+
+    test("Falls back to first animation when all animations are finished", () => {
+        const a = createTestAnimationControls({
+            speed: 1,
+            time: 1,
+            startTime: 0,
+            state: "finished",
+        })
+        const b = createTestAnimationControls({
+            speed: 2,
+            time: 2,
+            startTime: 10,
+            state: "finished",
+        })
+
+        const controls = new GroupAnimation([a, b])
+
+        expect(controls.state).toEqual("finished")
+        expect(controls.speed).toEqual(1)
+        expect(controls.time).toEqual(1)
+        expect(controls.startTime).toEqual(0)
+    })
+
     test("Gets max duration", async () => {
         const a = createTestAnimationControls({
             duration: 3,

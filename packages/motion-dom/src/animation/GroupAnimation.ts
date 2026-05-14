@@ -25,11 +25,12 @@ export class GroupAnimation implements AnimationPlaybackControls {
         )
     }
 
-    /**
-     * TODO: Filter out cancelled or stopped animations before returning
-     */
     private getAll(propName: PropNames) {
-        return this.animations[0][propName] as any
+        const activeAnimation = this.animations.find((animation) => {
+            return animation.state !== "idle" && animation.state !== "finished"
+        })
+
+        return (activeAnimation || this.animations[0])[propName] as any
     }
 
     private setAll(propName: PropNames, newValue: any) {
