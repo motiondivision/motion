@@ -165,22 +165,31 @@ export class KeyframeResolver<T extends AnyResolvedKeyframe = any> {
         if (unresolvedKeyframes[0] === null) {
             const currentValue = motionValue?.get()
 
-            // TODO: This doesn't work if the final keyframe is a wildcard
             const finalKeyframe =
                 unresolvedKeyframes[unresolvedKeyframes.length - 1]
+            const finalKeyframeOrDefault =
+                finalKeyframe === null && this.finalKeyframe !== undefined
+                    ? this.finalKeyframe
+                    : finalKeyframe
 
             if (currentValue !== undefined) {
                 unresolvedKeyframes[0] = currentValue
             } else if (element && name) {
-                const valueAsRead = element.readValue(name, finalKeyframe)
+                const valueAsRead = element.readValue(
+                    name,
+                    finalKeyframeOrDefault
+                )
 
                 if (valueAsRead !== undefined && valueAsRead !== null) {
                     unresolvedKeyframes[0] = valueAsRead
                 }
             }
 
-            if (unresolvedKeyframes[0] === undefined) {
-                unresolvedKeyframes[0] = finalKeyframe
+            if (
+                unresolvedKeyframes[0] === null ||
+                unresolvedKeyframes[0] === undefined
+            ) {
+                unresolvedKeyframes[0] = finalKeyframeOrDefault
             }
 
             if (motionValue && currentValue === undefined) {
