@@ -12,18 +12,36 @@ import * as ReactDOMClient from "react-dom/client"
  * The actual reproduction is rendered in a fresh ReactDOM root so it isn't
  * wrapped by the dev harness's StrictMode — StrictMode's double-mount in dev
  * masks the bug because the second mount sees the hydrated ref.
+ *
+ * StrictMode still double-invokes *this* outer effect, so the nested root is
+ * guarded to a single instance: the deferred unmount is cancelled if a
+ * remount happens first. Otherwise two <Repro> trees coexist (duplicate
+ * #target/#progress IDs, doubled document) and the test reads a stale,
+ * window-tracking instance — a React 19 flake unrelated to the fix.
  */
 export const App = () => {
     const containerRef = useRef<HTMLDivElement | null>(null)
+    const rootRef = useRef<ReactDOMClient.Root | null>(null)
+    const unmountPending = useRef(false)
 
     useEffect(() => {
         if (!containerRef.current) return
-        const root = ReactDOMClient.createRoot(containerRef.current)
-        root.render(<Repro />)
+        unmountPending.current = false
+        if (!rootRef.current) {
+            rootRef.current = ReactDOMClient.createRoot(containerRef.current)
+        }
+        rootRef.current.render(<Repro />)
         // Defer unmount: React 18 errors when a root is unmounted
-        // synchronously from another root's effect cleanup.
+        // synchronously from another root's effect cleanup. If StrictMode
+        // remounts before the microtask runs, the remount clears the flag
+        // and the root is kept.
         return () => {
-            queueMicrotask(() => root.unmount())
+            unmountPending.current = true
+            queueMicrotask(() => {
+                if (!unmountPending.current) return
+                rootRef.current?.unmount()
+                rootRef.current = null
+            })
         }
     }, [])
 

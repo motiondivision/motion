@@ -46,6 +46,14 @@ function makeAccelerateConfig(
         factory: (animation: AnimationPlaybackControls) => {
             let cleanup: VoidFunction | undefined
             const start = () => {
+                // A provided ref may be hydrated by an effect declared after
+                // useScroll (or in a parent). Don't attach to the window
+                // scroll in the meantime — that result gets cached and would
+                // permanently mistrack. Wait until the ref resolves.
+                if (isRefPending(container) || isRefPending(target)) {
+                    microtask.read(start)
+                    return
+                }
                 cleanup = scroll(animation, {
                     ...options,
                     axis,
