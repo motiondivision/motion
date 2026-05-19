@@ -90,22 +90,17 @@ export function animateTarget(
             { x: xFrom, y: yFrom },
             { x: xTo, y: yTo }
         )
-        // Note: the keyframe consumer doesn't need to flag interruption.
-        // If this animation is replacing an in-flight one, x/y motion
-        // values already hold the displaced (mid-arc) position, so
-        // `xFrom`/`yFrom` carry the necessary continuity geometry.
+        // Interruption needs no flag: x/y already hold the displaced
+        // mid-arc position, so xFrom/yFrom carry the continuity geometry.
 
-        // Probe whether this path produces rotation, and capture/restore base.
+        // Drive a dedicated `pathRotation` value (composed onto `rotate` at
+        // the build sites) rather than `rotate` itself, so a concurrent
+        // rotate animation composes and nothing accumulates on interrupt.
         const probe = interpolate(0)
-        const rotateValue = probe.rotate !== undefined
-            ? visualElement.getValue(
-                  "rotate",
-                  visualElement.latestValues["rotate"] ?? 0
-              )
-            : undefined
-        const baseRotation = rotateValue
-            ? ((rotateValue.get() as number) ?? 0)
-            : 0
+        const pathRotationValue =
+            probe.rotate !== undefined
+                ? visualElement.getValue("pathRotation", 0)
+                : undefined
 
         const pathTransition = {
             delay,
@@ -123,15 +118,19 @@ export function animateTarget(
                     const point = interpolate(latest / 1000)
                     xValue?.set(point.x)
                     yValue?.set(point.y)
-                    if (rotateValue && point.rotate !== undefined) {
-                        rotateValue.set(baseRotation + point.rotate)
+                    if (pathRotationValue && point.rotate !== undefined) {
+                        pathRotationValue.set(point.rotate)
                     }
                 },
                 onComplete: () => {
                     xValue?.set(xTo)
                     yValue?.set(yTo)
-                    rotateValue?.set(baseRotation)
+                    pathRotationValue?.set(0)
                 },
+                // Interrupt/cancel must clear our additive contribution so
+                // it can't linger on top of the user's `rotate`.
+                onStop: () => pathRotationValue?.set(0),
+                onCancel: () => pathRotationValue?.set(0),
             })
         )
 
@@ -139,7 +138,6 @@ export function animateTarget(
 
         delete (target as { x?: unknown }).x
         delete (target as { y?: unknown }).y
-        if (rotateValue) delete (target as { rotate?: unknown }).rotate
     }
 
     for (const key in target) {

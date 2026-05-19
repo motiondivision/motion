@@ -4,6 +4,12 @@ import { ValueTypeMap } from "./types"
 
 export const transformValueTypes: ValueTypeMap = {
     rotate: degrees,
+    /**
+     * Internal channel for `transition.path` orientToPath. Composed onto
+     * `rotate` at the transform-build sites so the user's `rotate` is
+     * never read or overwritten. Not part of `transformPropOrder`.
+     */
+    pathRotation: degrees,
     rotateX: degrees,
     rotateY: degrees,
     rotateZ: degrees,

@@ -62,6 +62,18 @@ export function buildTransform(
         }
     }
 
+    // `pathRotation` composes onto `rotate` as a separate additive term so
+    // the user's `rotate` is never clobbered. Deliberately not a slot in
+    // `transformPropOrder`.
+    const pathRotation = latestValues.pathRotation
+    if (pathRotation) {
+        transformIsDefault = false
+        transformString += `rotate(${getValueAsType(
+            pathRotation,
+            numberValueTypes.pathRotation
+        )}) `
+    }
+
     transformString = transformString.trim()
 
     // If we have a custom `transform` template, pass our transform values and

@@ -141,3 +141,40 @@ describe("keyframe arc", () => {
             })
     })
 })
+
+/**
+ * An oriented arc running concurrently with a user `rotate` animation.
+ * `pathRotation` is composed onto the user's `rotate` at the build site,
+ * so the user's value must never be read or clobbered.
+ *
+ * Frozen at t=0.5: pathRotation ~0 by symmetry, x ~mid, and `rotate`
+ * (0 → 90, eased 0.5) ~45deg. The old clobbering behaviour would leave
+ * rotation at ~0deg instead.
+ */
+describe("arc composes with concurrent rotate", () => {
+    it("does not clobber a user rotate animation", () => {
+        cy.visit("?test=transition-arc&variant=rotate-compose")
+            .wait(50)
+            .get("#toggle")
+            .click()
+            .wait(100)
+            .get("#indicator")
+            .should(([$el]: any) => {
+                const t = window.getComputedStyle($el).transform
+                const m = t.match(/matrix\(([^)]+)\)/)
+                if (!m) throw new Error(`expected a matrix, got: ${t}`)
+                const [a, b, , , tx] = m[1]
+                    .split(",")
+                    .map((v) => parseFloat(v))
+                // x interpolated to ~mid (0 → 400, eased 0.5).
+                expect(tx, "x is roughly midway").to.be.closeTo(200, 40)
+                // Decompose rotation from matrix(a,b,...). Should be ~45deg
+                // from the user's rotate; clobbering would give ~0deg.
+                const angle = (Math.atan2(b, a) * 180) / Math.PI
+                expect(
+                    angle,
+                    "user rotate (45deg) survived alongside the arc"
+                ).to.be.closeTo(45, 12)
+            })
+    })
+})

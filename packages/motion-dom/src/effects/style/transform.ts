@@ -37,5 +37,17 @@ export function buildTransform(state: MotionValueState) {
         }
     }
 
+    // See build-transform.ts: additive `rotate()` so user `rotate` isn't
+    // clobbered. Not a `transformPropOrder` slot.
+    const pathRotation = state.latest.pathRotation
+    if (pathRotation) {
+        transformIsDefault = false
+        transform += `rotate(${
+            typeof pathRotation === "number"
+                ? `${pathRotation}deg`
+                : pathRotation
+        }) `
+    }
+
     return transformIsDefault ? "none" : transform.trim()
 }

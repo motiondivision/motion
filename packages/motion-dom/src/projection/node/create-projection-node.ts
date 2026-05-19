@@ -1630,23 +1630,25 @@ export function createProjectionNode<I>({
              * `from` is the current translate offset (carries any in-flight
              * displacement when interrupted); `to` is the new layout origin.
              */
-            const distance = Math.sqrt(
-                delta.x.translate * delta.x.translate +
-                    delta.y.translate * delta.y.translate
-            )
-            const interpolate: PathInterpolator | undefined =
-                pathFn && distance >= 20
-                    ? pathFn(
-                          { x: delta.x.translate, y: delta.y.translate },
-                          { x: 0, y: 0 }
-                      )
-                    : undefined
+            let interpolate: PathInterpolator | undefined
+            if (pathFn) {
+                const distance = Math.sqrt(
+                    delta.x.translate * delta.x.translate +
+                        delta.y.translate * delta.y.translate
+                )
+                if (distance >= 20) {
+                    interpolate = pathFn(
+                        { x: delta.x.translate, y: delta.y.translate },
+                        { x: 0, y: 0 }
+                    )
+                }
+            }
 
             this.mixTargetDelta = (latest: number) => {
                 const progress = latest / 1000
+                const point = interpolate?.(progress)
 
-                if (interpolate) {
-                    const point = interpolate(progress)
+                if (point) {
                     targetDelta.x.translate = point.x
                     targetDelta.x.scale = mixNumber(delta.x.scale, 1, progress)
                     targetDelta.x.origin = delta.x.origin
@@ -1710,13 +1712,12 @@ export function createProjectionNode<I>({
                     )
                 }
 
-                if (interpolate) {
-                    const point = interpolate(progress)
-                    if (point.rotate !== undefined) {
-                        if (!this.animationValues)
-                            this.animationValues = mixedValues
-                        this.animationValues.rotate = point.rotate
-                    }
+                if (point && point.rotate !== undefined) {
+                    // Dedicated `pathRotation` channel, not `rotate`, so an
+                    // animating `rotate` is composed with, never clobbered.
+                    if (!this.animationValues)
+                        this.animationValues = mixedValues
+                    this.animationValues.pathRotation = point.rotate
                 }
 
                 this.root.scheduleUpdateProjection()

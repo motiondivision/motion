@@ -30,6 +30,7 @@ export const App = () => {
 
     if (variant === "ping-pong") return <PingPong />
     if (variant === "axis-change") return <AxisChange />
+    if (variant === "rotate-compose") return <RotateCompose />
 
     return <LayoutArc variant={variant} />
 }
@@ -229,6 +230,52 @@ const AxisChange = () => {
                     width: 60,
                     height: 60,
                     background: "tomato",
+                }}
+            />
+        </div>
+    )
+}
+
+/**
+ * An oriented arc running *at the same time* as a user `rotate`
+ * animation. Frozen at t=0.5: pathRotation is ~0 by symmetry there, so
+ * the only rotation in the matrix should be the user's `rotate` at 50%
+ * (0 → 90 → 45deg). If the arc clobbered `rotate` (the old behaviour)
+ * the element would read ~0deg instead. Proves composition + that the
+ * user's value is never overwritten.
+ */
+const RotateCompose = () => {
+    const [target, setTarget] = useState<"a" | "b">("a")
+    const path = useRef(arc({ amplitude: 1, orientToPath: true })).current
+
+    return (
+        <div
+            id="container"
+            style={{ position: "relative", width: "100vw", height: "100vh" }}
+        >
+            <Hud variant="rotate-compose" />
+            <button
+                id="toggle"
+                onClick={() => setTarget((p) => (p === "a" ? "b" : "a"))}
+                style={{ position: "fixed", top: 16, left: 16 }}
+            >
+                Toggle
+            </button>
+            <motion.div
+                id="indicator"
+                animate={{
+                    x: target === "a" ? 0 : 400,
+                    y: 0,
+                    rotate: target === "a" ? 0 : 90,
+                }}
+                transition={{ duration: 4, ease: () => 0.5, path }}
+                style={{
+                    position: "absolute",
+                    top: 200,
+                    left: 50,
+                    width: 100,
+                    height: 100,
+                    background: "red",
                 }}
             />
         </div>

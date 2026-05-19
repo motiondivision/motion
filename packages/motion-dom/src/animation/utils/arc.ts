@@ -1,3 +1,4 @@
+import { wrap } from "motion-utils"
 import type { Path, Point2D } from "../types"
 
 interface ArcOptions {
@@ -32,11 +33,8 @@ function bezierPoint(
     control: number,
     target: number
 ): number {
-    return (
-        Math.pow(1 - t, 2) * origin +
-        2 * (1 - t) * t * control +
-        Math.pow(t, 2) * target
-    )
+    const inv = 1 - t
+    return inv * inv * origin + 2 * inv * t * control + t * t * target
 }
 
 function bezierTangentAngle(
@@ -53,10 +51,6 @@ function bezierTangentAngle(
     const dy =
         2 * (1 - t) * (controlY - originY) + 2 * t * (targetY - controlY)
     return Math.atan2(dy, dx) * (180 / Math.PI)
-}
-
-function normalizeAngle(angle: number): number {
-    return ((((angle + 180) % 360) + 360) % 360) - 180
 }
 
 function computeArcControlPoint(
@@ -185,9 +179,8 @@ export function arc({
                     from.y, control.y, to.y
                 )
                 const baseline =
-                    tangent0 + normalizeAngle(tangent1 - tangent0) * t
-                out.rotate =
-                    normalizeAngle(raw - baseline) * rotationScale
+                    tangent0 + wrap(-180, 180, tangent1 - tangent0) * t
+                out.rotate = wrap(-180, 180, raw - baseline) * rotationScale
             }
             return out
         }
