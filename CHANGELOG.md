@@ -4,6 +4,13 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.40.0] 2026-05-21
+
+### Added
+
+-   `path` option to `transition`.
+-   `arc()` for motion along an arc.
+
 ## [12.39.0] 2026-05-18
 
 ### Added
