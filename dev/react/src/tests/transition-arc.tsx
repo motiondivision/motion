@@ -12,7 +12,7 @@ const ITEM_B_NEAR = { left: 60, top: 200, width: 100, height: 50 }
  *   none          — like freeze but no `path` (linear baseline)
  *   small         — sub-threshold distance, falls back to linear
  *   keyframe      — keyframe arc with a Toggle button
- *   oriented      — keyframe arc with orientToPath true
+ *   oriented      — keyframe arc with rotate: true
  *   freezeAt=N    — pin keyframe animation at fraction N (0..1)
  *   interrupt     — auto-toggle layout fast, mid-flight (continuity demo)
  *   axis-change   — interrupt across a dominant-axis change (continuity demo)
@@ -45,7 +45,7 @@ const LayoutArc = ({ variant }: { variant: string }) => {
 
     // Memoize the arc factory so its closure (prevBulgeSign) survives renders.
     const path = useMemo(
-        () => (variant === "none" ? undefined : arc({ amplitude: 1, direction })),
+        () => (variant === "none" ? undefined : arc({ amp: 1, direction })),
         [variant, direction]
     )
 
@@ -110,7 +110,7 @@ const KeyframeArc = ({ oriented }: { oriented: boolean }) => {
         : params.has("freeze")
         ? 0.5
         : undefined
-    const path = useRef(arc({ amplitude: 1, orientToPath: oriented })).current
+    const path = useRef(arc({ amp: 1, rotate: oriented })).current
 
     return (
         <div
@@ -158,7 +158,7 @@ const PingPong = () => {
         { x: 200, y: 300 },
     ]
     const [i, setI] = useState(0)
-    const path = useRef(arc({ amplitude: 0.7, orientToPath: 0.5 })).current
+    const path = useRef(arc({ amp: 0.7, rotate: 0.5 })).current
 
     useEffect(() => {
         const id = window.setInterval(() => {
@@ -198,7 +198,7 @@ const PingPong = () => {
  */
 const AxisChange = () => {
     const [phase, setPhase] = useState<0 | 1 | 2 | 3>(0)
-    const path = useRef(arc({ amplitude: 0.7 })).current
+    const path = useRef(arc({ amp: 0.7 })).current
     const points = [
         { x: 0, y: 0 },
         { x: 300, y: 50 },
@@ -246,7 +246,7 @@ const AxisChange = () => {
  */
 const RotateCompose = () => {
     const [target, setTarget] = useState<"a" | "b">("a")
-    const path = useRef(arc({ amplitude: 1, orientToPath: true })).current
+    const path = useRef(arc({ amp: 1, rotate: true })).current
 
     return (
         <div

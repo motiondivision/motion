@@ -1,5 +1,8 @@
 import { Easing } from "motion-utils"
+import type { Delta } from "motion-utils"
+import type { TargetAndTransition } from "../node/types"
 import { SVGAttributes } from "../render/svg/types"
+import type { VisualElement } from "../render/VisualElement"
 import { MotionValue } from "../value"
 import { Driver } from "./drivers/types"
 import { KeyframeResolver } from "./keyframes/KeyframesResolver"
@@ -505,7 +508,7 @@ export interface ValueTransition
      *
      * @public
      */
-    path?: Path
+    path?: MotionPath
 }
 
 /**
@@ -646,15 +649,19 @@ export interface PathInterpolator {
 }
 
 /**
- * Resolves into an interpolator given the from/to points of an animation.
- *
- * Modifiers that need cross-call continuity (e.g. an arc that wants to
- * keep bulging the same side after an interruption) should track that
- * via closure on the factory return value. Reuse the factory (module
- * scope, useMemo) to keep that closure alive across renders.
+ * Returned by a path factory such as `arc()` and passed to `transition.path`.
+ * Implements both the keyframe-animation hook (`animateVisualElement`) and
+ * the layout-projection hook (`interpolateProjection`).
  */
-export interface Path {
-    (from: Point2D, to: Point2D): PathInterpolator
+export interface MotionPath {
+    animateVisualElement(
+        visualElement: VisualElement,
+        target: TargetAndTransition,
+        transition: Transition | undefined,
+        delay: number,
+        animations: AnimationPlaybackControlsWithThen[]
+    ): void
+    interpolateProjection(delta: Delta): PathInterpolator | undefined
 }
 
 export type DynamicOption<T> = (i: number, total: number) => T

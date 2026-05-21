@@ -17,7 +17,7 @@ function Keyframe() {
             animate={{ x: 200, y: 100 }}
             transition={{
                 duration: 1.5,
-                path: arc({ amplitude: 1, orientToPath: true }),
+                path: arc({ amp: 1, rotate: true }),
                 repeat: Infinity,
                 repeatType: "reverse",
             }}
@@ -33,7 +33,7 @@ function UseAnimateExample() {
         animate(
             scope.current,
             { x: 200, y: 100 },
-            { duration: 1.5, path: arc({ amplitude: 1 }) }
+            { duration: 1.5, path: arc({ amp: 1 }) }
         )
     }, [animate, scope])
 

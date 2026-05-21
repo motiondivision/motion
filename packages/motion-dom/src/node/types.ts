@@ -72,7 +72,7 @@ export interface Variants {
 /**
  * @deprecated
  */
-export interface LegacyAnimationControls {
+export type LegacyAnimationControls = {
     /**
      * Subscribes a component's animation controls to this.
      *
@@ -538,6 +538,7 @@ export interface MotionNodeTapHandlers {
      * Note: This is not supported publically.
      */
     globalTapTarget?: boolean
+
 }
 
 /**
@@ -978,7 +979,6 @@ export interface MotionNodeLayoutOptions {
      * to `false`, this element will take its default opacity throughout the animation.
      */
     layoutCrossfade?: boolean
-
 }
 
 /**

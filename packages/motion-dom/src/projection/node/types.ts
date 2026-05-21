@@ -1,5 +1,9 @@
 import type { JSAnimation } from "../../animation/JSAnimation"
-import type { Transition, ValueTransition } from "../../animation/types"
+import type {
+    MotionPath,
+    Transition,
+    ValueTransition,
+} from "../../animation/types"
 import type { ResolvedValues } from "../../render/types"
 import type { VisualElement, MotionStyle } from "../../render/VisualElement"
 import { Box, Delta, Point } from "motion-utils"
@@ -120,7 +124,7 @@ export interface IProjectionNode<I = unknown> {
     setAnimationOrigin(
         delta: Delta,
         hasOnlyRelativeTargetChanged?: boolean,
-        pathFn?: import("../../animation/types").Path
+        pathFn?: MotionPath
     ): void
     startAnimation(transition: ValueTransition): void
     finishAnimation(): void

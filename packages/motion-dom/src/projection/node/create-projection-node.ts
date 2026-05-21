@@ -12,7 +12,7 @@ import { animateSingleValue } from "../../animation/animate/single-value"
 import { JSAnimation } from "../../animation/JSAnimation"
 import { getOptimisedAppearId } from "../../animation/optimized-appear/get-appear-id"
 import {
-    Path,
+    MotionPath,
     PathInterpolator,
     Transition,
     ValueAnimationOptions,
@@ -580,7 +580,8 @@ export function createProjectionNode<I>({
                             this.setAnimationOrigin(
                                 delta,
                                 hasOnlyRelativeTargetChanged,
-                                (animationOptions as { path?: Path }).path
+                                (animationOptions as { path?: MotionPath })
+                                    .path
                             )
                         } else {
                             /**
@@ -1589,7 +1590,7 @@ export function createProjectionNode<I>({
         setAnimationOrigin(
             delta: Delta,
             hasOnlyRelativeTargetChanged: boolean = false,
-            pathFn?: Path
+            pathFn?: MotionPath
         ) {
             const snapshot = this.snapshot
             const snapshotLatestValues = snapshot ? snapshot.latestValues : {}
@@ -1622,27 +1623,10 @@ export function createProjectionNode<I>({
 
             let prevRelativeTarget: Box
 
-            /**
-             * Resolve the path interpolator if a `path` factory is set
-             * and the layout shift is large enough to be worth curving.
-             * The 20px threshold avoids visible wobble on tiny shifts.
-             *
-             * `from` is the current translate offset (carries any in-flight
-             * displacement when interrupted); `to` is the new layout origin.
-             */
-            let interpolate: PathInterpolator | undefined
-            if (pathFn) {
-                const distance = Math.sqrt(
-                    delta.x.translate * delta.x.translate +
-                        delta.y.translate * delta.y.translate
-                )
-                if (distance >= 20) {
-                    interpolate = pathFn(
-                        { x: delta.x.translate, y: delta.y.translate },
-                        { x: 0, y: 0 }
-                    )
-                }
-            }
+            // The path decides whether the layout shift is worth curving
+            // (distance floor) and resolves the interpolator from the delta.
+            const interpolate: PathInterpolator | undefined =
+                pathFn?.interpolateProjection(delta)
 
             this.mixTargetDelta = (latest: number) => {
                 const progress = latest / 1000

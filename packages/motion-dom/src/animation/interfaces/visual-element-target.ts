@@ -6,8 +6,7 @@ import { setTarget } from "../../render/utils/setters"
 import { addValueToWillChange } from "../../value/will-change/add-will-change"
 import { getOptimisedAppearId } from "../optimized-appear/get-appear-id"
 import { animateMotionValue } from "./motion-value"
-import { motionValue } from "../../value"
-import type { Path } from "../types"
+import type { MotionPath } from "../types"
 import type { VisualElementAnimationOptions } from "./types"
 import type { AnimationPlaybackControlsWithThen } from "../types"
 import type { TargetAndTransition } from "../../node/types"
@@ -59,85 +58,16 @@ export function animateTarget(
         visualElement.animationState &&
         visualElement.animationState.getState()[type]
 
-    const path = (transition as { path?: Path } | undefined)?.path
-    if (path && ("x" in target || "y" in target)) {
-        const xValue = visualElement.getValue(
-            "x",
-            visualElement.latestValues["x"] ?? 0
-        )
-        const yValue = visualElement.getValue(
-            "y",
-            visualElement.latestValues["y"] ?? 0
-        )
-
-        const xRaw = target.x as number | number[] | undefined
-        const yRaw = target.y as number | number[] | undefined
-
-        const xFrom = (Array.isArray(xRaw) && xRaw[0] != null
-            ? xRaw[0]
-            : xValue?.get()) as number ?? 0
-        const yFrom = (Array.isArray(yRaw) && yRaw[0] != null
-            ? yRaw[0]
-            : yValue?.get()) as number ?? 0
-        const xTo = (Array.isArray(xRaw)
-            ? xRaw[xRaw.length - 1]
-            : xRaw ?? xFrom) as number
-        const yTo = (Array.isArray(yRaw)
-            ? yRaw[yRaw.length - 1]
-            : yRaw ?? yFrom) as number
-
-        const interpolate = path(
-            { x: xFrom, y: yFrom },
-            { x: xTo, y: yTo }
-        )
-        // Interruption needs no flag: x/y already hold the displaced
-        // mid-arc position, so xFrom/yFrom carry the continuity geometry.
-
-        // Drive a dedicated `pathRotation` value (composed onto `rotate` at
-        // the build sites) rather than `rotate` itself, so a concurrent
-        // rotate animation composes and nothing accumulates on interrupt.
-        const probe = interpolate(0)
-        const pathRotationValue =
-            probe.rotate !== undefined
-                ? visualElement.getValue("pathRotation", 0)
-                : undefined
-
-        const pathTransition = {
+    const path = (transition as { path?: MotionPath } | undefined)?.path
+    if (path) {
+        // path mutates `target` to claim x/y; loop below skips them.
+        path.animateVisualElement(
+            visualElement,
+            target,
+            transition,
             delay,
-            ...getValueTransition(transition || {}, "x"),
-        }
-        delete (pathTransition as { path?: Path }).path
-
-        const progress = motionValue(0)
-        progress.start(
-            animateMotionValue("", progress, [0, 1000] as any, {
-                ...pathTransition,
-                isSync: true,
-                velocity: 0,
-                onUpdate: (latest: number) => {
-                    const point = interpolate(latest / 1000)
-                    xValue?.set(point.x)
-                    yValue?.set(point.y)
-                    if (pathRotationValue && point.rotate !== undefined) {
-                        pathRotationValue.set(point.rotate)
-                    }
-                },
-                onComplete: () => {
-                    xValue?.set(xTo)
-                    yValue?.set(yTo)
-                    pathRotationValue?.set(0)
-                },
-                // Interrupt/cancel must clear our additive contribution so
-                // it can't linger on top of the user's `rotate`.
-                onStop: () => pathRotationValue?.set(0),
-                onCancel: () => pathRotationValue?.set(0),
-            })
+            animations
         )
-
-        if (progress.animation) animations.push(progress.animation)
-
-        delete (target as { x?: unknown }).x
-        delete (target as { y?: unknown }).y
     }
 
     for (const key in target) {

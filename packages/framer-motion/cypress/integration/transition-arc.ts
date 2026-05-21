@@ -23,7 +23,7 @@ describe("layout arc", () => {
             .get("#toggle")
             .click()
             .wait(100)
-            // 400px horizontal, amplitude=1 → ~200px perpendicular at t=0.5
+            // 400px horizontal, amp=1 → ~200px perpendicular at t=0.5
             .get("#indicator")
             .should(([$el]: any) => {
                 const { top } = $el.getBoundingClientRect()
@@ -85,7 +85,7 @@ describe("keyframe arc", () => {
             .wait(100)
             .get("#indicator")
             .should(([$el]: any) => {
-                // 400px horizontal, amplitude=1 → ~200px perpendicular at t=0.5.
+                // 400px horizontal, amp=1 → ~200px perpendicular at t=0.5.
                 // Because the chord is horizontal and dx>0, auto-direction
                 // bulges +y (downward in screen space).
                 const r = $el.getBoundingClientRect()
@@ -97,7 +97,7 @@ describe("keyframe arc", () => {
             })
     })
 
-    it("orientToPath rotates the element along the curve", () => {
+    it("rotate option rotates the element along the curve", () => {
         // freezeAt=0.25: at t=0.25 the bezier tangent has clearly diverged
         // from the baseline tangent so rotation is non-zero. (At t=0.5 it
         // crosses zero by symmetry — see KeyframeArc comments.)
@@ -123,7 +123,7 @@ describe("keyframe arc", () => {
             })
     })
 
-    it("no orientToPath leaves rotation untouched", () => {
+    it("no rotate option leaves rotation untouched", () => {
         cy.visit("?test=transition-arc&variant=keyframe&freeze")
             .wait(50)
             .get("#toggle")
