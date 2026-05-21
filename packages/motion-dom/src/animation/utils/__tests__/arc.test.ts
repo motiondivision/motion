@@ -2,7 +2,7 @@ import { createArcPath } from "../arc"
 
 describe("createArcPath()", () => {
     test("returns the from point at t=0 and to point at t=1", () => {
-        const interp = createArcPath({ amp: 1 })({ x: 0, y: 0 }, { x: 200, y: 0 })
+        const interp = createArcPath({ strength: 1 })({ x: 0, y: 0 }, { x: 200, y: 0 })
         const start = interp(0)
         const end = interp(1)
         expect(start.x).toBeCloseTo(0)
@@ -11,32 +11,32 @@ describe("createArcPath()", () => {
         expect(end.y).toBeCloseTo(0)
     })
 
-    test("amp=1 horizontal: bulges perpendicular by ~half travel at t=0.5", () => {
+    test("strength=1 horizontal: bulges perpendicular by ~half travel at t=0.5", () => {
         // bezier midpoint perpendicular component = control.y / 2 = 200/2 = 100
-        const interp = createArcPath({ amp: 1 })({ x: 0, y: 0 }, { x: 200, y: 0 })
+        const interp = createArcPath({ strength: 1 })({ x: 0, y: 0 }, { x: 200, y: 0 })
         const mid = interp(0.5)
         expect(mid.x).toBeCloseTo(100)
         expect(Math.abs(mid.y)).toBeCloseTo(100)
     })
 
-    test("amp=0 produces straight line at midpoint", () => {
-        const interp = createArcPath({ amp: 0 })({ x: 0, y: 0 }, { x: 200, y: 100 })
+    test("strength=0 produces straight line at midpoint", () => {
+        const interp = createArcPath({ strength: 0 })({ x: 0, y: 0 }, { x: 200, y: 100 })
         const mid = interp(0.5)
         expect(mid.x).toBeCloseTo(100)
         expect(mid.y).toBeCloseTo(50)
     })
 
-    test("default amp (no options) produces a curve", () => {
+    test("default strength (no options) produces a curve", () => {
         const interp = createArcPath()({ x: 0, y: 0 }, { x: 200, y: 0 })
         expect(Math.abs(interp(0.5).y)).toBeGreaterThan(0)
     })
 
     test("direction='cw' bulges opposite side from 'ccw'", () => {
-        const cw = createArcPath({ amp: 1, direction: "cw" })(
+        const cw = createArcPath({ strength: 1, direction: "cw" })(
             { x: 0, y: 0 },
             { x: 200, y: 0 }
         )(0.5)
-        const ccw = createArcPath({ amp: 1, direction: "ccw" })(
+        const ccw = createArcPath({ strength: 1, direction: "ccw" })(
             { x: 0, y: 0 },
             { x: 200, y: 0 }
         )(0.5)
@@ -45,13 +45,13 @@ describe("createArcPath()", () => {
 
     test("explicit direction is rotationally consistent across horizontal reversals", () => {
         // Reused factory — explicit direction must skip the auto continuity flip.
-        const cw = createArcPath({ amp: 1, direction: "cw" })
+        const cw = createArcPath({ strength: 1, direction: "cw" })
         const lr = cw({ x: 0, y: 0 }, { x: 200, y: 0 })(0.5)
         const rl = cw({ x: 200, y: 0 }, { x: 0, y: 0 })(0.5)
         expect(Math.sign(lr.y)).toBe(-1)
         expect(Math.sign(rl.y)).toBe(+1)
 
-        const ccw = createArcPath({ amp: 1, direction: "ccw" })
+        const ccw = createArcPath({ strength: 1, direction: "ccw" })
         const lrCcw = ccw({ x: 0, y: 0 }, { x: 200, y: 0 })(0.5)
         const rlCcw = ccw({ x: 200, y: 0 }, { x: 0, y: 0 })(0.5)
         expect(Math.sign(lrCcw.y)).toBe(+1)
@@ -62,13 +62,13 @@ describe("createArcPath()", () => {
         // Think clock face: traveling DOWN (12→6) curling cw curves toward
         // 3 (RIGHT). Traveling UP (6→12) curling cw curves toward 9 (LEFT).
         // ccw is the mirror.
-        const cw = createArcPath({ amp: 1, direction: "cw" })
+        const cw = createArcPath({ strength: 1, direction: "cw" })
         const down = cw({ x: 0, y: 0 }, { x: 0, y: 200 })(0.5)
         const up = cw({ x: 0, y: 200 }, { x: 0, y: 0 })(0.5)
         expect(Math.sign(down.x)).toBe(+1)
         expect(Math.sign(up.x)).toBe(-1)
 
-        const ccw = createArcPath({ amp: 1, direction: "ccw" })
+        const ccw = createArcPath({ strength: 1, direction: "ccw" })
         const downCcw = ccw({ x: 0, y: 0 }, { x: 0, y: 200 })(0.5)
         const upCcw = ccw({ x: 0, y: 200 }, { x: 0, y: 0 })(0.5)
         expect(Math.sign(downCcw.x)).toBe(-1)
@@ -77,11 +77,11 @@ describe("createArcPath()", () => {
 
     test("auto direction: same screen side regardless of travel direction", () => {
         // Moving right then left should both bulge to the same screen-y side.
-        const right = createArcPath({ amp: 1 })(
+        const right = createArcPath({ strength: 1 })(
             { x: 0, y: 0 },
             { x: 200, y: 0 }
         )(0.5)
-        const left = createArcPath({ amp: 1 })(
+        const left = createArcPath({ strength: 1 })(
             { x: 200, y: 0 },
             { x: 0, y: 0 }
         )(0.5)
@@ -91,11 +91,11 @@ describe("createArcPath()", () => {
     test("peak shifts the control point along the chord", () => {
         // For a horizontal chord, peak shifts where x hits its midpoint —
         // earlier peak pulls x ahead at t=0.5, later peak holds it back.
-        const early = createArcPath({ amp: 1, peak: 0.2 })(
+        const early = createArcPath({ strength: 1, peak: 0.2 })(
             { x: 0, y: 0 },
             { x: 200, y: 0 }
         )(0.5)
-        const late = createArcPath({ amp: 1, peak: 0.8 })(
+        const late = createArcPath({ strength: 1, peak: 0.8 })(
             { x: 0, y: 0 },
             { x: 200, y: 0 }
         )(0.5)
@@ -103,7 +103,7 @@ describe("createArcPath()", () => {
     })
 
     test("rotate false omits rotate", () => {
-        const interp = createArcPath({ amp: 1 })(
+        const interp = createArcPath({ strength: 1 })(
             { x: 0, y: 0 },
             { x: 200, y: 0 }
         )
@@ -111,7 +111,7 @@ describe("createArcPath()", () => {
     })
 
     test("rotate true returns rotate values along the curve", () => {
-        const interp = createArcPath({ amp: 1, rotate: true })(
+        const interp = createArcPath({ strength: 1, rotate: true })(
             { x: 0, y: 0 },
             { x: 200, y: 0 }
         )
@@ -122,11 +122,11 @@ describe("createArcPath()", () => {
     })
 
     test("rotate number scales rotation intensity", () => {
-        const full = createArcPath({ amp: 1, rotate: 1 })(
+        const full = createArcPath({ strength: 1, rotate: 1 })(
             { x: 0, y: 0 },
             { x: 200, y: 0 }
         )(0.25)
-        const half = createArcPath({ amp: 1, rotate: 0.5 })(
+        const half = createArcPath({ strength: 1, rotate: 0.5 })(
             { x: 0, y: 0 },
             { x: 200, y: 0 }
         )(0.25)
@@ -136,8 +136,8 @@ describe("createArcPath()", () => {
     test("clean reversal naturally bulges the same screen side (auto-direction)", () => {
         // No factory state needed — auto-direction's flip cancels the
         // perpendicular flip when the chord reverses cleanly.
-        const a1 = createArcPath({ amp: 1 })
-        const a2 = createArcPath({ amp: 1 })
+        const a1 = createArcPath({ strength: 1 })
+        const a2 = createArcPath({ strength: 1 })
         const first = a1({ x: 0, y: 0 }, { x: 200, y: 0 })(0.5)
         const second = a2({ x: 200, y: 0 }, { x: 0, y: 0 })(0.5)
         expect(Math.sign(first.y)).toBe(Math.sign(second.y))
@@ -148,7 +148,7 @@ describe("createArcPath()", () => {
         // Arc 2 from arc 1's apex toward a mostly-vertical chord —
         // auto-direction alone would pick a different screen side.
         // Reusing the factory closes over prevBulgeSign and forces same side.
-        const a = createArcPath({ amp: 1 })
+        const a = createArcPath({ strength: 1 })
         const apex = a({ x: 0, y: 0 }, { x: 300, y: 50 })(0.5)
         // Apex.y > 25 (chord midpoint y) means arc 1 bulged down.
         expect(apex.y).toBeGreaterThan(25)
@@ -163,8 +163,8 @@ describe("createArcPath()", () => {
     test("fresh factory per call has no memory (documented limitation)", () => {
         // Two unrelated factories — the dominant-axis-change continuity
         // feature only fires when the same factory is reused.
-        const apex = createArcPath({ amp: 1 })({ x: 0, y: 0 }, { x: 300, y: 50 })(0.5)
-        const second = createArcPath({ amp: 1 })(
+        const apex = createArcPath({ strength: 1 })({ x: 0, y: 0 }, { x: 300, y: 50 })(0.5)
+        const second = createArcPath({ strength: 1 })(
             { x: apex.x, y: apex.y },
             { x: 50, y: 300 }
         )(0.5)
@@ -176,7 +176,7 @@ describe("createArcPath()", () => {
     })
 
     test("zero distance yields a no-op interpolator", () => {
-        const interp = createArcPath({ amp: 1 })({ x: 5, y: 10 }, { x: 5, y: 10 })
+        const interp = createArcPath({ strength: 1 })({ x: 5, y: 10 }, { x: 5, y: 10 })
         const mid = interp(0.5)
         expect(mid.x).toBeCloseTo(5)
         expect(mid.y).toBeCloseTo(10)

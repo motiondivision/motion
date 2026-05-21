@@ -10,7 +10,7 @@ export interface ArcOptions {
      * as a fraction of the total distance. A value of `1` means the arc
      * peaks at a height equal to the full travel distance. Default `0.5`.
      */
-    amp?: number
+    strength?: number
     /**
      * Where along the path (0–1) the arc reaches its maximum height.
      * Default `0.5` (symmetric).
@@ -63,7 +63,7 @@ function computeArcControlPoint(
     fromY: number,
     toX: number,
     toY: number,
-    amp: number,
+    strength: number,
     peak: number
 ): { x: number; y: number } {
     const deltaX = toX - fromX
@@ -73,7 +73,7 @@ function computeArcControlPoint(
     if (distance > 0) {
         const normalPerpX = -deltaY / distance
         const normalPerpY = deltaX / distance
-        const desiredHeight = amp * distance
+        const desiredHeight = strength * distance
 
         return {
             x: fromX + deltaX * peak + normalPerpX * desiredHeight,
@@ -89,7 +89,7 @@ function computeArcControlPoint(
  * used by {@link arc} and the unit tests. Not part of the public surface.
  */
 export function createArcPath({
-    amp = 0.5,
+    strength = 0.5,
     peak = 0.5,
     direction,
     rotate = false,
@@ -111,12 +111,12 @@ export function createArcPath({
 
         let signed: number
         if (direction === "cw") {
-            signed = -amp
+            signed = -strength
         } else if (direction === "ccw") {
-            signed = amp
+            signed = strength
         } else {
             const dom = Math.abs(dx) >= Math.abs(dy) ? dx : dy
-            signed = dom < 0 ? -amp : amp
+            signed = dom < 0 ? -strength : strength
         }
 
         let control = computeArcControlPoint(

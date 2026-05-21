@@ -23,7 +23,7 @@ describe("layout arc", () => {
             .get("#toggle")
             .click()
             .wait(100)
-            // 400px horizontal, amp=1 → ~200px perpendicular at t=0.5
+            // 400px horizontal, strength=1 → ~200px perpendicular at t=0.5
             .get("#indicator")
             .should(([$el]: any) => {
                 const { top } = $el.getBoundingClientRect()
@@ -85,7 +85,7 @@ describe("keyframe arc", () => {
             .wait(100)
             .get("#indicator")
             .should(([$el]: any) => {
-                // 400px horizontal, amp=1 → ~200px perpendicular at t=0.5.
+                // 400px horizontal, strength=1 → ~200px perpendicular at t=0.5.
                 // Because the chord is horizontal and dx>0, auto-direction
                 // bulges +y (downward in screen space).
                 const r = $el.getBoundingClientRect()

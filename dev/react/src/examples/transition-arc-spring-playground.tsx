@@ -5,18 +5,21 @@ const DIRECTIONS = ["auto", "cw", "ccw"] as const
 type Direction = (typeof DIRECTIONS)[number]
 
 /**
- * Playground for tuning `arc()` options. Sliders + radios rebuild the
- * path factory on change; the Toggle button animates between two
- * endpoints so you can see the resulting curve and rotation.
+ * Spring-driven variant of the arc playground. The path animator hands
+ * its progress value off to whatever transition the user supplies, so a
+ * spring with high `bounce` overshoots `t=1` and oscillates back — the
+ * arc samples past its endpoint during the overshoot, giving the curve
+ * a bouncy settle.
  *
- * URL: `?example=transition-arc-playground`
+ * URL: `?example=transition-arc-spring-playground`
  */
 export const App = () => {
     const [strength, setStrength] = useState(1)
     const [peak, setPeak] = useState(0.5)
     const [rotateScale, setRotateScale] = useState(1)
     const [direction, setDirection] = useState<Direction>("auto")
-    const [duration, setDuration] = useState(1.5)
+    const [bounce, setBounce] = useState(0.6)
+    const [visualDuration, setVisualDuration] = useState(0.6)
     const [target, setTarget] = useState<"a" | "b">("a")
 
     const path = useMemo(
@@ -39,7 +42,15 @@ export const App = () => {
   peak: ${peak.toFixed(2)},
   direction: ${direction === "auto" ? "undefined" : `"${direction}"`},
   rotate: ${rotateScale === 0 ? "false" : rotateScale.toFixed(2)},
-})`
+})
+
+// transition
+{
+  type: "spring",
+  bounce: ${bounce.toFixed(2)},
+  visualDuration: ${visualDuration.toFixed(2)},
+  path,
+}`
 
     return (
         <div style={containerStyle}>
@@ -48,7 +59,12 @@ export const App = () => {
                 <Marker label="B" x={500} y={300} />
                 <motion.div
                     animate={pos}
-                    transition={{ duration, path }}
+                    transition={{
+                        type: "spring",
+                        bounce,
+                        visualDuration,
+                        path,
+                    }}
                     style={{
                         position: "absolute",
                         top: 280,
@@ -70,8 +86,30 @@ export const App = () => {
 
             <div style={panelStyle}>
                 <h3 style={{ margin: 0, font: "600 14px ui-sans-serif" }}>
-                    arc() options
+                    arc() + spring
                 </h3>
+
+                <Slider
+                    label="bounce"
+                    value={bounce}
+                    min={0}
+                    max={1}
+                    step={0.05}
+                    onChange={setBounce}
+                    help="0 = no bounce, 1 = extremely bouncy"
+                />
+
+                <Slider
+                    label="visualDuration (s)"
+                    value={visualDuration}
+                    min={0.1}
+                    max={3}
+                    step={0.05}
+                    onChange={setVisualDuration}
+                    help="visual time to reach target; bounce settles after"
+                />
+
+                <hr style={{ border: 0, borderTop: "1px solid #eee", margin: "16px 0" }} />
 
                 <Slider
                     label="strength"
@@ -108,15 +146,6 @@ export const App = () => {
                     step={0.05}
                     onChange={setRotateScale}
                     help="0 = off; otherwise multiplier on tangent-vs-baseline"
-                />
-
-                <Slider
-                    label="duration (s)"
-                    value={duration}
-                    min={0.2}
-                    max={5}
-                    step={0.1}
-                    onChange={setDuration}
                 />
 
                 <pre style={codeStyle}>{code}</pre>
