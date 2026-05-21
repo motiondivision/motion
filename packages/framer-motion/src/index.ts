@@ -142,7 +142,8 @@ export type {
     MotionTransform,
     VariantLabels,
 } from "./motion/types"
-export type { IProjectionNode } from "motion-dom"
+export { arc } from "motion-dom"
+export type { ArcOptions, IProjectionNode, MotionPath } from "motion-dom"
 export type { DOMMotionComponents } from "./render/dom/types"
 export type { ForwardRefComponent, HTMLMotionProps } from "./render/html/types"
 export type {

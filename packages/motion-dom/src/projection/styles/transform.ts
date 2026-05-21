@@ -30,11 +30,20 @@ export function buildProjectionTransform(
     }
 
     if (latestTransform) {
-        const { transformPerspective, rotate, rotateX, rotateY, skewX, skewY } =
-            latestTransform
+        const {
+            transformPerspective,
+            rotate,
+            pathRotation,
+            rotateX,
+            rotateY,
+            skewX,
+            skewY,
+        } = latestTransform
         if (transformPerspective)
             transform = `perspective(${transformPerspective}px) ${transform}`
         if (rotate) transform += `rotate(${rotate}deg) `
+        // Additive `rotate()` so user `rotate` isn't clobbered.
+        if (pathRotation) transform += `rotate(${pathRotation}deg) `
         if (rotateX) transform += `rotateX(${rotateX}deg) `
         if (rotateY) transform += `rotateY(${rotateY}deg) `
         if (skewX) transform += `skewX(${skewX}deg) `

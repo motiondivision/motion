@@ -11,7 +11,12 @@ import {
 import { animateSingleValue } from "../../animation/animate/single-value"
 import { JSAnimation } from "../../animation/JSAnimation"
 import { getOptimisedAppearId } from "../../animation/optimized-appear/get-appear-id"
-import { Transition, ValueAnimationOptions } from "../../animation/types"
+import {
+    MotionPath,
+    PathInterpolator,
+    Transition,
+    ValueAnimationOptions,
+} from "../../animation/types"
 import { getValueTransition } from "../../animation/utils/get-value-transition"
 import { cancelFrame, frame, frameData, frameSteps } from "../../frameloop"
 import { microtask } from "../../frameloop/microtask"
@@ -574,7 +579,9 @@ export function createProjectionNode<I>({
                              */
                             this.setAnimationOrigin(
                                 delta,
-                                hasOnlyRelativeTargetChanged
+                                hasOnlyRelativeTargetChanged,
+                                (animationOptions as { path?: MotionPath })
+                                    .path
                             )
                         } else {
                             /**
@@ -1582,7 +1589,8 @@ export function createProjectionNode<I>({
 
         setAnimationOrigin(
             delta: Delta,
-            hasOnlyRelativeTargetChanged: boolean = false
+            hasOnlyRelativeTargetChanged: boolean = false,
+            pathFn?: MotionPath
         ) {
             const snapshot = this.snapshot
             const snapshotLatestValues = snapshot ? snapshot.latestValues : {}
@@ -1615,11 +1623,29 @@ export function createProjectionNode<I>({
 
             let prevRelativeTarget: Box
 
+            // The path decides whether the layout shift is worth curving
+            // (distance floor) and resolves the interpolator from the delta.
+            const interpolate: PathInterpolator | undefined =
+                pathFn?.interpolateProjection(delta)
+
             this.mixTargetDelta = (latest: number) => {
                 const progress = latest / 1000
+                const point = interpolate?.(progress)
 
-                mixAxisDelta(targetDelta.x, delta.x, progress)
-                mixAxisDelta(targetDelta.y, delta.y, progress)
+                if (point) {
+                    targetDelta.x.translate = point.x
+                    targetDelta.x.scale = mixNumber(delta.x.scale, 1, progress)
+                    targetDelta.x.origin = delta.x.origin
+                    targetDelta.x.originPoint = delta.x.originPoint
+                    targetDelta.y.translate = point.y
+                    targetDelta.y.scale = mixNumber(delta.y.scale, 1, progress)
+                    targetDelta.y.origin = delta.y.origin
+                    targetDelta.y.originPoint = delta.y.originPoint
+                } else {
+                    mixAxisDeltaLinear(targetDelta.x, delta.x, progress)
+                    mixAxisDeltaLinear(targetDelta.y, delta.y, progress)
+                }
+
                 this.setTargetDelta(targetDelta)
 
                 if (
@@ -1668,6 +1694,14 @@ export function createProjectionNode<I>({
                         shouldCrossfadeOpacity,
                         isOnlyMember
                     )
+                }
+
+                if (point && point.rotate !== undefined) {
+                    // Dedicated `pathRotation` channel, not `rotate`, so an
+                    // animating `rotate` is composed with, never clobbered.
+                    if (!this.animationValues)
+                        this.animationValues = mixedValues
+                    this.animationValues.pathRotation = point.rotate
                 }
 
                 this.root.scheduleUpdateProjection()
@@ -2360,7 +2394,7 @@ function removeLeadSnapshots(stack: NodeStack) {
     stack.removeLeadSnapshot()
 }
 
-export function mixAxisDelta(output: AxisDelta, delta: AxisDelta, p: number) {
+function mixAxisDeltaLinear(output: AxisDelta, delta: AxisDelta, p: number) {
     output.translate = mixNumber(delta.translate, 0, p)
     output.scale = mixNumber(delta.scale, 1, p)
     output.origin = delta.origin

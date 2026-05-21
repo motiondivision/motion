@@ -1,5 +1,8 @@
 import { Easing } from "motion-utils"
+import type { Delta } from "motion-utils"
+import type { TargetAndTransition } from "../node/types"
 import { SVGAttributes } from "../render/svg/types"
+import type { VisualElement } from "../render/VisualElement"
 import { MotionValue } from "../value"
 import { Driver } from "./drivers/types"
 import { KeyframeResolver } from "./keyframes/KeyframesResolver"
@@ -494,6 +497,18 @@ export interface ValueTransition
      * @public
      */
     skipAnimations?: boolean
+
+    /**
+     * The path the element travels between its old and new x/y positions.
+     * Slot in a path factory (e.g. `arc()`) to swap the default
+     * straight-line interpolation for something curved.
+     *
+     * Can be used in keyframe animations (`transition.path`) and layout
+     * animations (`transition.layout.path`), including with `useAnimate`.
+     *
+     * @public
+     */
+    path?: MotionPath
 }
 
 /**
@@ -609,6 +624,45 @@ export type TransitionWithValueOverrides<V> = ValueAnimationTransition<V> &
 export type Transition<V = any> =
     | ValueAnimationTransition<V>
     | TransitionWithValueOverrides<V>
+
+export interface Point2D {
+    x: number
+    y: number
+}
+
+export interface PathState {
+    x: number
+    y: number
+    /**
+     * Optional rotation in degrees. If returned, the engine will apply it
+     * to the element's `rotate` value for the duration of the animation.
+     */
+    rotate?: number
+}
+
+/**
+ * Sampling function — returns position (and optionally rotation) at
+ * progress `t` (0–1).
+ */
+export interface PathInterpolator {
+    (t: number): PathState
+}
+
+/**
+ * Returned by a path factory such as `arc()` and passed to `transition.path`.
+ * Implements both the keyframe-animation hook (`animateVisualElement`) and
+ * the layout-projection hook (`interpolateProjection`).
+ */
+export interface MotionPath {
+    animateVisualElement(
+        visualElement: VisualElement,
+        target: TargetAndTransition,
+        transition: Transition | undefined,
+        delay: number,
+        animations: AnimationPlaybackControlsWithThen[]
+    ): void
+    interpolateProjection(delta: Delta): PathInterpolator | undefined
+}
 
 export type DynamicOption<T> = (i: number, total: number) => T
 
