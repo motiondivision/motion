@@ -101,7 +101,6 @@ export * from "./resize"
 export * from "./scroll/observe"
 
 export * from "./stats"
-export * from "./stats/animation-count"
 export * from "./stats/buffer"
 export * from "./stats/types"
 

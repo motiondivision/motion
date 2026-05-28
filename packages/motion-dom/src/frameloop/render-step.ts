@@ -1,11 +1,6 @@
-import { statsBuffer } from "../stats/buffer"
-import { StepNames } from "./order"
 import { FrameData, Process, Step } from "./types"
 
-export function createRenderStep(
-    runNextFrame: () => void,
-    stepName?: StepNames
-): Step {
+export function createRenderStep(runNextFrame: () => void): Step {
     /**
      * We create and reuse two queues, one to queue jobs for the current frame
      * and one for the next. We reuse to avoid triggering GC after x frames.
@@ -32,15 +27,12 @@ export function createRenderStep(
         isProcessing: false,
     }
 
-    let numCalls = 0
-
     function triggerCallback(callback: Process) {
         if (toKeepAlive.has(callback)) {
             step.schedule(callback)
             runNextFrame()
         }
 
-        numCalls++
         callback(latestFrameData)
     }
 
@@ -92,14 +84,6 @@ export function createRenderStep(
 
             // Execute this frame
             thisFrame.forEach(triggerCallback)
-
-            /**
-             * If we're recording stats then
-             */
-            if (stepName && statsBuffer.value) {
-                statsBuffer.value.frameloop[stepName].push(numCalls)
-            }
-            numCalls = 0
 
             // Clear the frame so no callbacks remain. This is to avoid
             // memory leaks should this render step not run for a while.

@@ -26,7 +26,6 @@ import { HTMLVisualElement } from "../../render/html/HTMLVisualElement"
 import type { ResolvedValues } from "../../render/types"
 import { scaleCorrectors } from "../../render/utils/is-forced-motion-value"
 import type { MotionStyle, VisualElement } from "../../render/VisualElement"
-import { activeAnimations } from "../../stats/animation-count"
 import { statsBuffer } from "../../stats/buffer"
 import { delay } from "../../utils/delay"
 import { isSVGElement } from "../../utils/is-svg-element"
@@ -1733,7 +1732,6 @@ export function createProjectionNode<I>({
             this.pendingAnimation = frame.update(() => {
                 globalProjectionState.hasAnimatedSinceResize = true
 
-                activeAnimations.layout++
                 this.motionValue ||= motionValue(0)
                 this.motionValue.jump(0, false)
 
@@ -1748,11 +1746,7 @@ export function createProjectionNode<I>({
                             this.mixTargetDelta(latest)
                             options.onUpdate && options.onUpdate(latest)
                         },
-                        onStop: () => {
-                            activeAnimations.layout--
-                        },
                         onComplete: () => {
-                            activeAnimations.layout--
                             options.onComplete && options.onComplete()
                             this.completeAnimation()
                         },

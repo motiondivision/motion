@@ -21,10 +21,7 @@ export function createRenderBatcher(
     const flagRunNextFrame = () => (runNextFrame = true)
 
     const steps = stepsOrder.reduce((acc, key) => {
-        acc[key] = createRenderStep(
-            flagRunNextFrame,
-            allowKeepAlive ? key : undefined
-        )
+        acc[key] = createRenderStep(flagRunNextFrame)
         return acc
     }, {} as Steps)
 
