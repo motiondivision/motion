@@ -5,11 +5,7 @@ import { StatsSummary, Summary } from "./types"
 
 function record() {
     const { value } = statsBuffer
-
-    if (value === null) {
-        cancelFrame(record)
-        return
-    }
+    if (!value) return
 
     value.frameloop.rate.push(frameData.delta)
     value.animations.mainThread.push(activeAnimations.mainThread)
@@ -17,30 +13,24 @@ function record() {
     value.animations.layout.push(activeAnimations.layout)
 }
 
-function mean(values: number[]) {
-    return values.reduce((acc, value) => acc + value, 0) / values.length
-}
-
-function summarise(
-    values: number[],
-    calcAverage: (allValues: number[]) => number = mean
-): Summary {
-    if (values.length === 0) {
-        return {
-            min: 0,
-            max: 0,
-            avg: 0,
-        }
-    }
+function summarise(values: number[]): Summary {
+    const { length } = values
+    if (length === 0) return { min: 0, max: 0, avg: 0 }
 
     return {
         min: Math.min(...values),
         max: Math.max(...values),
-        avg: calcAverage(values),
+        avg: values.reduce((a, v) => a + v, 0) / length,
     }
 }
 
-const msToFps = (ms: number) => Math.round(1000 / ms)
+function summariseAll<T extends string>(
+    obj: Record<T, number[]>
+): Record<T, Summary> {
+    const result = {} as Record<T, Summary>
+    for (const key in obj) result[key] = summarise(obj[key])
+    return result
+}
 
 function clearStatsBuffer() {
     statsBuffer.value = null
@@ -58,42 +48,19 @@ function reportStats(): StatsSummary {
     cancelFrame(record)
 
     const summary = {
-        frameloop: {
-            setup: summarise(value.frameloop.setup),
-            rate: summarise(value.frameloop.rate),
-            read: summarise(value.frameloop.read),
-            resolveKeyframes: summarise(value.frameloop.resolveKeyframes),
-            preUpdate: summarise(value.frameloop.preUpdate),
-            update: summarise(value.frameloop.update),
-            preRender: summarise(value.frameloop.preRender),
-            render: summarise(value.frameloop.render),
-            postRender: summarise(value.frameloop.postRender),
-        },
-        animations: {
-            mainThread: summarise(value.animations.mainThread),
-            waapi: summarise(value.animations.waapi),
-            layout: summarise(value.animations.layout),
-        },
-        layoutProjection: {
-            nodes: summarise(value.layoutProjection.nodes),
-            calculatedTargetDeltas: summarise(
-                value.layoutProjection.calculatedTargetDeltas
-            ),
-            calculatedProjections: summarise(
-                value.layoutProjection.calculatedProjections
-            ),
-        },
+        frameloop: summariseAll(value.frameloop),
+        animations: summariseAll(value.animations),
+        layoutProjection: summariseAll(value.layoutProjection),
     }
 
     /**
-     * Convert the rate to FPS
+     * Convert the rate to FPS. Min/max are swapped because the conversion inverts them.
      */
     const { rate } = summary.frameloop
-    rate.min = msToFps(rate.min)
-    rate.max = msToFps(rate.max)
-    rate.avg = msToFps(rate.avg)
-    // Swap these as the min and max are inverted when converted to FPS
-    ;[rate.min, rate.max] = [rate.max, rate.min]
+    rate.avg = Math.round(1000 / rate.avg)
+    const max = Math.round(1000 / rate.min)
+    rate.min = Math.round(1000 / rate.max)
+    rate.max = max
 
     return summary
 }
