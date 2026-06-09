@@ -1,0 +1,74 @@
+<html>
+    <head>
+        <!--
+         Two animateLayout() calls fired in PARALLEL against DISJOINT sibling
+         subtrees. Both share one projection root, so their snapshots collapse
+         into a single coordinated measure pass (like independent React renders
+         batched into one commit) and each animates correctly.
+        -->
+        <style>
+            * { box-sizing: border-box; margin: 0; padding: 0; }
+
+            .box {
+                position: absolute;
+                width: 100px;
+                height: 100px;
+            }
+            #a { top: 0; left: 0; background: #00cc88; }
+            #a.moved { left: 200px; }
+            #b { top: 200px; left: 0; background: #09f; }
+            #b.moved { left: 200px; }
+
+            [data-layout-correct="false"] {
+                background: #dd1144 !important;
+                opacity: 0.5;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="a" class="box" data-layout></div>
+        <div id="b" class="box" data-layout></div>
+
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module" src="/src/imports/script-assert.js"></script>
+        <script type="module">
+            const { animateLayout, frame } = window.AnimateLayout
+            const { matchViewportBox } = window.Assert
+
+            const a = document.getElementById("a")
+            const b = document.getElementById("b")
+
+            async function runTest() {
+                const [ca, cb] = await Promise.all([
+                    animateLayout(a, () => a.classList.add("moved"), {
+                        duration: 10,
+                        ease: "linear",
+                    }),
+                    animateLayout(b, () => b.classList.add("moved"), {
+                        duration: 10,
+                        ease: "linear",
+                    }),
+                ])
+
+                ca.pause()
+                cb.pause()
+                ca.time = ca.duration * 0.5
+                cb.time = cb.duration * 0.5
+
+                await new Promise((resolve) => frame.postRender(resolve))
+
+                // a: (0,0,100,100) -> (200,0,300,100), midpoint:
+                matchViewportBox(a, { top: 0, left: 100, right: 200, bottom: 100 })
+                // b: (0,200,100,300) -> (200,200,300,300), midpoint:
+                matchViewportBox(b, {
+                    top: 200,
+                    left: 100,
+                    right: 200,
+                    bottom: 300,
+                })
+            }
+
+            runTest().catch(console.error)
+        </script>
+    </body>
+</html>

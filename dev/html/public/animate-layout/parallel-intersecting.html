@@ -1,0 +1,100 @@
+<html>
+    <head>
+        <!--
+         Two animateLayout() calls fired in PARALLEL (Promise.all) against
+         INTERSECTING trees: one scope is #parent, the other is #child (which
+         lives inside #parent). This mirrors the React layout system handling
+         renders that fire in different parts of one shared tree within a single
+         commit. Because every node lives in one shared projection tree, the
+         child's FLIP composes the parent's movement with its own — the result
+         is the same as if both changes happened in one update.
+        -->
+        <style>
+            * { box-sizing: border-box; margin: 0; padding: 0; }
+            body { padding: 0; }
+
+            #parent {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100px;
+                height: 100px;
+                background: #00cc88;
+            }
+            #parent.moved { left: 200px; }
+
+            #child {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 50px;
+                height: 50px;
+                background: #09f;
+            }
+            #child.moved { top: 50px; }
+
+            [data-layout-correct="false"] {
+                background: #dd1144 !important;
+                opacity: 0.5;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="parent" data-layout>
+            <div id="child" data-layout></div>
+        </div>
+
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module" src="/src/imports/script-assert.js"></script>
+        <script type="module">
+            const { animateLayout, frame } = window.AnimateLayout
+            const { matchViewportBox } = window.Assert
+
+            const parent = document.getElementById("parent")
+            const child = document.getElementById("child")
+
+            async function runTest() {
+                // Two independent, concurrent layout animations on intersecting
+                // subtrees. Each only knows about its own DOM mutation.
+                const [parentControls, childControls] = await Promise.all([
+                    animateLayout(
+                        parent,
+                        () => parent.classList.add("moved"),
+                        { duration: 10, ease: "linear" }
+                    ),
+                    animateLayout(
+                        child,
+                        () => child.classList.add("moved"),
+                        { duration: 10, ease: "linear" }
+                    ),
+                ])
+
+                parentControls.pause()
+                childControls.pause()
+                parentControls.time = parentControls.duration * 0.5
+                childControls.time = childControls.duration * 0.5
+
+                await new Promise((resolve) => frame.postRender(resolve))
+
+                // Parent: viewport (0,0,100,100) -> (200,0,300,100), midpoint:
+                matchViewportBox(parent, {
+                    top: 0,
+                    left: 100,
+                    right: 200,
+                    bottom: 100,
+                })
+
+                // Child: viewport (0,0,50,50) -> (200,50,250,100) once BOTH the
+                // parent's and the child's moves are applied; midpoint:
+                matchViewportBox(child, {
+                    top: 25,
+                    left: 100,
+                    right: 150,
+                    bottom: 75,
+                })
+            }
+
+            runTest().catch(console.error)
+        </script>
+    </body>
+</html>
