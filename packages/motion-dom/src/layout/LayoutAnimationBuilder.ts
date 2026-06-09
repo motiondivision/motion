@@ -61,8 +61,6 @@ interface ElementRecord {
 const nextFrame = () =>
     new Promise<void>((resolve) => frame.postRender(() => resolve()))
 
-const noop = () => {}
-
 /**
  * Synchronously flush any pending projection work (the same update→preRender→
  * render flush the engine runs after measuring). Crucially this materialises a
@@ -185,6 +183,20 @@ export class LayoutAnimationBuilder {
             this.notifyReady = resolve
             this.rejectReady = reject
         })
+
+        /**
+         * Start on the next frame so a fire-and-forget call —
+         * `animateLayout(scope, updateDom)` with no `await`/`.then()` — still
+         * runs its DOM mutation and animation. Awaiting (or `.then()`) starts it
+         * synchronously first; this scheduled call then no-ops.
+         */
+        frame.postRender(() => this.ensureStarted())
+    }
+
+    private ensureStarted() {
+        if (this.hasStarted) return
+        this.hasStarted = true
+        this.run().then(this.notifyReady, this.rejectReady)
     }
 
     /**
@@ -200,11 +212,7 @@ export class LayoutAnimationBuilder {
         resolve: LayoutBuilderResolve,
         reject?: LayoutBuilderReject
     ): Promise<void> {
-        if (!this.hasStarted) {
-            this.hasStarted = true
-            this.run().then(this.notifyReady, this.rejectReady)
-        }
-
+        this.ensureStarted()
         return this.readyPromise.then(resolve, reject)
     }
 
@@ -269,17 +277,20 @@ export class LayoutAnimationBuilder {
         )
 
         /**
-         * 4. Once the animation completes, drop the elements we kept alive purely
-         *    to crossfade out.
+         * 4. Drop the elements we kept alive purely to crossfade out. Run on
+         *    both fulfilment AND rejection: if the caller stops/cancels the
+         *    animation, `finished` rejects, and skipping cleanup would leave
+         *    re-inserted exiting nodes as ghosts in visualElementStore.
          */
         if (exiting.length) {
-            animation.finished.then(() => {
+            const cleanup = () => {
                 for (const { element, node } of exiting) {
                     node.unmount()
                     element.parentNode?.removeChild(element)
                     visualElementStore.delete(element)
                 }
-            }, noop)
+            }
+            animation.finished.then(cleanup, cleanup)
         }
 
         return animation
@@ -390,7 +401,10 @@ export class LayoutAnimationBuilder {
              * transform, so clear it before the first measure or it inflates the
              * measured layout.
              */
-            if (element instanceof HTMLElement) element.style.transform = ""
+            if (element instanceof HTMLElement) {
+                element.style.transform = ""
+                element.style.transformOrigin = ""
+            }
 
             visualElement.projection = new HTMLProjectionNode(
                 visualElement.latestValues,
