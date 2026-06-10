@@ -1,4 +1,5 @@
 import { frame } from "../../frameloop"
+import { buildTransform } from "../../render/html/utils/build-transform"
 import { motionValue } from "../../value"
 import { MotionValueState, slotBase, slotOverride } from "../MotionValueState"
 import { addStyleValue } from "../style"
@@ -114,6 +115,90 @@ describe("MotionValueState slots", () => {
         expect(element.style.transform).toBe(
             "perspective(500px) translateX(75px)"
         )
+    })
+
+    it("re-renders slots without removed values", async () => {
+        const element = document.createElement("div")
+        const state = new MotionValueState()
+
+        addStyleValue(element, state, "x", motionValue(100))
+        addStyleValue(element, state, "y", motionValue(50))
+
+        await nextFrame()
+
+        expect(element.style.transform).toBe(
+            "translateX(100px) translateY(50px)"
+        )
+
+        state.remove("x")
+
+        await nextFrame()
+
+        expect(state.latest.x).toBeUndefined()
+        expect(element.style.transform).toBe("translateY(50px)")
+    })
+
+    it("removes plain values from latest without clearing rendered style", async () => {
+        const element = document.createElement("div")
+        const state = new MotionValueState()
+        const opacity = motionValue(0.5)
+
+        addStyleValue(element, state, "opacity", opacity)
+
+        await nextFrame()
+
+        expect(element.style.opacity).toBe("0.5")
+
+        state.remove("opacity")
+
+        // Rendered style is left in place - removal of non-slot styles
+        // is the responsibility of the framework layer (e.g. React)
+        expect(state.latest.opacity).toBeUndefined()
+        expect(state.get("opacity")).toBeUndefined()
+        expect(element.style.opacity).toBe("0.5")
+
+        // Value no longer drives the style
+        opacity.set(1)
+
+        await nextFrame()
+
+        expect(element.style.opacity).toBe("0.5")
+    })
+
+    it("supports transformTemplate by replacing the base contributor", async () => {
+        const element = document.createElement("div")
+        const state = new MotionValueState()
+        const x = motionValue(100)
+
+        addStyleValue(element, state, "x", x)
+
+        await nextFrame()
+
+        expect(element.style.transform).toBe("translateX(100px)")
+
+        // As VisualElement will when transformTemplate is provided via props
+        const transformValues = {}
+        state.contribute("transform", slotBase, ({ latest }) =>
+            buildTransform(
+                latest,
+                transformValues,
+                (values, generated) =>
+                    `translateZ(10px) ${generated} /* ${values.x} */`
+            )
+        )
+
+        await nextFrame()
+
+        expect(element.style.transform).toBe(
+            "translateZ(10px) translateX(100px) /* 100px */"
+        )
+
+        x.set(0)
+
+        await nextFrame()
+
+        // Default-valued transforms still pass coerced values to the template
+        expect(element.style.transform).toBe("translateZ(10px)  /* 0px */")
     })
 
     it("stores raw values in latest", async () => {

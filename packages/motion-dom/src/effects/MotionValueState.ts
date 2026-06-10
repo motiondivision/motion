@@ -24,7 +24,7 @@ export class MotionValueState {
 
     private values = new Map<
         string,
-        { value: MotionValue; onRemove: VoidFunction }
+        { value: MotionValue; onRemove: VoidFunction; computed?: MotionValue }
     >()
 
     /**
@@ -64,13 +64,28 @@ export class MotionValueState {
             computed && value.removeDependent(computed)
         }
 
-        this.values.set(name, { value, onRemove: remove })
+        this.values.set(name, { value, onRemove: remove, computed })
 
         return remove
     }
 
     get(name: string): MotionValue | undefined {
         return this.values.get(name)?.value
+    }
+
+    /**
+     * Fully remove a value from the state. Unlike the unsubscribe function
+     * returned from set(), this also removes the value from latest and
+     * re-renders any slot it contributed to, dropping it from the output.
+     */
+    remove(name: string) {
+        const existingValue = this.values.get(name)
+
+        if (existingValue) {
+            existingValue.onRemove()
+            delete this.latest[name]
+            existingValue.computed?.dirty()
+        }
     }
 
     /**
