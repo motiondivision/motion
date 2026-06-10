@@ -1,0 +1,126 @@
+<html>
+    <head>
+        <!--
+            A shared element transition split across two animateLayout()
+            calls in the same tick: one call (scoped to #left) removes the
+            source, another (scoped to #right) adds the target with the
+            same data-layout-id. Equivalent to two React components in
+            different subtrees swapping a layoutId within one batched
+            render: the target should morph from the source's box with no
+            crossfade, and the source should not be kept in the DOM.
+        -->
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+            }
+
+            .pane {
+                position: absolute;
+                width: 200px;
+                height: 200px;
+                background: #f0f0f0;
+            }
+
+            #left {
+                top: 0;
+                left: 0;
+            }
+
+            #right {
+                top: 200px;
+                left: 200px;
+            }
+
+            #src {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 50px;
+                height: 50px;
+                background-color: #09f;
+            }
+
+            #dst {
+                position: absolute;
+                top: 50px;
+                left: 50px;
+                width: 150px;
+                height: 150px;
+                background-color: #00cc88;
+            }
+
+            [data-layout-correct="false"] {
+                background: #dd1144 !important;
+                opacity: 0.5;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="left" class="pane">
+            <div id="src" data-layout-id="hero"></div>
+        </div>
+        <div id="right" class="pane"></div>
+
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module" src="/src/imports/script-assert.js"></script>
+        <script type="module">
+            const { animateLayout, frame } = window.AnimateLayout
+            const { matchViewportBox, matchOpacity } = window.Assert
+            const { showError } = window
+
+            const left = document.getElementById("left")
+            const right = document.getElementById("right")
+            const src = document.getElementById("src")
+
+            async function runTest() {
+                // Same tick, different subtrees: remove source, add target
+                const controlsA = animateLayout(left, () => src.remove(), {
+                    duration: 10,
+                    ease: "linear",
+                })
+                const controlsB = animateLayout(
+                    right,
+                    () => {
+                        const dst = document.createElement("div")
+                        dst.id = "dst"
+                        dst.setAttribute("data-layout-id", "hero")
+                        right.appendChild(dst)
+                    },
+                    { duration: 10, ease: "linear" }
+                )
+
+                const [a, b] = await Promise.all([controlsA, controlsB])
+
+                if (src.isConnected) {
+                    showError(src, "Replaced source should not stay in DOM")
+                }
+
+                if (!b.animations.length) {
+                    showError(right, "Target call should have an animation")
+                }
+
+                a.pause()
+                b.pause()
+                b.time = 5
+
+                await new Promise((resolve) => frame.postRender(resolve))
+
+                const dst = document.getElementById("dst")
+
+                // Replaced, not crossfading: full opacity throughout
+                matchOpacity(dst, 1)
+
+                // src (0,0,50,50) -> dst (250,250,400,400), at 50%:
+                matchViewportBox(dst, {
+                    top: 125,
+                    left: 125,
+                    right: 225,
+                    bottom: 225,
+                })
+            }
+
+            runTest().catch(console.error)
+        </script>
+    </body>
+</html>
