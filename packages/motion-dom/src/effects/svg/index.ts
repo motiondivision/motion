@@ -1,7 +1,7 @@
 import { frame } from "../../frameloop"
 import { MotionValue } from "../../value"
 import { addAttrValue } from "../attr"
-import { MotionValueState } from "../MotionValueState"
+import { MotionValueState, slotBase } from "../MotionValueState"
 import { addStyleValue } from "../style"
 import { createSelectorEffect } from "../utils/create-dom-effect"
 import { createEffect } from "../utils/create-effect"
@@ -17,19 +17,22 @@ function addSVGPathValue(
     if (key === "pathOffset") {
         return state.set(key, value, () => {
             // Use unitless value to avoid Safari zoom bug
-            const offset = state.latest[key]
-            element.setAttribute("stroke-dashoffset", `${-offset}`)
+            element.setAttribute("stroke-dashoffset", `${-state.latest[key]}`)
         })
     } else {
         if (!state.get("stroke-dasharray")) {
             state.set("stroke-dasharray", new MotionValue("1 1"), () => {
-                const { pathLength = 1, pathSpacing } = state.latest
-
-                // Use unitless values to avoid Safari zoom bug
                 element.setAttribute(
                     "stroke-dasharray",
-                    `${pathLength} ${pathSpacing ?? 1 - Number(pathLength)}`
+                    state.build("stroke-dasharray") as string
                 )
+            })
+
+            state.contribute("stroke-dasharray", slotBase, ({ latest }) => {
+                const { pathLength = 1, pathSpacing } = latest
+
+                // Use unitless values to avoid Safari zoom bug
+                return `${pathLength} ${pathSpacing ?? 1 - Number(pathLength)}`
             })
         }
 

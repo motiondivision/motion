@@ -9,14 +9,8 @@ export const propEffect = /*@__PURE__*/ createEffect(
         key: string,
         value: MotionValue
     ) => {
-        return state.set(
-            key,
-            value,
-            () => {
-                subject[key] = state.latest[key]
-            },
-            undefined,
-            false
-        )
+        return state.set(key, value, () => {
+            subject[key] = state.latest[key]
+        })
     }
 )

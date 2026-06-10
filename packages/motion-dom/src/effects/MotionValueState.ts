@@ -1,8 +1,23 @@
 import { AnyResolvedKeyframe } from "../animation/types"
 import { cancelFrame, frame } from "../frameloop/frame"
 import { MotionValue } from "../value"
-import { numberValueTypes } from "../value/types/maps/number"
-import { getValueAsType } from "../value/types/utils/get-as-type"
+
+/**
+ * A contributor to a composed output slot, e.g. `transform`. Receives the
+ * output of the previous contributor in the chain and returns the new output.
+ * Return `prev` to pass through unchanged.
+ */
+export type SlotBuilder = (
+    state: MotionValueState,
+    prev?: AnyResolvedKeyframe
+) => AnyResolvedKeyframe | undefined
+
+/**
+ * Reserved slot contributor indexes. Lower indexes run first, later
+ * contributors can wrap or override earlier output.
+ */
+export const slotBase = 0
+export const slotOverride = 1
 
 export class MotionValueState {
     latest: { [name: string]: AnyResolvedKeyframe } = {}
@@ -12,12 +27,17 @@ export class MotionValueState {
         { value: MotionValue; onRemove: VoidFunction }
     >()
 
+    /**
+     * Ordered contributor chains for composed slots like `transform`,
+     * keyed by output name. Chains are sparse arrays indexed by priority.
+     */
+    private builders?: Map<string, Array<SlotBuilder | undefined>>
+
     set(
         name: string,
         value: MotionValue,
         render?: VoidFunction,
-        computed?: MotionValue,
-        useDefaultValueType = true
+        computed?: MotionValue
     ) {
         const existingValue = this.values.get(name)
 
@@ -26,13 +46,7 @@ export class MotionValueState {
         }
 
         const onChange = () => {
-            const v = value.get()
-
-            if (useDefaultValueType) {
-                this.latest[name] = getValueAsType(v, numberValueTypes[name])
-            } else {
-                this.latest[name] = v
-            }
+            this.latest[name] = value.get()
 
             render && frame.render(render)
         }
@@ -57,5 +71,46 @@ export class MotionValueState {
 
     get(name: string): MotionValue | undefined {
         return this.values.get(name)?.value
+    }
+
+    /**
+     * Add a contributor to a slot's build chain. Triggers a re-render of
+     * the slot, as does removing the contributor via the returned function.
+     */
+    contribute(name: string, index: number, builder: SlotBuilder) {
+        this.builders ??= new Map()
+
+        let chain = this.builders.get(name)
+
+        if (!chain) {
+            chain = []
+            this.builders.set(name, chain)
+        }
+
+        chain[index] = builder
+        this.get(name)?.dirty()
+
+        return () => {
+            chain[index] = undefined
+            this.get(name)?.dirty()
+        }
+    }
+
+    /**
+     * Compose a slot's output by running its contributor chain in order.
+     */
+    build(name: string): AnyResolvedKeyframe | undefined {
+        const chain = this.builders?.get(name)
+
+        if (!chain) return undefined
+
+        let output: AnyResolvedKeyframe | undefined
+
+        for (let i = 0; i < chain.length; i++) {
+            const builder = chain[i]
+            if (builder) output = builder(this, output)
+        }
+
+        return output
     }
 }

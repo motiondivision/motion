@@ -1,5 +1,7 @@
 import { camelToDash } from "../../render/dom/utils/camel-to-dash"
 import { MotionValue } from "../../value"
+import { numberValueTypes } from "../../value/types/maps/number"
+import { getValueAsType } from "../../value/types/utils/get-as-type"
 import { MotionValueState } from "../MotionValueState"
 import { createSelectorEffect } from "../utils/create-dom-effect"
 import { createEffect } from "../utils/create-effect"
@@ -33,10 +35,13 @@ export const addAttrValue = (
      */
     const render = isProp
         ? () => {
-              ;(element as any)[name] = state.latest[key]
+              ;(element as any)[name] = getValueAsType(
+                  state.latest[key],
+                  numberValueTypes[key]
+              )
           }
         : () => {
-              const v = state.latest[key]
+              const v = getValueAsType(state.latest[key], numberValueTypes[key])
               if (v === null || v === undefined) {
                   element.removeAttribute(name)
               } else {
