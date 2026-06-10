@@ -108,7 +108,9 @@ function readNodeOptions(element: HTMLElement, transition?: Transition) {
     return {
         layoutId,
         layout: layoutAttr !== null ? true : undefined,
-        animationType: (layoutAttr || "both") as "both",
+        animationType: (!layoutAttr || layoutAttr === "true"
+            ? "both"
+            : layoutAttr) as "both",
         transition,
     }
 }
@@ -343,6 +345,9 @@ export class LayoutAnimationBuilder {
         this.tracked.forEach((node, element) => {
             if (element.isConnected) return
 
+            const restore = this.restorePoints.get(element)
+            this.restorePoints.delete(element)
+
             const { layoutId } = node.options
             const stack = node.getStack()
             const hasSurvivor =
@@ -367,7 +372,6 @@ export class LayoutAnimationBuilder {
                 hasSurvivor &&
                 !newMemberIds.has(layoutId)
             ) {
-                const restore = this.restorePoints.get(element)
                 if (restore && restore.parent.isConnected) {
                     restore.parent.insertBefore(
                         element,
