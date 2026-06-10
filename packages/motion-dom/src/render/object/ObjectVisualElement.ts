@@ -1,4 +1,6 @@
+import { MotionValueState } from "../../effects/MotionValueState"
 import { createBox } from "../../projection/geometry/models"
+import { MotionValue } from "../../value"
 import { ResolvedValues } from "../types"
 import { VisualElement } from "../VisualElement"
 
@@ -31,23 +33,23 @@ export class ObjectVisualElement extends VisualElement<
         return undefined
     }
 
-    removeValueFromRenderState(
-        key: string,
-        renderState: ObjectRenderState
-    ): void {
-        delete renderState.output[key]
-    }
-
     measureInstanceViewportBox() {
         return createBox()
     }
 
-    build(renderState: ObjectRenderState, latestValues: ResolvedValues) {
-        Object.assign(renderState.output, latestValues)
+    bindValueToState(
+        instance: Object,
+        state: MotionValueState,
+        key: string,
+        value: MotionValue
+    ): VoidFunction {
+        return state.set(key, value, () => {
+            ;(instance as any)[key] = state.latest[key]
+        })
     }
 
-    renderInstance(instance: Object, { output }: ObjectRenderState) {
-        Object.assign(instance, output)
+    renderValues(instance: Object, state: MotionValueState) {
+        Object.assign(instance, state.latest)
     }
 
     sortInstanceNodePosition() {

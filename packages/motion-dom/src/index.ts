@@ -66,7 +66,9 @@ export * from "./animation/waapi/utils/linear"
 export * from "./effects/attr"
 export * from "./effects/prop"
 export * from "./effects/style"
+export * from "./effects/style/build"
 export * from "./effects/svg"
+export * from "./effects/MotionValueState"
 
 export * from "./frameloop"
 export * from "./frameloop/batcher"
@@ -295,15 +297,11 @@ export { NodeStack } from "./projection/shared/stack"
 
 // HTML/SVG utilities
 export { camelToDash } from "./render/dom/utils/camel-to-dash"
-export { buildHTMLStyles } from "./render/html/utils/build-styles"
 export { buildTransform } from "./render/html/utils/build-transform"
-export { renderHTML } from "./render/html/utils/render"
 export { scrapeMotionValuesFromProps as scrapeHTMLMotionValuesFromProps } from "./render/html/utils/scrape-motion-values"
-export { buildSVGAttrs } from "./render/svg/utils/build-attrs"
+export { buildSVGProps } from "./effects/svg/build"
 export { camelCaseAttributes } from "./render/svg/utils/camel-case-attrs"
 export { isSVGTag } from "./render/svg/utils/is-svg-tag"
-export { buildSVGPath } from "./render/svg/utils/path"
-export { renderSVG } from "./render/svg/utils/render"
 export { scrapeMotionValuesFromProps as scrapeSVGMotionValuesFromProps } from "./render/svg/utils/scrape-motion-values"
 
 /**

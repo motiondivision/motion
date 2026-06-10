@@ -21,14 +21,15 @@ export const addAttrValue = (
     element: HTMLElement | SVGElement,
     state: MotionValueState,
     key: string,
-    value: MotionValue
+    value: MotionValue,
+    attrName: string = key
 ) => {
-    const isProp = canSetAsProperty(element, key)
+    const isProp = canSetAsProperty(element, attrName)
     const name = isProp
-        ? key
-        : key.startsWith("data") || key.startsWith("aria")
-        ? camelToDash(key)
-        : key
+        ? attrName
+        : attrName.startsWith("data") || attrName.startsWith("aria")
+        ? camelToDash(attrName)
+        : attrName
 
     /**
      * Set attribute directly via property if available

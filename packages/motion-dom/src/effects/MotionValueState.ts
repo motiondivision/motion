@@ -20,12 +20,21 @@ export const slotBase = 0
 export const slotOverride = 1
 
 export class MotionValueState {
-    latest: { [name: string]: AnyResolvedKeyframe } = {}
+    latest: { [name: string]: AnyResolvedKeyframe }
 
     private values = new Map<
         string,
-        { value: MotionValue; onRemove: VoidFunction; computed?: MotionValue }
+        {
+            value: MotionValue
+            onRemove: VoidFunction
+            computed?: MotionValue
+            render?: VoidFunction
+        }
     >()
+
+    constructor(latest: { [name: string]: AnyResolvedKeyframe } = {}) {
+        this.latest = latest
+    }
 
     /**
      * Ordered contributor chains for composed slots like `transform`,
@@ -37,7 +46,8 @@ export class MotionValueState {
         name: string,
         value: MotionValue,
         render?: VoidFunction,
-        computed?: MotionValue
+        computed?: MotionValue,
+        track = true
     ) {
         const existingValue = this.values.get(name)
 
@@ -45,13 +55,30 @@ export class MotionValueState {
             existingValue.onRemove()
         }
 
-        const onChange = () => {
+        /**
+         * Composed slots like `transform` use a placeholder MotionValue
+         * purely as a dirty signal - their placeholder value shouldn't
+         * be tracked in latest.
+         */
+        const onChange = track
+            ? () => {
+                  this.latest[name] = value.get()
+
+                  render && frame.render(render)
+              }
+            : () => {
+                  render && frame.render(render)
+              }
+
+        /**
+         * Track the latest value immediately, but don't schedule a render.
+         * Renders are scheduled by value changes, or explicitly via
+         * scheduleRender() - frameworks like React render initial styles
+         * themselves.
+         */
+        if (track) {
             this.latest[name] = value.get()
-
-            render && frame.render(render)
         }
-
-        onChange()
 
         const cancelOnChange = value.on("change", onChange)
 
@@ -64,9 +91,22 @@ export class MotionValueState {
             computed && value.removeDependent(computed)
         }
 
-        this.values.set(name, { value, onRemove: remove, computed })
+        this.values.set(name, { value, onRemove: remove, computed, render })
 
         return remove
+    }
+
+    /**
+     * Schedule a render of a value, or of the slot it contributes to.
+     * Used by effects to render initial values on creation.
+     */
+    scheduleRender(name: string) {
+        const existingValue = this.values.get(name)
+
+        if (existingValue) {
+            existingValue.render && frame.render(existingValue.render)
+            existingValue.computed?.dirty()
+        }
     }
 
     get(name: string): MotionValue | undefined {
@@ -86,6 +126,13 @@ export class MotionValueState {
             delete this.latest[name]
             existingValue.computed?.dirty()
         }
+    }
+
+    /**
+     * Unsubscribe every value and cancel any pending renders.
+     */
+    destroy() {
+        this.values.forEach((value) => value.onRemove())
     }
 
     /**

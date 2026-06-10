@@ -57,6 +57,7 @@ describe("MotionValueState slots", () => {
         const x = motionValue(100)
 
         addStyleValue(element, state, "x", x)
+        state.scheduleRender("x")
 
         await nextFrame()
 
@@ -94,6 +95,7 @@ describe("MotionValueState slots", () => {
         const x = motionValue(50)
 
         addStyleValue(element, state, "x", x)
+        state.scheduleRender("x")
 
         // Wrap as a transformTemplate would
         state.contribute(
@@ -123,6 +125,8 @@ describe("MotionValueState slots", () => {
 
         addStyleValue(element, state, "x", motionValue(100))
         addStyleValue(element, state, "y", motionValue(50))
+        state.scheduleRender("x")
+        state.scheduleRender("y")
 
         await nextFrame()
 
@@ -144,6 +148,7 @@ describe("MotionValueState slots", () => {
         const opacity = motionValue(0.5)
 
         addStyleValue(element, state, "opacity", opacity)
+        state.scheduleRender("opacity")
 
         await nextFrame()
 
@@ -171,6 +176,7 @@ describe("MotionValueState slots", () => {
         const x = motionValue(100)
 
         addStyleValue(element, state, "x", x)
+        state.scheduleRender("x")
 
         await nextFrame()
 
@@ -207,6 +213,8 @@ describe("MotionValueState slots", () => {
 
         addStyleValue(element, state, "x", motionValue(100))
         addStyleValue(element, state, "width", motionValue(50))
+        state.scheduleRender("x")
+        state.scheduleRender("width")
 
         await nextFrame()
 

@@ -1288,7 +1288,12 @@ describe("animate prop as object", () => {
             rerender(<Component />)
         })
 
-        return expect(result).toBe(1)
+        /**
+         * Each bound value has two subscriptions: the MotionValueState
+         * renderer and the VisualElement event/projection notifier. The
+         * rerender above ensures these don't accumulate.
+         */
+        return expect(result).toBe(2)
     })
 
     test("Positional values without specific handlers are not measured", async () => {
