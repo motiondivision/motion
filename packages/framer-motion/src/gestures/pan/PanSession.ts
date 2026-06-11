@@ -148,21 +148,28 @@ export class PanSession {
         onSessionStart &&
             onSessionStart(event, getPanInfo(initialInfo, this.history))
 
+        // Listen in the capture phase so a descendant calling
+        // stopPropagation() (e.g. in its own pointerup handler) can't
+        // prevent the gesture from ending. See #2794.
+        const eventOptions = { passive: true, capture: true }
         this.removeListeners = pipe(
             addPointerEvent(
                 this.contextWindow,
                 "pointermove",
-                this.handlePointerMove
+                this.handlePointerMove,
+                eventOptions
             ),
             addPointerEvent(
                 this.contextWindow,
                 "pointerup",
-                this.handlePointerUp
+                this.handlePointerUp,
+                eventOptions
             ),
             addPointerEvent(
                 this.contextWindow,
                 "pointercancel",
-                this.handlePointerUp
+                this.handlePointerUp,
+                eventOptions
             )
         )
 

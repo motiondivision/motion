@@ -7,7 +7,7 @@ import {
     MotionValue,
     useWillChange,
 } from "../../../"
-import { pointerDown, pointerMove, render } from "../../../jest.setup"
+import { pointerDown, pointerMove, pointerUp, render } from "../../../jest.setup"
 import { WillChangeMotionValue } from "../../../value/use-will-change/WillChangeMotionValue"
 import { nextFrame } from "../../__tests__/utils"
 import { deferred, drag, dragFrame, MockDrag, Point, sleep } from "./utils"
@@ -137,6 +137,31 @@ describe("dragging", () => {
 
         const pointer = await drag(container.firstChild).to(100, 100)
         pointer.end()
+
+        await nextFrame()
+
+        expect(onDragEnd).toBeCalledTimes(1)
+    })
+
+    test("dragEnd fires when a child stops pointerup propagation (#2794)", async () => {
+        const onDragEnd = jest.fn()
+        const Component = () => (
+            <MockDrag>
+                <motion.div drag="y" onDragEnd={onDragEnd}>
+                    <div
+                        data-testid="child"
+                        onPointerUp={(event) => event.stopPropagation()}
+                    />
+                </motion.div>
+            </MockDrag>
+        )
+
+        const { container, getByTestId, rerender } = render(<Component />)
+        rerender(<Component />)
+
+        await drag(container.firstChild).to(0, 100)
+
+        pointerUp(getByTestId("child"))
 
         await nextFrame()
 

@@ -68,9 +68,25 @@ export function press(
 
         const onPressEnd = onPressStart(target, startEvent)
 
+        /**
+         * End listeners run in the capture phase so a descendant calling
+         * stopPropagation() in its own pointerup handler can't prevent the
+         * press gesture from ending. This also keeps the gesture-end
+         * ordering consistent with the drag gesture. See #2794.
+         */
+        const endEventOptions = { ...eventOptions, capture: true }
+
         const onPointerEnd = (endEvent: PointerEvent, success: boolean) => {
-            window.removeEventListener("pointerup", onPointerUp)
-            window.removeEventListener("pointercancel", onPointerCancel)
+            window.removeEventListener(
+                "pointerup",
+                onPointerUp,
+                endEventOptions
+            )
+            window.removeEventListener(
+                "pointercancel",
+                onPointerCancel,
+                endEventOptions
+            )
 
             if (isPressing.has(target)) {
                 isPressing.delete(target)
@@ -99,8 +115,12 @@ export function press(
             onPointerEnd(cancelEvent, false)
         }
 
-        window.addEventListener("pointerup", onPointerUp, eventOptions)
-        window.addEventListener("pointercancel", onPointerCancel, eventOptions)
+        window.addEventListener("pointerup", onPointerUp, endEventOptions)
+        window.addEventListener(
+            "pointercancel",
+            onPointerCancel,
+            endEventOptions
+        )
     }
 
     targets.forEach((target: EventTarget) => {
