@@ -28,4 +28,5 @@ Execute `plans/issues/pr-3713.md`; do not duplicate work here.
 ## Done criteria
 
 - [ ] pr-3713 resolved AND issue #3001 dispositioned accordingly
+- [ ] rangeEnd/rangeStart work with both NativeAnimations and JSAnimations
 - [ ] `plans/issues/README.md` row updated
