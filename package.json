@@ -79,7 +79,7 @@
         "start-server-and-test": "^1.14.0",
         "ts-jest": "^29.1.2",
         "ts-loader": "^9.5.1",
-        "turbo": "1.x",
+        "turbo": "2.x",
         "type-fest": "^1.0.1",
         "typescript": "5.4.3",
         "yarn-deduplicate": "^1.1.1",
