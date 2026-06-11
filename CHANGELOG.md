@@ -9,6 +9,7 @@ Undocumented APIs should be considered internal and may change without warning.
 ### Fixed
 
 -   `AnimatePresence`: Prevent stuck exit animations when children interrupt.
+-   `drag`: Child `e.stopPropagation()` no longer break drag end.
 
 ## [12.40.0] 2026-05-21
 
