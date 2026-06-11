@@ -1,0 +1,102 @@
+<html>
+    <head>
+        <!--
+            Two animateLayout() calls made in the same synchronous tick whose
+            DOM updates interact: call A grows #grow, which flow-pushes
+            call B's #child down the page. Both calls must snapshot before
+            either updateDom runs - like two React renders batched into one
+            commit - or #child animates from a position it was never
+            visually in.
+        -->
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+            }
+
+            #grow {
+                width: 100px;
+                height: 100px;
+                background-color: #09f;
+            }
+
+            #grow.grown {
+                height: 200px;
+            }
+
+            #child {
+                width: 100px;
+                height: 100px;
+                background-color: #00cc88;
+            }
+
+            #child.shifted {
+                margin-left: 100px;
+            }
+
+            [data-layout-correct="false"] {
+                background: #dd1144 !important;
+                opacity: 0.5;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="stack">
+            <div id="grow" data-layout></div>
+            <div id="child" data-layout></div>
+        </div>
+
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module" src="/src/imports/script-assert.js"></script>
+        <script type="module">
+            const { animateLayout, frame } = window.AnimateLayout
+            const { matchViewportBox } = window.Assert
+
+            const grow = document.getElementById("grow")
+            const child = document.getElementById("child")
+
+            async function runTest() {
+                // Same tick: A's update changes B's element's layout
+                const controlsA = animateLayout(
+                    grow,
+                    () => grow.classList.add("grown"),
+                    { duration: 10, ease: "linear" }
+                )
+                const controlsB = animateLayout(
+                    child,
+                    () => child.classList.add("shifted"),
+                    { duration: 10, ease: "linear" }
+                )
+
+                const [a, b] = await Promise.all([controlsA, controlsB])
+
+                a.pause()
+                a.time = 5
+                b.pause()
+                b.time = 5
+
+                await new Promise((resolve) => frame.postRender(resolve))
+
+                // grow: 100x100 -> 100x200, at 50%:
+                matchViewportBox(grow, {
+                    top: 0,
+                    left: 0,
+                    right: 100,
+                    bottom: 150,
+                })
+
+                // child must animate from its original visual position
+                // (0,100), not from where A's update pushed it (0,200).
+                // (0,100,100,200) -> (100,200,200,300), at 50%:
+                matchViewportBox(child, {
+                    top: 150,
+                    left: 50,
+                    right: 150,
+                    bottom: 250,
+                })
+            }
+
+            runTest().catch(console.error)
+        </script>
+    </body>
+</html>
