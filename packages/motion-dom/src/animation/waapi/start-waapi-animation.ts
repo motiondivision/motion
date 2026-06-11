@@ -1,5 +1,3 @@
-import { activeAnimations } from "../../stats/animation-count"
-import { statsBuffer } from "../../stats/buffer"
 import { ValueKeyframesDefinition, ValueTransition } from "../types"
 import { mapEasingToNativeEasing } from "./easing/map-easing"
 
@@ -29,10 +27,6 @@ export function startWaapiAnimation(
      */
     if (Array.isArray(easing)) keyframeOptions.easing = easing
 
-    if (statsBuffer.value) {
-        activeAnimations.waapi++
-    }
-
     const options: KeyframeAnimationOptions = {
         delay,
         duration,
@@ -44,13 +38,5 @@ export function startWaapiAnimation(
 
     if (pseudoElement) options.pseudoElement = pseudoElement
 
-    const animation = element.animate(keyframeOptions, options)
-
-    if (statsBuffer.value) {
-        animation.finished.finally(() => {
-            activeAnimations.waapi--
-        })
-    }
-
-    return animation
+    return element.animate(keyframeOptions, options)
 }

@@ -1,4 +1,4 @@
-import type { StatsRecording } from "./types"
+import type { LayoutProjectionMetrics, StatsRecording } from "./types"
 
 export type InactiveStatsBuffer = {
     value: null
@@ -7,11 +7,7 @@ export type InactiveStatsBuffer = {
 
 export type ActiveStatsBuffer = {
     value: StatsRecording
-    addProjectionMetrics: (metrics: {
-        nodes: number
-        calculatedTargetDeltas: number
-        calculatedProjections: number
-    }) => void
+    addProjectionMetrics: (metrics: LayoutProjectionMetrics) => void
 }
 
 export const statsBuffer: InactiveStatsBuffer | ActiveStatsBuffer = {

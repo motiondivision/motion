@@ -6,7 +6,6 @@ import {
     secondsToMilliseconds,
 } from "motion-utils"
 import { time } from "../frameloop/sync-time"
-import { activeAnimations } from "../stats/animation-count"
 import { mix } from "../utils/mix"
 import { Mixer } from "../utils/mix/types"
 import { frameloopDriver } from "./drivers/frame"
@@ -91,7 +90,6 @@ export class JSAnimation<T extends number | string>
 
     constructor(options: ValueAnimationOptions<T>) {
         super()
-        activeAnimations.mainThread++
 
         this.options = options
         this.initAnimation()
@@ -526,7 +524,6 @@ export class JSAnimation<T extends number | string>
         this.state = "idle"
         this.stopDriver()
         this.startTime = this.holdTime = null
-        activeAnimations.mainThread--
     }
 
     private stopDriver() {
