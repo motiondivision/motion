@@ -1,13 +1,14 @@
 "use client"
 
 import * as React from "react"
-import { useId, useMemo } from "react"
+import { useId, useMemo, useRef } from "react"
 import {
     PresenceContext,
     type PresenceContextProps,
 } from "../../context/PresenceContext"
 import { VariantLabels } from "../../motion/types"
 import { useConstant } from "../../utils/use-constant"
+import { useIsomorphicLayoutEffect } from "../../utils/use-isomorphic-effect"
 import { PopChild } from "./PopChild"
 
 interface PresenceChildProps {
@@ -38,6 +39,15 @@ export const PresenceChild = ({
     const presenceChildren = useConstant(newChildrenMap)
     const id = useId()
 
+    // Written in a layout effect (not render) so discarded concurrent
+    // renders can't leave the refs pointing at uncommitted state.
+    const isPresentRef = useRef(isPresent)
+    const onExitCompleteRef = useRef(onExitComplete)
+    useIsomorphicLayoutEffect(() => {
+        isPresentRef.current = isPresent
+        onExitCompleteRef.current = onExitComplete
+    })
+
     let isReusedContext = true
     let context = useMemo((): PresenceContextProps => {
         isReusedContext = false
@@ -57,7 +67,12 @@ export const PresenceChild = ({
             },
             register: (childId: string) => {
                 presenceChildren.set(childId, false)
-                return () => presenceChildren.delete(childId)
+                return () => {
+                    presenceChildren.delete(childId)
+                    !isPresentRef.current &&
+                        !presenceChildren.size &&
+                        onExitCompleteRef.current?.()
+                }
             },
         }
     }, [isPresent, presenceChildren, onExitComplete])

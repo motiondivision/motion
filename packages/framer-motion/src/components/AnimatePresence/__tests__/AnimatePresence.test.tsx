@@ -1801,4 +1801,59 @@ describe("AnimatePresence with custom components", () => {
         // Child should have been removed after exit animation completes
         expect(container.childElementCount).toBe(0)
     })
+
+    test("Removes child when motion components inside unmount during exit (#3243)", async () => {
+        /**
+         * Reproduction for #3243: when an exit animation has been
+         * triggered for a child of AnimatePresence and the only motion
+         * component inside that child then unmounts on a subsequent
+         * render, the exit state should not get stuck. With no motion
+         * components left to drive the exit animation, PresenceChild
+         * should detect all children have unregistered and call
+         * onExitComplete.
+         */
+        let setChildOpen: ((open: boolean) => void) | null = null
+
+        const Child = () => {
+            const [isOpen, setIsOpen] = React.useState(true)
+            setChildOpen = setIsOpen
+            return isOpen ? (
+                <motion.div
+                    data-testid="motion"
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 10 }}
+                />
+            ) : (
+                <div data-testid="closed">closed</div>
+            )
+        }
+
+        const Component = ({ isVisible }: { isVisible: boolean }) => (
+            <AnimatePresence>
+                {isVisible && <Child key="child" />}
+            </AnimatePresence>
+        )
+
+        const { container, rerender } = render(<Component isVisible />)
+
+        // Step 1: trigger exit. Child still renders motion.div, so
+        // PresenceChild flips isPresent=false while a motion child is
+        // still registered.
+        rerender(<Component isVisible={false} />)
+
+        // Step 2: child internally re-renders without the motion
+        // component. Without the fix, PresenceChild never detects that
+        // all motion children have unregistered, so onExitComplete is
+        // never fired and the wrapper stays in the DOM forever.
+        await act(async () => {
+            setChildOpen!(false)
+        })
+
+        await act(async () => {
+            await nextFrame()
+            await nextFrame()
+        })
+
+        expect(container.childElementCount).toBe(0)
+    })
 })
