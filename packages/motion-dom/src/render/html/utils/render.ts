@@ -9,6 +9,11 @@ export function renderHTML(
 ) {
     const elementStyle = element.style
 
+    // If the rendered instance isn't a styleable element (e.g. a custom
+    // component forwarded its ref to a non-DOM instance), there's nothing to
+    // render to. Bailing out here keeps the render loop from crashing. #2777
+    if (!elementStyle) return
+
     let key: string
     for (key in style) {
         // CSSStyleDeclaration has [index: number]: string; in the types, so we use that as key type.
