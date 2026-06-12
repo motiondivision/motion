@@ -1,7 +1,7 @@
 import { transformProps } from "../../render/utils/keys-transform"
 import { MotionValueState } from "../MotionValueState"
 import { originProps, renderStyleValue } from "./index"
-import { buildTransform, buildTransformOrigin } from "./transform"
+import { renderTransform, renderTransformOrigin } from "./transform"
 
 /**
  * Synchronously render every style in state.latest to the element. Used
@@ -33,12 +33,10 @@ export function renderStyles(
      * transform values, matching buildHTMLStyles semantics.
      */
     if (hasTransform && !latest.transform) {
-        element.style.transform = (state.build("transform") ??
-            buildTransform(latest)) as string
+        renderTransform(element, state)
     }
 
     if (hasOrigin) {
-        element.style.transformOrigin = (state.build("transformOrigin") ??
-            buildTransformOrigin(latest)) as string
+        renderTransformOrigin(element, state)
     }
 }

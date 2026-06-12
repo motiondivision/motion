@@ -1,7 +1,9 @@
 import { transformPropOrder } from "../../render/utils/keys-transform"
 import { ResolvedValues } from "../../render/types"
+import { isHTMLElement } from "../../utils/is-html-element"
 import { numberValueTypes } from "../../value/types/maps/number"
 import { getValueAsType } from "../../value/types/utils/get-as-type"
+import type { MotionValueState } from "../MotionValueState"
 
 const translateAlias = {
     x: "translateX",
@@ -75,6 +77,54 @@ export function buildTransform(
     }
 
     return transformIsDefault ? "none" : transformString.trim()
+}
+
+/**
+ * Render the composed transform for an element, applying SVG-specific
+ * defaults for transform-box and transform-origin. Falls back to building
+ * directly from latest values when no transform slot exists, e.g. full
+ * renders of projection-driven elements.
+ *
+ * SVG renderers pass isSVG explicitly - the element may live in the HTML
+ * namespace (e.g. an SVG tag rendered outside an <svg> root), where
+ * instance checks misreport it.
+ */
+export function renderTransform(
+    element: HTMLElement | SVGElement,
+    state: MotionValueState,
+    isSVG = !isHTMLElement(element)
+) {
+    const { latest } = state
+
+    element.style.transform = (state.build("transform") ??
+        buildTransform(latest)) as string
+
+    if (isSVG) {
+        /**
+         * SVG transforms are normalised against the element's bounding box
+         * with fill-box, and originate from the element's median, unless
+         * otherwise provided.
+         */
+        if (latest.transformBox === undefined) {
+            element.style.transformBox = "fill-box"
+        }
+
+        if (
+            latest.originX === undefined &&
+            latest.originY === undefined &&
+            latest.originZ === undefined
+        ) {
+            element.style.transformOrigin = "50% 50%"
+        }
+    }
+}
+
+export function renderTransformOrigin(
+    element: HTMLElement | SVGElement,
+    state: MotionValueState
+) {
+    element.style.transformOrigin = (state.build("transformOrigin") ??
+        buildTransformOrigin(state.latest)) as string
 }
 
 /**

@@ -17,6 +17,27 @@ function canSetAsProperty(element: HTMLElement | SVGElement, name: string) {
     return descriptor && typeof descriptor.set === "function"
 }
 
+export const getAttrName = (key: string) =>
+    key.startsWith("data") || key.startsWith("aria") ? camelToDash(key) : key
+
+/**
+ * Render a single value from state.latest to an attribute.
+ */
+export function renderAttrValue(
+    element: HTMLElement | SVGElement,
+    state: MotionValueState,
+    key: string,
+    name: string = getAttrName(key)
+) {
+    const value = getValueAsType(state.latest[key], numberValueTypes[key])
+
+    if (value === null || value === undefined) {
+        element.removeAttribute(name)
+    } else {
+        element.setAttribute(name, String(value))
+    }
+}
+
 export const addAttrValue = (
     element: HTMLElement | SVGElement,
     state: MotionValueState,
@@ -24,31 +45,21 @@ export const addAttrValue = (
     value: MotionValue,
     attrName: string = key
 ) => {
-    const isProp = canSetAsProperty(element, attrName)
-    const name = isProp
-        ? attrName
-        : attrName.startsWith("data") || attrName.startsWith("aria")
-        ? camelToDash(attrName)
-        : attrName
-
     /**
      * Set attribute directly via property if available
      */
-    const render = isProp
-        ? () => {
-              ;(element as any)[name] = getValueAsType(
-                  state.latest[key],
-                  numberValueTypes[key]
-              )
-          }
-        : () => {
-              const v = getValueAsType(state.latest[key], numberValueTypes[key])
-              if (v === null || v === undefined) {
-                  element.removeAttribute(name)
-              } else {
-                  element.setAttribute(name, String(v))
-              }
-          }
+    let render: VoidFunction
+    if (canSetAsProperty(element, attrName)) {
+        render = () => {
+            ;(element as any)[attrName] = getValueAsType(
+                state.latest[key],
+                numberValueTypes[key]
+            )
+        }
+    } else {
+        const name = getAttrName(attrName)
+        render = () => renderAttrValue(element, state, key, name)
+    }
 
     return state.set(key, value, render)
 }

@@ -1,13 +1,17 @@
 import { isCSSVar } from "../../render/dom/is-css-var"
 import { transformProps } from "../../render/utils/keys-transform"
-import { isHTMLElement } from "../../utils/is-html-element"
 import { MotionValue } from "../../value"
 import { numberValueTypes } from "../../value/types/maps/number"
 import { getValueAsType } from "../../value/types/utils/get-as-type"
 import { MotionValueState, slotBase } from "../MotionValueState"
 import { createSelectorEffect } from "../utils/create-dom-effect"
 import { createEffect } from "../utils/create-effect"
-import { buildTransform, buildTransformOrigin } from "./transform"
+import {
+    buildTransform,
+    buildTransformOrigin,
+    renderTransform,
+    renderTransformOrigin,
+} from "./transform"
 
 export const originProps = new Set(["originX", "originY", "originZ"])
 
@@ -35,30 +39,15 @@ export function renderStyleValue(
  */
 export const addTransformSlot = (
     element: HTMLElement | SVGElement,
-    state: MotionValueState
+    state: MotionValueState,
+    isSVG?: boolean
 ) => {
     if (state.get("transform")) return
-
-    const isHTML = isHTMLElement(element)
-
-    // If this is an SVG element, we need to set the transform-box to fill-box
-    // to normalise the transform relative to the element's bounding box
-    if (!isHTML && !state.get("transformBox")) {
-        addStyleValue(element, state, "transformBox", new MotionValue("fill-box"))
-        state.scheduleRender("transformBox")
-    }
 
     state.set(
         "transform",
         new MotionValue("none"),
-        () => {
-            element.style.transform = state.build("transform") as string
-
-            // SVG transform-origin uses the element's median with fill-box
-            if (!isHTML && !state.get("transformOrigin")) {
-                element.style.transformOrigin = "50% 50%"
-            }
-        },
+        () => renderTransform(element, state, isSVG),
         undefined,
         false
     )
@@ -86,11 +75,7 @@ export const addStyleValue = (
             state.set(
                 "transformOrigin",
                 new MotionValue(""),
-                () => {
-                    element.style.transformOrigin = state.build(
-                        "transformOrigin"
-                    ) as string
-                },
+                () => renderTransformOrigin(element, state),
                 undefined,
                 false
             )

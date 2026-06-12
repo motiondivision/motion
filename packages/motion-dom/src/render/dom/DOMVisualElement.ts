@@ -64,7 +64,7 @@ export abstract class DOMVisualElement<
         ) {
             this.hasTransformTemplate = true
 
-            addTransformSlot(this.current, this.state)
+            addTransformSlot(this.current, this.state, this.type === "svg")
 
             const transformValues = {}
             this.state.contribute("transform", slotBase, ({ latest }) =>
