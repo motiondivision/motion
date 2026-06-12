@@ -66,14 +66,16 @@ export function hover(
 
         const onPointerUp = (event: Event) => {
             isPressed = false
-            window.removeEventListener(
-                "pointerup",
-                onPointerUp as EventListener
-            )
-            window.removeEventListener(
-                "pointercancel",
-                onPointerUp as EventListener
-            )
+            if (typeof window !== "undefined") {
+                window.removeEventListener(
+                    "pointerup",
+                    onPointerUp as EventListener
+                )
+                window.removeEventListener(
+                    "pointercancel",
+                    onPointerUp as EventListener
+                )
+            }
 
             if (deferredHoverEnd) {
                 deferredHoverEnd = false
@@ -83,16 +85,18 @@ export function hover(
 
         const onPointerDown = () => {
             isPressed = true
-            window.addEventListener(
-                "pointerup",
-                onPointerUp as EventListener,
-                eventOptions
-            )
-            window.addEventListener(
-                "pointercancel",
-                onPointerUp as EventListener,
-                eventOptions
-            )
+            if (typeof window !== "undefined") {
+                window.addEventListener(
+                    "pointerup",
+                    onPointerUp as EventListener,
+                    eventOptions
+                )
+                window.addEventListener(
+                    "pointercancel",
+                    onPointerUp as EventListener,
+                    eventOptions
+                )
+            }
         }
 
         const onPointerLeave = (leaveEvent: PointerEvent) => {

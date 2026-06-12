@@ -161,7 +161,7 @@ export interface LayoutUpdateData {
 export type LayoutUpdateHandler = (data: LayoutUpdateData) => void
 
 export interface ProjectionNodeConfig<I> {
-    defaultParent?: () => IProjectionNode
+    defaultParent?: () => IProjectionNode | undefined
     attachResizeListener?: (
         instance: I,
         notifyResize: VoidFunction

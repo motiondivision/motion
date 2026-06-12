@@ -25,11 +25,11 @@ declare class ViewTimeline implements ProgressTimeline {
 }
 
 export const supportsScrollTimeline = /* @__PURE__ */ memoSupports(
-    () => window.ScrollTimeline !== undefined,
+    () => typeof window !== "undefined" && window.ScrollTimeline !== undefined,
     "scrollTimeline"
 )
 
 export const supportsViewTimeline = /* @__PURE__ */ memoSupports(
-    () => window.ViewTimeline !== undefined,
+    () => typeof window !== "undefined" && window.ViewTimeline !== undefined,
     "viewTimeline"
 )
