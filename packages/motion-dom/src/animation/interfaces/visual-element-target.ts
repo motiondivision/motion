@@ -114,7 +114,7 @@ export function animateTarget(
          * to see if we're handling off from an existing animation.
          */
         let isHandoff = false
-        if (window.MotionHandoffAnimation) {
+        if (typeof window !== "undefined" && window.MotionHandoffAnimation) {
             const appearId = getOptimisedAppearId(visualElement)
 
             if (appearId) {

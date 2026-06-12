@@ -18,7 +18,9 @@ import { renderHTML } from "./utils/render"
 import { scrapeMotionValuesFromProps } from "./utils/scrape-motion-values"
 
 export function getComputedStyle(element: HTMLElement) {
-    return window.getComputedStyle(element)
+    return typeof window !== "undefined"
+        ? window.getComputedStyle(element)
+        : ({} as CSSStyleDeclaration)
 }
 
 export class HTMLVisualElement extends DOMVisualElement<
