@@ -28,6 +28,7 @@ export interface TimelineWithFallback {
     timeline?: ProgressTimeline
     rangeStart?: string
     rangeEnd?: string
+    fill?: string
     observe: (animation: AnimationPlaybackControls) => VoidFunction
 }
 
@@ -103,6 +104,15 @@ export interface AnimationPlaybackControls {
      * This is currently for internal use only.
      */
     attachTimeline: (timeline: TimelineWithFallback) => VoidFunction
+
+    /**
+     * Activates or deactivates the animation while it's driven by a scroll
+     * timeline range. When deactivated the animation's styles are removed so the
+     * CSS cascade can take over, mirroring native `animation-range` behaviour.
+     *
+     * This is currently for internal use only.
+     */
+    setActive?: (isActive: boolean) => void
 
     finished: Promise<any>
 }

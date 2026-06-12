@@ -6,6 +6,18 @@ export interface ScrollOptions {
     target?: Element
     axis?: "x" | "y"
     offset?: ScrollOffset
+    /**
+     * The scroll position at which the animation becomes active, mirroring the
+     * native WAAPI `rangeStart` (e.g. `"0%"`) or a `0`–`1` progress fraction.
+     */
+    rangeStart?: string | number
+    /**
+     * The scroll position at which the animation becomes inactive, mirroring the
+     * native WAAPI `rangeEnd` (e.g. `"20%"`) or a `0`–`1` progress fraction.
+     * Past this point the animation is removed so the CSS cascade (e.g. `:hover`)
+     * can take over, matching native `animation-range`.
+     */
+    rangeEnd?: string | number
 }
 
 export interface ScrollOptionsWithDefaults extends ScrollOptions {
