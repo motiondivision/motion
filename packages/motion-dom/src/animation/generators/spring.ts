@@ -215,6 +215,20 @@ function getSpringOptions(options: SpringOptions) {
         }
     }
 
+    /**
+     * Guard against non-positive or non-finite stiffness/mass. These divide
+     * and feed Math.sqrt() during resolution, so a 0 (or an explicit
+     * `undefined` that clobbers the default via the spread above) produces NaN
+     * spring values — which corrupt any animated value, e.g. an SVG polygon's
+     * points list. See https://github.com/motiondivision/motion/issues/2791
+     */
+    if (!(springOptions.stiffness > 0)) {
+        springOptions.stiffness = springDefaults.stiffness
+    }
+    if (!(springOptions.mass > 0)) {
+        springOptions.mass = springDefaults.mass
+    }
+
     return springOptions
 }
 
