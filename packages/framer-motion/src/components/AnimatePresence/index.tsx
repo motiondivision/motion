@@ -123,20 +123,43 @@ export const AnimatePresence = ({
     const exitingChildren: any[] = []
 
     if (presentChildren !== diffedChildren) {
-        let nextChildren = [...presentChildren]
-
         /**
-         * Loop through all the currently rendered components and decide which
-         * are exiting.
+         * Reinsert each exiting child immediately after the child it followed
+         * in the previous render (or at the start if it had no present sibling
+         * before it). Splicing at the child's old absolute index, as we used
+         * to, could shift a still-present child to a new position. React treats
+         * a repositioned key as a move and—particularly in StrictMode—remounts
+         * it, replaying its enter animation instead of animating the change
+         * (#3746).
          */
+        let nextChildren = [...presentChildren]
+        const trailingExits = new Map<ComponentKey | null, any[]>()
+        let prevPresentKey: ComponentKey | null = null
+
         for (let i = 0; i < renderedChildren.length; i++) {
             const child = renderedChildren[i]
             const key = getChildKey(child)
 
-            if (!presentKeys.includes(key)) {
-                nextChildren.splice(i, 0, child)
+            if (presentKeys.includes(key)) {
+                prevPresentKey = key
+            } else {
                 exitingChildren.push(child)
+                const exits = trailingExits.get(prevPresentKey) ?? []
+                exits.push(child)
+                trailingExits.set(prevPresentKey, exits)
             }
+        }
+
+        if (exitingChildren.length) {
+            // `null` holds exiting children that had no present sibling before
+            // them, so they lead the list.
+            const merged: any[] = [...(trailingExits.get(null) ?? [])]
+            for (const child of nextChildren) {
+                merged.push(child)
+                const exits = trailingExits.get(getChildKey(child))
+                if (exits) merged.push(...exits)
+            }
+            nextChildren = merged
         }
 
         /**
