@@ -1422,4 +1422,22 @@ describe("JSAnimation", () => {
         expect(animation.sample(1000).value).toBe("90%")
         expect(animation.sample(1999).value).toBe("90%")
     })
+
+    // https://github.com/motiondivision/motion/issues/2791
+    test("Spring over SVG polygon points never produces NaN", () => {
+        // An invalid spring physics value (here an explicit `undefined`
+        // stiffness, as forwarded from an optional prop) previously emitted
+        // NaN progress, which the complex-value mixer turned into an invalid
+        // "NaN,NaN NaN,NaN" point list written to the <polygon> element.
+        const animation = animateValue({
+            keyframes: ["150,5 75,200 225,200", "150,5 50,180 250,180"],
+            type: "spring",
+            stiffness: undefined,
+            autoplay: false,
+        })
+
+        for (let t = 0; t <= 2000; t += 50) {
+            expect(animation.sample(t).value).not.toContain("NaN")
+        }
+    })
 })
