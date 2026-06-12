@@ -25,6 +25,9 @@ export function createEffect<Subject extends object>(
             const value = values[key]
             const remove = addValue(subject, state, key, value)
             subscriptions.push(remove)
+
+            // Render the initial value
+            state.scheduleRender(key)
         }
 
         return () => {

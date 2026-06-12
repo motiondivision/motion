@@ -1,13 +1,61 @@
 import { isCSSVar } from "../../render/dom/is-css-var"
 import { transformProps } from "../../render/utils/keys-transform"
-import { isHTMLElement } from "../../utils/is-html-element"
 import { MotionValue } from "../../value"
-import { MotionValueState } from "../MotionValueState"
+import { numberValueTypes } from "../../value/types/maps/number"
+import { getValueAsType } from "../../value/types/utils/get-as-type"
+import { MotionValueState, slotBase } from "../MotionValueState"
 import { createSelectorEffect } from "../utils/create-dom-effect"
 import { createEffect } from "../utils/create-effect"
-import { buildTransform } from "./transform"
+import {
+    buildTransform,
+    buildTransformOrigin,
+    renderTransform,
+    renderTransformOrigin,
+} from "./transform"
 
-const originProps = new Set(["originX", "originY", "originZ"])
+export const originProps = new Set(["originX", "originY", "originZ"])
+
+/**
+ * Render a single non-composed style value from state.latest.
+ */
+export function renderStyleValue(
+    element: HTMLElement | SVGElement,
+    key: string,
+    state: MotionValueState
+) {
+    if (isCSSVar(key)) {
+        element.style.setProperty(key, state.latest[key] as string)
+    } else {
+        element.style[key as any] = getValueAsType(
+            state.latest[key],
+            numberValueTypes[key]
+        ) as string
+    }
+}
+
+/**
+ * Create the composed `transform` slot for an element, if one
+ * doesn't already exist.
+ */
+export const addTransformSlot = (
+    element: HTMLElement | SVGElement,
+    state: MotionValueState,
+    isSVG?: boolean
+) => {
+    if (state.get("transform")) return
+
+    state.set(
+        "transform",
+        new MotionValue("none"),
+        () => renderTransform(element, state, isSVG),
+        undefined,
+        false
+    )
+
+    state.contribute("transform", slotBase, ({ latest }) =>
+        buildTransform(latest)
+    )
+}
 
 export const addStyleValue = (
     element: HTMLElement | SVGElement,
@@ -19,43 +67,27 @@ export const addStyleValue = (
     let computed: MotionValue | undefined = undefined
 
     if (transformProps.has(key)) {
-        if (!state.get("transform")) {
-            // If this is an HTML element, we need to set the transform-box to fill-box
-            // to normalise the transform relative to the element's bounding box
-            if (!isHTMLElement(element) && !state.get("transformBox")) {
-                addStyleValue(
-                    element,
-                    state,
-                    "transformBox",
-                    new MotionValue("fill-box")
-                )
-            }
-
-            state.set("transform", new MotionValue("none"), () => {
-                element.style.transform = buildTransform(state)
-            })
-        }
+        addTransformSlot(element, state)
 
         computed = state.get("transform")
     } else if (originProps.has(key)) {
         if (!state.get("transformOrigin")) {
-            state.set("transformOrigin", new MotionValue(""), () => {
-                const originX = state.latest.originX ?? "50%"
-                const originY = state.latest.originY ?? "50%"
-                const originZ = state.latest.originZ ?? 0
-                element.style.transformOrigin = `${originX} ${originY} ${originZ}`
-            })
+            state.set(
+                "transformOrigin",
+                new MotionValue(""),
+                () => renderTransformOrigin(element, state),
+                undefined,
+                false
+            )
+
+            state.contribute("transformOrigin", slotBase, ({ latest }) =>
+                buildTransformOrigin(latest)
+            )
         }
 
         computed = state.get("transformOrigin")
-    } else if (isCSSVar(key)) {
-        render = () => {
-            element.style.setProperty(key, state.latest[key] as string)
-        }
     } else {
-        render = () => {
-            element.style[key as any] = state.latest[key] as string
-        }
+        render = () => renderStyleValue(element, key, state)
     }
 
     return state.set(key, value, render, computed)
