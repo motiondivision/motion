@@ -69,6 +69,18 @@ async function fireScroll(distance: number = 0) {
     return nextFrame()
 }
 
+/**
+ * Advance the frame loop without dispatching a `scroll` event. This emulates a
+ * frame painted during native smooth scrolling where the compositor has moved
+ * the scroll position but the matching `scroll` event hasn't been delivered to
+ * JS yet.
+ */
+async function nextFrameWithoutScrollEvent() {
+    return new Promise<void>((resolve) => {
+        frame.postRender(() => resolve())
+    })
+}
+
 describe("scrollInfo", () => {
     test("Fires onScroll on creation.", async () => {
         const onScroll = jest.fn()
@@ -84,6 +96,38 @@ describe("scrollInfo", () => {
                 resolve()
             })
         })
+    })
+
+    test("Keeps scroll progress in sync on the frame loop without a scroll event (#2716).", async () => {
+        let latest: ScrollInfo
+
+        const stopScroll = scrollInfo((info) => {
+            latest = info
+        })
+
+        setWindowHeight(1000)
+        setDocumentHeight(3000)
+
+        // Establish a baseline via a regular scroll event.
+        await fireScroll(0)
+        expect(latest!.y.current).toEqual(0)
+
+        // Let the frame loop settle so any pending measure has run.
+        await nextFrameWithoutScrollEvent()
+        await nextFrameWithoutScrollEvent()
+
+        // Native smooth scrolling (e.g. mouse wheel) advances the scroll
+        // position on the compositor, but the matching `scroll` event can be
+        // coalesced or delivered a frame late. Motion must still pick up the new
+        // position on the frame loop, otherwise the frame renders with a stale
+        // progress — the jumpy scrolling reported in #2716.
+        setScrollTop(500)
+        await nextFrameWithoutScrollEvent()
+
+        expect(latest!.y.current).toEqual(500)
+        expect(latest!.y.progress).toEqual(0.25)
+
+        stopScroll()
     })
 
     test("Fires onScroll on scroll.", async () => {

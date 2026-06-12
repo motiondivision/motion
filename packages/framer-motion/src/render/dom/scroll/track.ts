@@ -9,6 +9,13 @@ const resizeListeners = new WeakMap<Element, VoidFunction>()
 const onScrollHandlers = new WeakMap<Element, Set<OnScrollHandler>>()
 const scrollSize = new WeakMap<Element, { width: number; height: number }>()
 const dimensionCheckProcesses = new WeakMap<Element, Process>()
+const measureProcesses = new WeakMap<Element, Process>()
+
+/**
+ * Number of frames to keep reading the scroll position after it last changed
+ * before stopping, allowing the frameloop to sleep once scrolling settles.
+ */
+const maxSettleFrames = 10
 
 export type ScrollTargets = Array<HTMLElement>
 
@@ -67,9 +74,41 @@ export function scrollInfo(
             }
         }
 
-        const listener = () => frame.read(measureAll)
+        /**
+         * Read the scroll position on every frame while the container is
+         * scrolling, rather than only when a `scroll` event fires. Native smooth
+         * scrolling (mouse wheel, trackpad momentum) advances the scroll offset
+         * on the compositor and can deliver `scroll` events coalesced or a frame
+         * late, so measuring purely on the event leaves some frames rendering a
+         * stale scroll progress — the "jumpy" scrolling reported in #2716. Once
+         * the position stops changing the loop is cancelled so the frameloop can
+         * sleep again.
+         */
+        let settleFrames = 0
+        let prevTop = -1
+        let prevLeft = -1
+        const measureLoop = () => {
+            const top = container.scrollTop
+            const left = container.scrollLeft
+
+            if (top !== prevTop || left !== prevLeft) {
+                settleFrames = 0
+                prevTop = top
+                prevLeft = left
+            }
+
+            measureAll()
+
+            if (++settleFrames > maxSettleFrames) cancelFrame(measureLoop)
+        }
+
+        const listener = () => {
+            settleFrames = 0
+            frame.read(measureLoop, true)
+        }
 
         scrollListeners.set(container, listener)
+        measureProcesses.set(container, measureLoop)
 
         const target = getEventTarget(container)
         window.addEventListener("resize", listener)
@@ -141,6 +180,13 @@ export function scrollInfo(
             )
             resizeListeners.get(container)?.()
             window.removeEventListener("resize", scrollListener)
+        }
+
+        // Stop the per-frame scroll measurement loop
+        const measureProcess = measureProcesses.get(container)
+        if (measureProcess) {
+            cancelFrame(measureProcess)
+            measureProcesses.delete(container)
         }
 
         // Clean up scroll dimension checking
