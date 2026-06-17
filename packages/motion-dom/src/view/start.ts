@@ -6,8 +6,13 @@ import { AnimationPlaybackControls } from "../animation/types"
 import { getValueTransition } from "../animation/utils/get-value-transition"
 import { mapEasingToNativeEasing } from "../animation/waapi/easing/map-easing"
 import { applyGeneratorOptions } from "../animation/waapi/utils/apply-generator"
+import { ElementOrSelector } from "../utils/resolve-elements"
 import type { ViewTransitionBuilder } from "./index"
 import { ViewTransitionTarget } from "./types"
+import {
+    assignViewTransitionNames,
+    releaseViewTransitionNames,
+} from "./utils/assign-names"
 import { chooseLayerType } from "./utils/choose-layer-type"
 import { css } from "./utils/css"
 import { getViewAnimationLayerInfo } from "./utils/get-layer-info"
@@ -19,7 +24,8 @@ const definitionNames = ["layout", "enter", "exit", "new", "old"] as const
 export function startViewAnimation(
     builder: ViewTransitionBuilder
 ): Promise<GroupAnimation> {
-    const { update, targets, options: defaultOptions } = builder
+    const { update, targets, resolveDefs, scope, options: defaultOptions } =
+        builder
 
     if (!document.startViewTransition) {
         return new Promise(async (resolve) => {
@@ -28,13 +34,45 @@ export function startViewAnimation(
         })
     }
 
-    // TODO: Go over existing targets and ensure they all have ids
+    /**
+     * Resolve any selector/Element targets to layer names, assigning a
+     * `view-transition-name` to each element as we go. We run this before the
+     * update (so the elements are captured in the old snapshot) and again
+     * after it (for the new snapshot). An element present in both keeps the
+     * same name and animates as a single `group` layer.
+     */
+    const nameRegistry = new Map<Element, string>()
+    const assigned: Element[] = []
+    const layerTargets = new Map<string, ViewTransitionTarget>()
+
+    const resolveLayers = () => {
+        targets.forEach((target, definition) => {
+            if (definition !== "root" && resolveDefs.has(definition)) {
+                for (const name of assignViewTransitionNames(
+                    definition as ElementOrSelector,
+                    nameRegistry,
+                    assigned,
+                    scope
+                )) {
+                    layerTargets.set(name, target)
+                }
+            } else {
+                layerTargets.set(definition as string, target)
+            }
+        })
+    }
+
+    resolveLayers()
+
+    const elementScoped =
+        scope && typeof (scope as any).startViewTransition === "function"
 
     /**
      * If we don't have any animations defined for the root target,
-     * remove it from being captured.
+     * remove it from being captured. Not needed when the transition is
+     * scoped to an element.
      */
-    if (!hasTarget("root", targets)) {
+    if (!elementScoped && !hasTarget("root", targets)) {
         css.set(":root", {
             "view-transition-name": "none",
         })
@@ -54,13 +92,22 @@ export function startViewAnimation(
 
     css.commit() // Write
 
-    const transition = document.startViewTransition(async () => {
+    const callback = async () => {
         await update()
 
-        // TODO: Go over new targets and ensure they all have ids
-    })
+        /**
+         * Re-resolve so elements created by the update are named for the
+         * new snapshot.
+         */
+        resolveLayers()
+    }
+
+    const transition = elementScoped
+        ? (scope as any).startViewTransition(callback)
+        : document.startViewTransition(callback)
 
     transition.finished.finally(() => {
+        releaseViewTransitionNames(assigned)
         css.remove() // Write
     })
 
@@ -73,9 +120,7 @@ export function startViewAnimation(
             /**
              * Create animations for each of our explicitly-defined subjects.
              */
-            targets.forEach((definition, target) => {
-                // TODO: If target is not "root", resolve elements
-                // and iterate over each
+            layerTargets.forEach((definition, target) => {
                 for (const key of definitionNames) {
                     if (!definition[key]) continue
                     const { keyframes, options } =
@@ -153,7 +198,7 @@ export function startViewAnimation(
                 const name = getViewAnimationLayerInfo(pseudoElement)
                 if (!name) continue
 
-                const targetDefinition = targets.get(name.layer)
+                const targetDefinition = layerTargets.get(name.layer)
 
                 if (!targetDefinition) {
                     /**

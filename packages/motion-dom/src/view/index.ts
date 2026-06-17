@@ -14,6 +14,18 @@ export class ViewTransitionBuilder {
 
     targets = new Map<ViewTransitionTargetDefinition, ViewTransitionTarget>()
 
+    /**
+     * Definitions that must be resolved to elements (and assigned a
+     * `view-transition-name`) rather than treated as pre-named layers.
+     */
+    resolveDefs = new Set<ViewTransitionTargetDefinition>()
+
+    /**
+     * When set, the transition is scoped to this element (via
+     * `element.startViewTransition`) and selectors resolve within it.
+     */
+    scope?: Element
+
     update: () => void | Promise<void>
 
     options: ViewTransitionOptions
@@ -26,9 +38,11 @@ export class ViewTransitionBuilder {
 
     constructor(
         update: () => void | Promise<void>,
-        options: ViewTransitionOptions = {}
+        options: ViewTransitionOptions = {},
+        scope?: Element
     ) {
         this.update = update
+        this.scope = scope
         this.options = {
             interrupt: "wait",
             ...options,
@@ -38,6 +52,28 @@ export class ViewTransitionBuilder {
 
     get(subject: ViewTransitionTargetDefinition) {
         this.currentSubject = subject
+        if (subject instanceof Element) this.resolveDefs.add(subject)
+
+        return this
+    }
+
+    /**
+     * Target elements resolved from a selector or Element. Each resolved
+     * element is assigned a `view-transition-name` automatically.
+     */
+    add(subject: ViewTransitionTargetDefinition) {
+        this.currentSubject = subject
+        this.resolveDefs.add(subject)
+
+        return this
+    }
+
+    /**
+     * Target a layer by its existing `view-transition-name`.
+     */
+    addName(name: string) {
+        this.currentSubject = name
+        this.resolveDefs.delete(name)
 
         return this
     }
@@ -102,7 +138,19 @@ export class ViewTransitionBuilder {
 
 export function animateView(
     update: () => void | Promise<void>,
-    defaultOptions: ViewTransitionOptions = {}
+    options?: ViewTransitionOptions
+): ViewTransitionBuilder
+export function animateView(
+    scope: Element,
+    update: () => void | Promise<void>,
+    options?: ViewTransitionOptions
+): ViewTransitionBuilder
+export function animateView(
+    a: Element | (() => void | Promise<void>),
+    b?: ViewTransitionOptions | (() => void | Promise<void>),
+    c: ViewTransitionOptions = {}
 ) {
-    return new ViewTransitionBuilder(update, defaultOptions)
+    return a instanceof Element
+        ? new ViewTransitionBuilder(b as () => void | Promise<void>, c, a)
+        : new ViewTransitionBuilder(a, (b as ViewTransitionOptions) ?? {})
 }
