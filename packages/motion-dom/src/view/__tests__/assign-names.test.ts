@@ -76,25 +76,30 @@ describe("assignViewTransitionNames", () => {
         spy.mockRestore()
     })
 
-    test("overrides `auto`, whose generated name is not exposed to script", () => {
-        const el = document.createElement("div")
-        document.body.appendChild(el)
+    // `auto`/`match-element` generate a name the browser keeps internal, so we
+    // can't target it - they must be overridden with a name we control.
+    test.each(["auto", "match-element"])(
+        "overrides `%s`, whose generated name is not exposed to script",
+        (keyword) => {
+            const el = document.createElement("div")
+            document.body.appendChild(el)
 
-        const spy = jest
-            .spyOn(window, "getComputedStyle")
-            .mockReturnValue({
-                getPropertyValue: () => "auto",
-            } as unknown as CSSStyleDeclaration)
+            const spy = jest
+                .spyOn(window, "getComputedStyle")
+                .mockReturnValue({
+                    getPropertyValue: () => keyword,
+                } as unknown as CSSStyleDeclaration)
 
-        const registry = new Map<Element, string>()
-        const assigned: Element[] = []
-        const [name] = assignViewTransitionNames(el, registry, assigned)
+            const registry = new Map<Element, string>()
+            const assigned: Element[] = []
+            const [name] = assignViewTransitionNames(el, registry, assigned)
 
-        expect(name).toMatch(/^motion-view-\d+$/u)
-        expect(assigned).toHaveLength(1)
+            expect(name).toMatch(/^motion-view-\d+$/u)
+            expect(assigned).toHaveLength(1)
 
-        spy.mockRestore()
-    })
+            spy.mockRestore()
+        }
+    )
 
     test("release removes every generated name", () => {
         const el = document.createElement("div")
@@ -125,12 +130,16 @@ describe("animateView fallback (no startViewTransition)", () => {
         document.body.appendChild(el)
 
         const update = jest.fn()
-        await animateView(() => {
+        // Awaiting the builder only resolves if the queue routes the resolved
+        // GroupAnimation back to notifyReady, so this also covers `.then()`
+        // settling in the fallback path.
+        const result = await animateView(() => {
             update()
         })
             .add(el)
             .enter({ opacity: 1 })
 
         expect(update).toHaveBeenCalledTimes(1)
+        expect(result).toBeDefined()
     })
 })

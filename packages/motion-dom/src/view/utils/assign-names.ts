@@ -35,10 +35,16 @@ export function assignViewTransitionNames(
         )
 
         let name: string
-        if (current && current !== "none" && current !== "auto") {
+        if (
+            current &&
+            current !== "none" &&
+            current !== "auto" &&
+            current !== "match-element"
+        ) {
             /**
              * The author already named this layer - target it as-is and leave
-             * it to them to clean up.
+             * it to them to clean up. `auto`/`match-element` are overridden
+             * because their generated name is not exposed to script.
              */
             name = current
         } else {
