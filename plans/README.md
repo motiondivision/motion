@@ -34,7 +34,7 @@ The 2026-06-10 runs were non-interactive, so plans were written for the top find
 | 003 | Enable WAAPI acceleration for color properties | P2 | M | — | TODO |
 | 002 | Finish `animateView()` non-root target resolution | P2 | M | — | TODO |
 | 004 | Design spike: WAAPI for transform shorthands (doc only) | P2 | M | — | TODO |
-| 010 | Remove dead root devDependencies | P3 | S | 007 (soft) | TODO |
+| 010 | Remove dead root devDependencies | P3 | S | 007 (soft) | DONE (lint-staged + zlib removed; @types/styled-components kept — see plan) |
 | 011 | Stop `useCombineMotionValues` per-render transformer re-execution + resubscription | P2 | M | — | TODO |
 | 012 | Design spike: unified mark-dirty/pull MotionValue derivation graph (doc only) | P2 | M | — (soft: effects/VE unification direction) | TODO |
 | 015 | Fix conditional hook call in Reorder.Item | P2 | S | — | TODO |
