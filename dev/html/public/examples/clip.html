@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <title>animateView() — circular clip-path enter / leave</title>
+        <style>
+            * {
+                box-sizing: border-box;
+            }
+            body {
+                margin: 0;
+                min-height: 100vh;
+                background: #0e0e10;
+                color: #fff;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+                    sans-serif;
+                padding: 40px;
+            }
+            .bar {
+                display: flex;
+                align-items: center;
+                gap: 16px;
+                flex-wrap: wrap;
+                margin-bottom: 28px;
+            }
+            h1 {
+                font-size: 18px;
+                margin: 0 12px 0 0;
+            }
+            button {
+                border: 1px solid #2e2e34;
+                background: #1a1a1f;
+                color: #fff;
+                border-radius: 8px;
+                padding: 9px 16px;
+                font-weight: 600;
+                cursor: pointer;
+            }
+            button:hover {
+                background: #26262d;
+            }
+            label {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                font-size: 13px;
+                color: #9a9aa2;
+            }
+            input[type="range"] {
+                accent-color: #6d5efc;
+            }
+            .grid {
+                display: grid;
+                grid-template-columns: repeat(4, 130px);
+                gap: 18px;
+            }
+            .tile {
+                aspect-ratio: 1;
+                border-radius: 16px;
+                background: var(--c);
+            }
+        </style>
+    </head>
+    <body>
+        <div class="bar">
+            <h1>Reveal / hide</h1>
+            <button id="reveal">Reveal</button>
+            <button id="hide">Hide</button>
+            <label>
+                Reveal with
+                <select id="mode">
+                    <option value="circle" selected>circle clip-path</option>
+                    <option value="opacity">opacity</option>
+                </select>
+            </label>
+            <label>
+                Stagger
+                <input
+                    id="stagger"
+                    type="range"
+                    min="0"
+                    max="0.12"
+                    step="0.01"
+                    value="0.05"
+                />
+            </label>
+        </div>
+
+        <div class="grid" id="grid"></div>
+
+        <script type="module" src="/src/imports/view.js"></script>
+        <script type="module">
+            const { animateView, spring, stagger } = window.MotionDOM
+
+            const COLORS = [
+                "linear-gradient(135deg,#ff512f,#dd2476)",
+                "linear-gradient(135deg,#2193b0,#6dd5ed)",
+                "linear-gradient(135deg,#8e2de2,#4a00e0)",
+                "linear-gradient(135deg,#f7971e,#ffd200)",
+                "linear-gradient(135deg,#00b09b,#96c93d)",
+                "linear-gradient(135deg,#e96443,#904e95)",
+                "linear-gradient(135deg,#11998e,#38ef7d)",
+                "linear-gradient(135deg,#fc466b,#3f5efb)",
+            ]
+            const grid = document.getElementById("grid")
+            const modeEl = document.getElementById("mode")
+            const staggerEl = document.getElementById("stagger")
+            let shown = true
+
+            const render = () =>
+                (grid.innerHTML = COLORS.map(
+                    (c) => `<div class="tile" style="--c:${c}"></div>`
+                ).join(""))
+            render()
+
+            // The whole point: swap the enter/exit keyframes and the layers
+            // iris in/out with a circle instead of fading.
+            const keyframes = (dir) => {
+                if (modeEl.value === "opacity") {
+                    return dir === "in" ? { opacity: [0, 1] } : { opacity: 0 }
+                }
+                const open = "circle(75% at 50% 50%)"
+                const closed = "circle(0% at 50% 50%)"
+                return {
+                    clipPath: dir === "in" ? [closed, open] : [open, closed],
+                }
+            }
+            const opts = () => ({
+                type: spring,
+                visualDuration: 0.6,
+                bounce: 0,
+                delay: stagger(parseFloat(staggerEl.value)),
+            })
+
+            document.getElementById("reveal").addEventListener("click", () => {
+                if (shown) return
+                shown = true
+                animateView(render).add(".tile").enter(keyframes("in"), opts())
+            })
+
+            document.getElementById("hide").addEventListener("click", () => {
+                if (!shown) return
+                shown = false
+                animateView(() => (grid.innerHTML = ""))
+                    .add(".tile")
+                    .exit(keyframes("out"), opts())
+            })
+        </script>
+    </body>
+</html>
