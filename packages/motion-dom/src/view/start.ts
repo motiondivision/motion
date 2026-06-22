@@ -44,20 +44,33 @@ export function startViewAnimation(
     const nameRegistry = new Map<Element, string>()
     const assigned: Element[] = []
     const layerTargets = new Map<string, ViewTransitionTarget>()
+    /**
+     * The ordered layer names belonging to each subject, so stagger/delay
+     * functions can resolve per-element across a resolved selector.
+     */
+    const subjectNames = new Map<ViewTransitionTarget, string[]>()
 
     const resolveLayers = () => {
         targets.forEach((target, definition) => {
-            if (definition !== "root" && resolveDefs.has(definition)) {
-                for (const name of assignViewTransitionNames(
-                    definition as ElementOrSelector,
-                    nameRegistry,
-                    assigned,
-                    scope
-                )) {
-                    layerTargets.set(name, target)
-                }
-            } else {
-                layerTargets.set(definition as string, target)
+            const names =
+                definition !== "root" && resolveDefs.has(definition)
+                    ? assignViewTransitionNames(
+                          definition as ElementOrSelector,
+                          nameRegistry,
+                          assigned,
+                          scope
+                      )
+                    : [definition as string]
+
+            let layerNames = subjectNames.get(target)
+            if (!layerNames) {
+                layerNames = []
+                subjectNames.set(target, layerNames)
+            }
+
+            for (const name of names) {
+                layerTargets.set(name, target)
+                if (!layerNames.includes(name)) layerNames.push(name)
             }
         })
     }
@@ -121,6 +134,10 @@ export function startViewAnimation(
              * Create animations for each of our explicitly-defined subjects.
              */
             layerTargets.forEach((definition, target) => {
+                const layerNames = subjectNames.get(definition)
+                const index = layerNames ? layerNames.indexOf(target) : 0
+                const total = layerNames ? layerNames.length : 1
+
                 for (const key of definitionNames) {
                     if (!definition[key]) continue
                     const { keyframes, options } =
@@ -156,10 +173,11 @@ export function startViewAnimation(
                         }
 
                         /**
-                         * Resolve stagger function if provided.
+                         * Resolve stagger function if provided, per element
+                         * across this subject's resolved layers.
                          */
                         if (typeof valueOptions.delay === "function") {
-                            valueOptions.delay = valueOptions.delay(0, 1)
+                            valueOptions.delay = valueOptions.delay(index, total)
                         }
 
                         valueOptions.duration &&= secondsToMilliseconds(
@@ -200,49 +218,69 @@ export function startViewAnimation(
 
                 const targetDefinition = layerTargets.get(name.layer)
 
-                if (!targetDefinition) {
-                    /**
-                     * If transition name is group then update the timing of the animation
-                     * whereas if it's old or new then we could possibly replace it using
-                     * the above method.
-                     */
-                    const transitionName = name.type === "group" ? "layout" : ""
-                    let animationTransition = {
-                        ...getValueTransition(defaultOptions, transitionName),
-                    }
-
-                    animationTransition.duration &&= secondsToMilliseconds(
-                        animationTransition.duration
-                    )
-
-                    animationTransition =
-                        applyGeneratorOptions(animationTransition)
-
-                    const easing = mapEasingToNativeEasing(
-                        animationTransition.ease,
-                        animationTransition.duration!
-                    ) as string
-
-                    effect.updateTiming({
-                        delay: secondsToMilliseconds(
-                            animationTransition.delay ?? 0
-                        ),
-                        duration: animationTransition.duration,
-                        easing,
-                    })
-
-                    animations.push(new NativeAnimationWrapper(animation))
-                } else if (
+                /**
+                 * Keep the browser's opacity crossfade (which relies on
+                 * mix-blend-mode) when both enter and exit opacity are defined.
+                 */
+                const isCrossfade =
+                    targetDefinition &&
                     hasOpacity(targetDefinition, "enter") &&
                     hasOpacity(targetDefinition, "exit") &&
                     effect
                         .getKeyframes()
                         .some((keyframe) => keyframe.mixBlendMode)
+
+                /**
+                 * If we've built an explicit animation for this layer, drop the
+                 * browser-generated one.
+                 */
+                if (
+                    !isCrossfade &&
+                    targetDefinition &&
+                    hasExplicitKeyframes(targetDefinition, name.type)
                 ) {
-                    animations.push(new NativeAnimationWrapper(animation))
-                } else {
                     animation.cancel()
+                    continue
                 }
+
+                if (isCrossfade) {
+                    animations.push(new NativeAnimationWrapper(animation))
+                    continue
+                }
+
+                /**
+                 * Otherwise retime the browser-generated animation to Motion's
+                 * timing. This auto-enables the layout (group) morph for any
+                 * resolved/named target, and applies the default timing to
+                 * old/new layers we haven't explicitly overridden.
+                 */
+                const transitionName = name.type === "group" ? "layout" : ""
+                let animationTransition = {
+                    ...getValueTransition(defaultOptions, transitionName),
+                    ...getValueTransition(
+                        (layerOptions(targetDefinition, name.type) ?? {}) as any,
+                        transitionName
+                    ),
+                }
+
+                animationTransition.duration &&= secondsToMilliseconds(
+                    animationTransition.duration
+                )
+
+                animationTransition = applyGeneratorOptions(animationTransition)
+
+                const easing = mapEasingToNativeEasing(
+                    animationTransition.ease,
+                    animationTransition.duration!
+                ) as string
+
+                effect.updateTiming({
+                    delay: secondsToMilliseconds(animationTransition.delay ?? 0),
+                    duration: animationTransition.duration,
+                    easing,
+                })
+
+                animations.push(new NativeAnimationWrapper(animation))
             }
 
             resolve(new GroupAnimation(animations))
@@ -255,4 +293,41 @@ function hasOpacity(
     key: "enter" | "exit" | "layout"
 ) {
     return target?.[key]?.keyframes.opacity
+}
+
+/**
+ * Whether the user defined explicit keyframes for a given generated layer
+ * type, in which case we replace the browser's animation with our own.
+ */
+function hasExplicitKeyframes(target: ViewTransitionTarget, type: string) {
+    const buckets: ReadonlyArray<keyof ViewTransitionTarget> =
+        type === "group"
+            ? ["layout"]
+            : type === "new"
+              ? ["enter", "new"]
+              : type === "old"
+                ? ["exit", "old"]
+                : []
+
+    return buckets.some((bucket) => {
+        const keyframes = target[bucket]?.keyframes
+        return keyframes != null && Object.keys(keyframes).length > 0
+    })
+}
+
+/**
+ * The options that should time a given generated layer type, so a retimed
+ * group/old/new picks up any per-target transition the user provided.
+ */
+function layerOptions(target: ViewTransitionTarget | undefined, type: string) {
+    const bucket =
+        type === "group"
+            ? target?.layout
+            : type === "new"
+              ? (target?.enter ?? target?.new)
+              : type === "old"
+                ? (target?.exit ?? target?.old)
+                : undefined
+
+    return bucket?.options
 }

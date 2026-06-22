@@ -64,6 +64,9 @@ export class ViewTransitionBuilder {
     add(subject: ViewTransitionTargetDefinition) {
         this.currentSubject = subject
         this.resolveDefs.add(subject)
+        // Register the subject so it participates (and gets an automatic
+        // layout/morph animation) even without an explicit enter/exit/layout.
+        if (!this.targets.has(subject)) this.targets.set(subject, {})
 
         return this
     }
@@ -74,6 +77,7 @@ export class ViewTransitionBuilder {
     addName(name: string) {
         this.currentSubject = name
         this.resolveDefs.delete(name)
+        if (!this.targets.has(name)) this.targets.set(name, {})
 
         return this
     }

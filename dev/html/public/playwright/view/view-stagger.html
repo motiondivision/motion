@@ -1,0 +1,67 @@
+<!doctype html>
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+                display: flex;
+                gap: 20px;
+            }
+            .item {
+                width: 120px;
+                height: 120px;
+                background: red;
+            }
+            .item.shown {
+                background: blue;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="item">1</div>
+        <div class="item">2</div>
+        <div class="item">3</div>
+
+        <script type="module" src="/src/imports/view.js"></script>
+        <script type="module">
+            const { animateView, stagger } = window.MotionDOM
+
+            window.__view = {
+                ready: false,
+                supported: !!document.startViewTransition,
+                delays: [],
+                error: null,
+            }
+
+            animateView(() => {
+                document
+                    .querySelectorAll(".item")
+                    .forEach((el) => el.classList.add("shown"))
+            })
+                .add(".item")
+                .enter(
+                    { opacity: [0, 1] },
+                    { delay: stagger(0.15), duration: 2, ease: "linear" }
+                )
+                .then(
+                    () => {
+                        window.__view.delays = document
+                            .getAnimations()
+                            .filter((a) =>
+                                /::view-transition-new\(motion-view-\d+\)/.test(
+                                    (a.effect && a.effect.pseudoElement) || ""
+                                )
+                            )
+                            .map((a) =>
+                                Math.round(a.effect.getComputedTiming().delay)
+                            )
+                        window.__view.ready = true
+                    },
+                    (e) => {
+                        window.__view.error = String(e)
+                        window.__view.ready = true
+                    }
+                )
+        </script>
+    </body>
+</html>
