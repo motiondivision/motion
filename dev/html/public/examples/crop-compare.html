@@ -2,7 +2,7 @@
 <html lang="en">
     <head>
         <meta charset="UTF-8" />
-        <title>animateView() — .crop() cover vs contain</title>
+        <title>animateView() — default crop vs .crop(false)</title>
         <style>
             * {
                 box-sizing: border-box;
@@ -65,12 +65,12 @@
         <button id="play">▶ Play morph</button>
         <div class="row">
             <figure>
-                <div class="thumb" id="cover"></div>
-                <figcaption>.crop() — cover</figcaption>
+                <div class="thumb" id="cropped"></div>
+                <figcaption>default (cropped)</figcaption>
             </figure>
             <figure>
-                <div class="thumb" id="contain"></div>
-                <figcaption>.crop("contain")</figcaption>
+                <div class="thumb" id="raw"></div>
+                <figcaption>.crop(false)</figcaption>
             </figure>
         </div>
 
@@ -78,9 +78,9 @@
         <script type="module">
             const { animateView } = window.MotionDOM
 
-            // A square image with an edge frame + centred ring, so "cover"
-            // (crops the frame top/bottom) reads differently from "contain"
-            // (keeps the whole frame, letterboxed on the sides).
+            // A square image with an edge frame + centred ring, so the cropped
+            // version (fills the box cleanly) reads differently from the raw
+            // one (the old square snapshot overflows the widening box).
             const art = () => {
                 const svg =
                     "<svg xmlns='http://www.w3.org/2000/svg' width='400' height='400'>" +
@@ -107,10 +107,9 @@
                             .forEach((t) => t.classList.toggle("wide", wide)),
                     { duration: 4, ease: "linear" }
                 )
-                    .add("#cover")
-                    .crop() // cover (default): fill + crop
-                    .add("#contain")
-                    .crop("contain") // fit + letterbox
+                    .add("#cropped") // cropped by default: fill + clip
+                    .add("#raw")
+                    .crop(false) // opt out -> the browser default (overflows)
             })
         </script>
     </body>

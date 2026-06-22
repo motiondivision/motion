@@ -334,12 +334,10 @@
                 }, opts)
                     // Root crossfade dims the page / fades the backdrop in.
                     .layout({})
-                    // Card → modal panel morph; .crop() clips + object-fits it.
+                    // Card → modal morph + poster → hero morph. Both are
+                    // clipped/cropped automatically (crop is on by default).
                     .addName("card-box")
-                    .crop()
-                    // Poster → hero image morph, recropping the photo.
                     .addName("hero")
-                    .crop()
             }
 
             function close() {
@@ -354,9 +352,7 @@
                 }, opts)
                     .layout({})
                     .addName("card-box")
-                    .crop()
                     .addName("hero")
-                    .crop()
                     .then((group) => group.finished)
                     .then(() => {
                         card.style.viewTransitionName = ""
