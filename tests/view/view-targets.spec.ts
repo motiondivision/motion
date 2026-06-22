@@ -5,6 +5,7 @@ interface ViewResult {
     supported: boolean
     pseudos: string[]
     delays: number[]
+    css: string
     error: string | null
 }
 
@@ -94,5 +95,19 @@ test.describe("animateView() target resolution", () => {
         // Each resolved element gets its own staggered delay.
         expect(new Set(result.delays).size).toBe(result.delays.length)
         expect(Math.max(...result.delays)).toBeGreaterThan(0)
+    })
+
+    test(".crop() injects clip + object-fit for the layer", async ({ page }) => {
+        await page.goto("view/view-crop.html")
+        const result = await readResult(page)
+        test.skip(!result.supported, "No startViewTransition support")
+
+        expect(result.error).toBeNull()
+        expect(result.css).toMatch(
+            /::view-transition-image-pair\(box\)\s*\{[^}]*overflow:\s*clip/
+        )
+        expect(result.css).toMatch(
+            /::view-transition-old\(box\)[^{]*\{[^}]*object-fit:\s*cover/
+        )
     })
 })

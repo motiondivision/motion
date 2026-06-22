@@ -1,0 +1,58 @@
+<!doctype html>
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+            .box {
+                width: 100px;
+                height: 100px;
+                background: red;
+                margin: 40px;
+                view-transition-name: box;
+            }
+            /* Different aspect ratio in the new state. */
+            .box.big {
+                width: 320px;
+                height: 120px;
+                background: blue;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="box" id="box"></div>
+
+        <script type="module" src="/src/imports/view.js"></script>
+        <script type="module">
+            const { animateView } = window.MotionDOM
+
+            window.__view = {
+                ready: false,
+                supported: !!document.startViewTransition,
+                css: "",
+                error: null,
+            }
+
+            const box = document.getElementById("box")
+
+            animateView(() => box.classList.add("big"), {
+                duration: 3,
+                ease: "linear",
+            })
+                .addName("box")
+                .crop()
+                .then(
+                    () => {
+                        const style = document.getElementById("motion-view")
+                        window.__view.css = style ? style.textContent : ""
+                        window.__view.ready = true
+                    },
+                    (e) => {
+                        window.__view.error = String(e)
+                        window.__view.ready = true
+                    }
+                )
+        </script>
+    </body>
+</html>

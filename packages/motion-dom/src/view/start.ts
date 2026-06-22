@@ -24,8 +24,14 @@ const definitionNames = ["layout", "enter", "exit", "new", "old"] as const
 export function startViewAnimation(
     builder: ViewTransitionBuilder
 ): Promise<GroupAnimation> {
-    const { update, targets, resolveDefs, scope, options: defaultOptions } =
-        builder
+    const {
+        update,
+        targets,
+        resolveDefs,
+        cropDefs,
+        scope,
+        options: defaultOptions,
+    } = builder
 
     if (!document.startViewTransition) {
         return new Promise(async (resolve) => {
@@ -102,6 +108,25 @@ export function startViewAnimation(
         "::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*)",
         { "animation-timing-function": "linear !important" }
     )
+
+    /**
+     * Clip + object-fit the snapshots of any cropped subjects so cross-aspect
+     * morphs fill the morphing box rather than overflowing. Layer names from
+     * the first resolve pass are known here.
+     */
+    cropDefs.forEach((objectFit, definition) => {
+        const target = targets.get(definition)
+        const names = target && subjectNames.get(target)
+        names?.forEach((name) => {
+            css.set(`::view-transition-image-pair(${name})`, {
+                overflow: "clip",
+            })
+            css.set(
+                `::view-transition-old(${name}), ::view-transition-new(${name})`,
+                { width: "100%", height: "100%", "object-fit": objectFit }
+            )
+        })
+    })
 
     css.commit() // Write
 

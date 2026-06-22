@@ -21,6 +21,13 @@ export class ViewTransitionBuilder {
     resolveDefs = new Set<ViewTransitionTargetDefinition>()
 
     /**
+     * Subjects whose morph should clip + `object-fit` its old/new snapshots,
+     * keyed to the object-fit value. Saves authors hand-writing the
+     * `::view-transition-old/new` CSS for cross-aspect-ratio morphs.
+     */
+    cropDefs = new Map<ViewTransitionTargetDefinition, string>()
+
+    /**
      * When set, the transition is scoped to this element (via
      * `element.startViewTransition`) and selectors resolve within it.
      */
@@ -78,6 +85,17 @@ export class ViewTransitionBuilder {
         this.currentSubject = name
         this.resolveDefs.delete(name)
         if (!this.targets.has(name)) this.targets.set(name, {})
+
+        return this
+    }
+
+    /**
+     * Clip this subject's morph and `object-fit` its old/new snapshots, so a
+     * cross-aspect-ratio morph (e.g. a 2:3 thumbnail into a 16:9 hero) fills
+     * and crops the morphing box instead of overflowing with its old shape.
+     */
+    crop(objectFit: string = "cover") {
+        this.cropDefs.set(this.currentSubject, objectFit)
 
         return this
     }
