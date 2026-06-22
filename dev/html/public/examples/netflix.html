@@ -168,6 +168,25 @@
                 font-size: 18px;
                 cursor: pointer;
             }
+
+            /*
+             * The poster (2:3) and hero (16:9) — and the card and modal box —
+             * have different aspect ratios. Clip each morph group and let the
+             * old/new snapshots fill+crop the morphing box, so neither overflows
+             * with its original aspect ratio mid-transition.
+             */
+            ::view-transition-image-pair(hero),
+            ::view-transition-image-pair(card-box) {
+                overflow: clip;
+            }
+            ::view-transition-old(hero),
+            ::view-transition-new(hero),
+            ::view-transition-old(card-box),
+            ::view-transition-new(card-box) {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+            }
         </style>
     </head>
     <body>
