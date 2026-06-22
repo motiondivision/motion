@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>animateView() — staggered enter/exit + auto-layout morph</title>
+        <style>
+            * {
+                box-sizing: border-box;
+            }
+            body {
+                margin: 0;
+                min-height: 100vh;
+                background: #0e0e10;
+                color: #fff;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+                    Roboto, Helvetica, Arial, sans-serif;
+                padding: 32px;
+            }
+            .bar {
+                display: flex;
+                align-items: center;
+                gap: 14px;
+                flex-wrap: wrap;
+                margin-bottom: 28px;
+            }
+            h1 {
+                font-size: 18px;
+                margin: 0 16px 0 0;
+            }
+            button {
+                appearance: none;
+                border: 1px solid #2e2e34;
+                background: #1a1a1f;
+                color: #fff;
+                border-radius: 8px;
+                padding: 9px 16px;
+                font-size: 14px;
+                font-weight: 600;
+                cursor: pointer;
+            }
+            button:hover {
+                background: #26262d;
+            }
+            label {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                font-size: 13px;
+                color: #9a9aa2;
+            }
+            input[type="range"] {
+                width: 110px;
+                accent-color: #6d5efc;
+            }
+            .grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+                gap: 16px;
+                max-width: 760px;
+            }
+            .tile {
+                aspect-ratio: 1;
+                border-radius: 14px;
+                background: var(--c);
+                box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+            }
+        </style>
+    </head>
+    <body>
+        <div class="bar">
+            <h1>Stagger &amp; morph</h1>
+            <button id="reveal">Reveal</button>
+            <button id="hide">Hide</button>
+            <button id="shuffle">Shuffle</button>
+            <label>
+                Stagger
+                <input
+                    id="stagger"
+                    type="range"
+                    min="0"
+                    max="0.12"
+                    step="0.01"
+                    value="0.05"
+                />
+            </label>
+            <label>
+                Duration
+                <input
+                    id="duration"
+                    type="range"
+                    min="0.2"
+                    max="1.2"
+                    step="0.05"
+                    value="0.6"
+                />
+            </label>
+        </div>
+
+        <div class="grid" id="grid"></div>
+
+        <script type="module" src="/src/imports/view.js"></script>
+        <script type="module">
+            const MotionDOM = window.MotionDOM
+            if (!MotionDOM || !MotionDOM.animateView) {
+                document.body.innerHTML =
+                    '<p style="padding:40px">Couldn\'t load <code>motion-dom</code>' +
+                    " — build it (<code>yarn build</code>) then reload.</p>"
+                throw new Error("motion-dom failed to load")
+            }
+            const { animateView, spring, stagger } = MotionDOM
+
+            const COLORS = [
+                "linear-gradient(135deg,#ff512f,#dd2476)",
+                "linear-gradient(135deg,#2193b0,#6dd5ed)",
+                "linear-gradient(135deg,#8e2de2,#4a00e0)",
+                "linear-gradient(135deg,#f7971e,#ffd200)",
+                "linear-gradient(135deg,#00b09b,#96c93d)",
+                "linear-gradient(135deg,#e96443,#904e95)",
+                "linear-gradient(135deg,#1f4037,#99f2c8)",
+                "linear-gradient(135deg,#fc466b,#3f5efb)",
+                "linear-gradient(135deg,#11998e,#38ef7d)",
+                "linear-gradient(135deg,#ee0979,#ff6a00)",
+                "linear-gradient(135deg,#4568dc,#b06ab3)",
+                "linear-gradient(135deg,#c33764,#1d2671)",
+            ]
+
+            const grid = document.getElementById("grid")
+            const staggerEl = document.getElementById("stagger")
+            const durationEl = document.getElementById("duration")
+            let visible = true
+
+            const opts = () => ({
+                type: spring,
+                visualDuration: parseFloat(durationEl.value),
+                bounce: 0.25,
+            })
+            const amount = () => parseFloat(staggerEl.value)
+
+            const render = () => {
+                grid.innerHTML = COLORS.map(
+                    (c, i) => `<div class="tile" data-id="${i}" style="--c:${c}"></div>`
+                ).join("")
+            }
+            render()
+
+            document.getElementById("reveal").addEventListener("click", () => {
+                if (visible) return
+                visible = true
+                animateView(render)
+                    // Brand-new tiles enter, one after another.
+                    .add(".tile")
+                    .enter(
+                        { opacity: [0, 1], scale: [0.6, 1] },
+                        { delay: stagger(amount()), ...opts() }
+                    )
+            })
+
+            document.getElementById("hide").addEventListener("click", () => {
+                if (!visible) return
+                visible = false
+                animateView(() => (grid.innerHTML = ""))
+                    // Departing tiles exit, staggered.
+                    .add(".tile")
+                    .exit(
+                        { opacity: 0, scale: 0.6 },
+                        { delay: stagger(amount()), ...opts() }
+                    )
+            })
+
+            document.getElementById("shuffle").addEventListener("click", () => {
+                if (!visible) return
+                animateView(() => {
+                    // Re-order the SAME nodes so each one morphs to its new cell.
+                    const nodes = [...grid.children]
+                    for (let i = nodes.length - 1; i > 0; i--) {
+                        const j = Math.floor(Math.random() * (i + 1))
+                        ;[nodes[i], nodes[j]] = [nodes[j], nodes[i]]
+                    }
+                    nodes.forEach((n) => grid.append(n))
+                }, opts())
+                    // No enter/exit — .add() alone auto-enables the layout morph.
+                    .add(".tile")
+            })
+        </script>
+    </body>
+</html>
