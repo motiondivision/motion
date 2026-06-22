@@ -6,7 +6,12 @@ export const acceleratedValues = new Set<string>([
     "clipPath",
     "filter",
     "transform",
-    // TODO: Can be accelerated but currently disabled until https://issues.chromium.org/issues/41491098 is resolved
-    // or until we implement support for linear() easing.
-    // "background-color"
+    // Color animations are paint-bound, so this is a main-thread offload (not
+    // free compositor rendering). Names are camelCase Motion value names.
+    "backgroundColor",
+    "color",
+    // Remaining colors (borderColor family, fill/stroke) are left out for now:
+    // they have extra constraints and SVG is excluded by the HTMLElement check
+    // in supports/waapi.ts. They still accelerate via the browser-only-color
+    // path when keyframes use formats the JS path can't parse (oklch/lab/etc.).
 ])

@@ -173,3 +173,34 @@ Stop and report back (do not improvise) if:
 - Safari de-accelerates `linear()` easing (noted in `PERFORMANCE_AUDIT.md`) — colors with spring easings will run WAAPI-on-main-thread there; acceptable (parity with today) but worth a release-notes line.
 - Future widening (borderColor family, `fill`/`stroke`) should reuse the Step 3 eligibility matrix; SVG is currently excluded wholesale by the `subject instanceof HTMLElement` check in `waapi.ts:47`.
 - Reviewer should scrutinize: no change to the `hasBrowserOnlyColors` branch semantics, and the updated comment accurately states why remaining colors are excluded.
+
+## Execution notes
+
+Executed on branch `advisor/003-color-waapi`.
+
+- **Step 1** — both unblock conditions confirmed; recorded in `plans/003-notes.md`.
+  `linear()` easing is wired into the WAAPI path (`map-easing.ts:14-16`,
+  `spring.ts:433`). Chromium 41491098 is an enhancement (compositor acceleration),
+  not a rendering bug; edge cases fall back to main thread gracefully. No STOP.
+- **Step 2** — added `"backgroundColor"` and `"color"` (camelCase) to
+  `acceleratedValues`, replacing the dead dash-case comment. `supports/waapi.ts`
+  needed no change (the existing `acceleratedValues.has(name)` branch covers it).
+- **Step 3** — extended `supports/__tests__/waapi.test.ts`: standard-keyframe
+  `backgroundColor`/`color` now eligible; `onUpdate` kill-switch still applies;
+  a color not in the set (`borderTopColor`) is ineligible with standard keyframes
+  but eligible with oklch (browser-only path unchanged). Watched the two new
+  positive assertions fail first (returned `false`) before the Step 2 change.
+- **Step 4** — Playwright fixtures `animate-color-accelerated.html` (asserts
+  `getAnimations().length > 0` + strictly-between mid-animation colour) and
+  `animate-color-interrupt.html` (interrupt lands on the new target, no jump,
+  no console errors). Both pass on real Chromium.
+- **Step 5** — sweep green: motion-dom jest (475), framer-motion test-client
+  (799), full Playwright animate suite (58, chromium), and the color-animation
+  Cypress specs (`oklch-color-animation`, `animate-style`) on React 18 **and** 19.
+- **Spring-on-color** STOP-condition check done manually via a throwaway fixture:
+  spring `backgroundColor` produces valid colours mid-animation (no NaN), settles
+  on target, no errors. spring→`linear()` conversion is correct. Fixture removed.
+- **Lint**: `yarn lint` fails only in `dev/react` fixtures (pre-existing, zero diff
+  vs `main`, files untouched here). motion-dom is unlinted by `yarn lint`.
+
+PR: see linked PR. No files outside the in-scope list were modified.
