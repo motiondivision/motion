@@ -1,0 +1,77 @@
+<!doctype html>
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+            .box {
+                width: 120px;
+                height: 120px;
+                background: red;
+                margin: 40px;
+                view-transition-name: box;
+            }
+            .box.big {
+                width: 300px;
+                height: 200px;
+                background: blue;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="box"></div>
+
+        <script type="module" src="/src/imports/view.js"></script>
+        <script type="module">
+            const { animateView } = window.MotionDOM
+
+            window.__view = {
+                ready: false,
+                supported: !!document.startViewTransition,
+                newOpacity: [],
+                oldOpacity: [],
+                error: null,
+            }
+
+            const opacityOf = (pseudo) => {
+                const anim = document.getAnimations().find((a) => {
+                    const eff = a.effect
+                    return (
+                        eff &&
+                        eff.pseudoElement === pseudo &&
+                        eff.getKeyframes().some((k) => "opacity" in k)
+                    )
+                })
+                return anim
+                    ? anim.effect
+                          .getKeyframes()
+                          .map((k) => k.opacity)
+                          .filter((v) => v !== undefined)
+                    : []
+            }
+
+            animateView(() => document.querySelector(".box").classList.add("big"), {
+                duration: 3,
+                ease: "linear",
+            })
+                .addName("box")
+                .crossfade()
+                .then(
+                    () => {
+                        window.__view.newOpacity = opacityOf(
+                            "::view-transition-new(box)"
+                        )
+                        window.__view.oldOpacity = opacityOf(
+                            "::view-transition-old(box)"
+                        )
+                        window.__view.ready = true
+                    },
+                    (e) => {
+                        window.__view.error = String(e)
+                        window.__view.ready = true
+                    }
+                )
+        </script>
+    </body>
+</html>

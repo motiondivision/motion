@@ -9,6 +9,12 @@ interface ViewResult {
     radiusAnimated: boolean
     corners: Record<string, string[]>
     exitOpacity: string[]
+    enterFilter: boolean
+    groupRadius: boolean
+    tlCount: number
+    tlRadius: string[]
+    newOpacity: number[]
+    oldOpacity: number[]
     error: string | null
 }
 
@@ -154,5 +160,73 @@ test.describe("animateView() target resolution", () => {
         expect(result.exitOpacity.length).toBe(2)
         expect(parseFloat(result.exitOpacity[0])).toBe(1)
         expect(parseFloat(result.exitOpacity[result.exitOpacity.length - 1])).toBe(0)
+    })
+
+    test("a stagger in the default options staggers a browser-generated morph", async ({
+        page,
+    }) => {
+        await page.goto("view/view-stagger-default.html")
+        const result = await readResult(page)
+        test.skip(!result.supported, "No startViewTransition support")
+
+        // A function delay must be resolved before timing the morph - feeding
+        // it to secondsToMilliseconds would NaN and throw (setting `error`).
+        expect(result.error).toBeNull()
+        expect(result.delays).toEqual([0, 150, 300])
+    })
+
+    test("stagger indexes from the new snapshot when update replaces the nodes", async ({
+        page,
+    }) => {
+        await page.goto("view/view-stagger-replace.html")
+        const result = await readResult(page)
+        test.skip(!result.supported, "No startViewTransition support")
+
+        expect(result.error).toBeNull()
+        // The 3 entering tiles stagger 0/150/300 - not pushed past the names of
+        // the (replaced) old tiles, which would give 450/600/750.
+        expect(result.delays).toEqual([0, 150, 300])
+    })
+
+    test("overlapping .add() subjects on one element keep both animations", async ({
+        page,
+    }) => {
+        await page.goto("view/view-overlap.html")
+        const result = await readResult(page)
+        test.skip(!result.supported, "No startViewTransition support")
+
+        expect(result.error).toBeNull()
+        // `.a`'s enter (filter) survives the collision with `.b`'s layout.
+        expect(result.enterFilter).toBe(true)
+        expect(result.groupRadius).toBe(true)
+    })
+
+    test("an explicit .layout() corner radius wins over the default crop", async ({
+        page,
+    }) => {
+        await page.goto("view/view-crop-explicit-radius.html")
+        const result = await readResult(page)
+        test.skip(!result.supported, "No startViewTransition support")
+
+        expect(result.error).toBeNull()
+        // Exactly one borderTopLeftRadius animation, using the explicit
+        // keyframes - the crop pass must not emit a competing one.
+        expect(result.tlCount).toBe(1)
+        expect(result.tlRadius).toEqual(["0px", "100px"])
+    })
+
+    test(".crossfade() animates old out and new in", async ({ page }) => {
+        await page.goto("view/view-crossfade.html")
+        const result = await readResult(page)
+        test.skip(!result.supported, "No startViewTransition support")
+
+        expect(result.error).toBeNull()
+        // New fades up 0 -> 1, old fades down 1 -> 0 (under the browser's
+        // static plus-lighter blend). WAAPI reports keyframe values as strings.
+        const num = (v: unknown) => parseFloat(String(v))
+        expect(num(result.newOpacity[0])).toBe(0)
+        expect(num(result.newOpacity[result.newOpacity.length - 1])).toBe(1)
+        expect(num(result.oldOpacity[0])).toBe(1)
+        expect(num(result.oldOpacity[result.oldOpacity.length - 1])).toBe(0)
     })
 })

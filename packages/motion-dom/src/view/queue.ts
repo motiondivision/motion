@@ -16,10 +16,15 @@ function next() {
 function start(builder: ViewTransitionBuilder) {
     removeItem(builders, builder)
     current = builder
-    startViewAnimation(builder).then((animation) => {
-        builder.notifyReady(animation)
-        animation.finished.finally(next)
-    })
+    startViewAnimation(builder)
+        .then((animation) => {
+            builder.notifyReady(animation)
+            return animation.finished
+        })
+        // A failed (or skipped) transition must still reject the builder and,
+        // crucially, advance the queue - otherwise every later transition hangs.
+        .catch((error) => builder.notifyReject(error))
+        .finally(next)
 }
 
 function processQueue() {

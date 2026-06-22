@@ -1,0 +1,89 @@
+<!doctype html>
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+            .box {
+                width: 120px;
+                height: 120px;
+                background: orange;
+                margin: 40px;
+            }
+            .box.moved {
+                transform: translateX(120px);
+                background: purple;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="a b box"></div>
+
+        <script type="module" src="/src/imports/view.js"></script>
+        <script type="module">
+            const { animateView } = window.MotionDOM
+
+            window.__view = {
+                ready: false,
+                supported: !!document.startViewTransition,
+                enterFilter: false,
+                groupRadius: false,
+                error: null,
+            }
+
+            // Two subjects whose selectors resolve to the SAME element. Their
+            // definitions must be merged so neither animation is dropped: `.a`'s
+            // enter (filter on the new layer) AND `.b`'s layout (group radius).
+            animateView(() =>
+                document.querySelector(".box").classList.add("moved")
+            )
+                .add(".a")
+                .enter(
+                    { filter: ["blur(8px)", "blur(0px)"] },
+                    { duration: 2, ease: "linear" }
+                )
+                .add(".b")
+                .layout(
+                    { borderRadius: ["0px", "40px"] },
+                    { duration: 2, ease: "linear" }
+                )
+                .then(
+                    () => {
+                        const anims = document.getAnimations()
+                        window.__view.enterFilter = anims.some((a) => {
+                            const eff = a.effect
+                            return (
+                                eff &&
+                                /::view-transition-new\(motion-view-\d+\)/.test(
+                                    eff.pseudoElement || ""
+                                ) &&
+                                eff.getKeyframes().some((k) => "filter" in k)
+                            )
+                        })
+                        window.__view.groupRadius = anims.some((a) => {
+                            const eff = a.effect
+                            return (
+                                eff &&
+                                /::view-transition-group\(motion-view-\d+\)/.test(
+                                    eff.pseudoElement || ""
+                                ) &&
+                                eff
+                                    .getKeyframes()
+                                    .some((k) =>
+                                        Object.keys(k).some((p) =>
+                                            /[Rr]adius/.test(p)
+                                        )
+                                    )
+                            )
+                        })
+                        window.__view.ready = true
+                    },
+                    (e) => {
+                        window.__view.error = String(e)
+                        window.__view.ready = true
+                    }
+                )
+        </script>
+    </body>
+</html>

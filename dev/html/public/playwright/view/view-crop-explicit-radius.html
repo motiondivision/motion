@@ -1,0 +1,78 @@
+<!doctype html>
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+            .card {
+                width: 120px;
+                height: 120px;
+                background: green;
+                margin: 40px;
+                border-radius: 10px;
+                view-transition-name: card;
+            }
+            .card.big {
+                width: 300px;
+                height: 160px;
+                border-radius: 30px;
+                background: navy;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="card"></div>
+
+        <script type="module" src="/src/imports/view.js"></script>
+        <script type="module">
+            const { animateView } = window.MotionDOM
+
+            window.__view = {
+                ready: false,
+                supported: !!document.startViewTransition,
+                tlCount: 0,
+                tlRadius: [],
+                error: null,
+            }
+
+            // Crop is on by default and would animate every corner from the
+            // measured radius (10px -> 30px). An explicit `.layout()` corner
+            // must win - the crop pass must NOT also emit that corner, or two
+            // competing animations fight over `borderTopLeftRadius`.
+            animateView(() => document.querySelector(".card").classList.add("big"), {
+                duration: 3,
+                ease: "linear",
+            })
+                .addName("card")
+                .layout({ borderTopLeftRadius: ["0px", "100px"] })
+                .then(
+                    () => {
+                        const tl = document.getAnimations().filter((a) => {
+                            const eff = a.effect
+                            return (
+                                eff &&
+                                eff.pseudoElement ===
+                                    "::view-transition-group(card)" &&
+                                eff
+                                    .getKeyframes()
+                                    .some((k) => "borderTopLeftRadius" in k)
+                            )
+                        })
+                        window.__view.tlCount = tl.length
+                        window.__view.tlRadius = tl.length
+                            ? tl[0].effect
+                                  .getKeyframes()
+                                  .map((k) => k.borderTopLeftRadius)
+                                  .filter((v) => v !== undefined)
+                            : []
+                        window.__view.ready = true
+                    },
+                    (e) => {
+                        window.__view.error = String(e)
+                        window.__view.ready = true
+                    }
+                )
+        </script>
+    </body>
+</html>

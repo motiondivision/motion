@@ -32,8 +32,11 @@ export class ViewTransitionBuilder {
 
     notifyReady: (value: GroupAnimation) => void = noop
 
-    private readyPromise = new Promise<GroupAnimation>((resolve) => {
+    notifyReject: (error: unknown) => void = noop
+
+    private readyPromise = new Promise<GroupAnimation>((resolve, reject) => {
         this.notifyReady = resolve
+        this.notifyReject = reject
     })
 
     constructor(
@@ -45,6 +48,9 @@ export class ViewTransitionBuilder {
             interrupt: "wait",
             ...options,
         }
+        // Avoid an unhandled rejection when a failed transition has no
+        // `.then(_, reject)` handler attached (e.g. fire-and-forget).
+        this.readyPromise.catch(noop)
         addToQueue(this)
     }
 
