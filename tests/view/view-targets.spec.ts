@@ -8,6 +8,7 @@ interface ViewResult {
     css: string
     radiusAnimated: boolean
     corners: Record<string, string[]>
+    exitOpacity: string[]
     error: string | null
 }
 
@@ -129,5 +130,19 @@ test.describe("animateView() target resolution", () => {
         expect(result.corners.borderTopRightRadius).toEqual(["24px", "4px"])
         expect(result.corners.borderBottomRightRadius).toEqual(["0px", "4px"])
         expect(result.corners.borderBottomLeftRadius).toEqual(["0px", "4px"])
+    })
+
+    test(".exit({ opacity: 0 }) animates from an inferred 1, not instantly", async ({
+        page,
+    }) => {
+        await page.goto("view/view-exit-opacity.html")
+        const result = await readResult(page)
+        test.skip(!result.supported, "No startViewTransition support")
+
+        expect(result.error).toBeNull()
+        // Two keyframes (not skipped), inferred from 1 down to 0.
+        expect(result.exitOpacity.length).toBe(2)
+        expect(parseFloat(result.exitOpacity[0])).toBe(1)
+        expect(parseFloat(result.exitOpacity[result.exitOpacity.length - 1])).toBe(0)
     })
 })

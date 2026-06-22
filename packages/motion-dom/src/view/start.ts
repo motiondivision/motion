@@ -217,7 +217,9 @@ export function startViewAnimation(
                     for (let [valueName, valueKeyframes] of Object.entries(
                         keyframes
                     )) {
-                        if (!valueKeyframes) continue
+                        // Skip only missing values - `0` (e.g. opacity: 0) is
+                        // valid and must reach the from-value inference below.
+                        if (valueKeyframes == null) continue
 
                         const valueOptions = {
                             ...getValueTransition(
