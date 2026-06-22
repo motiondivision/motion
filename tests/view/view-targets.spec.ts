@@ -7,6 +7,7 @@ interface ViewResult {
     delays: number[]
     css: string
     radiusAnimated: boolean
+    corners: Record<string, string[]>
     error: string | null
 }
 
@@ -114,5 +115,19 @@ test.describe("animateView() target resolution", () => {
         )
         // border-radius (8px -> 28px) animates on the group's clip.
         expect(result.radiusAnimated).toBe(true)
+    })
+
+    test(".crop() animates individual corner radii", async ({ page }) => {
+        await page.goto("view/view-crop-corners.html")
+        const result = await readResult(page)
+        test.skip(!result.supported, "No startViewTransition support")
+
+        expect(result.error).toBeNull()
+        // Old: 24px 24px 0 0 (top rounded, bottom square). New: 4px all round.
+        // Each corner animates independently from its own start value.
+        expect(result.corners.borderTopLeftRadius).toEqual(["24px", "4px"])
+        expect(result.corners.borderTopRightRadius).toEqual(["24px", "4px"])
+        expect(result.corners.borderBottomRightRadius).toEqual(["0px", "4px"])
+        expect(result.corners.borderBottomLeftRadius).toEqual(["0px", "4px"])
     })
 })

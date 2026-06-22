@@ -82,11 +82,21 @@ export function startViewAnimation(
     }
 
     /**
-     * Measured border-radius per cropped layer, so the clip can animate its
-     * corners between the old and new elements. One DOM pass per phase, only
-     * when .crop() is in use.
+     * Measured corner radii per cropped layer, so the clip can animate each
+     * corner between the old and new elements. Per-corner (rather than the
+     * shorthand) so mismatched/individual radii interpolate cleanly. One DOM
+     * pass per phase, only when .crop() is in use.
      */
-    const cropRadii = new Map<string, { old?: string; new?: string }>()
+    const cornerProps = [
+        "borderTopLeftRadius",
+        "borderTopRightRadius",
+        "borderBottomRightRadius",
+        "borderBottomLeftRadius",
+    ] as const
+
+    type CornerRadii = Record<(typeof cornerProps)[number], string>
+
+    const cropRadii = new Map<string, { old?: CornerRadii; new?: CornerRadii }>()
 
     const measureCrop = (phase: "old" | "new") => {
         if (!cropDefs.size) return
@@ -106,8 +116,11 @@ export function startViewAnimation(
             const name = style.getPropertyValue("view-transition-name")
             if (!croppedNames.has(name)) return
 
+            const corners = {} as CornerRadii
+            for (const corner of cornerProps) corners[corner] = style[corner]
+
             const entry = cropRadii.get(name) ?? {}
-            entry[phase] = style.borderRadius
+            entry[phase] = corners
             cropRadii.set(name, entry)
         })
     }
@@ -342,13 +355,12 @@ export function startViewAnimation(
             }
 
             /**
-             * Animate each cropped layer's clip border-radius between the old
-             * and new elements, so a cropped morph keeps rounded corners.
+             * Animate each cropped layer's clip corners between the old and
+             * new elements, so a cropped morph keeps rounded corners (handling
+             * individual per-corner radii).
              */
             cropRadii.forEach((radii, name) => {
-                const from = radii.old ?? radii.new
-                const to = radii.new ?? radii.old
-                if (from === undefined && to === undefined) return
+                if (!radii.old && !radii.new) return
 
                 const radiusOptions = {
                     ...getValueTransition(defaultOptions, "layout"),
@@ -366,15 +378,22 @@ export function startViewAnimation(
                     radiusOptions.delay
                 )
 
-                animations.push(
-                    new NativeAnimation({
-                        ...radiusOptions,
-                        element: document.documentElement,
-                        name: "borderRadius",
-                        pseudoElement: `::view-transition-group(${name})`,
-                        keyframes: [from, to],
-                    })
-                )
+                for (const corner of cornerProps) {
+                    const from = radii.old?.[corner] ?? radii.new![corner]
+                    const to = radii.new?.[corner] ?? radii.old![corner]
+                    // Skip square corners - nothing to round.
+                    if (parseFloat(from) === 0 && parseFloat(to) === 0) continue
+
+                    animations.push(
+                        new NativeAnimation({
+                            ...radiusOptions,
+                            element: document.documentElement,
+                            name: corner,
+                            pseudoElement: `::view-transition-group(${name})`,
+                            keyframes: [from, to],
+                        })
+                    )
+                }
             })
 
             resolve(new GroupAnimation(animations))

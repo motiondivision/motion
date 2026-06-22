@@ -5,20 +5,21 @@
             body {
                 margin: 0;
             }
+            /* Top corners rounded, bottom square. */
             .box {
-                width: 100px;
-                height: 100px;
-                background: red;
+                width: 120px;
+                height: 120px;
                 margin: 40px;
-                border-radius: 8px;
+                background: red;
+                border-radius: 24px 24px 0px 0px;
                 view-transition-name: box;
             }
-            /* Different aspect ratio AND border-radius in the new state. */
+            /* Uniform radius in the new state. */
             .box.big {
                 width: 320px;
-                height: 120px;
-                border-radius: 28px;
+                height: 160px;
                 background: blue;
+                border-radius: 4px;
             }
         </style>
     </head>
@@ -32,8 +33,7 @@
             window.__view = {
                 ready: false,
                 supported: !!document.startViewTransition,
-                css: "",
-                radiusAnimated: false,
+                corners: {},
                 error: null,
             }
 
@@ -47,25 +47,23 @@
                 .crop()
                 .then(
                     () => {
-                        const style = document.getElementById("motion-view")
-                        window.__view.css = style ? style.textContent : ""
-                        window.__view.radiusAnimated = document
-                            .getAnimations()
-                            .some((a) => {
-                                const eff = a.effect
-                                return (
-                                    eff &&
-                                    eff.pseudoElement ===
-                                        "::view-transition-group(box)" &&
-                                    eff
-                                        .getKeyframes()
-                                        .some((k) =>
-                                            Object.keys(k).some((p) =>
-                                                /Radius$/.test(p)
-                                            )
-                                        )
-                                )
+                        const corners = {}
+                        document.getAnimations().forEach((a) => {
+                            const eff = a.effect
+                            if (
+                                !eff ||
+                                eff.pseudoElement !==
+                                    "::view-transition-group(box)"
+                            )
+                                return
+                            eff.getKeyframes().forEach((k) => {
+                                for (const p of Object.keys(k)) {
+                                    if (!/Radius$/.test(p)) continue
+                                    ;(corners[p] = corners[p] || []).push(k[p])
+                                }
                             })
+                        })
+                        window.__view.corners = corners
                         window.__view.ready = true
                     },
                     (e) => {
