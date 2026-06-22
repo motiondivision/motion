@@ -116,7 +116,10 @@
                 background-color: #2a2a2a;
                 background-size: cover;
                 background-position: center;
-                border-radius: 18px;
+                /* Matches how it renders inside the modal: top corners follow
+                 * the modal (24px), bottom square against the body — so the
+                 * morph lands exactly on the live element (no snap). */
+                border-radius: 24px 24px 0 0;
                 /* Pre-named shared element: the clicked poster morphs into this. */
                 view-transition-name: hero;
             }
