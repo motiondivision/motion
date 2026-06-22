@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <title>animateView(element) — scoped transition verifier</title>
+        <style>
+            * {
+                box-sizing: border-box;
+            }
+            body {
+                margin: 0;
+                min-height: 100vh;
+                background: #0e0e10;
+                color: #fff;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+                    sans-serif;
+                padding: 40px;
+            }
+            .status {
+                font-family: ui-monospace, monospace;
+                font-size: 14px;
+                padding: 10px 14px;
+                border-radius: 8px;
+                margin-bottom: 8px;
+                display: inline-block;
+            }
+            .status.scoped {
+                background: #16361f;
+                color: #6ee7a0;
+            }
+            .status.fallback {
+                background: #3a2a12;
+                color: #f0b66b;
+            }
+            p.hint {
+                color: #9a9aa2;
+                max-width: 640px;
+                margin: 6px 0 24px;
+            }
+            button {
+                border: 1px solid #2e2e34;
+                background: #1a1a1f;
+                color: #fff;
+                border-radius: 8px;
+                padding: 10px 18px;
+                font-weight: 600;
+                cursor: pointer;
+                margin-bottom: 28px;
+            }
+            .row {
+                display: flex;
+                gap: 56px;
+                align-items: flex-start;
+            }
+            .panel {
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+            }
+            .tag {
+                font-family: ui-monospace, monospace;
+                font-size: 12px;
+                color: #8a8a92;
+            }
+            /* The scoped element — only its subtree should be captured. */
+            .scope {
+                padding: 24px;
+                border: 1px dashed #45454d;
+                border-radius: 16px;
+            }
+            .box {
+                width: 160px;
+                height: 160px;
+                border-radius: 14px;
+                background: linear-gradient(135deg, #7b2ff7, #f107a3);
+            }
+            .box.big {
+                width: 320px;
+                height: 200px;
+                background: linear-gradient(135deg, #2193b0, #6dd5ed);
+            }
+            /* Lives OUTSIDE the scope, animating continuously. It should keep
+               spinning through a scoped transition, and freeze through a
+               document-level one. */
+            .spinner {
+                width: 90px;
+                height: 90px;
+                border: 10px solid #2a2a30;
+                border-top-color: #6d5efc;
+                border-radius: 50%;
+                animation: spin 0.8s linear infinite;
+            }
+            @keyframes spin {
+                to {
+                    transform: rotate(360deg);
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="status" id="status"></div>
+        <p class="hint">
+            Click the button and watch the spinner. With element-scoped support
+            the spinner keeps spinning while the box morphs; on the
+            document-capture fallback the spinner freezes for the morph's
+            duration (the whole page is snapshotted).
+        </p>
+        <button id="go">Morph the scoped box</button>
+
+        <div class="row">
+            <div class="panel">
+                <span class="tag">animateView(scope, …) — captured</span>
+                <div class="scope" id="scope">
+                    <div class="box" id="box"></div>
+                </div>
+            </div>
+            <div class="panel">
+                <span class="tag">outside the scope — live</span>
+                <div class="spinner"></div>
+            </div>
+        </div>
+
+        <script type="module" src="/src/imports/view.js"></script>
+        <script type="module">
+            const { animateView } = window.MotionDOM
+
+            const scope = document.getElementById("scope")
+            const box = document.getElementById("box")
+
+            const scoped = typeof scope.startViewTransition === "function"
+            const status = document.getElementById("status")
+            status.className = "status " + (scoped ? "scoped" : "fallback")
+            status.textContent = scoped
+                ? "element.startViewTransition() supported — scoped capture (spinner should keep spinning)"
+                : "no element.startViewTransition() — document fallback (spinner will freeze during the morph)"
+
+            let big = false
+            document.getElementById("go").addEventListener("click", () => {
+                big = !big
+                // Scope the transition to `scope`; the selector resolves within it.
+                animateView(scope, () => box.classList.toggle("big", big), {
+                    duration: 1.5,
+                    ease: "easeInOut",
+                }).add("#box")
+            })
+        </script>
+    </body>
+</html>
