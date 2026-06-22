@@ -341,7 +341,11 @@ export function startViewAnimation(
                  * resolved/named target, and applies the default timing to
                  * old/new layers we haven't explicitly overridden.
                  */
-                const transitionName = name.type === "group" ? "layout" : ""
+                // group + group-children both follow the layout timing so the
+                // nesting container stays in sync with the morph.
+                const transitionName = name.type.startsWith("group")
+                    ? "layout"
+                    : ""
                 let animationTransition = {
                     ...getValueTransition(defaultOptions, transitionName),
                     ...getValueTransition(
