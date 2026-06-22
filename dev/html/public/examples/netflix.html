@@ -225,18 +225,32 @@
             }
             const { animateView, spring } = MotionDOM
 
-            // Photos via Lorem Picsum (Unsplash-sourced). Swap for specific
-            // `images.unsplash.com/photo-...?w=900&fit=crop` URLs if you like.
-            const img = (seed) => `https://picsum.photos/seed/${seed}/900/1100`
+            // Self-contained SVG "posters" (data-URIs, no network) so the morph
+            // always has real raster content to recrop across aspect ratios.
+            // Swap `poster(...)` for `url(https://images.unsplash.com/photo-...)`
+            // for real photography.
+            const poster = (c1, c2) => {
+                const svg =
+                    "<svg xmlns='http://www.w3.org/2000/svg' width='600' height='800'>" +
+                    "<defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'>" +
+                    `<stop offset='0' stop-color='${c1}'/><stop offset='1' stop-color='${c2}'/>` +
+                    "</linearGradient></defs>" +
+                    "<rect width='600' height='800' fill='url(#g)'/>" +
+                    "<circle cx='460' cy='220' r='150' fill='white' fill-opacity='0.18'/>" +
+                    "<circle cx='150' cy='600' r='110' fill='white' fill-opacity='0.10'/>" +
+                    "</svg>"
+                return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`
+            }
+
             const MOVIES = [
-                { title: "Neon Horizon", meta: "2026 · Sci-Fi · 2h 14m", img: img("neon-horizon"), synopsis: "A salvage pilot drifts past the edge of charted space and finds a city that should not exist." },
-                { title: "The Quiet Coast", meta: "2025 · Drama · 1h 48m", img: img("quiet-coast"), synopsis: "Two estranged siblings spend one last summer in the house their mother left behind." },
-                { title: "Ironwood", meta: "2026 · Action · 2h 02m", img: img("ironwood"), synopsis: "A retired courier is pulled back in for one impossible delivery across a city at war." },
-                { title: "Paper Moons", meta: "2024 · Animation · 1h 36m", img: img("paper-moons"), synopsis: "A lighthouse keeper's daughter folds the night sky into paper boats and sails them home." },
-                { title: "Undertow", meta: "2025 · Thriller · 1h 59m", img: img("undertow"), synopsis: "A marine biologist realises the tide is keeping a secret the town would rather drown." },
-                { title: "Citylights", meta: "2026 · Romance · 1h 52m", img: img("citylights"), synopsis: "Every night shift, the same two strangers miss the same last train — until they don't." },
-                { title: "Glasshouse", meta: "2025 · Mystery · 2h 08m", img: img("glasshouse"), synopsis: "An architect is hired to restore a mansion that keeps redrawing its own floor plan." },
-                { title: "Afterglow", meta: "2026 · Sci-Fi · 2h 21m", img: img("afterglow"), synopsis: "When the sun starts setting in the wrong place, one astronomer refuses to look away." },
+                { title: "Neon Horizon", meta: "2026 · Sci-Fi · 2h 14m", c1: "#ff512f", c2: "#dd2476", synopsis: "A salvage pilot drifts past the edge of charted space and finds a city that should not exist." },
+                { title: "The Quiet Coast", meta: "2025 · Drama · 1h 48m", c1: "#2193b0", c2: "#6dd5ed", synopsis: "Two estranged siblings spend one last summer in the house their mother left behind." },
+                { title: "Ironwood", meta: "2026 · Action · 2h 02m", c1: "#8e2de2", c2: "#4a00e0", synopsis: "A retired courier is pulled back in for one impossible delivery across a city at war." },
+                { title: "Paper Moons", meta: "2024 · Animation · 1h 36m", c1: "#f7971e", c2: "#ffd200", synopsis: "A lighthouse keeper's daughter folds the night sky into paper boats and sails them home." },
+                { title: "Undertow", meta: "2025 · Thriller · 1h 59m", c1: "#00b09b", c2: "#96c93d", synopsis: "A marine biologist realises the tide is keeping a secret the town would rather drown." },
+                { title: "Citylights", meta: "2026 · Romance · 1h 52m", c1: "#e96443", c2: "#904e95", synopsis: "Every night shift, the same two strangers miss the same last train — until they don't." },
+                { title: "Glasshouse", meta: "2025 · Mystery · 2h 08m", c1: "#1f4037", c2: "#99f2c8", synopsis: "An architect is hired to restore a mansion that keeps redrawing its own floor plan." },
+                { title: "Afterglow", meta: "2026 · Sci-Fi · 2h 21m", c1: "#fc466b", c2: "#3f5efb", synopsis: "When the sun starts setting in the wrong place, one astronomer refuses to look away." },
             ]
 
             const grid = document.getElementById("grid")
@@ -249,10 +263,13 @@
             grid.innerHTML = MOVIES.map(
                 (m, i) => `
                 <button class="card" data-id="${i}">
-                    <div class="poster" style="background-image:url(${m.img})"></div>
+                    <div class="poster"></div>
                     <div class="card-title">${m.title}</div>
                 </button>`
             ).join("")
+            grid.querySelectorAll(".poster").forEach((el, i) => {
+                el.style.backgroundImage = poster(MOVIES[i].c1, MOVIES[i].c2)
+            })
 
             // Read the live controls so you can feel the difference between
             // a bouncy spring and a flat tween on every transition.
@@ -274,7 +291,7 @@
                 detail.className = "detail"
                 detail.innerHTML = `
                     <button class="close" aria-label="Close">✕</button>
-                    <div class="hero" style="background-image:url(${m.img})"></div>
+                    <div class="hero"></div>
                     <div class="detail-body">
                         <h1>${m.title}</h1>
                         <div class="meta">${m.meta}</div>
@@ -285,6 +302,10 @@
                         <p class="synopsis">${m.synopsis}</p>
                     </div>`
                 detail.querySelector(".close").addEventListener("click", close)
+                detail.querySelector(".hero").style.backgroundImage = poster(
+                    m.c1,
+                    m.c2
+                )
 
                 document.body.append(backdrop, detail)
             }
