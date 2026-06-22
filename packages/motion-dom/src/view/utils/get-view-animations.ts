@@ -1,13 +1,12 @@
-function filterViewAnimations(animation: Animation) {
-    const { effect } = animation
-    if (!effect) return false
-
-    return (
-        effect.target === document.documentElement &&
-        effect.pseudoElement?.startsWith("::view-transition")
-    )
-}
-
-export function getViewAnimations() {
-    return document.getAnimations().filter(filterViewAnimations)
+export function getViewAnimations(root: Element = document.documentElement) {
+    return document.getAnimations().filter((animation) => {
+        const { effect } = animation
+        return (
+            !!effect &&
+            effect.target === root &&
+            (effect as KeyframeEffect).pseudoElement?.startsWith(
+                "::view-transition"
+            )
+        )
+    })
 }

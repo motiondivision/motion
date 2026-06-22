@@ -71,12 +71,15 @@
             .box {
                 width: 160px;
                 height: 160px;
-                border-radius: 14px;
+                border-radius: 16px;
                 background: linear-gradient(135deg, #7b2ff7, #f107a3);
             }
+            /* Different radius too, so you can see it animate (and stay
+               rounded) through the scoped morph. */
             .box.big {
                 width: 320px;
                 height: 200px;
+                border-radius: 40px;
                 background: linear-gradient(135deg, #2193b0, #6dd5ed);
             }
             /* Lives OUTSIDE the scope, animating continuously. It should keep
