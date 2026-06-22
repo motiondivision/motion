@@ -24,14 +24,8 @@ const definitionNames = ["layout", "enter", "exit"] as const
 export function startViewAnimation(
     builder: ViewTransitionBuilder
 ): Promise<GroupAnimation> {
-    const {
-        update,
-        targets,
-        resolveDefs,
-        noCrop,
-        scope,
-        options: defaultOptions,
-    } = builder
+    const { update, targets, resolveDefs, noCrop, options: defaultOptions } =
+        builder
 
     if (!document.startViewTransition) {
         return new Promise(async (resolve) => {
@@ -63,8 +57,7 @@ export function startViewAnimation(
                     ? assignViewTransitionNames(
                           definition as ElementOrSelector,
                           nameRegistry,
-                          assigned,
-                          scope
+                          assigned
                       )
                     : [definition as string]
 
@@ -132,25 +125,11 @@ export function startViewAnimation(
     resolveLayers()
     measureCrop("old")
 
-    const elementScoped =
-        scope && typeof (scope as any).startViewTransition === "function"
-
-    /**
-     * The element whose ::view-transition pseudo-elements we drive. For an
-     * element-scoped transition the pseudos live under the scope element, so
-     * animations target it and the injected CSS is prefixed with a selector
-     * that matches it (rather than the implicit :root).
-     */
-    const vtRoot = elementScoped ? (scope as Element) : document.documentElement
-    const vtSelector = elementScoped ? "[data-motion-view-scope]" : ""
-    if (elementScoped) (scope as Element).setAttribute("data-motion-view-scope", "")
-
     /**
      * If we don't have any animations defined for the root target,
-     * remove it from being captured. Not needed when the transition is
-     * scoped to an element.
+     * remove it from being captured.
      */
-    if (!elementScoped && !hasTarget("root", targets)) {
+    if (!hasTarget("root", targets)) {
         css.set(":root", {
             "view-transition-name": "none",
         })
@@ -164,7 +143,7 @@ export function startViewAnimation(
      * This allows us to set easing via updateTiming - which can be changed.
      */
     css.set(
-        `${vtSelector}::view-transition-group(*), ${vtSelector}::view-transition-old(*), ${vtSelector}::view-transition-new(*)`,
+        "::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*)",
         { "animation-timing-function": "linear !important" }
     )
 
@@ -175,11 +154,11 @@ export function startViewAnimation(
      * pass are known here.
      */
     croppedNames().forEach((name) => {
-        css.set(`${vtSelector}::view-transition-group(${name})`, {
+        css.set(`::view-transition-group(${name})`, {
             overflow: "clip",
         })
         css.set(
-            `${vtSelector}::view-transition-old(${name}), ${vtSelector}::view-transition-new(${name})`,
+            `::view-transition-old(${name}), ::view-transition-new(${name})`,
             { width: "100%", height: "100%", "object-fit": "cover" }
         )
     })
@@ -197,21 +176,16 @@ export function startViewAnimation(
         measureCrop("new")
     }
 
-    const transition = elementScoped
-        ? (scope as any).startViewTransition(callback)
-        : document.startViewTransition(callback)
+    const transition = document.startViewTransition(callback)
 
     transition.finished.finally(() => {
         releaseViewTransitionNames(assigned)
-        if (elementScoped) {
-            ;(scope as Element).removeAttribute("data-motion-view-scope")
-        }
         css.remove() // Write
     })
 
     return new Promise((resolve) => {
         transition.ready.then(() => {
-            const generatedViewAnimations = getViewAnimations(vtRoot)
+            const generatedViewAnimations = getViewAnimations()
 
             const animations: AnimationPlaybackControls[] = []
 
@@ -277,7 +251,7 @@ export function startViewAnimation(
 
                         const animation = new NativeAnimation({
                             ...valueOptions,
-                            element: vtRoot,
+                            element: document.documentElement,
                             name: valueName,
                             pseudoElement: `::view-transition-${type}(${target})`,
                             keyframes: valueKeyframes,
@@ -407,7 +381,7 @@ export function startViewAnimation(
                     animations.push(
                         new NativeAnimation({
                             ...radiusOptions,
-                            element: vtRoot,
+                            element: document.documentElement,
                             name: corner,
                             pseudoElement: `::view-transition-group(${name})`,
                             keyframes: [from, to],

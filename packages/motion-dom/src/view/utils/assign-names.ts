@@ -18,13 +18,9 @@ let nameCount = 0
 export function assignViewTransitionNames(
     definition: ElementOrSelector,
     registry: Map<Element, string>,
-    assigned: Element[],
-    scope?: Element
+    assigned: Element[]
 ): string[] {
-    const elements = resolveElements(
-        definition,
-        scope ? { current: scope, animations: [] } : undefined
-    )
+    const elements = resolveElements(definition)
 
     return elements.map((element) => {
         const existing = registry.get(element)

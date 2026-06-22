@@ -1,9 +1,9 @@
-export function getViewAnimations(root: Element = document.documentElement) {
+export function getViewAnimations() {
     return document.getAnimations().filter((animation) => {
         const { effect } = animation
         return (
             !!effect &&
-            effect.target === root &&
+            effect.target === document.documentElement &&
             (effect as KeyframeEffect).pseudoElement?.startsWith(
                 "::view-transition"
             )

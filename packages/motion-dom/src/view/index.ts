@@ -26,12 +26,6 @@ export class ViewTransitionBuilder {
      */
     noCrop = new Set<ViewTransitionTargetDefinition>()
 
-    /**
-     * When set, the transition is scoped to this element (via
-     * `element.startViewTransition`) and selectors resolve within it.
-     */
-    scope?: Element
-
     update: () => void | Promise<void>
 
     options: ViewTransitionOptions
@@ -44,11 +38,9 @@ export class ViewTransitionBuilder {
 
     constructor(
         update: () => void | Promise<void>,
-        options: ViewTransitionOptions = {},
-        scope?: Element
+        options: ViewTransitionOptions = {}
     ) {
         this.update = update
-        this.scope = scope
         this.options = {
             interrupt: "wait",
             ...options,
@@ -142,19 +134,7 @@ export class ViewTransitionBuilder {
 
 export function animateView(
     update: () => void | Promise<void>,
-    options?: ViewTransitionOptions
-): ViewTransitionBuilder
-export function animateView(
-    scope: Element,
-    update: () => void | Promise<void>,
-    options?: ViewTransitionOptions
-): ViewTransitionBuilder
-export function animateView(
-    a: Element | (() => void | Promise<void>),
-    b?: ViewTransitionOptions | (() => void | Promise<void>),
-    c: ViewTransitionOptions = {}
+    options: ViewTransitionOptions = {}
 ) {
-    return a instanceof Element
-        ? new ViewTransitionBuilder(b as () => void | Promise<void>, c, a)
-        : new ViewTransitionBuilder(a, (b as ViewTransitionOptions) ?? {})
+    return new ViewTransitionBuilder(update, options)
 }
