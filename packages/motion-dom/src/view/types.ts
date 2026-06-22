@@ -9,8 +9,6 @@ export type ViewTransitionTarget = {
     layout?: ViewTransitionAnimationDefinition
     enter?: ViewTransitionAnimationDefinition
     exit?: ViewTransitionAnimationDefinition
-    new?: ViewTransitionAnimationDefinition
-    old?: ViewTransitionAnimationDefinition
 }
 
 export type ViewTransitionOptions = AnimationOptions & {

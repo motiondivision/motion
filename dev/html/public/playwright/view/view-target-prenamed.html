@@ -41,7 +41,7 @@
                 box.style.background = "blue"
             })
                 .addName("box")
-                .new({ opacity: [0, 1] }, { duration: 3, ease: "linear" })
+                .enter({ opacity: [0, 1] }, { duration: 3, ease: "linear" })
                 .then(
                     () => {
                         window.__view.pseudos = collect()

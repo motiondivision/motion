@@ -57,13 +57,6 @@ export class ViewTransitionBuilder {
         addToQueue(this)
     }
 
-    get(subject: ViewTransitionTargetDefinition) {
-        this.currentSubject = subject
-        if (subject instanceof Element) this.resolveDefs.add(subject)
-
-        return this
-    }
-
     /**
      * Target elements resolved from a selector or Element. Each resolved
      * element is assigned a `view-transition-name` automatically.
@@ -106,18 +99,6 @@ export class ViewTransitionBuilder {
         return this
     }
 
-    new(keyframes: DOMKeyframesDefinition, options?: AnimationOptions) {
-        this.updateTarget("new", keyframes, options)
-
-        return this
-    }
-
-    old(keyframes: DOMKeyframesDefinition, options?: AnimationOptions) {
-        this.updateTarget("old", keyframes, options)
-
-        return this
-    }
-
     enter(keyframes: DOMKeyframesDefinition, options?: AnimationOptions) {
         this.updateTarget("enter", keyframes, options)
 
@@ -138,7 +119,7 @@ export class ViewTransitionBuilder {
     }
 
     updateTarget(
-        target: "enter" | "exit" | "layout" | "new" | "old",
+        target: "enter" | "exit" | "layout",
         keyframes: DOMKeyframesDefinition,
         options: AnimationOptions = {}
     ) {

@@ -19,7 +19,7 @@ import { getViewAnimationLayerInfo } from "./utils/get-layer-info"
 import { getViewAnimations } from "./utils/get-view-animations"
 import { hasTarget } from "./utils/has-target"
 
-const definitionNames = ["layout", "enter", "exit", "new", "old"] as const
+const definitionNames = ["layout", "enter", "exit"] as const
 
 export function startViewAnimation(
     builder: ViewTransitionBuilder
@@ -417,9 +417,9 @@ function hasExplicitKeyframes(target: ViewTransitionTarget, type: string) {
         type === "group"
             ? ["layout"]
             : type === "new"
-              ? ["enter", "new"]
+              ? ["enter"]
               : type === "old"
-                ? ["exit", "old"]
+                ? ["exit"]
                 : []
 
     return buckets.some((bucket) => {
@@ -437,9 +437,9 @@ function layerOptions(target: ViewTransitionTarget | undefined, type: string) {
         type === "group"
             ? target?.layout
             : type === "new"
-              ? (target?.enter ?? target?.new)
+              ? target?.enter
               : type === "old"
-                ? (target?.exit ?? target?.old)
+                ? target?.exit
                 : undefined
 
     return bucket?.options
