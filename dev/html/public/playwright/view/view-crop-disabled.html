@@ -8,12 +8,11 @@
             .box {
                 width: 100px;
                 height: 100px;
-                background: red;
                 margin: 40px;
+                background: red;
                 border-radius: 8px;
                 view-transition-name: box;
             }
-            /* Different aspect ratio AND border-radius in the new state. */
             .box.big {
                 width: 320px;
                 height: 120px;
@@ -39,32 +38,32 @@
 
             const box = document.getElementById("box")
 
+            // .crop(false) opts out: no clip, no object-fit, no radius morph.
             animateView(() => box.classList.add("big"), {
                 duration: 3,
                 ease: "linear",
             })
                 .addName("box")
+                .crop(false)
                 .then(
                     () => {
                         const style = document.getElementById("motion-view")
                         window.__view.css = style ? style.textContent : ""
                         window.__view.radiusAnimated = document
                             .getAnimations()
-                            .some((a) => {
-                                const eff = a.effect
-                                return (
-                                    eff &&
-                                    eff.pseudoElement ===
+                            .some(
+                                (a) =>
+                                    a.effect &&
+                                    a.effect.pseudoElement ===
                                         "::view-transition-group(box)" &&
-                                    eff
+                                    a.effect
                                         .getKeyframes()
                                         .some((k) =>
                                             Object.keys(k).some((p) =>
                                                 /Radius$/.test(p)
                                             )
                                         )
-                                )
-                            })
+                            )
                         window.__view.ready = true
                     },
                     (e) => {

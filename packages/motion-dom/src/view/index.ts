@@ -21,11 +21,10 @@ export class ViewTransitionBuilder {
     resolveDefs = new Set<ViewTransitionTargetDefinition>()
 
     /**
-     * Subjects whose morph should clip + `object-fit` its old/new snapshots,
-     * keyed to the object-fit value. Saves authors hand-writing the
-     * `::view-transition-old/new` CSS for cross-aspect-ratio morphs.
+     * Subjects opted out of the default crop (clip + object-fit: cover +
+     * animated corner radii) via `.crop(false)`.
      */
-    cropDefs = new Map<ViewTransitionTargetDefinition, string>()
+    noCrop = new Set<ViewTransitionTargetDefinition>()
 
     /**
      * When set, the transition is scoped to this element (via
@@ -83,12 +82,14 @@ export class ViewTransitionBuilder {
     }
 
     /**
-     * Clip this subject's morph and `object-fit` its old/new snapshots, so a
-     * cross-aspect-ratio morph (e.g. a 2:3 thumbnail into a 16:9 hero) fills
-     * and crops the morphing box instead of overflowing with its old shape.
+     * Morphs are clipped + `object-fit: cover` (and their corners animate)
+     * by default. Call `.crop(false)` to opt this subject out and fall back
+     * to the browser default (which overflows on aspect-ratio change).
      */
-    crop(objectFit: string = "cover") {
-        this.cropDefs.set(this.currentSubject, objectFit)
+    crop(enabled = true) {
+        enabled
+            ? this.noCrop.delete(this.currentSubject)
+            : this.noCrop.add(this.currentSubject)
 
         return this
     }

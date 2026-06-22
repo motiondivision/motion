@@ -28,7 +28,7 @@ export function startViewAnimation(
         update,
         targets,
         resolveDefs,
-        cropDefs,
+        noCrop,
         scope,
         options: defaultOptions,
     } = builder
@@ -98,23 +98,27 @@ export function startViewAnimation(
 
     const cropRadii = new Map<string, { old?: CornerRadii; new?: CornerRadii }>()
 
-    const measureCrop = (phase: "old" | "new") => {
-        if (!cropDefs.size) return
-
-        const croppedNames = new Set<string>()
-        cropDefs.forEach((_, definition) => {
-            const target = targets.get(definition)
-            target &&
-                subjectNames
-                    .get(target)
-                    ?.forEach((name) => croppedNames.add(name))
+    /**
+     * Layer names whose morph should be cropped: every resolved/named subject
+     * except `root` and any opted out via `.crop(false)`.
+     */
+    const croppedNames = () => {
+        const names = new Set<string>()
+        targets.forEach((target, definition) => {
+            if (definition === "root" || noCrop.has(definition)) return
+            subjectNames.get(target)?.forEach((name) => names.add(name))
         })
-        if (!croppedNames.size) return
+        return names
+    }
+
+    const measureCrop = (phase: "old" | "new") => {
+        const names = croppedNames()
+        if (!names.size) return
 
         document.querySelectorAll("*").forEach((element) => {
             const style = getComputedStyle(element)
             const name = style.getPropertyValue("view-transition-name")
-            if (!croppedNames.has(name)) return
+            if (!names.has(name)) return
 
             const corners = {} as CornerRadii
             for (const corner of cornerProps) corners[corner] = style[corner]
@@ -155,22 +159,17 @@ export function startViewAnimation(
     )
 
     /**
-     * Clip + object-fit the snapshots of any cropped subjects so cross-aspect
-     * morphs fill the morphing box rather than overflowing. Layer names from
-     * the first resolve pass are known here.
+     * Morphs are clipped + object-fit: cover by default (the UA default
+     * overflows on aspect-ratio change), with an animated border-radius added
+     * below. `.crop(false)` opts a subject out. Names from the first resolve
+     * pass are known here.
      */
-    cropDefs.forEach((objectFit, definition) => {
-        const target = targets.get(definition)
-        const names = target && subjectNames.get(target)
-        names?.forEach((name) => {
-            // Clip the group so object-fit overflow is hidden and an animated
-            // border-radius (added below) rounds the morphing box.
-            css.set(`::view-transition-group(${name})`, { overflow: "clip" })
-            css.set(
-                `::view-transition-old(${name}), ::view-transition-new(${name})`,
-                { width: "100%", height: "100%", "object-fit": objectFit }
-            )
-        })
+    croppedNames().forEach((name) => {
+        css.set(`::view-transition-group(${name})`, { overflow: "clip" })
+        css.set(
+            `::view-transition-old(${name}), ::view-transition-new(${name})`,
+            { width: "100%", height: "100%", "object-fit": "cover" }
+        )
     })
 
     css.commit() // Write

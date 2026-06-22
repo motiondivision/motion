@@ -100,7 +100,7 @@ test.describe("animateView() target resolution", () => {
         expect(Math.max(...result.delays)).toBeGreaterThan(0)
     })
 
-    test(".crop() clips, object-fits, and animates border-radius", async ({
+    test("morphs are clipped, object-fit and radius-animated by default", async ({
         page,
     }) => {
         await page.goto("view/view-crop.html")
@@ -118,7 +118,7 @@ test.describe("animateView() target resolution", () => {
         expect(result.radiusAnimated).toBe(true)
     })
 
-    test(".crop() animates individual corner radii", async ({ page }) => {
+    test("animates individual corner radii", async ({ page }) => {
         await page.goto("view/view-crop-corners.html")
         const result = await readResult(page)
         test.skip(!result.supported, "No startViewTransition support")
@@ -130,6 +130,16 @@ test.describe("animateView() target resolution", () => {
         expect(result.corners.borderTopRightRadius).toEqual(["24px", "4px"])
         expect(result.corners.borderBottomRightRadius).toEqual(["0px", "4px"])
         expect(result.corners.borderBottomLeftRadius).toEqual(["0px", "4px"])
+    })
+
+    test(".crop(false) opts out of the default crop", async ({ page }) => {
+        await page.goto("view/view-crop-disabled.html")
+        const result = await readResult(page)
+        test.skip(!result.supported, "No startViewTransition support")
+
+        expect(result.error).toBeNull()
+        expect(result.css).not.toMatch(/object-fit/)
+        expect(result.radiusAnimated).toBe(false)
     })
 
     test(".exit({ opacity: 0 }) animates from an inferred 1, not instantly", async ({
