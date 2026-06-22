@@ -208,7 +208,15 @@
 
         <script type="module" src="/src/imports/view.js"></script>
         <script type="module">
-            const { animateView, spring } = window.MotionDOM
+            const MotionDOM = window.MotionDOM
+            if (!MotionDOM || !MotionDOM.animateView) {
+                document.body.innerHTML =
+                    '<p style="padding:40px;font-family:sans-serif">' +
+                    "Couldn't load <code>motion-dom</code> — build it (run " +
+                    "<code>yarn build</code>) then reload this page.</p>"
+                throw new Error("motion-dom failed to load")
+            }
+            const { animateView, spring, stagger } = MotionDOM
 
             const MOVIES = [
                 { title: "Neon Horizon", meta: "2026 · Sci-Fi · 2h 14m", from: "#ff512f", to: "#dd2476", synopsis: "A salvage pilot drifts past the edge of charted space and finds a city that should not exist." },
@@ -287,9 +295,11 @@
                     buildDetail(i)
                     grid.classList.add("is-hidden")
                 }, opts)
-                    // The rest of the grid is auto-named and exits together.
+                    // Pre-named shared element — .addName auto-enables its morph.
+                    .addName("hero")
+                    // The rest of the grid is auto-named and exits, staggered.
                     .add(".grid .card:not(.is-active)")
-                    .exit({ opacity: 0 }, opts)
+                    .exit({ opacity: 0 }, { ...opts, delay: stagger(0.04) })
                     // Backdrop + detail copy are brand-new elements: they enter.
                     .add(".backdrop")
                     .enter({ opacity: [0, 1] }, opts)
@@ -307,8 +317,9 @@
                     document.querySelector(".backdrop")?.remove()
                     grid.classList.remove("is-hidden")
                 }, opts)
+                    .addName("hero")
                     .add(".grid .card:not(.is-active)")
-                    .enter({ opacity: [0, 1] }, opts)
+                    .enter({ opacity: [0, 1] }, { ...opts, delay: stagger(0.04) })
                     .add(".detail-body")
                     .exit({ opacity: 0, y: [0, 40] }, opts)
                     .then((group) => group.finished)
