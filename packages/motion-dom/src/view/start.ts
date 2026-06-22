@@ -81,7 +81,39 @@ export function startViewAnimation(
         })
     }
 
+    /**
+     * Measured border-radius per cropped layer, so the clip can animate its
+     * corners between the old and new elements. One DOM pass per phase, only
+     * when .crop() is in use.
+     */
+    const cropRadii = new Map<string, { old?: string; new?: string }>()
+
+    const measureCrop = (phase: "old" | "new") => {
+        if (!cropDefs.size) return
+
+        const croppedNames = new Set<string>()
+        cropDefs.forEach((_, definition) => {
+            const target = targets.get(definition)
+            target &&
+                subjectNames
+                    .get(target)
+                    ?.forEach((name) => croppedNames.add(name))
+        })
+        if (!croppedNames.size) return
+
+        document.querySelectorAll("*").forEach((element) => {
+            const style = getComputedStyle(element)
+            const name = style.getPropertyValue("view-transition-name")
+            if (!croppedNames.has(name)) return
+
+            const entry = cropRadii.get(name) ?? {}
+            entry[phase] = style.borderRadius
+            cropRadii.set(name, entry)
+        })
+    }
+
     resolveLayers()
+    measureCrop("old")
 
     const elementScoped =
         scope && typeof (scope as any).startViewTransition === "function"
@@ -118,9 +150,9 @@ export function startViewAnimation(
         const target = targets.get(definition)
         const names = target && subjectNames.get(target)
         names?.forEach((name) => {
-            css.set(`::view-transition-image-pair(${name})`, {
-                overflow: "clip",
-            })
+            // Clip the group so object-fit overflow is hidden and an animated
+            // border-radius (added below) rounds the morphing box.
+            css.set(`::view-transition-group(${name})`, { overflow: "clip" })
             css.set(
                 `::view-transition-old(${name}), ::view-transition-new(${name})`,
                 { width: "100%", height: "100%", "object-fit": objectFit }
@@ -134,10 +166,11 @@ export function startViewAnimation(
         await update()
 
         /**
-         * Re-resolve so elements created by the update are named for the
-         * new snapshot.
+         * Re-resolve so elements created by the update are named for the new
+         * snapshot, then measure the cropped layers' new border-radius.
          */
         resolveLayers()
+        measureCrop("new")
     }
 
     const transition = elementScoped
@@ -307,6 +340,42 @@ export function startViewAnimation(
 
                 animations.push(new NativeAnimationWrapper(animation))
             }
+
+            /**
+             * Animate each cropped layer's clip border-radius between the old
+             * and new elements, so a cropped morph keeps rounded corners.
+             */
+            cropRadii.forEach((radii, name) => {
+                const from = radii.old ?? radii.new
+                const to = radii.new ?? radii.old
+                if (from === undefined && to === undefined) return
+
+                const radiusOptions = {
+                    ...getValueTransition(defaultOptions, "layout"),
+                    ...getValueTransition(
+                        (layerOptions(layerTargets.get(name), "group") ??
+                            {}) as any,
+                        "layout"
+                    ),
+                }
+
+                radiusOptions.duration &&= secondsToMilliseconds(
+                    radiusOptions.duration
+                )
+                radiusOptions.delay &&= secondsToMilliseconds(
+                    radiusOptions.delay
+                )
+
+                animations.push(
+                    new NativeAnimation({
+                        ...radiusOptions,
+                        element: document.documentElement,
+                        name: "borderRadius",
+                        pseudoElement: `::view-transition-group(${name})`,
+                        keyframes: [from, to],
+                    })
+                )
+            })
 
             resolve(new GroupAnimation(animations))
         })

@@ -6,6 +6,7 @@ interface ViewResult {
     pseudos: string[]
     delays: number[]
     css: string
+    radiusAnimated: boolean
     error: string | null
 }
 
@@ -97,17 +98,21 @@ test.describe("animateView() target resolution", () => {
         expect(Math.max(...result.delays)).toBeGreaterThan(0)
     })
 
-    test(".crop() injects clip + object-fit for the layer", async ({ page }) => {
+    test(".crop() clips, object-fits, and animates border-radius", async ({
+        page,
+    }) => {
         await page.goto("view/view-crop.html")
         const result = await readResult(page)
         test.skip(!result.supported, "No startViewTransition support")
 
         expect(result.error).toBeNull()
         expect(result.css).toMatch(
-            /::view-transition-image-pair\(box\)\s*\{[^}]*overflow:\s*clip/
+            /::view-transition-group\(box\)\s*\{[^}]*overflow:\s*clip/
         )
         expect(result.css).toMatch(
             /::view-transition-old\(box\)[^{]*\{[^}]*object-fit:\s*cover/
         )
+        // border-radius (8px -> 28px) animates on the group's clip.
+        expect(result.radiusAnimated).toBe(true)
     })
 })

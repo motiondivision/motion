@@ -10,12 +10,14 @@
                 height: 100px;
                 background: red;
                 margin: 40px;
+                border-radius: 8px;
                 view-transition-name: box;
             }
-            /* Different aspect ratio in the new state. */
+            /* Different aspect ratio AND border-radius in the new state. */
             .box.big {
                 width: 320px;
                 height: 120px;
+                border-radius: 28px;
                 background: blue;
             }
         </style>
@@ -31,6 +33,7 @@
                 ready: false,
                 supported: !!document.startViewTransition,
                 css: "",
+                radiusAnimated: false,
                 error: null,
             }
 
@@ -46,6 +49,19 @@
                     () => {
                         const style = document.getElementById("motion-view")
                         window.__view.css = style ? style.textContent : ""
+                        window.__view.radiusAnimated = document
+                            .getAnimations()
+                            .some((a) => {
+                                const eff = a.effect
+                                return (
+                                    eff &&
+                                    eff.pseudoElement ===
+                                        "::view-transition-group(box)" &&
+                                    eff
+                                        .getKeyframes()
+                                        .some((k) => "borderRadius" in k)
+                                )
+                            })
                         window.__view.ready = true
                     },
                     (e) => {
