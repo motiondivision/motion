@@ -1,0 +1,32 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+                font-family: sans-serif;
+            }
+
+            .box {
+                width: 100px;
+                height: 100px;
+                background-color: rgb(255, 0, 0);
+            }
+        </style>
+    </head>
+    <body>
+        <div class="box" id="color"></div>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            const { animate } = window.Motion
+
+            // Long duration + linear ease so a mid-animation measurement lands
+            // strictly between the endpoints. backgroundColor is now in the
+            // accelerated set, so this should run as a WAAPI animation.
+            animate(
+                "#color",
+                { backgroundColor: "rgb(0, 0, 255)" },
+                { duration: 10, ease: "linear" }
+            )
+        </script>
+    </body>
+</html>

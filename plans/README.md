@@ -31,7 +31,7 @@ The 2026-06-10 runs were non-interactive, so plans were written for the top find
 | 005 | Grid/distance-based `stagger()` | P3 | S | — | TODO |
 | 008 | Single-parse box-shadow projection scale correction | P2 | S | — | TODO |
 | 009 | LayoutAnimationBuilder characterization tests | P2 | M | — | TODO |
-| 003 | Enable WAAPI acceleration for color properties | P2 | M | — | TODO |
+| 003 | Enable WAAPI acceleration for color properties | P2 | M | — | DONE |
 | 002 | Finish `animateView()` non-root target resolution | P2 | M | — | TODO |
 | 004 | Design spike: WAAPI for transform shorthands (doc only) | P2 | M | — | TODO |
 | 010 | Remove dead root devDependencies | P3 | S | 007 (soft) | TODO |
