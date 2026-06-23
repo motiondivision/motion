@@ -231,13 +231,13 @@ export function startViewAnimation(
         index: number,
         total: number
     ) => {
-        const transition = {
-            ...getValueTransition(defaultOptions, transitionName),
-            ...getValueTransition(
+        const transition = mergeTransition(
+            getValueTransition(defaultOptions, transitionName),
+            getValueTransition(
                 (layerOptions(target, type) ?? {}) as any,
                 transitionName
-            ),
-        }
+            )
+        )
 
         if (typeof transition.delay === "function") {
             transition.delay = transition.delay(index, total)
@@ -442,13 +442,13 @@ export function startViewAnimation(
                                 continue
                             }
 
-                            const valueOptions = {
-                                ...getValueTransition(
+                            const valueOptions = mergeTransition(
+                                getValueTransition(
                                     defaultOptions as any,
                                     valueName
                                 ),
-                                ...getValueTransition(options as any, valueName),
-                            }
+                                getValueTransition(options as any, valueName)
+                            )
 
                             /**
                              * Infer an origin for a single-value keyframe. An
@@ -715,4 +715,24 @@ function layerOptions(target: ViewTransitionTarget | undefined, type: string) {
         const options = target?.[bucket]?.options
         if (options) return options
     }
+}
+
+/**
+ * Merge a base transition (e.g. the default `options`) with a per-layer/value
+ * override. An explicit `duration` on the override must win over an inherited
+ * generator's own timing: a spring prefers `visualDuration`, and
+ * `spring.applyToOptions` overwrites `duration` with the computed settle time -
+ * so without this the override is silently discarded. Dropping the inherited
+ * `type`/`visualDuration` makes the layer a plain tween of that duration, unless
+ * it asked for its own generator `type`/`visualDuration`.
+ */
+function mergeTransition(base: any, override: any) {
+    const merged = { ...base, ...override }
+
+    if (override.duration !== undefined) {
+        if (override.visualDuration === undefined) delete merged.visualDuration
+        if (override.type === undefined) delete merged.type
+    }
+
+    return merged
 }

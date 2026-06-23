@@ -34,6 +34,9 @@ interface ViewResult {
         old: { delay: number; easing: string } | null
         new: { delay: number; easing: string } | null
     }>
+    rootOld: number | null
+    rootNew: number | null
+    boxGroup: number | null
     error: string | null
 }
 
@@ -406,6 +409,23 @@ test.describe("animateView() target resolution", () => {
             expect(card.old!.easing).toBe("linear")
             expect(card.new!.easing).toBe("linear")
         }
+    })
+
+    test("an explicit .layout({duration}) overrides the inherited spring; a morph keeps its settle", async ({
+        page,
+    }) => {
+        await page.goto("view/view-layout-duration.html")
+        const result = await readResult(page)
+        test.skip(!result.supported, "No startViewTransition support")
+
+        expect(result.error).toBeNull()
+        // The root crossfade (dim) honours the explicit 300ms - it is NOT stuck
+        // at the spring's settle. (Pre-fix it was ~900ms, the spring overshoot.)
+        expect(result.rootOld).toBe(300)
+        expect(result.rootNew).toBe(300)
+        // The morph, with no override, still runs for the spring's full settle
+        // (overshoot) duration - much longer than 300ms.
+        expect(result.boxGroup).toBeGreaterThan(700)
     })
 
     test(".new()/.old() slide a survivor's views in opposite directions", async ({
