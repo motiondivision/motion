@@ -147,8 +147,10 @@ export class ViewTransitionBuilder {
     }
 
     crossfade(options?: AnimationOptions) {
-        this.updateTarget("enter", { opacity: 1 }, options)
-        this.updateTarget("exit", { opacity: 0 }, options)
+        // Flagged so it dissolves a survivor's old <-> new, where a plain
+        // enter/exit would be skipped (survivors morph, they don't appear/leave).
+        this.updateTarget("enter", { opacity: 1 }, options, true)
+        this.updateTarget("exit", { opacity: 0 }, options, true)
 
         return this
     }
@@ -156,7 +158,8 @@ export class ViewTransitionBuilder {
     updateTarget(
         target: "enter" | "exit" | "layout",
         keyframes: DOMKeyframesDefinition,
-        options: AnimationOptions = {}
+        options: AnimationOptions = {},
+        crossfade = false
     ) {
         const { currentSubject, targets } = this
 
@@ -166,7 +169,7 @@ export class ViewTransitionBuilder {
 
         const targetData = targets.get(currentSubject)!
 
-        targetData[target] = { keyframes, options }
+        targetData[target] = { keyframes, options, crossfade }
     }
 
     then(resolve: () => void, reject?: () => void) {

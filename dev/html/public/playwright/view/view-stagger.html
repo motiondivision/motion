@@ -4,23 +4,20 @@
         <style>
             body {
                 margin: 0;
+            }
+            #row {
                 display: flex;
                 gap: 20px;
             }
             .item {
                 width: 120px;
                 height: 120px;
-                background: red;
-            }
-            .item.shown {
                 background: blue;
             }
         </style>
     </head>
     <body>
-        <div class="item">1</div>
-        <div class="item">2</div>
-        <div class="item">3</div>
+        <div id="row"></div>
 
         <script type="module" src="/src/imports/view.js"></script>
         <script type="module">
@@ -33,10 +30,13 @@
                 error: null,
             }
 
+            // The items are ADDED by the update, so they're newcomers and
+            // .enter() applies to each (staggered).
             animateView(() => {
-                document
-                    .querySelectorAll(".item")
-                    .forEach((el) => el.classList.add("shown"))
+                document.getElementById("row").innerHTML =
+                    '<div class="item">1</div>' +
+                    '<div class="item">2</div>' +
+                    '<div class="item">3</div>'
             })
                 .add(".item")
                 .enter(

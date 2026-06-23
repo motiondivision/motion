@@ -189,7 +189,7 @@ test.describe("animateView() target resolution", () => {
         expect(result.delays).toEqual([0, 150, 300])
     })
 
-    test("overlapping .add() subjects on one element keep both animations", async ({
+    test("a second .add() of the same element doesn't drop the first's animation", async ({
         page,
     }) => {
         await page.goto("view/view-overlap.html")
@@ -197,10 +197,9 @@ test.describe("animateView() target resolution", () => {
         test.skip(!result.supported, "No startViewTransition support")
 
         expect(result.error).toBeNull()
-        // Both buckets survive the collision on one element: `.a`'s enter
-        // (filter on the new layer) AND `.b`'s exit (opacity on the old).
+        // `.a`'s enter (filter) must survive the merge when `.b` re-adds the
+        // same element - the second subject can't clobber the first's bucket.
         expect(result.enterFilter).toBe(true)
-        expect(result.exitOpacity.length).toBeGreaterThan(0)
     })
 
     test("pairs two elements into one shared-name morph (open direction)", async ({
@@ -243,6 +242,22 @@ test.describe("animateView() target resolution", () => {
         expect(result.pseudos).toContain(
             `::view-transition-new(${result.nameB})`
         )
+    })
+
+    test("enter/exit do not apply to a persistent (survivor) element", async ({
+        page,
+    }) => {
+        await page.goto("view/view-survivor.html")
+        const result = await readResult(page)
+        test.skip(!result.supported, "No startViewTransition support")
+
+        expect(result.error).toBeNull()
+        // It morphs...
+        expect(result.hasGroup).toBe(true)
+        // ...but enter/exit (which scale) must NOT leak onto a survivor - it's
+        // not appearing or leaving. (Fails pre-fix: scale lands on both.)
+        expect(result.scaleOnNew).toBe(false)
+        expect(result.scaleOnOld).toBe(false)
     })
 
     test("`.class()` tags layers with a view-transition-class for CSS targeting", async ({

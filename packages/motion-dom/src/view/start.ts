@@ -338,8 +338,26 @@ export function startViewAnimation(
                         // Skip a layer absent from its snapshot.
                         if (index === -1) continue
 
-                        const { keyframes, options } =
+                        const definition =
                             target[key as keyof ViewTransitionTarget]!
+
+                        /**
+                         * enter/exit are appear/leave animations. A survivor
+                         * (present in both snapshots, so it morphs) shouldn't
+                         * fade or scale - skip its enter/exit unless this is an
+                         * explicit `.crossfade()` of the old <-> new content.
+                         */
+                        const stagger = layerStagger.get(name)
+                        if (
+                            (key === "enter" || key === "exit") &&
+                            stagger?.old &&
+                            stagger?.new &&
+                            !definition.crossfade
+                        ) {
+                            continue
+                        }
+
+                        const { keyframes, options } = definition
 
                         for (let [valueName, valueKeyframes] of Object.entries(
                             keyframes

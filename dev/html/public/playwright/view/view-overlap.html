@@ -8,17 +8,13 @@
             .box {
                 width: 120px;
                 height: 120px;
-                background: orange;
                 margin: 40px;
-            }
-            .box.moved {
-                transform: translateX(120px);
-                background: purple;
+                background: orange;
             }
         </style>
     </head>
     <body>
-        <div class="a b box"></div>
+        <div id="container"></div>
 
         <script type="module" src="/src/imports/view.js"></script>
         <script type="module">
@@ -28,52 +24,36 @@
                 ready: false,
                 supported: !!document.startViewTransition,
                 enterFilter: false,
-                exitOpacity: [],
                 error: null,
             }
 
-            // Two subjects whose selectors resolve to the SAME element. Their
-            // definitions must be merged so neither animation is dropped: `.a`'s
-            // enter (filter on the new layer) AND `.b`'s exit (opacity on old).
-            animateView(() =>
-                document.querySelector(".box").classList.add("moved")
-            )
+            // One element matches BOTH `.a` and `.b`, and is added by the
+            // update (a newcomer), so `.a`'s enter applies. The second
+            // `.add(".b")` must merge - not clobber `.a`'s enter bucket.
+            animateView(() => {
+                document.getElementById("container").innerHTML =
+                    '<div class="a b box"></div>'
+            })
                 .add(".a")
                 .enter(
                     { filter: ["blur(8px)", "blur(0px)"] },
                     { duration: 2, ease: "linear" }
                 )
                 .add(".b")
-                .exit({ opacity: [1, 0.4] }, { duration: 2, ease: "linear" })
                 .then(
                     () => {
-                        const anims = document.getAnimations()
-                        window.__view.enterFilter = anims.some((a) => {
-                            const eff = a.effect
-                            return (
-                                eff &&
-                                /::view-transition-new\(motion-view-\d+\)/.test(
-                                    eff.pseudoElement || ""
-                                ) &&
-                                eff.getKeyframes().some((k) => "filter" in k)
-                            )
-                        })
-                        const exit = anims.find((a) => {
-                            const eff = a.effect
-                            return (
-                                eff &&
-                                /::view-transition-old\(motion-view-\d+\)/.test(
-                                    eff.pseudoElement || ""
-                                ) &&
-                                eff.getKeyframes().some((k) => "opacity" in k)
-                            )
-                        })
-                        window.__view.exitOpacity = exit
-                            ? exit.effect
-                                  .getKeyframes()
-                                  .map((k) => k.opacity)
-                                  .filter((v) => v !== undefined)
-                            : []
+                        window.__view.enterFilter = document
+                            .getAnimations()
+                            .some((a) => {
+                                const e = a.effect
+                                return (
+                                    e &&
+                                    /::view-transition-new\(motion-view-\d+\)/.test(
+                                        e.pseudoElement || ""
+                                    ) &&
+                                    e.getKeyframes().some((k) => "filter" in k)
+                                )
+                            })
                         window.__view.ready = true
                     },
                     (e) => {

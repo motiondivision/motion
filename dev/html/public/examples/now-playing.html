@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
     <head>
         <meta charset="UTF-8" />
@@ -102,11 +102,13 @@
             .mini-title {
                 font-size: 14px;
                 font-weight: 600;
+                width: fit-content;
             }
 
             .mini-artist {
                 font-size: 12px;
                 color: #9a9aa2;
+                width: fit-content;
             }
 
             .mini-play {
@@ -171,12 +173,14 @@
                 margin: 0 0 4px;
                 font-size: 22px;
                 font-weight: 700;
+                width: fit-content;
             }
 
             .player-artist {
                 margin: 0;
                 font-size: 15px;
                 color: #9a9aa2;
+                width: fit-content;
             }
 
             .player-progress {
@@ -244,7 +248,15 @@
                     <span class="mini-artist">The Aviators</span>
                 </div>
                 <span class="mini-play" aria-hidden="true">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg>
+                    <svg
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                    >
+                        <rect x="6" y="5" width="4" height="14" rx="1" />
+                        <rect x="14" y="5" width="4" height="14" rx="1" />
+                    </svg>
                 </span>
             </button>
         </div>
@@ -292,7 +304,9 @@
                         <button class="player-play" aria-label="Pause">${pauseIcon}</button>
                         <button aria-label="Next">${nextIcon}</button>
                     </div>`
-                player.querySelector(".player-close").addEventListener("click", collapse)
+                player
+                    .querySelector(".player-close")
+                    .addEventListener("click", collapse)
 
                 np.append(backdrop, player)
             }
@@ -309,8 +323,11 @@
                 animateView(() => {
                     buildPlayer()
                     mini.style.visibility = "hidden"
-                }, opts)            .add(mini, ".player")
+                }, opts)
+                    .add(mini, ".player")
                     .add(miniArt, ".player-art")
+                    .add(".mini-title", ".player-title")
+                    .add(".mini-artist", ".player-artist")
             }
 
             const collapse = () => {
@@ -321,8 +338,11 @@
                     document.querySelector(".player")?.remove()
                     document.querySelector(".np-backdrop")?.remove()
                     mini.style.visibility = "visible"
-                }, opts)            .add(".player", mini)
+                }, opts)
+                    .add(".player", mini)
                     .add(".player-art", miniArt)
+                    .add(".player-title", ".mini-title")
+                    .add(".player-artist", ".mini-artist")
             }
 
             mini.addEventListener("click", expand)
