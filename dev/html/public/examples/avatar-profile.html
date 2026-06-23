@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <title>animateView() — avatar profile</title>
+        <style>
+            html,
+            body {
+                height: 100%;
+            }
+            body {
+                margin: 0;
+            }
+
+            .avatar-demo,
+            .avatar-demo * {
+                box-sizing: border-box;
+            }
+
+            .avatar-demo {
+                width: 100%;
+                min-height: 100%;
+                background: #0e0e10;
+                color: #fff;
+                font-family: var(
+                    --font-sans,
+                    -apple-system,
+                    BlinkMacSystemFont,
+                    "Segoe UI",
+                    Roboto,
+                    Helvetica,
+                    Arial,
+                    sans-serif
+                );
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                --grad: linear-gradient(140deg, #5b8cff, #9b5bff);
+            }
+
+            .avatar {
+                width: 72px;
+                height: 72px;
+                border: 0;
+                border-radius: 50%;
+                background: var(--grad);
+                color: rgba(255, 255, 255, 0.92);
+                font-family: inherit;
+                font-size: 22px;
+                font-weight: 700;
+                letter-spacing: 0.04em;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+            }
+
+            .profile-backdrop {
+                position: fixed;
+                inset: 0;
+                z-index: 10;
+                background: rgba(0, 0, 0, 0.55);
+            }
+
+            .profile {
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                width: min(320px, calc(100% - 40px));
+                z-index: 11;
+                overflow: hidden;
+                background: #17171b;
+                border: 1px solid #26262c;
+                border-radius: 20px;
+                box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+            }
+
+            .profile-banner {
+                height: 120px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: var(--grad);
+                font-size: 40px;
+                font-weight: 700;
+                color: rgba(255, 255, 255, 0.92);
+            }
+
+            .profile-body {
+                display: flex;
+                flex-direction: column;
+                gap: 6px;
+                padding: 20px;
+            }
+
+            .profile-name {
+                margin: 0;
+                font-size: 20px;
+            }
+
+            .profile-role {
+                margin: 0;
+                font-size: 13px;
+                color: #9a9aa2;
+            }
+
+            .profile-bio {
+                margin: 6px 0 14px;
+                font-size: 14px;
+                line-height: 1.5;
+                color: #c9c9d1;
+            }
+
+            .profile-actions {
+                display: flex;
+                gap: 10px;
+            }
+
+            .profile-follow,
+            .profile-message {
+                flex: 1;
+                border: 1px solid #2e2e34;
+                border-radius: 10px;
+                padding: 10px;
+                font-family: inherit;
+                font-size: 14px;
+                font-weight: 600;
+                cursor: pointer;
+            }
+
+            .profile-follow {
+                background: #fff;
+                color: #111;
+                border-color: #fff;
+            }
+
+            .profile-message {
+                background: transparent;
+                color: #fff;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="avatar-demo">
+            <button class="avatar" id="avatar" aria-label="Open profile">
+                MP
+            </button>
+        </div>
+
+        <script type="module" src="/src/imports/view.js"></script>
+        <script type="module">
+            const { animateView, spring } = window.MotionDOM
+
+            /**
+             * ==============   Setup   ================
+             */
+            const root = document.querySelector(".avatar-demo")
+            const avatar = document.getElementById("avatar")
+            let open = false
+
+            const opts = { type: spring, visualDuration: 0.45, bounce: 0.22 }
+
+            const buildProfile = () => {
+                const backdrop = document.createElement("div")
+                backdrop.className = "profile-backdrop"
+                backdrop.addEventListener("click", close)
+
+                const profile = document.createElement("div")
+                profile.className = "profile"
+                profile.innerHTML = `
+                    <div class="profile-banner">MP</div>
+                    <div class="profile-body">
+                        <h3 class="profile-name">Maya Powell</h3>
+                        <p class="profile-role">Product designer · Motion</p>
+                        <p class="profile-bio">Designs interfaces that move. Currently exploring view transitions and the space between two layouts.</p>
+                        <div class="profile-actions">
+                            <button class="profile-follow">Follow</button>
+                            <button class="profile-message">Message</button>
+                        </div>
+                    </div>`
+                root.append(backdrop, profile)
+            }
+
+            /**
+             * ==============   View animations   ================
+             */
+            const openProfile = () => {
+                if (open) return
+                open = true
+
+                // The avatar (a circle) morphs into the whole card. Crop is on by
+                // default, so its corner radius animates from 50% to the card's, and
+                // its contents are scaled to cover the growing box.
+                animateView(() => {
+                    buildProfile()
+                    avatar.style.visibility = "hidden"
+                }, opts)            .add(avatar, ".profile")
+            }
+
+            const close = () => {
+                if (!open) return
+                open = false
+
+                animateView(() => {
+                    document.querySelector(".profile")?.remove()
+                    document.querySelector(".profile-backdrop")?.remove()
+                    avatar.style.visibility = "visible"
+                }, opts)            .add(".profile", avatar)
+            }
+
+            avatar.addEventListener("click", openProfile)
+            document.addEventListener("keydown", (e) => {
+                if (e.key === "Escape") close()
+            })
+        </script>
+    </body>
+</html>
