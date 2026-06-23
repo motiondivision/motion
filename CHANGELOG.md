@@ -4,7 +4,16 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
-## [12.40.1] Unpublished
+## [12.41.0] 2026-06-23
+
+### Added
+
+-   `animateView`: Moves from Motion+ Early Access and alpha to main library.
+-   `animateView`: `.add()` resolves a CSS selector or `Element` to automatically generate, apply and remove `view-transition-name`.
+-   `animateView`: `.new()` and `.old()` configures values to animate on new and old layers.
+-   `animateView`: `.layout()` can set a custom transition on the size/position animation of the currently selected elements.
+-   `animateView`: Group layers now automatically crop with children set to `cover`, with `border-radius` animating from old radius to new. `.crop(false)` disables this behaviour.
+-   `animateView`: `.class(name)` tags currently selected elements with a `view-transition-class` as a custom CSS hook.
 
 ### Fixed
 
@@ -12,6 +21,11 @@ Undocumented APIs should be considered internal and may change without warning.
 -   `drag`: Child `e.stopPropagation()` no longer break drag end.
 -   Fixing Next.js OOM on Windows when importing via `motion` package.
 -   `animateLayout`: Improve handling of parallel/interleaved calls.
+
+### Changed
+
+-   `animateView`: `.enter()` and `.exit()` now refer specifically to `new` and `old` layers where there are no matching `old` or `new` layers.
+-   `animateView`: Interrupted transition setups now return resolved animation rather than throwing.
 
 ## [12.40.0] 2026-05-21
 
