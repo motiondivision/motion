@@ -2,7 +2,7 @@ import { secondsToMilliseconds } from "motion-utils"
 import { GroupAnimation } from "../animation/GroupAnimation"
 import { NativeAnimation } from "../animation/NativeAnimation"
 import { NativeAnimationWrapper } from "../animation/NativeAnimationWrapper"
-import { AnimationPlaybackControls } from "../animation/types"
+import { AnimationPlaybackControls, DOMKeyframesDefinition } from "../animation/types"
 import { getValueTransition } from "../animation/utils/get-value-transition"
 import { mapEasingToNativeEasing } from "../animation/waapi/easing/map-easing"
 import { applyGeneratorOptions } from "../animation/waapi/utils/apply-generator"
@@ -19,17 +19,28 @@ import { getViewAnimationLayerInfo } from "./utils/get-layer-info"
 import { getViewAnimations } from "./utils/get-view-animations"
 import { hasTarget } from "./utils/has-target"
 
-const definitionNames = ["layout", "enter", "exit"] as const
+const definitionNames = ["layout", "enter", "exit", "new", "old"] as const
 
 /**
- * Maps a browser-generated layer type to the `ViewTransitionTarget` bucket that
- * times/overrides it - the inverse of `chooseLayerType`. `group-children` and
- * `image-pair` have no bucket; they follow the default layout timing.
+ * The `ViewTransitionTarget` buckets driving each generated layer type, in
+ * priority order - the inverse of `chooseLayerType`. The new view is driven by
+ * `new`/`enter`, the old by `old`/`exit`. `group-children`/`image-pair` have no
+ * bucket; they follow the default layout timing.
  */
-const layerBuckets: Record<string, keyof ViewTransitionTarget> = {
-    group: "layout",
-    new: "enter",
-    old: "exit",
+const typeBuckets: Record<string, (keyof ViewTransitionTarget)[]> = {
+    group: ["layout"],
+    new: ["new", "enter"],
+    old: ["old", "exit"],
+}
+
+/**
+ * Default "absent" origin for a single-value keyframe, by pseudo type, so e.g.
+ * `enter({ scale: 1 })` grows in from 0.85 and `exit({ opacity: 0 })` fades
+ * from 1. `enter` prefers the matching `exit` value over these (see below).
+ */
+const ORIGIN_DEFAULTS: Record<string, Record<string, number>> = {
+    new: { opacity: 0, scale: 0.85 },
+    old: { opacity: 1, scale: 1 },
 }
 
 const cornerProps = [
@@ -327,9 +338,21 @@ export function startViewAnimation(
                 /**
                  * Create animations for each of our explicitly-defined subjects.
                  */
+                const explicitlyAnimated = new Set<string>()
                 layerTargets.forEach((target, name) => {
+                    const stagger = layerStagger.get(name)
+                    /**
+                     * Presence: `enter` only fires for a pure newcomer (a new
+                     * view with no old), `exit` only for a pure leaver. A
+                     * survivor (both) gets neither - it just morphs.
+                     */
+                    const enterApplies = !!stagger?.new && !stagger?.old
+                    const exitApplies = !!stagger?.old && !stagger?.new
+
                     for (const key of definitionNames) {
                         if (!target[key]) continue
+                        if (key === "enter" && !enterApplies) continue
+                        if (key === "exit" && !exitApplies) continue
 
                         const type = chooseLayerType(
                             key as keyof ViewTransitionTarget
@@ -338,26 +361,8 @@ export function startViewAnimation(
                         // Skip a layer absent from its snapshot.
                         if (index === -1) continue
 
-                        const definition =
+                        const { keyframes, options } =
                             target[key as keyof ViewTransitionTarget]!
-
-                        /**
-                         * enter/exit are appear/leave animations. A survivor
-                         * (present in both snapshots, so it morphs) shouldn't
-                         * fade or scale - skip its enter/exit unless this is an
-                         * explicit `.crossfade()` of the old <-> new content.
-                         */
-                        const stagger = layerStagger.get(name)
-                        if (
-                            (key === "enter" || key === "exit") &&
-                            stagger?.old &&
-                            stagger?.new &&
-                            !definition.crossfade
-                        ) {
-                            continue
-                        }
-
-                        const { keyframes, options } = definition
 
                         for (let [valueName, valueKeyframes] of Object.entries(
                             keyframes
@@ -365,6 +370,29 @@ export function startViewAnimation(
                             // Skip only missing values - `0` (e.g. opacity: 0)
                             // is valid and must reach the from-value inference.
                             if (valueKeyframes == null) continue
+
+                            /**
+                             * enter/exit win over new/old on a shared property -
+                             * skip it here when the gated bucket also defines it.
+                             */
+                            if (
+                                key === "new" &&
+                                enterApplies &&
+                                target.enter?.keyframes[
+                                    valueName as keyof DOMKeyframesDefinition
+                                ] != null
+                            ) {
+                                continue
+                            }
+                            if (
+                                key === "old" &&
+                                exitApplies &&
+                                target.exit?.keyframes[
+                                    valueName as keyof DOMKeyframesDefinition
+                                ] != null
+                            ) {
+                                continue
+                            }
 
                             const valueOptions = {
                                 ...getValueTransition(
@@ -375,15 +403,29 @@ export function startViewAnimation(
                             }
 
                             /**
-                             * If this is an opacity animation, and keyframes are not an array,
-                             * we need to convert them into an array and set an initial value.
+                             * Infer an origin for a single-value keyframe. An
+                             * `enter` mirrors the matching `exit` value (a
+                             * defined exit reverses into the enter for free);
+                             * otherwise the per-type default (opacity 0/1, scale
+                             * 0.85). No default -> left as-is (animates from the
+                             * live value).
                              */
-                            if (
-                                valueName === "opacity" &&
-                                !Array.isArray(valueKeyframes)
-                            ) {
-                                const initialValue = type === "new" ? 0 : 1
-                                valueKeyframes = [initialValue, valueKeyframes]
+                            if (!Array.isArray(valueKeyframes)) {
+                                const exitValue =
+                                    key === "enter"
+                                        ? target.exit?.keyframes[
+                                              valueName as keyof DOMKeyframesDefinition
+                                          ]
+                                        : undefined
+                                const from =
+                                    exitValue != null
+                                        ? Array.isArray(exitValue)
+                                            ? exitValue[exitValue.length - 1]
+                                            : exitValue
+                                        : ORIGIN_DEFAULTS[type]?.[valueName]
+                                if (from !== undefined) {
+                                    valueKeyframes = [from, valueKeyframes]
+                                }
                             }
 
                             /**
@@ -414,6 +456,7 @@ export function startViewAnimation(
                                     keyframes: valueKeyframes,
                                 })
                             )
+                            explicitlyAnimated.add(`${name}:${type}`)
                         }
                     }
                 })
@@ -436,17 +479,13 @@ export function startViewAnimation(
                     const targetDefinition = layerTargets.get(name.layer)
 
                     /**
-                     * If we've built an explicit animation for this layer, drop
-                     * the browser-generated one. A `.crossfade()` is handled
-                     * this way too: our explicit old/new opacity animations run
-                     * under the browser's static `mix-blend-mode: plus-lighter`
+                     * If we built our own animation for this layer, drop the
+                     * browser-generated one. Our explicit old/new animations
+                     * still run under the browser's static `plus-lighter` blend
                      * (cancelling removes the generated animation, not the
-                     * static blend), so crossfade quality is preserved.
+                     * blend), so a crossfade's quality is preserved.
                      */
-                    if (
-                        targetDefinition &&
-                        hasExplicitKeyframes(targetDefinition, name.type)
-                    ) {
+                    if (explicitlyAnimated.has(`${name.layer}:${name.type}`)) {
                         animation.cancel()
                         continue
                     }
@@ -558,18 +597,13 @@ export function startViewAnimation(
 }
 
 /**
- * Whether the user defined explicit keyframes for a given generated layer
- * type, in which case we replace the browser's animation with our own.
- */
-function hasExplicitKeyframes(target: ViewTransitionTarget, type: string) {
-    const keyframes = target[layerBuckets[type]]?.keyframes
-    return keyframes != null && Object.keys(keyframes).length > 0
-}
-
-/**
  * The options that should time a given generated layer type, so a retimed
- * group/old/new picks up any per-target transition the user provided.
+ * group/old/new picks up any per-target transition the user provided. Checks
+ * the type's buckets in priority order (e.g. `new` before `enter`).
  */
 function layerOptions(target: ViewTransitionTarget | undefined, type: string) {
-    return target?.[layerBuckets[type]]?.options
+    for (const bucket of typeBuckets[type] ?? []) {
+        const options = target?.[bucket]?.options
+        if (options) return options
+    }
 }

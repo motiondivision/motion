@@ -56,7 +56,8 @@
                 ease: "linear",
             })
                 .add(".box")
-                .crossfade()
+                .new({ opacity: 1 })
+                .old({ opacity: 0 })
                 .then(
                     () => {
                         window.__view.newOpacity = opacityOf(

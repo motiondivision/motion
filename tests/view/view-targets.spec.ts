@@ -14,6 +14,8 @@ interface ViewResult {
     enterFilter: boolean
     cls: string
     groupZ: string
+    newTransform: string[]
+    oldTransform: string[]
     newOpacity: number[]
     oldOpacity: number[]
     error: string | null
@@ -275,18 +277,36 @@ test.describe("animateView() target resolution", () => {
         expect(result.groupZ).toBe("99")
     })
 
-    test(".crossfade() animates old out and new in", async ({ page }) => {
+    test(".new()/.old() crossfade a persistent (survivor) element", async ({
+        page,
+    }) => {
         await page.goto("view/view-crossfade.html")
         const result = await readResult(page)
         test.skip(!result.supported, "No startViewTransition support")
 
         expect(result.error).toBeNull()
-        // New fades up 0 -> 1, old fades down 1 -> 0 (under the browser's
-        // static plus-lighter blend). WAAPI reports keyframe values as strings.
+        // View-based (ungated): on a survivor, .new() fades up 0 -> 1 and .old()
+        // down 1 -> 0 (enter/exit would both be skipped here). Origins inferred.
         const num = (v: unknown) => parseFloat(String(v))
         expect(num(result.newOpacity[0])).toBe(0)
         expect(num(result.newOpacity[result.newOpacity.length - 1])).toBe(1)
         expect(num(result.oldOpacity[0])).toBe(1)
         expect(num(result.oldOpacity[result.oldOpacity.length - 1])).toBe(0)
+    })
+
+    test(".new()/.old() slide a survivor's views in opposite directions", async ({
+        page,
+    }) => {
+        await page.goto("view/view-slide.html")
+        const result = await readResult(page)
+        test.skip(!result.supported, "No startViewTransition support")
+
+        expect(result.error).toBeNull()
+        // Independent (not mirrored): new slides in from the right, old out to
+        // the left - both on the same persistent element.
+        expect(result.newTransform[0]).toContain("40px")
+        expect(
+            result.oldTransform[result.oldTransform.length - 1]
+        ).toContain("-40px")
     })
 })

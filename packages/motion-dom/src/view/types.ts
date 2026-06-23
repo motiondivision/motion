@@ -3,17 +3,23 @@ import { AnimationOptions, DOMKeyframesDefinition } from "../animation/types"
 export type ViewTransitionAnimationDefinition = {
     keyframes: DOMKeyframesDefinition
     options: AnimationOptions
-    /**
-     * Set by `.crossfade()`. Marks an enter/exit that should run even on a
-     * survivor (a persistent element that morphs), to dissolve its old <-> new.
-     */
-    crossfade?: boolean
 }
 
 export type ViewTransitionTarget = {
     layout?: ViewTransitionAnimationDefinition
+    /**
+     * Presence-gated: `enter` animates a pure newcomer's new view, `exit` a
+     * pure leaver's old view. A survivor (present in both snapshots) gets
+     * neither - it just morphs.
+     */
     enter?: ViewTransitionAnimationDefinition
     exit?: ViewTransitionAnimationDefinition
+    /**
+     * View-targeted (ungated): `new`/`old` animate the new/old view whenever it
+     * exists - including a survivor's, for crossfades and slide-throughs.
+     */
+    new?: ViewTransitionAnimationDefinition
+    old?: ViewTransitionAnimationDefinition
 }
 
 export type ViewTransitionOptions = AnimationOptions & {

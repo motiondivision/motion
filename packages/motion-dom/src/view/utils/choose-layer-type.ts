@@ -1,6 +1,7 @@
 export function chooseLayerType(
-    valueName: "layout" | "enter" | "exit"
+    valueName: "layout" | "enter" | "exit" | "new" | "old"
 ): "group" | "old" | "new" {
     if (valueName === "layout") return "group"
-    return valueName === "enter" ? "new" : "old"
+    if (valueName === "enter" || valueName === "new") return "new"
+    return "old"
 }
