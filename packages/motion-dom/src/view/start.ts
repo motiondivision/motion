@@ -366,8 +366,13 @@ export function startViewAnimation(
 
                 /**
                  * Create animations for each of our explicitly-defined subjects.
+                 * `opacityAnimated` additionally tracks which `${name}:${type}`
+                 * we faded, so we can keep the UA `plus-lighter` blend only for a
+                 * genuine opacity crossfade (both sides fading) and drop it for a
+                 * slide/transform, where additive compositing would flash bright.
                  */
                 const explicitlyAnimated = new Set<string>()
+                const opacityAnimated = new Set<string>()
                 layerTargets.forEach((target, name) => {
                     const stagger = layerStagger.get(name)
                     /**
@@ -511,6 +516,9 @@ export function startViewAnimation(
                                 })
                             )
                             explicitlyAnimated.add(`${name}:${type}`)
+                            if (valueName === "opacity") {
+                                opacityAnimated.add(`${name}:${type}`)
+                            }
                         }
                     }
                 })
@@ -534,15 +542,20 @@ export function startViewAnimation(
 
                     /**
                      * We built our own animation for this layer, so drop the
-                     * browser-generated fade we're replacing. But the UA
-                     * `plus-lighter` blend is a *separate* generated animation
-                     * on the same pseudo-element (it sets `mix-blend-mode` in
-                     * its keyframes) - keep that one, so an explicit old/new
-                     * crossfade still composites without mid-transition
-                     * darkening.
+                     * browser-generated fade we're replacing. The UA
+                     * `plus-lighter` blend is a *separate* generated animation on
+                     * the same pseudo (it sets `mix-blend-mode` in its keyframes):
+                     * keep it *only* for a true opacity crossfade - both sides
+                     * fading - so a symmetric crossfade composites without
+                     * darkening, but a slide/transform (where both layers stay
+                     * opaque and overlap) doesn't flash bright from the addition.
                      */
                     if (explicitlyAnimated.has(`${name.layer}:${name.type}`)) {
+                        const isCrossfade =
+                            opacityAnimated.has(`${name.layer}:new`) &&
+                            opacityAnimated.has(`${name.layer}:old`)
                         if (
+                            isCrossfade &&
                             effect
                                 .getKeyframes()
                                 .some((keyframe) => keyframe.mixBlendMode)
@@ -564,16 +577,35 @@ export function startViewAnimation(
                      * group + group-children both follow the layout timing so
                      * the nesting container stays in sync with the morph.
                      */
+                    /**
+                     * A survivor's old + new are the two halves of one
+                     * `plus-lighter` crossfade. They must share identical timing
+                     * (so their opacities stay mirrored and sum to 1 - else the
+                     * additive blend flashes bright wherever both are partly
+                     * visible) and fade linearly (the bounce belongs on the
+                     * group's geometry, not the opacity). So time them as the
+                     * group, rather than via their own - potentially staggered,
+                     * or enter/exit-derived - old/new options.
+                     */
+                    const stagger = layerStagger.get(name.layer)
+                    const isMorphCrossfade =
+                        (name.type === "old" || name.type === "new") &&
+                        !!stagger?.old &&
+                        !!stagger?.new
+                    const timingType =
+                        name.type.startsWith("group") || isMorphCrossfade
+                            ? "group"
+                            : name.type
+
                     const [index, total] = staggerPosition(
                         name.layer,
-                        name.type
+                        timingType
                     )
-                    const transitionName = name.type.startsWith("group")
-                        ? "layout"
-                        : ""
+                    const transitionName =
+                        timingType === "group" ? "layout" : ""
                     let animationTransition = resolveLayerTransition(
                         targetDefinition,
-                        name.type,
+                        timingType,
                         transitionName,
                         index === -1 ? 0 : index,
                         total
@@ -586,10 +618,12 @@ export function startViewAnimation(
                     animationTransition =
                         applyGeneratorOptions(animationTransition)
 
-                    const easing = mapEasingToNativeEasing(
-                        animationTransition.ease,
-                        animationTransition.duration!
-                    ) as string
+                    const easing = isMorphCrossfade
+                        ? "linear"
+                        : (mapEasingToNativeEasing(
+                              animationTransition.ease,
+                              animationTransition.duration!
+                          ) as string)
 
                     effect.updateTiming({
                         delay: secondsToMilliseconds(

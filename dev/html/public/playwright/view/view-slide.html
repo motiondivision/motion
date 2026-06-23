@@ -34,6 +34,7 @@
                 supported: !!document.startViewTransition,
                 newTransform: [],
                 oldTransform: [],
+                blendKept: false,
                 error: null,
             }
 
@@ -68,6 +69,23 @@
                         window.__view.oldTransform = transformOf(
                             "::view-transition-old(box)"
                         )
+                        // A slide keeps both layers opaque and overlapping, so
+                        // the additive plus-lighter blend must NOT survive (it
+                        // would flash bright where they cross).
+                        window.__view.blendKept = document
+                            .getAnimations()
+                            .some((a) => {
+                                const e = a.effect
+                                return (
+                                    e &&
+                                    /::view-transition-(old|new)\(box\)/.test(
+                                        e.pseudoElement || ""
+                                    ) &&
+                                    e
+                                        .getKeyframes()
+                                        .some((k) => "mixBlendMode" in k)
+                                )
+                            })
                         window.__view.ready = true
                     },
                     (e) => {

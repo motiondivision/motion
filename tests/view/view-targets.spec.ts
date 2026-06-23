@@ -29,6 +29,11 @@ interface ViewResult {
     toNames: string[]
     newcomerName: string
     newcomerCropped: boolean
+    cards: Array<{
+        id: string
+        old: { delay: number; easing: string } | null
+        new: { delay: number; easing: string } | null
+    }>
     error: string | null
 }
 
@@ -380,6 +385,29 @@ test.describe("animateView() target resolution", () => {
         expect(result.newcomerCropped).toBe(true)
     })
 
+    test("a survivor's old/new crossfade stays synced and linear (no plus-lighter flash)", async ({
+        page,
+    }) => {
+        await page.goto("view/view-morph-sync.html")
+        const result = await readResult(page)
+        test.skip(!result.supported, "No startViewTransition support")
+
+        expect(result.error).toBeNull()
+        expect(result.cards).toHaveLength(3)
+        for (const card of result.cards) {
+            expect(card.old).not.toBeNull()
+            expect(card.new).not.toBeNull()
+            // The two halves of the crossfade must start together - a stagger
+            // (or enter/exit timing) leaking onto one side desyncs them and the
+            // additive blend flashes bright. (Pre-fix: e.g. old 200ms vs new 0.)
+            expect(card.old!.delay).toBe(card.new!.delay)
+            // ...and fade linearly, not on the bouncy spring (whose opacity
+            // overshoots 1 - the spring belongs on the group geometry).
+            expect(card.old!.easing).toBe("linear")
+            expect(card.new!.easing).toBe("linear")
+        }
+    })
+
     test(".new()/.old() slide a survivor's views in opposite directions", async ({
         page,
     }) => {
@@ -394,5 +422,8 @@ test.describe("animateView() target resolution", () => {
         expect(
             result.oldTransform[result.oldTransform.length - 1]
         ).toContain("-40px")
+        // No opacity fade -> both layers stay opaque and overlap mid-slide, so
+        // the additive plus-lighter blend must be dropped (else a bright streak).
+        expect(result.blendKept).toBe(false)
     })
 })
