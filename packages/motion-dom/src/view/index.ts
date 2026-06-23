@@ -9,6 +9,10 @@ import {
 } from "./types"
 import "./types.global"
 
+// Re-export the public view-transition types so they flow out through
+// motion-dom -> framer-motion -> motion alongside `animateView`.
+export type * from "./types"
+
 export class ViewTransitionBuilder {
     private currentSubject: ViewTransitionTargetDefinition = "root"
 
