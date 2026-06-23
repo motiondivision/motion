@@ -60,7 +60,7 @@ test.describe("animateView() target resolution", () => {
         expect(layerNames(result.pseudos).size).toBeGreaterThanOrEqual(3)
     })
 
-    test("pre-named layer (.addName) still works and is not renamed", async ({
+    test("an already-named element keeps its author name (not auto-renamed)", async ({
         page,
     }) => {
         await page.goto("view/view-target-prenamed.html")
@@ -74,7 +74,7 @@ test.describe("animateView() target resolution", () => {
                 /::view-transition-(new|group)\(box\)/.test(p)
             )
         ).toBe(true)
-        // ...and nothing was auto-resolved into a generated name.
+        // ...and .add() reused it rather than generating a name.
         expect(layerNames(result.pseudos).size).toBe(0)
     })
 

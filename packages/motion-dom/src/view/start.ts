@@ -179,30 +179,17 @@ export function startViewAnimation(
     }
 
     /**
-     * Resolved (`.add`) elements are already known via the registry, so we read
-     * their radii directly. Only pre-named (`.addName`) cropped layers need a
-     * DOM scan to locate, so the common case avoids walking the whole document.
+     * Cropped layers all come from `.add()`, so their elements are in the
+     * registry - read each one's corner radii directly.
      */
     const measureCrop = (phase: "old" | "new") => {
         if (!croppedNames.size) return
 
-        const found = new Set<string>()
         nameRegistry.forEach((name, element) => {
-            if (!croppedNames.has(name)) return
-            recordRadii(getComputedStyle(element), name, phase)
-            found.add(name)
+            if (croppedNames.has(name)) {
+                recordRadii(getComputedStyle(element), name, phase)
+            }
         })
-
-        if (found.size < croppedNames.size) {
-            document.querySelectorAll("*").forEach((element) => {
-                const style = getComputedStyle(element)
-                const name = style.getPropertyValue("view-transition-name")
-                if (croppedNames.has(name) && !found.has(name)) {
-                    recordRadii(style, name, phase)
-                    found.add(name)
-                }
-            })
-        }
     }
 
     resolveLayers("old")

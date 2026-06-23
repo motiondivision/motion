@@ -69,17 +69,6 @@ export class ViewTransitionBuilder {
     }
 
     /**
-     * Target a layer by its existing `view-transition-name`.
-     */
-    addName(name: string) {
-        this.currentSubject = name
-        this.resolveDefs.delete(name)
-        if (!this.targets.has(name)) this.targets.set(name, {})
-
-        return this
-    }
-
-    /**
      * Morphs are clipped + `object-fit: cover` (and their corners animate)
      * by default. Call `.crop(false)` to opt this subject out and fall back
      * to the browser default (which overflows on aspect-ratio change).

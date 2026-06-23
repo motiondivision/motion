@@ -35,12 +35,13 @@
 
             const box = document.getElementById("box")
 
-            // Pre-named layer via .addName - must NOT be auto-resolved/renamed.
+            // The element already has an author `view-transition-name: box`, so
+            // .add() must reuse it - NOT generate a `motion-view-*` name.
             animateView(() => {
                 box.textContent = "B"
                 box.style.background = "blue"
             })
-                .addName("box")
+                .add("#box")
                 .enter({ opacity: [0, 1] }, { duration: 3, ease: "linear" })
                 .then(
                     () => {

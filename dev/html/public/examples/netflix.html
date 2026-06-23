@@ -332,12 +332,10 @@
                     buildDetail(i)
                     grid.classList.add("is-hidden")
                 }, opts)
-                    // Root crossfade dims the page / fades the backdrop in.
+                    // Root crossfade dims the page / fades the backdrop in. The
+                    // card-box + hero layers (named on the elements above and on
+                    // the modal in CSS) morph automatically on Motion's timing.
                     .layout({})
-                    // Card → modal morph + poster → hero morph. Both are
-                    // clipped/cropped automatically (crop is on by default).
-                    .addName("card-box")
-                    .addName("hero")
             }
 
             function close() {
@@ -351,8 +349,6 @@
                     grid.classList.remove("is-hidden")
                 }, opts)
                     .layout({})
-                    .addName("card-box")
-                    .addName("hero")
                     .then((group) => group.finished)
                     .then(() => {
                         card.style.viewTransitionName = ""
