@@ -11,6 +11,7 @@ Undocumented APIs should be considered internal and may change without warning.
 -   `AnimatePresence`: Prevent stuck exit animations when children interrupt.
 -   `drag`: Child `e.stopPropagation()` no longer break drag end.
 -   Fixing Next.js OOM on Windows when importing via `motion` package.
+-   `animateLayout`: Improve handling of parallel/interleaved calls.
 
 ## [12.40.0] 2026-05-21
 

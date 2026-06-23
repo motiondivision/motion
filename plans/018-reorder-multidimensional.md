@@ -10,16 +10,16 @@
 > **Drift check (run first)**: `git diff --stat 42bfbe3ed..HEAD -- packages/framer-motion/src/components/Reorder/ packages/framer-motion/src/context/ReorderContext.ts`
 > If any in-scope file changed since this plan was written, compare the
 > "Current state" excerpts against the live code before proceeding; on a
-> mismatch, treat it as a STOP condition. (Plans 015–017 intentionally touch
-> these files — their changes are described in "Depends on" below and are
-> expected drift; anything else is not.)
+> mismatch, treat it as a STOP condition. (Plans 015 and 016 intentionally
+> touch these files — their changes are described in "Depends on" below and
+> are expected drift; anything else is not.)
 
 ## Status
 
 - **Priority**: P2
 - **Effort**: L
 - **Risk**: MED
-- **Depends on**: plans/015-reorder-conditional-hook-fix.md (same file, land first), plans/017-reorder-autoscroll-state-scoping.md (changes `resetAutoScrollState` signature used here). Plan 016 touches JSDoc only — trivial merge either way.
+- **Depends on**: plans/015-reorder-conditional-hook-fix.md (same file, land first). Plan 016 touches JSDoc only — trivial merge either way.
 - **Category**: direction
 - **Planned at**: commit `42bfbe3ed`, 2026-06-11
 
@@ -162,7 +162,7 @@ function compareMin<V>(a: ItemData<V>, b: ItemData<V>) {
         onDrag && onDrag(event, gesturePoint)
     }}
     onDragEnd={(event, gesturePoint) => {
-        resetAutoScrollState()   // plan 017 changes this to resetAutoScrollState(groupRef.current)
+        resetAutoScrollState()
         onDragEnd && onDragEnd(event, gesturePoint)
     }}
     onLayoutMeasure={(measured) => {
@@ -230,14 +230,14 @@ kill $DEV_PID
 
 **Out of scope** (do NOT touch, even though they look related):
 - The drag gesture system (`src/gestures/drag/`), projection (`src/projection/`) — if the design needs changes there, that's a STOP condition, not an invitation.
-- `utils/auto-scroll.ts` internals — plan 017's territory; you only *call* it.
+- `utils/auto-scroll.ts` internals — you only *call* it.
 - **Auto-axis detection** (inferring `"both"` from layout wrapping) — explicitly deferred; see Maintenance notes. The default stays `axis="y"`.
 - SSR markup expectations in `server.ssr.test.tsx` — must pass unchanged; if your change forces them to change, STOP.
 - Public API surface beyond the widened `axis` prop type.
 
 ## Git workflow
 
-- Branch: `improve/018-reorder-multidimensional` off `main` (after 015/017 are merged, or rebased onto their branches per the operator).
+- Branch: `improve/018-reorder-multidimensional` off `main` (after 015 is merged, or rebased onto its branch per the operator).
 - Commit per step; message style: short imperative sentence (repo examples: `Add auto-scroll support to Reorder.Group`, `Fix Reorder.Group axis change during window resize`).
 - Do NOT push or open a PR unless the operator instructed it.
 

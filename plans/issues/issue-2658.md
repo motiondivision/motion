@@ -9,8 +9,8 @@
 > 1. `gh api repos/motiondivision/motion/issues/2658 --jq '.state'` → `open`
 >    (if closed, mark DONE and stop).
 > 2. `git diff --stat 42bfbe3ed..HEAD -- packages/framer-motion/src/components/Reorder/`
->    Plans 015–018 intentionally rewrite parts of `Group.tsx`/`Item.tsx`
->    (015: `useDefaultMotionValue`; 017: `resetAutoScrollState` signature;
+>    Plans 015 and 018 intentionally rewrite parts of `Group.tsx`/`Item.tsx`
+>    (015: `useDefaultMotionValue`;
 >    018: `updateOrder`/`checkReorder`/axis typing). Those diffs are expected;
 >    re-read the live files and adapt line references. Any change to how
 >    `onReorder`/`values` flow that contradicts "Current state" = STOP.
