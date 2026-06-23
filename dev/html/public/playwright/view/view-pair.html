@@ -23,8 +23,11 @@
                 background: blue;
                 border-radius: 28px;
             }
+            /* `visibility: hidden` (not `display: none`) keeps #a rendered and
+               captured in the new snapshot - the pair must transfer its name
+               off #a so it doesn't collide with #b. */
             body.open #a {
-                display: none;
+                visibility: hidden;
             }
             body.open #b {
                 display: block;

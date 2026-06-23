@@ -209,16 +209,19 @@ test.describe("animateView() target resolution", () => {
         test.skip(!result.supported, "No startViewTransition support")
 
         expect(result.error).toBeNull()
-        // Both ends were forced onto one generated name...
-        expect(result.nameA).toMatch(/^motion-view-\d+$/)
-        expect(result.nameB).toBe(result.nameA)
-        // ...so #a (old) and #b (new) morph as a single layer.
+        // #b (the `to`) carries the shared generated name...
+        expect(result.nameB).toMatch(/^motion-view-\d+$/)
+        // ...and #a (old) + #b (new) morph as a single layer under it.
         expect(result.pseudos).toContain(
-            `::view-transition-old(${result.nameA})`
+            `::view-transition-old(${result.nameB})`
         )
         expect(result.pseudos).toContain(
-            `::view-transition-new(${result.nameA})`
+            `::view-transition-new(${result.nameB})`
         )
+        // #a stays rendered (visibility: hidden), so its name had to be
+        // transferred to #b - it must NOT still carry the shared name, or the
+        // two collide ("duplicate view-transition-name").
+        expect(result.nameA).not.toBe(result.nameB)
     })
 
     test("pairs morph even when the old element is removed (close direction)", async ({

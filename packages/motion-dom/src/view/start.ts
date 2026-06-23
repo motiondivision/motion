@@ -6,7 +6,7 @@ import { AnimationPlaybackControls } from "../animation/types"
 import { getValueTransition } from "../animation/utils/get-value-transition"
 import { mapEasingToNativeEasing } from "../animation/waapi/easing/map-easing"
 import { applyGeneratorOptions } from "../animation/waapi/utils/apply-generator"
-import { ElementOrSelector } from "../utils/resolve-elements"
+import { ElementOrSelector, resolveElements } from "../utils/resolve-elements"
 import type { ViewTransitionBuilder } from "./index"
 import { ViewTransitionTarget, ViewTransitionTargetDefinition } from "./types"
 import {
@@ -89,6 +89,11 @@ export function startViewAnimation(
      * its new-snapshot target so both ends share a layer and morph.
      */
     const pairNames = new Map<ViewTransitionTargetDefinition, string[]>()
+    /**
+     * The old (`from`) elements of each paired subject, so their names can be
+     * transferred off before the new (`to`) elements inherit them.
+     */
+    const pairFrom = new Map<ViewTransitionTargetDefinition, Element[]>()
 
     const resolveLayers = (phase: "old" | "new") => {
         targets.forEach((target, definition) => {
@@ -102,6 +107,10 @@ export function startViewAnimation(
                  * two different elements morph as a single layer.
                  */
                 if (phase === "old") {
+                    pairFrom.set(
+                        definition,
+                        resolveElements(definition as ElementOrSelector)
+                    )
                     names = assignViewTransitionNames(
                         definition as ElementOrSelector,
                         nameRegistry,
@@ -109,6 +118,18 @@ export function startViewAnimation(
                     )
                     pairNames.set(definition, names)
                 } else {
+                    /**
+                     * Transfer the name(s) off the `from` elements before the
+                     * `to` elements inherit them. A `from` that survives into
+                     * the new snapshot (e.g. hidden with `visibility: hidden`
+                     * rather than removed) would otherwise keep the name and
+                     * collide - "duplicate view-transition-name".
+                     */
+                    for (const el of pairFrom.get(definition) ?? []) {
+                        ;(el as HTMLElement).style?.removeProperty(
+                            "view-transition-name"
+                        )
+                    }
                     names = assignViewTransitionNames(
                         pairs.get(definition) as ElementOrSelector,
                         nameRegistry,
