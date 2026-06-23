@@ -3,6 +3,25 @@ import { ElementOrSelector, resolveElements } from "../../utils/resolve-elements
 let nameCount = 0
 
 /**
+ * Tag a captured element with a `view-transition-class` so authors can target
+ * its generated layer from CSS (e.g. `::view-transition-group(.hero)`) without
+ * the opaque generated name. Tracked in `assigned` so the inline class is
+ * removed alongside the name on cleanup.
+ */
+function tagClass(
+    element: Element,
+    className: string | undefined,
+    assigned: Element[]
+) {
+    if (!className) return
+    ;(element as HTMLElement).style?.setProperty(
+        "view-transition-class",
+        className
+    )
+    if (!assigned.includes(element)) assigned.push(element)
+}
+
+/**
  * Resolve a selector/Element to elements and ensure each one carries a
  * `view-transition-name` we can target from script.
  *
@@ -19,7 +38,8 @@ export function assignViewTransitionNames(
     definition: ElementOrSelector,
     registry: Map<Element, string>,
     assigned: Element[],
-    forcedNames?: string[]
+    forcedNames?: string[],
+    className?: string
 ): string[] {
     const elements = resolveElements(definition)
 
@@ -38,6 +58,7 @@ export function assignViewTransitionNames(
             )
             assigned.push(element)
             registry.set(element, name)
+            tagClass(element, className, assigned)
         })
 
         return forcedNames
@@ -85,6 +106,7 @@ export function assignViewTransitionNames(
         }
 
         registry.set(element, name)
+        tagClass(element, className, assigned)
 
         return name
     })
@@ -97,5 +119,6 @@ export function assignViewTransitionNames(
 export function releaseViewTransitionNames(assigned: Element[]): void {
     for (const element of assigned) {
         ;(element as HTMLElement).style?.removeProperty("view-transition-name")
+        ;(element as HTMLElement).style?.removeProperty("view-transition-class")
     }
 }

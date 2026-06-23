@@ -12,6 +12,8 @@ interface ViewResult {
     nameA: string
     nameB: string
     enterFilter: boolean
+    cls: string
+    groupZ: string
     newOpacity: number[]
     oldOpacity: number[]
     error: string | null
@@ -241,6 +243,21 @@ test.describe("animateView() target resolution", () => {
         expect(result.pseudos).toContain(
             `::view-transition-new(${result.nameB})`
         )
+    })
+
+    test("`.class()` tags layers with a view-transition-class for CSS targeting", async ({
+        page,
+    }) => {
+        await page.goto("view/view-class.html")
+        const result = await readResult(page)
+        test.skip(!result.supported, "No startViewTransition support")
+
+        expect(result.error).toBeNull()
+        // The resolved element carries the class we can key CSS to...
+        expect(result.cls).toBe("tag")
+        // ...and `::view-transition-group(.tag) { z-index: 99 }` reaches the
+        // generated (name-opaque) group layer.
+        expect(result.groupZ).toBe("99")
     })
 
     test(".crossfade() animates old out and new in", async ({ page }) => {

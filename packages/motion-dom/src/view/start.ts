@@ -50,6 +50,7 @@ export function startViewAnimation(
         resolveDefs,
         noCrop,
         pairs,
+        classNames,
         options: defaultOptions,
     } = builder
 
@@ -97,6 +98,7 @@ export function startViewAnimation(
 
     const resolveLayers = (phase: "old" | "new") => {
         targets.forEach((target, definition) => {
+            const className = classNames.get(definition)
             let names: string[]
             if (definition === "root" || !resolveDefs.has(definition)) {
                 names = [definition as string]
@@ -114,7 +116,9 @@ export function startViewAnimation(
                     names = assignViewTransitionNames(
                         definition as ElementOrSelector,
                         nameRegistry,
-                        assigned
+                        assigned,
+                        undefined,
+                        className
                     )
                     pairNames.set(definition, names)
                 } else {
@@ -134,14 +138,17 @@ export function startViewAnimation(
                         pairs.get(definition) as ElementOrSelector,
                         nameRegistry,
                         assigned,
-                        pairNames.get(definition)
+                        pairNames.get(definition),
+                        className
                     )
                 }
             } else {
                 names = assignViewTransitionNames(
                     definition as ElementOrSelector,
                     nameRegistry,
-                    assigned
+                    assigned,
+                    undefined,
+                    className
                 )
             }
 

@@ -36,6 +36,13 @@ export class ViewTransitionBuilder {
         ViewTransitionTargetDefinition
     >()
 
+    /**
+     * A `view-transition-class` to apply to each subject's resolved elements,
+     * so authors can target the generated layers from CSS by class rather than
+     * the opaque generated name.
+     */
+    classNames = new Map<ViewTransitionTargetDefinition, string>()
+
     update: () => void | Promise<void>
 
     options: ViewTransitionOptions
@@ -96,6 +103,21 @@ export class ViewTransitionBuilder {
         enabled
             ? this.noCrop.delete(this.currentSubject)
             : this.noCrop.add(this.currentSubject)
+
+        return this
+    }
+
+    /**
+     * Tag this subject's generated layers with a `view-transition-class`, so
+     * they can be targeted from CSS - `::view-transition-group(.name)`,
+     * `::view-transition-old/new(.name)`, `::view-transition-image-pair(.name)`
+     * - without the opaque generated `view-transition-name`. Because `.add()`
+     * can match many elements, a shared class targets them all at once (and,
+     * for a pair, both ends). The escape hatch for z-index / custom keyframes
+     * on a morph layer.
+     */
+    class(name: string) {
+        this.classNames.set(this.currentSubject, name)
 
         return this
     }

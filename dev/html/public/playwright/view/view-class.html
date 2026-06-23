@@ -1,0 +1,75 @@
+<!doctype html>
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+            .box {
+                width: 100px;
+                height: 100px;
+                margin: 40px;
+                background: red;
+                border-radius: 8px;
+            }
+            .box.big {
+                width: 300px;
+                height: 120px;
+                background: blue;
+            }
+            /* Class-keyed CSS: targets the generated layer WITHOUT its name. */
+            ::view-transition-group(.tag) {
+                z-index: 99;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="box" id="box"></div>
+
+        <script type="module" src="/src/imports/view.js"></script>
+        <script type="module">
+            const { animateView } = window.MotionDOM
+
+            window.__view = {
+                ready: false,
+                supported: !!document.startViewTransition,
+                cls: "",
+                groupZ: "",
+                error: null,
+            }
+
+            const box = document.getElementById("box")
+
+            animateView(() => box.classList.add("big"), {
+                duration: 3,
+                ease: "linear",
+            })
+                .add("#box")
+                .class("tag")
+                .then(
+                    () => {
+                        const cs = getComputedStyle(box)
+                        const name = cs
+                            .getPropertyValue("view-transition-name")
+                            .trim()
+                        window.__view.cls = cs
+                            .getPropertyValue("view-transition-class")
+                            .trim()
+                        try {
+                            window.__view.groupZ = getComputedStyle(
+                                document.documentElement,
+                                `::view-transition-group(${name})`
+                            ).zIndex
+                        } catch (e) {
+                            window.__view.groupZ = "ERR"
+                        }
+                        window.__view.ready = true
+                    },
+                    (e) => {
+                        window.__view.error = String(e)
+                        window.__view.ready = true
+                    }
+                )
+        </script>
+    </body>
+</html>
