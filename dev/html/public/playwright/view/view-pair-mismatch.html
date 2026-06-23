@@ -1,0 +1,62 @@
+<!doctype html>
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+            .card {
+                width: 120px;
+                height: 120px;
+                margin: 20px;
+                background: teal;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="card" id="a">A</div>
+        <div id="container"></div>
+
+        <script type="module" src="/src/imports/view.js"></script>
+        <script type="module">
+            const { animateView } = window.MotionDOM
+
+            window.__view = {
+                ready: false,
+                supported: !!document.startViewTransition,
+                toNames: [],
+                error: null,
+            }
+
+            // Pair `#a` (the old `from`) with `.to` (the new). The `to` selector
+            // resolves to TWO elements - more than the single name `#a` produced.
+            // The extra `.to` has no old counterpart and must still be named (a
+            // fresh name) so it animates, rather than being silently dropped.
+            animateView(
+                () => {
+                    document.getElementById("a").style.display = "none"
+                    document.getElementById("container").innerHTML =
+                        '<div class="to card">1</div><div class="to card">2</div>'
+                },
+                { duration: 3, ease: "linear" }
+            )
+                .add("#a", ".to")
+                .then(
+                    () => {
+                        window.__view.toNames = Array.from(
+                            document.querySelectorAll(".to")
+                        ).map((el) =>
+                            getComputedStyle(el)
+                                .getPropertyValue("view-transition-name")
+                                .trim()
+                        )
+                        window.__view.ready = true
+                    },
+                    (e) => {
+                        window.__view.error = String(e)
+                        window.__view.ready = true
+                    }
+                )
+        </script>
+    </body>
+</html>

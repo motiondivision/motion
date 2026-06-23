@@ -20,6 +20,15 @@ interface ViewResult {
     opacityOnNew: boolean
     newOpacity: number[]
     oldOpacity: number[]
+    hasGroup: boolean
+    scaleOnNew: boolean
+    scaleOnOld: boolean
+    blendKept: boolean
+    vtAnims: string[]
+    newScale: Array<string | number>
+    toNames: string[]
+    newcomerName: string
+    newcomerCropped: boolean
     error: string | null
 }
 
@@ -316,6 +325,59 @@ test.describe("animateView() target resolution", () => {
         expect(num(result.newOpacity[result.newOpacity.length - 1])).toBe(1)
         expect(num(result.oldOpacity[0])).toBe(1)
         expect(num(result.oldOpacity[result.oldOpacity.length - 1])).toBe(0)
+        // The UA plus-lighter blend must survive our explicit crossfade - if we
+        // cancelled it along with the fade, overlapping pixels would darken
+        // mid-transition. (vtAnims is captured for diagnosis if this fails.)
+        expect(result.blendKept).toBe(true)
+    })
+
+    test(".new({scale}) on a survivor animates from the live value, not a 0.85 pop", async ({
+        page,
+    }) => {
+        await page.goto("view/view-survivor-scale.html")
+        const result = await readResult(page)
+        test.skip(!result.supported, "No startViewTransition support")
+
+        expect(result.error).toBeNull()
+        const scales = result.newScale.map((v) => parseFloat(String(v)))
+        // The scale animation exists and reaches its target...
+        expect(scales).toContain(1.1)
+        // ...but never starts from the enter default 0.85, which would pop a
+        // persisting element that never appeared.
+        expect(scales).not.toContain(0.85)
+    })
+
+    test("a pair whose new end matches more elements names the extras (no drop)", async ({
+        page,
+    }) => {
+        await page.goto("view/view-pair-mismatch.html")
+        const result = await readResult(page)
+        test.skip(!result.supported, "No startViewTransition support")
+
+        expect(result.error).toBeNull()
+        // Both `.to` elements carry a generated name (the extra a fresh one), so
+        // neither is silently left unnamed - and the two names are distinct.
+        // (Pre-fix the unmatched second element is skipped, so its computed
+        // view-transition-name is "none" rather than a motion-view-* name.)
+        expect(result.toNames).toHaveLength(2)
+        expect(
+            result.toNames.every((n) => /^motion-view-\d+$/.test(n))
+        ).toBe(true)
+        expect(new Set(result.toNames).size).toBe(2)
+    })
+
+    test("a cropped layer that only exists in the new snapshot still gets clipped", async ({
+        page,
+    }) => {
+        await page.goto("view/view-crop-newcomer.html")
+        const result = await readResult(page)
+        test.skip(!result.supported, "No startViewTransition support")
+
+        expect(result.error).toBeNull()
+        // The newcomer card is a generated, cropped layer...
+        expect(result.newcomerName).toMatch(/^motion-view-\d+$/)
+        // ...and its group is clipped via the CSS re-committed after the update.
+        expect(result.newcomerCropped).toBe(true)
     })
 
     test(".new()/.old() slide a survivor's views in opposite directions", async ({

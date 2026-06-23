@@ -1,0 +1,76 @@
+<!doctype html>
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+            .box {
+                width: 120px;
+                height: 120px;
+                margin: 40px;
+                background: orange;
+            }
+            /* Same element, just repositioned: a survivor that morphs. */
+            .box.moved {
+                transform: translateX(200px);
+                background: purple;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="box" id="box"></div>
+
+        <script type="module" src="/src/imports/view.js"></script>
+        <script type="module">
+            const { animateView } = window.MotionDOM
+
+            window.__view = {
+                ready: false,
+                supported: !!document.startViewTransition,
+                newScale: [],
+                error: null,
+            }
+
+            const box = document.getElementById("box")
+
+            // #box is present in both snapshots (a survivor). `.new()` targets the
+            // persisting new view; a single-value `scale` must animate from the
+            // live value, NOT pop from the enter origin default (0.85) - which
+            // would only be right for an element that's actually appearing.
+            animateView(() => box.classList.add("moved"), {
+                duration: 3,
+                ease: "linear",
+            })
+                .add("#box")
+                .new({ scale: 1.1 })
+                .then(
+                    () => {
+                        const name = getComputedStyle(box)
+                            .getPropertyValue("view-transition-name")
+                            .trim()
+                        const anim = document.getAnimations().find((a) => {
+                            const e = a.effect
+                            return (
+                                e &&
+                                e.pseudoElement ===
+                                    `::view-transition-new(${name})` &&
+                                e.getKeyframes().some((k) => "scale" in k)
+                            )
+                        })
+                        window.__view.newScale = anim
+                            ? anim.effect
+                                  .getKeyframes()
+                                  .map((k) => k.scale)
+                                  .filter((v) => v !== undefined)
+                            : []
+                        window.__view.ready = true
+                    },
+                    (e) => {
+                        window.__view.error = String(e)
+                        window.__view.ready = true
+                    }
+                )
+        </script>
+    </body>
+</html>

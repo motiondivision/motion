@@ -83,6 +83,12 @@ export function startViewAnimation(
      */
     const nameRegistry = new Map<Element, string>()
     const assigned: Element[] = []
+    /**
+     * Elements we tagged with a `view-transition-class` (via `.class()`),
+     * tracked separately from `assigned` so cleanup removes the class without
+     * ever stripping an author's own inline `view-transition-name`.
+     */
+    const classed: Element[] = []
     const layerTargets = new Map<string, ViewTransitionTarget>()
     const croppedNames = new Set<string>()
     /**
@@ -129,7 +135,8 @@ export function startViewAnimation(
                         nameRegistry,
                         assigned,
                         undefined,
-                        className
+                        className,
+                        classed
                     )
                     pairNames.set(definition, names)
                 } else {
@@ -144,13 +151,20 @@ export function startViewAnimation(
                         ;(el as HTMLElement).style?.removeProperty(
                             "view-transition-name"
                         )
+                        /**
+                         * Drop the old end from the registry too, so the new
+                         * end alone supplies this name's `new` crop radii - we
+                         * neither re-measure nor get ordered by a stale element.
+                         */
+                        nameRegistry.delete(el)
                     }
                     names = assignViewTransitionNames(
                         pairs.get(definition) as ElementOrSelector,
                         nameRegistry,
                         assigned,
                         pairNames.get(definition),
-                        className
+                        className,
+                        classed
                     )
                 }
             } else {
@@ -159,7 +173,8 @@ export function startViewAnimation(
                     nameRegistry,
                     assigned,
                     undefined,
-                    className
+                    className,
+                    classed
                 )
             }
 
@@ -267,48 +282,42 @@ export function startViewAnimation(
         })
     }
 
-    resolveLayers("old")
-    measureCrop("old")
-
     /**
-     * If we don't have any animations defined for the root target,
-     * remove it from being captured.
+     * Write the persistent view-transition CSS: suppress root capture when the
+     * root has no animations of its own; force linear timing (baked into the
+     * keyframes, so we can retime later via updateTiming); and clip +
+     * object-fit: cover every cropped morph (the UA default overflows on
+     * aspect-ratio change), with an animated border-radius added below.
+     *
+     * `css.commit` replaces rather than appends, so we re-set the full rule set
+     * each call - the second call (in the update callback) then picks up cropped
+     * layers that only exist in the new snapshot.
      */
-    if (!hasTarget("root", targets)) {
-        css.set(":root", {
-            "view-transition-name": "none",
+    const commitViewCSS = () => {
+        if (!hasTarget("root", targets)) {
+            css.set(":root", { "view-transition-name": "none" })
+        }
+
+        css.set(
+            "::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*)",
+            { "animation-timing-function": "linear !important" }
+        )
+
+        croppedNames.forEach((name) => {
+            css.set(`::view-transition-group(${name})`, { overflow: "clip" })
+            css.set(
+                `::view-transition-old(${name}), ::view-transition-new(${name})`,
+                { width: "100%", height: "100%", "object-fit": "cover" }
+            )
         })
+
+        css.commit() // Write
     }
 
-    /**
-     * Set the timing curve to linear for all view transition layers.
-     * This gets baked into the keyframes, which can't be changed
-     * without breaking the generated animation.
-     *
-     * This allows us to set easing via updateTiming - which can be changed.
-     */
-    css.set(
-        "::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*)",
-        { "animation-timing-function": "linear !important" }
-    )
-
-    /**
-     * Morphs are clipped + object-fit: cover by default (the UA default
-     * overflows on aspect-ratio change), with an animated border-radius added
-     * below. `.crop(false)` opts a subject out. Names from the first resolve
-     * pass are known here.
-     */
-    croppedNames.forEach((name) => {
-        css.set(`::view-transition-group(${name})`, {
-            overflow: "clip",
-        })
-        css.set(
-            `::view-transition-old(${name}), ::view-transition-new(${name})`,
-            { width: "100%", height: "100%", "object-fit": "cover" }
-        )
-    })
-
-    css.commit() // Write
+    const cleanup = () => {
+        releaseViewTransitionNames(assigned, classed)
+        css.remove() // Write
+    }
 
     const callback = async () => {
         await update()
@@ -317,16 +326,36 @@ export function startViewAnimation(
          * Re-resolve so elements created by the update are named for the new
          * snapshot, then measure the cropped layers' new border-radius.
          */
+        const croppedBefore = croppedNames.size
         resolveLayers("new")
         measureCrop("new")
+
+        /**
+         * Re-commit the crop CSS only if the new snapshot introduced cropped
+         * layers, so a layer that exists only in the new snapshot is clipped
+         * too - without forcing a redundant style write on the common path.
+         */
+        if (croppedNames.size > croppedBefore) commitViewCSS()
     }
 
-    const transition = document.startViewTransition(callback)
+    let transition: ViewTransition
+    try {
+        resolveLayers("old")
+        measureCrop("old")
+        commitViewCSS()
+        transition = document.startViewTransition(callback)
+    } catch (error) {
+        /**
+         * The prelude writes inline names before the transition exists. If it
+         * throws (e.g. startViewTransition rejects in a bad UA state), release
+         * them so we neither leak DOM state nor stall the queue on a promise
+         * that never settles - hand back a rejection it can advance past.
+         */
+        cleanup()
+        return Promise.reject(error)
+    }
 
-    transition.finished.finally(() => {
-        releaseViewTransitionNames(assigned)
-        css.remove() // Write
-    })
+    transition.finished.finally(cleanup)
 
     return new Promise<GroupAnimation>((resolve, reject) => {
         transition.ready
@@ -423,6 +452,12 @@ export function startViewAnimation(
                              * otherwise the per-type default (opacity 0/1, scale
                              * 0.85). No default -> left as-is (animates from the
                              * live value).
+                             *
+                             * `new`/`old` fire for survivors too, where only the
+                             * opacity crossfade default applies - a transform
+                             * default like scale 0.85 would pop a persisting
+                             * element, so gate it on the layer actually
+                             * entering/leaving.
                              */
                             if (!Array.isArray(valueKeyframes)) {
                                 const exitValue =
@@ -431,12 +466,17 @@ export function startViewAnimation(
                                               valueName as keyof DOMKeyframesDefinition
                                           ]
                                         : undefined
+                                const allowDefault =
+                                    valueName === "opacity" ||
+                                    (type === "new" ? enterApplies : exitApplies)
                                 const from =
                                     exitValue != null
                                         ? Array.isArray(exitValue)
                                             ? exitValue[exitValue.length - 1]
                                             : exitValue
-                                        : ORIGIN_DEFAULTS[type]?.[valueName]
+                                        : allowDefault
+                                          ? ORIGIN_DEFAULTS[type]?.[valueName]
+                                          : undefined
                                 if (from !== undefined) {
                                     valueKeyframes = [from, valueKeyframes]
                                 }
@@ -493,14 +533,24 @@ export function startViewAnimation(
                     const targetDefinition = layerTargets.get(name.layer)
 
                     /**
-                     * If we built our own animation for this layer, drop the
-                     * browser-generated one. Our explicit old/new animations
-                     * still run under the browser's static `plus-lighter` blend
-                     * (cancelling removes the generated animation, not the
-                     * blend), so a crossfade's quality is preserved.
+                     * We built our own animation for this layer, so drop the
+                     * browser-generated fade we're replacing. But the UA
+                     * `plus-lighter` blend is a *separate* generated animation
+                     * on the same pseudo-element (it sets `mix-blend-mode` in
+                     * its keyframes) - keep that one, so an explicit old/new
+                     * crossfade still composites without mid-transition
+                     * darkening.
                      */
                     if (explicitlyAnimated.has(`${name.layer}:${name.type}`)) {
-                        animation.cancel()
+                        if (
+                            effect
+                                .getKeyframes()
+                                .some((keyframe) => keyframe.mixBlendMode)
+                        ) {
+                            animations.push(new NativeAnimationWrapper(animation))
+                        } else {
+                            animation.cancel()
+                        }
                         continue
                     }
 
@@ -604,9 +654,20 @@ export function startViewAnimation(
 
                 resolve(new GroupAnimation(animations))
             })
-            // A skipped transition rejects `ready`; propagate so the queue can
-            // advance rather than hanging on a promise that never settles.
-            .catch(reject)
+            .catch(() =>
+                /**
+                 * `ready` rejects when the transition is skipped - no visual
+                 * change, or superseded by an interrupting transition. The DOM
+                 * update still applied, so settle with no animations rather than
+                 * surfacing it as an error to an awaiting caller. A genuine
+                 * failure in `update()` rejects `updateCallbackDone` (already
+                 * settled by now), so propagate that instead.
+                 */
+                transition.updateCallbackDone.then(
+                    () => resolve(new GroupAnimation([])),
+                    reject
+                )
+            )
     })
 }
 

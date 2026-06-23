@@ -21,8 +21,9 @@ function start(builder: ViewTransitionBuilder) {
             builder.notifyReady(animation)
             return animation.finished
         })
-        // A failed (or skipped) transition must still reject the builder and,
-        // crucially, advance the queue - otherwise every later transition hangs.
+        // A genuinely failed transition (a throwing update) rejects the
+        // builder; a skipped/interrupted one resolves with no animations (see
+        // start.ts). Either way, advance the queue - else later transitions hang.
         .catch((error) => builder.notifyReject(error))
         .finally(next)
 }

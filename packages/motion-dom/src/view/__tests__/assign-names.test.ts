@@ -135,6 +135,107 @@ describe("assignViewTransitionNames", () => {
 
         expect(removeProperty).toHaveBeenCalledWith("view-transition-name")
     })
+
+    test("gives the new end of a pair a fresh name when it has no old counterpart", () => {
+        const container = document.createElement("div")
+        container.innerHTML = '<div class="to"></div><div class="to"></div>'
+        document.body.appendChild(container)
+        const [first, second] = Array.from(
+            container.querySelectorAll<HTMLElement>(".to")
+        )
+
+        const registry = new Map<Element, string>()
+        const assigned: Element[] = []
+
+        // Old end produced a single name; the new end resolves to two elements.
+        const names = assignViewTransitionNames(".to", registry, assigned, [
+            "motion-view-shared",
+        ])
+
+        expect(names).toHaveLength(2)
+        expect(names[0]).toBe("motion-view-shared")
+        expect(registry.get(first)).toBe("motion-view-shared")
+        // The extra element gets its own fresh name rather than being unnamed.
+        expect(names[1]).toMatch(/^motion-view-\d+$/u)
+        expect(names[1]).not.toBe("motion-view-shared")
+        expect(registry.get(second)).toBe(names[1])
+    })
+
+    test("sizes the returned pair names to the new end, dropping unmatched names", () => {
+        const container = document.createElement("div")
+        container.innerHTML = '<div class="to"></div>'
+        document.body.appendChild(container)
+
+        const registry = new Map<Element, string>()
+        const assigned: Element[] = []
+
+        // Old end produced two names; the new end resolves to one element.
+        const names = assignViewTransitionNames(".to", registry, assigned, [
+            "motion-view-a",
+            "motion-view-b",
+        ])
+
+        // Only the matched name comes back - no phantom layer for the missing one.
+        expect(names).toEqual(["motion-view-a"])
+    })
+
+    test("tracks a .class()'d element for class cleanup only, preserving an author name", () => {
+        const el = document.createElement("div")
+        document.body.appendChild(el)
+        const spy = jest
+            .spyOn(window, "getComputedStyle")
+            .mockReturnValue({
+                getPropertyValue: () => "card",
+            } as unknown as CSSStyleDeclaration)
+
+        const registry = new Map<Element, string>()
+        const assigned: Element[] = []
+        const classed: Element[] = []
+        const [name] = assignViewTransitionNames(
+            el,
+            registry,
+            assigned,
+            undefined,
+            "hero",
+            classed
+        )
+
+        expect(name).toBe("card")
+        // Author-named: tracked for class removal only, never name removal.
+        expect(assigned).toHaveLength(0)
+        expect(classed).toEqual([el])
+
+        const removeProperty = jest.spyOn(el.style, "removeProperty")
+        releaseViewTransitionNames(assigned, classed)
+
+        expect(removeProperty).toHaveBeenCalledWith("view-transition-class")
+        expect(removeProperty).not.toHaveBeenCalledWith("view-transition-name")
+
+        spy.mockRestore()
+    })
+
+    test("re-owns a stale generated name instead of adopting it as an author name", () => {
+        const el = document.createElement("div")
+        document.body.appendChild(el)
+        // A motion-view-* left inline by a prior, interrupted transition.
+        const spy = jest
+            .spyOn(window, "getComputedStyle")
+            .mockReturnValue({
+                getPropertyValue: () => "motion-view-999",
+            } as unknown as CSSStyleDeclaration)
+
+        const registry = new Map<Element, string>()
+        const assigned: Element[] = []
+        const [name] = assignViewTransitionNames(el, registry, assigned)
+
+        // It's our namespace, so generate a fresh name and track it for cleanup
+        // rather than leaking the leftover by treating it as author-owned.
+        expect(name).toMatch(/^motion-view-\d+$/u)
+        expect(name).not.toBe("motion-view-999")
+        expect(assigned).toEqual([el])
+
+        spy.mockRestore()
+    })
 })
 
 describe("animateView fallback (no startViewTransition)", () => {

@@ -31,6 +31,8 @@
                 supported: !!document.startViewTransition,
                 newOpacity: [],
                 oldOpacity: [],
+                blendKept: false,
+                vtAnims: [],
                 error: null,
             }
 
@@ -65,6 +67,31 @@
                         )
                         window.__view.oldOpacity = opacityOf(
                             "::view-transition-old(box)"
+                        )
+                        // The UA `plus-lighter` blend is a separate generated
+                        // animation on the old/new pseudo (mix-blend-mode in its
+                        // keyframes). It must survive our explicit crossfade, or
+                        // overlapping pixels darken mid-transition.
+                        const vt = document.getAnimations().filter((a) => {
+                            const e = a.effect
+                            return (
+                                e &&
+                                /::view-transition-(old|new)\(box\)/.test(
+                                    e.pseudoElement || ""
+                                )
+                            )
+                        })
+                        window.__view.vtAnims = vt.map(
+                            (a) =>
+                                `${a.effect.pseudoElement}|${a.effect
+                                    .getKeyframes()
+                                    .flatMap((k) => Object.keys(k))
+                                    .join(",")}`
+                        )
+                        window.__view.blendKept = vt.some((a) =>
+                            a.effect
+                                .getKeyframes()
+                                .some((k) => "mixBlendMode" in k)
                         )
                         window.__view.ready = true
                     },
