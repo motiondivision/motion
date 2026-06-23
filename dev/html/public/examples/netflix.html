@@ -324,7 +324,7 @@
                     grid.classList.add("is-hidden")
                 }, opts)
                     // Root crossfade dims the page / fades the backdrop in.
-                    .layout({})
+                    .layout()
                     // Two shared-element morphs: card → modal, poster → hero.
                     // Motion names both ends of each pair (no manual
                     // view-transition-name) and crops the morph by default.
@@ -343,7 +343,7 @@
                     document.querySelector(".backdrop")?.remove()
                     grid.classList.remove("is-hidden")
                 }, opts)
-                    .layout({})
+                    .layout()
                     // Reverse the morphs: modal → card, hero → poster.
                     .add(".detail", card)
                     .add(".detail .hero", poster)

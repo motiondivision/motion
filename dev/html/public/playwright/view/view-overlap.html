@@ -28,13 +28,13 @@
                 ready: false,
                 supported: !!document.startViewTransition,
                 enterFilter: false,
-                groupRadius: false,
+                exitOpacity: [],
                 error: null,
             }
 
             // Two subjects whose selectors resolve to the SAME element. Their
             // definitions must be merged so neither animation is dropped: `.a`'s
-            // enter (filter on the new layer) AND `.b`'s layout (group radius).
+            // enter (filter on the new layer) AND `.b`'s exit (opacity on old).
             animateView(() =>
                 document.querySelector(".box").classList.add("moved")
             )
@@ -44,10 +44,7 @@
                     { duration: 2, ease: "linear" }
                 )
                 .add(".b")
-                .layout(
-                    { borderRadius: ["0px", "40px"] },
-                    { duration: 2, ease: "linear" }
-                )
+                .exit({ opacity: [1, 0.4] }, { duration: 2, ease: "linear" })
                 .then(
                     () => {
                         const anims = document.getAnimations()
@@ -61,22 +58,22 @@
                                 eff.getKeyframes().some((k) => "filter" in k)
                             )
                         })
-                        window.__view.groupRadius = anims.some((a) => {
+                        const exit = anims.find((a) => {
                             const eff = a.effect
                             return (
                                 eff &&
-                                /::view-transition-group\(motion-view-\d+\)/.test(
+                                /::view-transition-old\(motion-view-\d+\)/.test(
                                     eff.pseudoElement || ""
                                 ) &&
-                                eff
-                                    .getKeyframes()
-                                    .some((k) =>
-                                        Object.keys(k).some((p) =>
-                                            /[Rr]adius/.test(p)
-                                        )
-                                    )
+                                eff.getKeyframes().some((k) => "opacity" in k)
                             )
                         })
+                        window.__view.exitOpacity = exit
+                            ? exit.effect
+                                  .getKeyframes()
+                                  .map((k) => k.opacity)
+                                  .filter((v) => v !== undefined)
+                            : []
                         window.__view.ready = true
                     },
                     (e) => {

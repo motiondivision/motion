@@ -100,8 +100,14 @@ export class ViewTransitionBuilder {
         return this
     }
 
-    layout(keyframes: DOMKeyframesDefinition, options?: AnimationOptions) {
-        this.updateTarget("layout", keyframes, options)
+    /**
+     * Set the transition for this subject's morph. The morph is enabled
+     * automatically by `.add()`; this just customises its timing (duration,
+     * easing, a `delay`/`stagger`, …). On the implicit `root` subject it also
+     * opts the page into the transition (the root crossfade).
+     */
+    layout(options: AnimationOptions = {}) {
+        this.updateTarget("layout", {}, options)
 
         return this
     }

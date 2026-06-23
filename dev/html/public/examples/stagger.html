@@ -179,10 +179,10 @@
                     }
                     nodes.forEach((n) => grid.append(n))
                 }, opts())
-                    // .add() auto-enables the layout morph; the empty .layout()
+                    // .add() auto-enables the layout morph; .layout() just
                     // staggers it so tiles cascade to their new cells.
                     .add(".tile")
-                    .layout({}, { delay: stagger(amount()) })
+                    .layout({ delay: stagger(amount()) })
             })
         </script>
     </body>

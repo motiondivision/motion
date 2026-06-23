@@ -12,9 +12,6 @@ interface ViewResult {
     nameA: string
     nameB: string
     enterFilter: boolean
-    groupRadius: boolean
-    tlCount: number
-    tlRadius: string[]
     newOpacity: number[]
     oldOpacity: number[]
     error: string | null
@@ -198,23 +195,10 @@ test.describe("animateView() target resolution", () => {
         test.skip(!result.supported, "No startViewTransition support")
 
         expect(result.error).toBeNull()
-        // `.a`'s enter (filter) survives the collision with `.b`'s layout.
+        // Both buckets survive the collision on one element: `.a`'s enter
+        // (filter on the new layer) AND `.b`'s exit (opacity on the old).
         expect(result.enterFilter).toBe(true)
-        expect(result.groupRadius).toBe(true)
-    })
-
-    test("an explicit .layout() corner radius wins over the default crop", async ({
-        page,
-    }) => {
-        await page.goto("view/view-crop-explicit-radius.html")
-        const result = await readResult(page)
-        test.skip(!result.supported, "No startViewTransition support")
-
-        expect(result.error).toBeNull()
-        // Exactly one borderTopLeftRadius animation, using the explicit
-        // keyframes - the crop pass must not emit a competing one.
-        expect(result.tlCount).toBe(1)
-        expect(result.tlRadius).toEqual(["0px", "100px"])
+        expect(result.exitOpacity.length).toBeGreaterThan(0)
     })
 
     test("pairs two elements into one shared-name morph (open direction)", async ({

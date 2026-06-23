@@ -478,14 +478,7 @@ export function startViewAnimation(
                         radiusOptions.delay
                     )
 
-                    // Corners the user animates via `.layout()` win over crop.
-                    const explicit = target?.layout?.keyframes as
-                        | Record<string, unknown>
-                        | undefined
-
                     for (const corner of cornerProps) {
-                        if (explicit && corner in explicit) continue
-
                         // `||` (not `??`) so an empty measurement (e.g. an
                         // un-rendered element) falls back rather than producing
                         // an invalid keyframe.
