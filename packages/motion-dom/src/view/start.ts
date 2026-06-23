@@ -1,4 +1,4 @@
-import { secondsToMilliseconds } from "motion-utils"
+import { secondsToMilliseconds, warnOnce } from "motion-utils"
 import { GroupAnimation } from "../animation/GroupAnimation"
 import { NativeAnimation } from "../animation/NativeAnimation"
 import { NativeAnimationWrapper } from "../animation/NativeAnimationWrapper"
@@ -370,6 +370,20 @@ export function startViewAnimation(
                             // Skip only missing values - `0` (e.g. opacity: 0)
                             // is valid and must reach the from-value inference.
                             if (valueKeyframes == null) continue
+
+                            /**
+                             * The view path hands keyframes straight to WAAPI,
+                             * so Motion's `x`/`y` shorthands (compiled to
+                             * `transform` only via the value pipeline) have no
+                             * effect. Warn and skip - use `transform`/`translate`.
+                             */
+                            if (valueName === "x" || valueName === "y") {
+                                warnOnce(
+                                    false,
+                                    `animateView() animates view-transition layers with CSS properties; the "${valueName}" shorthand has no effect - use transform, e.g. { transform: "translateX(40px)" }.`
+                                )
+                                continue
+                            }
 
                             /**
                              * enter/exit win over new/old on a shared property -

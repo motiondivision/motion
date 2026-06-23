@@ -16,6 +16,8 @@ interface ViewResult {
     groupZ: string
     newTransform: string[]
     oldTransform: string[]
+    xOnNew: boolean
+    opacityOnNew: boolean
     newOpacity: number[]
     oldOpacity: number[]
     error: string | null
@@ -275,6 +277,28 @@ test.describe("animateView() target resolution", () => {
         // ...and `::view-transition-group(.tag) { z-index: 99 }` reaches the
         // generated (name-opaque) group layer.
         expect(result.groupZ).toBe("99")
+    })
+
+    test("x/y shorthands are skipped with a warning (use transform)", async ({
+        page,
+    }) => {
+        const warnings: string[] = []
+        page.on("console", (m) => {
+            if (m.type() === "warning") warnings.push(m.text())
+        })
+
+        await page.goto("view/view-x-warn.html")
+        const result = await readResult(page)
+        test.skip(!result.supported, "No startViewTransition support")
+
+        expect(result.error).toBeNull()
+        // `x` produced no keyframe (skipped); the `opacity` alongside it works.
+        expect(result.xOnNew).toBe(false)
+        expect(result.opacityOnNew).toBe(true)
+        // ...and a one-time dev warning points at transform.
+        expect(warnings.some((w) => /shorthand has no effect/.test(w))).toBe(
+            true
+        )
     })
 
     test(".new()/.old() crossfade a persistent (survivor) element", async ({
