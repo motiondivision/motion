@@ -22,13 +22,24 @@ export function assignViewTransitionNames(
 ): string[] {
     const elements = resolveElements(definition)
 
-    return elements.map((element) => {
+    /**
+     * Read every current name up front, before assigning any. Interleaving the
+     * reads with the inline `setProperty` writes below would dirty styles
+     * between reads and force a style recalc per element; batching the reads
+     * keeps it to one. Elements already in the registry keep their name and
+     * need no read.
+     */
+    const currentNames = elements.map((element) =>
+        registry.has(element)
+            ? undefined
+            : getComputedStyle(element).getPropertyValue("view-transition-name")
+    )
+
+    return elements.map((element, i) => {
         const existing = registry.get(element)
         if (existing) return existing
 
-        const current = getComputedStyle(element).getPropertyValue(
-            "view-transition-name"
-        )
+        const current = currentNames[i]
 
         let name: string
         if (
