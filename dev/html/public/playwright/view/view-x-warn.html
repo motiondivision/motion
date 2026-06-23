@@ -1,0 +1,71 @@
+<!doctype html>
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+            .box {
+                width: 120px;
+                height: 120px;
+                margin: 40px;
+                background: red;
+                view-transition-name: box;
+            }
+            .box.big {
+                width: 300px;
+                height: 200px;
+                background: blue;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="box" id="box"></div>
+
+        <script type="module" src="/src/imports/view.js"></script>
+        <script type="module">
+            const { animateView } = window.MotionDOM
+
+            window.__view = {
+                ready: false,
+                supported: !!document.startViewTransition,
+                xOnNew: false,
+                opacityOnNew: false,
+                error: null,
+            }
+
+            const box = document.getElementById("box")
+
+            // `x` is a Motion shorthand, not a CSS property - it has no effect
+            // on a view-transition layer and should warn + be skipped, while the
+            // `opacity` alongside it still animates.
+            animateView(() => box.classList.add("big"), {
+                duration: 3,
+                ease: "linear",
+            })
+                .add("#box")
+                .new({ x: [40, 0], opacity: [0, 1] })
+                .then(
+                    () => {
+                        const has = (prop) =>
+                            document.getAnimations().some((a) => {
+                                const e = a.effect
+                                return (
+                                    e &&
+                                    e.pseudoElement ===
+                                        "::view-transition-new(box)" &&
+                                    e.getKeyframes().some((k) => prop in k)
+                                )
+                            })
+                        window.__view.xOnNew = has("x")
+                        window.__view.opacityOnNew = has("opacity")
+                        window.__view.ready = true
+                    },
+                    (e) => {
+                        window.__view.error = String(e)
+                        window.__view.ready = true
+                    }
+                )
+        </script>
+    </body>
+</html>

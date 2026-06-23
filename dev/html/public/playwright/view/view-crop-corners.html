@@ -1,0 +1,75 @@
+<!doctype html>
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+            /* Top corners rounded, bottom square. */
+            .box {
+                width: 120px;
+                height: 120px;
+                margin: 40px;
+                background: red;
+                border-radius: 24px 24px 0px 0px;
+                view-transition-name: box;
+            }
+            /* Uniform radius in the new state. */
+            .box.big {
+                width: 320px;
+                height: 160px;
+                background: blue;
+                border-radius: 4px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="box" id="box"></div>
+
+        <script type="module" src="/src/imports/view.js"></script>
+        <script type="module">
+            const { animateView } = window.MotionDOM
+
+            window.__view = {
+                ready: false,
+                supported: !!document.startViewTransition,
+                corners: {},
+                error: null,
+            }
+
+            const box = document.getElementById("box")
+
+            animateView(() => box.classList.add("big"), {
+                duration: 3,
+                ease: "linear",
+            })
+                .add("#box")
+                .then(
+                    () => {
+                        const corners = {}
+                        document.getAnimations().forEach((a) => {
+                            const eff = a.effect
+                            if (
+                                !eff ||
+                                eff.pseudoElement !==
+                                    "::view-transition-group(box)"
+                            )
+                                return
+                            eff.getKeyframes().forEach((k) => {
+                                for (const p of Object.keys(k)) {
+                                    if (!/Radius$/.test(p)) continue
+                                    ;(corners[p] = corners[p] || []).push(k[p])
+                                }
+                            })
+                        })
+                        window.__view.corners = corners
+                        window.__view.ready = true
+                    },
+                    (e) => {
+                        window.__view.error = String(e)
+                        window.__view.ready = true
+                    }
+                )
+        </script>
+    </body>
+</html>

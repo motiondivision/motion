@@ -1,0 +1,68 @@
+<!doctype html>
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+            .box {
+                width: 160px;
+                height: 160px;
+                margin: 60px;
+                background: #1020c0;
+                view-transition-name: box;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="box" id="box"></div>
+
+        <script type="module" src="/src/imports/view.js"></script>
+        <script type="module">
+            const { animateView } = window.MotionDOM
+
+            window.__view = {
+                ready: false,
+                supported: !!document.startViewTransition,
+                exitOpacity: [],
+                error: null,
+            }
+
+            // A single falsy value (opacity: 0) must still animate: the from
+            // value (1, for an exiting layer) is inferred.
+            animateView(() => document.getElementById("box").remove(), {
+                duration: 3,
+                ease: "linear",
+            })
+                .add("#box")
+                .exit({ opacity: 0 })
+                .then(
+                    () =>
+                        requestAnimationFrame(() => {
+                            const anim = document
+                                .getAnimations()
+                                .find(
+                                    (a) =>
+                                        a.effect &&
+                                        a.effect.pseudoElement ===
+                                            "::view-transition-old(box)" &&
+                                        a.effect
+                                            .getKeyframes()
+                                            .some((k) => "opacity" in k)
+                                )
+                            window.__view.exitOpacity = anim
+                                ? anim.effect
+                                      .getKeyframes()
+                                      .map((k) => k.opacity)
+                                      .filter((v) => v !== undefined)
+                                : []
+                            window.__view.ready = true
+                        }),
+                    (e) => {
+                        window.__view.error = String(e)
+                        window.__view.ready = true
+                    }
+                )
+        </script>
+    </body>
+</html>

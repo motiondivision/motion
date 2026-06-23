@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <title>animateView() — default crop vs .crop(false)</title>
+        <style>
+            * {
+                box-sizing: border-box;
+            }
+            body {
+                margin: 0;
+                min-height: 100vh;
+                background: #0e0e10;
+                color: #fff;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+                    sans-serif;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 28px;
+                padding: 48px;
+            }
+            button#play {
+                border: 1px solid #2e2e34;
+                background: #1a1a1f;
+                color: #fff;
+                border-radius: 8px;
+                padding: 10px 20px;
+                font-weight: 600;
+                cursor: pointer;
+            }
+            .row {
+                display: flex;
+                gap: 64px;
+            }
+            figure {
+                margin: 0;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 12px;
+            }
+            figcaption {
+                font-family: ui-monospace, monospace;
+                color: #b3b3b3;
+                font-size: 14px;
+            }
+            /* Thumbnails start square, expand to a wide (16:9) shape. The
+               background image is the same; only .crop() mode differs. */
+            .thumb {
+                width: 200px;
+                height: 200px;
+                background-color: #222;
+                background-size: cover;
+                background-position: center;
+                border-radius: 12px;
+            }
+            .thumb.wide {
+                width: 460px;
+                height: 259px;
+            }
+        </style>
+    </head>
+    <body>
+        <button id="play">▶ Play morph</button>
+        <div class="row">
+            <figure>
+                <div class="thumb" id="cropped"></div>
+                <figcaption>default (cropped)</figcaption>
+            </figure>
+            <figure>
+                <div class="thumb" id="raw"></div>
+                <figcaption>.crop(false)</figcaption>
+            </figure>
+        </div>
+
+        <script type="module" src="/src/imports/view.js"></script>
+        <script type="module">
+            const { animateView } = window.MotionDOM
+
+            // A square image with an edge frame + centred ring, so the cropped
+            // version (fills the box cleanly) reads differently from the raw
+            // one (the old square snapshot overflows the widening box).
+            const art = () => {
+                const svg =
+                    "<svg xmlns='http://www.w3.org/2000/svg' width='400' height='400'>" +
+                    "<defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'>" +
+                    "<stop offset='0' stop-color='#7b2ff7'/><stop offset='1' stop-color='#f107a3'/>" +
+                    "</linearGradient></defs>" +
+                    "<rect width='400' height='400' fill='url(#g)'/>" +
+                    "<rect x='14' y='14' width='372' height='372' fill='none' stroke='white' stroke-opacity='0.6' stroke-width='10'/>" +
+                    "<circle cx='200' cy='200' r='120' fill='none' stroke='white' stroke-opacity='0.55' stroke-width='10'/>" +
+                    "</svg>"
+                return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`
+            }
+            document.querySelectorAll(".thumb").forEach(
+                (t) => (t.style.backgroundImage = art())
+            )
+
+            let wide = false
+            document.getElementById("play").addEventListener("click", () => {
+                wide = !wide
+                animateView(
+                    () =>
+                        document
+                            .querySelectorAll(".thumb")
+                            .forEach((t) => t.classList.toggle("wide", wide)),
+                    { duration: 4, ease: "linear" }
+                )
+                    .add("#cropped") // cropped by default: fill + clip
+                    .add("#raw")
+                    .crop(false) // opt out -> the browser default (overflows)
+            })
+        </script>
+    </body>
+</html>

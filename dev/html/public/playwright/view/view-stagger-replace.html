@@ -1,0 +1,77 @@
+<!doctype html>
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+                display: flex;
+                gap: 20px;
+            }
+            .tile {
+                width: 100px;
+                height: 100px;
+                background: teal;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="grid">
+            <div class="tile"></div>
+            <div class="tile"></div>
+            <div class="tile"></div>
+        </div>
+
+        <script type="module" src="/src/imports/view.js"></script>
+        <script type="module">
+            const { animateView, stagger } = window.MotionDOM
+
+            window.__view = {
+                ready: false,
+                supported: !!document.startViewTransition,
+                delays: [],
+                error: null,
+            }
+
+            // `update` REPLACES the matched tiles (innerHTML), so the entering
+            // tiles are brand-new elements only present in the new snapshot.
+            // Their stagger must index from 0 within the new snapshot, not be
+            // pushed past the (now-gone) old tiles' names.
+            animateView(() => {
+                document.getElementById("grid").innerHTML =
+                    '<div class="tile"></div><div class="tile"></div><div class="tile"></div>'
+            })
+                .add(".tile")
+                .enter(
+                    { opacity: [0, 1] },
+                    { delay: stagger(0.15), duration: 2, ease: "linear" }
+                )
+                .then(
+                    () => {
+                        window.__view.delays = document
+                            .getAnimations()
+                            .filter((a) => {
+                                const eff = a.effect
+                                return (
+                                    eff &&
+                                    /::view-transition-new\(motion-view-\d+\)/.test(
+                                        eff.pseudoElement || ""
+                                    ) &&
+                                    eff
+                                        .getKeyframes()
+                                        .some((k) => "opacity" in k)
+                                )
+                            })
+                            .map((a) =>
+                                Math.round(a.effect.getComputedTiming().delay)
+                            )
+                            .sort((a, b) => a - b)
+                        window.__view.ready = true
+                    },
+                    (e) => {
+                        window.__view.error = String(e)
+                        window.__view.ready = true
+                    }
+                )
+        </script>
+    </body>
+</html>

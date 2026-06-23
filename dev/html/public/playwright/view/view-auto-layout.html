@@ -1,0 +1,63 @@
+<!doctype html>
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+            .box {
+                width: 100px;
+                height: 100px;
+                background: red;
+                margin: 40px;
+            }
+            .box.big {
+                width: 320px;
+                height: 220px;
+                transform: translateX(120px);
+                background: blue;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="box" id="box"></div>
+
+        <script type="module" src="/src/imports/view.js"></script>
+        <script type="module">
+            const { animateView } = window.MotionDOM
+
+            window.__view = {
+                ready: false,
+                supported: !!document.startViewTransition,
+                pseudos: [],
+                error: null,
+            }
+
+            const collect = () =>
+                document
+                    .getAnimations()
+                    .map((a) => a.effect && a.effect.pseudoElement)
+                    .filter(Boolean)
+
+            const box = document.getElementById("box")
+
+            // No enter/exit/layout bucket - .add() alone should auto-enable
+            // the layout (group) morph as the box changes size and position.
+            animateView(() => box.classList.add("big"), {
+                duration: 3,
+                ease: "linear",
+            })
+                .add(box)
+                .then(
+                    () => {
+                        window.__view.pseudos = collect()
+                        window.__view.ready = true
+                    },
+                    (e) => {
+                        window.__view.error = String(e)
+                        window.__view.ready = true
+                    }
+                )
+        </script>
+    </body>
+</html>

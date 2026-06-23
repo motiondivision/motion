@@ -1,6 +1,7 @@
 export function getViewAnimationLayerInfo(pseudoElement: string) {
     const match = pseudoElement.match(
-        /::view-transition-(old|new|group|image-pair)\((.*?)\)/
+        // `group-children` (nested transitions) before `group` so it wins.
+        /::view-transition-(old|new|group-children|group|image-pair)\((.*?)\)/
     )
     if (!match) return null
 

@@ -1,0 +1,76 @@
+<!doctype html>
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+            .box {
+                width: 100px;
+                height: 100px;
+                margin: 40px;
+                background: red;
+                border-radius: 8px;
+                view-transition-name: box;
+            }
+            .box.big {
+                width: 320px;
+                height: 120px;
+                border-radius: 28px;
+                background: blue;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="box" id="box"></div>
+
+        <script type="module" src="/src/imports/view.js"></script>
+        <script type="module">
+            const { animateView } = window.MotionDOM
+
+            window.__view = {
+                ready: false,
+                supported: !!document.startViewTransition,
+                css: "",
+                radiusAnimated: false,
+                error: null,
+            }
+
+            const box = document.getElementById("box")
+
+            // .crop(false) opts out: no clip, no object-fit, no radius morph.
+            animateView(() => box.classList.add("big"), {
+                duration: 3,
+                ease: "linear",
+            })
+                .add("#box")
+                .crop(false)
+                .then(
+                    () => {
+                        const style = document.getElementById("motion-view")
+                        window.__view.css = style ? style.textContent : ""
+                        window.__view.radiusAnimated = document
+                            .getAnimations()
+                            .some(
+                                (a) =>
+                                    a.effect &&
+                                    a.effect.pseudoElement ===
+                                        "::view-transition-group(box)" &&
+                                    a.effect
+                                        .getKeyframes()
+                                        .some((k) =>
+                                            Object.keys(k).some((p) =>
+                                                /Radius$/.test(p)
+                                            )
+                                        )
+                            )
+                        window.__view.ready = true
+                    },
+                    (e) => {
+                        window.__view.error = String(e)
+                        window.__view.ready = true
+                    }
+                )
+        </script>
+    </body>
+</html>

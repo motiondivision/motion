@@ -1,0 +1,73 @@
+<!doctype html>
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+            .card {
+                width: 120px;
+                height: 120px;
+                margin: 20px;
+                background: tomato;
+                border-radius: 12px;
+            }
+            .newcomer {
+                background: seagreen;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="card" id="old-card"></div>
+        <div id="container"></div>
+
+        <script type="module" src="/src/imports/view.js"></script>
+        <script type="module">
+            const { animateView } = window.MotionDOM
+
+            window.__view = {
+                ready: false,
+                supported: !!document.startViewTransition,
+                css: "",
+                newcomerName: "",
+                newcomerCropped: false,
+                error: null,
+            }
+
+            // `.add(".card")` matches the existing card and the one the update
+            // appends. The newcomer exists only in the NEW snapshot, so its crop
+            // CSS (overflow: clip / object-fit: cover) must be (re)committed after
+            // the update - otherwise it overflows on aspect-ratio change.
+            animateView(
+                () => {
+                    document.getElementById("container").innerHTML =
+                        '<div class="card newcomer"></div>'
+                },
+                { duration: 3, ease: "linear" }
+            )
+                .add(".card")
+                .then(
+                    () => {
+                        const style = document.getElementById("motion-view")
+                        window.__view.css = style ? style.textContent : ""
+                        const name = getComputedStyle(
+                            document.querySelector(".newcomer")
+                        )
+                            .getPropertyValue("view-transition-name")
+                            .trim()
+                        window.__view.newcomerName = name
+                        window.__view.newcomerCropped = new RegExp(
+                            "::view-transition-group\\(" +
+                                name +
+                                "\\)\\s*\\{[^}]*overflow:\\s*clip"
+                        ).test(window.__view.css)
+                        window.__view.ready = true
+                    },
+                    (e) => {
+                        window.__view.error = String(e)
+                        window.__view.ready = true
+                    }
+                )
+        </script>
+    </body>
+</html>

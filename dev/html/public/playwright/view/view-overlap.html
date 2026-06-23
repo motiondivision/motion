@@ -1,0 +1,66 @@
+<!doctype html>
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+            .box {
+                width: 120px;
+                height: 120px;
+                margin: 40px;
+                background: orange;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="container"></div>
+
+        <script type="module" src="/src/imports/view.js"></script>
+        <script type="module">
+            const { animateView } = window.MotionDOM
+
+            window.__view = {
+                ready: false,
+                supported: !!document.startViewTransition,
+                enterFilter: false,
+                error: null,
+            }
+
+            // One element matches BOTH `.a` and `.b`, and is added by the
+            // update (a newcomer), so `.a`'s enter applies. The second
+            // `.add(".b")` must merge - not clobber `.a`'s enter bucket.
+            animateView(() => {
+                document.getElementById("container").innerHTML =
+                    '<div class="a b box"></div>'
+            })
+                .add(".a")
+                .enter(
+                    { filter: ["blur(8px)", "blur(0px)"] },
+                    { duration: 2, ease: "linear" }
+                )
+                .add(".b")
+                .then(
+                    () => {
+                        window.__view.enterFilter = document
+                            .getAnimations()
+                            .some((a) => {
+                                const e = a.effect
+                                return (
+                                    e &&
+                                    /::view-transition-new\(motion-view-\d+\)/.test(
+                                        e.pseudoElement || ""
+                                    ) &&
+                                    e.getKeyframes().some((k) => "filter" in k)
+                                )
+                            })
+                        window.__view.ready = true
+                    },
+                    (e) => {
+                        window.__view.error = String(e)
+                        window.__view.ready = true
+                    }
+                )
+        </script>
+    </body>
+</html>

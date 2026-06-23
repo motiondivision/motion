@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>animateView() — Netflix-style detail transition</title>
+        <style>
+            * {
+                box-sizing: border-box;
+            }
+            body {
+                margin: 0;
+                background: #141414;
+                color: #fff;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+                    Roboto, Helvetica, Arial, sans-serif;
+            }
+            .topbar {
+                position: sticky;
+                top: 0;
+                z-index: 5;
+                display: flex;
+                align-items: center;
+                gap: 24px;
+                padding: 16px 24px;
+                background: linear-gradient(#141414, rgba(20, 20, 20, 0.6));
+            }
+            .logo {
+                color: #e50914;
+                font-weight: 800;
+                letter-spacing: 0.5px;
+                font-size: 22px;
+            }
+            .controls {
+                margin-left: auto;
+                display: flex;
+                align-items: center;
+                gap: 18px;
+                font-size: 13px;
+                color: #b3b3b3;
+            }
+            .controls label {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+            }
+            .controls input[type="range"] {
+                width: 90px;
+            }
+            select,
+            input {
+                accent-color: #e50914;
+            }
+
+            .grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+                gap: 16px;
+                padding: 24px;
+            }
+            .grid.is-hidden {
+                display: none;
+            }
+            .card {
+                appearance: none;
+                background: none;
+                border: 0;
+                padding: 0;
+                margin: 0;
+                color: inherit;
+                text-align: left;
+                cursor: pointer;
+                border-radius: 8px;
+                transition: transform 0.2s ease;
+            }
+            .card:hover {
+                transform: translateY(-4px);
+            }
+            .poster {
+                aspect-ratio: 2 / 3;
+                border-radius: 8px;
+                background-color: #2a2a2a;
+                background-size: cover;
+                background-position: center;
+                box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+            }
+            .card-title {
+                margin-top: 8px;
+                font-size: 14px;
+                color: #e5e5e5;
+            }
+
+            .backdrop {
+                position: fixed;
+                inset: 0;
+                background: rgba(0, 0, 0, 0.75);
+                z-index: 10;
+            }
+            .detail {
+                position: fixed;
+                z-index: 11;
+                top: 5vh;
+                left: 50%;
+                transform: translateX(-50%);
+                width: min(880px, 92vw);
+                max-height: 90vh;
+                overflow: auto;
+                background: #181818;
+                border-radius: 24px;
+                box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+            }
+            .hero {
+                aspect-ratio: 16 / 9;
+                background-color: #2a2a2a;
+                background-size: cover;
+                background-position: center;
+                /* Matches how it renders inside the modal: top corners follow
+                 * the modal (24px), bottom square against the body — so the
+                 * morph lands exactly on the live element (no snap). */
+                border-radius: 24px 24px 0 0;
+            }
+            .detail-body {
+                padding: 28px;
+            }
+            .detail-body h1 {
+                margin: 0 0 8px;
+                font-size: 32px;
+            }
+            .meta {
+                color: #46d369;
+                font-weight: 600;
+                font-size: 14px;
+                margin-bottom: 18px;
+            }
+            .actions {
+                display: flex;
+                gap: 12px;
+                margin-bottom: 18px;
+            }
+            .actions button {
+                appearance: none;
+                border: 0;
+                border-radius: 6px;
+                padding: 10px 22px;
+                font-size: 15px;
+                font-weight: 700;
+                cursor: pointer;
+            }
+            .actions .play {
+                background: #fff;
+                color: #000;
+            }
+            .actions .list {
+                background: rgba(109, 109, 110, 0.7);
+                color: #fff;
+            }
+            .synopsis {
+                color: #d2d2d2;
+                line-height: 1.5;
+                max-width: 60ch;
+            }
+            .close {
+                position: absolute;
+                right: 14px;
+                top: 14px;
+                z-index: 12;
+                width: 36px;
+                height: 36px;
+                border-radius: 50%;
+                border: 0;
+                background: #181818;
+                color: #fff;
+                font-size: 18px;
+                cursor: pointer;
+            }
+
+        </style>
+    </head>
+    <body>
+        <div class="topbar">
+            <span class="logo">MOTIONFLIX</span>
+            <div class="controls">
+                <label>
+                    Type
+                    <select id="type">
+                        <option value="spring" selected>spring</option>
+                        <option value="tween">tween</option>
+                    </select>
+                </label>
+                <label>
+                    Duration
+                    <input
+                        id="duration"
+                        type="range"
+                        min="0.2"
+                        max="1.5"
+                        step="0.05"
+                        value="0.55"
+                    />
+                </label>
+                <label id="bounce-control">
+                    Bounce
+                    <input
+                        id="bounce"
+                        type="range"
+                        min="0"
+                        max="0.7"
+                        step="0.05"
+                        value="0.25"
+                    />
+                </label>
+            </div>
+        </div>
+
+        <div class="grid" id="grid"></div>
+
+        <script type="module" src="/src/imports/view.js"></script>
+        <script type="module">
+            const MotionDOM = window.MotionDOM
+            if (!MotionDOM || !MotionDOM.animateView) {
+                document.body.innerHTML =
+                    '<p style="padding:40px;font-family:sans-serif">' +
+                    "Couldn't load <code>motion-dom</code> — build it (run " +
+                    "<code>yarn build</code>) then reload this page.</p>"
+                throw new Error("motion-dom failed to load")
+            }
+            const { animateView, spring } = MotionDOM
+
+            // Self-contained SVG "posters" (data-URIs, no network) so the morph
+            // always has real raster content to recrop across aspect ratios.
+            // Swap `poster(...)` for `url(https://images.unsplash.com/photo-...)`
+            // for real photography.
+            const poster = (c1, c2) => {
+                const svg =
+                    "<svg xmlns='http://www.w3.org/2000/svg' width='600' height='800'>" +
+                    "<defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'>" +
+                    `<stop offset='0' stop-color='${c1}'/><stop offset='1' stop-color='${c2}'/>` +
+                    "</linearGradient></defs>" +
+                    "<rect width='600' height='800' fill='url(#g)'/>" +
+                    "<circle cx='460' cy='220' r='150' fill='white' fill-opacity='0.18'/>" +
+                    "<circle cx='150' cy='600' r='110' fill='white' fill-opacity='0.10'/>" +
+                    "</svg>"
+                return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`
+            }
+
+            const MOVIES = [
+                { title: "Neon Horizon", meta: "2026 · Sci-Fi · 2h 14m", c1: "#ff512f", c2: "#dd2476", synopsis: "A salvage pilot drifts past the edge of charted space and finds a city that should not exist." },
+                { title: "The Quiet Coast", meta: "2025 · Drama · 1h 48m", c1: "#2193b0", c2: "#6dd5ed", synopsis: "Two estranged siblings spend one last summer in the house their mother left behind." },
+                { title: "Ironwood", meta: "2026 · Action · 2h 02m", c1: "#8e2de2", c2: "#4a00e0", synopsis: "A retired courier is pulled back in for one impossible delivery across a city at war." },
+                { title: "Paper Moons", meta: "2024 · Animation · 1h 36m", c1: "#f7971e", c2: "#ffd200", synopsis: "A lighthouse keeper's daughter folds the night sky into paper boats and sails them home." },
+                { title: "Undertow", meta: "2025 · Thriller · 1h 59m", c1: "#00b09b", c2: "#96c93d", synopsis: "A marine biologist realises the tide is keeping a secret the town would rather drown." },
+                { title: "Citylights", meta: "2026 · Romance · 1h 52m", c1: "#e96443", c2: "#904e95", synopsis: "Every night shift, the same two strangers miss the same last train — until they don't." },
+                { title: "Glasshouse", meta: "2025 · Mystery · 2h 08m", c1: "#1f4037", c2: "#99f2c8", synopsis: "An architect is hired to restore a mansion that keeps redrawing its own floor plan." },
+                { title: "Afterglow", meta: "2026 · Sci-Fi · 2h 21m", c1: "#fc466b", c2: "#3f5efb", synopsis: "When the sun starts setting in the wrong place, one astronomer refuses to look away." },
+            ]
+
+            const grid = document.getElementById("grid")
+            const typeEl = document.getElementById("type")
+            const durationEl = document.getElementById("duration")
+            const bounceEl = document.getElementById("bounce")
+
+            let openId = null
+
+            grid.innerHTML = MOVIES.map(
+                (m, i) => `
+                <button class="card" data-id="${i}">
+                    <div class="poster"></div>
+                    <div class="card-title">${m.title}</div>
+                </button>`
+            ).join("")
+            grid.querySelectorAll(".poster").forEach((el, i) => {
+                el.style.backgroundImage = poster(MOVIES[i].c1, MOVIES[i].c2)
+            })
+
+            // Read the live controls so you can feel the difference between
+            // a bouncy spring and a flat tween on every transition.
+            function options() {
+                const duration = parseFloat(durationEl.value)
+                return typeEl.value === "spring"
+                    ? { type: spring, visualDuration: duration, bounce: parseFloat(bounceEl.value) }
+                    : { duration, ease: "easeInOut" }
+            }
+
+            function buildDetail(i) {
+                const m = MOVIES[i]
+
+                const backdrop = document.createElement("div")
+                backdrop.className = "backdrop"
+                backdrop.addEventListener("click", close)
+
+                const detail = document.createElement("div")
+                detail.className = "detail"
+                detail.innerHTML = `
+                    <button class="close" aria-label="Close">✕</button>
+                    <div class="hero"></div>
+                    <div class="detail-body">
+                        <h1>${m.title}</h1>
+                        <div class="meta">${m.meta}</div>
+                        <div class="actions">
+                            <button class="play">▶ Play</button>
+                            <button class="list">＋ My List</button>
+                        </div>
+                        <p class="synopsis">${m.synopsis}</p>
+                    </div>`
+                detail.querySelector(".close").addEventListener("click", close)
+                detail.querySelector(".hero").style.backgroundImage = poster(
+                    m.c1,
+                    m.c2
+                )
+
+                document.body.append(backdrop, detail)
+            }
+
+            function open(i) {
+                if (openId !== null) return
+                openId = i
+
+                const card = grid.querySelector(`.card[data-id="${i}"]`)
+                const poster = card.querySelector(".poster")
+                const opts = options()
+
+                animateView(() => {
+                    buildDetail(i)
+                    grid.classList.add("is-hidden")
+                }, opts)
+                    // Root crossfade dims the page / fades the backdrop in.
+                    .layout()
+                    // Two shared-element morphs: card → modal, poster → hero.
+                    // Motion names both ends of each pair (no manual
+                    // view-transition-name) and crops the morph by default.
+                    .add(card, ".detail")
+                    .add(poster, ".detail .hero")
+            }
+
+            function close() {
+                if (openId === null) return
+                const card = grid.querySelector(`.card[data-id="${openId}"]`)
+                const poster = card.querySelector(".poster")
+                const opts = options()
+
+                animateView(() => {
+                    document.querySelector(".detail")?.remove()
+                    document.querySelector(".backdrop")?.remove()
+                    grid.classList.remove("is-hidden")
+                }, opts)
+                    .layout()
+                    // Reverse the morphs: modal → card, hero → poster.
+                    .add(".detail", card)
+                    .add(".detail .hero", poster)
+                    .then((group) => group.finished)
+                    .then(() => {
+                        openId = null
+                    })
+            }
+
+            grid.addEventListener("click", (e) => {
+                const card = e.target.closest(".card")
+                if (card) open(Number(card.dataset.id))
+            })
+
+            document.addEventListener("keydown", (e) => {
+                if (e.key === "Escape") close()
+            })
+        </script>
+    </body>
+</html>

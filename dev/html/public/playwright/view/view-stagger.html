@@ -1,0 +1,67 @@
+<!doctype html>
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+            #row {
+                display: flex;
+                gap: 20px;
+            }
+            .item {
+                width: 120px;
+                height: 120px;
+                background: blue;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="row"></div>
+
+        <script type="module" src="/src/imports/view.js"></script>
+        <script type="module">
+            const { animateView, stagger } = window.MotionDOM
+
+            window.__view = {
+                ready: false,
+                supported: !!document.startViewTransition,
+                delays: [],
+                error: null,
+            }
+
+            // The items are ADDED by the update, so they're newcomers and
+            // .enter() applies to each (staggered).
+            animateView(() => {
+                document.getElementById("row").innerHTML =
+                    '<div class="item">1</div>' +
+                    '<div class="item">2</div>' +
+                    '<div class="item">3</div>'
+            })
+                .add(".item")
+                .enter(
+                    { opacity: [0, 1] },
+                    { delay: stagger(0.15), duration: 2, ease: "linear" }
+                )
+                .then(
+                    () => {
+                        window.__view.delays = document
+                            .getAnimations()
+                            .filter((a) =>
+                                /::view-transition-new\(motion-view-\d+\)/.test(
+                                    (a.effect && a.effect.pseudoElement) || ""
+                                )
+                            )
+                            .map((a) =>
+                                Math.round(a.effect.getComputedTiming().delay)
+                            )
+                        window.__view.ready = true
+                    },
+                    (e) => {
+                        window.__view.error = String(e)
+                        window.__view.ready = true
+                    }
+                )
+        </script>
+    </body>
+</html>

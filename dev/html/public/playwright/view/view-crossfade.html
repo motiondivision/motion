@@ -1,0 +1,105 @@
+<!doctype html>
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+            .box {
+                width: 120px;
+                height: 120px;
+                background: red;
+                margin: 40px;
+                view-transition-name: box;
+            }
+            .box.big {
+                width: 300px;
+                height: 200px;
+                background: blue;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="box"></div>
+
+        <script type="module" src="/src/imports/view.js"></script>
+        <script type="module">
+            const { animateView } = window.MotionDOM
+
+            window.__view = {
+                ready: false,
+                supported: !!document.startViewTransition,
+                newOpacity: [],
+                oldOpacity: [],
+                blendKept: false,
+                vtAnims: [],
+                error: null,
+            }
+
+            const opacityOf = (pseudo) => {
+                const anim = document.getAnimations().find((a) => {
+                    const eff = a.effect
+                    return (
+                        eff &&
+                        eff.pseudoElement === pseudo &&
+                        eff.getKeyframes().some((k) => "opacity" in k)
+                    )
+                })
+                return anim
+                    ? anim.effect
+                          .getKeyframes()
+                          .map((k) => k.opacity)
+                          .filter((v) => v !== undefined)
+                    : []
+            }
+
+            animateView(() => document.querySelector(".box").classList.add("big"), {
+                duration: 3,
+                ease: "linear",
+            })
+                .add(".box")
+                .new({ opacity: 1 })
+                .old({ opacity: 0 })
+                .then(
+                    () => {
+                        window.__view.newOpacity = opacityOf(
+                            "::view-transition-new(box)"
+                        )
+                        window.__view.oldOpacity = opacityOf(
+                            "::view-transition-old(box)"
+                        )
+                        // The UA `plus-lighter` blend is a separate generated
+                        // animation on the old/new pseudo (mix-blend-mode in its
+                        // keyframes). It must survive our explicit crossfade, or
+                        // overlapping pixels darken mid-transition.
+                        const vt = document.getAnimations().filter((a) => {
+                            const e = a.effect
+                            return (
+                                e &&
+                                /::view-transition-(old|new)\(box\)/.test(
+                                    e.pseudoElement || ""
+                                )
+                            )
+                        })
+                        window.__view.vtAnims = vt.map(
+                            (a) =>
+                                `${a.effect.pseudoElement}|${a.effect
+                                    .getKeyframes()
+                                    .flatMap((k) => Object.keys(k))
+                                    .join(",")}`
+                        )
+                        window.__view.blendKept = vt.some((a) =>
+                            a.effect
+                                .getKeyframes()
+                                .some((k) => "mixBlendMode" in k)
+                        )
+                        window.__view.ready = true
+                    },
+                    (e) => {
+                        window.__view.error = String(e)
+                        window.__view.ready = true
+                    }
+                )
+        </script>
+    </body>
+</html>

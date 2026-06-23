@@ -1,0 +1,78 @@
+<!doctype html>
+<html>
+    <head>
+        <style>
+            body { margin: 0; background: #222; }
+            .box {
+                width: 120px;
+                height: 120px;
+                margin: 40px;
+                background: orange;
+            }
+            .box.moved { transform: translateX(200px); background: purple; }
+        </style>
+    </head>
+    <body>
+        <div class="box" id="box"></div>
+
+        <script type="module" src="/src/imports/view.js"></script>
+        <script type="module">
+            const { animateView, spring } = window.MotionDOM
+
+            window.__view = {
+                ready: false,
+                supported: !!document.startViewTransition,
+                boxOld: null,
+                boxGroup: null,
+                boxOldEasing: null,
+                error: null,
+            }
+
+            const box = document.getElementById("box")
+
+            // A bouncy spring with an explicit visualDuration. The morph's
+            // opacity crossfade should resolve at the *visual* duration (550ms),
+            // while the geometry (group) bounces for the full settle (~900ms).
+            animateView(() => box.classList.add("moved"), {
+                type: spring,
+                visualDuration: 0.55,
+                bounce: 0.25,
+            })
+                .add("#box")
+                .then(
+                    () => {
+                        const name = getComputedStyle(box)
+                            .getPropertyValue("view-transition-name")
+                            .trim()
+                        const anim = (p) =>
+                            document
+                                .getAnimations()
+                                .find(
+                                    (x) =>
+                                        x.effect && x.effect.pseudoElement === p
+                                )
+                        const oldAnim = anim(
+                            `::view-transition-old(${name})`
+                        )
+                        const groupAnim = anim(
+                            `::view-transition-group(${name})`
+                        )
+                        window.__view.boxOld = oldAnim
+                            ? oldAnim.effect.getComputedTiming().duration
+                            : null
+                        window.__view.boxOldEasing = oldAnim
+                            ? oldAnim.effect.getTiming().easing
+                            : null
+                        window.__view.boxGroup = groupAnim
+                            ? groupAnim.effect.getComputedTiming().duration
+                            : null
+                        window.__view.ready = true
+                    },
+                    (e) => {
+                        window.__view.error = String(e)
+                        window.__view.ready = true
+                    }
+                )
+        </script>
+    </body>
+</html>

@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <title>animateView() — now playing</title>
+        <style>
+            html,
+            body {
+                height: 100%;
+            }
+            body {
+                margin: 0;
+            }
+
+            .np,
+            .np * {
+                box-sizing: border-box;
+            }
+
+            .np {
+                position: relative;
+                width: 100%;
+                min-height: 100%;
+                background: #0e0e10;
+                color: #fff;
+                font-family: var(
+                    --font-sans,
+                    -apple-system,
+                    BlinkMacSystemFont,
+                    "Segoe UI",
+                    Roboto,
+                    Helvetica,
+                    Arial,
+                    sans-serif
+                );
+                --art: linear-gradient(140deg, #7b2ff7, #f72f9f);
+            }
+
+            .np-stage {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 6px;
+                min-height: 100%;
+                padding: 32px;
+                text-align: center;
+            }
+
+            .np-kicker {
+                margin: 0;
+                font-family: var(--font-mono, ui-monospace, monospace);
+                text-transform: uppercase;
+                letter-spacing: 0.16em;
+                font-size: 11px;
+                color: #6f6f78;
+            }
+
+            .np-heading {
+                margin: 0;
+                font-size: 22px;
+                font-weight: 600;
+                color: #d6d6dd;
+                text-wrap: balance;
+            }
+
+            .mini {
+                position: fixed;
+                left: 50%;
+                bottom: 18px;
+                transform: translateX(-50%);
+                width: min(420px, calc(100% - 32px));
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                padding: 10px;
+                background: #1c1c20;
+                border: 1px solid #2a2a30;
+                border-radius: 14px;
+                color: inherit;
+                cursor: pointer;
+                box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+            }
+
+            .mini-art {
+                width: 44px;
+                height: 44px;
+                flex: none;
+                border-radius: 8px;
+                background: var(--art);
+            }
+
+            .mini-text {
+                display: flex;
+                flex-direction: column;
+                gap: 2px;
+                margin-right: auto;
+                text-align: left;
+                overflow: hidden;
+            }
+
+            .mini-title {
+                font-size: 14px;
+                font-weight: 600;
+                width: fit-content;
+            }
+
+            .mini-artist {
+                font-size: 12px;
+                color: #9a9aa2;
+                width: fit-content;
+            }
+
+            .mini-play {
+                display: flex;
+                padding-right: 8px;
+                color: #fff;
+            }
+
+            .np-backdrop {
+                position: fixed;
+                inset: 0;
+                z-index: 10;
+                background: rgba(0, 0, 0, 0.6);
+            }
+
+            .player {
+                position: fixed;
+                left: 50%;
+                bottom: 18px;
+                transform: translateX(-50%);
+                width: min(360px, calc(100% - 32px));
+                max-height: calc(100% - 36px);
+                z-index: 11;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 18px;
+                padding: 40px 28px 28px;
+                background: #1c1c20;
+                border: 1px solid #2a2a30;
+                border-radius: 24px;
+                box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+            }
+
+            .player-close {
+                position: absolute;
+                top: 12px;
+                left: 50%;
+                transform: translateX(-50%);
+                display: flex;
+                padding: 0;
+                border: 0;
+                background: none;
+                color: #8a8a93;
+                cursor: pointer;
+            }
+
+            .player-art {
+                width: 100%;
+                aspect-ratio: 1;
+                border-radius: 16px;
+                background: var(--art);
+                box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+            }
+
+            .player-meta {
+                width: 100%;
+                text-align: left;
+            }
+
+            .player-title {
+                margin: 0 0 4px;
+                font-size: 22px;
+                font-weight: 700;
+                width: fit-content;
+            }
+
+            .player-artist {
+                margin: 0;
+                font-size: 15px;
+                color: #9a9aa2;
+                width: fit-content;
+            }
+
+            .player-progress {
+                width: 100%;
+                height: 4px;
+                border-radius: 2px;
+                background: #34343c;
+            }
+
+            .player-progress span {
+                display: block;
+                width: 38%;
+                height: 100%;
+                border-radius: 2px;
+                background: #fff;
+            }
+
+            .player-times {
+                width: 100%;
+                display: flex;
+                justify-content: space-between;
+                font-family: var(--font-mono, ui-monospace, monospace);
+                font-size: 11px;
+                color: #8a8a93;
+            }
+
+            .player-controls {
+                display: flex;
+                align-items: center;
+                gap: 30px;
+                margin-top: 4px;
+            }
+
+            .player-controls button {
+                display: flex;
+                padding: 0;
+                border: 0;
+                background: none;
+                color: #fff;
+                cursor: pointer;
+            }
+
+            .player-play {
+                width: 56px;
+                height: 56px;
+                border-radius: 50%;
+                align-items: center;
+                justify-content: center;
+                background: #fff !important;
+                color: #111 !important;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="np">
+            <div class="np-stage">
+                <p class="np-kicker">Motion Records</p>
+                <h2 class="np-heading">Tap the player to expand</h2>
+            </div>
+
+            <button class="mini" id="mini">
+                <div class="mini-art"></div>
+                <div class="mini-text">
+                    <span class="mini-title">Midnight Drive</span>
+                    <span class="mini-artist">The Aviators</span>
+                </div>
+                <span class="mini-play" aria-hidden="true">
+                    <svg
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                    >
+                        <rect x="6" y="5" width="4" height="14" rx="1" />
+                        <rect x="14" y="5" width="4" height="14" rx="1" />
+                    </svg>
+                </span>
+            </button>
+        </div>
+
+        <script type="module" src="/src/imports/view.js"></script>
+        <script type="module">
+            const { animateView, spring } = window.MotionDOM
+
+            /**
+             * ==============   Icons   ================
+             */
+            const pauseIcon = `<svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg>`
+            const prevIcon = `<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M7 5h2v14H7zM20 5v14l-10-7z" /></svg>`
+            const nextIcon = `<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M15 5h2v14h-2zM4 5v14l10-7z" /></svg>`
+            const chevronIcon = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6" /></svg>`
+
+            /**
+             * ==============   Setup   ================
+             */
+            const np = document.querySelector(".np")
+            const mini = document.getElementById("mini")
+            const miniArt = mini.querySelector(".mini-art")
+            let expanded = false
+
+            const opts = { type: spring, visualDuration: 0.45, bounce: 0.2 }
+
+            const buildPlayer = () => {
+                const backdrop = document.createElement("div")
+                backdrop.className = "np-backdrop"
+                backdrop.addEventListener("click", collapse)
+
+                const player = document.createElement("div")
+                player.className = "player"
+                player.innerHTML = `
+                    <button class="player-close" aria-label="Collapse">${chevronIcon}</button>
+                    <div class="player-art"></div>
+                    <div class="player-meta">
+                        <h3 class="player-title">Midnight Drive</h3>
+                        <p class="player-artist">The Aviators</p>
+                    </div>
+                    <div class="player-progress"><span></span></div>
+                    <div class="player-times"><span>1:48</span><span>-2:54</span></div>
+                    <div class="player-controls">
+                        <button aria-label="Previous">${prevIcon}</button>
+                        <button class="player-play" aria-label="Pause">${pauseIcon}</button>
+                        <button aria-label="Next">${nextIcon}</button>
+                    </div>`
+                player
+                    .querySelector(".player-close")
+                    .addEventListener("click", collapse)
+
+                np.append(backdrop, player)
+            }
+
+            /**
+             * ==============   View animations   ================
+             */
+            const expand = () => {
+                if (expanded) return
+                expanded = true
+
+                // Morph the mini bar into the full player, and its album art into the
+                // large artwork. Two different elements per pair, so add(from, to).
+                animateView(() => {
+                    buildPlayer()
+                    mini.style.visibility = "hidden"
+                }, opts)
+                    .add(mini, ".player")
+                    .add(miniArt, ".player-art")
+                    .add(".mini-title", ".player-title")
+                    .add(".mini-artist", ".player-artist")
+            }
+
+            const collapse = () => {
+                if (!expanded) return
+                expanded = false
+
+                animateView(() => {
+                    document.querySelector(".player")?.remove()
+                    document.querySelector(".np-backdrop")?.remove()
+                    mini.style.visibility = "visible"
+                }, opts)
+                    .add(".player", mini)
+                    .add(".player-art", miniArt)
+                    .add(".player-title", ".mini-title")
+                    .add(".player-artist", ".mini-artist")
+            }
+
+            mini.addEventListener("click", expand)
+            document.addEventListener("keydown", (e) => {
+                if (e.key === "Escape") collapse()
+            })
+        </script>
+    </body>
+</html>
