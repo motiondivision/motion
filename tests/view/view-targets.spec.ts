@@ -8,6 +8,8 @@ interface ViewResult {
     css: string
     radiusAnimated: boolean
     corners: Record<string, string[]>
+    radiusAtReady: string | null
+    radiusAfter: string | null
     exitOpacity: string[]
     nameA: string
     nameB: string
@@ -160,6 +162,23 @@ test.describe("animateView() target resolution", () => {
         expect(result.corners.borderTopRightRadius).toEqual(["24px", "4px"])
         expect(result.corners.borderBottomRightRadius).toEqual(["0px", "4px"])
         expect(result.corners.borderBottomLeftRadius).toEqual(["0px", "4px"])
+    })
+
+    test("flattens the source radius for capture, then restores it", async ({
+        page,
+    }) => {
+        await page.goto("view/view-crop-flatten.html")
+        const result = await readResult(page)
+        test.skip(!result.supported, "No startViewTransition support")
+
+        expect(result.error).toBeNull()
+        // Source squared for the snapshot so the baked corner can't crossfade
+        // a second mismatched curve - only the group clip rounds.
+        expect(result.radiusAtReady).toBe("0px")
+        // The group clip still animates the real measured radii (12px -> 28px).
+        expect(result.corners.borderTopLeftRadius).toEqual(["12px", "28px"])
+        // Restored after the transition - no leaked square corners.
+        expect(result.radiusAfter).toBe("")
     })
 
     test(".crop(false) opts out of the default crop", async ({ page }) => {

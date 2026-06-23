@@ -1,0 +1,98 @@
+<!doctype html>
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+            /* Small rounded -> large rounded. The snapshot would otherwise bake
+               the 12px corner in and `object-fit: cover` would scale it up,
+               crossfading a second mismatched corner. The source must be
+               flattened to square for the capture so only the group clip rounds. */
+            .box {
+                width: 60px;
+                height: 60px;
+                margin: 40px;
+                background: red;
+                border-radius: 12px;
+                view-transition-name: box;
+            }
+            .box.big {
+                width: 320px;
+                height: 320px;
+                background: blue;
+                border-radius: 28px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="box" id="box"></div>
+
+        <script type="module" src="/src/imports/view.js"></script>
+        <script type="module">
+            const { animateView } = window.MotionDOM
+
+            window.__view = {
+                ready: false,
+                supported: !!document.startViewTransition,
+                // The source element's inline border-radius at `ready` (mid
+                // transition, snapshots captured) and after `finished`.
+                radiusAtReady: null,
+                radiusAfter: null,
+                corners: {},
+                error: null,
+            }
+
+            const box = document.getElementById("box")
+
+            animateView(() => box.classList.add("big"), {
+                duration: 0.3,
+                ease: "linear",
+            })
+                .add("#box")
+                .then(
+                    (controls) => {
+                        // Flattened to square for the capture.
+                        window.__view.radiusAtReady = box.style.borderRadius
+
+                        // Group clip still animates the real radii.
+                        const corners = {}
+                        document.getAnimations().forEach((a) => {
+                            const eff = a.effect
+                            if (
+                                !eff ||
+                                eff.pseudoElement !==
+                                    "::view-transition-group(box)"
+                            )
+                                return
+                            eff.getKeyframes().forEach((k) => {
+                                for (const p of Object.keys(k)) {
+                                    if (!/Radius$/.test(p)) continue
+                                    ;(corners[p] = corners[p] || []).push(k[p])
+                                }
+                            })
+                        })
+                        window.__view.corners = corners
+
+                        controls.finished.then(() => {
+                            // `controls.finished` can resolve a touch before the
+                            // view transition's own `finished` (which triggers
+                            // the restore), so settle two frames past it.
+                            requestAnimationFrame(() =>
+                                requestAnimationFrame(() => {
+                                    // Restored after the transition (no leak).
+                                    window.__view.radiusAfter =
+                                        box.style.borderRadius
+                                    window.__view.ready = true
+                                })
+                            )
+                        })
+                    },
+                    (e) => {
+                        window.__view.error = String(e)
+                        window.__view.ready = true
+                    }
+                )
+        </script>
+    </body>
+</html>

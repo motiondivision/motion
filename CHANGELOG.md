@@ -4,6 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.41.1] 2026-06-24
+
+### Fixed
+
+-   `animateView`: Improved handling of animating between layers with different `border-radius`.
+
 ## [12.41.0] 2026-06-23
 
 ### Added

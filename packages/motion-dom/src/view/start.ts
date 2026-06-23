@@ -272,14 +272,45 @@ export function startViewAnimation(
      * ends share a name; the new-snapshot element is registered last, so it
      * wins the `new` reading (and the old end the `old` reading).
      */
-    const measureCrop = (phase: "old" | "new") => {
+    const forEachCropped = (cb: (name: string, element: Element) => void) => {
         if (!croppedNames.size) return
-
         nameRegistry.forEach((name, element) => {
-            if (croppedNames.has(name)) {
-                recordRadii(getComputedStyle(element), name, phase)
-            }
+            if (croppedNames.has(name)) cb(name, element)
         })
+    }
+
+    const measureCrop = (phase: "old" | "new") =>
+        forEachCropped((name, element) =>
+            recordRadii(getComputedStyle(element), name, phase)
+        )
+
+    /**
+     * A snapshot bakes its element's border-radius into the captured bitmap as
+     * transparent corners; `object-fit: cover` then scales that radius with the
+     * layer, so a small rounded element morphing into a large one shows two
+     * mismatched corners crossfading. With the radii already measured (above)
+     * to drive the group's clip, flatten the source elements to square *for the
+     * capture* so the group's animated `border-radius` is the only corner.
+     *
+     * `border-radius` is paint-only - these writes never force layout - and run
+     * as a single pass after `measureCrop`'s reads, so they add no style/layout
+     * thrash. The live elements are hidden behind the pseudos for the whole
+     * transition, so squaring them is invisible; restored on cleanup.
+     */
+    const squaredRadii = new Map<HTMLElement, string>()
+
+    const squareForCapture = () =>
+        forEachCropped((_name, element) => {
+            const el = element as HTMLElement
+            if (!el.style) return
+            squaredRadii.set(el, el.style.borderRadius)
+            el.style.borderRadius = "0px" // Write (paint-only)
+        })
+
+    const restoreRadii = () => {
+        // `""` un-sets the property, so this restores an absent inline radius too.
+        squaredRadii.forEach((value, el) => (el.style.borderRadius = value)) // Write
+        squaredRadii.clear()
     }
 
     /**
@@ -316,10 +347,18 @@ export function startViewAnimation(
 
     const cleanup = () => {
         releaseViewTransitionNames(assigned, classed)
+        restoreRadii()
         css.remove() // Write
     }
 
     const callback = async () => {
+        /**
+         * Un-square the old-snapshot elements before the update so a survivor
+         * (same element in both snapshots) measures its real new radius below,
+         * rather than the 0 we flattened it to for the old capture.
+         */
+        restoreRadii()
+
         await update()
 
         /**
@@ -329,6 +368,8 @@ export function startViewAnimation(
         const croppedBefore = croppedNames.size
         resolveLayers("new")
         measureCrop("new")
+        // Flatten the new elements for their capture (radii now measured).
+        squareForCapture()
 
         /**
          * Re-commit the crop CSS only if the new snapshot introduced cropped
@@ -342,6 +383,7 @@ export function startViewAnimation(
     try {
         resolveLayers("old")
         measureCrop("old")
+        squareForCapture()
         commitViewCSS()
         transition = document.startViewTransition(callback)
     } catch (error) {
