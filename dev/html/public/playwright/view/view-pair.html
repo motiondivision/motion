@@ -1,0 +1,82 @@
+<!doctype html>
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+            .box {
+                width: 120px;
+                height: 120px;
+                margin: 40px;
+            }
+            /* The old element: visible until the update hides it. */
+            #a {
+                background: red;
+                border-radius: 8px;
+            }
+            /* The new element: a DIFFERENT element, revealed by the update. */
+            #b {
+                display: none;
+                width: 300px;
+                height: 140px;
+                background: blue;
+                border-radius: 28px;
+            }
+            body.open #a {
+                display: none;
+            }
+            body.open #b {
+                display: block;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="box" id="a"></div>
+        <div class="box" id="b"></div>
+
+        <script type="module" src="/src/imports/view.js"></script>
+        <script type="module">
+            const { animateView } = window.MotionDOM
+
+            window.__view = {
+                ready: false,
+                supported: !!document.startViewTransition,
+                pseudos: [],
+                nameA: "",
+                nameB: "",
+                error: null,
+            }
+
+            const a = document.getElementById("a")
+            const b = document.getElementById("b")
+
+            // #a (old snapshot) morphs into #b (new snapshot) - two different
+            // elements paired into one shared-name morph.
+            animateView(() => document.body.classList.add("open"), {
+                duration: 3,
+                ease: "linear",
+            })
+                .add("#a", "#b")
+                .then(
+                    () => {
+                        window.__view.pseudos = document
+                            .getAnimations()
+                            .map((an) => an.effect && an.effect.pseudoElement)
+                            .filter(Boolean)
+                        window.__view.nameA = getComputedStyle(a)
+                            .getPropertyValue("view-transition-name")
+                            .trim()
+                        window.__view.nameB = getComputedStyle(b)
+                            .getPropertyValue("view-transition-name")
+                            .trim()
+                        window.__view.ready = true
+                    },
+                    (e) => {
+                        window.__view.error = String(e)
+                        window.__view.ready = true
+                    }
+                )
+        </script>
+    </body>
+</html>

@@ -18,9 +18,30 @@ let nameCount = 0
 export function assignViewTransitionNames(
     definition: ElementOrSelector,
     registry: Map<Element, string>,
-    assigned: Element[]
+    assigned: Element[],
+    forcedNames?: string[]
 ): string[] {
     const elements = resolveElements(definition)
+
+    /**
+     * The new end of a paired morph: assign each element the matching name from
+     * the old end (by index) so the two share one layer and morph, rather than
+     * generating a fresh per-element name.
+     */
+    if (forcedNames) {
+        elements.forEach((element, i) => {
+            const name = forcedNames[i]
+            if (name == null || registry.get(element) === name) return
+            ;(element as HTMLElement).style?.setProperty(
+                "view-transition-name",
+                name
+            )
+            assigned.push(element)
+            registry.set(element, name)
+        })
+
+        return forcedNames
+    }
 
     /**
      * Read every current name up front, before assigning any. Interleaving the

@@ -108,8 +108,6 @@
                 background: #181818;
                 border-radius: 24px;
                 box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
-                /* Shared with the clicked card so the card morphs into it. */
-                view-transition-name: card-box;
             }
             .hero {
                 aspect-ratio: 16 / 9;
@@ -120,8 +118,6 @@
                  * the modal (24px), bottom square against the body — so the
                  * morph lands exactly on the live element (no snap). */
                 border-radius: 24px 24px 0 0;
-                /* Pre-named shared element: the clicked poster morphs into this. */
-                view-transition-name: hero;
             }
             .detail-body {
                 padding: 28px;
@@ -320,27 +316,26 @@
                 openId = i
 
                 const card = grid.querySelector(`.card[data-id="${i}"]`)
-                // Two shared elements: the card morphs into the modal, and its
-                // poster morphs into the modal's hero image. The modal's text +
-                // buttons ride along inside the `card-box` layer's image.
-                card.style.viewTransitionName = "card-box"
-                card.querySelector(".poster").style.viewTransitionName = "hero"
-
+                const poster = card.querySelector(".poster")
                 const opts = options()
 
                 animateView(() => {
                     buildDetail(i)
                     grid.classList.add("is-hidden")
                 }, opts)
-                    // Root crossfade dims the page / fades the backdrop in. The
-                    // card-box + hero layers (named on the elements above and on
-                    // the modal in CSS) morph automatically on Motion's timing.
+                    // Root crossfade dims the page / fades the backdrop in.
                     .layout({})
+                    // Two shared-element morphs: card → modal, poster → hero.
+                    // Motion names both ends of each pair (no manual
+                    // view-transition-name) and crops the morph by default.
+                    .add(card, ".detail")
+                    .add(poster, ".detail .hero")
             }
 
             function close() {
                 if (openId === null) return
                 const card = grid.querySelector(`.card[data-id="${openId}"]`)
+                const poster = card.querySelector(".poster")
                 const opts = options()
 
                 animateView(() => {
@@ -349,11 +344,11 @@
                     grid.classList.remove("is-hidden")
                 }, opts)
                     .layout({})
+                    // Reverse the morphs: modal → card, hero → poster.
+                    .add(".detail", card)
+                    .add(".detail .hero", poster)
                     .then((group) => group.finished)
                     .then(() => {
-                        card.style.viewTransitionName = ""
-                        card.querySelector(".poster").style.viewTransitionName =
-                            ""
                         openId = null
                     })
             }

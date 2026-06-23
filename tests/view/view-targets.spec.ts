@@ -9,6 +9,8 @@ interface ViewResult {
     radiusAnimated: boolean
     corners: Record<string, string[]>
     exitOpacity: string[]
+    nameA: string
+    nameB: string
     enterFilter: boolean
     groupRadius: boolean
     tlCount: number
@@ -213,6 +215,45 @@ test.describe("animateView() target resolution", () => {
         // keyframes - the crop pass must not emit a competing one.
         expect(result.tlCount).toBe(1)
         expect(result.tlRadius).toEqual(["0px", "100px"])
+    })
+
+    test("pairs two elements into one shared-name morph (open direction)", async ({
+        page,
+    }) => {
+        await page.goto("view/view-pair.html")
+        const result = await readResult(page)
+        test.skip(!result.supported, "No startViewTransition support")
+
+        expect(result.error).toBeNull()
+        // Both ends were forced onto one generated name...
+        expect(result.nameA).toMatch(/^motion-view-\d+$/)
+        expect(result.nameB).toBe(result.nameA)
+        // ...so #a (old) and #b (new) morph as a single layer.
+        expect(result.pseudos).toContain(
+            `::view-transition-old(${result.nameA})`
+        )
+        expect(result.pseudos).toContain(
+            `::view-transition-new(${result.nameA})`
+        )
+    })
+
+    test("pairs morph even when the old element is removed (close direction)", async ({
+        page,
+    }) => {
+        await page.goto("view/view-pair-close.html")
+        const result = await readResult(page)
+        test.skip(!result.supported, "No startViewTransition support")
+
+        expect(result.error).toBeNull()
+        // #a is gone, but it was named in the old snapshot before removal, so
+        // the shared name still bridges a (old) -> b (new).
+        expect(result.nameB).toMatch(/^motion-view-\d+$/)
+        expect(result.pseudos).toContain(
+            `::view-transition-old(${result.nameB})`
+        )
+        expect(result.pseudos).toContain(
+            `::view-transition-new(${result.nameB})`
+        )
     })
 
     test(".crossfade() animates old out and new in", async ({ page }) => {

@@ -8,7 +8,7 @@ import { mapEasingToNativeEasing } from "../animation/waapi/easing/map-easing"
 import { applyGeneratorOptions } from "../animation/waapi/utils/apply-generator"
 import { ElementOrSelector } from "../utils/resolve-elements"
 import type { ViewTransitionBuilder } from "./index"
-import { ViewTransitionTarget } from "./types"
+import { ViewTransitionTarget, ViewTransitionTargetDefinition } from "./types"
 import {
     assignViewTransitionNames,
     releaseViewTransitionNames,
@@ -44,8 +44,14 @@ type CornerRadii = Record<(typeof cornerProps)[number], string>
 export function startViewAnimation(
     builder: ViewTransitionBuilder
 ): Promise<GroupAnimation> {
-    const { update, targets, resolveDefs, noCrop, options: defaultOptions } =
-        builder
+    const {
+        update,
+        targets,
+        resolveDefs,
+        noCrop,
+        pairs,
+        options: defaultOptions,
+    } = builder
 
     if (!document.startViewTransition) {
         // An async IIFE (not `new Promise(async …)`) so a throwing/rejecting
@@ -78,17 +84,45 @@ export function startViewAnimation(
         string,
         { old?: [number, number]; new?: [number, number] }
     >()
+    /**
+     * Names allocated for a paired subject in the old snapshot, replayed onto
+     * its new-snapshot target so both ends share a layer and morph.
+     */
+    const pairNames = new Map<ViewTransitionTargetDefinition, string[]>()
 
     const resolveLayers = (phase: "old" | "new") => {
         targets.forEach((target, definition) => {
-            const names =
-                definition !== "root" && resolveDefs.has(definition)
-                    ? assignViewTransitionNames(
-                          definition as ElementOrSelector,
-                          nameRegistry,
-                          assigned
-                      )
-                    : [definition as string]
+            let names: string[]
+            if (definition === "root" || !resolveDefs.has(definition)) {
+                names = [definition as string]
+            } else if (pairs.has(definition)) {
+                /**
+                 * Paired morph: name the old target in the old snapshot, then
+                 * force the same name(s) onto the new target in the new one, so
+                 * two different elements morph as a single layer.
+                 */
+                if (phase === "old") {
+                    names = assignViewTransitionNames(
+                        definition as ElementOrSelector,
+                        nameRegistry,
+                        assigned
+                    )
+                    pairNames.set(definition, names)
+                } else {
+                    names = assignViewTransitionNames(
+                        pairs.get(definition) as ElementOrSelector,
+                        nameRegistry,
+                        assigned,
+                        pairNames.get(definition)
+                    )
+                }
+            } else {
+                names = assignViewTransitionNames(
+                    definition as ElementOrSelector,
+                    nameRegistry,
+                    assigned
+                )
+            }
 
             const cropped = definition !== "root" && !noCrop.has(definition)
 
@@ -180,7 +214,9 @@ export function startViewAnimation(
 
     /**
      * Cropped layers all come from `.add()`, so their elements are in the
-     * registry - read each one's corner radii directly.
+     * registry - read each one's corner radii directly. For a paired morph both
+     * ends share a name; the new-snapshot element is registered last, so it
+     * wins the `new` reading (and the old end the `old` reading).
      */
     const measureCrop = (phase: "old" | "new") => {
         if (!croppedNames.size) return

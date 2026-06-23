@@ -26,6 +26,16 @@ export class ViewTransitionBuilder {
      */
     noCrop = new Set<ViewTransitionTargetDefinition>()
 
+    /**
+     * Subjects paired with a different new-snapshot target (the second `.add()`
+     * argument), so two distinct elements share one name and morph into each
+     * other - a shared-element transition.
+     */
+    pairs = new Map<
+        ViewTransitionTargetDefinition,
+        ViewTransitionTargetDefinition
+    >()
+
     update: () => void | Promise<void>
 
     options: ViewTransitionOptions
@@ -55,12 +65,21 @@ export class ViewTransitionBuilder {
     }
 
     /**
-     * Target elements resolved from a selector or Element. Each resolved
-     * element is assigned a `view-transition-name` automatically.
+     * Target elements resolved from a selector or Element, each assigned a
+     * `view-transition-name` automatically.
+     *
+     * Passing a second target pairs them: the first is resolved in the old
+     * snapshot and the second in the new, sharing one name so two *different*
+     * elements morph into each other (e.g. `.add(card, ".modal")`). Symmetric -
+     * pass them the other way round to morph back.
      */
-    add(subject: ViewTransitionTargetDefinition) {
+    add(
+        subject: ViewTransitionTargetDefinition,
+        newSubject?: ViewTransitionTargetDefinition
+    ) {
         this.currentSubject = subject
         this.resolveDefs.add(subject)
+        if (newSubject !== undefined) this.pairs.set(subject, newSubject)
         // Register the subject so it participates (and gets an automatic
         // layout/morph animation) even without an explicit enter/exit/layout.
         if (!this.targets.has(subject)) this.targets.set(subject, {})

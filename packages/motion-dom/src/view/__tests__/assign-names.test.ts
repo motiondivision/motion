@@ -55,6 +55,26 @@ describe("assignViewTransitionNames", () => {
         expect(assigned).toHaveLength(1)
     })
 
+    test("forces the new end of a pair onto the old end's name", () => {
+        const a = document.createElement("div")
+        const b = document.createElement("div")
+        document.body.append(a, b)
+        const setB = jest.spyOn(b.style, "setProperty")
+
+        const registry = new Map<Element, string>()
+        const assigned: Element[] = []
+
+        // Old end generates a name; the new end (a different element) is forced
+        // onto it so the two share a layer and morph.
+        const [name] = assignViewTransitionNames(a, registry, assigned)
+        const forced = assignViewTransitionNames(b, registry, assigned, [name])
+
+        expect(forced).toEqual([name])
+        expect(setB).toHaveBeenCalledWith("view-transition-name", name)
+        expect(registry.get(b)).toBe(name)
+        expect(assigned).toEqual([a, b])
+    })
+
     test("respects an author-defined view-transition-name", () => {
         const el = document.createElement("div")
         document.body.appendChild(el)
