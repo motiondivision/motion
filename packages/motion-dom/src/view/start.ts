@@ -611,12 +611,26 @@ export function startViewAnimation(
                         total
                     )
 
+                    /**
+                     * The crossfade should resolve at the spring's *perceptual*
+                     * (visual) duration - the geometry can keep bouncing, but the
+                     * opacity shouldn't drag through the settle. So capture
+                     * `visualDuration` before `applyGeneratorOptions` replaces it
+                     * with the full overshoot duration, and use it for the fade.
+                     */
+                    const visualDuration = animationTransition.visualDuration
+
                     animationTransition.duration &&= secondsToMilliseconds(
                         animationTransition.duration
                     )
 
                     animationTransition =
                         applyGeneratorOptions(animationTransition)
+
+                    const duration =
+                        isMorphCrossfade && visualDuration !== undefined
+                            ? secondsToMilliseconds(visualDuration)
+                            : animationTransition.duration
 
                     const easing = isMorphCrossfade
                         ? "linear"
@@ -629,7 +643,7 @@ export function startViewAnimation(
                         delay: secondsToMilliseconds(
                             animationTransition.delay ?? 0
                         ),
-                        duration: animationTransition.duration,
+                        duration,
                         easing,
                     })
 

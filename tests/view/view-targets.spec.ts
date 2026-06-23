@@ -37,6 +37,8 @@ interface ViewResult {
     rootOld: number | null
     rootNew: number | null
     boxGroup: number | null
+    boxOld: number | null
+    boxOldEasing: string | null
     error: string | null
 }
 
@@ -425,6 +427,22 @@ test.describe("animateView() target resolution", () => {
         expect(result.rootNew).toBe(300)
         // The morph, with no override, still runs for the spring's full settle
         // (overshoot) duration - much longer than 300ms.
+        expect(result.boxGroup).toBeGreaterThan(700)
+    })
+
+    test("a morph crossfade fades over the spring's visual duration, geometry over its settle", async ({
+        page,
+    }) => {
+        await page.goto("view/view-morph-visual-duration.html")
+        const result = await readResult(page)
+        test.skip(!result.supported, "No startViewTransition support")
+
+        expect(result.error).toBeNull()
+        // The opacity crossfade resolves at the perceptual (visual) duration...
+        expect(result.boxOld).toBe(550)
+        expect(result.boxOldEasing).toBe("linear")
+        // ...while the geometry bounces on for the spring's full settle, so the
+        // fade doesn't drag through the overshoot. (Pre-fix the fade was ~900ms.)
         expect(result.boxGroup).toBeGreaterThan(700)
     })
 
