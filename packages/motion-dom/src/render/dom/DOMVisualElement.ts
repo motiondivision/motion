@@ -2,9 +2,13 @@ import { isMotionValue } from "../../value/utils/is-motion-value"
 import type { MotionValue } from "../../value"
 import type { AnyResolvedKeyframe } from "../../animation/types"
 import { DOMKeyframesResolver } from "../../animation/keyframes/DOMKeyframesResolver"
+import { addTransformSlot } from "../../effects/style"
+import { slotBase } from "../../effects/MotionValueState"
 import type { MotionNodeOptions } from "../../node/types"
+import type { PresenceContextProps } from "../types"
 import type { DOMVisualElementOptions } from "./types"
 import type { HTMLRenderState } from "../html/types"
+import { buildTransform } from "../html/utils/build-transform"
 import { VisualElement, MotionStyle } from "../VisualElement"
 
 export abstract class DOMVisualElement<
@@ -29,15 +33,49 @@ export abstract class DOMVisualElement<
         return style ? (style[key] as string) : undefined
     }
 
-    removeValueFromRenderState(
-        key: string,
-        { vars, style }: HTMLRenderState
-    ): void {
-        delete vars[key]
-        delete style[key]
+    KeyframeResolver = DOMKeyframesResolver
+
+    /**
+     * Whether a transformTemplate-aware base contributor has been bound
+     * to the transform slot.
+     */
+    private hasTransformTemplate = false
+
+    mount(instance: Instance) {
+        this.hasTransformTemplate = false
+        super.mount(instance)
     }
 
-    KeyframeResolver = DOMKeyframesResolver
+    update(
+        props: MotionNodeOptions,
+        presenceContext: PresenceContextProps | null
+    ) {
+        super.update(props, presenceContext)
+
+        /**
+         * When a transformTemplate is provided, ensure the transform slot
+         * exists and swap its base contributor for a template-aware builder
+         * that reads the latest template from props.
+         */
+        if (
+            this.current &&
+            (props as any).transformTemplate &&
+            !this.hasTransformTemplate
+        ) {
+            this.hasTransformTemplate = true
+
+            addTransformSlot(this.current, this.state, this.type === "svg")
+
+            const transformValues = {}
+            this.state.contribute("transform", slotBase, ({ latest }) =>
+                buildTransform(
+                    latest,
+                    transformValues,
+                    (this.props as any).transformTemplate
+                )
+            )
+        }
+    }
 
     childSubscription?: VoidFunction
     handleChildMotionValue() {

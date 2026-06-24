@@ -1,7 +1,11 @@
 import type { Box } from "motion-utils"
 import type { AnyResolvedKeyframe } from "../../animation/types"
 import { isCSSVariableName } from "../../animation/utils/is-css-variable"
+import { MotionValueState } from "../../effects/MotionValueState"
+import { addStyleValue } from "../../effects/style"
+import { renderStyles } from "../../effects/style/render"
 import type { MotionNodeOptions } from "../../node/types"
+import type { MotionValue } from "../../value"
 import { transformProps } from "../utils/keys-transform"
 import {
     defaultTransformValue,
@@ -10,11 +14,9 @@ import {
 import { measureViewportBox } from "../../projection/utils/measure"
 import { DOMVisualElement } from "../dom/DOMVisualElement"
 import type { DOMVisualElementOptions } from "../dom/types"
-import type { ResolvedValues, MotionConfigContextProps } from "../types"
-import type { VisualElement } from "../VisualElement"
+import type { MotionConfigContextProps } from "../types"
+import type { VisualElement, MotionStyle } from "../VisualElement"
 import { HTMLRenderState } from "./types"
-import { buildHTMLStyles } from "./utils/build-styles"
-import { renderHTML } from "./utils/render"
 import { scrapeMotionValuesFromProps } from "./utils/scrape-motion-values"
 
 export function getComputedStyle(element: HTMLElement) {
@@ -54,14 +56,6 @@ export class HTMLVisualElement extends DOMVisualElement<
         return measureViewportBox(instance, transformPagePoint)
     }
 
-    build(
-        renderState: HTMLRenderState,
-        latestValues: ResolvedValues,
-        props: MotionNodeOptions
-    ) {
-        buildHTMLStyles(renderState, latestValues, props.transformTemplate)
-    }
-
     scrapeMotionValuesFromProps(
         props: MotionNodeOptions,
         prevProps: MotionNodeOptions,
@@ -70,5 +64,22 @@ export class HTMLVisualElement extends DOMVisualElement<
         return scrapeMotionValuesFromProps(props, prevProps, visualElement)
     }
 
-    renderInstance = renderHTML
+    bindValueToState(
+        instance: HTMLElement,
+        state: MotionValueState,
+        key: string,
+        value: MotionValue
+    ): VoidFunction {
+        return addStyleValue(instance, state, key, value)
+    }
+
+    renderValues(
+        instance: HTMLElement,
+        state: MotionValueState,
+        styleProp?: MotionStyle,
+        projection?: any
+    ) {
+        renderStyles(instance, state)
+        projection?.applyProjectionStyles(instance.style, styleProp)
+    }
 }

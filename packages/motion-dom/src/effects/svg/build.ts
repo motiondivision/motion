@@ -1,8 +1,6 @@
-import type { MotionNodeOptions } from "../../../node/types"
-import { buildHTMLStyles } from "../../html/utils/build-styles"
-import { ResolvedValues } from "../../types"
-import { SVGRenderState } from "../types"
-import { buildSVGPath } from "./path"
+import type { MotionNodeOptions } from "../../node/types"
+import { ResolvedValues } from "../../render/types"
+import { buildStyles } from "../style/build"
 
 /**
  * CSS Motion Path properties that should remain as CSS styles on SVG elements.
@@ -15,11 +13,18 @@ const cssMotionPathProperties = [
 ]
 
 /**
- * Build SVG visual attributes, like cx and style.transform
+ * Build static SVG visual attributes and styles from a set of latest values,
+ * like cx and style.transform. Used to generate props for the initial React
+ * render, where values are applied by the framework rather than imperative
+ * effects (SSR-safe).
  */
-export function buildSVGAttrs(
-    state: SVGRenderState,
-    {
+export function buildSVGProps(
+    latestValues: ResolvedValues,
+    isSVGTag: boolean,
+    transformTemplate?: MotionNodeOptions["transformTemplate"],
+    styleProp?: Record<string, any>
+): { attrs: ResolvedValues; style: ResolvedValues } {
+    const {
         attrX,
         attrY,
         attrScale,
@@ -28,27 +33,25 @@ export function buildSVGAttrs(
         pathOffset = 0,
         // This is object creation, which we try to avoid per-frame.
         ...latest
-    }: ResolvedValues,
-    isSVGTag: boolean,
-    transformTemplate?: MotionNodeOptions["transformTemplate"],
-    styleProp?: Record<string, any>
-) {
-    buildHTMLStyles(state, latest, transformTemplate)
+    } = latestValues
+
+    let style = buildStyles(latest, transformTemplate)
+    let attrs: ResolvedValues = {}
 
     /**
      * For svg tags we just want to make sure viewBox is animatable and treat all the styles
      * as normal HTML tags.
      */
     if (isSVGTag) {
-        if (state.style.viewBox) {
-            state.attrs.viewBox = state.style.viewBox
+        if (style.viewBox) {
+            attrs.viewBox = style.viewBox
         }
-        return
+
+        return { attrs, style }
     }
 
-    state.attrs = state.style
-    state.style = {}
-    const { attrs, style } = state
+    attrs = style
+    style = {}
 
     /**
      * However, we apply transforms as CSS transforms.
@@ -59,7 +62,7 @@ export function buildSVGAttrs(
         delete attrs.transform
     }
     if (style.transform || attrs.transformOrigin) {
-        style.transformOrigin = attrs.transformOrigin ?? "50% 50%"
+        style.transformOrigin = (attrs.transformOrigin as string) ?? "50% 50%"
         delete attrs.transformOrigin
     }
 
@@ -86,12 +89,13 @@ export function buildSVGAttrs(
 
     // Build SVG path if one has been defined
     if (pathLength !== undefined) {
-        buildSVGPath(
-            attrs,
-            pathLength as number,
-            pathSpacing as number,
-            pathOffset as number,
-            false
-        )
+        // Normalise path length by setting SVG attribute pathLength to 1
+        attrs.pathLength = 1
+
+        // Use unitless values to avoid Safari zoom bug
+        attrs.strokeDashoffset = `${-pathOffset}`
+        attrs.strokeDasharray = `${pathLength} ${pathSpacing}`
     }
+
+    return { attrs, style }
 }

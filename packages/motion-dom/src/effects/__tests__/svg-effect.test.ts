@@ -250,6 +250,48 @@ describe("svgEffect", () => {
         expect(element.getAttribute("stroke-dasharray")).toBe("3 2")
     })
 
+    it("composes pathRotation into transform, not path attributes", async () => {
+        const element = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "path"
+        )
+
+        const rotate = motionValue(45)
+        const pathRotation = motionValue(90)
+
+        svgEffect(element, { rotate, pathRotation })
+
+        await nextFrame()
+
+        // pathRotation composes onto rotate as an additive transform term
+        expect(element.style.transform).toBe("rotate(45deg) rotate(90deg)")
+
+        // It must not be treated as an SVG path-drawing value
+        expect(element.getAttribute("pathLength")).toBeNull()
+        expect(element.getAttribute("stroke-dasharray")).toBeNull()
+    })
+
+    it("renders CSS variables as styles", async () => {
+        const element = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "circle"
+        )
+
+        const color = motionValue("red")
+
+        svgEffect(element, { "--color": color })
+
+        await nextFrame()
+
+        expect(element.style.getPropertyValue("--color")).toBe("red")
+
+        color.set("blue")
+
+        await nextFrame()
+
+        expect(element.style.getPropertyValue("--color")).toBe("blue")
+    })
+
     it("handles path properties with cleanup", async () => {
         const element = document.createElementNS(
             "http://www.w3.org/2000/svg",

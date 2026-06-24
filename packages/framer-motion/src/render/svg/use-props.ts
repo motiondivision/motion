@@ -1,11 +1,10 @@
 "use client"
 
-import { buildSVGAttrs, isSVGTag } from "motion-dom"
+import { buildSVGProps, isSVGTag } from "motion-dom"
 import { useMemo } from "react"
 import { MotionProps } from "../../motion/types"
 import { copyRawValuesOnly } from "../html/use-props"
 import { ResolvedValues } from "../types"
-import { createSvgRenderState } from "./utils/create-render-state"
 
 export function useSVGProps(
     props: MotionProps,
@@ -14,10 +13,7 @@ export function useSVGProps(
     Component: string | React.ComponentType<React.PropsWithChildren<unknown>>
 ) {
     const visualProps = useMemo(() => {
-        const state = createSvgRenderState()
-
-        buildSVGAttrs(
-            state,
+        const { attrs, style } = buildSVGProps(
             visualState,
             isSVGTag(Component),
             props.transformTemplate,
@@ -25,8 +21,8 @@ export function useSVGProps(
         )
 
         return {
-            ...state.attrs,
-            style: { ...state.style },
+            ...attrs,
+            style: { ...style },
         }
     }, [visualState])
 

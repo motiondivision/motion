@@ -10,6 +10,7 @@ import { KeyframeResolver } from "../animation/keyframes/KeyframesResolver"
 import { NativeAnimation } from "../animation/NativeAnimation"
 import type { AnyResolvedKeyframe } from "../animation/types"
 import { acceleratedValues } from "../animation/waapi/utils/accelerated-values"
+import { MotionValueState } from "../effects/MotionValueState"
 import { cancelFrame, frame } from "../frameloop"
 import { microtask } from "../frameloop/microtask"
 import { time } from "../frameloop/sync-time"
@@ -136,36 +137,31 @@ export abstract class VisualElement<
     ): AnyResolvedKeyframe | null | undefined
 
     /**
-     * When a value has been removed from the VisualElement we use this to remove
-     * it from the inherting class' unique render state.
+     * Bind a MotionValue to the Instance via the renderer-specific state
+     * effect, returning an unsubscribe function. For example, HTMLElements
+     * bind values as styles, SVGElements as styles or attributes.
+     *
+     * The default implementation tracks the latest value without rendering.
      */
-    abstract removeValueFromRenderState(
+    bindValueToState(
+        _instance: Instance,
+        state: MotionValueState,
         key: string,
-        renderState: RenderState
-    ): void
+        value: MotionValue
+    ): VoidFunction {
+        return state.set(key, value)
+    }
 
     /**
-     * Run before a React or VisualElement render, builds the latest motion
-     * values into an Instance-specific format. For example, HTMLVisualElement
-     * will use this step to build `style` and `var` values.
+     * Synchronously render every value in state.latest to the Instance.
+     * Used for full re-renders, e.g. measurement flows and projection.
      */
-    abstract build(
-        renderState: RenderState,
-        latestValues: ResolvedValues,
-        props: MotionNodeOptions
-    ): void
-
-    /**
-     * Apply the built values to the Instance. For example, HTMLElements will have
-     * styles applied via `setProperty` and the style attribute, whereas SVGElements
-     * will have values applied to attributes.
-     */
-    abstract renderInstance(
-        instance: Instance,
-        renderState: RenderState,
-        styleProp?: MotionStyle,
-        projection?: any
-    ): void
+    renderValues(
+        _instance: Instance,
+        _state: MotionValueState,
+        _styleProp?: MotionStyle,
+        _projection?: any
+    ): void {}
 
     /**
      * This method is called when a transform property is bound to a motion value.
@@ -292,6 +288,12 @@ export abstract class VisualElement<
     values = new Map<string, MotionValue>()
 
     /**
+     * The motion value state that binds values to the instance and renders
+     * them. Its latest object is the same reference as latestValues.
+     */
+    state: MotionValueState
+
+    /**
      * The AnimationState, this is hydrated by the animation Feature.
      */
     animationState?: AnimationState
@@ -367,6 +369,28 @@ export abstract class VisualElement<
     private hasBeenMounted = false
 
     /**
+     * Whether values have been bound with awareness of this element's
+     * projection node. If a projection node is created after mount (e.g.
+     * lazy-loaded layout features), values are re-bound.
+     */
+    private hasProjectionBindings = false
+
+    /**
+     * Whether this element's rendered output can be overridden by its
+     * projection node. Projection nodes are created for every element when
+     * layout features are loaded, but only project when given these options.
+     */
+    private isProjectionDriven() {
+        const options = this.projection?.options
+        return Boolean(
+            options &&
+                (options.layout ||
+                    options.layoutId ||
+                    options.alwaysMeasureLayout)
+        )
+    }
+
+    /**
      * An object containing a SubscriptionManager for each active event.
      */
     private events: {
@@ -399,6 +423,7 @@ export abstract class VisualElement<
         this.baseTarget = { ...latestValues }
         this.initialValues = props.initial ? { ...latestValues } : {}
         this.renderState = renderState
+        this.state = new MotionValueState(latestValues)
         this.parent = parent
         this.props = props
         this.presenceContext = presenceContext
@@ -449,6 +474,12 @@ export abstract class VisualElement<
                 this.values.get(key)?.jump(this.initialValues[key])
                 this.latestValues[key] = this.initialValues[key]
             }
+
+            /**
+             * Recreate the value state around the same latestValues object,
+             * as existing renderers are bound to the previous instance.
+             */
+            this.state = new MotionValueState(this.latestValues)
         }
 
         this.current = instance
@@ -496,6 +527,8 @@ export abstract class VisualElement<
 
         this.parent?.addChild(this)
 
+        this.hasProjectionBindings = this.isProjectionDriven()
+
         this.update(this.props, this.presenceContext)
 
         this.hasBeenMounted = true
@@ -507,6 +540,7 @@ export abstract class VisualElement<
         cancelFrame(this.render)
         this.valueSubscriptions.forEach((remove) => remove())
         this.valueSubscriptions.clear()
+        this.state.destroy()
         this.removeFromVariantTree && this.removeFromVariantTree()
         this.parent?.removeChild(this)
 
@@ -572,20 +606,36 @@ export abstract class VisualElement<
             this.onBindTransform()
         }
 
-        const removeOnChange = value.on(
-            "change",
-            (latestValue: AnyResolvedKeyframe) => {
-                this.latestValues[key] = latestValue
+        /**
+         * Bind the value to the instance via the renderer-specific state
+         * effect. This tracks the value in latestValues and renders changes
+         * granularly.
+         *
+         * Pre-mount we only track the latest value. Projection-driven
+         * elements also only track values - they schedule full renders on
+         * every change, as projection output must compose with styles in a
+         * deterministic order.
+         */
+        const removeFromState =
+            this.current && !this.isProjectionDriven()
+                ? this.bindValueToState(this.current, this.state, key, value)
+                : this.state.set(key, value)
 
-                this.props.onUpdate && frame.preRender(this.notifyUpdate)
+        const removeOnChange = value.on("change", () => {
+            this.props.onUpdate && frame.preRender(this.notifyUpdate)
 
-                if (valueIsTransform && this.projection) {
+            if (this.projection) {
+                if (valueIsTransform) {
                     this.projection.isTransformDirty = true
                 }
 
+                /**
+                 * Projection-driven elements compose styles with projection
+                 * output, so continue to schedule full renders.
+                 */
                 this.scheduleRender()
             }
-        )
+        })
 
         let removeSyncCheck: VoidFunction | void
         if (
@@ -601,6 +651,7 @@ export abstract class VisualElement<
 
         this.valueSubscriptions.set(key, () => {
             removeOnChange()
+            removeFromState()
             if (removeSyncCheck) removeSyncCheck()
             // Defer to MotionValue.on("change") auto-stop so React 19 remounts
             // can resubscribe before the animation is cancelled (#3315).
@@ -663,16 +714,11 @@ export abstract class VisualElement<
 
     notifyUpdate = () => this.notify("Update", this.latestValues)
 
-    triggerBuild() {
-        this.build(this.renderState, this.latestValues, this.props)
-    }
-
     render = () => {
         if (!this.current) return
-        this.triggerBuild()
-        this.renderInstance(
+        this.renderValues(
             this.current,
-            this.renderState,
+            this.state,
             (this.props as any).style,
             this.projection
         )
@@ -716,6 +762,23 @@ export abstract class VisualElement<
     ) {
         if (props.transformTemplate || this.props.transformTemplate) {
             this.scheduleRender()
+        }
+
+        /**
+         * If this element has become projection-driven since values were
+         * bound (e.g. lazy-loaded layout features, or layout props toggled
+         * on), re-bind them so rendering defers to full renders that
+         * compose projection output.
+         */
+        if (
+            this.current &&
+            !this.hasProjectionBindings &&
+            this.isProjectionDriven()
+        ) {
+            this.hasProjectionBindings = true
+            this.values.forEach((value, key) =>
+                this.bindToMotionValue(key, value)
+            )
         }
 
         this.prevProps = this.props
@@ -820,7 +883,16 @@ export abstract class VisualElement<
             this.valueSubscriptions.delete(key)
         }
         delete this.latestValues[key]
-        this.removeValueFromRenderState(key, this.renderState)
+
+        /**
+         * Re-render any slot this value contributed to so it's dropped
+         * from the composed output.
+         */
+        if (transformProps.has(key)) {
+            this.state.get("transform")?.dirty()
+        } else if (key.startsWith("origin")) {
+            this.state.get("transformOrigin")?.dirty()
+        }
     }
 
     /**
