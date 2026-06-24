@@ -285,3 +285,36 @@ describe("toString", () => {
         )
     })
 })
+
+// https://github.com/motiondivision/motion/issues/2791
+describe("spring NaN guards", () => {
+    const sample = (options: ValueAnimationOptions<number>) => {
+        const generator = spring(options)
+        return [0, 100, 300, 600, 1000].map((t) => generator.next(t).value)
+    }
+
+    test("stiffness of 0 does not produce NaN", () => {
+        const values = sample({ keyframes: [0, 100], stiffness: 0 })
+        values.forEach((v) => expect(v).not.toBeNaN())
+    })
+
+    test("mass of 0 does not produce NaN", () => {
+        const values = sample({ keyframes: [0, 100], mass: 0 })
+        values.forEach((v) => expect(v).not.toBeNaN())
+    })
+
+    /**
+     * An explicit `stiffness: undefined` (e.g. a forwarded prop that resolves
+     * to undefined) clobbers the default via the options spread in
+     * getSpringOptions, which previously produced NaN spring values.
+     */
+    test("explicit undefined stiffness does not produce NaN", () => {
+        const values = sample({ keyframes: [0, 100], stiffness: undefined })
+        values.forEach((v) => expect(v).not.toBeNaN())
+    })
+
+    test("explicit undefined mass does not produce NaN", () => {
+        const values = sample({ keyframes: [0, 100], mass: undefined })
+        values.forEach((v) => expect(v).not.toBeNaN())
+    })
+})
