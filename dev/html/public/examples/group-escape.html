@@ -1,0 +1,226 @@
+<!doctype html>
+<!--
+    Grouping edge case: .group(false) to ESCAPE a clipping ancestor.
+
+    A "★ Top pick" tag lives inside a card that has overflow:hidden. On expand it
+    flies out to a pinned spot in the corner, well outside the card/sheet.
+
+    With auto-grouping (default), the tag nests under the card, so the card's clip
+    cuts it off as it leaves the card's bounds mid-flight. `.group(false)` keeps
+    the tag a flat top-level layer, so it flies over everything, unclipped.
+
+    Toggle the checkbox and compare (needs nested view-transition groups,
+    Chromium 140+; on Safari/Firefox/older Chrome both behave the same - flat -
+    because the property is ignored).
+
+        http://localhost:8000/examples/group-escape.html
+-->
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>animateView() — .group(false) escape</title>
+        <style>
+            :root {
+                --bg: #0a0a0b;
+                --layer: #15161a;
+                --border: #2a2c33;
+                --accent: #f0b429;
+                --text: #f5f5f7;
+                --feint: #9a9aa2;
+            }
+            html,
+            body {
+                height: 100%;
+                margin: 0;
+                background: var(--bg);
+                color: var(--text);
+                font-family: system-ui, sans-serif;
+            }
+            .stage {
+                min-height: 100%;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 24px;
+            }
+            .controls {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                color: var(--feint);
+                font-size: 14px;
+            }
+
+            /* Collapsed card — clips its content. */
+            .card {
+                position: relative;
+                width: 220px;
+                height: 140px;
+                overflow: hidden;
+                border-radius: 16px;
+                background: var(--layer);
+                border: 1px solid var(--border);
+                cursor: pointer;
+            }
+            .card-label {
+                position: absolute;
+                left: 16px;
+                bottom: 14px;
+                font-weight: 600;
+            }
+
+            /* The tag — lives inside the card (so the card clips it). */
+            .tag {
+                position: absolute;
+                top: 14px;
+                left: 14px;
+                padding: 6px 12px;
+                border-radius: 999px;
+                background: var(--accent);
+                color: #1a1300;
+                font-size: 13px;
+                font-weight: 700;
+                white-space: nowrap;
+            }
+
+            /* Expanded sheet — also clips. */
+            .sheet {
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                width: min(420px, 90vw);
+                height: min(70vh, 520px);
+                overflow: hidden;
+                border-radius: 24px;
+                background: var(--layer);
+                border: 1px solid var(--border);
+                padding: 28px;
+                box-sizing: border-box;
+            }
+            .sheet h1 {
+                margin: 0 0 8px;
+            }
+            .sheet p {
+                color: var(--feint);
+                line-height: 1.5;
+            }
+            .sheet-close {
+                position: absolute;
+                top: 16px;
+                right: 16px;
+                width: 32px;
+                height: 32px;
+                border-radius: 50%;
+                border: 1px solid var(--border);
+                background: var(--layer);
+                color: var(--text);
+                cursor: pointer;
+            }
+
+            /* The pinned destination for the tag — top-right of the viewport,
+               outside the sheet, NOT inside any clipping parent. */
+            .pinned {
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 10px 16px;
+                border-radius: 999px;
+                background: var(--accent);
+                color: #1a1300;
+                font-size: 15px;
+                font-weight: 700;
+                z-index: 50;
+                white-space: nowrap;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="stage">
+            <div class="card" id="card">
+                <div class="tag">★ Top pick</div>
+                <div class="card-label">Open me</div>
+            </div>
+            <label class="controls">
+                <input type="checkbox" id="escape" checked />
+                Let the tag escape the card&nbsp;<code>.group(false)</code>
+            </label>
+        </div>
+
+        <script type="module" src="/src/imports/view.js"></script>
+        <script type="module">
+            const MotionDOM = window.MotionDOM
+            if (!MotionDOM || !MotionDOM.animateView) {
+                document.body.innerHTML =
+                    '<p style="padding:40px">Build <code>motion-dom</code> ' +
+                    "(<code>yarn build</code>) then reload.</p>"
+                throw new Error("motion-dom failed to load")
+            }
+            const { animateView, spring } = MotionDOM
+
+            const transition = { type: spring, visualDuration: 0.5, bounce: 0.2 }
+            const card = document.getElementById("card")
+            const escapeEl = document.getElementById("escape")
+            let open = false
+
+            const buildSheet = () => {
+                const sheet = document.createElement("div")
+                sheet.className = "sheet"
+                sheet.innerHTML = `
+                    <button class="sheet-close" aria-label="Close">✕</button>
+                    <h1>Open me</h1>
+                    <p>The tag flew out to the corner. With nesting on, the card
+                    would have clipped it on the way out — <code>.group(false)</code>
+                    lets it escape and fly over everything.</p>`
+                const pinned = document.createElement("div")
+                pinned.className = "pinned"
+                pinned.textContent = "★ Top pick"
+                sheet.querySelector(".sheet-close").addEventListener("click", collapse)
+                document.body.append(sheet, pinned)
+            }
+
+            const expand = () => {
+                if (open) return
+                open = true
+                const tag = card.querySelector(".tag")
+
+                const view = animateView(() => {
+                    buildSheet()
+                    card.style.visibility = "hidden"
+                }, transition)
+                    .add(card, ".sheet")
+                    // The tag flies from inside the card out to the pinned spot.
+                    .add(tag, ".pinned")
+                    .crop(false)
+
+                // The whole point: opt the tag out of nesting so the card's clip
+                // doesn't amputate it mid-flight.
+                if (escapeEl.checked) view.group(false)
+            }
+
+            const collapse = () => {
+                if (!open) return
+                open = false
+                const tag = card.querySelector(".tag")
+
+                const view = animateView(() => {
+                    document.querySelector(".sheet")?.remove()
+                    document.querySelector(".pinned")?.remove()
+                    card.style.visibility = "visible"
+                }, transition)
+                    .add(".sheet", card)
+                    .add(".pinned", tag)
+                    .crop(false)
+
+                if (escapeEl.checked) view.group(false)
+            }
+
+            card.addEventListener("click", expand)
+            document.addEventListener("keydown", (e) => {
+                if (e.key === "Escape") collapse()
+            })
+        </script>
+    </body>
+</html>

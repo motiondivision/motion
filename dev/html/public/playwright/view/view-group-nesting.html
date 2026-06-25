@@ -1,0 +1,97 @@
+<!doctype html>
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+            /* Parent clips; child overflows it. */
+            .parent {
+                width: 120px;
+                height: 120px;
+                margin: 40px;
+                overflow: hidden;
+                background: navy;
+            }
+            .parent.big {
+                width: 320px;
+                height: 180px;
+            }
+            .child {
+                width: 100%;
+                height: 240px;
+                background: tomato;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="parent" id="parent">
+            <div class="child" id="child"></div>
+        </div>
+
+        <script type="module" src="/src/imports/view.js"></script>
+        <script type="module">
+            const { animateView } = window.MotionDOM
+
+            window.__view = {
+                ready: false,
+                supported: !!document.startViewTransition,
+                // Whether this browser even knows the property. On browsers that
+                // don't, setProperty drops it silently, so the inline reads below
+                // are "" - the feature is a no-op (graceful degradation) and only
+                // the CSS-emission assertion is meaningful.
+                supportsGroup: CSS.supports("view-transition-group", "contain"),
+                // Inline view-transition-group read at `ready` (still set; it's
+                // removed on cleanup at `finished`).
+                parentGroup: "",
+                childGroup: "",
+                // Whether the motion CSS clips the parent's nested children. This
+                // is raw text in our <style>, so it's observable even where the
+                // browser ignores the rule on parse.
+                childrenClipped: false,
+                error: null,
+            }
+
+            const parent = document.getElementById("parent")
+            const child = document.getElementById("child")
+
+            // `?escape` opts the child out of nesting via `.group(false)`.
+            const escape = new URLSearchParams(location.search).has("escape")
+
+            const builder = animateView(
+                () => parent.classList.add("big"),
+                { duration: 0.3, ease: "linear" }
+            )
+                .add("#parent")
+                .add("#child")
+
+            if (escape) builder.group(false)
+
+            builder.then(
+                () => {
+                    const groupOf = (el) =>
+                        el.style.getPropertyValue("view-transition-group")
+                    window.__view.parentGroup = groupOf(parent)
+                    window.__view.childGroup = groupOf(child)
+
+                    const style = document.getElementById("motion-view")
+                    const css = style ? style.textContent : ""
+                    const parentName = getComputedStyle(parent)
+                        .getPropertyValue("view-transition-name")
+                        .trim()
+                    window.__view.childrenClipped = new RegExp(
+                        "::view-transition-group-children\\(" +
+                            parentName +
+                            "\\)\\s*\\{[^}]*overflow:\\s*clip"
+                    ).test(css)
+
+                    window.__view.ready = true
+                },
+                (e) => {
+                    window.__view.error = String(e)
+                    window.__view.ready = true
+                }
+            )
+        </script>
+    </body>
+</html>

@@ -1,66 +1,87 @@
 <!doctype html>
+<!--
+    Streaming-menu demo (ported from motion-api's examples), running against the
+    *local* motion-dom build via the /src/imports/view.js shim. Hack on it at:
+        http://localhost:8000/examples/netflix.html
+
+    After editing motion-dom source, rebuild it (`yarn build` in
+    packages/motion-dom) and reload.
+
+    Grouping demo: the album art is a 2:3 layer in BOTH states (so it scales
+    cleanly, no cover punch). The 2:3 -> 16:9 crop comes from a clip *window*
+    (.poster/.hero) that the art is nested inside. Auto-grouping
+    (view-transition-group: contain + ::view-transition-group-children clip)
+    makes the window crop the art for the WHOLE morph, not just at the live-DOM
+    handoff. Needs nested view-transition groups (Chromium 140+); elsewhere it
+    degrades to the flat default (art clips only at the end).
+
+    Crop note: the backdrop is a fade-only enter/exit, so with the morph-aware
+    crop default it stays visible WITHOUT `.crop(false)`. The title keeps
+    `.crop(false)` because it's a genuine morph that shouldn't be cover-cropped.
+-->
 <html lang="en">
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>animateView() — Netflix-style detail transition</title>
+        <title>animateView() — streaming-menu morph</title>
         <style>
-            * {
+            :root {
+                --background: #0a0a0b;
+                --white: #fff;
+                --white-feint: #898d8e;
+                --layer: #0b1011;
+                --layer-transparent: #14171caa;
+                --border: rgba(158, 234, 247, 0.15);
+                --accent: #60a5fa;
+                --feint-text: #586d8c;
+                --font-sans: system-ui, -apple-system, sans-serif;
+            }
+
+            html,
+            body {
+                height: 100%;
+                margin: 0;
+                background: var(--background);
+            }
+
+            .motionflix,
+            .motionflix * {
                 box-sizing: border-box;
             }
-            body {
-                margin: 0;
-                background: #141414;
-                color: #fff;
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
-                    Roboto, Helvetica, Arial, sans-serif;
+
+            .motionflix {
+                width: 100%;
+                min-height: 100%;
+                background: var(--background);
+                color: var(--white);
             }
+
             .topbar {
                 position: sticky;
                 top: 0;
                 z-index: 5;
                 display: flex;
                 align-items: center;
-                gap: 24px;
                 padding: 16px 24px;
-                background: linear-gradient(#141414, rgba(20, 20, 20, 0.6));
+                background: var(--background);
             }
+
             .logo {
-                color: #e50914;
-                font-weight: 800;
-                letter-spacing: 0.5px;
+                font-family: var(--font-sans);
+                font-variation-settings: "opsz" 32, "wght" 640;
                 font-size: 22px;
-            }
-            .controls {
-                margin-left: auto;
-                display: flex;
-                align-items: center;
-                gap: 18px;
-                font-size: 13px;
-                color: #b3b3b3;
-            }
-            .controls label {
-                display: flex;
-                align-items: center;
-                gap: 6px;
-            }
-            .controls input[type="range"] {
-                width: 90px;
-            }
-            select,
-            input {
-                accent-color: #e50914;
+                letter-spacing: -0.02em;
+                color: var(--white);
             }
 
             .grid {
                 display: grid;
-                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+                grid-auto-flow: column;
+                grid-auto-columns: 1fr;
                 gap: 16px;
-                padding: 24px;
+                padding: 0 24px 24px;
             }
-            .grid.is-hidden {
-                display: none;
-            }
+
             .card {
                 appearance: none;
                 background: none;
@@ -70,32 +91,53 @@
                 color: inherit;
                 text-align: left;
                 cursor: pointer;
-                border-radius: 8px;
                 transition: transform 0.2s ease;
             }
+
             .card:hover {
                 transform: translateY(-4px);
             }
+
             .poster {
                 aspect-ratio: 2 / 3;
-                border-radius: 8px;
-                background-color: #2a2a2a;
+                overflow: hidden;
+                background-color: var(--layer);
+            }
+
+            /* The card art fills the 2:3 poster window, and pairs with .hero-art
+               (also 2:3) so the morph layer keeps a constant aspect (no cover
+               punch). The .poster/.hero clip *window* morphs 2:3 -> 16:9 and,
+               via auto-grouping, crops the nested art for the whole morph. */
+            .poster-art {
+                width: 100%;
+                height: 100%;
                 background-size: cover;
                 background-position: center;
-                box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
             }
+
             .card-title {
                 margin-top: 8px;
                 font-size: 14px;
-                color: #e5e5e5;
+                color: var(--white-feint);
+                width: fit-content;
             }
 
             .backdrop {
                 position: fixed;
                 inset: 0;
-                background: rgba(0, 0, 0, 0.75);
+                background: var(--layer-transparent);
                 z-index: 10;
             }
+
+            /* The backdrop is a fade-only (new/old-only) layer, which the View
+               Transitions spec paints *after* (above) the old-originated morph
+               groups - so mid-transition it veils the modal until the live DOM
+               z-index takes back over. Tag its group via .class("backdrop") and
+               push it behind the morph layers for the duration. */
+            ::view-transition-group(.backdrop) {
+                z-index: -1;
+            }
+
             .detail {
                 position: fixed;
                 z-index: 11;
@@ -105,60 +147,80 @@
                 width: min(880px, 92vw);
                 max-height: 90vh;
                 overflow: auto;
-                background: #181818;
-                border-radius: 24px;
-                box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+                background: var(--layer);
+                border: 1px solid var(--border);
             }
+
             .hero {
+                position: relative;
                 aspect-ratio: 16 / 9;
-                background-color: #2a2a2a;
+                overflow: hidden;
+                background-color: var(--layer);
+            }
+
+            /* The morph layer (.hero-art) stays 2:3 in both states - it's the
+               card poster scaled up - so object-fit has no aspect change to
+               re-crop and the image scales cleanly (no zoom punch). The 16:9
+               .hero wrapper crops it to a widescreen band. */
+            .hero-art {
+                position: absolute;
+                top: 50%;
+                left: 0;
+                width: 100%;
+                aspect-ratio: 2 / 3;
+                transform: translateY(-50%);
                 background-size: cover;
                 background-position: center;
-                /* Matches how it renders inside the modal: top corners follow
-                 * the modal (24px), bottom square against the body — so the
-                 * morph lands exactly on the live element (no snap). */
-                border-radius: 24px 24px 0 0;
             }
+
             .detail-body {
                 padding: 28px;
             }
+
             .detail-body h1 {
                 margin: 0 0 8px;
                 font-size: 32px;
+                width: fit-content;
             }
+
             .meta {
-                color: #46d369;
-                font-weight: 600;
+                color: var(--feint-text);
                 font-size: 14px;
                 margin-bottom: 18px;
             }
+
             .actions {
                 display: flex;
                 gap: 12px;
                 margin-bottom: 18px;
             }
+
             .actions button {
                 appearance: none;
                 border: 0;
-                border-radius: 6px;
                 padding: 10px 22px;
                 font-size: 15px;
                 font-weight: 700;
                 cursor: pointer;
             }
+
             .actions .play {
-                background: #fff;
-                color: #000;
+                background: var(--accent);
+                color: var(--background);
             }
+
             .actions .list {
-                background: rgba(109, 109, 110, 0.7);
-                color: #fff;
+                background: var(--layer);
+                border: 1px solid var(--border);
+                color: var(--white);
             }
+
             .synopsis {
-                color: #d2d2d2;
+                color: var(--white-feint);
                 line-height: 1.5;
                 max-width: 60ch;
             }
+
             .close {
                 position: absolute;
                 right: 14px;
@@ -166,122 +228,74 @@
                 z-index: 12;
                 width: 36px;
                 height: 36px;
-                border-radius: 50%;
-                border: 0;
-                background: #181818;
-                color: #fff;
+                border: 1px solid var(--border);
+                background: var(--layer);
+                color: var(--white);
                 font-size: 18px;
                 cursor: pointer;
             }
-
         </style>
     </head>
     <body>
-        <div class="topbar">
-            <span class="logo">MOTIONFLIX</span>
-            <div class="controls">
-                <label>
-                    Type
-                    <select id="type">
-                        <option value="spring" selected>spring</option>
-                        <option value="tween">tween</option>
-                    </select>
-                </label>
-                <label>
-                    Duration
-                    <input
-                        id="duration"
-                        type="range"
-                        min="0.2"
-                        max="1.5"
-                        step="0.05"
-                        value="0.55"
-                    />
-                </label>
-                <label id="bounce-control">
-                    Bounce
-                    <input
-                        id="bounce"
-                        type="range"
-                        min="0"
-                        max="0.7"
-                        step="0.05"
-                        value="0.25"
-                    />
-                </label>
+        <div class="motionflix">
+            <div class="topbar">
+                <span class="logo">New Releases</span>
             </div>
-        </div>
 
-        <div class="grid" id="grid"></div>
+            <div class="grid" id="grid"></div>
+        </div>
 
         <script type="module" src="/src/imports/view.js"></script>
         <script type="module">
             const MotionDOM = window.MotionDOM
             if (!MotionDOM || !MotionDOM.animateView) {
                 document.body.innerHTML =
-                    '<p style="padding:40px;font-family:sans-serif">' +
+                    '<p style="padding:40px;font-family:sans-serif;color:#fff">' +
                     "Couldn't load <code>motion-dom</code> — build it (run " +
-                    "<code>yarn build</code>) then reload this page.</p>"
+                    "<code>yarn build</code> in <code>packages/motion-dom</code>) " +
+                    "then reload this page.</p>"
                 throw new Error("motion-dom failed to load")
             }
             const { animateView, spring } = MotionDOM
 
-            // Self-contained SVG "posters" (data-URIs, no network) so the morph
-            // always has real raster content to recrop across aspect ratios.
-            // Swap `poster(...)` for `url(https://images.unsplash.com/photo-...)`
-            // for real photography.
-            const poster = (c1, c2) => {
-                const svg =
-                    "<svg xmlns='http://www.w3.org/2000/svg' width='600' height='800'>" +
-                    "<defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'>" +
-                    `<stop offset='0' stop-color='${c1}'/><stop offset='1' stop-color='${c2}'/>` +
-                    "</linearGradient></defs>" +
-                    "<rect width='600' height='800' fill='url(#g)'/>" +
-                    "<circle cx='460' cy='220' r='150' fill='white' fill-opacity='0.18'/>" +
-                    "<circle cx='150' cy='600' r='110' fill='white' fill-opacity='0.10'/>" +
-                    "</svg>"
-                return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`
-            }
+            /**
+             * ==============   Data   ================
+             */
+            const ASSET = "/photos/assets"
 
+            // Each poster is a 2:3 cover. `focus` is the background-position used
+            // for the 16:9 hero in the open state, so each title crops to its
+            // best moment.
             const MOVIES = [
-                { title: "Neon Horizon", meta: "2026 · Sci-Fi · 2h 14m", c1: "#ff512f", c2: "#dd2476", synopsis: "A salvage pilot drifts past the edge of charted space and finds a city that should not exist." },
-                { title: "The Quiet Coast", meta: "2025 · Drama · 1h 48m", c1: "#2193b0", c2: "#6dd5ed", synopsis: "Two estranged siblings spend one last summer in the house their mother left behind." },
-                { title: "Ironwood", meta: "2026 · Action · 2h 02m", c1: "#8e2de2", c2: "#4a00e0", synopsis: "A retired courier is pulled back in for one impossible delivery across a city at war." },
-                { title: "Paper Moons", meta: "2024 · Animation · 1h 36m", c1: "#f7971e", c2: "#ffd200", synopsis: "A lighthouse keeper's daughter folds the night sky into paper boats and sails them home." },
-                { title: "Undertow", meta: "2025 · Thriller · 1h 59m", c1: "#00b09b", c2: "#96c93d", synopsis: "A marine biologist realises the tide is keeping a secret the town would rather drown." },
-                { title: "Citylights", meta: "2026 · Romance · 1h 52m", c1: "#e96443", c2: "#904e95", synopsis: "Every night shift, the same two strangers miss the same last train — until they don't." },
-                { title: "Glasshouse", meta: "2025 · Mystery · 2h 08m", c1: "#1f4037", c2: "#99f2c8", synopsis: "An architect is hired to restore a mansion that keeps redrawing its own floor plan." },
-                { title: "Afterglow", meta: "2026 · Sci-Fi · 2h 21m", c1: "#fc466b", c2: "#3f5efb", synopsis: "When the sun starts setting in the wrong place, one astronomer refuses to look away." },
+                { file: "bounceman.jpg", title: "Bounceman", meta: "1986 · Action · 1h 52m", focus: "center 35%", synopsis: "A small-town stuntman wakes up able to bounce off anything, and the city has never been safer, or springier." },
+                { file: "push.jpg", title: "Push", meta: "2025 · Action · 1h 58m", focus: "center 55%", synopsis: "Rain-slick streets, neon skylines and two rivals who only feel alive at full throttle." },
+                { file: "escape.jpg", title: "Escape", meta: "2026 · Sci-Fi · 2h 08m", focus: "center 25%", synopsis: "One ship, one shot at the upper atmosphere, and a countdown that refuses to stop." },
+                { file: "quietcoast.jpg", title: "The Quiet Coast", meta: "2025 · Horror · 1h 51m", focus: "center 45%", synopsis: "A lighthouse, an empty beach and a mask the tide keeps bringing back. Some places don't like to be found." },
+                { file: "missedconnections.jpg", title: "Missed Connections", meta: "2024 · Romance · 1h 46m", focus: "center 50%", synopsis: "Two strangers keep almost meeting across one long spring in the same city park." },
+                { file: "papertales.jpg", title: "Paper Tales", meta: "2026 · Animation · 1h 34m", focus: "center 55%", synopsis: "A papercraft raccoon, a brave bunny and a tiny wizard owl set out to refold a fraying forest." },
+                { file: "dipshitsofclivesbay.jpg", title: "Dipshits of Clive's Bay", meta: "2025 · Reality · Series", focus: "center 52%", synopsis: "Nine housemates, one tinny-strewn bay and absolutely no ragrets. Reality TV at its most feral." },
             ]
 
-            const grid = document.getElementById("grid")
-            const typeEl = document.getElementById("type")
-            const durationEl = document.getElementById("duration")
-            const bounceEl = document.getElementById("bounce")
+            const transition = { type: spring, visualDuration: 0.5, bounce: 0.2 }
 
+            /**
+             * ==============   Setup   ================
+             */
+            const grid = document.getElementById("grid")
             let openId = null
 
             grid.innerHTML = MOVIES.map(
                 (m, i) => `
                 <button class="card" data-id="${i}">
-                    <div class="poster"></div>
+                    <div class="poster"><div class="poster-art" style="background-image:url('${ASSET}/${m.file}')"></div></div>
                     <div class="card-title">${m.title}</div>
                 </button>`
             ).join("")
-            grid.querySelectorAll(".poster").forEach((el, i) => {
-                el.style.backgroundImage = poster(MOVIES[i].c1, MOVIES[i].c2)
-            })
 
-            // Read the live controls so you can feel the difference between
-            // a bouncy spring and a flat tween on every transition.
-            function options() {
-                const duration = parseFloat(durationEl.value)
-                return typeEl.value === "spring"
-                    ? { type: spring, visualDuration: duration, bounce: parseFloat(bounceEl.value) }
-                    : { duration, ease: "easeInOut" }
-            }
-
-            function buildDetail(i) {
+            /**
+             * ==============   Detail view   ================
+             */
+            const buildDetail = (i) => {
                 const m = MOVIES[i]
 
                 const backdrop = document.createElement("div")
@@ -292,7 +306,7 @@
                 detail.className = "detail"
                 detail.innerHTML = `
                     <button class="close" aria-label="Close">✕</button>
-                    <div class="hero"></div>
+                    <div class="hero"><div class="hero-art" style="background-image:url('${ASSET}/${m.file}')"></div></div>
                     <div class="detail-body">
                         <h1>${m.title}</h1>
                         <div class="meta">${m.meta}</div>
@@ -303,50 +317,76 @@
                         <p class="synopsis">${m.synopsis}</p>
                     </div>`
                 detail.querySelector(".close").addEventListener("click", close)
-                detail.querySelector(".hero").style.backgroundImage = poster(
-                    m.c1,
-                    m.c2
-                )
 
                 document.body.append(backdrop, detail)
             }
 
-            function open(i) {
+            /**
+             * ==============   View animations   ================
+             */
+            const open = (i) => {
                 if (openId !== null) return
                 openId = i
 
                 const card = grid.querySelector(`.card[data-id="${i}"]`)
                 const poster = card.querySelector(".poster")
-                const opts = options()
+                const posterArt = card.querySelector(".poster-art")
+                const title = card.querySelector(".card-title")
 
+                // The card morphs into the modal; the clip *window* morphs
+                // 2:3 -> 16:9 while the art inside it stays 2:3 (constant aspect,
+                // no cover punch). Auto-grouping nests the art under the window,
+                // so the window crops it for the whole morph - not just at the
+                // end. Hide the opened card with visibility (not display) so its
+                // grid slot stays put: no layout jump, no duplicate behind the
+                // backdrop.
                 animateView(() => {
                     buildDetail(i)
-                    grid.classList.add("is-hidden")
-                }, opts)
-                    // Root crossfade dims the page / fades the backdrop in.
-                    .layout()
-                    // Two shared-element morphs: card → modal, poster → hero.
-                    // Motion names both ends of each pair (no manual
-                    // view-transition-name) and crops the morph by default.
+                    card.style.visibility = "hidden"
+                }, transition)
                     .add(card, ".detail")
+                    // The clip window (2:3 -> 16:9). It clips its children, so
+                    // auto-grouping crops the nested art through the morph.
                     .add(poster, ".detail .hero")
+                    .crop(false)
+                    // The art (2:3 -> 2:3): constant aspect, no cover needed.
+                    .add(posterArt, ".detail .hero-art")
+                    .crop(false)
+                    // Text shouldn't be cover-cropped, or it clips as the box grows.
+                    .add(title, ".detail-body h1")
+                    .crop(false)
+                    // Backdrop only fades (enter-only) -> the morph-aware crop
+                    // default leaves it uncropped, no .crop(false) needed.
+                    // .class() tags its group so CSS can keep it below the modal.
+                    .add(".backdrop")
+                    .class("backdrop")
+                    .new({ opacity: 1 })
             }
 
-            function close() {
+            const close = () => {
                 if (openId === null) return
                 const card = grid.querySelector(`.card[data-id="${openId}"]`)
                 const poster = card.querySelector(".poster")
-                const opts = options()
+                const posterArt = card.querySelector(".poster-art")
+                const title = card.querySelector(".card-title")
 
+                // Reverse the pairing to morph the detail view back into the card.
                 animateView(() => {
                     document.querySelector(".detail")?.remove()
                     document.querySelector(".backdrop")?.remove()
-                    grid.classList.remove("is-hidden")
-                }, opts)
-                    .layout()
-                    // Reverse the morphs: modal → card, hero → poster.
+                    card.style.visibility = "visible"
+                }, transition)
                     .add(".detail", card)
                     .add(".detail .hero", poster)
+                    .crop(false)
+                    .add(".detail .hero-art", posterArt)
+                    .crop(false)
+                    .add(".detail-body h1", title)
+                    .crop(false)
+                    // Backdrop only fades (exit-only) -> uncropped by default.
+                    .add(".backdrop")
+                    .class("backdrop")
+                    .old({ opacity: 0 })
                     .then((group) => group.finished)
                     .then(() => {
                         openId = null

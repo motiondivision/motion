@@ -6,10 +6,11 @@ interface ViewResult {
     pseudos: string[]
     delays: number[]
     css: string
-    radiusAnimated: boolean
-    corners: Record<string, string[]>
-    radiusAtReady: string | null
-    radiusAfter: string | null
+    survivorCropped: boolean
+    supportsGroup: boolean
+    parentGroup: string
+    childGroup: string
+    childrenClipped: boolean
     exitOpacity: string[]
     nameA: string
     nameB: string
@@ -132,7 +133,7 @@ test.describe("animateView() target resolution", () => {
         expect(Math.max(...result.delays)).toBeGreaterThan(0)
     })
 
-    test("morphs are clipped, object-fit and radius-animated by default", async ({
+    test("morphs that change aspect ratio are clipped + object-fit cover", async ({
         page,
     }) => {
         await page.goto("view/view-crop.html")
@@ -146,39 +147,6 @@ test.describe("animateView() target resolution", () => {
         expect(result.css).toMatch(
             /::view-transition-old\(box\)[^{]*\{[^}]*object-fit:\s*cover/
         )
-        // border-radius (8px -> 28px) animates on the group's clip.
-        expect(result.radiusAnimated).toBe(true)
-    })
-
-    test("animates individual corner radii", async ({ page }) => {
-        await page.goto("view/view-crop-corners.html")
-        const result = await readResult(page)
-        test.skip(!result.supported, "No startViewTransition support")
-
-        expect(result.error).toBeNull()
-        // Old: 24px 24px 0 0 (top rounded, bottom square). New: 4px all round.
-        // Each corner animates independently from its own start value.
-        expect(result.corners.borderTopLeftRadius).toEqual(["24px", "4px"])
-        expect(result.corners.borderTopRightRadius).toEqual(["24px", "4px"])
-        expect(result.corners.borderBottomRightRadius).toEqual(["0px", "4px"])
-        expect(result.corners.borderBottomLeftRadius).toEqual(["0px", "4px"])
-    })
-
-    test("flattens the source radius for capture, then restores it", async ({
-        page,
-    }) => {
-        await page.goto("view/view-crop-flatten.html")
-        const result = await readResult(page)
-        test.skip(!result.supported, "No startViewTransition support")
-
-        expect(result.error).toBeNull()
-        // Source squared for the snapshot so the baked corner can't crossfade
-        // a second mismatched curve - only the group clip rounds.
-        expect(result.radiusAtReady).toBe("0px")
-        // The group clip still animates the real measured radii (12px -> 28px).
-        expect(result.corners.borderTopLeftRadius).toEqual(["12px", "28px"])
-        // Restored after the transition - no leaked square corners.
-        expect(result.radiusAfter).toBe("")
     })
 
     test(".crop(false) opts out of the default crop", async ({ page }) => {
@@ -188,7 +156,6 @@ test.describe("animateView() target resolution", () => {
 
         expect(result.error).toBeNull()
         expect(result.css).not.toMatch(/object-fit/)
-        expect(result.radiusAnimated).toBe(false)
     })
 
     test(".exit({ opacity: 0 }) animates from an inferred 1, not instantly", async ({
@@ -395,7 +362,7 @@ test.describe("animateView() target resolution", () => {
         expect(new Set(result.toNames).size).toBe(2)
     })
 
-    test("a cropped layer that only exists in the new snapshot still gets clipped", async ({
+    test("doesn't crop a same-aspect survivor or a fade-only newcomer by default", async ({
         page,
     }) => {
         await page.goto("view/view-crop-newcomer.html")
@@ -403,10 +370,71 @@ test.describe("animateView() target resolution", () => {
         test.skip(!result.supported, "No startViewTransition support")
 
         expect(result.error).toBeNull()
-        // The newcomer card is a generated, cropped layer...
         expect(result.newcomerName).toMatch(/^motion-view-\d+$/)
-        // ...and its group is clipped via the CSS re-committed after the update.
+        // The survivor keeps the same size (same aspect ratio), so cover would
+        // do nothing - it's left uncropped (no squaring flash, shadow kept).
+        expect(result.survivorCropped).toBe(false)
+        // The newcomer is a fade-only enter - no second box - so also uncropped.
+        expect(result.newcomerCropped).toBe(false)
+    })
+
+    test(".crop(true) clips a new-only layer via the re-committed CSS", async ({
+        page,
+    }) => {
+        await page.goto("view/view-crop-newcomer.html?force")
+        const result = await readResult(page)
+        test.skip(!result.supported, "No startViewTransition support")
+
+        expect(result.error).toBeNull()
+        expect(result.newcomerName).toMatch(/^motion-view-\d+$/)
+        // Forced on, the newcomer's name only exists after the update, so its
+        // clip relies on the crop CSS being re-committed in the callback.
         expect(result.newcomerCropped).toBe(true)
+    })
+
+    // Browser-agnostic: motion emits the children-clip rule as raw CSS text, so
+    // this holds even where the browser ignores it on parse (no nested-group
+    // support). Verifies the overflow-mirror + CSS emission.
+    test("emits a children-clip rule for a clipping nested parent", async ({
+        page,
+    }) => {
+        await page.goto("view/view-group-nesting.html")
+        const result = await readResult(page)
+        test.skip(!result.supported, "No startViewTransition support")
+
+        expect(result.error).toBeNull()
+        expect(result.childrenClipped).toBe(true)
+    })
+
+    // The inline `view-transition-group` only survives where the browser knows
+    // the property (nested groups, Chromium 140+); elsewhere setProperty drops it
+    // and the feature is a graceful no-op. Skipped until the harness Chromium
+    // supports it.
+    test("nests layers under their DOM ancestor by default (contain)", async ({
+        page,
+    }) => {
+        await page.goto("view/view-group-nesting.html")
+        const result = await readResult(page)
+        test.skip(!result.supported, "No startViewTransition support")
+        test.skip(!result.supportsGroup, "No nested view-transition groups")
+
+        expect(result.error).toBeNull()
+        expect(result.parentGroup).toBe("contain")
+        expect(result.childGroup).toBe("contain")
+    })
+
+    test(".group(false) opts a layer out of nesting (stays flat)", async ({
+        page,
+    }) => {
+        await page.goto("view/view-group-nesting.html?escape")
+        const result = await readResult(page)
+        test.skip(!result.supported, "No startViewTransition support")
+        test.skip(!result.supportsGroup, "No nested view-transition groups")
+
+        expect(result.error).toBeNull()
+        // The opted-out child stays flat; the parent still nests.
+        expect(result.childGroup).toBe("none")
+        expect(result.parentGroup).toBe("contain")
     })
 
     test("a survivor's old/new crossfade stays synced and linear (no plus-lighter flash)", async ({

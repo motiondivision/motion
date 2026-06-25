@@ -25,10 +25,12 @@ export class ViewTransitionBuilder {
     resolveDefs = new Set<ViewTransitionTargetDefinition>()
 
     /**
-     * Subjects opted out of the default crop (clip + object-fit: cover +
-     * animated corner radii) via `.crop(false)`.
+     * Per-subject crop override: `true` forces the crop (clip + object-fit:
+     * cover + animated corner radii) on, `false` forces it off. A subject with
+     * no entry uses the default - crop only a genuine morph (a layer present in
+     * both snapshots), so a fade-only enter/exit isn't clipped to nothing.
      */
-    noCrop = new Set<ViewTransitionTargetDefinition>()
+    cropOverride = new Map<ViewTransitionTargetDefinition, boolean>()
 
     /**
      * Subjects paired with a different new-snapshot target (the second `.add()`
@@ -46,6 +48,15 @@ export class ViewTransitionBuilder {
      * the opaque generated name.
      */
     classNames = new Map<ViewTransitionTargetDefinition, string>()
+
+    /**
+     * Subjects opted out of automatic group nesting via `.group(false)`. Their
+     * layer stays a flat top-level group (`view-transition-group: none`) instead
+     * of nesting under its DOM-ancestor layer - so it animates independently and
+     * escapes an ancestor's clip/transform (e.g. an element that lifts out of a
+     * card and flies across, which nesting would clip to the card).
+     */
+    flatGroups = new Set<ViewTransitionTargetDefinition>()
 
     update: () => void | Promise<void>
 
@@ -99,14 +110,39 @@ export class ViewTransitionBuilder {
     }
 
     /**
-     * Morphs are clipped + `object-fit: cover` (and their corners animate)
-     * by default. Call `.crop(false)` to opt this subject out and fall back
-     * to the browser default (which overflows on aspect-ratio change).
+     * Control this subject's crop (clip + `object-fit: cover` + animated
+     * corners). By default a subject auto-crops only when it actually morphs -
+     * present in both snapshots (a survivor, or an `.add(a, b)` pair). A
+     * fade-only enter/exit has no second box to crop against, so it's left to
+     * the browser default; in particular the `overflow: clip` a crop adds would
+     * otherwise clip a mis-sized enter/exit layer to nothing.
+     *
+     * `.crop(false)` forces the crop off (e.g. a text morph, where
+     * `object-fit: cover` clips glyphs as the box grows); `.crop(true)` forces
+     * it on for a non-morph the default wouldn't otherwise crop.
      */
     crop(enabled = true) {
+        this.cropOverride.set(this.currentSubject, enabled)
+
+        return this
+    }
+
+    /**
+     * By default a subject's layer nests under its nearest DOM-ancestor layer
+     * (`view-transition-group: contain`), so the ancestor's clip/transform/opacity
+     * apply to it through the transition - mirroring how the DOM actually paints,
+     * and letting a wrapper crop its child for the whole morph rather than only
+     * once the live DOM takes back over. (Needs a browser that supports nested
+     * view-transition groups; elsewhere it degrades to the flat default.)
+     *
+     * Call `.group(false)` to opt out: the layer stays flat and top-level, so it
+     * animates independently and escapes an ancestor's clip - e.g. an element
+     * that should lift out of a card and fly across, which nesting would clip.
+     */
+    group(enabled = true) {
         enabled
-            ? this.noCrop.delete(this.currentSubject)
-            : this.noCrop.add(this.currentSubject)
+            ? this.flatGroups.delete(this.currentSubject)
+            : this.flatGroups.add(this.currentSubject)
 
         return this
     }

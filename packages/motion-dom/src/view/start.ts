@@ -43,14 +43,12 @@ const ORIGIN_DEFAULTS: Record<string, Record<string, number>> = {
     old: { opacity: 1, scale: 1 },
 }
 
-const cornerProps = [
-    "borderTopLeftRadius",
-    "borderTopRightRadius",
-    "borderBottomRightRadius",
-    "borderBottomLeftRadius",
-] as const
-
-type CornerRadii = Record<(typeof cornerProps)[number], string>
+/**
+ * How much two box aspect ratios must differ before a morph is treated as
+ * aspect-changing (and so worth cropping). Matches the projection engine's
+ * `preserve-aspect` threshold, so small layout jitter doesn't trigger a crop.
+ */
+const ASPECT_TOLERANCE = 0.2
 
 export function startViewAnimation(
     builder: ViewTransitionBuilder
@@ -59,9 +57,10 @@ export function startViewAnimation(
         update,
         targets,
         resolveDefs,
-        noCrop,
+        cropOverride,
         pairs,
         classNames,
+        flatGroups,
         options: defaultOptions,
     } = builder
 
@@ -89,8 +88,21 @@ export function startViewAnimation(
      * ever stripping an author's own inline `view-transition-name`.
      */
     const classed: Element[] = []
+    /**
+     * Elements we set a `view-transition-group` on (for nesting), tracked for
+     * cleanup. `clipChildren` collects the names of nested parents that clip in
+     * the live layout, so their `::view-transition-group-children` is clipped
+     * through the transition - not just once the live DOM takes back over.
+     */
+    const grouped: Element[] = []
+    const clipChildren = new Set<string>()
     const layerTargets = new Map<string, ViewTransitionTarget>()
     const croppedNames = new Set<string>()
+    /**
+     * Each layer's explicit `.crop(true | false)` override (by resolved name),
+     * so `finalizeCrop` can let an author's choice win over the morph default.
+     */
+    const cropForName = new Map<string, boolean>()
     /**
      * Each layer's stagger position (index + total) within its subject, per
      * snapshot. Resolving against the snapshot the layer belongs to keeps
@@ -116,6 +128,19 @@ export function startViewAnimation(
     const resolveLayers = (phase: "old" | "new") => {
         targets.forEach((target, definition) => {
             const className = classNames.get(definition)
+            /**
+             * Nest each resolved layer under its DOM-ancestor layer by default
+             * (`contain`), so an ancestor's clip/transform/opacity reach it
+             * through the transition; `.group(false)` opts a subject out (`none`)
+             * to stay flat and escape. Skipped for root / pre-named layers, which
+             * aren't elements we resolve and style.
+             */
+            const group =
+                definition === "root" || !resolveDefs.has(definition)
+                    ? undefined
+                    : flatGroups.has(definition)
+                      ? "none"
+                      : "contain"
             let names: string[]
             if (definition === "root" || !resolveDefs.has(definition)) {
                 names = [definition as string]
@@ -136,7 +161,10 @@ export function startViewAnimation(
                         assigned,
                         undefined,
                         className,
-                        classed
+                        classed,
+                        group,
+                        grouped,
+                        clipChildren
                     )
                     pairNames.set(definition, names)
                 } else {
@@ -164,7 +192,10 @@ export function startViewAnimation(
                         assigned,
                         pairNames.get(definition),
                         className,
-                        classed
+                        classed,
+                        group,
+                        grouped,
+                        clipChildren
                     )
                 }
             } else {
@@ -174,11 +205,17 @@ export function startViewAnimation(
                     assigned,
                     undefined,
                     className,
-                    classed
+                    classed,
+                    group,
+                    grouped,
+                    clipChildren
                 )
             }
 
-            const cropped = definition !== "root" && !noCrop.has(definition)
+            // Record any explicit `.crop(true | false)` per resolved name; the
+            // crop set itself is computed later by `finalizeCrop` (it needs both
+            // snapshots to know which morphs change aspect ratio).
+            const override = cropOverride.get(definition)
 
             names.forEach((name, index) => {
                 /**
@@ -193,7 +230,7 @@ export function startViewAnimation(
                         : target
                 )
 
-                if (cropped) croppedNames.add(name)
+                if (override !== undefined) cropForName.set(name, override)
 
                 const stagger = layerStagger.get(name) ?? {}
                 stagger[phase] = [index, names.length]
@@ -247,70 +284,64 @@ export function startViewAnimation(
     }
 
     /**
-     * Measured corner radii per cropped layer, so the clip can animate each
-     * corner between the old and new elements. Per-corner (rather than the
-     * shorthand) so mismatched/individual radii interpolate cleanly.
+     * Each layer's box size per snapshot, so `finalizeCrop` can tell whether a
+     * morph's aspect ratio changed (the only case worth cropping).
      */
-    const cropRadii = new Map<string, { old?: CornerRadii; new?: CornerRadii }>()
+    const cropBox = new Map<
+        string,
+        {
+            old?: { width: number; height: number }
+            new?: { width: number; height: number }
+        }
+    >()
 
-    const recordRadii = (
-        style: CSSStyleDeclaration,
-        name: string,
-        phase: "old" | "new"
-    ) => {
-        const corners = {} as CornerRadii
-        for (const corner of cornerProps) corners[corner] = style[corner]
-
-        const entry = cropRadii.get(name) ?? {}
-        entry[phase] = corners
-        cropRadii.set(name, entry)
-    }
-
-    /**
-     * Cropped layers all come from `.add()`, so their elements are in the
-     * registry - read each one's corner radii directly. For a paired morph both
-     * ends share a name; the new-snapshot element is registered last, so it
-     * wins the `new` reading (and the old end the `old` reading).
-     */
-    const forEachCropped = (cb: (name: string, element: Element) => void) => {
-        if (!croppedNames.size) return
+    const measureLayers = (phase: "old" | "new") =>
         nameRegistry.forEach((name, element) => {
-            if (croppedNames.has(name)) cb(name, element)
+            const rect = (element as HTMLElement).getBoundingClientRect?.()
+            if (rect && rect.height) {
+                const entry = cropBox.get(name) ?? {}
+                entry[phase] = { width: rect.width, height: rect.height }
+                cropBox.set(name, entry)
+            }
         })
-    }
-
-    const measureCrop = (phase: "old" | "new") =>
-        forEachCropped((name, element) =>
-            recordRadii(getComputedStyle(element), name, phase)
-        )
 
     /**
-     * A snapshot bakes its element's border-radius into the captured bitmap as
-     * transparent corners; `object-fit: cover` then scales that radius with the
-     * layer, so a small rounded element morphing into a large one shows two
-     * mismatched corners crossfading. With the radii already measured (above)
-     * to drive the group's clip, flatten the source elements to square *for the
-     * capture* so the group's animated `border-radius` is the only corner.
-     *
-     * `border-radius` is paint-only - these writes never force layout - and run
-     * as a single pass after `measureCrop`'s reads, so they add no style/layout
-     * thrash. The live elements are hidden behind the pseudos for the whole
-     * transition, so squaring them is invisible; restored on cleanup.
+     * With both snapshots measured, settle which layers crop. The default crops
+     * only a morph whose aspect ratio *changes* between snapshots - the one case
+     * where `object-fit: cover` does real work. A same-aspect morph or a
+     * fade-only layer is left uncropped: its corners scale naturally (no flash
+     * from squaring, no `overflow: clip` eating its shadow) and a backdrop can't
+     * be clipped to nothing. An explicit `.crop(true | false)` overrides either
+     * way. Runs after both snapshots are measured, since aspect needs both.
      */
-    const squaredRadii = new Map<HTMLElement, string>()
+    const finalizeCrop = () => {
+        croppedNames.clear()
+        for (const name of layerStagger.keys()) {
+            if (name === "root") continue
+            // An explicit `.crop(true | false)` wins; otherwise crop a morph
+            // whose aspect ratio changed.
+            if (cropForName.get(name) ?? aspectChanged(name)) {
+                croppedNames.add(name)
+            }
+        }
+    }
 
-    const squareForCapture = () =>
-        forEachCropped((_name, element) => {
-            const el = element as HTMLElement
-            if (!el.style) return
-            squaredRadii.set(el, el.style.borderRadius)
-            el.style.borderRadius = "0px" // Write (paint-only)
-        })
-
-    const restoreRadii = () => {
-        // `""` un-sets the property, so this restores an absent inline radius too.
-        squaredRadii.forEach((value, el) => (el.style.borderRadius = value)) // Write
-        squaredRadii.clear()
+    /**
+     * Whether a layer is a morph whose box aspect ratio changed between
+     * snapshots (beyond a small tolerance). Fade-only layers (one snapshot) are
+     * never "changed".
+     */
+    const aspectChanged = (name: string) => {
+        const box = cropBox.get(name)
+        if (!box?.old || !box?.new || !box.old.height || !box.new.height) {
+            return false
+        }
+        return (
+            Math.abs(
+                box.old.width / box.old.height -
+                    box.new.width / box.new.height
+            ) > ASPECT_TOLERANCE
+        )
     }
 
     /**
@@ -318,11 +349,11 @@ export function startViewAnimation(
      * root has no animations of its own; force linear timing (baked into the
      * keyframes, so we can retime later via updateTiming); and clip +
      * object-fit: cover every cropped morph (the UA default overflows on
-     * aspect-ratio change), with an animated border-radius added below.
+     * aspect-ratio change).
      *
      * `css.commit` replaces rather than appends, so we re-set the full rule set
-     * each call - the second call (in the update callback) then picks up cropped
-     * layers that only exist in the new snapshot.
+     * each call - the crop rules are only known after `finalizeCrop` runs in the
+     * update callback, so the second call writes them.
      */
     const commitViewCSS = () => {
         if (!hasTarget("root", targets)) {
@@ -342,48 +373,55 @@ export function startViewAnimation(
             )
         })
 
+        /**
+         * Clip the nested children of any layer that clips in the live layout,
+         * so a wrapper crops its child for the whole morph (mirroring the DOM)
+         * rather than only at the live-DOM handoff. No-op on browsers without
+         * nested view-transition groups.
+         */
+        clipChildren.forEach((name) => {
+            css.set(`::view-transition-group-children(${name})`, {
+                overflow: "clip",
+            })
+        })
+
         css.commit() // Write
     }
 
     const cleanup = () => {
-        releaseViewTransitionNames(assigned, classed)
-        restoreRadii()
+        releaseViewTransitionNames(assigned, classed, grouped)
         css.remove() // Write
     }
 
     const callback = async () => {
-        /**
-         * Un-square the old-snapshot elements before the update so a survivor
-         * (same element in both snapshots) measures its real new radius below,
-         * rather than the 0 we flattened it to for the old capture.
-         */
-        restoreRadii()
-
         await update()
 
         /**
          * Re-resolve so elements created by the update are named for the new
-         * snapshot, then measure the cropped layers' new border-radius.
+         * snapshot, then measure them. With both snapshots measured we can
+         * settle the crop set (aspect-changing morphs + forced).
          */
-        const croppedBefore = croppedNames.size
         resolveLayers("new")
-        measureCrop("new")
-        // Flatten the new elements for their capture (radii now measured).
-        squareForCapture()
+        measureLayers("new")
+        finalizeCrop()
 
         /**
-         * Re-commit the crop CSS only if the new snapshot introduced cropped
-         * layers, so a layer that exists only in the new snapshot is clipped
-         * too - without forcing a redundant style write on the common path.
+         * Re-commit the crop CSS unconditionally: `finalizeCrop` is computed
+         * here (after both snapshots are measured), so the clip rules must be
+         * (re)written to match the settled set.
          */
-        if (croppedNames.size > croppedBefore) commitViewCSS()
+        commitViewCSS()
     }
 
     let transition: ViewTransition
     try {
         resolveLayers("old")
-        measureCrop("old")
-        squareForCapture()
+        /**
+         * Measure the old snapshot against the optimistic crop set (the new
+         * snapshot doesn't exist yet, so aspect change can't be known here;
+         * `finalizeCrop` settles it post-update).
+         */
+        measureLayers("old")
         commitViewCSS()
         transition = document.startViewTransition(callback)
     } catch (error) {
@@ -691,56 +729,6 @@ export function startViewAnimation(
 
                     animations.push(new NativeAnimationWrapper(animation))
                 }
-
-                /**
-                 * Animate each cropped layer's clip corners between the old and
-                 * new elements, so a cropped morph keeps rounded corners
-                 * (handling individual per-corner radii).
-                 */
-                cropRadii.forEach((radii, name) => {
-                    if (!radii.old && !radii.new) return
-
-                    const target = layerTargets.get(name)
-                    const [index, total] = staggerPosition(name, "group")
-                    const radiusOptions = resolveLayerTransition(
-                        target,
-                        "group",
-                        "layout",
-                        index === -1 ? 0 : index,
-                        total
-                    )
-
-                    radiusOptions.duration &&= secondsToMilliseconds(
-                        radiusOptions.duration
-                    )
-                    radiusOptions.delay &&= secondsToMilliseconds(
-                        radiusOptions.delay
-                    )
-
-                    for (const corner of cornerProps) {
-                        // `||` (not `??`) so an empty measurement (e.g. an
-                        // un-rendered element) falls back rather than producing
-                        // an invalid keyframe.
-                        const from =
-                            radii.old?.[corner] || radii.new?.[corner] || "0px"
-                        const to =
-                            radii.new?.[corner] || radii.old?.[corner] || "0px"
-                        // Skip square corners - nothing to round.
-                        if (parseFloat(from) === 0 && parseFloat(to) === 0) {
-                            continue
-                        }
-
-                        animations.push(
-                            new NativeAnimation({
-                                ...radiusOptions,
-                                element: document.documentElement,
-                                name: corner,
-                                pseudoElement: `::view-transition-group(${name})`,
-                                keyframes: [from, to],
-                            })
-                        )
-                    }
-                })
 
                 resolve(new GroupAnimation(animations))
             })

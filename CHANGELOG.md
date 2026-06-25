@@ -4,11 +4,16 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
-## [12.41.1] 2026-06-24
+## [12.42.0] 2026-06-24
+
+### Changed
+
+-   `animateView`: Layers are automatically grouped to match their DOM-hierarchy. New `.group(false)` method opts-out.
 
 ### Fixed
 
--   `animateView`: Improved handling of animating between layers with different `border-radius`.
+-   `animateView`: Auto-crop is now aspect-ratio aware, disabling crops for matching aspect-ratios.
+-   `animateView`: Disabled automatic `border-radius` animation.
 
 ## [12.41.0] 2026-06-23
 

@@ -33,6 +33,36 @@ function tagClass(
 }
 
 /**
+ * Set the element's `view-transition-group` so its layer reconstructs the DOM
+ * hierarchy in the pseudo-tree (`contain`) - or stays flat (`none`). Tracked in
+ * `grouped` for cleanup. When the element clips (any non-`visible` overflow) its
+ * name is recorded in `clipChildren` so the caller can clip the nested children
+ * (`::view-transition-group-children(name)`), mirroring the live clip through
+ * the whole transition rather than only at the live-DOM handoff.
+ *
+ * Ignored by browsers without nested view-transition groups, where it harmlessly
+ * degrades to the flat default.
+ */
+function applyGroup(
+    element: Element,
+    name: string,
+    group: string | undefined,
+    grouped: Element[],
+    clipChildren?: Set<string>
+) {
+    if (!group) return
+    ;(element as HTMLElement).style?.setProperty("view-transition-group", group)
+    grouped.push(element)
+
+    if (group !== "none" && clipChildren) {
+        const style = getComputedStyle(element)
+        if (style.overflowX !== "visible" || style.overflowY !== "visible") {
+            clipChildren.add(name)
+        }
+    }
+}
+
+/**
  * Resolve a selector/Element to elements and ensure each one carries a
  * `view-transition-name` we can target from script.
  *
@@ -51,7 +81,10 @@ export function assignViewTransitionNames(
     assigned: Element[],
     forcedNames?: string[],
     className?: string,
-    classed: Element[] = []
+    classed: Element[] = [],
+    group?: string,
+    grouped: Element[] = [],
+    clipChildren?: Set<string>
 ): string[] {
     const elements = resolveElements(definition)
 
@@ -77,6 +110,7 @@ export function assignViewTransitionNames(
             assigned.push(element)
             registry.set(element, name)
             tagClass(element, className, classed)
+            applyGroup(element, name, group, grouped, clipChildren)
 
             return name
         })
@@ -128,6 +162,7 @@ export function assignViewTransitionNames(
 
         registry.set(element, name)
         tagClass(element, className, classed)
+        applyGroup(element, name, group, grouped, clipChildren)
 
         return name
     })
@@ -141,12 +176,16 @@ export function assignViewTransitionNames(
  */
 export function releaseViewTransitionNames(
     assigned: Element[],
-    classed: Element[] = []
+    classed: Element[] = [],
+    grouped: Element[] = []
 ): void {
     for (const element of assigned) {
         ;(element as HTMLElement).style?.removeProperty("view-transition-name")
     }
     for (const element of classed) {
         ;(element as HTMLElement).style?.removeProperty("view-transition-class")
+    }
+    for (const element of grouped) {
+        ;(element as HTMLElement).style?.removeProperty("view-transition-group")
     }
 }

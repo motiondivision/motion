@@ -29,45 +29,64 @@
                 ready: false,
                 supported: !!document.startViewTransition,
                 css: "",
+                survivorName: "",
+                survivorCropped: false,
                 newcomerName: "",
                 newcomerCropped: false,
                 error: null,
             }
 
-            // `.add(".card")` matches the existing card and the one the update
-            // appends. The newcomer exists only in the NEW snapshot, so its crop
-            // CSS (overflow: clip / object-fit: cover) must be (re)committed after
-            // the update - otherwise it overflows on aspect-ratio change.
-            animateView(
+            // `.add(".card")` matches the existing card (a survivor - present in
+            // both snapshots) and the one the update appends (a newcomer -
+            // present only in the NEW snapshot). With the morph-aware crop
+            // default the survivor morphs and is cropped, while the fade-only
+            // newcomer is left uncropped. `?force` adds `.crop(true)` to crop
+            // the newcomer too, exercising the clip CSS re-committed after the
+            // update (the name only exists post-update).
+            const force = new URLSearchParams(location.search).has("force")
+
+            const builder = animateView(
                 () => {
                     document.getElementById("container").innerHTML =
                         '<div class="card newcomer"></div>'
                 },
                 { duration: 3, ease: "linear" }
-            )
-                .add(".card")
-                .then(
-                    () => {
-                        const style = document.getElementById("motion-view")
-                        window.__view.css = style ? style.textContent : ""
-                        const name = getComputedStyle(
-                            document.querySelector(".newcomer")
-                        )
+            ).add(".card")
+
+            if (force) builder.crop(true)
+
+            builder.then(
+                () => {
+                    const style = document.getElementById("motion-view")
+                    const css = style ? style.textContent : ""
+                    window.__view.css = css
+
+                    const nameOf = (el) =>
+                        getComputedStyle(el)
                             .getPropertyValue("view-transition-name")
                             .trim()
-                        window.__view.newcomerName = name
-                        window.__view.newcomerCropped = new RegExp(
+                    const clipped = (name) =>
+                        new RegExp(
                             "::view-transition-group\\(" +
                                 name +
                                 "\\)\\s*\\{[^}]*overflow:\\s*clip"
-                        ).test(window.__view.css)
-                        window.__view.ready = true
-                    },
-                    (e) => {
-                        window.__view.error = String(e)
-                        window.__view.ready = true
-                    }
-                )
+                        ).test(css)
+
+                    const survivor = nameOf(
+                        document.getElementById("old-card")
+                    )
+                    const newcomer = nameOf(document.querySelector(".newcomer"))
+                    window.__view.survivorName = survivor
+                    window.__view.survivorCropped = clipped(survivor)
+                    window.__view.newcomerName = newcomer
+                    window.__view.newcomerCropped = clipped(newcomer)
+                    window.__view.ready = true
+                },
+                (e) => {
+                    window.__view.error = String(e)
+                    window.__view.ready = true
+                }
+            )
         </script>
     </body>
 </html>

@@ -190,13 +190,16 @@
                 if (open) return
                 open = true
 
-                // The avatar (a circle) morphs into the whole card. Crop is on by
-                // default, so its corner radius animates from 50% to the card's, and
-                // its contents are scaled to cover the growing box.
+                // The avatar (a circle) morphs into the whole card. The aspect
+                // ratio barely changes, so it wouldn't crop by default - but we
+                // want the corner radius to animate cleanly from the circle (50%)
+                // to the card's 20px, so force it on with .crop(true). (This
+                // clips the box-shadow during the morph - the radius-vs-shadow
+                // trade - which reads fine for this dramatic circle -> card.)
                 animateView(() => {
                     buildProfile()
                     avatar.style.visibility = "hidden"
-                }, opts)            .add(avatar, ".profile")
+                }, opts).add(avatar, ".profile")
             }
 
             const close = () => {
@@ -207,7 +210,7 @@
                     document.querySelector(".profile")?.remove()
                     document.querySelector(".profile-backdrop")?.remove()
                     avatar.style.visibility = "visible"
-                }, opts)            .add(".profile", avatar)
+                }, opts).add(".profile", avatar)
             }
 
             avatar.addEventListener("click", openProfile)
