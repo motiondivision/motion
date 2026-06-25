@@ -6,6 +6,7 @@ import {
     secondsToMilliseconds,
 } from "motion-utils"
 import { time } from "../frameloop/sync-time"
+import { camelToDash } from "../render/dom/utils/camel-to-dash"
 import { mix } from "../utils/mix"
 import { Mixer } from "../utils/mix/types"
 import { frameloopDriver } from "./drivers/frame"
@@ -547,6 +548,58 @@ export class JSAnimation<T extends number | string>
         this.driver?.stop()
         return timeline.observe(this)
     }
+
+    private timelineActive = true
+
+    /**
+     * Activate/deactivate the animation while it's driven by a scroll timeline
+     * range. Outside the range we remove the rendered style so the CSS cascade
+     * (e.g. `:hover`) can take over, matching native `animation-range`. The
+     * value stays bound, so the next in-range scroll update re-applies it.
+     */
+    setActive(isActive: boolean) {
+        if (isActive === this.timelineActive) return
+        this.timelineActive = isActive
+
+        const { motionValue, name } = this.options
+        if (!name) return
+
+        if (isActive) {
+            /**
+             * Re-entering the range: re-render the still-bound value's style. We
+             * can't rely on the next scroll update alone, as it may resolve to
+             * the same (unchanged) value it deactivated at, which wouldn't
+             * trigger a render.
+             */
+            ;(this.options.element as { render?: () => void } | undefined)?.render?.()
+            return
+        }
+
+        const element = motionValue?.owner?.current as HTMLElement | undefined
+        if (!element?.style) return
+
+        /**
+         * For plain styles `removeProperty` clears the inline value. Transform
+         * values share the combined `transform` property, so target that.
+         */
+        element.style.removeProperty(
+            isTransform(name) ? "transform" : camelToDash(name)
+        )
+    }
+}
+
+/**
+ * Lightweight transform-key check that avoids pulling the full transform key
+ * list (and its bundle cost) into the animation module. Transform values all
+ * render to the combined `transform` property rather than `name`.
+ */
+function isTransform(name: string) {
+    return (
+        name === "x" ||
+        name === "y" ||
+        name === "z" ||
+        /^(transform|translate|rotate|scale|skew)/.test(name)
+    )
 }
 
 // Legacy function support
