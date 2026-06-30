@@ -32,6 +32,7 @@ interface ViewResult {
     toNames: string[]
     newcomerName: string
     newcomerCropped: boolean
+    newClipAnimated: boolean
     cards: Array<{
         id: string
         old: { delay: number; easing: string } | null
@@ -325,6 +326,25 @@ test.describe("animateView() target resolution", () => {
         // cancelled it along with the fade, overlapping pixels would darken
         // mid-transition. (vtAnims is captured for diagnosis if this fails.)
         expect(result.blendKept).toBe(true)
+    })
+
+    test("only animating .new() with a non-opacity reveal holds the old layer", async ({
+        page,
+    }) => {
+        await page.goto("view/view-reveal.html")
+        const result = await readResult(page)
+        test.skip(!result.supported, "No startViewTransition support")
+
+        expect(result.error).toBeNull()
+        // The reveal we asked for runs on the new layer...
+        expect(result.newClipAnimated).toBe(true)
+        // ...and the old layer's default crossfade fade-out is dropped, so the
+        // old page holds as a static backdrop instead of dissolving outside the
+        // clip. (Pre-fix the orphaned UA fade survives: oldOpacity is [1, 0].)
+        expect(result.oldOpacity).toHaveLength(0)
+        // The orphaned plus-lighter half is dropped too (else it flashes bright
+        // where the opaque old/new overlap inside the growing clip).
+        expect(result.blendKept).toBe(false)
     })
 
     test(".new({scale}) on a survivor animates from the live value, not a 0.85 pop", async ({

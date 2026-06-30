@@ -648,6 +648,37 @@ export function startViewAnimation(
                     }
 
                     /**
+                     * Drop the orphaned half of the default crossfade. The UA
+                     * fades old out and new in as a *pair*; if the opposing half
+                     * was explicitly overridden with something other than an
+                     * opacity fade (a clip or transform reveal), this side's
+                     * default opacity fade has no partner - left to run it would
+                     * dissolve what should be a static backdrop (e.g.
+                     * `.new({ clipPath })` should reveal over a still old view,
+                     * not fade the old out around the growing clip). Cancel it -
+                     * and its `plus-lighter` sibling on the same pseudo, which
+                     * would otherwise flash bright where the two opaque layers
+                     * overlap. A genuine crossfade (the opposing side also fading
+                     * opacity) keeps both halves and is handled above.
+                     */
+                    const opposite =
+                        name.type === "old"
+                            ? "new"
+                            : name.type === "new"
+                              ? "old"
+                              : undefined
+                    if (
+                        opposite &&
+                        explicitlyAnimated.has(
+                            `${name.layer}:${opposite}`
+                        ) &&
+                        !opacityAnimated.has(`${name.layer}:${opposite}`)
+                    ) {
+                        animation.cancel()
+                        continue
+                    }
+
+                    /**
                      * Otherwise retime the browser-generated animation to
                      * Motion's timing. This auto-enables the layout (group)
                      * morph for any resolved/named target, and applies the

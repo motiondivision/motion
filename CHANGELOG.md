@@ -4,6 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.42.1] 2026-06-30
+
+### Fixed
+
+-   `animateView`: Old layer fade out now cancelled when defining `.new()`.
+
 ## [12.42.0] 2026-06-24
 
 ### Changed
