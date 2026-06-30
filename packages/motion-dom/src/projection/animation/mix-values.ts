@@ -8,14 +8,9 @@ import {
     noop,
 } from "motion-utils"
 import type { ResolvedValues } from "../../node/types"
+import { cornerRadiusProps } from "../../utils/border-radius"
 
-const borderLabels = [
-    "borderTopLeftRadius",
-    "borderTopRightRadius",
-    "borderBottomLeftRadius",
-    "borderBottomRightRadius",
-]
-const numBorders = borderLabels.length
+const numBorders = cornerRadiusProps.length
 
 const asNumber = (value: AnyResolvedKeyframe) =>
     typeof value === "string" ? parseFloat(value) : value
@@ -54,7 +49,7 @@ export function mixValues(
      * Mix border radius
      */
     for (let i = 0; i < numBorders; i++) {
-        const borderLabel = borderLabels[i]
+        const borderLabel = cornerRadiusProps[i]
         let followRadius = getRadius(follow, borderLabel)
         let leadRadius = getRadius(lead, borderLabel)
 

@@ -1,3 +1,5 @@
+import { cornerRadiusProps } from "../../../utils/border-radius"
+
 export const pxValues = new Set([
     // Border props
     "borderWidth",
@@ -6,10 +8,7 @@ export const pxValues = new Set([
     "borderBottomWidth",
     "borderLeftWidth",
     "borderRadius",
-    "borderTopLeftRadius",
-    "borderTopRightRadius",
-    "borderBottomRightRadius",
-    "borderBottomLeftRadius",
+    ...cornerRadiusProps,
     // Positioning props
     "width",
     "maxWidth",

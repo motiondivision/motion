@@ -6,6 +6,7 @@ import { AnimationPlaybackControls, DOMKeyframesDefinition } from "../animation/
 import { getValueTransition } from "../animation/utils/get-value-transition"
 import { mapEasingToNativeEasing } from "../animation/waapi/easing/map-easing"
 import { applyGeneratorOptions } from "../animation/waapi/utils/apply-generator"
+import { cornerRadiusProps } from "../utils/border-radius"
 import { ElementOrSelector, resolveElements } from "../utils/resolve-elements"
 import type { ViewTransitionBuilder } from "./index"
 import { ViewTransitionTarget, ViewTransitionTargetDefinition } from "./types"
@@ -21,19 +22,7 @@ import { hasTarget } from "./utils/has-target"
 
 const definitionNames = ["layout", "enter", "exit", "new", "old"] as const
 
-/**
- * The four corner-radius longhands, measured per corner so a cropped layer's
- * clip can animate mismatched/asymmetric radii cleanly (the shorthand wouldn't
- * interpolate individual corners).
- */
-const cornerProps = [
-    "borderTopLeftRadius",
-    "borderTopRightRadius",
-    "borderBottomRightRadius",
-    "borderBottomLeftRadius",
-] as const
-
-type CornerRadii = Record<(typeof cornerProps)[number], string>
+type CornerRadii = Record<(typeof cornerRadiusProps)[number], string>
 
 /**
  * Whether a computed border-radius is square (every component zero). Splitting
@@ -329,46 +318,40 @@ export function startViewAnimation(
     }
 
     /**
-     * Each layer's box size per snapshot, so `finalizeCrop` can tell whether a
-     * morph's aspect ratio changed (the only case worth cropping).
+     * Each layer's measured box + corner radii per snapshot. The box lets
+     * `finalizeCrop` tell whether a morph's aspect ratio changed (the only case
+     * worth cropping); the radii let a cropped morph's group clip animate each
+     * corner from the old element's radius to the new element's, keeping it
+     * rounded where `overflow: clip` would otherwise square the corners.
+     *
+     * We never flatten the source for capture (a snapshot is a paint of the live
+     * DOM, so squaring an element just for its capture would flash one real
+     * square frame). For an aspect-changing morph `object-fit: cover` crops each
+     * snapshot's own baked corners off-screen mid-morph, so the animated clip is
+     * the only visible corner; a near-same-aspect forced crop (`.crop(true)`)
+     * can't hide the outgoing snapshot's silhouette, but the endpoints coincide.
      */
-    const cropBox = new Map<
+    const cropMeasurements = new Map<
         string,
         {
-            old?: { width: number; height: number }
-            new?: { width: number; height: number }
+            old?: { width: number; height: number; radii: CornerRadii }
+            new?: { width: number; height: number; radii: CornerRadii }
         }
     >()
-
-    /**
-     * Measured corner radii per layer per snapshot, so a cropped morph's group
-     * clip can animate each corner from the old element's radius to the new
-     * element's - keeping it rounded where `overflow: clip` would otherwise
-     * square the corners. We never flatten the source for capture (a snapshot is
-     * a paint of the live DOM, so squaring an element just for its capture would
-     * flash one real square frame). For an aspect-changing morph `object-fit:
-     * cover` crops each snapshot's own baked corners off-screen mid-morph, so the
-     * animated clip is the only visible corner; a near-same-aspect forced crop
-     * (`.crop(true)`) can't hide the outgoing snapshot's silhouette, but the
-     * endpoints still coincide.
-     */
-    const cropRadii = new Map<string, { old?: CornerRadii; new?: CornerRadii }>()
 
     const measureLayers = (phase: "old" | "new") =>
         nameRegistry.forEach((name, element) => {
             const el = element as HTMLElement
             const rect = el.getBoundingClientRect?.()
             if (rect && rect.height) {
-                const entry = cropBox.get(name) ?? {}
-                entry[phase] = { width: rect.width, height: rect.height }
-                cropBox.set(name, entry)
-
                 const style = getComputedStyle(el)
-                const corners = {} as CornerRadii
-                for (const corner of cornerProps) corners[corner] = style[corner]
-                const radii = cropRadii.get(name) ?? {}
-                radii[phase] = corners
-                cropRadii.set(name, radii)
+                const radii = {} as CornerRadii
+                for (const corner of cornerRadiusProps) {
+                    radii[corner] = style[corner]
+                }
+                const entry = cropMeasurements.get(name) ?? {}
+                entry[phase] = { width: rect.width, height: rect.height, radii }
+                cropMeasurements.set(name, entry)
             }
         })
 
@@ -399,7 +382,7 @@ export function startViewAnimation(
      * never "changed".
      */
     const aspectChanged = (name: string) => {
-        const box = cropBox.get(name)
+        const box = cropMeasurements.get(name)
         if (!box?.old || !box?.new || !box.old.height || !box.new.height) {
             return false
         }
@@ -853,7 +836,7 @@ export function startViewAnimation(
                  * the new element's so the crop stays rounded. Timed as the group
                  * (`layout`) so the radius tracks the morphing box.
                  */
-                cropRadii.forEach((radii, name) => {
+                cropMeasurements.forEach((entry, name) => {
                     if (!croppedNames.has(name)) return
 
                     // Reuse the group's resolved timing - native ms delay/
@@ -861,13 +844,17 @@ export function startViewAnimation(
                     // repeat/times to leak into (or throw inside) NativeAnimation.
                     const { delay, duration, ease } = resolveGroupTiming(name)
 
-                    for (const corner of cornerProps) {
+                    for (const corner of cornerRadiusProps) {
                         // `||` (not `??`) so an empty measurement falls back to
                         // the other snapshot rather than an invalid keyframe.
                         const from =
-                            radii.old?.[corner] || radii.new?.[corner] || "0px"
+                            entry.old?.radii[corner] ||
+                            entry.new?.radii[corner] ||
+                            "0px"
                         const to =
-                            radii.new?.[corner] || radii.old?.[corner] || "0px"
+                            entry.new?.radii[corner] ||
+                            entry.old?.radii[corner] ||
+                            "0px"
                         // Nothing to round if the corner is square at both ends.
                         if (isSquareRadius(from) && isSquareRadius(to)) continue
 

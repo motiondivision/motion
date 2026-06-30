@@ -1,4 +1,5 @@
 import { isCSSVariableName } from "../../animation/utils/is-css-variable"
+import { cornerRadiusProps } from "../../utils/border-radius"
 import { correctBorderRadius } from "./scale-border-radius"
 import { correctBoxShadow } from "./scale-box-shadow"
 import type { ScaleCorrectorMap } from "./types"
@@ -6,12 +7,7 @@ import type { ScaleCorrectorMap } from "./types"
 export const scaleCorrectors: ScaleCorrectorMap = {
     borderRadius: {
         ...correctBorderRadius,
-        applyTo: [
-            "borderTopLeftRadius",
-            "borderTopRightRadius",
-            "borderBottomLeftRadius",
-            "borderBottomRightRadius",
-        ],
+        applyTo: [...cornerRadiusProps],
     },
     borderTopLeftRadius: correctBorderRadius,
     borderTopRightRadius: correctBorderRadius,
