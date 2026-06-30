@@ -199,7 +199,9 @@
                 animateView(() => {
                     buildProfile()
                     avatar.style.visibility = "hidden"
-                }, opts).add(avatar, ".profile")
+                }, opts)
+                    .add(avatar, ".profile")
+                    .crop(true)
             }
 
             const close = () => {
@@ -210,7 +212,9 @@
                     document.querySelector(".profile")?.remove()
                     document.querySelector(".profile-backdrop")?.remove()
                     avatar.style.visibility = "visible"
-                }, opts).add(".profile", avatar)
+                }, opts)
+                    .add(".profile", avatar)
+                    .crop(true)
             }
 
             avatar.addEventListener("click", openProfile)
