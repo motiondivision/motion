@@ -6,6 +6,7 @@ import { AnimationPlaybackControls, DOMKeyframesDefinition } from "../animation/
 import { getValueTransition } from "../animation/utils/get-value-transition"
 import { mapEasingToNativeEasing } from "../animation/waapi/easing/map-easing"
 import { applyGeneratorOptions } from "../animation/waapi/utils/apply-generator"
+import { cornerRadiusProps } from "../utils/border-radius"
 import { ElementOrSelector, resolveElements } from "../utils/resolve-elements"
 import type { ViewTransitionBuilder } from "./index"
 import { ViewTransitionTarget, ViewTransitionTargetDefinition } from "./types"
@@ -20,6 +21,16 @@ import { getViewAnimations } from "./utils/get-view-animations"
 import { hasTarget } from "./utils/has-target"
 
 const definitionNames = ["layout", "enter", "exit", "new", "old"] as const
+
+type CornerRadii = Record<(typeof cornerRadiusProps)[number], string>
+
+/**
+ * Whether a computed border-radius is square (every component zero). Splitting
+ * on whitespace handles two-value/elliptical radii like "0px 20px" - a leading
+ * `parseFloat` alone would misread the non-zero vertical radius as square.
+ */
+const isSquareRadius = (radius: string) =>
+    radius.split(" ").every((value) => parseFloat(value) === 0)
 
 /**
  * The `ViewTransitionTarget` buckets driving each generated layer type, in
@@ -284,24 +295,63 @@ export function startViewAnimation(
     }
 
     /**
-     * Each layer's box size per snapshot, so `finalizeCrop` can tell whether a
-     * morph's aspect ratio changed (the only case worth cropping).
+     * Resolve a layer's group (`layout`) timing to plain WAAPI values: native
+     * ms `delay`/`duration` and a baked `ease`. The single source of group
+     * timing, shared by the generated-group retiming and the crop corner-radius
+     * pass so the rounded clip animates on exactly the box's timing. It returns
+     * no generator `type` (the WAAPI-only `NativeAnimation` rejects a string
+     * type) nor `repeat`/`times` (which the group's `updateTiming` ignores), so
+     * none of them can leak into the radius animation and desync it.
      */
-    const cropBox = new Map<
+    const resolveGroupTiming = (name: string) => {
+        const [index, total] = staggerPosition(name, "group")
+        const transition = resolveLayerTransition(
+            layerTargets.get(name),
+            "group",
+            "layout",
+            index === -1 ? 0 : index,
+            total
+        )
+        transition.duration &&= secondsToMilliseconds(transition.duration)
+        const { delay = 0, duration, ease } = applyGeneratorOptions(transition)
+        return { delay: secondsToMilliseconds(delay), duration, ease }
+    }
+
+    /**
+     * Each layer's measured box + corner radii per snapshot. The box lets
+     * `finalizeCrop` tell whether a morph's aspect ratio changed (the only case
+     * worth cropping); the radii let a cropped morph's group clip animate each
+     * corner from the old element's radius to the new element's, keeping it
+     * rounded where `overflow: clip` would otherwise square the corners.
+     *
+     * We never flatten the source for capture (a snapshot is a paint of the live
+     * DOM, so squaring an element just for its capture would flash one real
+     * square frame). For an aspect-changing morph `object-fit: cover` crops each
+     * snapshot's own baked corners off-screen mid-morph, so the animated clip is
+     * the only visible corner; a near-same-aspect forced crop (`.crop(true)`)
+     * can't hide the outgoing snapshot's silhouette, but the endpoints coincide.
+     */
+    const cropMeasurements = new Map<
         string,
         {
-            old?: { width: number; height: number }
-            new?: { width: number; height: number }
+            old?: { width: number; height: number; radii: CornerRadii }
+            new?: { width: number; height: number; radii: CornerRadii }
         }
     >()
 
     const measureLayers = (phase: "old" | "new") =>
         nameRegistry.forEach((name, element) => {
-            const rect = (element as HTMLElement).getBoundingClientRect?.()
+            const el = element as HTMLElement
+            const rect = el.getBoundingClientRect?.()
             if (rect && rect.height) {
-                const entry = cropBox.get(name) ?? {}
-                entry[phase] = { width: rect.width, height: rect.height }
-                cropBox.set(name, entry)
+                const style = getComputedStyle(el)
+                const radii = {} as CornerRadii
+                for (const corner of cornerRadiusProps) {
+                    radii[corner] = style[corner]
+                }
+                const entry = cropMeasurements.get(name) ?? {}
+                entry[phase] = { width: rect.width, height: rect.height, radii }
+                cropMeasurements.set(name, entry)
             }
         })
 
@@ -332,7 +382,7 @@ export function startViewAnimation(
      * never "changed".
      */
     const aspectChanged = (name: string) => {
-        const box = cropBox.get(name)
+        const box = cropMeasurements.get(name)
         if (!box?.old || !box?.new || !box.old.height || !box.new.height) {
             return false
         }
@@ -703,63 +753,124 @@ export function startViewAnimation(
                         (name.type === "old" || name.type === "new") &&
                         !!stagger?.old &&
                         !!stagger?.new
-                    const timingType =
-                        name.type.startsWith("group") || isMorphCrossfade
-                            ? "group"
-                            : name.type
 
-                    const [index, total] = staggerPosition(
-                        name.layer,
-                        timingType
-                    )
-                    const transitionName =
-                        timingType === "group" ? "layout" : ""
-                    let animationTransition = resolveLayerTransition(
-                        targetDefinition,
-                        timingType,
-                        transitionName,
-                        index === -1 ? 0 : index,
-                        total
-                    )
+                    let timing: {
+                        delay: number
+                        duration?: number
+                        easing: string
+                    }
+                    if (name.type.startsWith("group")) {
+                        // group + group-children follow the resolved group
+                        // timing - the single source shared with the crop
+                        // corner-radius pass below.
+                        const { delay, duration, ease } = resolveGroupTiming(
+                            name.layer
+                        )
+                        timing = {
+                            delay,
+                            duration,
+                            easing: mapEasingToNativeEasing(
+                                ease,
+                                duration!
+                            ) as string,
+                        }
+                    } else {
+                        const timingType = isMorphCrossfade ? "group" : name.type
+                        const [index, total] = staggerPosition(
+                            name.layer,
+                            timingType
+                        )
+                        const transitionName =
+                            timingType === "group" ? "layout" : ""
+                        let animationTransition = resolveLayerTransition(
+                            targetDefinition,
+                            timingType,
+                            transitionName,
+                            index === -1 ? 0 : index,
+                            total
+                        )
 
-                    /**
-                     * The crossfade should resolve at the spring's *perceptual*
-                     * (visual) duration - the geometry can keep bouncing, but the
-                     * opacity shouldn't drag through the settle. So capture
-                     * `visualDuration` before `applyGeneratorOptions` replaces it
-                     * with the full overshoot duration, and use it for the fade.
-                     */
-                    const visualDuration = animationTransition.visualDuration
+                        /**
+                         * The crossfade should resolve at the spring's
+                         * *perceptual* (visual) duration - the geometry can keep
+                         * bouncing, but the opacity shouldn't drag through the
+                         * settle. So capture `visualDuration` before
+                         * `applyGeneratorOptions` replaces it with the full
+                         * overshoot duration, and use it for the fade.
+                         */
+                        const visualDuration = animationTransition.visualDuration
 
-                    animationTransition.duration &&= secondsToMilliseconds(
-                        animationTransition.duration
-                    )
+                        animationTransition.duration &&= secondsToMilliseconds(
+                            animationTransition.duration
+                        )
 
-                    animationTransition =
-                        applyGeneratorOptions(animationTransition)
+                        animationTransition =
+                            applyGeneratorOptions(animationTransition)
 
-                    const duration =
-                        isMorphCrossfade && visualDuration !== undefined
-                            ? secondsToMilliseconds(visualDuration)
-                            : animationTransition.duration
+                        timing = {
+                            delay: secondsToMilliseconds(
+                                animationTransition.delay ?? 0
+                            ),
+                            duration:
+                                isMorphCrossfade && visualDuration !== undefined
+                                    ? secondsToMilliseconds(visualDuration)
+                                    : animationTransition.duration,
+                            easing: isMorphCrossfade
+                                ? "linear"
+                                : (mapEasingToNativeEasing(
+                                      animationTransition.ease,
+                                      animationTransition.duration!
+                                  ) as string),
+                        }
+                    }
 
-                    const easing = isMorphCrossfade
-                        ? "linear"
-                        : (mapEasingToNativeEasing(
-                              animationTransition.ease,
-                              animationTransition.duration!
-                          ) as string)
-
-                    effect.updateTiming({
-                        delay: secondsToMilliseconds(
-                            animationTransition.delay ?? 0
-                        ),
-                        duration,
-                        easing,
-                    })
+                    effect.updateTiming(timing)
 
                     animations.push(new NativeAnimationWrapper(animation))
                 }
+
+                /**
+                 * Round each cropped layer's clip. Its `::view-transition-group`
+                 * has `overflow: clip`, which would otherwise square the corners
+                 * mid-morph; animate each corner from the old element's radius to
+                 * the new element's so the crop stays rounded. Timed as the group
+                 * (`layout`) so the radius tracks the morphing box.
+                 */
+                cropMeasurements.forEach((entry, name) => {
+                    if (!croppedNames.has(name)) return
+
+                    // Reuse the group's resolved timing - native ms delay/
+                    // duration + a baked ease, with no generator `type` or
+                    // repeat/times to leak into (or throw inside) NativeAnimation.
+                    const { delay, duration, ease } = resolveGroupTiming(name)
+
+                    for (const corner of cornerRadiusProps) {
+                        // `||` (not `??`) so an empty measurement falls back to
+                        // the other snapshot rather than an invalid keyframe.
+                        const from =
+                            entry.old?.radii[corner] ||
+                            entry.new?.radii[corner] ||
+                            "0px"
+                        const to =
+                            entry.new?.radii[corner] ||
+                            entry.old?.radii[corner] ||
+                            "0px"
+                        // Nothing to round if the corner is square at both ends.
+                        if (isSquareRadius(from) && isSquareRadius(to)) continue
+
+                        animations.push(
+                            new NativeAnimation({
+                                element: document.documentElement,
+                                name: corner,
+                                pseudoElement: `::view-transition-group(${name})`,
+                                keyframes: [from, to],
+                                delay,
+                                duration,
+                                ease,
+                            })
+                        )
+                    }
+                })
 
                 resolve(new GroupAnimation(animations))
             })
