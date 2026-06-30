@@ -148,6 +148,9 @@ test.describe("animateView() target resolution", () => {
         expect(result.css).toMatch(
             /::view-transition-old\(box\)[^{]*\{[^}]*object-fit:\s*cover/
         )
+        // The cropped morph rounds its square clip by animating the group's
+        // border-radius (8px -> 28px) - without it the corners square mid-morph.
+        expect(result.radiusAnimated).toBe(true)
     })
 
     test(".crop(false) opts out of the default crop", async ({ page }) => {
@@ -157,6 +160,25 @@ test.describe("animateView() target resolution", () => {
 
         expect(result.error).toBeNull()
         expect(result.css).not.toMatch(/object-fit/)
+        // No crop -> no overflow: clip -> no group-radius animation needed.
+        expect(result.radiusAnimated).toBe(false)
+    })
+
+    test("repeat/type don't leak into the cropped-clip radius animation", async ({
+        page,
+    }) => {
+        await page.goto("view/view-crop-timing.html")
+        const result = await readResult(page)
+        test.skip(!result.supported, "No startViewTransition support")
+
+        // A string `type` must not throw inside the WAAPI-only NativeAnimation
+        // and drop every animation.
+        expect(result.error).toBeNull()
+        // The radius reuses the group's resolved timing, which carries no
+        // `repeat`, so it runs once - in sync with the box geometry (also once).
+        // A leaking `repeat: 1` would make the radius run twice and desync.
+        expect(result.radiusIterations).toBe(1)
+        expect(result.groupIterations).toBe(1)
     })
 
     test(".exit({ opacity: 0 }) animates from an inferred 1, not instantly", async ({
