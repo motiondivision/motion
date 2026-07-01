@@ -4,6 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [12.42.2] 2026-07-01
+
+### Fixed
+
+-   `animateView`: Cropped group layers now animate `border-radius` from the old to new radius.
+
 ## [12.42.1] 2026-06-30
 
 ### Fixed
