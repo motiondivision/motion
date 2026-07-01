@@ -1856,4 +1856,52 @@ describe("AnimatePresence with custom components", () => {
 
         expect(container.childElementCount).toBe(0)
     })
+
+    test("Keeps present children in a stable position when others exit (#3746)", async () => {
+        const Bar = ({ id }: { id: string }) => (
+            <motion.div
+                data-id={id}
+                initial={{ width: 0 }}
+                animate={{ width: 100 }}
+                exit={{ width: 0 }}
+                transition={{ duration: 10 }}
+            />
+        )
+
+        const datasetA = ["a", "persist", "b"]
+        const datasetB = ["c", "d", "persist"]
+
+        const Component = ({ data }: { data: string[] }) => (
+            <AnimatePresence>
+                {data.map((id) => (
+                    <Bar key={id} id={id} />
+                ))}
+            </AnimatePresence>
+        )
+
+        const { container, rerender } = render(<Component data={datasetA} />)
+
+        await act(async () => {
+            await nextFrame()
+        })
+
+        // Switch dataset: "a" and "b" exit (still animating out), "c" and "d"
+        // enter, "persist" stays.
+        await act(async () => {
+            rerender(<Component data={datasetB} />)
+        })
+        await act(async () => {
+            await nextFrame()
+        })
+
+        const order = Array.from(
+            container.querySelectorAll("[data-id]")
+        ).map((el) => el.getAttribute("data-id"))
+
+        // "b" followed "persist" in the previous render, so it must stay *after*
+        // "persist". Re-ordering a still-present child behind an exiting one
+        // makes React treat it as a move and re-mount it — particularly in
+        // StrictMode — replaying its enter animation (#3746).
+        expect(order).toEqual(["a", "c", "d", "persist", "b"])
+    })
 })
