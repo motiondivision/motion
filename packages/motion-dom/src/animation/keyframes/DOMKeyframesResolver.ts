@@ -148,7 +148,8 @@ export class DOMKeyframesResolver<
     measureInitialState() {
         const { element, unresolvedKeyframes, name } = this
 
-        if (!element || !element.current) return
+        if (!element || !element.current || typeof window === "undefined")
+            return
 
         if (name === "height") {
             this.suspendedScrollY = window.pageYOffset
@@ -173,7 +174,8 @@ export class DOMKeyframesResolver<
     measureEndState() {
         const { element, name, unresolvedKeyframes } = this
 
-        if (!element || !element.current) return
+        if (!element || !element.current || typeof window === "undefined")
+            return
 
         const value = element.getValue(name)
         value && value.jump(this.measuredOrigin, false)
