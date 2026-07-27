@@ -1,0 +1,48 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+                font-family: sans-serif;
+            }
+
+            .box {
+                width: 100px;
+                height: 100px;
+                background-color: rgb(255, 0, 0);
+            }
+        </style>
+    </head>
+    <body>
+        <div class="box" id="color">animating</div>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            const { animate } = window.Motion
+
+            window.addEventListener("error", () => {
+                document.getElementById("color").innerText = "error"
+            })
+
+            // Start a long red -> blue animation, then interrupt it mid-flight
+            // with a short animation to green. Interrupt sampling reads the
+            // WAAPI value, so the new animation must start from the current
+            // colour (no jump) and land exactly on green.
+            animate(
+                "#color",
+                { backgroundColor: "rgb(0, 0, 255)" },
+                { duration: 10, ease: "linear" }
+            )
+
+            setTimeout(() => {
+                animate(
+                    "#color",
+                    { backgroundColor: "rgb(0, 255, 0)" },
+                    { duration: 0.3, ease: "linear" }
+                ).then(() => {
+                    const el = document.getElementById("color")
+                    if (el.innerText !== "error") el.innerText = "finished"
+                })
+            }, 500)
+        </script>
+    </body>
+</html>

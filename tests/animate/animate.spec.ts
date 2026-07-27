@@ -524,6 +524,68 @@ test.describe("animate() options", () => {
     })
 })
 
+test.describe("animate() color acceleration", () => {
+    test("backgroundColor runs as an accelerated WAAPI animation", async ({
+        page,
+    }) => {
+        await waitForAnimation(
+            "animate/animate-color-accelerated.html",
+            page,
+            500
+        )
+
+        const box = page.locator("#color")
+
+        // backgroundColor is now in the accelerated set, so it should be
+        // driven by a WAAPI animation rather than the per-frame JS path.
+        const animationCount = await box.evaluate(
+            (el) => el.getAnimations().length
+        )
+        expect(animationCount).toBeGreaterThan(0)
+
+        // Mid-animation (500ms into a 10s linear red -> blue tween) the colour
+        // must be strictly between the endpoints: red fading down, blue rising.
+        const { r, g, b } = await box.evaluate((el) => {
+            const match = getComputedStyle(el)
+                .backgroundColor.match(/\d+/g)!
+                .map(Number)
+            return { r: match[0], g: match[1], b: match[2] }
+        })
+
+        expect(r).toBeLessThan(255)
+        expect(r).toBeGreaterThan(0)
+        expect(b).toBeLessThan(255)
+        expect(b).toBeGreaterThan(0)
+        expect(g).toBe(0)
+    })
+
+    test("interrupting a color animation lands on the new target", async ({
+        page,
+    }) => {
+        // Long enough for the 500ms interrupt + 300ms green animation to finish.
+        await waitForAnimation(
+            "animate/animate-color-interrupt.html",
+            page,
+            1500
+        )
+
+        const box = page.locator("#color")
+        expect(await box.innerText()).toBe("finished")
+
+        const { r, g, b } = await box.evaluate((el) => {
+            const match = getComputedStyle(el)
+                .backgroundColor.match(/\d+/g)!
+                .map(Number)
+            return { r: match[0], g: match[1], b: match[2] }
+        })
+
+        // Final colour should be the interrupt target green, not blue.
+        expect(r).toBeCloseTo(0, 0)
+        expect(g).toBeCloseTo(255, 0)
+        expect(b).toBeCloseTo(0, 0)
+    })
+})
+
 test.describe("NativeAnimation", () => {
     test("then", async ({ page }) => {
         await waitForAnimation("animate/animate-wrapper-then.html", page)
