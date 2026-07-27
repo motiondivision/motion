@@ -1,0 +1,82 @@
+<!doctype html>
+<html>
+    <head>
+        <style>
+            body { margin: 0; background: #222; }
+            .box {
+                width: 120px;
+                height: 120px;
+                margin: 40px;
+                background: orange;
+            }
+            .box.moved { transform: translateX(200px); background: purple; }
+            .backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.75); }
+        </style>
+    </head>
+    <body>
+        <div class="box" id="box"></div>
+
+        <script type="module" src="/src/imports/view.js"></script>
+        <script type="module">
+            const { animateView, spring } = window.MotionDOM
+
+            window.__view = {
+                ready: false,
+                supported: !!document.startViewTransition,
+                rootOld: null,
+                rootNew: null,
+                boxGroup: null,
+                error: null,
+            }
+
+            const box = document.getElementById("box")
+
+            // Default is a bouncy spring (settles to its full "overshoot"
+            // duration). `.layout({ duration })` on the root must OVERRIDE that
+            // for the page crossfade (the dim), while the `.add()` morph - given
+            // no override - keeps the spring's settle duration.
+            animateView(
+                () => {
+                    box.classList.add("moved")
+                    const bd = document.createElement("div")
+                    bd.className = "backdrop"
+                    document.body.appendChild(bd)
+                },
+                { type: spring, visualDuration: 0.55, bounce: 0.25 }
+            )
+                .layout({ duration: 0.3 })
+                .add("#box")
+                .then(
+                    () => {
+                        const dur = (p) => {
+                            const a = document
+                                .getAnimations()
+                                .find(
+                                    (x) => x.effect && x.effect.pseudoElement === p
+                                )
+                            return a
+                                ? a.effect.getComputedTiming().duration
+                                : null
+                        }
+                        const name = getComputedStyle(box)
+                            .getPropertyValue("view-transition-name")
+                            .trim()
+                        window.__view.rootOld = dur(
+                            "::view-transition-old(root)"
+                        )
+                        window.__view.rootNew = dur(
+                            "::view-transition-new(root)"
+                        )
+                        window.__view.boxGroup = dur(
+                            `::view-transition-group(${name})`
+                        )
+                        window.__view.ready = true
+                    },
+                    (e) => {
+                        window.__view.error = String(e)
+                        window.__view.ready = true
+                    }
+                )
+        </script>
+    </body>
+</html>

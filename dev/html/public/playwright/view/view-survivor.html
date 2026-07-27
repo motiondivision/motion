@@ -1,0 +1,89 @@
+<!doctype html>
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+            .box {
+                width: 120px;
+                height: 120px;
+                margin: 40px;
+                background: orange;
+            }
+            /* Same element, just repositioned: a survivor that morphs. */
+            .box.moved {
+                transform: translateX(200px);
+                background: purple;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="box" id="box"></div>
+
+        <script type="module" src="/src/imports/view.js"></script>
+        <script type="module">
+            const { animateView } = window.MotionDOM
+
+            window.__view = {
+                ready: false,
+                supported: !!document.startViewTransition,
+                scaleOnNew: false,
+                scaleOnOld: false,
+                hasGroup: false,
+                error: null,
+            }
+
+            const box = document.getElementById("box")
+
+            // #box is present in both snapshots, so it should just MORPH. The
+            // enter/exit here must NOT apply to it (a survivor doesn't
+            // appear/leave). The browser's morph never puts a `scale` keyframe
+            // on old/new, so a scale there can only be a leaked enter/exit.
+            animateView(() => box.classList.add("moved"), {
+                duration: 3,
+                ease: "linear",
+            })
+                .add("#box")
+                .enter({ opacity: [0, 1], scale: [0.5, 1] })
+                .exit({ opacity: 0, scale: 0.5 })
+                .then(
+                    () => {
+                        const name = getComputedStyle(box)
+                            .getPropertyValue("view-transition-name")
+                            .trim()
+                        const hasScale = (pseudo) =>
+                            document.getAnimations().some((a) => {
+                                const e = a.effect
+                                return (
+                                    e &&
+                                    e.pseudoElement === pseudo &&
+                                    e
+                                        .getKeyframes()
+                                        .some((k) => "scale" in k)
+                                )
+                            })
+                        window.__view.scaleOnNew = hasScale(
+                            `::view-transition-new(${name})`
+                        )
+                        window.__view.scaleOnOld = hasScale(
+                            `::view-transition-old(${name})`
+                        )
+                        window.__view.hasGroup = document
+                            .getAnimations()
+                            .some(
+                                (a) =>
+                                    a.effect &&
+                                    a.effect.pseudoElement ===
+                                        `::view-transition-group(${name})`
+                            )
+                        window.__view.ready = true
+                    },
+                    (e) => {
+                        window.__view.error = String(e)
+                        window.__view.ready = true
+                    }
+                )
+        </script>
+    </body>
+</html>

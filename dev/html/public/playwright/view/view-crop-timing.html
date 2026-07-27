@@ -1,0 +1,87 @@
+<!doctype html>
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+            .box {
+                width: 100px;
+                height: 100px;
+                background: red;
+                margin: 40px;
+                border-radius: 8px;
+                view-transition-name: box;
+            }
+            /* Different aspect ratio AND border-radius -> auto-cropped. */
+            .box.big {
+                width: 320px;
+                height: 120px;
+                border-radius: 28px;
+                background: blue;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="box" id="box"></div>
+
+        <script type="module" src="/src/imports/view.js"></script>
+        <script type="module">
+            const { animateView } = window.MotionDOM
+
+            window.__view = {
+                ready: false,
+                supported: !!document.startViewTransition,
+                error: null,
+                radiusIterations: null,
+                groupIterations: null,
+            }
+
+            const box = document.getElementById("box")
+
+            const groupKeyframeMatch = (kind) => (a) => {
+                const eff = a.effect
+                return (
+                    eff &&
+                    eff.pseudoElement === "::view-transition-group(box)" &&
+                    eff
+                        .getKeyframes()
+                        .some((k) =>
+                            Object.keys(k).some((p) => kind.test(p))
+                        )
+                )
+            }
+
+            // `repeat` (and a string `type`) must NOT leak into the radius
+            // animation: the group geometry's updateTiming ignores repeat, so a
+            // leaking radius would run twice and desync the clip from the box.
+            animateView(() => box.classList.add("big"), {
+                type: "spring",
+                duration: 1,
+                ease: "linear",
+                repeat: 1,
+            })
+                .add("#box")
+                .then(
+                    () => {
+                        const anims = document.getAnimations()
+                        const radius = anims.find(groupKeyframeMatch(/Radius$/))
+                        const group = anims.find(
+                            groupKeyframeMatch(/transform|width|height/i)
+                        )
+                        window.__view.radiusIterations = radius
+                            ? radius.effect.getComputedTiming().iterations
+                            : null
+                        window.__view.groupIterations = group
+                            ? group.effect.getComputedTiming().iterations
+                            : null
+                        window.__view.ready = true
+                    },
+                    (e) => {
+                        window.__view.error = String(e)
+                        window.__view.ready = true
+                    }
+                )
+        </script>
+    </body>
+</html>

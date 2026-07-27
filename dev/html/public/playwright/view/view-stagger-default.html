@@ -1,0 +1,77 @@
+<!doctype html>
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+                display: flex;
+                gap: 20px;
+            }
+            .item {
+                width: 100px;
+                height: 100px;
+                background: red;
+                border-radius: 8px;
+            }
+            .item.shown {
+                width: 200px;
+                height: 140px;
+                border-radius: 24px;
+                background: blue;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="item">1</div>
+        <div class="item">2</div>
+        <div class="item">3</div>
+
+        <script type="module" src="/src/imports/view.js"></script>
+        <script type="module">
+            const { animateView, stagger } = window.MotionDOM
+
+            window.__view = {
+                ready: false,
+                supported: !!document.startViewTransition,
+                delays: [],
+                error: null,
+            }
+
+            // The stagger is a top-level/default option on a pure morph (`.add`
+            // with no enter/exit/layout). This drives the browser-generated
+            // group morph, whose retiming must resolve the stagger function -
+            // not feed it straight to secondsToMilliseconds (-> NaN -> throw).
+            animateView(
+                () => {
+                    document
+                        .querySelectorAll(".item")
+                        .forEach((el) => el.classList.add("shown"))
+                },
+                { delay: stagger(0.15), duration: 2, ease: "linear" }
+            )
+                .add(".item")
+                .then(
+                    () => {
+                        const delays = document
+                            .getAnimations()
+                            .filter((a) =>
+                                /::view-transition-group\(motion-view-\d+\)/.test(
+                                    (a.effect && a.effect.pseudoElement) || ""
+                                )
+                            )
+                            .map((a) =>
+                                Math.round(a.effect.getComputedTiming().delay)
+                            )
+                        window.__view.delays = [...new Set(delays)].sort(
+                            (a, b) => a - b
+                        )
+                        window.__view.ready = true
+                    },
+                    (e) => {
+                        window.__view.error = String(e)
+                        window.__view.ready = true
+                    }
+                )
+        </script>
+    </body>
+</html>

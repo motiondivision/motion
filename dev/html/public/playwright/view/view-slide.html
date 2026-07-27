@@ -1,0 +1,98 @@
+<!doctype html>
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+            .box {
+                width: 160px;
+                height: 160px;
+                margin: 60px;
+                background: red;
+                view-transition-name: box;
+            }
+            /* Same element (a survivor) that also morphs, so it has both old
+               and new views: the old slides out left while the new slides in
+               from the right. */
+            .box.next {
+                width: 300px;
+                height: 200px;
+                background: blue;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="box"></div>
+
+        <script type="module" src="/src/imports/view.js"></script>
+        <script type="module">
+            const { animateView } = window.MotionDOM
+
+            window.__view = {
+                ready: false,
+                supported: !!document.startViewTransition,
+                newTransform: [],
+                oldTransform: [],
+                blendKept: false,
+                error: null,
+            }
+
+            // The transform-ish keyframe values on a pseudo (Motion may emit
+            // `transform`, `translate`, or `x` - capture whichever it uses).
+            const MOVE = /transform|translate/
+            const transformOf = (pseudo) => {
+                for (const a of document.getAnimations()) {
+                    const eff = a.effect
+                    if (!eff || eff.pseudoElement !== pseudo) continue
+                    const kf = eff.getKeyframes()
+                    const key = [
+                        ...new Set(kf.flatMap((k) => Object.keys(k))),
+                    ].find((k) => MOVE.test(k) || k === "x")
+                    if (key) return kf.map((k) => String(k[key]))
+                }
+                return []
+            }
+
+            animateView(
+                () => document.querySelector(".box").classList.add("next"),
+                { duration: 3, ease: "linear" }
+            )
+                .add(".box")
+                .old({ transform: ["translateX(0px)", "translateX(-40px)"] })
+                .new({ transform: ["translateX(40px)", "translateX(0px)"] })
+                .then(
+                    () => {
+                        window.__view.newTransform = transformOf(
+                            "::view-transition-new(box)"
+                        )
+                        window.__view.oldTransform = transformOf(
+                            "::view-transition-old(box)"
+                        )
+                        // A slide keeps both layers opaque and overlapping, so
+                        // the additive plus-lighter blend must NOT survive (it
+                        // would flash bright where they cross).
+                        window.__view.blendKept = document
+                            .getAnimations()
+                            .some((a) => {
+                                const e = a.effect
+                                return (
+                                    e &&
+                                    /::view-transition-(old|new)\(box\)/.test(
+                                        e.pseudoElement || ""
+                                    ) &&
+                                    e
+                                        .getKeyframes()
+                                        .some((k) => "mixBlendMode" in k)
+                                )
+                            })
+                        window.__view.ready = true
+                    },
+                    (e) => {
+                        window.__view.error = String(e)
+                        window.__view.ready = true
+                    }
+                )
+        </script>
+    </body>
+</html>

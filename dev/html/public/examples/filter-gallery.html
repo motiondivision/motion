@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <title>animateView() — filter gallery</title>
+        <style>
+            html, body { height: 100%; }
+            body { margin: 0; }
+
+            .gallery,
+            .gallery * {
+                box-sizing: border-box;
+            }
+
+            .gallery {
+                width: 100%;
+                min-height: 100%;
+                background: #0e0e10;
+                color: #fff;
+                font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif);
+                padding: 32px;
+            }
+
+            .gallery-filters {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 10px;
+                margin-bottom: 24px;
+            }
+
+            .chip {
+                appearance: none;
+                border: 1px solid #2a2a30;
+                background: #17171b;
+                color: #c9c9d1;
+                border-radius: 999px;
+                padding: 8px 16px;
+                font-family: inherit;
+                font-size: 13px;
+                font-weight: 600;
+                cursor: pointer;
+            }
+
+            .chip:hover {
+                background: #1f1f25;
+            }
+
+            .chip.is-active {
+                background: #fff;
+                color: #111;
+                border-color: #fff;
+            }
+
+            .gallery-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+                gap: 14px;
+            }
+
+            .card {
+                position: relative;
+                aspect-ratio: 1;
+                border-radius: 14px;
+                overflow: hidden;
+                box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+            }
+
+            .card-tag {
+                position: absolute;
+                left: 10px;
+                bottom: 10px;
+                font-family: var(--font-mono, ui-monospace, monospace);
+                font-size: 11px;
+                text-transform: uppercase;
+                letter-spacing: 0.08em;
+                font-weight: 700;
+                color: rgba(255, 255, 255, 0.92);
+                text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+            }
+        </style>
+    </head>
+    <body>
+        <div class="gallery">
+            <div class="gallery-filters" id="filters">
+                <button class="chip is-active" data-filter="all">All</button>
+                <button class="chip" data-filter="photo">Photos</button>
+                <button class="chip" data-filter="video">Videos</button>
+                <button class="chip" data-filter="audio">Audio</button>
+            </div>
+
+            <div class="gallery-grid" id="grid"></div>
+        </div>
+
+        <script type="module" src="/src/imports/view.js"></script>
+        <script type="module">
+            const { animateView, spring, stagger } = window.MotionDOM
+
+            /**
+             * ==============   Data   ================
+             */
+            const ITEMS = [
+                { id: 1, type: "photo", c: "linear-gradient(135deg,#ff512f,#dd2476)" },
+                { id: 2, type: "video", c: "linear-gradient(135deg,#2193b0,#6dd5ed)" },
+                { id: 3, type: "audio", c: "linear-gradient(135deg,#8e2de2,#4a00e0)" },
+                { id: 4, type: "photo", c: "linear-gradient(135deg,#f7971e,#ffd200)" },
+                { id: 5, type: "video", c: "linear-gradient(135deg,#00b09b,#96c93d)" },
+                { id: 6, type: "photo", c: "linear-gradient(135deg,#e96443,#904e95)" },
+                { id: 7, type: "audio", c: "linear-gradient(135deg,#1f4037,#99f2c8)" },
+                { id: 8, type: "video", c: "linear-gradient(135deg,#fc466b,#3f5efb)" },
+                { id: 9, type: "photo", c: "linear-gradient(135deg,#11998e,#38ef7d)" },
+                { id: 10, type: "video", c: "linear-gradient(135deg,#ee0979,#ff6a00)" },
+                { id: 11, type: "audio", c: "linear-gradient(135deg,#4568dc,#b06ab3)" },
+                { id: 12, type: "photo", c: "linear-gradient(135deg,#c33764,#1d2671)" },
+            ]
+
+            /**
+             * ==============   Setup   ================
+             */
+            const grid = document.getElementById("grid")
+            const filters = document.getElementById("filters")
+            const cards = new Map()
+            let filter = "all"
+
+            const opts = { type: spring, visualDuration: 0.4, bounce: 0.18 }
+
+            const makeCard = (item) => {
+                const el = document.createElement("div")
+                el.className = "card"
+                el.dataset.type = item.type
+                el.style.background = item.c
+                el.innerHTML = `<span class="card-tag">${item.type}</span>`
+                return el
+            }
+
+            const wanted = () =>
+                ITEMS.filter((it) => filter === "all" || it.type === filter)
+
+            // Initial render, keeping a stable element per item id.
+            wanted().forEach((it) => {
+                const el = makeCard(it)
+                cards.set(it.id, el)
+                grid.append(el)
+            })
+
+            /**
+             * ==============   View animation   ================
+             */
+            const apply = (next) => {
+                if (next === filter) return
+                filter = next
+                filters.querySelectorAll(".chip").forEach((c) =>
+                    c.classList.toggle("is-active", c.dataset.filter === filter)
+                )
+
+                animateView(() => {
+                    const keep = wanted()
+                    const keepIds = new Set(keep.map((it) => it.id))
+
+                    // Remove cards that no longer match: these exit.
+                    for (const [id, el] of cards) {
+                        if (!keepIds.has(id)) {
+                            el.remove()
+                            cards.delete(id)
+                        }
+                    }
+
+                    // Append matched cards in order. Re-using the same element keeps an
+                    // item's identity, so persistent cards morph to their new cell;
+                    // brand-new ones enter.
+                    keep.forEach((it) => {
+                        let el = cards.get(it.id)
+                        if (!el) {
+                            el = makeCard(it)
+                            cards.set(it.id, el)
+                        }
+                        grid.append(el)
+                    })
+                }, opts)
+                    .add(".card")
+                    .enter({ opacity: [0, 1], scale: [0.85, 1] }, { delay: stagger(0.03) })
+                    .exit({ opacity: 0, scale: 0.85 }, { delay: stagger(0.03) })
+            }
+
+            filters.addEventListener("click", (e) => {
+                const chip = e.target.closest(".chip")
+                if (chip) apply(chip.dataset.filter)
+            })
+        </script>
+    </body>
+</html>
