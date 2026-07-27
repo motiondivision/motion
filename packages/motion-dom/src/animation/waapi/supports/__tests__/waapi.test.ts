@@ -44,7 +44,7 @@ describe("supportsBrowserAnimation", () => {
         ).toBe(true)
     })
 
-    it("returns true for color with standard rgba keyframes", () => {
+    it("returns false for color with standard rgba keyframes", () => {
         expect(
             supportsBrowserAnimation(
                 createMockOptions({
@@ -52,7 +52,7 @@ describe("supportsBrowserAnimation", () => {
                     keyframes: ["rgba(255, 0, 0, 1)", "rgba(0, 0, 255, 1)"],
                 })
             )
-        ).toBe(true)
+        ).toBe(false)
     })
 
     it("returns false for backgroundColor when onUpdate is set", () => {

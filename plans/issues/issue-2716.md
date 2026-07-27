@@ -116,5 +116,5 @@ Only if the row for issue-2716 in `plans/issues/README.md` reads `APPROVED`
 ## Maintenance notes
 
 - If wheel-scroll jumpiness reports keep arriving, the durable answer is
-  widening acceleration coverage (see plans 003/004 and the accelerated-values
-  audit note in `plans/README.md`), not JS-path tweaks.
+  widening acceleration coverage (see plan 004 and the accelerated-values audit
+  note in `plans/README.md`), not JS-path tweaks.
