@@ -3,17 +3,6 @@
  */
 import { animateTarget } from "../visual-element-target"
 
-/**
- * Regression test for #3735.
- *
- * In non-browser JS runtimes (or when `window` is shadowed by an IIFE wrapper,
- * e.g. Lynx's web runtime), bare `window` accesses see `undefined`. `animateTarget`
- * read `window.MotionHandoffAnimation` without a `typeof window` guard, throwing
- * `TypeError: Cannot read properties of undefined (reading 'MotionHandoffAnimation')`.
- *
- * This file runs in the `node` test environment so `window` is genuinely undefined,
- * matching the reported runtime.
- */
 describe("animateTarget in a non-browser environment", () => {
     const createValue = () => ({
         get: () => 0,

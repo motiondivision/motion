@@ -5,8 +5,6 @@ const windowCallbacks = new Set<WindowResizeHandler>()
 let windowResizeHandler: VoidFunction | undefined
 
 function createWindowResizeHandler() {
-    if (typeof window === "undefined") return
-
     windowResizeHandler = () => {
         const info = {
             get width() {

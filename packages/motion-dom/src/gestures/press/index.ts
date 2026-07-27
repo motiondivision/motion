@@ -77,18 +77,16 @@ export function press(
         const endEventOptions = { ...eventOptions, capture: true }
 
         const onPointerEnd = (endEvent: PointerEvent, success: boolean) => {
-            if (typeof window !== "undefined") {
-                window.removeEventListener(
-                    "pointerup",
-                    onPointerUp,
-                    endEventOptions
-                )
-                window.removeEventListener(
-                    "pointercancel",
-                    onPointerCancel,
-                    endEventOptions
-                )
-            }
+            window.removeEventListener(
+                "pointerup",
+                onPointerUp,
+                endEventOptions
+            )
+            window.removeEventListener(
+                "pointercancel",
+                onPointerCancel,
+                endEventOptions
+            )
 
             if (isPressing.has(target)) {
                 isPressing.delete(target)
@@ -117,21 +115,16 @@ export function press(
             onPointerEnd(cancelEvent, false)
         }
 
-        if (typeof window !== "undefined") {
-            window.addEventListener("pointerup", onPointerUp, endEventOptions)
-            window.addEventListener(
-                "pointercancel",
-                onPointerCancel,
-                endEventOptions
-            )
-        }
+        window.addEventListener("pointerup", onPointerUp, endEventOptions)
+        window.addEventListener(
+            "pointercancel",
+            onPointerCancel,
+            endEventOptions
+        )
     }
 
     targets.forEach((target: EventTarget) => {
-        const pointerDownTarget =
-            options.useGlobalTarget && typeof window !== "undefined"
-                ? window
-                : target
+        const pointerDownTarget = options.useGlobalTarget ? window : target
         pointerDownTarget.addEventListener(
             "pointerdown",
             startPress as EventListener,

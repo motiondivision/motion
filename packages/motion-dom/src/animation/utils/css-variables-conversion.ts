@@ -41,7 +41,6 @@ export function getVariableValue(
     if (!token) return
 
     // Attempt to read this CSS variable off the element
-    if (typeof window === "undefined") return fallback
     const resolved = window.getComputedStyle(element).getPropertyValue(token)
 
     if (resolved) {

@@ -120,10 +120,7 @@ function cancelTreeOptimisedTransformAnimations(
 
     const appearId = getOptimisedAppearId(visualElement)
 
-    if (
-        typeof window !== "undefined" &&
-        window.MotionHasOptimisedAnimation!(appearId, "transform")
-    ) {
+    if (window.MotionHasOptimisedAnimation!(appearId, "transform")) {
         const { layout, layoutId } = projectionNode.options
         window.MotionCancelOptimisedAnimation!(
             appearId,
@@ -467,13 +464,10 @@ export function createProjectionNode<I>({
 
                 // Set initial innerWidth in a frame.read callback to batch the read
                 frame.read(() => {
-                    if (typeof window !== "undefined") {
-                        innerWidth = window.innerWidth
-                    }
+                    innerWidth = window.innerWidth
                 })
 
                 attachResizeListener(instance, () => {
-                    if (typeof window === "undefined") return
                     const newInnerWidth = window.innerWidth
                     if (newInnerWidth === innerWidth) return
 
@@ -679,7 +673,6 @@ export function createProjectionNode<I>({
              * if a layout animation measurement is actually going to be affected by them.
              */
             if (
-                typeof window !== "undefined" &&
                 window.MotionCancelOptimisedAnimation &&
                 !this.hasCheckedOptimisedAppear
             ) {

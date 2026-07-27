@@ -13,7 +13,6 @@ export const HTMLProjectionNode = createProjectionNode<HTMLElement>({
     }),
     defaultParent: () => {
         if (!rootProjectionNode.current) {
-            if (typeof window === "undefined") return undefined
             const documentNode = new DocumentProjectionNode({})
             documentNode.mount(window)
             documentNode.setOptions({ layoutScroll: true })
@@ -25,6 +24,5 @@ export const HTMLProjectionNode = createProjectionNode<HTMLElement>({
         instance.style.transform = value !== undefined ? value : "none"
     },
     checkIsScrollRoot: (instance) =>
-        typeof window !== "undefined" &&
         Boolean(window.getComputedStyle(instance).position === "fixed"),
 })
