@@ -10,6 +10,10 @@ Undocumented APIs should be considered internal and may change without warning.
 
 -   Hardware acceleration for `backgroundColor` in supported browsers.
 
+### Fixed
+
+-   `AnimatePresence`: Exiting children no longer interleave with entering children, which could reorder and remount children present in both renders.
+
 ## [12.42.2] 2026-07-01
 
 ### Fixed
