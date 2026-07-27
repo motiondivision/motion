@@ -27,39 +27,44 @@ The 2026-06-10 runs were non-interactive, so plans were written for the top find
 
 ## Execution order & status
 
-| Plan | Title                                                                                     | Priority | Effort | Depends on                                                            | Status |
-| ---- | ----------------------------------------------------------------------------------------- | -------- | ------ | --------------------------------------------------------------------- | ------ |
-| 001  | Promote `animateLayout()` into motion-dom public API                                      | P1       | S      | —                                                                     | TODO   |
-| 007  | Lint motion-dom/motion-utils + blocking CI lint job                                       | P1       | M      | —                                                                     | TODO   |
-| 005  | Grid/distance-based `stagger()`                                                           | P3       | S      | —                                                                     | TODO   |
-| 008  | Single-parse box-shadow projection scale correction                                       | P2       | S      | —                                                                     | TODO   |
-| 009  | LayoutAnimationBuilder characterization tests                                             | P2       | M      | —                                                                     | TODO   |
-| 003  | Enable WAAPI acceleration for color properties                                            | P2       | M      | —                                                                     | TODO   |
-| 010  | Remove dead root devDependencies                                                          | P3       | S      | 007 (soft)                                                            | TODO   |
-| 012  | Design spike: unified mark-dirty/pull MotionValue derivation graph (doc only)             | P2       | M      | — (soft: effects/VE unification direction)                            | TODO   |
-| 015  | Fix conditional hook call in Reorder.Item                                                 | P2       | S      | —                                                                     | TODO   |
-| 016  | Actionable Reorder-in-LazyMotion warning + docs                                           | P3       | S      | —                                                                     | TODO   |
-| 018  | Multidimensional reorder (`axis="both"`, positional collision detection)                  | P2       | L      | 015                                                                   | TODO   |
-| 019  | Port the pan/drag gesture engine to motion-dom (behavior-preserving)                      | P1       | M      | —                                                                     | TODO   |
-| 020  | Ship a vanilla `drag()` API in motion-dom on the shared projection tree                   | P1       | L      | 019 (hard), PR #3748 merged (hard), 009 (soft)                        | TODO   |
-| 021  | Drag QoL: inertia hard-stop, resize throttling, direction-lock fairness                   | P2       | M      | 019 (hard)                                                            | TODO   |
-| 022  | Fix press() end-event filtering (secondary-pointer teardown, swallowed drag cancel)       | P1       | S      | —                                                                     | TODO   |
-| 023  | Fix keyboard-press listener lifecycle (phantom pointerup/pointercancel)                   | P1       | S      | —                                                                     | TODO   |
-| 024  | Fix hover() double onHoverStart on re-enter during press                                  | P2       | S      | —                                                                     | TODO   |
-| 025  | Add unit tests for resize() + wire up dead ResizeObserver mock                            | P2       | S      | —                                                                     | TODO   |
-| 026  | Fix InViewFeature stale `viewport.once` closure                                           | P3       | S      | —                                                                     | TODO   |
-| 027  | Make the frameloop survive throwing callbacks + fix non-keepAlive batcher stall           | P1       | S      | —                                                                     | TODO   |
-| 028  | Make `cancelFrame` cancel same-step callbacks queued for the current frame                | P2       | S      | —                                                                     | TODO   |
-| 029  | Close frameloop test gaps (microtask, useManualTiming, 8-step order, delta clamp)         | P3       | S      | 027, 028 (soft)                                                       | TODO   |
-| 030  | Make `visualDuration` work without `bounce`/`duration`                                    | P1       | S      | —                                                                     | TODO   |
-| 031  | Fix overdamped spring snap (#1207) via exponential form + unified per-tick update         | P1       | M      | 030 (soft)                                                            | TODO   |
-| 032  | Reproduce and fix NaN spring-animating polygon points (#2791)                             | P2       | M      | —                                                                     | TODO   |
-| 033  | Replace findSpring Newton-Raphson with exact closed form (~−1kB min)                      | P2       | M      | 030, 031 (soft)                                                       | TODO   |
-| 034  | Move `inView()` from framer-motion to motion-dom (behavior-preserving + first unit tests) | P3       | M      | — (026 soft: same feature file, trivial merge)                        | TODO   |
-| 035  | Make bundle-size budgets a blocking gate (CI + prepack) and re-baseline                   | P1       | S      | — (007 soft: both add a CircleCI job)                                 | TODO   |
-| 036  | Restore DCE of dev warnings broken by `process.env?.NODE_ENV`                             | P1       | S      | 035 (soft: budget ratchet step)                                       | TODO   |
-| 037  | Stop scale correctors leaking into the minimal `m` bundle                                 | P2       | S      | 035 (soft), 008 (soft: disjoint files, re-run scale-correction suite) | TODO   |
-| 038  | `[audit]` filesize pass over heaviest non-contended motion-dom modules                    | P2       | M      | 035 (soft); coordinate 030–033, 019–021                               | TODO   |
+| Plan | Title | Priority | Effort | Depends on | Status |
+|------|-------|----------|--------|------------|--------|
+| 006 | Rotate exposed UPDATE_SECRET_TOKEN + secret-scan CI gate | P1 | S | — (Step 0 is a human action) | TODO |
+| 001 | Promote `animateLayout()` into motion-dom public API | P1 | S | — | TODO |
+| 007 | Lint motion-dom/motion-utils + blocking CI lint job | P1 | M | — | TODO |
+| 005 | Grid/distance-based `stagger()` | P3 | S | — | TODO |
+| 008 | Single-parse box-shadow projection scale correction | P2 | S | — | TODO |
+| 009 | LayoutAnimationBuilder characterization tests | P2 | M | — | TODO |
+| 003 | Enable WAAPI acceleration for color properties | P2 | M | — | TODO |
+| 002 | Finish `animateView()` non-root target resolution | P2 | M | — | TODO |
+| 004 | Design spike: WAAPI for transform shorthands (doc only) | P2 | M | — | TODO |
+| 010 | Remove dead root devDependencies | P3 | S | 007 (soft) | DONE (lint-staged + zlib removed; @types/styled-components kept — see plan) |
+| 011 | Stop `useCombineMotionValues` per-render transformer re-execution + resubscription | P2 | M | — | TODO |
+| 012 | Design spike: unified mark-dirty/pull MotionValue derivation graph (doc only) | P2 | M | — (soft: effects/VE unification direction) | TODO |
+| 015 | Fix conditional hook call in Reorder.Item | P2 | S | — | TODO |
+| 017 | Scope Reorder auto-scroll state per group | P3 | S | — | TODO |
+| 016 | Actionable Reorder-in-LazyMotion warning + docs | P3 | S | — | TODO |
+| 018 | Multidimensional reorder (`axis="both"`, positional collision detection) | P2 | L | 015, 017 | TODO |
+| 019 | Port the pan/drag gesture engine to motion-dom (behavior-preserving) | P1 | M | — | TODO |
+| 020 | Ship a vanilla `drag()` API in motion-dom on the shared projection tree | P1 | L | 019 (hard), PR #3748 merged (hard), 009 (soft) | TODO |
+| 021 | Drag QoL: inertia hard-stop, resize throttling, direction-lock fairness | P2 | M | 019 (hard) | TODO |
+| 022 | Fix press() end-event filtering (secondary-pointer teardown, swallowed drag cancel) | P1 | S | — | TODO |
+| 023 | Fix keyboard-press listener lifecycle (phantom pointerup/pointercancel) | P1 | S | — | TODO |
+| 024 | Fix hover() double onHoverStart on re-enter during press | P2 | S | — | TODO |
+| 025 | Add unit tests for resize() + wire up dead ResizeObserver mock | P2 | S | — | TODO |
+| 026 | Fix InViewFeature stale `viewport.once` closure | P3 | S | — | TODO |
+| 027 | Make the frameloop survive throwing callbacks + fix non-keepAlive batcher stall | P1 | S | — | TODO |
+| 028 | Make `cancelFrame` cancel same-step callbacks queued for the current frame | P2 | S | — | TODO |
+| 029 | Close frameloop test gaps (microtask, useManualTiming, 8-step order, delta clamp) | P3 | S | 027, 028 (soft) | TODO |
+| 030 | Make `visualDuration` work without `bounce`/`duration` | P1 | S | — | TODO |
+| 031 | Fix overdamped spring snap (#1207) via exponential form + unified per-tick update | P1 | M | 030 (soft) | TODO |
+| 032 | Reproduce and fix NaN spring-animating polygon points (#2791) | P2 | M | — | TODO |
+| 033 | Replace findSpring Newton-Raphson with exact closed form (~−1kB min) | P2 | M | 030, 031 (soft) | TODO |
+| 034 | Move `inView()` from framer-motion to motion-dom (behavior-preserving + first unit tests) | P3 | M | — (026 soft: same feature file, trivial merge) | TODO |
+| 035 | Make bundle-size budgets a blocking gate (CI + prepack) and re-baseline | P1 | S | — (007 soft: both add a CircleCI job) | TODO |
+| 036 | Restore DCE of dev warnings broken by `process.env?.NODE_ENV` | P1 | S | 035 (soft: budget ratchet step) | TODO |
+| 037 | Stop scale correctors leaking into the minimal `m` bundle | P2 | S | 035 (soft), 008 (soft: disjoint files, re-run scale-correction suite) | TODO |
+| 038 | `[audit]` filesize pass over heaviest non-contended motion-dom modules | P2 | M | 035 (soft); coordinate 030–033, 019–021 | TODO |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale)
 

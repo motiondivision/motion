@@ -113,3 +113,17 @@ Stop and report back (do not improvise) if:
 
 - If the maintainer later wants pre-commit linting, add `lint-staged` *current* (v15+) together with husky and a config in one PR — don't resurrect v8.
 - The toolchain-lag cluster (lerna 4 → 8, turbo 1 → 2 [has an advisory: GHSA-3qcw-2rhx-2726, low severity], cypress 4 → current, prettier 2 → 3, eslint 8 → 9, TS 5.4 → 5.8, @types/node 18 → 20 + missing `engines` fields in published packages) was audited and deliberately **not** planned here: each touches the release pipeline (`lerna publish`, turbo cache, CI images) and needs the maintainer's go-ahead. They're recorded in `plans/README.md` under rejected/deferred findings.
+
+## Execution notes (2026-06-22)
+
+Executed on branch `advisor/010-manifest-hygiene`. **Outcome: partial — 2 of 3 removals.**
+
+- **Removed `lint-staged` and `zlib`** as planned. `lint-staged@8` had no husky/config/hooks; `zlib`'s only consumer (`dev/inc/bundlesize.mjs` `await import("zlib")`) resolves the Node builtin — verified directly (`zlib.gzip` is a function with the npm package absent) and via a green `yarn measure`.
+- **KEPT `@types/styled-components` — the plan was wrong that it is dead weight.** Although it has no source imports, its presence in `node_modules` is load-bearing for the type build: removing it makes `rollup-plugin-dts` inject `/// <reference types="react" />` into `dist/dom.d.ts`, which `packages/framer-motion/scripts/check-bundle.js` rejects ("DOM bundle includes reference to React" — the vanilla DOM bundle must be React-free). Reproduced cleanly: pristine deps → `dom.d.ts` line 1 is a plain `motion-dom` import and check-bundle passes; with `@types/styled-components` removed → the React triple-slash reference appears and `framer-motion#build` fails. (`lint-staged`/`zlib` are non-`@types` packages and cannot affect `.d.ts` output, so they stay safe to remove.)
+- **Drift / pre-existing breakage**: `main` HEAD had already bumped `turbo` to `2.x` (package.json + committed `yarn.lock` both resolve `2.9.14`) but left `turbo.json` using the old `"pipeline"` key, which turbo 2.x rejected — so `yarn build` was broken on `main` before this work. Per operator approval, this branch also renames `turbo.json` `"pipeline"` → `"tasks"` to unblock the gates. This is outside the plan's original scope (which said don't touch turbo); flagged for the reviewer.
+
+Gates (all green after the corrected scope + turbo.json fix): `yarn install` clean; `yarn build` 8/8 tasks; `yarn measure` exit 0 (the ❌ bundle-size overages are the pre-existing plan-035 items — the script reports, doesn't fail); `yarn test` 7/7 tasks, 799 passed.
+
+Follow-ups for the maintainer:
+- The DOM bundle's React-free guarantee currently depends on a stray, unused `@types/styled-components` being installed — fragile. The real fix is to stop `rollup-plugin-dts` leaking the React reference (or pin the dts toolchain), after which `@types/styled-components` can be dropped too.
+- `turbo.json` `pipeline`→`tasks` is the only turbo-2.x config rename needed for the root config; the broader turbo 1→2 migration (cache behavior, CI images) remains the separate deferred toolchain decision.
