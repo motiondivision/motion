@@ -87,10 +87,16 @@ export function PopChild({ children, isPresent, anchorX, anchorY, root, pop }: P
     /**
      * In React 19, refs are passed via props.ref instead of element.ref.
      * We check props.ref first (React 19) and fall back to element.ref (React 18).
+     *
+     * The composed ref is only used when popping the child out (pop !== false),
+     * so we avoid reading children.props.ref otherwise. In React 18.3 that read
+     * triggers a spurious "`ref` is not a prop" warning getter (#3745).
      */
     const childRef =
-        (children.props as { ref?: React.Ref<HTMLElement> })?.ref ??
-        (children as unknown as { ref?: React.Ref<HTMLElement> })?.ref
+        pop !== false
+            ? ((children.props as { ref?: React.Ref<HTMLElement> })?.ref ??
+              (children as unknown as { ref?: React.Ref<HTMLElement> })?.ref)
+            : undefined
     const composedRef = useComposedRefs(ref, childRef)
 
     /**
