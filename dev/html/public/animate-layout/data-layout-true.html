@@ -1,0 +1,66 @@
+<html>
+    <head>
+        <!--
+            data-layout="true" must be treated as the boolean form
+            (animationType "both"), not as a literal animation type.
+        -->
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+            }
+
+            #box {
+                width: 100px;
+                height: 100px;
+                background-color: #00cc88;
+            }
+
+            #box.moved {
+                position: absolute;
+                top: 100px;
+                left: 200px;
+                width: 200px;
+            }
+
+            [data-layout-correct="false"] {
+                background: #dd1144 !important;
+                opacity: 0.5;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="box" data-layout="true"></div>
+
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module" src="/src/imports/script-assert.js"></script>
+        <script type="module">
+            const { animateLayout, frame } = window.AnimateLayout
+            const { matchViewportBox } = window.Assert
+            const box = document.getElementById("box")
+
+            async function runTest() {
+                const controls = await animateLayout(
+                    () => box.classList.add("moved"),
+                    { duration: 10, ease: "linear" }
+                )
+
+                controls.pause()
+                controls.time = 5
+
+                await new Promise((resolve) => frame.postRender(resolve))
+
+                // (0,0,100,100) -> (100,200,400,200), at 50% both position
+                // and size interpolate:
+                matchViewportBox(box, {
+                    top: 50,
+                    left: 100,
+                    right: 250,
+                    bottom: 150,
+                })
+            }
+
+            runTest().catch(console.error)
+        </script>
+    </body>
+</html>

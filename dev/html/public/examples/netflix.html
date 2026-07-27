@@ -1,0 +1,406 @@
+<!doctype html>
+<!--
+    Streaming-menu demo (ported from motion-api's examples), running against the
+    *local* motion-dom build via the /src/imports/view.js shim. Hack on it at:
+        http://localhost:8000/examples/netflix.html
+
+    After editing motion-dom source, rebuild it (`yarn build` in
+    packages/motion-dom) and reload.
+
+    Grouping demo: the album art is a 2:3 layer in BOTH states (so it scales
+    cleanly, no cover punch). The 2:3 -> 16:9 crop comes from a clip *window*
+    (.poster/.hero) that the art is nested inside. Auto-grouping
+    (view-transition-group: contain + ::view-transition-group-children clip)
+    makes the window crop the art for the WHOLE morph, not just at the live-DOM
+    handoff. Needs nested view-transition groups (Chromium 140+); elsewhere it
+    degrades to the flat default (art clips only at the end).
+
+    Crop note: the backdrop is a fade-only enter/exit, so with the morph-aware
+    crop default it stays visible WITHOUT `.crop(false)`. The title keeps
+    `.crop(false)` because it's a genuine morph that shouldn't be cover-cropped.
+-->
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>animateView() — streaming-menu morph</title>
+        <style>
+            :root {
+                --background: #0a0a0b;
+                --white: #fff;
+                --white-feint: #898d8e;
+                --layer: #0b1011;
+                --layer-transparent: #14171caa;
+                --border: rgba(158, 234, 247, 0.15);
+                --accent: #60a5fa;
+                --feint-text: #586d8c;
+                --font-sans: system-ui, -apple-system, sans-serif;
+            }
+
+            html,
+            body {
+                height: 100%;
+                margin: 0;
+                background: var(--background);
+            }
+
+            .motionflix,
+            .motionflix * {
+                box-sizing: border-box;
+            }
+
+            .motionflix {
+                width: 100%;
+                min-height: 100%;
+                background: var(--background);
+                color: var(--white);
+            }
+
+            .topbar {
+                position: sticky;
+                top: 0;
+                z-index: 5;
+                display: flex;
+                align-items: center;
+                padding: 16px 24px;
+                background: var(--background);
+            }
+
+            .logo {
+                font-family: var(--font-sans);
+                font-variation-settings: "opsz" 32, "wght" 640;
+                font-size: 22px;
+                letter-spacing: -0.02em;
+                color: var(--white);
+            }
+
+            .grid {
+                display: grid;
+                grid-auto-flow: column;
+                grid-auto-columns: 1fr;
+                gap: 16px;
+                padding: 0 24px 24px;
+            }
+
+            .card {
+                appearance: none;
+                background: none;
+                border: 0;
+                padding: 0;
+                margin: 0;
+                color: inherit;
+                text-align: left;
+                cursor: pointer;
+                transition: transform 0.2s ease;
+            }
+
+            .card:hover {
+                transform: translateY(-4px);
+            }
+
+            .poster {
+                aspect-ratio: 2 / 3;
+                overflow: hidden;
+                background-color: var(--layer);
+            }
+
+            /* The card art fills the 2:3 poster window, and pairs with .hero-art
+               (also 2:3) so the morph layer keeps a constant aspect (no cover
+               punch). The .poster/.hero clip *window* morphs 2:3 -> 16:9 and,
+               via auto-grouping, crops the nested art for the whole morph. */
+            .poster-art {
+                width: 100%;
+                height: 100%;
+                background-size: cover;
+                background-position: center;
+            }
+
+            .card-title {
+                margin-top: 8px;
+                font-size: 14px;
+                color: var(--white-feint);
+                width: fit-content;
+            }
+
+            .backdrop {
+                position: fixed;
+                inset: 0;
+                background: var(--layer-transparent);
+                z-index: 10;
+            }
+
+            /* The backdrop is a fade-only (new/old-only) layer, which the View
+               Transitions spec paints *after* (above) the old-originated morph
+               groups - so mid-transition it veils the modal until the live DOM
+               z-index takes back over. Tag its group via .class("backdrop") and
+               push it behind the morph layers for the duration. */
+            ::view-transition-group(.backdrop) {
+                z-index: -1;
+            }
+
+            .detail {
+                position: fixed;
+                z-index: 11;
+                top: 5vh;
+                left: 50%;
+                transform: translateX(-50%);
+                width: min(880px, 92vw);
+                max-height: 90vh;
+                overflow: auto;
+                background: var(--layer);
+                border: 1px solid var(--border);
+            }
+
+            .hero {
+                position: relative;
+                aspect-ratio: 16 / 9;
+                overflow: hidden;
+                background-color: var(--layer);
+            }
+
+            /* The morph layer (.hero-art) stays 2:3 in both states - it's the
+               card poster scaled up - so object-fit has no aspect change to
+               re-crop and the image scales cleanly (no zoom punch). The 16:9
+               .hero wrapper crops it to a widescreen band. */
+            .hero-art {
+                position: absolute;
+                top: 50%;
+                left: 0;
+                width: 100%;
+                aspect-ratio: 2 / 3;
+                transform: translateY(-50%);
+                background-size: cover;
+                background-position: center;
+            }
+
+            .detail-body {
+                padding: 28px;
+            }
+
+            .detail-body h1 {
+                margin: 0 0 8px;
+                font-size: 32px;
+                width: fit-content;
+            }
+
+            .meta {
+                color: var(--feint-text);
+                font-size: 14px;
+                margin-bottom: 18px;
+            }
+
+            .actions {
+                display: flex;
+                gap: 12px;
+                margin-bottom: 18px;
+            }
+
+            .actions button {
+                appearance: none;
+                border: 0;
+                padding: 10px 22px;
+                font-size: 15px;
+                font-weight: 700;
+                cursor: pointer;
+            }
+
+            .actions .play {
+                background: var(--accent);
+                color: var(--background);
+            }
+
+            .actions .list {
+                background: var(--layer);
+                border: 1px solid var(--border);
+                color: var(--white);
+            }
+
+            .synopsis {
+                color: var(--white-feint);
+                line-height: 1.5;
+                max-width: 60ch;
+            }
+
+            .close {
+                position: absolute;
+                right: 14px;
+                top: 14px;
+                z-index: 12;
+                width: 36px;
+                height: 36px;
+                border: 1px solid var(--border);
+                background: var(--layer);
+                color: var(--white);
+                font-size: 18px;
+                cursor: pointer;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="motionflix">
+            <div class="topbar">
+                <span class="logo">New Releases</span>
+            </div>
+
+            <div class="grid" id="grid"></div>
+        </div>
+
+        <script type="module" src="/src/imports/view.js"></script>
+        <script type="module">
+            const MotionDOM = window.MotionDOM
+            if (!MotionDOM || !MotionDOM.animateView) {
+                document.body.innerHTML =
+                    '<p style="padding:40px;font-family:sans-serif;color:#fff">' +
+                    "Couldn't load <code>motion-dom</code> — build it (run " +
+                    "<code>yarn build</code> in <code>packages/motion-dom</code>) " +
+                    "then reload this page.</p>"
+                throw new Error("motion-dom failed to load")
+            }
+            const { animateView, spring } = MotionDOM
+
+            /**
+             * ==============   Data   ================
+             */
+            const ASSET = "/photos/assets"
+
+            // Each poster is a 2:3 cover. `focus` is the background-position used
+            // for the 16:9 hero in the open state, so each title crops to its
+            // best moment.
+            const MOVIES = [
+                { file: "bounceman.jpg", title: "Bounceman", meta: "1986 · Action · 1h 52m", focus: "center 35%", synopsis: "A small-town stuntman wakes up able to bounce off anything, and the city has never been safer, or springier." },
+                { file: "push.jpg", title: "Push", meta: "2025 · Action · 1h 58m", focus: "center 55%", synopsis: "Rain-slick streets, neon skylines and two rivals who only feel alive at full throttle." },
+                { file: "escape.jpg", title: "Escape", meta: "2026 · Sci-Fi · 2h 08m", focus: "center 25%", synopsis: "One ship, one shot at the upper atmosphere, and a countdown that refuses to stop." },
+                { file: "quietcoast.jpg", title: "The Quiet Coast", meta: "2025 · Horror · 1h 51m", focus: "center 45%", synopsis: "A lighthouse, an empty beach and a mask the tide keeps bringing back. Some places don't like to be found." },
+                { file: "missedconnections.jpg", title: "Missed Connections", meta: "2024 · Romance · 1h 46m", focus: "center 50%", synopsis: "Two strangers keep almost meeting across one long spring in the same city park." },
+                { file: "papertales.jpg", title: "Paper Tales", meta: "2026 · Animation · 1h 34m", focus: "center 55%", synopsis: "A papercraft raccoon, a brave bunny and a tiny wizard owl set out to refold a fraying forest." },
+                { file: "dipshitsofclivesbay.jpg", title: "Dipshits of Clive's Bay", meta: "2025 · Reality · Series", focus: "center 52%", synopsis: "Nine housemates, one tinny-strewn bay and absolutely no ragrets. Reality TV at its most feral." },
+            ]
+
+            const transition = { type: spring, visualDuration: 0.5, bounce: 0.2 }
+
+            /**
+             * ==============   Setup   ================
+             */
+            const grid = document.getElementById("grid")
+            let openId = null
+
+            grid.innerHTML = MOVIES.map(
+                (m, i) => `
+                <button class="card" data-id="${i}">
+                    <div class="poster"><div class="poster-art" style="background-image:url('${ASSET}/${m.file}')"></div></div>
+                    <div class="card-title">${m.title}</div>
+                </button>`
+            ).join("")
+
+            /**
+             * ==============   Detail view   ================
+             */
+            const buildDetail = (i) => {
+                const m = MOVIES[i]
+
+                const backdrop = document.createElement("div")
+                backdrop.className = "backdrop"
+                backdrop.addEventListener("click", close)
+
+                const detail = document.createElement("div")
+                detail.className = "detail"
+                detail.innerHTML = `
+                    <button class="close" aria-label="Close">✕</button>
+                    <div class="hero"><div class="hero-art" style="background-image:url('${ASSET}/${m.file}')"></div></div>
+                    <div class="detail-body">
+                        <h1>${m.title}</h1>
+                        <div class="meta">${m.meta}</div>
+                        <div class="actions">
+                            <button class="play">▶ Play</button>
+                            <button class="list">＋ My List</button>
+                        </div>
+                        <p class="synopsis">${m.synopsis}</p>
+                    </div>`
+                detail.querySelector(".close").addEventListener("click", close)
+
+                document.body.append(backdrop, detail)
+            }
+
+            /**
+             * ==============   View animations   ================
+             */
+            const open = (i) => {
+                if (openId !== null) return
+                openId = i
+
+                const card = grid.querySelector(`.card[data-id="${i}"]`)
+                const poster = card.querySelector(".poster")
+                const posterArt = card.querySelector(".poster-art")
+                const title = card.querySelector(".card-title")
+
+                // The card morphs into the modal; the clip *window* morphs
+                // 2:3 -> 16:9 while the art inside it stays 2:3 (constant aspect,
+                // no cover punch). Auto-grouping nests the art under the window,
+                // so the window crops it for the whole morph - not just at the
+                // end. Hide the opened card with visibility (not display) so its
+                // grid slot stays put: no layout jump, no duplicate behind the
+                // backdrop.
+                animateView(() => {
+                    buildDetail(i)
+                    card.style.visibility = "hidden"
+                }, transition)
+                    .add(card, ".detail")
+                    // The clip window (2:3 -> 16:9). It clips its children, so
+                    // auto-grouping crops the nested art through the morph.
+                    .add(poster, ".detail .hero")
+                    .crop(false)
+                    // The art (2:3 -> 2:3): constant aspect, no cover needed.
+                    .add(posterArt, ".detail .hero-art")
+                    .crop(false)
+                    // Text shouldn't be cover-cropped, or it clips as the box grows.
+                    .add(title, ".detail-body h1")
+                    .crop(false)
+                    // Backdrop only fades (enter-only) -> the morph-aware crop
+                    // default leaves it uncropped, no .crop(false) needed.
+                    // .class() tags its group so CSS can keep it below the modal.
+                    .add(".backdrop")
+                    .class("backdrop")
+                    .new({ opacity: 1 })
+            }
+
+            const close = () => {
+                if (openId === null) return
+                const card = grid.querySelector(`.card[data-id="${openId}"]`)
+                const poster = card.querySelector(".poster")
+                const posterArt = card.querySelector(".poster-art")
+                const title = card.querySelector(".card-title")
+
+                // Reverse the pairing to morph the detail view back into the card.
+                animateView(() => {
+                    document.querySelector(".detail")?.remove()
+                    document.querySelector(".backdrop")?.remove()
+                    card.style.visibility = "visible"
+                }, transition)
+                    .add(".detail", card)
+                    .add(".detail .hero", poster)
+                    .crop(false)
+                    .add(".detail .hero-art", posterArt)
+                    .crop(false)
+                    .add(".detail-body h1", title)
+                    .crop(false)
+                    // Backdrop only fades (exit-only) -> uncropped by default.
+                    .add(".backdrop")
+                    .class("backdrop")
+                    .old({ opacity: 0 })
+                    .then((group) => group.finished)
+                    .then(() => {
+                        openId = null
+                    })
+            }
+
+            grid.addEventListener("click", (e) => {
+                const card = e.target.closest(".card")
+                if (card) open(Number(card.dataset.id))
+            })
+
+            document.addEventListener("keydown", (e) => {
+                if (e.key === "Escape") close()
+            })
+        </script>
+    </body>
+</html>

@@ -1,0 +1,91 @@
+<!doctype html>
+<html>
+    <head>
+        <style>
+            body { margin: 0; background: #000; }
+            .row { display: flex; gap: 16px; padding: 40px; }
+            .card {
+                width: 120px;
+                height: 120px;
+                border-radius: 14px;
+                background: linear-gradient(135deg, #ff512f, #dd2476);
+            }
+        </style>
+    </head>
+    <body>
+        <div class="row" id="row">
+            <div class="card" id="a"></div>
+            <div class="card" id="b"></div>
+            <div class="card" id="c"></div>
+        </div>
+
+        <script type="module" src="/src/imports/view.js"></script>
+        <script type="module">
+            const { animateView, spring, stagger } = window.MotionDOM
+
+            window.__view = {
+                ready: false,
+                supported: !!document.startViewTransition,
+                cards: [],
+                error: null,
+            }
+
+            const row = document.getElementById("row")
+            const a = document.getElementById("a")
+            const b = document.getElementById("b")
+            const c = document.getElementById("c")
+
+            // All three survive but reorder (a: 0->1, b: 1->2, c: 2->0), like a
+            // filtered gallery. A bouncy spring + per-element enter/exit stagger
+            // is exactly the combination that used to desync a survivor's old/new
+            // crossfade and flash bright under plus-lighter.
+            animateView(
+                () => {
+                    row.append(c, a, b)
+                },
+                { type: spring, visualDuration: 0.4, bounce: 0.3 }
+            )
+                .add(".card")
+                .enter({ opacity: [0, 1], scale: [0.85, 1] }, { delay: stagger(0.1) })
+                .exit({ opacity: 0, scale: 0.85 }, { delay: stagger(0.1) })
+                .then(
+                    () => {
+                        const fade = (pseudo) => {
+                            const anim = document.getAnimations().find((x) => {
+                                const e = x.effect
+                                return (
+                                    e &&
+                                    e.pseudoElement === pseudo &&
+                                    e.getKeyframes().some((k) => "opacity" in k)
+                                )
+                            })
+                            if (!anim) return null
+                            return {
+                                delay: anim.effect.getComputedTiming().delay,
+                                easing: anim.effect.getTiming().easing,
+                            }
+                        }
+                        for (const [id, el] of [
+                            ["a", a],
+                            ["b", b],
+                            ["c", c],
+                        ]) {
+                            const name = getComputedStyle(el)
+                                .getPropertyValue("view-transition-name")
+                                .trim()
+                            window.__view.cards.push({
+                                id,
+                                old: fade(`::view-transition-old(${name})`),
+                                new: fade(`::view-transition-new(${name})`),
+                            })
+                        }
+                        window.__view.ready = true
+                    },
+                    (e) => {
+                        window.__view.error = String(e)
+                        window.__view.ready = true
+                    }
+                )
+        </script>
+    </body>
+</html>

@@ -1,0 +1,126 @@
+<html>
+    <head>
+        <!--
+            Two animateLayout() calls made in the same synchronous tick,
+            scoped to two disjoint sibling subtrees. Both should compose
+            into a single commit and each box should animate from its
+            true origin.
+        -->
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+            }
+
+            .area {
+                position: absolute;
+                width: 300px;
+                height: 300px;
+            }
+
+            #area-a {
+                top: 0;
+                left: 0;
+            }
+
+            #area-b {
+                top: 0;
+                left: 400px;
+            }
+
+            .box {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100px;
+                height: 100px;
+                background-color: #00cc88;
+            }
+
+            #box-a.moved {
+                top: 200px;
+                left: 200px;
+            }
+
+            #box-b.moved {
+                top: 100px;
+                left: 0px;
+                width: 200px;
+            }
+
+            [data-layout-correct="false"] {
+                background: #dd1144 !important;
+                opacity: 0.5;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="area-a" class="area">
+            <div id="box-a" class="box" data-layout></div>
+        </div>
+        <div id="area-b" class="area">
+            <div id="box-b" class="box" data-layout></div>
+        </div>
+
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module" src="/src/imports/script-assert.js"></script>
+        <script type="module">
+            const { animateLayout, frame } = window.AnimateLayout
+            const { matchViewportBox } = window.Assert
+            const { showError } = window
+
+            const areaA = document.getElementById("area-a")
+            const areaB = document.getElementById("area-b")
+            const boxA = document.getElementById("box-a")
+            const boxB = document.getElementById("box-b")
+
+            async function runTest() {
+                // Two calls in the same tick, different parts of the tree
+                const controlsA = animateLayout(
+                    areaA,
+                    () => boxA.classList.add("moved"),
+                    { duration: 10, ease: "linear" }
+                )
+                const controlsB = animateLayout(
+                    areaB,
+                    () => boxB.classList.add("moved"),
+                    { duration: 10, ease: "linear" }
+                )
+
+                const [a, b] = await Promise.all([controlsA, controlsB])
+
+                if (!a.animations.length) {
+                    showError(boxA, "First call should have animations")
+                }
+                if (!b.animations.length) {
+                    showError(boxB, "Second call should have animations")
+                }
+
+                a.pause()
+                a.time = 5
+                b.pause()
+                b.time = 5
+
+                await new Promise((resolve) => frame.postRender(resolve))
+
+                // box-a: (0,0,100,100) -> (200,200,300,300), at 50%:
+                matchViewportBox(boxA, {
+                    top: 100,
+                    left: 100,
+                    right: 200,
+                    bottom: 200,
+                })
+
+                // box-b: (0,400,100,500) -> (100,400,200,600), at 50%:
+                matchViewportBox(boxB, {
+                    top: 50,
+                    left: 400,
+                    right: 550,
+                    bottom: 150,
+                })
+            }
+
+            runTest().catch(console.error)
+        </script>
+    </body>
+</html>

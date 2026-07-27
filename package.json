@@ -64,7 +64,6 @@
         "jest-junit": "^16.0.0",
         "jest-watch-typeahead": "^2.2.2",
         "lerna": "^4.0.0",
-        "lint-staged": "^8.0.4",
         "path-browserify": "^1.0.1",
         "prettier": "^2.5.1",
         "react": "^18.3.1",
@@ -82,8 +81,7 @@
         "turbo": "2.x",
         "type-fest": "^1.0.1",
         "typescript": "5.4.3",
-        "yarn-deduplicate": "^1.1.1",
-        "zlib": "^1.0.5"
+        "yarn-deduplicate": "^1.1.1"
     },
     "overrides": {
         "react-19-env": {

@@ -1,0 +1,99 @@
+<!doctype html>
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+                height: 100vh;
+                background: #d33;
+            }
+            /* A root-only change, so the page is a survivor: the new view
+               clips in over the old, which should hold static as a backdrop. */
+            body.next {
+                background: #36c;
+            }
+        </style>
+    </head>
+    <body>
+        <script type="module" src="/src/imports/view.js"></script>
+        <script type="module">
+            const { animateView } = window.MotionDOM
+
+            window.__view = {
+                ready: false,
+                supported: !!document.startViewTransition,
+                oldOpacity: [],
+                newClipAnimated: false,
+                blendKept: false,
+                error: null,
+            }
+
+            // The opacity keyframes on a pseudo's animation, or [] if none.
+            const opacityOf = (pseudo) => {
+                for (const a of document.getAnimations()) {
+                    const eff = a.effect
+                    if (!eff || eff.pseudoElement !== pseudo) continue
+                    const kf = eff.getKeyframes()
+                    if (kf.some((k) => "opacity" in k)) {
+                        return kf.map((k) => String(k.opacity))
+                    }
+                }
+                return []
+            }
+
+            // Only the new layer is configured, with a non-opacity reveal.
+            animateView(() => document.body.classList.add("next"), {
+                duration: 3,
+                ease: "linear",
+            })
+                .new({
+                    clipPath: [
+                        "circle(0% at 50% 50%)",
+                        "circle(100% at 50% 50%)",
+                    ],
+                })
+                .then(
+                    () => {
+                        window.__view.oldOpacity = opacityOf(
+                            "::view-transition-old(root)"
+                        )
+                        // The reveal we asked for is present on the new layer.
+                        window.__view.newClipAnimated = document
+                            .getAnimations()
+                            .some((a) => {
+                                const e = a.effect
+                                return (
+                                    e &&
+                                    e.pseudoElement ===
+                                        "::view-transition-new(root)" &&
+                                    e
+                                        .getKeyframes()
+                                        .some((k) => "clipPath" in k)
+                                )
+                            })
+                        // A plus-lighter blend left on either half would flash
+                        // bright where the opaque layers overlap inside the clip.
+                        window.__view.blendKept = document
+                            .getAnimations()
+                            .some((a) => {
+                                const e = a.effect
+                                return (
+                                    e &&
+                                    /::view-transition-(old|new)\(root\)/.test(
+                                        e.pseudoElement || ""
+                                    ) &&
+                                    e
+                                        .getKeyframes()
+                                        .some((k) => "mixBlendMode" in k)
+                                )
+                            })
+                        window.__view.ready = true
+                    },
+                    (e) => {
+                        window.__view.error = String(e)
+                        window.__view.ready = true
+                    }
+                )
+        </script>
+    </body>
+</html>

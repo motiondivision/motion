@@ -8,6 +8,7 @@
   <a href="https://www.npmjs.com/package/motion" rel="noopener noreferrer nofollow" ><img src="https://img.shields.io/npm/dm/framer-motion?color=8D30FF&label=npm" alt="npm downloads per month"></a>
   <a target="_blank" rel="noopener noreferrer nofollow" href="https://www.jsdelivr.com/package/npm/motion"><img alt="jsDelivr hits (npm)" src="https://img.shields.io/jsdelivr/npm/hm/framer-motion?logo=jsdeliver&color=FF4FBA"></a>
   <img alt="NPM License" src="https://img.shields.io/npm/l/motion?color=FF2B6E">
+  <a target="_blank" rel="noopener noreferrer nofollow" href="https://score.motion.dev/site/motion.dev?utm_source=github&utm_medium=readme-badge"><img height="20" alt="MotionScore grade" src="https://api.motion.dev/score/badge?url=motion.dev"></a>
 </p>
 
 ```bash
@@ -127,7 +128,7 @@ Motion drives the animations on the Cursor homepage, and is working with Cursor 
 
 ### Silver
 
-<a href="https://liveblocks.io"><img alt="Liveblocks" src="https://github.com/user-attachments/assets/28eddbe5-1617-4e74-969d-2eb6fcd481af" width="150px" height="100px"></a> <a href="https://www.frontend.fyi/?utm_source=motion"><img alt="Frontend.fyi" src="https://github.com/user-attachments/assets/f16e3eb9-f0bd-4ad1-8049-f079a3d65c69" width="150px" height="100px"></a> <a href="https://firecrawl.dev"><img alt="Firecrawl" src="https://github.com/user-attachments/assets/2c44e7f4-5c2a-4714-9050-1570538665ff" width="150px" height="100px"></a> <a href="https://puzzmo.com"><img alt="Puzzmo" src="https://github.com/user-attachments/assets/e32205a7-3ab1-41ec-8729-a794058fd655" width="150px" height="100px"></a> <a href="https://bolt.new"><img alt="Bolt.new" src="https://github.com/user-attachments/assets/7932d4b2-bb6c-422e-82b9-6ad78a7e3090" width="150px" height="100px"></a>
+<a href="https://liveblocks.io"><img alt="Liveblocks" src="https://github.com/user-attachments/assets/28eddbe5-1617-4e74-969d-2eb6fcd481af" width="150px" height="100px"></a> <a href="https://www.frontend.fyi/?utm_source=motion"><img alt="Frontend.fyi" src="https://github.com/user-attachments/assets/f16e3eb9-f0bd-4ad1-8049-f079a3d65c69" width="150px" height="100px"></a> <a href="https://firecrawl.dev"><img alt="Firecrawl" src="https://github.com/user-attachments/assets/2c44e7f4-5c2a-4714-9050-1570538665ff" width="150px" height="100px"></a> <a href="https://bolt.new"><img alt="Bolt.new" src="https://github.com/user-attachments/assets/7932d4b2-bb6c-422e-82b9-6ad78a7e3090" width="150px" height="100px"></a>
 
 ### Personal
 

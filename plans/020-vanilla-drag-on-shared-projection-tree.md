@@ -99,7 +99,7 @@ kill $DEV_PID
 
 ## Git workflow
 
-- Branch: `advisor/020-vanilla-drag` off `main` (after #3748 and 011 are in).
+- Branch: `advisor/020-vanilla-drag` off `main` (after #3748 is in).
 - Commit per step; imperative messages matching repo style.
 - Do NOT push or open a PR unless the operator instructed it.
 

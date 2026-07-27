@@ -14,7 +14,7 @@
 - **Priority**: P3
 - **Effort**: M
 - **Risk**: MED-HIGH (`layoutRoot` semantics also power sticky-element fixtures)
-- **Depends on**: none hard. Coordinate with plans 015–018 (Reorder) and PRs #3748/#3749 — see STOP conditions. NOT covered by plan 017 (that scopes auto-scroll state; no `layoutRoot` content — verified by grep across `plans/*.md` at planning time).
+- **Depends on**: none hard. Coordinate with plans 015–018 (Reorder) and PRs #3748/#3749 — see STOP conditions. No overlap with the Reorder plans' `Group.tsx`/`Item.tsx` edits — none touch `layoutRoot` (verified by grep across `plans/*.md` at planning time).
 - **Category**: bug / perf
 - **Classification**: FIX (mechanism identified in code; repro sandboxes blocked, reconstruction specified)
 - **Planned at**: commit `42bfbe3ed`, 2026-06-11

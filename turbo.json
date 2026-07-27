@@ -1,5 +1,5 @@
 {
-    "pipeline": {
+    "tasks": {
         "clean": {},
         "build": {
             "dependsOn": ["^build"],

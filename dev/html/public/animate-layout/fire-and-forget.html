@@ -1,0 +1,64 @@
+<html>
+    <head>
+        <!--
+         animateLayout() called fire-and-forget (no await / no .then()). The
+         builder must still run its updateDom mutation AND animate — matching
+         the behaviour of a side-effectful call, not a lazy thenable.
+        -->
+        <style>
+            * { box-sizing: border-box; margin: 0; padding: 0; }
+            #box {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100px;
+                height: 100px;
+                background: #00cc88;
+            }
+            #box.moved { left: 200px; }
+            [data-layout-correct="false"] {
+                background: #dd1144 !important;
+                opacity: 0.5;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="box" data-layout></div>
+
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module" src="/src/imports/script-assert.js"></script>
+        <script type="module">
+            const { animateLayout } = window.AnimateLayout
+            const { showError } = window
+            const box = document.getElementById("box")
+
+            async function runTest() {
+                // Fire-and-forget: never awaited, never .then()'d.
+                animateLayout(() => box.classList.add("moved"), {
+                    duration: 10,
+                    ease: "linear",
+                })
+
+                // Give the auto-start + a few animation frames time to run.
+                await new Promise((resolve) => setTimeout(resolve, 250))
+
+                // The DOM mutation must have run.
+                if (!box.classList.contains("moved")) {
+                    showError(box, "fire-and-forget did not run updateDom")
+                }
+
+                // ...and it must be animating: visually between origin (left 0)
+                // and target (left 200), not jumped to either end.
+                const left = box.getBoundingClientRect().left
+                if (!(left > 0.5 && left < 199.5)) {
+                    showError(
+                        box,
+                        "fire-and-forget did not animate, left=" + left
+                    )
+                }
+            }
+
+            runTest().catch(console.error)
+        </script>
+    </body>
+</html>

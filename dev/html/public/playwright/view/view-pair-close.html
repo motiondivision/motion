@@ -1,0 +1,77 @@
+<!doctype html>
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+            .box {
+                width: 120px;
+                height: 120px;
+                margin: 40px;
+            }
+            /* The old element: REMOVED by the update (the "close" direction). */
+            #a {
+                width: 300px;
+                height: 140px;
+                background: blue;
+                border-radius: 28px;
+            }
+            /* The new element: a different element revealed by the update. */
+            #b {
+                display: none;
+                background: red;
+                border-radius: 8px;
+            }
+            body.closed #b {
+                display: block;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="box" id="a"></div>
+        <div class="box" id="b"></div>
+
+        <script type="module" src="/src/imports/view.js"></script>
+        <script type="module">
+            const { animateView } = window.MotionDOM
+
+            window.__view = {
+                ready: false,
+                supported: !!document.startViewTransition,
+                pseudos: [],
+                nameB: "",
+                error: null,
+            }
+
+            const b = document.getElementById("b")
+
+            // #a (old snapshot) is removed by the update; #b (new snapshot) is a
+            // different element revealed by it. The pair still morphs a -> b.
+            animateView(
+                () => {
+                    document.getElementById("a").remove()
+                    document.body.classList.add("closed")
+                },
+                { duration: 3, ease: "linear" }
+            )
+                .add("#a", "#b")
+                .then(
+                    () => {
+                        window.__view.pseudos = document
+                            .getAnimations()
+                            .map((an) => an.effect && an.effect.pseudoElement)
+                            .filter(Boolean)
+                        window.__view.nameB = getComputedStyle(b)
+                            .getPropertyValue("view-transition-name")
+                            .trim()
+                        window.__view.ready = true
+                    },
+                    (e) => {
+                        window.__view.error = String(e)
+                        window.__view.ready = true
+                    }
+                )
+        </script>
+    </body>
+</html>

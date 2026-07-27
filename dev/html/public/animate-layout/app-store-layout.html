@@ -1,0 +1,622 @@
+<html>
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>App Store — animateLayout demo</title>
+        <style>
+            @media (max-width: 620px) {
+                body {
+                    overflow: hidden;
+                }
+            }
+
+            body {
+                margin: 0;
+                background: #0f1115;
+                color: #fff;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                    sans-serif;
+            }
+
+            #app-store {
+                width: 100%;
+                max-width: 990px;
+                display: flex;
+                flex-direction: column;
+                padding-top: 150px;
+                padding-bottom: 150px;
+                margin: 0 auto;
+            }
+
+            p.big {
+                margin-bottom: 10px;
+                line-height: 1.5;
+                color: #ccc;
+            }
+
+            #app-store,
+            #app-store * {
+                box-sizing: border-box;
+            }
+
+            #app-store header {
+                position: relative;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                max-width: 990px;
+                margin: 0 0 20px 0;
+                width: 100%;
+                padding: 0 20px;
+            }
+
+            .avatar {
+                background: #2a2a2a;
+                border-radius: 50%;
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                width: 40px;
+                height: 40px;
+                overflow: hidden;
+            }
+
+            .avatar img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+            }
+
+            .store-title {
+                font-size: 34px;
+                margin: 5px 0;
+                letter-spacing: -0.05em;
+                color: #fff;
+                font-weight: 640;
+            }
+
+            ul,
+            li {
+                list-style: none;
+                padding: 0;
+                margin: 0;
+            }
+
+            .card-list {
+                display: flex;
+                flex-wrap: wrap;
+                align-content: flex-start;
+                gap: 20px;
+                width: 100%;
+                padding: 0 20px;
+            }
+
+            .card {
+                position: relative;
+                padding: 0;
+                height: 420px;
+                flex: 0 0 calc(50% - 10px);
+                cursor: pointer;
+            }
+
+            .card:nth-child(4n + 1),
+            .card:nth-child(4n + 4) {
+                flex: 0 0 calc(60% - 10px);
+            }
+
+            .card:nth-child(4n + 2),
+            .card:nth-child(4n + 3) {
+                flex: 0 0 calc(40% - 10px);
+            }
+
+            .card-content-container {
+                width: 100%;
+                height: 100%;
+                position: relative;
+                pointer-events: none;
+                display: flex;
+                flex-direction: column;
+                justify-content: flex-end;
+            }
+
+            .card-content-container.open {
+                top: 0;
+                left: 0;
+                right: 0;
+                position: fixed;
+                z-index: 1000001;
+                overflow: hidden;
+                padding: 40px 0;
+                justify-content: center;
+            }
+
+            .card-content {
+                pointer-events: auto;
+                position: relative;
+                border-radius: 20px;
+                background: #2a2a2a;
+                overflow: hidden;
+                width: 100%;
+                height: 100%;
+                margin: 0 auto;
+            }
+
+            .open .card-content {
+                width: unset;
+                height: unset;
+                max-width: 700px;
+                overflow: hidden;
+                pointer-events: none;
+            }
+
+            .card-image-container {
+                overflow: hidden;
+                height: 420px;
+                display: flex;
+                justify-content: stretch;
+                flex-direction: column;
+                position: relative;
+            }
+
+            .card-image {
+                width: 100%;
+                position: absolute;
+                object-fit: cover;
+            }
+
+            .card-image-container.gradient::after {
+                content: "";
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                height: 150px;
+                background: linear-gradient(
+                    to bottom,
+                    rgba(0, 0, 0, 0.5) 0%,
+                    rgba(0, 0, 0, 0) 100%
+                );
+                pointer-events: none;
+                z-index: 1;
+            }
+
+            .title-container {
+                position: absolute;
+                top: 15px;
+                left: 15px;
+                max-width: 300px;
+                z-index: 2;
+            }
+
+            .open .title-container {
+                top: 30px;
+                left: 30px;
+            }
+
+            .title-container h2 {
+                color: #fff;
+                margin: 8px 0;
+                text-wrap: balance;
+                font-size: 22px;
+            }
+
+            .title-container span {
+                color: #fff;
+                font-size: 12px;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+            }
+
+            .overlay {
+                inset: 0;
+                z-index: 1001;
+                position: fixed;
+                background: rgba(0, 0, 0, 0.8);
+            }
+
+            .content-container {
+                padding: 35px;
+            }
+
+            .hidden {
+                display: none;
+            }
+
+            .open .content-container {
+                display: block;
+            }
+
+            @media only screen and (max-width: 990px) {
+                body {
+                    overflow: hidden;
+                }
+
+                #app-store {
+                    padding: 60px 0;
+                }
+
+                .card-list {
+                    gap: 10px;
+                }
+
+                .card {
+                    flex: 0 0 calc(50% - 5px);
+                    height: 280px;
+                }
+
+                .card:nth-child(4n + 1),
+                .card:nth-child(4n + 4),
+                .card:nth-child(4n + 2),
+                .card:nth-child(4n + 3) {
+                    flex: 0 0 calc(50% - 5px);
+                }
+
+                li .card-image {
+                    top: unset !important;
+                    bottom: -10px !important;
+                    left: 0 !important;
+                    right: 0 !important;
+                    min-width: 250px;
+                    min-height: 300px;
+                }
+
+                .card-image-container {
+                    height: 280px;
+                }
+
+                .card-content-container.open {
+                    padding: 0;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div id="app-store">
+            <header>
+                <div>
+                    <h2 class="store-title">Today</h2>
+                </div>
+                <div class="avatar">
+                    <img
+                        src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=80&h=80&fit=crop"
+                        alt=""
+                        width="40"
+                        height="40"
+                    />
+                </div>
+            </header>
+            <ul class="card-list">
+                <li class="card" data-id="a">
+                    <div class="card-content" data-layout-id="card-container-a">
+                        <div
+                            class="card-image-container gradient"
+                            data-layout-id="card-image-container-a"
+                        >
+                            <img
+                                class="card-image"
+                                data-layout-id="card-image-a"
+                                data-layout="preserve-aspect"
+                                src="https://images.unsplash.com/photo-1514565131-fce0801e5785?w=800&h=600&fit=crop"
+                                alt=""
+                                style="width: 108%; left: -4%"
+                            />
+                        </div>
+                        <div
+                            class="title-container"
+                            data-layout-id="title-container-a"
+                            data-layout="position"
+                        >
+                            <span class="h6">Photography</span>
+                            <h2 class="h3">
+                                Capture the Night With These Camera Apps
+                            </h2>
+                        </div>
+                        <div class="content-container small hidden">
+                            <p class="big">
+                                The city comes alive after dark. Neon signs,
+                                rain-slicked streets, and the glow of late-night
+                                shops create scenes worth capturing.
+                            </p>
+                            <p class="big">
+                                These apps help you master low-light photography
+                                with advanced exposure controls, AI noise
+                                reduction, and filters that enhance without
+                                overdoing it.
+                            </p>
+                        </div>
+                    </div>
+                </li>
+
+                <li class="card" data-id="c">
+                    <div class="card-content" data-layout-id="card-container-c">
+                        <div
+                            class="card-image-container gradient"
+                            data-layout-id="card-image-container-c"
+                        >
+                            <img
+                                class="card-image"
+                                data-layout-id="card-image-c"
+                                data-layout="preserve-aspect"
+                                src="https://images.unsplash.com/photo-1548013146-72479768bada?w=800&h=600&fit=crop"
+                                alt=""
+                                style="width: 200%; left: -50%"
+                            />
+                        </div>
+                        <div
+                            class="title-container"
+                            data-layout-id="title-container-c"
+                            data-layout="position"
+                        >
+                            <span class="h6">Architecture</span>
+                            <h2 class="h3">
+                                Discover Hidden Gems in Historic City Centers
+                            </h2>
+                        </div>
+                        <div class="content-container small hidden">
+                            <p class="big">
+                                Every ornate facade tells a story. From
+                                Renaissance frescoes to Baroque flourishes,
+                                European cities are open-air museums waiting to
+                                be explored.
+                            </p>
+                            <p class="big">
+                                These apps use AR to overlay historical context,
+                                identify architectural styles, and guide you to
+                                the most photogenic spots off the beaten path.
+                            </p>
+                        </div>
+                    </div>
+                </li>
+
+                <li class="card" data-id="d">
+                    <div class="card-content" data-layout-id="card-container-d">
+                        <div
+                            class="card-image-container gradient"
+                            data-layout-id="card-image-container-d"
+                        >
+                            <img
+                                class="card-image"
+                                data-layout-id="card-image-d"
+                                data-layout="preserve-aspect"
+                                src="https://images.unsplash.com/photo-1540959733332-eab4deab273a?w=800&h=600&fit=crop"
+                                alt=""
+                                style="width: 180%; left: -40%; bottom: 0"
+                            />
+                        </div>
+                        <div
+                            class="title-container"
+                            data-layout-id="title-container-d"
+                            data-layout="position"
+                        >
+                            <span class="h6">Commute</span>
+                            <h2 class="h3">
+                                Transform Your Daily Journey Into Something
+                                Better
+                            </h2>
+                        </div>
+                        <div class="content-container small hidden">
+                            <p class="big">
+                                The morning rush doesn't have to be a blur. Find
+                                moments of calm in the chaos with apps designed
+                                for the urban commuter.
+                            </p>
+                            <p class="big">
+                                Track transit times, discover shortcuts, and
+                                turn wait times into productive moments with
+                                these essential city-living apps.
+                            </p>
+                        </div>
+                    </div>
+                </li>
+
+                <li class="card" data-id="b">
+                    <div class="card-content" data-layout-id="card-container-b">
+                        <div
+                            class="card-image-container gradient"
+                            data-layout-id="card-image-container-b"
+                        >
+                            <img
+                                class="card-image"
+                                data-layout-id="card-image-b"
+                                data-layout="preserve-aspect"
+                                src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&h=600&fit=crop"
+                                alt=""
+                                style="width: 115%; left: -7%"
+                            />
+                        </div>
+                        <div
+                            class="title-container"
+                            data-layout-id="title-container-b"
+                            data-layout="position"
+                        >
+                            <span class="h6">Fitness</span>
+                            <h2 class="h3">
+                                Cycling Apps That Will Change How You Ride
+                            </h2>
+                        </div>
+                        <div class="content-container small hidden">
+                            <p class="big">
+                                Whether you're commuting through city parks or
+                                training for your next race, these apps help you
+                                track every pedal stroke.
+                            </p>
+                            <p class="big">
+                                Monitor your routes, compete with friends, and
+                                discover new paths with real-time navigation and
+                                performance analytics.
+                            </p>
+                            <p class="big">Rain or shine, make every ride count.</p>
+                        </div>
+                    </div>
+                </li>
+            </ul>
+        </div>
+
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module" src="/src/imports/framer-motion-dom.js"></script>
+        <script type="module">
+            const { animateLayout } = window.AnimateLayout
+            const { animate } = window.Motion
+
+            let currentOpenId = null
+            let layoutControls = null
+            let isClosing = false
+            let overlayControls = null
+            let closingSourceCard = null
+            const appStore = document.getElementById("app-store")
+
+            const transition = {
+                duration: 0.7,
+                ease: [0.39, 0.14, 0.26, 1],
+            }
+
+            function ensureOverlayVisible() {
+                let overlay = document.querySelector(".overlay")
+
+                if (!overlay) {
+                    overlay = document.createElement("div")
+                    overlay.className = "overlay"
+                    overlay.style.opacity = "0"
+                    overlay.addEventListener("click", animateClose)
+                    appStore.appendChild(overlay)
+                }
+
+                overlay.style.pointerEvents = "auto"
+                overlayControls?.stop()
+                overlayControls = animate(overlay, { opacity: 1 }, transition)
+
+                return overlay
+            }
+
+            function fadeOverlayOut(overlay) {
+                overlay.style.pointerEvents = "none"
+                overlayControls?.stop()
+                const controls = animate(overlay, { opacity: 0 }, transition)
+                overlayControls = controls
+                controls.finished.then(() => {
+                    if (overlayControls !== controls) return
+                    overlay.remove()
+                })
+            }
+
+            async function startLayoutAnimation(update, { closing = false } = {}) {
+                layoutControls?.stop()
+
+                isClosing = closing
+
+                const controls = await animateLayout(update, transition)
+                layoutControls = controls
+
+                controls.finished.then(() => {
+                    if (layoutControls !== controls) return
+                    layoutControls = null
+                    isClosing = false
+                })
+
+                return controls
+            }
+
+            document.querySelectorAll(".card").forEach((card) => {
+                card.addEventListener("click", async () => {
+                    const id = card.dataset.id
+
+                    if (isClosing) {
+                        ensureOverlayVisible()
+                    }
+
+                    await startLayoutAnimation(() => {
+                        openCard(id)
+                    })
+                })
+            })
+
+            async function animateClose() {
+                if (!currentOpenId || isClosing) return
+
+                const overlay = document.querySelector(".overlay")
+                const sourceCard = document.querySelector(
+                    `.card[data-id="${currentOpenId}"]`
+                )
+
+                if (sourceCard) {
+                    const cardContent = sourceCard.querySelector(".card-content")
+                    closingSourceCard = cardContent
+                    cardContent.style.zIndex = "1002"
+                }
+
+                if (overlay) {
+                    fadeOverlayOut(overlay)
+                }
+
+                const controls = await startLayoutAnimation(closeCard, {
+                    closing: true,
+                })
+
+                controls.finished.then(() => {
+                    resetClosingCard()
+                })
+            }
+
+            function resetClosingCard() {
+                if (closingSourceCard) {
+                    closingSourceCard.style.zIndex = ""
+                    closingSourceCard = null
+                }
+            }
+
+            document.addEventListener("keydown", (event) => {
+                if (event.key === "Escape" && currentOpenId) {
+                    animateClose()
+                }
+            })
+
+            function openCard(id) {
+                if (currentOpenId) {
+                    closeCard()
+                    resetClosingCard()
+                }
+
+                currentOpenId = id
+
+                const sourceCard = document.querySelector(
+                    `.card[data-id="${id}"]`
+                )
+                const theme = sourceCard.classList.contains("dark") ? "dark" : ""
+
+                ensureOverlayVisible()
+
+                const clonedContent = sourceCard
+                    .querySelector(".card-content")
+                    .cloneNode(true)
+
+                clonedContent.id = "modal"
+
+                const expandedCardContainer = document.createElement("div")
+                expandedCardContainer.className = `card-content-container open ${theme}`
+                expandedCardContainer.appendChild(clonedContent)
+
+                expandedCardContainer
+                    .querySelector(".content-container")
+                    .classList.remove("hidden")
+
+                document.body.appendChild(expandedCardContainer)
+
+                return expandedCardContainer
+            }
+
+            function closeCard() {
+                if (!currentOpenId) return
+
+                const sourceCard = document.querySelector(
+                    `.card[data-id="${currentOpenId}"]`
+                )
+                const expandedCardContainer = document.querySelector(
+                    ".card-content-container.open"
+                )
+
+                if (sourceCard) sourceCard.style.zIndex = ""
+                if (expandedCardContainer) expandedCardContainer.remove()
+
+                currentOpenId = null
+            }
+        </script>
+    </body>
+</html>
