@@ -32,7 +32,7 @@ export class HTMLVisualElement extends DOMVisualElement<
         /**
          * If a custom component forwards its ref to something other than a
          * HTML/SVG element (a class instance, an imperative handle) there's
-         * nothing for Motion to style, measure or attach gestures to.
+         * nothing for Motion to style, measure or attach gestures to. #2777
          */
         invariant(
             Boolean(instance.style),

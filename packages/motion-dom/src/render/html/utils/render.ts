@@ -9,11 +9,6 @@ export function renderHTML(
 ) {
     const elementStyle = element.style
 
-    // A non-styleable instance throws a "custom-component-ref" invariant on
-    // mount in development. In production we bail rather than take the whole
-    // render loop down with it. #2777
-    if (!elementStyle) return
-
     let key: string
     for (key in style) {
         // CSSStyleDeclaration has [index: number]: string; in the types, so we use that as key type.
