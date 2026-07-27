@@ -9,9 +9,9 @@ export function renderHTML(
 ) {
     const elementStyle = element.style
 
-    // If the rendered instance isn't a styleable element (e.g. a custom
-    // component forwarded its ref to a non-DOM instance), there's nothing to
-    // render to. Bailing out here keeps the render loop from crashing. #2777
+    // A non-styleable instance throws a "custom-component-ref" invariant on
+    // mount in development. In production we bail rather than take the whole
+    // render loop down with it. #2777
     if (!elementStyle) return
 
     let key: string
