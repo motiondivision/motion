@@ -1,4 +1,4 @@
-import type { Box } from "motion-utils"
+import { invariant, type Box } from "motion-utils"
 import type { AnyResolvedKeyframe } from "../../animation/types"
 import { isCSSVariableName } from "../../animation/utils/is-css-variable"
 import type { MotionNodeOptions } from "../../node/types"
@@ -27,6 +27,21 @@ export class HTMLVisualElement extends DOMVisualElement<
     DOMVisualElementOptions
 > {
     type = "html"
+
+    mount(instance: HTMLElement) {
+        /**
+         * If a custom component forwards its ref to something other than a
+         * HTML/SVG element (a class instance, an imperative handle) there's
+         * nothing for Motion to style, measure or attach gestures to. #2777
+         */
+        invariant(
+            Boolean(instance.style),
+            "motion.create() components must forward their ref to a HTML or SVG element",
+            "custom-component-ref"
+        )
+
+        super.mount(instance)
+    }
 
     readValueFromInstance(
         instance: HTMLElement,
