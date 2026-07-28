@@ -1429,15 +1429,24 @@ describe("JSAnimation", () => {
         // stiffness, as forwarded from an optional prop) previously emitted
         // NaN progress, which the complex-value mixer turned into an invalid
         // "NaN,NaN NaN,NaN" point list written to the <polygon> element.
+        const target = "150,5 50,180 250,180"
         const animation = animateValue({
-            keyframes: ["150,5 75,200 225,200", "150,5 50,180 250,180"],
+            keyframes: ["150,5 75,200 225,200", target],
             type: "spring",
             stiffness: undefined,
             autoplay: false,
         })
 
         for (let t = 0; t <= 2000; t += 50) {
-            expect(animation.sample(t).value).not.toContain("NaN")
+            const coords = animation.sample(t).value.match(/-?[\d.]+/g)!
+            // Every coordinate must be a finite number
+            expect(
+                coords.every((coord) => Number.isFinite(Number(coord)))
+            ).toBe(true)
         }
+
+        // ...and the spring must still settle on the target, so this doesn't
+        // pass for any non-NaN corruption of the point list
+        expect(animation.sample(2000).value).toBe(target)
     })
 })
