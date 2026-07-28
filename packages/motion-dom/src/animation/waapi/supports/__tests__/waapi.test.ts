@@ -28,9 +28,55 @@ function createMockOptions(overrides: Record<string, any> = {}) {
     } as any
 }
 
+function createSVGMockOptions(overrides: Record<string, any> = {}) {
+    const element = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "circle"
+    )
+    return createMockOptions({
+        motionValue: {
+            owner: {
+                current: element,
+                getProps: () => ({}),
+            },
+        },
+        ...overrides,
+    })
+}
+
 describe("supportsBrowserAnimation", () => {
     it("returns true for accelerated values like opacity", () => {
         expect(supportsBrowserAnimation(createMockOptions())).toBe(true)
+    })
+
+    it("returns true for opacity on SVG elements", () => {
+        expect(supportsBrowserAnimation(createSVGMockOptions())).toBe(true)
+    })
+
+    it("returns true for transform on SVG elements", () => {
+        expect(
+            supportsBrowserAnimation(
+                createSVGMockOptions({
+                    name: "transform",
+                    keyframes: ["translateX(0px)", "translateX(100px)"],
+                })
+            )
+        ).toBe(true)
+    })
+
+    it("returns false when the subject is not an element", () => {
+        expect(
+            supportsBrowserAnimation(
+                createMockOptions({
+                    motionValue: {
+                        owner: {
+                            current: {},
+                            getProps: () => ({}),
+                        },
+                    },
+                })
+            )
+        ).toBe(false)
     })
 
     it("returns true for backgroundColor with standard hex keyframes", () => {

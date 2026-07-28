@@ -9,6 +9,7 @@ Undocumented APIs should be considered internal and may change without warning.
 ### Added
 
 -   Hardware acceleration for `backgroundColor` in supported browsers.
+-   Hardware acceleration for SVG elements.
 
 ### Fixed
 
