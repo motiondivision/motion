@@ -10,14 +10,11 @@ Undocumented APIs should be considered internal and may change without warning.
 
 -   Hardware acceleration for `backgroundColor` in supported browsers.
 
-<<<<<<< Updated upstream
-=======
 ### Fixed
 
 -   `AnimatePresence`: Exiting children no longer interleave with entering children, which could reorder and remount children present in both renders.
 -   `motion`: Throw error when passing a custom `motion` component an incorrect `ref` type.
 
->>>>>>> Stashed changes
 ## [12.42.2] 2026-07-01
 
 ### Fixed
