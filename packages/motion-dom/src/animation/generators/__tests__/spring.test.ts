@@ -1,7 +1,10 @@
 import { animateSync } from "../../__tests__/utils"
 import { ValueAnimationOptions } from "../../types"
 import { spring } from "../spring"
-import { calcGeneratorDuration } from "../utils/calc-duration"
+import {
+    calcGeneratorDuration,
+    maxGeneratorDuration,
+} from "../utils/calc-duration"
 
 describe("spring", () => {
     test("Runs animations with default values ", () => {
@@ -288,33 +291,96 @@ describe("toString", () => {
 
 // https://github.com/motiondivision/motion/issues/2791
 describe("spring NaN guards", () => {
+    // These deliberately pass invalid physics, which warns
+    let warn: jest.SpyInstance
+    beforeEach(() => {
+        warn = jest.spyOn(console, "warn").mockImplementation(() => {})
+    })
+    afterEach(() => warn.mockRestore())
+
+    /**
+     * animateSync() can't be reused here — it loops `while (!done)`, and a
+     * spring resolving to NaN never sets done, so it would hang rather than
+     * fail.
+     */
     const sample = (options: ValueAnimationOptions<number>) => {
         const generator = spring(options)
         return [0, 100, 300, 600, 1000].map((t) => generator.next(t).value)
     }
 
-    test("stiffness of 0 does not produce NaN", () => {
-        const values = sample({ keyframes: [0, 100], stiffness: 0 })
-        values.forEach((v) => expect(v).not.toBeNaN())
-    })
-
-    test("mass of 0 does not produce NaN", () => {
-        const values = sample({ keyframes: [0, 100], mass: 0 })
-        values.forEach((v) => expect(v).not.toBeNaN())
-    })
-
     /**
-     * An explicit `stiffness: undefined` (e.g. a forwarded prop that resolves
-     * to undefined) clobbers the default via the options spread in
-     * getSpringOptions, which previously produced NaN spring values.
+     * Every physics option is covered, for each way it can be invalid. An
+     * explicit `undefined` (e.g. a forwarded optional prop) is the case from
+     * the original report — it clobbers the default via the options spread in
+     * getSpringOptions.
      */
-    test("explicit undefined stiffness does not produce NaN", () => {
-        const values = sample({ keyframes: [0, 100], stiffness: undefined })
+    const physicsKeys = ["stiffness", "damping", "mass"] as const
+    const invalidValues = [0, -1, NaN, Infinity, -Infinity, undefined]
+
+    for (const key of physicsKeys) {
+        for (const value of invalidValues) {
+            // damping of 0 is a valid, perpetually oscillating spring
+            if (key === "damping" && value === 0) continue
+
+            test(`${key} of ${String(value)} does not produce NaN`, () => {
+                const values = sample({ keyframes: [0, 100], [key]: value })
+                values.forEach((v) => expect(v).not.toBeNaN())
+            })
+        }
+    }
+
+    test("damping of 0 is honoured as an undamped spring", () => {
+        const values = sample({ keyframes: [0, 100], damping: 0 })
+        values.forEach((v) => expect(v).not.toBeNaN())
+        // An undamped spring oscillates rather than settling on the target
+        expect(values[values.length - 1]).not.toBeCloseTo(100)
+    })
+
+    test("invalid physics does not discard a provided duration", () => {
+        // `stiffness: 0` previously counted as "physics specified", so the
+        // duration branch was skipped and `duration` silently ignored.
+        expect(sample({ keyframes: [0, 100], duration: 500, stiffness: 0 })).toEqual(
+            sample({ keyframes: [0, 100], duration: 500 })
+        )
+    })
+
+    test("invalid physics does not discard a provided visualDuration", () => {
+        expect(
+            sample({
+                keyframes: [0, 100],
+                visualDuration: 0.5,
+                bounce: 0.2,
+                mass: 0,
+            })
+        ).toEqual(
+            sample({ keyframes: [0, 100], visualDuration: 0.5, bounce: 0.2 })
+        )
+    })
+
+    test("visualDuration of 0 does not produce NaN", () => {
+        const values = sample({
+            keyframes: [0, 100],
+            visualDuration: 0,
+            bounce: 0.2,
+        })
         values.forEach((v) => expect(v).not.toBeNaN())
     })
 
-    test("explicit undefined mass does not produce NaN", () => {
-        const values = sample({ keyframes: [0, 100], mass: undefined })
-        values.forEach((v) => expect(v).not.toBeNaN())
+    test("invalid stiffness still resolves to a spring that completes", () => {
+        const generator = spring({ keyframes: [0, 100], stiffness: undefined })
+        expect(calcGeneratorDuration(generator)).toBeLessThan(
+            maxGeneratorDuration
+        )
+    })
+
+    test("invalid physics warns rather than failing silently", () => {
+        spring({ keyframes: [0, 100], stiffness: 0 })
+        expect(warn).toHaveBeenCalledTimes(1)
+        expect(warn.mock.calls[0][0]).toContain("spring-invalid-physics")
+    })
+
+    test("valid physics does not warn", () => {
+        spring({ keyframes: [0, 100], stiffness: 200, damping: 0, mass: 2 })
+        expect(warn).not.toHaveBeenCalled()
     })
 })

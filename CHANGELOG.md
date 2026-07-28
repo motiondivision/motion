@@ -14,6 +14,7 @@ Undocumented APIs should be considered internal and may change without warning.
 
 -   `AnimatePresence`: Exiting children no longer interleave with entering children, which could reorder and remount children present in both renders.
 -   `motion`: Throw error when passing a custom `motion` component an incorrect `ref` type.
+-   `spring`: Invalid `stiffness`, `damping` or `mass` (`0`, negative, non-finite, or an explicit `undefined` from a forwarded prop) no longer resolve to `NaN` animation values, which corrupted values like an SVG `polygon`'s `points` and left the animation running forever.
 
 ## [12.42.2] 2026-07-01
 

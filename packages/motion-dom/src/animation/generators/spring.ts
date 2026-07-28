@@ -162,33 +162,72 @@ function findSpring({
 }
 
 const durationKeys = ["duration", "bounce"]
-const physicsKeys = ["stiffness", "damping", "mass"]
 
 function isSpringType(options: SpringOptions, keys: string[]) {
     return keys.some((key) => (options as any)[key] !== undefined)
 }
 
+/**
+ * Spring physics must be finite. stiffness and mass are also divisors so must
+ * be positive, whereas a damping of 0 is a valid, perpetually oscillating
+ * spring.
+ */
+const isValidPhysics = (value: number | undefined, canBeZero?: boolean) =>
+    Number.isFinite(value) && (canBeZero ? value! >= 0 : value! > 0)
+
+/**
+ * Returns value if it's usable spring physics, otherwise undefined so callers
+ * can fall back to a default.
+ *
+ * Anything invalid — a 0 stiffness, a negative, Infinity, or an explicit
+ * `undefined` forwarded from an optional prop that clobbers the default via
+ * the spread below — divides or feeds Math.sqrt() during resolution and
+ * produces NaN spring values. Those corrupt every animated value downstream:
+ * an SVG polygon's points list becomes "NaN,NaN NaN,NaN", and the spring never
+ * reports done so the frameloop spins indefinitely.
+ * See https://github.com/motiondivision/motion/issues/2791
+ */
+function resolvePhysics(value: number | undefined, canBeZero?: boolean) {
+    if (isValidPhysics(value, canBeZero)) return value
+
+    warning(
+        value === undefined,
+        "Spring stiffness and mass must be positive, damping 0 or greater",
+        "spring-invalid-physics"
+    )
+
+    return undefined
+}
+
 function getSpringOptions(options: SpringOptions) {
+    /**
+     * Resolve physics before choosing between physics- and duration-based
+     * resolution, so an invalid stiffness doesn't also silently discard a
+     * valid duration/bounce.
+     */
+    const stiffness = resolvePhysics(options.stiffness)
+    const damping = resolvePhysics(options.damping, true)
+    const mass = resolvePhysics(options.mass)
+    const hasPhysics =
+        stiffness !== undefined || damping !== undefined || mass !== undefined
+
     let springOptions = {
-        velocity: springDefaults.velocity,
-        stiffness: springDefaults.stiffness,
-        damping: springDefaults.damping,
-        mass: springDefaults.mass,
-        isResolvedFromDuration: false,
         ...options,
+        velocity: options.velocity ?? springDefaults.velocity,
+        stiffness: stiffness ?? springDefaults.stiffness,
+        damping: damping ?? springDefaults.damping,
+        mass: mass ?? springDefaults.mass,
+        isResolvedFromDuration: false,
     }
     // stiffness/damping/mass overrides duration/bounce
-    if (
-        !isSpringType(options, physicsKeys) &&
-        isSpringType(options, durationKeys)
-    ) {
+    if (!hasPhysics && isSpringType(options, durationKeys)) {
         // Time-defined springs should ignore inherited velocity.
         // Velocity from interrupted animations can cause findSpring()
         // to compute wildly different spring parameters, leading to
         // massive oscillation on small-range animations.
         springOptions.velocity = 0
 
-        if (options.visualDuration) {
+        if (options.visualDuration !== undefined) {
             const visualDuration = options.visualDuration
             const root = (2 * Math.PI) / (visualDuration * 1.2)
             const stiffness = root * root
@@ -213,20 +252,21 @@ function getSpringOptions(options: SpringOptions) {
             }
             springOptions.isResolvedFromDuration = true
         }
-    }
 
-    /**
-     * Guard against non-positive or non-finite stiffness/mass. These divide
-     * and feed Math.sqrt() during resolution, so a 0 (or an explicit
-     * `undefined` that clobbers the default via the spread above) produces NaN
-     * spring values — which corrupt any animated value, e.g. an SVG polygon's
-     * points list. See https://github.com/motiondivision/motion/issues/2791
-     */
-    if (!(springOptions.stiffness > 0)) {
-        springOptions.stiffness = springDefaults.stiffness
-    }
-    if (!(springOptions.mass > 0)) {
-        springOptions.mass = springDefaults.mass
+        /**
+         * Duration-based resolution can degenerate: findSpring()'s root
+         * approximation can collapse to a {stiffness: 0, damping: 0} pair, and
+         * a visualDuration of 0 gives an infinite stiffness. Replace the two
+         * together, so the relationship duration resolution establishes
+         * between them is never left half-overwritten.
+         */
+        if (
+            !isValidPhysics(springOptions.stiffness) ||
+            !isValidPhysics(springOptions.damping, true)
+        ) {
+            springOptions.stiffness = springDefaults.stiffness
+            springOptions.damping = springDefaults.damping
+        }
     }
 
     return springOptions
