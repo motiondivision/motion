@@ -13,6 +13,8 @@ import type { TargetAndTransition } from "../../node/types"
 import type { AnimationTypeState } from "../../render/utils/animation-state"
 import type { VisualElement } from "../../render/VisualElement"
 
+const isBrowser = typeof window !== "undefined"
+
 /**
  * Decide whether we should block this animation. Previously, we achieved this
  * just by checking whether the key was listed in protectedKeys, but this
@@ -114,7 +116,7 @@ export function animateTarget(
          * to see if we're handling off from an existing animation.
          */
         let isHandoff = false
-        if (window.MotionHandoffAnimation) {
+        if (isBrowser && window.MotionHandoffAnimation) {
             const appearId = getOptimisedAppearId(visualElement)
 
             if (appearId) {
