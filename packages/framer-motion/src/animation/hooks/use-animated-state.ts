@@ -23,12 +23,9 @@ class StateVisualElement extends VisualElement<
     AnimatedStateOptions
 > {
     type: "state"
-    build() {}
     measureInstanceViewportBox = createBox
     resetTransform() {}
     restoreTransform() {}
-    removeValueFromRenderState() {}
-    renderInstance() {}
     scrapeMotionValuesFromProps() {
         return createObject()
     }

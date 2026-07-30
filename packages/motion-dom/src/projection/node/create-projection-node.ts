@@ -22,7 +22,6 @@ import { cancelFrame, frame, frameData, frameSteps } from "../../frameloop"
 import { microtask } from "../../frameloop/microtask"
 import { time } from "../../frameloop/sync-time"
 import type { Process } from "../../frameloop/types"
-import { HTMLVisualElement } from "../../render/html/HTMLVisualElement"
 import type { ResolvedValues } from "../../render/types"
 import { scaleCorrectors } from "../../render/utils/is-forced-motion-value"
 import type { MotionStyle, VisualElement } from "../../render/VisualElement"
@@ -2105,13 +2104,9 @@ export function createProjectionNode<I>({
                         targetStyle[applyTo[i] as any] = corrected
                     }
                 } else {
-                    // If this is a CSS variable, set it directly on the instance.
-                    // Replacing this function from creating styles to setting them
-                    // would be a good place to remove per frame object creation
+                    // CSS variables can only be set via setProperty
                     if (isCSSVariable) {
-                        ;(
-                            this.options.visualElement as HTMLVisualElement
-                        ).renderState.vars[key] = corrected
+                        targetStyle.setProperty(key, corrected)
                     } else {
                         targetStyle[key as any] = corrected
                     }
