@@ -100,6 +100,12 @@ export const AnimatePresence = ({
     const [renderedChildren, setRenderedChildren] = useState(presentChildren)
 
     useIsomorphicLayoutEffect(() => {
+        if (propagate && !isParentPresent && !renderedChildren.length) {
+            safeToRemove?.()
+        }
+    }, [isParentPresent, propagate, renderedChildren.length, safeToRemove])
+
+    useIsomorphicLayoutEffect(() => {
         isInitialRender.current = false
         pendingPresentChildren.current = presentChildren
 
