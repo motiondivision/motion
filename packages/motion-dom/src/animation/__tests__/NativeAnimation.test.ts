@@ -2,12 +2,10 @@ import { motionValue } from "../../value"
 import { NativeAnimationExtended } from "../NativeAnimationExtended"
 
 /**
- * Tests for the Firefox opacity bug (issue #3552) where the WAAPI animation's
- * onfinish handler needed to commit the final style to the element's inline
- * styles before cancelling the animation. Without this, there was a timing
- * window in Firefox where the WAAPI fill was removed (via cancel()) before
- * the scheduled render could apply the correct value, causing a visual flash
- * back to the initial value.
+ * Tests for WAAPI completion bugs where cancelling the animation before its
+ * final styles are committed can briefly reveal the underlying initial style.
+ * Issue #3552 needed the final inline style set synchronously for Firefox,
+ * while issue #3778 needs the WAAPI styles committed before cancel for Safari.
  */
 describe("NativeAnimation - onfinish style commit", () => {
     let mockAnimation: any
@@ -15,6 +13,7 @@ describe("NativeAnimation - onfinish style commit", () => {
     beforeEach(() => {
         mockAnimation = {
             cancel: jest.fn(),
+            commitStyles: jest.fn(),
             onfinish: null,
             playbackRate: 1,
             currentTime: 300,
@@ -62,5 +61,27 @@ describe("NativeAnimation - onfinish style commit", () => {
          * the correct value back to the element.
          */
         expect(element.style.opacity).toBe("1")
+    })
+
+    test("commits WAAPI styles before cancelling on finish", () => {
+        const element = document.createElement("div")
+        document.body.appendChild(element)
+
+        new NativeAnimationExtended({
+            element,
+            name: "opacity",
+            keyframes: [0, 1],
+            duration: 300,
+            ease: "easeOut",
+        } as any)
+
+        mockAnimation.onfinish?.()
+
+        expect(mockAnimation.commitStyles).toHaveBeenCalledTimes(1)
+        expect(
+            mockAnimation.commitStyles.mock.invocationCallOrder[0]
+        ).toBeLessThan(mockAnimation.cancel.mock.invocationCallOrder[0])
+
+        element.remove()
     })
 })

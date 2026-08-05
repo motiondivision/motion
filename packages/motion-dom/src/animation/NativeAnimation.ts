@@ -106,6 +106,8 @@ export class NativeAnimation<T extends AnyResolvedKeyframe>
                     this.updateMotionValue(keyframe)
                 }
 
+                this.commitStyles()
+
                 /**
                  * If we can, we want to commit the final style as set by the user,
                  * rather than the computed keyframe value supplied by the animation.
