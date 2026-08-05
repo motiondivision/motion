@@ -52,10 +52,7 @@ describe("SVG styles on mount (#2949)", () => {
             .get("#path")
             .then(([$path]: any) => {
                 // opacity should be 0.5 (useTransform(50, [0,100], [0,1]))
-                const opacity =
-                    $path.getAttribute("opacity") ??
-                    window.getComputedStyle($path).opacity
-                expect(parseFloat(opacity)).to.equal(0.5)
+                expect(parseFloat($path.style.opacity)).to.equal(0.5)
             })
     })
 

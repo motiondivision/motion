@@ -79,6 +79,27 @@ describe("SVG useProps", () => {
         })
     })
 
+    test("should keep opacity as CSS style, not SVG attribute", () => {
+        const { result } = renderHook(() =>
+            useSVGProps(
+                { style: {} } as any,
+                {
+                    opacity: 0.5,
+                    cx: 10,
+                },
+                false,
+                "circle"
+            )
+        )
+
+        expect(result.current).toStrictEqual({
+            cx: 10,
+            style: {
+                opacity: 0.5,
+            },
+        })
+    })
+
     test("should keep offsetDistance as CSS style, not SVG attribute", () => {
         const { result } = renderHook(() =>
             useSVGProps(

@@ -17,15 +17,5 @@ export function renderSVG(
             !camelCaseAttributes.has(key) ? camelToDash(key) : key,
             renderState.attrs[key] as string
         )
-
-        /**
-         * WAAPI onfinish/commitStyles write CSS properties. Motion renders
-         * most SVG values as attributes; a leftover inline style would
-         * override the attribute (e.g. opacity after duration: 0).
-         */
-        const styleName = camelToDash(key)
-        if (element.style.getPropertyValue(styleName)) {
-            element.style.removeProperty(styleName)
-        }
     }
 }

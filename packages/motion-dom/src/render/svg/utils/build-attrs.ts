@@ -5,9 +5,12 @@ import { SVGRenderState } from "../types"
 import { buildSVGPath } from "./path"
 
 /**
- * CSS Motion Path properties that should remain as CSS styles on SVG elements.
+ * CSS properties that should remain as styles on SVG elements (not attributes).
+ * Opacity must stay as style so WAAPI onfinish/commitStyles and the JS render
+ * path write the same target — attributes lose to leftover inline styles.
  */
-const cssMotionPathProperties = [
+const cssStyleProperties = [
+    "opacity",
     "offsetDistance",
     "offsetPath",
     "offsetRotate",
@@ -72,7 +75,7 @@ export function buildSVGAttrs(
         delete attrs.transformBox
     }
 
-    for (const key of cssMotionPathProperties) {
+    for (const key of cssStyleProperties) {
         if (attrs[key] !== undefined) {
             style[key] = attrs[key]
             delete attrs[key]

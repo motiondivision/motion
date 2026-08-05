@@ -30,6 +30,28 @@ describe("svgEffect", () => {
         expect(element.getAttribute("radius")).toBe("4")
     })
 
+    it("sets opacity as a CSS style, not an SVG attribute", async () => {
+        const element = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "circle"
+        )
+        const opacity = motionValue(0.5)
+
+        svgEffect(element, { opacity })
+
+        await nextFrame()
+
+        expect(element.style.opacity).toBe("0.5")
+        expect(element.getAttribute("opacity")).toBeNull()
+
+        opacity.set(1)
+
+        await nextFrame()
+
+        expect(element.style.opacity).toBe("1")
+        expect(element.getAttribute("opacity")).toBeNull()
+    })
+
     it("sets SVG attributes and styles after svgEffect is applied", async () => {
         const element = document.createElementNS(
             "http://www.w3.org/2000/svg",

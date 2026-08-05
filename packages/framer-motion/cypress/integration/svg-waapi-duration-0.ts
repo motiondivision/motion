@@ -1,31 +1,46 @@
 /**
- * #3779: WAAPI finish commits SVG opacity to inline style; duration: 0
- * then only updates the opacity attribute. Stale style.opacity: 0 wins
- * over attribute opacity="1", so the element never reappears.
+ * #3779: SVG opacity must render as CSS style (same target as WAAPI).
+ * Transform already uses style — assert duration: 0 after WAAPI still works.
  */
 describe("SVG WAAPI duration 0 (#3779)", () => {
-    it("Restores SVG opacity when a duration: 0 animation follows a WAAPI fade-out", () => {
+    it("Restores SVG opacity via style when duration: 0 follows a WAAPI fade-out", () => {
         cy.visit("?test=svg-waapi-duration-0")
-            .get("#target")
+            .get("#opacity-target")
             .should(([$el]: any) => {
                 expect(getComputedStyle($el).opacity).to.equal("1")
             })
-            .get("#toggle")
+            .get("#opacity-toggle")
             .click()
-            // Wait for the non-zero duration fade-out to finish
-            .get("#target")
+            .get("#opacity-target")
             .should(([$el]: any) => {
                 expect(getComputedStyle($el).opacity).to.equal("0")
             })
-            .get("#toggle")
+            .get("#opacity-toggle")
             .click()
-            // duration: 0 must restore visibility (attribute + computed style)
-            .get("#target")
+            .get("#opacity-target")
             .should(([$el]: any) => {
                 expect(getComputedStyle($el).opacity).to.equal("1")
-                expect($el.getAttribute("opacity")).to.equal("1")
-                // Inline style from WAAPI must not linger and override the attr
-                expect($el.style.opacity).to.equal("")
+                expect($el.style.opacity).to.equal("1")
+            })
+    })
+
+    it("Restores SVG transform via style when duration: 0 follows a WAAPI animation", () => {
+        cy.visit("?test=svg-waapi-duration-0")
+            .get("#transform-target")
+            .should(([$el]: any) => {
+                expect($el.style.transform).to.equal("translateX(0px)")
+            })
+            .get("#transform-toggle")
+            .click()
+            .get("#transform-target")
+            .should(([$el]: any) => {
+                expect($el.style.transform).to.equal("translateX(50px)")
+            })
+            .get("#transform-toggle")
+            .click()
+            .get("#transform-target")
+            .should(([$el]: any) => {
+                expect($el.style.transform).to.equal("translateX(0px)")
             })
     })
 })

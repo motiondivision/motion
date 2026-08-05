@@ -36,6 +36,9 @@ export class SVGVisualElement extends DOMVisualElement<
             const defaultType = getDefaultValueType(key)
             return defaultType ? defaultType.default || 0 : 0
         }
+        if (key === "opacity") {
+            return getComputedStyle(instance).opacity || 1
+        }
         key = !camelCaseAttributes.has(key) ? camelToDash(key) : key
         return instance.getAttribute(key)
     }
