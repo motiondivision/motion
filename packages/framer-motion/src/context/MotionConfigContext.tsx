@@ -5,6 +5,7 @@ import { TransformPoint } from "motion-utils"
 import { createContext } from "react"
 
 export type ReducedMotionConfig = "always" | "never" | "user"
+export type IsValidProp = (key: string) => boolean
 
 /**
  * @public
@@ -53,6 +54,13 @@ export interface MotionConfigContext {
      */
     skipAnimations?: boolean
 
+    /**
+     * Determines whether a prop should be forwarded to the DOM.
+     * Useful when wrapping Motion components with a styling library.
+     *
+     * @public
+     */
+    isValidProp?: IsValidProp
 }
 
 /**

@@ -1,23 +1,19 @@
 import { isMotionValue } from "motion-dom"
+import type { IsValidProp } from "../../../context/MotionConfigContext"
 import type { MotionProps } from "../../../motion/types"
 import { isValidMotionProp } from "../../../motion/utils/valid-prop"
 
-let shouldForward = (key: string) => !isValidMotionProp(key)
-
-export type IsValidProp = (key: string) => boolean
-
-export function loadExternalIsValidProp(isValidProp?: IsValidProp) {
-    if (typeof isValidProp !== "function") return
-
-    // Explicitly filter our events
-    shouldForward = (key: string) =>
-        key.startsWith("on") ? !isValidMotionProp(key) : isValidProp(key)
+function shouldForward(key: string, isValidProp?: IsValidProp) {
+    return key.startsWith("on")
+        ? !isValidMotionProp(key)
+        : isValidProp?.(key) ?? !isValidMotionProp(key)
 }
 
 export function filterProps(
     props: MotionProps,
     isDom: boolean,
-    forwardMotionProps: boolean
+    forwardMotionProps: boolean,
+    isValidProp?: IsValidProp
 ) {
     const filteredProps: MotionProps = {}
 
@@ -34,7 +30,7 @@ export function filterProps(
         if (isMotionValue(props[key as keyof typeof props])) continue
 
         if (
-            shouldForward(key) ||
+            shouldForward(key, isValidProp) ||
             (forwardMotionProps === true && isValidMotionProp(key)) ||
             (!isDom && !isValidMotionProp(key)) ||
             // If trying to use native HTML drag events, forward drag listeners

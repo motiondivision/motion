@@ -161,7 +161,7 @@ plan's own gate is satisfied). Classifications:
 | [issue-2658](issue-2658.md) | P2 | M | Keyboard-accessible Reorder via context moveByOffset |
 | [issue-1935](issue-1935.md) | P2 | L | layoutRoot-relative shared layout animation (absorbs issue-2514 scenario) |
 | [issue-3173](issue-3173.md) | P2 | L | AnimateSuspense — BUILD / DOCS / REJECT gate, then probe-pattern design |
-| [issue-2652](issue-2652.md) | P2 | S–M | Drop implicit `@emotion/is-prop-valid` require (breaking; next major) |
+| [issue-2652](issue-2652.md) | P2 | S–M | APPROVED Option A — PR #3783; breaking, next major |
 | [issue-2579](issue-2579.md) | P2 | M | useInView: re-register when ref.current null at first render (real bug shaped as feature) |
 | [issue-2603](issue-2603.md) | P3 | S | onReorder second arg `{value, from, to}` |
 | [issue-2189](issue-2189.md) | P3 | S/M | scrollXMax/scrollYMax on useScroll, or answer with `scrollInfo()` |
