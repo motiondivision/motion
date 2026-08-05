@@ -4,11 +4,16 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
-## Unreleased
+## [13.0.0] 2026-08-05
 
-### Breaking changes
+### Changed
 
--   Removed implicit `@emotion/is-prop-valid` loading. Applications using `styled(motion.div)` should install `@emotion/is-prop-valid` and pass it to `<MotionConfig isValidProp={isPropValid}>`. This configuration is scoped to that `MotionConfig` subtree.
+-   Removed optional `@emotion/is-prop-valid` dependency in favour of explicit `<MotionConfig isValidProp={isPropValid}>`.
+
+### Fixed
+
+-   Hardware-accelerated SVG elements correctly apply final style on animation complete.
+-   `AnimatePresence`: Ensure nodes are marked as safe to remove when rendering `propagate` with no `motion` children.
 
 ## [12.43.0] 2026-07-27
 
