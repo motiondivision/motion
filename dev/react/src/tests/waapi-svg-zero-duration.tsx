@@ -26,6 +26,24 @@ export const App = () => {
                 >
                     <div style={{ background: "red" }}>chip</div>
                 </motion.foreignObject>
+                <motion.rect
+                    id="transform-target"
+                    animate={{
+                        transform: hidden
+                            ? "translateX(50px)"
+                            : "translateX(0px)",
+                    }}
+                    height={40}
+                    initial={false}
+                    transition={
+                        hidden
+                            ? { duration: 0.3 }
+                            : { duration: 0.3, transform: { duration: 0 } }
+                    }
+                    width={40}
+                    x={120}
+                    y={10}
+                />
             </svg>
         </>
     )

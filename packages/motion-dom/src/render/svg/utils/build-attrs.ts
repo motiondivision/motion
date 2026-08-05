@@ -4,7 +4,7 @@ import { ResolvedValues } from "../../types"
 import { SVGRenderState } from "../types"
 import { buildSVGPath } from "./path"
 
-const cssStyleProperties = [
+export const cssStyleProperties = [
     "transform",
     "opacity",
     "offsetDistance",
