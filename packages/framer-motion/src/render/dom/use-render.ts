@@ -2,6 +2,7 @@
 
 import { isMotionValue } from "motion-dom"
 import { Fragment, createElement, useMemo } from "react"
+import type { IsValidProp } from "../../context/MotionConfigContext"
 import { MotionProps } from "../../motion/types"
 import { VisualState } from "../../motion/utils/use-visual-state"
 import { HTMLRenderState } from "../html/types"
@@ -24,7 +25,8 @@ export function useRender<
     }: VisualState<HTMLElement | SVGElement, HTMLRenderState | SVGRenderState>,
     isStatic: boolean,
     forwardMotionProps: boolean = false,
-    isSVG?: boolean
+    isSVG?: boolean,
+    isValidProp?: IsValidProp
 ) {
     const useVisualProps =
         (isSVG ?? isSVGComponent(Component)) ? useSVGProps : useHTMLProps
@@ -38,7 +40,8 @@ export function useRender<
     const filteredProps = filterProps(
         props,
         typeof Component === "string",
-        forwardMotionProps
+        forwardMotionProps,
+        isValidProp
     )
     const elementProps =
         Component !== Fragment ? { ...filteredProps, ...visualProps, ref } : {}

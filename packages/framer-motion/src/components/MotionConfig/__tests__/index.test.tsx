@@ -5,19 +5,73 @@ import { render } from "../../../jest.setup"
 import { motion } from "../../../render/components/motion"
 
 describe("custom properties", () => {
-    test("renders", () => {
+    test("isValidProp is scoped to children", () => {
         const Component = () => {
             return (
-                <MotionConfig isValidProp={(key) => key !== "data-foo"}>
-                    <motion.div data-foo="bar" data-bar="foo" />
-                </MotionConfig>
+                <>
+                    <MotionConfig isValidProp={(key) => key !== "data-foo"}>
+                        <motion.div
+                            id="inside"
+                            data-foo="bar"
+                            data-bar="foo"
+                        />
+                    </MotionConfig>
+                    <motion.div id="outside" data-foo="bar" />
+                </>
             )
         }
 
-        const { container } = render(<Component />)
+        const { container, rerender } = render(<Component />)
 
-        expect(container.firstChild).not.toHaveAttribute("data-foo")
-        expect(container.firstChild).toHaveAttribute("data-bar")
+        expect(container.querySelector("#inside")).not.toHaveAttribute(
+            "data-foo"
+        )
+        expect(container.querySelector("#inside")).toHaveAttribute("data-bar")
+        expect(container.querySelector("#outside")).toHaveAttribute("data-foo")
+
+        rerender(<motion.div id="after" data-foo="bar" />)
+        expect(container.querySelector("#after")).toHaveAttribute("data-foo")
+    })
+
+    test("nested isValidProp overrides restore the parent validator", () => {
+        const { container } = render(
+            <MotionConfig isValidProp={(key) => key !== "data-outer"}>
+                <motion.div
+                    id="outer-before"
+                    data-outer="outer"
+                    data-inner="inner"
+                />
+                <MotionConfig isValidProp={(key) => key !== "data-inner"}>
+                    <motion.div
+                        id="inner"
+                        data-outer="outer"
+                        data-inner="inner"
+                    />
+                </MotionConfig>
+                <motion.div
+                    id="outer-after"
+                    data-outer="outer"
+                    data-inner="inner"
+                />
+            </MotionConfig>
+        )
+
+        expect(container.querySelector("#outer-before")).not.toHaveAttribute(
+            "data-outer"
+        )
+        expect(container.querySelector("#outer-before")).toHaveAttribute(
+            "data-inner"
+        )
+        expect(container.querySelector("#inner")).toHaveAttribute("data-outer")
+        expect(container.querySelector("#inner")).not.toHaveAttribute(
+            "data-inner"
+        )
+        expect(container.querySelector("#outer-after")).not.toHaveAttribute(
+            "data-outer"
+        )
+        expect(container.querySelector("#outer-after")).toHaveAttribute(
+            "data-inner"
+        )
     })
 })
 

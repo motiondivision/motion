@@ -103,7 +103,7 @@ export function createMotionComponent<
             layoutId: useLayoutId(props),
         }
 
-        const { isStatic } = configAndProps
+        const { isStatic, isValidProp } = configAndProps
 
         const context = useCreateMotionContext<HTMLElement | SVGElement>(props)
 
@@ -153,7 +153,8 @@ export function createMotionComponent<
                     visualState,
                     isStatic,
                     forwardMotionProps,
-                    isSVG
+                    isSVG,
+                    isValidProp
                 )}
             </MotionContext.Provider>
         )

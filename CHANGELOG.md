@@ -4,6 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## Unreleased
+
+### Breaking changes
+
+-   Removed implicit `@emotion/is-prop-valid` loading. Applications using `styled(motion.div)` should install `@emotion/is-prop-valid` and pass it to `<MotionConfig isValidProp={isPropValid}>`. This configuration is scoped to that `MotionConfig` subtree.
+
 ## [12.43.0] 2026-07-27
 
 ### Added
