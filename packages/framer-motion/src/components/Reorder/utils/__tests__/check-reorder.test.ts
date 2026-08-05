@@ -45,6 +45,68 @@ describe("Reorder grid utils", () => {
         ).toEqual(["b", "c", "d", "a"])
     })
 
+    test("waits until the dragged center crosses a large gap", () => {
+        const spaced = [
+            grid[0],
+            {
+                value: "b",
+                layout: {
+                    x: { min: 200, max: 300 },
+                    y: { min: 0, max: 100 },
+                },
+            },
+        ]
+
+        expect(
+            checkReorder(spaced, "a", { x: 100, y: 0 }, { x: 1, y: 0 }, "xy")
+        ).toBe(spaced)
+        expect(
+            checkReorder(
+                spaced,
+                "a",
+                { x: 150, y: 0 },
+                { x: 1, y: 0 },
+                "xy"
+            ).map(({ value }) => value)
+        ).toEqual(["b", "a"])
+    })
+
+    test("uses value order when dense packing differs from visual order", () => {
+        const dense = [
+            {
+                value: "a",
+                layout: {
+                    x: { min: 0, max: 200 },
+                    y: { min: 0, max: 100 },
+                },
+            },
+            {
+                value: "b",
+                layout: {
+                    x: { min: 0, max: 200 },
+                    y: { min: 100, max: 200 },
+                },
+            },
+            {
+                value: "c",
+                layout: {
+                    x: { min: 200, max: 300 },
+                    y: { min: 0, max: 100 },
+                },
+            },
+        ]
+
+        expect(
+            checkReorder(
+                dense,
+                "c",
+                { x: -150, y: 100 },
+                { x: -1, y: 1 },
+                "xy"
+            ).map(({ value }) => value)
+        ).toEqual(["a", "c", "b"])
+    })
+
     test("preserves single-axis reorder thresholds", () => {
         const horizontal = grid.slice(0, 2)
 
