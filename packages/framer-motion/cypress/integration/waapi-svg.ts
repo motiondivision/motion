@@ -46,7 +46,7 @@ describe("waapi-svg", () => {
                 expect(translateX).to.be.greaterThan(3)
 
                 // Per-frame rendered values remain at the initial keyframe
-                expect($circle.getAttribute("opacity")).to.equal("1")
+                expect($circle.style.opacity).to.equal("1")
                 expect($circle.style.transform).to.equal("translateX(0px)")
             })
             cy.get("#rect").then(([$rect]: any) => {
@@ -58,7 +58,7 @@ describe("waapi-svg", () => {
                 const [scaleX] = parseMatrix(computed.transform)
                 expect(scaleX).to.be.greaterThan(1.01)
 
-                expect($rect.getAttribute("opacity")).to.equal("1")
+                expect($rect.style.opacity).to.equal("1")
                 expect($rect.style.transform).to.equal("scale(1)")
             })
         })
@@ -74,8 +74,9 @@ describe("waapi-svg", () => {
                     .getAnimations()
                     .flatMap((animation) =>
                         Object.keys(
-                            (animation.effect as KeyframeEffect).getKeyframes()[0] ??
-                                {}
+                            (
+                                animation.effect as KeyframeEffect
+                            ).getKeyframes()[0] ?? {}
                         )
                     )
 

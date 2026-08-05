@@ -10,7 +10,7 @@ import { camelToDash } from "../dom/utils/camel-to-dash"
 import type { ResolvedValues } from "../types"
 import type { VisualElement, MotionStyle } from "../VisualElement"
 import { SVGRenderState } from "./types"
-import { buildSVGAttrs } from "./utils/build-attrs"
+import { buildSVGAttrs, cssStyleProperties } from "./utils/build-attrs"
 import { camelCaseAttributes } from "./utils/camel-case-attrs"
 import { isSVGTag } from "./utils/is-svg-tag"
 import { renderSVG } from "./utils/render"
@@ -36,6 +36,13 @@ export class SVGVisualElement extends DOMVisualElement<
             const defaultType = getDefaultValueType(key)
             return defaultType ? defaultType.default || 0 : 0
         }
+
+        if (cssStyleProperties.includes(key)) {
+            const computedStyle = getComputedStyle(instance)
+            const value = computedStyle[key as keyof typeof computedStyle]
+            if (typeof value === "string" && value) return value.trim()
+        }
+
         key = !camelCaseAttributes.has(key) ? camelToDash(key) : key
         return instance.getAttribute(key)
     }

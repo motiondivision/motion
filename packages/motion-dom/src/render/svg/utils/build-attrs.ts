@@ -4,10 +4,9 @@ import { ResolvedValues } from "../../types"
 import { SVGRenderState } from "../types"
 import { buildSVGPath } from "./path"
 
-/**
- * CSS Motion Path properties that should remain as CSS styles on SVG elements.
- */
-const cssMotionPathProperties = [
+export const cssStyleProperties = [
+    "transform",
+    "opacity",
     "offsetDistance",
     "offsetPath",
     "offsetRotate",
@@ -50,14 +49,13 @@ export function buildSVGAttrs(
     state.style = {}
     const { attrs, style } = state
 
-    /**
-     * However, we apply transforms as CSS transforms.
-     * So if we detect a transform, transformOrigin we take it from attrs and copy it into style.
-     */
-    if (attrs.transform) {
-        style.transform = attrs.transform
-        delete attrs.transform
+    for (const key of cssStyleProperties) {
+        if (attrs[key] !== undefined) {
+            style[key] = attrs[key]
+            delete attrs[key]
+        }
     }
+
     if (style.transform || attrs.transformOrigin) {
         style.transformOrigin = attrs.transformOrigin ?? "50% 50%"
         delete attrs.transformOrigin
@@ -70,13 +68,6 @@ export function buildSVGAttrs(
          */
         style.transformBox = (styleProp?.transformBox as string) ?? "fill-box"
         delete attrs.transformBox
-    }
-
-    for (const key of cssMotionPathProperties) {
-        if (attrs[key] !== undefined) {
-            style[key] = attrs[key]
-            delete attrs[key]
-        }
     }
 
     // Render attrX/attrY/attrScale as attributes
