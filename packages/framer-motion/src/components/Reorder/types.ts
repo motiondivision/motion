@@ -1,17 +1,19 @@
-import { Axis, Box } from "motion-utils"
+import { Box, Point } from "motion-utils"
 import { RefObject } from "react"
 import { HTMLElements } from "../../render/html/supported-elements"
 
+export type ReorderAxis = "x" | "y" | "xy"
+
 export interface ReorderContextProps<T> {
-    axis: "x" | "y"
+    axis: ReorderAxis
     registerItem: (item: T, layout: Box) => void
-    updateOrder: (item: T, offset: number, velocity: number) => void
+    updateOrder: (item: T, offset: Point, velocity: Point) => void
     groupRef: RefObject<Element | null>
 }
 
 export interface ItemData<T> {
     value: T
-    layout: Axis
+    layout: Box
 }
 
 // Reorder component type helpers

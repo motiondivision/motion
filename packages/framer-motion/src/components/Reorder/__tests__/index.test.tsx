@@ -1,3 +1,4 @@
+import { act } from "react"
 import { useContext, useLayoutEffect, useRef, useState } from "react"
 import { Reorder } from ".."
 import { ReorderContext } from "../../../context/ReorderContext"
@@ -13,11 +14,7 @@ describe("Reorder", () => {
             ])
 
             return (
-                <Reorder.Group
-                    values={items}
-                    onReorder={setItems}
-                    axis="y"
-                >
+                <Reorder.Group values={items} onReorder={setItems} axis="y">
                     {items.map((item) => (
                         <Reorder.Item key={item} value={item}>
                             {item}
@@ -105,9 +102,55 @@ describe("Reorder", () => {
 
         // Drag item 2 past item 3: offset=30, velocity=1
         // Item 2 max=50, item 3 center=75, 50+30=80 > 75 triggers swap
-        capturedContext.updateOrder(2, 30, 1)
+        capturedContext.updateOrder(2, { x: 0, y: 30 }, { x: 0, y: 1 })
 
         // Should swap 2 and 3 in the FULL values array, not just measured items
         expect(onReorder).toHaveBeenCalledWith([1, 3, 2, 4, 5])
     })
+
+    it.each([["xy"], [undefined]])(
+        "Reorders a grid across both axes with axis=%s",
+        (axis) => {
+            const onReorder = jest.fn()
+            let capturedContext: any = null
+
+            const ContextCapture = () => {
+                capturedContext = useContext(ReorderContext)
+                return null
+            }
+
+            render(
+                <Reorder.Group
+                    axis={axis as any}
+                    onReorder={onReorder}
+                    values={["a", "b", "c", "d"]}
+                >
+                    <ContextCapture />
+                </Reorder.Group>
+            )
+
+            act(() => {
+                capturedContext.registerItem("a", {
+                    x: { min: 0, max: 100 },
+                    y: { min: 0, max: 100 },
+                })
+                capturedContext.registerItem("b", {
+                    x: { min: 100, max: 200 },
+                    y: { min: 0, max: 100 },
+                })
+                capturedContext.registerItem("c", {
+                    x: { min: 0, max: 100 },
+                    y: { min: 100, max: 200 },
+                })
+                capturedContext.registerItem("d", {
+                    x: { min: 100, max: 200 },
+                    y: { min: 100, max: 200 },
+                })
+            })
+
+            capturedContext.updateOrder("a", { x: 100, y: 100 }, { x: 1, y: 1 })
+
+            expect(onReorder).toHaveBeenCalledWith(["b", "c", "d", "a"])
+        }
+    )
 })
