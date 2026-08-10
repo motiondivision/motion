@@ -26,4 +26,10 @@ describe("Reorder flex layouts", () => {
         drag(150, 150)
         cy.get("[data-testid='current-order']").should("have.text", "b,c,d,a")
     })
+
+    it("auto-detects wrapped RTL flex rows", () => {
+        cy.visit("?test=reorder-flex&layout=wrap-rtl").wait(200)
+        drag(-70, 150)
+        cy.get("[data-testid='current-order']").should("have.text", "b,c,d,a")
+    })
 })

@@ -2,7 +2,7 @@ import { ItemData } from "../../types"
 import { checkReorder } from "../check-reorder"
 import { detectAxis } from "../detect-axis"
 
-const grid: ItemData<string>[] = [
+const wrapped: ItemData<string>[] = [
     {
         value: "a",
         layout: { x: { min: 0, max: 100 }, y: { min: 0, max: 100 } },
@@ -24,19 +24,19 @@ const grid: ItemData<string>[] = [
     },
 ]
 
-describe("Reorder grid utils", () => {
-    test("detects horizontal, vertical, and grid layouts", () => {
-        expect(detectAxis(grid.slice(0, 2).map(({ layout }) => layout))).toBe(
-            "x"
-        )
-        expect(detectAxis([grid[0].layout, grid[2].layout])).toBe("y")
-        expect(detectAxis(grid.map(({ layout }) => layout))).toBe("xy")
+describe("Reorder layout utils", () => {
+    test("detects horizontal, vertical, and wrapped layouts", () => {
+        expect(
+            detectAxis(wrapped.slice(0, 2).map(({ layout }) => layout))
+        ).toBe("x")
+        expect(detectAxis([wrapped[0].layout, wrapped[2].layout])).toBe("y")
+        expect(detectAxis(wrapped.map(({ layout }) => layout))).toBe("xy")
     })
 
-    test("moves an item to the grid cell containing its center", () => {
+    test("moves into a wrapped row", () => {
         expect(
             checkReorder(
-                grid,
+                wrapped,
                 "a",
                 { x: 100, y: 100 },
                 { x: 1, y: 1 },
@@ -47,7 +47,7 @@ describe("Reorder grid utils", () => {
 
     test("waits until the dragged center crosses a large gap", () => {
         const spaced = [
-            grid[0],
+            wrapped[0],
             {
                 value: "b",
                 layout: {
@@ -64,51 +64,84 @@ describe("Reorder grid utils", () => {
             checkReorder(
                 spaced,
                 "a",
-                { x: 150, y: 0 },
+                { x: 101, y: 0 },
                 { x: 1, y: 0 },
                 "xy"
             ).map(({ value }) => value)
         ).toEqual(["b", "a"])
     })
 
-    test("uses value order when dense packing differs from visual order", () => {
-        const dense = [
-            {
-                value: "a",
-                layout: {
-                    x: { min: 0, max: 200 },
-                    y: { min: 0, max: 100 },
+    test.each([
+        [
+            "ltr",
+            [
+                {
+                    value: "first",
+                    layout: {
+                        x: { min: 0, max: 80 },
+                        y: { min: 0, max: 80 },
+                    },
                 },
-            },
-            {
-                value: "b",
-                layout: {
-                    x: { min: 0, max: 200 },
-                    y: { min: 100, max: 200 },
+                {
+                    value: "dragged",
+                    layout: {
+                        x: { min: 100, max: 180 },
+                        y: { min: 0, max: 80 },
+                    },
                 },
-            },
-            {
-                value: "c",
-                layout: {
-                    x: { min: 200, max: 300 },
-                    y: { min: 0, max: 100 },
+                {
+                    value: "next",
+                    layout: {
+                        x: { min: 0, max: 80 },
+                        y: { min: 100, max: 180 },
+                    },
                 },
-            },
-        ]
-
-        expect(
-            checkReorder(
-                dense,
-                "c",
-                { x: -150, y: 100 },
-                { x: -1, y: 1 },
-                "xy"
-            ).map(({ value }) => value)
-        ).toEqual(["a", "c", "b"])
-    })
+            ],
+        ],
+        [
+            "rtl",
+            [
+                {
+                    value: "first",
+                    layout: {
+                        x: { min: 100, max: 180 },
+                        y: { min: 0, max: 80 },
+                    },
+                },
+                {
+                    value: "dragged",
+                    layout: {
+                        x: { min: 0, max: 80 },
+                        y: { min: 0, max: 80 },
+                    },
+                },
+                {
+                    value: "next",
+                    layout: {
+                        x: { min: 100, max: 180 },
+                        y: { min: 100, max: 180 },
+                    },
+                },
+            ],
+        ],
+    ] as const)(
+        "inserts into the empty end of a wrapped %s row",
+        (direction, layout) => {
+            expect(
+                checkReorder(
+                    [...layout],
+                    "dragged",
+                    { x: 0, y: 100 },
+                    { x: 0, y: 0 },
+                    "xy",
+                    direction
+                ).map(({ value }) => value)
+            ).toEqual(["first", "next", "dragged"])
+        }
+    )
 
     test("preserves single-axis reorder thresholds", () => {
-        const horizontal = grid.slice(0, 2)
+        const horizontal = wrapped.slice(0, 2)
 
         expect(
             checkReorder(horizontal, "a", { x: 100, y: 0 }, { x: 1, y: 0 }, "y")

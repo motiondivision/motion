@@ -2,7 +2,7 @@ import * as React from "react"
 import { useState } from "react"
 import { Reorder } from "framer-motion"
 
-type FlexLayout = "row" | "column" | "wrap"
+type FlexLayout = "row" | "column" | "wrap" | "wrap-rtl"
 
 const initialItems = ["a", "b", "c", "d"]
 
@@ -21,10 +21,11 @@ export const App = () => {
                 onReorder={setItems}
                 style={{
                     display: "flex",
+                    direction: layout === "wrap-rtl" ? "rtl" : "ltr",
                     flexDirection: layout === "column" ? "column" : "row",
-                    flexWrap: layout === "wrap" ? "wrap" : "nowrap",
+                    flexWrap: layout.startsWith("wrap") ? "wrap" : "nowrap",
                     gap: 20,
-                    width: layout === "wrap" ? 180 : "auto",
+                    width: layout.startsWith("wrap") ? 180 : "auto",
                 }}
             >
                 {items.map((item) => (

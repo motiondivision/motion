@@ -16,17 +16,17 @@ export const App = () => {
 
     return (
         <main>
-            <h1>Variable-width reorder grid</h1>
-            <p>Drag tiles between differently sized grid cells.</p>
+            <h1>Variable-width reorder flex wrap</h1>
+            <p>Drag tiles between differently sized wrapped rows.</p>
             <Reorder.Group
                 as="div"
                 axis="xy"
                 values={items}
                 onReorder={setItems}
                 style={{
-                    display: "grid",
+                    display: "flex",
+                    flexWrap: "wrap",
                     gap: 8,
-                    gridTemplateColumns: "repeat(12, 1fr)",
                     width: "min(90vw, 840px)",
                 }}
             >
@@ -51,9 +51,11 @@ export const App = () => {
                             color: "#222",
                             cursor: "grab",
                             display: "flex",
+                            flex: `0 0 calc((100% - 88px) / 12 * ${
+                                item.columns
+                            } + ${8 * (item.columns - 1)}px)`,
                             fontSize: 14,
                             fontWeight: 600,
-                            gridColumn: `span ${item.columns}`,
                             height: 56,
                             justifyContent: "center",
                         }}

@@ -37,7 +37,7 @@ export interface Props<
 
     /**
      * The axis to reorder along. By default, this is detected from the item
-     * layout. Use `"xy"` to explicitly enable grid reordering.
+     * layout. Use `"xy"` to explicitly enable wrapped layout reordering.
      *
      * @public
      */
@@ -139,7 +139,20 @@ export function ReorderGroupComponent<
                 const layout = itemLayouts.current.get(value)
                 return layout ? [{ value, layout }] : []
             })
-            const newOrder = checkReorder(order, item, offset, velocity, axis)
+            const direction =
+                groupRef.current?.ownerDocument.defaultView?.getComputedStyle(
+                    groupRef.current
+                ).direction === "rtl"
+                    ? "rtl"
+                    : "ltr"
+            const newOrder = checkReorder(
+                order,
+                item,
+                offset,
+                velocity,
+                axis,
+                direction
+            )
 
             if (order !== newOrder) {
                 isReordering.current = true
