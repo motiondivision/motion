@@ -4,6 +4,14 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [13.1.0] 2026-08-10
+
+### Added
+
+-   `Reorder`: Multidimensional reorder.
+-   `Reorder`: Automatic axis detection.
+-   `Reorder`: RTL support.
+
 ## [13.0.0] 2026-08-05
 
 ### Changed
