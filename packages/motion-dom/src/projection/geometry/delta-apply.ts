@@ -68,6 +68,16 @@ const TREE_SCALE_SNAP_MIN = 0.999999999999
 const TREE_SCALE_SNAP_MAX = 1.0000000000001
 
 /**
+ * Snap a cumulative tree scale back to 1 if it's within a non-perceivable
+ * threshold. This will help reduce useless scales getting rendered.
+ */
+export function snapTreeScale(scale: number): number {
+    return scale < TREE_SCALE_SNAP_MAX && scale > TREE_SCALE_SNAP_MIN
+        ? 1.0
+        : scale
+}
+
+/**
  * Apply a tree of deltas to a box. We do this to calculate the effect of all the transforms
  * in a tree upon our box before then calculating how to project it into our desired viewport-relative box
  *
@@ -94,14 +104,10 @@ export function applyTreeDeltas(
 
         /**
          * TODO: Prefer to remove this, but currently we have motion components with
-         * display: contents in Framer.
+         * display: contents in Framer. The flag is cached in setOptions as
+         * resolving the props chain here is a hotspot.
          */
-        const { visualElement } = node.options
-        if (
-            visualElement &&
-            visualElement.props.style &&
-            visualElement.props.style.display === "contents"
-        ) {
+        if (node.isDisplayContents) {
             continue
         }
 
@@ -129,22 +135,8 @@ export function applyTreeDeltas(
         }
     }
 
-    /**
-     * Snap tree scale back to 1 if it's within a non-perceivable threshold.
-     * This will help reduce useless scales getting rendered.
-     */
-    if (
-        treeScale.x < TREE_SCALE_SNAP_MAX &&
-        treeScale.x > TREE_SCALE_SNAP_MIN
-    ) {
-        treeScale.x = 1.0
-    }
-    if (
-        treeScale.y < TREE_SCALE_SNAP_MAX &&
-        treeScale.y > TREE_SCALE_SNAP_MIN
-    ) {
-        treeScale.y = 1.0
-    }
+    treeScale.x = snapTreeScale(treeScale.x)
+    treeScale.y = snapTreeScale(treeScale.y)
 }
 
 export function translateAxis(axis: Axis, distance: number) {

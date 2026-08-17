@@ -38,6 +38,7 @@ import { copyAxisDeltaInto, copyAxisInto, copyBoxInto } from "../geometry/copy"
 import {
     applyBoxDelta,
     applyTreeDeltas,
+    snapTreeScale,
     transformBox,
     translateAxis,
 } from "../geometry/delta-apply"
@@ -72,6 +73,7 @@ import {
     ProjectionNodeConfig,
     ProjectionNodeOptions,
     ScrollMeasurements,
+    PathTransform,
 } from "./types"
 
 const metrics = {
@@ -858,6 +860,12 @@ export function createProjectionNode<I>({
             this.projectionUpdateScheduled = false
 
             /**
+             * Invalidate every node's cached cumulative path transform
+             * (see updatePathTransform).
+             */
+            this.pathTransformSweep++
+
+            /**
              * Reset debug counts. Manually resetting rather than creating a new
              * object each frame.
              */
@@ -1153,7 +1161,26 @@ export function createProjectionNode<I>({
                 crossfade:
                     options.crossfade !== undefined ? options.crossfade : true,
             }
+
+            /**
+             * Cache the display: contents check. It's read for every
+             * ancestor of every projecting node each frame, and resolving
+             * the props chain there is a hotspot.
+             */
+            const { visualElement } = this.options
+            const style = visualElement
+                ? (visualElement.props as { style?: MotionStyle }).style
+                : undefined
+            this.isDisplayContents =
+                !!style && (style as { display?: string }).display === "contents"
         }
+
+        /**
+         * Whether the underlying element is display: contents, cached in
+         * setOptions. Read by applyTreeDeltas and updatePathTransform for
+         * every ancestor of every projecting node each frame.
+         */
+        isDisplayContents = false
 
         clearMeasurements() {
             this.scroll = undefined
@@ -1393,6 +1420,79 @@ export function createProjectionNode<I>({
 
         hasProjected: boolean = false
 
+        /**
+         * Cumulative transform of all ancestors' projection deltas,
+         * expressed per axis as an affine map (p -> a * p + b) plus the
+         * cumulative scale product (treeScale). Each ancestor's delta is
+         * an axis-aligned translate/scale, so the whole path composes in
+         * closed form. This replaces the per-node walk over the full
+         * ancestor path (applyTreeDeltas) with an O(1) composition from
+         * the parent's cached transform - the projection sweep is
+         * depth-sorted so parents are always resolved first.
+         *
+         * Only used for non-shared projections: shared transitions also
+         * apply scroll offsets and ancestor latestValues transforms whose
+         * origins depend on the box being projected, so they can't share
+         * a single per-layer map.
+         */
+        pathTransformSweep = 0
+        pathTransformAt = -1
+        pathTransform: PathTransform = {
+            ax: 1,
+            bx: 0,
+            ay: 1,
+            by: 0,
+            sx: 1,
+            sy: 1,
+        }
+
+        updatePathTransform(): PathTransform {
+            const pt = this.pathTransform
+            const sweep = this.root.pathTransformSweep
+
+            if (this.pathTransformAt === sweep) return pt
+            this.pathTransformAt = sweep
+
+            const { parent } = this
+            if (!parent) {
+                pt.ax = pt.ay = pt.sx = pt.sy = 1
+                pt.bx = pt.by = 0
+                return pt
+            }
+
+            const parentTransform = parent.updatePathTransform()
+            pt.ax = parentTransform.ax
+            pt.bx = parentTransform.bx
+            pt.ay = parentTransform.ay
+            pt.by = parentTransform.by
+            pt.sx = parentTransform.sx
+            pt.sy = parentTransform.sy
+
+            const delta = parent.projectionDelta
+            if (delta && !parent.isDisplayContents) {
+                const { x, y } = delta
+                /**
+                 * Compose the parent's own delta after its ancestors':
+                 * F(p) = scale * p + (originPoint * (1 - scale) + translate)
+                 */
+                pt.ax *= x.scale
+                pt.bx =
+                    x.scale * pt.bx +
+                    x.originPoint * (1 - x.scale) +
+                    x.translate
+                pt.sx *= x.scale
+
+                pt.ay *= y.scale
+                pt.by =
+                    y.scale * pt.by +
+                    y.originPoint * (1 - y.scale) +
+                    y.translate
+                pt.sy *= y.scale
+            }
+
+            return pt
+        }
+
         calcProjection() {
             const lead = this.getLead()
             const isShared = Boolean(this.resumingFrom) || this !== lead
@@ -1459,13 +1559,29 @@ export function createProjectionNode<I>({
             /**
              * Apply all the parent deltas to this box to produce the corrected box. This
              * is the layout box, as it will appear on screen as a result of the transforms of its parents.
+             *
+             * Non-shared projections use the cumulative path transform - a
+             * closed-form composition of every ancestor's delta, computed
+             * once per node per sweep - instead of walking the full
+             * ancestor path per node.
              */
-            applyTreeDeltas(
-                this.layoutCorrected,
-                this.treeScale,
-                this.path,
-                isShared
-            )
+            if (isShared) {
+                applyTreeDeltas(
+                    this.layoutCorrected,
+                    this.treeScale,
+                    this.path,
+                    true
+                )
+            } else {
+                const pt = this.updatePathTransform()
+                const box = this.layoutCorrected
+                box.x.min = pt.ax * box.x.min + pt.bx
+                box.x.max = pt.ax * box.x.max + pt.bx
+                box.y.min = pt.ay * box.y.min + pt.by
+                box.y.max = pt.ay * box.y.max + pt.by
+                this.treeScale.x = snapTreeScale(pt.sx)
+                this.treeScale.y = snapTreeScale(pt.sy)
+            }
 
             /**
              * If this layer needs to perform scale correction but doesn't have a target,

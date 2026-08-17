@@ -37,6 +37,20 @@ export type LayoutEvents =
     | "animationStart"
     | "animationComplete"
 
+/**
+ * Cumulative ancestor projection transform, expressed per axis as an
+ * affine map (p -> a * p + b), plus the cumulative scale product
+ * (sx/sy, i.e. treeScale).
+ */
+export interface PathTransform {
+    ax: number
+    bx: number
+    ay: number
+    by: number
+    sx: number
+    sy: number
+}
+
 export interface IProjectionNode<I = unknown> {
     linkedParentVersion: number
     layoutVersion: number
@@ -112,6 +126,20 @@ export interface IProjectionNode<I = unknown> {
         targetStyle: CSSStyleDeclaration,
         styleProp?: MotionStyle
     ): void
+    /**
+     * Whether the underlying element is display: contents. Cached in
+     * setOptions so per-frame tree walks don't repeatedly resolve
+     * options.visualElement.props.style.
+     */
+    isDisplayContents: boolean
+    /**
+     * Cumulative affine transform of this node's ancestor projection
+     * deltas, cached per updateProjection sweep. Composed O(1) from the
+     * parent's cached transform - the projection sweep is depth-sorted so
+     * parents are always resolved first.
+     */
+    pathTransformSweep: number
+    updatePathTransform(): PathTransform
     clearMeasurements(): void
     resetTree(): void
 
