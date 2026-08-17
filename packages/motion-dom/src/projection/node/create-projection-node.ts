@@ -991,6 +991,7 @@ export function createProjectionNode<I>({
             ) {
                 resetTransform(this.instance, transformTemplateValue)
                 this.shouldResetTransform = false
+                this.clearRenderCache()
                 this.scheduleRender()
             }
         }
@@ -1153,6 +1154,13 @@ export function createProjectionNode<I>({
                 crossfade:
                     options.crossfade !== undefined ? options.crossfade : true,
             }
+
+            /**
+             * A React render may have written styles outside of the
+             * projection pipeline, so the memoized projection writes can
+             * no longer be trusted.
+             */
+            this.clearRenderCache()
         }
 
         clearMeasurements() {
@@ -1490,6 +1498,7 @@ export function createProjectionNode<I>({
                  */
                 if (this.prevProjectionDelta) {
                     this.createProjectionDeltas()
+                    this.clearRenderCache()
                     this.scheduleRender()
                 }
 
@@ -1984,6 +1993,42 @@ export function createProjectionNode<I>({
             visualElement.scheduleRender()
         }
 
+        /**
+         * Caches of the last projection-written transform styles. Layout
+         * animations render every projecting node every frame, but these
+         * writes often don't change frame-to-frame. Comparing against
+         * these caches lets us skip the CSSOM setter calls, which
+         * dominate per-frame projection cost at scale.
+         */
+        renderedTransform: string | undefined
+        renderedOriginX: number = -1
+        renderedOriginY: number = -1
+        wroteHidden = false
+
+        clearRenderCache() {
+            this.renderedTransform = undefined
+            this.renderedOriginX = this.renderedOriginY = -1
+        }
+
+        /**
+         * Whether applyProjectionStyles will write a transform this
+         * render. When true, style renders can skip writing user
+         * transforms as projection owns (and incorporates) them,
+         * avoiding a doubled CSSOM write per projecting element per
+         * frame and keeping the memoized projection writes valid.
+         */
+        willProjectTransform() {
+            if (!this.instance || this.isSVG || !this.isVisible) {
+                return false
+            }
+
+            if (this.needsReset) return true
+
+            return Boolean(
+                this.projectionDelta && this.layout && this.getLead().target
+            )
+        }
+
         applyProjectionStyles(
             targetStyle: any, // CSSStyleDeclaration - doesn't allow numbers to be assigned to properties
             styleProp?: MotionStyle
@@ -1991,8 +2036,16 @@ export function createProjectionNode<I>({
             if (!this.instance || this.isSVG) return
 
             if (!this.isVisible) {
-                targetStyle.visibility = "hidden"
+                if (!this.wroteHidden) {
+                    this.wroteHidden = true
+                    targetStyle.visibility = "hidden"
+                }
                 return
+            }
+
+            if (this.wroteHidden) {
+                this.wroteHidden = false
+                targetStyle.visibility = ""
             }
 
             const transformTemplate = this.getTransformTemplate()
@@ -2000,7 +2053,7 @@ export function createProjectionNode<I>({
             if (this.needsReset) {
                 this.needsReset = false
 
-                targetStyle.visibility = ""
+                this.clearRenderCache()
                 targetStyle.opacity = ""
                 targetStyle.pointerEvents =
                     resolveMotionValue(styleProp?.pointerEvents) || ""
@@ -2025,12 +2078,11 @@ export function createProjectionNode<I>({
                         ? transformTemplate({}, "")
                         : "none"
                     this.hasProjected = false
+                    this.clearRenderCache()
                 }
 
                 return
             }
-
-            targetStyle.visibility = ""
 
             const valuesToRender = lead.animationValues || lead.latestValues
             this.applyTransformsToTarget()
@@ -2045,12 +2097,29 @@ export function createProjectionNode<I>({
                 transform = transformTemplate(valuesToRender, transform)
             }
 
-            targetStyle.transform = transform
+            /**
+             * The following writes are memoized against the last
+             * projection-rendered value as CSSOM setter calls are the
+             * dominant cost of rendering large numbers of projection
+             * nodes every frame. Projection owns these styles while
+             * projecting (see willProjectTransform), so the caches can't
+             * be invalidated by the regular style render.
+             */
+            if (transform !== this.renderedTransform) {
+                this.renderedTransform = targetStyle.transform = transform
+            }
 
             const { x, y } = this.projectionDelta
-            targetStyle.transformOrigin = `${x.origin * 100}% ${
-                y.origin * 100
-            }% 0`
+            if (
+                x.origin !== this.renderedOriginX ||
+                y.origin !== this.renderedOriginY
+            ) {
+                this.renderedOriginX = x.origin
+                this.renderedOriginY = y.origin
+                targetStyle.transformOrigin = `${x.origin * 100}% ${
+                    y.origin * 100
+                }% 0`
+            }
 
             if (lead.animationValues) {
                 /**

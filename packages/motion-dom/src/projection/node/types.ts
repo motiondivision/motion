@@ -112,6 +112,17 @@ export interface IProjectionNode<I = unknown> {
         targetStyle: CSSStyleDeclaration,
         styleProp?: MotionStyle
     ): void
+    /**
+     * Whether applyProjectionStyles will write a transform this render.
+     * When true, style renders skip writing user transforms as projection
+     * owns (and incorporates) them.
+     */
+    willProjectTransform(): boolean
+    /**
+     * Invalidate the memoized projection style writes, e.g. when styles
+     * may have been written outside the projection pipeline.
+     */
+    clearRenderCache(): void
     clearMeasurements(): void
     resetTree(): void
 
