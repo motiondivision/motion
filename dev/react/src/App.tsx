@@ -1,4 +1,12 @@
+import { recordStats } from "framer-motion/debug"
 import { StrictMode } from "react"
+
+/**
+ * Expose Motion's stats recorder for benchmarking/automation.
+ * Usage from devtools or a driver:
+ *   window.__report = window.recordStats(); ...; window.__report()
+ */
+;(window as any).recordStats = recordStats
 
 const examples = import.meta.glob("./examples/*.tsx", {
     eager: true,

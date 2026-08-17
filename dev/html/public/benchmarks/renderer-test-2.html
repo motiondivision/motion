@@ -1,0 +1,212 @@
+<html>
+    <!--
+      Renderer Test 2: Hostile style-recalculation environment
+
+      Animates the same five paint-triggering values, but in an environment
+      where any inline style write triggers massive style recalculation:
+      the stylesheet contains [style*="..."] attribute selectors with
+      descendant combinators, and every animated element has descendants.
+      Writing to element.style (directly OR via style.setProperty for a
+      custom property) mutates the style attribute, which triggers
+      attribute invalidation and descends into subtrees.
+
+      Findings from style-recalc-harness.html: legacy, styleEffect AND
+      varEffect all pay this cost - registered custom properties don't
+      escape it because they still live on the style attribute. The
+      "sheet" strategy (adopted stylesheet per-element rule) never touches
+      the style attribute after setup and is immune.
+
+      The "css" strategy animates the same values with CSS transitions:
+      JS writes the target values once per run (one attribute mutation),
+      then the browser ticks the animation internally. Per-frame recalc is
+      ~1.4ms vs ~30-40ms for the per-frame inline writers, putting it on
+      par with the sheet strategy (both end up paint-bound).
+
+      The "waapi" strategy (element.animate) applies values via the
+      animation cascade origin - zero style-attribute mutation - and ties
+      with sheet/css at the top. The "gsap" strategy is GSAP's normal JS
+      renderer: per-frame inline writes, so it groups with legacy/
+      styleEffect (~40% slower than WAAPI here) despite winning nothing
+      in the benign test-1 environment either (all paint-bound there).
+
+      Protocol: per renderer, 4 runs without reload, first discarded.
+
+      Query params: boxes (default 100), descendants (default 50), rules
+      (default 1000), duration (s, default 2), runs (default 4), manual.
+    -->
+    <head>
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+            }
+            #stage {
+                padding-top: 42vh;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 4px;
+            }
+            .box {
+                width: 40px;
+                height: 40px;
+                background: rgb(255, 40, 40);
+                border: 2px solid #333;
+                outline: 1px solid #666;
+                border-radius: 4px;
+                overflow: hidden;
+                font-size: 4px;
+                line-height: 1;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="panel">
+            <div id="status">Loading…</div>
+            <table id="results"></table>
+        </div>
+        <div id="stage"></div>
+        <script type="module" src="/src/imports/framer-motion-dom.js"></script>
+        <script type="module" src="/src/imports/gsap.js"></script>
+        <script type="module">
+            import {
+                PAINT_PROPS,
+                buildBoxes,
+                createStrategies,
+                createRunner,
+                renderResultsTable,
+                panelCSS,
+            } from "./renderer-bench-lib.js"
+
+            const styleTag = document.createElement("style")
+            styleTag.textContent = panelCSS
+            document.head.appendChild(styleTag)
+
+            const q = new URLSearchParams(location.search)
+            const numBoxes = +(q.get("boxes") || 100)
+            const descendants = +(q.get("descendants") || 50)
+            const numRules = +(q.get("rules") || 1000)
+            const duration = +(q.get("duration") || 2)
+            const runs = +(q.get("runs") || 4)
+
+            /** Hostile environment: [style*] rules + descendant subtrees */
+            const frags = [
+                "rgb(",
+                "background",
+                "px",
+                "border",
+                "0 0",
+                "color",
+                "radius",
+                "shadow",
+                "outline",
+                ", 2",
+            ]
+            const rules = []
+            for (let i = 0; i < numRules; i++) {
+                rules.push(
+                    `.box[style*="${frags[i % frags.length]}"] .d${
+                        i % 10
+                    } { z-index: ${i}; }`
+                )
+            }
+            const hostileSheet = document.createElement("style")
+            hostileSheet.textContent = rules.join("\n")
+            document.head.appendChild(hostileSheet)
+
+            const Motion = window.Motion
+            const status = document.getElementById("status")
+            const boxes = buildBoxes(
+                document.getElementById("stage"),
+                numBoxes,
+                descendants
+            )
+            const strategies = createStrategies(Motion)
+
+            /**
+             * CSS transitions: JS writes each target value once per run
+             * (one style-attribute mutation per element), then the browser
+             * ticks the animation internally. Per-frame there are no
+             * attribute mutations, so [style*=] invalidation is paid once
+             * per run rather than every frame.
+             */
+            strategies.css = {
+                name: "CSS transition",
+                bind(boxes, props) {
+                    for (const box of boxes) {
+                        for (const key in props) box.style[key] = props[key][0]
+                    }
+                    /** Flush initial values before enabling transitions */
+                    void boxes[0].offsetWidth
+                    for (const box of boxes) {
+                        box.style.transition = `all ${duration}s linear`
+                    }
+                    return {
+                        boxes,
+                        cleanup() {
+                            for (const box of boxes) {
+                                box.removeAttribute("style")
+                            }
+                        },
+                    }
+                },
+                animate(binding, phaseProps, props, flip, duration) {
+                    for (const box of binding.boxes) {
+                        for (const prop of phaseProps) {
+                            const [a, b] = props[prop]
+                            box.style[prop] = flip ? a : b
+                        }
+                    }
+                    return new Promise((resolve) =>
+                        setTimeout(resolve, duration * 1000 + 50)
+                    )
+                },
+            }
+
+            const phases = {
+                "5 values": Object.keys(PAINT_PROPS),
+            }
+
+            const runner = createRunner({
+                Motion,
+                boxes,
+                strategies,
+                props: PAINT_PROPS,
+                phases,
+                duration,
+                runs,
+                onStatus: (message) => (status.textContent = message),
+            })
+
+            window.__bench = runner
+            window.__phases = phases
+
+            async function main() {
+                if (q.has("manual")) {
+                    status.textContent = `Ready (manual) — ${numBoxes} boxes × ${descendants} descendants, ${numRules} [style*] rules`
+                    window.__done = true
+                    return
+                }
+
+                const results = await runner.runAll([
+                    "legacy",
+                    "style",
+                    "var",
+                    "sheet",
+                    "css",
+                    "gsap",
+                    "waapi",
+                ])
+                renderResultsTable(
+                    document.getElementById("results"),
+                    results,
+                    phases
+                )
+                status.textContent = `Done — ${numBoxes} boxes × ${descendants} descendants, ${numRules} [style*] rules, ${runs} runs (first discarded)`
+                window.__results = results
+                window.__done = true
+            }
+
+            main()
+        </script>
+    </body>
+</html>

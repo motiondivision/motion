@@ -1,0 +1,268 @@
+<html>
+    <!--
+      Renderer Test 3: Transform threshold - paint vs style recalculation
+
+      Animates x/y/scale/rotate (composed into a single transform) and
+      compares, across renderers:
+
+        - style:     styleEffect, inline transform, no will-change
+                     (style recalc + paint every frame)
+        - style-wc:  styleEffect + will-change: transform
+                     (style recalc, composited - no paint)
+        - var:       varEffect, transform via registered custom property
+        - var-wc:    varEffect + will-change: transform
+        - sheet:     transform composed into an adopted stylesheet rule
+                     (no style attribute mutation)
+        - sheet-wc:  sheet + will-change: transform (set inside the rule)
+
+      Run with env=hostile (default) to add [style*] rules + descendants,
+      making inline style writes trigger massive recalculation. Sweep
+      ?boxes= and ?boxSize= to find the threshold where paint cost
+      (larger/more elements, no will-change) overtakes recalc cost.
+
+      Protocol: per mode, 4 runs without reload, first discarded.
+
+      Query params: boxes (default 300), boxSize (px, default 60),
+      env (hostile | plain), descendants (default 30), rules (default
+      1000), duration (default 2), runs (default 4), manual.
+    -->
+    <head>
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+            }
+            #stage {
+                padding-top: 42vh;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+            .box {
+                background: rgb(255, 40, 40);
+                border: 2px solid #333;
+                border-radius: 4px;
+                overflow: hidden;
+                font-size: 4px;
+                line-height: 1;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="panel">
+            <div id="status">Loading…</div>
+            <table id="results"></table>
+        </div>
+        <div id="stage"></div>
+        <script type="module" src="/src/imports/framer-motion-dom.js"></script>
+        <script type="module">
+            import {
+                buildBoxes,
+                createStrategies,
+                createRunner,
+                renderResultsTable,
+                panelCSS,
+            } from "./renderer-bench-lib.js"
+
+            const styleTag = document.createElement("style")
+            styleTag.textContent = panelCSS
+            document.head.appendChild(styleTag)
+
+            const q = new URLSearchParams(location.search)
+            const numBoxes = +(q.get("boxes") || 300)
+            const boxSize = +(q.get("boxSize") || 60)
+            const env = q.get("env") || "hostile"
+            const descendants = +(q.get("descendants") || 30)
+            const numRules = +(q.get("rules") || 1000)
+            const duration = +(q.get("duration") || 2)
+            const runs = +(q.get("runs") || 4)
+
+            const sizeSheet = document.createElement("style")
+            sizeSheet.textContent = `.box { width: ${boxSize}px; height: ${boxSize}px; }`
+            document.head.appendChild(sizeSheet)
+
+            if (env === "hostile") {
+                const frags = ["rgb(", "translate", "px", "scale(", "rotate"]
+                const rules = []
+                for (let i = 0; i < numRules; i++) {
+                    rules.push(
+                        `.box[style*="${frags[i % frags.length]}"] .d${
+                            i % 10
+                        } { z-index: ${i}; }`
+                    )
+                }
+                const hostileSheet = document.createElement("style")
+                hostileSheet.textContent = rules.join("\n")
+                document.head.appendChild(hostileSheet)
+            }
+
+            const TRANSFORM_PROPS = {
+                x: [0, 60],
+                y: [0, 40],
+                scale: [1, 1.15],
+                rotate: [0, 45],
+            }
+
+            const Motion = window.Motion
+            const { motionValue, frame, cancelFrame } = Motion
+            const status = document.getElementById("status")
+            const boxes = buildBoxes(
+                document.getElementById("stage"),
+                numBoxes,
+                env === "hostile" ? descendants : 0
+            )
+            const base = createStrategies(Motion)
+
+            /**
+             * Transform composed into a registered var inside an adopted
+             * stylesheet rule - element attributes never mutated per frame.
+             */
+            let sheetTransformId = 0
+            const makeSheetTransform = (willChange) => ({
+                name: `sheet transform${willChange ? " + will-change" : ""}`,
+                bind(targets, props) {
+                    const all = []
+                    const subscriptions = []
+                    const renders = []
+                    const styleSheet = new CSSStyleSheet()
+
+                    const src = []
+                    const ids = []
+                    for (let i = 0; i < targets.length; i++) {
+                        const id = sheetTransformId++
+                        ids.push(id)
+                        targets[i].setAttribute("data-mt", id)
+                        src.push(`[data-mt="${id}"] {}`)
+                    }
+                    styleSheet.replaceSync(src.join("\n"))
+                    document.adoptedStyleSheets = [
+                        ...document.adoptedStyleSheets,
+                        styleSheet,
+                    ]
+
+                    for (let i = 0; i < targets.length; i++) {
+                        const rule = styleSheet.cssRules[i]
+                        const varName = `--mt${ids[i]}`
+                        try {
+                            CSS.registerProperty({
+                                name: varName,
+                                syntax: "*",
+                                inherits: false,
+                            })
+                        } catch (e) {}
+
+                        const values = {}
+                        for (const prop in props) {
+                            values[prop] = motionValue(props[prop][0])
+                        }
+
+                        const render = () => {
+                            rule.style.setProperty(
+                                varName,
+                                `translateX(${values.x.get()}px) translateY(${values.y.get()}px) scale(${values.scale.get()}) rotate(${values.rotate.get()}deg)`
+                            )
+                        }
+                        renders.push(render)
+                        render()
+                        rule.style.setProperty("transform", `var(${varName})`)
+                        if (willChange) {
+                            rule.style.setProperty("will-change", "transform")
+                        }
+
+                        for (const prop in props) {
+                            subscriptions.push(
+                                values[prop].on("change", () =>
+                                    frame.render(render)
+                                )
+                            )
+                        }
+
+                        all.push(values)
+                    }
+
+                    return {
+                        values: all,
+                        cleanup() {
+                            for (const unsub of subscriptions) unsub()
+                            for (const render of renders) cancelFrame(render)
+                            document.adoptedStyleSheets =
+                                document.adoptedStyleSheets.filter(
+                                    (s) => s !== styleSheet
+                                )
+                            for (const target of targets) {
+                                target.removeAttribute("data-mt")
+                            }
+                        },
+                    }
+                },
+            })
+
+            /** Wrap a strategy to apply inline will-change at bind time */
+            const withWillChange = (strategy) => ({
+                name: `${strategy.name} + will-change`,
+                bind(targets, props) {
+                    for (const target of targets) {
+                        target.style.willChange = "transform"
+                    }
+                    const binding = strategy.bind(targets, props)
+                    return {
+                        values: binding.values,
+                        cleanup() {
+                            binding.cleanup()
+                            for (const target of targets) {
+                                target.style.willChange = ""
+                            }
+                        },
+                    }
+                },
+            })
+
+            const strategies = {
+                style: base.style,
+                "style-wc": withWillChange(base.style),
+                var: base.var,
+                "var-wc": withWillChange(base.var),
+                sheet: makeSheetTransform(false),
+                "sheet-wc": makeSheetTransform(true),
+            }
+
+            const phases = {
+                transform: Object.keys(TRANSFORM_PROPS),
+            }
+
+            const runner = createRunner({
+                Motion,
+                boxes,
+                strategies,
+                props: TRANSFORM_PROPS,
+                phases,
+                duration,
+                runs,
+                onStatus: (message) => (status.textContent = message),
+            })
+
+            window.__bench = runner
+            window.__phases = phases
+
+            async function main() {
+                if (q.has("manual")) {
+                    status.textContent = `Ready (manual) — ${numBoxes} boxes @ ${boxSize}px, env: ${env}`
+                    window.__done = true
+                    return
+                }
+
+                const results = await runner.runAll(Object.keys(strategies))
+                renderResultsTable(
+                    document.getElementById("results"),
+                    results,
+                    phases
+                )
+                status.textContent = `Done — ${numBoxes} boxes @ ${boxSize}px, env: ${env}, ${runs} runs (first discarded)`
+                window.__results = results
+                window.__done = true
+            }
+
+            main()
+        </script>
+    </body>
+</html>
