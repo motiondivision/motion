@@ -1562,10 +1562,17 @@ export function createProjectionNode<I>({
         isVisible = true
         hide() {
             this.isVisible = false
+            /**
+             * While hidden, style renders write non-projected styles to
+             * the element, so the memoized projection writes can't be
+             * trusted once visibility changes.
+             */
+            this.clearRenderCache()
             // TODO: Schedule render
         }
         show() {
             this.isVisible = true
+            this.clearRenderCache()
             // TODO: Schedule render
         }
 
@@ -2036,10 +2043,13 @@ export function createProjectionNode<I>({
             if (!this.instance || this.isSVG) return
 
             if (!this.isVisible) {
-                if (!this.wroteHidden) {
-                    this.wroteHidden = true
-                    targetStyle.visibility = "hidden"
-                }
+                /**
+                 * The preceding style render may have re-written
+                 * visibility, so always re-hide. wroteHidden tracks that
+                 * a restoring write is needed when the node is shown.
+                 */
+                targetStyle.visibility = "hidden"
+                this.wroteHidden = true
                 return
             }
 
