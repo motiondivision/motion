@@ -4,7 +4,7 @@
  *
  * Provides:
  * - Renderer strategies: legacy (old VisualElement full re-apply),
- *   style (styleEffect), var (varEffect, registered CSS properties),
+ *   style (styleEffect), var (registered CSS properties),
  *   sheet (experimental: adopted stylesheet rule writes - never touches
  *   the element's style attribute after setup).
  * - A phase runner implementing the protocol: 4 runs without reload,
@@ -39,7 +39,80 @@ export function buildBoxes(container, n, descendants = 0) {
 /** ------------------------------------------------------------------ */
 
 export function createStrategies(Motion) {
-    const { motionValue, styleEffect, varEffect, frame, cancelFrame } = Motion
+    const { motionValue, styleEffect, frame, cancelFrame } = Motion
+
+    /**
+     * Registered-custom-property renderer. Uses Motion's varEffect when
+     * available (experimental branches); otherwise falls back to a
+     * standalone implementation of the same mechanism: register a
+     * per-value custom property with inherits: false, point the real
+     * style at var(--name) once, then write only the custom property
+     * per frame.
+     */
+    const TRANSFORM_KEYS = new Set(["x", "y", "scale", "rotate"])
+    let benchVarId = 0
+    const registerVar = () => {
+        const name = `--bench-var-${benchVarId++}`
+        try {
+            CSS.registerProperty({ name, syntax: "*", inherits: false })
+        } catch {}
+        return name
+    }
+    const camelToDash = (key) => key.replace(/[A-Z]/g, "-$&").toLowerCase()
+
+    const varEffect =
+        Motion.varEffect ||
+        ((element, values) => {
+            const unsubs = []
+            const renders = []
+            const transformKeys = []
+
+            for (const key in values) {
+                if (TRANSFORM_KEYS.has(key)) {
+                    transformKeys.push(key)
+                    continue
+                }
+
+                const value = values[key]
+                const name = registerVar()
+                element.style.setProperty(camelToDash(key), `var(${name})`)
+                const render = () =>
+                    element.style.setProperty(name, String(value.get()))
+                renders.push(render)
+                unsubs.push(value.on("change", () => frame.render(render)))
+                render()
+            }
+
+            if (transformKeys.length) {
+                const name = registerVar()
+                element.style.setProperty("transform", `var(${name})`)
+                const get = (key, fallback) =>
+                    values[key] ? values[key].get() : fallback
+                const render = () =>
+                    element.style.setProperty(
+                        name,
+                        `translate(${get("x", 0)}px, ${get(
+                            "y",
+                            0
+                        )}px) scale(${get("scale", 1)}) rotate(${get(
+                            "rotate",
+                            0
+                        )}deg)`
+                    )
+                renders.push(render)
+                for (const key of transformKeys) {
+                    unsubs.push(
+                        values[key].on("change", () => frame.render(render))
+                    )
+                }
+                render()
+            }
+
+            return () => {
+                for (const unsub of unsubs) unsub()
+                for (const render of renders) cancelFrame(render)
+            }
+        })
 
     const makeValues = (props) => {
         const values = {}
