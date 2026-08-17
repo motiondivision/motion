@@ -1165,7 +1165,9 @@ export function createProjectionNode<I>({
             /**
              * Cache the display: contents check. It's read for every
              * ancestor of every projecting node each frame, and resolving
-             * the props chain there is a hotspot.
+             * the props chain there is a hotspot. Also refreshed once per
+             * node per frame in propagateDirtyNodes, as props can update
+             * without setOptions being called.
              */
             const { visualElement } = this.options
             const style = visualElement
@@ -1177,8 +1179,9 @@ export function createProjectionNode<I>({
 
         /**
          * Whether the underlying element is display: contents, cached in
-         * setOptions. Read by applyTreeDeltas and updatePathTransform for
-         * every ancestor of every projecting node each frame.
+         * setOptions and refreshed per frame in propagateDirtyNodes. Read
+         * by applyTreeDeltas and updatePathTransform for every ancestor
+         * of every projecting node each frame.
          */
         isDisplayContents = false
 
@@ -2409,6 +2412,18 @@ export function propagateDirtyNodes(node: IProjectionNode) {
     if (statsBuffer.value) {
         metrics.nodes++
     }
+
+    /**
+     * Refresh the display: contents cache once per node per frame -
+     * props can update between renders without setOptions being called.
+     * This keeps the check out of the per-ancestor inner loops
+     * (applyTreeDeltas/updatePathTransform).
+     */
+    const { visualElement } = node.options
+    const style = visualElement
+        ? (visualElement.props as { style?: { display?: string } }).style
+        : undefined
+    node.isDisplayContents = !!style && style.display === "contents"
 
     if (!node.parent) return
 
