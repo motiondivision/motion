@@ -12,7 +12,8 @@ import { renderTransform, renderTransformOrigin } from "./transform"
  */
 export function renderStyles(
     element: HTMLElement | SVGElement,
-    state: MotionValueState
+    state: MotionValueState,
+    skipTransform = false
 ) {
     const { latest } = state
     let hasTransform = false
@@ -27,6 +28,13 @@ export function renderStyles(
             renderStyleValue(element, key, state)
         }
     }
+
+    /**
+     * When projection is about to write this element's transform it both
+     * owns and incorporates user transforms, so writing them here would
+     * be an immediately-overwritten (and thus wasted) style write.
+     */
+    if (skipTransform) return
 
     /**
      * A user-provided `transform` value takes precedence over individual

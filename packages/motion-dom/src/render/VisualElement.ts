@@ -160,7 +160,8 @@ export abstract class VisualElement<
         _instance: Instance,
         _state: MotionValueState,
         _styleProp?: MotionStyle,
-        _projection?: any
+        _projection?: any,
+        _fullRender?: boolean
     ): void {}
 
     /**
@@ -538,6 +539,7 @@ export abstract class VisualElement<
         this.projection && this.projection.unmount()
         cancelFrame(this.notifyUpdate)
         cancelFrame(this.render)
+        cancelFrame(this.scheduledRender)
         this.valueSubscriptions.forEach((remove) => remove())
         this.valueSubscriptions.clear()
         this.state.destroy()
@@ -714,22 +716,54 @@ export abstract class VisualElement<
 
     notifyUpdate = () => this.notify("Update", this.latestValues)
 
+    /**
+     * Direct calls always perform a full render - they're used by
+     * measurement flows which reset and restore values synchronously.
+     */
     render = () => {
         if (!this.current) return
+        this.fullRenderScheduled = false
         this.renderValues(
             this.current,
             this.state,
             (this.props as any).style,
-            this.projection
+            this.projection,
+            true
+        )
+    }
+
+    /**
+     * Frame-scheduled render. Only performs a full style render if one
+     * was requested via scheduleRender() - projection-only renders
+     * (driven every frame during layout animations by the projection
+     * root's render sweep) skip re-writing unchanged styles.
+     */
+    scheduledRender = () => {
+        if (!this.current) return
+        const fullRender = this.fullRenderScheduled
+        this.fullRenderScheduled = false
+        this.renderValues(
+            this.current,
+            this.state,
+            (this.props as any).style,
+            this.projection,
+            fullRender
         )
     }
 
     private renderScheduledAt = 0.0
+    private fullRenderScheduled = false
+
     scheduleRender = () => {
+        this.fullRenderScheduled = true
+        this.queueRender()
+    }
+
+    private queueRender() {
         const now = time.now()
         if (this.renderScheduledAt < now) {
             this.renderScheduledAt = now
-            frame.render(this.render, false, true)
+            frame.render(this.scheduledRender, false, true)
         }
     }
 

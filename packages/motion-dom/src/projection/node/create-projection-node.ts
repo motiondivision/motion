@@ -24,6 +24,7 @@ import { time } from "../../frameloop/sync-time"
 import type { Process } from "../../frameloop/types"
 import type { ResolvedValues } from "../../render/types"
 import { scaleCorrectors } from "../../render/utils/is-forced-motion-value"
+import { scaleCorrectorKeys } from "../styles/scale-correction"
 import type { MotionStyle, VisualElement } from "../../render/VisualElement"
 import { activeAnimations } from "../../stats/animation-count"
 import { statsBuffer } from "../../stats/buffer"
@@ -38,6 +39,7 @@ import { copyAxisDeltaInto, copyAxisInto, copyBoxInto } from "../geometry/copy"
 import {
     applyBoxDelta,
     applyTreeDeltas,
+    snapTreeScale,
     transformBox,
     translateAxis,
 } from "../geometry/delta-apply"
@@ -53,7 +55,6 @@ import { createBox, createDelta } from "../geometry/models"
 import {
     aspectRatio,
     axisDeltaEquals,
-    boxEquals,
     boxEqualsRounded,
     isDeltaZero,
 } from "../geometry/utils"
@@ -68,6 +69,7 @@ import {
     LayoutEvents,
     LayoutUpdateData,
     Measurements,
+    PathTransform,
     Phase,
     ProjectionNodeConfig,
     ProjectionNodeOptions,
@@ -827,6 +829,26 @@ export function createProjectionNode<I>({
             }
         }
 
+        /**
+         * Root-driven render sweep. Rather than every projecting node
+         * scheduling its own render callback into the frameloop each frame
+         * (a Set.add + callback dispatch per node per frame), nodes set a
+         * flag and the root schedules a single render callback which
+         * sweeps the tree.
+         */
+        renderSweepScheduled = false
+        scheduleRenderSweep() {
+            if (!this.renderSweepScheduled) {
+                this.renderSweepScheduled = true
+                frame.render(this.renderSweep, false, true)
+            }
+        }
+
+        renderSweep = () => {
+            this.renderSweepScheduled = false
+            this.nodes && this.nodes.forEach(renderIfNeeded)
+        }
+
         scheduleCheckAfterUnmount() {
             /**
              * If the unmounting node is in a layoutGroup and did trigger a willUpdate,
@@ -856,6 +878,12 @@ export function createProjectionNode<I>({
          */
         updateProjection = () => {
             this.projectionUpdateScheduled = false
+
+            /**
+             * Invalidate every node's cached cumulative path transform
+             * (see updatePathTransform).
+             */
+            this.pathTransformSweep++
 
             /**
              * Reset debug counts. Manually resetting rather than creating a new
@@ -991,6 +1019,12 @@ export function createProjectionNode<I>({
             ) {
                 resetTransform(this.instance, transformTemplateValue)
                 this.shouldResetTransform = false
+
+                /**
+                 * The instance's styles have been written outside the
+                 * projection render pipeline so the render cache is stale.
+                 */
+                this.clearRenderCache()
                 this.scheduleRender()
             }
         }
@@ -1153,6 +1187,26 @@ export function createProjectionNode<I>({
                 crossfade:
                     options.crossfade !== undefined ? options.crossfade : true,
             }
+
+            /**
+             * Cache the display: contents check. applyTreeDeltas reads this
+             * for every ancestor of every projecting node every frame, so
+             * resolving the props chain there is a per-frame hotspot.
+             */
+            const { visualElement } = this.options
+            const style =
+                visualElement &&
+                (visualElement.props as { style?: MotionStyle }).style
+            this.isDisplayContents = Boolean(
+                style && style.display === "contents"
+            )
+
+            /**
+             * A re-render may write styles outside the projection pipeline
+             * (e.g. React committing a style prop), so stop trusting the
+             * render cache until we've written fresh values.
+             */
+            this.clearRenderCache()
         }
 
         clearMeasurements() {
@@ -1393,6 +1447,105 @@ export function createProjectionNode<I>({
 
         hasProjected: boolean = false
 
+        /**
+         * Caches of the last projection-written styles. Layout animations
+         * render every projecting node every frame, but many of these
+         * writes (transform origin, opacity, visibility) rarely change.
+         * Comparing against these caches lets us skip the CSSOM setter
+         * calls, which dominate per-frame projection cost at scale.
+         */
+        renderedTransform: string | undefined
+        renderedOriginX: number = -1
+        renderedOriginY: number = -1
+        renderedOpacity: string | number | undefined
+        wroteHidden = false
+
+        /**
+         * Whether the underlying element is display: contents, cached in
+         * setOptions. Read by applyTreeDeltas for every ancestor of every
+         * projecting node each frame.
+         */
+        isDisplayContents = false
+
+        clearRenderCache() {
+            this.renderedTransform = undefined
+            this.renderedOriginX = this.renderedOriginY = -1
+            this.renderedOpacity = undefined
+        }
+
+        /**
+         * Cumulative transform of all ancestors' projection deltas,
+         * expressed per axis as an affine map (p -> a * p + b) plus the
+         * cumulative scale product (treeScale). Each ancestor's delta is
+         * an axis-aligned translate/scale, so the whole path composes in
+         * closed form. This replaces the per-node walk over the full
+         * ancestor path (applyTreeDeltas) with an O(1) composition from
+         * the parent's cached transform - the FlatTree sweep is
+         * depth-sorted so parents are always resolved first.
+         *
+         * Only used for non-shared projections: shared transitions also
+         * apply scroll offsets and ancestor latestValues transforms whose
+         * origins depend on the box being projected, so they can't share
+         * a single per-layer map.
+         */
+        pathTransformSweep = 0
+        pathTransformAt = -1
+        pathTransform: PathTransform = {
+            ax: 1,
+            bx: 0,
+            ay: 1,
+            by: 0,
+            sx: 1,
+            sy: 1,
+        }
+
+        updatePathTransform(): PathTransform {
+            const pt = this.pathTransform
+            const sweep = this.root.pathTransformSweep
+
+            if (this.pathTransformAt === sweep) return pt
+            this.pathTransformAt = sweep
+
+            const { parent } = this
+            if (!parent) {
+                pt.ax = pt.ay = pt.sx = pt.sy = 1
+                pt.bx = pt.by = 0
+                return pt
+            }
+
+            const parentTransform = parent.updatePathTransform()
+            pt.ax = parentTransform.ax
+            pt.bx = parentTransform.bx
+            pt.ay = parentTransform.ay
+            pt.by = parentTransform.by
+            pt.sx = parentTransform.sx
+            pt.sy = parentTransform.sy
+
+            const delta = parent.projectionDelta
+            if (delta && !parent.isDisplayContents) {
+                const { x, y } = delta
+                /**
+                 * Compose the parent's own delta after its ancestors':
+                 * F(p) = scale * p + (originPoint * (1 - scale) + translate)
+                 */
+                pt.ax *= x.scale
+                pt.bx =
+                    x.scale * pt.bx +
+                    x.originPoint * (1 - x.scale) +
+                    x.translate
+                pt.sx *= x.scale
+
+                pt.ay *= y.scale
+                pt.by =
+                    y.scale * pt.by +
+                    y.originPoint * (1 - y.scale) +
+                    y.translate
+                pt.sy *= y.scale
+            }
+
+            return pt
+        }
+
         calcProjection() {
             const lead = this.getLead()
             const isShared = Boolean(this.resumingFrom) || this !== lead
@@ -1460,12 +1613,23 @@ export function createProjectionNode<I>({
              * Apply all the parent deltas to this box to produce the corrected box. This
              * is the layout box, as it will appear on screen as a result of the transforms of its parents.
              */
-            applyTreeDeltas(
-                this.layoutCorrected,
-                this.treeScale,
-                this.path,
-                isShared
-            )
+            if (isShared) {
+                applyTreeDeltas(
+                    this.layoutCorrected,
+                    this.treeScale,
+                    this.path,
+                    true
+                )
+            } else {
+                const pt = this.updatePathTransform()
+                const box = this.layoutCorrected
+                box.x.min = pt.ax * box.x.min + pt.bx
+                box.x.max = pt.ax * box.x.max + pt.bx
+                box.y.min = pt.ay * box.y.min + pt.by
+                box.y.max = pt.ay * box.y.max + pt.by
+                this.treeScale.x = snapTreeScale(pt.sx)
+                this.treeScale.y = snapTreeScale(pt.sy)
+            }
 
             /**
              * If this layer needs to perform scale correction but doesn't have a target,
@@ -1539,7 +1703,11 @@ export function createProjectionNode<I>({
             ) {
                 this.hasProjected = true
                 this.scheduleRender()
-                this.notifyListeners("projectionUpdate", target)
+
+                // Avoids the rest-arg allocation of notifyListeners on
+                // this per-node-per-frame hot path.
+                const handlers = this.eventHandlers.get("projectionUpdate")
+                handlers && handlers.notify(target)
             }
 
             /**
@@ -1560,8 +1728,16 @@ export function createProjectionNode<I>({
             // TODO: Schedule render
         }
 
+        needsProjectionRender = false
+
         scheduleRender(notifyAll = true) {
-            this.options.visualElement?.scheduleRender()
+            /**
+             * Projection updates only need to re-write projection styles,
+             * not the element's full set of styles. Rendered via the
+             * root's render sweep.
+             */
+            this.needsProjectionRender = true
+            this.root.scheduleRenderSweep()
             if (notifyAll) {
                 const stack = this.getStack()
                 stack && stack.scheduleRender()
@@ -1606,6 +1782,15 @@ export function createProjectionNode<I>({
 
             const relativeLayout = createBox()
 
+            /**
+             * Cache keys for relativeLayout. Both layout boxes are static
+             * between measurements so we only need to recalculate the
+             * relative position when either is remeasured.
+             */
+            let relativeLayoutParent: IProjectionNode | undefined
+            let relativeLayoutVersion = -1
+            let relativeParentLayoutVersion = -1
+
             const snapshotSource = snapshot ? snapshot.source : undefined
             const layoutSource = this.layout ? this.layout.source : undefined
             const isSharedLayoutAnimation = snapshotSource !== layoutSource
@@ -1620,7 +1805,7 @@ export function createProjectionNode<I>({
 
             this.animationProgress = 0
 
-            let prevRelativeTarget: Box
+            let hasMixedRelativeTarget = false
 
             // The path decides whether the layout shift is worth curving
             // (distance floor) and resolves the interpolator from the delta.
@@ -1654,32 +1839,41 @@ export function createProjectionNode<I>({
                     this.relativeParent &&
                     this.relativeParent.layout
                 ) {
-                    calcRelativePosition(
-                        relativeLayout,
-                        this.layout.layoutBox,
-                        this.relativeParent.layout.layoutBox,
-                        this.options.layoutAnchor || undefined
-                    )
-                    mixBox(
+                    if (
+                        relativeLayoutParent !== this.relativeParent ||
+                        relativeLayoutVersion !== this.layoutVersion ||
+                        relativeParentLayoutVersion !==
+                            this.relativeParent.layoutVersion
+                    ) {
+                        relativeLayoutParent = this.relativeParent
+                        relativeLayoutVersion = this.layoutVersion
+                        relativeParentLayoutVersion =
+                            this.relativeParent.layoutVersion
+
+                        calcRelativePosition(
+                            relativeLayout,
+                            this.layout.layoutBox,
+                            this.relativeParent.layout.layoutBox,
+                            this.options.layoutAnchor || undefined
+                        )
+                    }
+                    /**
+                     * Mix into the relative target, tracking whether it
+                     * changed since the last frame. If unchanged we can
+                     * consider the projection not dirty.
+                     */
+                    const relativeTargetChanged = mixBoxInto(
                         this.relativeTarget,
                         this.relativeTargetOrigin,
                         relativeLayout,
                         progress
                     )
 
-                    /**
-                     * If this is an unchanged relative target we can consider the
-                     * projection not dirty.
-                     */
-                    if (
-                        prevRelativeTarget &&
-                        boxEquals(this.relativeTarget, prevRelativeTarget)
-                    ) {
+                    if (hasMixedRelativeTarget && !relativeTargetChanged) {
                         this.isProjectionDirty = false
                     }
 
-                    if (!prevRelativeTarget) prevRelativeTarget = createBox()
-                    copyBoxInto(prevRelativeTarget, this.relativeTarget)
+                    hasMixedRelativeTarget = true
                 }
 
                 if (isSharedLayoutAnimation) {
@@ -1779,6 +1973,13 @@ export function createProjectionNode<I>({
                 this.animationValues =
                     undefined
 
+            /**
+             * On completion, perform a full style render to restore any
+             * values that were scale-corrected during the animation
+             * (e.g. borderRadius/boxShadow) to their uncorrected state.
+             */
+            this.options.visualElement?.scheduleRender()
+
             this.notifyListeners("animationComplete")
         }
 
@@ -1825,12 +2026,35 @@ export function createProjectionNode<I>({
 
             copyBoxInto(targetWithTransforms, target)
 
+            if (
+                this === lead &&
+                this.projectionDelta &&
+                !hasTransform(latestValues)
+            ) {
+                /**
+                 * With no user-set transforms the final target is identical
+                 * to the projection target, so the delta calculated in
+                 * calcProjection can be reused directly.
+                 */
+                copyAxisDeltaInto(
+                    this.projectionDeltaWithTransform!.x,
+                    this.projectionDelta.x
+                )
+                copyAxisDeltaInto(
+                    this.projectionDeltaWithTransform!.y,
+                    this.projectionDelta.y
+                )
+                return
+            }
+
             /**
              * Apply the latest user-set transforms to the targetBox to produce the targetBoxFinal.
              * This is the final box that we will then project into by calculating a transform delta and
              * applying it to the corrected box.
              */
-            transformBox(targetWithTransforms, latestValues)
+            if (hasTransform(latestValues)) {
+                transformBox(targetWithTransforms, latestValues)
+            }
 
             /**
              * Update the delta between the corrected box and the final target box, after
@@ -1989,6 +2213,24 @@ export function createProjectionNode<I>({
             visualElement.scheduleRender()
         }
 
+        /**
+         * Whether applyProjectionStyles will write a transform this render.
+         * When true, full style renders can skip writing user transforms as
+         * projection owns (and incorporates) them, avoiding a doubled
+         * CSSOM write per projecting element per frame.
+         */
+        willProjectTransform() {
+            if (!this.instance || this.isSVG || !this.isVisible) {
+                return false
+            }
+
+            if (this.needsReset) return true
+
+            return Boolean(
+                this.projectionDelta && this.layout && this.getLead().target
+            )
+        }
+
         applyProjectionStyles(
             targetStyle: any, // CSSStyleDeclaration - doesn't allow numbers to be assigned to properties
             styleProp?: MotionStyle
@@ -1996,8 +2238,16 @@ export function createProjectionNode<I>({
             if (!this.instance || this.isSVG) return
 
             if (!this.isVisible) {
-                targetStyle.visibility = "hidden"
+                if (!this.wroteHidden) {
+                    this.wroteHidden = true
+                    targetStyle.visibility = "hidden"
+                }
                 return
+            }
+
+            if (this.wroteHidden) {
+                this.wroteHidden = false
+                targetStyle.visibility = ""
             }
 
             const transformTemplate = this.getTransformTemplate()
@@ -2005,7 +2255,7 @@ export function createProjectionNode<I>({
             if (this.needsReset) {
                 this.needsReset = false
 
-                targetStyle.visibility = ""
+                this.clearRenderCache()
                 targetStyle.opacity = ""
                 targetStyle.pointerEvents =
                     resolveMotionValue(styleProp?.pointerEvents) || ""
@@ -2018,7 +2268,7 @@ export function createProjectionNode<I>({
             const lead = this.getLead()
             if (!this.projectionDelta || !this.layout || !lead.target) {
                 if (this.options.layoutId) {
-                    targetStyle.opacity =
+                    this.renderedOpacity = targetStyle.opacity =
                         this.latestValues.opacity !== undefined
                             ? this.latestValues.opacity
                             : 1
@@ -2026,16 +2276,13 @@ export function createProjectionNode<I>({
                         resolveMotionValue(styleProp?.pointerEvents) || ""
                 }
                 if (this.hasProjected && !hasTransform(this.latestValues)) {
-                    targetStyle.transform = transformTemplate
-                        ? transformTemplate({}, "")
-                        : "none"
+                    this.renderedTransform = targetStyle.transform =
+                        transformTemplate ? transformTemplate({}, "") : "none"
                     this.hasProjected = false
                 }
 
                 return
             }
-
-            targetStyle.visibility = ""
 
             const valuesToRender = lead.animationValues || lead.latestValues
             this.applyTransformsToTarget()
@@ -2050,19 +2297,35 @@ export function createProjectionNode<I>({
                 transform = transformTemplate(valuesToRender, transform)
             }
 
-            targetStyle.transform = transform
+            /**
+             * The following writes are memoized against the last
+             * projection-rendered value as CSSOM setter calls are the
+             * dominant cost of rendering large numbers of projection
+             * nodes every frame.
+             */
+            if (transform !== this.renderedTransform) {
+                this.renderedTransform = targetStyle.transform = transform
+            }
 
             const { x, y } = this.projectionDelta
-            targetStyle.transformOrigin = `${x.origin * 100}% ${
-                y.origin * 100
-            }% 0`
+            if (
+                x.origin !== this.renderedOriginX ||
+                y.origin !== this.renderedOriginY
+            ) {
+                this.renderedOriginX = x.origin
+                this.renderedOriginY = y.origin
+                targetStyle.transformOrigin = `${x.origin * 100}% ${
+                    y.origin * 100
+                }% 0`
+            }
 
+            let opacity: string | number | undefined
             if (lead.animationValues) {
                 /**
                  * If the lead component is animating, assign this either the entering/leaving
                  * opacity
                  */
-                targetStyle.opacity =
+                opacity =
                     lead === this
                         ? valuesToRender.opacity ??
                           this.latestValues.opacity ??
@@ -2075,7 +2338,7 @@ export function createProjectionNode<I>({
                  * Or we're not animating at all, set the lead component to its layout
                  * opacity and other components to hidden.
                  */
-                targetStyle.opacity =
+                opacity =
                     lead === this
                         ? valuesToRender.opacity !== undefined
                             ? valuesToRender.opacity
@@ -2085,10 +2348,16 @@ export function createProjectionNode<I>({
                         : 0
             }
 
+            if (opacity !== this.renderedOpacity) {
+                this.renderedOpacity = opacity
+                targetStyle.opacity = opacity
+            }
+
             /**
              * Apply scale correction
              */
-            for (const key in scaleCorrectors) {
+            for (let k = 0; k < scaleCorrectorKeys.length; k++) {
+                const key = scaleCorrectorKeys[k]
                 if (valuesToRender[key] === undefined) continue
 
                 const { correct, applyTo, isCSSVariable } = scaleCorrectors[key]
@@ -2149,6 +2418,13 @@ export function createProjectionNode<I>({
 
 function updateLayout(node: IProjectionNode) {
     node.updateLayout()
+}
+
+function renderIfNeeded(node: IProjectionNode) {
+    if (node.needsProjectionRender) {
+        node.needsProjectionRender = false
+        node.options.visualElement?.scheduledRender()
+    }
 }
 
 function notifyLayoutUpdate(node: IProjectionNode) {
@@ -2404,6 +2680,27 @@ export function mixAxis(output: Axis, from: Axis, to: Axis, p: number) {
 export function mixBox(output: Box, from: Box, to: Box, p: number) {
     mixAxis(output.x, from.x, to.x, p)
     mixAxis(output.y, from.y, to.y, p)
+}
+
+/**
+ * Mix into the output box, returning whether any value changed compared
+ * to what the box already contained. Fuses mix + equality + copy, which
+ * would otherwise be three passes over the box per animating node per
+ * frame.
+ */
+function mixAxisInto(output: Axis, from: Axis, to: Axis, p: number): boolean {
+    const min = mixNumber(from.min, to.min, p)
+    const max = mixNumber(from.max, to.max, p)
+    const hasChanged = output.min !== min || output.max !== max
+    output.min = min
+    output.max = max
+    return hasChanged
+}
+
+function mixBoxInto(output: Box, from: Box, to: Box, p: number): boolean {
+    const xChanged = mixAxisInto(output.x, from.x, to.x, p)
+    const yChanged = mixAxisInto(output.y, from.y, to.y, p)
+    return xChanged || yChanged
 }
 
 function hasOpacityCrossfade(node: IProjectionNode) {

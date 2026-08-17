@@ -1,0 +1,736 @@
+<html>
+    <!--
+      Style Recalc Harness
+
+      Step 1 of the CSS.registerProperty renderer investigation. Finds
+      environments where per-frame writes to element.style trigger large
+      style recalculations, and whether writing to a registered CSS custom
+      property (inherits: false) avoids them.
+
+      Modes (how values are written each frame):
+        - direct:           element.style[prop] = value
+        - var-unregistered: element.style.setProperty("--id", value), prop set once to var(--id)
+        - var-registered:   as above, but CSS.registerProperty({ inherits: false })
+        - var-inherits:     as above, but CSS.registerProperty({ inherits: true })
+
+      Environments (what makes recalc expensive):
+        - plain:       flat boxes, minimal CSS
+        - descendants: each box has N descendants
+        - bigsheet:    huge stylesheet of complex selectors targeting boxes/descendants
+        - attr-style:  stylesheet full of [style*="..."] selectors + descendants
+        - has:         :has() rules keyed off box style attributes
+        - has-class:   :has() rules keyed off classes (NOT [style]) - negative control
+        - siblings:    boxes share a parent with many siblings + [style] ~ sibling rules
+        - container:   @container style(--p: ...) queries in descendants; use with
+                       props=custom so writers animate --p (add &reg to register
+                       --p with inherits: false)
+        - transitions: transition: all on boxes + descendants (retarget every frame)
+
+      Query params:
+        mode, env, props (paint | inherited | layout | custom), boxes,
+        descendants, rules, frames (per run), runs (first is discarded),
+        auto (run all modes), flush (force + time a synchronous style flush
+        after each write batch - measures invalidation cost independently
+        of the vsync frame budget, which otherwise hides any cost that
+        fits inside 16.67ms)
+
+      Example:
+        style-recalc-harness.html?env=descendants&auto
+    -->
+    <head>
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+                font-family: system-ui, sans-serif;
+                font-size: 12px;
+            }
+            #panel {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                background: rgba(0, 0, 0, 0.85);
+                color: #fff;
+                padding: 10px 14px;
+                z-index: 1000;
+                max-height: 45vh;
+                overflow: auto;
+            }
+            #panel table {
+                border-collapse: collapse;
+                margin-top: 6px;
+            }
+            #panel td,
+            #panel th {
+                border: 1px solid #555;
+                padding: 2px 8px;
+                text-align: right;
+            }
+            #panel th:first-child,
+            #panel td:first-child {
+                text-align: left;
+            }
+            #stage {
+                padding-top: 46vh;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 4px;
+            }
+            .box {
+                width: 40px;
+                height: 40px;
+                background: #e33;
+                border: 2px solid #333;
+                outline: 1px solid #666;
+                border-radius: 4px;
+                overflow: hidden;
+                font-size: 4px;
+                line-height: 1;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="panel">
+            <div id="status">Loading…</div>
+            <table id="results"></table>
+        </div>
+        <div id="stage"></div>
+
+        <script type="module">
+            const q = new URLSearchParams(location.search)
+            const cfg = {
+                mode: q.get("mode") || "direct",
+                env: q.get("env") || "plain",
+                props: q.get("props") || "paint",
+                boxes: +(q.get("boxes") || 100),
+                descendants: +(q.get("descendants") || 100),
+                rules: +(q.get("rules") || 20000),
+                frames: +(q.get("frames") || 150),
+                runs: +(q.get("runs") || 4),
+                auto: q.has("auto"),
+                flush: q.has("flush"),
+            }
+
+            const ALL_MODES = [
+                "direct",
+                "var-unregistered",
+                "var-registered",
+                "var-inherits",
+                "sheet-direct",
+                "sheet-var-registered",
+            ]
+
+            const PROP_SETS = {
+                paint: [
+                    "backgroundColor",
+                    "borderColor",
+                    "borderRadius",
+                    "boxShadow",
+                    "outlineColor",
+                ],
+                inherited: ["color"],
+                layout: ["width"],
+                custom: ["--p"],
+            }
+
+            const CSS_NAMES = {
+                backgroundColor: "background-color",
+                borderColor: "border-color",
+                borderRadius: "border-radius",
+                boxShadow: "box-shadow",
+                outlineColor: "outline-color",
+                color: "color",
+                width: "width",
+                "--p": "--p",
+            }
+
+            const props = PROP_SETS[cfg.props]
+            const status = document.getElementById("status")
+            const stage = document.getElementById("stage")
+
+            /**
+             * Precompute per-frame value strings so per-frame JS cost is
+             * identical across modes - we only want to measure style recalc.
+             */
+            const CYCLE = 360
+            const frameValues = {}
+            for (const prop of props) frameValues[prop] = []
+            for (let f = 0; f < CYCLE; f++) {
+                const r = (f * 17) % 256
+                const g = (f * 89) % 256
+                const b = (f * 251) % 256
+                for (const prop of props) {
+                    let v
+                    switch (prop) {
+                        case "backgroundColor":
+                        case "color":
+                            v = `rgb(${r}, ${g}, ${b})`
+                            break
+                        case "borderColor":
+                            v = `rgb(${b}, ${r}, ${g})`
+                            break
+                        case "outlineColor":
+                            v = `rgb(${g}, ${b}, ${r})`
+                            break
+                        case "borderRadius":
+                            v = `${4 + (f % 16)}px`
+                            break
+                        case "boxShadow":
+                            v = `0 0 ${2 + (f % 10)}px rgb(${r}, ${g}, ${b})`
+                            break
+                        case "width":
+                            v = `${40 + (f % 20)}px`
+                            break
+                        case "--p":
+                            v = `${(f * 7) % 200}px`
+                            break
+                    }
+                    frameValues[prop].push(v)
+                }
+            }
+
+            /** ---------------------------------------------------------- */
+            /** Environment construction                                    */
+            /** ---------------------------------------------------------- */
+
+            function buildEnvironment() {
+                const styles = []
+                let boxDescendants = 0
+                let siblingCount = 0
+                let useCards = false
+
+                switch (cfg.env) {
+                    case "plain":
+                        break
+
+                    case "descendants":
+                        boxDescendants = cfg.descendants
+                        break
+
+                    case "bigsheet": {
+                        boxDescendants = Math.min(cfg.descendants, 20)
+                        for (let i = 0; i < cfg.rules; i++) {
+                            const a = i % 40
+                            const b = i % 23
+                            const n = (i % 11) + 2
+                            if (i % 2) {
+                                styles.push(
+                                    `.w${a} .x${b} > .box:nth-of-type(${n}n+1) { z-index: ${i}; }`
+                                )
+                            } else {
+                                styles.push(
+                                    `.w${a} > .x${b} .box .d${i % 10} { z-index: ${i}; }`
+                                )
+                            }
+                        }
+                        break
+                    }
+
+                    case "attr-style": {
+                        boxDescendants = cfg.descendants
+                        const frags = [
+                            "rgb(",
+                            "background",
+                            "px",
+                            "border",
+                            "0 0",
+                            "color",
+                            "radius",
+                            "shadow",
+                            "outline",
+                            ", 2",
+                        ]
+                        const ruleCount = Math.min(cfg.rules, 2000)
+                        for (let i = 0; i < ruleCount; i++) {
+                            styles.push(
+                                `.box[style*="${frags[i % frags.length]}"] .d${
+                                    i % 10
+                                } { z-index: ${i}; }`
+                            )
+                        }
+                        break
+                    }
+
+                    case "has": {
+                        useCards = true
+                        boxDescendants = 0
+                        const frags = ["rgb(", "background", "px", "border"]
+                        for (let i = 0; i < 400; i++) {
+                            styles.push(
+                                `.card:has(.box[style*="${
+                                    frags[i % frags.length]
+                                }"]) .payload .p${i % 10} { z-index: ${i}; }`
+                            )
+                        }
+                        break
+                    }
+
+                    case "siblings": {
+                        siblingCount = 3000
+                        for (let i = 0; i < 500; i++) {
+                            styles.push(
+                                `.box[style] ~ .sib${i % 10} { z-index: ${i}; }`
+                            )
+                        }
+                        break
+                    }
+
+                    /**
+                     * Negative control for :has(): rules keyed off classes
+                     * rather than the style attribute. If Blink's :has
+                     * invalidation is precise, per-frame style writes should
+                     * NOT re-evaluate these.
+                     */
+                    case "has-class": {
+                        useCards = true
+                        for (let i = 0; i < 400; i++) {
+                            styles.push(
+                                `.card:has(.box.active${i % 5}) .payload .p${
+                                    i % 10
+                                } { z-index: ${i}; }`
+                            )
+                        }
+                        break
+                    }
+
+                    /**
+                     * Style container queries. Every element is a style
+                     * query container by default, so descendants keyed on
+                     * style(--p: ...) subscribe to the box's computed
+                     * custom properties. Use with props=custom so the
+                     * writers animate --p itself.
+                     */
+                    case "container": {
+                        boxDescendants = cfg.descendants
+                        if (q.has("reg")) {
+                            try {
+                                CSS.registerProperty({
+                                    name: "--p",
+                                    syntax: "*",
+                                    inherits: false,
+                                })
+                            } catch (e) {}
+                        }
+                        for (let i = 0; i < 200; i++) {
+                            styles.push(
+                                `@container style(--p: ${i}px) { .d${
+                                    i % 10
+                                } { z-index: ${i}; } }`
+                            )
+                        }
+                        break
+                    }
+
+                    /**
+                     * transition: all on the animated elements - every
+                     * style write forces before/after style diffing and
+                     * transition retargeting. Common in the wild via
+                     * `* { transition: all ... }` reset habits.
+                     */
+                    case "transitions": {
+                        boxDescendants = Math.min(cfg.descendants, 10)
+                        styles.push(
+                            `.box, .box span { transition: all 0.05s linear; }`
+                        )
+                        break
+                    }
+
+                    /**
+                     * Same as transitions, but with named properties
+                     * covering exactly the animated set - isolates the
+                     * cost of the `all` keyword vs transition retargeting
+                     * itself.
+                     */
+                    case "transitions-named": {
+                        boxDescendants = Math.min(cfg.descendants, 10)
+                        styles.push(
+                            `.box, .box span { transition: background-color 0.05s linear, border-color 0.05s linear, border-radius 0.05s linear, box-shadow 0.05s linear, outline-color 0.05s linear; }`
+                        )
+                        break
+                    }
+                }
+
+                if (styles.length) {
+                    const sheet = document.createElement("style")
+                    sheet.textContent = styles.join("\n")
+                    document.head.appendChild(sheet)
+                }
+
+                /** Build DOM */
+                const parts = []
+                const descendantHtml = () => {
+                    let d = ""
+                    for (let j = 0; j < boxDescendants; j++) {
+                        d += `<span class="d${j % 10}">x</span>`
+                    }
+                    return d
+                }
+
+                for (let i = 0; i < cfg.boxes; i++) {
+                    const box = `<div class="box">${descendantHtml()}</div>`
+                    if (useCards) {
+                        let payload = ""
+                        for (let j = 0; j < cfg.descendants; j++) {
+                            payload += `<span class="p${j % 10}">x</span>`
+                        }
+                        parts.push(
+                            `<div class="card">${box}<div class="payload">${payload}</div></div>`
+                        )
+                    } else if (cfg.env === "bigsheet") {
+                        parts.push(
+                            `<div class="w${i % 40}"><div class="x${
+                                i % 23
+                            }">${box}</div></div>`
+                        )
+                    } else {
+                        parts.push(box)
+                    }
+                }
+
+                for (let i = 0; i < siblingCount; i++) {
+                    parts.push(`<div class="sib${i % 10}">s</div>`)
+                }
+
+                stage.innerHTML = parts.join("")
+                return Array.from(stage.querySelectorAll(".box"))
+            }
+
+            /** ---------------------------------------------------------- */
+            /** Write strategies                                            */
+            /** ---------------------------------------------------------- */
+
+            let varGeneration = 0
+
+            function createWriter(mode, boxes) {
+                if (mode === "direct") {
+                    return {
+                        setup() {},
+                        writeFrame(f) {
+                            for (const box of boxes) {
+                                for (const prop of props) {
+                                    if (prop.startsWith("--")) {
+                                        box.style.setProperty(
+                                            prop,
+                                            frameValues[prop][f % CYCLE]
+                                        )
+                                    } else {
+                                        box.style[prop] =
+                                            frameValues[prop][f % CYCLE]
+                                    }
+                                }
+                            }
+                        },
+                        teardown() {
+                            for (const box of boxes) {
+                                box.removeAttribute("style")
+                            }
+                        },
+                    }
+                }
+
+                /**
+                 * Stylesheet modes: values are written into a per-element
+                 * rule in an adopted stylesheet, so the element's style
+                 * attribute is never touched after setup.
+                 */
+                if (mode.startsWith("sheet")) {
+                    const useVars = mode === "sheet-var-registered"
+                    const gen = varGeneration++
+                    const sheet = new CSSStyleSheet()
+                    /** rules[boxIndex] = CSSStyleRule */
+                    const rules = []
+
+                    return {
+                        setup() {
+                            const src = []
+                            for (let i = 0; i < boxes.length; i++) {
+                                boxes[i].setAttribute("data-m", `${gen}-${i}`)
+                                src.push(`[data-m="${gen}-${i}"] {}`)
+                            }
+                            sheet.replaceSync(src.join("\n"))
+                            document.adoptedStyleSheets = [
+                                ...document.adoptedStyleSheets,
+                                sheet,
+                            ]
+                            for (let i = 0; i < boxes.length; i++) {
+                                rules.push(sheet.cssRules[i])
+                                for (let p = 0; p < props.length; p++) {
+                                    if (useVars) {
+                                        const name = `--m${gen}-${i}-${p}`
+                                        try {
+                                            CSS.registerProperty({
+                                                name,
+                                                syntax: "*",
+                                                inherits: false,
+                                            })
+                                        } catch (e) {}
+                                        rules[i].style.setProperty(
+                                            name,
+                                            frameValues[props[p]][0]
+                                        )
+                                        rules[i].style.setProperty(
+                                            CSS_NAMES[props[p]],
+                                            `var(${name})`
+                                        )
+                                    }
+                                }
+                            }
+                        },
+                        writeFrame(f) {
+                            for (let i = 0; i < boxes.length; i++) {
+                                for (let p = 0; p < props.length; p++) {
+                                    if (useVars) {
+                                        rules[i].style.setProperty(
+                                            `--m${gen}-${i}-${p}`,
+                                            frameValues[props[p]][f % CYCLE]
+                                        )
+                                    } else if (props[p].startsWith("--")) {
+                                        rules[i].style.setProperty(
+                                            props[p],
+                                            frameValues[props[p]][f % CYCLE]
+                                        )
+                                    } else {
+                                        rules[i].style[props[p]] =
+                                            frameValues[props[p]][f % CYCLE]
+                                    }
+                                }
+                            }
+                        },
+                        teardown() {
+                            document.adoptedStyleSheets =
+                                document.adoptedStyleSheets.filter(
+                                    (s) => s !== sheet
+                                )
+                            for (const box of boxes) {
+                                box.removeAttribute("data-m")
+                            }
+                        },
+                    }
+                }
+
+                /** var modes */
+                const register = mode !== "var-unregistered"
+                const inherits = mode === "var-inherits"
+                const gen = varGeneration++
+                /** varNames[boxIndex][propIndex] */
+                const varNames = []
+
+                return {
+                    setup() {
+                        for (let i = 0; i < boxes.length; i++) {
+                            const names = []
+                            for (let p = 0; p < props.length; p++) {
+                                const name = `--m${gen}-${i}-${p}`
+                                if (register) {
+                                    try {
+                                        CSS.registerProperty({
+                                            name,
+                                            syntax: "*",
+                                            inherits,
+                                        })
+                                    } catch (e) {}
+                                }
+                                boxes[i].style.setProperty(
+                                    name,
+                                    frameValues[props[p]][0]
+                                )
+                                boxes[i].style.setProperty(
+                                    CSS_NAMES[props[p]],
+                                    `var(${name})`
+                                )
+                                names.push(name)
+                            }
+                            varNames.push(names)
+                        }
+                    },
+                    writeFrame(f) {
+                        for (let i = 0; i < boxes.length; i++) {
+                            const names = varNames[i]
+                            for (let p = 0; p < props.length; p++) {
+                                boxes[i].style.setProperty(
+                                    names[p],
+                                    frameValues[props[p]][f % CYCLE]
+                                )
+                            }
+                        }
+                    },
+                    teardown() {
+                        for (const box of boxes) {
+                            box.removeAttribute("style")
+                        }
+                    },
+                }
+            }
+
+            /** ---------------------------------------------------------- */
+            /** Measurement                                                 */
+            /** ---------------------------------------------------------- */
+
+            /**
+             * Long Animation Frames give us style+layout duration
+             * attribution where supported (Chrome 123+).
+             */
+            let loafStyleMs = 0
+            let loafObserver
+            try {
+                loafObserver = new PerformanceObserver((list) => {
+                    for (const entry of list.getEntries()) {
+                        const end = entry.startTime + entry.duration
+                        if (entry.styleAndLayoutStart > 0) {
+                            loafStyleMs += end - entry.styleAndLayoutStart
+                        }
+                    }
+                })
+                loafObserver.observe({ type: "long-animation-frame" })
+            } catch (e) {}
+
+            function percentile(sorted, p) {
+                const i = Math.min(
+                    sorted.length - 1,
+                    Math.floor((p / 100) * sorted.length)
+                )
+                return sorted[i]
+            }
+
+            function runOnce(writer) {
+                return new Promise((resolve) => {
+                    const deltas = []
+                    let frameIndex = 0
+                    let lastTs
+                    let flushMs = 0
+                    const loafStart = loafStyleMs
+
+                    function tick(ts) {
+                        if (lastTs !== undefined) deltas.push(ts - lastTs)
+                        lastTs = ts
+
+                        if (frameIndex >= cfg.frames) {
+                            const sorted = [...deltas].sort((a, b) => a - b)
+                            resolve({
+                                frames: deltas.length,
+                                mean:
+                                    deltas.reduce((a, b) => a + b, 0) /
+                                    deltas.length,
+                                p95: percentile(sorted, 95),
+                                max: sorted[sorted.length - 1],
+                                loafStyleMs: loafStyleMs - loafStart,
+                                flushMs: flushMs / cfg.frames,
+                            })
+                            return
+                        }
+
+                        writer.writeFrame(frameIndex)
+                        if (cfg.flush) {
+                            /**
+                             * Force the style/layout flush synchronously and
+                             * time it, so invalidation cost is visible even
+                             * when it fits inside the vsync frame budget.
+                             */
+                            const t0 = performance.now()
+                            void document.body.offsetWidth
+                            flushMs += performance.now() - t0
+                        }
+                        frameIndex++
+                        requestAnimationFrame(tick)
+                    }
+
+                    requestAnimationFrame(tick)
+                })
+            }
+
+            async function runMode(mode, boxes) {
+                const writer = createWriter(mode, boxes)
+                const setupStart = performance.now()
+                writer.setup()
+                const setupMs = performance.now() - setupStart
+
+                const runs = []
+                for (let r = 0; r < cfg.runs; r++) {
+                    status.textContent = `Running ${mode} — run ${r + 1}/${
+                        cfg.runs
+                    } (env: ${cfg.env}, props: ${cfg.props}, boxes: ${
+                        cfg.boxes
+                    })`
+                    /** Let the previous run's rendering settle */
+                    await new Promise((res) => setTimeout(res, 100))
+                    runs.push(await runOnce(writer))
+                }
+                writer.teardown()
+
+                /** Discard first run (JIT warmup) */
+                const warm = runs.slice(1)
+                const avg = (key) =>
+                    warm.reduce((a, r) => a + r[key], 0) / warm.length
+
+                return {
+                    mode,
+                    setupMs,
+                    runs,
+                    mean: avg("mean"),
+                    p95: avg("p95"),
+                    max: avg("max"),
+                    loafStyleMs: avg("loafStyleMs"),
+                    flushMs: avg("flushMs"),
+                }
+            }
+
+            /** ---------------------------------------------------------- */
+            /** Reporting                                                   */
+            /** ---------------------------------------------------------- */
+
+            const resultsTable = document.getElementById("results")
+
+            function renderResults(all) {
+                let html = `<tr><th>mode</th><th>mean frame (ms)</th><th>p95 (ms)</th><th>max (ms)</th><th>flush style (ms/frame)</th><th>style+layout / run (ms)</th><th>setup (ms)</th></tr>`
+                for (const r of all) {
+                    html += `<tr><td>${r.mode}</td><td>${r.mean.toFixed(
+                        2
+                    )}</td><td>${r.p95.toFixed(2)}</td><td>${r.max.toFixed(
+                        2
+                    )}</td><td>${r.flushMs.toFixed(
+                        3
+                    )}</td><td>${r.loafStyleMs.toFixed(
+                        1
+                    )}</td><td>${r.setupMs.toFixed(1)}</td></tr>`
+                }
+                resultsTable.innerHTML = html
+            }
+
+            async function main() {
+                const boxes = buildEnvironment()
+                const all = []
+
+                /**
+                 * Manual driver for automation (e.g. CDP): navigate with
+                 * ?manual, then await window.__runMode("direct") etc to get
+                 * clean per-mode metric deltas without reloads.
+                 */
+                window.__runMode = async (mode) => {
+                    const result = await runMode(mode, boxes)
+                    all.push(result)
+                    renderResults(all)
+                    window.__results = { cfg, results: all }
+                    return result
+                }
+
+                if (q.has("manual")) {
+                    status.textContent = `Ready (manual) — env: ${cfg.env}, props: ${cfg.props}, boxes: ${cfg.boxes}, descendants/box: ${cfg.descendants}`
+                    window.__done = true
+                    return
+                }
+
+                const modes = cfg.auto ? ALL_MODES : [cfg.mode]
+
+                for (const mode of modes) {
+                    await window.__runMode(mode)
+                }
+
+                status.textContent = `Done — env: ${cfg.env}, props: ${cfg.props}, boxes: ${cfg.boxes}, descendants/box: ${cfg.descendants}, frames/run: ${cfg.frames}, runs: ${cfg.runs} (first discarded)`
+                window.__done = true
+            }
+
+            main()
+        </script>
+    </body>
+</html>

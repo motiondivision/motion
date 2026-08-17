@@ -20,11 +20,22 @@ export const scaleCorrectors: ScaleCorrectorMap = {
     boxShadow: correctBoxShadow,
 }
 
+/**
+ * Iterable snapshot of scaleCorrectors keys. Projection rendering loops
+ * over correctors for every projecting node every frame, and iterating a
+ * cached array is cheaper than a for...in over the map.
+ */
+export const scaleCorrectorKeys = /*@__PURE__*/ Object.keys(scaleCorrectors)
+
 export function addScaleCorrector(correctors: ScaleCorrectorMap) {
     for (const key in correctors) {
         scaleCorrectors[key] = correctors[key]
         if (isCSSVariableName(key)) {
             scaleCorrectors[key].isCSSVariable = true
+        }
+
+        if (!scaleCorrectorKeys.includes(key)) {
+            scaleCorrectorKeys.push(key)
         }
     }
 }

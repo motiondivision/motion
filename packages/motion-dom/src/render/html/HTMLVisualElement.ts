@@ -77,9 +77,21 @@ export class HTMLVisualElement extends DOMVisualElement<
         instance: HTMLElement,
         state: MotionValueState,
         styleProp?: MotionStyle,
-        projection?: any
+        projection?: any,
+        fullRender = true
     ) {
-        renderStyles(instance, state)
+        /**
+         * Projection-only renders (per-frame during layout animations)
+         * skip re-writing unchanged styles - value changes on
+         * projection-driven elements always request full renders.
+         */
+        if (fullRender) {
+            renderStyles(
+                instance,
+                state,
+                projection ? projection.willProjectTransform() : false
+            )
+        }
         projection?.applyProjectionStyles(instance.style, styleProp)
     }
 }

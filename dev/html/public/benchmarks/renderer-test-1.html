@@ -1,0 +1,119 @@
+<html>
+    <!--
+      Renderer Test 1: Granularity
+
+      Animates five paint-triggering (non-layout) values on 300 elements
+      (phase A), then animates just one of those values (phase B). The
+      legacy VisualElement renderer re-applies all five styles whenever any
+      value changes, so phase B still writes five properties per element
+      per frame. styleEffect writes only the changed value. varEffect
+      writes only the changed value's registered custom property.
+
+      Protocol: per renderer, 4 runs without reload, first run discarded
+      (JIT warmup). Results are the average of runs 2-4.
+
+      Query params: boxes (default 300), duration (s, default 2), runs
+      (default 4), manual (expose window.__bench for external drivers).
+    -->
+    <head>
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+            }
+            #stage {
+                padding-top: 42vh;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 4px;
+            }
+            .box {
+                width: 40px;
+                height: 40px;
+                background: rgb(255, 40, 40);
+                border: 2px solid #333;
+                outline: 1px solid #666;
+                border-radius: 4px;
+                contain: layout;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="panel">
+            <div id="status">Loading…</div>
+            <table id="results"></table>
+        </div>
+        <div id="stage"></div>
+        <script type="module" src="/src/imports/framer-motion-dom.js"></script>
+        <script type="module" src="/src/imports/gsap.js"></script>
+        <script type="module">
+            import {
+                PAINT_PROPS,
+                buildBoxes,
+                createStrategies,
+                createRunner,
+                renderResultsTable,
+                panelCSS,
+            } from "./renderer-bench-lib.js"
+
+            const styleTag = document.createElement("style")
+            styleTag.textContent = panelCSS
+            document.head.appendChild(styleTag)
+
+            const q = new URLSearchParams(location.search)
+            const numBoxes = +(q.get("boxes") || 300)
+            const duration = +(q.get("duration") || 2)
+            const runs = +(q.get("runs") || 4)
+
+            const Motion = window.Motion
+            const status = document.getElementById("status")
+            const boxes = buildBoxes(document.getElementById("stage"), numBoxes)
+            const strategies = createStrategies(Motion)
+
+            const phases = {
+                "A (5 values)": Object.keys(PAINT_PROPS),
+                "B (1 value)": ["backgroundColor"],
+            }
+
+            const runner = createRunner({
+                Motion,
+                boxes,
+                strategies,
+                props: PAINT_PROPS,
+                phases,
+                duration,
+                runs,
+                onStatus: (message) => (status.textContent = message),
+            })
+
+            window.__bench = runner
+            window.__phases = phases
+
+            async function main() {
+                if (q.has("manual")) {
+                    status.textContent = `Ready (manual) — ${numBoxes} boxes`
+                    window.__done = true
+                    return
+                }
+
+                const results = await runner.runAll([
+                    "legacy",
+                    "style",
+                    "var",
+                    "gsap",
+                    "waapi",
+                ])
+                renderResultsTable(
+                    document.getElementById("results"),
+                    results,
+                    phases
+                )
+                status.textContent = `Done — ${numBoxes} boxes, ${runs} runs (first discarded), ${duration}s per phase`
+                window.__results = results
+                window.__done = true
+            }
+
+            main()
+        </script>
+    </body>
+</html>

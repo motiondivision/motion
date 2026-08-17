@@ -19,6 +19,14 @@ export class FlatTree {
     forEach(callback: (child: WithDepth) => void) {
         this.isDirty && this.children.sort(compareByDepth)
         this.isDirty = false
-        this.children.forEach(callback)
+
+        /**
+         * Indexed loop - this is called four times per frame across every
+         * projection node during layout animations.
+         */
+        const { children } = this
+        for (let i = 0; i < children.length; i++) {
+            callback(children[i])
+        }
     }
 }

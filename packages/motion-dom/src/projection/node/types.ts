@@ -37,6 +37,20 @@ export type LayoutEvents =
     | "animationStart"
     | "animationComplete"
 
+/**
+ * Cumulative axis-aligned affine transform for a node's ancestor path:
+ * per axis, point -> a * point + b, plus the cumulative scale product
+ * (sx/sy, aka treeScale).
+ */
+export interface PathTransform {
+    ax: number
+    bx: number
+    ay: number
+    by: number
+    sx: number
+    sy: number
+}
+
 export interface IProjectionNode<I = unknown> {
     linkedParentVersion: number
     layoutVersion: number
@@ -112,6 +126,28 @@ export interface IProjectionNode<I = unknown> {
         targetStyle: CSSStyleDeclaration,
         styleProp?: MotionStyle
     ): void
+    willProjectTransform(): boolean
+    /**
+     * Set when this node's projection styles need re-rendering. Consumed
+     * by the root's render sweep (scheduleRenderSweep), which renders all
+     * flagged nodes in a single frame callback.
+     */
+    needsProjectionRender?: boolean
+    scheduleRenderSweep(): void
+    /**
+     * Cumulative affine transform of this node's ancestor projection
+     * deltas, cached per updateProjection sweep. Composed O(1) from the
+     * parent's cached transform rather than re-walking the full path per
+     * node per frame.
+     */
+    pathTransformSweep: number
+    updatePathTransform(): PathTransform
+    /**
+     * Whether the underlying element is display: contents. Cached once
+     * per frame (in propagateDirtyNodes) so per-frame tree walks don't
+     * repeatedly chase options.visualElement.props.style.
+     */
+    isDisplayContents?: boolean
     clearMeasurements(): void
     resetTree(): void
 

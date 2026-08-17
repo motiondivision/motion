@@ -36,7 +36,12 @@ export function createRenderStep(
 
     function triggerCallback(callback: Process) {
         if (toKeepAlive.has(callback)) {
-            step.schedule(callback)
+            /**
+             * Fast path for keepAlive processes (e.g. animation ticks) -
+             * they're already in the WeakSet so requeue directly rather
+             * than going through schedule().
+             */
+            nextFrame.add(callback)
             runNextFrame()
         }
 
