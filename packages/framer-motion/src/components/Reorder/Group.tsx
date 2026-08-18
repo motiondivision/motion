@@ -2,7 +2,14 @@
 
 import { invariant } from "motion-utils"
 import * as React from "react"
-import { forwardRef, FunctionComponent, JSX, useEffect, useRef } from "react"
+import {
+    forwardRef,
+    FunctionComponent,
+    JSX,
+    useEffect,
+    useRef,
+    useState,
+} from "react"
 import { ReorderContext } from "../../context/ReorderContext"
 import { motion } from "../../render/components/motion/proxy"
 import { HTMLMotionProps } from "../../render/html/types"
@@ -10,10 +17,12 @@ import { useConstant } from "../../utils/use-constant"
 import {
     DefaultGroupElement,
     ItemData,
+    ReorderAxis,
     ReorderContextProps,
     ReorderElementTag,
 } from "./types"
 import { checkReorder } from "./utils/check-reorder"
+import { detectAxis } from "./utils/detect-axis"
 
 export interface Props<
     V,
@@ -27,12 +36,12 @@ export interface Props<
     as?: TagName
 
     /**
-     * The axis to reorder along. By default, items will be draggable on this axis.
-     * To make draggable on both axes, set `<Reorder.Item drag />`
+     * The axis to reorder along. By default, this is detected from the item
+     * layout. Use `"xy"` to explicitly enable wrapped layout reordering.
      *
      * @public
      */
-    axis?: "x" | "y"
+    axis?: ReorderAxis
 
     /**
      * A callback to fire with the new value order. For instance, if the values
@@ -76,7 +85,7 @@ export function ReorderGroupComponent<
     {
         children,
         as = "ul" as TagName,
-        axis = "y",
+        axis: axisOverride,
         onReorder,
         values,
         ...props
@@ -89,9 +98,11 @@ export function ReorderGroupComponent<
         React.PropsWithChildren<HTMLMotionProps<any> & { ref?: React.Ref<any> }>
     >
 
-    const order: ItemData<V>[] = []
+    const itemLayouts = useRef(new Map<V, ItemData<V>["layout"]>())
+    const [detectedAxis, setDetectedAxis] = useState<ReorderAxis>("y")
     const isReordering = useRef(false)
     const groupRef = useRef<Element>(null)
+    const axis = axisOverride || detectedAxis
 
     invariant(
         Boolean(values),
@@ -99,41 +110,60 @@ export function ReorderGroupComponent<
         "reorder-values"
     )
 
+    const valuesSet = new Set(values)
+    itemLayouts.current.forEach((_, value) => {
+        if (!valuesSet.has(value)) itemLayouts.current.delete(value)
+    })
+
     const context: ReorderContextProps<V> = {
         axis,
         groupRef,
         registerItem: (value, layout) => {
-            // If the entry was already added, update it rather than adding it again
-            const idx = order.findIndex((entry) => value === entry.value)
-            if (idx !== -1) {
-                order[idx].layout = layout[axis]
-            } else {
-                order.push({ value: value, layout: layout[axis] })
+            itemLayouts.current.set(value, layout)
+
+            if (!axisOverride) {
+                const nextAxis = detectAxis(
+                    values.flatMap((itemValue) => {
+                        const itemLayout = itemLayouts.current.get(itemValue)
+                        return itemLayout ? [itemLayout] : []
+                    })
+                )
+
+                if (nextAxis !== detectedAxis) setDetectedAxis(nextAxis)
             }
-            order.sort(compareMin)
         },
         updateOrder: (item, offset, velocity) => {
             if (isReordering.current) return
 
-            const newOrder = checkReorder(order, item, offset, velocity)
+            const order = values.flatMap((value) => {
+                const layout = itemLayouts.current.get(value)
+                return layout ? [{ value, layout }] : []
+            })
+            const direction =
+                groupRef.current?.ownerDocument.defaultView?.getComputedStyle(
+                    groupRef.current
+                ).direction === "rtl"
+                    ? "rtl"
+                    : "ltr"
+            const newOrder = checkReorder(
+                order,
+                item,
+                offset,
+                velocity,
+                axis,
+                direction
+            )
 
             if (order !== newOrder) {
                 isReordering.current = true
 
-                // Find which two values swapped and apply that swap
-                // to the full values array. This preserves unmeasured
-                // items (e.g. in virtualized lists).
                 const newValues = [...values]
-                for (let i = 0; i < newOrder.length; i++) {
-                    if (order[i].value !== newOrder[i].value) {
-                        const a = values.indexOf(order[i].value)
-                        const b = values.indexOf(newOrder[i].value)
-                        if (a !== -1 && b !== -1) {
-                            ;[newValues[a], newValues[b]] = [newValues[b], newValues[a]]
-                        }
-                        break
-                    }
-                }
+                const measuredIndexes = order.map(({ value }) =>
+                    values.indexOf(value)
+                )
+                newOrder.forEach(({ value }, index) => {
+                    newValues[measuredIndexes[index]] = value
+                })
                 onReorder(newValues)
             }
         },
@@ -149,9 +179,8 @@ export function ReorderGroupComponent<
         if (typeof externalRef === "function") {
             externalRef(element)
         } else if (externalRef) {
-            ;(
-                externalRef as React.MutableRefObject<Element | null>
-            ).current = element
+            ;(externalRef as React.MutableRefObject<Element | null>).current =
+                element
         }
     }
 
@@ -186,7 +215,3 @@ export const ReorderGroup = /*@__PURE__*/ forwardRef(ReorderGroupComponent) as <
         onReorder: (newOrder: Values) => void
     } & { ref?: React.ForwardedRef<any> }
 ) => ReturnType<typeof ReorderGroupComponent>
-
-function compareMin<V>(a: ItemData<V>, b: ItemData<V>) {
-    return a.layout.min - b.layout.min
-}

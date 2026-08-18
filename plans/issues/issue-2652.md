@@ -123,3 +123,14 @@ breaking changes ride the next major.
 - README row has no recorded option → do nothing.
 - Removing the peer dep breaks any in-repo test/dev app that imports
   `@emotion/is-prop-valid` implicitly → report before working around.
+
+## Execution notes
+
+- Maintainer approved Option A on 2026-08-05 and confirmed this should ship in
+  the next major release.
+- PR #3783 removes implicit loading and the optional peer dependency, and
+  documents explicit `<MotionConfig isValidProp>` injection.
+- `isValidProp` was moved into `MotionConfigContext` rather than retaining the
+  plan's module-global loader, making validators subtree-scoped and safe for
+  sibling, nested, unmounted, and SSR trees.
+- Added direct filtering tests plus `MotionConfig` scope and nesting coverage.

@@ -28,12 +28,58 @@ function createMockOptions(overrides: Record<string, any> = {}) {
     } as any
 }
 
+function createSVGMockOptions(overrides: Record<string, any> = {}) {
+    const element = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "circle"
+    )
+    return createMockOptions({
+        motionValue: {
+            owner: {
+                current: element,
+                getProps: () => ({}),
+            },
+        },
+        ...overrides,
+    })
+}
+
 describe("supportsBrowserAnimation", () => {
     it("returns true for accelerated values like opacity", () => {
         expect(supportsBrowserAnimation(createMockOptions())).toBe(true)
     })
 
-    it("returns false for non-accelerated values without browser-only colors", () => {
+    it("returns true for opacity on SVG elements", () => {
+        expect(supportsBrowserAnimation(createSVGMockOptions())).toBe(true)
+    })
+
+    it("returns true for transform on SVG elements", () => {
+        expect(
+            supportsBrowserAnimation(
+                createSVGMockOptions({
+                    name: "transform",
+                    keyframes: ["translateX(0px)", "translateX(100px)"],
+                })
+            )
+        ).toBe(true)
+    })
+
+    it("returns false when the subject is not an element", () => {
+        expect(
+            supportsBrowserAnimation(
+                createMockOptions({
+                    motionValue: {
+                        owner: {
+                            current: {},
+                            getProps: () => ({}),
+                        },
+                    },
+                })
+            )
+        ).toBe(false)
+    })
+
+    it("returns true for backgroundColor with standard hex keyframes", () => {
         expect(
             supportsBrowserAnimation(
                 createMockOptions({
@@ -41,7 +87,58 @@ describe("supportsBrowserAnimation", () => {
                     keyframes: ["#ffffff", "#000000"],
                 })
             )
+        ).toBe(true)
+    })
+
+    it("returns false for color with standard rgba keyframes", () => {
+        expect(
+            supportsBrowserAnimation(
+                createMockOptions({
+                    name: "color",
+                    keyframes: ["rgba(255, 0, 0, 1)", "rgba(0, 0, 255, 1)"],
+                })
+            )
         ).toBe(false)
+    })
+
+    it("returns false for backgroundColor when onUpdate is set", () => {
+        const element = document.createElement("div")
+        expect(
+            supportsBrowserAnimation(
+                createMockOptions({
+                    name: "backgroundColor",
+                    keyframes: ["#ffffff", "#000000"],
+                    motionValue: {
+                        owner: {
+                            current: element,
+                            getProps: () => ({ onUpdate: () => {} }),
+                        },
+                    },
+                })
+            )
+        ).toBe(false)
+    })
+
+    it("returns false for a color not in the accelerated set with standard keyframes", () => {
+        expect(
+            supportsBrowserAnimation(
+                createMockOptions({
+                    name: "borderTopColor",
+                    keyframes: ["#ffffff", "#000000"],
+                })
+            )
+        ).toBe(false)
+    })
+
+    it("returns true for a color not in the accelerated set with oklch keyframes", () => {
+        expect(
+            supportsBrowserAnimation(
+                createMockOptions({
+                    name: "borderTopColor",
+                    keyframes: ["#ffffff", "oklch(0.65 0.18 260)"],
+                })
+            )
+        ).toBe(true)
     })
 
     it("returns true for color properties with oklch keyframes", () => {

@@ -12,10 +12,7 @@ import { useMotionValue } from "../../value/use-motion-value"
 import { useTransform } from "../../value/use-transform"
 
 import { DefaultItemElement, ReorderElementTag } from "./types"
-import {
-    autoScrollIfNeeded,
-    resetAutoScrollState,
-} from "./utils/auto-scroll"
+import { autoScrollIfNeeded, resetAutoScrollState } from "./utils/auto-scroll"
 
 export interface Props<
     V,
@@ -94,26 +91,32 @@ export function ReorderItemComponent<
     )
 
     const { axis, registerItem, updateOrder, groupRef } = context!
+    const dragAxis = axis === "xy" ? true : axis
 
     return (
         <Component
-            drag={axis}
+            drag={dragAxis}
             {...props}
             dragSnapToOrigin
             style={{ ...style, x: point.x, y: point.y, zIndex }}
             layout={layout}
             onDrag={(event, gesturePoint) => {
                 const { velocity, point: pointerPoint } = gesturePoint
-                const offset = point[axis].get()
+                const offset = { x: point.x.get(), y: point.y.get() }
 
-                // Always attempt to update order - checkReorder handles the logic
-                updateOrder(value, offset, velocity[axis])
+                updateOrder(value, offset, velocity)
 
+                const scrollAxis =
+                    axis === "xy"
+                        ? Math.abs(velocity.x) > Math.abs(velocity.y)
+                            ? "x"
+                            : "y"
+                        : axis
                 autoScrollIfNeeded(
                     groupRef.current,
-                    pointerPoint[axis],
-                    axis,
-                    velocity[axis]
+                    pointerPoint[scrollAxis],
+                    scrollAxis,
+                    velocity[scrollAxis]
                 )
 
                 onDrag && onDrag(event, gesturePoint)

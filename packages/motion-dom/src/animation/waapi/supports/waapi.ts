@@ -39,12 +39,16 @@ export function supportsBrowserAnimation<T extends AnyResolvedKeyframe>(
     const subject = motionValue?.owner?.current
 
     /**
-     * We use this check instead of isHTMLElement() because we explicitly
-     * **don't** want elements in different timing contexts (i.e. popups)
-     * to be accelerated, as it's not possible to sync these animations
-     * properly with those driven from the main window frameloop.
+     * We use instanceof checks instead of isHTMLElement()/isSVGElement()
+     * because we explicitly **don't** want elements in different timing
+     * contexts (i.e. popups) to be accelerated, as it's not possible to sync
+     * these animations properly with those driven from the main window
+     * frameloop.
      */
-    if (!(subject instanceof HTMLElement)) {
+    if (
+        !(subject instanceof HTMLElement) &&
+        !(subject instanceof SVGElement)
+    ) {
         return false
     }
 
