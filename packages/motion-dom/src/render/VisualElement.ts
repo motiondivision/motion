@@ -688,6 +688,23 @@ export abstract class VisualElement<
     }
 
     /**
+     * Render immediately, unless a render is already scheduled this
+     * frame (in which case that render will perform the same work).
+     * Called by the projection render sweep, which batches the renders
+     * of all projecting nodes into a single frame callback rather than
+     * scheduling one per node per frame. Stamping renderScheduledAt
+     * keeps the semantics identical to scheduleRender: later
+     * same-frame schedules are skipped either way.
+     */
+    flushRender = () => {
+        const now = time.now()
+        if (this.renderScheduledAt < now) {
+            this.renderScheduledAt = now
+            this.render()
+        }
+    }
+
+    /**
      * Measure the current viewport box with or without transforms.
      * Only measures axis-aligned boxes, rotate and skew must be manually
      * removed with a re-render to work.

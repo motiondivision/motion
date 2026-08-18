@@ -112,6 +112,13 @@ export interface IProjectionNode<I = unknown> {
         targetStyle: CSSStyleDeclaration,
         styleProp?: MotionStyle
     ): void
+    /**
+     * Set when this node needs re-rendering. Consumed by the root's
+     * render sweep (scheduleRenderSweep), which renders all flagged
+     * nodes in a single frame callback.
+     */
+    needsRender: boolean
+    scheduleRenderSweep(): void
     clearMeasurements(): void
     resetTree(): void
 

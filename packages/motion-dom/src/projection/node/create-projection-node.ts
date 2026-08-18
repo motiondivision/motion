@@ -1560,8 +1560,21 @@ export function createProjectionNode<I>({
             // TODO: Schedule render
         }
 
+        /**
+         * Set when this node needs re-rendering. Consumed by the root's
+         * render sweep, which renders all flagged nodes in a single
+         * frame callback. During layout animations every projecting
+         * node schedules a render every frame, so flag-and-sweep
+         * replaces ~n frameloop scheduling calls per frame with one.
+         */
+        needsRender = false
+        renderSweepScheduled = false
+
         scheduleRender(notifyAll = true) {
-            this.options.visualElement?.scheduleRender()
+            if (this.options.visualElement) {
+                this.needsRender = true
+                this.root.scheduleRenderSweep()
+            }
             if (notifyAll) {
                 const stack = this.getStack()
                 stack && stack.scheduleRender()
@@ -1569,6 +1582,19 @@ export function createProjectionNode<I>({
             if (this.resumingFrom && !this.resumingFrom.instance) {
                 this.resumingFrom = undefined
             }
+        }
+
+        /** Root only */
+        scheduleRenderSweep() {
+            if (!this.renderSweepScheduled) {
+                this.renderSweepScheduled = true
+                frame.render(this.renderSweep, false, true)
+            }
+        }
+
+        renderSweep = () => {
+            this.renderSweepScheduled = false
+            this.nodes && this.nodes.forEach(renderFlaggedNode)
         }
 
         createProjectionDeltas() {
@@ -2284,6 +2310,13 @@ function notifyLayoutUpdate(node: IProjectionNode) {
      * and why we need it at all
      */
     node.options.transition = undefined
+}
+
+function renderFlaggedNode(node: IProjectionNode) {
+    if (node.needsRender) {
+        node.needsRender = false
+        node.options.visualElement?.flushRender()
+    }
 }
 
 export function propagateDirtyNodes(node: IProjectionNode) {
