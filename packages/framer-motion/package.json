@@ -1,6 +1,6 @@
 {
     "name": "framer-motion",
-    "version": "12.42.2",
+    "version": "13.1.0",
     "description": "A simple and powerful JavaScript animation library",
     "main": "dist/cjs/index.js",
     "module": "dist/es/index.mjs",
@@ -88,8 +88,8 @@
         "measure": "rollup -c ./rollup.size.config.mjs"
     },
     "dependencies": {
-        "motion-dom": "^12.42.2",
-        "motion-utils": "^12.39.0",
+        "motion-dom": "^13.0.0",
+        "motion-utils": "^13.0.0",
         "tslib": "^2.4.0"
     },
     "devDependencies": {
@@ -99,14 +99,10 @@
         "three": "0.137.0"
     },
     "peerDependencies": {
-        "@emotion/is-prop-valid": "*",
         "react": "^18.0.0 || ^19.0.0",
         "react-dom": "^18.0.0 || ^19.0.0"
     },
     "peerDependenciesMeta": {
-        "@emotion/is-prop-valid": {
-            "optional": true
-        },
         "react": {
             "optional": true
         },

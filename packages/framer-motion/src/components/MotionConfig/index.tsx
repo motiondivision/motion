@@ -4,15 +4,10 @@ import * as React from "react"
 import { useContext, useMemo } from "react"
 import { resolveTransition } from "motion-dom"
 import { MotionConfigContext } from "../../context/MotionConfigContext"
-import {
-    loadExternalIsValidProp,
-    IsValidProp,
-} from "../../render/dom/utils/filter-props"
 import { useConstant } from "../../utils/use-constant"
 
 export interface MotionConfigProps extends Partial<MotionConfigContext> {
     children?: React.ReactNode
-    isValidProp?: IsValidProp
 }
 
 /**
@@ -32,13 +27,7 @@ export interface MotionConfigProps extends Partial<MotionConfigContext> {
  *
  * @public
  */
-export function MotionConfig({
-    children,
-    isValidProp,
-    ...config
-}: MotionConfigProps) {
-    isValidProp && loadExternalIsValidProp(isValidProp)
-
+export function MotionConfig({ children, ...config }: MotionConfigProps) {
     /**
      * Inherit props from any parent MotionConfig components
      */
@@ -67,6 +56,7 @@ export function MotionConfig({
             config.transformPagePoint,
             config.reducedMotion,
             config.skipAnimations,
+            config.isValidProp,
         ]
     )
 

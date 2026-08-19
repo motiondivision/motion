@@ -4,15 +4,36 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [13.1.0] 2026-08-10
+
+### Added
+
+-   `Reorder`: Multidimensional reorder.
+-   `Reorder`: Automatic axis detection.
+-   `Reorder`: RTL support.
+
+## [13.0.0] 2026-08-05
+
+### Changed
+
+-   Removed optional `@emotion/is-prop-valid` dependency in favour of explicit `<MotionConfig isValidProp={isPropValid}>`.
+
+### Fixed
+
+-   Hardware-accelerated SVG elements correctly apply final style on animation complete.
+-   `AnimatePresence`: Ensure nodes are marked as safe to remove when rendering `propagate` with no `motion` children.
+
 ## [12.43.0] 2026-07-27
 
 ### Added
 
 -   Hardware acceleration for `backgroundColor` in supported browsers.
+-   Hardware acceleration for SVG elements.
 
 ### Fixed
 
 -   `AnimatePresence`: Exiting children no longer interleave with entering children, which could reorder and remount children present in both renders.
+-   `motion`: Throw error when passing a custom `motion` component an incorrect `ref` type.
 
 ## [12.42.2] 2026-07-01
 

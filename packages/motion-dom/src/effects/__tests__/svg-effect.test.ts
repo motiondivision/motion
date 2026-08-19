@@ -9,6 +9,35 @@ async function nextFrame() {
 }
 
 describe("svgEffect", () => {
+    it("renders SVG CSS properties as styles", async () => {
+        const element = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "circle"
+        )
+        const values = {
+            transform: motionValue("translateX(10px)"),
+            opacity: motionValue(0.5),
+            offsetDistance: motionValue("25%"),
+            offsetPath: motionValue('path("M 0 0 L 1 1")'),
+            offsetRotate: motionValue("auto"),
+            offsetAnchor: motionValue("center"),
+        }
+
+        svgEffect(element, values)
+        await nextFrame()
+
+        expect(element.style.transform).toBe("translateX(10px)")
+        expect(element.style.opacity).toBe("0.5")
+        expect(element.style.offsetDistance).toBe("25%")
+        expect(element.style.offsetPath).toBe('path("M 0 0 L 1 1")')
+        expect(element.style.offsetRotate).toBe("auto")
+        expect(element.style.offsetAnchor).toBe("center")
+
+        for (const key in values) {
+            expect(element.getAttribute(key)).toBeNull()
+        }
+    })
+
     it("sets feMorphology radius as unitless number (issue #2779)", async () => {
         const element = document.createElementNS(
             "http://www.w3.org/2000/svg",
