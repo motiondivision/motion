@@ -4,6 +4,44 @@ import { nextMicrotask } from "../../gestures/__tests__/utils"
 import { render } from "../../jest.setup"
 
 describe("transformTemplate", () => {
+    it("composes a user transform after independent animate values", async () => {
+        const { container } = render(
+            <motion.div
+                initial={false}
+                animate={{ scale: 2, transform: "rotate(90deg)" }}
+                transition={{ type: false }}
+            />
+        )
+
+        await new Promise((resolve) => frame.postRender(resolve))
+
+        expect(container.firstChild).toHaveStyle(
+            "transform: scale(2) rotate(90deg)"
+        )
+    })
+
+    it("passes composed animate values to transformTemplate", async () => {
+        const transformTemplate = jest.fn((_, generated) => generated)
+        const { container } = render(
+            <motion.div
+                initial={false}
+                animate={{ scale: 2, transform: "rotate(90deg)" }}
+                transition={{ type: false }}
+                transformTemplate={transformTemplate}
+            />
+        )
+
+        await new Promise((resolve) => frame.postRender(resolve))
+
+        expect(container.firstChild).toHaveStyle(
+            "transform: scale(2) rotate(90deg)"
+        )
+        expect(transformTemplate).toHaveBeenLastCalledWith(
+            { scale: 2 },
+            "scale(2) rotate(90deg)"
+        )
+    })
+
     it("applies transformTemplate on initial render", () => {
         const { container } = render(
             <motion.div

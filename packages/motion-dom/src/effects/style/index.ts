@@ -9,6 +9,14 @@ import { buildTransform } from "./transform"
 
 const originProps = new Set(["originX", "originY", "originZ"])
 
+/**
+ * Internal key for the computed transform channel. The user "transform"
+ * value now composes into this channel, so it can't share the "transform"
+ * key. Prefixed with $ so it can never collide with a real style key
+ * (like "transformStyle", which is the transform-style CSS property).
+ */
+const computedTransform = "$transform"
+
 export const addStyleValue = (
     element: HTMLElement | SVGElement,
     state: MotionValueState,
@@ -18,8 +26,8 @@ export const addStyleValue = (
     let render: VoidFunction | undefined = undefined
     let computed: MotionValue | undefined = undefined
 
-    if (transformProps.has(key)) {
-        if (!state.get("transform")) {
+    if (transformProps.has(key) || key === "transform") {
+        if (!state.get(computedTransform)) {
             // If this is an HTML element, we need to set the transform-box to fill-box
             // to normalise the transform relative to the element's bounding box
             if (!isHTMLElement(element) && !state.get("transformBox")) {
@@ -31,12 +39,12 @@ export const addStyleValue = (
                 )
             }
 
-            state.set("transform", new MotionValue("none"), () => {
+            state.set(computedTransform, new MotionValue("none"), () => {
                 element.style.transform = buildTransform(state)
             })
         }
 
-        computed = state.get("transform")
+        computed = state.get(computedTransform)
     } else if (originProps.has(key)) {
         if (!state.get("transformOrigin")) {
             state.set("transformOrigin", new MotionValue(""), () => {

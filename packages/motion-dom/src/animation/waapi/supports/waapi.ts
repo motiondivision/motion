@@ -3,7 +3,10 @@ import {
     AnyResolvedKeyframe,
     ValueAnimationOptionsWithRenderContext,
 } from "../../types"
-import { acceleratedValues } from "../utils/accelerated-values"
+import {
+    acceleratedValues,
+    hasIndependentTransform,
+} from "../utils/accelerated-values"
 import { hasBrowserOnlyColors } from "../utils/is-browser-color"
 
 const colorProperties = new Set([
@@ -52,7 +55,8 @@ export function supportsBrowserAnimation<T extends AnyResolvedKeyframe>(
         return false
     }
 
-    const { onUpdate, transformTemplate } = motionValue!.owner!.getProps()
+    const owner = motionValue!.owner!
+    const { onUpdate, transformTemplate } = owner.getProps()
 
     return (
         supportsWaapi() &&
@@ -64,7 +68,9 @@ export function supportsBrowserAnimation<T extends AnyResolvedKeyframe>(
         (acceleratedValues.has(name) ||
             (colorProperties.has(name) &&
                 hasBrowserOnlyColors(keyframes))) &&
-        (name !== "transform" || !transformTemplate) &&
+        (name !== "transform" ||
+            (!transformTemplate &&
+                !hasIndependentTransform(owner.latestValues))) &&
         /**
          * If we're outputting values to onUpdate then we can't use WAAPI as there's
          * no way to read the value from WAAPI every frame.

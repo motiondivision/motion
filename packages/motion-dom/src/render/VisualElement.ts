@@ -9,7 +9,10 @@ import {
 import { KeyframeResolver } from "../animation/keyframes/KeyframesResolver"
 import { NativeAnimation } from "../animation/NativeAnimation"
 import type { AnyResolvedKeyframe } from "../animation/types"
-import { acceleratedValues } from "../animation/waapi/utils/accelerated-values"
+import {
+    acceleratedValues,
+    hasIndependentTransform,
+} from "../animation/waapi/utils/accelerated-values"
 import { cancelFrame, frame } from "../frameloop"
 import { microtask } from "../frameloop/microtask"
 import { time } from "../frameloop/sync-time"
@@ -543,7 +546,10 @@ export abstract class VisualElement<
         if (
             value.accelerate &&
             acceleratedValues.has(key) &&
-            this.current instanceof HTMLElement
+            this.current instanceof HTMLElement &&
+            (key !== "transform" ||
+                (!this.props.transformTemplate &&
+                    !hasIndependentTransform(this.latestValues)))
         ) {
             const { factory, keyframes, times, ease, duration } =
                 value.accelerate

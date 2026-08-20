@@ -26,6 +26,15 @@ export function hasTransform(values: ResolvedValues) {
     )
 }
 
+export function hasVisualTransform(values: ResolvedValues) {
+    return (
+        hasTransform(values) ||
+        (values.transform &&
+            values.transform !== "none" &&
+            values.transform !== "")
+    )
+}
+
 export function has2DTranslate(values: ResolvedValues) {
     return is2DTranslate(values.x) || is2DTranslate(values.y)
 }

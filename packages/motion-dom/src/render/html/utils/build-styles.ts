@@ -27,7 +27,7 @@ export function buildHTMLStyles(
     for (const key in latestValues) {
         const value = latestValues[key]
 
-        if (transformProps.has(key)) {
+        if (transformProps.has(key) || key === "transform") {
             // If this is a transform, flag to enable further transform processing
             hasTransform = true
             continue
@@ -49,20 +49,18 @@ export function buildHTMLStyles(
         }
     }
 
-    if (!latestValues.transform) {
-        if (hasTransform || transformTemplate) {
-            style.transform = buildTransform(
-                latestValues,
-                state.transform,
-                transformTemplate
-            )
-        } else if (style.transform) {
-            /**
-             * If we have previously created a transform but currently don't have any,
-             * reset transform style to none.
-             */
-            style.transform = "none"
-        }
+    if (hasTransform || transformTemplate) {
+        style.transform = buildTransform(
+            latestValues,
+            state.transform,
+            transformTemplate
+        )
+    } else if (style.transform) {
+        /**
+         * If we have previously created a transform but currently don't have any,
+         * reset transform style to none.
+         */
+        style.transform = "none"
     }
 
     /**

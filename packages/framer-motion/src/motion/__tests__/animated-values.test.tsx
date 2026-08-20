@@ -112,7 +112,7 @@ describe("values prop", () => {
         })
     })
 
-    test("Prioritises transform over independent transforms", async () => {
+    test("Composes user transform after independent transforms", async () => {
         const promise = new Promise<[number, HTMLElement]>((resolve) => {
             const Component = () => {
                 const x = useMotionValue(100)
@@ -139,7 +139,13 @@ describe("values prop", () => {
 
         await promise.then(([x, element]) => {
             expect(x).toBe(50)
-            expect(element).toHaveStyle("transform: scale(2) translateX(50px)")
+            /**
+             * The independent scale renders first, then the user transform
+             * is appended, so the template's own scale appears twice.
+             */
+            expect(element).toHaveStyle(
+                "transform: scale(2) scale(2) translateX(50px)"
+            )
         })
     })
 

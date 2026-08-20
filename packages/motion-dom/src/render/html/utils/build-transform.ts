@@ -74,6 +74,12 @@ export function buildTransform(
         )}) `
     }
 
+    const userTransform = latestValues.transform
+    if (userTransform && userTransform !== "none") {
+        transformIsDefault = false
+        transformString += userTransform
+    }
+
     transformString = transformString.trim()
 
     // If we have a custom `transform` template, pass our transform values and

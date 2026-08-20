@@ -117,6 +117,49 @@ describe("styleEffect", () => {
         )
     })
 
+    it("composes a user transform with independent transform values once per frame", async () => {
+        const element = document.createElement("div")
+        const transform = motionValue("rotate(90deg)")
+        const scale = motionValue(2)
+
+        const originalSetter = Object.getOwnPropertyDescriptor(
+            CSSStyleDeclaration.prototype,
+            "transform"
+        )?.set
+        const mockSetter = jest.fn()
+        Object.defineProperty(element.style, "transform", {
+            set: mockSetter,
+            configurable: true,
+        })
+
+        styleEffect(element, { transform, scale })
+
+        await nextFrame()
+
+        expect(mockSetter).toHaveBeenCalledTimes(1)
+        expect(mockSetter).toHaveBeenLastCalledWith(
+            "scale(2) rotate(90deg)"
+        )
+        mockSetter.mockClear()
+
+        transform.set("rotate(180deg)")
+        scale.set(3)
+
+        await nextFrame()
+
+        expect(mockSetter).toHaveBeenCalledTimes(1)
+        expect(mockSetter).toHaveBeenLastCalledWith(
+            "scale(3) rotate(180deg)"
+        )
+
+        if (originalSetter) {
+            Object.defineProperty(element.style, "transform", {
+                set: originalSetter,
+                configurable: true,
+            })
+        }
+    })
+
     it("only updates transform style once per frame", async () => {
         const element = document.createElement("div")
 

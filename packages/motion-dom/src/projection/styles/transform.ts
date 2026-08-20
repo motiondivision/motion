@@ -38,6 +38,7 @@ export function buildProjectionTransform(
             rotateY,
             skewX,
             skewY,
+            transform: userTransform,
         } = latestTransform
         if (transformPerspective)
             transform = `perspective(${transformPerspective}px) ${transform}`
@@ -48,6 +49,8 @@ export function buildProjectionTransform(
         if (rotateY) transform += `rotateY(${rotateY}deg) `
         if (skewX) transform += `skewX(${skewX}deg) `
         if (skewY) transform += `skewY(${skewY}deg) `
+        if (userTransform && userTransform !== "none")
+            transform += `${userTransform} `
     }
 
     /**

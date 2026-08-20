@@ -102,4 +102,40 @@ describe("buildProjectionTransform", () => {
             buildProjectionTransform(delta, { x: 1, y: 1 }, { rotate: 10 })
         ).toEqual("translate3d(100px, 100px, 0px) rotate(10deg) scale(2, 4)")
     })
+
+    it("appends a user transform after distorting transforms and before element scale", () => {
+        const delta = {
+            x: {
+                translate: 0,
+                scale: 2,
+                origin: 0.5,
+                originPoint: 100,
+            },
+            y: {
+                translate: 0,
+                scale: 4,
+                origin: 0.5,
+                originPoint: 100,
+            },
+        }
+
+        expect(
+            buildProjectionTransform(
+                delta,
+                { x: 1, y: 1 },
+                {
+                    rotate: 10,
+                    skewX: 20,
+                    transform: "translateX(30px)",
+                }
+            )
+        ).toEqual(
+            "rotate(10deg) skewX(20deg) translateX(30px) scale(2, 4)"
+        )
+        expect(
+            buildProjectionTransform(delta, { x: 1, y: 1 }, {
+                transform: "none",
+            })
+        ).toEqual("scale(2, 4)")
+    })
 })

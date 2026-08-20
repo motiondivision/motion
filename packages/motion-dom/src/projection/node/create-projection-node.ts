@@ -61,7 +61,12 @@ import { NodeStack } from "../shared/stack"
 import { buildProjectionTransform } from "../styles/transform"
 import { eachAxis } from "../utils/each-axis"
 import { FlatTree } from "../utils/flat-tree"
-import { has2DTranslate, hasScale, hasTransform } from "../utils/has-transform"
+import {
+    has2DTranslate,
+    hasScale,
+    hasTransform,
+    hasVisualTransform,
+} from "../utils/has-transform"
 import { globalProjectionState } from "./state"
 import {
     IProjectionNode,
@@ -94,16 +99,17 @@ function resetDistortingTransform(
     key: string,
     visualElement: VisualElement,
     values: ResolvedValues,
-    sharedAnimationValues?: ResolvedValues
+    sharedAnimationValues?: ResolvedValues,
+    resetValue: string | number = 0
 ) {
     const { latestValues } = visualElement
 
-    // Record the distorting transform and then temporarily set it to 0
+    // Record the distorting transform and then temporarily reset it
     if (latestValues[key]) {
         values[key] = latestValues[key]
-        visualElement.setStaticValue(key, 0)
+        visualElement.setStaticValue(key, resetValue)
         if (sharedAnimationValues) {
-            sharedAnimationValues[key] = 0
+            sharedAnimationValues[key] = resetValue
         }
     }
 }
@@ -986,7 +992,7 @@ export function createProjectionNode<I>({
                 isResetRequested &&
                 this.instance &&
                 (hasProjection ||
-                    hasTransform(this.latestValues) ||
+                    hasVisualTransform(this.latestValues) ||
                     transformTemplateHasChanged)
             ) {
                 resetTransform(this.instance, transformTemplateValue)
@@ -1932,7 +1938,8 @@ export function createProjectionNode<I>({
                 latestValues.rotateY ||
                 latestValues.rotateZ ||
                 latestValues.skewX ||
-                latestValues.skewY
+                latestValues.skewY ||
+                (latestValues.transform && latestValues.transform !== "none")
             ) {
                 hasDistortingTransform = true
             }
@@ -1948,6 +1955,16 @@ export function createProjectionNode<I>({
                     visualElement,
                     resetValues,
                     this.animationValues
+                )
+            }
+
+            if (latestValues.transform && latestValues.transform !== "none") {
+                resetDistortingTransform(
+                    "transform",
+                    visualElement,
+                    resetValues,
+                    this.animationValues,
+                    "none"
                 )
             }
 
@@ -2020,7 +2037,10 @@ export function createProjectionNode<I>({
                     targetStyle.pointerEvents =
                         resolveMotionValue(styleProp?.pointerEvents) || ""
                 }
-                if (this.hasProjected && !hasTransform(this.latestValues)) {
+                if (
+                    this.hasProjected &&
+                    !hasVisualTransform(this.latestValues)
+                ) {
                     targetStyle.transform = transformTemplate
                         ? transformTemplate({}, "")
                         : "none"

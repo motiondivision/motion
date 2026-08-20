@@ -49,5 +49,11 @@ export function buildTransform(state: MotionValueState) {
         }) `
     }
 
+    const userTransform = state.latest.transform
+    if (userTransform && userTransform !== "none") {
+        transformIsDefault = false
+        transform += userTransform
+    }
+
     return transformIsDefault ? "none" : transform.trim()
 }

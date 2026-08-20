@@ -4,6 +4,38 @@ import type { IProjectionNode } from "../types"
 import { nextFrame, nextMicrotask } from "./utils"
 
 describe("node", () => {
+    test("Resets a user transform before layout measurement", () => {
+        const node = createTestNode(
+            undefined,
+            {},
+            {
+                transform: "rotate(90deg)",
+            }
+        )
+        const visualElement = {
+            latestValues: { transform: "rotate(90deg)" },
+            setStaticValue: jest.fn(),
+            render: jest.fn(),
+            scheduleRender: jest.fn(),
+        }
+        node.setOptions({ visualElement: visualElement as any })
+
+        node.resetSkewAndRotation()
+
+        expect(visualElement.setStaticValue).toHaveBeenNthCalledWith(
+            1,
+            "transform",
+            "none"
+        )
+        expect(visualElement.render).toHaveBeenCalledTimes(1)
+        expect(visualElement.setStaticValue).toHaveBeenNthCalledWith(
+            2,
+            "transform",
+            "rotate(90deg)"
+        )
+        expect(visualElement.scheduleRender).toHaveBeenCalledTimes(1)
+    })
+
     test("If a child updates layout, and parent has scale, parent resetsTransform during measurement", async () => {
         const parent = createTestNode(undefined, {}, { scale: 2 })
 

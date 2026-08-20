@@ -50,6 +50,7 @@ interface ResolvedValues {
 
 export interface Owner {
     current: HTMLElement | unknown
+    latestValues?: ResolvedValues
     getProps: () => {
         onUpdate?: (latest: ResolvedValues) => void
         transformTemplate?: (

@@ -1,6 +1,6 @@
 import { supportsFlags } from "motion-dom"
 import { act, createRef, useState } from "react"
-import { motion, useMotionValue } from "../../"
+import { motion, useMotionValue, useScroll, useTransform } from "../../"
 import "../../animation/animators/waapi/__tests__/setup"
 import { nextFrame } from "../../gestures/__tests__/utils"
 import {
@@ -867,6 +867,66 @@ describe("WAAPI animations", () => {
         await nextFrame()
 
         expect(ref.current!.animate).not.toBeCalled()
+    })
+
+    test("Doesn't animate transform values with WAAPI if independent transforms are defined", async () => {
+        const ref = createRef<HTMLDivElement>()
+        const Component = () => (
+            <motion.div
+                ref={ref}
+                initial={{ transform: "translate(0px)" }}
+                animate={{ transform: "translate(100px)" }}
+                style={{ x: 10 }}
+            />
+        )
+        const { rerender } = render(<Component />)
+        rerender(<Component />)
+
+        await nextFrame()
+
+        expect(ref.current!.animate).not.toBeCalled()
+    })
+
+    test("Doesn't accelerate transform motion values if independent transforms are defined", async () => {
+        supportsFlags.scrollTimeline = true
+        const ref = createRef<HTMLDivElement>()
+        const Component = () => {
+            const { scrollYProgress } = useScroll()
+            const transform = useTransform(
+                scrollYProgress,
+                [0, 1],
+                ["rotate(0deg)", "rotate(90deg)"]
+            )
+
+            return <motion.div ref={ref} style={{ x: 10, transform }} />
+        }
+        render(<Component />)
+
+        await nextFrame()
+
+        expect(ref.current!.animate).not.toBeCalled()
+        supportsFlags.scrollTimeline = undefined
+    })
+
+    test("Accelerates transform motion values when no independent transforms are defined", async () => {
+        supportsFlags.scrollTimeline = true
+        const ref = createRef<HTMLDivElement>()
+        const Component = () => {
+            const { scrollYProgress } = useScroll()
+            const transform = useTransform(
+                scrollYProgress,
+                [0, 1],
+                ["rotate(0deg)", "rotate(90deg)"]
+            )
+
+            return <motion.div ref={ref} style={{ transform }} />
+        }
+        render(<Component />)
+
+        await nextFrame()
+
+        expect(ref.current!.animate).toBeCalled()
+        supportsFlags.scrollTimeline = undefined
     })
 
     test("Does animate non-transform values with WAAPI even if transformTemplate is defined", async () => {
