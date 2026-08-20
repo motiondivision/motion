@@ -134,14 +134,23 @@ export const AnimatePresence = ({
         /**
          * Loop through all the currently rendered components and decide which
          * are exiting.
+         *
+         * Exiting children are reinserted directly after the child they
+         * previously followed. Splicing at their index within the previously
+         * rendered children, as we used to, indexes into the wrong list: it
+         * can interleave them with entering children and push present children
+         * to new positions, remounting them (#3746).
          */
-        for (let i = 0; i < renderedChildren.length; i++) {
-            const child = renderedChildren[i]
-            const key = getChildKey(child)
+        let insertionIndex = 0
 
-            if (!presentKeys.includes(key)) {
-                nextChildren.splice(i, 0, child)
+        for (const child of renderedChildren) {
+            const presentIndex = presentKeys.indexOf(getChildKey(child))
+
+            if (presentIndex === -1) {
+                nextChildren.splice(insertionIndex++, 0, child)
                 exitingChildren.push(child)
+            } else {
+                insertionIndex = presentIndex + exitingChildren.length + 1
             }
         }
 

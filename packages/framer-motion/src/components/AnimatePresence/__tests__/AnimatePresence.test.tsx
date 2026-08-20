@@ -770,6 +770,58 @@ describe("AnimatePresence", () => {
 
         expect(opacity.get()).toBe(1)
     })
+
+    test("Exiting children don't reorder present children (#3746)", async () => {
+        const Component = ({ ids }: { ids: string[] }) => (
+            <AnimatePresence>
+                {ids.map((id) => (
+                    <motion.div
+                        key={id}
+                        data-id={id}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 10 }}
+                    />
+                ))}
+            </AnimatePresence>
+        )
+
+        const { container, rerender } = render(
+            <Component ids={["a", "persist", "b"]} />
+        )
+
+        await act(async () => {
+            await nextFrame()
+        })
+
+        const persist = container.querySelector('[data-id="persist"]')
+
+        // "a" and "b" exit, "c" and "d" enter, "persist" stays.
+        await act(async () => {
+            rerender(<Component ids={["c", "d", "persist"]} />)
+        })
+        await act(async () => {
+            await nextFrame()
+        })
+
+        const order = Array.from(container.querySelectorAll("[data-id]")).map(
+            (el) => el.getAttribute("data-id")
+        )
+
+        /**
+         * Each exiting child should hold its place relative to the children it
+         * sat between: "a" led the list, "b" followed "persist". Exiting
+         * children used to be spliced in at their index within the *previously*
+         * rendered children, which indexes into the wrong list and interleaved
+         * them with the entering children — ["a", "c", "b", "d", "persist"].
+         */
+        expect(order.indexOf("a")).toBe(0)
+        expect(order.indexOf("b")).toBeGreaterThan(order.indexOf("persist"))
+
+        // And the persisting child must be the same element, never remounted.
+        expect(container.querySelector('[data-id="persist"]')).toBe(persist)
+    })
 })
 
 describe("AnimatePresence with custom components", () => {
