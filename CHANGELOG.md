@@ -9,6 +9,7 @@ Undocumented APIs should be considered internal and may change without warning.
 ### Fixed
 
 -   Guard animation `window` access in non-browser runtimes.
+-   `AnimatePresence`: Improved compat with React 19 strict mode.
 
 ## [13.1.0] 2026-08-10
 
