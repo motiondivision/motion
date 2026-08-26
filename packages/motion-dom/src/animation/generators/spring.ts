@@ -118,9 +118,13 @@ function findSpring({
             const delta = exponentialDecay * duration
             const d = delta * velocity + velocity
             const e =
-                Math.pow(dampingRatio, 2) * Math.pow(undampedFreq, 2) * duration
+                dampingRatio *
+                dampingRatio *
+                undampedFreq *
+                undampedFreq *
+                duration
             const f = Math.exp(-delta)
-            const g = calcAngularFreq(Math.pow(undampedFreq, 2), dampingRatio)
+            const g = calcAngularFreq(undampedFreq * undampedFreq, dampingRatio)
             const factor = -envelope(undampedFreq) + safeMin > 0 ? -1 : 1
             return (factor * ((d - e) * f)) / g
         }
@@ -152,7 +156,7 @@ function findSpring({
             duration,
         }
     } else {
-        const stiffness = Math.pow(undampedFreq, 2) * mass
+        const stiffness = undampedFreq * undampedFreq * mass
         return {
             stiffness,
             damping: dampingRatio * 2 * Math.sqrt(mass * stiffness),
@@ -263,6 +267,7 @@ function spring(
     const undampedAngularFreq = millisecondsToSeconds(
         Math.sqrt(stiffness / mass)
     )
+    const decay = dampingRatio * undampedAngularFreq
 
     /**
      * If we're working on a granular scale, use smaller defaults for determining
@@ -282,42 +287,43 @@ function spring(
     let resolveSpring: (v: number) => number
     let resolveVelocity: (t: number) => number
 
-    // Underdamped coefficients, hoisted for use in the inlined next() hot path
-    let angularFreq: number
-    let A: number
-    let sinCoeff: number
-    let cosCoeff: number
-
     if (dampingRatio < 1) {
-        angularFreq = calcAngularFreq(undampedAngularFreq, dampingRatio)
+        const angularFreq = calcAngularFreq(undampedAngularFreq, dampingRatio)
 
-        A =
-            (initialVelocity +
-                dampingRatio * undampedAngularFreq * initialDelta) /
-            angularFreq
+        const A = (initialVelocity + decay * initialDelta) / angularFreq
+
+        // Coefficients for the analytical derivative (px/ms)
+        const sinCoeff = decay * A + initialDelta * angularFreq
+        const cosCoeff = decay * initialDelta - A * angularFreq
+
+        /**
+         * The underdamped hot path needs both position and velocity every
+         * frame and they share the same exp/sin/cos terms, so sample both
+         * at once, memoized by t, to only calculate them once per frame.
+         */
+        let sampledT = -1
+        let position = 0
+        let velocityAtT = 0
+        const sample = (t: number) => {
+            if (t !== sampledT) {
+                sampledT = t
+                const envelope = Math.exp(-decay * t)
+                const sin = Math.sin(angularFreq * t)
+                const cos = Math.cos(angularFreq * t)
+                position = target - envelope * (A * sin + initialDelta * cos)
+                velocityAtT = envelope * (sinCoeff * sin + cosCoeff * cos)
+            }
+        }
 
         // Underdamped spring
         resolveSpring = (t: number) => {
-            const envelope = Math.exp(-dampingRatio * undampedAngularFreq * t)
-
-            return (
-                target -
-                envelope *
-                    (A * Math.sin(angularFreq * t) +
-                        initialDelta * Math.cos(angularFreq * t))
-            )
+            sample(t)
+            return position
         }
 
-        // Analytical derivative of underdamped spring (px/ms)
-        sinCoeff =
-            dampingRatio * undampedAngularFreq * A + initialDelta * angularFreq
-        cosCoeff =
-            dampingRatio * undampedAngularFreq * initialDelta - A * angularFreq
         resolveVelocity = (t: number) => {
-            const envelope = Math.exp(-dampingRatio * undampedAngularFreq * t)
-            return envelope *
-                (sinCoeff * Math.sin(angularFreq * t) +
-                    cosCoeff * Math.cos(angularFreq * t))
+            sample(t)
+            return velocityAtT
         }
     } else if (dampingRatio === 1) {
         // Critically damped spring
@@ -338,7 +344,7 @@ function spring(
             undampedAngularFreq * Math.sqrt(dampingRatio * dampingRatio - 1)
 
         resolveSpring = (t: number) => {
-            const envelope = Math.exp(-dampingRatio * undampedAngularFreq * t)
+            const envelope = Math.exp(-decay * t)
 
             // When performing sinh or cosh values can hit Infinity so we cap them here
             const freqForT = Math.min(dampedAngularFreq * t, 300)
@@ -346,8 +352,7 @@ function spring(
             return (
                 target -
                 (envelope *
-                    ((initialVelocity +
-                        dampingRatio * undampedAngularFreq * initialDelta) *
+                    ((initialVelocity + decay * initialDelta) *
                         Math.sinh(freqForT) +
                         dampedAngularFreq *
                             initialDelta *
@@ -357,20 +362,17 @@ function spring(
         }
 
         // Analytical derivative of overdamped spring (px/ms)
-        const P =
-            (initialVelocity +
-                dampingRatio * undampedAngularFreq * initialDelta) /
-            dampedAngularFreq
-        const sinhCoeff =
-            dampingRatio * undampedAngularFreq * P - initialDelta * dampedAngularFreq
-        const coshCoeff =
-            dampingRatio * undampedAngularFreq * initialDelta - P * dampedAngularFreq
+        const P = (initialVelocity + decay * initialDelta) / dampedAngularFreq
+        const sinhCoeff = decay * P - initialDelta * dampedAngularFreq
+        const coshCoeff = decay * initialDelta - P * dampedAngularFreq
         resolveVelocity = (t: number) => {
-            const envelope = Math.exp(-dampingRatio * undampedAngularFreq * t)
+            const envelope = Math.exp(-decay * t)
             const freqForT = Math.min(dampedAngularFreq * t, 300)
-            return envelope *
+            return (
+                envelope *
                 (sinhCoeff * Math.sinh(freqForT) +
                     coshCoeff * Math.cosh(freqForT))
+            )
         }
     }
 
@@ -378,35 +380,6 @@ function spring(
         calculatedDuration: isResolvedFromDuration ? duration || null : null,
         velocity: (t: number) => secondsToMilliseconds(resolveVelocity(t)),
         next: (t: number) => {
-            /**
-             * For underdamped physics springs we need both position and
-             * velocity each tick. Compute shared trig values once to avoid
-             * duplicate Math.exp/sin/cos calls on the hot path.
-             */
-            if (!isResolvedFromDuration && dampingRatio < 1) {
-                const envelope = Math.exp(
-                    -dampingRatio * undampedAngularFreq * t
-                )
-                const sin = Math.sin(angularFreq * t)
-                const cos = Math.cos(angularFreq * t)
-
-                const current =
-                    target -
-                    envelope *
-                        (A * sin + initialDelta * cos)
-                const currentVelocity = secondsToMilliseconds(
-                    envelope *
-                        (sinCoeff * sin + cosCoeff * cos)
-                )
-
-                state.done =
-                    Math.abs(currentVelocity) <= restSpeed! &&
-                    Math.abs(target - current) <= restDelta!
-                state.value = state.done ? target : current
-
-                return state
-            }
-
             const current = resolveSpring(t)
 
             if (!isResolvedFromDuration) {
