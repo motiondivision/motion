@@ -67,7 +67,6 @@ export * from "./effects/attr"
 export * from "./effects/prop"
 export * from "./effects/style"
 export * from "./effects/svg"
-export * from "./effects/uniform"
 
 export * from "./frameloop"
 export * from "./frameloop/batcher"
