@@ -82,6 +82,15 @@ describe("motion/vgpu", () => {
         expect(uniforms.set).toHaveBeenLastCalledWith({ progress: 1 })
     })
 
+    it("animates unregistered uniforms from explicit keyframes", async () => {
+        const uniforms = { set: jest.fn() }
+
+        await animate(uniforms, { progress: [0, 1] }, { duration: 0.001 })
+        await nextFrame()
+
+        expect(uniforms.set).toHaveBeenLastCalledWith({ progress: 1 })
+    })
+
     it("throws when animating an unregistered uniform", () => {
         expect(() => animate({ set: jest.fn() }, { progress: 1 })).toThrow()
     })

@@ -24,7 +24,16 @@ interface VGPUUniforms {
 const uniformAdapter = createEffectAdapter<VGPUUniforms>((uniforms, values) =>
     uniforms.set(values)
 )
-const animateEffect = createEffectAnimate([uniformAdapter], "vgpu uniform")
+const animateEffect = createEffectAnimate(
+    [uniformAdapter],
+    "vgpu uniform",
+    (_subject, _key, target, adapter) => {
+        const initial = Array.isArray(target) ? target[0] : undefined
+        return typeof initial === "string" || typeof initial === "number"
+            ? { adapter: adapter ?? uniformAdapter, initial }
+            : undefined
+    }
+)
 
 /**
  * Binds MotionValues to vgpu SharedUniforms, batching changed values into one
@@ -41,7 +50,7 @@ export function uniformEffect<T extends object>(
 }
 
 /**
- * Animates MotionValues registered with a vgpu uniform effect.
+ * Animates vgpu uniforms. Unregistered uniforms require explicit keyframes.
  */
 export function animate<T extends object>(
     subject: UniformEffectSubject<T>,

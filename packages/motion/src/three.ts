@@ -40,7 +40,8 @@ const uniformAdapter = createEffectAdapter<Uniforms>((uniforms, values) => {
 const objectAdapter = createEffectAdapter<ThreeObject>(setObjectValues)
 const animateEffect = createEffectAnimate(
     [uniformAdapter, objectAdapter],
-    "Three.js uniform or object"
+    "Three.js uniform or object",
+    resolveThreeEffect
 )
 
 /**
@@ -67,7 +68,7 @@ export function objectEffect(
 }
 
 /**
- * Animates MotionValues registered with a Three.js uniform or object effect.
+ * Animates Three.js uniforms and flattened object properties.
  */
 export function animate<T extends object>(
     subject: ThreeUniforms<T>,
@@ -98,6 +99,96 @@ const transformMap = {
     scaleY: ["scale", "y"],
     scaleZ: ["scale", "z"],
 } as const
+
+function resolveThreeEffect(
+    subject: object,
+    key: string,
+    _target: unknown,
+    adapter: typeof uniformAdapter | typeof objectAdapter | undefined
+) {
+    const object = subject as ThreeObject
+    const resolvedAdapter =
+        adapter ??
+        (isUniform(object[key]) ? uniformAdapter : objectAdapter)
+    const initial =
+        resolvedAdapter === uniformAdapter
+            ? getAnimatableValue((object as Uniforms)[key]?.value)
+            : getObjectValue(object, key)
+
+    return initial === undefined
+        ? undefined
+        : { adapter: resolvedAdapter, initial }
+}
+
+function getObjectValue(object: ThreeObject, key: string) {
+    const transform = transformMap[key as keyof typeof transformMap]
+
+    if (transform) {
+        const [name, axis] = transform
+        const value = object[name]?.[axis]
+        return key.startsWith("rotate") && typeof value === "number"
+            ? value * (180 / Math.PI)
+            : getAnimatableValue(value)
+    }
+
+    if (key === "scale") {
+        return getAnimatableValue(object.scale?.x)
+    }
+
+    const value =
+        getProperty(object, key) ??
+        getProperty(object.material, key) ??
+        getUniformValue(object.material?.uniforms ?? object.uniforms, key) ??
+        getVectorComponent(object, key) ??
+        getVectorComponent(object.material, key) ??
+        getUniformComponent(
+            object.material?.uniforms ?? object.uniforms,
+            key
+        )
+
+    return value
+}
+
+function getProperty(target: ThreeObject | undefined, key: string) {
+    return target && key in target
+        ? getAnimatableValue(target[key])
+        : undefined
+}
+
+function getUniformValue(uniforms: Uniforms | undefined, key: string) {
+    return getAnimatableValue(uniforms?.[key]?.value)
+}
+
+function getVectorComponent(target: ThreeObject | undefined, key: string) {
+    const axis = key.slice(-1).toLowerCase()
+    const vector = target?.[key.slice(0, -1)]
+    return vector && ["x", "y", "z", "w"].includes(axis)
+        ? getAnimatableValue(vector[axis])
+        : undefined
+}
+
+function getUniformComponent(uniforms: Uniforms | undefined, key: string) {
+    const uniform = uniforms?.[key.slice(0, -1)]
+    return uniform
+        ? getVectorComponent(
+              { value: uniform.value },
+              `value${key.slice(-1)}`
+          )
+        : undefined
+}
+
+function getAnimatableValue(value: unknown) {
+    if (typeof value === "string" || typeof value === "number") return value
+
+    return value &&
+        typeof (value as ThreeObject).getStyle === "function"
+        ? (value as ThreeObject).getStyle()
+        : undefined
+}
+
+function isUniform(value: unknown): value is ThreeUniform {
+    return Boolean(value && typeof value === "object" && "value" in value)
+}
 
 function setObjectValues(object: ThreeObject, values: Record<string, unknown>) {
     for (const key in values) {

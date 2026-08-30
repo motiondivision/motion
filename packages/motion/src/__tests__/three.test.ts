@@ -80,6 +80,15 @@ describe("motion/three", () => {
         expect(uniforms.opacity.value).toBe(1)
     })
 
+    it("animates uniforms without registration", async () => {
+        const uniforms = { opacity: { value: 0 } }
+
+        await animate(uniforms, { opacity: 1 }, { duration: 0.001 })
+        await nextFrame()
+
+        expect(uniforms.opacity.value).toBe(1)
+    })
+
     it("updates Three.js color uniforms without replacing them", async () => {
         const color = { set: jest.fn() }
         const uniforms = { tint: { value: color } }
@@ -121,7 +130,36 @@ describe("motion/three", () => {
         expect(mesh.material.opacity).toBe(0.5)
     })
 
-    it("throws when the target has no registered effect", () => {
-        expect(() => animate({}, { opacity: 1 })).toThrow()
+    it("animates Three.js objects without registration", async () => {
+        const mesh = {
+            position: { x: 0, y: 0, z: 0 },
+            rotation: { x: 0, y: 0, z: 0 },
+            scale: { x: 1, y: 1, z: 1 },
+            material: { opacity: 1 },
+        }
+
+        await animate(
+            mesh,
+            { x: 2, rotateY: 180, opacity: 0.5 },
+            { duration: 0.001 }
+        )
+        await nextFrame()
+
+        expect(mesh.position.x).toBe(2)
+        expect(mesh.rotation.y).toBeCloseTo(Math.PI)
+        expect(mesh.material.opacity).toBe(0.5)
+    })
+
+    it("reads and mutates Three.js colors", async () => {
+        const color = {
+            getStyle: () => "#000",
+            set: jest.fn(),
+        }
+        const material = { color }
+
+        await animate(material, { color: "#fff" }, { duration: 0.001 })
+        await nextFrame()
+
+        expect(color.set).toHaveBeenLastCalledWith("#fff")
     })
 })

@@ -4,6 +4,7 @@ import {
     frame,
     GroupAnimationWithThen,
     invariant,
+    motionValue,
     type AnimationOptions,
     type AnimationPlaybackControlsWithThen,
     type MotionValue,
@@ -86,6 +87,18 @@ export interface EffectAdapter<Subject extends object> {
     has(subject: Subject): boolean
 }
 
+export interface ResolvedEffect {
+    adapter: EffectAdapter<any>
+    initial: string | number
+}
+
+export type EffectResolver = (
+    subject: object,
+    key: string,
+    target: unknown,
+    adapter: EffectAdapter<any> | undefined
+) => ResolvedEffect | undefined
+
 export function createEffectAdapter<Subject extends object>(
     apply: (subject: Subject, values: Record<string, unknown>) => void
 ): EffectAdapter<Subject> {
@@ -115,19 +128,15 @@ export function createEffectAdapter<Subject extends object>(
 
 export function createEffectAnimate(
     adapters: Array<EffectAdapter<any>>,
-    type: string
+    type: string,
+    resolve?: EffectResolver
 ) {
     return <T extends object>(
         subject: object,
         keyframes: EffectAnimationTarget<T>,
         options: AnimationOptions = {}
     ): AnimationPlaybackControlsWithThen => {
-        const adapter = adapters.find((candidate) => candidate.has(subject))
-
-        invariant(
-            Boolean(adapter),
-            `No ${type} effect is registered for this subject.`
-        )
+        let adapter = adapters.find((candidate) => candidate.has(subject))
 
         const { onComplete, ...transition } = options
         if (typeof transition.delay === "function") {
@@ -137,14 +146,25 @@ export function createEffectAnimate(
         const entries: Array<[string, MotionValue, any]> = []
 
         for (const key in keyframes) {
-            const value = adapter!.get(subject, key)
+            const target = keyframes[key]
+            let value = adapter?.get(subject, key)
+
+            if (!value) {
+                const resolved = resolve?.(subject, key, target, adapter)
+
+                if (resolved) {
+                    adapter = resolved.adapter
+                    value = motionValue(resolved.initial)
+                    adapter.effect(subject, { [key]: value })
+                }
+            }
 
             invariant(
                 Boolean(value),
-                `No MotionValue is registered for "${key}".`
+                `No MotionValue is registered for "${key}" on this ${type}.`
             )
 
-            entries.push([key, value!, keyframes[key]])
+            entries.push([key, value!, target])
         }
 
         const animations = entries.map(([key, value, target]) =>
