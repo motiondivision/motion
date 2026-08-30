@@ -1,5 +1,5 @@
 import { frame, motionValue } from "framer-motion/dom"
-import { uniformEffect } from "../vgpu"
+import { animate, uniformEffect } from "../vgpu"
 
 async function nextFrame() {
     return new Promise<void>((resolve) => {
@@ -65,5 +65,24 @@ describe("motion/vgpu", () => {
         await nextFrame()
 
         expect(uniforms.set).not.toHaveBeenCalled()
+    })
+
+    it("animates registered uniforms", async () => {
+        const uniforms = { set: jest.fn() }
+        const progress = motionValue(0)
+
+        uniformEffect(uniforms, { progress })
+        await nextFrame()
+        uniforms.set.mockClear()
+
+        await animate(uniforms, { progress: 1 }, { duration: 0.001 })
+        await nextFrame()
+
+        expect(progress.get()).toBe(1)
+        expect(uniforms.set).toHaveBeenLastCalledWith({ progress: 1 })
+    })
+
+    it("throws when animating an unregistered uniform", () => {
+        expect(() => animate({ set: jest.fn() }, { progress: 1 })).toThrow()
     })
 })

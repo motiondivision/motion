@@ -1,5 +1,5 @@
 import { frame, motionValue } from "framer-motion/dom"
-import { uniformEffect } from "../three"
+import { animate, objectEffect, uniformEffect } from "../three"
 
 async function nextFrame() {
     return new Promise<void>((resolve) => {
@@ -64,5 +64,64 @@ describe("motion/three", () => {
         await nextFrame()
 
         expect(uniforms.opacity.value).toBe(0)
+    })
+
+    it("animates registered uniforms", async () => {
+        const uniforms = { opacity: { value: 0 } }
+        const opacity = motionValue(0)
+
+        uniformEffect(uniforms, { opacity })
+        await nextFrame()
+
+        await animate(uniforms, { opacity: 1 }, { duration: 0.001 })
+        await nextFrame()
+
+        expect(opacity.get()).toBe(1)
+        expect(uniforms.opacity.value).toBe(1)
+    })
+
+    it("updates Three.js color uniforms without replacing them", async () => {
+        const color = { set: jest.fn() }
+        const uniforms = { tint: { value: color } }
+        const tint = motionValue("#000")
+
+        uniformEffect(uniforms, { tint })
+        await nextFrame()
+
+        await animate(uniforms, { tint: "#fff" }, { duration: 0.001 })
+        await nextFrame()
+
+        expect(uniforms.tint.value).toBe(color)
+        expect(color.set).toHaveBeenLastCalledWith("#fff")
+    })
+
+    it("animates registered Three.js objects", async () => {
+        const mesh = {
+            position: { x: 0, y: 0, z: 0 },
+            rotation: { x: 0, y: 0, z: 0 },
+            scale: { x: 1, y: 1, z: 1 },
+            material: { opacity: 1 },
+        }
+        const x = motionValue(0)
+        const rotateY = motionValue(0)
+        const opacity = motionValue(1)
+
+        objectEffect(mesh, { x, rotateY, opacity })
+        await nextFrame()
+
+        await animate(
+            mesh,
+            { x: 2, rotateY: 180, opacity: 0.5 },
+            { duration: 0.001 }
+        )
+        await nextFrame()
+
+        expect(mesh.position.x).toBe(2)
+        expect(mesh.rotation.y).toBeCloseTo(Math.PI)
+        expect(mesh.material.opacity).toBe(0.5)
+    })
+
+    it("throws when the target has no registered effect", () => {
+        expect(() => animate({}, { opacity: 1 })).toThrow()
     })
 })
