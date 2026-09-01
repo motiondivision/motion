@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Motion Three.js effects</title>
+    </head>
+    <body>
+        <main>
+            <header>
+                <div>
+                    <h1>Three.js effects</h1>
+                    <p>
+                        objectEffect(), uniformEffect() and shared MotionValues.
+                    </p>
+                </div>
+                <nav>
+                    <a href="/three-animate.html">Three animate</a>
+                    <a href="/vgpu.html">vgpu</a>
+                </nav>
+            </header>
+            <section class="stage">
+                <canvas></canvas>
+                <div class="panel">
+                    <div class="controls">
+                        <label>
+                            Position
+                            <input
+                                id="position"
+                                type="range"
+                                min="-2"
+                                max="2"
+                                step="0.01"
+                                value="0"
+                            />
+                        </label>
+                        <label>
+                            Progress
+                            <input
+                                id="progress"
+                                type="range"
+                                min="0"
+                                max="1"
+                                step="0.01"
+                                value="0"
+                            />
+                        </label>
+                        <button class="primary" id="spring">Spring</button>
+                    </div>
+                    <output id="status">x 0.00 · progress 0.00</output>
+                </div>
+            </section>
+        </main>
+        <script type="module" src="/src/three-effects.js"></script>
+    </body>
+</html>

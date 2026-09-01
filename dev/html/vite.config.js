@@ -6,4 +6,14 @@ export default defineConfig({
         port: 8000,
         hmr: false,
     },
+    build: {
+        rollupOptions: {
+            input: [
+                "index.html",
+                "three-animate.html",
+                "three-effects.html",
+                "vgpu.html",
+            ],
+        },
+    },
 })
