@@ -5,16 +5,22 @@ import { KeyframeGenerator } from "../../types"
  * to prevent infinite loops
  */
 export const maxGeneratorDuration = 20_000
-export function calcGeneratorDuration(
-    generator: KeyframeGenerator<unknown>
+
+export function calcGeneratorDuration<T>(
+    generator: KeyframeGenerator<T>,
+    timeStep = 50,
+    maxDuration = maxGeneratorDuration,
+    keyframes?: T[]
 ): number {
     let duration = 0
-    const timeStep = 50
     let state = generator.next(duration)
-    while (!state.done && duration < maxGeneratorDuration) {
+    keyframes?.push(state.value)
+
+    while (!state.done && duration < maxDuration) {
         duration += timeStep
         state = generator.next(duration)
+        keyframes?.push(state.value)
     }
 
-    return duration >= maxGeneratorDuration ? Infinity : duration
+    return duration >= maxDuration ? Infinity : duration
 }

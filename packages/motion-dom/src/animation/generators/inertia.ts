@@ -4,7 +4,6 @@ import {
     ValueAnimationOptions,
 } from "../types"
 import { spring as createSpring } from "./spring"
-import { getGeneratorVelocity } from "./utils/velocity"
 
 export function inertia({
     keyframes,
@@ -26,8 +25,7 @@ export function inertia({
         value: origin,
     }
 
-    const isOutOfBounds = (v: number) =>
-        (min !== undefined && v < min) || (max !== undefined && v > max)
+    const isOutOfBounds = (v: number) => v < min! || v > max!
 
     const nearestBoundary = (v: number) => {
         if (min === undefined) return max
@@ -48,13 +46,10 @@ export function inertia({
 
     const calcDelta = (t: number) => -amplitude * Math.exp(-t / timeConstant)
 
-    const calcLatest = (t: number) => target + calcDelta(t)
-
     const applyFriction = (t: number) => {
         const delta = calcDelta(t)
-        const latest = calcLatest(t)
         state.done = Math.abs(delta) <= restDelta
-        state.value = state.done ? target : latest
+        state.value = state.done ? target : target + delta
     }
 
     /**
@@ -73,7 +68,12 @@ export function inertia({
 
         spring = createSpring({
             keyframes: [state.value, nearestBoundary(state.value)!],
-            velocity: getGeneratorVelocity(calcLatest, t, state.value), // TODO: This should be passing * 1000
+            /**
+             * The friction curve is target + calcDelta(t), so its exact
+             * derivative is -calcDelta(t) / timeConstant in units/ms,
+             * converted here to the units/second expected by spring.
+             */
+            velocity: (-calcDelta(t) / timeConstant) * 1000,
             damping: bounceDamping,
             stiffness: bounceStiffness,
             restDelta,
