@@ -1,0 +1,6 @@
+{
+    "preset": "ts-jest",
+    "testEnvironment": "jsdom",
+    "rootDir": "src",
+    "testMatch": ["**/__tests__/**/*.test.(js|ts)?(x)"]
+}

@@ -23,6 +23,18 @@
             "import": "./dist/es/mini.mjs",
             "default": "./dist/cjs/mini.js"
         },
+        "./three": {
+            "types": "./dist/three.d.ts",
+            "require": "./dist/cjs/three.js",
+            "import": "./dist/es/three.mjs",
+            "default": "./dist/cjs/three.js"
+        },
+        "./vgpu": {
+            "types": "./dist/vgpu.d.ts",
+            "require": "./dist/cjs/vgpu.js",
+            "import": "./dist/es/vgpu.mjs",
+            "default": "./dist/cjs/vgpu.js"
+        },
         "./react": {
             "types": "./dist/react.d.ts",
             "require": "./dist/cjs/react.js",
@@ -72,6 +84,7 @@
         "build": "yarn clean && tsc -p . && rollup -c",
         "dev": "concurrently -c blue,red -n tsc,rollup --kill-others \"tsc --watch -p . --preserveWatchOutput\" \"rollup --config --watch --no-watch.clearScreen\"",
         "clean": "rm -rf types dist lib",
+        "test": "jest --config jest.config.json --max-workers=2",
         "prepack": "yarn build",
         "postpublish": "git push --tags"
     },

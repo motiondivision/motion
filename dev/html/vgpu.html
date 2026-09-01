@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Motion vgpu uniforms</title>
+    </head>
+    <body>
+        <main>
+            <header>
+                <div>
+                    <h1>vgpu uniforms</h1>
+                    <p>animate(), uniformEffect() and a frame.render loop.</p>
+                </div>
+                <nav>
+                    <a href="/three-animate.html">Three animate</a>
+                    <a href="/three-effects.html">Three effects</a>
+                </nav>
+            </header>
+            <section class="stage">
+                <canvas></canvas>
+                <div class="panel">
+                    <div class="controls">
+                        <button class="primary" id="animate">
+                            Animate progress
+                        </button>
+                        <label>
+                            Intensity
+                            <input
+                                id="intensity"
+                                type="range"
+                                min="0.2"
+                                max="2"
+                                step="0.01"
+                                value="1"
+                            />
+                        </label>
+                    </div>
+                    <output id="status">Ready</output>
+                </div>
+            </section>
+        </main>
+        <script type="module" src="/src/vgpu.js"></script>
+    </body>
+</html>
