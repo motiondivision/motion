@@ -25,7 +25,6 @@ export function inertia({
         value: origin,
     }
 
-    // Comparisons against undefined are always false, so unset boundaries never match
     const isOutOfBounds = (v: number) => v < min! || v > max!
 
     const nearestBoundary = (v: number) => {
