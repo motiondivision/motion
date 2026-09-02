@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Motion vgpu scene</title>
+    </head>
+    <body>
+        <main>
+            <header>
+                <div>
+                    <h1>vgpu scene</h1>
+                    <p>
+                        animate() on scene nodes (x, rotateY, scale), materials,
+                        lights, cameras and orbit controls. Drag to orbit.
+                    </p>
+                </div>
+                <nav>
+                    <a href="/vgpu.html">vgpu uniforms</a>
+                    <a href="/three-animate.html">Three animate</a>
+                </nav>
+            </header>
+            <section class="stage">
+                <canvas></canvas>
+                <div class="panel">
+                    <div class="controls">
+                        <button class="primary" id="move">
+                            Animate node + material
+                        </button>
+                        <button id="light">Animate light</button>
+                        <button id="camera">Animate camera</button>
+                    </div>
+                    <output id="status">Ready</output>
+                </div>
+            </section>
+        </main>
+        <script type="module" src="/src/vgpu-scene.js"></script>
+    </body>
+</html>

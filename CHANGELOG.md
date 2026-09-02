@@ -8,8 +8,8 @@ Undocumented APIs should be considered internal and may change without warning.
 
 ### Added
 
--   `animate` for Three.js supporting objects, materials, shader uniforms, TSL uniform nodes and node material slots like `colorNode`.
--   `animate` for vgpu supporting shader uniforms.
+-   `animate` for Three.js supporting objects, materials, shader uniforms, TSL uniform nodes and more.
+-   `animate` for vgpu supporting shared uniforms, `Effect`/`Draw`/`Compute` bindings (`"params.time"`), scene nodes, cameras, lights, materials, orbit controls, CSS colors and vector components.
 
 ### Changed
 

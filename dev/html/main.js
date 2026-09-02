@@ -8,5 +8,6 @@ document.querySelector("#app").innerHTML = `
         <a href="/three-effects.html">Three.js effects</a>
         <a href="/three-tsl.html">Three.js TSL (WebGPU)</a>
         <a href="/vgpu.html">vgpu uniforms</a>
+        <a href="/vgpu-scene.html">vgpu scene</a>
     </div>
 `

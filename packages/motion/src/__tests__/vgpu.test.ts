@@ -95,3 +95,312 @@ describe("motion/vgpu", () => {
         expect(() => animate({ set: jest.fn() }, { progress: 1 })).toThrow()
     })
 })
+
+const instant = { duration: 0.001 }
+const slow = { duration: 10, ease: "linear" } as const
+
+function lastCall(set: jest.Mock) {
+    return set.mock.calls[set.mock.calls.length - 1][0]
+}
+
+function quatFromEuler(x: number, y: number, z: number) {
+    const c1 = Math.cos(x / 2)
+    const s1 = Math.sin(x / 2)
+    const c2 = Math.cos(y / 2)
+    const s2 = Math.sin(y / 2)
+    const c3 = Math.cos(z / 2)
+    const s3 = Math.sin(z / 2)
+    return new Float32Array([
+        s1 * c2 * c3 + c1 * s2 * s3,
+        c1 * s2 * c3 - s1 * c2 * s3,
+        c1 * c2 * s3 + s1 * s2 * c3,
+        c1 * c2 * c3 - s1 * s2 * s3,
+    ])
+}
+
+/**
+ * Mirrors vgpu's SceneNode: readable position/scale/quaternion, write-only
+ * Euler rotation, scale as number or vector.
+ */
+function createNode(rotation = [0, 0, 0]) {
+    const node = {
+        position: new Float32Array(3),
+        quaternion: quatFromEuler(rotation[0], rotation[1], rotation[2]),
+        scale: new Float32Array([1, 1, 1]),
+        set: jest.fn((values: Record<string, any>) => {
+            values.position && node.position.set(values.position)
+            if (values.rotation) {
+                node.quaternion = quatFromEuler(
+                    ...(values.rotation as [number, number, number])
+                )
+            }
+            if (typeof values.scale === "number") {
+                node.scale.fill(values.scale)
+            } else if (values.scale) {
+                node.scale.set(values.scale)
+            }
+        }),
+    }
+    return node
+}
+
+function createSubject<T extends object>(state: T) {
+    return {
+        ...state,
+        set: jest.fn(function (this: any, values: Record<string, unknown>) {
+            Object.assign(this, values)
+        }),
+    }
+}
+
+describe("motion/vgpu nested bindings", () => {
+    it("animates struct members via dot-path keys", async () => {
+        const wave = { set: jest.fn() }
+
+        await animate(
+            wave,
+            { "params.time": [0, 1], "params.speed": [1, 2] },
+            instant
+        )
+        await nextFrame()
+
+        expect(wave.set).toHaveBeenLastCalledWith({
+            params: { time: 1, speed: 2 },
+        })
+    })
+
+    it("batches multiple bindings into a single set() per frame", async () => {
+        const cube = { set: jest.fn() }
+
+        await animate(
+            cube,
+            { "params.time": [0, 1], "material.roughness": [0, 0.5] },
+            instant
+        )
+        await nextFrame()
+
+        expect(lastCall(cube.set)).toEqual({
+            params: { time: 1 },
+            material: { roughness: 0.5 },
+        })
+    })
+
+    it("reads initial values from ShaderMaterial.values", async () => {
+        const material = {
+            values: { params: { intensity: 2 } },
+            set: jest.fn(),
+        }
+
+        const animation = animate(material, { "params.intensity": 4 }, slow)
+        await nextFrame()
+
+        expect(material.set.mock.calls[0][0].params.intensity).toBeCloseTo(2, 1)
+        animation.stop()
+    })
+
+    it("animates whole vectors from numeric strings", async () => {
+        const wave = { set: jest.fn() }
+
+        await animate(wave, { "params.mouse": ["0 0", "1 1"] }, instant)
+        await nextFrame()
+
+        expect(wave.set).toHaveBeenLastCalledWith({
+            params: { mouse: [1, 1] },
+        })
+    })
+
+    it("animates vector components once the vector is known", async () => {
+        const wave = { set: jest.fn() }
+
+        await animate(wave, { "params.mouse": ["0 0", "1 1"] }, instant)
+        await animate(wave, { "params.mouseX": 0 }, instant)
+        await nextFrame()
+
+        expect(wave.set).toHaveBeenLastCalledWith({
+            params: { mouse: [0, 1] },
+        })
+    })
+
+    it("treats axis-suffixed keys as plain members when no vector exists", async () => {
+        const uniforms = { set: jest.fn() }
+
+        await animate(uniforms, { offsetX: [0, 1] }, instant)
+        await nextFrame()
+
+        expect(uniforms.set).toHaveBeenLastCalledWith({ offsetX: 1 })
+    })
+})
+
+describe("motion/vgpu readable subjects", () => {
+    it("reads initial scalar values from the subject", async () => {
+        const camera = createSubject({ fov: 45, near: 0.1 })
+
+        const animation = animate(camera, { fov: 90 }, slow)
+        await nextFrame()
+
+        expect(camera.set.mock.calls[0][0].fov).toBeCloseTo(45, 0)
+        animation.stop()
+    })
+
+    it("animates scalars to their target", async () => {
+        const camera = createSubject({ fov: 45 })
+
+        await animate(camera, { fov: 90 }, instant)
+        await nextFrame()
+
+        expect(camera.fov).toBe(90)
+    })
+
+    it("animates orbit controls state and target components", async () => {
+        const controls = createSubject({
+            yaw: 0,
+            pitch: 0,
+            distance: 5,
+            target: new Float32Array(3),
+        })
+
+        await animate(controls, { yaw: 1, distance: 8, targetX: 2 }, instant)
+        await nextFrame()
+
+        expect(lastCall(controls.set)).toEqual({
+            yaw: 1,
+            distance: 8,
+            target: [2, 0, 0],
+        })
+    })
+
+    it("animates light direction components and intensity", async () => {
+        const light = createSubject({
+            direction: new Float32Array([0, -1, 0]),
+            intensity: 1,
+        })
+
+        await animate(light, { directionX: 1, intensity: 0.5 }, instant)
+        await nextFrame()
+
+        expect(lastCall(light.set)).toEqual({
+            direction: [1, -1, 0],
+            intensity: 0.5,
+        })
+    })
+})
+
+describe("motion/vgpu scene nodes", () => {
+    it("animates position via x, y, z", async () => {
+        const node = createNode()
+
+        await animate(node, { x: 1, z: 3 }, instant)
+        await nextFrame()
+
+        expect(lastCall(node.set)).toEqual({ position: [1, 0, 3] })
+        expect(Array.from(node.position)).toEqual([1, 0, 3])
+    })
+
+    it("reads the initial position from the node", async () => {
+        const node = createNode()
+        node.position.set([2, 0, 0])
+
+        const animation = animate(node, { x: 4 }, slow)
+        await nextFrame()
+
+        expect(node.set.mock.calls[0][0].position[0]).toBeCloseTo(2, 0)
+        animation.stop()
+    })
+
+    it("animates uniform and per-axis scale", async () => {
+        const node = createNode()
+
+        await animate(node, { scale: 2 }, instant)
+        await nextFrame()
+        expect(lastCall(node.set)).toEqual({ scale: 2 })
+
+        await animate(node, { scaleX: 3 }, instant)
+        await nextFrame()
+        expect(lastCall(node.set)).toEqual({ scale: [3, 2, 2] })
+    })
+
+    it("animates rotation in degrees and preserves other axes", async () => {
+        const node = createNode()
+
+        await animate(node, { rotateY: 90 }, instant)
+        await nextFrame()
+
+        let { rotation } = lastCall(node.set)
+        expect(rotation[0]).toBeCloseTo(0)
+        expect(rotation[1]).toBeCloseTo(Math.PI / 2)
+        expect(rotation[2]).toBeCloseTo(0)
+
+        await animate(node, { rotateX: 45 }, instant)
+        await nextFrame()
+
+        rotation = lastCall(node.set).rotation
+        expect(rotation[0]).toBeCloseTo(Math.PI / 4)
+        expect(rotation[1]).toBeCloseTo(Math.PI / 2)
+    })
+
+    it("derives the initial rotation from the node quaternion", async () => {
+        const node = createNode([0.3, Math.PI / 4, -0.2])
+
+        const animation = animate(node, { rotateY: 90 }, slow)
+        await nextFrame()
+
+        const { rotation } = node.set.mock.calls[0][0]
+        expect(rotation[0]).toBeCloseTo(0.3)
+        expect(rotation[1]).toBeCloseTo(Math.PI / 4, 1)
+        expect(rotation[2]).toBeCloseTo(-0.2)
+        animation.stop()
+    })
+})
+
+describe("motion/vgpu colors", () => {
+    it("animates CSS colors into linear RGB", async () => {
+        const material = createSubject({
+            color: new Float32Array([1, 1, 1]),
+            opacity: 1,
+        })
+
+        await animate(material, { color: "#808080", opacity: 0.5 }, instant)
+        await nextFrame()
+
+        const { color, opacity } = lastCall(material.set)
+        expect(opacity).toBe(0.5)
+        expect(color).toHaveLength(3)
+        // 128/255 in sRGB is ~0.2159 linear
+        color.forEach((channel: number) =>
+            expect(channel).toBeCloseTo(0.2159, 3)
+        )
+    })
+
+    it("reads the initial color from the subject", async () => {
+        const material = createSubject({ color: new Float32Array([1, 0, 0]) })
+
+        const animation = animate(material, { color: "#0000ff" }, slow)
+        await nextFrame()
+
+        const { color } = material.set.mock.calls[0][0] as any
+        expect(color[0]).toBeCloseTo(1, 1)
+        expect(color[1]).toBeCloseTo(0, 1)
+        expect(color[2]).toBeCloseTo(0, 1)
+        animation.stop()
+    })
+
+    it("animates colors on struct members", async () => {
+        const wave = { set: jest.fn() }
+
+        await animate(wave, { "params.tint": ["#000", "#fff"] }, instant)
+        await nextFrame()
+
+        expect(wave.set).toHaveBeenLastCalledWith({
+            params: { tint: [1, 1, 1] },
+        })
+    })
+
+    it("writes rgba to four-component vectors without set()", async () => {
+        const target = { clearColor: [0, 0, 0, 1] }
+
+        await animate(target, { clearColor: "rgba(255, 255, 255, 0)" }, instant)
+        await nextFrame()
+
+        expect(target.clearColor).toEqual([1, 1, 1, 0])
+    })
+})
