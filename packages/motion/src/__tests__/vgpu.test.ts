@@ -1,5 +1,5 @@
-import { frame, motionValue } from "framer-motion/dom"
-import { animate, uniformEffect } from "../vgpu"
+import { animate, frame, motionValue } from "framer-motion/dom"
+import { vgpuEffect } from "../vgpu"
 
 async function nextFrame() {
     return new Promise<void>((resolve) => {
@@ -7,13 +7,24 @@ async function nextFrame() {
     })
 }
 
-describe("motion/vgpu", () => {
+/**
+ * Mirrors vgpu shader units and shared uniforms: a set() method, a gpu
+ * resource and no readable values.
+ */
+function createUnit() {
+    return { gpu: {}, set: jest.fn() }
+}
+
+beforeAll(() => animate.addEffect(vgpuEffect))
+afterAll(() => animate.removeEffect(vgpuEffect))
+
+describe("vgpuEffect", () => {
     it("batches changed values once per frame", async () => {
-        const uniforms = { set: jest.fn() }
+        const uniforms = createUnit()
         const width = motionValue(100)
         const height = motionValue(200)
 
-        uniformEffect(uniforms, { width, height })
+        vgpuEffect(uniforms, { width, height })
 
         expect(uniforms.set).not.toHaveBeenCalled()
 
@@ -42,10 +53,11 @@ describe("motion/vgpu", () => {
     it("sets values before the render step", async () => {
         const order: string[] = []
         const uniforms = {
+            gpu: {},
             set: () => order.push("set"),
         }
 
-        uniformEffect(uniforms, { width: motionValue(100) })
+        vgpuEffect(uniforms, { width: motionValue(100) })
         frame.render(() => order.push("render"))
 
         await nextFrame()
@@ -54,9 +66,9 @@ describe("motion/vgpu", () => {
     })
 
     it("stops pending and future updates on cleanup", async () => {
-        const uniforms = { set: jest.fn() }
+        const uniforms = createUnit()
         const width = motionValue(100)
-        const cleanup = uniformEffect(uniforms, { width })
+        const cleanup = vgpuEffect(uniforms, { width })
 
         cleanup()
         await nextFrame()
@@ -67,11 +79,32 @@ describe("motion/vgpu", () => {
         expect(uniforms.set).not.toHaveBeenCalled()
     })
 
+    describe("test()", () => {
+        it("claims vgpu subjects", () => {
+            expect(vgpuEffect.test(createUnit())).toBe(true)
+            expect(vgpuEffect.test({ reflection: {}, set() {} })).toBe(true)
+            expect(vgpuEffect.test({ kind: "mesh", set() {} })).toBe(true)
+            expect(vgpuEffect.test({ kind: "unlit", set() {} })).toBe(true)
+            expect(vgpuEffect.test({ yaw: 0, pitch: 0, set() {} })).toBe(true)
+            expect(vgpuEffect.test({ gpu: {}, clearColor: [0, 0, 0, 1] })).toBe(
+                true
+            )
+        })
+
+        it("leaves plain objects and vectors alone", () => {
+            expect(vgpuEffect.test({ x: 0, y: 0 })).toBe(false)
+            expect(vgpuEffect.test({ x: 0, set() {} })).toBe(false)
+            expect(vgpuEffect.test({ clearColor: [0, 0, 0, 1] })).toBe(false)
+            expect(vgpuEffect.test(null)).toBe(false)
+            expect(vgpuEffect.test(document.createElement("div"))).toBe(false)
+        })
+    })
+
     it("animates registered uniforms", async () => {
-        const uniforms = { set: jest.fn() }
+        const uniforms = createUnit()
         const progress = motionValue(0)
 
-        uniformEffect(uniforms, { progress })
+        vgpuEffect(uniforms, { progress })
         await nextFrame()
         uniforms.set.mockClear()
 
@@ -83,7 +116,7 @@ describe("motion/vgpu", () => {
     })
 
     it("animates unregistered uniforms from explicit keyframes", async () => {
-        const uniforms = { set: jest.fn() }
+        const uniforms = createUnit()
 
         await animate(uniforms, { progress: [0, 1] }, { duration: 0.001 })
         await nextFrame()
@@ -92,7 +125,7 @@ describe("motion/vgpu", () => {
     })
 
     it("throws when animating an unregistered uniform", () => {
-        expect(() => animate({ set: jest.fn() }, { progress: 1 })).toThrow()
+        expect(() => animate(createUnit(), { progress: 1 })).toThrow()
     })
 })
 
@@ -124,6 +157,7 @@ function quatFromEuler(x: number, y: number, z: number) {
  */
 function createNode(rotation = [0, 0, 0]) {
     const node = {
+        kind: "mesh",
         position: new Float32Array(3),
         quaternion: quatFromEuler(rotation[0], rotation[1], rotation[2]),
         scale: new Float32Array([1, 1, 1]),
@@ -146,6 +180,7 @@ function createNode(rotation = [0, 0, 0]) {
 
 function createSubject<T extends object>(state: T) {
     return {
+        kind: "scene",
         ...state,
         set: jest.fn(function (this: any, values: Record<string, unknown>) {
             Object.assign(this, values)
@@ -153,9 +188,9 @@ function createSubject<T extends object>(state: T) {
     }
 }
 
-describe("motion/vgpu nested bindings", () => {
+describe("animate() with vgpuEffect: nested bindings", () => {
     it("animates struct members via dot-path keys", async () => {
-        const wave = { set: jest.fn() }
+        const wave = createUnit()
 
         await animate(
             wave,
@@ -170,7 +205,7 @@ describe("motion/vgpu nested bindings", () => {
     })
 
     it("batches multiple bindings into a single set() per frame", async () => {
-        const cube = { set: jest.fn() }
+        const cube = createUnit()
 
         await animate(
             cube,
@@ -187,6 +222,7 @@ describe("motion/vgpu nested bindings", () => {
 
     it("reads initial values from ShaderMaterial.values", async () => {
         const material = {
+            kind: "shader",
             values: { params: { intensity: 2 } },
             set: jest.fn(),
         }
@@ -199,7 +235,7 @@ describe("motion/vgpu nested bindings", () => {
     })
 
     it("animates whole vectors from numeric strings", async () => {
-        const wave = { set: jest.fn() }
+        const wave = createUnit()
 
         await animate(wave, { "params.mouse": ["0 0", "1 1"] }, instant)
         await nextFrame()
@@ -210,7 +246,7 @@ describe("motion/vgpu nested bindings", () => {
     })
 
     it("animates vector components once the vector is known", async () => {
-        const wave = { set: jest.fn() }
+        const wave = createUnit()
 
         await animate(wave, { "params.mouse": ["0 0", "1 1"] }, instant)
         await animate(wave, { "params.mouseX": 0 }, instant)
@@ -222,7 +258,7 @@ describe("motion/vgpu nested bindings", () => {
     })
 
     it("treats axis-suffixed keys as plain members when no vector exists", async () => {
-        const uniforms = { set: jest.fn() }
+        const uniforms = createUnit()
 
         await animate(uniforms, { offsetX: [0, 1] }, instant)
         await nextFrame()
@@ -231,7 +267,7 @@ describe("motion/vgpu nested bindings", () => {
     })
 })
 
-describe("motion/vgpu readable subjects", () => {
+describe("animate() with vgpuEffect: readable subjects", () => {
     it("reads initial scalar values from the subject", async () => {
         const camera = createSubject({ fov: 45, near: 0.1 })
 
@@ -285,7 +321,7 @@ describe("motion/vgpu readable subjects", () => {
     })
 })
 
-describe("motion/vgpu scene nodes", () => {
+describe("animate() with vgpuEffect: scene nodes", () => {
     it("animates position via x, y, z", async () => {
         const node = createNode()
 
@@ -352,7 +388,7 @@ describe("motion/vgpu scene nodes", () => {
     })
 })
 
-describe("motion/vgpu colors", () => {
+describe("animate() with vgpuEffect: colors", () => {
     it("animates CSS colors into linear RGB", async () => {
         const material = createSubject({
             color: new Float32Array([1, 1, 1]),
@@ -385,7 +421,7 @@ describe("motion/vgpu colors", () => {
     })
 
     it("animates colors on struct members", async () => {
-        const wave = { set: jest.fn() }
+        const wave = createUnit()
 
         await animate(wave, { "params.tint": ["#000", "#fff"] }, instant)
         await nextFrame()
@@ -396,11 +432,38 @@ describe("motion/vgpu colors", () => {
     })
 
     it("writes rgba to four-component vectors without set()", async () => {
-        const target = { clearColor: [0, 0, 0, 1] }
+        const target = { gpu: {}, clearColor: [0, 0, 0, 1] }
 
         await animate(target, { clearColor: "rgba(255, 255, 255, 0)" }, instant)
         await nextFrame()
 
         expect(target.clearColor).toEqual([1, 1, 1, 0])
+    })
+})
+
+describe("animate() with vgpuEffect: sequences", () => {
+    it("animates nodes alongside DOM elements", async () => {
+        const node = createNode()
+        const element = document.createElement("div")
+
+        await animate([
+            [element, { opacity: 0.5 }, instant],
+            [node, { x: 2 }, instant],
+        ])
+        await nextFrame()
+
+        expect(element.style.opacity).toBe("0.5")
+        expect(Array.from(node.position)).toEqual([2, 0, 0])
+    })
+
+    it("staggers arrays of nodes", async () => {
+        const nodes = [createNode(), createNode()]
+
+        await animate(nodes, { x: 2 }, { ...instant, delay: (i) => i * 0.001 })
+        await nextFrame()
+
+        nodes.forEach((node) =>
+            expect(Array.from(node.position)).toEqual([2, 0, 0])
+        )
     })
 })

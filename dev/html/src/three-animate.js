@@ -1,7 +1,9 @@
-import { cancelFrame, frame } from "motion"
-import { animate } from "motion/three"
+import { animate, cancelFrame, frame } from "motion"
+import { threeEffect } from "motion/three"
 import * as THREE from "three"
 import "./gpu-adapters.css"
+
+animate.addEffect(threeEffect)
 
 const canvas = document.querySelector("canvas")
 const status = document.querySelector("#status")
@@ -95,16 +97,14 @@ document.querySelector("#uniform").addEventListener("click", () => {
     uniformActive = !uniformActive
     status.textContent = "Animating shader uniforms"
 
-    Promise.all([
-        animate(uniforms.progress, uniformActive ? 1 : 0, {
-            duration: 1,
-            ease: "easeInOut",
-        }),
-        animate(uniforms.tint, uniformActive ? "#fbbf24" : "#22d3ee", {
-            duration: 1,
-            ease: "easeInOut",
-        }),
-    ]).then(() => {
+    animate(
+        uniforms,
+        {
+            progress: uniformActive ? 1 : 0,
+            tint: uniformActive ? "#fbbf24" : "#22d3ee",
+        },
+        { duration: 1, ease: "easeInOut" }
+    ).then(() => {
         status.textContent = "Uniform animation complete"
     })
 })

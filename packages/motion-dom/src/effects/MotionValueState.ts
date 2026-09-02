@@ -1,5 +1,6 @@
 import { AnyResolvedKeyframe } from "../animation/types"
 import { cancelFrame, frame } from "../frameloop/frame"
+import { Schedule } from "../frameloop/types"
 import { MotionValue } from "../value"
 import { numberValueTypes } from "../value/types/maps/number"
 import { getValueAsType } from "../value/types/utils/get-as-type"
@@ -12,13 +13,20 @@ export class MotionValueState {
         { value: MotionValue; onRemove: VoidFunction }
     >()
 
+    /**
+     * @param step - The frameloop step renders are scheduled in. Defaults
+     * to `frame.render`. Effects that feed a render loop running in
+     * `frame.render` (GPU scenes) should write in `frame.preRender`.
+     */
+    constructor(private step: Schedule = frame.render) {}
+
     set(
         name: string,
         value: MotionValue,
         render?: VoidFunction,
         computed?: MotionValue,
         useDefaultValueType = true
-    ) {
+    ): VoidFunction {
         const existingValue = this.values.get(name)
 
         if (existingValue) {
@@ -34,7 +42,7 @@ export class MotionValueState {
                 this.latest[name] = v
             }
 
-            render && frame.render(render)
+            render && this.step(render)
         }
 
         onChange()

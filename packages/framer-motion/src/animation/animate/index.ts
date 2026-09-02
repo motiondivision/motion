@@ -8,7 +8,7 @@ import type {
     UnresolvedValueKeyframe,
     ValueAnimationTransition,
 } from "motion-dom"
-import { GroupAnimationWithThen } from "motion-dom"
+import { addEffect, GroupAnimationWithThen, removeEffect } from "motion-dom"
 import { removeItem } from "motion-utils"
 import {
     AnimationSequence,
@@ -160,4 +160,13 @@ export function createScopedAnimate(options: ScopedAnimateOptions = {}) {
     return scopedAnimate
 }
 
-export const animate = createScopedAnimate()
+export const animate = Object.assign(createScopedAnimate(), {
+    /**
+     * Register an effect so `animate()` can animate the subjects it
+     * claims, for instance `animate.addEffect(threeEffect)`. The most
+     * recently added effect is tested first. DOM elements are always
+     * animated directly.
+     */
+    addEffect,
+    removeEffect,
+})

@@ -1,7 +1,9 @@
-import { cancelFrame, frame as motionFrame, motionValue } from "motion"
-import { animate, uniformEffect } from "motion/vgpu"
+import { animate, cancelFrame, frame as motionFrame, motionValue } from "motion"
+import { vgpuEffect } from "motion/vgpu"
 import { effect, frame as vgpuFrame, init, surface, uniforms } from "vgpu"
 import "./gpu-adapters.css"
+
+animate.addEffect(vgpuEffect)
 
 const stage = document.querySelector(".stage")
 const canvas = document.querySelector("canvas")
@@ -73,7 +75,7 @@ async function start() {
     )
 
     const intensity = motionValue(1)
-    const cancelUniformEffect = uniformEffect(globals, { intensity })
+    const cancelUniformEffect = vgpuEffect(globals, { intensity })
 
     intensityInput.addEventListener("input", () => {
         intensity.set(Number(intensityInput.value))

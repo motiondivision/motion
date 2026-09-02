@@ -1,7 +1,15 @@
-import { cancelFrame, frame, motionValue, transformValue } from "motion"
-import { animate, objectEffect, uniformEffect } from "motion/three"
+import {
+    animate,
+    cancelFrame,
+    frame,
+    motionValue,
+    transformValue,
+} from "motion"
+import { threeEffect } from "motion/three"
 import * as THREE from "three"
 import "./gpu-adapters.css"
+
+animate.addEffect(threeEffect)
 
 const canvas = document.querySelector("canvas")
 const positionInput = document.querySelector("#position")
@@ -55,8 +63,8 @@ const rotateY = motionValue(0)
 const progress = motionValue(0)
 const scale = transformValue(() => 0.9 + progress.get() * 0.3)
 
-const cancelObjectEffect = objectEffect(mesh, { x, rotateY, scale })
-const cancelUniformEffect = uniformEffect(uniforms, { progress })
+const cancelObjectEffect = threeEffect(mesh, { x, rotateY, scale })
+const cancelUniformEffect = threeEffect(uniforms, { progress })
 
 function updateStatus() {
     status.textContent = `x ${x.get().toFixed(2)} · progress ${progress

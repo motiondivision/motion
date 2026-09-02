@@ -40,8 +40,15 @@ export type SegmentValueTransitionOptions = DistributiveOmit<
 > &
     At
 
+/**
+ * Known keys of the object are suggested, but any key is accepted so
+ * effects registered via `animate.addEffect()` can expose shorthands like
+ * `rotateY` or `"params.time"` on subjects that don't have those properties.
+ */
 export type ObjectTarget<O> = {
-    [K in keyof O]?: O[K] | UnresolvedValueKeyframe[]
+    [K in keyof O]?: O[K] | UnresolvedValueKeyframe | UnresolvedValueKeyframe[]
+} & {
+    [key: string]: unknown
 }
 
 export type SequenceTime =
@@ -143,4 +150,3 @@ export type ResolvedAnimationDefinitions = Map<
     Element | MotionValue,
     ResolvedAnimationDefinition
 >
-

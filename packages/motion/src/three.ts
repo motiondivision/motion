@@ -1,9 +1,9 @@
 import {
-    type AnimationOptions,
-    type AnimationPlaybackControlsWithThen,
+    createEffect,
+    frame,
     type MotionValue,
+    type MotionValueState,
 } from "framer-motion/dom"
-import { createEffectAdapter, createEffectAnimate } from "./utils/create-effect"
 
 export interface ThreeUniform<T = unknown> {
     value: T
@@ -13,95 +13,58 @@ export type ThreeUniforms<T extends object> = {
     [K in keyof T]: ThreeUniform<T[K]>
 }
 
-export type UniformEffectValues<T extends object> = {
-    [K in keyof T]?: MotionValue
-}
-
-export type UniformAnimationTarget<T extends object> = {
-    [K in keyof T]?: string | number | Array<string | number | null>
-}
-
-export type UniformValueAnimationTarget =
-    | string
-    | number
-    | Array<string | number | null>
-
-export interface ObjectEffectValues {
-    [key: string]: MotionValue | undefined
-}
-
-export interface ObjectAnimationTarget {
-    [key: string]: string | number | Array<string | number | null> | undefined
-}
+export type ThreeEffectValues = Record<string, MotionValue>
 
 type Uniforms = Record<string, ThreeUniform>
 type ThreeObject = Record<string, any>
 
-const uniformAdapter = createEffectAdapter<Uniforms>((uniforms, values) => {
-    for (const key in values) {
-        setProperty(uniforms[key], "value", values[key])
+/**
+ * Binds motion values to Three.js objects, materials and uniforms.
+ *
+ * Register with `animate.addEffect(threeEffect)` so `animate()` can target
+ * meshes, lights, cameras, materials and uniforms directly, or call it
+ * yourself to wire up existing motion values:
+ *
+ * ```ts
+ * threeEffect(mesh, { x, rotateY, color })
+ * threeEffect(uniforms, { progress })
+ * ```
+ *
+ * Writes happen once per frame in `frame.preRender`, ahead of render loops
+ * scheduled with `frame.render`.
+ */
+export const threeEffect = createEffect<ThreeObject>(
+    (subject, state: MotionValueState, key, value) =>
+        state.set(
+            key,
+            value,
+            () => setObjectValue(subject, key, state.latest[key]),
+            undefined,
+            false
+        ),
+    {
+        test: isThreeSubject,
+        read: getObjectValue,
+        step: frame.preRender,
     }
-})
-const objectAdapter = createEffectAdapter<ThreeObject>(setObjectValues)
-const animateEffect = createEffectAnimate(
-    [uniformAdapter, objectAdapter],
-    "Three.js uniform or object",
-    resolveThreeEffect
 )
 
 /**
- * Binds MotionValues to a Three.js uniforms object.
+ * Claims Three.js objects, materials and uniforms objects. Vectors, colors
+ * and Eulers aren't claimed so `animate(mesh.position, { x })` keeps working
+ * as a plain object animation.
  */
-export function uniformEffect<T extends object>(
-    uniforms: ThreeUniforms<T>,
-    values: UniformEffectValues<T>
-): VoidFunction {
-    return uniformAdapter.effect(
-        uniforms as Uniforms,
-        values as Record<string, MotionValue | undefined>
-    )
+function isThreeSubject(subject: unknown): subject is ThreeObject {
+    if (!subject || typeof subject !== "object") return false
+
+    const object = subject as ThreeObject
+
+    return Boolean(object.isObject3D || object.isMaterial || isUniforms(object))
 }
 
-/**
- * Binds MotionValues to flattened Three.js object properties.
- */
-export function objectEffect(
-    object: object,
-    values: ObjectEffectValues
-): VoidFunction {
-    return objectAdapter.effect(object as ThreeObject, values)
-}
-
-/**
- * Animates Three.js uniform nodes, uniforms and flattened object properties.
- */
-export function animate(
-    subject: ThreeUniform,
-    keyframes: UniformValueAnimationTarget,
-    options?: AnimationOptions
-): AnimationPlaybackControlsWithThen
-export function animate<T extends object>(
-    subject: ThreeUniforms<T>,
-    keyframes: UniformAnimationTarget<T>,
-    options?: AnimationOptions
-): AnimationPlaybackControlsWithThen
-export function animate(
-    subject: object,
-    keyframes: ObjectAnimationTarget,
-    options?: AnimationOptions
-): AnimationPlaybackControlsWithThen
-export function animate(
-    subject: object,
-    keyframes: UniformValueAnimationTarget | ObjectAnimationTarget,
-    options?: AnimationOptions
-): AnimationPlaybackControlsWithThen {
-    return animateEffect(
-        subject,
-        typeof keyframes === "object" && !Array.isArray(keyframes)
-            ? keyframes
-            : { value: keyframes },
-        options
-    )
+function isUniforms(object: ThreeObject): object is Uniforms {
+    const keys = Object.keys(object)
+    return keys.length > 0 && keys.every((key) => isUniform(object[key]))
 }
 
 const transformMap = {
@@ -116,26 +79,9 @@ const transformMap = {
     scaleZ: ["scale", "z"],
 } as const
 
-function resolveThreeEffect(
-    subject: object,
-    key: string,
-    _target: unknown,
-    adapter: typeof uniformAdapter | typeof objectAdapter | undefined
-) {
-    const object = subject as ThreeObject
-    const resolvedAdapter =
-        adapter ?? (isUniform(object[key]) ? uniformAdapter : objectAdapter)
-    const initial =
-        resolvedAdapter === uniformAdapter
-            ? getAnimatableValue((object as Uniforms)[key]?.value)
-            : getObjectValue(object, key)
-
-    return initial === undefined
-        ? undefined
-        : { adapter: resolvedAdapter, initial }
-}
-
 function getObjectValue(object: ThreeObject, key: string) {
+    if (isUniform(object[key])) return getAnimatableValue(object[key].value)
+
     const transform = transformMap[key as keyof typeof transformMap]
 
     if (transform) {
@@ -153,15 +99,25 @@ function getObjectValue(object: ThreeObject, key: string) {
     const node = getNodeUniform(object, key)
     if (node) return getAnimatableValue(node.value)
 
-    const value =
+    const uniforms = getUniforms(object)
+
+    return (
         getProperty(object, key) ??
         getProperty(object.material, key) ??
-        getUniformValue(object.material?.uniforms ?? object.uniforms, key) ??
+        getUniformValue(uniforms, key) ??
         getVectorComponent(object, key) ??
         getVectorComponent(object.material, key) ??
-        getUniformComponent(object.material?.uniforms ?? object.uniforms, key)
+        getUniformComponent(uniforms, key) ??
+        getUniformComponent(object, key)
+    )
+}
 
-    return value
+/**
+ * Uniforms live on ShaderMaterials, on the mesh itself or the subject can
+ * be a bare uniforms object.
+ */
+function getUniforms(object: ThreeObject): Uniforms | undefined {
+    return object.material?.uniforms ?? object.uniforms
 }
 
 /**
@@ -190,10 +146,10 @@ function getVectorComponent(target: ThreeObject | undefined, key: string) {
         : undefined
 }
 
-function getUniformComponent(uniforms: Uniforms | undefined, key: string) {
+function getUniformComponent(uniforms: ThreeObject | undefined, key: string) {
     const uniform = uniforms?.[key.slice(0, -1)]
-    return uniform
-        ? getVectorComponent({ value: uniform.value }, `value${key.slice(-1)}`)
+    return isUniform(uniform)
+        ? getVectorComponent(uniform, `value${key.slice(-1)}`)
         : undefined
 }
 
@@ -209,13 +165,12 @@ function isUniform(value: unknown): value is ThreeUniform {
     return Boolean(value && typeof value === "object" && "value" in value)
 }
 
-function setObjectValues(object: ThreeObject, values: Record<string, unknown>) {
-    for (const key in values) {
-        setObjectValue(object, key, values[key])
-    }
-}
-
 function setObjectValue(object: ThreeObject, key: string, value: unknown) {
+    if (isUniform(object[key])) {
+        setProperty(object[key], "value", value)
+        return
+    }
+
     const transform = transformMap[key as keyof typeof transformMap]
 
     if (transform) {
@@ -242,7 +197,7 @@ function setObjectValue(object: ThreeObject, key: string, value: unknown) {
     const material = object.material
     if (setProperty(material, key, value)) return
 
-    const uniforms = material?.uniforms ?? object.uniforms
+    const uniforms = getUniforms(object)
     const uniform = uniforms?.[key]
 
     if (uniform) {
@@ -253,7 +208,8 @@ function setObjectValue(object: ThreeObject, key: string, value: unknown) {
     if (
         setVectorComponent(object, key, value) ||
         setVectorComponent(material, key, value) ||
-        setUniformComponent(uniforms, key, value)
+        setUniformComponent(uniforms, key, value) ||
+        setUniformComponent(object, key, value)
     ) {
         return
     }
@@ -294,16 +250,12 @@ function setVectorComponent(
 }
 
 function setUniformComponent(
-    uniforms: Uniforms | undefined,
+    uniforms: ThreeObject | undefined,
     key: string,
     value: unknown
 ) {
     const uniform = uniforms?.[key.slice(0, -1)]
-    return uniform
-        ? setVectorComponent(
-              { value: uniform.value },
-              `value${key.slice(-1)}`,
-              value
-          )
+    return isUniform(uniform)
+        ? setVectorComponent(uniform, `value${key.slice(-1)}`, value)
         : false
 }

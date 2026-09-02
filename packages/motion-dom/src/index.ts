@@ -63,10 +63,13 @@ export * from "./animation/waapi/utils/accelerated-values"
 export * from "./animation/waapi/utils/apply-generator"
 export * from "./animation/waapi/utils/linear"
 
+export * from "./animation/animate/effects"
 export * from "./effects/attr"
+export * from "./effects/MotionValueState"
 export * from "./effects/prop"
 export * from "./effects/style"
 export * from "./effects/svg"
+export * from "./effects/utils/create-effect"
 
 export * from "./frameloop"
 export * from "./frameloop/batcher"

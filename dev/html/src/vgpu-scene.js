@@ -1,5 +1,5 @@
-import { cancelFrame, frame as motionFrame } from "motion"
-import { animate } from "motion/vgpu"
+import { animate, cancelFrame, frame as motionFrame } from "motion"
+import { vgpuEffect } from "motion/vgpu"
 import {
     clock,
     draw,
@@ -21,6 +21,8 @@ import {
     unlitMaterial,
 } from "vgpu/scene"
 import "./gpu-adapters.css"
+
+animate.addEffect(vgpuEffect)
 
 const stage = document.querySelector(".stage")
 const canvas = document.querySelector("canvas")

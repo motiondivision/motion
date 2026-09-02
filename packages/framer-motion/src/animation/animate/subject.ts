@@ -1,11 +1,15 @@
 import {
+    animateEffectSubject,
     animateTarget,
     AnimationPlaybackControlsWithThen,
     AnimationScope,
     AnyResolvedKeyframe,
     DOMKeyframesDefinition,
     AnimationOptions as DynamicAnimationOptions,
+    EffectKeyframes,
+    EffectTransition,
     ElementOrSelector,
+    findEffect,
     isMotionValue,
     MotionValue,
     TargetAndTransition,
@@ -128,17 +132,6 @@ export function animateSubject<O extends Object>(
 
         for (let i = 0; i < numSubjects; i++) {
             const thisSubject = subjects[i]
-
-            const createVisualElement =
-                thisSubject instanceof Element
-                    ? createDOMVisualElement
-                    : createObjectVisualElement
-
-            if (!visualElementStore.has(thisSubject)) {
-                createVisualElement(thisSubject as any)
-            }
-
-            const visualElement = visualElementStore.get(thisSubject)!
             const transition = { ...options }
 
             /**
@@ -150,6 +143,36 @@ export function animateSubject<O extends Object>(
             ) {
                 transition.delay = transition.delay(i, numSubjects)
             }
+
+            const isElement = thisSubject instanceof Element
+
+            /**
+             * Registered effects (animate.addEffect) claim non-DOM subjects
+             * before we fall back to treating them as plain objects.
+             */
+            const effect = isElement ? undefined : findEffect(thisSubject)
+
+            if (effect) {
+                animations.push(
+                    ...animateEffectSubject(
+                        effect,
+                        thisSubject as object,
+                        keyframes as EffectKeyframes,
+                        transition as EffectTransition
+                    )
+                )
+                continue
+            }
+
+            const createVisualElement = isElement
+                ? createDOMVisualElement
+                : createObjectVisualElement
+
+            if (!visualElementStore.has(thisSubject)) {
+                createVisualElement(thisSubject as any)
+            }
+
+            const visualElement = visualElementStore.get(thisSubject)!
 
             animations.push(
                 ...animateTarget(

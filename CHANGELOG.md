@@ -8,8 +8,10 @@ Undocumented APIs should be considered internal and may change without warning.
 
 ### Added
 
--   `animate` for Three.js supporting objects, materials, shader uniforms, TSL uniform nodes and more.
--   `animate` for vgpu supporting shared uniforms, `Effect`/`Draw`/`Compute` bindings (`"params.time"`), scene nodes, cameras, lights, materials, orbit controls, CSS colors and vector components.
+-   `animate.addEffect()` for registering effects that lets `animate` drive non-DOM subjects alongside DOM elements.
+-   `threeEffect` (`motion/three`) supporting Three.js objects, materials, shader uniforms, TSL uniform nodes and more.
+-   `vgpuEffect` (`motion/vgpu`) supporting shared uniforms, `Effect`/`Draw`/`Compute` bindings (`"params.time"`), scene nodes, cameras, lights, materials, orbit controls, CSS colors and vector components.
+-   `createEffect` now accepts `test`, `read` and `step` options and exposes bound motion values via `effect.get()`.
 
 ### Changed
 

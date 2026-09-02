@@ -1,5 +1,5 @@
-import { cancelFrame, frame } from "motion"
-import { animate } from "motion/three"
+import { animate, cancelFrame, frame, motionValue } from "motion"
+import { threeEffect } from "motion/three"
 import * as THREE from "three"
 import { color, mix, positionLocal, sin, uniform, uv, vec3 } from "three/tsl"
 import { MeshBasicNodeMaterial, MeshStandardNodeMaterial, WebGPURenderer } from "three/webgpu"
@@ -8,6 +8,8 @@ import "./gpu-adapters.css"
 const stage = document.querySelector(".stage")
 const canvas = document.querySelector("canvas")
 const status = document.querySelector("#status")
+
+animate.addEffect(threeEffect)
 
 async function start() {
     const renderer = new WebGPURenderer({ canvas, antialias: true })
@@ -44,10 +46,12 @@ async function start() {
 
     /**
      * GPU fan-out: a single progress uniform drives colour and vertex
-     * displacement across the whole plane in-shader. Motion animates one
-     * scalar per frame; TSL amplifies it per vertex/fragment.
+     * displacement across the whole plane in-shader. A motion value wraps
+     * the uniform node via threeEffect; TSL amplifies it per vertex/fragment.
      */
     const progress = uniform(0)
+    const progressValue = motionValue(0)
+    threeEffect(progress, { value: progressValue })
     const fanoutMaterial = new MeshBasicNodeMaterial()
     const wave = sin(uv().x.mul(9).add(progress.mul(6)))
     fanoutMaterial.colorNode = mix(
@@ -102,7 +106,7 @@ async function start() {
         fanoutActive = !fanoutActive
         status.textContent = "Springing progress uniform node"
 
-        animate(progress, fanoutActive ? 1 : 0, {
+        animate(progressValue, fanoutActive ? 1 : 0, {
             type: "spring",
             visualDuration: 0.8,
             bounce: 0.4,

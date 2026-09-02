@@ -1,34 +1,16 @@
 import {
     clamp,
     color,
+    createEffect,
+    frame,
     hslaToRgba,
     rgba,
-    type AnimationOptions,
-    type AnimationPlaybackControlsWithThen,
     type MotionValue,
+    type MotionValueState,
     type RGBA,
 } from "framer-motion/dom"
-import {
-    createEffectAdapter,
-    createEffectAnimate,
-    type EffectValues,
-} from "./utils/create-effect"
 
-export interface UniformEffectSubject<T extends object> {
-    set(values: Partial<T>): unknown
-}
-
-export type UniformEffectValues<T extends object> = EffectValues<T>
-
-export type VGPUAnimationValue = string | number | Array<string | number | null>
-
-export type UniformAnimationTarget<T extends object> = {
-    [K in keyof T]?: VGPUAnimationValue
-} & ObjectAnimationTarget
-
-export interface ObjectAnimationTarget {
-    [key: string]: VGPUAnimationValue | undefined
-}
+export type VGPUEffectValues = Record<string, MotionValue>
 
 type Subject = Record<string, any>
 
@@ -60,55 +42,70 @@ const transforms: Record<string, [string, number, boolean?]> = {
  */
 const shadows = new WeakMap<object, Record<string, number[]>>()
 
-const adapter = createEffectAdapter<Subject>(applyValues)
+/**
+ * Values changed this frame, flushed into one set() per subject.
+ */
+const pending = new Map<Subject, Record<string, unknown>>()
 
-const animateEffect = createEffectAnimate(
-    [adapter],
-    "vgpu subject",
-    (subject, key, target) => {
-        const initial =
-            readInitial(subject as Subject, key, target) ??
-            keyframeInitial(target)
+function flush() {
+    pending.forEach(applyValues)
+    pending.clear()
+}
 
-        return initial === undefined ? undefined : { adapter, initial }
+/**
+ * Binds motion values to vgpu shared uniforms, Effect/Draw/Compute bindings
+ * ("params.time"), scene nodes (x, rotateY, scale), cameras, lights,
+ * materials, orbit controls and target clear colors.
+ *
+ * Register with `animate.addEffect(vgpuEffect)` so `animate()` can target
+ * these subjects directly, or call it yourself to wire up existing motion
+ * values:
+ *
+ * ```ts
+ * vgpuEffect(wave, { "params.time": time })
+ * vgpuEffect(cube, { x, rotateY })
+ * ```
+ *
+ * Changed values are batched into a single set() per subject per frame in
+ * `frame.preRender`, ahead of render loops scheduled with `frame.render`.
+ */
+export const vgpuEffect = createEffect<Subject>(
+    (subject, state: MotionValueState, key, value) =>
+        state.set(
+            key,
+            value,
+            () => {
+                const bag = pending.get(subject) ?? {}
+                bag[key] = state.latest[key]
+                pending.set(subject, bag)
+                frame.preRender(flush, false, true)
+            },
+            undefined,
+            false
+        ),
+    {
+        test: isVGPUSubject,
+        read: readInitial,
+        step: frame.preRender,
     }
 )
 
 /**
- * Binds MotionValues to a vgpu subject, batching changed values into one
- * set() per frame.
+ * Claims vgpu shader units (Effect, Draw, Compute), shared uniforms, scene
+ * nodes, materials, orbit controls and targets. Everything else, including
+ * Three.js vectors and plain objects, is left alone.
  */
-export function uniformEffect<T extends object>(
-    subject: UniformEffectSubject<T>,
-    values: UniformEffectValues<T>
-): VoidFunction {
-    return adapter.effect(
-        subject,
-        values as Record<string, MotionValue | undefined>
-    )
-}
+function isVGPUSubject(subject: unknown): subject is Subject {
+    if (!subject || typeof subject !== "object") return false
 
-/**
- * Animates vgpu uniforms, Effect/Draw bindings ("params.time"), scene nodes
- * (x, rotateY, scale), cameras, lights, materials and orbit controls.
- * Values that can't be read from the subject require explicit keyframes.
- */
-export function animate<T extends object>(
-    subject: UniformEffectSubject<T>,
-    keyframes: UniformAnimationTarget<T>,
-    options?: AnimationOptions
-): AnimationPlaybackControlsWithThen
-export function animate(
-    subject: object,
-    keyframes: ObjectAnimationTarget,
-    options?: AnimationOptions
-): AnimationPlaybackControlsWithThen
-export function animate(
-    subject: object,
-    keyframes: ObjectAnimationTarget,
-    options?: AnimationOptions
-): AnimationPlaybackControlsWithThen {
-    return animateEffect(subject, keyframes as any, options)
+    const s = subject as Subject
+
+    return typeof s.set === "function"
+        ? typeof s.kind === "string" ||
+              "gpu" in s ||
+              "reflection" in s ||
+              typeof s.yaw === "number"
+        : "clearColor" in s && "gpu" in s
 }
 
 function isNode(subject: Subject) {
@@ -184,13 +181,6 @@ function setPath(target: Subject, path: string[], value: unknown) {
     current[path[last]] = value
 }
 
-function keyframeInitial(target: unknown) {
-    const initial = Array.isArray(target) ? target[0] : undefined
-    return typeof initial === "string" || typeof initial === "number"
-        ? initial
-        : undefined
-}
-
 function isColorTarget(target: unknown) {
     const sample = Array.isArray(target)
         ? target.find((value) => typeof value === "string")
@@ -201,7 +191,7 @@ function isColorTarget(target: unknown) {
 function readInitial(
     subject: Subject,
     key: string,
-    target: unknown
+    target?: unknown
 ): string | number | undefined {
     const { path, index, degrees } = resolveKey(subject, key)
 
@@ -224,7 +214,7 @@ function readInitial(
     return typeof sample === "string" ? Array.from(value).join(" ") : value[0]
 }
 
-function applyValues(subject: Subject, values: Record<string, unknown>) {
+function applyValues(values: Record<string, unknown>, subject: Subject) {
     const bag: Subject = {}
     const vectors = new Map<string, KeyTarget & { vector: number[] }>()
 
