@@ -250,6 +250,7 @@ export class NativeAnimation<T extends AnyResolvedKeyframe>
         timeline,
         rangeStart,
         rangeEnd,
+        fill,
         observe,
     }: TimelineWithFallback): VoidFunction {
         if (this.allowFlatten) {
@@ -264,9 +265,30 @@ export class NativeAnimation<T extends AnyResolvedKeyframe>
             if (rangeStart) (this.animation as any).rangeStart = rangeStart
             if (rangeEnd) (this.animation as any).rangeEnd = rangeEnd
 
+            /**
+             * When a user range is set we switch fill to "auto" so the effect is
+             * removed outside the range, matching native `animation-range`.
+             */
+            if (fill) this.animation.effect?.updateTiming({ fill } as any)
+
             return noop<void>
         } else {
             return observe(this)
         }
+    }
+
+    private timelineActive = true
+
+    setActive(isActive: boolean) {
+        if (isActive === this.timelineActive) return
+        this.timelineActive = isActive
+
+        /**
+         * Outside the active range we cancel the WAAPI animation to remove its
+         * effect, so the CSS cascade (e.g. `:hover`) can take over. Re-entering
+         * the range re-applies the effect via the next `time` setter from the
+         * scroll observer.
+         */
+        if (!isActive) this.cancel()
     }
 }
