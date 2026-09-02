@@ -37,6 +37,8 @@ const Item = ({ item }: { item: number }) => {
             value={item}
             id={`item-${item}`}
             data-testid={`item-${item}`}
+            dragMomentum={false}
+            transition={{ duration: 0 }}
             style={{
                 y,
                 height: 50,
