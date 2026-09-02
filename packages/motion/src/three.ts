@@ -21,6 +21,11 @@ export type UniformAnimationTarget<T extends object> = {
     [K in keyof T]?: string | number | Array<string | number | null>
 }
 
+export type UniformValueAnimationTarget =
+    | string
+    | number
+    | Array<string | number | null>
+
 export interface ObjectEffectValues {
     [key: string]: MotionValue | undefined
 }
@@ -68,8 +73,13 @@ export function objectEffect(
 }
 
 /**
- * Animates Three.js uniforms and flattened object properties.
+ * Animates Three.js uniform nodes, uniforms and flattened object properties.
  */
+export function animate(
+    subject: ThreeUniform,
+    keyframes: UniformValueAnimationTarget,
+    options?: AnimationOptions
+): AnimationPlaybackControlsWithThen
 export function animate<T extends object>(
     subject: ThreeUniforms<T>,
     keyframes: UniformAnimationTarget<T>,
@@ -82,10 +92,16 @@ export function animate(
 ): AnimationPlaybackControlsWithThen
 export function animate(
     subject: object,
-    keyframes: ObjectAnimationTarget,
+    keyframes: UniformValueAnimationTarget | ObjectAnimationTarget,
     options?: AnimationOptions
 ): AnimationPlaybackControlsWithThen {
-    return animateEffect(subject, keyframes, options)
+    return animateEffect(
+        subject,
+        typeof keyframes === "object" && !Array.isArray(keyframes)
+            ? keyframes
+            : { value: keyframes },
+        options
+    )
 }
 
 const transformMap = {
@@ -108,8 +124,7 @@ function resolveThreeEffect(
 ) {
     const object = subject as ThreeObject
     const resolvedAdapter =
-        adapter ??
-        (isUniform(object[key]) ? uniformAdapter : objectAdapter)
+        adapter ?? (isUniform(object[key]) ? uniformAdapter : objectAdapter)
     const initial =
         resolvedAdapter === uniformAdapter
             ? getAnimatableValue((object as Uniforms)[key]?.value)
@@ -135,24 +150,32 @@ function getObjectValue(object: ThreeObject, key: string) {
         return getAnimatableValue(object.scale?.x)
     }
 
+    const node = getNodeUniform(object, key)
+    if (node) return getAnimatableValue(node.value)
+
     const value =
         getProperty(object, key) ??
         getProperty(object.material, key) ??
         getUniformValue(object.material?.uniforms ?? object.uniforms, key) ??
         getVectorComponent(object, key) ??
         getVectorComponent(object.material, key) ??
-        getUniformComponent(
-            object.material?.uniforms ?? object.uniforms,
-            key
-        )
+        getUniformComponent(object.material?.uniforms ?? object.uniforms, key)
 
     return value
 }
 
+/**
+ * Resolves TSL uniform nodes assigned to node material slots, e.g.
+ * material.colorNode = uniform(color). Non-uniform nodes are compiled
+ * into the shader so can't be animated via their value.
+ */
+function getNodeUniform(object: ThreeObject, key: string) {
+    const node = object[key + "Node"] ?? object.material?.[key + "Node"]
+    return node?.isUniformNode ? (node as ThreeUniform) : undefined
+}
+
 function getProperty(target: ThreeObject | undefined, key: string) {
-    return target && key in target
-        ? getAnimatableValue(target[key])
-        : undefined
+    return target && key in target ? getAnimatableValue(target[key]) : undefined
 }
 
 function getUniformValue(uniforms: Uniforms | undefined, key: string) {
@@ -170,18 +193,14 @@ function getVectorComponent(target: ThreeObject | undefined, key: string) {
 function getUniformComponent(uniforms: Uniforms | undefined, key: string) {
     const uniform = uniforms?.[key.slice(0, -1)]
     return uniform
-        ? getVectorComponent(
-              { value: uniform.value },
-              `value${key.slice(-1)}`
-          )
+        ? getVectorComponent({ value: uniform.value }, `value${key.slice(-1)}`)
         : undefined
 }
 
 function getAnimatableValue(value: unknown) {
     if (typeof value === "string" || typeof value === "number") return value
 
-    return value &&
-        typeof (value as ThreeObject).getStyle === "function"
+    return value && typeof (value as ThreeObject).getStyle === "function"
         ? (value as ThreeObject).getStyle()
         : undefined
 }
@@ -209,6 +228,12 @@ function setObjectValue(object: ThreeObject, key: string, value: unknown) {
 
     if (key === "scale") {
         object.scale.x = object.scale.y = object.scale.z = value
+        return
+    }
+
+    const node = getNodeUniform(object, key)
+    if (node) {
+        setProperty(node, "value", value)
         return
     }
 

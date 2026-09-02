@@ -89,6 +89,79 @@ describe("motion/three", () => {
         expect(uniforms.opacity.value).toBe(1)
     })
 
+    it("animates TSL uniform nodes directly", async () => {
+        const progress = { value: 0 }
+
+        await animate(progress, 1, { duration: 0.001 })
+        await nextFrame()
+
+        expect(progress.value).toBe(1)
+    })
+
+    it("animates TSL color uniform nodes directly", async () => {
+        const color = {
+            getStyle: () => "#000",
+            set: jest.fn(),
+        }
+        const tint = { value: color }
+
+        await animate(tint, "#fff", { duration: 0.001 })
+        await nextFrame()
+
+        expect(tint.value).toBe(color)
+        expect(color.set).toHaveBeenLastCalledWith("#fff")
+    })
+
+    it("animates TSL node material uniforms in favour of plain properties", async () => {
+        const nodeColor = { getStyle: () => "#000", set: jest.fn() }
+        const material = {
+            color: { getStyle: () => "#000", set: jest.fn() },
+            colorNode: { isUniformNode: true, value: nodeColor },
+            opacityNode: { isUniformNode: true, value: 0 },
+        }
+
+        await animate(
+            material,
+            { color: "#fff", opacity: 1 },
+            { duration: 0.001 }
+        )
+        await nextFrame()
+
+        expect(nodeColor.set).toHaveBeenLastCalledWith("#fff")
+        expect(material.color.set).not.toHaveBeenCalled()
+        expect(material.opacityNode.value).toBe(1)
+    })
+
+    it("ignores non-uniform nodes when resolving material values", async () => {
+        const material = {
+            color: { getStyle: () => "#000", set: jest.fn() },
+            colorNode: { value: 0 },
+        }
+
+        await animate(material, { color: "#fff" }, { duration: 0.001 })
+        await nextFrame()
+
+        expect(material.color.set).toHaveBeenLastCalledWith("#fff")
+        expect(material.colorNode.value).toBe(0)
+    })
+
+    it("animates TSL node material uniforms via the mesh", async () => {
+        const mesh = {
+            position: { x: 0, y: 0, z: 0 },
+            material: {
+                opacity: 1,
+                opacityNode: { isUniformNode: true, value: 1 },
+            },
+        }
+
+        await animate(mesh, { x: 2, opacity: 0.5 }, { duration: 0.001 })
+        await nextFrame()
+
+        expect(mesh.position.x).toBe(2)
+        expect(mesh.material.opacityNode.value).toBe(0.5)
+        expect(mesh.material.opacity).toBe(1)
+    })
+
     it("updates Three.js color uniforms without replacing them", async () => {
         const color = { set: jest.fn() }
         const uniforms = { tint: { value: color } }

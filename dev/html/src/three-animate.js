@@ -95,14 +95,16 @@ document.querySelector("#uniform").addEventListener("click", () => {
     uniformActive = !uniformActive
     status.textContent = "Animating shader uniforms"
 
-    animate(
-        uniforms,
-        {
-            progress: uniformActive ? 1 : 0,
-            tint: uniformActive ? "#fbbf24" : "#22d3ee",
-        },
-        { duration: 1, ease: "easeInOut" }
-    ).then(() => {
+    Promise.all([
+        animate(uniforms.progress, uniformActive ? 1 : 0, {
+            duration: 1,
+            ease: "easeInOut",
+        }),
+        animate(uniforms.tint, uniformActive ? "#fbbf24" : "#22d3ee", {
+            duration: 1,
+            ease: "easeInOut",
+        }),
+    ]).then(() => {
         status.textContent = "Uniform animation complete"
     })
 })
