@@ -3,18 +3,21 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Motion Three.js animate</title>
+        <title>Motion Three.js TSL</title>
     </head>
     <body>
         <main>
             <header>
                 <div>
-                    <h1>Three.js animate()</h1>
-                    <p>Direct object, material and shader uniform animation.</p>
+                    <h1>Three.js TSL + WebGPURenderer</h1>
+                    <p>
+                        animate() driving TSL uniform nodes, node material slots
+                        and GPU fan-out.
+                    </p>
                 </div>
                 <nav>
+                    <a href="/three-animate.html">Three animate</a>
                     <a href="/three-effects.html">Three effects</a>
-                    <a href="/three-tsl.html">Three TSL</a>
                     <a href="/vgpu.html">vgpu</a>
                 </nav>
             </header>
@@ -22,14 +25,16 @@
                 <canvas></canvas>
                 <div class="panel">
                     <div class="controls">
-                        <button class="primary" id="move">Animate mesh</button>
-                        <button id="uniform">Animate uniforms</button>
+                        <button class="primary" id="mesh">
+                            Animate mesh + node material
+                        </button>
+                        <button id="fanout">Spring GPU fan-out</button>
                         <button id="reset">Reset</button>
                     </div>
                     <output id="status">Ready</output>
                 </div>
             </section>
         </main>
-        <script type="module" src="/src/three-animate.js"></script>
+        <script type="module" src="/src/three-tsl.js"></script>
     </body>
 </html>

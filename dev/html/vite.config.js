@@ -12,6 +12,7 @@ export default defineConfig({
                 "index.html",
                 "three-animate.html",
                 "three-effects.html",
+                "three-tsl.html",
                 "vgpu.html",
             ],
         },
