@@ -1,4 +1,4 @@
-import { MotionGlobalConfig, noop } from "motion-utils"
+import { MotionGlobalConfig } from "motion-utils"
 import { time } from "../frameloop/sync-time"
 import { JSAnimation } from "./JSAnimation"
 import { getFinalKeyframe } from "./keyframes/get-final"
@@ -29,10 +29,11 @@ import { supportsBrowserAnimation } from "./waapi/supports/waapi"
  */
 const MAX_RESOLVE_DELAY = 40
 
-type OptionsWithoutKeyframes<T extends AnyResolvedKeyframe> = Omit<
-    ValueAnimationOptions<T>,
-    "keyframes"
->
+type ResolvedOptions<T extends AnyResolvedKeyframe> =
+    ValueAnimationOptions<T> & {
+        startTime?: number
+        finalKeyframe?: T
+    }
 
 export class AsyncMotionValueAnimation<T extends AnyResolvedKeyframe>
     extends WithPromise
@@ -50,35 +51,24 @@ export class AsyncMotionValueAnimation<T extends AnyResolvedKeyframe>
 
     private stopTimeline: VoidFunction | undefined
 
-    constructor({
-        autoplay = true,
-        delay = 0,
-        type = "keyframes",
-        repeat = 0,
-        repeatDelay = 0,
-        repeatType = "loop",
-        keyframes,
-        name,
-        motionValue,
-        element,
-        ...options
-    }: ValueAnimationOptions<T>) {
+    constructor(options: ValueAnimationOptions<T>) {
         super()
 
         this.createdAt = time.now()
 
-        const optionsWithDefaults: OptionsWithoutKeyframes<T> = {
-            autoplay,
-            delay,
-            type,
-            repeat,
-            repeatDelay,
-            repeatType,
-            name,
-            motionValue,
-            element,
-            ...options,
-        }
+        const { keyframes, name, motionValue, element } = options
+
+        /**
+         * One copy of the options is made here and then completed in place
+         * as keyframes resolve, rather than copying at every stage.
+         */
+        const optionsWithDefaults = { ...options } as ResolvedOptions<T>
+        optionsWithDefaults.autoplay ??= true
+        optionsWithDefaults.delay ??= 0
+        optionsWithDefaults.type ??= "keyframes"
+        optionsWithDefaults.repeat ??= 0
+        optionsWithDefaults.repeatDelay ??= 0
+        optionsWithDefaults.repeatType ??= "loop"
 
         const KeyframeResolver =
             element?.KeyframeResolver || DefaultKeyframeResolver
@@ -106,7 +96,7 @@ export class AsyncMotionValueAnimation<T extends AnyResolvedKeyframe>
     onKeyframesResolved(
         keyframes: ResolvedKeyframes<T>,
         finalKeyframe: T,
-        options: OptionsWithoutKeyframes<T>,
+        options: ResolvedOptions<T>,
         sync: boolean
     ) {
         this.keyframeResolver = undefined
@@ -152,11 +142,18 @@ export class AsyncMotionValueAnimation<T extends AnyResolvedKeyframe>
                 : this.createdAt
             : undefined
 
-        const resolvedOptions = {
-            startTime,
-            finalKeyframe,
-            ...options,
-            keyframes,
+        const { onComplete } = options
+        options.startTime = startTime
+        options.finalKeyframe = finalKeyframe
+        options.keyframes = keyframes
+        /**
+         * JSAnimation and NativeAnimation call onComplete exactly when
+         * their own `finished` resolves, so this replaces a promise chain
+         * per value with a callback.
+         */
+        options.onComplete = () => {
+            onComplete?.()
+            this.notifyFinished()
         }
 
         /**
@@ -168,28 +165,24 @@ export class AsyncMotionValueAnimation<T extends AnyResolvedKeyframe>
          * values may not be valid CSS and would trigger browser warnings.
          */
         const useWaapi =
-            canAnimateValue &&
-            !isHandoff &&
-            supportsBrowserAnimation(resolvedOptions)
-        const element = resolvedOptions.motionValue?.owner?.current
+            canAnimateValue && !isHandoff && supportsBrowserAnimation(options)
 
         let animation: AnimationPlaybackControls
         if (useWaapi) {
+            /**
+             * The resolver needed the VisualElement, WAAPI needs the DOM
+             * element. JSAnimation reads neither, so this is safe to
+             * leave in place if we fall back to it.
+             */
+            options.element = options.motionValue?.owner?.current
             try {
-                animation = new NativeAnimationExtended({
-                    ...resolvedOptions,
-                    element,
-                } as any)
+                animation = new NativeAnimationExtended(options as any)
             } catch {
-                animation = new JSAnimation(resolvedOptions)
+                animation = new JSAnimation(options)
             }
         } else {
-            animation = new JSAnimation(resolvedOptions)
+            animation = new JSAnimation(options)
         }
-
-        animation.finished.then(() => {
-            this.notifyFinished()
-        }).catch(noop)
 
         if (this.pendingTimeline) {
             this.stopTimeline = animation.attachTimeline(this.pendingTimeline)
@@ -200,11 +193,7 @@ export class AsyncMotionValueAnimation<T extends AnyResolvedKeyframe>
     }
 
     get finished() {
-        if (!this._animation) {
-            return this._finished
-        } else {
-            return this.animation.finished
-        }
+        return this._animation ? this._animation.finished : super.finished
     }
 
     then(onResolve: VoidFunction, _onReject?: VoidFunction) {
