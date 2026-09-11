@@ -493,6 +493,7 @@ export class MotionValue<V = any> {
              */
             let isComplete = false
             let animation: MotionValueAnimation | undefined
+            // eslint-disable-next-line prefer-const -- read by the callback before assignment when completing synchronously
             animation = startAnimation(() => {
                 isComplete = true
                 this.events.animationComplete?.notify()

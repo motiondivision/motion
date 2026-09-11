@@ -7,7 +7,7 @@ import { Mixer } from "./types"
  * A single number with an optional unit, e.g. "50%", "-10px", ".5em".
  * Exponents don't match, so they fall through to the complex mixer.
  */
-const unitValue = /^(-?(?:\d+\.?\d*|\.\d+))([a-zA-Z%]*)$/
+const unitValue = /^(-?(?:\d+(?:\.\d*)?|\.\d+))([a-z%]*)$/iu
 
 /**
  * Most CSS values Motion mixes are a single number with a unit. Mixing
