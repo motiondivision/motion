@@ -4,7 +4,13 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
-## [13.2.0] 2026-unreleased
+## [13.2.1] 2026-09-unreleased
+
+### Changed
+
+-   `springValue`/`useSpring`: Improved performance when retargeting spring.
+
+## [13.2.0] 2026-09-03
 
 ### Added
 
