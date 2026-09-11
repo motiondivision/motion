@@ -22,6 +22,13 @@ const nonTranslationalTransformKeys = transformPropOrder.filter(
 )
 
 type RemovedTransforms = [string, AnyResolvedKeyframe][]
+
+/**
+ * Reset any bounding box-changing transforms so the element can be
+ * measured. Returns the values to restore. Values already at their
+ * default don't change the box, so they're left alone: an element with
+ * only `rotate: 0` doesn't need to be re-rendered before measuring.
+ */
 export function removeNonTranslationalTransform(visualElement: WithRender) {
     const removedTransforms: RemovedTransforms = []
 
@@ -29,8 +36,13 @@ export function removeNonTranslationalTransform(visualElement: WithRender) {
         const value: MotionValue<AnyResolvedKeyframe> | undefined =
             visualElement.getValue(key)
         if (value !== undefined) {
-            removedTransforms.push([key, value.get()])
-            value.set(key.startsWith("scale") ? 1 : 0)
+            const current = value.get()
+            const reset = key.startsWith("scale") ? 1 : 0
+
+            if (current === reset) return
+
+            removedTransforms.push([key, current])
+            value.set(reset)
         }
     })
 

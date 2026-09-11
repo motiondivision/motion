@@ -6,13 +6,18 @@ import { colorRegex } from "../utils/color-regex"
 import { floatRegex } from "../utils/float-regex"
 import { sanitize } from "../utils/sanitize"
 
+/**
+ * Non-global copies of the token regexes so test() can use .test()
+ * (no match array, stops at the first token) without lastIndex state.
+ */
+const hasFloat = /*@__PURE__*/ new RegExp(floatRegex.source)
+const hasColor = /*@__PURE__*/ new RegExp(colorRegex.source, "i")
+
 function test(v: any) {
     return (
         isNaN(v) &&
         typeof v === "string" &&
-        (v.match(floatRegex)?.length || 0) +
-            (v.match(colorRegex)?.length || 0) >
-            0
+        (hasFloat.test(v) || hasColor.test(v))
     )
 }
 
@@ -42,6 +47,16 @@ export interface ComplexValueInfo {
 // this regex consists of the `singleCssVariableRegex|rgbHSLValueRegex|digitRegex`
 const complexRegex =
     /var\s*\(\s*--(?:[\w-]+\s*|[\w-]+\s*,(?:\s*[^)(\s]|\s*\((?:[^)(]|\([^)(]*\))*\))+\s*)\)|#[\da-f]{3,8}|(?:rgb|hsl)a?\((?:-?[\d.]+%?[,\s]+){2}-?[\d.]+%?\s*(?:[,/]\s*)?(?:\b\d+(?:\.\d+)?|\.\d+)?%?\)|-?(?:\d+(?:\.\d+)?|\.\d+)/giu
+
+const complexToken = /*@__PURE__*/ new RegExp(complexRegex.source, "i")
+
+/**
+ * Whether analyseComplexValue(value) would find any values, without
+ * tokenising the string.
+ */
+export function hasComplexValues(value: AnyResolvedKeyframe) {
+    return complexToken.test(value.toString())
+}
 
 export function analyseComplexValue(
     value: AnyResolvedKeyframe

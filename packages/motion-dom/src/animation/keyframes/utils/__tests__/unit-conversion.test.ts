@@ -1,4 +1,46 @@
-import { positionalValues } from "../unit-conversion"
+import { motionValue } from "../../../../value"
+import {
+    positionalValues,
+    removeNonTranslationalTransform,
+} from "../unit-conversion"
+
+describe("removeNonTranslationalTransform", () => {
+    test("resets transforms that would change the bounding box", () => {
+        const values = new Map([
+            ["x", motionValue(50)],
+            ["rotate", motionValue(45)],
+            ["scale", motionValue(2)],
+            ["scaleX", motionValue(1)],
+            ["skewX", motionValue(0)],
+        ])
+        const visualElement = { getValue: (key: string) => values.get(key) }
+
+        const removed = removeNonTranslationalTransform(visualElement as any)
+
+        expect(removed).toEqual([
+            ["scale", 2],
+            ["rotate", 45],
+        ])
+        expect(values.get("rotate")!.get()).toBe(0)
+        expect(values.get("scale")!.get()).toBe(1)
+        // Translations and defaults are left alone
+        expect(values.get("x")!.get()).toBe(50)
+        expect(values.get("scaleX")!.get()).toBe(1)
+        expect(values.get("skewX")!.get()).toBe(0)
+    })
+
+    test("returns nothing when every transform is already default", () => {
+        const values = new Map([
+            ["rotate", motionValue(0)],
+            ["scale", motionValue(1)],
+        ])
+        const visualElement = { getValue: (key: string) => values.get(key) }
+
+        expect(removeNonTranslationalTransform(visualElement as any)).toEqual(
+            []
+        )
+    })
+})
 
 describe("Unit conversion", () => {
     test("Correctly factors in padding when measuring width/height", () => {
