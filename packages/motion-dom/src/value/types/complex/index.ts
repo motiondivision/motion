@@ -48,14 +48,14 @@ export interface ComplexValueInfo {
 const complexRegex =
     /var\s*\(\s*--(?:[\w-]+\s*|[\w-]+\s*,(?:\s*[^)(\s]|\s*\((?:[^)(]|\([^)(]*\))*\))+\s*)\)|#[\da-f]{3,8}|(?:rgb|hsl)a?\((?:-?[\d.]+%?[,\s]+){2}-?[\d.]+%?\s*(?:[,/]\s*)?(?:\b\d+(?:\.\d+)?|\.\d+)?%?\)|-?(?:\d+(?:\.\d+)?|\.\d+)/giu
 
-const complexToken = /*@__PURE__*/ new RegExp(complexRegex.source, "i")
-
 /**
  * Whether analyseComplexValue(value) would find any values, without
- * tokenising the string.
+ * tokenising the string. CSS variables are resolved before this is
+ * used, so it's enough to look for a number or a color.
  */
 export function hasComplexValues(value: AnyResolvedKeyframe) {
-    return complexToken.test(value.toString())
+    const asString = value.toString()
+    return hasFloat.test(asString) || hasColor.test(asString)
 }
 
 export function analyseComplexValue(

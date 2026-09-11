@@ -485,16 +485,24 @@ export class MotionValue<V = any> {
 
         return new Promise<void>((resolve) => {
             this.hasAnimated = true
-            this.animation = startAnimation(resolve)
 
-            if (this.events.animationStart) {
-                this.events.animationStart.notify()
-            }
-        }).then(() => {
-            if (this.events.animationComplete) {
-                this.events.animationComplete.notify()
-            }
-            this.clearAnimation()
+            /**
+             * Complete synchronously via the callback rather than chaining a
+             * second promise per animation. Guard against animations that
+             * complete before startAnimation has returned.
+             */
+            let isComplete = false
+            let animation: MotionValueAnimation | undefined
+            animation = startAnimation(() => {
+                isComplete = true
+                this.events.animationComplete?.notify()
+                if (this.animation === animation) this.clearAnimation()
+                resolve()
+            })
+
+            if (!isComplete) this.animation = animation
+
+            this.events.animationStart?.notify()
         })
     }
 
@@ -523,7 +531,8 @@ export class MotionValue<V = any> {
     }
 
     private clearAnimation() {
-        delete this.animation
+        // Assign rather than delete to keep the object's shape stable
+        this.animation = undefined
     }
 
     /**

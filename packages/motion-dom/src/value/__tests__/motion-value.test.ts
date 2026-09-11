@@ -170,6 +170,68 @@ describe("MotionValue change subscribers", () => {
     })
 })
 
+describe("MotionValue.start", () => {
+    test("resolves and fires animationComplete when the animation completes", async () => {
+        const value = motionValue(0)
+        const onStart = jest.fn()
+        const onComplete = jest.fn()
+        value.on("animationStart", onStart)
+        value.on("animationComplete", onComplete)
+
+        let complete: VoidFunction = () => {}
+        const animation = { stop: jest.fn() }
+        const promise = value.start((resolve) => {
+            complete = resolve
+            return animation as any
+        })
+
+        expect(onStart).toHaveBeenCalledTimes(1)
+        expect(value.isAnimating()).toBe(true)
+        expect(value.animation).toBe(animation)
+
+        complete()
+
+        expect(onComplete).toHaveBeenCalledTimes(1)
+        expect(value.isAnimating()).toBe(false)
+        await promise
+    })
+
+    test("handles animations that complete synchronously", async () => {
+        const value = motionValue(0)
+        const onComplete = jest.fn()
+        value.on("animationComplete", onComplete)
+
+        const promise = value.start((resolve) => {
+            resolve()
+            return { stop: () => {} } as any
+        })
+
+        expect(onComplete).toHaveBeenCalledTimes(1)
+        expect(value.isAnimating()).toBe(false)
+        await promise
+    })
+
+    test("a stale completion doesn't clear a newer animation", async () => {
+        const value = motionValue(0)
+
+        let completeFirst: VoidFunction = () => {}
+        const first = { stop: jest.fn() }
+        value.start((resolve) => {
+            completeFirst = resolve
+            return first as any
+        })
+
+        const second = { stop: jest.fn() }
+        value.start(() => second as any)
+        expect(first.stop).toHaveBeenCalledTimes(1)
+
+        completeFirst()
+
+        expect(value.animation).toBe(second)
+        expect(value.isAnimating()).toBe(true)
+    })
+})
+
 describe("MotionValue velocity calculations", () => {
     beforeEach(() => {
         MotionGlobalConfig.useManualTiming = true
