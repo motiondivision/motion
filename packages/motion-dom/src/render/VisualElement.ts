@@ -18,7 +18,6 @@ import { createBox } from "../projection/geometry/models"
 import { motionValue, MotionValue } from "../value"
 import { complex } from "../value/types/complex"
 import { getAnimatableNone } from "../value/types/utils/animatable-none"
-import { findValueType } from "../value/types/utils/find"
 import { isMotionValue } from "../value/utils/is-motion-value"
 import { Feature } from "./Feature"
 import { visualElementStore } from "./store"
@@ -876,7 +875,18 @@ export abstract class VisualElement<
             ) {
                 // If this is a number read as a string, ie "0" or "200", convert it to a number
                 value = parseFloat(value)
-            } else if (!findValueType(value) && complex.test(target)) {
+            } else if (
+                /**
+                 * If the value as read isn't animatable (e.g. "none") but
+                 * the target is, derive an animatable none from the target.
+                 * A value is animatable if it's a number or contains a
+                 * number or color, which is cheaper to check than trying
+                 * every value type in turn.
+                 */
+                typeof value !== "number" &&
+                !complex.test(value) &&
+                complex.test(target)
+            ) {
                 value = getAnimatableNone(key, target as string)
             }
 
