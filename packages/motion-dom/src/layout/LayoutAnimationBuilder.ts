@@ -1,4 +1,5 @@
 import { clamp } from "motion-utils"
+import { handOffElementState } from "../animation/animate/element"
 import { GroupAnimation } from "../animation/GroupAnimation"
 import type { AnimationOptions, Transition } from "../animation/types"
 import { frameData, frameSteps } from "../frameloop"
@@ -126,7 +127,16 @@ function prepareNode(
             | HTMLVisualElement
             | undefined
 
-        if (!visualElement) visualElement = createVisualElement()
+        if (!visualElement) {
+            visualElement = createVisualElement()
+
+            /**
+             * Values animate() has been rendering on this element move to
+             * the VisualElement, so the layout animation composes with
+             * them instead of overwriting them.
+             */
+            handOffElementState(element, visualElement)
+        }
 
         /**
          * A first-time element may carry a projection transform in its

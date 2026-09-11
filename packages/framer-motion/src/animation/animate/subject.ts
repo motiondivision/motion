@@ -1,6 +1,7 @@
 import {
     animateEffectSubject,
     animateElement,
+    animateTarget,
     AnimationPlaybackControlsWithThen,
     AnimationScope,
     AnyResolvedKeyframe,
@@ -15,8 +16,10 @@ import {
     isMotionValue,
     MotionValue,
     propEffect,
+    TargetAndTransition,
     UnresolvedValueKeyframe,
     ValueAnimationTransition,
+    visualElementStore,
 } from "motion-dom"
 import { invariant } from "motion-utils"
 import { ObjectTarget } from "../sequence/types"
@@ -143,15 +146,28 @@ export function animateSubject<O extends Object>(
 
             if (thisSubject instanceof Element) {
                 /**
-                 * DOM elements are driven through the style effect and
-                 * the DOM keyframe resolver rather than a VisualElement.
+                 * An element already owned by a VisualElement (a <motion.*>
+                 * component or animateLayout()) keeps animating through it so
+                 * they share values and a single renderer. Anything else is
+                 * driven through the style effect and the DOM keyframe
+                 * resolver, without creating a VisualElement.
                  */
+                const visualElement = visualElementStore.get(thisSubject)
                 animations.push(
-                    ...animateElement(
-                        thisSubject as HTMLElement | SVGElement,
-                        keyframes as ElementKeyframes,
-                        transition as ElementTransition
-                    )
+                    ...(visualElement
+                        ? animateTarget(
+                              visualElement,
+                              {
+                                  ...(keyframes as {}),
+                                  transition,
+                              } as TargetAndTransition,
+                              {}
+                          )
+                        : animateElement(
+                              thisSubject as HTMLElement | SVGElement,
+                              keyframes as ElementKeyframes,
+                              transition as ElementTransition
+                          ))
                 )
             } else {
                 /**

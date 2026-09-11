@@ -1,6 +1,11 @@
 import { frame } from "../../../frameloop"
+import { HTMLVisualElement } from "../../../render/html/HTMLVisualElement"
 import { motionValue } from "../../../value"
-import { animateElement, getElementState } from "../element"
+import {
+    animateElement,
+    getElementState,
+    handOffElementState,
+} from "../element"
 
 async function nextFrame() {
     return new Promise<void>((resolve) => {
@@ -153,6 +158,57 @@ describe("animateElement", () => {
 
         animation.stop()
         jest.restoreAllMocks()
+        element.remove()
+    })
+
+    it("hands its values to a VisualElement that takes over the element", async () => {
+        const element = document.createElement("div")
+        document.body.appendChild(element)
+
+        const [animation] = animateElement(
+            element,
+            { x: [0, 100], opacity: [1, 0.5] },
+            { duration: 10, ease: "linear" }
+        )
+        const state = getElementState(element)
+        const x = state.getValue("x")!
+        expect(state.state.transformKeys).toEqual(["x"])
+
+        // As animateLayout() does when it first meets the element
+        const visualElement = new HTMLVisualElement({
+            props: {},
+            presenceContext: null,
+            visualState: {
+                latestValues: {},
+                renderState: {
+                    transform: {},
+                    transformOrigin: {},
+                    style: {},
+                    vars: {},
+                },
+            },
+        })
+        handOffElementState(element, visualElement)
+        visualElement.mount(element)
+
+        // The same values now live on the VisualElement...
+        expect(visualElement.getValue("x")).toBe(x)
+        expect(visualElement.getValue("opacity")).toBeDefined()
+        // ...not the style effect's derived transform
+        expect(visualElement.getValue("transform")).toBeUndefined()
+        // ...and the style effect has let go of them
+        expect(state.state.get("x")).toBeUndefined()
+        expect(state.state.get("transform")).toBeUndefined()
+        expect(getElementState(element)).not.toBe(state)
+
+        // The VisualElement renders them from here
+        x.jump(40)
+        await nextFrame()
+        expect(visualElement.latestValues.x).toBe(40)
+        expect(element.style.transform).toBe("translateX(40px)")
+
+        animation.stop()
+        visualElement.unmount()
         element.remove()
     })
 })

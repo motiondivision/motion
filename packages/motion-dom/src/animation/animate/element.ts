@@ -8,6 +8,7 @@ import {
 import { frame } from "../../frameloop"
 import { measureViewportBox } from "../../projection/utils/measure"
 import { positionalKeys } from "../../render/utils/keys-position"
+import type { VisualElement } from "../../render/VisualElement"
 import { MotionValue, motionValue, Owner } from "../../value"
 import { complex } from "../../value/types/complex"
 import { getAnimatableNone } from "../../value/types/utils/animatable-none"
@@ -108,6 +109,34 @@ export function getElementState(element: StyleSubject): ElementState {
     }
 
     return state
+}
+
+/**
+ * Hand the values animate() is rendering on `element` to a VisualElement
+ * that now owns the element (e.g. created by animateLayout()), so a
+ * single renderer drives them alongside its own values.
+ */
+export function handOffElementState(
+    element: Element,
+    visualElement: VisualElement
+) {
+    const state = elementStates.get(element)
+    if (!state) return
+
+    const { transformKeys } = state.state
+    state.state.release().forEach((value, key) => {
+        /**
+         * The style effect derives transform (from the bound transform
+         * keys) and transformBox itself; a VisualElement builds its own.
+         */
+        const derived =
+            key === "transformBox" ||
+            (key === "transform" && transformKeys?.length)
+
+        derived || visualElement.addValue(key, value)
+    })
+
+    elementStates.delete(element)
 }
 
 export type ElementKeyframes = DOMKeyframesDefinition & {

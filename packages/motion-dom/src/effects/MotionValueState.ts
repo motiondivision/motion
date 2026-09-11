@@ -98,6 +98,19 @@ export class MotionValueState {
         return this.values.get(name)?.value
     }
 
+    /**
+     * Detach every value from this state and return them, so another
+     * renderer can take them over.
+     */
+    release() {
+        const values = new Map<string, MotionValue>()
+        this.values.forEach((entry, name) => {
+            values.set(name, entry.value)
+            entry.onRemove()
+        })
+        return values
+    }
+
     private schedule(render: VoidFunction) {
         const { pending, numPending } = this
 
