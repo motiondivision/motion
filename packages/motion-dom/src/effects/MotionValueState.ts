@@ -11,47 +11,6 @@ interface Entry {
     onRemove: VoidFunction
 }
 
-interface Batch {
-    states: MotionValueState[]
-    flush: VoidFunction
-}
-
-/**
- * States with renders pending, batched per frameloop step so that any
- * number of subjects updating in a frame share a single frameloop callback.
- * Weak so a custom scheduler isn't retained once its states are gone.
- */
-const batches = new WeakMap<Schedule, Batch>()
-
-function getBatch(step: Schedule) {
-    let batch = batches.get(step)
-
-    if (!batch) {
-        let spare: MotionValueState[] = []
-
-        const newBatch: Batch = {
-            states: [],
-            flush: () => {
-                /**
-                 * Swap buffers so renders scheduled while flushing are
-                 * deferred to the next frame, as with the frameloop itself.
-                 */
-                const flushing = newBatch.states
-                newBatch.states = spare
-
-                for (let i = 0; i < flushing.length; i++) flushing[i].flush()
-
-                flushing.length = 0
-                spare = flushing
-            },
-        }
-
-        batches.set(step, (batch = newBatch))
-    }
-
-    return batch
-}
-
 export class MotionValueState {
     latest: { [name: string]: AnyResolvedKeyframe } = {}
 
@@ -63,12 +22,13 @@ export class MotionValueState {
 
     private values = new Map<string, Entry>()
 
-    private batch: Batch
-
     /**
-     * Renders scheduled for the next flush, usually one or two. Tracked
-     * with a count rather than truncating the array so no backing store
-     * is reallocated every frame.
+     * Renders scheduled for the next flush, usually one or two (values
+     * bound to the same computed render, e.g. `x` and `y` to `transform`,
+     * share an entry). Tracked with a count rather than truncating the
+     * array so no backing store is reallocated every frame. Kept per
+     * state so pending writes can be flushed synchronously before the
+     * subject is measured.
      */
     private pending: VoidFunction[] = []
     private numPending = 0
@@ -78,9 +38,7 @@ export class MotionValueState {
      * to `frame.render`. Effects that feed a render loop running in
      * `frame.render` (GPU scenes) should write in `frame.preRender`.
      */
-    constructor(private step: Schedule = frame.render) {
-        this.batch = getBatch(step)
-    }
+    constructor(private step: Schedule = frame.render) {}
 
     /**
      * @param computed - A value already in this state (e.g. `transform`)
@@ -136,16 +94,13 @@ export class MotionValueState {
     }
 
     private schedule(render: VoidFunction) {
-        const { pending, numPending, batch } = this
+        const { pending, numPending } = this
 
         for (let i = 0; i < numPending; i++) {
             if (pending[i] === render) return
         }
 
-        if (!numPending) {
-            batch.states.length || this.step(batch.flush)
-            batch.states.push(this)
-        }
+        numPending || this.step(this.flush)
 
         pending[this.numPending++] = render
     }
@@ -161,7 +116,12 @@ export class MotionValueState {
         }
     }
 
-    flush() {
+    /**
+     * Run the pending renders. Resetting the count first means a render
+     * scheduled while flushing lands in the next frame, as with the
+     * frameloop itself.
+     */
+    flush = () => {
         const { pending, numPending } = this
         this.numPending = 0
         for (let i = 0; i < numPending; i++) pending[i]()
