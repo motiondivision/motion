@@ -1,9 +1,11 @@
 import { isCSSVar } from "../../render/dom/is-css-var"
+import { readTransformValue } from "../../render/dom/parse-transform"
 import {
     transformPropOrder,
     transformProps,
 } from "../../render/utils/keys-transform"
 import { isHTMLElement } from "../../utils/is-html-element"
+import { isSVGElement } from "../../utils/is-svg-element"
 import { MotionValue } from "../../value"
 import { MotionValueState } from "../MotionValueState"
 import { createSelectorEffect } from "../utils/create-dom-effect"
@@ -74,6 +76,33 @@ export const addStyleValue = (
     return state.set(key, value, render, computed, !transformProps.has(key))
 }
 
+type StyleSubject = HTMLElement | SVGElement
+
+const isStyleSubject = (subject: unknown): subject is StyleSubject =>
+    isHTMLElement(subject) || isSVGElement(subject)
+
+/**
+ * Reads the current value of a style from the element, as the initial
+ * keyframe when `animate()` targets an element via this effect. Transforms
+ * are parsed out of the computed matrix; everything else is the computed
+ * style. Units aren't converted to match the target keyframes.
+ */
+const readStyleValue = (element: StyleSubject, key: string) => {
+    if (transformProps.has(key)) {
+        return readTransformValue(element as HTMLElement, key)
+    }
+
+    const computedStyle = getComputedStyle(element)
+    const value = isCSSVar(key)
+        ? computedStyle.getPropertyValue(key)
+        : computedStyle[key as any]
+
+    return typeof value === "string" ? value.trim() || undefined : undefined
+}
+
 export const styleEffect = /*@__PURE__*/ createSelectorEffect(
-    /*@__PURE__*/ createEffect(addStyleValue)
+    /*@__PURE__*/ createEffect(addStyleValue, {
+        test: isStyleSubject,
+        read: readStyleValue,
+    })
 )

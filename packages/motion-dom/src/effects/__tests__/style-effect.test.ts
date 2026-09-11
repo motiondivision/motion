@@ -525,3 +525,52 @@ describe("styleEffect", () => {
         expect(element.style.transform).toBe("none")
     })
 })
+
+describe("styleEffect as an animate() effect", () => {
+    it("claims HTML and SVG elements only", () => {
+        expect(styleEffect.test(document.createElement("div"))).toBe(true)
+        expect(
+            styleEffect.test(
+                document.createElementNS("http://www.w3.org/2000/svg", "rect")
+            )
+        ).toBe(true)
+        expect(styleEffect.test({})).toBe(false)
+        expect(styleEffect.test("div")).toBe(false)
+        expect(styleEffect.test(null)).toBe(false)
+    })
+
+    it("reads styles, CSS variables and transforms from the element", () => {
+        const element = document.createElement("div")
+        element.style.width = "50px"
+        element.style.backgroundColor = "rgb(255, 0, 0)"
+        element.style.setProperty("--progress", "0.5")
+        // Browsers report computed transforms as a matrix
+        element.style.transform = "matrix(2, 0, 0, 2, 20, 0)"
+
+        expect(styleEffect.read(element, "width")).toBe("50px")
+        expect(styleEffect.read(element, "backgroundColor")).toBe(
+            "rgb(255, 0, 0)"
+        )
+        expect(styleEffect.read(element, "--progress")).toBe("0.5")
+        expect(styleEffect.read(element, "x")).toBe(20)
+        expect(styleEffect.read(element, "scale")).toBe(2)
+        expect(styleEffect.read(element, "rotate")).toBe(0)
+    })
+
+    it("returns undefined for values that can't be read", () => {
+        const element = document.createElement("div")
+
+        expect(styleEffect.read(element, "notAStyle")).toBeUndefined()
+    })
+
+    it("exposes bound motion values via get", () => {
+        const element = document.createElement("div")
+        const width = motionValue("10px")
+
+        expect(styleEffect.get(element, "width")).toBeUndefined()
+
+        styleEffect(element, { width })
+
+        expect(styleEffect.get(element, "width")).toBe(width)
+    })
+})

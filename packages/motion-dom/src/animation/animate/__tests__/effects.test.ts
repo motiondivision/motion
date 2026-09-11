@@ -1,3 +1,4 @@
+import { styleEffect } from "../../../effects/style"
 import { createEffect } from "../../../effects/utils/create-effect"
 import { frame } from "../../../frameloop"
 import { motionValue } from "../../../value"
@@ -76,6 +77,17 @@ describe("effect registry", () => {
         expect(findEffect(createSubject())).toBe(subjectEffect)
     })
 
+    it("accepts styleEffect", () => {
+        const element = document.createElement("div")
+
+        addEffect(styleEffect)
+
+        expect(findEffect(element)).toBe(styleEffect)
+        expect(findEffect(createSubject())).toBeUndefined()
+
+        removeEffect(styleEffect)
+    })
+
     it("doesn't register the same effect twice", () => {
         addEffect(subjectEffect)
         addEffect(subjectEffect)
@@ -122,6 +134,44 @@ describe("animateEffectSubject", () => {
         await nextFrame()
 
         expect(subject.values.x).toBe(100)
+    })
+
+    it("doesn't read the subject when the from keyframe is supplied", async () => {
+        const subject = createSubject({ x: 0, y: 0 })
+        const read = jest.fn(subjectEffect.read)
+        const effect = createEffect<Subject>(() => () => {}, {
+            test: subjectEffect.test,
+            read,
+        })
+
+        animateEffectSubject(effect, subject, { x: [50, 100] })
+        expect(read).not.toHaveBeenCalled()
+
+        animateEffectSubject(effect, subject, { y: [null, 100] })
+        expect(read).toHaveBeenCalledWith(subject, "y", [null, 100])
+    })
+
+    it("animates DOM elements via styleEffect", async () => {
+        const element = document.createElement("div")
+        element.style.opacity = "0"
+        element.style.width = "10px"
+
+        const animations = animateEffectSubject(
+            styleEffect,
+            element,
+            { opacity: 1, width: "50px", x: 100 },
+            { duration: 0.1, ease: "linear" }
+        )
+
+        expect(animations.length).toBe(3)
+        expect(styleEffect.get(element, "width")!.get()).toBe("10px")
+
+        await Promise.all(animations.map((animation) => animation.finished))
+        await nextFrame()
+
+        expect(element.style.opacity).toBe("1")
+        expect(element.style.width).toBe("50px")
+        expect(element.style.transform).toBe("translateX(100px)")
     })
 
     it("throws when a value can't be read and no from keyframe is provided", () => {

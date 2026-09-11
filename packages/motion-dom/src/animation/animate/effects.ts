@@ -47,8 +47,9 @@ export type EffectTransition = ValueAnimationTransition &
 
 /**
  * Animate the keys of `subject` via `effect`. Motion values are created on
- * first animation, seeded from `effect.read()` or the first keyframe, and
- * then bound to the subject via the effect for the rest of its life.
+ * first animation, seeded from the first keyframe when one is supplied and
+ * otherwise read from the subject, and then bound to the subject via the
+ * effect for the rest of its life.
  */
 export function animateEffectSubject<Subject extends object>(
     effect: AnimateEffect<Subject>,
@@ -64,7 +65,7 @@ export function animateEffectSubject<Subject extends object>(
 
         if (!value) {
             const initial =
-                effect.read(subject, key, target) ?? firstKeyframe(target)
+                firstKeyframe(target) ?? effect.read(subject, key, target)
 
             invariant(
                 initial !== undefined,
