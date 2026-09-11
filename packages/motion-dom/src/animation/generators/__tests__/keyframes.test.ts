@@ -80,6 +80,84 @@ describe("keyframes", () => {
         ).toEqual([50, 60, 70, 80, 90, 100, 60, 20, -20, -60, -100])
     })
 
+    test("clamps two keyframes to the duration", () => {
+        const generator = keyframes({
+            keyframes: [0, 100],
+            duration: 100,
+            ease: linear,
+        })
+        expect(generator.next(-50).value).toBe(0)
+        expect(generator.next(50).value).toBe(50)
+        expect(generator.next(50).done).toBe(false)
+        expect(generator.next(150).value).toBe(100)
+        expect(generator.next(150).done).toBe(true)
+    })
+
+    test("two keyframes with a zero duration resolve to the target", () => {
+        const generator = keyframes({
+            keyframes: [0, 100],
+            duration: 0,
+            ease: linear,
+        })
+        expect(generator.next(0)).toEqual({ value: 100, done: true })
+    })
+
+    test("two identical keyframes hold the value", () => {
+        const generator = keyframes({
+            keyframes: ["50%", "50%"] as any,
+            duration: 100,
+            ease: linear,
+        })
+        expect(generator.next(50).value).toBe("50%")
+        expect(generator.next(150).done).toBe(true)
+    })
+
+    test("two keyframes honour times", () => {
+        const withDefaultTimes = keyframes({
+            keyframes: [0, 100],
+            duration: 100,
+            ease: linear,
+            times: [0, 1],
+        })
+        expect(withDefaultTimes.next(50).value).toBe(50)
+
+        const withOffsetTimes = keyframes({
+            keyframes: [0, 100],
+            duration: 100,
+            ease: linear,
+            times: [0.5, 1],
+        })
+        expect(withOffsetTimes.next(50).value).toBe(0)
+        expect(withOffsetTimes.next(75).value).toBe(50)
+    })
+
+    test("two keyframes accept an easing array", () => {
+        expect(
+            animateSync(
+                keyframes({
+                    keyframes: [0, 100],
+                    duration: 100,
+                    ease: [linear],
+                }),
+                20
+            )
+        ).toEqual([0, 20, 40, 60, 80, 100])
+    })
+
+    test("animates unit strings", () => {
+        expect(
+            animateSync(
+                keyframes({
+                    keyframes: ["0%", "50%"] as any,
+                    duration: 100,
+                    ease: linear,
+                }),
+                20,
+                false
+            )
+        ).toEqual(["0%", "10%", "20%", "30%", "40%", "50%"])
+    })
+
     test("animates colors", () => {
         expect(
             animateSync(

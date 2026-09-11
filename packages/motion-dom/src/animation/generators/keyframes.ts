@@ -1,10 +1,13 @@
 import {
+    clamp,
     easeInOut,
     easingDefinitionToFunction,
     EasingFunction,
     isEasingArray,
+    MotionGlobalConfig,
 } from "motion-utils"
 import { interpolate } from "../../utils/interpolate"
+import { mix } from "../../utils/mix"
 import { defaultOffset } from "../keyframes/offsets/default"
 import { convertOffsetToTimes } from "../keyframes/offsets/time"
 import {
@@ -42,6 +45,39 @@ export function keyframes<T extends AnyResolvedKeyframe>({
     const state: AnimationState<T> = {
         done: false,
         value: keyframeValues[0],
+    }
+
+    /**
+     * The common case of two keyframes and one easing needs no times or
+     * mixer arrays: it's the same interpolation as below, inlined.
+     */
+    if (
+        keyframeValues.length === 2 &&
+        !Array.isArray(easingFunctions) &&
+        (!times ||
+            times.length !== 2 ||
+            (times[0] === 0 && times[1] === 1))
+    ) {
+        const [origin, target] = keyframeValues
+        const mixer =
+            origin === target
+                ? undefined
+                : (MotionGlobalConfig.mix || mix)(origin, target)
+
+        return {
+            calculatedDuration: duration,
+            next: (t: number) => {
+                state.value = mixer
+                    ? mixer(
+                          easingFunctions(
+                              duration > 0 ? clamp(0, 1, t / duration) : 1
+                          )
+                      )
+                    : target
+                state.done = t >= duration
+                return state
+            },
+        }
     }
 
     /**
