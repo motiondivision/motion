@@ -111,6 +111,17 @@ export type AnimationPlaybackControlsWithThen = AnimationPlaybackControls & {
     then: (onResolve: VoidFunction, onReject?: VoidFunction) => Promise<void>
 }
 
+/**
+ * The controls a `MotionValue` exposes for its current animation via
+ * `value.animation`. Animations started by `animate()` implement the
+ * full `AnimationPlaybackControls`; followers (`springValue`,
+ * `followValue`) only implement these.
+ */
+export type MotionValueAnimation = Pick<
+    AnimationPlaybackControlsWithThen,
+    "state" | "stop" | "finished" | "then"
+>
+
 export interface AnimationState<V> {
     value: V
     done: boolean
@@ -120,6 +131,7 @@ export interface KeyframeGenerator<V> {
     calculatedDuration: null | number
     next: (t: number) => AnimationState<V>
     velocity?: (t: number) => number
+    retarget?: (keyframes: V[], velocity: number) => void
     toString: () => string
 }
 

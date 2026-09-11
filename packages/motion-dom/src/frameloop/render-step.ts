@@ -18,8 +18,11 @@ export function createRenderStep(runNextFrame: () => void): Step {
 
     /**
      * A set of processes which were marked keepAlive when scheduled.
+     * A keepAlive process is always also held by a frame queue until
+     * it's cancelled, so a Set has the same lifetime semantics as a
+     * WeakSet here while being considerably faster to query every frame.
      */
-    const toKeepAlive = new WeakSet<Process>()
+    const toKeepAlive = new Set<Process>()
 
     let latestFrameData: FrameData = {
         delta: 0.0,

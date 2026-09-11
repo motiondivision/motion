@@ -151,7 +151,9 @@ export function animateTarget(
             )
         )
 
-        const animation = value.animation
+        const animation = value.animation as
+            | AnimationPlaybackControlsWithThen
+            | undefined
 
         if (animation) {
             animations.push(animation)

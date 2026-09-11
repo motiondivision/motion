@@ -20,5 +20,5 @@ export function animateSingleValue<V extends AnyResolvedKeyframe>(
 
     motionValue.start(animateMotionValue("", motionValue, keyframes, options))
 
-    return motionValue.animation!
+    return motionValue.animation as AnimationPlaybackControlsWithThen
 }

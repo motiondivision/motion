@@ -1,7 +1,12 @@
 import { wrap } from "motion-utils"
 import { motionValue } from "../../value"
 import { animateMotionValue } from "../interfaces/motion-value"
-import type { MotionPath, PathInterpolator, Point2D } from "../types"
+import type {
+    AnimationPlaybackControlsWithThen,
+    MotionPath,
+    PathInterpolator,
+    Point2D,
+} from "../types"
 import { getValueTransition } from "./get-value-transition"
 
 export interface ArcOptions {
@@ -314,7 +319,11 @@ export function arc(options: ArcOptions = {}): MotionPath {
                 })
             )
 
-            if (progress.animation) animations.push(progress.animation)
+            if (progress.animation) {
+                animations.push(
+                    progress.animation as AnimationPlaybackControlsWithThen
+                )
+            }
 
             delete (target as { x?: unknown }).x
             delete (target as { y?: unknown }).y

@@ -237,8 +237,6 @@ function spring(
               } as ValueAnimationOptions<number>)
             : optionsOrVisualDuration
 
-    let { restSpeed, restDelta } = options
-
     const origin = options.keyframes[0]
     const target = options.keyframes[options.keyframes.length - 1]
 
@@ -260,14 +258,26 @@ function spring(
         velocity: -millisecondsToSeconds(options.velocity || 0),
     })
 
-    const initialVelocity = velocity || 0.0
     const dampingRatio = damping / (2 * Math.sqrt(stiffness * mass))
-
-    const initialDelta = target - origin
     const undampedAngularFreq = millisecondsToSeconds(
         Math.sqrt(stiffness / mass)
     )
     const decay = dampingRatio * undampedAngularFreq
+
+    /**
+     * Everything that changes when the spring is retargeted: written by
+     * retarget() and update(), read by the resolvers. Grouped on one object,
+     * like the coefficients (c) below. Writing doubles to object fields
+     * measured marginally faster than to captured let variables in optimised
+     * code; neither allocates, so this is a grouping choice, not a GC one.
+     */
+    const s = {
+        target,
+        delta: target - origin,
+        velocity: velocity || 0.0,
+        restSpeed: 0,
+        restDelta: 0,
+    }
 
     /**
      * If we're working on a granular scale, use smaller defaults for determining
@@ -276,68 +286,82 @@ function spring(
      * These defaults have been selected emprically based on what strikes a good
      * ratio between feeling good and finishing as soon as changes are imperceptible.
      */
-    const isGranularScale = Math.abs(initialDelta) < 5
-    restSpeed ||= isGranularScale
-        ? springDefaults.restSpeed.granular
-        : springDefaults.restSpeed.default
-    restDelta ||= isGranularScale
-        ? springDefaults.restDelta.granular
-        : springDefaults.restDelta.default
+    const setRestThresholds = () => {
+        const isGranularScale = Math.abs(s.delta) < 5
+        s.restSpeed =
+            options.restSpeed ||
+            (isGranularScale
+                ? springDefaults.restSpeed.granular
+                : springDefaults.restSpeed.default)
+        s.restDelta =
+            options.restDelta ||
+            (isGranularScale
+                ? springDefaults.restDelta.granular
+                : springDefaults.restDelta.default)
+    }
+    setRestThresholds()
 
     let resolveSpring: (v: number) => number
     let resolveVelocity: (t: number) => number
 
+    /**
+     * Derives the coefficients that depend on origin, target and initial
+     * velocity. Called once now and again whenever the spring is retargeted.
+     */
+    let update: VoidFunction
+
     if (dampingRatio < 1) {
         const angularFreq = calcAngularFreq(undampedAngularFreq, dampingRatio)
 
-        const A = (initialVelocity + decay * initialDelta) / angularFreq
-
-        // Coefficients for the analytical derivative (px/ms)
-        const sinCoeff = decay * A + initialDelta * angularFreq
-        const cosCoeff = decay * initialDelta - A * angularFreq
-
         /**
-         * The underdamped hot path needs both position and velocity every
-         * frame and they share the same exp/sin/cos terms, so sample both
-         * at once, memoized by t, to only calculate them once per frame.
+         * A is the position coefficient, sinC/cosC the coefficients of the
+         * analytical derivative (px/ms). The exp/sin/cos terms depend only
+         * on t, so they're memoized by t independently of the target: a
+         * spring retargeted every frame samples the same t each frame and
+         * skips the transcendentals entirely.
          */
-        let sampledT = -1
-        let position = 0
-        let velocityAtT = 0
+        const c = { A: 0, sinC: 0, cosC: 0, t: -1, env: 0, sin: 0, cos: 0 }
+
+        update = () => {
+            c.A = (s.velocity + decay * s.delta) / angularFreq
+            c.sinC = decay * c.A + s.delta * angularFreq
+            c.cosC = decay * s.delta - c.A * angularFreq
+        }
+
         const sample = (t: number) => {
-            if (t !== sampledT) {
-                sampledT = t
-                const envelope = Math.exp(-decay * t)
-                const sin = Math.sin(angularFreq * t)
-                const cos = Math.cos(angularFreq * t)
-                position = target - envelope * (A * sin + initialDelta * cos)
-                velocityAtT = envelope * (sinCoeff * sin + cosCoeff * cos)
+            if (t !== c.t) {
+                c.t = t
+                c.env = Math.exp(-decay * t)
+                c.sin = Math.sin(angularFreq * t)
+                c.cos = Math.cos(angularFreq * t)
             }
         }
 
         // Underdamped spring
         resolveSpring = (t: number) => {
             sample(t)
-            return position
+            return s.target - c.env * (c.A * c.sin + s.delta * c.cos)
         }
 
         resolveVelocity = (t: number) => {
             sample(t)
-            return velocityAtT
+            return c.env * (c.sinC * c.sin + c.cosC * c.cos)
         }
     } else if (dampingRatio === 1) {
         // Critically damped spring
         resolveSpring = (t: number) =>
-            target -
+            s.target -
             Math.exp(-undampedAngularFreq * t) *
-                (initialDelta +
-                    (initialVelocity + undampedAngularFreq * initialDelta) * t)
+                (s.delta + (s.velocity + undampedAngularFreq * s.delta) * t)
 
         // Analytical derivative of critically damped spring (px/ms)
-        const C = initialVelocity + undampedAngularFreq * initialDelta
+        const c = { C: 0 }
+        update = () => {
+            c.C = s.velocity + undampedAngularFreq * s.delta
+        }
         resolveVelocity = (t: number) =>
             Math.exp(-undampedAngularFreq * t) *
-                (undampedAngularFreq * C * t - initialVelocity)
+            (undampedAngularFreq * c.C * t - s.velocity)
     } else {
         // Overdamped spring
         const dampedAngularFreq =
@@ -350,34 +374,61 @@ function spring(
             const freqForT = Math.min(dampedAngularFreq * t, 300)
 
             return (
-                target -
+                s.target -
                 (envelope *
-                    ((initialVelocity + decay * initialDelta) *
-                        Math.sinh(freqForT) +
-                        dampedAngularFreq *
-                            initialDelta *
-                            Math.cosh(freqForT))) /
+                    ((s.velocity + decay * s.delta) * Math.sinh(freqForT) +
+                        dampedAngularFreq * s.delta * Math.cosh(freqForT))) /
                     dampedAngularFreq
             )
         }
 
         // Analytical derivative of overdamped spring (px/ms)
-        const P = (initialVelocity + decay * initialDelta) / dampedAngularFreq
-        const sinhCoeff = decay * P - initialDelta * dampedAngularFreq
-        const coshCoeff = decay * initialDelta - P * dampedAngularFreq
+        const c = { P: 0, sinh: 0, cosh: 0 }
+        update = () => {
+            c.P = (s.velocity + decay * s.delta) / dampedAngularFreq
+            c.sinh = decay * c.P - s.delta * dampedAngularFreq
+            c.cosh = decay * s.delta - c.P * dampedAngularFreq
+        }
         resolveVelocity = (t: number) => {
             const envelope = Math.exp(-decay * t)
             const freqForT = Math.min(dampedAngularFreq * t, 300)
             return (
                 envelope *
-                (sinhCoeff * Math.sinh(freqForT) +
-                    coshCoeff * Math.cosh(freqForT))
+                (c.sinh * Math.sinh(freqForT) + c.cosh * Math.cosh(freqForT))
             )
         }
     }
 
+    update()
+
+    /**
+     * Time-defined springs ignore inherited velocity, see getSpringOptions.
+     */
+    const ignoreVelocity =
+        !isSpringType(options, physicsKeys) &&
+        isSpringType(options, durationKeys)
+
+    const calculatedDuration = isResolvedFromDuration ? duration || null : null
+
     const generator = {
-        calculatedDuration: isResolvedFromDuration ? duration || null : null,
+        calculatedDuration,
+        /**
+         * Aim the spring at a new target from its current position and
+         * velocity, reusing the resolved physics and closures.
+         */
+        retarget: (keyframes: number[], newVelocity: number) => {
+            s.target = keyframes[keyframes.length - 1]
+            s.delta = s.target - keyframes[0]
+            s.velocity = ignoreVelocity
+                ? 0
+                : -millisecondsToSeconds(newVelocity)
+            // Default thresholds depend on the scale of the new delta
+            if (!(options.restSpeed && options.restDelta)) setRestThresholds()
+            // Invalidate any duration lazily cached by JSAnimation
+            generator.calculatedDuration = calculatedDuration
+            state.done = false
+            update()
+        },
         velocity: (t: number) => secondsToMilliseconds(resolveVelocity(t)),
         next: (t: number) => {
             const current = resolveSpring(t)
@@ -387,30 +438,30 @@ function spring(
                     resolveVelocity(t)
                 )
                 state.done =
-                    Math.abs(currentVelocity) <= restSpeed! &&
-                    Math.abs(target - current) <= restDelta!
+                    Math.abs(currentVelocity) <= s.restSpeed &&
+                    Math.abs(s.target - current) <= s.restDelta
             } else {
                 state.done = t >= duration!
             }
 
-            state.value = state.done ? target : current
+            state.value = state.done ? s.target : current
 
             return state
         },
         toString: () => {
-            const calculatedDuration = Math.min(
+            const easingDuration = Math.min(
                 calcGeneratorDuration(generator),
                 maxGeneratorDuration
             )
 
             const easing = generateLinearEasing(
                 (progress: number) =>
-                    generator.next(calculatedDuration * progress).value,
-                calculatedDuration,
+                    generator.next(easingDuration * progress).value,
+                easingDuration,
                 30
             )
 
-            return calculatedDuration + "ms " + easing
+            return easingDuration + "ms " + easing
         },
         toTransition: () => {},
     }

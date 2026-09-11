@@ -7,6 +7,7 @@ import {
 import {
     AnimationPlaybackControlsWithThen,
     AnyResolvedKeyframe,
+    MotionValueAnimation,
     TransformProperties,
 } from "../animation/types"
 import { frame } from "../frameloop"
@@ -133,7 +134,14 @@ export class MotionValue<V = any> {
     /**
      * A reference to the currently-controlling animation.
      */
-    animation?: AnimationPlaybackControlsWithThen
+    animation?: MotionValueAnimation
+
+    /**
+     * The sole `change` subscriber. Most values have exactly one (an
+     * effect or a follower), so it's stored and notified directly. A
+     * SubscriptionManager is only created for a second subscriber.
+     */
+    private changeSubscriber?: Subscriber<V>
 
     /**
      * Tracks whether this value can output a velocity. Currently this is only true
@@ -247,33 +255,52 @@ export class MotionValue<V = any> {
     on<EventName extends keyof MotionValueEventCallbacks<V>>(
         eventName: EventName,
         callback: MotionValueEventCallbacks<V>[EventName]
-    ) {
-        if (!this.events[eventName]) {
-            this.events[eventName] = new SubscriptionManager()
-        }
+    ): VoidFunction {
+        if (eventName === "change") return this.onChangeSubscribe(callback)
 
-        const unsubscribe = this.events[eventName].add(callback)
+        return (this.events[eventName] ||= new SubscriptionManager()).add(
+            callback
+        )
+    }
 
-        if (eventName === "change") {
-            return () => {
-                unsubscribe()
+    private onChangeSubscribe(callback: Subscriber<V>): VoidFunction {
+        const { events } = this
 
-                /**
-                 * If we have no more change listeners by the start
-                 * of the next frame, stop active animations.
-                 */
-                frame.read(() => {
-                    if (!this.events.change.getSize()) {
-                        this.stop()
-                    }
-                })
+        if (!events.change && !this.changeSubscriber) {
+            this.changeSubscriber = callback
+        } else {
+            if (!events.change) {
+                events.change = new SubscriptionManager()
+                events.change.add(this.changeSubscriber!)
+                this.changeSubscriber = undefined
             }
+            events.change.add(callback)
         }
 
-        return unsubscribe
+        return () => {
+            if (this.changeSubscriber === callback) {
+                this.changeSubscriber = undefined
+            } else {
+                events.change?.remove(callback)
+            }
+            this.stopIfUnobserved()
+        }
+    }
+
+    /**
+     * If we have no more change listeners by the start
+     * of the next frame, stop active animations.
+     */
+    private stopIfUnobserved() {
+        frame.read(() => {
+            if (!this.changeSubscriber && !this.events.change?.getSize()) {
+                this.stop()
+            }
+        })
     }
 
     clearListeners() {
+        this.changeSubscriber = undefined
         for (const eventManagers in this.events) {
             this.events[eventManagers].clear()
         }
@@ -330,7 +357,21 @@ export class MotionValue<V = any> {
     }
 
     dirty() {
-        this.events.change?.notify(this.current)
+        this.notifyChange()
+    }
+
+    private notifyChange() {
+        const { current, changeSubscriber } = this
+        /**
+         * One or the other exists. Subscribing during the direct
+         * subscriber's call moves it into a new manager, which must not
+         * then be notified for the same change.
+         */
+        if (changeSubscriber) {
+            changeSubscriber(current!)
+        } else {
+            this.events.change?.notify(current)
+        }
     }
 
     addDependent(dependent: MotionValue) {
@@ -364,7 +405,7 @@ export class MotionValue<V = any> {
 
         // Update update subscribers
         if (this.current !== this.prev) {
-            this.events.change?.notify(this.current)
+            this.notifyChange()
 
             if (this.dependents) {
                 for (const dependent of this.dependents) {

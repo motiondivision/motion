@@ -11,6 +11,13 @@ import { nextFrame } from "../../gestures/__tests__/utils"
 import { render } from "../../jest.setup"
 import { act } from "react"
 
+/**
+ * The first change subscriber is stored on the value directly and only a
+ * second creates a SubscriptionManager, so count both. Private API.
+ */
+const countChangeSubscribers = (value: any) =>
+    (value.changeSubscriber ? 1 : 0) + (value.events.change?.getSize() ?? 0)
+
 describe("animate prop as object", () => {
     test("animates to set prop", async () => {
         const promise = new Promise((resolve) => {
@@ -1278,7 +1285,7 @@ describe("animate prop as object", () => {
                         animate={{ x: 100 }}
                         transition={{ duration: 0.01 }}
                         onAnimationStart={() =>
-                            resolve((x as any).events.change.getSize())
+                            resolve(countChangeSubscribers(x))
                         }
                         style={{ x }}
                     />

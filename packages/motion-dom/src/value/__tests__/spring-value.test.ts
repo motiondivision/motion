@@ -3,6 +3,13 @@ import { followValue } from "../follow-value"
 import { motionValue } from "../index"
 import { attachSpring, springValue } from "../spring-value"
 
+/**
+ * The first change subscriber is stored on the value directly and only a
+ * second creates a SubscriptionManager, so count both. Private API.
+ */
+const countChangeSubscribers = (value: any) =>
+    (value.changeSubscriber ? 1 : 0) + (value.events.change?.getSize() ?? 0)
+
 describe("springValue types", () => {
     test("can create a motion value from a number", () => {
         const x = springValue(100)
@@ -145,13 +152,13 @@ const runSpringTests = (unit?: string | undefined) => {
             const source = motionValue(createValue(0))
             const spring = springValue(source)
 
-            expect((source as any).events.change.getSize()).toBe(1)
+            expect(countChangeSubscribers(source)).toBe(1)
             expect((spring as any).events.destroy.getSize()).toBe(1)
 
             spring.destroy()
 
             // Cast to any here as `.events` is private API
-            expect((source as any).events.change.getSize()).toBe(0)
+            expect(countChangeSubscribers(source)).toBe(0)
             expect((spring as any).events.destroy.getSize()).toBe(0)
         })
 
@@ -159,12 +166,12 @@ const runSpringTests = (unit?: string | undefined) => {
             const source = motionValue(createValue(0))
             springValue(source)
 
-            expect((source as any).events.change.getSize()).toBe(1)
+            expect(countChangeSubscribers(source)).toBe(1)
 
             source.destroy()
 
             // Cast to any here as `.events` is private API
-            expect((source as any).events.change.getSize()).toBe(0)
+            expect(countChangeSubscribers(source)).toBe(0)
         })
 
         test("Cleanup function works as expected", () => {
@@ -175,14 +182,14 @@ const runSpringTests = (unit?: string | undefined) => {
             clean()
             const clean2 = attachSpring(spring, source)
 
-            expect((source as any).events.change.getSize()).toBe(1)
+            expect(countChangeSubscribers(source)).toBe(1)
             expect((spring as any).events.destroy.getSize()).toBe(1)
 
             clean2()
             const clean3 = attachSpring(spring, source)
             clean3()
 
-            expect((source as any).events.change.getSize()).toBe(0)
+            expect(countChangeSubscribers(source)).toBe(0)
             expect((spring as any).events.destroy.getSize()).toBe(0)
         })
 

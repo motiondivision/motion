@@ -6,6 +6,13 @@ import { render } from "../../jest.setup"
 import { useMotionValue } from "../use-motion-value"
 import { useFollowValue } from "../use-follow-value"
 
+/**
+ * The first change subscriber is stored on the value directly and only a
+ * second creates a SubscriptionManager, so count both. Private API.
+ */
+const countChangeSubscribers = (value: any) =>
+    (value.changeSubscriber ? 1 : 0) + (value.events.change?.getSize() ?? 0)
+
 describe("useFollowValue types", () => {
     test("can create a motion value from a number", async () => {
         const Component = () => {
@@ -218,7 +225,7 @@ const runAnimatedValueTests = (unit?: string | undefined) => {
             rerender(<Component target={a} />)
 
             // Cast to any here as `.events` is private API
-            expect((a as any).events.change.getSize()).toBe(1)
+            expect(countChangeSubscribers(a)).toBe(1)
         })
     })
 }
@@ -316,20 +323,6 @@ describe("useFollowValue with different transition types", () => {
             const x = useFollowValue(0, {
                 type: "spring",
                 delay: 0.5,
-            })
-            expect(x.get()).toBe(0)
-            return null
-        }
-        render(<Component />)
-    })
-
-    test("accepts repeat configuration", async () => {
-        const Component = () => {
-            const x = useFollowValue(0, {
-                type: "tween",
-                duration: 0.2,
-                repeat: 2,
-                repeatType: "reverse",
             })
             expect(x.get()).toBe(0)
             return null

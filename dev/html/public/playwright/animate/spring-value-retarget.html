@@ -1,0 +1,81 @@
+<html>
+    <body>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            const { springValue, styleEffect, frame } = window.Motion
+            const nextFrame = () =>
+                new Promise((resolve) => frame.postRender(resolve))
+
+            window.run = async () => {
+                let completions = 0
+                let maxRenderError = 0
+                /**
+                 * Alternate plain numbers with unit strings so both follower
+                 * paths are covered: numbers are fed straight to the spring,
+                 * "50%" is parsed to 50 and gets its unit re-appended on every
+                 * update. Elements are 100px wide so x: "50%" renders as 50px
+                 * and both can be checked against parseFloat(value.get()).
+                 */
+                const entries = Array.from({ length: 32 }, (_, i) => {
+                    const element = document.createElement("div")
+                    element.style.cssText = "width:100px;height:10px"
+                    document.body.append(element)
+                    const value = springValue(i % 2 ? "0%" : 0, {
+                        stiffness: 200,
+                        damping: 20,
+                    })
+                    value.on("animationComplete", () => completions++)
+                    const cancel = styleEffect(element, { x: value })
+                    return { element, value, cancel }
+                })
+
+                for (let f = 0; f < 20; f++) {
+                    entries.forEach(({ value }, i) => {
+                        const target = 100 + Math.sin(f / 5 + i) * 50
+                        value.set(i % 2 ? `${target}%` : target)
+                    })
+                    await nextFrame()
+                    entries.forEach(({ element, value }) => {
+                        const rendered = new DOMMatrix(
+                            getComputedStyle(element).transform
+                        ).m41
+                        maxRenderError = Math.max(
+                            maxRenderError,
+                            Math.abs(rendered - parseFloat(value.get()))
+                        )
+                    })
+                }
+
+                entries.forEach(({ value }, i) => value.set(i % 2 ? "80%" : 80))
+                await nextFrame()
+                await Promise.all(entries.map(({ value }) => value.animation))
+                await nextFrame()
+                const finalPositions = entries.map(
+                    ({ element }) =>
+                        new DOMMatrix(getComputedStyle(element).transform).m41
+                )
+                const animating = entries.some(({ value }) =>
+                    value.isAnimating()
+                )
+                entries.forEach(({ value }) => value.jump(0))
+                await nextFrame()
+                const jumpedPositions = entries.map(
+                    ({ element }) =>
+                        new DOMMatrix(getComputedStyle(element).transform).m41
+                )
+                entries.forEach(({ value, cancel, element }) => {
+                    cancel()
+                    value.destroy()
+                    element.remove()
+                })
+                return {
+                    maxRenderError,
+                    finalPositions,
+                    jumpedPositions,
+                    completions,
+                    animating,
+                }
+            }
+        </script>
+    </body>
+</html>

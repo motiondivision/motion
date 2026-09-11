@@ -85,7 +85,10 @@ export function animateEffectSubject<Subject extends object>(
             )
         )
 
-        value.animation && animations.push(value.animation)
+        value.animation &&
+            animations.push(
+                value.animation as AnimationPlaybackControlsWithThen
+            )
     }
 
     return animations

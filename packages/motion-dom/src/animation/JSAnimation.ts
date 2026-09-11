@@ -13,7 +13,7 @@ import { DriverControls } from "./drivers/types"
 import { inertia } from "./generators/inertia"
 import { keyframes as keyframesGenerator } from "./generators/keyframes"
 import { calcGeneratorDuration } from "./generators/utils/calc-duration"
-import { getGeneratorVelocity } from "./generators/utils/velocity"
+import { calcGeneratorVelocity } from "./generators/utils/velocity"
 import { getFinalKeyframe } from "./keyframes/get-final"
 import {
     AnimationPlaybackControlsWithThen,
@@ -402,19 +402,10 @@ export class JSAnimation<T extends number | string>
      * the MotionValue's frame-dependent velocity estimation.
      */
     getGeneratorVelocity(): number {
-        const t = this.currentTime
-        if (t <= 0) return this.options.velocity || 0
-
-        if (this.generator.velocity) {
-            return this.generator.velocity(t)
-        }
-
-        // Fallback: finite difference
-        const current = this.generator.next(t).value as number
-        return getGeneratorVelocity(
-            (s) => this.generator.next(s).value as number,
-            t,
-            current
+        return calcGeneratorVelocity(
+            this.generator,
+            this.currentTime,
+            this.options.velocity
         )
     }
 

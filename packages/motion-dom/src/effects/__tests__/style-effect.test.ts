@@ -9,6 +9,22 @@ async function nextFrame() {
 }
 
 describe("styleEffect", () => {
+    it("keeps transform order when bindings are added after rendering", async () => {
+        const element = document.createElement("div")
+        const rotate = motionValue(45)
+        const x = motionValue(0)
+        styleEffect(element, { rotate })
+        await nextFrame()
+        styleEffect(element, { x })
+        x.set(20)
+        await nextFrame()
+        expect(element.style.transform).toBe("translateX(20px) rotate(45deg)")
+        x.set(0)
+        rotate.set(0)
+        await nextFrame()
+        expect(element.style.transform).toBe("none")
+    })
+
     it("sets styles after styleEffect is applied", async () => {
         const element = document.createElement("div")
 

@@ -1,16 +1,27 @@
 import { MotionValue, motionValue } from "."
-import { JSAnimation } from "../animation/JSAnimation"
-import { AnyResolvedKeyframe, ValueAnimationTransition } from "../animation/types"
-import { frame } from "../frameloop"
+import { FollowAnimation } from "../animation/FollowAnimation"
+import {
+    AnyResolvedKeyframe,
+    ValueAnimationOptions,
+    ValueAnimationTransition,
+} from "../animation/types"
 import { isMotionValue } from "./utils/is-motion-value"
 
 /**
  * Options for useFollowValue hook, extending ValueAnimationTransition
- * but excluding lifecycle callbacks that don't make sense for the hook pattern.
+ * but excluding lifecycle callbacks that don't make sense for the hook pattern,
+ * and repeat options, as a follower always heads for its latest value.
  */
 export type FollowValueOptions = Omit<
     ValueAnimationTransition,
-    "onUpdate" | "onComplete" | "onPlay" | "onRepeat" | "onStop"
+    | "onUpdate"
+    | "onComplete"
+    | "onPlay"
+    | "onRepeat"
+    | "onStop"
+    | "repeat"
+    | "repeatType"
+    | "repeatDelay"
 > & {
     /**
      * When true, the first change from a tracked `MotionValue` source
@@ -70,14 +81,17 @@ export function attachFollow<T extends AnyResolvedKeyframe>(
 ): VoidFunction {
     const initialValue = value.get()
 
-    let activeAnimation: JSAnimation<number> | null = null
-    let latestValue = initialValue
-    let latestSetter: (v: T) => void
+    let activeAnimation: FollowAnimation | null = null
+    let set: (v: T) => void
 
     const unit =
         typeof initialValue === "string"
             ? initialValue.replace(/[\d.-]/g, "")
             : undefined
+
+    const onUpdate = (v: number) => set((unit ? v + unit : v) as T)
+
+    const onPlay = () => value["events"].animationStart?.notify()
 
     const stopAnimation = () => {
         if (activeAnimation) {
@@ -87,53 +101,56 @@ export function attachFollow<T extends AnyResolvedKeyframe>(
         value.animation = undefined
     }
 
-    const startAnimation = () => {
-        const currentValue = asNumber(value.get())
-        const targetValue = asNumber(latestValue)
+    value.attach((v, safeSet) => {
+        set = safeSet
+        const target = asNumber(v)
 
-        // Don't animate if we're already at the target
-        if (currentValue === targetValue) {
-            stopAnimation()
+        if (activeAnimation?.state === "running") {
+            /**
+             * Steer the running animation rather than replacing it. This
+             * keeps its completion promise and uses its analytical velocity
+             * for accuracy, preventing systematic velocity loss at high
+             * frame rates (240hz+).
+             */
+            activeAnimation.setTarget(target, options.velocity)
             return
         }
 
-        // Use the running animation's analytical velocity for accuracy,
-        // falling back to the MotionValue's velocity for the initial animation.
-        // This prevents systematic velocity loss at high frame rates (240hz+).
+        const current = asNumber(value.get())
         const velocity = activeAnimation
             ? activeAnimation.getGeneratorVelocity()
             : value.getVelocity()
 
         stopAnimation()
 
-        activeAnimation = new JSAnimation({
-            keyframes: [currentValue, targetValue],
+        // Don't animate if we're already at the target
+        if (current === target) return
+
+        const animationOptions: ValueAnimationOptions<number> = {
+            keyframes: [current, target],
             velocity,
             // Default to spring if no type specified (matches useSpring behavior)
             type: "spring",
             restDelta: 0.001,
             restSpeed: 0.01,
             ...options,
-            onUpdate: latestSetter,
-        })
-    }
+            onUpdate,
+        }
 
-    // Use a stable function reference so the frame loop Set deduplicates
-    // multiple calls within the same frame (e.g. rapid mouse events)
-    const scheduleAnimation = () => {
-        startAnimation()
-        value.animation = activeAnimation ?? undefined
-        value["events"].animationStart?.notify()
-        activeAnimation?.then(() => {
+        const animation = (activeAnimation = new FollowAnimation({
+            ...animationOptions,
+            onPlay,
+        }))
+
+        value.animation = animation
+
+        animation.then(() => {
+            // Ignore if this animation has since been replaced
+            if (activeAnimation !== animation) return
+            activeAnimation = null
             value.animation = undefined
             value["events"].animationComplete?.notify()
         })
-    }
-
-    value.attach((v, set) => {
-        latestValue = v
-        latestSetter = (latest) => set(parseValue(latest, unit) as T)
-        frame.postRender(scheduleAnimation)
     }, stopAnimation)
 
     if (isMotionValue(source)) {
