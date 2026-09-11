@@ -1,5 +1,10 @@
 import { MotionGlobalConfig } from "motion-utils"
 import { motionValue } from "../"
+import { animateMotionValue } from "../../animation/interfaces/motion-value"
+import {
+    MotionValueAnimation,
+    ValueAnimationTransition,
+} from "../../animation/types"
 import { frame, frameData } from "../../frameloop"
 import { time } from "../../frameloop/sync-time"
 
@@ -229,6 +234,41 @@ describe("MotionValue.start", () => {
 
         expect(value.animation).toBe(second)
         expect(value.isAnimating()).toBe(true)
+    })
+
+    test("an animation started from onComplete isn't cleared by the one that finished", async () => {
+        const value = motionValue(0)
+        const onComplete = jest.fn()
+        value.on("animationComplete", onComplete)
+
+        let second: MotionValueAnimation | undefined
+        const transition: ValueAnimationTransition = {
+            type: "tween",
+            duration: 0.02,
+            onComplete: () => {
+                value.start(
+                    animateMotionValue("x", value, 200, { duration: 1 })
+                )
+                second = value.animation
+            },
+        }
+
+        await new Promise<void>((resolve) => {
+            value.start(animateMotionValue("x", value, 100, transition))
+            /**
+             * The completion used to clear the value's animation a
+             * microtask later, so check after the frame has finished.
+             */
+            value.on("animationComplete", () =>
+                frame.postRender(() => resolve())
+            )
+        })
+
+        expect(second).toBeDefined()
+        expect(value.animation).toBe(second)
+        expect(value.isAnimating()).toBe(true)
+        expect(onComplete).toHaveBeenCalledTimes(1)
+        value.stop()
     })
 })
 
