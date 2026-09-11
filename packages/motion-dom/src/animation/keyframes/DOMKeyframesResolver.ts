@@ -84,6 +84,10 @@ export class DOMKeyframesResolver<
         }
 
         const [origin, target] = unresolvedKeyframes
+
+        // Two numbers share a unit, so skip the value type search.
+        if (typeof origin === "number" && typeof target === "number") return
+
         const originType = findDimensionValueType(origin)
         const targetType = findDimensionValueType(target)
 

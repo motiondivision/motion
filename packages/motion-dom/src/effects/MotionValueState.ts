@@ -70,7 +70,12 @@ export class MotionValueState {
             render && this.schedule(render)
         }
 
-        onChange(value.get())
+        /**
+         * Values created ahead of a DOM read start out undefined and
+         * have nothing to render until they're set.
+         */
+        const initial = value.get()
+        initial !== undefined && onChange(initial)
 
         const cancelOnChange = value.on("change", onChange)
 

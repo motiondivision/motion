@@ -59,10 +59,10 @@ export class AsyncMotionValueAnimation<T extends AnyResolvedKeyframe>
         const { keyframes, name, motionValue, element } = options
 
         /**
-         * One copy of the options is made here and then completed in place
-         * as keyframes resolve, rather than copying at every stage.
+         * animateMotionValue builds a fresh options object per value, so
+         * it's completed in place as keyframes resolve rather than copied.
          */
-        const optionsWithDefaults = { ...options } as ResolvedOptions<T>
+        const optionsWithDefaults = options as ResolvedOptions<T>
         optionsWithDefaults.autoplay ??= true
         optionsWithDefaults.delay ??= 0
         optionsWithDefaults.type ??= "keyframes"

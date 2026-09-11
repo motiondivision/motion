@@ -76,7 +76,7 @@ export const addStyleValue = (
     return state.set(key, value, render, computed, !transformProps.has(key))
 }
 
-type StyleSubject = HTMLElement | SVGElement
+export type StyleSubject = HTMLElement | SVGElement
 
 const isStyleSubject = (subject: unknown): subject is StyleSubject =>
     isHTMLElement(subject) || isSVGElement(subject)
@@ -87,7 +87,7 @@ const isStyleSubject = (subject: unknown): subject is StyleSubject =>
  * are parsed out of the computed matrix; everything else is the computed
  * style. Units aren't converted to match the target keyframes.
  */
-const readStyleValue = (element: StyleSubject, key: string) => {
+export const readStyleValue = (element: StyleSubject, key: string) => {
     if (transformProps.has(key)) {
         return readTransformValue(element as HTMLElement, key)
     }
