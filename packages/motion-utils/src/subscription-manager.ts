@@ -7,7 +7,11 @@ export class SubscriptionManager<Handler extends GenericHandler> {
 
     add(handler: Handler): VoidFunction {
         addUniqueItem(this.subscriptions, handler)
-        return () => removeItem(this.subscriptions, handler)
+        return () => this.remove(handler)
+    }
+
+    remove(handler: Handler) {
+        removeItem(this.subscriptions, handler)
     }
 
     notify(

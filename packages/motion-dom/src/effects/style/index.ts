@@ -1,5 +1,8 @@
 import { isCSSVar } from "../../render/dom/is-css-var"
-import { transformProps } from "../../render/utils/keys-transform"
+import {
+    transformPropOrder,
+    transformProps,
+} from "../../render/utils/keys-transform"
 import { isHTMLElement } from "../../utils/is-html-element"
 import { MotionValue } from "../../value"
 import { MotionValueState } from "../MotionValueState"
@@ -19,6 +22,16 @@ export const addStyleValue = (
     let computed: MotionValue | undefined = undefined
 
     if (transformProps.has(key)) {
+        const keys = (state.transformKeys ??= [])
+        if (!keys.includes(key) && key !== "pathRotation") {
+            keys.push(key)
+            keys.sort(
+                (a, b) =>
+                    transformPropOrder.indexOf(a) -
+                    transformPropOrder.indexOf(b)
+            )
+        }
+
         if (!state.get("transform")) {
             // If this is an HTML element, we need to set the transform-box to fill-box
             // to normalise the transform relative to the element's bounding box
@@ -58,7 +71,7 @@ export const addStyleValue = (
         }
     }
 
-    return state.set(key, value, render, computed)
+    return state.set(key, value, render, computed, !transformProps.has(key))
 }
 
 export const styleEffect = /*@__PURE__*/ createSelectorEffect(

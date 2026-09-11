@@ -6,6 +6,13 @@ import { render } from "../../jest.setup"
 import { useMotionValue } from "../use-motion-value"
 import { useSpring } from "../use-spring"
 
+/**
+ * The first change subscriber is stored on the value directly and only a
+ * second creates a SubscriptionManager, so count both. Private API.
+ */
+const countChangeSubscribers = (value: any) =>
+    (value.changeSubscriber ? 1 : 0) + (value.events.change?.getSize() ?? 0)
+
 describe("useSpring types", () => {
     test("can create a motion value from a number", async () => {
         const Component = () => {
@@ -217,7 +224,7 @@ const runSpringTests = (unit?: string | undefined) => {
             rerender(<Component target={a} />)
 
             // Cast to any here as `.events` is private API
-            expect((a as any).events.change.getSize()).toBe(1)
+            expect(countChangeSubscribers(a)).toBe(1)
         })
     })
 }

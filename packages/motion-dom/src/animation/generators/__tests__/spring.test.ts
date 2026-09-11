@@ -4,6 +4,29 @@ import { spring } from "../spring"
 import { calcGeneratorDuration } from "../utils/calc-duration"
 
 describe("spring", () => {
+    test.each([
+        { stiffness: 100, damping: 10 },
+        { stiffness: 100, damping: 20 },
+        { stiffness: 100, damping: 30 },
+        { duration: 600, bounce: 0.3 },
+        { visualDuration: 0.4, bounce: 0.3 },
+    ])("retargeting matches a new spring with %o", (options) => {
+        const generator = spring({ ...options, keyframes: [0, 100] })
+        for (const keyframes of [
+            [20, -50],
+            [0, 1],
+            [100, 300],
+        ]) {
+            generator.next(16)
+            generator.retarget!(keyframes, 300)
+            const fresh = spring({ ...options, keyframes, velocity: 300 })
+            for (const t of [0, 16, 100, 300, 1000, 2000]) {
+                expect(generator.next(t)).toEqual(fresh.next(t))
+                expect(generator.velocity!(t)).toBe(fresh.velocity!(t))
+            }
+        }
+    })
+
     test("Runs animations with default values ", () => {
         expect(animateSync(spring({ keyframes: [0, 1] }), 200)).toEqual([
             0, 1, 1, 1, 1, 1, 1, 1,
