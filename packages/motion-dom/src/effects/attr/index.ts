@@ -1,5 +1,7 @@
 import { camelToDash } from "../../render/dom/utils/camel-to-dash"
 import { MotionValue } from "../../value"
+import { numberValueTypes } from "../../value/types/maps/number"
+import { getValueAsType } from "../../value/types/utils/get-as-type"
 import { MotionValueState } from "../MotionValueState"
 import { createSelectorEffect } from "../utils/create-dom-effect"
 import { createEffect } from "../utils/create-effect"
@@ -15,18 +17,24 @@ function canSetAsProperty(element: HTMLElement | SVGElement, name: string) {
     return descriptor && typeof descriptor.set === "function"
 }
 
+/**
+ * `name` is the attribute written when it differs from the key the value
+ * is stored under, e.g. `attrX` -> `x`. Numbers take the attribute's
+ * default unit (`x: 100` -> `"100px"`), as they do when key and name match.
+ */
 export const addAttrValue = (
     element: HTMLElement | SVGElement,
     state: MotionValueState,
     key: string,
-    value: MotionValue
+    value: MotionValue,
+    name: string = key
 ) => {
-    const isProp = canSetAsProperty(element, key)
-    const name = isProp
-        ? key
-        : key.startsWith("data") || key.startsWith("aria")
-        ? camelToDash(key)
-        : key
+    const isProp = canSetAsProperty(element, name)
+    if (!isProp && (name.startsWith("data") || name.startsWith("aria"))) {
+        name = camelToDash(name)
+    }
+
+    const type = numberValueTypes[name]
 
     /**
      * Set attribute directly via property if available
@@ -36,7 +44,7 @@ export const addAttrValue = (
               ;(element as any)[name] = state.latest[key]
           }
         : () => {
-              const v = state.latest[key]
+              const v = getValueAsType(state.latest[key], type)
               if (v === null || v === undefined) {
                   element.removeAttribute(name)
               } else {

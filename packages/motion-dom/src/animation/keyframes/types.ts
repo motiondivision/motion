@@ -21,4 +21,5 @@ export interface AnimationElement extends Omit<WithRender, "current"> {
     current?: unknown
     KeyframeResolver?: typeof KeyframeResolver
     shouldSkipAnimations?: boolean
+    shouldReduceMotion?: boolean | null
 }

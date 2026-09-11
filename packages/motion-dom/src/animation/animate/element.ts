@@ -5,10 +5,12 @@ import {
     readStyleValue,
     StyleSubject,
 } from "../../effects/style"
+import { addSVGValue, readSVGValue } from "../../effects/svg"
 import { frame } from "../../frameloop"
 import { measureViewportBox } from "../../projection/utils/measure"
 import { positionalKeys } from "../../render/utils/keys-position"
 import type { VisualElement } from "../../render/VisualElement"
+import { isSVGElement } from "../../utils/is-svg-element"
 import { MotionValue, motionValue, Owner } from "../../value"
 import { complex } from "../../value/types/complex"
 import { getAnimatableNone } from "../../value/types/utils/animatable-none"
@@ -27,15 +29,24 @@ const noProps = {}
 
 /**
  * The state animate() keeps per DOM element: the motion values bound to
- * it via the style effect, plus what the DOM keyframe resolver needs to
- * read and measure it. Replaces the VisualElement for animate().
+ * it via the style effect (or the SVG effect, which also writes
+ * attributes and path drawing), plus what the DOM keyframe resolver needs
+ * to read and measure it. Replaces the VisualElement for animate().
  */
 export class ElementState implements AnimationElement, Owner {
     KeyframeResolver = DOMKeyframesResolver
 
     state = new MotionValueState()
 
-    constructor(public current: StyleSubject) {}
+    private add: typeof addStyleValue
+
+    private read: typeof readStyleValue
+
+    constructor(public current: StyleSubject) {
+        const isSVG = isSVGElement(current)
+        this.add = isSVG ? addSVGValue : addStyleValue
+        this.read = isSVG ? readSVGValue : readStyleValue
+    }
 
     getValue(key: string): MotionValue | undefined
     getValue(key: string, defaultValue: AnyResolvedKeyframe | null): MotionValue
@@ -57,7 +68,7 @@ export class ElementState implements AnimationElement, Owner {
     }
 
     addValue(key: string, value: MotionValue) {
-        return addStyleValue(this.current, this.state, key, value)
+        return this.add(this.current, this.state, key, value)
     }
 
     /**
@@ -67,8 +78,7 @@ export class ElementState implements AnimationElement, Owner {
      * that can't be read at all is 0, as the VisualElement reports it.
      */
     readValue(key: string, target?: AnyResolvedKeyframe | null) {
-        let value: AnyResolvedKeyframe =
-            readStyleValue(this.current, key) ?? 0
+        let value: AnyResolvedKeyframe = this.read(this.current, key) ?? 0
 
         if (typeof value === "string") {
             if (isNumericalString(value) || isZeroValueString(value)) {
@@ -158,15 +168,20 @@ export type ElementTransition = ValueTransition & {
  * via the style effect and resolved with the DOM keyframe resolver, so
  * reads are batched, units are converted by measurement and eligible
  * values run on WAAPI.
+ *
+ * `state` is what owns and renders the element's values: its ElementState
+ * by default, or the VisualElement of a <motion.*> component or
+ * animateLayout() node so the two keep sharing values and a renderer.
  */
 export function animateElement(
     element: StyleSubject,
     keyframes: ElementKeyframes,
-    transition: ElementTransition = {}
+    transition: ElementTransition = {},
+    state: AnimationElement = getElementState(element)
 ): AnimationPlaybackControlsWithThen[] {
-    const state = getElementState(element)
     const animations: AnimationPlaybackControlsWithThen[] = []
-    const { reduceMotion, velocity } = transition
+    const { velocity } = transition
+    const reduceMotion = transition.reduceMotion ?? state.shouldReduceMotion
 
     for (const key in keyframes) {
         if (key === "transition" || key === "transitionEnd") continue

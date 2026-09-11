@@ -211,4 +211,70 @@ describe("animateElement", () => {
         visualElement.unmount()
         element.remove()
     })
+
+    describe("on SVG elements", () => {
+        const svg = (tag: string) =>
+            document.createElementNS("http://www.w3.org/2000/svg", tag)
+
+        it("draws paths with pathLength", async () => {
+            const path = svg("path")
+
+            const [animation] = animateElement(
+                path,
+                { pathLength: [0, 1] },
+                { duration: 0.05 }
+            )
+
+            await animation.finished
+            await nextFrame()
+
+            expect(path.getAttribute("pathLength")).toBe("1")
+            expect(path.getAttribute("stroke-dasharray")).toBe("1 0")
+        })
+
+        it("reads attribute origins and writes attr* values as attributes", async () => {
+            const rect = svg("rect")
+            rect.setAttribute("x", "10")
+
+            const [animation] = animateElement(
+                rect,
+                { attrX: 50 },
+                { duration: 10, ease: "linear" }
+            )
+
+            await nextFrame()
+            await nextFrame()
+
+            const x = getElementState(rect).getValue("attrX")!.get()
+            expect(x).toBeGreaterThanOrEqual(10)
+            expect(x).toBeLessThan(11)
+            expect(parseFloat(rect.getAttribute("x")!)).toBeGreaterThanOrEqual(
+                10
+            )
+
+            animation.stop()
+        })
+
+        it("reads dash-cased attributes as origins", async () => {
+            const circle = svg("circle")
+            circle.setAttribute("stroke-width", "2")
+
+            const [animation] = animateElement(
+                circle,
+                { strokeWidth: 10 },
+                { duration: 10, ease: "linear" }
+            )
+
+            await nextFrame()
+            await nextFrame()
+
+            const strokeWidth = getElementState(circle)
+                .getValue("strokeWidth")!
+                .get()
+            expect(strokeWidth).toBeGreaterThanOrEqual(2)
+            expect(strokeWidth).toBeLessThan(3)
+
+            animation.stop()
+        })
+    })
 })

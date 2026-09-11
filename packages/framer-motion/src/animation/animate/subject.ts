@@ -1,7 +1,6 @@
 import {
     animateEffectSubject,
     animateElement,
-    animateTarget,
     AnimationPlaybackControlsWithThen,
     AnimationScope,
     AnyResolvedKeyframe,
@@ -16,7 +15,6 @@ import {
     isMotionValue,
     MotionValue,
     propEffect,
-    TargetAndTransition,
     UnresolvedValueKeyframe,
     ValueAnimationTransition,
     visualElementStore,
@@ -147,27 +145,18 @@ export function animateSubject<O extends Object>(
             if (thisSubject instanceof Element) {
                 /**
                  * An element already owned by a VisualElement (a <motion.*>
-                 * component or animateLayout()) keeps animating through it so
-                 * they share values and a single renderer. Anything else is
-                 * driven through the style effect and the DOM keyframe
-                 * resolver, without creating a VisualElement.
+                 * component or animateLayout()) animates its values so they
+                 * share one renderer. Anything else is driven through the
+                 * style effect and the DOM keyframe resolver, without
+                 * creating a VisualElement.
                  */
-                const visualElement = visualElementStore.get(thisSubject)
                 animations.push(
-                    ...(visualElement
-                        ? animateTarget(
-                              visualElement,
-                              {
-                                  ...(keyframes as {}),
-                                  transition,
-                              } as TargetAndTransition,
-                              {}
-                          )
-                        : animateElement(
-                              thisSubject as HTMLElement | SVGElement,
-                              keyframes as ElementKeyframes,
-                              transition as ElementTransition
-                          ))
+                    ...animateElement(
+                        thisSubject as HTMLElement | SVGElement,
+                        keyframes as ElementKeyframes,
+                        transition as ElementTransition,
+                        visualElementStore.get(thisSubject)
+                    )
                 )
             } else {
                 /**
