@@ -145,6 +145,14 @@ export class DOMKeyframesResolver<
         }
     }
 
+    private measure() {
+        const { element, name } = this
+        return positionalValues[name](
+            window.getComputedStyle(element!.current!),
+            () => element!.measureViewportBox()
+        )
+    }
+
     measureInitialState() {
         const { element, unresolvedKeyframes, name } = this
 
@@ -154,10 +162,7 @@ export class DOMKeyframesResolver<
             this.suspendedScrollY = window.pageYOffset
         }
 
-        this.measuredOrigin = positionalValues[name](
-            element.measureViewportBox(),
-            window.getComputedStyle(element.current)
-        )
+        this.measuredOrigin = this.measure()
 
         unresolvedKeyframes[0] = this.measuredOrigin
 
@@ -181,10 +186,7 @@ export class DOMKeyframesResolver<
         const finalKeyframeIndex = unresolvedKeyframes.length - 1
         const finalKeyframe = unresolvedKeyframes[finalKeyframeIndex]
 
-        unresolvedKeyframes[finalKeyframeIndex] = positionalValues[name](
-            element.measureViewportBox(),
-            window.getComputedStyle(element.current)
-        ) as any
+        unresolvedKeyframes[finalKeyframeIndex] = this.measure() as any
 
         if (finalKeyframe !== null && this.finalKeyframe === undefined) {
             this.finalKeyframe = finalKeyframe as T

@@ -91,6 +91,20 @@ describe("Unit conversion", () => {
             })
     })
 
+    it("Measures the used width, not the bounding box, on bordered elements", () => {
+        cy.viewport(600, 400)
+            .visit("?test=unit-conversion-border")
+            .wait(200)
+            .get("#box")
+            .then(([$box]: any) => {
+                // 10s linear from 100px to 200px: barely moved after 200ms
+                const width = parseFloat(getComputedStyle($box).width)
+                expect(width).to.be.greaterThan(99)
+                expect(width).to.be.lessThan(110)
+                expect($box.textContent).to.equal("Success")
+            })
+    })
+
     it("Coerces none keyframes before measuring", () => {
         cy.viewport(400, 400)
             .visit("?test=unit-conversion-to-zero")
