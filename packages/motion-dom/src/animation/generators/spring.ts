@@ -265,10 +265,11 @@ function spring(
     const decay = dampingRatio * undampedAngularFreq
 
     /**
-     * Everything that changes when the spring is retargeted. Kept on an
-     * object rather than in closure variables so that, when retargeting
-     * every frame, V8 can update these doubles in place instead of
-     * allocating a new heap number for every write.
+     * Everything that changes when the spring is retargeted: written by
+     * retarget() and update(), read by the resolvers. Grouped on one object,
+     * like the coefficients (c) below. Writing doubles to object fields
+     * measured marginally faster than to captured let variables in optimised
+     * code; neither allocates, so this is a grouping choice, not a GC one.
      */
     const s = {
         target,
