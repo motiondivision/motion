@@ -3,7 +3,7 @@ import { time } from "../frameloop/sync-time"
 import { FrameData } from "../frameloop/types"
 import { DriverControls } from "./drivers/types"
 import { keyframes as keyframesGenerator } from "./generators/keyframes"
-import { getGeneratorVelocity } from "./generators/utils/velocity"
+import { calcGeneratorVelocity } from "./generators/utils/velocity"
 import {
     GeneratorFactory,
     KeyframeGenerator,
@@ -169,21 +169,12 @@ export class FollowAnimation
         }
     }
 
-    /**
-     * Velocity at the current time in units/second, analytical where
-     * the generator provides it.
-     */
     getGeneratorVelocity(): number {
-        const { generator, currentTime: t } = this
-        if (t <= 0) return this.options.velocity || 0
-
-        return generator.velocity
-            ? generator.velocity(t)
-            : getGeneratorVelocity(
-                  (s) => generator.next(s).value,
-                  t,
-                  generator.next(t).value
-              )
+        return calcGeneratorVelocity(
+            this.generator,
+            this.currentTime,
+            this.options.velocity
+        )
     }
 
     /**
