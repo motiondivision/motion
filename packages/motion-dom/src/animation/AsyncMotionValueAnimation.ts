@@ -143,7 +143,11 @@ export class AsyncMotionValueAnimation<T extends AnyResolvedKeyframe>
             : undefined
 
         const { onComplete } = options
-        options.startTime = startTime
+        /**
+         * A startTime passed in options (an optimised appear handoff syncing
+         * to its WAAPI animation) takes precedence over the derived one.
+         */
+        options.startTime ??= startTime
         options.finalKeyframe = finalKeyframe
         options.keyframes = keyframes
         /**
