@@ -1,5 +1,4 @@
 import { MotionGlobalConfig } from "motion-utils"
-import { followValue } from "../follow-value"
 import { motionValue } from "../index"
 import { attachSpring, springValue } from "../spring-value"
 import { spring } from "../../animation/generators/spring"
@@ -74,22 +73,6 @@ describe("Spring follow at different frame rates (issues #3265, #3407)", () => {
 
         values.forEach((value) => value.destroy())
         schedule.mockRestore()
-    })
-
-    test("repeating followers announce animationStart after the animation is assigned", () => {
-        const value = followValue<number>(0, {
-            type: "tween",
-            duration: 100,
-            repeat: 1,
-        })
-        let animatingAtStart: boolean | undefined
-        value.on("animationStart", () => {
-            animatingAtStart = value.isAnimating()
-        })
-
-        value.set(100)
-        expect(animatingAtStart).toBe(true)
-        value.destroy()
     })
 
     test("stopping a batched spring leaves the others running and the batch can restart", () => {

@@ -329,18 +329,4 @@ describe("useFollowValue with different transition types", () => {
         }
         render(<Component />)
     })
-
-    test("accepts repeat configuration", async () => {
-        const Component = () => {
-            const x = useFollowValue(0, {
-                type: "tween",
-                duration: 0.2,
-                repeat: 2,
-                repeatType: "reverse",
-            })
-            expect(x.get()).toBe(0)
-            return null
-        }
-        render(<Component />)
-    })
 })

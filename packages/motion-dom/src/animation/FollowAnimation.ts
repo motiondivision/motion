@@ -27,8 +27,8 @@ const tickAll = ({ timestamp }: FrameData) => {
  * `springValue`): a single numeric generator, retargeted in place as
  * the target moves and ticked from a frame callback shared by every
  * follower. Only implements the controls `MotionValue.animation`
- * exposes. Repeats aren't supported; `followValue` uses `JSAnimation`
- * for those.
+ * exposes. Repeat options are ignored: a follower only ever heads for
+ * its latest target.
  */
 export class FollowAnimation
     extends WithPromise

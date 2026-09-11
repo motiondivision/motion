@@ -1,6 +1,5 @@
 import { MotionValue, motionValue } from "."
 import { FollowAnimation } from "../animation/FollowAnimation"
-import { JSAnimation } from "../animation/JSAnimation"
 import {
     AnyResolvedKeyframe,
     ValueAnimationOptions,
@@ -10,11 +9,19 @@ import { isMotionValue } from "./utils/is-motion-value"
 
 /**
  * Options for useFollowValue hook, extending ValueAnimationTransition
- * but excluding lifecycle callbacks that don't make sense for the hook pattern.
+ * but excluding lifecycle callbacks that don't make sense for the hook pattern,
+ * and repeat options, as a follower always heads for its latest value.
  */
 export type FollowValueOptions = Omit<
     ValueAnimationTransition,
-    "onUpdate" | "onComplete" | "onPlay" | "onRepeat" | "onStop"
+    | "onUpdate"
+    | "onComplete"
+    | "onPlay"
+    | "onRepeat"
+    | "onStop"
+    | "repeat"
+    | "repeatType"
+    | "repeatDelay"
 > & {
     /**
      * When true, the first change from a tracked `MotionValue` source
@@ -74,7 +81,7 @@ export function attachFollow<T extends AnyResolvedKeyframe>(
 ): VoidFunction {
     const initialValue = value.get()
 
-    let activeAnimation: FollowAnimation | JSAnimation<number> | null = null
+    let activeAnimation: FollowAnimation | null = null
     let set: (v: T) => void
 
     const unit =
@@ -98,10 +105,7 @@ export function attachFollow<T extends AnyResolvedKeyframe>(
         set = safeSet
         const target = asNumber(v)
 
-        if (
-            activeAnimation instanceof FollowAnimation &&
-            activeAnimation.state === "running"
-        ) {
+        if (activeAnimation?.state === "running") {
             /**
              * Steer the running animation rather than replacing it. This
              * keeps its completion promise and uses its analytical velocity
@@ -133,17 +137,12 @@ export function attachFollow<T extends AnyResolvedKeyframe>(
             onUpdate,
         }
 
-        /**
-         * Repeating followers are the one case FollowAnimation doesn't
-         * cover, so they get a full JSAnimation per target. It starts
-         * synchronously, so announce it once it's been assigned.
-         */
-        const animation = (activeAnimation = options.repeat
-            ? new JSAnimation(animationOptions)
-            : new FollowAnimation({ ...animationOptions, onPlay }))
+        const animation = (activeAnimation = new FollowAnimation({
+            ...animationOptions,
+            onPlay,
+        }))
 
         value.animation = animation
-        if (options.repeat) onPlay()
 
         animation.then(() => {
             // Ignore if this animation has since been replaced
