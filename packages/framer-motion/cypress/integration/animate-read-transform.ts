@@ -4,8 +4,9 @@ describe("animate() x read transform value", () => {
             .wait(500)
             .get(".translate")
             .should(($el) => {
-                const transform = $el[0].style.transform
-                expect(transform).to.include("translateX(150px)")
+                expect(getComputedStyle($el[0]).transform).to.equal(
+                    "matrix(1, 0, 0, 1, 150, 150)"
+                )
             })
 
         cy.get(".rotate").should(($el) => {

@@ -403,7 +403,7 @@ describe("animate", () => {
 
         await animation
         await nextFrame()
-        expect(element.style.transform).toBe("translateX(100px)")
+        expect(element.style.transform).toBe("translate(100px, 0px)")
     })
 })
 
