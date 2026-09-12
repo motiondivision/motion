@@ -12,6 +12,7 @@ import {
 } from "../animation/types"
 import { frame } from "../frameloop"
 import { time } from "../frameloop/sync-time"
+import type { MotionNodeOptions } from "../node/types"
 
 /**
  * @public
@@ -51,7 +52,12 @@ interface ResolvedValues {
 
 export interface Owner {
     current: HTMLElement | unknown
+    projection?: {
+        options: Pick<MotionNodeOptions, "layout" | "layoutId">
+    }
     getProps: () => {
+        layout?: MotionNodeOptions["layout"]
+        layoutId?: string
         onUpdate?: (latest: ResolvedValues) => void
         transformTemplate?: (
             transform: TransformProperties,

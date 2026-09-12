@@ -1,10 +1,14 @@
 import { memo } from "motion-utils"
+import { findDimensionValueType } from "../../../value/types/dimensions"
+import { percent } from "../../../value/types/numbers/units"
+import { isNumOrPxType } from "../../keyframes/utils/unit-conversion"
 import {
     AnyResolvedKeyframe,
     ValueAnimationOptionsWithRenderContext,
 } from "../../types"
 import { acceleratedValues } from "../utils/accelerated-values"
 import { hasBrowserOnlyColors } from "../utils/is-browser-color"
+import { nativeNumericValues } from "../utils/numeric-values"
 
 const colorProperties = new Set([
     "color",
@@ -23,6 +27,18 @@ const supportsWaapi = /*@__PURE__*/ memo(() =>
     Object.hasOwnProperty.call(Element.prototype, "animate")
 )
 
+function supportsNumericKeyframes(keyframes: AnyResolvedKeyframe[]) {
+    const firstType = findDimensionValueType(keyframes[0])
+    if (!isNumOrPxType(firstType) && firstType !== percent) return false
+
+    return keyframes.every((keyframe) => {
+        const type = findDimensionValueType(keyframe)
+        const value =
+            typeof keyframe === "number" ? keyframe : parseFloat(keyframe)
+        return Number.isFinite(value) && value >= 0 && type === firstType
+    })
+}
+
 export function supportsBrowserAnimation<T extends AnyResolvedKeyframe>(
     options: ValueAnimationOptionsWithRenderContext<T>
 ) {
@@ -36,6 +52,8 @@ export function supportsBrowserAnimation<T extends AnyResolvedKeyframe>(
         keyframes,
     } = options
 
+    if (!name) return false
+
     const subject = motionValue?.owner?.current
 
     /**
@@ -45,25 +63,42 @@ export function supportsBrowserAnimation<T extends AnyResolvedKeyframe>(
      * these animations properly with those driven from the main window
      * frameloop.
      */
-    if (
-        !(subject instanceof HTMLElement) &&
-        !(subject instanceof SVGElement)
-    ) {
+    if (!(subject instanceof HTMLElement) && !(subject instanceof SVGElement)) {
         return false
     }
 
-    const { onUpdate, transformTemplate } = motionValue!.owner!.getProps()
+    const owner = motionValue!.owner!
+    const { onUpdate, transformTemplate, layout, layoutId } = owner.getProps()
+    const projection = owner.projection?.options
+
+    /**
+     * Native effects override projection's inline scale corrections and
+     * don't update the latest values projection renders. Keep new native
+     * properties on JS for the whole time an element participates in layout,
+     * including between transitions. animateLayout() sets projection options
+     * without React props. The attributes also identify vanilla participants
+     * before their first layout animation creates a projection node.
+     */
+    const canAnimateNumeric =
+        nativeNumericValues.has(name) &&
+        subject instanceof HTMLElement &&
+        !layout &&
+        layoutId === undefined &&
+        !projection?.layout &&
+        projection?.layoutId === undefined &&
+        !subject.hasAttribute("data-layout") &&
+        !subject.hasAttribute("data-layout-id") &&
+        supportsNumericKeyframes(keyframes)
 
     return (
         supportsWaapi() &&
-        name &&
         /**
          * Force WAAPI for color properties with browser-only color formats
          * (oklch, oklab, lab, lch, etc.) that the JS animation path can't parse.
          */
         (acceleratedValues.has(name) ||
-            (colorProperties.has(name) &&
-                hasBrowserOnlyColors(keyframes))) &&
+            canAnimateNumeric ||
+            (colorProperties.has(name) && hasBrowserOnlyColors(keyframes))) &&
         (name !== "transform" || !transformTemplate) &&
         /**
          * If we're outputting values to onUpdate then we can't use WAAPI as there's

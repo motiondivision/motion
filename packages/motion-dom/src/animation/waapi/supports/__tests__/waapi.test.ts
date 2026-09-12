@@ -45,6 +45,160 @@ function createSVGMockOptions(overrides: Record<string, any> = {}) {
 }
 
 describe("supportsBrowserAnimation", () => {
+    it.each([
+        "width",
+        "height",
+        "borderRadius",
+        "borderTopLeftRadius",
+        "borderTopRightRadius",
+        "borderBottomLeftRadius",
+        "borderBottomRightRadius",
+    ])("uses native animation for %s outside layout", (name) => {
+        expect(
+            supportsBrowserAnimation(
+                createMockOptions({ name, keyframes: [10, 40] })
+            )
+        ).toBe(true)
+    })
+
+    it.each([
+        { layout: true },
+        { layout: "position" },
+        { layout: "size" },
+        { layoutId: "shared" },
+        { layoutId: "" },
+    ])("keeps new properties on JS for layout props %o", (props) => {
+        for (const name of [
+            "width",
+            "height",
+            "borderRadius",
+            "borderTopLeftRadius",
+        ]) {
+            const options = createMockOptions({ name, keyframes: [10, 40] })
+            options.motionValue.owner.getProps = () => props
+            expect(supportsBrowserAnimation(options)).toBe(false)
+        }
+    })
+
+    it("checks vanilla layout projection options without React props", () => {
+        const options = createMockOptions({
+            name: "borderRadius",
+            keyframes: [10, 40],
+        })
+        options.motionValue.owner.projection = { options: { layout: true } }
+        expect(supportsBrowserAnimation(options)).toBe(false)
+        options.motionValue.owner.projection.options = { layoutId: "shared" }
+        expect(supportsBrowserAnimation(options)).toBe(false)
+    })
+
+    it.each(["data-layout", "data-layout-id"])(
+        "keeps tagged vanilla elements on JS before their first layout animation: %s",
+        (attribute) => {
+            const options = createMockOptions({
+                name: "borderRadius",
+                keyframes: [10, 40],
+            })
+            options.motionValue.owner.current.setAttribute(attribute, "")
+            expect(supportsBrowserAnimation(options)).toBe(false)
+        }
+    )
+
+    it("does not exclude ordinary motion components with an inactive projection node", () => {
+        const options = createMockOptions({
+            name: "borderRadius",
+            keyframes: [10, 40],
+        })
+        options.motionValue.owner.projection = { options: {} }
+        options.motionValue.owner.getProps = () => ({ layout: false })
+        expect(supportsBrowserAnimation(options)).toBe(true)
+    })
+
+    it.each(["color", "boxShadow", "--radius", "x", "display"])(
+        "does not broaden eligibility for %s",
+        (name) => {
+            expect(supportsBrowserAnimation(createMockOptions({ name }))).toBe(
+                false
+            )
+        }
+    )
+
+    it("does not enable SVG dimensions through the HTML property list", () => {
+        expect(
+            supportsBrowserAnimation(
+                createSVGMockOptions({ name: "width", keyframes: [10, 40] })
+            )
+        ).toBe(false)
+    })
+
+    it.each([
+        { repeatDelay: 1 },
+        { repeatType: "mirror" },
+        { damping: 0 },
+        { type: "inertia" },
+    ])(
+        "preserves transition restrictions for new properties: %o",
+        (overrides) => {
+            expect(
+                supportsBrowserAnimation(
+                    createMockOptions({
+                        name: "width",
+                        keyframes: [10, 40],
+                        ...overrides,
+                    })
+                )
+            ).toBe(false)
+        }
+    )
+
+    it("preserves onUpdate for new properties", () => {
+        const options = createMockOptions({
+            name: "width",
+            keyframes: [10, 40],
+        })
+        options.motionValue.owner.getProps = () => ({ onUpdate: () => {} })
+        expect(supportsBrowserAnimation(options)).toBe(false)
+    })
+
+    it.each([
+        [10, 40],
+        ["10px", "40px"],
+        ["10%", "40%"],
+    ])("accepts compatible numeric keyframes %o → %o", (from, to) => {
+        expect(
+            supportsBrowserAnimation(
+                createMockOptions({
+                    name: "borderRadius",
+                    keyframes: [from, to],
+                })
+            )
+        ).toBe(true)
+    })
+
+    it.each([
+        [10, "40px"],
+        ["10px", "40%"],
+        [-10, 40],
+        [NaN, 40],
+        [Infinity, 40],
+        ["-10%", "40%"],
+        ["10px 20px", "20px 40px"],
+        ["calc(10% + 2px)", "calc(20% + 4px)"],
+        ["auto", "40px"],
+        ["var(--from)", "var(--to)"],
+    ])(
+        "keeps unresolved or incompatible keyframes %o → %o on JS",
+        (from, to) => {
+            expect(
+                supportsBrowserAnimation(
+                    createMockOptions({
+                        name: "borderRadius",
+                        keyframes: [from, to],
+                    })
+                )
+            ).toBe(false)
+        }
+    )
+
     it("returns true for accelerated values like opacity", () => {
         expect(supportsBrowserAnimation(createMockOptions())).toBe(true)
     })
@@ -190,10 +344,7 @@ describe("supportsBrowserAnimation", () => {
             supportsBrowserAnimation(
                 createMockOptions({
                     name: "backgroundColor",
-                    keyframes: [
-                        "#fff",
-                        "color-mix(in srgb, red 50%, blue)",
-                    ],
+                    keyframes: ["#fff", "color-mix(in srgb, red 50%, blue)"],
                 })
             )
         ).toBe(true)

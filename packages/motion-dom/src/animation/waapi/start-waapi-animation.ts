@@ -1,5 +1,7 @@
 import { ValueKeyframesDefinition, ValueTransition } from "../types"
+import { applyPxDefaults } from "../keyframes/utils/apply-px-defaults"
 import { mapEasingToNativeEasing } from "./easing/map-easing"
+import { pxValues } from "./utils/px-values"
 
 export function startWaapiAnimation(
     element: Element,
@@ -15,6 +17,18 @@ export function startWaapiAnimation(
     }: ValueTransition = {},
     pseudoElement: string | undefined = undefined
 ) {
+    /**
+     * CSS lengths need units in WAAPI. Preserve the original keyframes so
+     * numeric MotionValues stay numeric on completion and interruption.
+     */
+    if (pxValues.has(valueName)) {
+        const nativeKeyframes = Array.isArray(keyframes)
+            ? keyframes.slice()
+            : [keyframes]
+        applyPxDefaults(nativeKeyframes, valueName)
+        keyframes = nativeKeyframes
+    }
+
     const keyframeOptions: PropertyIndexedKeyframes = {
         [valueName]: keyframes as string[],
     }
