@@ -8,7 +8,13 @@ Undocumented APIs should be considered internal and may change without warning.
 
 ### Changed
 
--   `springValue`/`useSpring`: Improved performance when retargeting spring.
+-   `springValue`/`useSpring`: 80% reduction in time when retargeting.
+-   `animate`: 20% reducing in time to startup.
+-   `animate`: Switched renderer to `styleEffect` and `svgEffect` for 10% reduction in runtime and 3kb (15%) smaller filesize.
+
+### Fixed
+
+-   `animate`: Fixed path drawing calculations.
 
 ## [13.2.0] 2026-09-03
 
