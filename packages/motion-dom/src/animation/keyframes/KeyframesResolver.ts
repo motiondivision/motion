@@ -3,7 +3,10 @@ import { MotionValue } from "../../value"
 import { AnyResolvedKeyframe } from "../types"
 import { WithRender } from "./types"
 import { fillWildcards } from "./utils/fill-wildcards"
-import { removeNonTranslationalTransform } from "./utils/unit-conversion"
+import {
+    boxDependentValues,
+    removeNonTranslationalTransform,
+} from "./utils/unit-conversion"
 
 export type UnresolvedKeyframes<T extends AnyResolvedKeyframe> = Array<T | null>
 
@@ -16,12 +19,21 @@ let isForced = false
 
 function measureAllKeyframes() {
     if (anyNeedsMeasurement) {
-        const resolversToMeasure = Array.from(toResolve).filter(
-            (resolver: KeyframeResolver) => resolver.needsMeasurement
-        )
-        const elementsToMeasure = new Set(
-            resolversToMeasure.map((resolver) => resolver.element)
-        )
+        const resolversToMeasure: KeyframeResolver[] = []
+        const elementsToMeasure = new Set<WithRender>()
+        const elementsToUntransform = new Set<WithRender>()
+
+        toResolve.forEach((resolver) => {
+            if (!resolver.needsMeasurement) return
+
+            resolversToMeasure.push(resolver)
+            elementsToMeasure.add(resolver.element!)
+
+            if (boxDependentValues.has(resolver.name!)) {
+                elementsToUntransform.add(resolver.element!)
+            }
+        })
+
         const transformsToRestore = new Map<
             WithRender,
             [string, AnyResolvedKeyframe][]
@@ -29,9 +41,10 @@ function measureAllKeyframes() {
 
         /**
          * Write pass
-         * If we're measuring elements we want to remove bounding box-changing transforms.
+         * Values measured from the bounding box need bounding box-changing
+         * transforms removed first. Values read from computed style don't.
          */
-        elementsToMeasure.forEach((element: WithRender) => {
+        elementsToUntransform.forEach((element: WithRender) => {
             const removedTransforms = removeNonTranslationalTransform(
                 element as any
             )

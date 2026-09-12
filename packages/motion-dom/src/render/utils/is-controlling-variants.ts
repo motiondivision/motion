@@ -4,12 +4,15 @@ import { isVariantLabel } from "./is-variant-label"
 import { variantProps } from "./variant-props"
 
 export function isControllingVariants(props: MotionNodeOptions) {
-    return (
-        isAnimationControls(props.animate) ||
-        variantProps.some((name) =>
-            isVariantLabel(props[name as keyof typeof props])
-        )
-    )
+    if (isAnimationControls(props.animate)) return true
+
+    for (let i = 0; i < variantProps.length; i++) {
+        if (isVariantLabel(props[variantProps[i] as keyof typeof props])) {
+            return true
+        }
+    }
+
+    return false
 }
 
 export function isVariantNode(props: MotionNodeOptions) {

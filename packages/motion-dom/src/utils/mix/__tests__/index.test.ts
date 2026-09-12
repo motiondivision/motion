@@ -38,6 +38,23 @@ describe("mix", () => {
         )
     })
 
+    test("mixes single unit values like complex values", () => {
+        expect(mix("0%", "50%")(0.5)).toBe("25%")
+        expect(mix("0px", "1px")(1 / 3)).toBe("0.33333px")
+        expect(mix("-10px", "10px")(0.25)).toBe("-5px")
+        expect(mix(".5em", "1.5em")(0.5)).toBe("1em")
+        expect(mix("10deg", "20deg")(0)).toBe("10deg")
+        expect(mix("10deg", "20deg")(1)).toBe("20deg")
+        expect(mix("10", "20")(0.5)).toBe("15")
+    })
+
+    test("mixes mismatched or exotic units via the complex mixer", () => {
+        expect(mix("0px", "50%")(0.5)).toBe("25%")
+        // Exponents aren't a unit: same (odd) result as the complex mixer
+        expect(mix("1e2px", "3e2px")(0.5)).toBe("2e2px")
+        expect(mix("10px 0px", "20px 10px")(0.5)).toBe("15px 5px")
+    })
+
     test("mixes binary visibility", () => {
         expect(mix("visible", "hidden")(0)).toBe("visible")
         expect(mix("visible", "hidden")(0.5)).toBe("visible")

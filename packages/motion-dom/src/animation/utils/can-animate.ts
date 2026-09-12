@@ -39,16 +39,18 @@ export function canAnimate(
     const isOriginAnimatable = isAnimatable(originKeyframe, name)
     const isTargetAnimatable = isAnimatable(targetKeyframe, name)
 
-    warning(
-        isOriginAnimatable === isTargetAnimatable,
-        `You are trying to animate ${name} from "${originKeyframe}" to "${targetKeyframe}". "${
-            isOriginAnimatable ? targetKeyframe : originKeyframe
-        }" is not an animatable value.`,
-        "value-not-animatable"
-    )
-
     // Always skip if any of these are true
     if (!isOriginAnimatable || !isTargetAnimatable) {
+        // Only build the message when we're going to warn
+        isOriginAnimatable !== isTargetAnimatable &&
+            warning(
+                false,
+                `You are trying to animate ${name} from "${originKeyframe}" to "${targetKeyframe}". "${
+                    isOriginAnimatable ? targetKeyframe : originKeyframe
+                }" is not an animatable value.`,
+                "value-not-animatable"
+            )
+
         return false
     }
 
