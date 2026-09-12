@@ -171,7 +171,7 @@ describe("animateEffectSubject", () => {
 
         expect(element.style.opacity).toBe("1")
         expect(element.style.width).toBe("50px")
-        expect(element.style.transform).toBe("translateX(100px)")
+        expect(element.style.transform).toBe("translate(100px, 0px)")
     })
 
     it("throws when a value can't be read and no from keyframe is provided", () => {

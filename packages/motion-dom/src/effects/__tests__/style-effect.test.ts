@@ -337,7 +337,7 @@ describe("styleEffect", () => {
         expect(element.style.padding).toBe("10px")
         expect(element.style.opacity).toBe("0.8")
         expect(element.style.transform).toBe(
-            "translateX(20px) translateY(30px)"
+            "translate(20px, 30px)"
         )
 
         // Change values again
@@ -358,7 +358,7 @@ describe("styleEffect", () => {
 
         // But transform should still update since its style effect wasn't cleaned up
         expect(element.style.transform).toBe(
-            "translateX(40px) translateY(50px)"
+            "translate(40px, 50px)"
         )
     })
 
@@ -428,7 +428,7 @@ describe("styleEffect", () => {
         await nextFrame()
 
         // Verify both transform and transform origin are set
-        expect(element.style.transform).toBe("translateX(100px)")
+        expect(element.style.transform).toBe("translate(100px, 0px)")
         expect(element.style.transformOrigin).toBe("0% 100% 0")
 
         // Change values
@@ -439,7 +439,7 @@ describe("styleEffect", () => {
         await nextFrame()
 
         // Verify both properties update
-        expect(element.style.transform).toBe("translateX(200px)")
+        expect(element.style.transform).toBe("translate(200px, 0px)")
         expect(element.style.transformOrigin).toBe("50% 50% 0")
     })
 

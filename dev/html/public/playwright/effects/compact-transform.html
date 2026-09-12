@@ -1,0 +1,37 @@
+<html>
+    <body>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            const { styleEffect, motionValue, frame } = window.Motion
+            const nextFrame = () =>
+                new Promise((resolve) => frame.postRender(resolve))
+            window.run = async () => {
+                const element = document.createElement("div")
+                element.style.cssText = "width:200px;height:100px"
+                document.body.append(element)
+                const x = motionValue("50%"),
+                    y = motionValue("25%")
+                styleEffect(element, { x, y })
+                await nextFrame()
+                const read = () => {
+                    const m = new DOMMatrix(getComputedStyle(element).transform)
+                    return [m.m41, m.m42]
+                }
+                const percent = read()
+                x.set("20px")
+                y.set("-10px")
+                await nextFrame()
+                const pixels = read()
+                styleEffect(element, { rotate: motionValue(90) })
+                await nextFrame()
+                const mixed = read()
+                return {
+                    percent,
+                    pixels,
+                    mixed,
+                    style: element.style.transform,
+                }
+            }
+        </script>
+    </body>
+</html>

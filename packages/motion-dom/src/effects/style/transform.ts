@@ -21,6 +21,30 @@ export function buildTransform(state: MotionValueState) {
     const { latest } = state
     const keys = state.transformKeys || transformPropOrder
 
+    // Translation-only states can express both axes in one CSS function.
+    // Preserve the general path for ordering-sensitive mixed transforms.
+    if (
+        state.transformKeys &&
+        keys.length <= 2 &&
+        keys.length > 0 &&
+        (keys[0] === "x" || keys[0] === "y") &&
+        (keys.length === 1 || keys[1] === "x" || keys[1] === "y") &&
+        !latest.pathRotation
+    ) {
+        const x = latest.x ?? 0
+        const y = latest.y ?? 0
+        const parsedX = typeof x === "number" ? x : parseFloat(x)
+        const parsedY = typeof y === "number" ? y : parseFloat(y)
+        if (parsedX === 0 && parsedY === 0) return "none"
+        return (
+            "translate(" +
+            getValueAsType(x, transformValueTypes.x) +
+            ", " +
+            getValueAsType(y, transformValueTypes.y) +
+            ")"
+        )
+    }
+
     /**
      * Loop over the bound transforms in order, adding the ones that
      * aren't at their default value to the transform string.
