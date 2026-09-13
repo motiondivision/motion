@@ -34,17 +34,20 @@ export const addAttrValue = (
         name = camelToDash(name)
     }
 
-    const type = numberValueTypes[name]
+    const type = numberValueTypes[key] || numberValueTypes[name]
 
     /**
      * Set attribute directly via property if available
      */
     const render = isProp
         ? () => {
-              ;(element as any)[name] = state.latest[key]
+              ;(element as any)[name] = getValueAsType(
+                  value.get(),
+                  numberValueTypes[key]
+              )
           }
         : () => {
-              const v = getValueAsType(state.latest[key], type)
+              const v = getValueAsType(value.get(), type)
               if (v === null || v === undefined) {
                   element.removeAttribute(name)
               } else {

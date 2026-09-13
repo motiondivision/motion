@@ -38,9 +38,7 @@ export const threeEffect = createEffect<ThreeObject>(
         state.set(
             key,
             value,
-            () => setObjectValue(subject, key, state.latest[key]),
-            undefined,
-            false
+            () => setObjectValue(subject, key, value.get())
         ),
     {
         test: isThreeSubject,

@@ -25,6 +25,43 @@ describe("styleEffect", () => {
         expect(element.style.transform).toBe("none")
     })
 
+    it("renders a transform key rebound to a new motion value", async () => {
+        const element = document.createElement("div")
+        const x = motionValue(10)
+        const scale = motionValue(2)
+        styleEffect(element, { x, scale })
+        await nextFrame()
+        expect(element.style.transform).toBe("translateX(10px) scale(2)")
+
+        const replacement = motionValue(30)
+        styleEffect(element, { x: replacement })
+        await nextFrame()
+        expect(element.style.transform).toBe("translateX(30px) scale(2)")
+
+        // The old value no longer drives the element
+        x.set(99)
+        await nextFrame()
+        expect(element.style.transform).toBe("translateX(30px) scale(2)")
+
+        replacement.set(40)
+        await nextFrame()
+        expect(element.style.transform).toBe("translateX(40px) scale(2)")
+    })
+
+    it("reads bound values at render time rather than caching them", async () => {
+        const element = document.createElement("div")
+        const width = motionValue(100)
+        styleEffect(element, { width })
+
+        width.set(150)
+        width.set(200)
+        await nextFrame()
+        expect(element.style.width).toBe("200px")
+
+        // No per-value cache on the state
+        expect(styleEffect.state(element)).not.toHaveProperty("latest")
+    })
+
     it("sets styles after styleEffect is applied", async () => {
         const element = document.createElement("div")
 

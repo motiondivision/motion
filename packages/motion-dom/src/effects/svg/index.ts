@@ -22,13 +22,14 @@ function addSVGPathValue(
     if (key === "pathOffset") {
         return state.set(key, value, () => {
             // Use unitless value to avoid Safari zoom bug
-            const offset = state.latest[key]
+            const offset = value.get()
             element.setAttribute("stroke-dashoffset", `${-offset}`)
         })
     } else {
         if (!state.get("stroke-dasharray")) {
             state.set("stroke-dasharray", new MotionValue("1 1"), () => {
-                const { pathLength = 1, pathSpacing } = state.latest
+                const pathLength = state.get("pathLength")?.get() ?? 1
+                const pathSpacing = state.get("pathSpacing")?.get()
 
                 // Use unitless values to avoid Safari zoom bug
                 element.setAttribute(

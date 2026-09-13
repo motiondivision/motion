@@ -1,9 +1,6 @@
-import { AnyResolvedKeyframe } from "../animation/types"
 import { frame } from "../frameloop/frame"
 import { Schedule } from "../frameloop/types"
 import { MotionValue } from "../value"
-import { numberValueTypes } from "../value/types/maps/number"
-import { getValueAsType } from "../value/types/utils/get-as-type"
 
 interface Entry {
     value: MotionValue
@@ -12,13 +9,13 @@ interface Entry {
 }
 
 export class MotionValueState {
-    latest: { [name: string]: AnyResolvedKeyframe } = {}
-
     /**
-     * Transform keys bound to this state, in `transformPropOrder`. Lets
-     * the transform builder visit only bound keys.
+     * Transform keys bound to this state, in `transformPropOrder`, and
+     * the value bound to each. Lets the transform builder visit only
+     * bound transforms, reading each value directly.
      */
     transformKeys?: string[]
+    transformValues?: Record<string, MotionValue>
 
     private values = new Map<string, Entry>()
 
@@ -41,18 +38,17 @@ export class MotionValueState {
     constructor(private step: Schedule = frame.render) {}
 
     /**
+     * @param render - Writes the value to the subject. Renders read the
+     * motion value directly rather than a cached copy, so there is one
+     * place a value lives.
      * @param computed - A value already in this state (e.g. `transform`)
      * whose render should run whenever `value` changes.
-     * @param useDefaultValueType - Whether to convert numbers to their
-     * default unit when storing in `latest`. Values feeding a computed
-     * render can skip this and convert once at render time.
      */
     set(
         name: string,
         value: MotionValue,
         render?: VoidFunction,
-        computed?: MotionValue,
-        useDefaultValueType = true
+        computed?: MotionValue
     ): VoidFunction {
         this.values.get(name)?.onRemove()
 
@@ -62,20 +58,13 @@ export class MotionValueState {
             }
         }
 
-        const onChange = (v: AnyResolvedKeyframe) => {
-            this.latest[name] = useDefaultValueType
-                ? getValueAsType(v, numberValueTypes[name])
-                : v
-
-            render && this.schedule(render)
-        }
+        const onChange = () => render && this.schedule(render)
 
         /**
          * Values created ahead of a DOM read start out undefined and
          * have nothing to render until they're set.
          */
-        const initial = value.get()
-        initial !== undefined && onChange(initial)
+        value.get() !== undefined && onChange()
 
         const cancelOnChange = value.on("change", onChange)
 
@@ -101,8 +90,8 @@ export class MotionValueState {
     /**
      * Detach every value from this state and return them, so another
      * renderer can take them over. The state stays cached by its effect,
-     * so the latest values and bound transform keys are reset too rather
-     * than leaking into values bound later.
+     * so the bound transforms are reset too rather than leaking into
+     * values bound later.
      */
     release() {
         const values = new Map<string, MotionValue>()
@@ -110,8 +99,7 @@ export class MotionValueState {
             values.set(name, entry.value)
             entry.onRemove()
         })
-        this.latest = {}
-        this.transformKeys = undefined
+        this.transformKeys = this.transformValues = undefined
         return values
     }
 

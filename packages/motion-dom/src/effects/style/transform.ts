@@ -1,4 +1,3 @@
-import { transformPropOrder } from "../../render/utils/keys-transform"
 import { transformValueTypes } from "../../value/types/maps/transform"
 import { getValueAsType } from "../../value/types/utils/get-as-type"
 import { MotionValueState } from "../MotionValueState"
@@ -18,8 +17,7 @@ const openers: Record<string, string> = {}
 
 export function buildTransform(state: MotionValueState) {
     let transform = ""
-    const { latest } = state
-    const keys = state.transformKeys || transformPropOrder
+    const { transformKeys: keys = [], transformValues: values = {} } = state
 
     /**
      * Loop over the bound transforms in order, adding the ones that
@@ -27,7 +25,7 @@ export function buildTransform(state: MotionValueState) {
      */
     for (let i = 0; i < keys.length; i++) {
         const key = keys[i]
-        const value = latest[key]
+        const value = values[key].get()
 
         if (value === undefined) continue
 
@@ -45,7 +43,7 @@ export function buildTransform(state: MotionValueState) {
 
     // See build-transform.ts: additive `rotate()` so user `rotate` isn't
     // clobbered. Not a `transformPropOrder` slot.
-    const pathRotation = latest.pathRotation
+    const pathRotation = state.get("pathRotation")?.get()
     if (pathRotation) {
         transform +=
             (transform && " ") +

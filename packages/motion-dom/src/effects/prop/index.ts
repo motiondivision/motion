@@ -22,10 +22,8 @@ export const propEffect = /*@__PURE__*/ createEffect(
             key,
             value,
             () => {
-                subject[key] = state.latest[key]
-            },
-            undefined,
-            false
+                subject[key] = value.get()
+            }
         )
     },
     {

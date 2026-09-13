@@ -7,12 +7,20 @@ import {
 import { isHTMLElement } from "../../utils/is-html-element"
 import { isSVGElement } from "../../utils/is-svg-element"
 import { MotionValue } from "../../value"
+import { numberValueTypes } from "../../value/types/maps/number"
+import { getValueAsType } from "../../value/types/utils/get-as-type"
 import { MotionValueState } from "../MotionValueState"
 import { createSelectorEffect } from "../utils/create-dom-effect"
 import { createEffect } from "../utils/create-effect"
 import { buildTransform } from "./transform"
 
 const originProps = new Set(["originX", "originY", "originZ"])
+
+/**
+ * A bound value in its default unit, e.g. `originX: 50` -> `"50%"`.
+ */
+const styleValue = (state: MotionValueState, key: string) =>
+    getValueAsType(state.get(key)?.get(), numberValueTypes[key])
 
 export const addStyleValue = (
     element: HTMLElement | SVGElement,
@@ -24,14 +32,18 @@ export const addStyleValue = (
     let computed: MotionValue | undefined = undefined
 
     if (transformProps.has(key)) {
-        const keys = (state.transformKeys ??= [])
-        if (!keys.includes(key) && key !== "pathRotation") {
-            keys.push(key)
-            keys.sort(
-                (a, b) =>
-                    transformPropOrder.indexOf(a) -
-                    transformPropOrder.indexOf(b)
-            )
+        if (key !== "pathRotation") {
+            const keys = (state.transformKeys ??= [])
+            ;(state.transformValues ??= {})[key] = value
+
+            if (!keys.includes(key)) {
+                keys.push(key)
+                keys.sort(
+                    (a, b) =>
+                        transformPropOrder.indexOf(a) -
+                        transformPropOrder.indexOf(b)
+                )
+            }
         }
 
         if (!state.get("transform")) {
@@ -55,9 +67,9 @@ export const addStyleValue = (
     } else if (originProps.has(key)) {
         if (!state.get("transformOrigin")) {
             state.set("transformOrigin", new MotionValue(""), () => {
-                const originX = state.latest.originX ?? "50%"
-                const originY = state.latest.originY ?? "50%"
-                const originZ = state.latest.originZ ?? 0
+                const originX = styleValue(state, "originX") ?? "50%"
+                const originY = styleValue(state, "originY") ?? "50%"
+                const originZ = styleValue(state, "originZ") ?? 0
                 element.style.transformOrigin = `${originX} ${originY} ${originZ}`
             })
         }
@@ -65,15 +77,18 @@ export const addStyleValue = (
         computed = state.get("transformOrigin")
     } else if (isCSSVar(key)) {
         render = () => {
-            element.style.setProperty(key, state.latest[key] as string)
+            element.style.setProperty(key, value.get() as string)
         }
     } else {
         render = () => {
-            element.style[key as any] = state.latest[key] as string
+            element.style[key as any] = getValueAsType(
+                value.get(),
+                numberValueTypes[key]
+            ) as string
         }
     }
 
-    return state.set(key, value, render, computed, !transformProps.has(key))
+    return state.set(key, value, render, computed)
 }
 
 export type StyleSubject = HTMLElement | SVGElement

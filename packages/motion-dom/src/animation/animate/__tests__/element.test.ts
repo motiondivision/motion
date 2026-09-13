@@ -245,7 +245,7 @@ describe("animateElement", () => {
         expect(styleEffect.get(element, "x")).toBeUndefined()
         expect(styleEffect.get(element, "transform")).toBeUndefined()
         expect(state.transformKeys).toBeUndefined()
-        expect(state.latest).toEqual({})
+        expect(state.transformValues).toBeUndefined()
 
         // The VisualElement renders them from here
         x.jump(40)

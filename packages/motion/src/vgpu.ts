@@ -76,12 +76,10 @@ export const vgpuEffect = createEffect<Subject>(
             value,
             () => {
                 const bag = pending.get(subject) ?? {}
-                bag[key] = state.latest[key]
+                bag[key] = value.get()
                 pending.set(subject, bag)
                 frame.preRender(flush, false, true)
-            },
-            undefined,
-            false
+            }
         ),
     {
         test: isVGPUSubject,
