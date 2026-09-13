@@ -146,9 +146,9 @@ export function animateSubject<O extends Object>(
                 /**
                  * An element already owned by a VisualElement (a <motion.*>
                  * component or animateLayout()) animates its values so they
-                 * share one renderer. Anything else is driven through the
-                 * style effect and the DOM keyframe resolver, without
-                 * creating a VisualElement.
+                 * share one renderer. Anything else is driven through
+                 * styleEffect (or svgEffect) and the DOM keyframe resolver,
+                 * without creating a VisualElement.
                  */
                 animations.push(
                     ...animateElement(

@@ -100,9 +100,14 @@ export const readStyleValue = (element: StyleSubject, key: string) => {
     return typeof value === "string" ? value.trim() || undefined : undefined
 }
 
-export const styleEffect = /*@__PURE__*/ createSelectorEffect(
-    /*@__PURE__*/ createEffect(addStyleValue, {
-        test: isStyleSubject,
-        read: readStyleValue,
-    })
-)
+/**
+ * The per-element effect `animate()` binds through, so HTML values share
+ * state with a direct `styleEffect()` call. The exported `styleEffect`
+ * is this wrapped to also accept selectors.
+ */
+export const styleSubjectEffect = /*@__PURE__*/ createEffect(addStyleValue, {
+    test: isStyleSubject,
+    read: readStyleValue,
+})
+
+export const styleEffect = /*@__PURE__*/ createSelectorEffect(styleSubjectEffect)

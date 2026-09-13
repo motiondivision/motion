@@ -45,6 +45,13 @@ export interface Effect<Subject extends object = object>
      * Returns the motion value currently bound to `key` on `subject`, if any.
      */
     get(subject: Subject, key: string): MotionValue | undefined
+
+    /**
+     * The state holding the motion values bound to `subject`, if any have
+     * been. `animate()` renders and hands off through this so it shares
+     * one state with a direct `styleEffect`/`svgEffect` call.
+     */
+    state(subject: Subject): MotionValueState | undefined
 }
 
 /**
@@ -104,5 +111,6 @@ export function createEffect<Subject extends object>(
     return Object.assign(effect, options, {
         get: (subject: Subject, key: string) =>
             stateCache.get(subject)?.get(key),
+        state: (subject: Subject) => stateCache.get(subject),
     })
 }

@@ -3,6 +3,7 @@ import {
     resolveElements,
 } from "../../utils/resolve-elements"
 import { MotionValue } from "../../value"
+import { MotionValueState } from "../MotionValueState"
 import {
     AnimateEffect,
     Effect,
@@ -12,8 +13,7 @@ import {
 } from "./create-effect"
 
 /**
- * The element overloads come last so that generic inference (e.g.
- * `animateEffectSubject(styleEffect, element, …)`) sees the subject type.
+ * The element overloads come last so generic inference sees the subject type.
  */
 export interface SelectorEffect<T extends object> extends EffectOptions<T> {
     (
@@ -24,6 +24,8 @@ export interface SelectorEffect<T extends object> extends EffectOptions<T> {
 
     get(subject: ElementOrSelector, key: string): MotionValue | undefined
     get(subject: T, key: string): MotionValue | undefined
+
+    state(subject: T): MotionValueState | undefined
 }
 
 export interface SelectorAnimateEffect<T extends object>
@@ -63,11 +65,12 @@ export function createSelectorEffect<T extends object>(
         }
     }
 
-    const { test, read, get } = subjectEffect
+    const { test, read, get, state } = subjectEffect
 
     return Object.assign(effect, {
         test,
         read,
         get: get as SelectorEffect<T>["get"],
+        state,
     })
 }

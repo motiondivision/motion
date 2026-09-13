@@ -84,12 +84,16 @@ export const readSVGValue = (element: SVGElement, key: string) => {
     )
 }
 
-export const svgEffect = /*@__PURE__*/ createSelectorEffect(
-    /*@__PURE__*/ createEffect(addSVGValue, {
-        test: isSVGElement,
-        read: readSVGValue,
-    })
-)
+/**
+ * The per-element effect `animate()` binds through, so SVG values share
+ * state with a direct `svgEffect()` call.
+ */
+export const svgSubjectEffect = /*@__PURE__*/ createEffect(addSVGValue, {
+    test: isSVGElement,
+    read: readSVGValue,
+})
+
+export const svgEffect = /*@__PURE__*/ createSelectorEffect(svgSubjectEffect)
 
 function convertAttrKey(key: string) {
     return key.replace(/^attr([A-Z])/, (_, firstChar) =>

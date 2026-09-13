@@ -404,6 +404,20 @@ describe("animate", () => {
         await animation
         await nextFrame()
         expect(element.style.transform).toBe("translateX(100px)")
+        element.remove()
+    })
+
+    test("animates SVG elements through svgEffect", async () => {
+        const path = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "path"
+        )
+
+        await animate(path, { pathLength: 1 }, { duration })
+        await nextFrame()
+
+        expect(path.getAttribute("pathLength")).toBe("1")
+        expect(path.getAttribute("stroke-dasharray")).toBe("1 0")
     })
 })
 

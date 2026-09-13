@@ -1,15 +1,29 @@
+import { styleEffect } from "../../../effects/style"
+import { svgEffect } from "../../../effects/svg"
 import { frame } from "../../../frameloop"
 import { HTMLVisualElement } from "../../../render/html/HTMLVisualElement"
 import { motionValue } from "../../../value"
-import {
-    animateElement,
-    getElementState,
-    handOffElementState,
-} from "../element"
+import { animateElement, handOffElementState } from "../element"
 
 async function nextFrame() {
     return new Promise<void>((resolve) => {
         frame.postRender(() => resolve())
+    })
+}
+
+function createVisualElement() {
+    return new HTMLVisualElement({
+        props: {},
+        presenceContext: null,
+        visualState: {
+            latestValues: {},
+            renderState: {
+                transform: {},
+                transformOrigin: {},
+                style: {},
+                vars: {},
+            },
+        },
     })
 }
 
@@ -25,9 +39,7 @@ describe("animateElement", () => {
         )
 
         // Reads are batched into frame.read, so nothing is read synchronously
-        expect(getElementState(element).getValue("opacity")!.get()).toBe(
-            undefined
-        )
+        expect(styleEffect.get(element, "opacity")!.get()).toBe(undefined)
 
         await nextFrame()
         await nextFrame()
@@ -74,6 +86,52 @@ describe("animateElement", () => {
         expect(element.style.transform).toBe("translateX(100px) rotate(45deg)")
         expect(element.style.width).toBe("50px")
         expect(element.style.getPropertyValue("--progress")).toBe("1")
+        expect(styleEffect.get(element, "x")!.get()).toBe(100)
+        expect(styleEffect.get(element, "width")!.get()).toBe("50px")
+    })
+
+    it("animates a value already bound with styleEffect() rather than creating a second one", async () => {
+        const element = document.createElement("div")
+        const x = motionValue(0)
+        styleEffect(element, { x })
+
+        const [animation] = animateElement(
+            element,
+            { x: 100 },
+            { duration: 0.05 }
+        )
+
+        expect(styleEffect.get(element, "x")).toBe(x)
+        expect(x.isAnimating()).toBe(true)
+
+        await animation.finished
+        await nextFrame()
+
+        expect(x.get()).toBe(100)
+        expect(element.style.transform).toBe("translateX(100px)")
+    })
+
+    it("shares one transform render between styleEffect() and animate()", async () => {
+        const element = document.createElement("div")
+        const y = motionValue(50)
+        styleEffect(element, { y })
+
+        const [animation] = animateElement(
+            element,
+            { x: [0, 100] },
+            { duration: 0.05 }
+        )
+
+        await animation.finished
+        await nextFrame()
+
+        // A second state would have written transform twice, the last
+        // one winning with only its own keys
+        expect(element.style.transform).toBe("translateX(100px) translateY(50px)")
+
+        y.set(20)
+        await nextFrame()
+        expect(element.style.transform).toBe("translateX(100px) translateY(20px)")
     })
 
     it("owns the motion values so WAAPI can be used", () => {
@@ -81,15 +139,14 @@ describe("animateElement", () => {
 
         animateElement(element, { opacity: 1 }, { duration: 0.05 })
 
-        const value = getElementState(element).getValue("opacity")!
+        const value = styleEffect.get(element, "opacity")!
         expect(value.owner!.current).toBe(element)
         expect(value.owner!.getProps()).toEqual({})
     })
 
     it("skips values already at their target", async () => {
         const element = document.createElement("div")
-        const opacity = motionValue(1)
-        getElementState(element).addValue("opacity", opacity)
+        styleEffect(element, { opacity: motionValue(1) })
 
         const animations = animateElement(
             element,
@@ -150,7 +207,7 @@ describe("animateElement", () => {
         await nextFrame()
 
         // The target is measured in px and animated as a number
-        const width = getElementState(element).getValue("width")!.get()
+        const width = styleEffect.get(element, "width")!.get()
         expect(typeof width).toBe("number")
         expect(width).toBeGreaterThanOrEqual(50)
         expect(width).toBeLessThan(51)
@@ -170,24 +227,12 @@ describe("animateElement", () => {
             { x: [0, 100], opacity: [1, 0.5] },
             { duration: 10, ease: "linear" }
         )
-        const state = getElementState(element)
-        const x = state.getValue("x")!
-        expect(state.state.transformKeys).toEqual(["x"])
+        const state = styleEffect.state(element)!
+        const x = styleEffect.get(element, "x")!
+        expect(state.transformKeys).toEqual(["x"])
 
         // As animateLayout() does when it first meets the element
-        const visualElement = new HTMLVisualElement({
-            props: {},
-            presenceContext: null,
-            visualState: {
-                latestValues: {},
-                renderState: {
-                    transform: {},
-                    transformOrigin: {},
-                    style: {},
-                    vars: {},
-                },
-            },
-        })
+        const visualElement = createVisualElement()
         handOffElementState(element, visualElement)
         visualElement.mount(element)
 
@@ -197,9 +242,10 @@ describe("animateElement", () => {
         // ...not the style effect's derived transform
         expect(visualElement.getValue("transform")).toBeUndefined()
         // ...and the style effect has let go of them
-        expect(state.state.get("x")).toBeUndefined()
-        expect(state.state.get("transform")).toBeUndefined()
-        expect(getElementState(element)).not.toBe(state)
+        expect(styleEffect.get(element, "x")).toBeUndefined()
+        expect(styleEffect.get(element, "transform")).toBeUndefined()
+        expect(state.transformKeys).toBeUndefined()
+        expect(state.latest).toEqual({})
 
         // The VisualElement renders them from here
         x.jump(40)
@@ -210,6 +256,26 @@ describe("animateElement", () => {
         animation.stop()
         visualElement.unmount()
         element.remove()
+    })
+
+    it("hands over values bound directly with styleEffect() too", () => {
+        const element = document.createElement("div")
+        const rotate = motionValue(10)
+        styleEffect(element, { rotate })
+
+        const visualElement = createVisualElement()
+        handOffElementState(element, visualElement)
+
+        expect(visualElement.getValue("rotate")).toBe(rotate)
+        expect(styleEffect.get(element, "rotate")).toBeUndefined()
+    })
+
+    it("is a no-op for elements with nothing bound", () => {
+        const element = document.createElement("div")
+        const visualElement = createVisualElement()
+
+        expect(() => handOffElementState(element, visualElement)).not.toThrow()
+        expect(styleEffect.state(element)).toBeUndefined()
     })
 
     describe("on SVG elements", () => {
@@ -230,6 +296,8 @@ describe("animateElement", () => {
 
             expect(path.getAttribute("pathLength")).toBe("1")
             expect(path.getAttribute("stroke-dasharray")).toBe("1 0")
+            expect(svgEffect.get(path, "pathLength")!.get()).toBe(1)
+            expect(styleEffect.get(path, "pathLength")).toBeUndefined()
         })
 
         it("reads attribute origins and writes attr* values as attributes", async () => {
@@ -245,7 +313,7 @@ describe("animateElement", () => {
             await nextFrame()
             await nextFrame()
 
-            const x = getElementState(rect).getValue("attrX")!.get()
+            const x = svgEffect.get(rect, "attrX")!.get()
             expect(x).toBeGreaterThanOrEqual(10)
             expect(x).toBeLessThan(11)
             expect(parseFloat(rect.getAttribute("x")!)).toBeGreaterThanOrEqual(
@@ -268,9 +336,7 @@ describe("animateElement", () => {
             await nextFrame()
             await nextFrame()
 
-            const strokeWidth = getElementState(circle)
-                .getValue("strokeWidth")!
-                .get()
+            const strokeWidth = svgEffect.get(circle, "strokeWidth")!.get()
             expect(strokeWidth).toBeGreaterThanOrEqual(2)
             expect(strokeWidth).toBeLessThan(3)
 

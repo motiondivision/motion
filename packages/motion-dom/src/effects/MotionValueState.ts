@@ -100,7 +100,9 @@ export class MotionValueState {
 
     /**
      * Detach every value from this state and return them, so another
-     * renderer can take them over.
+     * renderer can take them over. The state stays cached by its effect,
+     * so the latest values and bound transform keys are reset too rather
+     * than leaking into values bound later.
      */
     release() {
         const values = new Map<string, MotionValue>()
@@ -108,6 +110,8 @@ export class MotionValueState {
             values.set(name, entry.value)
             entry.onRemove()
         })
+        this.latest = {}
+        this.transformKeys = undefined
         return values
     }
 
