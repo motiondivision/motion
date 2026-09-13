@@ -32,7 +32,7 @@ export function createRenderStep(runNextFrame: () => void): Step {
 
     function triggerCallback(callback: Process) {
         if (toKeepAlive.has(callback)) {
-            step.schedule(callback)
+            nextFrame.add(callback)
             runNextFrame()
         }
 
