@@ -9,27 +9,36 @@ async function nextFrame() {
 }
 
 describe("MotionValueState", () => {
-    it("stores the latest value with its default value type", async () => {
+    it("schedules one render per frame for a value, reading it at render time", async () => {
         const state = new MotionValueState()
         const width = motionValue(100)
-        const render = jest.fn()
+        const rendered: number[] = []
+        const render = jest.fn(() => rendered.push(width.get()))
 
         state.set("width", width, render)
-        expect(state.latest.width).toBe("100px")
         expect(render).not.toHaveBeenCalled()
 
+        width.set(150)
         width.set(200)
-        expect(state.latest.width).toBe("200px")
+        expect(render).not.toHaveBeenCalled()
+
         await nextFrame()
         expect(render).toHaveBeenCalledTimes(1)
+        expect(rendered).toEqual([200])
     })
 
-    it("stores the raw value when useDefaultValueType is false", () => {
+    it("doesn't schedule a render for a value that starts undefined", async () => {
         const state = new MotionValueState()
-        const x = motionValue(100)
+        const opacity = motionValue<number | undefined>(undefined)
+        const render = jest.fn()
 
-        state.set("x", x, undefined, undefined, false)
-        expect(state.latest.x).toBe(100)
+        state.set("opacity", opacity, render)
+        await nextFrame()
+        expect(render).not.toHaveBeenCalled()
+
+        opacity.set(1)
+        await nextFrame()
+        expect(render).toHaveBeenCalledTimes(1)
     })
 
     it("schedules the computed value's render when a source value changes", async () => {
@@ -40,15 +49,13 @@ describe("MotionValueState", () => {
         const render = jest.fn()
 
         state.set("transform", transform, render)
-        state.set("x", x, undefined, transform, false)
-        state.set("y", y, undefined, transform, false)
+        state.set("x", x, undefined, transform)
+        state.set("y", y, undefined, transform)
         await nextFrame()
         render.mockClear()
 
         x.set(100)
         y.set(100)
-        expect(state.latest.x).toBe(100)
-        expect(state.latest.y).toBe(100)
         expect(render).not.toHaveBeenCalled()
 
         await nextFrame()
@@ -63,8 +70,8 @@ describe("MotionValueState", () => {
         const render = jest.fn()
 
         state.set("transform", transform, render)
-        const removeX = state.set("x", x, undefined, transform, false)
-        state.set("y", y, undefined, transform, false)
+        const removeX = state.set("x", x, undefined, transform)
+        state.set("y", y, undefined, transform)
         await nextFrame()
         render.mockClear()
 
@@ -119,8 +126,6 @@ describe("MotionValueState", () => {
         x.set(10)
 
         await nextFrame()
-        expect(a.latest.x).toBe("10px")
-        expect(b.latest.x).toBe("10px")
         expect(renderA).toHaveBeenCalledTimes(1)
         expect(renderB).toHaveBeenCalledTimes(1)
     })

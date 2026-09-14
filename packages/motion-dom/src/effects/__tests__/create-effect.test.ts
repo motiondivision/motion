@@ -21,10 +21,8 @@ const subjectEffect = createEffect<Subject>(
             key,
             value,
             () => {
-                subject.values[key] = state.latest[key]
-            },
-            undefined,
-            false
+                subject.values[key] = value.get()
+            }
         ),
     {
         test: (subject): subject is Subject =>
@@ -82,10 +80,8 @@ describe("createEffect", () => {
                     key,
                     value,
                     () => {
-                        subject.values[key] = state.latest[key]
-                    },
-                    undefined,
-                    false
+                        subject.values[key] = value.get()
+                    }
                 ),
             { step: frame.preRender }
         )

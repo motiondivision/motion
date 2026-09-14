@@ -36,6 +36,17 @@ export function supportsBrowserAnimation<T extends AnyResolvedKeyframe>(
         keyframes,
     } = options
 
+    /**
+     * Most values can't be accelerated at all, so check the name before
+     * looking at the element or its props.
+     */
+    if (
+        !name ||
+        !(acceleratedValues.has(name) || colorProperties.has(name))
+    ) {
+        return false
+    }
+
     const subject = motionValue?.owner?.current
 
     /**
@@ -56,7 +67,6 @@ export function supportsBrowserAnimation<T extends AnyResolvedKeyframe>(
 
     return (
         supportsWaapi() &&
-        name &&
         /**
          * Force WAAPI for color properties with browser-only color formats
          * (oklch, oklab, lab, lch, etc.) that the JS animation path can't parse.

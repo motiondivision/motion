@@ -79,6 +79,15 @@ describe("complex value type", () => {
         expect(complex.test("3")).toBe(false)
         expect(complex.test("3px")).toBe(true)
         expect(complex.test(MIXED)).toBe(true)
+        expect(complex.test("#fff")).toBe(true)
+        expect(complex.test("#FFF")).toBe(true)
+        expect(complex.test("solid #fff")).toBe(true)
+        expect(complex.test("none")).toBe(false)
+        expect(complex.test("url(image.png)")).toBe(false)
+        expect(complex.test("var(--color)")).toBe(false)
+        // Results don't depend on previous calls
+        expect(complex.test("3px")).toBe(true)
+        expect(complex.test("3px")).toBe(true)
     })
 
     it("parse converts string to array", () => {

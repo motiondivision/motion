@@ -22,6 +22,7 @@ Undocumented APIs should be considered internal and may change without warning.
 ### Changed
 
 -   Reduced filesize and improved performance of `spring`.
+-   `MotionValueState` no longer caches values in `latest`; effect renders read their motion values directly. `set()` drops its `useDefaultValueType` argument.
 
 ## [13.1.1] 2026-08-18
 

@@ -14,7 +14,7 @@ import { getFinalKeyframe } from "../keyframes/get-final"
 import { isTransitionDefined } from "../utils/is-transition-defined"
 import { frame } from "../../frameloop"
 import type { MotionValue, StartAnimation } from "../../value"
-import type { VisualElement } from "../../render/VisualElement"
+import type { AnimationElement } from "../keyframes/types"
 
 export const animateMotionValue =
     <V extends AnyResolvedKeyframe>(
@@ -22,7 +22,7 @@ export const animateMotionValue =
         value: MotionValue<V>,
         target: V | UnresolvedKeyframes<V>,
         transition: ValueTransition & { elapsed?: number } = {},
-        element?: VisualElement<any>,
+        element?: AnimationElement,
         isHandoff?: boolean
     ): StartAnimation =>
     (onComplete) => {

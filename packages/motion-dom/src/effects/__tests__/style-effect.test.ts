@@ -25,6 +25,43 @@ describe("styleEffect", () => {
         expect(element.style.transform).toBe("none")
     })
 
+    it("renders a transform key rebound to a new motion value", async () => {
+        const element = document.createElement("div")
+        const x = motionValue(10)
+        const scale = motionValue(2)
+        styleEffect(element, { x, scale })
+        await nextFrame()
+        expect(element.style.transform).toBe("translateX(10px) scale(2)")
+
+        const replacement = motionValue(30)
+        styleEffect(element, { x: replacement })
+        await nextFrame()
+        expect(element.style.transform).toBe("translateX(30px) scale(2)")
+
+        // The old value no longer drives the element
+        x.set(99)
+        await nextFrame()
+        expect(element.style.transform).toBe("translateX(30px) scale(2)")
+
+        replacement.set(40)
+        await nextFrame()
+        expect(element.style.transform).toBe("translateX(40px) scale(2)")
+    })
+
+    it("reads bound values at render time rather than caching them", async () => {
+        const element = document.createElement("div")
+        const width = motionValue(100)
+        styleEffect(element, { width })
+
+        width.set(150)
+        width.set(200)
+        await nextFrame()
+        expect(element.style.width).toBe("200px")
+
+        // No per-value cache on the state
+        expect(styleEffect.state(element)).not.toHaveProperty("latest")
+    })
+
     it("sets styles after styleEffect is applied", async () => {
         const element = document.createElement("div")
 
@@ -523,5 +560,54 @@ describe("styleEffect", () => {
 
         // All values are now default (1), so transform should be "none"
         expect(element.style.transform).toBe("none")
+    })
+})
+
+describe("styleEffect as an animate() effect", () => {
+    it("claims HTML and SVG elements only", () => {
+        expect(styleEffect.test(document.createElement("div"))).toBe(true)
+        expect(
+            styleEffect.test(
+                document.createElementNS("http://www.w3.org/2000/svg", "rect")
+            )
+        ).toBe(true)
+        expect(styleEffect.test({})).toBe(false)
+        expect(styleEffect.test("div")).toBe(false)
+        expect(styleEffect.test(null)).toBe(false)
+    })
+
+    it("reads styles, CSS variables and transforms from the element", () => {
+        const element = document.createElement("div")
+        element.style.width = "50px"
+        element.style.backgroundColor = "rgb(255, 0, 0)"
+        element.style.setProperty("--progress", "0.5")
+        // Browsers report computed transforms as a matrix
+        element.style.transform = "matrix(2, 0, 0, 2, 20, 0)"
+
+        expect(styleEffect.read(element, "width")).toBe("50px")
+        expect(styleEffect.read(element, "backgroundColor")).toBe(
+            "rgb(255, 0, 0)"
+        )
+        expect(styleEffect.read(element, "--progress")).toBe("0.5")
+        expect(styleEffect.read(element, "x")).toBe(20)
+        expect(styleEffect.read(element, "scale")).toBe(2)
+        expect(styleEffect.read(element, "rotate")).toBe(0)
+    })
+
+    it("returns 0 for styles the browser can't report", () => {
+        const element = document.createElement("div")
+
+        expect(styleEffect.read(element, "notAStyle")).toBe(0)
+    })
+
+    it("exposes bound motion values via get", () => {
+        const element = document.createElement("div")
+        const width = motionValue("10px")
+
+        expect(styleEffect.get(element, "width")).toBeUndefined()
+
+        styleEffect(element, { width })
+
+        expect(styleEffect.get(element, "width")).toBe(width)
     })
 })

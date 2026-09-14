@@ -1,4 +1,4 @@
-import { frame, motionValue, MotionValue } from "motion-dom"
+import { frame, motionValue, MotionValue, visualElementStore } from "motion-dom"
 import { useEffect } from "react"
 import * as THREE from "three"
 import { animate } from ".."
@@ -8,6 +8,12 @@ import { useMotionValue } from "../../../value/use-motion-value"
 import { syncDriver } from "../../animators/__tests__/utils"
 
 const duration = 0.001
+
+async function nextFrame() {
+    return new Promise<void>((resolve) => {
+        frame.postRender(() => resolve())
+    })
+}
 
 describe("animate", () => {
     test("correctly animates MotionValues", async () => {
@@ -370,6 +376,48 @@ describe("animate", () => {
         // And ensure final state reached
         expect(proxy.x).toBeGreaterThanOrEqual(100)
         expect(proxy.y).toBe(0)
+    })
+
+    test("animates through an element's existing VisualElement", async () => {
+        const Component = () => <motion.div />
+        const { container } = render(<Component />)
+        const element = container.firstChild as HTMLElement
+        const visualElement = visualElementStore.get(element)!
+        expect(visualElement).toBeDefined()
+
+        const animation = animate(element, { x: 100 }, { duration })
+
+        // The component's own value is driven, so it renders the transform
+        expect(visualElement.getValue("x")).toBeDefined()
+        await animation
+        await nextFrame()
+        expect(element.style.transform).toBe("translateX(100px)")
+    })
+
+    test("does not create a VisualElement for plain elements", async () => {
+        const element = document.createElement("div")
+        document.body.appendChild(element)
+
+        const animation = animate(element, { x: 100 }, { duration })
+        expect(visualElementStore.has(element)).toBe(false)
+
+        await animation
+        await nextFrame()
+        expect(element.style.transform).toBe("translateX(100px)")
+        element.remove()
+    })
+
+    test("animates SVG elements through svgEffect", async () => {
+        const path = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "path"
+        )
+
+        await animate(path, { pathLength: 1 }, { duration })
+        await nextFrame()
+
+        expect(path.getAttribute("pathLength")).toBe("1")
+        expect(path.getAttribute("stroke-dasharray")).toBe("1 0")
     })
 })
 

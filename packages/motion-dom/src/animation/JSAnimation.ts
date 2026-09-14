@@ -138,7 +138,11 @@ export class JSAnimation<T extends number | string>
             keyframes = [0 as T, 100 as T]
         }
 
-        const generator = generatorFactory({ ...options, keyframes })
+        const generator = generatorFactory(
+            keyframes === options.keyframes
+                ? options
+                : { ...options, keyframes }
+        )
 
         /**
          * If we have a mirror repeat type we need to create a second generator that outputs the

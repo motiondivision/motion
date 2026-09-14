@@ -23,15 +23,16 @@ const getColorType = (v: Color | string) =>
 function asRGBA(color: Color | string) {
     const type = getColorType(color)
 
-    warning(
-        Boolean(type),
-        `'${color}' is not an animatable color. Use the equivalent color code instead.`,
-        "color-not-animatable"
-    )
+    if (!type) {
+        warning(
+            false,
+            `'${color}' is not an animatable color. Use the equivalent color code instead.`,
+            "color-not-animatable"
+        )
+        return false
+    }
 
-    if (!Boolean(type)) return false
-
-    let model = type!.parse(color)
+    let model = type.parse(color)
 
     if (type === hsla) {
         // TODO Remove this cast - needed since Motion's stricter typing

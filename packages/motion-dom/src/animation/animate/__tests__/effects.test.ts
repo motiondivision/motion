@@ -30,10 +30,8 @@ const subjectEffect = createEffect<Subject>(
             key,
             value,
             () => {
-                subject.values[key] = state.latest[key]
-            },
-            undefined,
-            false
+                subject.values[key] = value.get()
+            }
         ),
     {
         test: (subject): subject is Subject =>
@@ -122,6 +120,21 @@ describe("animateEffectSubject", () => {
         await nextFrame()
 
         expect(subject.values.x).toBe(100)
+    })
+
+    it("doesn't read the subject when the from keyframe is supplied", async () => {
+        const subject = createSubject({ x: 0, y: 0 })
+        const read = jest.fn(subjectEffect.read)
+        const effect = createEffect<Subject>(() => () => {}, {
+            test: subjectEffect.test,
+            read,
+        })
+
+        animateEffectSubject(effect, subject, { x: [50, 100] })
+        expect(read).not.toHaveBeenCalled()
+
+        animateEffectSubject(effect, subject, { y: [null, 100] })
+        expect(read).toHaveBeenCalledWith(subject, "y", [null, 100])
     })
 
     it("throws when a value can't be read and no from keyframe is provided", () => {

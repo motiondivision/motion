@@ -1,4 +1,4 @@
-import { analyseComplexValue } from "../../../value/types/complex"
+import { hasComplexValues } from "../../../value/types/complex"
 import { getAnimatableNone } from "../../../value/types/utils/animatable-none"
 import { AnyResolvedKeyframe } from "../../types"
 import { UnresolvedKeyframes } from "../KeyframesResolver"
@@ -23,7 +23,7 @@ export function makeNoneKeyframesAnimatable(
         if (
             typeof keyframe === "string" &&
             !invalidTemplates.has(keyframe) &&
-            analyseComplexValue(keyframe).values.length
+            hasComplexValues(keyframe)
         ) {
             animatableTemplate = unresolvedKeyframes[i] as string
         }
@@ -32,6 +32,12 @@ export function makeNoneKeyframesAnimatable(
 
     if (animatableTemplate && name) {
         for (const noneIndex of noneKeyframeIndexes) {
+            /**
+             * A zero-valued template like "0%" is already its own
+             * animatable none, so there's nothing to derive.
+             */
+            if (unresolvedKeyframes[noneIndex] === animatableTemplate) continue
+
             unresolvedKeyframes[noneIndex] = getAnimatableNone(
                 name,
                 animatableTemplate

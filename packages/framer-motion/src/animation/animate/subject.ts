@@ -1,6 +1,6 @@
 import {
     animateEffectSubject,
-    animateTarget,
+    animateElement,
     AnimationPlaybackControlsWithThen,
     AnimationScope,
     AnyResolvedKeyframe,
@@ -12,17 +12,13 @@ import {
     findEffect,
     isMotionValue,
     MotionValue,
-    TargetAndTransition,
+    propEffect,
     UnresolvedValueKeyframe,
     ValueAnimationTransition,
     visualElementStore,
 } from "motion-dom"
 import { invariant } from "motion-utils"
 import { ObjectTarget } from "../sequence/types"
-import {
-    createDOMVisualElement,
-    createObjectVisualElement,
-} from "../utils/create-visual-element"
 import { isDOMKeyframes } from "../utils/is-dom-keyframes"
 import { resolveSubjects } from "./resolve-subjects"
 import { animateSingleValue } from "motion-dom"
@@ -144,43 +140,36 @@ export function animateSubject<O extends Object>(
                 transition.delay = transition.delay(i, numSubjects)
             }
 
-            const isElement = thisSubject instanceof Element
-
-            /**
-             * Registered effects (animate.addEffect) claim non-DOM subjects
-             * before we fall back to treating them as plain objects.
-             */
-            const effect = isElement ? undefined : findEffect(thisSubject)
-
-            if (effect) {
+            if (thisSubject instanceof Element) {
+                /**
+                 * An element already owned by a VisualElement (a <motion.*>
+                 * component or animateLayout()) animates its values so they
+                 * share one renderer. Anything else is driven through
+                 * styleEffect (or svgEffect) and the DOM keyframe resolver,
+                 * without creating a VisualElement.
+                 */
+                animations.push(
+                    ...animateElement(
+                        thisSubject as HTMLElement | SVGElement,
+                        keyframes as EffectKeyframes,
+                        transition as EffectTransition,
+                        visualElementStore.get(thisSubject)
+                    )
+                )
+            } else {
+                /**
+                 * Registered effects (animate.addEffect) claim non-DOM
+                 * subjects before we fall back to writing plain properties.
+                 */
                 animations.push(
                     ...animateEffectSubject(
-                        effect,
+                        findEffect(thisSubject) ?? propEffect,
                         thisSubject as object,
                         keyframes as EffectKeyframes,
                         transition as EffectTransition
                     )
                 )
-                continue
             }
-
-            const createVisualElement = isElement
-                ? createDOMVisualElement
-                : createObjectVisualElement
-
-            if (!visualElementStore.has(thisSubject)) {
-                createVisualElement(thisSubject as any)
-            }
-
-            const visualElement = visualElementStore.get(thisSubject)!
-
-            animations.push(
-                ...animateTarget(
-                    visualElement,
-                    { ...(keyframes as {}), transition } as TargetAndTransition,
-                    {}
-                )
-            )
         }
     }
 
