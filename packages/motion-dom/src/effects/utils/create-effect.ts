@@ -47,9 +47,14 @@ export interface Effect<Subject extends object = object>
     get(subject: Subject, key: string): MotionValue | undefined
 
     /**
+     * Write `subject`'s pending values now rather than in the next frame,
+     * e.g. so it can be measured with a target applied.
+     */
+    flush(subject: Subject): void
+
+    /**
      * The state holding the motion values bound to `subject`, if any have
-     * been. `animate()` renders and hands off through this so it shares
-     * one state with a direct `styleEffect`/`svgEffect` call.
+     * been, so they can be handed to another renderer.
      */
     state(subject: Subject): MotionValueState | undefined
 }
@@ -111,6 +116,7 @@ export function createEffect<Subject extends object>(
     return Object.assign(effect, options, {
         get: (subject: Subject, key: string) =>
             stateCache.get(subject)?.get(key),
+        flush: (subject: Subject) => stateCache.get(subject)?.flush(),
         state: (subject: Subject) => stateCache.get(subject),
     })
 }

@@ -8,9 +8,7 @@ import {
     AnimationOptions as DynamicAnimationOptions,
     EffectKeyframes,
     EffectTransition,
-    ElementKeyframes,
     ElementOrSelector,
-    ElementTransition,
     findEffect,
     isMotionValue,
     MotionValue,
@@ -153,8 +151,8 @@ export function animateSubject<O extends Object>(
                 animations.push(
                     ...animateElement(
                         thisSubject as HTMLElement | SVGElement,
-                        keyframes as ElementKeyframes,
-                        transition as ElementTransition,
+                        keyframes as EffectKeyframes,
+                        transition as EffectTransition,
                         visualElementStore.get(thisSubject)
                     )
                 )

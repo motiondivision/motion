@@ -594,10 +594,10 @@ describe("styleEffect as an animate() effect", () => {
         expect(styleEffect.read(element, "rotate")).toBe(0)
     })
 
-    it("returns undefined for values that can't be read", () => {
+    it("returns 0 for styles the browser can't report", () => {
         const element = document.createElement("div")
 
-        expect(styleEffect.read(element, "notAStyle")).toBeUndefined()
+        expect(styleEffect.read(element, "notAStyle")).toBe(0)
     })
 
     it("exposes bound motion values via get", () => {

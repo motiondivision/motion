@@ -1,5 +1,8 @@
+import { isNumericalString, isZeroValueString } from "motion-utils"
 import { frame } from "../../frameloop"
 import { MotionValue } from "../../value"
+import { complex } from "../../value/types/complex"
+import { getAnimatableNone } from "../../value/types/utils/animatable-none"
 import { AnyResolvedKeyframe } from "../types"
 import { WithRender } from "./types"
 import { fillWildcards } from "./utils/fill-wildcards"
@@ -106,6 +109,28 @@ export function flushKeyframeResolvers() {
     isForced = false
 }
 
+/**
+ * Normalise a value read from the subject into an animation origin: a
+ * number read as a string ("0", "200") becomes a number, and a value
+ * that isn't animatable (e.g. "none") but whose target is becomes an
+ * animatable zero in the shape of the target.
+ */
+function readOrigin(
+    value: AnyResolvedKeyframe | null | undefined,
+    name: string,
+    target: AnyResolvedKeyframe | null
+) {
+    if (typeof value === "string") {
+        if (isNumericalString(value) || isZeroValueString(value)) {
+            return parseFloat(value)
+        } else if (!complex.test(value) && complex.test(target)) {
+            return getAnimatableNone(name, target as string)
+        }
+    }
+
+    return value ?? undefined
+}
+
 export type OnKeyframesResolved<T extends AnyResolvedKeyframe> = (
     resolvedKeyframes: ResolvedKeyframes<T>,
     finalKeyframe: T,
@@ -120,7 +145,7 @@ export class KeyframeResolver<T extends AnyResolvedKeyframe = any> {
 
     protected unresolvedKeyframes: UnresolvedKeyframes<AnyResolvedKeyframe>
 
-    private motionValue?: MotionValue<T>
+    protected motionValue?: MotionValue<T>
     private onComplete: OnKeyframesResolved<T>
 
     state: "pending" | "scheduled" | "complete" = "pending"
@@ -185,9 +210,13 @@ export class KeyframeResolver<T extends AnyResolvedKeyframe = any> {
             if (currentValue !== undefined) {
                 unresolvedKeyframes[0] = currentValue
             } else if (element && name) {
-                const valueAsRead = element.readValue(name, finalKeyframe)
+                const valueAsRead = readOrigin(
+                    element.readValue(name, finalKeyframe),
+                    name,
+                    finalKeyframe
+                )
 
-                if (valueAsRead !== undefined && valueAsRead !== null) {
+                if (valueAsRead !== undefined) {
                     unresolvedKeyframes[0] = valueAsRead
                 }
             }

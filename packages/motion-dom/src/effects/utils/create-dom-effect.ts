@@ -25,6 +25,7 @@ export interface SelectorEffect<T extends object> extends EffectOptions<T> {
     get(subject: ElementOrSelector, key: string): MotionValue | undefined
     get(subject: T, key: string): MotionValue | undefined
 
+    flush(subject: T): void
     state(subject: T): MotionValueState | undefined
 }
 
@@ -65,12 +66,13 @@ export function createSelectorEffect<T extends object>(
         }
     }
 
-    const { test, read, get, state } = subjectEffect
+    const { test, read, get, flush, state } = subjectEffect
 
     return Object.assign(effect, {
         test,
         read,
         get: get as SelectorEffect<T>["get"],
+        flush,
         state,
     })
 }

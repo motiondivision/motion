@@ -175,17 +175,16 @@ export class DOMKeyframesResolver<
             unresolvedKeyframes[unresolvedKeyframes.length - 1]
 
         if (measureKeyframe !== undefined) {
-            element.getValue(name, measureKeyframe).jump(measureKeyframe, false)
+            this.motionValue?.jump(measureKeyframe as T, false)
         }
     }
 
     measureEndState() {
-        const { element, name, unresolvedKeyframes } = this
+        const { element, unresolvedKeyframes } = this
 
         if (!element || !element.current) return
 
-        const value = element.getValue(name)
-        value && value.jump(this.measuredOrigin, false)
+        this.motionValue?.jump(this.measuredOrigin as T, false)
 
         const finalKeyframeIndex = unresolvedKeyframes.length - 1
         const finalKeyframe = unresolvedKeyframes[finalKeyframeIndex]

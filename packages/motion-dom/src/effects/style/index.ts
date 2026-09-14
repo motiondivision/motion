@@ -100,7 +100,8 @@ const isStyleSubject = (subject: unknown): subject is StyleSubject =>
  * Reads the current value of a style from the element, as the initial
  * keyframe when `animate()` targets an element via this effect. Transforms
  * are parsed out of the computed matrix; everything else is the computed
- * style. Units aren't converted to match the target keyframes.
+ * style. Units aren't converted to match the target keyframes. A style
+ * the browser can't report is 0, as a VisualElement reports it.
  */
 export const readStyleValue = (element: StyleSubject, key: string) => {
     if (transformProps.has(key)) {
@@ -112,7 +113,7 @@ export const readStyleValue = (element: StyleSubject, key: string) => {
         ? computedStyle.getPropertyValue(key)
         : computedStyle[key as any]
 
-    return typeof value === "string" ? value.trim() || undefined : undefined
+    return (typeof value === "string" && value.trim()) || 0
 }
 
 /**
