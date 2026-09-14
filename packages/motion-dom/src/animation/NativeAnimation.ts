@@ -14,6 +14,7 @@ import {
     TimelineWithFallback,
 } from "./types"
 import { WithPromise } from "./utils/WithPromise"
+import { notifyAnimationStart } from "./utils/notify-inspector"
 import { startWaapiAnimation } from "./waapi/start-waapi-animation"
 import { applyGeneratorOptions } from "./waapi/utils/apply-generator"
 
@@ -121,6 +122,8 @@ export class NativeAnimation<T extends AnyResolvedKeyframe>
             onComplete?.()
             this.notifyFinished()
         }
+
+        notifyAnimationStart(this, options, transition)
     }
 
     updateMotionValue?(value?: T): void

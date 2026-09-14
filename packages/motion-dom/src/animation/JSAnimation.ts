@@ -24,6 +24,7 @@ import {
     ValueAnimationOptions,
 } from "./types"
 import { replaceTransitionType } from "./utils/replace-transition-type"
+import { notifyAnimationStart } from "./utils/notify-inspector"
 import { WithPromise } from "./utils/WithPromise"
 
 const percentToProgress = (percent: number) => percent / 100
@@ -96,6 +97,8 @@ export class JSAnimation<T extends number | string>
         this.play()
 
         if (options.autoplay === false) this.pause()
+
+        notifyAnimationStart(this, this.options)
     }
 
     initAnimation() {
