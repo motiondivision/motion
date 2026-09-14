@@ -25,8 +25,8 @@ export interface WithRender {
 }
 
 /**
- * What animateMotionValue needs from the thing that owns a value: a
- * VisualElement, or an effect bound to a subject.
+ * The owner of an animating value. Either a VisualElement or an
+ * EffectSubject.
  */
 export interface AnimationElement
     extends Omit<WithRender, "current">,

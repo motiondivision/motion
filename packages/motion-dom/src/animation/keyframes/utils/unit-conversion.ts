@@ -61,20 +61,20 @@ export function removeNonTranslationalTransform(visualElement: WithRender) {
 export const boxDependentValues = new Set(["bottom", "right"])
 
 /**
- * The used value of width/height is already in pixels and unaffected by
+ * Computed width/height is already in pixels and unaffected by
  * transforms. It's "auto" for elements without a layout box (e.g. inline),
  * in which case we fall back to measuring the bounding box.
  */
-function usedLength(
-    length: string | undefined,
+function measureDimension(
+    computed: string | undefined,
     measureBox: () => Box,
     axis: "x" | "y",
     paddingStart: string,
     paddingEnd: string,
     boxSizing?: string
 ) {
-    const used = parseFloat(length as string)
-    if (!isNaN(used)) return used
+    const px = parseFloat(computed as string)
+    if (!isNaN(px)) return px
 
     const { min, max } = measureBox()[axis]
     const size = max - min
@@ -90,7 +90,7 @@ export const positionalValues: { [key: string]: GetActualMeasurementInPixels } =
             { width, paddingLeft = "0", paddingRight = "0", boxSizing },
             measureBox
         ) =>
-            usedLength(
+            measureDimension(
                 width,
                 measureBox,
                 "x",
@@ -102,7 +102,7 @@ export const positionalValues: { [key: string]: GetActualMeasurementInPixels } =
             { height, paddingTop = "0", paddingBottom = "0", boxSizing },
             measureBox
         ) =>
-            usedLength(
+            measureDimension(
                 height,
                 measureBox,
                 "y",
