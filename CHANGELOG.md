@@ -15,7 +15,7 @@ Undocumented APIs should be considered internal and may change without warning.
 -   `springValue`/`useSpring`: 80% reduction in time when retargeting.
 -   `animate`: 10% smaller.
 -   `animate`: 20% reduction in startup time.
--   `animate`: From 10% to 60% reduction in rendering time.
+-   `animate`: 10% reduction in per-frame JS.
 -   `frame`: Frame scheduling 10% faster.
 
 ### Fixed
