@@ -48,8 +48,7 @@ export function keyframes<T extends AnyResolvedKeyframe>({
     }
 
     /**
-     * The common case of two keyframes and one easing needs no times or
-     * mixer arrays: it's the same interpolation as below, inlined.
+     * Fast setup path for two keyframes one easing.
      */
     if (
         keyframeValues.length === 2 &&
