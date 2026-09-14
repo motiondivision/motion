@@ -4,13 +4,18 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
-## [13.2.1] 2026-09-14
+## [13.3.0] 2026-09-14
+
+### Added
+
+-   Hooks for Motion Editor.
 
 ### Changed
 
 -   `springValue`/`useSpring`: 80% reduction in time when retargeting.
 -   `animate`: 20% reducing in time to startup.
 -   `animate`: Switched renderer to `styleEffect` and `svgEffect` for 10% reduction in runtime and 3kb (15%) smaller filesize.
+-   `frame`: Frame scheduling 10% faster.
 
 ### Fixed
 
