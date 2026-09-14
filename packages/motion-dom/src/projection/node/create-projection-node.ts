@@ -9,6 +9,7 @@ import {
     SubscriptionManager,
 } from "motion-utils"
 import { animateSingleValue } from "../../animation/animate/single-value"
+import { notifyLayoutAnimationStart } from "../../animation/utils/notify-inspector"
 import { JSAnimation } from "../../animation/JSAnimation"
 import { getOptimisedAppearId } from "../../animation/optimized-appear/get-appear-id"
 import {
@@ -1753,6 +1754,8 @@ export function createProjectionNode<I>({
                     }
                 ) as JSAnimation<number>
 
+                notifyLayoutAnimationStart(this.currentAnimation, this)
+
                 if (this.resumingFrom) {
                     this.resumingFrom.currentAnimation = this.currentAnimation
                 }
@@ -1788,7 +1791,8 @@ export function createProjectionNode<I>({
 
         applyTransformsToTarget() {
             const lead = this.getLead()
-            let { targetWithTransforms, target, layout, latestValues } = lead
+            const { targetWithTransforms, layout, latestValues } = lead
+            let { target } = lead
 
             if (!targetWithTransforms || !target || !layout) return
 
