@@ -1,14 +1,10 @@
-import { animateView } from "../animate-view"
-import { NativeAnimation } from "../../animation/NativeAnimation"
-import { getViewAnimations } from "../utils/get-view-animations"
+import { getViewAnimations, NativeAnimation } from "motion-dom"
+import { animateViewLayers as animateView } from "../animate-view-layers"
 
-jest.mock("../utils/get-view-animations", () => ({
+jest.mock("motion-dom", () => ({
+    ...jest.requireActual("motion-dom"),
     getViewAnimations: jest.fn(),
-}))
-jest.mock("../../animation/NativeAnimation", () => ({
     NativeAnimation: jest.fn(),
-}))
-jest.mock("../../animation/NativeAnimationWrapper", () => ({
     NativeAnimationWrapper: jest.fn((animation) => animation),
 }))
 

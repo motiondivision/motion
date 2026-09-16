@@ -1,14 +1,14 @@
 "use client"
 
-import { animateView, ViewAnimationType } from "motion-dom"
 import React, {
     ComponentType,
     PropsWithChildren,
     useInsertionEffect,
 } from "react"
+import { animateViewLayers } from "./animate-view-layers"
 import { useResetViewTransitions } from "./hooks/use-reset-view-transitions"
 import { sharedProps } from "./shared-props"
-import { AnimateViewProps } from "./types"
+import { AnimateViewProps, ViewAnimationType } from "./types"
 
 type ViewTransitionEvent = (
     instance: { name: string },
@@ -56,7 +56,7 @@ export function AnimateView({
     const createAnimation =
         (type: ViewAnimationType): ViewTransitionEvent =>
         ({ name: viewName }, types) =>
-            animateView(
+            animateViewLayers(
                 viewName,
                 type,
                 sharedProps.get(viewName) || props,

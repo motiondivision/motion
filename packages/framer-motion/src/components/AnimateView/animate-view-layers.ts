@@ -1,21 +1,25 @@
-import { secondsToMilliseconds } from "motion-utils"
-import { GroupAnimation } from "../animation/GroupAnimation"
-import { NativeAnimation } from "../animation/NativeAnimation"
-import { NativeAnimationWrapper } from "../animation/NativeAnimationWrapper"
 import {
     AnimationPlaybackControls,
+    applyGeneratorOptions,
+    getValueTransition,
+    getViewAnimationLayerInfo,
+    getViewAnimations,
+    GroupAnimation,
+    mapEasingToNativeEasing,
+    NativeAnimation,
+    NativeAnimationWrapper,
     Target,
     Transition,
-} from "../animation/types"
-import { getValueTransition } from "../animation/utils/get-value-transition"
-import { applyGeneratorOptions } from "../animation/waapi/utils/apply-generator"
-import { mapEasingToNativeEasing } from "../animation/waapi/easing/map-easing"
-import { ViewAnimationOptions, ViewAnimationType } from "./animate-view-types"
-import { getViewAnimationLayerInfo } from "./utils/get-layer-info"
-import { getViewAnimations } from "./utils/get-view-animations"
+} from "motion-dom"
+import { secondsToMilliseconds } from "motion-utils"
+import { ViewAnimationOptions, ViewAnimationType } from "./types"
 
-/** Animate the browser-generated pseudo-elements for a view boundary. */
-export function animateView(
+/**
+ * Animate the pseudo-element layers React's ViewTransition has generated for
+ * a named view boundary, either retiming the browser's animations or
+ * replacing its crossfade with custom keyframes.
+ */
+export function animateViewLayers(
     name: string,
     animationType: ViewAnimationType,
     {
@@ -75,7 +79,7 @@ export function animateView(
 
     if (hasValues && hasMatchingAnimation) {
         layerAnimations.push(
-            ...createViewAnimations(
+            ...createLayerAnimations(
                 name,
                 animationType,
                 values,
@@ -100,9 +104,9 @@ export function animateView(
     }
 }
 
-function createViewAnimations(
+function createLayerAnimations(
     layerName: string,
-    animationType: "enter" | "exit" | "share" | "update",
+    animationType: ViewAnimationType,
     values: Target,
     defaultTransition: Transition | undefined,
     transition: Transition | undefined

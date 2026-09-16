@@ -155,8 +155,6 @@ export { isWillChangeMotionValue } from "./value/will-change/is"
 export type { WillChange } from "./value/will-change/types"
 
 export * from "./view"
-export { animateView } from "./view/animate-view"
-export * from "./view/animate-view-types"
 export * from "./view/types"
 export * from "./view/utils/get-layer-info"
 export * from "./view/utils/get-view-animations"
