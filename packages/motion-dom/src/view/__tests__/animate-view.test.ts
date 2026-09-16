@@ -8,8 +8,12 @@ jest.mock("../utils/get-view-animations", () => ({
 jest.mock("../../animation/NativeAnimation", () => ({
     NativeAnimation: jest.fn(),
 }))
+jest.mock("../../animation/NativeAnimationWrapper", () => ({
+    NativeAnimationWrapper: jest.fn((animation) => animation),
+}))
 
 class ViewEffect {
+    updateTiming = jest.fn()
     constructor(public pseudoElement: string) {}
 }
 
@@ -28,7 +32,7 @@ beforeEach(() => {
 })
 
 it("creates custom keyframes once even when several browser layers match", () => {
-    const layers = ["group", "old", "new"].map((layer) => ({
+    const [group, ...layers] = ["group", "old", "new"].map((layer) => ({
         effect: new ViewEffect(`::view-transition-${layer}(test)`),
         cancel: jest.fn(),
     }))
@@ -36,7 +40,7 @@ it("creates custom keyframes once even when several browser layers match", () =>
         effect: new ViewEffect("::view-transition-new(other)"),
         cancel: jest.fn(),
     }
-    getAnimations.mockReturnValue([...layers, unrelated])
+    getAnimations.mockReturnValue([group, ...layers, unrelated])
     const cancel = jest.fn()
     createAnimation.mockImplementation(() => ({ cancel }))
     const resolve = jest.fn(() => ({ opacity: 1 }))
@@ -53,9 +57,44 @@ it("creates custom keyframes once even when several browser layers match", () =>
         })
     )
     layers.forEach((layer) => expect(layer.cancel).toHaveBeenCalledTimes(1))
+    expect(group.cancel).not.toHaveBeenCalled()
     expect(unrelated.cancel).not.toHaveBeenCalled()
     cleanup()
     expect(cancel).toHaveBeenCalledTimes(1)
+})
+
+it("keeps the group morph running when custom values replace the crossfade", () => {
+    const group = {
+        effect: new ViewEffect("::view-transition-group(test)"),
+        cancel: jest.fn(),
+    }
+    const { updateTiming } = group.effect
+    const old = {
+        effect: new ViewEffect("::view-transition-old(test)"),
+        cancel: jest.fn(),
+    }
+    getAnimations.mockReturnValue([group, old])
+    createAnimation.mockImplementation(() => ({ cancel: jest.fn() }))
+
+    animateView(
+        "test",
+        "share",
+        { share: { clipPath: ["inset(0)", "inset(10%)"] } },
+        []
+    )
+
+    expect(old.cancel).toHaveBeenCalledTimes(1)
+    expect(group.cancel).not.toHaveBeenCalled()
+    expect(updateTiming).toHaveBeenCalledWith(
+        expect.objectContaining({ duration: 300 })
+    )
+    expect(createAnimation).toHaveBeenCalledTimes(1)
+    expect(createAnimation).toHaveBeenCalledWith(
+        expect.objectContaining({
+            name: "clipPath",
+            pseudoElement: "::view-transition-old(test)",
+        })
+    )
 })
 
 it("does not report completion after React cleans up an interrupted transition", async () => {

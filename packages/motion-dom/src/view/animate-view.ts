@@ -45,7 +45,12 @@ export function animateView(
         if (!info || info.layer !== name) continue
         hasMatchingAnimation = true
 
-        if (hasValues) {
+        /**
+         * Custom values replace the browser's crossfade (old/new layers).
+         * The group layer carries the position/size morph, so keep it running
+         * with Motion's timing.
+         */
+        if (hasValues && info.type !== "group") {
             viewAnimation.cancel()
         } else {
             const transitionName = info.type === "group" ? "layout" : ""

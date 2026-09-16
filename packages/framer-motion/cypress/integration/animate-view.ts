@@ -21,17 +21,22 @@ describe("AnimateView entry point", () => {
         })
     })
 
+    /**
+     * These cases need a browser with startViewTransition. Cypress' bundled
+     * Electron doesn't have it, so they skip here and are gated by the
+     * Playwright spec in tests/react/animate-view.spec.ts instead.
+     */
     for (const mode of ["default", "custom", "share", "update"]) {
-        it(`animates ${mode} views with Motion timing`, () => {
+        it(`animates ${mode} views with Motion timing`, function () {
             cy.visit(`?test=animate-view&mode=${mode}`)
+            cy.document().then((doc) => {
+                if (typeof (doc as any).startViewTransition !== "function") {
+                    this.skip()
+                }
+            })
             cy.get("#supported").then(($supported) => {
                 // React 18 exercises import safety and the version error above.
                 if ($supported.text() !== "true") return
-                cy.document().then((doc) => {
-                    expect(typeof (doc as any).startViewTransition).to.equal(
-                        "function"
-                    )
-                })
                 cy.get("#toggle").click()
                 const type =
                     mode === "share" || mode === "update" ? mode : "enter"

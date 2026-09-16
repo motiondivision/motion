@@ -26,6 +26,7 @@ export function App() {
     const mode = new URLSearchParams(location.search).get("mode") || "default"
     const supported = !!(React as any).ViewTransition
     const custom = mode === "custom"
+    const share = mode === "share" || mode === "share-custom"
 
     return (
         <>
@@ -41,14 +42,19 @@ export function App() {
             </button>
             <pre id="events" />
             <Boundary>
-                {((supported && (mode === "share" || mode === "update")) ||
+                {((supported && (share || mode === "update")) ||
                     step % 2 === 1) && (
                     <AnimateView
                         key={mode === "update" ? "update" : step}
-                        name={mode === "share" ? "shared" : undefined}
+                        name={share ? "shared" : undefined}
                         transition={{ duration: 0.4, ease: "linear" }}
                         enter={custom ? { opacity: [0, 1] } : undefined}
                         exit={custom ? { opacity: [1, 0] } : undefined}
+                        share={
+                            mode === "share-custom"
+                                ? { opacity: [1, 0.5, 1] }
+                                : undefined
+                        }
                         onAnimationStart={(animation, type) => {
                             const output = document.getElementById("events")!
                             const animations = (animation as any).animations
