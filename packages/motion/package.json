@@ -59,6 +59,12 @@
             "import": "./dist/es/react-mini.mjs",
             "default": "./dist/cjs/react-mini.js"
         },
+        "./react-animate-view": {
+            "types": "./dist/react-animate-view.d.ts",
+            "require": "./dist/cjs/react-animate-view.js",
+            "import": "./dist/es/react-animate-view.mjs",
+            "default": "./dist/cjs/react-animate-view.js"
+        },
         "./package.json": "./package.json"
     },
     "types": "dist/index.d.ts",

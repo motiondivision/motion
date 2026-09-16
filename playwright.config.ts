@@ -37,19 +37,42 @@ export default defineConfig({
         {
             name: "chromium",
             use: { ...devices["Desktop Chrome"] },
+            testIgnore: /tests\/react\//,
         },
 
         {
             name: "webkit",
             use: { ...devices["Desktop Safari"] },
+            testIgnore: /tests\/react\//,
+        },
+
+        /**
+         * React 19 dev app. Used for React-only behaviour that needs a real
+         * browser, e.g. view transitions, which Cypress' Electron can't run.
+         */
+        {
+            name: "react-19",
+            testMatch: /tests\/react\/.*\.spec\.ts/,
+            use: {
+                ...devices["Desktop Chrome"],
+                baseURL: "http://localhost:9991/",
+            },
         },
     ],
 
-    /* Run your local dev server before starting the tests */
-    webServer: {
-        command: "yarn dev",
-        url: "http://localhost:8000",
-        reuseExistingServer: !process.env.CI,
-        cwd: "./dev/html",
-    },
+    /* Run local dev servers before starting the tests */
+    webServer: [
+        {
+            command: "yarn dev",
+            url: "http://localhost:8000",
+            reuseExistingServer: !process.env.CI,
+            cwd: "./dev/html",
+        },
+        {
+            command: "yarn dev",
+            url: "http://localhost:9991",
+            reuseExistingServer: !process.env.CI,
+            cwd: "./dev/react-19",
+        },
+    ],
 })

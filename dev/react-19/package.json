@@ -13,8 +13,8 @@
     "dependencies": {
         "@tanstack/react-virtual": "^3.13.22",
         "motion": "^13.3.0",
-        "react": "^19.0.0",
-        "react-dom": "^19.0.0"
+        "react": "^19.3.0",
+        "react-dom": "^19.3.0"
     },
     "devDependencies": {
         "@radix-ui/react-dialog": "^1.1.15",
@@ -29,7 +29,7 @@
     "resolutions": {
         "@types/react": "^19.0.0",
         "@types/react-dom": "^19.0.0",
-        "react": "^19.0.0",
-        "react-dom": "^19.0.0"
+        "react": "^19.3.0",
+        "react-dom": "^19.3.0"
     }
 }
