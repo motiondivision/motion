@@ -143,13 +143,14 @@ const cjs = Object.assign({}, config, {
 /**
  * Bundle separately so bundles don't share common modules
  */
+const cjsAnimateView = Object.assign({}, cjs, { input: "lib/animate-view.js" })
 const cjsDebug = Object.assign({}, cjs, { input : "lib/debug.js" })
 const cjsDom = Object.assign({}, cjs, { input : "lib/dom.js" })
 const cjsMini = Object.assign({}, cjs, { input : "lib/mini.js" })
 const cjsDomMini = Object.assign({}, cjs, { input : "lib/dom-mini.js" })
 
 export const es = Object.assign({}, config, {
-    input: ["lib/index.js", "lib/mini.js", "lib/debug.js", "lib/dom.js", "lib/dom-mini.js", "lib/client.js", "lib/m.js","lib/projection.js"],
+    input: ["lib/index.js", "lib/mini.js", "lib/debug.js", "lib/dom.js", "lib/dom-mini.js", "lib/client.js", "lib/m.js","lib/projection.js", "lib/animate-view.js"],
     output: {
         entryFileNames: "[name].mjs",
         format: "es",
@@ -181,6 +182,7 @@ function createTypes(input, file) {
     }
 }
 
+const animateViewTypes = createTypes("types/animate-view.d.ts", "dist/animate-view.d.ts")
 const indexTypes = createTypes("types/index.d.ts", "dist/index.d.ts")
 const clientTypes = createTypes("types/client.d.ts", "dist/client.d.ts")
 const miniTypes = createTypes("types/mini.d.ts", "dist/mini.d.ts")
@@ -199,10 +201,12 @@ export default [
     umdDomMiniProd,
     cjs,
     cjsDebug,
+    cjsAnimateView,
     cjsMini,
     cjsDom,
     cjsDomMini,
     es,
+    animateViewTypes,
     indexTypes,
     clientTypes,
     debugTypes,

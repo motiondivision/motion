@@ -1,0 +1,6 @@
+{
+    "private": true,
+    "types": "../dist/react-animate-view.d.ts",
+    "main": "../dist/cjs/react-animate-view.js",
+    "module": "../dist/es/react-animate-view.mjs"
+}

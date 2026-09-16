@@ -54,6 +54,34 @@ Get started with [Motion for React](https://motion.dev/docs/react).
 
 **Note:** Framer Motion is now Motion. Import from `motion/react` instead of `framer-motion`.
 
+#### View transitions
+
+`AnimateView` is available from a separate entry point and requires React and React DOM 19.3 or later. Other Motion React APIs continue to support React 18.
+
+```jsx
+import { AnimateView } from "motion/react-animate-view"
+import { startTransition, useState } from "react"
+
+function View() {
+    const [show, setShow] = useState(false)
+
+    return (
+        <>
+            <button onClick={() => startTransition(() => setShow(!show))}>
+                Toggle
+            </button>
+            {show && (
+                <AnimateView transition={{ duration: 0.4 }}>
+                    <div>Hello</div>
+                </AnimateView>
+            )}
+        </>
+    )
+}
+```
+
+Existing Motion+ users can replace `motion-plus/animate-view` imports with `motion/react-animate-view`.
+
 ### JS
 
 ```javascript

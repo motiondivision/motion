@@ -42,6 +42,7 @@ const external = [
     "framer-motion/m",
     "framer-motion/mini",
     "framer-motion/debug",
+    "framer-motion/animate-view",
     
 ]
 
@@ -121,6 +122,7 @@ const cjs = Object.assign({}, config, {
  */
 const cjsReact = Object.assign({}, cjs, { input : "lib/react.js" })
 const cjsMini = Object.assign({}, cjs, { input : "lib/mini.js" })
+const cjsAnimateView = Object.assign({}, cjs, { input: "lib/react-animate-view.js" })
 const cjsDebug = Object.assign({}, cjs, { input : "lib/debug.js" })
 const cjsReactMini = Object.assign({}, cjs, { input : "lib/react-mini.js" })
 const cjsClient = Object.assign({}, cjs, { input : "lib/react-client.js" })
@@ -133,6 +135,7 @@ export const es = Object.assign({}, config, {
         "lib/index.js",
         "lib/mini.js",
         "lib/react.js",
+        "lib/react-animate-view.js",
         "lib/react-mini.js",
         "lib/react-client.js",
         "lib/react-m.js",
@@ -174,6 +177,12 @@ const debugTypes = {
         format: "es",
         file: "dist/debug.d.ts",
     },
+    plugins: typePlugins,
+}
+
+const animateViewTypes = {
+    input: "types/react-animate-view.d.ts",
+    output: { format: "es", file: "dist/react-animate-view.d.ts" },
     plugins: typePlugins,
 }
 
@@ -247,6 +256,7 @@ export default [
     cjs,
     cjsClient,
     cjsDebug,
+    cjsAnimateView,
     cjsReact,
     cjsMini,
     cjsReactMini,
@@ -254,6 +264,7 @@ export default [
     cjsThree,
     cjsVgpu,
     es,
+    animateViewTypes,
     types,
     debugTypes,
     reactTypes,
