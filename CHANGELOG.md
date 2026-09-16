@@ -4,6 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [13.4.0] 2026-09-14
+
+### Added
+
+-   `AnimateView`: View transitions for React 19.3, built on React's `ViewTransition`.
+
 ## [13.3.0] 2026-09-14
 
 ### Added
