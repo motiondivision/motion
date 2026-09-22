@@ -1,0 +1,47 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+                padding: 50px;
+            }
+
+            path {
+                --trim-start: 0;
+                --trim-end: 0;
+                stroke-dasharray: calc(var(--trim-end) - var(--trim-start)) 1;
+            }
+        </style>
+    </head>
+    <body>
+        <svg width="100" height="100" viewBox="0 0 100 100">
+            <path
+                id="single"
+                d="M0 30L100 30"
+                stroke="#0077ff"
+                stroke-width="10"
+                pathLength="1"
+            />
+            <path
+                id="sequence"
+                d="M0 70L100 70"
+                stroke="#0077ff"
+                stroke-width="10"
+                pathLength="1"
+            />
+        </svg>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            const { animate } = window.Motion
+
+            const single = document.getElementById("single")
+            const sequence = document.getElementById("sequence")
+
+            // Long, linear animations so the mid-point can be sampled
+            const options = { duration: 10, ease: "linear" }
+
+            animate(single, { "--trim-end": [0, 1] }, options)
+            animate([[sequence, { "--trim-end": [0, 1] }, options]])
+        </script>
+    </body>
+</html>

@@ -342,5 +342,41 @@ describe("animateElement", () => {
 
             animation.stop()
         })
+
+        it("writes CSS variables to style rather than as attributes", async () => {
+            const path = svg("path")
+
+            const [animation] = animateElement(
+                path,
+                { "--x": [0, 1] },
+                { duration: 0.05 }
+            )
+
+            await animation.finished
+            await nextFrame()
+
+            expect(path.style.getPropertyValue("--x")).toBe("1")
+            expect(path.hasAttribute("--x")).toBe(false)
+        })
+
+        it("reads CSS variable origins from style", async () => {
+            const path = svg("path")
+            path.style.setProperty("--x", "0")
+
+            const [animation] = animateElement(
+                path,
+                { "--x": 1 },
+                { duration: 10, ease: "linear" }
+            )
+
+            await nextFrame()
+            await nextFrame()
+
+            const x = svgEffect.get(path, "--x")!.get()
+            expect(x).toBeGreaterThanOrEqual(0)
+            expect(x).toBeLessThan(0.1)
+
+            animation.stop()
+        })
     })
 })

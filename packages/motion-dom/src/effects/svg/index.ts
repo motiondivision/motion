@@ -1,4 +1,5 @@
 import { frame } from "../../frameloop"
+import { isCSSVar } from "../../render/dom/is-css-var"
 import { camelToDash } from "../../render/dom/utils/camel-to-dash"
 import { cssStyleProperties } from "../../render/svg/utils/build-attrs"
 import { transformProps } from "../../render/utils/keys-transform"
@@ -55,14 +56,16 @@ export const addSVGValue = (
         return addAttrValue(element, state, key, value, convertAttrKey(key))
     }
 
-    const handler = key in element.style ? addStyleValue : addAttrValue
+    const handler =
+        isCSSVar(key) || key in element.style ? addStyleValue : addAttrValue
     return handler(element, state, key, value)
 }
 
 /**
  * Reads the current value of `key` from an SVG element as the origin of
  * an animation, as the SVG VisualElement does: transforms start from
- * their defaults, the few CSS-only properties come from computed style
+ * their defaults, CSS variables and the few CSS-only properties come from
+ * computed style
  * and everything else is read from the attribute, dash-cased
  * (`strokeWidth` -> `stroke-width`) or, failing that, as written
  * (`baseFrequency`).
@@ -72,7 +75,7 @@ export const readSVGValue = (element: SVGElement, key: string) => {
         return numberValueTypes[key]?.default || 0
     }
 
-    if (cssStyleProperties.includes(key)) {
+    if (isCSSVar(key) || cssStyleProperties.includes(key)) {
         return readStyleValue(element, key)
     }
 
