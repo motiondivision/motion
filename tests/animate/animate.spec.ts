@@ -516,6 +516,30 @@ test.describe("animate() options", () => {
         })
     })
 
+    test("css vars on SVG elements are written to style", async ({ page }) => {
+        await waitForAnimation("animate/animate-svg-css-vars.html", page, 1000)
+
+        for (const id of ["single", "sequence"]) {
+            const path = page.locator(`#${id}`)
+
+            const { trimEnd, hasAttribute, dasharray } = await path.evaluate(
+                (element) => ({
+                    trimEnd: element.style.getPropertyValue("--trim-end"),
+                    hasAttribute: element.hasAttribute("--trim-end"),
+                    dasharray: getComputedStyle(element).strokeDasharray,
+                })
+            )
+
+            expect(hasAttribute).toBe(false)
+            expect(parseFloat(trimEnd)).toBeGreaterThan(0)
+            expect(parseFloat(trimEnd)).toBeLessThan(1)
+
+            // var() only reads inline style, so the trim is visible in the
+            // computed stroke-dasharray only if the variable landed there
+            expect(dasharray).not.toBe("0px, 1px")
+        }
+    })
+
     test("spring velocity", async ({ page }) => {
         await waitForAnimation("animate/animate-spring-velocity.html", page)
         const box = page.locator(".box")

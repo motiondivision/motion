@@ -38,6 +38,25 @@ describe("svgEffect", () => {
         }
     })
 
+    it("renders CSS variables as styles, not attributes (issue #3825)", async () => {
+        const element = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "path"
+        )
+        const x = motionValue(0.5)
+
+        svgEffect(element, { "--x": x })
+        await nextFrame()
+
+        expect(element.style.getPropertyValue("--x")).toBe("0.5")
+        expect(element.hasAttribute("--x")).toBe(false)
+
+        x.set(1)
+        await nextFrame()
+
+        expect(element.style.getPropertyValue("--x")).toBe("1")
+    })
+
     it("sets feMorphology radius as unitless number (issue #2779)", async () => {
         const element = document.createElementNS(
             "http://www.w3.org/2000/svg",
