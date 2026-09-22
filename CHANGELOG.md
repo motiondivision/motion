@@ -4,6 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [13.4.1] 2026-09-22
+
+### Fixed
+
+-   `animate`: CSS variable writes on SVGs apply to `style` attribute.
+
 ## [13.4.0] 2026-09-14
 
 ### Added
