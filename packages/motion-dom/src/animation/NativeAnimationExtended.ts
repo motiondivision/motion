@@ -50,8 +50,20 @@ export class NativeAnimationExtended<
          * Setting startTime on a paused WAAPI animation unpauses it
          * (per the WAAPI spec), which breaks autoplay: false.
          */
-        if (options.startTime !== undefined && options.autoplay !== false) {
-            this.startTime = options.startTime
+        const { startTime } = options
+        if (startTime !== undefined && options.autoplay !== false) {
+            /**
+             * startTime is measured with Motion's clock, but WAAPI resolves
+             * it against the animation's timeline, which can run at a
+             * different rate (e.g. DevTools playback speed). So apply it
+             * as an offset from the timeline's current time.
+             */
+            const now = time.now()
+            this.manualStartTime = startTime
+            this.animation.startTime =
+                startTime -
+                now +
+                ((this.animation.timeline?.currentTime as number) ?? now)
         }
 
         this.options = options

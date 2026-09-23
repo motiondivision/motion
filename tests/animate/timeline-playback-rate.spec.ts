@@ -22,7 +22,7 @@ test("WAAPI animations start immediately when the document timeline is slowed", 
 
     await page.evaluate(() => (window as any).run())
 
-    // ~50ms of timeline time at 10% playback, a quarter of the animation
+    // ~50ms of timeline time at 10% playback
     await page.waitForTimeout(500)
 
     const { currentTime, opacity } = await page.evaluate(() => {
