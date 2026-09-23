@@ -1,3 +1,7 @@
+/**
+ * Items are 80px wide with an 8px right margin inside a list with 8px
+ * padding, so item i is laid out at left = 8 + i * 88.
+ */
 const items = ["one", "two", "three", "four", "five"]
 
 function expectItemsAtOrigin(width: number) {
@@ -8,7 +12,7 @@ function expectItemsAtOrigin(width: number) {
             expect($item.getBoundingClientRect().left, label).to.equal(
                 8 + i * 88
             )
-            expect(getComputedStyle($item).zIndex, label).not.to.equal("1")
+            expect(getComputedStyle($item).zIndex, label).to.equal("auto")
         })
     })
 }
