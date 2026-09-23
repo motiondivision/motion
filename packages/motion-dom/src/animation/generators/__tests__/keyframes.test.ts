@@ -144,6 +144,64 @@ describe("keyframes", () => {
         ).toEqual([0, 20, 40, 60, 80, 100])
     })
 
+    /**
+     * https://github.com/motiondivision/motion/issues/3827
+     *
+     * In production, invariant() is a no-op so an unrecognised easing string
+     * (like the CSS "ease" keyword, which WAAPI accepts) resolves to undefined.
+     * Multi-keyframe animations fall back to easeInOut via defaultEasing, but
+     * the two-keyframe fast path calls the undefined easing directly.
+     */
+    describe("with an unrecognised easing in production", () => {
+        let prodKeyframes: typeof keyframes
+        const originalEnv = process.env.NODE_ENV
+
+        beforeAll(() => {
+            process.env.NODE_ENV = "production"
+            jest.isolateModules(() => {
+                prodKeyframes = require("../keyframes").keyframes
+            })
+        })
+
+        afterAll(() => {
+            process.env.NODE_ENV = originalEnv
+        })
+
+        test("three keyframes fall back to the default easing", () => {
+            expect(
+                animateSync(
+                    prodKeyframes({
+                        keyframes: [0, 50, 100],
+                        duration: 100,
+                        ease: "ease" as any,
+                    }),
+                    20
+                )
+            ).toEqual(
+                animateSync(
+                    prodKeyframes({ keyframes: [0, 50, 100], duration: 100 }),
+                    20
+                )
+            )
+        })
+
+        test("two keyframes fall back to the default easing", () => {
+            const generator = prodKeyframes({
+                keyframes: [0, 100],
+                duration: 100,
+                ease: "ease" as any,
+            })
+
+            expect(() => generator.next(50)).not.toThrow()
+            expect(animateSync(generator, 20)).toEqual(
+                animateSync(
+                    prodKeyframes({ keyframes: [0, 100], duration: 100 }),
+                    20
+                )
+            )
+        })
+    })
+
     test("animates unit strings", () => {
         expect(
             animateSync(
