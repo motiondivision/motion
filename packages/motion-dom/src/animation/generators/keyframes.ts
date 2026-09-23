@@ -36,7 +36,7 @@ export function keyframes<T extends AnyResolvedKeyframe>({
      */
     const easingFunctions = isEasingArray(ease)
         ? ease.map(easingDefinitionToFunction)
-        : easingDefinitionToFunction(ease)
+        : easingDefinitionToFunction(ease) || easeInOut
 
     /**
      * This is the Iterator-spec return value. We ensure it's mutable rather than using a generator

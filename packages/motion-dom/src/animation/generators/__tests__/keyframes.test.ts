@@ -150,16 +150,13 @@ describe("keyframes", () => {
      */
     describe("with an unrecognised easing in production", () => {
         let prodKeyframes: typeof keyframes
-        const originalEnv = process.env.NODE_ENV
 
         beforeAll(() => {
+            const originalEnv = process.env.NODE_ENV
             process.env.NODE_ENV = "production"
             jest.isolateModules(() => {
                 prodKeyframes = require("../keyframes").keyframes
             })
-        })
-
-        afterAll(() => {
             process.env.NODE_ENV = originalEnv
         })
 
