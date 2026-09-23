@@ -1,0 +1,30 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+
+            .box {
+                width: 100px;
+                height: 100px;
+                background-color: #0077ff;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="box" id="box" style="opacity: 0"></div>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            const { animate } = window.Motion
+
+            window.run = () => {
+                animate(
+                    "#box",
+                    { opacity: 1 },
+                    { duration: 0.2, ease: "linear" }
+                )
+            }
+        </script>
+    </body>
+</html>

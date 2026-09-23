@@ -1,3 +1,4 @@
+import { time } from "../../frameloop/sync-time"
 import { motionValue } from "../../value"
 import { NativeAnimationExtended } from "../NativeAnimationExtended"
 
@@ -62,5 +63,53 @@ describe("NativeAnimation - onfinish style commit", () => {
          * the correct value back to the element.
          */
         expect(element.style.opacity).toBe("1")
+    })
+})
+
+/**
+ * Issue #3820: Motion's clock (frame timestamp / performance.now()) and the
+ * WAAPI timeline can diverge, e.g. when DevTools slows animation playback.
+ */
+describe("NativeAnimationExtended - startTime", () => {
+    let mockAnimation: any
+
+    beforeEach(() => {
+        mockAnimation = {
+            cancel: jest.fn(),
+            onfinish: null,
+            playbackRate: 1,
+            playState: "running",
+            startTime: null,
+            timeline: { currentTime: 1000 },
+            effect: {
+                getComputedTiming: () => ({ duration: 300 }),
+                updateTiming: jest.fn(),
+            },
+        }
+
+        Element.prototype.animate = jest
+            .fn()
+            .mockImplementation(() => mockAnimation)
+    })
+
+    afterEach(() => {
+        ;(Element.prototype as any).animate = undefined
+        jest.restoreAllMocks()
+    })
+
+    test("applies startTime in the animation timeline's clock", () => {
+        time.set(5000)
+
+        const animation = new NativeAnimationExtended({
+            element: document.createElement("div"),
+            name: "opacity",
+            keyframes: [0, 1],
+            duration: 300,
+            ease: "linear",
+            startTime: 4980,
+        } as any)
+
+        expect(mockAnimation.startTime).toBe(980)
+        expect(animation.startTime).toBe(4980)
     })
 })
