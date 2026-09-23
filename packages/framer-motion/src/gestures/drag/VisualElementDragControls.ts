@@ -604,16 +604,14 @@ export class VisualElementDragControls {
          * Record the relative position of the dragged element relative to the
          * constraints box and save as a progress value.
          */
+        const constraints = this.constraints as ResolvedConstraints
         const boxProgress = { x: 0, y: 0 }
         eachAxis((axis) => {
-            const axisValue = this.getAxisMotionValue(axis)
-            if (axisValue && this.constraints !== false) {
-                const latest = axisValue.get()
-                boxProgress[axis] = calcOrigin(
-                    { min: latest, max: latest },
-                    this.constraints[axis] as Axis
-                )
-            }
+            const latest = this.getAxisMotionValue(axis).get()
+            boxProgress[axis] = calcOrigin(
+                { min: latest, max: latest },
+                constraints[axis] as Axis
+            )
         })
 
         /**
