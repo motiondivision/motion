@@ -604,16 +604,14 @@ export class VisualElementDragControls {
          * Record the relative position of the dragged element relative to the
          * constraints box and save as a progress value.
          */
+        const constraints = this.constraints as ResolvedConstraints
         const boxProgress = { x: 0, y: 0 }
         eachAxis((axis) => {
-            const axisValue = this.getAxisMotionValue(axis)
-            if (axisValue && this.constraints !== false) {
-                const latest = axisValue.get()
-                boxProgress[axis] = calcOrigin(
-                    { min: latest, max: latest },
-                    this.constraints[axis] as Axis
-                )
-            }
+            const latest = this.getAxisMotionValue(axis).get()
+            boxProgress[axis] = calcOrigin(
+                { min: latest, max: latest },
+                constraints[axis] as Axis
+            )
         })
 
         /**
@@ -638,12 +636,17 @@ export class VisualElementDragControls {
          * within the new constraints.
          */
         eachAxis((axis) => {
-            if (!shouldDrag(axis, drag, null)) return
+            const axisValue = this.getAxisMotionValue(axis)
+
+            /**
+             * An element resting at its origin has no offset to preserve,
+             * and re-projecting 0 into the new constraints would move it.
+             */
+            if (!shouldDrag(axis, drag, null) || !axisValue.get()) return
 
             /**
              * Calculate a new transform based on the previous box progress
              */
-            const axisValue = this.getAxisMotionValue(axis)
             const { min, max } = (this.constraints as ResolvedConstraints)[
                 axis
             ] as Axis
