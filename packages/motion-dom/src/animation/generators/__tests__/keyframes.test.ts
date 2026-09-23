@@ -144,6 +144,48 @@ describe("keyframes", () => {
         ).toEqual([0, 20, 40, 60, 80, 100])
     })
 
+    /**
+     * In production invariant() is a no-op, so an unrecognised easing string
+     * (e.g. the CSS "ease" keyword, which WAAPI accepts) resolves to undefined.
+     */
+    describe("with an unrecognised easing in production", () => {
+        let prodKeyframes: typeof keyframes
+        const originalEnv = process.env.NODE_ENV
+
+        beforeAll(() => {
+            process.env.NODE_ENV = "production"
+            jest.isolateModules(() => {
+                prodKeyframes = require("../keyframes").keyframes
+            })
+        })
+
+        afterAll(() => {
+            process.env.NODE_ENV = originalEnv
+        })
+
+        const expectDefaultEasing = (values: number[], ease: any) =>
+            expect(
+                animateSync(
+                    prodKeyframes({ keyframes: values, duration: 100, ease }),
+                    20
+                )
+            ).toEqual(
+                animateSync(
+                    prodKeyframes({ keyframes: values, duration: 100 }),
+                    20
+                )
+            )
+
+        test("three keyframes fall back to the default easing", () => {
+            expectDefaultEasing([0, 50, 100], "ease")
+        })
+
+        test("two keyframes fall back to the default easing", () => {
+            expectDefaultEasing([0, 100], "ease")
+            expectDefaultEasing([0, 100], "easeOutQuad")
+        })
+    })
+
     test("animates unit strings", () => {
         expect(
             animateSync(
