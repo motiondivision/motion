@@ -1,5 +1,3 @@
-import { EasingFunction } from "motion-utils"
-
 export interface ScrollOptions {
     source?: HTMLElement
     container?: Element
@@ -30,8 +28,6 @@ export interface AxisScrollInfo {
 
     targetLength: number
     containerLength: number
-    interpolatorOffsets?: number[]
-    interpolate?: EasingFunction
 }
 
 export interface ScrollInfo {

@@ -1,11 +1,34 @@
-import { defaultOffset, interpolate } from "motion-dom"
-import { clamp } from "motion-utils"
+import { clamp, progress } from "motion-utils"
 import { ScrollInfo, ScrollInfoOptions } from "../types"
 import { calcInset } from "./inset"
 import { resolveOffset } from "./offset"
 import { ScrollOffset } from "./presets"
 
 const point = { x: 0, y: 0 }
+
+/**
+ * Resolved offsets map to evenly spaced progress values, so progress is
+ * derived from the segment index rather than building an interpolator.
+ */
+function offsetsToProgress(offsets: number[], v: number) {
+    const n = offsets.length - 1
+    if (n < 1) return 0
+
+    const reverse = offsets[0] > offsets[n]
+    const at = (i: number) => offsets[reverse ? n - i : i]
+
+    /**
+     * Matches interpolate(), which checks for a zero-length first range
+     * before reversing descending offsets.
+     */
+    if (offsets[0] === offsets[1] && v < at(0)) return reverse ? 1 : 0
+
+    let i = 0
+    while (i < n - 1 && v >= at(i + 1)) i++
+
+    const p = (i + progress(at(i), at(i + 1), v)) / n
+    return reverse ? 1 - p : p
+}
 
 function getTargetSize(target: Element) {
     return "getBBox" in target && target.tagName !== "svg"
@@ -49,41 +72,19 @@ export function resolveOffsets(
      * Populate the offset array by resolving the user's offset definition into
      * a list of pixel scroll offsets.
      */
-    let hasChanged = !info[axis].interpolate
-
     const numOffsets = offsetDefinition.length
     for (let i = 0; i < numOffsets; i++) {
-        const offset = resolveOffset(
+        info[axis].offset[i] = resolveOffset(
             offsetDefinition[i],
             containerSize[lengthLabel],
             targetSize[lengthLabel],
             inset[axis]
         )
-
-        if (!hasChanged && offset !== info[axis].interpolatorOffsets![i]) {
-            hasChanged = true
-        }
-
-        info[axis].offset[i] = offset
-    }
-
-    /**
-     * If the pixel scroll offsets have changed, create a new interpolator function
-     * to map scroll value into a progress.
-     */
-    if (hasChanged) {
-        info[axis].interpolate = interpolate(
-            info[axis].offset,
-            defaultOffset(offsetDefinition),
-            { clamp: false }
-        )
-
-        info[axis].interpolatorOffsets = [...info[axis].offset]
     }
 
     info[axis].progress = clamp(
         0,
         1,
-        info[axis].interpolate!(info[axis].current)
+        offsetsToProgress(info[axis].offset, info[axis].current)
     )
 }
