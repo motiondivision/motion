@@ -11,12 +11,18 @@
  * discards a move that hasn't been applied yet. Cypress also resolves trigger
  * coordinates against the element's current box. So each pointermove is
  * followed by nextFrame() rather than a fixed wait, which slow CI can outrun.
+ *
+ * Gestures that start straight after the page loads first wait two frames:
+ * React 19 StrictMode remounts refs after the first paint, which cancels a
+ * gesture started before then.
  */
 describe("Drag SVG", () => {
     it("Drags the element by the defined distance", () => {
         cy.visit("?test=drag-svg")
             .wait(50)
             .get("[data-testid='draggable']")
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 50, 50, { force: true })
             .wait(50)
             .trigger("pointermove", 60, 60, { force: true }) // Gesture will start from first move past threshold
@@ -170,6 +176,8 @@ describe("Drag SVG & Layout", () => {
                 expect(top).to.equal(30)
             })
             .wait(50)
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 50, 50, { force: true })
             .trigger("pointermove", 60, 60, { force: true }) // Gesture will start from first move past threshold
             .nextFrame()

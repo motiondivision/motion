@@ -31,6 +31,10 @@ function parseTranslate(transform: string): { x: number; y: number } {
  * discards a move that hasn't been applied yet. Cypress also resolves trigger
  * coordinates against the element's current box. So each pointermove is
  * followed by nextFrame() rather than a fixed wait, which slow CI can outrun.
+ *
+ * Gestures that start straight after the page loads first wait two frames:
+ * React 19 StrictMode remounts refs after the first paint, which cancels a
+ * gesture started before then.
  */
 describe("Drag SVG with viewBox", () => {
     it("Correctly scales drag distance when viewBox differs from rendered size", () => {
@@ -48,6 +52,8 @@ describe("Drag SVG with viewBox", () => {
                 expect(draggable.getAttribute("x")).to.equal("10")
                 expect(draggable.getAttribute("y")).to.equal("10")
             })
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 10, 10, { force: true })
             .wait(50)
             .trigger("pointermove", 20, 20, { force: true }) // Move past threshold
@@ -78,6 +84,8 @@ describe("Drag SVG with viewBox", () => {
         )
             .wait(50)
             .get("[data-testid='draggable']")
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 10, 10, { force: true })
             .wait(50)
             .trigger("pointermove", 20, 20, { force: true })
@@ -104,6 +112,8 @@ describe("Drag SVG with viewBox", () => {
         )
             .wait(50)
             .get("[data-testid='draggable']")
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 10, 10, { force: true })
             .wait(50)
             .trigger("pointermove", 20, 20, { force: true })
@@ -133,6 +143,8 @@ describe("Drag SVG with viewBox", () => {
         )
             .wait(50)
             .get("[data-testid='draggable']")
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 10, 10, { force: true })
             .wait(50)
             .trigger("pointermove", 20, 20, { force: true }) // Move past threshold
