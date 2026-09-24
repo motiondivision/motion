@@ -51,6 +51,7 @@ describe("Drag Momentum", () => {
                 // Cross distance threshold
                 dispatchPointer(el, "pointermove", startTop + 895)
             })
+            .nextFrame() // Start the pan before the flick
             .wait(50)
             .then(([el]: any) => flick(el, startTop + 800)) // Quick flick upward
             .wait(500) // Wait for momentum to carry element
@@ -76,6 +77,7 @@ describe("Drag Momentum", () => {
                 dispatchPointer(el, "pointerdown", startTop + 900)
                 dispatchPointer(el, "pointermove", startTop + 895) // Cross distance threshold
             })
+            .nextFrame() // Start the pan before the flick
             .wait(50)
             .then(([el]: any) =>
                 flick(el, startTop + 700).then(() => {
