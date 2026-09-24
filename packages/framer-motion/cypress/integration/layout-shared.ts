@@ -913,7 +913,7 @@ describe("Shared layout: nested crossfade transition", () => {
             .wait(50)
             .get("#a")
             .trigger("click")
-            .wait(50)
+            .get("#a")
             .should(([$box]: any) => {
                 expectBbox($box, {
                     top: 200,
