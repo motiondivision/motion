@@ -38,9 +38,9 @@ export interface ScrollInfo {
 
 export type OnScrollInfo = (info: ScrollInfo) => void
 
-export type OnScrollHandler = {
-    measure: (time: number) => void
-    notify: () => void
+export interface OnScrollHandler {
+    measure: (containerInfo: ScrollInfo) => void
+    notify: (containerInfo: ScrollInfo) => void
 }
 
 export type SupportedEdgeUnit = "px" | "vw" | "vh" | "%"

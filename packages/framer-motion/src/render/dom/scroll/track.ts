@@ -1,13 +1,12 @@
 import { cancelFrame, frame, frameData, resize, Process } from "motion-dom"
 import { noop } from "motion-utils"
-import { createScrollInfo } from "./info"
+import { createScrollInfo, updateScrollInfo } from "./info"
 import { createOnScrollHandler } from "./on-scroll-handler"
 import { OnScrollHandler, OnScrollInfo, ScrollInfoOptions } from "./types"
 
 const scrollListeners = new WeakMap<Element, VoidFunction>()
 const resizeListeners = new WeakMap<Element, VoidFunction>()
 const onScrollHandlers = new WeakMap<Element, Set<OnScrollHandler>>()
-const scrollSize = new WeakMap<Element, { width: number; height: number }>()
 const dimensionCheckProcesses = new WeakMap<Element, Process>()
 
 export type ScrollTargets = Array<HTMLElement>
@@ -53,9 +52,13 @@ export function scrollInfo(
      * If not, create one.
      */
     if (!scrollListeners.has(container)) {
+        const containerInfo = createScrollInfo()
+
         const measureAll = () => {
+            updateScrollInfo(container, containerInfo, frameData.timestamp)
+
             for (const handler of containerHandlers) {
-                handler.measure(frameData.timestamp)
+                handler.measure(containerInfo)
             }
 
             frame.preUpdate(notifyAll)
@@ -63,7 +66,7 @@ export function scrollInfo(
 
         const notifyAll = () => {
             for (const handler of containerHandlers) {
-                handler.notify()
+                handler.notify(containerInfo)
             }
         }
 
@@ -93,7 +96,6 @@ export function scrollInfo(
             width: container.scrollWidth,
             height: container.scrollHeight,
         }
-        scrollSize.set(container, size)
 
         // Add frame-based scroll dimension checking to detect content changes
         const checkScrollDimensions: Process = () => {
@@ -149,6 +151,5 @@ export function scrollInfo(
             cancelFrame(dimensionCheckProcess)
             dimensionCheckProcesses.delete(container)
         }
-        scrollSize.delete(container)
     }
 }

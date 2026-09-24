@@ -47,7 +47,9 @@ function updateAxisInfo(
     const prevTime = info.time
 
     axis.current = Math.abs(element[`scroll${position}`])
-    axis.scrollLength = element[`scroll${length}`] - element[`client${length}`]
+    axis.containerLength = element[`client${length}`]
+    axis.targetLength = element[`scroll${length}`]
+    axis.scrollLength = axis.targetLength - axis.containerLength
 
     axis.offset.length = 0
     axis.offset[0] = 0
@@ -61,6 +63,10 @@ function updateAxisInfo(
             : velocityPerSecond(axis.current - prev, elapsed)
 }
 
+/**
+ * Measures a scroll container. Runs once per container per frame; every
+ * handler on that container derives its info from the result.
+ */
 export function updateScrollInfo(
     element: Element,
     info: ScrollInfo,

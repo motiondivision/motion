@@ -15,8 +15,6 @@ function interpolatedProgress(offsets: number[], v: number) {
     )
 }
 
-const container = document.createElement("div")
-
 /**
  * With target === container and zero lengths, a "<n>px" edge resolves to
  * exactly n, so offsets can be specified directly.
@@ -24,9 +22,7 @@ const container = document.createElement("div")
 function progressFor(offsets: number[], v: number) {
     const info = createScrollInfo()
     info.y.current = v
-    resolveOffsets(container, info, {
-        offset: offsets.map((o) => `${o}px` as const),
-    })
+    resolveOffsets(info, { offset: offsets.map((o) => `${o}px` as const) })
     expect(info.y.offset).toEqual(offsets)
     return info.y.progress
 }
