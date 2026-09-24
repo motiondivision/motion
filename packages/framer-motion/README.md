@@ -80,7 +80,7 @@ Over 100 examples come with a full step-by-step [tutorial](https://motion.dev/tu
 
 ## ⚡️ Motion+
 
-A one-time payment, lifetime-updates membership:
+A one-time Personal licence with lifetime updates, or an annual per-seat Business plan for teams:
 
 -   **330+ examples**
 -   **100+ tutorials**
