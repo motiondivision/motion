@@ -171,6 +171,7 @@ describe("Drag", () => {
             .trigger("pointermove", 10, 10, { force: true }) // Gesture will start from first move past threshold
             .nextFrame()
             .trigger("pointermove", 10, 200, { force: true })
+            .nextFrame() // Locks the direction without moving
             .nextFrame()
             .trigger("pointermove", 200, 10, { force: true })
             .nextFrame()
@@ -533,6 +534,7 @@ describe("Drag & Layout", () => {
             .trigger("pointermove", 10, 10, { force: true }) // Gesture will start from first move past threshold
             .nextFrame()
             .trigger("pointermove", 10, 200, { force: true })
+            .nextFrame() // Locks the direction without moving
             .nextFrame()
             .trigger("pointermove", 200, 10, { force: true })
             .nextFrame()
