@@ -4,6 +4,7 @@ import {
     motion,
     MotionGlobalConfig,
     motionValue,
+    stagger,
     useMotionValue,
     useMotionValueEvent,
 } from "../../"
@@ -1377,5 +1378,121 @@ describe("animate prop as object", () => {
         // intermediate animation values)
         expect(opacity.get()).toBe(0)
         expect(scale.get()).toBe(0)
+    })
+})
+
+/**
+ * When an already-revealed Suspense boundary re-suspends and then resolves,
+ * React re-attaches refs and re-runs layout effects, but content that bails
+ * out of rendering (e.g. memoized by the React Compiler) doesn't re-run
+ * passive effects.
+ */
+describe("Suspense boundary re-suspends and reveals memoized content", () => {
+    const wait = (ms: number) =>
+        act(() => new Promise<void>((resolve) => setTimeout(resolve, ms)))
+
+    async function renderInSuspense(content: React.ReactNode) {
+        let resolveSuspense!: () => void
+        const promise = new Promise<void>((resolve) => {
+            resolveSuspense = resolve
+        })
+        let isResolved = false
+        let suspend!: () => void
+
+        const Suspender = () => {
+            const [isSuspended, setSuspended] = useState(false)
+            suspend = () => setSuspended(true)
+            if (isSuspended && !isResolved) throw promise
+            return null
+        }
+
+        const { container } = render(
+            <Suspense fallback={<div data-testid="fallback" />}>
+                <Suspender />
+                {content}
+            </Suspense>
+        )
+
+        const get = (testId: string) =>
+            container.querySelector<HTMLElement>(`[data-testid="${testId}"]`)
+
+        const reSuspend = async () => {
+            await act(async () => suspend())
+            expect(get("fallback")).not.toBeNull()
+
+            await act(async () => {
+                isResolved = true
+                resolveSuspense()
+            })
+            await wait(200)
+            expect(get("fallback")).toBeNull()
+        }
+
+        return { get, reSuspend }
+    }
+
+    test("enter animation replays to completion", async () => {
+        const { get, reSuspend } = await renderInSuspense(
+            <motion.div
+                data-testid="box"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.05 }}
+            />
+        )
+
+        await wait(200)
+        expect(get("box")!.style.opacity).toBe("1")
+
+        await reSuspend()
+        expect(get("box")!.style.opacity).toBe("1")
+    })
+
+    test("children added after the reveal aren't staggered", async () => {
+        let addItem!: () => void
+
+        const List = () => {
+            const [count, setCount] = useState(3)
+            addItem = () => setCount((c) => c + 1)
+
+            return (
+                <motion.ul
+                    initial="hidden"
+                    animate="visible"
+                    variants={{
+                        hidden: {},
+                        visible: {
+                            transition: { delayChildren: stagger(0.2) },
+                        },
+                    }}
+                >
+                    {Array.from({ length: count }, (_, i) => (
+                        <motion.li
+                            key={i}
+                            data-testid={`item-${i}`}
+                            variants={{
+                                hidden: { opacity: 0 },
+                                visible: {
+                                    opacity: 1,
+                                    transition: { duration: 0.05 },
+                                },
+                            }}
+                        />
+                    ))}
+                </motion.ul>
+            )
+        }
+
+        const { get, reSuspend } = await renderInSuspense(<List />)
+
+        await wait(600)
+        await reSuspend()
+        await wait(600)
+
+        await act(async () => addItem())
+        await wait(200)
+
+        // Only item-3 is entering, so it shouldn't be delayed by 3 * 0.2s
+        expect(get("item-3")!.style.opacity).toBe("1")
     })
 })
