@@ -23,7 +23,10 @@ export const createScrollInfo = (): ScrollInfo => ({
     y: createAxisInfo(),
 })
 
-const keys = {
+/**
+ * Also iterated with for...in as the list of axes.
+ */
+export const axisKeys = {
     x: {
         length: "Width",
         position: "Left",
@@ -34,14 +37,16 @@ const keys = {
     },
 } as const
 
+export type Axis = keyof typeof axisKeys
+
 function updateAxisInfo(
     element: Element,
-    axisName: "x" | "y",
+    axisName: Axis,
     info: ScrollInfo,
     time: number
 ) {
     const axis = info[axisName]
-    const { length, position } = keys[axisName]
+    const { length, position } = axisKeys[axisName]
 
     const prev = axis.current
     const prevTime = info.time
@@ -72,7 +77,8 @@ export function updateScrollInfo(
     info: ScrollInfo,
     time: number
 ) {
-    updateAxisInfo(element, "x", info, time)
-    updateAxisInfo(element, "y", info, time)
+    for (const axis in axisKeys) {
+        updateAxisInfo(element, axis as Axis, info, time)
+    }
     info.time = time
 }

@@ -1,4 +1,5 @@
 import { warnOnce } from "motion-utils"
+import { Axis, axisKeys } from "./info"
 import { resolveOffsets } from "./offsets/index"
 import { calcInset } from "./offsets/inset"
 import {
@@ -53,7 +54,8 @@ export function createOnScrollHandler(
             if (!needsOwnInfo) return
 
             info.time = containerInfo.time
-            for (const axis of ["x", "y"] as const) {
+            for (const key in axisKeys) {
+                const axis = key as Axis
                 const { offset } = info[axis]
                 Object.assign(info[axis], containerInfo[axis])
                 info[axis].offset = offset
