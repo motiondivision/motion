@@ -1391,7 +1391,7 @@ describe("Suspense boundary re-suspends and reveals memoized content", () => {
     const wait = (ms: number) =>
         act(() => new Promise<void>((resolve) => setTimeout(resolve, ms)))
 
-    async function renderInSuspense(content: React.ReactNode) {
+    function renderInSuspense(content: React.ReactNode) {
         let resolveSuspense!: () => void
         const promise = new Promise<void>((resolve) => {
             resolveSuspense = resolve
@@ -1410,7 +1410,8 @@ describe("Suspense boundary re-suspends and reveals memoized content", () => {
             <Suspense fallback={<div data-testid="fallback" />}>
                 <Suspender />
                 {content}
-            </Suspense>
+            </Suspense>,
+            false
         )
 
         const get = (testId: string) =>
@@ -1432,7 +1433,7 @@ describe("Suspense boundary re-suspends and reveals memoized content", () => {
     }
 
     test("enter animation replays to completion", async () => {
-        const { get, reSuspend } = await renderInSuspense(
+        const { get, reSuspend } = renderInSuspense(
             <motion.div
                 data-testid="box"
                 initial={{ opacity: 0 }}
@@ -1483,7 +1484,7 @@ describe("Suspense boundary re-suspends and reveals memoized content", () => {
             )
         }
 
-        const { get, reSuspend } = await renderInSuspense(<List />)
+        const { get, reSuspend } = renderInSuspense(<List />)
 
         await wait(600)
         await reSuspend()

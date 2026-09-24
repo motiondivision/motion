@@ -132,6 +132,19 @@ export function useVisualElement<
             window.MotionHasOptimisedAnimation?.(optimisedAppearId)
     )
 
+    /**
+     * Layout effects re-run when a hidden Suspense/Activity boundary is
+     * revealed, but passive effects only re-run if this component re-renders
+     * (not the case for memoized elements). Replay animations on every
+     * reconnection. Must be declared before the effect that sets hasMountedOnce.
+     */
+    useIsomorphicLayoutEffect(() => {
+        if (!hasMountedOnce.current || !visualElement) return
+
+        visualElement.animationState?.animateChanges()
+        visualElement.enteringChildren = undefined
+    }, [])
+
     useIsomorphicLayoutEffect(() => {
         /**
          * Track that this component has mounted. This is used to detect when

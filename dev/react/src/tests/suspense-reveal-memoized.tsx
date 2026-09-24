@@ -19,7 +19,7 @@ const Suspender = () => {
                     setTimeout(() => {
                         setPromise(null)
                         resolve()
-                    }, 200)
+                    }, 500)
                 )
                 setPromise(pending)
             }}
