@@ -1,9 +1,9 @@
 import { MotionGlobalConfig } from "motion-utils"
 import { act, useEffect, useState } from "react"
 import { AnimatePresence, motion } from "../../.."
+import { PresenceContext } from "../../../context/PresenceContext"
+import { nextFrame as frame } from "../../../gestures/__tests__/utils"
 import { render } from "../../../jest.setup"
-
-const frame = () => new Promise<void>((resolve) => setTimeout(resolve, 40))
 
 describe("AnimatePresence re-entry during exit", () => {
     beforeEach(() => {
@@ -49,7 +49,38 @@ describe("AnimatePresence re-entry during exit", () => {
         await act(frame)
 
         expect(bar().style.opacity).toBe("1")
-        expect(bar().style.transform === "none" || bar().style.transform === "").toBe(true)
+        expect(
+            bar().style.transform === "none" || bar().style.transform === ""
+        ).toBe(true)
+    })
+
+    test("an exit that resolves after re-entry doesn't report exit complete", async () => {
+        const onExitComplete = jest.fn()
+        const context = (isPresent: boolean) => ({
+            id: "child",
+            isPresent,
+            onExitComplete,
+            register: () => () => {},
+        })
+        const Component = ({ isPresent }: { isPresent: boolean }) => (
+            <PresenceContext.Provider value={context(isPresent)}>
+                <motion.div
+                    initial={{ opacity: 0, scale: 0 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0 }}
+                />
+            </PresenceContext.Provider>
+        )
+
+        const { rerender } = render(<Component isPresent />)
+        onExitComplete.mockClear()
+
+        act(() => rerender(<Component isPresent={false} />))
+        act(() => rerender(<Component isPresent />))
+        await act(frame)
+        await act(frame)
+
+        expect(onExitComplete).not.toHaveBeenCalled()
     })
 
     test("first child of initial={false} replays its enter when re-entering after its exit completed", async () => {
@@ -63,7 +94,10 @@ describe("AnimatePresence re-entry during exit", () => {
                             data-testid="fast"
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
-                            exit={{ opacity: 0, transition: { duration: 0.05 } }}
+                            exit={{
+                                opacity: 0,
+                                transition: { duration: 0.05 },
+                            }}
                             transition={{ duration: 0.05 }}
                         />
                         <motion.div
