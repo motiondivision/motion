@@ -244,6 +244,7 @@ describe("Drag", () => {
             })
             .trigger("pointerup", { force: true })
             .wait(100)
+            .get("[data-testid='draggable']")
             .should(($draggable: any) => {
                 const draggable = $draggable[0] as HTMLDivElement
                 const { left, top } = draggable.getBoundingClientRect()
@@ -265,6 +266,7 @@ describe("Drag", () => {
             .nextFrame()
             .trigger("pointerup", { force: true })
             .wait(300)
+            .get("[data-testid='draggable']")
             .should(($draggable: any) => {
                 const draggable = $draggable[0] as HTMLDivElement
                 const { left, top } = draggable.getBoundingClientRect()
@@ -288,6 +290,7 @@ describe("Drag", () => {
             .nextFrame()
             .trigger("pointerup", { force: true })
             .wait(300)
+            .get("[data-testid='draggable']")
             .should(($draggable: any) => {
                 const draggable = $draggable[0] as HTMLDivElement
                 const { left, top } = draggable.getBoundingClientRect()
