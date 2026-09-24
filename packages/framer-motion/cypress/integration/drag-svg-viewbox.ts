@@ -26,6 +26,12 @@ function parseTranslate(transform: string): { x: number; y: number } {
     }
 }
 
+/**
+ * PanSession applies pointermove on the next animation frame, and pointerup
+ * discards a move that hasn't been applied yet. Cypress also resolves trigger
+ * coordinates against the element's current box. So each pointermove is
+ * followed by nextFrame() rather than a fixed wait, which slow CI can outrun.
+ */
 describe("Drag SVG with viewBox", () => {
     it("Correctly scales drag distance when viewBox differs from rendered size", () => {
         // viewBox is 100x100, rendered size is 500x500
@@ -45,13 +51,13 @@ describe("Drag SVG with viewBox", () => {
             .trigger("pointerdown", 10, 10, { force: true })
             .wait(50)
             .trigger("pointermove", 20, 20, { force: true }) // Move past threshold
-            .wait(50)
+            .nextFrame()
             // Move 100 pixels in screen space
             // This should translate to 20 SVG units (100 * 0.2)
             // Final SVG coords: (10+20, 10+20) = (30, 30)
             // Final screen position: (30*5, 30*5) = (150, 150) relative to SVG
             .trigger("pointermove", 110, 110, { force: true })
-            .wait(50)
+            .nextFrame()
             .trigger("pointerup", { force: true })
             .wait(50)
             .should(($draggable: any) => {
@@ -75,9 +81,9 @@ describe("Drag SVG with viewBox", () => {
             .trigger("pointerdown", 10, 10, { force: true })
             .wait(50)
             .trigger("pointermove", 20, 20, { force: true })
-            .wait(50)
+            .nextFrame()
             .trigger("pointermove", 110, 110, { force: true })
-            .wait(50)
+            .nextFrame()
             .trigger("pointerup", { force: true })
             .wait(50)
             .should(($draggable: any) => {
@@ -101,12 +107,12 @@ describe("Drag SVG with viewBox", () => {
             .trigger("pointerdown", 10, 10, { force: true })
             .wait(50)
             .trigger("pointermove", 20, 20, { force: true })
-            .wait(50)
+            .nextFrame()
             // Move 100 pixels in both directions
             // X: 100 * 0.2 = 20 SVG units
             // Y: 100 * 0.5 = 50 SVG units
             .trigger("pointermove", 110, 110, { force: true })
-            .wait(50)
+            .nextFrame()
             .trigger("pointerup", { force: true })
             .wait(50)
             .should(($draggable: any) => {
@@ -130,11 +136,11 @@ describe("Drag SVG with viewBox", () => {
             .trigger("pointerdown", 10, 10, { force: true })
             .wait(50)
             .trigger("pointermove", 20, 20, { force: true }) // Move past threshold
-            .wait(50)
+            .nextFrame()
             // Move 100 pixels in screen space
             // This should translate to 20 SVG units (100 * 0.2)
             .trigger("pointermove", 110, 110, { force: true })
-            .wait(50)
+            .nextFrame()
             .trigger("pointerup", { force: true })
             .wait(50)
             .should(($draggable: any) => {

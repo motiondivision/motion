@@ -13,6 +13,12 @@ function expectBbox(element: HTMLElement, expectedBbox: Partial<BoundingBox>) {
     expectedBbox.height && expect(bbox.height).to.equal(expectedBbox.height)
 }
 
+/**
+ * PanSession applies pointermove on the next animation frame, and pointerup
+ * discards a move that hasn't been applied yet. Cypress also resolves trigger
+ * coordinates against the element's current box. So each pointermove is
+ * followed by nextFrame() rather than a fixed wait, which slow CI can outrun.
+ */
 function testNestedDrag(parentLayout: boolean, childLayout: boolean) {
     let url = `?test=drag-layout-nested`
     if (parentLayout) url += `&parentLayout=true`
@@ -49,9 +55,9 @@ function testNestedDrag(parentLayout: boolean, childLayout: boolean) {
         .trigger("pointerdown", 5, 5)
         .wait(50)
         .trigger("pointermove", 10, 10) // Gesture will start from first move past threshold
-        .wait(50)
+        .nextFrame()
         .trigger("pointermove", 50, 50)
-        .wait(50)
+        .nextFrame()
         .trigger("pointerup")
         .should(([$parent]: any) => {
             expectBbox($parent, {
@@ -77,9 +83,9 @@ function testNestedDrag(parentLayout: boolean, childLayout: boolean) {
         .trigger("pointerdown", 5, 5)
         .wait(50)
         .trigger("pointermove", 10, 10) // Gesture will start from first move past threshold
-        .wait(50)
+        .nextFrame()
         .trigger("pointermove", 50, 50)
-        .wait(50)
+        .nextFrame()
         .get("#parent")
         .should(([$parent]: any) => {
             expectBbox($parent, {
@@ -130,9 +136,9 @@ function testNestedDrag(parentLayout: boolean, childLayout: boolean) {
         .trigger("pointerdown", 5, 5)
         .wait(50)
         .trigger("pointermove", 10, 10) // Gesture will start from first move past threshold
-        .wait(50)
+        .nextFrame()
         .trigger("pointermove", 50, 50)
-        .wait(50)
+        .nextFrame()
         .trigger("pointerup")
         .get("#parent")
         .should(([$parent]: any) => {
@@ -179,9 +185,9 @@ function testNestedDragConstraints(
         .trigger("pointerdown", 40, 40)
         .wait(50)
         .trigger("pointermove", 35, 35) // Gesture will start from first move past threshold
-        .wait(50)
+        .nextFrame()
         .trigger("pointermove", 20, 20)
-        .wait(50)
+        .nextFrame()
         .trigger("pointerup")
         .should(([$parent]: any) => {
             // Should have only moved 10 px to the top
@@ -209,9 +215,9 @@ function testNestedDragConstraints(
         .trigger("pointerdown", 5, 5)
         .wait(50)
         .trigger("pointermove", 10, 10) // Gesture will start from first move past threshold
-        .wait(50)
+        .nextFrame()
         .trigger("pointermove", 200, 100)
-        .wait(50)
+        .nextFrame()
         .trigger("pointerup")
         .should(([$parent]: any) => {
             expectBbox($parent, {
@@ -237,9 +243,9 @@ function testNestedDragConstraints(
         .trigger("pointerdown", 5, 5, { force: true })
         .wait(50)
         .trigger("pointermove", 10, 10, { force: true }) // Gesture will start from first move past threshold
-        .wait(50)
+        .nextFrame()
         .trigger("pointermove", 300, 100, { force: true })
-        .wait(50)
+        .nextFrame()
         .trigger("pointerup")
         .get("#parent")
         .should(([$parent]: any) => {
@@ -286,9 +292,9 @@ function testNestedDragConstraintsAndAnimation(
         .trigger("pointerdown", 5, 10)
         .wait(50)
         .trigger("pointermove", 10, 10) // Gesture will start from first move past threshold
-        .wait(50)
+        .nextFrame()
         .trigger("pointermove", 200, 10, { force: true })
-        .wait(50)
+        .nextFrame()
         .should(([$parent]: any) => {
             // Should have only moved 10 px to the top
             expectBbox($parent, {
@@ -340,9 +346,9 @@ function testNestedDragConstraintsAndAnimation(
         .trigger("pointerdown", 5, 10)
         .wait(50)
         .trigger("pointermove", 10, 10) // Gesture will start from first move past threshold
-        .wait(50)
+        .nextFrame()
         .trigger("pointermove", 200, 10, { force: true })
-        .wait(70)
+        .nextFrame()
         .should(([$child]: any) => {
             expectBbox($child, {
                 top: 150,
@@ -374,9 +380,9 @@ function testAlternateAxes(parentLayout: boolean, childLayout: boolean) {
         .trigger("pointerdown", 5, 5, { force: true })
         .wait(80)
         .trigger("pointermove", 10, 10, { force: true })
-        .wait(80)
+        .nextFrame()
         .trigger("pointermove", 100, 100, { force: true })
-        .wait(80)
+        .nextFrame()
         .should(([$child]: any) => {
             expectBbox($child, {
                 top: 250,

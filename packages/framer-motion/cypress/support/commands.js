@@ -23,3 +23,20 @@
 //
 // -- This is will overwrite an existing command --
 // Cypress.Commands.overwrite("visit", (originalFn, url, options) => { ... })
+
+/**
+ * Yields the subject after the app's next animation frame.
+ *
+ * Motion processes pointer input (and starts animations) on the next frame,
+ * and on slow CI a fixed cy.wait() can resolve before that frame has run.
+ */
+Cypress.Commands.add("nextFrame", { prevSubject: "optional" }, (subject) =>
+    cy
+        .window({ log: false })
+        .then(
+            (win) =>
+                new Cypress.Promise((resolve) =>
+                    win.requestAnimationFrame(() => resolve(subject))
+                )
+        )
+)

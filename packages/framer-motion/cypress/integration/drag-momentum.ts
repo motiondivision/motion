@@ -20,8 +20,8 @@ function dispatchPointer(el: HTMLElement, type: string, clientY: number) {
     )
 }
 
-function nextFrame(el: HTMLElement) {
-    return new Cypress.Promise<void>((resolve) =>
+function afterFrame(el: HTMLElement) {
+    return new Cypress.Promise((resolve: () => void) =>
         (el.ownerDocument.defaultView as any).requestAnimationFrame(() =>
             resolve()
         )
@@ -30,12 +30,10 @@ function nextFrame(el: HTMLElement) {
 
 function flick(el: HTMLElement, clientY: number) {
     dispatchPointer(el, "pointermove", clientY)
-    return nextFrame(el).then(() =>
-        dispatchPointer(el, "pointerup", clientY)
-    )
+    return afterFrame(el).then(() => dispatchPointer(el, "pointerup", clientY))
 }
 
-const top = (el: HTMLElement) => el.getBoundingClientRect().top
+const topOf = (el: HTMLElement) => el.getBoundingClientRect().top
 
 describe("Drag Momentum", () => {
     it("Fast flick after hold produces momentum", () => {
@@ -45,7 +43,7 @@ describe("Drag Momentum", () => {
             .get("[data-testid='draggable']")
             .wait(200)
             .then(([el]: any) => {
-                startTop = top(el)
+                startTop = topOf(el)
                 dispatchPointer(el, "pointerdown", startTop + 900)
             })
             .wait(300) // Simulate holding before flick
@@ -60,7 +58,7 @@ describe("Drag Momentum", () => {
                 // Element should have carried well past the release point
                 // due to momentum. Without the fix, velocity is diluted by
                 // the stale pointer-down point and momentum is minimal.
-                expect(top(el)).to.be.lessThan(-200)
+                expect(topOf(el)).to.be.lessThan(-200)
             })
     })
 
@@ -74,14 +72,14 @@ describe("Drag Momentum", () => {
             .wait(200)
             // Perform a drag-and-throw upward
             .then(([el]: any) => {
-                startTop = top(el)
+                startTop = topOf(el)
                 dispatchPointer(el, "pointerdown", startTop + 900)
                 dispatchPointer(el, "pointermove", startTop + 895) // Cross distance threshold
             })
             .wait(50)
             .then(([el]: any) =>
                 flick(el, startTop + 700).then(() => {
-                    releasedTop = top(el)
+                    releasedTop = topOf(el)
                 })
             )
             // Wait for momentum to start
@@ -90,8 +88,8 @@ describe("Drag Momentum", () => {
             // final value on the next frame.
             .then(([el]: any) => {
                 dispatchPointer(el, "pointerdown", startTop + 500)
-                return nextFrame(el).then(() => {
-                    caughtTop = top(el)
+                return afterFrame(el).then(() => {
+                    caughtTop = topOf(el)
                     // Momentum must have been running, or the catch is untested.
                     expect(releasedTop - caughtTop).to.be.greaterThan(20)
                 })
@@ -104,7 +102,7 @@ describe("Drag Momentum", () => {
             .should(([el]: any) => {
                 // Element should stay near where it was caught,
                 // not continue with old momentum.
-                expect(Math.abs(top(el) - caughtTop)).to.be.lessThan(50)
+                expect(Math.abs(topOf(el) - caughtTop)).to.be.lessThan(50)
             })
     })
 })
