@@ -236,6 +236,25 @@ describe("MotionValue.start", () => {
         expect(value.isAnimating()).toBe(true)
     })
 
+    test("an animation that completes inside stop() doesn't clear the next animation", async () => {
+        const value = motionValue(0)
+
+        let completeFirst: VoidFunction = () => {}
+        value.start((resolve) => {
+            completeFirst = resolve
+            return { stop: () => completeFirst() } as any
+        })
+
+        const second = { stop: jest.fn() }
+        value.start(() => second as any)
+        await Promise.resolve()
+        await Promise.resolve()
+
+        expect(value.animation).toBe(second)
+        value.stop()
+        expect(second.stop).toHaveBeenCalledTimes(1)
+    })
+
     test("an animation started from onComplete isn't cleared by the one that finished", async () => {
         const value = motionValue(0)
         const onComplete = jest.fn()
