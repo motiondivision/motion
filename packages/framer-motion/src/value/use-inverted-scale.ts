@@ -12,7 +12,7 @@ interface ScaleMotionValues {
     scaleY: MotionValue<number>
 }
 
-// Keep things reasonable and avoid scale: Infinity. In practise we might need
+// Keep things reasonable and avoid scale: Infinity. In practice we might need
 // to add another value, opacity, that could interpolate scaleX/Y [0,0.01] => [0,1]
 // to simply hide content at unreasonable scales.
 const maxScale = 100000

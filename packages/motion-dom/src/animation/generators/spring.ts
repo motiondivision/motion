@@ -283,7 +283,7 @@ function spring(
      * If we're working on a granular scale, use smaller defaults for determining
      * when the spring is finished.
      *
-     * These defaults have been selected emprically based on what strikes a good
+     * These defaults have been selected empirically based on what strikes a good
      * ratio between feeling good and finishing as soon as changes are imperceptible.
      */
     const setRestThresholds = () => {

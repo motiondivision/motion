@@ -86,7 +86,7 @@ export class PanSession {
     private removeListeners: Function
 
     /**
-     * For determining if an animation should resume after it is interupted
+     * For determining if an animation should resume after it is interrupted
      *
      * @internal
      */

@@ -188,7 +188,7 @@ export function createAnimationState(visualElement: any): AnimationState {
 
             /**
              * Set all encountered keys so far as the protected keys for this type. This will
-             * be any key that has been animated or otherwise handled by active, higher-priortiy types.
+             * be any key that has been animated or otherwise handled by active, higher-priority types.
              */
             typeState.protectedKeys = { ...encounteredKeys }
 

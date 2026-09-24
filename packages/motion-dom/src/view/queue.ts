@@ -32,7 +32,7 @@ function processQueue() {
     /**
      * Iterate backwards over the builders array. We can ignore the
      * "wait" animations. If we have an interrupting animation in the
-     * queue then we need to batch all preceeding animations into it.
+     * queue then we need to batch all preceding animations into it.
      * Currently this only batches the update functions but will also
      * need to batch the targets.
      */

@@ -872,7 +872,7 @@ describe("dragging", () => {
             y: 53,
         })
 
-        // Should update when updating the contstraints again
+        // Should update when updating the constraints again
         render(<Component constraints={{ left: 60, top: 70 }} />)
 
         // Should have updated the x and y

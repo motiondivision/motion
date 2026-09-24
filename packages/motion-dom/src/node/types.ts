@@ -118,9 +118,9 @@ export type LegacyAnimationControls = {
      *
      * @privateRemarks
      * We could perform a similar trick to `.start` where this can be called before mount
-     * and we maintain a list of of pending actions that get applied on mount. But the
+     * and we maintain a list of pending actions that get applied on mount. But the
      * expectation of `set` is that it happens synchronously and this would be difficult
-     * to do before any children have even attached themselves. It's also poor practise
+     * to do before any children have even attached themselves. It's also poor practice
      * and we should discourage render-synchronous `.start` calls rather than lean into this.
      *
      * @public
@@ -535,7 +535,7 @@ export interface MotionNodeTapHandlers {
     /**
      * If `true`, the tap gesture will attach its start listener to window.
      *
-     * Note: This is not supported publically.
+     * Note: This is not supported publicly.
      */
     globalTapTarget?: boolean
 
@@ -1035,7 +1035,7 @@ export interface MotionNodeAdvancedOptions {
 
     /**
      * By default, Motion generates a `transform` property with a sensible transform order. `transformTemplate`
-     * can be used to create a different order, or to append/preprend the automatically generated `transform` property.
+     * can be used to create a different order, or to append/prepend the automatically generated `transform` property.
      *
      * ```jsx
      * <motion.div

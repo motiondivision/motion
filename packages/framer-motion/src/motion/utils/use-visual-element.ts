@@ -167,7 +167,7 @@ export function useVisualElement<
          * it needs to happen synchronously to ensure there's no flash of
          * incorrect styles in the event of a hydration error.
          *
-         * So if we detect a situtation where optimised appear animations
+         * So if we detect a situation where optimised appear animations
          * are running, we use useLayoutEffect to trigger animations.
          */
         if (wantsHandoff.current && visualElement.animationState) {

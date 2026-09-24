@@ -47,7 +47,7 @@ export function resolveOffsets(
 
     /**
      * Populate the offset array by resolving the user's offset definition into
-     * a list of pixel scroll offets.
+     * a list of pixel scroll offsets.
      */
     let hasChanged = !info[axis].interpolate
 

@@ -16,7 +16,7 @@ export abstract class DOMVisualElement<
         /**
          * compareDocumentPosition returns a bitmask, by using the bitwise &
          * we're returning true if 2 in that bitmask is set to true. 2 is set
-         * to true if b preceeds a.
+         * to true if b precedes a.
          */
         return a.compareDocumentPosition(b) & 2 ? 1 : -1
     }

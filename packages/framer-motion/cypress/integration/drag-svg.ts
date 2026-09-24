@@ -3,7 +3,7 @@
  * This is because when a component has the layout prop applied, we apply drag to the bounding box
  * and when it isn't, we apply it to the x/y transform.
  *
- * Descrepencies between the expected values in the two sets of tests are *something* to do with how
+ * Discrepancies between the expected values in the two sets of tests are *something* to do with how
  * pointer events are being resolved with Cypress, but a manual check will verify that both drag modes
  * are working visually the same.
  */

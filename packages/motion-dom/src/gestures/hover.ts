@@ -30,7 +30,7 @@ function isValidHover(event: PointerEvent) {
 /**
  * Create a hover gesture. hover() is different to .addEventListener("pointerenter")
  * in that it has an easier syntax, filters out polyfilled touch events, interoperates
- * with drag gestures, and automatically removes the "pointerennd" event listener when the hover ends.
+ * with drag gestures, and automatically removes the "pointerleave" event listener when the hover ends.
  *
  * @public
  */

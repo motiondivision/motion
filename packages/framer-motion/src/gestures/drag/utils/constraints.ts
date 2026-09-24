@@ -121,7 +121,7 @@ export function calcViewportConstraints(layoutBox: Box, constraintsBox: Box) {
 
 /**
  * Calculate a transform origin relative to the source axis, between 0-1, that results
- * in an asthetically pleasing scale/transform needed to project from source to target.
+ * in an aesthetically pleasing scale/transform needed to project from source to target.
  */
 export function calcOrigin(source: Axis, target: Axis): number {
     let origin = 0.5

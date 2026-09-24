@@ -354,8 +354,8 @@ export function createProjectionNode<I>({
 
         /**
          * An object representing the calculated contextual/accumulated/tree scale.
-         * This will be used to scale calculcated projection transforms, as these are
-         * calculated in screen-space but need to be scaled for elements to layoutly
+         * This will be used to scale calculated projection transforms, as these are
+         * calculated in screen-space but need to be scaled for elements to visually
          * make it to their calculated destinations.
          *
          * TODO: Lazy-init

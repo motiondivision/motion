@@ -136,7 +136,7 @@ export abstract class VisualElement<
 
     /**
      * When a value has been removed from the VisualElement we use this to remove
-     * it from the inherting class' unique render state.
+     * it from the inheriting class' unique render state.
      */
     abstract removeValueFromRenderState(
         key: string,
@@ -224,7 +224,7 @@ export abstract class VisualElement<
     depth: number
 
     /**
-     * The current render state of this VisualElement. Defined by inherting VisualElements.
+     * The current render state of this VisualElement. Defined by inheriting VisualElements.
      */
     renderState: RenderState
 

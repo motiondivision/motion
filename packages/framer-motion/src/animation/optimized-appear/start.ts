@@ -94,7 +94,7 @@ export function startOptimizedAppearAnimation(
              * via ID instead of Element because of hydration errors and
              * pre-hydration checks. We also actively record IDs as they start
              * animating rather than simply checking for data-appear-id as
-             * this attrbute might be present but not lead to an animation, for
+             * this attribute might be present but not lead to an animation, for
              * instance if the element's appear animation is on a different
              * breakpoint.
              */

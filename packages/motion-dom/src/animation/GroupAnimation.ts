@@ -100,7 +100,7 @@ export class GroupAnimation implements AnimationPlaybackControls {
         this.runAll("pause")
     }
 
-    // Bound to accomadate common `return animation.stop` pattern
+    // Bound to accommodate common `return animation.stop` pattern
     stop = () => this.runAll("stop")
 
     cancel() {
