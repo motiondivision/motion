@@ -5,6 +5,7 @@ let id = 0
 export class ExitAnimationFeature extends Feature<unknown> {
     private id: number = id++
     private isExitComplete = false
+    private exitAnimation?: Promise<unknown>
 
     update() {
         if (!this.node.presenceContext) return
@@ -31,11 +32,7 @@ export class ExitAnimationFeature extends Feature<unknown> {
                         initial !== null &&
                         !Array.isArray(initial))
                 ) {
-                    const resolved = resolveVariant(
-                        this.node,
-                        initial,
-                        custom
-                    )
+                    const resolved = resolveVariant(this.node, initial, custom)
                     if (resolved) {
                         const { transition, transitionEnd, ...target } =
                             resolved
@@ -43,14 +40,17 @@ export class ExitAnimationFeature extends Feature<unknown> {
                             this.node
                                 .getValue(key)
                                 ?.jump(
-                                    target[
-                                        key as keyof typeof target
-                                    ] as any
+                                    target[key as keyof typeof target] as any
                                 )
                         }
                     }
                 }
 
+                /**
+                 * A re-entering element is no longer an initial child, so
+                 * AnimatePresence's initial={false} mustn't block its enter.
+                 */
+                this.node.blockInitialAnimation = false
                 this.node.animationState.reset()
                 this.node.animationState.animateChanges()
             } else {
@@ -58,16 +58,20 @@ export class ExitAnimationFeature extends Feature<unknown> {
             }
 
             this.isExitComplete = false
+            this.exitAnimation = undefined
             return
         }
 
-        const exitAnimation = this.node.animationState.setActive(
-            "exit",
-            !isPresent
-        )
+        const exitAnimation = (this.exitAnimation =
+            this.node.animationState.setActive("exit", !isPresent))
 
         if (onExitComplete && !isPresent) {
             exitAnimation.then(() => {
+                /**
+                 * An exit can resolve after the element has re-entered, e.g.
+                 * when its final tick lands in the stop() of the enter.
+                 */
+                if (this.exitAnimation !== exitAnimation) return
                 this.isExitComplete = true
                 onExitComplete(this.id)
             })
