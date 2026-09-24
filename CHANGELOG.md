@@ -4,6 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [13.4.3] 2026-09-24
+
+### Fixed
+
+-   `<motion />`: Ensure animations replay when `Suspense` reveals memoized content.
+
 ## [13.4.2] 2026-09-23
 
 ### Fixed
