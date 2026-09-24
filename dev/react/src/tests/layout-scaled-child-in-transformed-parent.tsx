@@ -39,7 +39,7 @@ export const App = () => {
                         layout
                         style={hover ? b : a}
                         onClick={() => setHover((h) => (h ? false : true))}
-                        transition={{ duration: 0.2, ease: () => 0.5 }}
+                        transition={{ duration: 10, ease: () => 0.5 }}
                     />
                 </motion.div>
             </motion.div>
