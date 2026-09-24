@@ -1,6 +1,6 @@
 {
     "name": "motion",
-    "version": "13.4.2",
+    "version": "13.4.3",
     "description": "An animation library for JavaScript and React.",
     "main": "dist/cjs/index.js",
     "module": "dist/es/index.mjs",
@@ -95,7 +95,7 @@
         "postpublish": "git push --tags"
     },
     "dependencies": {
-        "framer-motion": "^13.4.2",
+        "framer-motion": "^13.4.3",
         "tslib": "^2.4.0"
     },
     "peerDependencies": {
