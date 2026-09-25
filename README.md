@@ -24,6 +24,7 @@ npm install motion-v
 1. [Why Motion?](#why-motion)
 2. [🍦 Platforms](#-platforms)
 3. [🎓 Examples](#-examples)
+4. [🎨 Motion Studio](#-motion-studio)
 4. [🤖 Using Motion with AI](#-using-motion-with-ai)
 5. [⚡️ Motion+](#-motion)
 6. [👩🏻‍⚖️ License](#-license)
@@ -92,6 +93,12 @@ Give your coding agent current Motion docs:
 -   **llms.txt:** [motion.dev/llms.txt](https://motion.dev/llms.txt?utm_source=github-readme) indexes every docs page. Motion+ pages are labelled as paid, with their install and import.
 
 [Motion+](https://motion.dev/plus?utm_source=github-readme) adds example and Motion UI source, MotionScore performance audits and CSS spring generation for your agent.
+
+## 🎨 Motion Studio
+
+A visual animation editor for your website. Edit keyframes, easing curves and springs on a live timeline, or describe changes to the Ultramotion agent, then apply the result straight to your code with Cursor, Codex or Claude.
+
+[Explore Motion Studio](https://motion.dev/studio)
 
 ## ⚡️ Motion+
 
