@@ -27,7 +27,7 @@ export function buildTransform(state: MotionValueState) {
         const key = keys[i]
         const value = values[key].get()
 
-        if (value === undefined) continue
+        if (value === undefined || value === "none") continue
 
         const parsed = typeof value === "number" ? value : parseFloat(value)
 
