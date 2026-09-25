@@ -916,15 +916,29 @@ describe("scroll", () => {
             delete (window as any).ViewTimeline
         })
 
-        test("Track ranges other than cover in JS", async () => {
-            const { valueAnimation, stop } = attach(ScrollOffset.Enter)
+        test("Read other ranges from an animation attached to that range", async () => {
+            const animate = jest.fn(() => ({
+                effect: { getComputedTiming: () => ({ progress: 0.25 }) },
+            }))
+            ;(Element.prototype as any).animate = animate
 
-            // Enter resolves to [0, 200], so 50px is 0.25, not cover's 0.5
-            await fireScroll(50)
-            await nextFrame()
-            expect(valueAnimation.time).toBeCloseTo(0.25)
+            try {
+                const { valueAnimation, stop } = attach(ScrollOffset.Enter)
 
-            stop()
+                await fireScroll(50)
+                await nextFrame()
+                expect(animate).toHaveBeenCalledWith(null, {
+                    timeline: expect.any(FakeViewTimeline),
+                    rangeStart: "entry-crossing 0%",
+                    rangeEnd: "entry-crossing 100%",
+                    fill: "both",
+                })
+                expect(valueAnimation.time).toBeCloseTo(0.25)
+
+                stop()
+            } finally {
+                delete (Element.prototype as any).animate
+            }
         })
 
         test("Read cover progress from the ViewTimeline", async () => {

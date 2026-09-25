@@ -35,12 +35,8 @@ export function attachToAnimation(
                     valueAnimation.time =
                         valueAnimation.iterationDuration * progress
                 },
-                /**
-                 * A ViewTimeline's currentTime is its cover progress, so
-                 * values attached to any other range are tracked in JS.
-                 */
                 useNative && range?.rangeStart
-                    ? getTimeline(options, true)
+                    ? getTimeline(options, range)
                     : timeline
             )
         },
