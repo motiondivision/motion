@@ -216,11 +216,6 @@ function getSpringOptions(options: SpringOptions) {
     }
 
     if (springOptions.isTimeDefined) {
-        // Time-defined springs should ignore inherited velocity. Velocity
-        // from interrupted animations causes massive oscillation on
-        // small-range animations.
-        springOptions.velocity = 0
-
         if (options.visualDuration) {
             const root = (2 * Math.PI) / (options.visualDuration * 1.2)
             springOptions.stiffness = root * root
@@ -280,13 +275,17 @@ function spring(
         damping,
         mass,
         duration,
-        velocity,
         isResolvedFromDuration,
         isTimeDefined,
-    } = getSpringOptions({
-        ...options,
-        velocity: -millisecondsToSeconds(options.velocity || 0),
-    })
+    } = getSpringOptions(options)
+
+    /**
+     * Time-defined springs ignore inherited velocity. Velocity from
+     * interrupted animations causes massive oscillation on small-range
+     * animations.
+     */
+    const inheritVelocity = (velocity: number) =>
+        isTimeDefined ? 0 : -millisecondsToSeconds(velocity)
 
     const dampingRatio = damping / (2 * Math.sqrt(stiffness * mass))
     const undampedAngularFreq = millisecondsToSeconds(
@@ -304,7 +303,7 @@ function spring(
     const s = {
         target,
         delta: target - origin,
-        velocity: velocity || 0.0,
+        velocity: inheritVelocity(options.velocity || 0) || 0,
         restSpeed: 0,
         restDelta: 0,
     }
@@ -442,8 +441,7 @@ function spring(
         retarget: (keyframes: number[], newVelocity: number) => {
             s.target = keyframes[keyframes.length - 1]
             s.delta = s.target - keyframes[0]
-            // Time-defined springs ignore inherited velocity, see getSpringOptions
-            s.velocity = isTimeDefined ? 0 : -millisecondsToSeconds(newVelocity)
+            s.velocity = inheritVelocity(newVelocity)
             // Default thresholds depend on the scale of the new delta
             if (!(options.restSpeed && options.restDelta)) setRestThresholds()
             // Invalidate any duration lazily cached by JSAnimation
