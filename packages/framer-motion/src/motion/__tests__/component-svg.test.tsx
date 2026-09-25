@@ -144,6 +144,38 @@ describe("SVG", () => {
         expect(gElement).toHaveStyle("transform: translate(50, 50)")
     })
 
+    test("spring with an unset stiffness prop never renders NaN points", async () => {
+        // An unset optional prop forwarded into the transition
+        const Component = ({ stiffness }: { stiffness?: number }) => (
+            <svg>
+                <motion.polygon
+                    initial={{ points: "150,5 75,200 225,200" }}
+                    animate={{ points: "150,5 50,180 250,180" }}
+                    transition={{ type: "spring", stiffness }}
+                />
+            </svg>
+        )
+        const { container } = render(<Component />)
+        const polygon = container.querySelector("polygon")!
+
+        const rendered: string[] = []
+        const observer = new MutationObserver(() =>
+            rendered.push(polygon.getAttribute("points")!)
+        )
+        observer.observe(polygon, { attributeFilter: ["points"] })
+        for (let i = 0; i < 10; i++) await nextFrame()
+        observer.disconnect()
+
+        expect(rendered.length).toBeGreaterThan(1)
+        rendered.forEach((points) =>
+            points
+                .split(/[ ,]/u)
+                .forEach((coord) =>
+                    expect(Number.isFinite(Number(coord))).toBe(true)
+                )
+        )
+    })
+
     test("animates viewBox", async () => {
         const Component = () => {
             return (

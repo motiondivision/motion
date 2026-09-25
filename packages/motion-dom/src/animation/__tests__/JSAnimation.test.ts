@@ -1422,4 +1422,27 @@ describe("JSAnimation", () => {
         expect(animation.sample(1000).value).toBe("90%")
         expect(animation.sample(1999).value).toBe("90%")
     })
+
+    test("Spring with undefined stiffness over polygon points never produces NaN", () => {
+        // An explicit `undefined` stiffness, as forwarded from an optional
+        // prop, must fall back to the default rather than emit NaN progress
+        // that the complex-value mixer turns into "NaN,NaN NaN,NaN"
+        const target = "150,5 50,180 250,180"
+        const animation = animateValue({
+            keyframes: ["150,5 75,200 225,200", target],
+            type: "spring",
+            stiffness: undefined,
+            autoplay: false,
+        })
+
+        for (let t = 0; t <= 2000; t += 50) {
+            const coords = animation.sample(t).value.split(/[ ,]/u)
+            expect(coords).toHaveLength(6)
+            coords.forEach((coord) =>
+                expect(Number.isFinite(Number(coord))).toBe(true)
+            )
+        }
+
+        expect(animation.sample(2000).value).toBe(target)
+    })
 })

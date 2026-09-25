@@ -166,26 +166,63 @@ function findSpring({
 }
 
 const durationKeys = ["duration", "bounce"]
-const physicsKeys = ["stiffness", "damping", "mass"]
 
 function isSpringType(options: SpringOptions, keys: string[]) {
     return keys.some((key) => (options as any)[key] !== undefined)
 }
 
-function getSpringOptions(options: SpringOptions) {
-    let springOptions = {
-        velocity: springDefaults.velocity,
-        stiffness: springDefaults.stiffness,
-        damping: springDefaults.damping,
-        mass: springDefaults.mass,
-        isResolvedFromDuration: false,
-        ...options,
+/**
+ * Spring physics must be finite. stiffness and mass are also divisors so must
+ * be positive, whereas a damping of 0 is a valid, perpetually oscillating
+ * spring. Relational rather than Number.isFinite so numeric strings still
+ * coerce.
+ */
+const isValidPhysics = (value: number | undefined, canBeZero?: boolean) =>
+    (canBeZero ? value! >= 0 : value! > 0) && value! < Infinity
+
+/**
+ * Returns value if it's usable spring physics, otherwise undefined so callers
+ * fall back to the default. An explicit `undefined`, e.g. from a forwarded
+ * optional prop, must fall back too. Invalid physics would otherwise resolve
+ * to NaN spring values that never report done.
+ */
+function resolvePhysics(value: number | undefined, canBeZero?: boolean) {
+    if (isValidPhysics(value, canBeZero)) return value
+
+    if (process.env.NODE_ENV !== "production") {
+        warning(
+            value === undefined,
+            "Spring stiffness and mass must be positive, damping 0 or greater",
+            "spring-invalid-physics"
+        )
     }
-    // stiffness/damping/mass overrides duration/bounce
-    if (
-        !isSpringType(options, physicsKeys) &&
-        isSpringType(options, durationKeys)
-    ) {
+
+    return undefined
+}
+
+function getSpringOptions(options: SpringOptions) {
+    /**
+     * Resolve physics before choosing between physics- and duration-based
+     * resolution, so an invalid stiffness doesn't also silently discard a
+     * valid duration/bounce.
+     */
+    const validStiffness = resolvePhysics(options.stiffness)
+    const validDamping = resolvePhysics(options.damping, true)
+    const validMass = resolvePhysics(options.mass)
+
+    let springOptions = {
+        ...options,
+        stiffness: validStiffness ?? springDefaults.stiffness,
+        damping: validDamping ?? springDefaults.damping,
+        mass: validMass ?? springDefaults.mass,
+        isResolvedFromDuration: false,
+        // stiffness/damping/mass overrides duration/bounce
+        isTimeDefined:
+            (validStiffness ?? validDamping ?? validMass) === undefined &&
+            isSpringType(options, durationKeys),
+    }
+
+    if (springOptions.isTimeDefined) {
         // Time-defined springs should ignore inherited velocity.
         // Velocity from interrupted animations can cause findSpring()
         // to compute wildly different spring parameters, leading to
@@ -208,7 +245,7 @@ function getSpringOptions(options: SpringOptions) {
                 damping,
             }
         } else {
-            const derived = findSpring({ ...options, velocity: 0 })
+            const derived = findSpring(springOptions)
 
             springOptions = {
                 ...springOptions,
@@ -216,6 +253,20 @@ function getSpringOptions(options: SpringOptions) {
                 mass: springDefaults.mass,
             }
             springOptions.isResolvedFromDuration = true
+        }
+
+        /**
+         * Non-finite time options degenerate: a NaN bounce gives a NaN
+         * damping, an infinite visualDuration a 0 stiffness. Replace the two
+         * together, so the relationship duration resolution establishes
+         * between them is never left half-overwritten.
+         */
+        if (
+            !isValidPhysics(springOptions.stiffness) ||
+            !isValidPhysics(springOptions.damping, true)
+        ) {
+            springOptions.stiffness = springDefaults.stiffness
+            springOptions.damping = springDefaults.damping
         }
     }
 
@@ -253,6 +304,7 @@ function spring(
         duration,
         velocity,
         isResolvedFromDuration,
+        isTimeDefined,
     } = getSpringOptions({
         ...options,
         velocity: -millisecondsToSeconds(options.velocity || 0),
@@ -401,13 +453,6 @@ function spring(
 
     update()
 
-    /**
-     * Time-defined springs ignore inherited velocity, see getSpringOptions.
-     */
-    const ignoreVelocity =
-        !isSpringType(options, physicsKeys) &&
-        isSpringType(options, durationKeys)
-
     const calculatedDuration = isResolvedFromDuration ? duration || null : null
 
     const generator = {
@@ -419,9 +464,8 @@ function spring(
         retarget: (keyframes: number[], newVelocity: number) => {
             s.target = keyframes[keyframes.length - 1]
             s.delta = s.target - keyframes[0]
-            s.velocity = ignoreVelocity
-                ? 0
-                : -millisecondsToSeconds(newVelocity)
+            // Time-defined springs ignore inherited velocity, see getSpringOptions
+            s.velocity = isTimeDefined ? 0 : -millisecondsToSeconds(newVelocity)
             // Default thresholds depend on the scale of the new delta
             if (!(options.restSpeed && options.restDelta)) setRestThresholds()
             // Invalidate any duration lazily cached by JSAnimation
