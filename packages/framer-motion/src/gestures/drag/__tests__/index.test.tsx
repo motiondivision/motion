@@ -3,6 +3,7 @@ import {
     AnimatePresence,
     BoundingBox,
     motion,
+    MotionConfig,
     motionValue,
     MotionValue,
     useWillChange,
@@ -166,6 +167,40 @@ describe("dragging", () => {
         await nextFrame()
 
         expect(onDragEnd).toBeCalledTimes(1)
+    })
+
+    test("applies a pointermove that arrives in the same frame as pointerup", async () => {
+        const x = motionValue(0)
+        const onDragEnd = jest.fn()
+        const pos = { x: 0, y: 0 }
+        const Component = () => (
+            <MotionConfig transformPagePoint={() => pos}>
+                <motion.div
+                    drag="x"
+                    dragMomentum={false}
+                    onDragEnd={onDragEnd}
+                    style={{ x }}
+                />
+            </MotionConfig>
+        )
+
+        const { container, rerender } = render(<Component />)
+        rerender(<Component />)
+
+        pointerDown(container.firstChild as Element)
+        pos.x = 10
+        pointerMove(document.body)
+        await nextFrame()
+        expect(x.get()).toBe(10)
+
+        pos.x = 100
+        pointerMove(document.body)
+        pointerUp(container.firstChild as Element)
+        await nextFrame()
+
+        expect(x.get()).toBe(100)
+        expect(onDragEnd).toBeCalledTimes(1)
+        expect(onDragEnd.mock.calls[0][1].offset.x).toBe(100)
     })
 
     test("dragEnd doesn't fire if dragging never initiated", async () => {
