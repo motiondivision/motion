@@ -397,6 +397,8 @@ export function createProjectionNode<I>({
 
         hasTreeAnimated = false
 
+        layoutVersion: number = 0
+
         constructor(
             latestValues: ResolvedValues = {},
             parent: IProjectionNode | undefined = defaultParent?.()
@@ -922,6 +924,7 @@ export function createProjectionNode<I>({
 
             const prevLayout = this.layout
             this.layout = this.measure(false)
+            this.layoutVersion++
             if (!this.layoutCorrected) this.layoutCorrected = createBox()
             this.isLayoutDirty = false
             this.projectionDelta = undefined
@@ -1222,63 +1225,13 @@ export function createProjectionNode<I>({
             this.resolvedRelativeTargetAt = frameData.timestamp
 
             const relativeParent = this.getClosestProjectingParent()
-            const { linkedParentLayout, relativeTarget, relativeTargetOrigin } =
-                this
 
             if (
                 relativeParent &&
-                linkedParentLayout !== relativeParent.layout &&
+                this.linkedParentVersion !== relativeParent.layoutVersion &&
                 !relativeParent.options.layoutRoot
             ) {
-                /**
-                 * If the relative parent has been re-measured but this node
-                 * hasn't (for instance it's in a different LayoutGroup), our
-                 * layout is stale by the parent's layout shift. Shift the
-                 * relative target by the same amount, rather than removing it,
-                 * so an in-progress layout animation isn't interrupted.
-                 */
-                if (
-                    relativeTarget &&
-                    relativeParent === this.relativeParent &&
-                    this.layout === this.linkedLayout
-                ) {
-                    const anchor = this.options.layoutAnchor || undefined
-                    const parentLayout = relativeParent.layout!.layoutBox
-                    const box = createBox()
-
-                    /**
-                     * Resolve the origin against the parent's previous layout,
-                     * then make it relative to the parent's new layout.
-                     */
-                    calcRelativeBox(
-                        box,
-                        relativeTargetOrigin!,
-                        linkedParentLayout!.layoutBox,
-                        anchor
-                    )
-                    calcRelativePosition(
-                        relativeTargetOrigin!,
-                        box,
-                        parentLayout,
-                        anchor
-                    )
-
-                    calcRelativePosition(
-                        box,
-                        this.layout.layoutBox,
-                        parentLayout,
-                        anchor
-                    )
-                    mixBox(
-                        relativeTarget,
-                        relativeTargetOrigin!,
-                        box,
-                        this.animationProgress
-                    )
-                    this.linkedParentLayout = relativeParent.layout
-                } else {
-                    this.removeRelativeTarget()
-                }
+                this.removeRelativeTarget()
             }
 
             /**
@@ -1414,20 +1367,14 @@ export function createProjectionNode<I>({
             )
         }
 
-        /**
-         * The layouts of this node and its relative parent when the relative
-         * target was created or last shifted.
-         */
-        linkedLayout?: Measurements
-        linkedParentLayout?: Measurements
+        linkedParentVersion: number = 0
         createRelativeTarget(
             relativeParent: IProjectionNode,
             layout: Box,
             parentLayout: Box
         ) {
             this.relativeParent = relativeParent
-            this.linkedLayout = this.layout
-            this.linkedParentLayout = relativeParent.layout
+            this.linkedParentVersion = relativeParent.layoutVersion
             this.forceRelativeParentToResolveTarget()
             this.relativeTarget = createBox()
             this.relativeTargetOrigin = createBox()
