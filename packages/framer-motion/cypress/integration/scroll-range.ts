@@ -94,8 +94,32 @@ describe("scroll() rangeStart/rangeEnd (#3001)", () => {
             expect($el.style.opacity).to.equal("")
         })
 
+        // Other rules can take over.
+        cy.get("#implicit-box").then(([$el]: any) => $el.classList.add("alt"))
+        expectOpacity(0.87, 0.93)
+        cy.get("#implicit-box").then(([$el]: any) =>
+            $el.classList.remove("alt")
+        )
+
         cy.scrollTo(0, 600).wait(200)
         expectOpacity(0.7, 0.85)
+    })
+
+    it("Restores the element's own inline styles outside the range", () => {
+        cy.scrollTo(0, 600).wait(200)
+        expectStyles("#inline-box", "#inline-js-box", [0.65, 0.85], [65, 85])
+
+        cy.scrollTo(0, 2000).wait(200)
+        expectStyles("#inline-box", "#inline-js-box", [0.27, 0.33], [199, 201])
+        cy.get("#inline-box").should(([$el]: any) => {
+            expect($el.style.opacity).to.equal("0.3")
+        })
+        cy.get("#inline-js-box").should(([$el]: any) => {
+            expect($el.style.transform).to.equal("translateX(200px)")
+        })
+
+        cy.scrollTo(0, 600).wait(200)
+        expectStyles("#inline-box", "#inline-js-box", [0.65, 0.85], [65, 85])
     })
 
     it("Resolves the range against the target's cover range", () => {

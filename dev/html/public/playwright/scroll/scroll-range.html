@@ -22,6 +22,10 @@
                 opacity: 0.1;
                 transform: translateX(300px);
             }
+
+            #implicit-box.alt {
+                opacity: 0.9;
+            }
         </style>
     </head>
     <body>
@@ -36,6 +40,12 @@
         <div class="box" id="target-box" style="top: 200px"></div>
         <div class="box" id="target-js-box" style="top: 300px"></div>
         <div class="box" id="implicit-box" style="top: 400px"></div>
+        <div class="box" id="inline-box" style="top: 500px; opacity: 0.3"></div>
+        <div
+            class="box"
+            id="inline-js-box"
+            style="top: 600px; transform: translateX(200px)"
+        ></div>
         <script type="module" src="/src/inc.js"></script>
         <script type="module">
             const { animate, scroll } = window.Motion
@@ -45,24 +55,34 @@
              * ViewTimeline where supported. x never does, so it always uses
              * the JS observe path. #implicit-box reads its start opacity
              * from the element, which is written inline and mustn't remain
-             * outside the range.
+             * outside the range. The #inline boxes have their own inline
+             * styles, which must come back outside the range.
              */
             const target = document.getElementById("target")
             const transition = { ease: "linear" }
+            const pageRange = { rangeStart: "0%", rangeEnd: "20%" }
 
             const stops = [
-                scroll(animate("#box", { opacity: [0, 1] }, transition), {
-                    rangeStart: "0%",
-                    rangeEnd: "20%",
-                }),
+                scroll(
+                    animate("#box", { opacity: [0, 1] }, transition),
+                    pageRange
+                ),
                 scroll(animate("#js-box", { x: [0, 100] }, transition), {
                     rangeStart: 0,
                     rangeEnd: 0.2,
                 }),
-                scroll(animate("#implicit-box", { opacity: 1 }, transition), {
-                    rangeStart: "0%",
-                    rangeEnd: "20%",
-                }),
+                scroll(
+                    animate("#implicit-box", { opacity: 1 }, transition),
+                    pageRange
+                ),
+                scroll(
+                    animate("#inline-box", { opacity: [0, 1] }, transition),
+                    pageRange
+                ),
+                scroll(
+                    animate("#inline-js-box", { x: [0, 100] }, transition),
+                    pageRange
+                ),
                 scroll(
                     animate("#target-box", { opacity: [0, 1] }, transition),
                     { target, rangeStart: "0%", rangeEnd: "50%" }

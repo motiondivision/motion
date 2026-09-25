@@ -121,11 +121,44 @@ test.describe("scroll() rangeStart/rangeEnd", () => {
         await scrollTo(page, 2000)
         await expectInactive(page, [["implicit-box", "opacity"]])
 
+        // Other rules can take over.
+        await page.evaluate(() =>
+            document.getElementById("implicit-box")!.classList.add("alt")
+        )
+        expect((await readBox(page, "implicit-box")).opacity).toBeCloseTo(
+            0.9,
+            2
+        )
+        await page.evaluate(() =>
+            document.getElementById("implicit-box")!.classList.remove("alt")
+        )
+
         await scrollTo(page, 600)
         expect((await readBox(page, "implicit-box")).opacity).toBeCloseTo(
             0.775,
             1
         )
+    })
+
+    test("own inline styles come back outside the range", async ({ page }) => {
+        const inlineBoxes: Box[] = [
+            ["inline-box", "opacity"],
+            ["inline-js-box", "x"],
+        ]
+
+        await scrollTo(page, 600)
+        await expectActive(page, inlineBoxes, 0.75)
+
+        await scrollTo(page, 2000)
+        const opacityBox = await readBox(page, "inline-box")
+        expect(opacityBox.opacity).toBeCloseTo(0.3, 2)
+        expect(opacityBox.inlineOpacity).toBe("0.3")
+        const xBox = await readBox(page, "inline-js-box")
+        expect(xBox.x).toBeCloseTo(200, 0)
+        expect(xBox.inlineTransform).toBe("translateX(200px)")
+
+        await scrollTo(page, 600)
+        await expectActive(page, inlineBoxes, 0.75)
     })
 
     test("target cover range", async ({ page, browserName }) => {

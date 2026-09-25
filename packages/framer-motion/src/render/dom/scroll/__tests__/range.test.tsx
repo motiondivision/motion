@@ -1,4 +1,4 @@
-import { frame } from "motion-dom"
+import { frame, motionValue, styleEffect } from "motion-dom"
 import { createRef } from "react"
 import { scroll } from "../"
 import { motion } from "../../../.."
@@ -375,8 +375,10 @@ describe("scroll() rangeStart/rangeEnd (#3001)", () => {
         expect(box.style.opacity).toBe("")
         expect(box.style.transform).toBe("rotate(45deg)")
 
+        // A prop change renders it too.
         rerender(<Component color="#00f" />)
         await nextFrame()
+        expect(box.style.backgroundColor).toBe("rgb(0, 0, 255)")
         expect(box.style.opacity).toBe("")
 
         await fireScroll(500)
@@ -418,6 +420,135 @@ describe("scroll() rangeStart/rangeEnd (#3001)", () => {
         await fireScroll(500)
         await nextFrame()
         expect(circle.getAttribute("cx")).toBe("50")
+
+        stop()
+    })
+
+    /**
+     * Native animation-range falls back to the element's own inline style or
+     * attribute, which Motion overwrites while animating.
+     */
+    test("Deactivating restores the element's own inline styles and attributes", async () => {
+        const box = document.createElement("div")
+        box.style.opacity = "0.3"
+        const svg = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "svg"
+        )
+        const circle = document.createElementNS(svg.namespaceURI, "circle")
+        circle.setAttribute("cx", "300")
+        svg.appendChild(circle)
+        document.body.append(box, svg)
+
+        const transition = { duration: 1, ease: "linear" } as const
+        const range = { rangeStart: "0%", rangeEnd: "50%" } as const
+        const stopBox = scroll(
+            animate(box, { opacity: [0, 1] }, transition),
+            range
+        )
+        const stopCircle = scroll(
+            animate(circle, { cx: [0, 100] }, transition),
+            range
+        )
+
+        await fireScroll(500)
+        await nextFrame()
+        expect(box.style.opacity).toBe("0.5")
+        expect(circle.getAttribute("cx")).toBe("50")
+
+        await fireScroll(1500)
+        await nextFrame()
+        expect(box.style.opacity).toBe("0.3")
+        expect(circle.getAttribute("cx")).toBe("300")
+
+        stopBox()
+        stopCircle()
+        box.remove()
+        svg.remove()
+    })
+
+    test("Values bound with styleEffect deactivate", async () => {
+        const box = document.createElement("div")
+        document.body.appendChild(box)
+        styleEffect(box, { opacity: motionValue(0) })
+
+        const stop = scroll(
+            animate(box, { opacity: [0, 1] }, { duration: 1, ease: "linear" }),
+            { rangeStart: "0%", rangeEnd: "50%" }
+        )
+
+        await fireScroll(500)
+        await nextFrame()
+        expect(box.style.opacity).toBe("0.5")
+
+        await fireScroll(1500)
+        await nextFrame()
+        expect(box.style.opacity).toBe("")
+
+        stop()
+        box.remove()
+    })
+
+    test("Motion components restore their static props outside the range", async () => {
+        const boxRef = createRef<HTMLDivElement>()
+        const circleRef = createRef<SVGCircleElement>()
+        render(
+            <>
+                <motion.div ref={boxRef} style={{ opacity: 0.3 }} />
+                <svg>
+                    <motion.circle ref={circleRef} cx={300} />
+                </svg>
+            </>
+        )
+        const box = boxRef.current!
+        const circle = circleRef.current!
+
+        const transition = { duration: 1, ease: "linear" } as const
+        const range = { rangeStart: "0%", rangeEnd: "50%" } as const
+        const stopBox = scroll(
+            animate(box, { opacity: [0, 1] }, transition),
+            range
+        )
+        const stopCircle = scroll(
+            animate(circle, { cx: [0, 100] }, transition),
+            range
+        )
+
+        await fireScroll(500)
+        await nextFrame()
+        expect(box.style.opacity).toBe("0.5")
+        expect(circle.getAttribute("cx")).toBe("50")
+
+        await fireScroll(1500)
+        await nextFrame()
+        expect(box.style.opacity).toBe("0.3")
+        expect(circle.getAttribute("cx")).toBe("300")
+
+        stopBox()
+        stopCircle()
+    })
+
+    test("An <svg> element's own attributes deactivate", async () => {
+        const ref = createRef<SVGSVGElement>()
+        render(<motion.svg ref={ref} />)
+        const svg = ref.current!
+
+        const stop = scroll(
+            animate(
+                svg,
+                { viewBox: ["0 0 100 100", "0 0 200 200"] },
+                { duration: 1, ease: "linear" }
+            ),
+            { rangeStart: "0%", rangeEnd: "50%" }
+        )
+
+        await fireScroll(500)
+        await nextFrame()
+        expect(svg.getAttribute("viewBox")).toBe("0 0 150 150")
+
+        await fireScroll(1500)
+        await nextFrame()
+        expect(svg.getAttribute("viewBox")).toBe(null)
 
         stop()
     })
