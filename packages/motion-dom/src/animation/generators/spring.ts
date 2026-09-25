@@ -174,22 +174,20 @@ function isSpringType(options: SpringOptions, keys: string[]) {
 /**
  * Spring physics must be finite. stiffness and mass are also divisors so must
  * be positive, whereas a damping of 0 is a valid, perpetually oscillating
- * spring.
+ * spring. Relational rather than Number.isFinite so numeric strings still
+ * coerce.
  */
 const isValidPhysics = (value: number | undefined, canBeZero?: boolean) =>
-    Number.isFinite(value) && (canBeZero ? value! >= 0 : value! > 0)
+    (canBeZero ? value! >= 0 : value! > 0) && value! < Infinity
 
 /**
  * Returns value if it's usable spring physics, otherwise undefined so callers
- * can fall back to a default.
+ * fall back to the default. An explicit `undefined`, e.g. from a forwarded
+ * optional prop, must fall back too.
  *
- * Anything invalid — a 0 stiffness, a negative, Infinity, or an explicit
- * `undefined` forwarded from an optional prop that clobbers the default via
- * the spread below — divides or feeds Math.sqrt() during resolution and
- * produces NaN spring values. Those corrupt every animated value downstream:
- * an SVG polygon's points list becomes "NaN,NaN NaN,NaN", and the spring never
- * reports done so the frameloop spins indefinitely.
- * See https://github.com/motiondivision/motion/issues/2791
+ * Invalid physics resolve to NaN spring values, which corrupt every animated
+ * value downstream (an SVG polygon's points become "NaN,NaN NaN,NaN") and
+ * never report done.
  */
 function resolvePhysics(value: number | undefined, canBeZero?: boolean) {
     if (isValidPhysics(value, canBeZero)) return value
@@ -215,7 +213,6 @@ function getSpringOptions(options: SpringOptions) {
 
     let springOptions = {
         ...options,
-        velocity: options.velocity ?? springDefaults.velocity,
         stiffness: validStiffness ?? springDefaults.stiffness,
         damping: validDamping ?? springDefaults.damping,
         mass: validMass ?? springDefaults.mass,
@@ -235,7 +232,7 @@ function getSpringOptions(options: SpringOptions) {
         // massive oscillation on small-range animations.
         springOptions.velocity = 0
 
-        if (options.visualDuration !== undefined) {
+        if (options.visualDuration) {
             const visualDuration = options.visualDuration
             const root = (2 * Math.PI) / (visualDuration * 1.2)
             const stiffness = root * root
@@ -262,9 +259,8 @@ function getSpringOptions(options: SpringOptions) {
         }
 
         /**
-         * Duration-based resolution can degenerate: findSpring()'s root
-         * approximation can collapse to a {stiffness: 0, damping: 0} pair, and
-         * a visualDuration of 0 gives an infinite stiffness. Replace the two
+         * Non-finite time options degenerate: a NaN bounce gives a NaN
+         * damping, an infinite visualDuration a 0 stiffness. Replace the two
          * together, so the relationship duration resolution establishes
          * between them is never left half-overwritten.
          */

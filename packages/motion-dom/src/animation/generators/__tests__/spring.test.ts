@@ -359,6 +359,24 @@ describe("spring NaN guards", () => {
         expect(values[values.length - 1]).not.toBeCloseTo(100)
     })
 
+    test("numeric string physics still coerce", () => {
+        expect(
+            sample({
+                keyframes: [0, 100],
+                stiffness: "300",
+                damping: "20",
+                mass: "2",
+            } as any)
+        ).toEqual(
+            sample({
+                keyframes: [0, 100],
+                stiffness: 300,
+                damping: 20,
+                mass: 2,
+            })
+        )
+    })
+
     test("invalid physics does not discard a provided duration", () => {
         // `stiffness: 0` previously counted as "physics specified", so the
         // duration branch was skipped and `duration` silently ignored.
@@ -380,13 +398,13 @@ describe("spring NaN guards", () => {
         )
     })
 
-    test("visualDuration of 0 does not produce NaN", () => {
-        const values = sample({
-            keyframes: [0, 100],
-            visualDuration: 0,
-            bounce: 0.2,
-        })
-        values.forEach((v) => expect(v).not.toBeNaN())
+    test.each([
+        { duration: 500, bounce: NaN },
+        { visualDuration: Infinity, bounce: 0.2 },
+        { visualDuration: 0, bounce: 0.2 },
+    ])("non-finite time options don't produce NaN: %o", (options) => {
+        const values = sample({ keyframes: [0, 100], ...options })
+        values.forEach((v) => expect(Number.isFinite(v)).toBe(true))
     })
 
     test("retargeting treats invalid physics as absent", () => {
