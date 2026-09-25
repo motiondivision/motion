@@ -6,6 +6,8 @@ import { nextFrame } from "../../__tests__/utils"
 import { MockDrag, drag } from "./utils"
 
 describe("useDragControls", () => {
+    afterEach(() => jest.restoreAllMocks())
+
     test(".start triggers dragging on a different component", async () => {
         const onDragStart = jest.fn()
         const Component = () => {
@@ -159,13 +161,14 @@ describe("useDragControls", () => {
                 width: size,
                 height: size,
             } as DOMRect)
-        const getBoundingClientRect = jest
-            .spyOn(HTMLElement.prototype, "getBoundingClientRect")
-            .mockImplementation(function (this: HTMLElement) {
-                return this.dataset.testid === "draggable"
-                    ? rect(500 + x.get(), y.get(), 100)
-                    : rect()
-            })
+        jest.spyOn(
+            HTMLElement.prototype,
+            "getBoundingClientRect"
+        ).mockImplementation(function (this: HTMLElement) {
+            return this.dataset.testid === "draggable"
+                ? rect(500 + x.get(), y.get(), 100)
+                : rect()
+        })
 
         const Component = () => {
             const dragControls = useDragControls()
@@ -224,7 +227,5 @@ describe("useDragControls", () => {
         snapTo(50, 50)
         expect(x.get()).toBe(-500)
         expect(y.get()).toBe(0)
-
-        getBoundingClientRect.mockRestore()
     })
 })
