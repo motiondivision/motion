@@ -54,7 +54,7 @@ export function attachToAnimation(
         ? {
               rangeStart: resolveRangeString(rangeStart),
               rangeEnd: resolveRangeString(rangeEnd),
-              fill: "auto",
+              fill: "auto" as const,
           }
         : range && useNative
         ? { rangeStart: range.rangeStart, rangeEnd: range.rangeEnd }
@@ -79,7 +79,7 @@ export function attachToAnimation(
                 return scrollInfo(
                     (info) => {
                         const axis = info[options.axis]
-                        const [from = 0, to = axis.scrollLength] = axis.offset
+                        const [from, to] = axis.offset
                         const progress =
                             to !== from
                                 ? (axis.current - from) / (to - from)
@@ -97,8 +97,9 @@ export function attachToAnimation(
                         }
                     },
                     /**
-                     * Progress is read from the resolved offsets rather than
-                     * `progress`, which is clamped, so it can fall outside 0–1.
+                     * Progress is read from the resolved offsets, [0,
+                     * scrollLength] without a target, rather than `progress`,
+                     * which is clamped, so it can fall outside 0–1.
                      */
                     { ...options, offset: options.target && coverOffset }
                 )

@@ -5,9 +5,10 @@ export interface ScrollOptions {
     axis?: "x" | "y"
     offset?: ScrollOffset
     /**
-     * Where the animation becomes active, as a percentage (`"20%"`) or `0`–`1`
+     * Where an animation becomes active, as a percentage (`"20%"`) or `0`–`1`
      * fraction of the scroll range, or of the target's cover range when
      * `target` is set, mirroring WAAPI `rangeStart`. Replaces `offset`.
+     * Ignored by callbacks.
      */
     rangeStart?: ScrollRange
     /**
