@@ -1423,12 +1423,10 @@ describe("JSAnimation", () => {
         expect(animation.sample(1999).value).toBe("90%")
     })
 
-    // https://github.com/motiondivision/motion/issues/2791
-    test("Spring over SVG polygon points never produces NaN", () => {
-        // An invalid spring physics value (here an explicit `undefined`
-        // stiffness, as forwarded from an optional prop) previously emitted
-        // NaN progress, which the complex-value mixer turned into an invalid
-        // "NaN,NaN NaN,NaN" point list written to the <polygon> element.
+    test("Spring with undefined stiffness over polygon points never produces NaN", () => {
+        // An explicit `undefined` stiffness, as forwarded from an optional
+        // prop, must fall back to the default rather than emit NaN progress
+        // that the complex-value mixer turns into "NaN,NaN NaN,NaN"
         const target = "150,5 50,180 250,180"
         const animation = animateValue({
             keyframes: ["150,5 75,200 225,200", target],
@@ -1438,11 +1436,11 @@ describe("JSAnimation", () => {
         })
 
         for (let t = 0; t <= 2000; t += 50) {
-            const coords = animation.sample(t).value.match(/-?[\d.]+/g)!
-            // Every coordinate must be a finite number
-            expect(
-                coords.every((coord) => Number.isFinite(Number(coord)))
-            ).toBe(true)
+            const coords = animation.sample(t).value.split(/[ ,]/u)
+            expect(coords).toHaveLength(6)
+            coords.forEach((coord) =>
+                expect(Number.isFinite(Number(coord))).toBe(true)
+            )
         }
 
         // ...and the spring must still settle on the target, so this doesn't

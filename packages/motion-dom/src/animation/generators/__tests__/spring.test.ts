@@ -312,7 +312,6 @@ describe("toString", () => {
     })
 })
 
-// https://github.com/motiondivision/motion/issues/2791
 describe("spring NaN guards", () => {
     // These deliberately pass invalid physics, which warns
     let warn: jest.SpyInstance
@@ -333,9 +332,8 @@ describe("spring NaN guards", () => {
 
     /**
      * Every physics option is covered, for each way it can be invalid. An
-     * explicit `undefined` (e.g. a forwarded optional prop) is the case from
-     * the original report — it clobbers the default via the options spread in
-     * getSpringOptions.
+     * explicit `undefined`, e.g. a forwarded optional prop, is the most likely
+     * in practice.
      */
     const physicsKeys = ["stiffness", "damping", "mass"] as const
     const invalidValues = [0, -1, NaN, Infinity, -Infinity, undefined]
@@ -345,16 +343,17 @@ describe("spring NaN guards", () => {
             // damping of 0 is a valid, perpetually oscillating spring
             if (key === "damping" && value === 0) continue
 
-            test(`${key} of ${String(value)} does not produce NaN`, () => {
-                const values = sample({ keyframes: [0, 100], [key]: value })
-                values.forEach((v) => expect(v).not.toBeNaN())
+            test(`${key} of ${String(value)} falls back to the default`, () => {
+                expect(sample({ keyframes: [0, 100], [key]: value })).toEqual(
+                    sample({ keyframes: [0, 100] })
+                )
             })
         }
     }
 
     test("damping of 0 is honoured as an undamped spring", () => {
         const values = sample({ keyframes: [0, 100], damping: 0 })
-        values.forEach((v) => expect(v).not.toBeNaN())
+        values.forEach((v) => expect(Number.isFinite(v)).toBe(true))
         // An undamped spring oscillates rather than settling on the target
         expect(values[values.length - 1]).not.toBeCloseTo(100)
     })
@@ -437,8 +436,14 @@ describe("spring NaN guards", () => {
         expect(warn.mock.calls[0][0]).toContain("spring-invalid-physics")
     })
 
-    test("valid physics does not warn", () => {
+    test("valid or explicitly undefined physics does not warn", () => {
         spring({ keyframes: [0, 100], stiffness: 200, damping: 0, mass: 2 })
+        spring({
+            keyframes: [0, 100],
+            stiffness: undefined,
+            damping: undefined,
+            mass: undefined,
+        })
         expect(warn).not.toHaveBeenCalled()
     })
 })
