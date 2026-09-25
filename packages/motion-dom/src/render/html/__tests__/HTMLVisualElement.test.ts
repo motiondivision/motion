@@ -46,6 +46,17 @@ describe("HTMLVisualElement.readValue", () => {
         expect(visualElement.readValue("scale")).toBe(1)
     })
 
+    test("doesn't read transforms it has rendered", () => {
+        const element = document.createElement("div")
+        element.style.transform = "matrix(2, 0, 0, 2, 50, 0)"
+        const visualElement = createVisualElement(element)
+        visualElement.projection = { isProjecting: () => false } as any
+        visualElement.renderState.style.transform = element.style.transform
+
+        expect(visualElement.readValue("x")).toBe(0)
+        expect(visualElement.readValue("scale")).toBe(1)
+    })
+
     test("leaves animatable values as read", () => {
         const element = document.createElement("div")
         element.style.backgroundColor = "rgb(255, 0, 0)"

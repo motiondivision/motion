@@ -50,4 +50,12 @@ describe("stylesheet transforms", () => {
         const { x } = await getOrigin({ animate: { x: 200 }, layout: true })
         expect(x).toBeCloseTo(100, 0)
     })
+
+    test("doesn't read transformTemplate output as the origin", async () => {
+        const { x } = await getOrigin({
+            animate: { x: 200 },
+            transformTemplate: () => "matrix(1, 0, 0, 1, -50, 0)",
+        })
+        expect(x).toBeCloseTo(0, 0)
+    })
 })
