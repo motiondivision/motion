@@ -40,7 +40,7 @@ describe(`LayoutGroup inherit="id"`, () => {
             cy.document().then((doc) => {
                 before = measure(doc)
             })
-            cy.get("#expander").click()
+            cy.get("#expander").click().nextFrame()
             cy.document().then((doc) => {
                 const after = measure(doc)
                 expect(Math.abs(after.top - before.top)).to.be.lessThan(20)
@@ -52,13 +52,9 @@ describe(`LayoutGroup inherit="id"`, () => {
         toggleExpander()
         cy.wait(500)
         toggleExpander()
-        cy.wait(500).then(() => {
-            cy.document().then((doc) => {
-                expect(measure(doc).offsetTop).to.be.closeTo(
-                    initial.offsetTop,
-                    1
-                )
-            })
+        cy.wait(500)
+        cy.document().then((doc) => {
+            expect(measure(doc).offsetTop).to.be.closeTo(initial.offsetTop, 1)
         })
     })
 })
