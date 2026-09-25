@@ -1,5 +1,6 @@
 import { frameData, ProgressTimeline } from "motion-dom"
-import { clamp, progress } from "motion-utils"
+import { clamp } from "motion-utils"
+import { offsetsToProgress } from "../offsets"
 import { scrollInfo } from "../track"
 import { ScrollOptionsWithDefaults } from "../types"
 import { canUseNativeTimeline } from "./can-use-native-timeline"
@@ -38,9 +39,9 @@ function scrollTimelineFallback(options: ScrollOptionsWithDefaults) {
 
 /**
  * A ViewTimeline's currentTime is its cover progress. A range's progress is
- * derived from the cover range's scroll offsets, which start where the
- * target meets the end of the scrollport and end where it leaves the start.
- * It's read once per frame and shared by every value on the range.
+ * derived from the length of the cover range, which starts where the target
+ * meets the end of the scrollport and ends where it leaves the start. It's
+ * read once per frame and shared by every value on the range.
  */
 function rangeTimeline(
     timeline: any,
@@ -55,24 +56,29 @@ function rangeTimeline(
             if (timestamp !== frameData.timestamp) {
                 timestamp = frameData.timestamp
                 const cover = timeline.currentTime
-                const start = timeline.startOffset?.value
-                const coverLength = timeline.endOffset?.value - start
-                const view = timeline.source?.[length]
-                const toScroll = (t: number, c: number) =>
-                    start + (1 - c) * view + t * (coverLength - view)
-                const from = toScroll(t0, c0)
-                const to = toScroll(t1, c1)
-                // Snapped to layout units, as a zero-length range steps at its point
-                const scroll =
-                    Math.round(
-                        (start + (cover?.value / 100) * coverLength) * 64
-                    ) / 64
+                currentTime = null
 
-                currentTime = cover && {
-                    value:
-                        from === to && scroll < from
-                            ? 0
-                            : clamp(0, 1, progress(from, to, scroll)) * 100,
+                if (cover) {
+                    const coverLength =
+                        timeline.endOffset.value - timeline.startOffset.value
+                    const view = timeline.source[length]
+                    const toScroll = (t: number, c: number) =>
+                        (1 - c) * view + t * (coverLength - view)
+
+                    currentTime = {
+                        value:
+                            clamp(
+                                0,
+                                1,
+                                offsetsToProgress(
+                                    [toScroll(t0, c0), toScroll(t1, c1)],
+                                    // Layout units, as a zero-length range steps at its point
+                                    Math.round(
+                                        cover.value * coverLength * 0.64
+                                    ) / 64
+                                )
+                            ) * 100,
+                    }
                 }
             }
 

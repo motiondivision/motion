@@ -7,7 +7,7 @@ import { ScrollOffset } from "./presets"
  * Resolved offsets map to evenly spaced progress values, so progress is
  * derived from the segment index rather than building an interpolator.
  */
-function offsetsToProgress(offsets: number[], v: number) {
+export function offsetsToProgress(offsets: number[], v: number) {
     const n = offsets.length - 1
     if (n < 1) return 0
 
