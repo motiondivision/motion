@@ -13,8 +13,8 @@ export interface ScrollOptions {
      */
     rangeStart?: ScrollRange
     /**
-     * Where an animation ends, mirroring WAAPI `rangeEnd`. After it, the
-     * animation holds its last keyframe.
+     * Where an animation ends, after `rangeStart`, mirroring WAAPI
+     * `rangeEnd`. After it, the animation holds its last keyframe.
      */
     rangeEnd?: ScrollRange
 }

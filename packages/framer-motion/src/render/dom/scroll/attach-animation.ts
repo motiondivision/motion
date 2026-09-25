@@ -1,32 +1,19 @@
 import { AnimationPlaybackControls, observeTimeline } from "motion-dom"
 import { clamp, progress } from "motion-utils"
-import { ScrollOffset, ScrollOptionsWithDefaults, ScrollRange } from "./types"
+import { ScrollOptionsWithDefaults, ScrollRange } from "./types"
 import { canUseNativeTimeline } from "./utils/can-use-native-timeline"
 import { getTimeline } from "./utils/get-timeline"
 import { offsetToViewTimelineRange } from "./utils/offset-to-range"
 
-/**
- * A ViewTimeline resolves plain percentages against its cover range: from
- * the target's start meeting the container's end, to its end meeting the
- * container's start.
- */
-const coverOffset: ScrollOffset = [
-    [0, 1],
-    [1, 0],
-]
-
-const toFraction = (value: ScrollRange | undefined, fallback: number) =>
-    typeof value === "string" ? parseFloat(value) / 100 : value ?? fallback
-
-const toPercentage = (value: ScrollRange | undefined) =>
-    typeof value === "number" ? value * 100 + "%" : value
+const toPercentage = (value: ScrollRange) =>
+    typeof value === "string" ? parseFloat(value) : value * 100
 
 export function attachToAnimation(
     animation: AnimationPlaybackControls,
     options: ScrollOptionsWithDefaults
 ) {
     const { rangeStart, rangeEnd, target } = options
-    const hasUserRange = rangeStart !== undefined || rangeEnd !== undefined
+    const hasUserRange = (rangeStart ?? rangeEnd) !== undefined
 
     const range = target ? offsetToViewTimelineRange(options.offset) : undefined
 
@@ -42,27 +29,31 @@ export function attachToAnimation(
 
     /**
      * A user range is resolved against the timeline's full progress: the
-     * scroll range, or the target's cover range. A native ScrollTimeline or
-     * ViewTimeline reports that already, and a JS one does with the
-     * offset replaced.
+     * scroll range, or the target's cover range, from the target's start
+     * meeting the container's end to its end meeting the container's start.
+     * A native ScrollTimeline or ViewTimeline reports that already, and a JS
+     * one does with the offset replaced.
      */
     const timeline = getTimeline(
         hasUserRange && !useNative
-            ? { ...options, offset: target && coverOffset }
+            ? {
+                  ...options,
+                  offset: target && [
+                      [0, 1],
+                      [1, 0],
+                  ],
+              }
             : options
     )
 
-    const start = toFraction(rangeStart, 0)
-    const end = toFraction(rangeEnd, 1)
+    const start = toPercentage(rangeStart ?? 0)
+    const end = toPercentage(rangeEnd ?? 1)
 
     return animation.attachTimeline({
         timeline: useNative ? timeline : undefined,
         ...(useNative &&
             (hasUserRange
-                ? {
-                      rangeStart: toPercentage(rangeStart),
-                      rangeEnd: toPercentage(rangeEnd),
-                  }
+                ? { rangeStart: start + "%", rangeEnd: end + "%" }
                 : range)),
         observe: (valueAnimation) => {
             valueAnimation.pause()
@@ -74,7 +65,7 @@ export function attachToAnimation(
             return observeTimeline((timelineProgress) => {
                 valueAnimation.time =
                     valueAnimation.iterationDuration *
-                    clamp(0, 1, progress(start, end, timelineProgress))
+                    clamp(0, 1, progress(start, end, timelineProgress * 100))
             }, timeline)
         },
     })
