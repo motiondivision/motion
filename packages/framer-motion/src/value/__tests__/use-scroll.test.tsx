@@ -155,6 +155,7 @@ describe("useScroll accelerate", () => {
         // WAAPI fills missing 0 and 1 offsets with the underlying value
         expect(transformAccelerate.times).toEqual([0, 0.25, 0.5, 1])
         expect(transformAccelerate.keyframes).toEqual([0.2, 0.2, 1, 1])
+        // An extra leading ease keeps each easing on its original segment
         expect(transformAccelerate.ease).toHaveLength(2)
     })
 })

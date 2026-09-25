@@ -228,30 +228,24 @@ export function useTransform<I, O, K extends string>(
         Array.isArray(outputRangeOrMap) &&
         options?.clamp !== false
     ) {
-        const times = [...(inputRangeOrTransformer as number[])]
-        const keyframes = [...outputRangeOrMap]
-        let ease = options?.ease
+        const ease = options?.ease
 
         /**
          * WAAPI fills missing 0 and 1 offsets with the underlying value, so
          * hold the end values to match the clamped transform.
          */
-        if (times[0] > 0) {
-            times.unshift(0)
-            keyframes.unshift(keyframes[0])
-            if (Array.isArray(ease)) ease = [ease[0], ...ease]
-        }
-        if (times[times.length - 1] < 1) {
-            times.push(1)
-            keyframes.push(keyframes[keyframes.length - 1])
-        }
-
         result.accelerate = {
             ...inputAccelerate,
-            times,
-            keyframes,
+            times: [0, ...(inputRangeOrTransformer as number[]), 1],
+            keyframes: [
+                outputRangeOrMap[0],
+                ...outputRangeOrMap,
+                outputRangeOrMap[outputRangeOrMap.length - 1],
+            ],
             isTransformed: true,
-            ...(ease ? { ease } : {}),
+            ...(ease
+                ? { ease: Array.isArray(ease) ? [ease[0], ...ease] : ease }
+                : {}),
         }
     }
 
