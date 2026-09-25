@@ -23,7 +23,6 @@ const springDefaults = {
     stiffness: 100,
     damping: 10,
     mass: 1.0,
-    velocity: 0.0,
 
     // Default duration/bounce-based options
     duration: 800, // in ms
@@ -69,11 +68,13 @@ function approximateRoot(
  */
 const safeMin = 0.001
 
+/**
+ * Time-defined springs ignore inherited velocity and only resolve without
+ * valid physics, so velocity is always 0 and mass the default.
+ */
 function findSpring({
     duration = springDefaults.duration,
     bounce = springDefaults.bounce,
-    velocity = springDefaults.velocity,
-    mass = springDefaults.mass,
 }: SpringOptions) {
     let envelope: (num: number) => number
     let derivative: (num: number) => number
@@ -107,16 +108,14 @@ function findSpring({
         envelope = (undampedFreq) => {
             const exponentialDecay = undampedFreq * dampingRatio
             const delta = exponentialDecay * duration
-            const a = exponentialDecay - velocity
             const b = calcAngularFreq(undampedFreq, dampingRatio)
             const c = Math.exp(-delta)
-            return safeMin - (a / b) * c
+            return safeMin - (exponentialDecay / b) * c
         }
 
         derivative = (undampedFreq) => {
             const exponentialDecay = undampedFreq * dampingRatio
             const delta = exponentialDecay * duration
-            const d = delta * velocity + velocity
             const e =
                 dampingRatio *
                 dampingRatio *
@@ -126,7 +125,7 @@ function findSpring({
             const f = Math.exp(-delta)
             const g = calcAngularFreq(undampedFreq * undampedFreq, dampingRatio)
             const factor = -envelope(undampedFreq) + safeMin > 0 ? -1 : 1
-            return (factor * ((d - e) * f)) / g
+            return (factor * -e * f) / g
         }
     } else {
         /**
@@ -134,13 +133,13 @@ function findSpring({
          */
         envelope = (undampedFreq) => {
             const a = Math.exp(-undampedFreq * duration)
-            const b = (undampedFreq - velocity) * duration + 1
+            const b = undampedFreq * duration + 1
             return -safeMin + a * b
         }
 
         derivative = (undampedFreq) => {
             const a = Math.exp(-undampedFreq * duration)
-            const b = (velocity - undampedFreq) * (duration * duration)
+            const b = -undampedFreq * (duration * duration)
             return a * b
         }
     }
@@ -156,10 +155,10 @@ function findSpring({
             duration,
         }
     } else {
-        const stiffness = undampedFreq * undampedFreq * mass
+        const stiffness = undampedFreq * undampedFreq
         return {
             stiffness,
-            damping: dampingRatio * 2 * Math.sqrt(mass * stiffness),
+            damping: dampingRatio * 2 * Math.sqrt(stiffness),
             duration,
         }
     }
@@ -217,10 +216,9 @@ function getSpringOptions(options: SpringOptions) {
     }
 
     if (springOptions.isTimeDefined) {
-        // Time-defined springs should ignore inherited velocity.
-        // Velocity from interrupted animations can cause findSpring()
-        // to compute wildly different spring parameters, leading to
-        // massive oscillation on small-range animations.
+        // Time-defined springs should ignore inherited velocity. Velocity
+        // from interrupted animations causes massive oscillation on
+        // small-range animations.
         springOptions.velocity = 0
 
         if (options.visualDuration) {
