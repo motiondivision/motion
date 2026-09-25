@@ -71,7 +71,7 @@
             <div id="transformed"><div class="sticky"></div></div>
         </div>
         <div class="spacer"></div>
-        <!-- #3658: target inside a fixed overlay, which never scrolls -->
+        <!-- #3658: target inside a fixed overlay (lezan/use-scroll-bug) -->
         <div id="fixed-overlay">
             <div style="height: 500px">
                 <div id="fixed"><div class="sticky"></div></div>
@@ -125,7 +125,7 @@
                     const cell = {
                         name,
                         size,
-                        mapped: mapped && size !== "fixed",
+                        mapped,
                         js: 0,
                     }
                     const options = { target, offset }

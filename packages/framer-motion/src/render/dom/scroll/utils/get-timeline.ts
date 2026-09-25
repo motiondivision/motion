@@ -61,7 +61,7 @@ export function getTimeline({
 
     if (!targetCache[axisKey]) {
         targetCache[axisKey] =
-            !canUseNativeTimeline(target, container) ||
+            !canUseNativeTimeline(target) ||
             (target && !offsetToViewTimelineRange(options.offset))
                 ? scrollTimelineFallback({ container, ...options })
                 : target

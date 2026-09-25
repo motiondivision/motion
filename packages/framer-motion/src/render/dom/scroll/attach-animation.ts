@@ -24,8 +24,7 @@ export function attachToAnimation(
      * - Target with mappable offset: ViewTimeline with named range
      * - Target with unmappable offset: fall back to JS observe
      */
-    const useNative =
-        canUseNativeTimeline(target, container) && (!target || !!range)
+    const useNative = canUseNativeTimeline(target) && (!target || !!range)
 
     /**
      * Ranges other than cover are set on each WAAPI animation, including a

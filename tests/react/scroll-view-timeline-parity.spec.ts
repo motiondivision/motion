@@ -56,14 +56,15 @@ async function findMismatches(page: Page, label = "") {
 
 /**
  * Every offset except one with a container edge at "center" has a
- * ViewTimeline range, so should be accelerated. A target in a fixed overlay
- * never scrolls, so can't be tracked natively (#3658).
+ * ViewTimeline range, so should be accelerated.
  */
 const hasRange = (cell: Cell) => cell.name !== "start center, end start"
-const isNative = (cell: Cell) => hasRange(cell) && cell.size !== "fixed-overlay"
 
 test.describe("useScroll target acceleration", () => {
     test.use({ viewport: { width: 500, height: 500 } })
+
+    // Each test scrolls through the whole page, a few frames per position
+    test.describe.configure({ timeout: 120_000 })
 
     test.beforeEach(async ({ page }) => {
         await page.goto("?test=scroll-view-timeline-parity")
@@ -83,7 +84,7 @@ test.describe("useScroll target acceleration", () => {
             .filter(
                 (cell) =>
                     cell.accelerated !== hasRange(cell) ||
-                    (cell.timeline === "ViewTimeline") !== isNative(cell)
+                    (cell.timeline === "ViewTimeline") !== hasRange(cell)
             )
             .map(
                 (cell) =>

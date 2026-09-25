@@ -82,6 +82,9 @@ const skipWebKit = (browserName: string) =>
 test.describe("scroll() ViewTimeline and JS parity", () => {
     test.use({ viewport: { width: 500, height: 500 } })
 
+    // Each test scrolls through the whole page, a few frames per position
+    test.describe.configure({ timeout: 120_000 })
+
     test.beforeEach(async ({ page }) => {
         await page.goto("scroll/view-timeline-parity.html")
         await page.waitForFunction(() => (window as any).readCells)

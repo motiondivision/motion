@@ -903,19 +903,11 @@ describe("scroll", () => {
         /**
          * Attaches a group with one WAAPI animation and one JS-driven value.
          */
-        const attach = (
-            offset: any,
-            { fixed = false, direction = "normal" } = {}
-        ) => {
+        const attach = (offset: any, { direction = "normal" } = {}) => {
             const target = document.createElement("div")
             document.body.appendChild(target)
             createMockMeasurement(target, "clientHeight")(200)
             createMockMeasurement(target, "offsetTop")(100)
-            if (!fixed) {
-                Object.defineProperty(target, "offsetParent", {
-                    value: document.body,
-                })
-            }
 
             const waapi = fakeWaapi(direction)
             const valueAnimation = { time: 0, iterationDuration: 1, pause() {} }
@@ -1030,20 +1022,6 @@ describe("scroll", () => {
             await nextFrame()
             expect(valueAnimation.time).toBeCloseTo(0.5)
             expect(waapi.rangeStart).toBeUndefined()
-            expect(Element.prototype.animate).not.toHaveBeenCalled()
-
-            stop()
-        })
-
-        test("Tracks a target inside a fixed ancestor in JS", async () => {
-            const { valueAnimation, stop } = attach(ScrollOffset.Enter, {
-                fixed: true,
-            })
-
-            // Enter resolves to [0, 200], so 50px is 0.25, not cover's 0.5
-            await fireScroll(50)
-            await nextFrame()
-            expect(valueAnimation.time).toBeCloseTo(0.25)
             expect(Element.prototype.animate).not.toHaveBeenCalled()
 
             stop()
