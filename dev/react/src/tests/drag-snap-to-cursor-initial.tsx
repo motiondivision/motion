@@ -38,7 +38,9 @@ export const App = () => {
                 dragListener={false}
                 dragMomentum={false}
                 initial={{ x: 100, y: 40 }}
-                onDragEnd={rerender ? () => setDragCount((c) => c + 1) : undefined}
+                onDragEnd={
+                    rerender ? () => setDragCount((c) => c + 1) : undefined
+                }
                 style={{
                     position: "absolute",
                     top: 0,
