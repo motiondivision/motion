@@ -176,6 +176,48 @@ describe("SVG", () => {
         )
     })
 
+    test("never writes undefined or NaN points while resolving the origin", async () => {
+        const setAttribute = jest.spyOn(Element.prototype, "setAttribute")
+        const pointPairs = [
+            ["0,20 550,38", "720,38 712,50 389,50 380,36"],
+            ["710,38 712,50 389,50 380,36", "850,38 830,50 400,50 390,36"],
+        ]
+        const { container } = render(
+            <svg>
+                {pointPairs.map(([from, to], i) => (
+                    <motion.polygon
+                        key={i}
+                        points={from}
+                        animate={{ points: to }}
+                        transition={{
+                            delay: 0.2 * i,
+                            duration: 3,
+                            type: "spring",
+                        }}
+                    />
+                ))}
+            </svg>
+        )
+        for (let i = 0; i < 20; i++) await nextFrame()
+
+        const written = setAttribute.mock.calls
+            .filter(([name]) => name === "points")
+            .map(([, value]) => String(value))
+        setAttribute.mockRestore()
+
+        expect(written.length).toBeGreaterThan(1)
+        written.forEach((points) =>
+            expect(points).not.toMatch(/NaN|undefined/u)
+        )
+        container
+            .querySelectorAll("polygon")
+            .forEach((polygon) =>
+                expect(polygon.getAttribute("points")).not.toMatch(
+                    /NaN|undefined/u
+                )
+            )
+    })
+
     test("animates viewBox", async () => {
         const Component = () => {
             return (
