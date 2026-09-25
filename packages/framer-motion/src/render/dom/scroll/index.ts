@@ -21,10 +21,21 @@ export function scroll(
         ...options,
     }
 
+    let prevProgress: number | undefined
+
+    /**
+     * Callbacks that only declare progress are notified when it changes.
+     * Callbacks that declare info are notified every frame, as velocity and
+     * measurements can change independently of progress.
+     */
     return typeof onScroll === "function"
-        ? scrollInfo(
-              (info) => onScroll(info[axis].progress, info),
-              optionsWithDefaults
-          )
+        ? scrollInfo((info) => {
+              const progress = info[axis].progress
+
+              if (onScroll.length > 1 || progress !== prevProgress) {
+                  onScroll(progress, info)
+                  prevProgress = progress
+              }
+          }, optionsWithDefaults)
         : attachToAnimation(onScroll, optionsWithDefaults)
 }

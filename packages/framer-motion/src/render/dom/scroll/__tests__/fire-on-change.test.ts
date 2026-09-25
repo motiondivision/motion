@@ -466,7 +466,31 @@ describe("Consumers that receive info fire on every measured frame", () => {
     })
 })
 
-describe("Timeline consumers", () => {
+describe("Page and container progress callbacks", () => {
+    test("A resize that leaves progress unchanged doesn't notify", async () => {
+        const { container, containerSize, scrollTo, resize } = setup()
+        const calls: number[] = []
+
+        const stop = scroll((p: number) => calls.push(p), { container })
+
+        await nextFrame()
+        await scrollTo(1250)
+        expect(calls).toEqual([0, 0.5])
+
+        // Scroll length stays 2500
+        containerSize.scrollHeight = 3500
+        containerSize.clientHeight = 1000
+        await resize()
+        expect(calls).toEqual([0, 0.5])
+
+        // Scroll length becomes 3000
+        containerSize.clientHeight = 500
+        await resize()
+        expect(calls).toEqual([0, 0.5, 1250 / 3000])
+
+        stop()
+    })
+
     test("One-argument callbacks without a target fire only on change", async () => {
         const { container, scrollTo } = setup()
         const calls: number[] = []
