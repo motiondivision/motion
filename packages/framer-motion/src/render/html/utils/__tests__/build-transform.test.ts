@@ -102,6 +102,14 @@ describe("buildTransform", () => {
         )
     })
 
+    it("Treats 'none' as the default value", () => {
+        expect(buildTransform({ x: "none" }, {})).toBe("none")
+        expect(buildTransform({ scale: "none" }, {})).toBe("none")
+        expect(buildTransform({ x: "none", rotate: 45 }, {})).toBe(
+            "rotate(45deg)"
+        )
+    })
+
     it("Correctly handles string scale values of zero", () => {
         // scale: "0" should produce scale(0), not be treated as default
         expect(buildTransform({ scale: "0" }, {})).toBe("scale(0)")
