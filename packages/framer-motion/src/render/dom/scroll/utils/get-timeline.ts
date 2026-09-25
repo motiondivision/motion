@@ -1,8 +1,9 @@
-import { ProgressTimeline } from "motion-dom"
+import { frameData, ProgressTimeline } from "motion-dom"
+import { clamp, progress } from "motion-utils"
 import { scrollInfo } from "../track"
 import { ScrollOptionsWithDefaults } from "../types"
 import { canUseNativeTimeline } from "./can-use-native-timeline"
-import { offsetToViewTimelineRange } from "./offset-to-range"
+import { offsetToViewTimelineRange, ViewTimelineRange } from "./offset-to-range"
 
 declare class ScrollTimeline implements ProgressTimeline {
     constructor(options: ScrollOptions)
@@ -35,10 +36,55 @@ function scrollTimelineFallback(options: ScrollOptionsWithDefaults) {
     return { currentTime, cancel }
 }
 
-export function getTimeline({
-    container,
-    ...options
-}: ScrollOptionsWithDefaults): ProgressTimeline {
+/**
+ * A ViewTimeline's currentTime is its cover progress. A range's progress is
+ * derived from the cover range's scroll offsets, which start where the
+ * target meets the end of the scrollport and end where it leaves the start.
+ * It's read once per frame and shared by every value on the range.
+ */
+function rangeTimeline(
+    timeline: any,
+    [[t0, c0], [t1, c1]]: number[][],
+    length: "clientHeight" | "clientWidth"
+): ProgressTimeline {
+    let timestamp: number
+    let currentTime: { value: number } | null
+
+    return {
+        get currentTime() {
+            if (timestamp !== frameData.timestamp) {
+                timestamp = frameData.timestamp
+                const cover = timeline.currentTime
+                const start = timeline.startOffset?.value
+                const coverLength = timeline.endOffset?.value - start
+                const view = timeline.source?.[length]
+                const toScroll = (t: number, c: number) =>
+                    start + (1 - c) * view + t * (coverLength - view)
+                const from = toScroll(t0, c0)
+                const to = toScroll(t1, c1)
+                // Snapped to layout units, as a zero-length range steps at its point
+                const scroll =
+                    Math.round(
+                        (start + (cover?.value / 100) * coverLength) * 64
+                    ) / 64
+
+                currentTime = cover && {
+                    value:
+                        from === to && scroll < from
+                            ? 0
+                            : clamp(0, 1, progress(from, to, scroll)) * 100,
+                }
+            }
+
+            return currentTime
+        },
+    }
+}
+
+export function getTimeline(
+    { container, ...options }: ScrollOptionsWithDefaults,
+    range?: ViewTimelineRange
+): ProgressTimeline {
     const { axis, target } = options
 
     let containerCache = timelineCache.get(container)
@@ -66,5 +112,11 @@ export function getTimeline({
                 : new ScrollTimeline({ source: container, axis } as any)
     }
 
-    return targetCache[axisKey]!
+    return range
+        ? (targetCache[axisKey + "range"] ||= rangeTimeline(
+              targetCache[axisKey],
+              range.intersections,
+              axis === "y" ? "clientHeight" : "clientWidth"
+          ))
+        : targetCache[axisKey]!
 }

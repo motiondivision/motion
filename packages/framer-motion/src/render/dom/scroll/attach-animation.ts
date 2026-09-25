@@ -1,9 +1,4 @@
-import {
-    AnimationPlaybackControls,
-    observeTimeline,
-    ProgressTimeline,
-    resize,
-} from "motion-dom"
+import { AnimationPlaybackControls, observeTimeline, resize } from "motion-dom"
 import { ScrollOptionsWithDefaults } from "./types"
 import { canUseNativeTimeline } from "./utils/can-use-native-timeline"
 import { getTimeline } from "./utils/get-timeline"
@@ -27,15 +22,15 @@ export function attachToAnimation(
     const useNative = canUseNativeTimeline(target) && (!target || !!range)
 
     /**
-     * Ranges other than cover are set on each WAAPI animation, including a
-     * hidden one that JS-driven values read progress from, because a
-     * ViewTimeline's currentTime is always its cover progress.
+     * Ranges other than cover are set on each WAAPI animation, and reversed
+     * when the offset runs backwards. JS-driven values read the range's
+     * progress from getTimeline, as a ViewTimeline's currentTime is always
+     * its cover progress.
      */
     const ranged = useNative && range && !range.cover ? range : undefined
     const animations = new Map<Animation, PlaybackDirection>()
     const cleanup: VoidFunction[] = []
     let forward = true
-    let rangeTimeline: ProgressTimeline | undefined
 
     const apply = (direction: PlaybackDirection, waapi: Animation) => {
         const [first, second] = ranged!.points
@@ -90,26 +85,10 @@ export function attachToAnimation(
         observe: (valueAnimation) => {
             valueAnimation.pause()
 
-            if (ranged && !rangeTimeline) {
-                const hidden = document
-                    .createElement("div")
-                    .animate(null, { timeline, fill: "both" } as any)
-                cleanup.push(onAttach(hidden), () => hidden.cancel())
-                rangeTimeline = {
-                    get currentTime() {
-                        return {
-                            value:
-                                hidden.effect!.getComputedTiming().progress! *
-                                100,
-                        }
-                    },
-                }
-            }
-
             return observeTimeline((progress) => {
                 valueAnimation.time =
                     valueAnimation.iterationDuration * progress
-            }, rangeTimeline || timeline)
+            }, (ranged && getTimeline(options, ranged)) || timeline)
         },
     })
 

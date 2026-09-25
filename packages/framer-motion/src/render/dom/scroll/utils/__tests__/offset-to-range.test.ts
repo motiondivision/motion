@@ -1,12 +1,8 @@
 import { ScrollOffset } from "../../offsets/presets"
 import { offsetToViewTimelineRange } from "../offset-to-range"
 
-const range = (points: string[], a: number, b: number, cover = false) => ({
-    points,
-    a,
-    b,
-    cover,
-})
+const range = (points: string[], a: number, b: number, cover = false) =>
+    expect.objectContaining({ points, a, b, cover })
 
 const entry = range(["entry-crossing 0%", "entry-crossing 100%"], 1, 0)
 const exit = range(["exit-crossing 0%", "exit-crossing 100%"], 1, 0)
@@ -15,6 +11,14 @@ const all = range(["exit-crossing 0%", "entry-crossing 100%"], 1, -1)
 describe("offsetToViewTimelineRange", () => {
     it("maps Enter to entry-crossing", () => {
         expect(offsetToViewTimelineRange(ScrollOffset.Enter)).toEqual(entry)
+        expect(
+            offsetToViewTimelineRange(ScrollOffset.Enter)!.intersections.map(
+                ([t, c]) => [t, c]
+            )
+        ).toEqual([
+            [0, 1],
+            [1, 1],
+        ])
         expect(offsetToViewTimelineRange(["start end", "end end"])).toEqual(
             entry
         )
