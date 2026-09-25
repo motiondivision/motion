@@ -2354,13 +2354,16 @@ function ensureDraggedNodesSnapshotted(node: IProjectionNode) {
  * its relative parent's. If the parent is about to be re-measured but the node
  * isn't (e.g. it's in another LayoutGroup), re-measure it too if it's layout
  * animating, so its relative target keeps resolving against current layouts.
- * Otherwise drop the relative target to be rebuilt from its layout.
+ * Otherwise drop the relative target, and any targetDelta left over from a
+ * finished animation while an ancestor still animates, to be rebuilt from its
+ * layout.
  */
 function syncRelativeLayout(node: IProjectionNode) {
     if (node.relativeTarget && node.relativeParent?.isLayoutDirty) {
-        if (node.targetDelta) {
+        if (node.currentAnimation) {
             node.isLayoutDirty = true
         } else {
+            node.targetDelta = undefined
             node.removeRelativeTarget()
         }
     }
