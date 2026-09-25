@@ -65,6 +65,7 @@ describe("NativeAnimation - onfinish style commit", () => {
     })
 
     test("stop() doesn't commit a value while the effect is inactive", () => {
+        mockAnimation.startTime = 0
         mockAnimation.effect.getComputedTiming = () => ({
             duration: 300,
             progress: null,

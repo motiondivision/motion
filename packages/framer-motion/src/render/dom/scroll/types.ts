@@ -15,6 +15,10 @@ export interface ScrollOptions {
      * Where the animation becomes inactive, mirroring WAAPI `rangeEnd`.
      * Outside the range the animation's styles are removed so the CSS
      * cascade (e.g. `:hover`) can take over, matching native `animation-range`.
+     *
+     * Use explicit `[from, to]` keyframes: a start value read from the
+     * element can stay behind as an inline style. Other inline styles on the
+     * animated properties may be removed outside the range.
      */
     rangeEnd?: ScrollRange
 }
