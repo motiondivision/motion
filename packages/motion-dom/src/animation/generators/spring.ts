@@ -277,7 +277,7 @@ function spring(
         duration,
         isResolvedFromDuration,
         isTimeDefined,
-    } = getSpringOptions(options)
+    } = getSpringOptions({ ...options })
 
     /**
      * Time-defined springs ignore inherited velocity. Velocity from
