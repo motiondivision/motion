@@ -1,5 +1,11 @@
 import type { EventInfo, PanHandler } from "motion-dom"
-import { cancelFrame, frame, frameData, isPrimaryPointer } from "motion-dom"
+import {
+    cancelFrame,
+    frame,
+    frameData,
+    isPrimaryPointer,
+    time,
+} from "motion-dom"
 import {
     millisecondsToSeconds,
     pipe,
@@ -69,6 +75,12 @@ export class PanSession {
      * @internal
      */
     private lastRawMoveEventInfo: EventInfo | null = null
+
+    /**
+     * Whether a pointermove has arrived since the last updatePoint.
+     * @internal
+     */
+    private hasPendingMove?: boolean
 
     /**
      * @internal
@@ -270,6 +282,7 @@ export class PanSession {
 
     private updatePoint = () => {
         if (!(this.lastMoveEvent && this.lastMoveEventInfo)) return
+        this.hasPendingMove = false
 
         // Re-transform raw point through current transformPagePoint so
         // animated parent transforms (e.g. rotation) are picked up each frame
@@ -292,8 +305,7 @@ export class PanSession {
         if (!isPanStarted && !isDistancePastThreshold) return
 
         const { point } = info
-        const { timestamp } = frameData
-        this.history.push({ ...point, timestamp })
+        this.history.push({ ...point, timestamp: time.now() })
 
         const { onStart, onMove } = this.handlers
 
@@ -309,12 +321,16 @@ export class PanSession {
         this.lastMoveEvent = event
         this.lastRawMoveEventInfo = info
         this.lastMoveEventInfo = transformPoint(info, this.transformPagePoint)
+        this.hasPendingMove = true
 
         // Throttle mouse move event to once per frame
         frame.update(this.updatePoint, true)
     }
 
     private handlePointerUp = (event: PointerEvent, info: EventInfo) => {
+        // Browsers flush a coalesced pointermove immediately before
+        // pointerup, so the final move can still be waiting for a frame.
+        this.hasPendingMove && this.updatePoint()
         this.end()
 
         const { onEnd, onSessionEnd, resumeAnimation } = this.handlers
@@ -419,16 +435,16 @@ function getVelocity(history: TimestampedPoint[], timeDelta: number): Point {
         timestampedPoint = history[1]
     }
 
-    const time = millisecondsToSeconds(
+    const seconds = millisecondsToSeconds(
         lastPoint.timestamp - timestampedPoint.timestamp
     )
-    if (time === 0) {
+    if (seconds === 0) {
         return { x: 0, y: 0 }
     }
 
     const currentVelocity = {
-        x: (lastPoint.x - timestampedPoint.x) / time,
-        y: (lastPoint.y - timestampedPoint.y) / time,
+        x: (lastPoint.x - timestampedPoint.x) / seconds,
+        y: (lastPoint.y - timestampedPoint.y) / seconds,
     }
 
     if (currentVelocity.x === Infinity) {
