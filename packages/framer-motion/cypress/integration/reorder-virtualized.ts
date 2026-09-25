@@ -29,7 +29,7 @@ describe("Reorder with virtualized list (@tanstack/react-virtual)", () => {
             .get("#item-count")
             .should("have.attr", "data-count", "50")
             .get("#item-order")
-            .then(([$el]: any) => {
+            .should(([$el]: any) => {
                 const order: string[] = JSON.parse(
                     $el.getAttribute("data-order")
                 )
