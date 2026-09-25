@@ -4,17 +4,39 @@ import { useEffect } from "react"
 
 /**
  * Reproduction for #3001: scroll() with rangeStart/rangeEnd should deactivate
- * the animation outside the range, so the element's base CSS (here opacity 0.1,
- * which a :hover etc. could also provide) applies again past rangeEnd — matching
- * native `animation-range`.
+ * the animation outside the range, so the element's base CSS (which a :hover
+ * etc. could also provide) applies again, matching native `animation-range`.
+ *
+ * opacity runs on WAAPI, so it uses a native ScrollTimeline/ViewTimeline where
+ * supported. x never does, so it always uses the JS observe path.
  */
 export const App = () => {
     useEffect(() => {
-        const animation = animate("#box", { opacity: [0, 1] }, { ease: "linear" })
+        const target = document.getElementById("target")!
+        const transition = { ease: "linear" } as const
 
-        const stop = scroll(animation, { rangeStart: "0%", rangeEnd: "20%" })
+        const stops = [
+            scroll(animate("#box", { opacity: [0, 1] }, transition), {
+                rangeStart: "0%",
+                rangeEnd: "20%",
+            }),
+            scroll(animate("#js-box", { x: [0, 100] }, transition), {
+                rangeStart: 0,
+                rangeEnd: 0.2,
+            }),
+            scroll(animate("#target-box", { opacity: [0, 1] }, transition), {
+                target,
+                rangeStart: "0%",
+                rangeEnd: "50%",
+            }),
+            scroll(animate("#target-js-box", { x: [0, 100] }, transition), {
+                target,
+                rangeStart: "0%",
+                rangeEnd: "50%",
+            }),
+        ]
 
-        return () => stop()
+        return () => stops.forEach((stop) => stop())
     }, [])
 
     const nativeTimeline =
@@ -22,16 +44,27 @@ export const App = () => {
 
     return (
         <>
-            <style>{`#box { opacity: 0.1; }`}</style>
+            <style>{`
+                body { margin: 0; }
+                .box { opacity: 0.1; transform: translateX(300px); }
+            `}</style>
             <div id="native-timeline" style={{ position: "fixed", bottom: 0 }}>
                 {nativeTimeline ? "native" : "fallback"}
             </div>
             <div style={spacer} />
             <div style={spacer} />
+            <div style={{ height: "50vh" }} />
+            <div id="target" style={{ height: 500 }} />
             <div style={spacer} />
             <div style={spacer} />
-            <div style={spacer} />
-            <div id="box" style={box} />
+            <div id="box" className="box" style={{ ...box, top: 0 }} />
+            <div id="js-box" className="box" style={{ ...box, top: 100 }} />
+            <div id="target-box" className="box" style={{ ...box, top: 200 }} />
+            <div
+                id="target-js-box"
+                className="box"
+                style={{ ...box, top: 300 }}
+            />
         </>
     )
 }
@@ -40,7 +73,6 @@ const spacer: React.CSSProperties = { height: "100vh" }
 
 const box: React.CSSProperties = {
     position: "fixed",
-    top: 0,
     left: 0,
     width: 100,
     height: 100,

@@ -133,4 +133,113 @@ describe("scroll() rangeStart/rangeEnd (#3001)", () => {
         stop()
         box.remove()
     })
+
+    test("Attaching synchronously starts inactive when outside the range", async () => {
+        const box = document.createElement("div")
+        document.body.appendChild(box)
+
+        const stop = scroll(
+            animate(box, { opacity: [0, 1] }, { duration: 1, ease: "linear" }),
+            { rangeStart: 0.25, rangeEnd: 0.75 }
+        )
+
+        await nextFrame()
+        await nextFrame()
+        expect(box.style.opacity).toBe("")
+
+        await fireScroll(1000)
+        await nextFrame()
+        expect(parseFloat(box.style.opacity)).toBeCloseTo(0.5, 2)
+
+        stop()
+        box.remove()
+    })
+
+    test("Transform values deactivate and reactivate", async () => {
+        const box = document.createElement("div")
+        document.body.appendChild(box)
+
+        const stop = scroll(
+            animate(box, { x: [0, 100] }, { duration: 1, ease: "linear" }),
+            { rangeStart: "0%", rangeEnd: "50%" }
+        )
+
+        await fireScroll(500)
+        await nextFrame()
+        expect(box.style.transform).toBe("translateX(50px)")
+
+        await fireScroll(1500)
+        await nextFrame()
+        expect(box.style.transform).toBe("")
+
+        await fireScroll(500)
+        await nextFrame()
+        expect(box.style.transform).toBe("translateX(50px)")
+
+        stop()
+        box.remove()
+    })
+
+    test("Transform origin values deactivate", async () => {
+        const box = document.createElement("div")
+        document.body.appendChild(box)
+
+        const stop = scroll(
+            animate(box, { originX: [0, 1] }, { duration: 1, ease: "linear" }),
+            { rangeStart: "0%", rangeEnd: "50%" }
+        )
+
+        await fireScroll(500)
+        await nextFrame()
+        expect(box.style.transformOrigin).toBe("50% 50% 0")
+
+        await fireScroll(1500)
+        await nextFrame()
+        expect(box.style.transformOrigin).toBe("")
+
+        stop()
+        box.remove()
+    })
+
+    /**
+     * With a target, native ViewTimeline resolves a plain percentage against
+     * the timeline's cover range, so the JS path must too.
+     *
+     * Target top = 1500, height = 500, viewport = 1000:
+     * cover 0% = scroll 500, cover 100% = scroll 2000.
+     * rangeStart "0%" → 500, rangeEnd "50%" → 1250.
+     */
+    test("With a target, the range is relative to the target's cover range", async () => {
+        const target = document.createElement("div")
+        document.documentElement.appendChild(target)
+        createMockMeasurement(target, "clientHeight")(500)
+        createMockMeasurement(target, "offsetTop")(1500)
+
+        const stop = scroll(
+            animate(
+                target,
+                { opacity: [0, 1] },
+                { duration: 1, ease: "linear" }
+            ),
+            { target, rangeStart: "0%", rangeEnd: "50%" }
+        )
+
+        // Before the target enters the viewport → inactive.
+        await fireScroll(200)
+        await nextFrame()
+        expect(target.style.opacity).toBe("")
+
+        // Cover 25% is halfway through the 0%–50% range.
+        await fireScroll(875)
+        await nextFrame()
+        expect(parseFloat(target.style.opacity)).toBeCloseTo(0.5, 2)
+
+        // Cover 66% is past rangeEnd.
+        await fireScroll(1500)
+        await nextFrame()
+        expect(target.style.opacity).toBe("")
+
+        stop()
+        target.remove()
+    })
 })
