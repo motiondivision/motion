@@ -67,70 +67,87 @@ async function scrollThrough(
     }
 }
 
-test.describe("scroll() rangeStart/rangeEnd", () => {
-    test.use({ viewport: { width: 1000, height: 1000 } })
+/**
+ * Without native timelines (as in Firefox), WAAPI values are driven by the
+ * JS observe path too.
+ */
+for (const hasNativeTimelines of [true, false]) {
+    const name = hasNativeTimelines ? "" : " without native timelines"
 
-    test.beforeEach(async ({ page }) => {
-        await page.goto("scroll/scroll-range.html")
-        await page.waitForTimeout(100)
-    })
+    test.describe(`scroll() rangeStart/rangeEnd${name}`, () => {
+        test.use({ viewport: { width: 1000, height: 1000 } })
 
-    test("WAAPI values run on native timelines where supported", async ({
-        page,
-    }) => {
-        const timelines = await page.evaluate(() => {
-            const win = window as any
-            if (!win.ScrollTimeline) return null
-
-            const timeline = (id: string) =>
-                (document.getElementById(id)!.getAnimations()[0] as any)
-                    .timeline
-
-            return [
-                timeline("box") instanceof win.ScrollTimeline,
-                timeline("target-box") instanceof win.ViewTimeline,
-            ]
+        test.beforeEach(async ({ page }) => {
+            if (!hasNativeTimelines) {
+                await page.addInitScript(() => {
+                    delete (window as any).ScrollTimeline
+                    delete (window as any).ViewTimeline
+                })
+            }
+            await page.goto("scroll/scroll-range.html")
+            await page.waitForTimeout(100)
         })
 
-        if (timelines) expect(timelines).toEqual([true, true])
+        test("WAAPI values run on native timelines where supported", async ({
+            page,
+        }) => {
+            const timelines = await page.evaluate(() => {
+                const win = window as any
+                if (!win.ScrollTimeline) return null
+
+                const timeline = (id: string) =>
+                    (document.getElementById(id)!.getAnimations()[0] as any)
+                        .timeline
+
+                return [
+                    timeline("box") instanceof win.ScrollTimeline,
+                    timeline("target-box") instanceof win.ViewTimeline,
+                ]
+            })
+
+            expect(timelines).toEqual(hasNativeTimelines ? [true, true] : null)
+        })
+
+        test("holds either side of the page range", async ({ page }) => {
+            await scrollThrough(page, pageBoxes, [
+                [0, 0],
+                [800, 0.5],
+                [2000, 1],
+                [800, 0.5],
+                [0, 0],
+                [2000, 1],
+            ])
+        })
+
+        test("holds either side of the target's cover range", async ({
+            page,
+            browserName,
+        }) => {
+            if (hasNativeTimelines) skipBrokenViewTimeline(browserName)
+
+            await scrollThrough(page, targetBoxes, [
+                [1000, 0],
+                [1875, 0.5],
+                [2700, 1],
+                [1875, 0.5],
+                [1000, 0],
+            ])
+        })
+
+        /**
+         * The WAAPI boxes aren't checked: NativeAnimation.stop() doesn't stop
+         * scroll-driven animations at their scroll position, with or without
+         * a range.
+         */
+        test("stopping keeps JS values where they are", async ({ page }) => {
+            await scrollTo(page, 800)
+            await page.evaluate(() => (window as any).stopScroll())
+            await scrollTo(page, 2000)
+
+            expect(await readProgress(page, ["js-box", "x"])).toBeCloseTo(
+                0.5,
+                1
+            )
+        })
     })
-
-    test("holds either side of the page range", async ({ page }) => {
-        await scrollThrough(page, pageBoxes, [
-            [0, 0],
-            [800, 0.5],
-            [2000, 1],
-            [800, 0.5],
-            [0, 0],
-            [2000, 1],
-        ])
-    })
-
-    test("holds either side of the target's cover range", async ({
-        page,
-        browserName,
-    }) => {
-        skipBrokenViewTimeline(browserName)
-
-        await scrollThrough(page, targetBoxes, [
-            [1000, 0],
-            [1875, 0.5],
-            [2700, 1],
-            [1875, 0.5],
-            [1000, 0],
-        ])
-    })
-
-    /**
-     * The WAAPI boxes aren't checked: NativeAnimation.stop() doesn't stop
-     * scroll-driven animations at their scroll position, with or without a
-     * range.
-     */
-    test("stopping keeps JS values where they are", async ({ page }) => {
-        await scrollTo(page, 800)
-        await page.evaluate(() => (window as any).stopScroll())
-        await scrollTo(page, 2000)
-
-        expect(await readProgress(page, ["js-box", "x"])).toBeCloseTo(0.5, 1)
-    })
-})
+}
