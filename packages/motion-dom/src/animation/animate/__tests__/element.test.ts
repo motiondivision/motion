@@ -258,6 +258,39 @@ describe("animateElement", () => {
         element.remove()
     })
 
+    it("hands a suspended value to the VisualElement still suspended", async () => {
+        const element = document.createElement("div")
+        document.body.appendChild(element)
+
+        animateElement(element, { opacity: 0.5 }, { duration: 0 })
+        await nextFrame()
+        expect(element.style.opacity).toBe("0.5")
+
+        const opacity = styleEffect.get(element, "opacity")!
+        opacity.owner!.suspend!("opacity")
+        await nextFrame()
+        expect(element.style.opacity).toBe("")
+
+        const visualElement = createVisualElement()
+        handOffElementState(element, visualElement)
+        visualElement.mount(element)
+        visualElement.getValue("x", 10)
+        await nextFrame()
+        expect(element.style.opacity).toBe("")
+
+        // It resumes on change, and later suspensions reach the VisualElement
+        opacity.set(0.25)
+        await nextFrame()
+        expect(element.style.opacity).toBe("0.25")
+
+        opacity.owner!.suspend!("opacity")
+        await nextFrame()
+        expect(element.style.opacity).toBe("")
+
+        visualElement.unmount()
+        element.remove()
+    })
+
     it("hands over values bound directly with styleEffect() too", () => {
         const element = document.createElement("div")
         const rotate = motionValue(10)

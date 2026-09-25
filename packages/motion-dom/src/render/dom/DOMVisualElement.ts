@@ -5,7 +5,6 @@ import { DOMKeyframesResolver } from "../../animation/keyframes/DOMKeyframesReso
 import type { MotionNodeOptions } from "../../node/types"
 import type { DOMVisualElementOptions } from "./types"
 import type { HTMLRenderState } from "../html/types"
-import type { SVGRenderState } from "../svg/types"
 import type { ResolvedValues } from "../types"
 import { VisualElement, MotionStyle } from "../VisualElement"
 
@@ -58,19 +57,18 @@ export abstract class DOMVisualElement<
     triggerBuild() {
         if (!this.suspendedValues?.size) return super.triggerBuild()
 
-        const renderState: HTMLRenderState & Partial<SVGRenderState> =
-            this.renderState
-        const { style, vars, attrs } = renderState
-        renderState.style = {}
-        renderState.vars = {}
-        renderState.transform = {}
-        renderState.transformOrigin = {}
+        const renderState = this.renderState as unknown as Record<
+            string,
+            ResolvedValues
+        >
+        const prev = { ...renderState }
+        for (const key in prev) renderState[key] = {}
 
         super.triggerBuild()
 
-        clearRemoved(style, renderState.style, "")
-        clearRemoved(vars, renderState.vars, "")
-        attrs && clearRemoved(attrs, renderState.attrs!, null)
+        clearRemoved(prev.style, renderState.style, "")
+        clearRemoved(prev.vars, renderState.vars, "")
+        prev.attrs && clearRemoved(prev.attrs, renderState.attrs, null)
     }
 
     KeyframeResolver = DOMKeyframesResolver

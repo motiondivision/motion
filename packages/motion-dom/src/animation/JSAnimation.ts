@@ -569,12 +569,13 @@ export class JSAnimation<T extends number | string>
 
         /**
          * A change resumes a suspended value, and the value may not change
-         * on re-entry, so re-notify it.
+         * on re-entry, so re-notify it. Values bound without an owner (e.g.
+         * with styleEffect()) are rendered by the animated element.
          */
         if (isActive) {
             motionValue?.dirty()
         } else if (name) {
-            motionValue?.owner?.suspend?.(name)
+            ;(motionValue?.owner ?? this.options.element)?.suspend?.(name)
         }
     }
 }

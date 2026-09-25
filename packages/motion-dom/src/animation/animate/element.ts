@@ -108,7 +108,7 @@ export function handOffElementState(
     const state = getElementEffect(element).state(element as StyleSubject)
     if (!state) return
 
-    const { transformKeys } = state
+    const { transformKeys, suspended } = state
     state.release().forEach((value: MotionValue, key: string) => {
         /**
          * The style effect derives transform (from the bound transform
@@ -118,6 +118,14 @@ export function handOffElementState(
             key === "transformBox" ||
             (key === "transform" && transformKeys?.length)
 
-        derived || visualElement.addValue(key, value)
+        if (derived) return
+
+        /**
+         * The VisualElement renders the value from here, so it also takes
+         * over suspending it.
+         */
+        value.owner = visualElement
+        visualElement.addValue(key, value)
+        suspended?.has(key) && visualElement.suspend(key)
     })
 }
