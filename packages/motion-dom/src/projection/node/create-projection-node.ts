@@ -397,8 +397,6 @@ export function createProjectionNode<I>({
 
         hasTreeAnimated = false
 
-        layoutVersion: number = 0
-
         constructor(
             latestValues: ResolvedValues = {},
             parent: IProjectionNode | undefined = defaultParent?.()
@@ -770,6 +768,7 @@ export function createProjectionNode<I>({
                  * get measured even when memoized (willUpdate skipped).
                  */
                 this.nodes!.forEach(ensureDraggedNodesSnapshotted)
+                this.nodes!.forEach(syncRelativeLayout)
 
                 /**
                  * Write
@@ -924,7 +923,6 @@ export function createProjectionNode<I>({
 
             const prevLayout = this.layout
             this.layout = this.measure(false)
-            this.layoutVersion++
             if (!this.layoutCorrected) this.layoutCorrected = createBox()
             this.isLayoutDirty = false
             this.projectionDelta = undefined
@@ -1226,14 +1224,6 @@ export function createProjectionNode<I>({
 
             const relativeParent = this.getClosestProjectingParent()
 
-            if (
-                relativeParent &&
-                this.linkedParentVersion !== relativeParent.layoutVersion &&
-                !relativeParent.options.layoutRoot
-            ) {
-                this.removeRelativeTarget()
-            }
-
             /**
              * If we don't have a targetDelta but do have a layout, we can attempt to resolve
              * a relativeParent. This will allow a component to perform scale correction
@@ -1367,14 +1357,12 @@ export function createProjectionNode<I>({
             )
         }
 
-        linkedParentVersion: number = 0
         createRelativeTarget(
             relativeParent: IProjectionNode,
             layout: Box,
             parentLayout: Box
         ) {
             this.relativeParent = relativeParent
-            this.linkedParentVersion = relativeParent.layoutVersion
             this.forceRelativeParentToResolveTarget()
             this.relativeTarget = createBox()
             this.relativeTargetOrigin = createBox()
@@ -2358,6 +2346,26 @@ function ensureDraggedNodesSnapshotted(node: IProjectionNode) {
     if (node.isAnimationBlocked && node.layout && !node.isLayoutDirty) {
         node.snapshot = node.layout
         node.isLayoutDirty = true
+    }
+}
+
+/**
+ * If a node's relative parent is about to be re-measured but the node isn't
+ * (e.g. it's in another LayoutGroup), its relative target is out of date.
+ * If it's layout animating, re-measure it too, so its relative target keeps
+ * resolving against current layouts. Otherwise its layout is still valid
+ * relative to its parent, so drop the relative target, and any targetDelta
+ * left over from a finished animation while an ancestor still animates, to be
+ * rebuilt from its layout.
+ */
+function syncRelativeLayout(node: IProjectionNode) {
+    if (node.relativeTarget && node.relativeParent?.isLayoutDirty) {
+        if (node.currentAnimation) {
+            node.isLayoutDirty = true
+        } else {
+            node.targetDelta = undefined
+            node.removeRelativeTarget()
+        }
     }
 }
 

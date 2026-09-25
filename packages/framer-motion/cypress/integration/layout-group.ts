@@ -21,8 +21,7 @@ function recordButtonTops() {
 
 /**
  * Unrounded, so this waits for the layout animation to finish rather than
- * its eased tail. Interrupting a relative child's own layout animation
- * currently makes it jump.
+ * its eased tail.
  */
 function expectButtonToSettleAt(top: number) {
     cy.get("#button").should(([button]) => {
