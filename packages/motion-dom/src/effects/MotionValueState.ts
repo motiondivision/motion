@@ -98,16 +98,19 @@ export class MotionValueState {
     }
 
     /**
-     * The value a render should write for `name`: undefined while it's
-     * suspended, which renders treat as removing their output. Renders
+     * The value a render should write for `name`, or while it's suspended
+     * `base`: what the subject had before it was first rendered. Renders
      * pass the value they're bound to, to skip the lookup.
      */
-    output(name: string, value = this.get(name)) {
-        return this.suspended?.has(name) ? undefined : value?.get()
+    output(name: string, value = this.get(name), base?: string | null) {
+        return this.suspended?.has(name) ? base : value?.get()
     }
 
     /**
-     * Remove `name` from the output until its value next changes.
+     * Render `name`'s base in place of its value until the value next
+     * changes.
+     *
+     * This is currently for internal use only.
      */
     suspend(name: string) {
         const entry = this.values.get(name)

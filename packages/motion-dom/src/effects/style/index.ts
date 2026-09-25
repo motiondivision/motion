@@ -59,21 +59,27 @@ export const addStyleValue = (
                 )
             }
 
+            /**
+             * Bases are the inline styles from before Motion writes them,
+             * rendered while every value they're built from is suspended.
+             */
+            const base = element.style.transform
             state.set("transform", new MotionValue("none"), () => {
-                element.style.transform = buildTransform(state)
+                element.style.transform = buildTransform(state) || base
             })
         }
 
         computed = state.get("transform")
     } else if (originProps.has(key)) {
         if (!state.get("transformOrigin")) {
+            const base = element.style.transformOrigin
             state.set("transformOrigin", new MotionValue(""), () => {
                 const originX = styleValue(state, "originX")
                 const originY = styleValue(state, "originY")
                 const originZ = styleValue(state, "originZ")
                 element.style.transformOrigin =
                     (originX ?? originY ?? originZ) === undefined
-                        ? ""
+                        ? base
                         : `${originX ?? "50%"} ${originY ?? "50%"} ${
                               originZ ?? 0
                           }`
@@ -82,18 +88,17 @@ export const addStyleValue = (
 
         computed = state.get("transformOrigin")
     } else if (isCSSVar(key)) {
+        const base = element.style.getPropertyValue(key)
         render = () => {
-            element.style.setProperty(
-                key,
-                (state.output(key, value) ?? "") as string
-            )
+            element.style.setProperty(key, state.output(key, value, base))
         }
     } else {
+        const base = element.style[key as any]
         render = () => {
-            element.style[key as any] = (getValueAsType(
-                state.output(key, value),
+            element.style[key as any] = getValueAsType(
+                state.output(key, value, base),
                 numberValueTypes[key]
-            ) ?? "") as string
+            ) as string
         }
     }
 

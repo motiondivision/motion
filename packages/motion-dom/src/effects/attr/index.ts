@@ -37,6 +37,11 @@ export const addAttrValue = (
     const type = numberValueTypes[key] || numberValueTypes[name]
 
     /**
+     * The attribute from before Motion writes it, restored while suspended.
+     */
+    const base = element.getAttribute(name)
+
+    /**
      * Set attribute directly via property if available
      */
     const render = isProp
@@ -47,7 +52,7 @@ export const addAttrValue = (
               )
           }
         : () => {
-              const v = getValueAsType(state.output(key, value), type)
+              const v = getValueAsType(state.output(key, value, base), type)
               if (v === null || v === undefined) {
                   element.removeAttribute(name)
               } else {

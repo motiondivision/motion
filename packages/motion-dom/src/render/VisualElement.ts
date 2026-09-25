@@ -664,19 +664,28 @@ export abstract class VisualElement<
     notifyUpdate = () => this.notify("Update", this.latestValues)
 
     /**
-     * Keys whose output is removed, e.g. outside a scroll range, until
-     * their value next changes.
+     * Keys rendering their base, e.g. outside a scroll range, until their
+     * value next changes.
      */
     suspendedValues?: Set<string>
 
+    /**
+     * Render `key`'s static base from props (e.g. `style`) in place of its
+     * value, or nothing, until the value next changes.
+     *
+     * This is currently for internal use only.
+     */
     suspend(key: string) {
-        delete this.latestValues[key]
-        ;(this.suspendedValues ??= new Set()).add(key)
+        const base = this.getBaseTargetFromProps(this.props, key)
 
-        if (this.projection && transformProps.has(key)) {
-            this.projection.isTransformDirty = true
+        if (base === undefined || isMotionValue(base)) {
+            delete this.latestValues[key]
+        } else {
+            this.latestValues[key] = base
         }
 
+        ;(this.suspendedValues ??= new Set()).add(key)
+        if (this.projection) this.projection.isTransformDirty = true
         this.scheduleRender()
     }
 

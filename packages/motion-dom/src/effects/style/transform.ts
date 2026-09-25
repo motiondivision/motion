@@ -58,8 +58,8 @@ export function buildTransform(state: MotionValueState) {
     }
 
     /**
-     * With every bound transform suspended, remove the style rather than
-     * writing `none` over the stylesheet's transform.
+     * With every bound transform suspended, return "" so the render can
+     * restore the element's own transform rather than writing `none`.
      */
     return transform || (isSuspended ? "" : "none")
 }
