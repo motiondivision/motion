@@ -2,6 +2,7 @@ import { styleEffect } from "../../../effects/style"
 import { svgEffect } from "../../../effects/svg"
 import { frame } from "../../../frameloop"
 import { HTMLVisualElement } from "../../../render/html/HTMLVisualElement"
+import { visualElementStore } from "../../../render/store"
 import { motionValue } from "../../../value"
 import { animateElement, handOffElementState } from "../element"
 
@@ -309,6 +310,25 @@ describe("animateElement", () => {
         expect(element.style.opacity).toBe("")
 
         visualElement.unmount()
+        element.remove()
+    })
+
+    it("suspends through the style effect while it still renders the value", async () => {
+        const element = document.createElement("div")
+        document.body.appendChild(element)
+
+        animateElement(element, { opacity: 0.5 }, { duration: 0 })
+        await nextFrame()
+
+        // A VisualElement for the element that hasn't taken the value over
+        const visualElement = createVisualElement()
+        visualElementStore.set(element, visualElement)
+
+        styleEffect.get(element, "opacity")!.owner!.suspend!("opacity")
+        await nextFrame()
+        expect(element.style.opacity).toBe("")
+
+        visualElementStore.delete(element)
         element.remove()
     })
 

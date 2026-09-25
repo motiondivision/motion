@@ -52,9 +52,10 @@ class EffectSubject implements AnimationElement, Owner {
      * values, including those animations started here are still driving.
      */
     suspend(key: string) {
-        ;(
-            visualElementStore.get(this.current) ??
-            this.effect.state(this.current)
+        const visualElement = visualElementStore.get(this.current)
+        ;(visualElement?.hasValue(key)
+            ? visualElement
+            : this.effect.state(this.current)
         )?.suspend(key)
     }
 
