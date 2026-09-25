@@ -52,12 +52,12 @@
 
             const stops = [
                 scroll(animate("#box", { opacity: [0, 1] }, transition), {
-                    rangeStart: "10%",
-                    rangeEnd: "30%",
-                }),
-                scroll(animate("#js-box", { x: [0, 100] }, transition), {
                     rangeStart: 0.1,
                     rangeEnd: 0.3,
+                }),
+                scroll(animate("#js-box", { x: [0, 100] }, transition), {
+                    rangeStart: "10%",
+                    rangeEnd: "30%",
                 }),
                 scroll(
                     animate("#target-box", { opacity: [0, 1] }, transition),
