@@ -36,6 +36,22 @@ describe("applyAxisDelta", () => {
 })
 
 describe("transformBox", () => {
+    test("treats 'none' as the default value", () => {
+        const box = {
+            x: { min: 100, max: 300 },
+            y: { min: 0, max: 100 },
+        }
+        transformBox(box, {
+            x: "none",
+            y: 50,
+            scale: "none",
+            scaleX: "none",
+            scaleY: 2,
+        } as any)
+        expect(box.x).toEqual({ min: 100, max: 300 })
+        expect(box.y).toEqual({ min: 0, max: 200 })
+    })
+
     test("correctly handles percentage x values by resolving to axis width", () => {
         const box = {
             x: { min: 100, max: 300 },
