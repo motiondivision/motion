@@ -1,7 +1,10 @@
 import { animateSync } from "../../__tests__/utils"
 import { ValueAnimationOptions } from "../../types"
 import { spring } from "../spring"
-import { calcGeneratorDuration } from "../utils/calc-duration"
+import {
+    calcGeneratorDuration,
+    maxGeneratorDuration,
+} from "../utils/calc-duration"
 
 describe("spring", () => {
     test.each([
@@ -306,5 +309,150 @@ describe("toString", () => {
         expect(visualDurationSpring.toString()).toBe(
             "850ms linear(0, 0.046, 0.1551, 0.2934, 0.4378, 0.5737, 0.6927, 0.7915, 0.8694, 0.928, 0.9699, 0.998, 1.0153, 1.0245, 1.0281, 1.0279, 1.0254, 1.0217, 1.0176, 1.0136, 1.01, 1.007, 1.0045, 1.0027, 1.0013, 1.0003, 0.9997, 1)"
         )
+    })
+})
+
+describe("spring NaN guards", () => {
+    // These deliberately pass invalid physics, which warns
+    let warn: jest.SpyInstance
+    beforeEach(() => {
+        warn = jest.spyOn(console, "warn").mockImplementation(() => {})
+    })
+    afterEach(() => warn.mockRestore())
+
+    /**
+     * animateSync() can't be reused here — it loops `while (!done)`, and a
+     * spring resolving to NaN never sets done, so it would hang rather than
+     * fail.
+     */
+    const sample = (options: ValueAnimationOptions<number>) => {
+        const generator = spring(options)
+        return [0, 100, 300, 600, 1000].map((t) => generator.next(t).value)
+    }
+
+    /**
+     * Every physics option is covered, for each way it can be invalid. An
+     * explicit `undefined`, e.g. a forwarded optional prop, is the most likely
+     * in practice.
+     */
+    const physicsKeys = ["stiffness", "damping", "mass"] as const
+    const invalidValues = [0, -1, NaN, Infinity, -Infinity, undefined]
+
+    for (const key of physicsKeys) {
+        for (const value of invalidValues) {
+            // damping of 0 is a valid, perpetually oscillating spring
+            if (key === "damping" && value === 0) continue
+
+            test(`${key} of ${String(value)} falls back to the default`, () => {
+                expect(sample({ keyframes: [0, 100], [key]: value })).toEqual(
+                    sample({ keyframes: [0, 100] })
+                )
+            })
+        }
+    }
+
+    test("damping of 0 is honoured as an undamped spring", () => {
+        const values = sample({ keyframes: [0, 100], damping: 0 })
+        values.forEach((v) => expect(Number.isFinite(v)).toBe(true))
+        // An undamped spring oscillates rather than settling on the target
+        expect(values[values.length - 1]).not.toBeCloseTo(100)
+    })
+
+    test("numeric string physics still coerce", () => {
+        expect(
+            sample({
+                keyframes: [0, 100],
+                stiffness: "300",
+                damping: "20",
+                mass: "2",
+            } as any)
+        ).toEqual(
+            sample({
+                keyframes: [0, 100],
+                stiffness: 300,
+                damping: 20,
+                mass: 2,
+            })
+        )
+    })
+
+    test.each(physicsKeys)(
+        "invalid %s does not discard a provided duration",
+        (key) => {
+            expect(
+                sample({ keyframes: [0, 100], duration: 500, [key]: NaN })
+            ).toEqual(sample({ keyframes: [0, 100], duration: 500 }))
+        }
+    )
+
+    test("invalid physics does not discard a provided visualDuration", () => {
+        expect(
+            sample({
+                keyframes: [0, 100],
+                visualDuration: 0.5,
+                bounce: 0.2,
+                mass: 0,
+            })
+        ).toEqual(
+            sample({ keyframes: [0, 100], visualDuration: 0.5, bounce: 0.2 })
+        )
+    })
+
+    test.each([
+        { duration: 500, bounce: NaN },
+        { visualDuration: Infinity, bounce: 0.2 },
+    ])("non-finite time options don't produce NaN: %o", (options) => {
+        const values = sample({ keyframes: [0, 100], ...options })
+        values.forEach((v) => expect(Number.isFinite(v)).toBe(true))
+    })
+
+    test("visualDuration of 0 falls back to duration-based resolution", () => {
+        expect(
+            sample({ keyframes: [0, 100], visualDuration: 0, bounce: 0.2 })
+        ).toEqual(sample({ keyframes: [0, 100], bounce: 0.2 }))
+    })
+
+    test("retargeting treats invalid physics as absent", () => {
+        // Initial resolution treats this as a time-defined spring, which
+        // ignores inherited velocity, so retargeting must too
+        const generator = spring({
+            keyframes: [0, 100],
+            duration: 600,
+            stiffness: 0,
+        })
+        generator.next(16)
+        generator.retarget!([20, -50], 300)
+        const fresh = spring({
+            keyframes: [20, -50],
+            duration: 600,
+            velocity: 300,
+        })
+        for (const t of [0, 16, 100, 300, 1000]) {
+            expect(generator.next(t)).toEqual(fresh.next(t))
+        }
+    })
+
+    test("invalid stiffness still resolves to a spring that completes", () => {
+        const generator = spring({ keyframes: [0, 100], stiffness: undefined })
+        expect(calcGeneratorDuration(generator)).toBeLessThan(
+            maxGeneratorDuration
+        )
+    })
+
+    test("invalid physics warns rather than failing silently", () => {
+        spring({ keyframes: [0, 100], stiffness: 0 })
+        expect(warn).toHaveBeenCalledTimes(1)
+        expect(warn.mock.calls[0][0]).toContain("spring-invalid-physics")
+    })
+
+    test("valid or explicitly undefined physics does not warn", () => {
+        spring({ keyframes: [0, 100], stiffness: 200, damping: 0, mass: 2 })
+        spring({
+            keyframes: [0, 100],
+            stiffness: undefined,
+            damping: undefined,
+            mass: undefined,
+        })
+        expect(warn).not.toHaveBeenCalled()
     })
 })
