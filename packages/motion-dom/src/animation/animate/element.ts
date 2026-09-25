@@ -1,6 +1,7 @@
 import { styleSubjectEffect, StyleSubject } from "../../effects/style"
 import { svgSubjectEffect } from "../../effects/svg"
 import { measureViewportBox } from "../../projection/utils/measure"
+import { visualElementStore } from "../../render/store"
 import type { VisualElement } from "../../render/VisualElement"
 import { isSVGElement } from "../../utils/is-svg-element"
 import { MotionValue, Owner } from "../../value"
@@ -46,8 +47,15 @@ class EffectSubject implements AnimationElement, Owner {
         this.effect.flush(this.current)
     }
 
+    /**
+     * Once a VisualElement has taken the element over, it renders the
+     * values, including those animations started here are still driving.
+     */
     suspend(key: string) {
-        this.effect.state(this.current)?.suspend(key)
+        ;(
+            visualElementStore.get(this.current) ??
+            this.effect.state(this.current)
+        )?.suspend(key)
     }
 
     measureViewportBox() {
@@ -120,12 +128,14 @@ export function handOffElementState(
 
         if (derived) return
 
-        /**
-         * The VisualElement renders the value from here, so it also takes
-         * over suspending it.
-         */
-        value.owner = visualElement
         visualElement.addValue(key, value)
         suspended?.has(key) && visualElement.suspend(key)
     })
+
+    /**
+     * Build what the effect rendered into the VisualElement's render state,
+     * so if a value is suspended before it next renders, its output is
+     * still known and removed.
+     */
+    visualElement.triggerBuild()
 }

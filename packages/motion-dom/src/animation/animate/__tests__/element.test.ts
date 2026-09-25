@@ -291,6 +291,37 @@ describe("animateElement", () => {
         element.remove()
     })
 
+    it("suspends a value that was active when handed off", async () => {
+        const element = document.createElement("div")
+        document.body.appendChild(element)
+
+        animateElement(element, { opacity: 0.5 }, { duration: 0 })
+        await nextFrame()
+        expect(element.style.opacity).toBe("0.5")
+
+        const opacity = styleEffect.get(element, "opacity")!
+        const visualElement = createVisualElement()
+        handOffElementState(element, visualElement)
+        visualElement.mount(element)
+
+        opacity.owner!.suspend!("opacity")
+        await nextFrame()
+        expect(element.style.opacity).toBe("")
+
+        visualElement.unmount()
+        element.remove()
+    })
+
+    it("leaves values the user created without an owner", () => {
+        const element = document.createElement("div")
+        const rotate = motionValue(10)
+        styleEffect(element, { rotate })
+
+        handOffElementState(element, createVisualElement())
+
+        expect(rotate.owner).toBeUndefined()
+    })
+
     it("hands over values bound directly with styleEffect() too", () => {
         const element = document.createElement("div")
         const rotate = motionValue(10)

@@ -528,6 +528,67 @@ describe("scroll() rangeStart/rangeEnd (#3001)", () => {
         stopCircle()
     })
 
+    test("A static style prop changed while inactive becomes the base", async () => {
+        const ref = createRef<HTMLDivElement>()
+        const Component = ({ opacity }: { opacity: number }) => (
+            <motion.div ref={ref} style={{ opacity }} />
+        )
+        const { rerender } = render(<Component opacity={0.3} />)
+        const box = ref.current!
+
+        const stop = scroll(
+            animate(box, { opacity: [0, 1] }, { duration: 1, ease: "linear" }),
+            { rangeStart: "0%", rangeEnd: "50%" }
+        )
+
+        await fireScroll(1500)
+        await nextFrame()
+        expect(box.style.opacity).toBe("0.3")
+
+        rerender(<Component opacity={0.6} />)
+        await nextFrame()
+        expect(box.style.opacity).toBe("0.6")
+
+        stop()
+    })
+
+    test("Motion SVG components take bases from style, and not transforms from attributes", async () => {
+        const rectRef = createRef<SVGRectElement>()
+        const circleRef = createRef<SVGCircleElement>()
+        render(
+            <svg>
+                <motion.rect ref={rectRef} x={10} />
+                <motion.circle ref={circleRef} style={{ opacity: 0.3 }} />
+            </svg>
+        )
+        const rect = rectRef.current!
+        const circle = circleRef.current!
+
+        const transition = { duration: 1, ease: "linear" } as const
+        const range = { rangeStart: "0%", rangeEnd: "50%" } as const
+        const stopRect = scroll(
+            animate(rect, { x: [0, 100] }, transition),
+            range
+        )
+        const stopCircle = scroll(
+            animate(circle, { opacity: [0, 1] }, transition),
+            range
+        )
+
+        await fireScroll(500)
+        await nextFrame()
+        expect(rect.style.transform).toBe("translateX(50px)")
+        expect(circle.style.opacity).toBe("0.5")
+
+        await fireScroll(1500)
+        await nextFrame()
+        expect(rect.style.transform).toBe("")
+        expect(circle.style.opacity).toBe("0.3")
+
+        stopRect()
+        stopCircle()
+    })
+
     test("An <svg> element's own attributes deactivate", async () => {
         const ref = createRef<SVGSVGElement>()
         render(<motion.svg ref={ref} />)

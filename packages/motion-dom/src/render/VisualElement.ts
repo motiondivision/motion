@@ -670,13 +670,18 @@ export abstract class VisualElement<
     suspendedValues?: Set<string>
 
     /**
-     * Render `key`'s static base from props (e.g. `style`) in place of its
-     * value, or nothing, until the value next changes.
+     * Render `key`'s static base from props (`style`, or an SVG attribute
+     * for keys that aren't transforms) in place of its value, or nothing,
+     * until the value next changes.
      *
      * This is currently for internal use only.
      */
     suspend(key: string) {
-        const base = this.getBaseTargetFromProps(this.props, key)
+        const base =
+            (this.props as { style?: MotionStyle }).style?.[key] ??
+            (transformProps.has(key)
+                ? undefined
+                : this.getBaseTargetFromProps(this.props, key))
 
         if (base === undefined || isMotionValue(base)) {
             delete this.latestValues[key]
@@ -776,6 +781,9 @@ export abstract class VisualElement<
         if (this.handleChildMotionValue) {
             this.handleChildMotionValue()
         }
+
+        // Suspended values render their base, which may have changed.
+        this.suspendedValues?.forEach((key) => this.suspend(key))
     }
 
     getProps() {
