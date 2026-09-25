@@ -575,6 +575,7 @@ export abstract class VisualElement<
             "change",
             (latestValue: AnyResolvedKeyframe) => {
                 this.latestValues[key] = latestValue
+                this.suspendedValues?.delete(key)
 
                 this.props.onUpdate && frame.preRender(this.notifyUpdate)
 
@@ -661,6 +662,23 @@ export abstract class VisualElement<
     }
 
     notifyUpdate = () => this.notify("Update", this.latestValues)
+
+    /**
+     * Keys whose output is removed, e.g. outside a scroll range, until
+     * their value next changes.
+     */
+    suspendedValues?: Set<string>
+
+    suspend(key: string) {
+        delete this.latestValues[key]
+        ;(this.suspendedValues ??= new Set()).add(key)
+
+        if (this.projection && transformProps.has(key)) {
+            this.projection.isTransformDirty = true
+        }
+
+        this.scheduleRender()
+    }
 
     triggerBuild() {
         this.build(this.renderState, this.latestValues, this.props)
@@ -819,6 +837,7 @@ export abstract class VisualElement<
             this.valueSubscriptions.delete(key)
         }
         delete this.latestValues[key]
+        this.suspendedValues?.delete(key)
         this.removeValueFromRenderState(key, this.renderState)
     }
 

@@ -47,7 +47,7 @@ export const addAttrValue = (
               )
           }
         : () => {
-              const v = getValueAsType(value.get(), type)
+              const v = getValueAsType(state.output(key, value), type)
               if (v === null || v === undefined) {
                   element.removeAttribute(name)
               } else {

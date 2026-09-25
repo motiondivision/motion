@@ -58,6 +58,14 @@ export interface Owner {
             generatedTransform: string
         ) => string
     }
+
+    /**
+     * Stop rendering the value bound to `key`, removing it from the
+     * output, until that value next changes.
+     *
+     * This is currently for internal use only.
+     */
+    suspend?: (key: string) => void
 }
 
 export interface AccelerateConfig {

@@ -5,6 +5,7 @@ import { MotionValue } from "../value"
 interface Entry {
     value: MotionValue
     render?: VoidFunction
+    onChange: VoidFunction
     onRemove: VoidFunction
 }
 
@@ -16,6 +17,11 @@ export class MotionValueState {
      */
     transformKeys?: string[]
     transformValues?: Record<string, MotionValue>
+
+    /**
+     * Keys whose output is removed until their value next changes.
+     */
+    suspended?: Set<string>
 
     private values = new Map<string, Entry>()
 
@@ -58,7 +64,10 @@ export class MotionValueState {
             }
         }
 
-        const onChange = () => render && this.schedule(render)
+        const onChange = () => {
+            this.suspended?.delete(name)
+            render && this.schedule(render)
+        }
 
         /**
          * Values created ahead of a DOM read start out undefined and
@@ -77,6 +86,7 @@ export class MotionValueState {
         this.values.set(name, {
             value,
             render: computed ? undefined : render,
+            onChange,
             onRemove,
         })
 
@@ -85,6 +95,26 @@ export class MotionValueState {
 
     get(name: string): MotionValue | undefined {
         return this.values.get(name)?.value
+    }
+
+    /**
+     * The value a render should write for `name`: undefined while it's
+     * suspended, which renders treat as removing their output. Renders
+     * pass the value they're bound to, to skip the lookup.
+     */
+    output(name: string, value = this.get(name)) {
+        return this.suspended?.has(name) ? undefined : value?.get()
+    }
+
+    /**
+     * Remove `name` from the output until its value next changes.
+     */
+    suspend(name: string) {
+        const entry = this.values.get(name)
+        if (!entry) return
+
+        entry.onChange()
+        ;(this.suspended ??= new Set()).add(name)
     }
 
     /**

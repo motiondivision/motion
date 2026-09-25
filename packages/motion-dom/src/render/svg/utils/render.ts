@@ -13,9 +13,14 @@ export function renderSVG(
     renderHTML(element as any, renderState, undefined, projection)
 
     for (const key in renderState.attrs) {
-        element.setAttribute(
-            !camelCaseAttributes.has(key) ? camelToDash(key) : key,
-            renderState.attrs[key] as string
-        )
+        const name = !camelCaseAttributes.has(key) ? camelToDash(key) : key
+        const value = renderState.attrs[key]
+
+        /**
+         * null marks an attribute a suspended value rendered before.
+         */
+        value === null
+            ? element.removeAttribute(name)
+            : element.setAttribute(name, value as string)
     }
 }

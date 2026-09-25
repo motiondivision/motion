@@ -5,7 +5,19 @@ import { DOMKeyframesResolver } from "../../animation/keyframes/DOMKeyframesReso
 import type { MotionNodeOptions } from "../../node/types"
 import type { DOMVisualElementOptions } from "./types"
 import type { HTMLRenderState } from "../html/types"
+import type { SVGRenderState } from "../svg/types"
+import type { ResolvedValues } from "../types"
 import { VisualElement, MotionStyle } from "../VisualElement"
+
+const clearRemoved = (
+    prev: ResolvedValues,
+    next: ResolvedValues,
+    removed: "" | null
+) => {
+    for (const key in prev) {
+        if (!(key in next)) next[key] = removed as string
+    }
+}
 
 export abstract class DOMVisualElement<
     Instance extends HTMLElement | SVGElement = HTMLElement,
@@ -35,6 +47,30 @@ export abstract class DOMVisualElement<
     ): void {
         delete vars[key]
         delete style[key]
+    }
+
+    /**
+     * While values are suspended, build from an empty render state so
+     * nothing from earlier builds lingers, then remove whatever rendered
+     * last time but not now: styles and variables by writing "", SVG
+     * attributes by writing null.
+     */
+    triggerBuild() {
+        if (!this.suspendedValues?.size) return super.triggerBuild()
+
+        const renderState: HTMLRenderState & Partial<SVGRenderState> =
+            this.renderState
+        const { style, vars, attrs } = renderState
+        renderState.style = {}
+        renderState.vars = {}
+        renderState.transform = {}
+        renderState.transformOrigin = {}
+
+        super.triggerBuild()
+
+        clearRemoved(style, renderState.style, "")
+        clearRemoved(vars, renderState.vars, "")
+        attrs && clearRemoved(attrs, renderState.attrs!, null)
     }
 
     KeyframeResolver = DOMKeyframesResolver

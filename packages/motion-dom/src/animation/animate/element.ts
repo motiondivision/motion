@@ -46,6 +46,10 @@ class EffectSubject implements AnimationElement, Owner {
         this.effect.flush(this.current)
     }
 
+    suspend(key: string) {
+        this.effect.state(this.current)?.suspend(key)
+    }
+
     measureViewportBox() {
         return measureViewportBox(this.current as HTMLElement)
     }

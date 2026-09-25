@@ -20,22 +20,36 @@ function addSVGPathValue(
 ) {
     frame.render(() => element.setAttribute("pathLength", "1"))
 
+    /**
+     * Suspended values read as undefined, which removes the attribute.
+     */
+    const setAttribute = (name: string, v?: string) =>
+        v === undefined
+            ? element.removeAttribute(name)
+            : element.setAttribute(name, v)
+
     if (key === "pathOffset") {
         return state.set(key, value, () => {
             // Use unitless value to avoid Safari zoom bug
-            const offset = value.get()
-            element.setAttribute("stroke-dashoffset", `${-offset}`)
+            const offset = state.output(key, value)
+            setAttribute(
+                "stroke-dashoffset",
+                offset === undefined ? offset : `${-offset}`
+            )
         })
     } else {
         if (!state.get("stroke-dasharray")) {
             state.set("stroke-dasharray", new MotionValue("1 1"), () => {
-                const pathLength = state.get("pathLength")?.get() ?? 1
-                const pathSpacing = state.get("pathSpacing")?.get()
+                const pathLength = state.output("pathLength")
+                const pathSpacing = state.output("pathSpacing")
+                const length = pathLength ?? 1
 
                 // Use unitless values to avoid Safari zoom bug
-                element.setAttribute(
+                setAttribute(
                     "stroke-dasharray",
-                    `${pathLength} ${pathSpacing ?? 1 - Number(pathLength)}`
+                    (pathLength ?? pathSpacing) === undefined
+                        ? undefined
+                        : `${length} ${pathSpacing ?? 1 - Number(length)}`
                 )
             })
         }

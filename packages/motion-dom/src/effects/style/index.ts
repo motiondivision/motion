@@ -17,10 +17,11 @@ import { buildTransform } from "./transform"
 const originProps = new Set(["originX", "originY", "originZ"])
 
 /**
- * A bound value in its default unit, e.g. `originX: 50` -> `"50%"`.
+ * A bound value in its default unit, e.g. `originX: 50` -> `"50%"`, or
+ * undefined while suspended.
  */
 const styleValue = (state: MotionValueState, key: string) =>
-    getValueAsType(state.get(key)?.get(), numberValueTypes[key])
+    getValueAsType(state.output(key), numberValueTypes[key])
 
 export const addStyleValue = (
     element: HTMLElement | SVGElement,
@@ -67,24 +68,32 @@ export const addStyleValue = (
     } else if (originProps.has(key)) {
         if (!state.get("transformOrigin")) {
             state.set("transformOrigin", new MotionValue(""), () => {
-                const originX = styleValue(state, "originX") ?? "50%"
-                const originY = styleValue(state, "originY") ?? "50%"
-                const originZ = styleValue(state, "originZ") ?? 0
-                element.style.transformOrigin = `${originX} ${originY} ${originZ}`
+                const originX = styleValue(state, "originX")
+                const originY = styleValue(state, "originY")
+                const originZ = styleValue(state, "originZ")
+                element.style.transformOrigin =
+                    (originX ?? originY ?? originZ) === undefined
+                        ? ""
+                        : `${originX ?? "50%"} ${originY ?? "50%"} ${
+                              originZ ?? 0
+                          }`
             })
         }
 
         computed = state.get("transformOrigin")
     } else if (isCSSVar(key)) {
         render = () => {
-            element.style.setProperty(key, value.get() as string)
+            element.style.setProperty(
+                key,
+                (state.output(key, value) ?? "") as string
+            )
         }
     } else {
         render = () => {
-            element.style[key as any] = getValueAsType(
-                value.get(),
+            element.style[key as any] = (getValueAsType(
+                state.output(key, value),
                 numberValueTypes[key]
-            ) as string
+            ) ?? "") as string
         }
     }
 

@@ -18,6 +18,7 @@ const openers: Record<string, string> = {}
 export function buildTransform(state: MotionValueState) {
     let transform = ""
     const { transformKeys: keys = [], transformValues: values = {} } = state
+    let isSuspended = !!keys.length
 
     /**
      * Loop over the bound transforms in order, adding the ones that
@@ -25,6 +26,10 @@ export function buildTransform(state: MotionValueState) {
      */
     for (let i = 0; i < keys.length; i++) {
         const key = keys[i]
+
+        if (state.suspended?.has(key)) continue
+        isSuspended = false
+
         const value = values[key].get()
 
         if (value === undefined) continue
@@ -52,5 +57,9 @@ export function buildTransform(state: MotionValueState) {
             ")"
     }
 
-    return transform || "none"
+    /**
+     * With every bound transform suspended, remove the style rather than
+     * writing `none` over the stylesheet's transform.
+     */
+    return transform || (isSuspended ? "" : "none")
 }
