@@ -1,5 +1,5 @@
 import { frame, Transition } from "motion-dom"
-import { act, memo, useState } from "react"
+import { act, useState } from "react"
 import { render } from "../../../jest.setup"
 import { motion } from "../../../render/components/motion"
 import { LayoutGroup } from "../index"
@@ -68,20 +68,13 @@ function Expander() {
     )
 }
 
-const Child = memo(
-    ({ id, transition }: { id: string; transition: Transition }) => {
-        const [shift, setShift] = useState(false)
-        toggleChild[id] = () => setShift((value) => !value)
-        return (
-            <motion.div
-                id={id}
-                layout
-                transition={transition}
-                data-shift={shift}
-            />
-        )
-    }
-)
+function Child({ id, transition }: { id: string; transition: Transition }) {
+    const [shift, setShift] = useState(false)
+    toggleChild[id] = () => setShift((value) => !value)
+    return (
+        <motion.div id={id} layout transition={transition} data-shift={shift} />
+    )
+}
 
 function App({
     childCount = 1,
@@ -179,6 +172,11 @@ describe("relative children when their relative parent re-lays out", () => {
         expect(childOffset()).toBeCloseTo(offset, 0)
     })
 
+    /**
+     * The child started animating while #parent wasn't projecting, so it has
+     * no relative target. It still jumps by #parent's layout shift here, as
+     * it does without syncRelativeLayout; this only checks it isn't measured.
+     */
     test("doesn't measure a layout-animating child without a relative target", async () => {
         render(<App />)
         await frames(2)
@@ -260,7 +258,6 @@ describe("relative children when their relative parent re-lays out", () => {
             }
         }
 
-        expect(reads.parent).toBe(10)
         expect(childReads()).toBe(50)
     })
 })

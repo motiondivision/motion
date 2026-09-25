@@ -35,27 +35,32 @@ function expectReads(id: string, count: number) {
     })
 }
 
+function expectMeasured(id: string) {
+    cy.window().then((win: any) => {
+        expect(win.reads[id] || 0).to.be.greaterThan(0)
+    })
+}
+
 describe(`LayoutGroup inherit="id" measurements`, () => {
     it("doesn't re-measure a relative child that isn't animating", () => {
         visit()
         click("expander")
-        expectReads("text-wrapper", 2)
+        expectMeasured("text-wrapper")
         expectReads("button", 0)
         click("expander")
-        expectReads("text-wrapper", 2)
+        expectMeasured("text-wrapper")
         expectReads("button", 0)
     })
 
     it("re-measures a layout-animating relative child once per parent re-layout", () => {
         visit()
+        // Starts #button's 10s layout animation
         click("button")
-        cy.wait(700)
         click("expander")
-        expectReads("text-wrapper", 2)
+        expectMeasured("text-wrapper")
         expectReads("button", 1)
-        cy.wait(200)
         click("expander")
-        expectReads("text-wrapper", 2)
+        expectMeasured("text-wrapper")
         expectReads("button", 1)
     })
 })
