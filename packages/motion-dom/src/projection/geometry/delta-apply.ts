@@ -1,7 +1,7 @@
 import { Axis, Box, Delta, Point } from "motion-utils"
 import { mixNumber } from "../../utils/mix/number"
 import { ResolvedValues } from "../../render/types"
-import { hasTransform } from "../utils/has-transform"
+import { hasTransform, unlessNone } from "../utils/has-transform"
 
 /**
  * Scales a point based on a factor and an originPoint
@@ -189,18 +189,19 @@ export function transformBox(
     sourceBox?: Box
 ) {
     const resolveBox = sourceBox ?? box
+    const scale = unlessNone(transform.scale) as number
     transformAxis(
         box.x,
-        resolveAxisTranslate(transform.x, resolveBox.x),
-        transform.scaleX as number,
-        transform.scale as number,
+        resolveAxisTranslate(unlessNone(transform.x), resolveBox.x),
+        unlessNone(transform.scaleX) as number,
+        scale,
         transform.originX as number
     )
     transformAxis(
         box.y,
-        resolveAxisTranslate(transform.y, resolveBox.y),
-        transform.scaleY as number,
-        transform.scale as number,
+        resolveAxisTranslate(unlessNone(transform.y), resolveBox.y),
+        unlessNone(transform.scaleY) as number,
+        scale,
         transform.originY as number
     )
 }

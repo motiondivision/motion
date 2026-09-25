@@ -1,3 +1,4 @@
+import { motionValue } from "../../../value"
 import { HTMLVisualElement } from "../HTMLVisualElement"
 
 const createVisualElement = (element: HTMLElement) => {
@@ -23,6 +24,37 @@ describe("HTMLVisualElement.readValue", () => {
         const element = document.createElement("div")
         element.style.opacity = "0.5"
         expect(createVisualElement(element).readValue("opacity", 1)).toBe(0.5)
+    })
+
+    test("reads transforms when the projection node isn't projecting", () => {
+        const element = document.createElement("div")
+        element.style.transform = "matrix(2, 0, 0, 2, 50, 0)"
+        const visualElement = createVisualElement(element)
+        visualElement.projection = { isProjecting: () => false } as any
+
+        expect(visualElement.readValue("x")).toBe(50)
+        expect(visualElement.readValue("scale")).toBe(2)
+    })
+
+    test("doesn't read transforms written by an active projection", () => {
+        const element = document.createElement("div")
+        element.style.transform = "matrix(2, 0, 0, 2, 50, 0)"
+        const visualElement = createVisualElement(element)
+        visualElement.projection = { isProjecting: () => true } as any
+
+        expect(visualElement.readValue("x")).toBe(0)
+        expect(visualElement.readValue("scale")).toBe(1)
+    })
+
+    test("doesn't read transforms it has rendered", () => {
+        const element = document.createElement("div")
+        element.style.transform = "matrix(2, 0, 0, 2, 50, 0)"
+        const visualElement = createVisualElement(element)
+        visualElement.projection = { isProjecting: () => false } as any
+        visualElement.renderState.style.transform = element.style.transform
+
+        expect(visualElement.readValue("x")).toBe(0)
+        expect(visualElement.readValue("scale")).toBe(1)
     })
 
     test("leaves animatable values as read", () => {
@@ -56,5 +88,18 @@ describe("HTMLVisualElement.readValue", () => {
         visualElement.latestValues.width = 200
 
         expect(visualElement.readValue("width", "50%")).toBe(200)
+    })
+})
+
+describe("HTMLVisualElement.addValue", () => {
+    test("doesn't render a value until it has resolved", () => {
+        const visualElement = createVisualElement(document.createElement("div"))
+        const x = motionValue<number | undefined>(undefined)
+        visualElement.addValue("x", x as any)
+
+        expect("x" in visualElement.latestValues).toBe(false)
+
+        x.set(5)
+        expect(visualElement.latestValues.x).toBe(5)
     })
 })

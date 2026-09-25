@@ -48,7 +48,13 @@ export class HTMLVisualElement extends DOMVisualElement<
         key: string
     ): AnyResolvedKeyframe | null | undefined {
         if (transformProps.has(key)) {
-            return this.projection?.isProjecting
+            /**
+             * Only a transform Motion hasn't rendered (e.g. from a stylesheet)
+             * is a meaningful origin. Our own output would be decomposed into
+             * this key, and a projection transform is a layout correction.
+             */
+            return this.renderState.style.transform ||
+                this.projection?.isProjecting()
                 ? defaultTransformValue(key)
                 : readTransformValue(instance, key)
         } else {

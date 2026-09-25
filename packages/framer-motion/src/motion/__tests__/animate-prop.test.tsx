@@ -996,6 +996,36 @@ describe("animate prop as object", () => {
         return expect(promise).resolves.toBe("#000")
     })
 
+    test("doesn't render unseen values before their origin is read", async () => {
+        const setProperty = jest.spyOn(
+            CSSStyleDeclaration.prototype,
+            "setProperty"
+        )
+        const { container } = render(
+            <motion.div
+                initial={{ opacity: 0.5 }}
+                animate={{ x: 100, "--foo": 100 } as any}
+                transition={{ delay: 1 }}
+            />
+        )
+        const element = container.firstChild as HTMLElement
+        element.style.opacity = ""
+
+        // Flush the mount render, which runs before the origin is read
+        await Promise.resolve()
+        const { opacity, transform } = element.style
+
+        await nextFrame()
+        const written = setProperty.mock.calls
+            .filter(([name]) => name === "--foo")
+            .map(([, value]) => value)
+        setProperty.mockRestore()
+
+        expect(opacity).toBe("0.5")
+        expect(transform).toBe("")
+        expect(written).not.toContain(undefined)
+    })
+
     test("forces an animation to fallback if has been set to `null`", async () => {
         const promise = new Promise(async (resolve) => {
             const complete = () => resolve(true)

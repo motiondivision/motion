@@ -61,6 +61,32 @@ describe("buildProjectionTransform", () => {
         )
     })
 
+    it("Treats 'none' as the default value", () => {
+        const none = {
+            z: "none",
+            transformPerspective: "none",
+            rotate: "none",
+            pathRotation: "none",
+            rotateX: "none",
+            rotateY: "none",
+            skewX: "none",
+            skewY: "none",
+        }
+        expect(
+            buildProjectionTransform(createDelta(), { x: 1, y: 1 }, none)
+        ).toEqual("none")
+
+        const delta = createDelta()
+        delta.x.translate = 100
+        expect(
+            buildProjectionTransform(
+                delta,
+                { x: 1, y: 1 },
+                { ...none, rotate: 45 }
+            )
+        ).toEqual("translate3d(100px, 0px, 0px) rotate(45deg) ")
+    })
+
     it("Doesn't apply unneccessary translation", () => {
         const delta = {
             x: {

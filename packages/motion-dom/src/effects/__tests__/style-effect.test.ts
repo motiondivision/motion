@@ -25,6 +25,19 @@ describe("styleEffect", () => {
         expect(element.style.transform).toBe("none")
     })
 
+    it("treats 'none' as the default transform value", async () => {
+        const element = document.createElement("div")
+        const x = motionValue<string | number>("none")
+        const scale = motionValue<string | number>("none")
+        styleEffect(element, { x, scale })
+        await nextFrame()
+        expect(element.style.transform).toBe("none")
+
+        scale.set(2)
+        await nextFrame()
+        expect(element.style.transform).toBe("scale(2)")
+    })
+
     it("renders a transform key rebound to a new motion value", async () => {
         const element = document.createElement("div")
         const x = motionValue(10)

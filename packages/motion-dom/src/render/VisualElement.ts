@@ -804,7 +804,15 @@ export abstract class VisualElement<
             if (existingValue) this.removeValue(key)
             this.bindToMotionValue(key, value)
             this.values.set(key, value)
-            this.latestValues[key] = value.get()
+
+            /**
+             * An animated value with no base value is undefined until the
+             * keyframe resolver reads its origin. Rendering it before then
+             * writes an invalid placeholder (e.g. points="undefined") that
+             * the resolver can read back from the DOM as the origin.
+             */
+            const latest = value.get()
+            if (latest !== undefined) this.latestValues[key] = latest
         }
     }
 
