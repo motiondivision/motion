@@ -23,13 +23,17 @@ describe("Reorder auto-scroll", () => {
                                 containerRect.bottom - containerRect.top - 20
 
                             cy.get("[data-testid='0']")
+                                .nextFrame()
+                                .nextFrame()
                                 .trigger("pointerdown", 50, 25)
                                 .wait(50)
                                 .trigger("pointermove", 50, 30, { force: true })
+                                .nextFrame()
                                 .wait(50)
                                 .trigger("pointermove", 50, nearBottom, {
                                     force: true,
                                 })
+                                .nextFrame()
                                 .wait(300)
                                 .get("[data-testid='scroll-container']")
                                 .then(($c) => {
@@ -57,11 +61,15 @@ describe("Reorder auto-scroll", () => {
                     expect($container[0].scrollTop).to.equal(200)
                 })
                 .get("[data-testid='8']")
+                .nextFrame()
+                .nextFrame()
                 .trigger("pointerdown", 50, 25)
                 .wait(50)
                 .trigger("pointermove", 50, 20, { force: true })
+                .nextFrame()
                 .wait(50)
                 .trigger("pointermove", 50, -100, { force: true })
+                .nextFrame()
                 .wait(300)
                 .get("[data-testid='scroll-container']")
                 .then(($container) => {
@@ -96,13 +104,17 @@ describe("Reorder auto-scroll", () => {
                                 containerRect.bottom - containerRect.top - 20
 
                             cy.get("[data-testid='0']")
+                                .nextFrame()
+                                .nextFrame()
                                 .trigger("pointerdown", 50, 25)
                                 .wait(50)
                                 .trigger("pointermove", 50, 30, { force: true })
+                                .nextFrame()
                                 .wait(50)
                                 .trigger("pointermove", 50, nearBottom, {
                                     force: true,
                                 })
+                                .nextFrame()
                                 .wait(300)
                                 .get("[data-testid='scroll-container']")
                                 .then(($c) => {
@@ -135,13 +147,17 @@ describe("Reorder auto-scroll", () => {
                             win.innerHeight - win.screenTop - 20
 
                         cy.get("[data-testid='0']")
+                        .nextFrame()
+                        .nextFrame()
                         .trigger("pointerdown", 50, 25)
                         .wait(50)
                         .trigger("pointermove", 50, 30, { force: true })
+                        .nextFrame()
                         .wait(50)
                         .trigger("pointermove", 50, nearBottom, {
                             force: true,
                         })
+                        .nextFrame()
                         .wait(300)
                         .window()
                         .then((win) => {

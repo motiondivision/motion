@@ -24,10 +24,14 @@ describe("Nested Scroll/Page", () => {
                     left: 110,
                 })
             })
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 60, 60, { force: true })
             .trigger("pointermove", 50, 50, { force: true }) // Gesture will start from first move past threshold
+            .nextFrame()
             .wait(50)
             .trigger("pointermove", 10, 10, { force: true })
+            .nextFrame()
             .wait(200)
             .trigger("pointerup")
             .wait(70)

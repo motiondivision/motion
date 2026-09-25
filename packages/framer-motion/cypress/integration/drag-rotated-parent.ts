@@ -4,10 +4,14 @@ describe("Drag with rotated parent", () => {
             .wait(200)
             .get("[data-testid='draggable']")
             .wait(100)
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 50, 50)
             .trigger("pointermove", 55, 55) // Past threshold
+            .nextFrame()
             .wait(50)
             .trigger("pointermove", 150, 50, { force: true }) // Move right
+            .nextFrame()
             .wait(50)
             .trigger("pointerup", { force: true })
             .should(($el: any) => {

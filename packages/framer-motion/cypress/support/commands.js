@@ -28,7 +28,11 @@
  * Yields the subject after the app's next animation frame.
  *
  * Motion processes pointer input (and starts animations) on the next frame,
- * and on slow CI a fixed cy.wait() can resolve before that frame has run.
+ * and on slow CI a fixed cy.wait() can resolve before that frame has run:
+ * headless Electron can go hundreds of milliseconds without a frame while
+ * Cypress keeps running commands. Gesture specs call it after every
+ * pointermove, and twice before the first pointerdown so React 19 StrictMode
+ * has remounted refs (it does so after the first paint, ending any gesture).
  */
 Cypress.Commands.add("nextFrame", { prevSubject: "optional" }, (subject) =>
     cy
