@@ -5,6 +5,7 @@ import {
     pipe,
     secondsToMilliseconds,
 } from "motion-utils"
+import { frame } from "../frameloop"
 import { time } from "../frameloop/sync-time"
 import { camelToDash } from "../render/dom/utils/camel-to-dash"
 import { mix } from "../utils/mix"
@@ -547,58 +548,51 @@ export class JSAnimation<T extends number | string>
         return timeline.observe(this)
     }
 
-    private timelineActive = true
+    private isTimelineActive = true
 
     /**
      * Activate/deactivate the animation while it's driven by a scroll timeline
      * range. Outside the range we remove the rendered style so the CSS cascade
-     * (e.g. `:hover`) can take over, matching native `animation-range`. The
-     * value stays bound, so the next in-range scroll update re-applies it.
+     * (e.g. `:hover`) can take over, matching native `animation-range`.
      */
     setActive(isActive: boolean) {
-        if (isActive === this.timelineActive) return
-        this.timelineActive = isActive
+        if (isActive === this.isTimelineActive) return
+        this.isTimelineActive = isActive
 
         const { motionValue, name } = this.options
-        if (!name) return
 
         if (isActive) {
             /**
-             * Re-entering the range: re-render the still-bound value's style. We
-             * can't rely on the next scroll update alone, as it may resolve to
-             * the same (unchanged) value it deactivated at, which wouldn't
-             * trigger a render.
+             * The value may not change on re-entry, so re-notify its
+             * renderer to write it again.
              */
-            ;(this.options.element as { render?: () => void } | undefined)?.render?.()
+            motionValue?.dirty()
             return
         }
 
         const element = motionValue?.owner?.current as HTMLElement | undefined
-        if (!element?.style) return
+        if (!name || !element?.style) return
 
         /**
-         * For plain styles `removeProperty` clears the inline value. Transform
-         * values share the combined `transform` property, so target that.
+         * Scheduled after any render already queued this frame, which
+         * would otherwise write the value straight back.
          */
-        element.style.removeProperty(
-            isTransform(name) ? "transform" : camelToDash(name)
-        )
+        frame.render(() => element.style.removeProperty(getStyleName(name)))
     }
 }
 
 /**
- * Lightweight transform-key check that avoids pulling the full transform key
- * list (and its bundle cost) into the animation module. Transform values all
- * render to the combined `transform` property rather than `name`.
+ * The CSS property a value renders to. Checked by name rather than with the
+ * transform key list to keep that list out of the animation bundle.
  */
-function isTransform(name: string) {
-    return (
-        name === "x" ||
-        name === "y" ||
-        name === "z" ||
-        /^(transform|translate|rotate|scale|skew)/.test(name)
-    )
-}
+const getStyleName = (name: string) =>
+    /^(?:[xyz]$|translate|rotate|scale|skew|transformP)/u.test(name)
+        ? "transform"
+        : /^(?:origin|transformO)/u.test(name)
+        ? "transform-origin"
+        : name.startsWith("--")
+        ? name
+        : camelToDash(name)
 
 // Legacy function support
 export function animateValue<T extends number | string>(
