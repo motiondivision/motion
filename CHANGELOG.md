@@ -8,9 +8,10 @@ Undocumented APIs should be considered internal and may change without warning.
 
 ### Changed
 
--   `scroll`: 45% smaller.
--   `useScroll`: 35% smaller.
--   Scroll callbacks: 25% faster.
+-   `scroll`: 44% smaller.
+-   `useScroll`: 33% smaller.
+-   Scroll callbacks: 50% faster.
+-   Removed `ScrollTimeline` support for JS callbacks as benchmarked no improvement over `scrollInfo`.
 
 ### Fixed
 
