@@ -20,10 +20,11 @@ npm install motion
 1. [Why Motion?](#why-motion)
 2. [🍦 Platforms](#-platforms)
 3. [🎓 Examples](#-examples)
-4. [⚡️ Motion+](#-motion)
-5. [👩🏻‍⚖️ License](#-license)
-6. [💎 Contribute](#-contribute)
-7. [✨ Sponsors](#-sponsors)
+4. [🎨 Motion Studio](#-motion-studio)
+5. [⚡️ Motion+](#-motion)
+6. [👩🏻‍⚖️ License](#-license)
+7. [💎 Contribute](#-contribute)
+8. [✨ Sponsors](#-sponsors)
 
 ## Why Motion?
 
@@ -77,6 +78,12 @@ Get started with [Motion for Vue](https://motion.dev/docs/vue).
 Browse 330+ [official examples](https://motion.dev/examples), with copy-paste code that'll level-up your animations whether you're a beginner or an expert.
 
 Over 100 examples come with a full step-by-step [tutorial](https://motion.dev/tutorials).
+
+## 🎨 Motion Studio
+
+A visual animation editor for your website. Edit keyframes, easing curves and springs on a live timeline, or describe changes to the Ultramotion agent, then apply the result straight to your code with Cursor, Codex or Claude.
+
+[Explore Motion Studio](https://motion.dev/studio)
 
 ## ⚡️ Motion+
 
