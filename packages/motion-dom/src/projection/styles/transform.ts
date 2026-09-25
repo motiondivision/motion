@@ -1,10 +1,6 @@
 import type { Delta, Point } from "motion-utils"
 import type { ResolvedValues } from "../../node/types"
-
-/**
- * "none" is the default value, so it's skipped like 0.
- */
-const isSet = (value: unknown) => value !== "none" && value
+import { unlessNone } from "../utils/has-transform"
 
 export function buildProjectionTransform(
     delta: Delta,
@@ -21,7 +17,7 @@ export function buildProjectionTransform(
      */
     const xTranslate = delta.x.translate / treeScale.x
     const yTranslate = delta.y.translate / treeScale.y
-    const zTranslate = isSet(latestTransform?.z) || 0
+    const zTranslate = unlessNone(latestTransform?.z) || 0
     if (xTranslate || yTranslate || zTranslate) {
         transform = `translate3d(${xTranslate}px, ${yTranslate}px, ${zTranslate}px) `
     }
@@ -44,15 +40,15 @@ export function buildProjectionTransform(
             skewX,
             skewY,
         } = latestTransform
-        if (isSet(transformPerspective))
+        if (unlessNone(transformPerspective))
             transform = `perspective(${transformPerspective}px) ${transform}`
-        if (isSet(rotate)) transform += `rotate(${rotate}deg) `
+        if (unlessNone(rotate)) transform += `rotate(${rotate}deg) `
         // Additive `rotate()` so user `rotate` isn't clobbered.
-        if (isSet(pathRotation)) transform += `rotate(${pathRotation}deg) `
-        if (isSet(rotateX)) transform += `rotateX(${rotateX}deg) `
-        if (isSet(rotateY)) transform += `rotateY(${rotateY}deg) `
-        if (isSet(skewX)) transform += `skewX(${skewX}deg) `
-        if (isSet(skewY)) transform += `skewY(${skewY}deg) `
+        if (unlessNone(pathRotation)) transform += `rotate(${pathRotation}deg) `
+        if (unlessNone(rotateX)) transform += `rotateX(${rotateX}deg) `
+        if (unlessNone(rotateY)) transform += `rotateY(${rotateY}deg) `
+        if (unlessNone(skewX)) transform += `skewX(${skewX}deg) `
+        if (unlessNone(skewY)) transform += `skewY(${skewY}deg) `
     }
 
     /**

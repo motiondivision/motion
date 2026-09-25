@@ -2,6 +2,7 @@ import { Axis, Box } from "motion-utils"
 import { mixNumber } from "../../utils/mix/number"
 import { percent } from "../../value/types/numbers/units"
 import { ResolvedValues } from "../../render/types"
+import { unlessNone } from "../utils/has-transform"
 import { scalePoint } from "./delta-apply"
 
 /**
@@ -81,10 +82,10 @@ export function removeAxisTransforms(
 ) {
     removeAxisDelta(
         axis,
-        transforms[key] as number,
-        transforms[scaleKey] as number,
+        unlessNone(transforms[key]) as number,
+        unlessNone(transforms[scaleKey]) as number,
         transforms[originKey] as number,
-        transforms.scale as number,
+        unlessNone(transforms.scale) as number,
         origin,
         sourceAxis
     )
