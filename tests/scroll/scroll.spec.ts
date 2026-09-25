@@ -24,6 +24,135 @@ async function eachStaggerBox(
     }
 }
 
+async function settle(page: Page) {
+    await page.evaluate(
+        () =>
+            new Promise((resolve) =>
+                requestAnimationFrame(() => requestAnimationFrame(resolve))
+            )
+    )
+}
+
+async function readProgress(page: Page, name: string) {
+    return page.evaluate((key) => {
+        const { progress, infoProgress } = (window as any).results[key]
+        return {
+            progress,
+            infoProgress,
+            native: (window as any).readNativeProgress(key),
+        }
+    }, name)
+}
+
+test.describe("scroll() progress callbacks", () => {
+    test.use({ viewport: { width: 500, height: 500 } })
+
+    test.beforeEach(async ({ page }) => {
+        await page.goto("scroll/scroll-callback-progress.html")
+        await settle(page)
+    })
+
+    test("page scroll progress matches scroll position and native ScrollTimeline", async ({
+        page,
+    }) => {
+        const maxScroll = await page.evaluate(
+            () =>
+                document.documentElement.scrollHeight -
+                document.documentElement.clientHeight
+        )
+
+        for (const fraction of [0, 0.25, 0.617, 1]) {
+            const scrollTop = Math.round(maxScroll * fraction)
+            await page.evaluate((y) => window.scrollTo(0, y), scrollTop)
+            await settle(page)
+
+            const { progress, infoProgress, native } = await readProgress(
+                page,
+                "page"
+            )
+            expect(progress).toBeCloseTo(scrollTop / maxScroll, 3)
+            expect(progress).toBe(infoProgress)
+            if (native !== undefined) expect(progress).toBeCloseTo(native, 3)
+        }
+    })
+
+    test("element container progress matches scroll position and native ScrollTimeline, y and x axis", async ({
+        page,
+    }) => {
+        for (const [left, top] of [
+            [0, 0],
+            [200, 400],
+            [800, 800],
+        ]) {
+            await page.evaluate(
+                ([x, y]) => document.getElementById("scroller")!.scrollTo(x, y),
+                [left, top]
+            )
+            await settle(page)
+
+            for (const [name, expected] of [
+                ["container", top / 800],
+                ["source", top / 800],
+                ["x", left / 800],
+            ] as const) {
+                const { progress, infoProgress, native } = await readProgress(
+                    page,
+                    name
+                )
+                expect(progress).toBeCloseTo(expected, 3)
+                expect(progress).toBe(infoProgress)
+                if (native !== undefined) {
+                    expect(progress).toBeCloseTo(native, 3)
+                }
+            }
+        }
+    })
+
+    test("target progress matches the target's position in the viewport", async ({
+        page,
+    }) => {
+        const { targetTop, viewport, targetHeight } = await page.evaluate(
+            () => {
+                const target = document.getElementById("target")!
+                return {
+                    targetTop: target.offsetTop,
+                    targetHeight: target.offsetHeight,
+                    viewport: document.documentElement.clientHeight,
+                }
+            }
+        )
+
+        for (const scrollTop of [
+            0,
+            targetTop - viewport + 150,
+            targetTop,
+            targetTop + targetHeight,
+        ]) {
+            await page.evaluate((y) => window.scrollTo(0, y), scrollTop)
+            await settle(page)
+
+            const top = targetTop - scrollTop
+            const expected = Math.min(
+                1,
+                Math.max(0, (viewport - top) / (viewport + targetHeight))
+            )
+            const { progress, infoProgress } = await readProgress(
+                page,
+                "target"
+            )
+            expect(progress).toBeCloseTo(expected, 3)
+            expect(progress).toBe(infoProgress)
+        }
+    })
+
+    test("non-scrollable container reports the same progress as scroll info", async ({
+        page,
+    }) => {
+        const { progress, infoProgress } = await readProgress(page, "static")
+        expect(progress).toBe(infoProgress)
+    })
+})
+
 test.describe("scroll()", () => {
     test.use({ viewport: { width: 500, height: 500 } })
 
