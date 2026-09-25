@@ -69,8 +69,9 @@ function approximateRoot(
 const safeMin = 0.001
 
 /**
- * Time-defined springs ignore inherited velocity and only resolve without
- * valid physics, so velocity is always 0 and mass the default.
+ * Assumes zero initial velocity and the default mass: time-defined springs
+ * ignore inherited velocity and only resolve without valid physics. Returns
+ * NaN physics when the root search doesn't converge.
  */
 function findSpring({
     duration = springDefaults.duration,
@@ -146,21 +147,12 @@ function findSpring({
 
     const initialGuess = 5 / duration
     const undampedFreq = approximateRoot(envelope, derivative, initialGuess)
+    const stiffness = undampedFreq * undampedFreq
 
-    duration = secondsToMilliseconds(duration)
-    if (isNaN(undampedFreq)) {
-        return {
-            stiffness: springDefaults.stiffness,
-            damping: springDefaults.damping,
-            duration,
-        }
-    } else {
-        const stiffness = undampedFreq * undampedFreq
-        return {
-            stiffness,
-            damping: dampingRatio * 2 * Math.sqrt(stiffness),
-            duration,
-        }
+    return {
+        stiffness,
+        damping: dampingRatio * 2 * Math.sqrt(stiffness),
+        duration: secondsToMilliseconds(duration),
     }
 }
 
@@ -229,10 +221,11 @@ function getSpringOptions(options: SpringOptions) {
         }
 
         /**
-         * Non-finite time options degenerate: a NaN bounce gives a NaN
-         * damping, an infinite visualDuration a 0 stiffness. Replace the two
-         * together, so the relationship duration resolution establishes
-         * between them is never left half-overwritten.
+         * Time options can degenerate: a NaN bounce gives a NaN damping, an
+         * infinite visualDuration a 0 stiffness, and findSpring NaN for both
+         * when it doesn't converge. Replace the two together, so the
+         * relationship duration resolution establishes between them is never
+         * left half-overwritten.
          */
         if (
             !isValidPhysics(springOptions.stiffness) ||
