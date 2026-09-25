@@ -18,6 +18,7 @@ export const App = () => {
 
         let progressCalls = 0
         let infoCalls = 0
+        let maxVelocity = 0
 
         const stopProgress = scroll(
             (p: number) => {
@@ -32,6 +33,8 @@ export const App = () => {
                 write("info-calls", ++infoCalls)
                 write("info-progress", p)
                 write("info-velocity", info.y.velocity)
+                maxVelocity = Math.max(maxVelocity, info.y.velocity)
+                write("info-max-velocity", maxVelocity)
             },
             { target: target.current, offset: ["start end", "end start"] }
         )
@@ -53,6 +56,7 @@ export const App = () => {
                 <span id="info-calls">0</span>
                 <span id="info-progress">-</span>
                 <span id="info-velocity">-</span>
+                <span id="info-max-velocity">-</span>
             </div>
         </>
     )
