@@ -89,4 +89,25 @@ describe("NativeAnimation - onfinish style commit", () => {
         expect(mv.get()).toBe(0.5)
         expect(mockAnimation.cancel).toHaveBeenCalled()
     })
+
+    test("attaching a range suspends the value's rendered output", () => {
+        const element = document.createElement("div")
+        const suspend = jest.fn()
+        const mv = motionValue(0.5, {
+            owner: { current: element, getProps: () => ({}), suspend } as any,
+        })
+
+        const animation = new NativeAnimationExtended({
+            element,
+            name: "opacity",
+            keyframes: [0, 1],
+            motionValue: mv,
+            duration: 300,
+            ease: "linear",
+        } as any)
+
+        animation.attachTimeline({ fill: "auto", observe: () => () => {} })
+
+        expect(suspend).toHaveBeenCalledWith("opacity")
+    })
 })

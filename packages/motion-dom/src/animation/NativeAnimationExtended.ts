@@ -3,7 +3,11 @@ import { time } from "../frameloop/sync-time"
 import { setStyle } from "../render/dom/style-set"
 import { JSAnimation } from "./JSAnimation"
 import { NativeAnimation, NativeAnimationOptions } from "./NativeAnimation"
-import { AnyResolvedKeyframe, ValueAnimationOptions } from "./types"
+import {
+    AnyResolvedKeyframe,
+    TimelineWithFallback,
+    ValueAnimationOptions,
+} from "./types"
 import { replaceTransitionType } from "./utils/replace-transition-type"
 import { replaceStringEasing } from "./waapi/utils/unsupported-easing"
 
@@ -55,6 +59,18 @@ export class NativeAnimationExtended<
         }
 
         this.options = options
+    }
+
+    /**
+     * A range removes the effect outside it, where the value's own output
+     * (e.g. a start value read from the element) mustn't show through.
+     * While in range the effect overrides it anyway.
+     */
+    attachTimeline(timeline: TimelineWithFallback) {
+        const { motionValue, name } = this.options
+        if (timeline.fill && name) motionValue?.owner?.suspend?.(name)
+
+        return super.attachTimeline(timeline)
     }
 
     /**

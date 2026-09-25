@@ -5,10 +5,7 @@ import {
     pipe,
     secondsToMilliseconds,
 } from "motion-utils"
-import { frame } from "../frameloop"
 import { time } from "../frameloop/sync-time"
-import { camelToDash } from "../render/dom/utils/camel-to-dash"
-import { transformProps } from "../render/utils/keys-transform"
 import { mix } from "../utils/mix"
 import { Mixer } from "../utils/mix/types"
 import { frameloopDriver } from "./drivers/frame"
@@ -560,8 +557,9 @@ export class JSAnimation<T extends number | string>
 
     /**
      * Activate/deactivate the animation while it's driven by a scroll timeline
-     * range. Outside the range we remove the rendered style so the CSS cascade
-     * (e.g. `:hover`) can take over, matching native `animation-range`.
+     * range. Outside the range its renderer stops outputting the value so the
+     * CSS cascade (e.g. `:hover`) can take over, matching native
+     * `animation-range`.
      */
     setActive(isActive: boolean) {
         if (isActive === this.isTimelineActive) return
@@ -569,37 +567,17 @@ export class JSAnimation<T extends number | string>
 
         const { motionValue, name } = this.options
 
-        if (isActive) {
-            /**
-             * The value may not change on re-entry, so re-notify its
-             * renderer to write it again.
-             */
-            motionValue?.dirty()
-            return
-        }
-
-        const element = motionValue?.owner?.current as HTMLElement | undefined
-        if (!name || !element?.style) return
-
         /**
-         * Written in the render step with other style writes, after any
-         * render already queued this frame.
+         * A change resumes a suspended value, and the value may not change
+         * on re-entry, so re-notify it.
          */
-        frame.render(() => element.style.removeProperty(getStyleName(name)))
+        if (isActive) {
+            motionValue?.dirty()
+        } else if (name) {
+            motionValue?.owner?.suspend?.(name)
+        }
     }
 }
-
-/**
- * The CSS property a value renders to.
- */
-const getStyleName = (name: string) =>
-    transformProps.has(name)
-        ? "transform"
-        : name.startsWith("origin") || name === "transformOrigin"
-        ? "transform-origin"
-        : name.startsWith("--")
-        ? name
-        : camelToDash(name)
 
 // Legacy function support
 export function animateValue<T extends number | string>(
