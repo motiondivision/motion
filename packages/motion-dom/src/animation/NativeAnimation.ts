@@ -253,6 +253,7 @@ export class NativeAnimation<T extends AnyResolvedKeyframe>
         timeline,
         rangeStart,
         rangeEnd,
+        onAttach,
         observe,
     }: TimelineWithFallback): VoidFunction {
         if (this.allowFlatten) {
@@ -267,7 +268,7 @@ export class NativeAnimation<T extends AnyResolvedKeyframe>
             if (rangeStart) (this.animation as any).rangeStart = rangeStart
             if (rangeEnd) (this.animation as any).rangeEnd = rangeEnd
 
-            return noop<void>
+            return onAttach ? onAttach(this.animation) : noop<void>
         } else {
             return observe(this)
         }

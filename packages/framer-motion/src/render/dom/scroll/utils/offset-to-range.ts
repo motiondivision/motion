@@ -1,9 +1,25 @@
 import { resolveOffset } from "../offsets/offset"
+import { ScrollOffset as presets } from "../offsets/presets"
 import { ScrollOffset } from "../types"
 
-interface ViewTimelineRange {
-    rangeStart?: string
-    rangeEnd?: string
+export interface ViewTimelineRange {
+    /**
+     * Named range offsets of the offset's two points.
+     */
+    points: string[]
+
+    /**
+     * The offset runs forwards when a × target length + b × container length
+     * is >= 0. Otherwise its range runs from the second point to the first,
+     * with progress reversed.
+     */
+    a: number
+    b: number
+
+    /**
+     * Whether this is the ViewTimeline's default range, run forwards.
+     */
+    cover: boolean
 }
 
 /**
@@ -28,32 +44,21 @@ const toRange = ([t, c, px]: number[]) =>
  * tracking.
  */
 export function offsetToViewTimelineRange(
-    offset?: ScrollOffset
+    offset: ScrollOffset = presets.All
 ): ViewTimelineRange | undefined {
-    if (offset?.length !== 2) return
+    if (offset.length !== 2) return
 
     const [start, end] = offset.map(toIntersection)
-    const [t0, c0] = start
-    const [t1, c1] = end
-    const rangeStart = toRange(start)
-    const rangeEnd = toRange(end)
+    const points = [toRange(start), toRange(end)]
+    const a = end[0] - start[0]
+    const b = start[1] - end[1]
 
-    /**
-     * A range can't run backwards, so the offset must progress forwards
-     * for every target and container size.
-     */
-    if (
-        !rangeStart ||
-        !rangeEnd ||
-        t1 < t0 ||
-        c1 > c0 ||
-        (t1 === t0 && c1 === c0)
-    )
-        return
-
-    /**
-     * Full cover is a ViewTimeline's default range, and the only one its
-     * currentTime reports.
-     */
-    return !t0 && t1 === 1 && c0 > c1 ? {} : { rangeStart, rangeEnd }
+    if (points[0] && points[1] && (a || b)) {
+        return {
+            points: points as string[],
+            a,
+            b,
+            cover: !start[0] && a === 1 && b === 1,
+        }
+    }
 }

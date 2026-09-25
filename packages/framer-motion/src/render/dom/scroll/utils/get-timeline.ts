@@ -35,26 +35,11 @@ function scrollTimelineFallback(options: ScrollOptionsWithDefaults) {
     return { currentTime, cancel }
 }
 
-/**
- * A ViewTimeline's currentTime is its cover progress, so other ranges are
- * read from a hidden animation attached to the same range.
- */
-function rangeTimeline(timeline: ProgressTimeline, range: object) {
-    const { effect } = document
-        .createElement("div")
-        .animate(null, { timeline, ...range, fill: "both" } as any)
-
-    return {
-        get currentTime() {
-            return { value: effect!.getComputedTiming().progress! * 100 }
-        },
-    }
-}
-
-export function getTimeline(
-    { source, container, ...options }: ScrollOptionsWithDefaults,
-    range?: object
-): ProgressTimeline {
+export function getTimeline({
+    source,
+    container,
+    ...options
+}: ScrollOptionsWithDefaults): ProgressTimeline {
     const { axis, target } = options
 
     if (source) container = source
@@ -76,7 +61,7 @@ export function getTimeline(
 
     if (!targetCache[axisKey]) {
         targetCache[axisKey] =
-            !canUseNativeTimeline(target) ||
+            !canUseNativeTimeline(target, container) ||
             (target && !offsetToViewTimelineRange(options.offset))
                 ? scrollTimelineFallback({ container, ...options })
                 : target
@@ -84,10 +69,5 @@ export function getTimeline(
                 : new ScrollTimeline({ source: container, axis } as any)
     }
 
-    return range
-        ? (targetCache[axisKey + "range"] ||= rangeTimeline(
-              targetCache[axisKey],
-              range
-          ))
-        : targetCache[axisKey]
+    return targetCache[axisKey]!
 }
