@@ -28,7 +28,7 @@ export interface TimelineWithFallback {
     timeline?: ProgressTimeline
     rangeStart?: string
     rangeEnd?: string
-    fill?: string
+    fill?: FillMode
     observe: (animation: AnimationPlaybackControls) => VoidFunction
 }
 

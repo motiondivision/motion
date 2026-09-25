@@ -63,4 +63,29 @@ describe("NativeAnimation - onfinish style commit", () => {
          */
         expect(element.style.opacity).toBe("1")
     })
+
+    test("stop() doesn't commit a value while the effect is inactive", () => {
+        mockAnimation.effect.getComputedTiming = () => ({
+            duration: 300,
+            progress: null,
+        })
+
+        const element = document.createElement("div")
+        const mv = motionValue(0.5)
+
+        const animation = new NativeAnimationExtended({
+            element,
+            name: "opacity",
+            keyframes: [0, 1],
+            motionValue: mv,
+            duration: 300,
+            ease: "linear",
+        } as any)
+
+        animation.stop()
+
+        expect(element.style.opacity).toBe("")
+        expect(mv.get()).toBe(0.5)
+        expect(mockAnimation.cancel).toHaveBeenCalled()
+    })
 })

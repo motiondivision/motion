@@ -8,6 +8,7 @@ import {
 import { frame } from "../frameloop"
 import { time } from "../frameloop/sync-time"
 import { camelToDash } from "../render/dom/utils/camel-to-dash"
+import { transformProps } from "../render/utils/keys-transform"
 import { mix } from "../utils/mix"
 import { Mixer } from "../utils/mix/types"
 import { frameloopDriver } from "./drivers/frame"
@@ -90,6 +91,11 @@ export class JSAnimation<T extends number | string>
         done: false,
         value: undefined as unknown as T,
     }
+
+    /**
+     * Whether a scroll timeline range currently applies the animation.
+     */
+    private isTimelineActive = true
 
     constructor(options: ValueAnimationOptions<T>) {
         super()
@@ -485,7 +491,11 @@ export class JSAnimation<T extends number | string>
      */
     stop = () => {
         const { motionValue } = this.options
-        if (motionValue && motionValue.updatedAt !== time.now()) {
+        if (
+            motionValue &&
+            this.isTimelineActive &&
+            motionValue.updatedAt !== time.now()
+        ) {
             this.tick(time.now())
         }
 
@@ -548,8 +558,6 @@ export class JSAnimation<T extends number | string>
         return timeline.observe(this)
     }
 
-    private isTimelineActive = true
-
     /**
      * Activate/deactivate the animation while it's driven by a scroll timeline
      * range. Outside the range we remove the rendered style so the CSS cascade
@@ -574,21 +582,20 @@ export class JSAnimation<T extends number | string>
         if (!name || !element?.style) return
 
         /**
-         * Scheduled after any render already queued this frame, which
-         * would otherwise write the value straight back.
+         * Written in the render step with other style writes, after any
+         * render already queued this frame.
          */
         frame.render(() => element.style.removeProperty(getStyleName(name)))
     }
 }
 
 /**
- * The CSS property a value renders to. Checked by name rather than with the
- * transform key list to keep that list out of the animation bundle.
+ * The CSS property a value renders to.
  */
 const getStyleName = (name: string) =>
-    /^(?:[xyz]$|translate|rotate|scale|skew|transformP)/u.test(name)
+    transformProps.has(name)
         ? "transform"
-        : /^(?:origin|transformO)/u.test(name)
+        : name.startsWith("origin") || name === "transformOrigin"
         ? "transform-origin"
         : name.startsWith("--")
         ? name

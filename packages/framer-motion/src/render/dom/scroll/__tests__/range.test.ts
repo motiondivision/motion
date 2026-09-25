@@ -155,6 +155,26 @@ describe("scroll() rangeStart/rangeEnd (#3001)", () => {
         box.remove()
     })
 
+    test("Stopping while inactive doesn't write the value back", async () => {
+        const box = document.createElement("div")
+        document.body.appendChild(box)
+
+        const stop = scroll(
+            animate(box, { opacity: [0, 1] }, { duration: 1, ease: "linear" }),
+            { rangeStart: 0.5 }
+        )
+
+        await nextFrame()
+        await nextFrame()
+        expect(box.style.opacity).toBe("")
+
+        stop()
+        await nextFrame()
+        expect(box.style.opacity).toBe("")
+
+        box.remove()
+    })
+
     test("Transform values deactivate and reactivate", async () => {
         const box = document.createElement("div")
         document.body.appendChild(box)

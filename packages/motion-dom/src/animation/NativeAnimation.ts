@@ -47,6 +47,11 @@ export class NativeAnimation<T extends AnyResolvedKeyframe>
     private isPseudoElement: boolean
 
     /**
+     * Whether a scroll timeline range currently applies the animation.
+     */
+    private isTimelineActive = true
+
+    /**
      * Tracks a manually-set start time that takes precedence over WAAPI's
      * dynamic startTime. This is cleared when play() or time setter is called,
      * allowing WAAPI to take over timing.
@@ -162,10 +167,16 @@ export class NativeAnimation<T extends AnyResolvedKeyframe>
             return
         }
 
-        if (this.updateMotionValue) {
-            this.updateMotionValue()
-        } else {
-            this.commitStyles()
+        /**
+         * Outside a scroll range with `fill: "auto"` the effect isn't
+         * applied, so there's no value to commit.
+         */
+        if (this.animation.effect?.getComputedTiming?.().progress !== null) {
+            if (this.updateMotionValue) {
+                this.updateMotionValue()
+            } else {
+                this.commitStyles()
+            }
         }
 
         if (!this.isPseudoElement) this.cancel()
@@ -272,7 +283,7 @@ export class NativeAnimation<T extends AnyResolvedKeyframe>
              * When a user range is set we switch fill to "auto" so the effect is
              * removed outside the range, matching native `animation-range`.
              */
-            if (fill) this.animation.effect?.updateTiming({ fill } as any)
+            if (fill) this.animation.effect?.updateTiming({ fill })
 
             return noop<void>
         } else {
@@ -280,11 +291,9 @@ export class NativeAnimation<T extends AnyResolvedKeyframe>
         }
     }
 
-    private timelineActive = true
-
     setActive(isActive: boolean) {
-        if (isActive === this.timelineActive) return
-        this.timelineActive = isActive
+        if (isActive === this.isTimelineActive) return
+        this.isTimelineActive = isActive
 
         /**
          * Outside the active range we cancel the WAAPI animation to remove its
