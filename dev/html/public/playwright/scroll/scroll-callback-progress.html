@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+                height: 400vh;
+            }
+
+            .scroller {
+                position: relative;
+                width: 200px;
+                height: 200px;
+                overflow: scroll;
+            }
+
+            .scroller-content {
+                width: 1000px;
+                height: 1000px;
+            }
+
+            #target {
+                height: 300px;
+                margin-top: 100vh;
+                background-color: #0077ff;
+            }
+
+            #static {
+                height: 100px;
+                overflow: auto;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="scroller" id="scroller">
+            <div class="scroller-content"></div>
+        </div>
+        <div id="static"><div style="height: 50px"></div></div>
+        <div id="target"></div>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            const { scroll } = window.Motion
+
+            const scroller = document.getElementById("scroller")
+            const staticContainer = document.getElementById("static")
+            const target = document.getElementById("target")
+
+            window.results = {}
+
+            function track(name, options = {}) {
+                const axis = options.axis || "y"
+                const result = (window.results[name] = {
+                    progress: null,
+                    infoProgress: null,
+                })
+                scroll((p) => {
+                    result.progress = p
+                }, options)
+                scroll((_p, info) => {
+                    result.infoProgress = info[axis].progress
+                }, options)
+            }
+
+            track("page")
+            track("container", { container: scroller })
+            track("source", { source: scroller })
+            track("x", { container: scroller, axis: "x" })
+            track("target", { target, offset: ["start end", "end start"] })
+            track("static", { container: staticContainer })
+
+            const nativeTimelines =
+                typeof ScrollTimeline === "undefined"
+                    ? null
+                    : {
+                          page: new ScrollTimeline({
+                              source: document.documentElement,
+                              axis: "y",
+                          }),
+                          container: new ScrollTimeline({
+                              source: scroller,
+                              axis: "y",
+                          }),
+                          x: new ScrollTimeline({ source: scroller, axis: "x" }),
+                      }
+
+            window.readNativeProgress = (name) => {
+                const timeline = nativeTimelines && nativeTimelines[name]
+                if (!timeline) return undefined
+                return timeline.currentTime === null
+                    ? null
+                    : timeline.currentTime.value / 100
+            }
+        </script>
+    </body>
+</html>

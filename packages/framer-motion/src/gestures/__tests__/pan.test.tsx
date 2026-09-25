@@ -1,12 +1,14 @@
+import { PanInfo } from "motion-dom"
 import { useState } from "react"
-import { motion } from "../../"
+import { motion, MotionConfig } from "../../"
 import {
     MockDrag,
     deferred,
     drag,
     dragFrame,
 } from "../../gestures/drag/__tests__/utils"
-import { render } from "../../jest.setup"
+import { pointerDown, pointerMove, pointerUp, render } from "../../jest.setup"
+import { nextFrame } from "./utils"
 
 describe("pan", () => {
     test("pan handlers aren't frozen at pan session start", async () => {
@@ -97,5 +99,44 @@ describe("pan", () => {
         pointer.end()
         expect(onPanStart).not.toBeCalled()
         expect(onPanEnd).not.toBeCalled()
+    })
+
+    test("velocity includes a pointermove that arrives in the same frame as pointerup", async () => {
+        let now = 0
+        const performanceNow = jest
+            .spyOn(performance, "now")
+            .mockImplementation(() => now)
+        const pos = { x: 0, y: 0 }
+        const onPanEnd = deferred<PanInfo>()
+        const Component = () => (
+            <MotionConfig transformPagePoint={() => pos}>
+                <motion.div onPanEnd={(_, info) => onPanEnd.resolve(info)} />
+            </MotionConfig>
+        )
+
+        const { container, rerender } = render(<Component />)
+        rerender(<Component />)
+
+        try {
+            await nextFrame()
+            pointerDown(container.firstChild as Element)
+
+            now = 1000
+            pos.x = 10
+            pointerMove(document.body)
+            await nextFrame()
+
+            now = 1050
+            pos.x = 60
+            pointerMove(document.body)
+            pointerUp(container.firstChild as Element)
+
+            const { offset, velocity } = await onPanEnd.promise
+            expect(offset.x).toBe(60)
+            // 50px between the last two moves, 50ms apart
+            expect(velocity.x).toBe(1000)
+        } finally {
+            performanceNow.mockRestore()
+        }
     })
 })

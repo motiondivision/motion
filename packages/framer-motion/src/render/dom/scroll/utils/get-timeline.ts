@@ -36,13 +36,10 @@ function scrollTimelineFallback(options: ScrollOptionsWithDefaults) {
 }
 
 export function getTimeline({
-    source,
     container,
     ...options
 }: ScrollOptionsWithDefaults): ProgressTimeline {
     const { axis, target } = options
-
-    if (source) container = source
 
     let containerCache = timelineCache.get(container)
     if (!containerCache) {

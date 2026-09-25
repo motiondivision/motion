@@ -20,10 +20,12 @@ npm install motion
 1. [Why Motion?](#why-motion)
 2. [🍦 Platforms](#-platforms)
 3. [🎓 Examples](#-examples)
-4. [⚡️ Motion+](#-motion)
-5. [👩🏻‍⚖️ License](#-license)
-6. [💎 Contribute](#-contribute)
-7. [✨ Sponsors](#-sponsors)
+4. [🎨 Motion Studio](#-motion-studio)
+4. [🤖 Using Motion with AI](#-using-motion-with-ai)
+5. [⚡️ Motion+](#-motion)
+6. [👩🏻‍⚖️ License](#-license)
+7. [💎 Contribute](#-contribute)
+8. [✨ Sponsors](#-sponsors)
 
 ## Why Motion?
 
@@ -74,19 +76,35 @@ Get started with [Motion for Vue](https://motion.dev/docs/vue).
 
 ## 🎓 Examples & tutorials
 
-Browse 330+ [official examples](https://motion.dev/examples), with copy-paste code that'll level-up your animations whether you're a beginner or an expert.
+Browse 450+ [official examples](https://motion.dev/examples), with copy-paste code that'll level-up your animations whether you're a beginner or an expert.
 
-Over 100 examples come with a full step-by-step [tutorial](https://motion.dev/tutorials).
+Over 110 examples come with a full step-by-step tutorial on [their example page](https://motion.dev/examples).
+
+## 🤖 Using Motion with AI
+
+Give your coding agent current Motion docs:
+
+-   **Agent skill:** `npx motion-ai` installs the free, MIT-licensed `/motion` skill and sets up Motion's MCP servers for Claude Code, Cursor, Amp, OpenCode, Gemini CLI and Copilot. [Source on GitHub](https://github.com/motiondivision/ai-kit).
+-   **MCP server:** `https://mcp.motion.dev` searches the Motion docs and example metadata. It is free and needs no account.
+-   **llms.txt:** [motion.dev/llms.txt](https://motion.dev/llms.txt?utm_source=npm-readme) indexes every docs page. Motion+ pages are labelled as paid, with their install and import.
+
+[Motion+](https://motion.dev/plus?utm_source=npm-readme) adds example and Motion UI source, MotionScore performance audits and CSS spring generation for your agent.
+
+## 🎨 Motion Studio
+
+A visual animation editor for your website. Edit keyframes, easing curves and springs on a live timeline, or describe changes to the Ultramotion agent, then apply the result straight to your code with Cursor, Codex or Claude.
+
+[Explore Motion Studio](https://motion.dev/studio)
 
 ## ⚡️ Motion+
 
-A one-time payment, lifetime-updates membership:
+A one-time Personal licence with lifetime updates, or an annual per-seat Business plan for teams:
 
--   **330+ examples**
--   **100+ tutorials**
+-   **450+ examples**
+-   **110+ tutorials**
 -   **Premium APIs** like [Cursor](https://motion.dev/docs/cursor) and [Ticker](https://motion.dev/docs/react-ticker)
 -   **Transition editor** for Cursor and VS Code
--   **AI skills**
+-   **AI Kit:** example and Motion UI source, MotionScore audits and CSS springs for your agent
 -   **Private Discord**
 -   **Early access content**
 
