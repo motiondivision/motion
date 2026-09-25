@@ -77,6 +77,27 @@ describe("scroll() rangeStart/rangeEnd (#3001)", () => {
         expectStyles("#box", "#js-box", [0.65, 0.85], [65, 85])
     })
 
+    it("Leaves no inline start value outside the range", () => {
+        const expectOpacity = (min: number, max: number) =>
+            cy.get("#implicit-box").should(([$el]: any) => {
+                const opacity = parseFloat(getComputedStyle($el).opacity)
+                expect(opacity).to.be.within(min, max)
+            })
+
+        // Start read from the element (0.1), three quarters of the way to 1.
+        cy.scrollTo(0, 600).wait(200)
+        expectOpacity(0.7, 0.85)
+
+        cy.scrollTo(0, 2000).wait(200)
+        expectOpacity(0.07, 0.13)
+        cy.get("#implicit-box").should(([$el]: any) => {
+            expect($el.style.opacity).to.equal("")
+        })
+
+        cy.scrollTo(0, 600).wait(200)
+        expectOpacity(0.7, 0.85)
+    })
+
     it("Resolves the range against the target's cover range", () => {
         // Before the target enters the viewport.
         cy.scrollTo(0, 1000).wait(200)

@@ -9,6 +9,8 @@ import { useEffect } from "react"
  *
  * opacity runs on WAAPI, so it uses a native ScrollTimeline/ViewTimeline where
  * supported. x never does, so it always uses the JS observe path.
+ * #implicit-box reads its start opacity from the element, which is written
+ * inline and mustn't remain outside the range.
  */
 export const App = () => {
     useEffect(() => {
@@ -23,6 +25,10 @@ export const App = () => {
             scroll(animate("#js-box", { x: [0, 100] }, transition), {
                 rangeStart: 0,
                 rangeEnd: 0.2,
+            }),
+            scroll(animate("#implicit-box", { opacity: 1 }, transition), {
+                rangeStart: "0%",
+                rangeEnd: "20%",
             }),
             scroll(animate("#target-box", { opacity: [0, 1] }, transition), {
                 target,
@@ -67,6 +73,11 @@ export const App = () => {
                 id="target-js-box"
                 className="box"
                 style={{ ...box, top: 300 }}
+            />
+            <div
+                id="implicit-box"
+                className="box"
+                style={{ ...box, top: 400 }}
             />
         </>
     )

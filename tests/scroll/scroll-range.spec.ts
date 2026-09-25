@@ -110,6 +110,24 @@ test.describe("scroll() rangeStart/rangeEnd", () => {
         await expectActive(page, pageBoxes, 0.75)
     })
 
+    test("no inline start value outside the range", async ({ page }) => {
+        // Start read from the element (0.1), three quarters of the way to 1.
+        await scrollTo(page, 600)
+        expect((await readBox(page, "implicit-box")).opacity).toBeCloseTo(
+            0.775,
+            1
+        )
+
+        await scrollTo(page, 2000)
+        await expectInactive(page, [["implicit-box", "opacity"]])
+
+        await scrollTo(page, 600)
+        expect((await readBox(page, "implicit-box")).opacity).toBeCloseTo(
+            0.775,
+            1
+        )
+    })
+
     test("target cover range", async ({ page, browserName }) => {
         const targetBoxes = getTargetBoxes(browserName)
 
