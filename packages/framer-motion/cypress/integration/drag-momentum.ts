@@ -84,16 +84,18 @@ describe("Drag Momentum", () => {
                     releasedTop = topOf(el)
                 })
             )
-            // Wait for momentum to start
-            .wait(100)
+            // Wait until momentum is visibly carrying the element, or the
+            // catch is untested
+            .get("[data-testid='draggable']")
+            .should(([el]: any) => {
+                expect(releasedTop - topOf(el)).to.be.greaterThan(20)
+            })
             // Catch. Pointerdown stops the animation, which renders its
             // final value on the next frame.
             .then(([el]: any) => {
                 dispatchPointer(el, "pointerdown", startTop + 500)
                 return afterFrame(el).then(() => {
                     caughtTop = topOf(el)
-                    // Momentum must have been running, or the catch is untested.
-                    expect(releasedTop - caughtTop).to.be.greaterThan(20)
                 })
             })
             .wait(50)
