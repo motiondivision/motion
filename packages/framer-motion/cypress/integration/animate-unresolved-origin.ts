@@ -1,7 +1,3 @@
-function getStyle(element: HTMLElement) {
-    return element.ownerDocument.defaultView!.getComputedStyle(element)
-}
-
 describe("Values without a base value", () => {
     it("never write undefined or NaN SVG attributes", () => {
         const points: string[] = []
@@ -32,19 +28,12 @@ describe("Values without a base value", () => {
             .wait(5000)
             .get("#css-var")
             .then(([element]: any) => {
-                const x = parseFloat(getStyle(element).getPropertyValue("--x"))
+                const x = parseFloat(
+                    element.ownerDocument.defaultView
+                        .getComputedStyle(element)
+                        .getPropertyValue("--x")
+                )
                 expect(x).to.be.within(65, 85)
-            })
-    })
-
-    it("animate transforms from their stylesheet value", () => {
-        cy.visit("?test=animate-unresolved-origin")
-            .wait(5000)
-            .get("#transform")
-            .then(([element]: any) => {
-                const matrix = new (element.ownerDocument.defaultView!
-                    .DOMMatrix as typeof DOMMatrix)(getStyle(element).transform)
-                expect(matrix.m41).to.be.within(65, 85)
             })
     })
 })

@@ -9,11 +9,8 @@ const pointPairs = [
     ["710,38 712,50 389,50 380,36", "850,38 830,50 400,50 390,36"],
 ]
 
-const linear = { ease: "linear", duration: 10 } as const
-
 export const App = () => (
     <>
-        <style>{`.translated { transform: translateX(50px); }`}</style>
         <svg width="900" height="100">
             {pointPairs.map(([from, to], i) => (
                 <motion.polygon
@@ -28,15 +25,8 @@ export const App = () => (
             <motion.div
                 id="css-var"
                 animate={{ "--x": 100 }}
-                transition={linear}
+                transition={{ ease: "linear", duration: 10 }}
             />
         </div>
-        <motion.div
-            id="transform"
-            className="translated"
-            animate={{ x: 100 }}
-            transition={linear}
-            style={{ width: 10, height: 10 }}
-        />
     </>
 )

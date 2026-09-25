@@ -1003,15 +1003,17 @@ describe("animate prop as object", () => {
         )
         const { container } = render(
             <motion.div
+                initial={{ opacity: 0.5 }}
                 animate={{ x: 100, "--foo": 100 } as any}
                 transition={{ delay: 1 }}
             />
         )
         const element = container.firstChild as HTMLElement
+        element.style.opacity = ""
 
         // Flush the mount render, which runs before the origin is read
         await Promise.resolve()
-        expect(element.style.transform).toBe("")
+        const { opacity, transform } = element.style
 
         await nextFrame()
         const written = setProperty.mock.calls
@@ -1019,6 +1021,8 @@ describe("animate prop as object", () => {
             .map(([, value]) => value)
         setProperty.mockRestore()
 
+        expect(opacity).toBe("0.5")
+        expect(transform).toBe("")
         expect(written).not.toContain(undefined)
     })
 
