@@ -23,7 +23,10 @@ export const createScrollInfo = (): ScrollInfo => ({
     y: createAxisInfo(),
 })
 
-const keys = {
+/**
+ * Also iterated with for...in as the list of axes.
+ */
+export const axisKeys = {
     x: {
         length: "Width",
         position: "Left",
@@ -34,20 +37,24 @@ const keys = {
     },
 } as const
 
+export type Axis = keyof typeof axisKeys
+
 function updateAxisInfo(
     element: Element,
-    axisName: "x" | "y",
+    axisName: Axis,
     info: ScrollInfo,
     time: number
 ) {
     const axis = info[axisName]
-    const { length, position } = keys[axisName]
+    const { length, position } = axisKeys[axisName]
 
     const prev = axis.current
     const prevTime = info.time
 
     axis.current = Math.abs(element[`scroll${position}`])
-    axis.scrollLength = element[`scroll${length}`] - element[`client${length}`]
+    axis.containerLength = element[`client${length}`]
+    axis.targetLength = element[`scroll${length}`]
+    axis.scrollLength = axis.targetLength - axis.containerLength
 
     axis.offset.length = 0
     axis.offset[0] = 0
@@ -61,12 +68,17 @@ function updateAxisInfo(
             : velocityPerSecond(axis.current - prev, elapsed)
 }
 
+/**
+ * Measures a scroll container. Runs once per container per frame; every
+ * handler on that container derives its info from the result.
+ */
 export function updateScrollInfo(
     element: Element,
     info: ScrollInfo,
     time: number
 ) {
-    updateAxisInfo(element, "x", info, time)
-    updateAxisInfo(element, "y", info, time)
+    for (const axis in axisKeys) {
+        updateAxisInfo(element, axis as Axis, info, time)
+    }
     info.time = time
 }
