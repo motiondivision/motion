@@ -183,20 +183,19 @@ const isValidPhysics = (value: number | undefined, canBeZero?: boolean) =>
 /**
  * Returns value if it's usable spring physics, otherwise undefined so callers
  * fall back to the default. An explicit `undefined`, e.g. from a forwarded
- * optional prop, must fall back too.
- *
- * Invalid physics resolve to NaN spring values, which corrupt every animated
- * value downstream (an SVG polygon's points become "NaN,NaN NaN,NaN") and
- * never report done.
+ * optional prop, must fall back too. Invalid physics would otherwise resolve
+ * to NaN spring values that never report done.
  */
 function resolvePhysics(value: number | undefined, canBeZero?: boolean) {
     if (isValidPhysics(value, canBeZero)) return value
 
-    warning(
-        value === undefined,
-        "Spring stiffness and mass must be positive, damping 0 or greater",
-        "spring-invalid-physics"
-    )
+    if (process.env.NODE_ENV !== "production") {
+        warning(
+            value === undefined,
+            "Spring stiffness and mass must be positive, damping 0 or greater",
+            "spring-invalid-physics"
+        )
+    }
 
     return undefined
 }
@@ -219,9 +218,7 @@ function getSpringOptions(options: SpringOptions) {
         isResolvedFromDuration: false,
         // stiffness/damping/mass overrides duration/bounce
         isTimeDefined:
-            validStiffness === undefined &&
-            validDamping === undefined &&
-            validMass === undefined &&
+            (validStiffness ?? validDamping ?? validMass) === undefined &&
             isSpringType(options, durationKeys),
     }
 
@@ -248,7 +245,7 @@ function getSpringOptions(options: SpringOptions) {
                 damping,
             }
         } else {
-            const derived = findSpring({ ...options, velocity: 0 })
+            const derived = findSpring(springOptions)
 
             springOptions = {
                 ...springOptions,

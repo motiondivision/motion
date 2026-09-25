@@ -376,13 +376,14 @@ describe("spring NaN guards", () => {
         )
     })
 
-    test("invalid physics does not discard a provided duration", () => {
-        // `stiffness: 0` previously counted as "physics specified", so the
-        // duration branch was skipped and `duration` silently ignored.
-        expect(
-            sample({ keyframes: [0, 100], duration: 500, stiffness: 0 })
-        ).toEqual(sample({ keyframes: [0, 100], duration: 500 }))
-    })
+    test.each(physicsKeys)(
+        "invalid %s does not discard a provided duration",
+        (key) => {
+            expect(
+                sample({ keyframes: [0, 100], duration: 500, [key]: NaN })
+            ).toEqual(sample({ keyframes: [0, 100], duration: 500 }))
+        }
+    )
 
     test("invalid physics does not discard a provided visualDuration", () => {
         expect(
@@ -400,22 +401,30 @@ describe("spring NaN guards", () => {
     test.each([
         { duration: 500, bounce: NaN },
         { visualDuration: Infinity, bounce: 0.2 },
-        { visualDuration: 0, bounce: 0.2 },
     ])("non-finite time options don't produce NaN: %o", (options) => {
         const values = sample({ keyframes: [0, 100], ...options })
         values.forEach((v) => expect(Number.isFinite(v)).toBe(true))
     })
 
+    test("visualDuration of 0 falls back to duration-based resolution", () => {
+        expect(
+            sample({ keyframes: [0, 100], visualDuration: 0, bounce: 0.2 })
+        ).toEqual(sample({ keyframes: [0, 100], bounce: 0.2 }))
+    })
+
     test("retargeting treats invalid physics as absent", () => {
         // Initial resolution treats this as a time-defined spring, which
         // ignores inherited velocity, so retargeting must too
-        const options = { duration: 600, stiffness: 0 }
-        const generator = spring({ ...options, keyframes: [0, 100] })
+        const generator = spring({
+            keyframes: [0, 100],
+            duration: 600,
+            stiffness: 0,
+        })
         generator.next(16)
         generator.retarget!([20, -50], 300)
         const fresh = spring({
-            ...options,
             keyframes: [20, -50],
+            duration: 600,
             velocity: 300,
         })
         for (const t of [0, 16, 100, 300, 1000]) {

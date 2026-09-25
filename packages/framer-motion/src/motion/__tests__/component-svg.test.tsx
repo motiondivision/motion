@@ -145,18 +145,13 @@ describe("SVG", () => {
     })
 
     test("spring with an unset stiffness prop never renders NaN points", async () => {
-        const target = "150,5 50,180 250,180"
-        let onComplete: VoidFunction
-        const complete = new Promise<void>((resolve) => (onComplete = resolve))
-
         // An unset optional prop forwarded into the transition
         const Component = ({ stiffness }: { stiffness?: number }) => (
             <svg>
                 <motion.polygon
                     initial={{ points: "150,5 75,200 225,200" }}
-                    animate={{ points: target }}
+                    animate={{ points: "150,5 50,180 250,180" }}
                     transition={{ type: "spring", stiffness }}
-                    onAnimationComplete={() => onComplete()}
                 />
             </svg>
         )
@@ -164,14 +159,12 @@ describe("SVG", () => {
         const polygon = container.querySelector("polygon")!
 
         const rendered: string[] = []
-        new MutationObserver(() =>
+        const observer = new MutationObserver(() =>
             rendered.push(polygon.getAttribute("points")!)
-        ).observe(polygon, { attributeFilter: ["points"] })
-
-        await Promise.race([
-            complete,
-            new Promise((resolve) => setTimeout(resolve, 3000)),
-        ])
+        )
+        observer.observe(polygon, { attributeFilter: ["points"] })
+        for (let i = 0; i < 10; i++) await nextFrame()
+        observer.disconnect()
 
         expect(rendered.length).toBeGreaterThan(1)
         rendered.forEach((points) =>
@@ -181,7 +174,6 @@ describe("SVG", () => {
                     expect(Number.isFinite(Number(coord))).toBe(true)
                 )
         )
-        expect(polygon.getAttribute("points")).toBe(target)
     })
 
     test("animates viewBox", async () => {

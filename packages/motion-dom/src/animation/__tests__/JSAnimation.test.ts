@@ -1443,8 +1443,6 @@ describe("JSAnimation", () => {
             )
         }
 
-        // ...and the spring must still settle on the target, so this doesn't
-        // pass for any non-NaN corruption of the point list
         expect(animation.sample(2000).value).toBe(target)
     })
 })
