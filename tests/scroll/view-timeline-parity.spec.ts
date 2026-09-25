@@ -38,7 +38,13 @@ test.describe("scroll() ViewTimeline and JS parity", () => {
 
     test("native and JS progress agree for every offset and target size", async ({
         page,
+        browserName,
     }) => {
+        test.skip(
+            browserName === "webkit",
+            "Playwright's WebKit exposes ViewTimeline but its progress doesn't follow scroll"
+        )
+
         const maxScroll = await page.evaluate(
             () => document.documentElement.scrollHeight - window.innerHeight
         )
@@ -52,9 +58,11 @@ test.describe("scroll() ViewTimeline and JS parity", () => {
                 for (const key of ["native", "x"] as const) {
                     if (Math.abs(cell[key] - cell.js) > 0.01) {
                         mismatches.push(
-                            `${cell.size} target, ${cell.name}, ${key} at ${y}px: ${cell[
-                                key
-                            ].toFixed(3)} (JS ${cell.js.toFixed(3)})`
+                            `${cell.size} target, ${
+                                cell.name
+                            }, ${key} at ${y}px: ${cell[key].toFixed(
+                                3
+                            )} (JS ${cell.js.toFixed(3)})`
                         )
                     }
                 }
@@ -71,12 +79,14 @@ test.describe("scroll() ViewTimeline and JS parity", () => {
         test.skip(!supported, "ViewTimeline is not supported")
 
         const unexpected = (await readCells(page))
-            .filter((cell) => (cell.timeline === "ViewTimeline") !== cell.mapped)
+            .filter(
+                (cell) => (cell.timeline === "ViewTimeline") !== cell.mapped
+            )
             .map(
                 (cell) =>
-                    `${cell.size} target, ${cell.name}: ${cell.timeline}, expected ${
-                        cell.mapped ? "" : "no "
-                    }ViewTimeline`
+                    `${cell.size} target, ${cell.name}: ${
+                        cell.timeline
+                    }, expected ${cell.mapped ? "" : "no "}ViewTimeline`
             )
 
         expect(unexpected).toEqual([])
