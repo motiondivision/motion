@@ -913,7 +913,7 @@ describe("Shared layout: nested crossfade transition", () => {
             .wait(50)
             .get("#a")
             .trigger("click")
-            .wait(50)
+            .get("#a")
             .should(([$box]: any) => {
                 expectBbox($box, {
                     top: 200,
@@ -980,7 +980,7 @@ describe("Shared layout: nested crossfade transition", () => {
             })
             .get("#b")
             .trigger("click")
-            .wait(250)
+            .get("#b")
             .should(([$box]: any) => {
                 expectBbox($box, {
                     top: 150,
@@ -1171,10 +1171,12 @@ describe("Shared layout: Measures rotated elements correctly when animation is i
             .wait(50)
             .get("#box")
             .trigger("click")
-            .wait(50)
             .get("#box")
             .should(([$box]: any) => {
                 boundingBox = $box.getBoundingClientRect()
+                // Only record once the animation is running, frozen halfway
+                // between the 200px and 100px rotated boxes.
+                expect(boundingBox.width).to.be.closeTo(150 * Math.SQRT2, 1)
             })
             .trigger("click")
             .wait(50)

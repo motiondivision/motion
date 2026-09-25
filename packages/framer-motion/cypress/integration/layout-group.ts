@@ -1,117 +1,78 @@
+/**
+ * The button's top is recorded on every animation frame, so the "doesn't
+ * jump" checks see every rendered position rather than a single sample
+ * taken after a fixed wait, which slow CI can overshoot.
+ */
+const buttonTop = (button: HTMLElement) =>
+    Math.round(button.getBoundingClientRect().top)
+
+function recordButtonTops() {
+    const tops: number[] = []
+    cy.get("#button").then(([button]) => {
+        const win = button.ownerDocument.defaultView!
+        const record = () => {
+            tops.push(buttonTop(button))
+            win.requestAnimationFrame(record)
+        }
+        record()
+    })
+    return tops
+}
+
+/**
+ * Unrounded, so this waits for the layout animation to finish rather than
+ * its eased tail. Interrupting a relative child's own layout animation
+ * currently makes it jump.
+ */
+function expectButtonToSettleAt(top: number) {
+    cy.get("#button").should(([button]) => {
+        expect(button.getBoundingClientRect().top).to.equal(top)
+    })
+}
+
+function expectFramesBetween(tops: number[], from: number, to: number) {
+    const between = tops.filter((top) => top !== from && top !== to)
+    expect(between, `frames other than ${from} and ${to}: ${tops}`).not.to.be
+        .empty
+}
+
 describe(`LayoutGroup inherit="id"`, () => {
     it("relative children should not instantly jump to new layout", () => {
         cy.viewport(500, 500).visit("?test=layout-group").wait(250)
 
-        // Measure initial position
-        let initialTop: number
-        cy.get("#button").then(($button) => {
-            initialTop = Math.round($button[0].getBoundingClientRect().top)
-        })
-
-        // Click expander
+        const tops = recordButtonTops()
         cy.get("#expander").click()
+        expectButtonToSettleAt(104)
 
-        // Measure position after 100ms
-        let top100ms: number
-        cy.wait(100).then(() => {
-            cy.get("#button").then(($button) => {
-                top100ms = Math.round($button[0].getBoundingClientRect().top)
-                // Should not be in original or final position
-                expect(top100ms).to.not.equal(104)
-                expect(top100ms).to.not.equal(initialTop)
-            })
-        })
-
-        // Measure position after another 200ms for animation to finish
-        cy.wait(200).then(() => {
-            cy.get("#button").then(($button) => {
-                const top200ms = Math.round(
-                    $button[0].getBoundingClientRect().top
-                )
-                expect(top200ms).to.equal(104)
-                expect(top200ms).to.not.equal(initialTop)
-                expect(top200ms).to.not.equal(top100ms)
-            })
-        })
+        // Should have rendered positions between the original and final
+        cy.then(() => expectFramesBetween(tops, tops[0], 104))
     })
 
     it("relative children should not instantly jump to new layout, after performing their own layout animation", () => {
         cy.viewport(500, 500).visit("?test=layout-group").wait(250)
 
-        // Click button first, then wait 50ms
+        // Click button first and let it finish its own layout animation
         cy.get("#button").click()
-        cy.wait(50)
+        expectButtonToSettleAt(129)
 
-        // Measure initial position
-        let initialTop: number
-        cy.get("#button").then(($button) => {
-            initialTop = Math.round($button[0].getBoundingClientRect().top)
-        })
+        const tops = recordButtonTops()
+        cy.get("#expander").click()
+        expectButtonToSettleAt(204)
 
-        // Click expander
-        cy.wait(300).get("#expander").click()
-
-        // Measure position after 100ms
-        let top100ms: number
-        cy.wait(100).then(() => {
-            cy.get("#button").then(($button) => {
-                top100ms = Math.round($button[0].getBoundingClientRect().top)
-
-                // Don't be in final or original position
-                expect(top100ms).to.not.equal(204)
-                expect(top100ms).to.not.equal(initialTop)
-            })
-        })
-
-        // Measure position after another 100ms (200ms total)
-        cy.wait(200).then(() => {
-            cy.get("#button").then(($button) => {
-                const top200ms = Math.round(
-                    $button[0].getBoundingClientRect().top
-                )
-                // Should not be in either previous measurement
-                expect(top200ms).to.equal(204)
-                expect(top200ms).to.not.equal(initialTop)
-                expect(top200ms).to.not.equal(top100ms)
-            })
-        })
+        cy.then(() => expectFramesBetween(tops, 129, 204))
     })
 
     it("should return to original state when expander is clicked twice with delay", () => {
         cy.viewport(500, 500).visit("?test=layout-group").wait(250)
 
-        // Measure initial position
-        let initialTop: number
-        cy.get("#button").then(($button) => {
-            initialTop = Math.round($button[0].getBoundingClientRect().top)
-        })
-
-        // Click expander
+        const tops = recordButtonTops()
         cy.get("#expander").click()
 
-        // Measure position after 100ms
-        let top100ms: number
-        cy.wait(100).then(() => {
-            cy.get("#button").then(($button) => {
-                top100ms = Math.round($button[0].getBoundingClientRect().top)
-                // Should not be in original or final position
-                expect(top100ms).to.not.equal(104)
-                expect(top100ms).to.not.equal(initialTop)
-            })
-        })
-
-        // Wait 50ms, then click expander again
+        // Click the expander again once the button is mid-animation
+        cy.wrap(tops).should(() => expectFramesBetween(tops, tops[0], 104))
         cy.wait(50).get("#expander").click()
 
-        // Measure position after animation finishes
-        cy.wait(300).then(() => {
-            cy.get("#button").then(($button) => {
-                const finalTop = Math.round(
-                    $button[0].getBoundingClientRect().top
-                )
-                // Should be back to original state
-                expect(finalTop).to.equal(initialTop)
-            })
-        })
+        // Should be back to original state
+        cy.then(() => expectButtonToSettleAt(tops[0]))
     })
 })

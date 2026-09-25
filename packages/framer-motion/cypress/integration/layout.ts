@@ -27,14 +27,13 @@ describe("Layout animation", () => {
                 })
             })
             .trigger("click")
-            .wait(50)
+            .get("#box")
             /**
              * Test that onLayoutAnimationStart fires
              */
             .should(([$box]: any) => {
                 expect($box.style.backgroundColor).to.equal("green")
             })
-            .wait(50)
             .should(([$box]: any) => {
                 expectBbox($box, {
                     top: 50,
@@ -46,7 +45,7 @@ describe("Layout animation", () => {
             /**
              * Test that onLayoutAnimationComplete fires
              */
-            .wait(1000)
+            .get("#box")
             .should(([$box]: any) => {
                 expect($box.style.backgroundColor).to.equal("blue")
             })
@@ -65,7 +64,7 @@ describe("Layout animation", () => {
                 })
             })
             .trigger("click")
-            .wait(50)
+            .get("#box")
             .should(([$box]: any) => {
                 expectBbox($box, {
                     top: 50,
@@ -89,7 +88,7 @@ describe("Layout animation", () => {
                 })
             })
             .trigger("click")
-            .wait(100)
+            .get("#box")
             .should(([$box]: any) => {
                 expectBbox($box, {
                     top: 100,
@@ -113,7 +112,7 @@ describe("Layout animation", () => {
                 })
             })
             .trigger("click")
-            .wait(50)
+            .get("#box")
             .should(([$box]: any) => {
                 expectBbox($box, {
                     top: 50,
@@ -183,6 +182,10 @@ describe("Layout animation", () => {
             .wait(50)
             .get("#child")
             .should(([$child]: any) => {
+                // Wait for the entry animation to start. Before its first
+                // frame opacity is still 0, so exiting to opacity 0 has
+                // nothing to animate and the child is removed immediately.
+                expect(getComputedStyle($child).opacity).to.equal("0.5")
                 initialBbox = $child.getBoundingClientRect()
             })
             .get("button")
@@ -253,7 +256,7 @@ describe("Layout animation", () => {
                 })
             })
             .trigger("click")
-            .wait(50)
+            .get("#box")
             .should(([$box]: any) => {
                 expectBbox($box, {
                     height: 100,
@@ -402,7 +405,7 @@ describe("Layout animation", () => {
                 })
             })
             .trigger("click")
-            .wait(50)
+            .get("#box")
             .should(([$box]: any) => {
                 expectBbox($box, {
                     top: 100,
@@ -426,7 +429,7 @@ describe("Layout animation", () => {
                 })
             })
             .trigger("click")
-            .wait(50)
+            .get("#box")
             .should(([$box]: any) => {
                 expectBbox($box, {
                     top: 50,
