@@ -28,10 +28,9 @@ const FullRangeProbe = ({ progress }: { progress: MotionValue<number> }) => {
 const TextReveal = ({ text }: { text: string }) => {
     const ref = useRef<HTMLDivElement>(null)
     const jsRef = useRef<HTMLSpanElement>(null)
-    // Needs an offset with a ViewTimeline range for the native path to run
     const { scrollYProgress } = useScroll({
         target: ref,
-        offset: ["start start", "end start"],
+        offset: ["start start", "end end"],
     })
 
     useEffect(() => {
@@ -44,7 +43,7 @@ const TextReveal = ({ text }: { text: string }) => {
             },
             {
                 target: ref.current,
-                offset: ["start start", "end start"],
+                offset: ["start start", "end end"],
             }
         )
     }, [])

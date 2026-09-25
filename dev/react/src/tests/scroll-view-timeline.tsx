@@ -3,7 +3,7 @@ import * as React from "react"
 import { useRef } from "react"
 
 /**
- * Default offset (All preset) - no ViewTimeline equivalent
+ * Default offset (All preset)
  */
 const DefaultTarget = () => {
     const ref = useRef<HTMLDivElement>(null)

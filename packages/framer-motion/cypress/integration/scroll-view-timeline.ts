@@ -1,10 +1,13 @@
 describe("scroll ViewTimeline acceleration", () => {
-    it("Does NOT accelerate target with default offset", () => {
+    it("Accelerates target with default offset when ViewTimeline supported", () => {
         cy.visit("?test=scroll-view-timeline")
             .wait(200)
             .get("#default-accelerate")
             .should(([$el]: any) => {
-                expect($el.innerText).to.equal("false")
+                const expected = (window as any).ViewTimeline
+                    ? "true"
+                    : "false"
+                expect($el.innerText).to.equal(expected)
             })
     })
 

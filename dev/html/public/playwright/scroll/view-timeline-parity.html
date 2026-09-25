@@ -19,6 +19,33 @@
                 background: #ff0088;
             }
 
+            #equal {
+                height: 500px;
+                background: #00cc88;
+            }
+
+            .sticky {
+                position: sticky;
+                top: 0;
+                height: 50%;
+            }
+
+            #transformed {
+                height: 1000px;
+                background: #ffaa00;
+            }
+
+            #fixed-overlay {
+                position: fixed;
+                inset: 0;
+                pointer-events: none;
+            }
+
+            #fixed {
+                position: relative;
+                height: 1000px;
+            }
+
             #probes {
                 position: fixed;
                 top: 0;
@@ -37,6 +64,19 @@
         <div class="spacer"></div>
         <div id="large"></div>
         <div class="spacer"></div>
+        <div id="equal"></div>
+        <div class="spacer"></div>
+        <!-- #3658: sticky child inside a transformed parent -->
+        <div style="transform: scale(0.8)">
+            <div id="transformed"><div class="sticky"></div></div>
+        </div>
+        <div class="spacer"></div>
+        <!-- #3658: target inside a fixed overlay, which never scrolls -->
+        <div id="fixed-overlay">
+            <div style="height: 500px">
+                <div id="fixed"><div class="sticky"></div></div>
+            </div>
+        </div>
         <div id="probes"></div>
         <script type="module" src="/src/inc.js"></script>
         <script type="module">
@@ -45,21 +85,25 @@
             /**
              * name, offset, and whether it has an exact ViewTimeline range
              * (so should run natively where ViewTimeline is supported).
+             * Targets are shorter than, taller than and equal to the 500px
+             * viewport.
              */
             const offsets = [
-                ["default", undefined, false],
+                ["default", undefined, true],
                 ["Enter", [[0, 1], [1, 1]], true],
                 ["Exit", [[0, 0], [1, 0]], true],
-                ["Any", [[1, 0], [0, 1]], false],
-                ["All", [[0, 0], [1, 1]], false],
+                ["Any", [[1, 0], [0, 1]], true],
+                ["All", [[0, 0], [1, 1]], true],
+                ["end start, start end", ["end start", "start end"], true],
                 ["start end, end start", ["start end", "end start"], true],
                 ["start end, end end", ["start end", "end end"], true],
                 ["start start, end start", ["start start", "end start"], true],
-                ["start start, end end", ["start start", "end end"], false],
+                ["start start, end end", ["start start", "end end"], true],
                 ["center end, center start", ["center end", "center start"], true],
                 ["start end, start start", ["start end", "start start"], true],
                 ["0.25 end, 0.75 start", [[0.25, 1], [0.75, 0]], true],
-                ["end end, start start", ["end end", "start start"], false],
+                ["end end, start start", ["end end", "start start"], true],
+                ["center start, end end", ["center start", "end end"], true],
                 ["start center, end start", ["start center", "end start"], false],
             ]
 
@@ -68,11 +112,22 @@
 
             const cells = []
 
-            for (const size of ["small", "large"]) {
+            for (const size of [
+                "small",
+                "large",
+                "equal",
+                "transformed",
+                "fixed",
+            ]) {
                 const target = document.getElementById(size)
 
                 for (const [name, offset, mapped] of offsets) {
-                    const cell = { name, size, mapped, js: 0 }
+                    const cell = {
+                        name,
+                        size,
+                        mapped: mapped && size !== "fixed",
+                        js: 0,
+                    }
                     const options = { target, offset }
 
                     // opacity runs on WAAPI with a native timeline when available

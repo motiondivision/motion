@@ -880,32 +880,67 @@ describe("scroll", () => {
         }
     })
 
-    describe("JS-driven animations with a ViewTimeline", () => {
+    describe("ViewTimeline ranges", () => {
         // A ViewTimeline's currentTime is always its cover progress
         class FakeViewTimeline {
             currentTime = { value: 50 }
         }
 
-        const attach = (offset: any) => {
+        const fakeWaapi = (direction = "normal", progress = 0) => {
+            const waapi: any = {
+                cancel() {},
+                effect: {
+                    getTiming: () => ({ direction }),
+                    updateTiming: (timing: any) => Object.assign(waapi, timing),
+                    getComputedTiming: () => ({ progress }),
+                },
+            }
+            return waapi
+        }
+
+        let hidden: any
+
+        /**
+         * Attaches a group with one WAAPI animation and one JS-driven value.
+         */
+        const attach = (
+            offset: any,
+            { fixed = false, direction = "normal" } = {}
+        ) => {
             const target = document.createElement("div")
-            document.documentElement.appendChild(target)
+            document.body.appendChild(target)
             createMockMeasurement(target, "clientHeight")(200)
             createMockMeasurement(target, "offsetTop")(100)
+            if (!fixed) {
+                Object.defineProperty(target, "offsetParent", {
+                    value: document.body,
+                })
+            }
 
+            const waapi = fakeWaapi(direction)
             const valueAnimation = { time: 0, iterationDuration: 1, pause() {} }
             const stop = scroll(
                 {
-                    attachTimeline: ({ observe }: any) =>
-                        observe(valueAnimation),
+                    attachTimeline: ({ timeline, onAttach, observe }: any) => {
+                        const stopObserve = observe(valueAnimation)
+                        const stopWaapi = timeline && onAttach?.(waapi)
+                        return () => {
+                            stopObserve()
+                            stopWaapi?.()
+                        }
+                    },
                 } as any,
                 { target, offset }
             )
-            return { valueAnimation, stop }
+            return { waapi, valueAnimation, stop }
         }
 
         beforeEach(async () => {
             ;(window as any).ViewTimeline = FakeViewTimeline
             supportsFlags.viewTimeline = true
+            ;(Element.prototype as any).animate = jest.fn(
+                () => (hidden = fakeWaapi("normal", 0.25))
+            )
             await fireScroll(0)
             setWindowHeight(100)
             setDocumentHeight(1000)
@@ -914,39 +949,102 @@ describe("scroll", () => {
         afterEach(() => {
             supportsFlags.viewTimeline = undefined
             delete (window as any).ViewTimeline
+            delete (Element.prototype as any).animate
         })
 
-        test("Read other ranges from an animation attached to that range", async () => {
-            const animate = jest.fn(() => ({
-                effect: { getComputedTiming: () => ({ progress: 0.25 }) },
-            }))
-            ;(Element.prototype as any).animate = animate
+        test("Sets ranges on WAAPI animations, and JS-driven values read a hidden animation on the same range", async () => {
+            const { waapi, valueAnimation, stop } = attach(ScrollOffset.Enter)
 
-            try {
-                const { valueAnimation, stop } = attach(ScrollOffset.Enter)
+            await fireScroll(50)
+            await nextFrame()
 
-                await fireScroll(50)
-                await nextFrame()
-                expect(animate).toHaveBeenCalledWith(null, {
-                    timeline: expect.any(FakeViewTimeline),
-                    rangeStart: "entry-crossing 0%",
-                    rangeEnd: "entry-crossing 100%",
-                    fill: "both",
-                })
-                expect(valueAnimation.time).toBeCloseTo(0.25)
+            expect(waapi).toMatchObject({
+                rangeStart: "entry-crossing 0%",
+                rangeEnd: "entry-crossing 100%",
+                direction: "normal",
+            })
+            expect(Element.prototype.animate).toHaveBeenCalledWith(null, {
+                timeline: expect.any(FakeViewTimeline),
+                fill: "both",
+            })
+            expect(hidden).toMatchObject({
+                rangeStart: "entry-crossing 0%",
+                rangeEnd: "entry-crossing 100%",
+            })
+            expect(valueAnimation.time).toBeCloseTo(0.25)
 
-                stop()
-            } finally {
-                delete (Element.prototype as any).animate
-            }
+            stop()
         })
 
-        test("Read cover progress from the ViewTimeline", async () => {
-            const { valueAnimation, stop } = attach(["start end", "end start"])
+        test("Reverses Any over the cover range", () => {
+            const { waapi, stop } = attach(ScrollOffset.Any)
+            expect(waapi).toMatchObject({
+                rangeStart: "entry-crossing 0%",
+                rangeEnd: "exit-crossing 100%",
+                direction: "reverse",
+            })
+            stop()
+
+            const alternate = attach(ScrollOffset.Any, {
+                direction: "alternate",
+            })
+            expect(alternate.waapi.direction).toBe("alternate-reverse")
+            alternate.stop()
+        })
+
+        test("Flips All when the target becomes shorter than the container", () => {
+            // Target 200px, container 100px
+            const { waapi, stop } = attach(undefined)
+            expect(waapi).toMatchObject({
+                rangeStart: "exit-crossing 0%",
+                rangeEnd: "entry-crossing 100%",
+                direction: "normal",
+            })
+
+            setWindowHeight(400)
+            window.dispatchEvent(new window.Event("resize"))
+            expect(waapi).toMatchObject({
+                rangeStart: "entry-crossing 100%",
+                rangeEnd: "exit-crossing 0%",
+                direction: "reverse",
+            })
+
+            // Equal lengths collapse the range to a point, where JS steps forwards
+            setWindowHeight(200)
+            window.dispatchEvent(new window.Event("resize"))
+            expect(waapi.direction).toBe("normal")
+
+            stop()
+            setWindowHeight(400)
+            window.dispatchEvent(new window.Event("resize"))
+            expect(waapi.direction).toBe("normal")
+        })
+
+        test("Reads cover progress from the ViewTimeline", async () => {
+            const { waapi, valueAnimation, stop } = attach([
+                "start end",
+                "end start",
+            ])
 
             await fireScroll(50)
             await nextFrame()
             expect(valueAnimation.time).toBeCloseTo(0.5)
+            expect(waapi.rangeStart).toBeUndefined()
+            expect(Element.prototype.animate).not.toHaveBeenCalled()
+
+            stop()
+        })
+
+        test("Tracks a target inside a fixed ancestor in JS", async () => {
+            const { valueAnimation, stop } = attach(ScrollOffset.Enter, {
+                fixed: true,
+            })
+
+            // Enter resolves to [0, 200], so 50px is 0.25, not cover's 0.5
+            await fireScroll(50)
+            await nextFrame()
+            expect(valueAnimation.time).toBeCloseTo(0.25)
+            expect(Element.prototype.animate).not.toHaveBeenCalled()
 
             stop()
         })

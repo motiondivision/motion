@@ -39,7 +39,6 @@ describe("useScroll accelerate", () => {
             const target = useRef<HTMLDivElement>(null)
             const { scrollXProgress, scrollYProgress } = useScroll({
                 target,
-                offset: ["start end", "end start"],
             })
             accelerateX = scrollXProgress.accelerate
             accelerateY = scrollYProgress.accelerate
@@ -85,6 +84,7 @@ describe("useScroll accelerate", () => {
             const target = useRef<HTMLDivElement>(null)
             const { scrollXProgress, scrollYProgress } = useScroll({
                 target,
+                offset: ["start center", "end start"],
             })
             accelerateX = scrollXProgress.accelerate
             accelerateY = scrollYProgress.accelerate
@@ -131,5 +131,30 @@ describe("useScroll accelerate", () => {
         render(<Component />)
 
         expect(transformAccelerate).toBeDefined()
+    })
+
+    test("holds useTransform's end values across the whole accelerated timeline", () => {
+        supportsFlags.scrollTimeline = true
+
+        let transformAccelerate: any
+
+        const Component = () => {
+            const { scrollYProgress } = useScroll()
+            const opacity = useTransform(
+                scrollYProgress,
+                [0.25, 0.5],
+                [0.2, 1],
+                { ease: [(v: number) => v] }
+            )
+            transformAccelerate = opacity.accelerate
+            return null
+        }
+
+        render(<Component />)
+
+        // WAAPI fills missing 0 and 1 offsets with the underlying value
+        expect(transformAccelerate.times).toEqual([0, 0.25, 0.5, 1])
+        expect(transformAccelerate.keyframes).toEqual([0.2, 0.2, 1, 1])
+        expect(transformAccelerate.ease).toHaveLength(2)
     })
 })
