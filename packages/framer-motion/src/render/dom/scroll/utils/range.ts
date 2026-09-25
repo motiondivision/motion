@@ -1,32 +1,19 @@
+import { ScrollRange } from "../types"
+
 /**
- * Resolve a user-provided `rangeStart`/`rangeEnd` into a 0–1 scroll progress
- * fraction, used to drive the JS observe fallback's active window.
- *
- * Accepts a number (already a 0–1 fraction), a percentage string (`"20%"`) or
- * a bare numeric string (`"0.2"`). Anything unparseable (e.g. a named WAAPI
- * range like `"cover 50%"`, which only applies to native timelines) falls back
- * to the provided default.
+ * Resolve a `rangeStart`/`rangeEnd` into a `0`–`1` fraction for the JS
+ * observe path. Anything unparseable resolves to `fallback`.
  */
 export function resolveRangeFraction(
-    value: string | number | undefined,
+    value: ScrollRange | undefined,
     fallback: number
 ): number {
-    if (value === undefined) return fallback
-    if (typeof value === "number") return value
-
-    const parsed = parseFloat(value)
-    if (Number.isNaN(parsed)) return fallback
-
-    return value.trim().endsWith("%") ? parsed / 100 : parsed
+    const fraction = typeof value === "string" ? parseFloat(value) / 100 : value
+    return fraction === undefined || isNaN(fraction) ? fallback : fraction
 }
 
 /**
- * Resolve a user-provided `rangeStart`/`rangeEnd` into a WAAPI-acceptable
- * string, converting a 0–1 fraction into a percentage.
+ * Resolve a `rangeStart`/`rangeEnd` into a WAAPI range string.
  */
-export function resolveRangeString(
-    value: string | number | undefined
-): string | undefined {
-    if (value === undefined) return undefined
-    return typeof value === "number" ? `${value * 100}%` : value
-}
+export const resolveRangeString = (value: ScrollRange | undefined) =>
+    typeof value === "number" ? value * 100 + "%" : value
