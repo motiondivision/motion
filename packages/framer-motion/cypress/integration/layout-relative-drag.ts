@@ -36,10 +36,14 @@ function testNestedDrag(query: string) {
             })
         })
         .get("#parent")
+        .nextFrame()
+        .nextFrame()
         .trigger("pointerdown", 5, 5)
         .trigger("pointermove", 10, 10) // Gesture will start from first move past threshold
+        .nextFrame()
         .wait(50)
         .trigger("pointermove", 100, 100, { force: true })
+        .nextFrame()
         .wait(50)
         .trigger("pointerup", { force: true })
         .should(([$parent]: any) => {
@@ -61,8 +65,10 @@ function testNestedDrag(query: string) {
         })
         .trigger("pointerdown", 5, 5)
         .trigger("pointermove", 10, 10) // Gesture will start from first move past threshold
+        .nextFrame()
         .wait(50)
         .trigger("pointermove", 100, 100, { force: true })
+        .nextFrame()
         .wait(50)
         .trigger("pointerup", { force: true })
         .should(([$parent]: any) => {
@@ -107,10 +113,14 @@ describe("Relative projection targets: Drag", () => {
                 })
             })
             .get("#parent")
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 5, 5, { force: true })
             .trigger("pointermove", 10, 10, { force: true })
+            .nextFrame()
             .wait(50)
             .trigger("pointermove", 110, 110, { force: true })
+            .nextFrame()
             .get("#parent")
             .should(([$parent]: any) => {
                 expectBbox($parent, {

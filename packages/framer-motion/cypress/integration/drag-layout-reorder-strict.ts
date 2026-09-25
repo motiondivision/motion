@@ -14,12 +14,16 @@ describe("Drag layout reorder in StrictMode", () => {
             .wait(200)
             // Start dragging File1 downward
             .get("[data-testid='file-File1']")
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 100, 15, { force: true })
             .wait(50)
             .trigger("pointermove", 100, 20, { force: true })
+            .nextFrame()
             .wait(50)
             // Drag down slightly
             .trigger("pointermove", 100, 80, { force: true })
+            .nextFrame()
             .wait(200)
             // Record position before expanding Folder1
             .get("[data-testid='file-File1']")
@@ -60,11 +64,15 @@ describe("Drag layout reorder in StrictMode", () => {
         cy.visit("?test=drag-layout-reorder-strict")
             .wait(200)
             .get("[data-testid='file-File1']")
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 100, 15, { force: true })
             .wait(50)
             .trigger("pointermove", 100, 20, { force: true })
+            .nextFrame()
             .wait(50)
             .trigger("pointermove", 100, 80, { force: true })
+            .nextFrame()
             .wait(200)
             .get("[data-testid='file-File1']")
             .then(($el: any) => {

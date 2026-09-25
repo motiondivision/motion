@@ -13,11 +13,15 @@ describe("Reorder with virtualized list (@tanstack/react-virtual)", () => {
             })
             // Drag Item 1 down past Item 2
             .get("#Item-1")
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 50, 25, { force: true })
             .wait(50)
             .trigger("pointermove", 50, 30, { force: true })
+            .nextFrame()
             .wait(50)
             .trigger("pointermove", 50, 55, { force: true })
+            .nextFrame()
             .wait(100)
             .trigger("pointerup", 50, 55, { force: true })
             .wait(200)
@@ -25,7 +29,7 @@ describe("Reorder with virtualized list (@tanstack/react-virtual)", () => {
             .get("#item-count")
             .should("have.attr", "data-count", "50")
             .get("#item-order")
-            .then(([$el]: any) => {
+            .should(([$el]: any) => {
                 const order: string[] = JSON.parse(
                     $el.getAttribute("data-order")
                 )

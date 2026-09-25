@@ -21,10 +21,14 @@ describe("Drag Input Propagation", () => {
 
         // Attempt to drag by clicking on the input
         cy.get("[data-testid='input']")
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 5, 5)
             .trigger("pointermove", 10, 10)
+            .nextFrame()
             .wait(50)
             .trigger("pointermove", 200, 200, { force: true })
+            .nextFrame()
             .wait(50)
             .trigger("pointerup", { force: true })
 
@@ -49,10 +53,14 @@ describe("Drag Input Propagation", () => {
 
         // Attempt to drag by clicking on the textarea
         cy.get("[data-testid='textarea']")
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 5, 5)
             .trigger("pointermove", 10, 10)
+            .nextFrame()
             .wait(50)
             .trigger("pointermove", 200, 200, { force: true })
+            .nextFrame()
             .wait(50)
             .trigger("pointerup", { force: true })
 
@@ -77,10 +85,14 @@ describe("Drag Input Propagation", () => {
 
         // Drag by clicking on the button - buttons don't have click-and-move actions
         cy.get("[data-testid='button']")
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 5, 5)
             .trigger("pointermove", 10, 10)
+            .nextFrame()
             .wait(50)
             .trigger("pointermove", 200, 200, { force: true })
+            .nextFrame()
             .wait(50)
             .trigger("pointerup", { force: true })
 
@@ -105,10 +117,14 @@ describe("Drag Input Propagation", () => {
 
         // Drag by clicking on the link - links don't have click-and-move actions
         cy.get("[data-testid='link']")
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 5, 5)
             .trigger("pointermove", 10, 10)
+            .nextFrame()
             .wait(50)
             .trigger("pointermove", 200, 200, { force: true })
+            .nextFrame()
             .wait(50)
             .trigger("pointerup", { force: true })
 
@@ -133,10 +149,14 @@ describe("Drag Input Propagation", () => {
 
         // Attempt to drag by clicking on the select
         cy.get("[data-testid='select']")
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 5, 5)
             .trigger("pointermove", 10, 10)
+            .nextFrame()
             .wait(50)
             .trigger("pointermove", 200, 200, { force: true })
+            .nextFrame()
             .wait(50)
             .trigger("pointerup", { force: true })
 
@@ -160,10 +180,14 @@ describe("Drag Input Propagation", () => {
 
         // Attempt to drag by clicking on the checkbox (nested inside label)
         cy.get("[data-testid='checkbox']")
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 2, 2)
             .trigger("pointermove", 5, 5)
+            .nextFrame()
             .wait(50)
             .trigger("pointermove", 200, 200, { force: true })
+            .nextFrame()
             .wait(50)
             .trigger("pointerup", { force: true })
 
@@ -187,10 +211,14 @@ describe("Drag Input Propagation", () => {
 
         // Attempt to drag by clicking on the contenteditable element
         cy.get("[data-testid='contenteditable']")
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 5, 5)
             .trigger("pointermove", 10, 10)
+            .nextFrame()
             .wait(50)
             .trigger("pointermove", 200, 200, { force: true })
+            .nextFrame()
             .wait(50)
             .trigger("pointerup", { force: true })
 
@@ -212,10 +240,14 @@ describe("Drag Input Propagation", () => {
                 expect(top).to.equal(100)
             })
             // Click on edge of draggable, not on interactive elements (at coordinates 5,5 which is top-left corner)
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 5, 5)
             .trigger("pointermove", 10, 10)
+            .nextFrame()
             .wait(50)
             .trigger("pointermove", 200, 200, { force: true })
+            .nextFrame()
             .wait(50)
             .trigger("pointerup", { force: true })
             .should(($draggable) => {

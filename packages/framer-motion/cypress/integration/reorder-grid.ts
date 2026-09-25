@@ -3,11 +3,15 @@ describe("Reorder grid", () => {
         cy.visit("?test=reorder-grid").wait(200)
 
         cy.get("[data-testid='a']")
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 50, 50, { force: true })
             .wait(50)
             .trigger("pointermove", 60, 60, { force: true })
+            .nextFrame()
             .wait(50)
             .trigger("pointermove", 160, 160, { force: true })
+            .nextFrame()
             .wait(100)
 
         cy.get("[data-testid='current-order']").then(($order) => {

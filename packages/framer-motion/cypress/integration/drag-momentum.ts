@@ -42,6 +42,8 @@ describe("Drag Momentum", () => {
             .wait(200)
             .get("[data-testid='draggable']")
             .wait(200)
+            .nextFrame()
+            .nextFrame()
             .then(([el]: any) => {
                 startTop = topOf(el)
                 dispatchPointer(el, "pointerdown", startTop + 900)
@@ -71,6 +73,8 @@ describe("Drag Momentum", () => {
             .wait(200)
             .get("[data-testid='draggable']")
             .wait(200)
+            .nextFrame()
+            .nextFrame()
             // Perform a drag-and-throw upward
             .then(([el]: any) => {
                 startTop = topOf(el)

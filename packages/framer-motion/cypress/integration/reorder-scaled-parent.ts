@@ -34,13 +34,17 @@ describe("Reorder inside a scaled parent (#2449 / #2750)", () => {
             const startMidY = start.top + start.height / 2
 
             cy.wrap($el)
+                .nextFrame()
+                .nextFrame()
                 .trigger("pointerdown", 20, 10, { force: true })
                 .wait(50)
                 // Move past the drag threshold.
                 .trigger("pointermove", 20, 16, { force: true })
+                .nextFrame()
                 .wait(50)
                 // Move the pointer 80px down the screen.
                 .trigger("pointermove", 20, 90, { force: true })
+                .nextFrame()
 
             // Drag tracking is 1:1, not a tween: retry until the frame loop
             // applies the pointermove. A wrong scale (e.g. 40px uncorrected)
@@ -77,13 +81,18 @@ describe("Reorder inside a scaled parent (#2449 / #2750)", () => {
         // enough to cross item-1's centre (needs >35px local) without
         // racing through the whole list.
         cy.get("[data-testid='item-0']")
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 20, 10, { force: true })
             .wait(50)
             .trigger("pointermove", 20, 16, { force: true })
+            .nextFrame()
             .wait(50)
             .trigger("pointermove", 20, 35, { force: true })
+            .nextFrame()
             .wait(50)
             .trigger("pointermove", 20, 50, { force: true })
+            .nextFrame()
             .wait(50)
             .trigger("pointerup", { force: true })
 

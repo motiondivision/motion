@@ -22,10 +22,14 @@ describe("drag + dragSnapToOrigin + AnimatePresence exit", () => {
             })
             // Drag the tile and release — dragSnapToOrigin animation kicks in.
             .get('[data-testid="tile"]')
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 10, 10, { force: true })
             .trigger("pointermove", 20, 10, { force: true })
+            .nextFrame()
             .wait(50)
             .trigger("pointermove", 60, 10, { force: true })
+            .nextFrame()
             .wait(50)
             .trigger("pointerup", 60, 10, { force: true })
             // Toggle off mid-snap to trigger AnimatePresence exit while

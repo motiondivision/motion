@@ -17,6 +17,8 @@ describe("Drag", () => {
         cy.visit("?test=drag")
             .get("[data-testid='draggable']")
             .wait(200)
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 5, 5)
             .trigger("pointermove", 10, 10) // Gesture will start from first move past threshold
             .nextFrame()
@@ -36,6 +38,8 @@ describe("Drag", () => {
         cy.visit("?test=drag&showChild=true")
             .get("[data-testid='draggable-child']")
             .wait(200)
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 5, 5)
             .trigger("pointermove", 10, 10) // Gesture will start from first move past threshold
             .nextFrame()
@@ -55,6 +59,8 @@ describe("Drag", () => {
         cy.visit("?test=drag&x=100&y=100")
             .get("[data-testid='draggable']")
             .wait(200)
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 5, 5)
             .trigger("pointermove", 10, 10) // Gesture will start from first move past threshold
             .nextFrame()
@@ -78,6 +84,8 @@ describe("Drag", () => {
         cy.visit("?test=drag&x=200&y=200&percentage=true")
             .get("[data-testid='draggable']")
             .wait(200)
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 5, 5)
             .trigger("pointermove", 10, 10) // Gesture will start from first move past threshold
             .nextFrame()
@@ -101,6 +109,8 @@ describe("Drag", () => {
         cy.visit("?test=drag&axis=x")
             .get("[data-testid='draggable']")
             .wait(200)
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 5, 5)
             .wait(50)
             .trigger("pointermove", 10, 10) // Gesture will start from first move past threshold
@@ -121,6 +131,8 @@ describe("Drag", () => {
         cy.visit("?test=drag&axis=y")
             .get("[data-testid='draggable']")
             .wait(200)
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 5, 5)
             .trigger("pointermove", 10, 10) // Gesture will start from first move past threshold
             .nextFrame()
@@ -166,6 +178,8 @@ describe("Drag", () => {
             .wait(200)
             .get("[data-testid='draggable']")
             .wait(200)
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 5, 5, { force: true })
             .wait(50)
             .trigger("pointermove", 10, 10, { force: true }) // Gesture will start from first move past threshold
@@ -190,6 +204,8 @@ describe("Drag", () => {
             .wait(200)
             .get("[data-testid='draggable']")
             .wait(100)
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 5, 5)
             .trigger("pointermove", 10, 10) // Gesture will start from first move past threshold
             .nextFrame()
@@ -210,6 +226,8 @@ describe("Drag", () => {
             .wait(200)
             .get("[data-testid='draggable']")
             .wait(100)
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 40, 40)
             .trigger("pointermove", 30, 30) // Gesture will start from first move past threshold
             .nextFrame()
@@ -230,6 +248,8 @@ describe("Drag", () => {
             .wait(200)
             .get("[data-testid='draggable']")
             .wait(100)
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 40, 40)
             .trigger("pointermove", 30, 30) // Gesture will start from first move past threshold
             .nextFrame()
@@ -259,6 +279,8 @@ describe("Drag", () => {
             .wait(200)
             .get("[data-testid='draggable']")
             .wait(100)
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 40, 40)
             .trigger("pointermove", 30, 30) // Gesture will start from first move past threshold
             .nextFrame()
@@ -283,6 +305,8 @@ describe("Drag", () => {
             .wait(200)
             .get("[data-testid='draggable']")
             .wait(100)
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 40, 40)
             .trigger("pointermove", 30, 30) // Gesture will start from first move past threshold
             .nextFrame()
@@ -306,6 +330,8 @@ describe("Drag", () => {
         cy.visit("?test=drag-ref-constraints")
             .wait(200)
             .get("[data-testid='draggable']")
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 10, 10)
             .trigger("pointermove", 15, 15)
             .nextFrame()
@@ -342,6 +368,8 @@ describe("Drag", () => {
                 expect(right).to.equal(600)
                 expect(bottom).to.equal(250)
             })
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 5, 5)
             .trigger("pointermove", 10, 10) // Gesture will start from first move past threshold
             .nextFrame()
@@ -408,6 +436,8 @@ describe("Drag", () => {
                 expect(left).to.equal(240)
             })
             .get("#scroll-trigger")
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 5, 5)
             .wait(50)
             .get("#scrollable")
@@ -427,6 +457,8 @@ describe("Drag & Layout", () => {
         cy.visit("?test=drag&layout=true")
             .get("[data-testid='draggable']")
             .wait(200)
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 5, 5)
             .trigger("pointermove", 10, 10) // Gesture will start from first move past threshold
             .nextFrame()
@@ -446,6 +478,8 @@ describe("Drag & Layout", () => {
         cy.visit("?test=drag&x=100&y=100&layout=true")
             .get("[data-testid='draggable']")
             .wait(200)
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 5, 5)
             .trigger("pointermove", 10, 10) // Gesture will start from first move past threshold
             .nextFrame()
@@ -469,6 +503,8 @@ describe("Drag & Layout", () => {
         cy.visit("?test=drag&axis=x&layout=true")
             .get("[data-testid='draggable']")
             .wait(200)
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 5, 5)
             .trigger("pointermove", 10, 10) // Gesture will start from first move past threshold
             .nextFrame()
@@ -488,6 +524,8 @@ describe("Drag & Layout", () => {
         cy.visit("?test=drag&axis=y&layout=true")
             .get("[data-testid='draggable']")
             .wait(200)
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 5, 5)
             .trigger("pointermove", 10, 10) // Gesture will start from first move past threshold
             .nextFrame()
@@ -533,6 +571,8 @@ describe("Drag & Layout", () => {
             .wait(100)
             .get("[data-testid='draggable']")
             .wait(200)
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 5, 5, { force: true })
             .trigger("pointermove", 10, 10, { force: true }) // Gesture will start from first move past threshold
             .nextFrame()
@@ -555,6 +595,8 @@ describe("Drag & Layout", () => {
         cy.visit("?test=drag&right=100&bottom=100&layout=true")
             .wait(200)
             .get("[data-testid='draggable']")
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 5, 5)
             .trigger("pointermove", 10, 10) // Gesture will start from first move past threshold
             .nextFrame()
@@ -574,6 +616,8 @@ describe("Drag & Layout", () => {
         cy.visit("?test=drag&left=-10&top=-10&layout=true")
             .wait(200)
             .get("[data-testid='draggable']")
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 40, 40)
             .trigger("pointermove", 30, 30) // Gesture will start from first move past threshold
             .nextFrame()
@@ -593,6 +637,8 @@ describe("Drag & Layout", () => {
         cy.visit("?test=drag-ref-constraints&layout=true")
             .wait(200)
             .get("[data-testid='draggable']")
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 10, 10)
             .trigger("pointermove", 15, 15)
             .nextFrame()
@@ -615,6 +661,8 @@ describe("Drag Constraints Return", () => {
             .wait(200)
             .get("[data-testid='draggable']")
             .wait(100)
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 50, 50, { force: true })
             .trigger("pointermove", 60, 60, { force: true }) // Gesture will start from first move past threshold
             .nextFrame()
@@ -643,6 +691,8 @@ describe("Drag Constraints Return", () => {
             .wait(200)
             .get("[data-testid='draggable']")
             .wait(100)
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 50, 50, { force: true })
             .trigger("pointermove", 60, 60, { force: true }) // Gesture will start from first move past threshold
             .nextFrame()
@@ -676,6 +726,8 @@ describe("Drag Constraints Return", () => {
             .wait(200)
             .get("[data-testid='draggable']")
             .wait(100)
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 50, 50, { force: true })
             .trigger("pointermove", 60, 60, { force: true }) // Gesture will start from first move past threshold
             .nextFrame()

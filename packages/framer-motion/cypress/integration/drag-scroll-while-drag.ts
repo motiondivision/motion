@@ -14,10 +14,14 @@ describe("Drag with element scroll during drag", () => {
         cy.visit("?test=drag-scroll-while-drag")
             .wait(200)
             .get("[data-testid='draggable']")
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 50, 50)
             .trigger("pointermove", 55, 55) // Start gesture
+            .nextFrame()
             .wait(50)
             .trigger("pointermove", 100, 100, { force: true })
+            .nextFrame()
             .wait(50)
             .window()
             .then((win) => {
@@ -53,10 +57,14 @@ describe("Drag with element scroll during drag", () => {
         cy.visit("?test=drag-scroll-while-drag")
             .wait(200)
             .get("[data-testid='draggable']")
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 50, 50)
             .trigger("pointermove", 55, 55) // Start gesture
+            .nextFrame()
             .wait(50)
             .trigger("pointermove", 100, 100, { force: true })
+            .nextFrame()
             .wait(50)
             // Scroll the container during drag
             .window()
@@ -70,6 +78,7 @@ describe("Drag with element scroll during drag", () => {
             // Continue dragging - move to the same position
             .get("[data-testid='draggable']")
             .trigger("pointermove", 100, 100, { force: true })
+            .nextFrame()
             .wait(50)
             .trigger("pointerup", { force: true })
             .should(($draggable: any) => {
@@ -88,10 +97,14 @@ describe("Drag with element scroll during drag", () => {
         cy.visit("?test=drag-scroll-while-drag")
             .wait(200)
             .get("[data-testid='draggable']")
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 50, 50)
             .trigger("pointermove", 55, 55)
+            .nextFrame()
             .wait(50)
             .trigger("pointermove", 100, 100, { force: true })
+            .nextFrame()
             .wait(50)
             .trigger("pointerup", { force: true })
             .should(($draggable: any) => {
@@ -121,10 +134,14 @@ describe("Drag with window scroll during drag", () => {
         cy.visit("?test=drag-scroll-while-drag&window=true")
             .wait(200)
             .get("[data-testid='draggable']")
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 50, 50)
             .trigger("pointermove", 55, 55) // Start gesture
+            .nextFrame()
             .wait(50)
             .trigger("pointermove", 100, 100, { force: true })
+            .nextFrame()
             .wait(50)
             .window()
             .then((win) => {
@@ -163,10 +180,14 @@ describe("Drag with window scroll during drag", () => {
         cy.visit("?test=drag-scroll-while-drag&window=true")
             .wait(200)
             .get("[data-testid='draggable']")
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 50, 50)
             .trigger("pointermove", 55, 55) // Start gesture
+            .nextFrame()
             .wait(50)
             .trigger("pointermove", 100, 100, { force: true })
+            .nextFrame()
             .wait(50)
             // Scroll the window during drag
             .window()
@@ -177,6 +198,7 @@ describe("Drag with window scroll during drag", () => {
             // Continue dragging - move to the same position
             .get("[data-testid='draggable']")
             .trigger("pointermove", 100, 100, { force: true })
+            .nextFrame()
             .wait(50)
             .trigger("pointerup", { force: true })
             .should(($draggable: any) => {
@@ -196,10 +218,14 @@ describe("Drag with window scroll during drag", () => {
         cy.visit("?test=drag-scroll-while-drag&window=true")
             .wait(200)
             .get("[data-testid='draggable']")
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 50, 50)
             .trigger("pointermove", 55, 55)
+            .nextFrame()
             .wait(50)
             .trigger("pointermove", 100, 100, { force: true })
+            .nextFrame()
             .wait(50)
             .trigger("pointerup", { force: true })
             .should(($draggable: any) => {
