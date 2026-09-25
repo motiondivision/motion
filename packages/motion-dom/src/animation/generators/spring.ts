@@ -209,22 +209,26 @@ function getSpringOptions(options: SpringOptions) {
      * resolution, so an invalid stiffness doesn't also silently discard a
      * valid duration/bounce.
      */
-    const stiffness = resolvePhysics(options.stiffness)
-    const damping = resolvePhysics(options.damping, true)
-    const mass = resolvePhysics(options.mass)
-    const hasPhysics =
-        stiffness !== undefined || damping !== undefined || mass !== undefined
+    const validStiffness = resolvePhysics(options.stiffness)
+    const validDamping = resolvePhysics(options.damping, true)
+    const validMass = resolvePhysics(options.mass)
 
     let springOptions = {
         ...options,
         velocity: options.velocity ?? springDefaults.velocity,
-        stiffness: stiffness ?? springDefaults.stiffness,
-        damping: damping ?? springDefaults.damping,
-        mass: mass ?? springDefaults.mass,
+        stiffness: validStiffness ?? springDefaults.stiffness,
+        damping: validDamping ?? springDefaults.damping,
+        mass: validMass ?? springDefaults.mass,
         isResolvedFromDuration: false,
+        // stiffness/damping/mass overrides duration/bounce
+        isTimeDefined:
+            validStiffness === undefined &&
+            validDamping === undefined &&
+            validMass === undefined &&
+            isSpringType(options, durationKeys),
     }
-    // stiffness/damping/mass overrides duration/bounce
-    if (!hasPhysics && isSpringType(options, durationKeys)) {
+
+    if (springOptions.isTimeDefined) {
         // Time-defined springs should ignore inherited velocity.
         // Velocity from interrupted animations can cause findSpring()
         // to compute wildly different spring parameters, leading to
@@ -307,6 +311,7 @@ function spring(
         duration,
         velocity,
         isResolvedFromDuration,
+        isTimeDefined,
     } = getSpringOptions({
         ...options,
         velocity: -millisecondsToSeconds(options.velocity || 0),
@@ -455,13 +460,6 @@ function spring(
 
     update()
 
-    /**
-     * Time-defined springs ignore inherited velocity, see getSpringOptions.
-     */
-    const ignoreVelocity =
-        !isSpringType(options, physicsKeys) &&
-        isSpringType(options, durationKeys)
-
     const calculatedDuration = isResolvedFromDuration ? duration || null : null
 
     const generator = {
@@ -473,9 +471,8 @@ function spring(
         retarget: (keyframes: number[], newVelocity: number) => {
             s.target = keyframes[keyframes.length - 1]
             s.delta = s.target - keyframes[0]
-            s.velocity = ignoreVelocity
-                ? 0
-                : -millisecondsToSeconds(newVelocity)
+            // Time-defined springs ignore inherited velocity, see getSpringOptions
+            s.velocity = isTimeDefined ? 0 : -millisecondsToSeconds(newVelocity)
             // Default thresholds depend on the scale of the new delta
             if (!(options.restSpeed && options.restDelta)) setRestThresholds()
             // Invalidate any duration lazily cached by JSAnimation

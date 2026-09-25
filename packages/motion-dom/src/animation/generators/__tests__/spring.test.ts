@@ -362,9 +362,9 @@ describe("spring NaN guards", () => {
     test("invalid physics does not discard a provided duration", () => {
         // `stiffness: 0` previously counted as "physics specified", so the
         // duration branch was skipped and `duration` silently ignored.
-        expect(sample({ keyframes: [0, 100], duration: 500, stiffness: 0 })).toEqual(
-            sample({ keyframes: [0, 100], duration: 500 })
-        )
+        expect(
+            sample({ keyframes: [0, 100], duration: 500, stiffness: 0 })
+        ).toEqual(sample({ keyframes: [0, 100], duration: 500 }))
     })
 
     test("invalid physics does not discard a provided visualDuration", () => {
@@ -387,6 +387,23 @@ describe("spring NaN guards", () => {
             bounce: 0.2,
         })
         values.forEach((v) => expect(v).not.toBeNaN())
+    })
+
+    test("retargeting treats invalid physics as absent", () => {
+        // Initial resolution treats this as a time-defined spring, which
+        // ignores inherited velocity, so retargeting must too
+        const options = { duration: 600, stiffness: 0 }
+        const generator = spring({ ...options, keyframes: [0, 100] })
+        generator.next(16)
+        generator.retarget!([20, -50], 300)
+        const fresh = spring({
+            ...options,
+            keyframes: [20, -50],
+            velocity: 300,
+        })
+        for (const t of [0, 16, 100, 300, 1000]) {
+            expect(generator.next(t)).toEqual(fresh.next(t))
+        }
     })
 
     test("invalid stiffness still resolves to a spring that completes", () => {
