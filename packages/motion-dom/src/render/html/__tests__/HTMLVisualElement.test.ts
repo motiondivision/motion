@@ -26,6 +26,26 @@ describe("HTMLVisualElement.readValue", () => {
         expect(createVisualElement(element).readValue("opacity", 1)).toBe(0.5)
     })
 
+    test("reads transforms when the projection node isn't projecting", () => {
+        const element = document.createElement("div")
+        element.style.transform = "matrix(2, 0, 0, 2, 50, 0)"
+        const visualElement = createVisualElement(element)
+        visualElement.projection = { isProjecting: () => false } as any
+
+        expect(visualElement.readValue("x")).toBe(50)
+        expect(visualElement.readValue("scale")).toBe(2)
+    })
+
+    test("doesn't read transforms written by an active projection", () => {
+        const element = document.createElement("div")
+        element.style.transform = "matrix(2, 0, 0, 2, 50, 0)"
+        const visualElement = createVisualElement(element)
+        visualElement.projection = { isProjecting: () => true } as any
+
+        expect(visualElement.readValue("x")).toBe(0)
+        expect(visualElement.readValue("scale")).toBe(1)
+    })
+
     test("leaves animatable values as read", () => {
         const element = document.createElement("div")
         element.style.backgroundColor = "rgb(255, 0, 0)"
