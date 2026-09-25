@@ -1,7 +1,10 @@
 import { ScrollOffset } from "../../offsets/presets"
 import { offsetToViewTimelineRange } from "../offset-to-range"
 
-const entry = { rangeStart: "entry-crossing 0%", rangeEnd: "entry-crossing 100%" }
+const entry = {
+    rangeStart: "entry-crossing 0%",
+    rangeEnd: "entry-crossing 100%",
+}
 const exit = { rangeStart: "exit-crossing 0%", rangeEnd: "exit-crossing 100%" }
 
 describe("offsetToViewTimelineRange", () => {
@@ -100,7 +103,11 @@ describe("offsetToViewTimelineRange", () => {
     it("doesn't map anything but two offsets", () => {
         expect(offsetToViewTimelineRange([[0, 0]])).toBeUndefined()
         expect(
-            offsetToViewTimelineRange(["start end", "center center", "end start"])
+            offsetToViewTimelineRange([
+                "start end",
+                "center center",
+                "end start",
+            ])
         ).toBeUndefined()
     })
 })
