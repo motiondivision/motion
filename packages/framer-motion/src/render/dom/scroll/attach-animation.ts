@@ -1,17 +1,27 @@
 import { AnimationPlaybackControls, observeTimeline } from "motion-dom"
 import { scrollInfo } from "./track"
-import { ScrollOptionsWithDefaults } from "./types"
+import { ScrollOffset, ScrollOptionsWithDefaults } from "./types"
 import { canUseNativeTimeline } from "./utils/can-use-native-timeline"
 import { getTimeline } from "./utils/get-timeline"
 import { offsetToViewTimelineRange } from "./utils/offset-to-range"
 import { resolveRangeFraction, resolveRangeString } from "./utils/range"
 
+/**
+ * A ViewTimeline resolves plain percentages against its cover range: from
+ * the target's start meeting the container's end, to its end meeting the
+ * container's start.
+ */
+const coverOffset: ScrollOffset = [
+    [0, 1],
+    [1, 0],
+]
+
 export function attachToAnimation(
     animation: AnimationPlaybackControls,
     options: ScrollOptionsWithDefaults
 ) {
-    const hasUserRange =
-        options.rangeStart !== undefined || options.rangeEnd !== undefined
+    const { rangeStart, rangeEnd } = options
+    const hasUserRange = rangeStart !== undefined || rangeEnd !== undefined
 
     const range = options.target
         ? offsetToViewTimelineRange(options.offset)
@@ -42,17 +52,13 @@ export function attachToAnimation(
      */
     const rangeTiming = hasUserRange
         ? {
-              rangeStart: resolveRangeString(options.rangeStart),
-              rangeEnd: resolveRangeString(options.rangeEnd),
+              rangeStart: resolveRangeString(rangeStart),
+              rangeEnd: resolveRangeString(rangeEnd),
               fill: "auto",
           }
         : range && useNative
         ? { rangeStart: range.rangeStart, rangeEnd: range.rangeEnd }
         : undefined
-
-    const rangeStartFraction = resolveRangeFraction(options.rangeStart, 0)
-    const rangeEndFraction = resolveRangeFraction(options.rangeEnd, 1)
-    const rangeSpan = rangeEndFraction - rangeStartFraction
 
     return animation.attachTimeline({
         timeline: useNative ? timeline : undefined,
@@ -67,27 +73,35 @@ export function attachToAnimation(
              * it so the underlying styles can take over.
              */
             if (hasUserRange) {
-                return scrollInfo((info) => {
-                    const axis = info[options.axis]
-                    const progress = axis.scrollLength
-                        ? axis.current / axis.scrollLength
-                        : 0
+                const start = resolveRangeFraction(rangeStart, 0)
+                const end = resolveRangeFraction(rangeEnd, 1)
 
-                    if (
-                        progress < rangeStartFraction ||
-                        progress > rangeEndFraction
-                    ) {
-                        valueAnimation.setActive?.(false)
-                        return
-                    }
+                return scrollInfo(
+                    (info) => {
+                        const axis = info[options.axis]
+                        const [from = 0, to = axis.scrollLength] = axis.offset
+                        const progress =
+                            to !== from
+                                ? (axis.current - from) / (to - from)
+                                : 0
+                        const isActive = progress >= start && progress <= end
 
-                    valueAnimation.setActive?.(true)
-                    valueAnimation.time =
-                        valueAnimation.iterationDuration *
-                        (rangeSpan > 0
-                            ? (progress - rangeStartFraction) / rangeSpan
-                            : 0)
-                }, options)
+                        valueAnimation.setActive?.(isActive)
+
+                        if (isActive) {
+                            valueAnimation.time =
+                                valueAnimation.iterationDuration *
+                                (end > start
+                                    ? (progress - start) / (end - start)
+                                    : 0)
+                        }
+                    },
+                    /**
+                     * Progress is read from the resolved offsets rather than
+                     * `progress`, which is clamped, so it can fall outside 0–1.
+                     */
+                    { ...options, offset: options.target && coverOffset }
+                )
             }
 
             return observeTimeline((progress) => {
