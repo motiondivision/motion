@@ -214,6 +214,11 @@ describe("Drag to reorder", () => {
             cy.visit("?test=drag-to-reorder").wait(50).get("#Tomato")
         )
 
-        checkBox(moveAround(chain, [-4, 14, -8, 4, -5, 2, -6]))
+        /**
+         * Re-query so the check retries: the snap back to origin needs two
+         * frames after release, which slow CI can take longer than
+         * moveAround's 150ms wait to produce.
+         */
+        checkBox(moveAround(chain, [-4, 14, -8, 4, -5, 2, -6]).get("#Tomato"))
     })
 })
