@@ -23,8 +23,9 @@ describe("useScroll + transformed ancestor (regression for #3658)", () => {
                 expect(anims).to.have.length.greaterThan(0)
                 const a = anims[0]
                 expect(a.timeline?.constructor?.name).to.equal("ViewTimeline")
-                expect(a.rangeStart?.rangeName).to.equal("contain")
-                expect(a.rangeEnd?.rangeName).to.equal("contain")
+                // The 200vh target is taller than the viewport, so All runs forwards
+                expect(a.rangeStart?.rangeName).to.equal("exit-crossing")
+                expect(a.rangeEnd?.rangeName).to.equal("entry-crossing")
             })
         })
     })

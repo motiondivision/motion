@@ -1,8 +1,10 @@
-import { ProgressTimeline } from "motion-dom"
+import { frameData, ProgressTimeline } from "motion-dom"
+import { clamp } from "motion-utils"
+import { offsetsToProgress } from "../offsets"
 import { scrollInfo } from "../track"
 import { ScrollOptionsWithDefaults } from "../types"
 import { canUseNativeTimeline } from "./can-use-native-timeline"
-import { offsetToViewTimelineRange } from "./offset-to-range"
+import { offsetToViewTimelineRange, ViewTimelineRange } from "./offset-to-range"
 
 declare class ScrollTimeline implements ProgressTimeline {
     constructor(options: ScrollOptions)
@@ -35,11 +37,61 @@ function scrollTimelineFallback(options: ScrollOptionsWithDefaults) {
     return { currentTime, cancel }
 }
 
-export function getTimeline({
-    container,
-    ...options
-}: ScrollOptionsWithDefaults): ProgressTimeline {
-    const { axis } = options
+/**
+ * A ViewTimeline's currentTime is its cover progress. A range's progress is
+ * derived from the length of the cover range, which starts where the target
+ * meets the end of the scrollport and ends where it leaves the start. It's
+ * read once per frame and shared by every value on the range.
+ */
+function rangeTimeline(
+    timeline: any,
+    [[t0, c0], [t1, c1]]: number[][],
+    length: "clientHeight" | "clientWidth"
+): ProgressTimeline {
+    let timestamp: number
+    let currentTime: { value: number } | null
+
+    return {
+        get currentTime() {
+            if (timestamp !== frameData.timestamp) {
+                timestamp = frameData.timestamp
+                const cover = timeline.currentTime
+                currentTime = null
+
+                if (cover) {
+                    const coverLength =
+                        timeline.endOffset.value - timeline.startOffset.value
+                    const view = timeline.source[length]
+                    const toScroll = (t: number, c: number) =>
+                        (1 - c) * view + t * (coverLength - view)
+
+                    currentTime = {
+                        value:
+                            clamp(
+                                0,
+                                1,
+                                offsetsToProgress(
+                                    [toScroll(t0, c0), toScroll(t1, c1)],
+                                    // Layout units, as a zero-length range steps at its point
+                                    Math.round(
+                                        cover.value * coverLength * 0.64
+                                    ) / 64
+                                )
+                            ) * 100,
+                    }
+                }
+            }
+
+            return currentTime
+        },
+    }
+}
+
+export function getTimeline(
+    { container, ...options }: ScrollOptionsWithDefaults,
+    range?: ViewTimelineRange
+): ProgressTimeline {
+    const { axis, target } = options
 
     let containerCache = timelineCache.get(container)
     if (!containerCache) {
@@ -47,7 +99,7 @@ export function getTimeline({
         timelineCache.set(container, containerCache)
     }
 
-    const targetKey = options.target ?? "self"
+    const targetKey = target ?? "self"
     let targetCache = containerCache.get(targetKey)
     if (!targetCache) {
         targetCache = {}
@@ -57,31 +109,20 @@ export function getTimeline({
     const axisKey = axis + (options.offset ?? []).join(",")
 
     if (!targetCache[axisKey]) {
-        if (options.target && canUseNativeTimeline(options.target)) {
-            const range = offsetToViewTimelineRange(options.offset)
-            if (range) {
-                targetCache[axisKey] = new ViewTimeline({
-                    subject: options.target,
-                    axis,
-                })
-            } else {
-                targetCache[axisKey] = scrollTimelineFallback({
-                    container,
-                    ...options,
-                })
-            }
-        } else if (canUseNativeTimeline()) {
-            targetCache[axisKey] = new ScrollTimeline({
-                source: container,
-                axis,
-            } as any)
-        } else {
-            targetCache[axisKey] = scrollTimelineFallback({
-                container,
-                ...options,
-            })
-        }
+        targetCache[axisKey] =
+            !canUseNativeTimeline(target) ||
+            (target && !offsetToViewTimelineRange(options.offset))
+                ? scrollTimelineFallback({ container, ...options })
+                : target
+                ? new ViewTimeline({ subject: target, axis })
+                : new ScrollTimeline({ source: container, axis } as any)
     }
 
-    return targetCache[axisKey]!
+    return range
+        ? (targetCache[axisKey + "range"] ||= rangeTimeline(
+              targetCache[axisKey],
+              range.intersections,
+              axis === "y" ? "clientHeight" : "clientWidth"
+          ))
+        : targetCache[axisKey]!
 }

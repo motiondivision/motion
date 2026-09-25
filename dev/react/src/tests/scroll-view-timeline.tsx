@@ -3,7 +3,7 @@ import * as React from "react"
 import { useRef } from "react"
 
 /**
- * Default offset (All preset / contain range)
+ * Default offset (All preset)
  */
 const DefaultTarget = () => {
     const ref = useRef<HTMLDivElement>(null)
@@ -43,7 +43,7 @@ const EnterTarget = () => {
 }
 
 /**
- * String offset — should NOT accelerate
+ * String offset - maps to the cover range
  */
 const StringOffsetTarget = () => {
     const ref = useRef<HTMLDivElement>(null)

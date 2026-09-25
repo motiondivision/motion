@@ -858,7 +858,6 @@ describe("scroll", () => {
             resolve()
         })
     })
-
 })
 
 /**
@@ -1143,5 +1142,162 @@ describe.each([
         stop()
 
         expect(FakeScrollTimeline.instances).toBe(0)
+    })
+})
+
+describe("scroll() ViewTimeline ranges", () => {
+    /**
+     * A ViewTimeline's currentTime is always its cover progress. For the
+     * 200px target at 100px in a 100px scrollport, cover runs from scroll 0
+     * (target start meets scrollport end) to 300 (target end leaves start).
+     */
+    let coverProgress = 50
+    class FakeViewTimeline {
+        get currentTime() {
+            return { value: coverProgress }
+        }
+        startOffset = { value: 0 }
+        endOffset = { value: 300 }
+        source = document.documentElement
+    }
+
+    const fakeWaapi = (direction = "normal") => {
+        const waapi: any = {
+            effect: {
+                getTiming: () => ({ direction }),
+                updateTiming: (timing: any) => Object.assign(waapi, timing),
+            },
+        }
+        return waapi
+    }
+
+    /**
+     * Attaches a group with one WAAPI animation and one JS-driven value.
+     */
+    const attach = (offset: any, { direction = "normal" } = {}) => {
+        const target = document.createElement("div")
+        document.body.appendChild(target)
+        createMockMeasurement(target, "clientHeight")(200)
+        createMockMeasurement(target, "offsetTop")(100)
+
+        const waapi = fakeWaapi(direction)
+        const valueAnimation = { time: 0, iterationDuration: 1, pause() {} }
+        const stop = scroll(
+            {
+                attachTimeline: ({ timeline, onAttach, observe }: any) => {
+                    const stopObserve = observe(valueAnimation)
+                    const stopWaapi = timeline && onAttach?.(waapi)
+                    return () => {
+                        stopObserve()
+                        stopWaapi?.()
+                    }
+                },
+            } as any,
+            { target, offset }
+        )
+        return { waapi, valueAnimation, stop }
+    }
+
+    beforeEach(async () => {
+        ;(window as any).ViewTimeline = FakeViewTimeline
+        supportsFlags.viewTimeline = true
+        coverProgress = 50
+        await fireScroll(0)
+        setWindowHeight(100)
+        setDocumentHeight(1000)
+    })
+
+    afterEach(() => {
+        supportsFlags.viewTimeline = undefined
+        delete (window as any).ViewTimeline
+    })
+
+    test("Sets ranges on WAAPI animations, and derives JS-driven values' range progress from cover", async () => {
+        const { waapi, valueAnimation, stop } = attach(ScrollOffset.Enter)
+
+        // Scroll 150 is 0.5 of cover, but 0.75 of Enter's [0, 200]
+        await fireScroll(50)
+        await nextFrame()
+
+        expect(waapi).toMatchObject({
+            rangeStart: "entry-crossing 0%",
+            rangeEnd: "entry-crossing 100%",
+            direction: "normal",
+        })
+        expect(valueAnimation.time).toBeCloseTo(0.75)
+
+        stop()
+    })
+
+    test("Derives reversed and size-dependent range progress", async () => {
+        coverProgress = 25
+
+        // Scroll 75 is 0.75 of Any's [300, 0], and 0 of All's [100, 200]
+        const any = attach(ScrollOffset.Any)
+        const all = attach(ScrollOffset.All)
+        await nextFrame()
+        expect(any.valueAnimation.time).toBeCloseTo(0.75)
+        expect(all.valueAnimation.time).toBeCloseTo(0)
+
+        any.stop()
+        all.stop()
+    })
+
+    test("Reverses Any over the cover range", () => {
+        const { waapi, stop } = attach(ScrollOffset.Any)
+        expect(waapi).toMatchObject({
+            rangeStart: "entry-crossing 0%",
+            rangeEnd: "exit-crossing 100%",
+            direction: "reverse",
+        })
+        stop()
+
+        const alternate = attach(ScrollOffset.Any, {
+            direction: "alternate",
+        })
+        expect(alternate.waapi.direction).toBe("alternate-reverse")
+        alternate.stop()
+    })
+
+    test("Flips All when the target becomes shorter than the container", () => {
+        // Target 200px, container 100px
+        const { waapi, stop } = attach(undefined)
+        expect(waapi).toMatchObject({
+            rangeStart: "exit-crossing 0%",
+            rangeEnd: "entry-crossing 100%",
+            direction: "normal",
+        })
+
+        setWindowHeight(400)
+        window.dispatchEvent(new window.Event("resize"))
+        expect(waapi).toMatchObject({
+            rangeStart: "entry-crossing 100%",
+            rangeEnd: "exit-crossing 0%",
+            direction: "reverse",
+        })
+
+        // Equal lengths collapse the range to a point, where JS steps forwards
+        setWindowHeight(200)
+        window.dispatchEvent(new window.Event("resize"))
+        expect(waapi.direction).toBe("normal")
+
+        stop()
+        setWindowHeight(400)
+        window.dispatchEvent(new window.Event("resize"))
+        expect(waapi.direction).toBe("normal")
+    })
+
+    test("Reads cover progress from the ViewTimeline", async () => {
+        const { waapi, valueAnimation, stop } = attach([
+            "start end",
+            "end start",
+        ])
+
+        await fireScroll(50)
+        await nextFrame()
+        expect(valueAnimation.time).toBeCloseTo(0.5)
+        expect(waapi.rangeStart).toBeUndefined()
+
+        stop()
     })
 })

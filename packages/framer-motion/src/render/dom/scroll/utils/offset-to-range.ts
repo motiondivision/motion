@@ -1,83 +1,70 @@
-import { ScrollOffset as ScrollOffsetPresets } from "../offsets/presets"
-import { ProgressIntersection, ScrollOffset } from "../types"
+import { resolveOffset } from "../offsets/offset"
+import { ScrollOffset as presets } from "../offsets/presets"
+import { ScrollOffset } from "../types"
 
-interface ViewTimelineRange {
-    rangeStart: string
-    rangeEnd: string
+export interface ViewTimelineRange {
+    /**
+     * Named range offsets of the offset's two points.
+     */
+    points: string[]
+
+    /**
+     * The two points as [target progress, container progress].
+     */
+    intersections: number[][]
+
+    /**
+     * The offset runs forwards when a × target length + b × container length
+     * is >= 0. Otherwise its range runs from the second point to the first,
+     * with progress reversed.
+     */
+    a: number
+    b: number
+
+    /**
+     * Whether this is the ViewTimeline's default range, run forwards.
+     */
+    cover: boolean
 }
 
 /**
- * Maps from ProgressIntersection pairs used by Motion's preset offsets to
- * ViewTimeline named ranges. Returns undefined for unrecognised patterns,
- * which signals the caller to fall back to JS-based scroll tracking.
+ * Resolved offsets are linear in the target and container lengths, so
+ * probing them gives [target progress, container progress, pixels].
+ * vw/vh can resolve to 0px, so they're rejected up front.
  */
-const presets: [ProgressIntersection[], string][] = [
-    [ScrollOffsetPresets.Enter, "entry"],
-    [ScrollOffsetPresets.Exit, "exit"],
-    [ScrollOffsetPresets.Any, "cover"],
-    [ScrollOffsetPresets.All, "contain"],
-]
-
-const stringToProgress: Record<string, number> = {
-    start: 0,
-    end: 1,
+const toIntersection = (o: ScrollOffset[number]) => {
+    if (/v/u.test(o as string)) return []
+    const px = resolveOffset(o, 0, 0, 0)
+    return [resolveOffset(o, 0, 1, 0) - px, px - resolveOffset(o, 1, 0, 0), px]
 }
 
-function parseStringOffset(
-    s: string
-): ProgressIntersection | undefined {
-    const parts = s.trim().split(/\s+/)
-    if (parts.length !== 2) return undefined
-    const a = stringToProgress[parts[0]]
-    const b = stringToProgress[parts[1]]
-    if (a === undefined || b === undefined) return undefined
-    return [a, b]
-}
+const toRange = ([t, c, px]: number[]) =>
+    !px &&
+    (c === 0 || c === 1) &&
+    `${c ? "entry" : "exit"}-crossing ${t * 100}%`
 
-function normaliseOffset(offset: ScrollOffset): ProgressIntersection[] | undefined {
-    if (offset.length !== 2) return undefined
-    const result: ProgressIntersection[] = []
-    for (const item of offset) {
-        if (Array.isArray(item)) {
-            result.push(item as ProgressIntersection)
-        } else if (typeof item === "string") {
-            const parsed = parseStringOffset(item)
-            if (!parsed) return undefined
-            result.push(parsed)
-        } else {
-            return undefined
-        }
-    }
-    return result
-}
-
-function matchesPreset(
-    offset: ScrollOffset,
-    preset: ProgressIntersection[]
-): boolean {
-    const normalised = normaliseOffset(offset)
-    if (!normalised) return false
-
-    for (let i = 0; i < 2; i++) {
-        const o = normalised[i]
-        const p = preset[i]
-        if (o[0] !== p[0] || o[1] !== p[1]) return false
-    }
-    return true
-}
-
+/**
+ * Maps an offset to an equivalent ViewTimeline range. Returns undefined when
+ * there isn't one, which signals the caller to fall back to JS-based scroll
+ * tracking.
+ */
 export function offsetToViewTimelineRange(
-    offset?: ScrollOffset
+    offset: ScrollOffset = presets.All
 ): ViewTimelineRange | undefined {
-    if (!offset) {
-        return { rangeStart: "contain 0%", rangeEnd: "contain 100%" }
-    }
+    if (offset.length !== 2) return
 
-    for (const [preset, name] of presets) {
-        if (matchesPreset(offset, preset)) {
-            return { rangeStart: `${name} 0%`, rangeEnd: `${name} 100%` }
+    const [start, end] = offset.map(toIntersection)
+    const points = [toRange(start), toRange(end)]
+    const a = end[0] - start[0]
+    const b = start[1] - end[1]
+
+    if (points[0] && points[1] && (a || b)) {
+        return {
+            points: points as string[],
+            intersections: [start, end],
+            a,
+            b,
+            cover: !start[0] && a === 1 && b === 1,
         }
     }
-
-    return undefined
 }
