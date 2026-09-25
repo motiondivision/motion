@@ -36,7 +36,10 @@ export const App = () => {
             }),
         ]
 
-        return () => stops.forEach((stop) => stop())
+        const stopAll = () => stops.forEach((stop) => stop())
+        Object.assign(window, { stopScroll: stopAll })
+
+        return stopAll
     }, [])
 
     const nativeTimeline =

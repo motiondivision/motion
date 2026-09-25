@@ -31,8 +31,19 @@ const expectStyles = (
     })
 }
 
-const expectInactive = (opacityId: string, xId: string) =>
+/**
+ * Inactive means the base CSS applies with no inline style left behind, so
+ * other rules (e.g. :hover) can take over.
+ */
+const expectInactive = (opacityId: string, xId: string) => {
     expectStyles(opacityId, xId, [0.07, 0.13], [299, 301])
+    cy.get(opacityId).should(([$el]: any) => {
+        expect($el.style.opacity).to.equal("")
+    })
+    cy.get(xId).should(([$el]: any) => {
+        expect($el.style.transform).to.equal("")
+    })
+}
 
 describe("scroll() rangeStart/rangeEnd (#3001)", () => {
     beforeEach(() => {
@@ -81,5 +92,13 @@ describe("scroll() rangeStart/rangeEnd (#3001)", () => {
 
         cy.scrollTo(0, 1875).wait(200)
         expectStyles("#target-box", "#target-js-box", [0.4, 0.6], [40, 60])
+    })
+
+    it("Stays inactive after scroll() is stopped outside the range", () => {
+        cy.scrollTo(0, 1000).wait(200)
+        cy.window().then((win: any) => win.stopScroll())
+        cy.wait(200)
+        expectInactive("#box", "#js-box")
+        expectInactive("#target-box", "#target-js-box")
     })
 })
