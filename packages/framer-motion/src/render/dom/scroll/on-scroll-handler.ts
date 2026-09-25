@@ -1,6 +1,7 @@
 import { warnOnce } from "motion-utils"
-import { updateScrollInfo } from "./info"
+import { Axis, axisKeys } from "./info"
 import { resolveOffsets } from "./offsets/index"
+import { calcInset } from "./offsets/inset"
 import {
     OnScrollHandler,
     OnScrollInfo,
@@ -8,31 +9,19 @@ import {
     ScrollInfoOptions,
 } from "./types"
 
-function measure(
-    container: Element,
-    target: Element = container,
-    info: ScrollInfo
-) {
-    /**
-     * Find inset of target within scrollable container
-     */
-    info.x.targetOffset = 0
-    info.y.targetOffset = 0
-    if (target !== container) {
-        let node = target as HTMLElement
-        while (node && node !== container) {
-            info.x.targetOffset += node.offsetLeft
-            info.y.targetOffset += node.offsetTop
-            node = node.offsetParent as HTMLElement
-        }
-    }
+function getTargetSize(target: Element) {
+    return "getBBox" in target && target.tagName !== "svg"
+        ? (target as SVGGraphicsElement).getBBox()
+        : { width: target.clientWidth, height: target.clientHeight }
+}
 
-    info.x.targetLength =
-        target === container ? target.scrollWidth : target.clientWidth
-    info.y.targetLength =
-        target === container ? target.scrollHeight : target.clientHeight
-    info.x.containerLength = container.clientWidth
-    info.y.containerLength = container.clientHeight
+export function createOnScrollHandler(
+    container: Element,
+    onScroll: OnScrollInfo,
+    info: ScrollInfo,
+    options: ScrollInfoOptions = {}
+): OnScrollHandler {
+    const { target } = options
 
     /**
      * In development mode ensure scroll containers aren't position: static as this makes
@@ -41,7 +30,6 @@ function measure(
      */
     if (process.env.NODE_ENV !== "production") {
         if (
-            container &&
             target &&
             target !== container &&
             container !== document.documentElement &&
@@ -54,23 +42,37 @@ function measure(
             )
         }
     }
-}
 
-export function createOnScrollHandler(
-    element: Element,
-    onScroll: OnScrollInfo,
-    info: ScrollInfo,
-    options: ScrollInfoOptions = {}
-): OnScrollHandler {
+    /**
+     * Handlers without a target or offset are notified with the container's
+     * shared info object, so they measure nothing themselves.
+     */
+    const needsOwnInfo = target || options.offset
+
     return {
-        measure: (time) => {
-            measure(element, options.target, info)
-            updateScrollInfo(element, info, time)
+        measure: (containerInfo) => {
+            if (!needsOwnInfo) return
 
-            if (options.offset || options.target) {
-                resolveOffsets(element, info, options)
+            info.time = containerInfo.time
+            for (const key in axisKeys) {
+                const axis = key as Axis
+                const { offset } = info[axis]
+                Object.assign(info[axis], containerInfo[axis])
+                info[axis].offset = offset
             }
+
+            if (target && target !== container) {
+                const inset = calcInset(target, container)
+                const size = getTargetSize(target)
+                info.x.targetOffset = inset.x
+                info.y.targetOffset = inset.y
+                info.x.targetLength = size.width
+                info.y.targetLength = size.height
+            }
+
+            resolveOffsets(info, options)
         },
-        notify: () => onScroll(info),
+        notify: (containerInfo) =>
+            onScroll(needsOwnInfo ? info : containerInfo),
     }
 }

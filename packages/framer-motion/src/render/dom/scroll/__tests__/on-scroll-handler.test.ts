@@ -37,7 +37,7 @@ describe("on-scroll-handler static-position warning", () => {
             createScrollInfo(),
             { target }
         )
-        handler.measure(0)
+        handler.measure(createScrollInfo())
     }
 
     test("does not warn when container is document.documentElement", () => {

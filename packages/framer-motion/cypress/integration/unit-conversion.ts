@@ -23,7 +23,7 @@ describe("Unit conversion", () => {
             })
             // First click: 0 -> calc(3 * var(--width)) = 300px
             .trigger("click")
-            .wait(300)
+            .get("#box")
             .should(([$box]: any) => {
                 // Computed position should be 300px
                 expect(getTranslateX($box)).to.equal(300)
@@ -34,7 +34,7 @@ describe("Unit conversion", () => {
             })
             // Second click: calc(300px) -> 0
             .trigger("click")
-            .wait(300)
+            .get("#box")
             .should(([$box]: any) => {
                 // Computed position should be back to 0
                 expect(getTranslateX($box)).to.equal(0)
@@ -48,7 +48,7 @@ describe("Unit conversion", () => {
             .wait(100)
             .get("#box")
             .trigger("click")
-            .wait(100)
+            .get("#box")
             .should(([$box]: any) => {
                 const { left } = $box.getBoundingClientRect()
                 expect(left).to.equal(150)
@@ -60,7 +60,7 @@ describe("Unit conversion", () => {
             .wait(100)
             .get("#box")
             .trigger("click")
-            .wait(100)
+            .get("#box")
             .should(([$box]: any) => {
                 const { left } = $box.getBoundingClientRect()
                 expect(left).to.equal(150)

@@ -6,18 +6,29 @@
  * Discrepancies between the expected values in the two sets of tests are *something* to do with how
  * pointer events are being resolved with Cypress, but a manual check will verify that both drag modes
  * are working visually the same.
+ *
+ * PanSession applies pointermove on the next animation frame, and pointerup
+ * discards a move that hasn't been applied yet. Cypress also resolves trigger
+ * coordinates against the element's current box. So each pointermove is
+ * followed by nextFrame() rather than a fixed wait, which slow CI can outrun.
+ *
+ * Gestures that start straight after the page loads first wait two frames:
+ * React 19 StrictMode remounts refs after the first paint, which cancels a
+ * gesture started before then.
  */
 describe("Drag SVG", () => {
     it("Drags the element by the defined distance", () => {
         cy.visit("?test=drag-svg")
             .wait(50)
             .get("[data-testid='draggable']")
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 50, 50, { force: true })
             .wait(50)
             .trigger("pointermove", 60, 60, { force: true }) // Gesture will start from first move past threshold
-            .wait(100)
+            .nextFrame()
             .trigger("pointermove", 210, 310, { force: true })
-            .wait(100)
+            .nextFrame()
             .trigger("pointerup", { force: true })
             .should(($draggable: any) => {
                 const draggable = $draggable[0] as HTMLDivElement
@@ -34,9 +45,9 @@ describe("Drag SVG", () => {
             .wait(200)
             .trigger("pointerdown", 50, 50, { force: true })
             .trigger("pointermove", 60, 60, { force: true }) // Gesture will start from first move past threshold
-            .wait(50)
+            .nextFrame()
             .trigger("pointermove", 200, 300, { force: true })
-            .wait(50)
+            .nextFrame()
             .trigger("pointerup", { force: true })
             .should(($draggable: any) => {
                 const draggable = $draggable[0] as HTMLDivElement
@@ -53,9 +64,9 @@ describe("Drag SVG", () => {
             .wait(200)
             .trigger("pointerdown", 50, 50, { force: true })
             .trigger("pointermove", 60, 60, { force: true }) // Gesture will start from first move past threshold
-            .wait(50)
+            .nextFrame()
             .trigger("pointermove", 200, 300, { force: true })
-            .wait(50)
+            .nextFrame()
             .trigger("pointerup", { force: true })
             .should(($draggable: any) => {
                 const draggable = $draggable[0] as HTMLDivElement
@@ -118,9 +129,9 @@ describe("Drag SVG", () => {
             .wait(100)
             .trigger("pointerdown", 50, 50, { force: true })
             .trigger("pointermove", 60, 60, { force: true }) // Gesture will start from first move past threshold
-            .wait(50)
+            .nextFrame()
             .trigger("pointermove", 200, 200, { force: true })
-            .wait(50)
+            .nextFrame()
             .trigger("pointerup", { force: true })
             .should(($draggable: any) => {
                 const draggable = $draggable[0] as HTMLDivElement
@@ -138,9 +149,9 @@ describe("Drag SVG", () => {
             .wait(100)
             .trigger("pointerdown", 50, 50, { force: true })
             .trigger("pointermove", 60, 60, { force: true }) // Gesture will start from first move past threshold
-            .wait(50)
+            .nextFrame()
             .trigger("pointermove", 10, 10, { force: true })
-            .wait(50)
+            .nextFrame()
             .trigger("pointerup", { force: true })
             .should(($draggable: any) => {
                 const draggable = $draggable[0] as HTMLDivElement
@@ -165,11 +176,13 @@ describe("Drag SVG & Layout", () => {
                 expect(top).to.equal(30)
             })
             .wait(50)
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 50, 50, { force: true })
             .trigger("pointermove", 60, 60, { force: true }) // Gesture will start from first move past threshold
-            .wait(50)
+            .nextFrame()
             .trigger("pointermove", 200, 300, { force: true })
-            .wait(50)
+            .nextFrame()
             .trigger("pointerup", { force: true })
             .should(($draggable: any) => {
                 const draggable = $draggable[0] as HTMLDivElement
@@ -188,9 +201,9 @@ describe("Drag SVG & Layout", () => {
             .trigger("pointerdown", 50, 50, { force: true })
             .wait(50)
             .trigger("pointermove", 60, 60, { force: true }) // Gesture will start from first move past threshold
-            .wait(50)
+            .nextFrame()
             .trigger("pointermove", 200, 300, { force: true })
-            .wait(50)
+            .nextFrame()
             .trigger("pointerup", { force: true })
             .should(($draggable: any) => {
                 const draggable = $draggable[0] as HTMLDivElement
@@ -209,9 +222,9 @@ describe("Drag SVG & Layout", () => {
             .trigger("pointerdown", 50, 50, { force: true })
             .wait(50)
             .trigger("pointermove", 60, 60, { force: true }) // Gesture will start from first move past threshold
-            .wait(50)
+            .nextFrame()
             .trigger("pointermove", 200, 300, { force: true })
-            .wait(50)
+            .nextFrame()
             .trigger("pointerup", { force: true })
             .should(($draggable: any) => {
                 const draggable = $draggable[0] as HTMLDivElement
@@ -274,9 +287,9 @@ describe("Drag SVG & Layout", () => {
             .wait(200)
             .trigger("pointerdown", 50, 50, { force: true })
             .trigger("pointermove", 60, 60, { force: true }) // Gesture will start from first move past threshold
-            .wait(50)
+            .nextFrame()
             .trigger("pointermove", 200, 200, { force: true })
-            .wait(50)
+            .nextFrame()
             .trigger("pointerup", { force: true })
             .should(($draggable: any) => {
                 const draggable = $draggable[0] as HTMLDivElement
@@ -294,9 +307,9 @@ describe("Drag SVG & Layout", () => {
             .wait(200)
             .trigger("pointerdown", 50, 50, { force: true })
             .trigger("pointermove", 60, 60, { force: true }) // Gesture will start from first move past threshold
-            .wait(50)
+            .nextFrame()
             .trigger("pointermove", 10, 10, { force: true })
-            .wait(50)
+            .nextFrame()
             .trigger("pointerup", { force: true })
             .should(($draggable: any) => {
                 const draggable = $draggable[0] as HTMLDivElement
