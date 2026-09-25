@@ -1,0 +1,75 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+
+            .spacer {
+                height: 100vh;
+            }
+
+            #target {
+                height: 500px;
+            }
+
+            .box {
+                position: fixed;
+                left: 0;
+                width: 100px;
+                height: 100px;
+                background-color: #0077ff;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="spacer"></div>
+        <div class="spacer"></div>
+        <div style="height: 50vh"></div>
+        <div id="target"></div>
+        <div class="spacer"></div>
+        <div class="spacer"></div>
+        <div class="box" id="box" style="top: 0"></div>
+        <div class="box" id="js-box" style="top: 100px"></div>
+        <div class="box" id="target-box" style="top: 200px"></div>
+        <div class="box" id="target-js-box" style="top: 300px"></div>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            const { animate, scroll } = window.Motion
+
+            /**
+             * scroll() with rangeStart/rangeEnd maps the range onto the
+             * animation and holds the first keyframe before it and the last
+             * keyframe after it.
+             *
+             * opacity runs on WAAPI, so it uses a native ScrollTimeline or
+             * ViewTimeline where supported. x never does, so it always uses
+             * the JS observe path.
+             */
+            const target = document.getElementById("target")
+            const transition = { ease: "linear" }
+            const targetRange = { target, rangeStart: "0%", rangeEnd: "50%" }
+
+            const stops = [
+                scroll(animate("#box", { opacity: [0, 1] }, transition), {
+                    rangeStart: "10%",
+                    rangeEnd: "30%",
+                }),
+                scroll(animate("#js-box", { x: [0, 100] }, transition), {
+                    rangeStart: 0.1,
+                    rangeEnd: 0.3,
+                }),
+                scroll(
+                    animate("#target-box", { opacity: [0, 1] }, transition),
+                    targetRange
+                ),
+                scroll(
+                    animate("#target-js-box", { x: [0, 100] }, transition),
+                    targetRange
+                ),
+            ]
+
+            window.stopScroll = () => stops.forEach((stop) => stop())
+        </script>
+    </body>
+</html>
