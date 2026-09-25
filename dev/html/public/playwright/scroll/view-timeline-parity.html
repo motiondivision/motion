@@ -1,0 +1,123 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+
+            .spacer {
+                height: 600px;
+            }
+
+            #small {
+                height: 100px;
+                background: #0077ff;
+            }
+
+            #large {
+                height: 800px;
+                background: #ff0088;
+            }
+
+            #probes {
+                position: fixed;
+                top: 0;
+                left: 0;
+            }
+
+            #probes div {
+                width: 1px;
+                height: 1px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="spacer"></div>
+        <div id="small"></div>
+        <div class="spacer"></div>
+        <div id="large"></div>
+        <div class="spacer"></div>
+        <div id="probes"></div>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            const { animate, scroll } = window.Motion
+
+            /**
+             * name, offset, and whether it has an exact ViewTimeline range
+             * (so should run natively where ViewTimeline is supported).
+             */
+            const offsets = [
+                ["default", undefined, false],
+                ["Enter", [[0, 1], [1, 1]], true],
+                ["Exit", [[0, 0], [1, 0]], true],
+                ["Any", [[1, 0], [0, 1]], false],
+                ["All", [[0, 0], [1, 1]], false],
+                ["start end, end start", ["start end", "end start"], true],
+                ["start end, end end", ["start end", "end end"], true],
+                ["start start, end start", ["start start", "end start"], true],
+                ["start start, end end", ["start start", "end end"], false],
+                ["center end, center start", ["center end", "center start"], true],
+                ["start end, start start", ["start end", "start start"], true],
+                ["0.25 end, 0.75 start", [[0.25, 1], [0.75, 0]], true],
+                ["end end, start start", ["end end", "start start"], false],
+                ["start center, end start", ["start center", "end start"], false],
+            ]
+
+            const probes = document.getElementById("probes")
+            const probe = () => probes.appendChild(document.createElement("div"))
+
+            const cells = []
+
+            for (const size of ["small", "large"]) {
+                const target = document.getElementById(size)
+
+                for (const [name, offset, mapped] of offsets) {
+                    const cell = { name, size, mapped, js: 0 }
+                    const options = { target, offset }
+
+                    // opacity runs on WAAPI with a native timeline when available
+                    cell.native = probe()
+                    scroll(
+                        animate(
+                            cell.native,
+                            { opacity: [0, 1] },
+                            { duration: 1, ease: "linear" }
+                        ),
+                        options
+                    )
+
+                    // x can't run on WAAPI, so it's driven from JS by the timeline
+                    cell.x = probe()
+                    scroll(
+                        animate(
+                            cell.x,
+                            { x: [0, 100] },
+                            { duration: 1, ease: "linear" }
+                        ),
+                        options
+                    )
+
+                    // A two-argument callback always takes the JS scrollInfo path
+                    scroll((_, info) => (cell.js = info.y.progress), options)
+
+                    cells.push(cell)
+                }
+            }
+
+            window.readCells = () =>
+                cells.map(({ name, size, mapped, js, native, x }) => ({
+                    name,
+                    size,
+                    mapped,
+                    js,
+                    native: parseFloat(getComputedStyle(native).opacity),
+                    x:
+                        new DOMMatrix(getComputedStyle(x).transform).m41 /
+                        100,
+                    timeline:
+                        native.getAnimations()[0]?.timeline?.constructor
+                            .name,
+                }))
+        </script>
+    </body>
+</html>

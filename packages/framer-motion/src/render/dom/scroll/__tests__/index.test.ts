@@ -879,4 +879,62 @@ describe("scroll", () => {
             }
         }
     })
+
+    describe("JS-driven animations with a ViewTimeline", () => {
+        // A ViewTimeline's currentTime is always its cover progress
+        class FakeViewTimeline {
+            currentTime = { value: 50 }
+        }
+
+        const attach = (offset: any) => {
+            const target = document.createElement("div")
+            document.documentElement.appendChild(target)
+            createMockMeasurement(target, "clientHeight")(200)
+            createMockMeasurement(target, "offsetTop")(100)
+
+            const valueAnimation = { time: 0, iterationDuration: 1, pause() {} }
+            const stop = scroll(
+                {
+                    attachTimeline: ({ observe }: any) =>
+                        observe(valueAnimation),
+                } as any,
+                { target, offset }
+            )
+            return { valueAnimation, stop }
+        }
+
+        beforeEach(async () => {
+            ;(window as any).ViewTimeline = FakeViewTimeline
+            supportsFlags.viewTimeline = true
+            await fireScroll(0)
+            setWindowHeight(100)
+            setDocumentHeight(1000)
+        })
+
+        afterEach(() => {
+            supportsFlags.viewTimeline = undefined
+            delete (window as any).ViewTimeline
+        })
+
+        test("Track ranges other than cover in JS", async () => {
+            const { valueAnimation, stop } = attach(ScrollOffset.Enter)
+
+            // Enter resolves to [0, 200], so 50px is 0.25, not cover's 0.5
+            await fireScroll(50)
+            await nextFrame()
+            expect(valueAnimation.time).toBeCloseTo(0.25)
+
+            stop()
+        })
+
+        test("Read cover progress from the ViewTimeline", async () => {
+            const { valueAnimation, stop } = attach(["start end", "end start"])
+
+            await fireScroll(50)
+            await nextFrame()
+            expect(valueAnimation.time).toBeCloseTo(0.5)
+
+            stop()
+        })
+    })
 })
