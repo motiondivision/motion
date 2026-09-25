@@ -35,7 +35,7 @@ const TextReveal = ({ text }: { text: string }) => {
 
     useEffect(() => {
         if (!ref.current) return
-        // 2-arg callback forces the JS scrollInfo path (see attach-function.ts).
+        // Callbacks always use the JS scrollInfo path.
         return scroll(
             (_progress, info) => {
                 if (jsRef.current)
