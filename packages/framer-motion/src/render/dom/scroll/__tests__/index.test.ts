@@ -1,4 +1,4 @@
-import { frame, supportsFlags } from "motion-dom"
+import { frame, frameData, supportsFlags } from "motion-dom"
 import { scroll } from "../"
 import { ScrollOffset } from "../offsets/presets"
 import { scrollInfo } from "../track"
@@ -84,6 +84,30 @@ describe("scrollInfo", () => {
                 resolve()
             })
         })
+    })
+
+    test("Fires onScroll once per frame when resubscribed synchronously, as in StrictMode.", async () => {
+        const container = document.createElement("div")
+        createMockMeasurement(container, "clientHeight")(100)
+        createMockMeasurement(container, "scrollHeight")(1000)
+
+        scrollInfo(() => {}, { container })()
+
+        const timestamps: number[] = []
+        const stopScroll = scrollInfo(
+            () => {
+                timestamps.push(frameData.timestamp)
+            },
+            { container }
+        )
+
+        await nextFrame()
+        container.dispatchEvent(new window.Event("scroll"))
+        await nextFrame()
+        stopScroll()
+
+        expect(timestamps.length).toBeGreaterThan(0)
+        expect(new Set(timestamps).size).toBe(timestamps.length)
     })
 
     test("Fires onScroll on scroll.", async () => {
@@ -1086,6 +1110,30 @@ describe.each([
 
         stop()
         target.remove()
+    })
+
+    test("Fires once per frame when resubscribed synchronously, as in StrictMode.", async () => {
+        const c = createContainer()
+        c.setHeight(100)
+        c.setScrollHeight(1000)
+
+        scroll((_p: number) => {}, { container: c.container })()
+
+        const timestamps: number[] = []
+        const stop = scroll(
+            (_p: number) => {
+                timestamps.push(frameData.timestamp)
+            },
+            { container: c.container }
+        )
+
+        await nextFrame()
+        c.setScrollTop(450)
+        await c.fire()
+        stop()
+
+        expect(timestamps.length).toBeGreaterThan(0)
+        expect(new Set(timestamps).size).toBe(timestamps.length)
     })
 
     test("Doesn't create a native ScrollTimeline.", async () => {
