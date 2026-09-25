@@ -165,12 +165,6 @@ function findSpring({
     }
 }
 
-const durationKeys = ["duration", "bounce"]
-
-function isSpringType(options: SpringOptions, keys: string[]) {
-    return keys.some((key) => (options as any)[key] !== undefined)
-}
-
 /**
  * Spring physics must be finite. stiffness and mass are also divisors so must
  * be positive, whereas a damping of 0 is a valid, perpetually oscillating
@@ -210,7 +204,7 @@ function getSpringOptions(options: SpringOptions) {
     const validDamping = resolvePhysics(options.damping, true)
     const validMass = resolvePhysics(options.mass)
 
-    let springOptions = {
+    const springOptions = {
         ...options,
         stiffness: validStiffness ?? springDefaults.stiffness,
         damping: validDamping ?? springDefaults.damping,
@@ -219,7 +213,7 @@ function getSpringOptions(options: SpringOptions) {
         // stiffness/damping/mass overrides duration/bounce
         isTimeDefined:
             (validStiffness ?? validDamping ?? validMass) === undefined &&
-            isSpringType(options, durationKeys),
+            (options.duration !== undefined || options.bounce !== undefined),
     }
 
     if (springOptions.isTimeDefined) {
@@ -230,28 +224,14 @@ function getSpringOptions(options: SpringOptions) {
         springOptions.velocity = 0
 
         if (options.visualDuration) {
-            const visualDuration = options.visualDuration
-            const root = (2 * Math.PI) / (visualDuration * 1.2)
-            const stiffness = root * root
-            const damping =
+            const root = (2 * Math.PI) / (options.visualDuration * 1.2)
+            springOptions.stiffness = root * root
+            springOptions.damping =
                 2 *
                 clamp(0.05, 1, 1 - (options.bounce || 0)) *
-                Math.sqrt(stiffness)
-
-            springOptions = {
-                ...springOptions,
-                mass: springDefaults.mass,
-                stiffness,
-                damping,
-            }
+                Math.sqrt(springOptions.stiffness)
         } else {
-            const derived = findSpring(springOptions)
-
-            springOptions = {
-                ...springOptions,
-                ...derived,
-                mass: springDefaults.mass,
-            }
+            Object.assign(springOptions, findSpring(springOptions))
             springOptions.isResolvedFromDuration = true
         }
 
