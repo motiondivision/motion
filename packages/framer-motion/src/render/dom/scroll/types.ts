@@ -11,10 +11,7 @@ export interface ScrollOptionsWithDefaults extends ScrollOptions {
     container: Element
 }
 
-export type OnScrollProgress = (progress: number) => void
-export type OnScrollWithInfo = (progress: number, info: ScrollInfo) => void
-
-export type OnScroll = OnScrollProgress | OnScrollWithInfo
+export type OnScroll = (progress: number, info: ScrollInfo) => void
 
 export interface AxisScrollInfo {
     current: number

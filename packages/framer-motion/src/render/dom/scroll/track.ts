@@ -131,8 +131,11 @@ export function scrollInfo(
         if (currentHandlers.size) return
 
         /**
-         * If no more handlers, remove the scroll listener too.
+         * If no more handlers, remove the scroll listener too. The handler
+         * set goes with it, as a measure still queued from this listener
+         * would otherwise notify handlers added by a later scrollInfo call.
          */
+        onScrollHandlers.delete(container)
         const scrollListener = scrollListeners.get(container)
         scrollListeners.delete(container)
 

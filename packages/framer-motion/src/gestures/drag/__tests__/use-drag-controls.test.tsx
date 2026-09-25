@@ -1,10 +1,13 @@
-import { useState } from "react"
+import { fireEvent } from "@testing-library/dom"
+import { act, useState } from "react"
 import { motion, useDragControls, DragControls, motionValue } from "../../../"
-import { render } from "../../../jest.setup"
+import { pointerUp, render } from "../../../jest.setup"
 import { nextFrame } from "../../__tests__/utils"
 import { MockDrag, drag } from "./utils"
 
 describe("useDragControls", () => {
+    afterEach(() => jest.restoreAllMocks())
+
     test(".start triggers dragging on a different component", async () => {
         const onDragStart = jest.fn()
         const Component = () => {
@@ -141,13 +144,36 @@ describe("useDragControls", () => {
         expect(onDragStart).toBeCalledTimes(2)
     })
 
-    test("snapToCursor works correctly with initial coordinates", async () => {
+    test("snapToCursor centres the element under the pointer on every drag start", async () => {
         const x = motionValue(0)
         const y = motionValue(0)
+
+        /**
+         * Mimic a 100x100 element laid out at (500, 0) and offset by its
+         * transform, as JSDOM doesn't perform layout.
+         */
+        const rect = (left = 0, top = 0, size = 0) =>
+            ({
+                left,
+                top,
+                right: left + size,
+                bottom: top + size,
+                width: size,
+                height: size,
+            } as DOMRect)
+        jest.spyOn(
+            HTMLElement.prototype,
+            "getBoundingClientRect"
+        ).mockImplementation(function (this: HTMLElement) {
+            return this.dataset.testid === "draggable"
+                ? rect(500 + x.get(), y.get(), 100)
+                : rect()
+        })
+
         const Component = () => {
             const dragControls = useDragControls()
             return (
-                <MockDrag>
+                <>
                     <div
                         onPointerDown={(e) =>
                             dragControls.start(e, { snapToCursor: true })
@@ -157,55 +183,49 @@ describe("useDragControls", () => {
                     <motion.div
                         drag
                         dragControls={dragControls}
-                        initial={{ x: 100, y: 100 }}
+                        dragListener={false}
+                        initial={{ x: 100, y: 40 }}
                         style={{ x, y }}
                         data-testid="draggable"
                     />
-                </MockDrag>
+                </>
             )
         }
 
-        const { rerender, getByTestId } = render(<Component />)
-        rerender(<Component />)
-
-        // Wait for initial values to be applied
+        const { getByTestId } = render(<Component />)
         await nextFrame()
 
-        // The element should start at x=100, y=100
+        const handle = getByTestId("drag-handle")
+        const snapTo = (clientX: number, clientY: number) => {
+            const event = new PointerEvent("pointerdown", {
+                isPrimary: true,
+                bubbles: true,
+            })
+            Object.assign(event, {
+                clientX,
+                clientY,
+                pageX: clientX,
+                pageY: clientY,
+            })
+            act(() => {
+                fireEvent(handle, event)
+            })
+            pointerUp(handle)
+        }
+
         expect(x.get()).toBe(100)
-        expect(y.get()).toBe(100)
+        expect(y.get()).toBe(40)
 
-        // Drag to position (50, 50) with snapToCursor
-        const pointer = await drag(
-            getByTestId("draggable"),
-            getByTestId("drag-handle")
-        ).to(50, 50)
+        snapTo(50, 50)
+        expect(x.get()).toBe(-500)
+        expect(y.get()).toBe(0)
 
-        await nextFrame()
+        // Simulate the element having been dragged elsewhere
+        x.set(-350)
+        y.set(50)
 
-        // With snapToCursor, the element should snap to the cursor position
-        // The x and y values should reflect the cursor position relative to the element's center
-        // The key is that the values should be consistent regardless of initial position
-        const xAfterFirstSnap = x.get()
-        const yAfterFirstSnap = y.get()
-
-        pointer.end()
-        await nextFrame()
-
-        // Now do a second drag to the same position to verify behavior is consistent
-        const pointer2 = await drag(
-            getByTestId("draggable"),
-            getByTestId("drag-handle")
-        ).to(50, 50)
-
-        await nextFrame()
-
-        // The snap behavior should be the same on the second drag
-        // Before the fix, first drag was different from second drag due to
-        // not accounting for the initial coordinates in the layout measurement
-        expect(x.get()).toBeCloseTo(xAfterFirstSnap, 0)
-        expect(y.get()).toBeCloseTo(yAfterFirstSnap, 0)
-
-        pointer2.end()
+        snapTo(50, 50)
+        expect(x.get()).toBe(-500)
+        expect(y.get()).toBe(0)
     })
 })

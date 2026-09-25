@@ -21,7 +21,6 @@ import {
 import { Axis, Point, invariant } from "motion-utils"
 import { addDomEvent, type LayoutUpdateData } from "motion-dom"
 import { addPointerEvent } from "../../events/add-pointer-event"
-import { extractEventInfo } from "../../events/event-info"
 import { MotionProps } from "../../motion/types"
 import { getContextWindow } from "../../utils/get-context-window"
 import { isRefObject } from "../../utils/is-ref-object"
@@ -108,9 +107,7 @@ export class VisualElementDragControls {
         if (presenceContext && presenceContext.isPresent === false) return
 
         const onSessionStart = (event: PointerEvent) => {
-            if (snapToCursor) {
-                this.snapToCursor(extractEventInfo(event).point)
-            }
+            if (snapToCursor) this.snapToCursor(event)
             this.stopAnimation()
         }
 
@@ -555,29 +552,26 @@ export class VisualElementDragControls {
               )
     }
 
-    private snapToCursor(point: Point) {
-        eachAxis((axis) => {
-            const { drag } = this.getProps()
+    /**
+     * Measure the live box - projection.layout may or may not include the
+     * drag transform, depending on when it was measured.
+     */
+    private snapToCursor({ clientX, clientY }: PointerEvent) {
+        const { drag } = this.getProps()
+        const point = { x: clientX, y: clientY }
+        const cursor =
+            this.visualElement.getTransformPagePoint()?.(point) || point
+        const box = this.visualElement.measureViewportBox()
 
-            // If we're not dragging this axis, do an early return.
+        eachAxis((axis) => {
             if (!shouldDrag(axis, drag, this.currentDirection)) return
 
-            const { projection } = this.visualElement
             const axisValue = this.getAxisMotionValue(axis)
+            const { min, max } = box[axis]
 
-            if (projection && projection.layout) {
-                const { min, max } = projection.layout.layoutBox[axis]
-
-                /**
-                 * The layout measurement includes the current transform value,
-                 * so we need to add it back to get the correct snap position.
-                 * This fixes an issue where elements with initial coordinates
-                 * would snap to the wrong position on the first drag.
-                 */
-                const current = axisValue.get() || 0
-
-                axisValue.set(point[axis] - mixNumber(min, max, 0.5) + current)
-            }
+            axisValue.set(
+                (axisValue.get() || 0) + cursor[axis] - mixNumber(min, max, 0.5)
+            )
         })
     }
 
