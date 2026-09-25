@@ -4,7 +4,22 @@ export interface ScrollOptions {
     target?: Element
     axis?: "x" | "y"
     offset?: ScrollOffset
+    /**
+     * Where an animation starts, as a percentage (`"20%"`) or `0`–`1`
+     * fraction of the scroll range, or of the target's cover range when
+     * `target` is set, mirroring WAAPI `rangeStart`. Replaces `offset`.
+     * Before it, the animation holds its first keyframe. Ignored by
+     * callbacks.
+     */
+    rangeStart?: ScrollRange
+    /**
+     * Where an animation ends, after `rangeStart`, mirroring WAAPI
+     * `rangeEnd`. After it, the animation holds its last keyframe.
+     */
+    rangeEnd?: ScrollRange
 }
+
+export type ScrollRange = number | `${number}%`
 
 export interface ScrollOptionsWithDefaults extends ScrollOptions {
     axis: "x" | "y"
