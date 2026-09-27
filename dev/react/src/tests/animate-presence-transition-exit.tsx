@@ -19,14 +19,15 @@ const mode = (params.get("mode") || "sync") as "sync" | "popLayout"
 const useHook = params.get("transition") === "use"
 
 const log: Record<string, number> = {}
-;(window as any).__log = log
+;(window as unknown as { __log: typeof log }).__log = log
 const mark = (name: string) => {
     if (log[name] === undefined) log[name] = performance.now()
 }
 
 function busy(ms: number) {
     const end = performance.now() + ms
-    while (performance.now() < end) {}
+    let now = 0
+    while (now < end) now = performance.now()
 }
 
 /**
