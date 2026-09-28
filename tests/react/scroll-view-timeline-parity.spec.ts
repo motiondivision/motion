@@ -24,7 +24,13 @@ const nextFrames = (page: Page) =>
             )
     )
 
-async function findMismatches(page: Page, label = "") {
+const isWord = (cell: Cell) => cell.name.startsWith("word ")
+
+async function findMismatches(
+    page: Page,
+    include: (cell: Cell) => boolean,
+    label = ""
+) {
     const maxScroll = await page.evaluate(
         () => document.documentElement.scrollHeight - window.innerHeight
     )
@@ -38,7 +44,7 @@ async function findMismatches(page: Page, label = "") {
         }, y)
         await nextFrames(page)
 
-        for (const cell of await readCells(page)) {
+        for (const cell of (await readCells(page)).filter(include)) {
             if (Math.abs(cell.native - cell.js) > 0.01) {
                 mismatches.push(
                     `${label}${cell.size} target, ${
@@ -74,6 +80,32 @@ test.describe("useScroll target acceleration", () => {
         await page.waitForTimeout(100)
     })
 
+    /**
+     * Sweeps the page, then again after swapping the short and tall
+     * targets, then after making the viewport taller than every target.
+     */
+    async function findMismatchesWithResizes(
+        page: Page,
+        include: (cell: Cell) => boolean
+    ) {
+        const mismatches = await findMismatches(page, include)
+
+        await page.evaluate(() => {
+            document.getElementById("small")!.style.height = "800px"
+            document.getElementById("large")!.style.height = "100px"
+        })
+        mismatches.push(
+            ...(await findMismatches(page, include, "target resize: "))
+        )
+
+        await page.setViewportSize({ width: 500, height: 1000 })
+        mismatches.push(
+            ...(await findMismatches(page, include, "viewport resize: "))
+        )
+
+        return mismatches
+    }
+
     test("accelerated opacity matches JS progress, before and after resizes", async ({
         page,
     }) => {
@@ -92,17 +124,22 @@ test.describe("useScroll target acceleration", () => {
             )
         expect(unexpected).toEqual([])
 
-        const mismatches = await findMismatches(page)
+        expect(
+            await findMismatchesWithResizes(page, (cell) => !isWord(cell))
+        ).toEqual([])
+    })
 
-        await page.evaluate(() => {
-            document.getElementById("small")!.style.height = "800px"
-            document.getElementById("large")!.style.height = "100px"
-        })
-        mismatches.push(...(await findMismatches(page, "target resize: ")))
+    /**
+     * #3658: each word's useTransform input range covers part of the
+     * progress, so its accelerated keyframes need padding to offsets 0
+     * and 1 to hold their end values.
+     */
+    test("accelerated per-word text reveals match JS progress (#3658)", async ({
+        page,
+    }) => {
+        const supported = await page.evaluate(() => "ViewTimeline" in window)
+        test.skip(!supported, "ViewTimeline is not supported")
 
-        await page.setViewportSize({ width: 500, height: 1000 })
-        mismatches.push(...(await findMismatches(page, "viewport resize: ")))
-
-        expect(mismatches).toEqual([])
+        expect(await findMismatchesWithResizes(page, isWord)).toEqual([])
     })
 })
