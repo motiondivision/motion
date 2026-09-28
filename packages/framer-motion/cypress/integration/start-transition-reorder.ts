@@ -22,8 +22,6 @@ const knownLimitations = [
     "drop transition",
     "drop useTransition",
     "drop deferred",
-    "once useTransition",
-    "once deferred",
 ]
 const test = (key: string) =>
     knownLimitations.includes(key) && !Cypress.env("known") ? it.skip : it
@@ -102,19 +100,16 @@ describe("Concurrent React: Reorder", () => {
             }
         )
 
-        test(`once ${mode}`)(
-            `drag (${mode}) calls onReorder once per new order`,
-            () => {
-                drag(mode).then((win: any) => {
-                    const reorders = win.__events
-                        .filter((e: any) => e.type === "onReorder")
-                        .map((e: any) => e.data)
-                    expect(reorders.length).to.be.greaterThan(0)
-                    for (let i = 1; i < reorders.length; i++) {
-                        expect(reorders[i]).not.to.equal(reorders[i - 1])
-                    }
-                })
-            }
-        )
+        it(`drag (${mode}) calls onReorder once per new order`, () => {
+            drag(mode).then((win: any) => {
+                const reorders = win.__events
+                    .filter((e: any) => e.type === "onReorder")
+                    .map((e: any) => e.data)
+                expect(reorders.length).to.be.greaterThan(0)
+                for (let i = 1; i < reorders.length; i++) {
+                    expect(reorders[i]).not.to.equal(reorders[i - 1])
+                }
+            })
+        })
     }
 })
