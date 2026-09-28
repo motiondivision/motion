@@ -1,4 +1,11 @@
-import { cancelFrame, frame, frameData, resize, Process } from "motion-dom"
+import {
+    cancelFrame,
+    frame,
+    frameData,
+    resize,
+    Process,
+    time,
+} from "motion-dom"
 import { noop } from "motion-utils"
 import { createScrollInfo, updateScrollInfo } from "./info"
 import { createOnScrollHandler } from "./on-scroll-handler"
@@ -155,4 +162,29 @@ export function scrollInfo(
             dimensionCheckProcesses.delete(container)
         }
     }
+}
+
+/**
+ * Measures the scroll once, synchronously, and passes the result to
+ * onScroll.
+ */
+export function measureScrollInfo(
+    onScroll: OnScrollInfo,
+    {
+        container = document.scrollingElement as Element,
+        ...options
+    }: ScrollInfoOptions = {}
+) {
+    if (!container) return
+
+    const containerInfo = createScrollInfo()
+    const handler = createOnScrollHandler(
+        container,
+        onScroll,
+        createScrollInfo(),
+        options
+    )
+    updateScrollInfo(container, containerInfo, time.now())
+    handler.measure(containerInfo)
+    handler.notify(containerInfo)
 }
