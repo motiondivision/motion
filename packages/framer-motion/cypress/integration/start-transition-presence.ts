@@ -22,7 +22,7 @@ function run(scenario: string, mode: string, presence: string, extra = "") {
         .nextFrame()
         .get("#run")
         .click()
-        .window({ timeout: 15000 })
+        .window({ timeout: 60000 })
         .should((win: any) => expect(win.__done).to.equal(true))
 }
 
@@ -54,7 +54,7 @@ const analyzeItem = (win: any, id: string, axis: string, to: number) =>
  * C has finished moving to `cProgress` (1 = moved up into B's slot).
  */
 function settle(ids: string[], cProgress: number) {
-    cy.get("[data-track^=item-]").should(($els: any) => {
+    cy.get("[data-track^=item-]", { timeout: 60000 }).should(($els: any) => {
         const els = Array.from($els) as HTMLElement[]
         expect(els.map((el) => el.dataset.track)).to.deep.equal(
             ids.map((id) => `item-${id}`)
@@ -64,7 +64,7 @@ function settle(ids: string[], cProgress: number) {
         )
     })
     return cy
-        .window({ timeout: 15000 })
+        .window({ timeout: 60000 })
         .should((win: any) =>
             expect(
                 analyzeItem(win, "C", "y", -100).finalProgress

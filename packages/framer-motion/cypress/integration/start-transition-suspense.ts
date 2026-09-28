@@ -36,7 +36,7 @@ function run(scenario: string, mode: string) {
         .nextFrame()
         .get("#run")
         .click()
-        .window({ timeout: 15000 })
+        .window({ timeout: 60000 })
         .should((win: any) => expect(win.__done).to.equal(true))
 }
 

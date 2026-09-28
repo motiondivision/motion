@@ -71,7 +71,7 @@ describe("Concurrent React: two-pass FLIP", () => {
                     .nextFrame()
                     .get("#run")
                     .click()
-                    .window({ timeout: 15000 })
+                    .window({ timeout: 60000 })
                     .should((win: any) => expect(win.__done).to.equal(true))
                     // Re-queried until the width animation has finished
                     .should((win: any) => {

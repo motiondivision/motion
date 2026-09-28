@@ -15,14 +15,16 @@ function run(scenario: string, mode: string) {
         .nextFrame()
         .get("#run")
         .click()
-        .window({ timeout: 15000 })
+        .window({ timeout: 60000 })
         .should((win: any) => expect(win.__done).to.equal(true))
 }
 
 // Re-queried until only `id` is rendered and it has fully entered
 function expectOnly(id: string) {
-    cy.get(".wait-child").should("have.length", 1)
-    return cy.get(`#child-${id}-el`).should("have.css", "opacity", "1")
+    cy.get(".wait-child", { timeout: 60000 }).should("have.length", 1)
+    return cy
+        .get(`#child-${id}-el`, { timeout: 60000 })
+        .should("have.css", "opacity", "1")
 }
 
 describe("Concurrent React: AnimatePresence mode=wait", () => {

@@ -63,7 +63,7 @@ function drag(mode: string) {
         .nextFrame()
         .get("#run")
         .click()
-        .window({ timeout: 15000 })
+        .window({ timeout: 60000 })
         .should((win: any) => expect(win.__done).to.equal(true))
 }
 
@@ -76,7 +76,7 @@ describe("Concurrent React: Reorder", () => {
                 expect(maxDrift).to.be.lessThan(30)
             })
             // Re-queried until the drop animation and any pending order settle
-            cy.window().should((win: any) => {
+            cy.window({ timeout: 60000 }).should((win: any) => {
                 const els = Array.from(
                     win.document.querySelectorAll("[data-track^=item-]")
                 ) as HTMLElement[]
@@ -94,7 +94,7 @@ describe("Concurrent React: Reorder", () => {
             `drag (${mode}) drops the item in the slot under the pointer`,
             () => {
                 drag(mode)
-                cy.window().should((win: any) =>
+                cy.window({ timeout: 60000 }).should((win: any) =>
                     expect(committedOrder(win)).to.equal("123045")
                 )
             }

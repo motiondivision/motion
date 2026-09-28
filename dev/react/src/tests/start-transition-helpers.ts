@@ -41,6 +41,12 @@ interface Box {
 
 interface Sample {
     t: number
+    /**
+     * Timestamp of the Motion frame the sample was taken in. Rendered
+     * animation values follow this clock, which can differ from `t` by a lot
+     * inside long, starved frames.
+     */
+    tl: number
     boxes: Record<string, Box | null>
 }
 
@@ -117,7 +123,7 @@ export function useCommitLog(label: string, value: unknown) {
 const tracked = () =>
     Array.from(document.querySelectorAll<HTMLElement>("[data-track]"))
 
-function sample() {
+function measureBoxes() {
     const boxes: Record<string, Box | null> = {}
     for (const el of tracked()) {
         const name = el.dataset.track!
@@ -134,7 +140,15 @@ function sample() {
             opacity: parseFloat(getComputedStyle(el).opacity),
         }
     }
-    window.__samples.push({ t: performance.now(), boxes })
+    return boxes
+}
+
+function sample({ timestamp }: { timestamp: number }) {
+    window.__samples.push({
+        t: performance.now(),
+        tl: timestamp,
+        boxes: measureBoxes(),
+    })
 }
 
 /**
@@ -186,7 +200,13 @@ export function runFrameScript(actions: Array<() => void>, tail = 1200) {
     frame.postRender(step)
 }
 
+/**
+ * Clicks record every tracked element's box first, so analysis can start
+ * from where elements really were rather than from the first sampled frame
+ * (which may already be mid-animation when frames are slow).
+ */
 export const click = (id: string) => () => {
+    log("snapshot", measureBoxes())
     log("click", id)
     document.getElementById(id)!.click()
 }
@@ -206,8 +226,9 @@ interface AnalyzeOptions {
     /** Duration of the (linear) animation being checked, in ms. */
     durationMs?: number
     /**
-     * Measured value corresponding to `from`. Defaults to the first sample
-     * after `after`, which is only right if nothing had moved by then.
+     * Measured value corresponding to `from`. Defaults to the element's box
+     * in the last click snapshot at or before `after`, then to the first
+     * sample after `after`.
      */
     startValue?: number
 }
@@ -219,7 +240,7 @@ interface AnalyzeOptions {
  * are slow or stall:
  * - a jump is a delta between consecutive samples larger than both
  *   `jumpFraction` of the distance and twice what a linear animation over
- *   `durationMs` covers in the time between those samples;
+ *   `durationMs` covers in the frame time between those samples;
  * - `animatedMs` is how long the element took to get from its start to its
  *   end position (an instant snap is one frame).
  */
@@ -236,19 +257,25 @@ function analyze({
     const distance = Math.abs(to - from)
     const raw = window.__samples
         .filter((s) => s.t >= after)
-        .map((s) => ({ t: s.t, v: s.boxes[name]?.[axis] ?? null }))
-        .filter((s): s is { t: number; v: number } => s.v !== null)
+        .map((s) => ({ t: s.t, tl: s.tl, v: s.boxes[name]?.[axis] ?? null }))
+        .filter((s): s is { t: number; tl: number; v: number } => s.v !== null)
     /**
      * `from`/`to` are offsets relative to the first sampled position, except
      * for opacity which is absolute.
      */
+    const snapshot = window.__events
+        .filter((e) => e.type === "snapshot" && e.t <= after)
+        .pop()?.data as Record<string, Box | null> | undefined
+    const start = startValue ?? snapshot?.[name]?.[axis]
     const base =
-        startValue !== undefined
-            ? startValue - from
-            : axis === "opacity" || !raw.length
+        axis === "opacity"
             ? 0
-            : raw[0].v - from
-    const series = raw.map((s) => ({ t: s.t, v: s.v - base }))
+            : start !== undefined
+            ? start - from
+            : raw.length
+            ? raw[0].v - from
+            : 0
+    const series = raw.map((s) => ({ t: s.t, tl: s.tl, v: s.v - base }))
 
     const progressOf = (v: number) => (v - from) / (to - from)
     const tolerance = Math.min(0.5, distance * 0.01)
@@ -263,7 +290,7 @@ function analyze({
     let jumps = 0
     for (let i = 1; i < series.length; i++) {
         const delta = Math.abs(series[i].v - series[i - 1].v)
-        const elapsed = series[i].t - series[i - 1].t
+        const elapsed = series[i].tl - series[i - 1].tl
         maxDelta = Math.max(maxDelta, delta)
         if (delta > Math.max(distance * jumpFraction, 2 * speed * elapsed)) {
             jumps++
