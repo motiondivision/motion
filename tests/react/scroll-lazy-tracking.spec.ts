@@ -35,14 +35,17 @@ async function expectReadsToMatchNative(page: Page) {
     const read = await page.evaluate(() => ({
         ...document.getElementById("read")!.dataset,
     }))
-    expect(parseFloat(read.page!)).toBeCloseTo(
-        await opacity(page, "page-opacity"),
-        2
-    )
-    expect(parseFloat(read.target!)).toBeCloseTo(
-        await opacity(page, "target-opacity"),
-        2
-    )
+    const expected: [string | undefined, string][] = [
+        [read.page, "page-opacity"],
+        [read.target, "target-opacity"],
+        [read.pageTransform, "page-transform"],
+        [read.cardTransform, "card-transform"],
+        // An unrendered transform of a transform of the target's progress
+        [read.nested, "target-opacity"],
+    ]
+    for (const [value, id] of expected) {
+        expect(parseFloat(value!)).toBeCloseTo(await opacity(page, id), 2)
+    }
 }
 
 test.describe("useScroll JS tracking", () => {
@@ -60,16 +63,26 @@ test.describe("useScroll JS tracking", () => {
 
         expect(
             await page.evaluate(() =>
-                ["page-opacity", "target-opacity"].map(
+                [
+                    "page-opacity",
+                    "target-opacity",
+                    "page-transform",
+                    "card-transform",
+                ].map(
                     (id) =>
                         document.getElementById(id)!.getAnimations()[0]
                             ?.timeline?.constructor.name
                 )
             )
-        ).toEqual(["ScrollTimeline", "ViewTimeline"])
+        ).toEqual([
+            "ScrollTimeline",
+            "ViewTimeline",
+            "ScrollTimeline",
+            "ViewTimeline",
+        ])
     })
 
-    test("only accelerated consumers: no JS tracking, and reads match the native progress", async ({
+    test("only accelerated consumers, directly and through useTransform: no JS tracking, and reads match the native progress", async ({
         page,
     }) => {
         for (const y of [0, 800, 1500, 2600]) {
@@ -127,5 +140,30 @@ test.describe("useScroll JS tracking", () => {
         await page.click("#mix")
         await nextFrames(page)
         expect(await scrollListeners(page)).toBe(0)
+    })
+
+    test("a JS subscriber to an accelerated useTransform chain switches tracking on, then off", async ({
+        page,
+    }) => {
+        await scrollTo(page, 1300)
+        expect(await scrollListeners(page)).toBe(0)
+
+        await page.click("#subscribe-chain")
+        await nextFrames(page)
+        expect(await scrollListeners(page)).toBe(1)
+
+        await scrollTo(page, 1900)
+        const subscriber = await page.textContent("#chain-subscriber")
+        expect(parseFloat(subscriber!)).toBeCloseTo(
+            await opacity(page, "card-transform"),
+            2
+        )
+
+        await page.click("#subscribe-chain")
+        await nextFrames(page)
+        expect(await scrollListeners(page)).toBe(0)
+
+        await scrollTo(page, 2500)
+        await expectReadsToMatchNative(page)
     })
 })

@@ -33,6 +33,14 @@ const Subscriber = ({ progress }: { progress: MotionValue<number> }) => {
     return <span id="subscriber" ref={ref} />
 }
 
+const ChainSubscriber = ({ value }: { value: MotionValue<number> }) => {
+    const ref = useRef<HTMLSpanElement>(null)
+    useMotionValueEvent(value, "change", (latest) => {
+        ref.current!.textContent = String(latest)
+    })
+    return <span id="chain-subscriber" ref={ref} />
+}
+
 const Mixed = ({ progress }: { progress: MotionValue<number> }) => {
     const x = useTransform(progress, [0, 1], [0, 100])
     return <motion.div id="mixed" style={{ ...box, x }} />
@@ -42,7 +50,15 @@ export const App = () => {
     const target = useRef<HTMLDivElement>(null)
     const page = useScroll()
     const card = useScroll({ target })
+    const pageOpacity = useTransform(page.scrollYProgress, [0, 1], [0.2, 1])
+    const targetOpacity = useTransform(
+        useTransform(card.scrollYProgress, [0, 1], [0, 1]),
+        [0, 1],
+        [0, 1]
+    )
+    const cardOpacity = useTransform(card.scrollYProgress, [0, 1], [1, 0])
     const [subscribed, setSubscribed] = useState(false)
+    const [chainSubscribed, setChainSubscribed] = useState(false)
     const [mixed, setMixed] = useState(false)
 
     return (
@@ -57,12 +73,23 @@ export const App = () => {
                     id="target-opacity"
                     style={{ ...box, opacity: card.scrollYProgress }}
                 />
+                <motion.div
+                    id="page-transform"
+                    style={{ ...box, opacity: pageOpacity }}
+                />
+                <motion.div
+                    id="card-transform"
+                    style={{ ...box, opacity: cardOpacity }}
+                />
                 <button
                     id="read"
                     onClick={(event) => {
                         const { dataset } = event.currentTarget
                         dataset.page = String(page.scrollYProgress.get())
                         dataset.target = String(card.scrollYProgress.get())
+                        dataset.pageTransform = String(pageOpacity.get())
+                        dataset.cardTransform = String(cardOpacity.get())
+                        dataset.nested = String(targetOpacity.get())
                     }}
                 >
                     Read
@@ -73,8 +100,15 @@ export const App = () => {
                 <button id="mix" onClick={() => setMixed(!mixed)}>
                     Mix
                 </button>
+                <button
+                    id="subscribe-chain"
+                    onClick={() => setChainSubscribed(!chainSubscribed)}
+                >
+                    Subscribe to chain
+                </button>
                 {subscribed && <Subscriber progress={page.scrollYProgress} />}
                 {mixed && <Mixed progress={card.scrollYProgress} />}
+                {chainSubscribed && <ChainSubscriber value={cardOpacity} />}
             </div>
         </div>
     )

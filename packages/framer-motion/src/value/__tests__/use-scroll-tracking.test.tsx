@@ -153,6 +153,7 @@ describe("useScroll JS tracking", () => {
         let x!: MotionValue<number>
         const { unmount } = renderScroll(({ scrollYProgress }) => {
             x = useTransform(scrollYProgress, [0, 1], [0, 100])
+            useMotionValueEvent(x, "change", () => {})
             return null
         })
         await nextFrame()
@@ -162,6 +163,7 @@ describe("useScroll JS tracking", () => {
         expect(x.get()).toBe(70)
 
         unmount()
+        await nextFrame()
         await nextFrame()
         expect(scrollListeners).toBe(0)
     })
