@@ -1234,6 +1234,27 @@ describe("scroll() ViewTimeline ranges", () => {
         all.stop()
     })
 
+    test("Doesn't create a ViewTimeline for values driven from JS on other ranges", () => {
+        let created = 0
+        ;(window as any).ViewTimeline = class extends FakeViewTimeline {
+            constructor() {
+                super()
+                created++
+            }
+        }
+
+        const target = document.createElement("div")
+        const valueAnimation = { time: 0, iterationDuration: 1, pause() {} }
+        const stop = scroll(
+            {
+                attachTimeline: ({ observe }: any) => observe(valueAnimation),
+            } as any,
+            { target, offset: ScrollOffset.Enter }
+        )
+        expect(created).toBe(0)
+        stop()
+    })
+
     test("Plays Any backwards over the cover range", () => {
         const { waapi, stop } = attach(ScrollOffset.Any)
         expect(waapi).toMatchObject({

@@ -18,7 +18,6 @@ export function attachToAnimation(
      * - Target with unmappable offset: fall back to JS observe
      */
     const native = canUseNativeTimeline(target) && (!target || !!range)
-    const timeline = getTimeline(options, native)
     const animations = new Map<Animation, PlaybackDirection>()
     let reverse = false
 
@@ -44,7 +43,13 @@ export function attachToAnimation(
 
     const stops = [
         animation.attachTimeline({
-            timeline: native ? timeline : undefined,
+            /**
+             * Read only by WAAPI animations, so values driven from JS don't
+             * create a native timeline they won't use.
+             */
+            get timeline() {
+                return native ? getTimeline(options, true) : undefined
+            },
             onAttach:
                 range &&
                 ((waapi) => {
@@ -64,9 +69,7 @@ export function attachToAnimation(
                      * A ViewTimeline's progress is its cover range, so values
                      * driven from JS on other ranges track the offset in JS.
                      */
-                    range && !range.cover
-                        ? getTimeline(options, false)
-                        : timeline
+                    getTimeline(options, native && (!range || range.cover))
                 )
             },
         }),
