@@ -4,7 +4,7 @@ import {
     SlowList as SlowListBase,
     log,
     mode,
-    runScript,
+    runFrameScript,
     update,
     useCommitLog,
 } from "./start-transition-helpers"
@@ -31,7 +31,14 @@ function pointer(type: string, target: EventTarget, x: number, y: number) {
     if (type === "pointermove") {
         window.__pointer.push({ t: performance.now(), y })
     }
-    log(type, { y })
+    log(type, {
+        y,
+        // Pointer offset from the item's top, measured as the drag starts
+        grab:
+            type === "pointerdown"
+                ? y - (target as Element).getBoundingClientRect().top
+                : undefined,
+    })
     target.dispatchEvent(
         new PointerEvent(type, {
             clientX: x,
@@ -47,26 +54,32 @@ function pointer(type: string, target: EventTarget, x: number, y: number) {
     )
 }
 
-function dragScript(): Array<[number, () => void]> {
+/**
+ * One action per frame: two idle frames (so React 19 StrictMode's post-paint
+ * ref remount can't cancel the gesture), pointerdown, 40 pointermoves, a
+ * ~300ms hold, pointerup.
+ */
+function dragScript(): Array<() => void> {
     const el = document.getElementById("item-0")!
     const { left, top } = el.getBoundingClientRect()
     const x = left + 20
     const startY = top + 20
-    const steps: Array<[number, () => void]> = [
-        [100, () => pointer("pointerdown", el, x, startY)],
+    const noop = () => {}
+    const actions: Array<() => void> = [
+        noop,
+        noop,
+        () => pointer("pointerdown", el, x, startY),
     ]
     const moves = 40
     const distance = itemHeight * 3.5
     for (let i = 1; i <= moves; i++) {
         const y = startY + (distance * i) / moves
-        steps.push([100 + i * 16, () => pointer("pointermove", window, x, y)])
+        actions.push(() => pointer("pointermove", window, x, y))
     }
+    for (let i = 0; i < 18; i++) actions.push(noop)
     const endY = startY + distance
-    steps.push([
-        100 + moves * 16 + 300,
-        () => pointer("pointerup", window, x, endY),
-    ])
-    return steps
+    actions.push(() => pointer("pointerup", window, x, endY))
+    return actions
 }
 
 export const App = () => {
@@ -82,7 +95,7 @@ export const App = () => {
                 id="run"
                 onClick={() => {
                     window.__pointer = []
-                    runScript(dragScript(), 1500)
+                    runFrameScript(dragScript(), 1500)
                 }}
             >
                 run

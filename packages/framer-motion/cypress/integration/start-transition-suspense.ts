@@ -32,11 +32,20 @@ function run(scenario: string, mode: string) {
         .visit(
             `?test=start-transition-suspense&mode=${mode}&scenario=${scenario}`
         )
+        .nextFrame()
+        .nextFrame()
         .get("#run")
         .click()
-        .window({ timeout: 10000 })
+        .window({ timeout: 15000 })
         .should((win: any) => expect(win.__done).to.equal(true))
 }
+
+/**
+ * Wait (re-querying) for the card to reach its final height, then check the
+ * whole sampled path.
+ */
+const settled = (to: number) => (win: any) =>
+    expect(analyzeCard(win, to).finalProgress).to.be.closeTo(1, 0.01)
 
 const analyzeCard = (win: any, to: number) =>
     win.__analyze({
@@ -58,36 +67,37 @@ describe("Concurrent React: Suspense", () => {
         test(`swap ${mode}`)(
             `swap (${mode}) visible boundary suspends: card animates to revealed content`,
             () => {
-                run("swap", mode).then((win: any) => {
-                    const card = analyzeCard(win, 200)
-                    expect(card.jumps).to.equal(0)
-                    expect(card.intermediateFrames).to.be.greaterThan(10)
-                    expect(card.finalProgress).to.be.closeTo(1, 0.01)
-                    if (mode !== "sync")
-                        expect(fallbackShown(win)).to.equal(false)
-                })
+                run("swap", mode)
+                    .should(settled(200))
+                    .then((win: any) => {
+                        const card = analyzeCard(win, 200)
+                        expect(card.jumps).to.equal(0)
+                        expect(card.animatedMs).to.be.greaterThan(250)
+                        if (mode !== "sync")
+                            expect(fallbackShown(win)).to.equal(false)
+                    })
             }
         )
 
         test(`expand ${mode}`)(
             `expand (${mode}) new boundary suspends: card animates to revealed content`,
             () => {
-                run("expand", mode).then((win: any) => {
-                    const card = analyzeCard(win, 300)
-                    expect(card.jumps).to.equal(0)
-                    expect(card.finalProgress).to.be.closeTo(1, 0.01)
-                })
+                run("expand", mode)
+                    .should(settled(300))
+                    .then((win: any) =>
+                        expect(analyzeCard(win, 300).jumps).to.equal(0)
+                    )
             }
         )
     }
 
     for (const mode of ["sync", "transition"]) {
         it(`expandGroup (${mode}) LayoutGroup + layout fallback animates the reveal`, () => {
-            run("expandGroup", mode).then((win: any) => {
-                const card = analyzeCard(win, 300)
-                expect(card.jumps).to.equal(0)
-                expect(card.finalProgress).to.be.closeTo(1, 0.01)
-            })
+            run("expandGroup", mode)
+                .should(settled(300))
+                .then((win: any) =>
+                    expect(analyzeCard(win, 300).jumps).to.equal(0)
+                )
         })
     }
 })

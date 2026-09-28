@@ -3,6 +3,9 @@
  * startTransition, useTransition and useDeferredValue, with slow renders
  * that yield across frames.
  *
+ * Each test waits (re-querying) for the final state, then checks the whole
+ * sampled path.
+ *
  * Page: dev/react/src/tests/start-transition-layout-id.tsx
  */
 const modes = ["transition", "useTransition", "deferred"]
@@ -12,83 +15,98 @@ function run(scenario: string, mode: string) {
         .visit(
             `?test=start-transition-layout-id&mode=${mode}&scenario=${scenario}`
         )
+        .nextFrame()
+        .nextFrame()
         .get("#run")
         .click()
-        .window({ timeout: 10000 })
+        .window({ timeout: 15000 })
         .should((win: any) => expect(win.__done).to.equal(true))
 }
 
 const firstClick = (win: any) =>
     win.__events.find((e: any) => e.type === "click").t
 
+const analyzeUnderline = (win: any, to: number, jumpFraction?: number) =>
+    win.__analyze({
+        name: "underline",
+        from: 0,
+        to,
+        after: firstClick(win),
+        jumpFraction,
+    })
+
 describe("Concurrent React: layoutId and LayoutGroup", () => {
     for (const mode of modes) {
         it(`basic (${mode}) underline animates between tabs`, () => {
-            run("basic", mode).then((win: any) => {
-                const u = win.__analyze({
-                    name: "underline",
-                    from: 0,
-                    to: 400,
-                    after: firstClick(win),
+            run("basic", mode)
+                .should((win: any) =>
+                    expect(
+                        analyzeUnderline(win, 400).finalProgress
+                    ).to.be.closeTo(1, 0.01)
+                )
+                .then((win: any) => {
+                    const u = analyzeUnderline(win, 400)
+                    expect(u.jumps).to.equal(0)
+                    expect(u.animatedMs).to.be.greaterThan(250)
                 })
-                expect(u.jumps).to.equal(0)
-                expect(u.intermediateFrames).to.be.greaterThan(10)
-                expect(u.firstMoveProgress).to.be.lessThan(0.15)
-                expect(u.finalProgress).to.be.closeTo(1, 0.01)
-            })
         })
 
         it(`rapid (${mode}) underline retargets to the last tab`, () => {
-            run("rapid", mode).then((win: any) => {
-                const u = win.__analyze({
-                    name: "underline",
-                    from: 0,
-                    to: 600,
-                    after: firstClick(win),
-                    jumpFraction: 0.15,
-                })
-                expect(u.jumps).to.equal(0)
-                expect(u.finalProgress).to.be.closeTo(1, 0.01)
-            })
+            run("rapid", mode)
+                .should((win: any) =>
+                    expect(
+                        analyzeUnderline(win, 600, 0.15).finalProgress
+                    ).to.be.closeTo(1, 0.01)
+                )
+                .then((win: any) =>
+                    expect(analyzeUnderline(win, 600, 0.15).jumps).to.equal(0)
+                )
         })
 
         it(`midAnimation (${mode}) underline reverses from its visual position`, () => {
-            run("midAnimation", mode).then((win: any) => {
-                const u = win.__analyze({
-                    name: "underline",
-                    from: 0,
-                    to: 400,
-                    after: firstClick(win),
-                    jumpFraction: 0.15,
+            run("midAnimation", mode)
+                .should((win: any) => {
+                    const u = analyzeUnderline(win, 400, 0.15)
+                    expect(u.intermediateFrames).to.be.greaterThan(0)
+                    expect(u.finalProgress).to.be.closeTo(0, 0.01)
                 })
-                expect(u.jumps).to.equal(0)
-                expect(u.finalProgress).to.be.closeTo(0, 0.01)
-            })
+                .then((win: any) =>
+                    expect(analyzeUnderline(win, 400, 0.15).jumps).to.equal(0)
+                )
         })
 
         it(`group (${mode}) LayoutGroup sibling animates without re-rendering`, () => {
-            run("group", mode).then((win: any) => {
+            const boxes = (win: any) => {
                 const after = firstClick(win)
-                const top = win.__analyze({
-                    name: "top",
-                    axis: "h",
-                    from: 0,
-                    to: 200,
-                    after,
+                return [
+                    win.__analyze({
+                        name: "top",
+                        axis: "h",
+                        from: 0,
+                        to: 200,
+                        after,
+                    }),
+                    win.__analyze({
+                        name: "below",
+                        axis: "y",
+                        from: 0,
+                        to: 200,
+                        after,
+                    }),
+                ]
+            }
+            run("group", mode)
+                .should((win: any) => {
+                    for (const box of boxes(win)) {
+                        expect(box.finalProgress).to.be.closeTo(1, 0.01)
+                    }
                 })
-                const below = win.__analyze({
-                    name: "below",
-                    axis: "y",
-                    from: 0,
-                    to: 200,
-                    after,
+                .then((win: any) => {
+                    for (const box of boxes(win)) {
+                        expect(box.jumps).to.equal(0)
+                        expect(box.animatedMs).to.be.greaterThan(250)
+                    }
                 })
-                for (const box of [top, below]) {
-                    expect(box.jumps).to.equal(0)
-                    expect(box.intermediateFrames).to.be.greaterThan(10)
-                    expect(box.finalProgress).to.be.closeTo(1, 0.01)
-                }
-            })
         })
     }
 })

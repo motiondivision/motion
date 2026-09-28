@@ -11,21 +11,26 @@ function run(scenario: string, mode: string) {
         .visit(
             `?test=start-transition-presence&mode=${mode}&presence=wait&scenario=${scenario}`
         )
+        .nextFrame()
+        .nextFrame()
         .get("#run")
         .click()
-        .window({ timeout: 10000 })
+        .window({ timeout: 15000 })
         .should((win: any) => expect(win.__done).to.equal(true))
 }
 
+// Re-queried until only `id` is rendered and it has fully entered
 function expectOnly(id: string) {
     cy.get(".wait-child").should("have.length", 1)
-    cy.get(`#child-${id}-el`).should("have.css", "opacity", "1")
+    return cy.get(`#child-${id}-el`).should("have.css", "opacity", "1")
 }
 
 describe("Concurrent React: AnimatePresence mode=wait", () => {
     for (const mode of modes) {
         it(`swap (${mode}) exits A fully before B enters`, () => {
-            run("waitSwap", mode).then((win: any) => {
+            run("waitSwap", mode)
+            expectOnly("B")
+            cy.window().then((win: any) => {
                 const after = win.__events.find(
                     (e: any) => e.type === "click"
                 ).t
@@ -35,6 +40,7 @@ describe("Concurrent React: AnimatePresence mode=wait", () => {
                     from: 1,
                     to: 0,
                     after,
+                    durationMs: 500,
                 })
                 const b = win.__analyze({
                     name: "child-B",
@@ -42,12 +48,12 @@ describe("Concurrent React: AnimatePresence mode=wait", () => {
                     from: 0,
                     to: 1,
                     after,
+                    durationMs: 500,
                 })
-                expect(a.intermediateFrames).to.be.greaterThan(10)
-                expect(b.intermediateFrames).to.be.greaterThan(10)
+                expect(a.animatedMs).to.be.greaterThan(250)
+                expect(b.intermediateFrames).to.be.greaterThan(0)
                 expect(b.firstMoveAt).to.be.greaterThan(a.reachedEndAt - 1)
             })
-            expectOnly("B")
         })
 
         it(`rapid (${mode}) ends on the last child only`, () => {

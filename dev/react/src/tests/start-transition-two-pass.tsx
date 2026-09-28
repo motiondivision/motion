@@ -49,7 +49,11 @@ function Digit({ value }: { value: number }) {
     useLayoutEffect(() => {
         if (value === prev.current) return
         prev.current = value
-        log("roll-start")
+        const el = roll.current!
+        log("roll-start", {
+            y: el.getBoundingClientRect().top,
+            w: el.parentElement!.getBoundingClientRect().width,
+        })
         animate(roll.current!, { y: [100, 0] }, { ...linear, duration })
     }, [value])
 
@@ -65,6 +69,7 @@ function Digit({ value }: { value: number }) {
         <motion.div
             data-track="digit"
             layout
+            onLayoutAnimationStart={() => log("width-start")}
             transition={{ layout: { ...linear, duration } }}
             style={{
                 width,

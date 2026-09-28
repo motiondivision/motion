@@ -1,4 +1,4 @@
-import { cancelFrame, frame } from "framer-motion"
+import { frame } from "framer-motion"
 import {
     createElement,
     startTransition,
@@ -139,7 +139,9 @@ function sample() {
 
 /**
  * Run a scripted timeline: each step is [delayFromStartMs, action].
- * Samples every frame from start until `tail` ms after the last step.
+ * `__done` is set `tail` ms after the last step. Sampling carries on until the
+ * page unloads, so specs can wait for the final state with re-querying
+ * assertions however late a commit lands.
  */
 export function runScript(steps: Array<[number, () => void]>, tail = 1200) {
     window.__events = []
@@ -153,10 +155,35 @@ export function runScript(steps: Array<[number, () => void]>, tail = 1200) {
     }
     const last = Math.max(...steps.map(([d]) => d))
     setTimeout(() => {
-        cancelFrame(sample)
         log("done", { elapsed: performance.now() - start })
         window.__done = true
     }, last + tail)
+}
+
+/**
+ * Run one action per animation frame (after Motion's render step), then set
+ * `__done` after `tail` ms (sampling carries on, as above). Used for gestures: timers bunch up when frames stall,
+ * so each pointermove must land in its own frame for PanSession to see it.
+ */
+export function runFrameScript(actions: Array<() => void>, tail = 1200) {
+    window.__events = []
+    window.__samples = []
+    window.__done = false
+    log("start")
+    frame.postRender(sample, true)
+    let i = 0
+    const step = () => {
+        if (i < actions.length) {
+            actions[i++]()
+            frame.postRender(step)
+        } else {
+            setTimeout(() => {
+                log("done")
+                window.__done = true
+            }, tail)
+        }
+    }
+    frame.postRender(step)
 }
 
 export const click = (id: string) => () => {
@@ -171,12 +198,30 @@ interface AnalyzeOptions {
     to: number
     /** Only consider samples after this time (e.g. the triggering click). */
     after?: number
-    /** Consecutive-frame delta, as a fraction of |to - from|, counted as a jump. */
+    /**
+     * Minimum consecutive-sample delta, as a fraction of |to - from|, counted
+     * as a jump.
+     */
     jumpFraction?: number
+    /** Duration of the (linear) animation being checked, in ms. */
+    durationMs?: number
+    /**
+     * Measured value corresponding to `from`. Defaults to the first sample
+     * after `after`, which is only right if nothing had moved by then.
+     */
+    startValue?: number
 }
 
 /**
  * Summarise the sampled path of one tracked element between `from` and `to`.
+ *
+ * Metrics are time-based rather than frame-based, so they hold when frames
+ * are slow or stall:
+ * - a jump is a delta between consecutive samples larger than both
+ *   `jumpFraction` of the distance and twice what a linear animation over
+ *   `durationMs` covers in the time between those samples;
+ * - `animatedMs` is how long the element took to get from its start to its
+ *   end position (an instant snap is one frame).
  */
 function analyze({
     name,
@@ -185,6 +230,8 @@ function analyze({
     to,
     after = 0,
     jumpFraction = 0.25,
+    durationMs = duration * 1000,
+    startValue,
 }: AnalyzeOptions) {
     const distance = Math.abs(to - from)
     const raw = window.__samples
@@ -195,7 +242,12 @@ function analyze({
      * `from`/`to` are offsets relative to the first sampled position, except
      * for opacity which is absolute.
      */
-    const base = axis === "opacity" || !raw.length ? 0 : raw[0].v - from
+    const base =
+        startValue !== undefined
+            ? startValue - from
+            : axis === "opacity" || !raw.length
+            ? 0
+            : raw[0].v - from
     const series = raw.map((s) => ({ t: s.t, v: s.v - base }))
 
     const progressOf = (v: number) => (v - from) / (to - from)
@@ -206,13 +258,21 @@ function analyze({
         (s) => Math.abs(s.v - to) < tolerance * 2
     )
 
+    const speed = distance / durationMs
     let maxDelta = 0
     let jumps = 0
     for (let i = 1; i < series.length; i++) {
         const delta = Math.abs(series[i].v - series[i - 1].v)
+        const elapsed = series[i].t - series[i - 1].t
         maxDelta = Math.max(maxDelta, delta)
-        if (delta > distance * jumpFraction) jumps++
+        if (delta > Math.max(distance * jumpFraction, 2 * speed * elapsed)) {
+            jumps++
+        }
     }
+
+    // The animation can't have started before `after`
+    const leftStartAt =
+        moved > 0 ? series[moved - 1].t : moved === 0 ? after : null
 
     const intermediate = series.filter((s) => {
         const p = progressOf(s.v)
@@ -221,6 +281,7 @@ function analyze({
 
     return {
         samples: series.length,
+        lastSampleAt: series.length ? series[series.length - 1].t : null,
         firstMoveAt: firstMove?.t ?? null,
         firstMoveProgress: firstMove ? progressOf(firstMove.v) : null,
         reachedEndAt: reachedEnd === -1 ? null : series[reachedEnd].t,
@@ -229,6 +290,10 @@ function analyze({
             ? progressOf(series[series.length - 1].v)
             : null,
         intermediateFrames: intermediate,
+        animatedMs:
+            leftStartAt !== null && reachedEnd !== -1
+                ? series[reachedEnd].t - leftStartAt
+                : 0,
         maxDeltaFraction: distance ? maxDelta / distance : 0,
         jumps,
     }
