@@ -77,10 +77,12 @@ function createScrollMotionValues() {
     let options: ScrollInfoOptions | undefined
     let stopTracking: VoidFunction | undefined
 
-    const setValues = ({ x, y }: ScrollInfo) =>
-        [x.current, y.current, x.progress, y.progress].forEach((v, i) =>
-            values[i].set(v)
-        )
+    const setValues = ({ x, y }: ScrollInfo) => {
+        scrollX.set(x.current)
+        scrollY.set(y.current)
+        scrollXProgress.set(x.progress)
+        scrollYProgress.set(y.progress)
+    }
 
     /**
      * MotionValue keeps a sole `change` subscriber directly, and moves them
