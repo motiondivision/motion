@@ -218,6 +218,26 @@ describe("useScroll JS tracking", () => {
         expect(scrollListeners).toBe(0)
     })
 
+    test("velocity is live from the first read while the scroll is tracked", async () => {
+        const { values, unmount } = renderScroll(({ scrollY }) => {
+            useMotionValueEvent(scrollY, "change", () => {})
+            return null
+        })
+        await nextFrame()
+        const { scrollY, scrollYProgress } = values()
+
+        page.scrollTop = 100
+        window.dispatchEvent(new Event("scroll"))
+        await nextFrame()
+        page.scrollTop = 200
+        window.dispatchEvent(new Event("scroll"))
+        await nextFrame()
+        expect(scrollY.getVelocity()).toBeGreaterThan(0)
+        expect(scrollYProgress.getVelocity()).toBeGreaterThan(0)
+
+        unmount()
+    })
+
     test("starts tracking once refs resolve for subscribers added before", async () => {
         const latest: number[] = []
         const Component = () => {
