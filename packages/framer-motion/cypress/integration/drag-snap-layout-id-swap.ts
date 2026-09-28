@@ -26,10 +26,14 @@ describe("drag + dragSnapToOrigin + layoutId horizontal swap", () => {
             // Pointermoves are element-relative; we keep the move small so
             // the recomputed-as-element-moves coordinate system still lands
             // the pointer on tile-1.
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 5, 5, { force: true })
             .trigger("pointermove", 10, 5, { force: true })
+            .nextFrame()
             .wait(50)
             .trigger("pointermove", 35, 5, { force: true })
+            .nextFrame()
             .wait(50)
             .trigger("pointerup", 35, 5, { force: true })
             .wait(2000)

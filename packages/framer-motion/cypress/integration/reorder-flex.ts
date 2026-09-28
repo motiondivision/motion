@@ -1,10 +1,14 @@
 const drag = (x: number, y: number) => {
     cy.get("[data-testid='a']")
+        .nextFrame()
+        .nextFrame()
         .trigger("pointerdown", 40, 40, { force: true })
         .wait(50)
         .trigger("pointermove", 50, 50, { force: true })
+        .nextFrame()
         .wait(50)
         .trigger("pointermove", x, y, { force: true })
+        .nextFrame()
         .wait(100)
 }
 

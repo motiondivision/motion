@@ -169,9 +169,15 @@ export function ReorderGroupComponent<
         },
     }
 
+    /**
+     * Only clear the guard once the new order has been rendered. Unrelated
+     * commits (useTransition's isPending, stale renders in front of
+     * useDeferredValue) would otherwise re-enable onReorder while the
+     * previous order is still pending.
+     */
     useEffect(() => {
         isReordering.current = false
-    })
+    }, [values])
 
     // Combine refs if external ref is provided
     const setRef = (element: Element | null) => {
