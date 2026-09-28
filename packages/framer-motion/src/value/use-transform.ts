@@ -228,24 +228,12 @@ export function useTransform<I, O, K extends string>(
         Array.isArray(outputRangeOrMap) &&
         options?.clamp !== false
     ) {
-        const ease = options?.ease
-
-        /**
-         * WAAPI fills missing 0 and 1 offsets with the underlying value, so
-         * hold the end values to match the clamped transform.
-         */
         result.accelerate = {
             ...inputAccelerate,
-            times: [0, ...(inputRangeOrTransformer as number[]), 1],
-            keyframes: [
-                outputRangeOrMap[0],
-                ...outputRangeOrMap,
-                outputRangeOrMap[outputRangeOrMap.length - 1],
-            ],
+            times: inputRangeOrTransformer as number[],
+            keyframes: outputRangeOrMap,
             isTransformed: true,
-            ...(ease
-                ? { ease: Array.isArray(ease) ? [ease[0], ...ease] : ease }
-                : {}),
+            ...(options?.ease ? { ease: options.ease } : {}),
         }
     }
 
@@ -282,12 +270,7 @@ function useMapTransform<O>(
     const output = useConstant<{ [key: string]: MotionValue<O> }>(() => ({}))
 
     for (const key of keys) {
-        output[key] = useTransform(
-            inputValue,
-            inputRange,
-            outputMap[key],
-            options
-        )
+        output[key] = useTransform(inputValue, inputRange, outputMap[key], options)
     }
 
     return output
