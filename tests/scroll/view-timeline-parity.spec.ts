@@ -125,6 +125,42 @@ test.describe("scroll() ViewTimeline and JS parity", () => {
         expect(await findUnexpectedTimelines(page)).toEqual([])
     })
 
+    test("native and JS progress agree after resizes while scrolled into and past targets", async ({
+        page,
+        browserName,
+    }) => {
+        skipWebKit(browserName)
+
+        const mismatches: string[] = []
+
+        // Each resize flips the direction of offsets like All
+        for (const [y, small, large] of [
+            [0, 800, 100],
+            [650, 100, 800],
+            [900, 800, 100],
+            [2000, 100, 800],
+        ]) {
+            await page.evaluate(
+                ([y, small, large]) => {
+                    window.scrollTo(0, y)
+                    document.getElementById(
+                        "small"
+                    )!.style.height = `${small}px`
+                    document.getElementById(
+                        "large"
+                    )!.style.height = `${large}px`
+                },
+                [y, small, large]
+            )
+            await nextFrames(page)
+            mismatches.push(
+                ...(await findMismatches(page, `resize at ${y}px: `))
+            )
+        }
+
+        expect(mismatches).toEqual([])
+    })
+
     test("offsets with an exact ViewTimeline range run natively", async ({
         page,
     }) => {
