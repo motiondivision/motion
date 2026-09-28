@@ -237,4 +237,28 @@ describe("SVG", () => {
             "100 100 200 200"
         )
     })
+
+    test("doesn't use the x attribute as the base of the x transform", async () => {
+        const Component = ({ animate }: any) => (
+            <svg>
+                <motion.rect
+                    data-testid="rect"
+                    x={10}
+                    animate={animate}
+                    transition={{ duration: 0 }}
+                />
+            </svg>
+        )
+        const { getByTestId, rerender } = render(
+            <Component animate={{ x: 100 }} />
+        )
+        await new Promise((resolve) => setTimeout(resolve, 50))
+        rerender(<Component animate={{}} />)
+        await new Promise((resolve) => setTimeout(resolve, 50))
+        await nextFrame()
+
+        const rect = getByTestId("rect")
+        expect(rect.style.transform).toBe("none")
+        expect(rect.getAttribute("x")).toBe("10")
+    })
 })
