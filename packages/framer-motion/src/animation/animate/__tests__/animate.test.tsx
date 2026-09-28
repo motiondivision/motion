@@ -394,6 +394,24 @@ describe("animate", () => {
         expect(element.style.transform).toBe("translateX(100px)")
     })
 
+    test("animates a VisualElement's transform from its initial value", async () => {
+        const { container } = render(<motion.div initial={{ x: 50 }} />)
+        const element = container.firstChild as HTMLElement
+
+        const animation = animate(
+            element,
+            { x: 150 },
+            { duration: 10, ease: "linear" }
+        )
+        await nextFrame()
+        await nextFrame()
+
+        const x = visualElementStore.get(element)!.getValue("x")!.get()
+        expect(x).toBeGreaterThanOrEqual(50)
+        expect(x).toBeLessThan(55)
+        animation.stop()
+    })
+
     test("does not create a VisualElement for plain elements", async () => {
         const element = document.createElement("div")
         document.body.appendChild(element)
