@@ -92,9 +92,7 @@ describe("useScroll JS tracking", () => {
 
         const { scrollYProgress } = values()
         const latest: number[] = []
-        const unsubscribe = scrollYProgress.on("change", (v) =>
-            latest.push(v)
-        )
+        const unsubscribe = scrollYProgress.on("change", (v) => latest.push(v))
         expect(latest).toEqual([])
         expect(scrollYProgress.get()).toBe(0.4)
         expect(scrollListeners).toBe(1)
@@ -137,9 +135,7 @@ describe("useScroll JS tracking", () => {
 
         scrollYProgress.on("change", () => {})()
         const latest: number[] = []
-        const unsubscribe = scrollYProgress.on("change", (v) =>
-            latest.push(v)
-        )
+        const unsubscribe = scrollYProgress.on("change", (v) => latest.push(v))
         await nextFrame()
         expect(scrollListeners).toBe(1)
 
