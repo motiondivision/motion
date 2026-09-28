@@ -1,5 +1,4 @@
 import { motion } from "framer-motion"
-import { useLayoutEffect, useRef } from "react"
 
 /**
  * Independent transforms never animate from a stylesheet transform, so an
@@ -10,11 +9,14 @@ import { useLayoutEffect, useRef } from "react"
  * layout, just before paint, so resizing a probe each frame samples exactly
  * what gets painted.
  *
- * The commit is held past a frame so the browser paints before React runs
- * passive effects (and so starts animations), as it does whenever the initial
- * render runs long.
+ * The commit is held past a frame, from a ref callback, so the browser paints
+ * before React runs passive effects (and so starts animations), as it does
+ * whenever the initial render runs long. Holding it from a layout effect
+ * instead doesn't reproduce this.
  */
-function sampleFrames(box: HTMLElement) {
+function sampleFrames(box: HTMLElement | null) {
+    if (!box) return
+
     const samples: string[] = []
     const probe = document.createElement("div")
     document.body.appendChild(probe)
@@ -35,20 +37,15 @@ function sampleFrames(box: HTMLElement) {
     while (performance.now() - start < 50) {}
 }
 
-export const App = () => {
-    const ref = useRef<HTMLDivElement>(null)
-    useLayoutEffect(() => sampleFrames(ref.current!), [])
-
-    return (
-        <>
-            <style>{`#box { transform: translateX(100px); }`}</style>
-            <motion.div
-                id="box"
-                ref={ref}
-                animate={{ x: 200 }}
-                transition={{ duration: 10, ease: "linear" }}
-                style={{ width: 100, height: 100, background: "red" }}
-            />
-        </>
-    )
-}
+export const App = () => (
+    <>
+        <style>{`#box { transform: translateX(100px); }`}</style>
+        <motion.div
+            id="box"
+            ref={sampleFrames}
+            animate={{ x: 200 }}
+            transition={{ duration: 10, ease: "linear" }}
+            style={{ width: 100, height: 100, background: "red" }}
+        />
+    </>
+)
