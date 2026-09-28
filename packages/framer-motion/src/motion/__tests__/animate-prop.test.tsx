@@ -2,6 +2,7 @@ import { createRef, Suspense, useRef, useState } from "react"
 import {
     frame,
     motion,
+    MotionConfig,
     MotionGlobalConfig,
     motionValue,
     stagger,
@@ -1046,6 +1047,68 @@ describe("animate prop as object", () => {
         expect(x.get()).toBe(0)
         expect(rotate.get()).toBe(0)
         expect(element.style.transform).toBe("none")
+    })
+
+    test("resolves 'none' transforms that are set without animating", async () => {
+        const transformAfter = async (props: any) => {
+            const { container } = render(
+                <MotionConfig reducedMotion={props.reducedMotion}>
+                    <motion.div {...props} />
+                </MotionConfig>
+            )
+            await new Promise((resolve) => setTimeout(resolve, 50))
+            await nextFrame()
+            return (container.firstChild as HTMLElement).style.transform
+        }
+
+        expect(
+            await transformAfter({
+                animate: { x: "none", rotate: 45 },
+                transition: { duration: 0 },
+            })
+        ).toBe("rotate(45deg)")
+        expect(
+            await transformAfter({
+                animate: { x: "none", rotate: 45 },
+                reducedMotion: "always",
+            })
+        ).toBe("rotate(45deg)")
+        expect(
+            await transformAfter({
+                animate: { rotate: 45, transitionEnd: { x: "none" } },
+                transition: { duration: 0 },
+            })
+        ).toBe("rotate(45deg)")
+        expect(
+            await transformAfter({
+                initial: false,
+                animate: { x: "none", rotate: 45 },
+            })
+        ).toBe("rotate(45deg)")
+    })
+
+    test("animates a removed transform back to its default when initial is set", async () => {
+        const check = async (initial: any) => {
+            const Component = ({ animate }: any) => (
+                <motion.div
+                    initial={initial}
+                    animate={animate}
+                    variants={{ hidden: { opacity: 0 } }}
+                    transition={{ duration: 0 }}
+                />
+            )
+            const { container, rerender } = render(
+                <Component animate={{ opacity: 1, x: 100 }} />
+            )
+            await new Promise((resolve) => setTimeout(resolve, 50))
+            rerender(<Component animate={{ opacity: 1 }} />)
+            await new Promise((resolve) => setTimeout(resolve, 50))
+            await nextFrame()
+            return (container.firstChild as HTMLElement).style.transform
+        }
+
+        expect(await check({ opacity: 0 })).toBe("none")
+        expect(await check("hidden")).toBe("none")
     })
 
     test("renders an animated independent transform's origin on mount", () => {
