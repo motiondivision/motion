@@ -58,6 +58,7 @@ describe("Drag to reorder", () => {
             .trigger("pointermove", 360, 220, { force: true })
             .nextFrame()
             .wait(100)
+            .get("#Tomato")
             .should(([$item]: any) => {
                 expectBbox($item, {
                     height: 68,
@@ -78,6 +79,7 @@ describe("Drag to reorder", () => {
             .get("#Tomato")
             .trigger("pointerup", 360, 220, { force: true })
             .wait(100)
+            .get("#Tomato")
             .should(([$item]: any) => {
                 expectBbox($item, {
                     height: 68,
@@ -98,6 +100,7 @@ describe("Drag to reorder", () => {
             .trigger("pointermove", 360, 220, { force: true })
             .nextFrame()
             .wait(100)
+            .get("#Cucumber")
             .should(([$item]: any) => {
                 expectBbox($item, {
                     height: 68,
@@ -173,6 +176,7 @@ describe("Drag to reorder", () => {
             .trigger("pointermove", 475, 175, { force: true })
             .nextFrame()
             .wait(100)
+            .get("#Tomato")
             .should(([$item]: any) => {
                 expectBbox($item, {
                     height: 68,
