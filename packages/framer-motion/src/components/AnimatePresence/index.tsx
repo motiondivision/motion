@@ -219,7 +219,14 @@ export const AnimatePresence = ({
 
                     if (isEveryExitComplete) {
                         forceRender?.()
+                        /**
+                         * This update can be applied after a transition that
+                         * changes children has committed, making these
+                         * children stale. Resetting the diffed children too
+                         * ensures they're re-diffed against the latest.
+                         */
                         setRenderedChildren(pendingPresentChildren.current)
+                        setDiffedChildren(pendingPresentChildren.current)
 
                         propagate && safeToRemove?.()
 
