@@ -24,7 +24,7 @@ import {
  * ?mode=sync|transition|useTransition|deferred
  * ?presence=sync|popLayout|wait
  * ?scenario=remove|toggleBeforeCommit|reenterMidExit|exitDuringTransition|
- *           waitSwap|waitRapid|waitMidExit
+ *           waitSwap|waitRapid|waitMidExit|waitExitDuringTransition
  */
 
 const SlowList = memo(SlowListBase)
@@ -60,6 +60,14 @@ const scenarios: Record<string, Array<[number, () => void]>> = {
         [130, click("child-C")],
         [160, click("child-A")],
         [190, click("child-C")],
+    ],
+    /**
+     * Run with ?slowCount=30: A's exit finishes at ~900ms while the
+     * transition switching to C is rendering (~700-1000ms).
+     */
+    waitExitDuringTransition: [
+        [100, click("child-B-urgent")],
+        [700, click("child-C")],
     ],
     waitMidExit: [
         [100, click("child-B-urgent")],

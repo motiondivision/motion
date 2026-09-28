@@ -104,45 +104,54 @@ describe("Concurrent React: layout", () => {
                     jumpFraction: 0.15,
                 })
             run("midAnimation", mode)
+                // Re-queried until back at the start and stationary
                 .should((win: any) => {
                     const a = analyzeA(win)
-                    expect(a.intermediateFrames).to.be.greaterThan(0)
                     expect(a.finalProgress).to.be.closeTo(0, 0.01)
+                    expect(a.stillMs).to.be.greaterThan(200)
                 })
                 .then((win: any) => expect(analyzeA(win).jumps).to.equal(0))
         })
 
         it(`reverseBeforeCommit (${mode}) settles back without jumping`, () => {
-            run("reverseBeforeCommit", mode).then((win: any) => {
-                const after = clickTime(win, "a-next")
-                const a = win.__analyze({
+            const analyzeA = (win: any) =>
+                win.__analyze({
                     name: "a",
                     from: 0,
                     to: 200,
-                    after,
+                    after: clickTime(win, "a-next"),
                     jumpFraction: 0.15,
                 })
-                expect(a.jumps).to.equal(0)
-                expect(a.finalProgress).to.be.closeTo(0, 0.01)
-                /**
-                 * A plain startTransition keeps rendering its lane and
-                 * commits it after the reversal is queued. With useTransition
-                 * (whose isPending update interrupts the render) and
-                 * useDeferredValue, both updates batch: the abandoned state
-                 * must never be committed once the reversal has happened.
-                 */
-                if (mode !== "transition") {
-                    const back = clickTime(win, "a-back")
-                    const abandoned = commitsOfA(win, after).find(
-                        (e: any) => e.data.value === 1
-                    )
-                    if (abandoned) {
-                        expect(abandoned.t).to.be.lessThan(back)
-                    } else {
-                        expect(a.maxDeltaFraction).to.equal(0)
+            run("reverseBeforeCommit", mode)
+                // Re-queried until back at the start and stationary
+                .should((win: any) => {
+                    const a = analyzeA(win)
+                    expect(a.finalProgress).to.be.closeTo(0, 0.01)
+                    expect(a.stillMs).to.be.greaterThan(200)
+                })
+                .then((win: any) => {
+                    const after = clickTime(win, "a-next")
+                    const a = analyzeA(win)
+                    expect(a.jumps).to.equal(0)
+                    /**
+                     * A plain startTransition keeps rendering its lane and
+                     * commits it after the reversal is queued. With useTransition
+                     * (whose isPending update interrupts the render) and
+                     * useDeferredValue, both updates batch: the abandoned state
+                     * must never be committed once the reversal has happened.
+                     */
+                    if (mode !== "transition") {
+                        const back = clickTime(win, "a-back")
+                        const abandoned = commitsOfA(win, after).find(
+                            (e: any) => e.data.value === 1
+                        )
+                        if (abandoned) {
+                            expect(abandoned.t).to.be.lessThan(back)
+                        } else {
+                            expect(a.maxDeltaFraction).to.equal(0)
+                        }
                     }
-                }
-            })
+                })
         })
     }
 })

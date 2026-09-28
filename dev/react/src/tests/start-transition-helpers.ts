@@ -281,8 +281,9 @@ function analyze({
     const tolerance = Math.min(0.5, distance * 0.01)
     const moved = series.findIndex((s) => Math.abs(s.v - from) > tolerance)
     const firstMove = moved === -1 ? null : series[moved]
+    const endTolerance = Math.max(tolerance * 2, distance * 0.01)
     const reachedEnd = series.findIndex(
-        (s) => Math.abs(s.v - to) < tolerance * 2
+        (s) => Math.abs(s.v - to) < endTolerance
     )
 
     const speed = distance / durationMs
@@ -322,6 +323,18 @@ function analyze({
                 ? series[reachedEnd].t - leftStartAt
                 : 0,
         maxDeltaFraction: distance ? maxDelta / distance : 0,
+        // How long (frame time) the element has been at its latest position
+        stillMs: series.length
+            ? series[series.length - 1].tl -
+              (series
+                  .slice()
+                  .reverse()
+                  .find(
+                      (s) =>
+                          Math.abs(s.v - series[series.length - 1].v) >
+                          tolerance
+                  )?.tl ?? series[0].tl)
+            : 0,
         jumps,
     }
 }

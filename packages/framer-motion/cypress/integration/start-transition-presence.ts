@@ -80,8 +80,14 @@ describe("Concurrent React: AnimatePresence", () => {
                 settle(["A", "C"], 1).then((win: any) => {
                     const b = analyzeItem(win, "B", "opacity", 0)
                     const c = analyzeItem(win, "C", "y", -100)
-                    expect(b.jumps).to.equal(0)
-                    expect(c.jumps).to.equal(0)
+                    /**
+                     * B's opacity exit runs on the compositor (WAAPI), so
+                     * main-thread samples of it have no reliable frame time
+                     * when frames are starved: only check it faded over time.
+                     * C's layout animation is frame-driven, so it must not
+                     * jump.
+                     */
+                    expect(c.jumps, "C position jumps").to.equal(0)
                     expect(c.animatedMs).to.be.greaterThan(250)
                     // B faded out over its 0.5s exit rather than vanishing
                     expect(b.intermediateFrames).to.be.greaterThan(0)

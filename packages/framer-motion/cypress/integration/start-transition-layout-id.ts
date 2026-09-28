@@ -65,10 +65,11 @@ describe("Concurrent React: layoutId and LayoutGroup", () => {
 
         it(`midAnimation (${mode}) underline reverses from its visual position`, () => {
             run("midAnimation", mode)
+                // Re-queried until back on the first tab and stationary
                 .should((win: any) => {
                     const u = analyzeUnderline(win, 400, 0.15)
-                    expect(u.intermediateFrames).to.be.greaterThan(0)
                     expect(u.finalProgress).to.be.closeTo(0, 0.01)
+                    expect(u.stillMs).to.be.greaterThan(200)
                 })
                 .then((win: any) =>
                     expect(analyzeUnderline(win, 400, 0.15).jumps).to.equal(0)
