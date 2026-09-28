@@ -2,11 +2,13 @@
 
 import {
     AnyResolvedKeyframe,
+    defaultTransformValue,
     isAnimationControls,
     isControllingVariants as checkIsControllingVariants,
     isVariantNode as checkIsVariantNode,
     ResolvedValues,
     resolveVariantFromProps,
+    transformProps,
 } from "motion-dom"
 import { useContext } from "react"
 import { MotionContext, MotionContextProps } from "../../context/MotionContext"
@@ -89,46 +91,75 @@ function makeLatestValues(
         : false
     isInitialAnimationBlocked = isInitialAnimationBlocked || initial === false
 
-    const variantToSet = isInitialAnimationBlocked ? animate : initial
+    forEachTarget(
+        props,
+        isInitialAnimationBlocked ? animate : initial,
+        (target, transitionEnd) => {
+            for (const key in target) {
+                let valueTarget = target[key]
 
+                if (Array.isArray(valueTarget)) {
+                    /**
+                     * Take final keyframe if the initial animation is blocked because
+                     * we want to initialise at the end of that blocked animation.
+                     */
+                    const index = isInitialAnimationBlocked
+                        ? valueTarget.length - 1
+                        : 0
+                    valueTarget = valueTarget[index]
+                }
+
+                if (valueTarget !== null) {
+                    values[key] = valueTarget as AnyResolvedKeyframe
+                }
+            }
+            for (const key in transitionEnd) {
+                values[key] = transitionEnd[key] as AnyResolvedKeyframe
+            }
+        }
+    )
+
+    /**
+     * Independent transforms never animate from the DOM, so the origin of one
+     * that's about to animate is already known: its first keyframe or its
+     * default. Render it now, or a stylesheet transform shows until the
+     * animation starts.
+     */
+    if (!isInitialAnimationBlocked) {
+        forEachTarget(props, animate, (target) => {
+            for (const key in target) {
+                if (transformProps.has(key) && values[key] === undefined) {
+                    const valueTarget = target[key]
+                    values[key] =
+                        (Array.isArray(valueTarget) ? valueTarget[0] : null) ??
+                        defaultTransformValue(key)
+                }
+            }
+        })
+    }
+
+    return values
+}
+
+function forEachTarget(
+    props: MotionProps,
+    variant: MotionProps["initial"],
+    callback: (target: any, transitionEnd?: any) => void
+) {
     if (
-        variantToSet &&
-        typeof variantToSet !== "boolean" &&
-        !isAnimationControls(variantToSet)
+        variant &&
+        typeof variant !== "boolean" &&
+        !isAnimationControls(variant)
     ) {
-        const list = Array.isArray(variantToSet) ? variantToSet : [variantToSet]
+        const list = Array.isArray(variant) ? variant : [variant]
         for (let i = 0; i < list.length; i++) {
             const resolved = resolveVariantFromProps(props, list[i] as any)
             if (resolved) {
                 const { transitionEnd, transition, ...target } = resolved
-                for (const key in target) {
-                    let valueTarget = target[key as keyof typeof target]
-
-                    if (Array.isArray(valueTarget)) {
-                        /**
-                         * Take final keyframe if the initial animation is blocked because
-                         * we want to initialise at the end of that blocked animation.
-                         */
-                        const index = isInitialAnimationBlocked
-                            ? valueTarget.length - 1
-                            : 0
-                        valueTarget = valueTarget[index] as any
-                    }
-
-                    if (valueTarget !== null) {
-                        values[key] = valueTarget as AnyResolvedKeyframe
-                    }
-                }
-                for (const key in transitionEnd) {
-                    values[key] = transitionEnd[
-                        key as keyof typeof transitionEnd
-                    ] as AnyResolvedKeyframe
-                }
+                callback(target, transitionEnd)
             }
         }
     }
-
-    return values
 }
 
 export const makeUseVisualState =
