@@ -33,7 +33,11 @@ export interface UseScrollOptions
 class ScrollMotionValue extends MotionValue<number> {
     tracksVelocity?: boolean
 
-    constructor(private update: VoidFunction, private measure: VoidFunction) {
+    /**
+     * @param measure - Measures the scroll if it isn't tracked, and returns
+     * whether it is.
+     */
+    constructor(private update: VoidFunction, private measure: () => unknown) {
         super(0)
     }
 
@@ -66,10 +70,12 @@ class ScrollMotionValue extends MotionValue<number> {
      * tracked from then on. Until then, there aren't frames to measure.
      */
     getVelocity() {
-        if (this.tracksVelocity) return super.getVelocity()
-        this.tracksVelocity = true
-        this.update()
-        return 0
+        const isTracking = this.measure()
+        if (!this.tracksVelocity) {
+            this.tracksVelocity = true
+            this.update()
+        }
+        return isTracking ? super.getVelocity() : 0
     }
 }
 
