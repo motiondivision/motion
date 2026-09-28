@@ -855,13 +855,16 @@ export abstract class VisualElement<
 
         if (value === undefined && defaultValue !== undefined) {
             /**
-             * An independent transform's base is known without reading the
-             * DOM (e.g. its default), so start from it and render it now
-             * rather than once the keyframe resolver reads an origin.
+             * An independent transform's current value is known without
+             * reading the DOM (its latest value, or its base, e.g. its
+             * default), so start from it and render it now rather than once
+             * the keyframe resolver reads an origin.
              */
             if (defaultValue === null && transformProps.has(key)) {
                 const base = this.getBaseTargetFromProps(this.props, key)
-                if (!isMotionValue(base)) defaultValue = base
+                defaultValue =
+                    this.latestValues[key] ??
+                    (isMotionValue(base) ? undefined : base)
             }
             value = motionValue(defaultValue ?? undefined, { owner: this })
             this.addValue(key, value)
