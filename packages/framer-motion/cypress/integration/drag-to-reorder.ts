@@ -45,14 +45,20 @@ describe("Drag to reorder", () => {
                 })
             })
             .get("#Tomato")
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 360, 175, { force: true })
             .wait(50)
             .trigger("pointermove", 360, 180, { force: true })
+            .nextFrame()
             .wait(50)
             .trigger("pointermove", 360, 200, { force: true })
+            .nextFrame()
             .wait(50)
             .trigger("pointermove", 360, 220, { force: true })
+            .nextFrame()
             .wait(100)
+            .get("#Tomato")
             .should(([$item]: any) => {
                 expectBbox($item, {
                     height: 68,
@@ -73,6 +79,7 @@ describe("Drag to reorder", () => {
             .get("#Tomato")
             .trigger("pointerup", 360, 220, { force: true })
             .wait(100)
+            .get("#Tomato")
             .should(([$item]: any) => {
                 expectBbox($item, {
                     height: 68,
@@ -85,11 +92,15 @@ describe("Drag to reorder", () => {
             .trigger("pointerdown", 360, 175, { force: true })
             .wait(50)
             .trigger("pointermove", 360, 180, { force: true })
+            .nextFrame()
             .wait(50)
             .trigger("pointermove", 360, 200, { force: true })
+            .nextFrame()
             .wait(50)
             .trigger("pointermove", 360, 220, { force: true })
+            .nextFrame()
             .wait(100)
+            .get("#Cucumber")
             .should(([$item]: any) => {
                 expectBbox($item, {
                     height: 68,
@@ -111,6 +122,7 @@ describe("Drag to reorder", () => {
             .trigger("pointerdown", 360, 0, { force: true })
             .wait(100)
             .trigger("pointermove", 360, -100, { force: true })
+            .nextFrame()
             .wait(100)
             .trigger("pointerup", 360, -100, { force: true })
             .wait(20)
@@ -151,14 +163,20 @@ describe("Drag to reorder", () => {
                 })
             })
             .get("#Tomato")
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 360, 175, { force: true })
             .wait(50)
             .trigger("pointermove", 365, 175, { force: true })
+            .nextFrame()
             .wait(50)
             .trigger("pointermove", 425, 175, { force: true })
+            .nextFrame()
             .wait(50)
             .trigger("pointermove", 475, 175, { force: true })
+            .nextFrame()
             .wait(100)
+            .get("#Tomato")
             .should(([$item]: any) => {
                 expectBbox($item, {
                     height: 68,
@@ -194,6 +212,8 @@ describe("Drag to reorder", () => {
             const baseY = 175
             const delta = 20
             chain = chain
+                .nextFrame()
+                .nextFrame()
                 .trigger("pointerdown", 360, baseY, { force: true })
                 .wait(150)
 
@@ -202,6 +222,7 @@ describe("Drag to reorder", () => {
                     const y = step > 0 ? delta : -delta
                     chain = chain
                         .trigger("pointermove", 360, baseY + y, { force: true })
+                        .nextFrame()
                         .wait(150)
                 })
             })
@@ -214,6 +235,11 @@ describe("Drag to reorder", () => {
             cy.visit("?test=drag-to-reorder").wait(50).get("#Tomato")
         )
 
-        checkBox(moveAround(chain, [-4, 14, -8, 4, -5, 2, -6]))
+        /**
+         * Re-query so the check retries: the snap back to origin needs two
+         * frames after release, which slow CI can take longer than
+         * moveAround's 150ms wait to produce.
+         */
+        checkBox(moveAround(chain, [-4, 14, -8, 4, -5, 2, -6]).get("#Tomato"))
     })
 })

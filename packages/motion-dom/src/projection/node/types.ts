@@ -38,8 +38,6 @@ export type LayoutEvents =
     | "animationComplete"
 
 export interface IProjectionNode<I = unknown> {
-    linkedParentVersion: number
-    layoutVersion: number
     id: number
     animationId: number
     animationCommitId: number
@@ -107,6 +105,7 @@ export interface IProjectionNode<I = unknown> {
     resetSkewAndRotation(): void
     applyTransform(box: Box, transformOnly?: boolean, output?: Box): Box
     resolveTargetDelta(force?: boolean): void
+    removeRelativeTarget(): void
     calcProjection(): void
     applyProjectionStyles(
         targetStyle: CSSStyleDeclaration,

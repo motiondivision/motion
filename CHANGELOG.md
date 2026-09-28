@@ -4,10 +4,20 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
-## [13.4.4] 2026-09-24
+## [13.4.4] 2026-09-25
+
+### Changed
+
+-   `scroll`: 44% smaller.
+-   `useScroll`: 33% smaller.
+-   Scroll callbacks: 50% faster.
+-   Removed `ScrollTimeline` support for JS callbacks as benchmarked no improvement over `scrollInfo`.
 
 ### Fixed
 
+-   `useDragControls`: Fixed `snapToCursor` origin drift on repeated calls.
+-   `drag`: Improved `pointerend` timing.
+-   `spring`: Check invalid spring values before applying.
 -   `AnimatePresence`: Ensure children don't stick during reentry.
 
 ## [13.4.3] 2026-09-24
