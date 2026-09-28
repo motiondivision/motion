@@ -2,11 +2,6 @@ import { invariant, type Box } from "motion-utils"
 import type { AnyResolvedKeyframe } from "../../animation/types"
 import { isCSSVariableName } from "../../animation/utils/is-css-variable"
 import type { MotionNodeOptions } from "../../node/types"
-import { transformProps } from "../utils/keys-transform"
-import {
-    defaultTransformValue,
-    readTransformValue,
-} from "../dom/parse-transform"
 import { measureViewportBox } from "../../projection/utils/measure"
 import { DOMVisualElement } from "../dom/DOMVisualElement"
 import type { DOMVisualElementOptions } from "../dom/types"
@@ -43,23 +38,21 @@ export class HTMLVisualElement extends DOMVisualElement<
         super.mount(instance)
     }
 
+    /**
+     * Never called for independent transforms, which aren't read from the
+     * DOM (see getTransformBase).
+     */
     readValueFromInstance(
         instance: HTMLElement,
         key: string
     ): AnyResolvedKeyframe | null | undefined {
-        if (transformProps.has(key)) {
-            return this.projection?.isProjecting
-                ? defaultTransformValue(key)
-                : readTransformValue(instance, key)
-        } else {
-            const computedStyle = getComputedStyle(instance)
-            const value =
-                (isCSSVariableName(key)
-                    ? computedStyle.getPropertyValue(key)
-                    : computedStyle[key as keyof typeof computedStyle]) || 0
+        const computedStyle = getComputedStyle(instance)
+        const value =
+            (isCSSVariableName(key)
+                ? computedStyle.getPropertyValue(key)
+                : computedStyle[key as keyof typeof computedStyle]) || 0
 
-            return typeof value === "string" ? value.trim() : (value as number)
-        }
+        return typeof value === "string" ? value.trim() : (value as number)
     }
 
     measureInstanceViewportBox(

@@ -1,8 +1,6 @@
 import type { AnyResolvedKeyframe } from "../../animation/types"
 import type { MotionValue } from "../../value"
 import type { MotionNodeOptions } from "../../node/types"
-import { transformProps } from "../utils/keys-transform"
-import { getDefaultValueType } from "../../value/types/maps/defaults"
 import { createBox } from "../../projection/geometry/models"
 import { DOMVisualElement } from "../dom/DOMVisualElement"
 import { getTransformBase } from "../dom/parse-transform"
@@ -36,12 +34,11 @@ export class SVGVisualElement extends DOMVisualElement<
         return getTransformBase(key) ?? props[key as keyof MotionNodeOptions]
     }
 
+    /**
+     * Never called for independent transforms, which aren't read from the
+     * DOM (see getTransformBase).
+     */
     readValueFromInstance(instance: SVGElement, key: string) {
-        if (transformProps.has(key)) {
-            const defaultType = getDefaultValueType(key)
-            return defaultType ? defaultType.default || 0 : 0
-        }
-
         if (cssStyleProperties.includes(key)) {
             const computedStyle = getComputedStyle(instance)
             const value = computedStyle[key as keyof typeof computedStyle]
