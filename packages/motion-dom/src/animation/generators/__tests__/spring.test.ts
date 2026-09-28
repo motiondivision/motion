@@ -377,26 +377,18 @@ describe("spring NaN guards", () => {
     })
 
     test.each(physicsKeys)(
-        "invalid %s does not discard a provided duration",
+        "invalid %s does not discard provided time options",
         (key) => {
-            expect(
-                sample({ keyframes: [0, 100], duration: 500, [key]: NaN })
-            ).toEqual(sample({ keyframes: [0, 100], duration: 500 }))
+            for (const time of [
+                { duration: 500 },
+                { visualDuration: 0.5, bounce: 0.2 },
+            ]) {
+                expect(
+                    sample({ keyframes: [0, 100], ...time, [key]: NaN })
+                ).toEqual(sample({ keyframes: [0, 100], ...time }))
+            }
         }
     )
-
-    test("invalid physics does not discard a provided visualDuration", () => {
-        expect(
-            sample({
-                keyframes: [0, 100],
-                visualDuration: 0.5,
-                bounce: 0.2,
-                mass: 0,
-            })
-        ).toEqual(
-            sample({ keyframes: [0, 100], visualDuration: 0.5, bounce: 0.2 })
-        )
-    })
 
     test.each([
         { duration: 500, bounce: NaN },

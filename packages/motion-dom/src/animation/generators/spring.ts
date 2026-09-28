@@ -23,7 +23,6 @@ const springDefaults = {
     stiffness: 100,
     damping: 10,
     mass: 1.0,
-    velocity: 0.0,
 
     // Default duration/bounce-based options
     duration: 800, // in ms
@@ -69,11 +68,14 @@ function approximateRoot(
  */
 const safeMin = 0.001
 
+/**
+ * Assumes zero initial velocity and the default mass: time-defined springs
+ * ignore inherited velocity and only resolve without valid physics. Returns
+ * NaN physics when the root search doesn't converge.
+ */
 function findSpring({
     duration = springDefaults.duration,
     bounce = springDefaults.bounce,
-    velocity = springDefaults.velocity,
-    mass = springDefaults.mass,
 }: SpringOptions) {
     let envelope: (num: number) => number
     let derivative: (num: number) => number
@@ -107,16 +109,14 @@ function findSpring({
         envelope = (undampedFreq) => {
             const exponentialDecay = undampedFreq * dampingRatio
             const delta = exponentialDecay * duration
-            const a = exponentialDecay - velocity
             const b = calcAngularFreq(undampedFreq, dampingRatio)
             const c = Math.exp(-delta)
-            return safeMin - (a / b) * c
+            return safeMin - (exponentialDecay / b) * c
         }
 
         derivative = (undampedFreq) => {
             const exponentialDecay = undampedFreq * dampingRatio
             const delta = exponentialDecay * duration
-            const d = delta * velocity + velocity
             const e =
                 dampingRatio *
                 dampingRatio *
@@ -126,7 +126,7 @@ function findSpring({
             const f = Math.exp(-delta)
             const g = calcAngularFreq(undampedFreq * undampedFreq, dampingRatio)
             const factor = -envelope(undampedFreq) + safeMin > 0 ? -1 : 1
-            return (factor * ((d - e) * f)) / g
+            return (factor * -e * f) / g
         }
     } else {
         /**
@@ -134,41 +134,26 @@ function findSpring({
          */
         envelope = (undampedFreq) => {
             const a = Math.exp(-undampedFreq * duration)
-            const b = (undampedFreq - velocity) * duration + 1
+            const b = undampedFreq * duration + 1
             return -safeMin + a * b
         }
 
         derivative = (undampedFreq) => {
             const a = Math.exp(-undampedFreq * duration)
-            const b = (velocity - undampedFreq) * (duration * duration)
+            const b = -undampedFreq * (duration * duration)
             return a * b
         }
     }
 
     const initialGuess = 5 / duration
     const undampedFreq = approximateRoot(envelope, derivative, initialGuess)
+    const stiffness = undampedFreq * undampedFreq
 
-    duration = secondsToMilliseconds(duration)
-    if (isNaN(undampedFreq)) {
-        return {
-            stiffness: springDefaults.stiffness,
-            damping: springDefaults.damping,
-            duration,
-        }
-    } else {
-        const stiffness = undampedFreq * undampedFreq * mass
-        return {
-            stiffness,
-            damping: dampingRatio * 2 * Math.sqrt(mass * stiffness),
-            duration,
-        }
+    return {
+        stiffness,
+        damping: dampingRatio * 2 * Math.sqrt(stiffness),
+        duration: secondsToMilliseconds(duration),
     }
-}
-
-const durationKeys = ["duration", "bounce"]
-
-function isSpringType(options: SpringOptions, keys: string[]) {
-    return keys.some((key) => (options as any)[key] !== undefined)
 }
 
 /**
@@ -210,7 +195,7 @@ function getSpringOptions(options: SpringOptions) {
     const validDamping = resolvePhysics(options.damping, true)
     const validMass = resolvePhysics(options.mass)
 
-    let springOptions = {
+    const springOptions = {
         ...options,
         stiffness: validStiffness ?? springDefaults.stiffness,
         damping: validDamping ?? springDefaults.damping,
@@ -219,47 +204,28 @@ function getSpringOptions(options: SpringOptions) {
         // stiffness/damping/mass overrides duration/bounce
         isTimeDefined:
             (validStiffness ?? validDamping ?? validMass) === undefined &&
-            isSpringType(options, durationKeys),
+            (options.duration !== undefined || options.bounce !== undefined),
     }
 
     if (springOptions.isTimeDefined) {
-        // Time-defined springs should ignore inherited velocity.
-        // Velocity from interrupted animations can cause findSpring()
-        // to compute wildly different spring parameters, leading to
-        // massive oscillation on small-range animations.
-        springOptions.velocity = 0
-
         if (options.visualDuration) {
-            const visualDuration = options.visualDuration
-            const root = (2 * Math.PI) / (visualDuration * 1.2)
-            const stiffness = root * root
-            const damping =
+            const root = (2 * Math.PI) / (options.visualDuration * 1.2)
+            springOptions.stiffness = root * root
+            springOptions.damping =
                 2 *
                 clamp(0.05, 1, 1 - (options.bounce || 0)) *
-                Math.sqrt(stiffness)
-
-            springOptions = {
-                ...springOptions,
-                mass: springDefaults.mass,
-                stiffness,
-                damping,
-            }
+                Math.sqrt(springOptions.stiffness)
         } else {
-            const derived = findSpring(springOptions)
-
-            springOptions = {
-                ...springOptions,
-                ...derived,
-                mass: springDefaults.mass,
-            }
+            Object.assign(springOptions, findSpring(springOptions))
             springOptions.isResolvedFromDuration = true
         }
 
         /**
-         * Non-finite time options degenerate: a NaN bounce gives a NaN
-         * damping, an infinite visualDuration a 0 stiffness. Replace the two
-         * together, so the relationship duration resolution establishes
-         * between them is never left half-overwritten.
+         * Time options can degenerate: a NaN bounce gives a NaN damping, an
+         * infinite visualDuration a 0 stiffness, and findSpring NaN for both
+         * when it doesn't converge. Replace the two together, so the
+         * relationship duration resolution establishes between them is never
+         * left half-overwritten.
          */
         if (
             !isValidPhysics(springOptions.stiffness) ||
@@ -302,13 +268,17 @@ function spring(
         damping,
         mass,
         duration,
-        velocity,
         isResolvedFromDuration,
         isTimeDefined,
-    } = getSpringOptions({
-        ...options,
-        velocity: -millisecondsToSeconds(options.velocity || 0),
-    })
+    } = getSpringOptions({ ...options })
+
+    /**
+     * Time-defined springs ignore inherited velocity. Velocity from
+     * interrupted animations causes massive oscillation on small-range
+     * animations.
+     */
+    const inheritVelocity = (velocity: number) =>
+        isTimeDefined ? 0 : -millisecondsToSeconds(velocity)
 
     const dampingRatio = damping / (2 * Math.sqrt(stiffness * mass))
     const undampedAngularFreq = millisecondsToSeconds(
@@ -326,7 +296,7 @@ function spring(
     const s = {
         target,
         delta: target - origin,
-        velocity: velocity || 0.0,
+        velocity: inheritVelocity(options.velocity || 0) || 0,
         restSpeed: 0,
         restDelta: 0,
     }
@@ -464,8 +434,7 @@ function spring(
         retarget: (keyframes: number[], newVelocity: number) => {
             s.target = keyframes[keyframes.length - 1]
             s.delta = s.target - keyframes[0]
-            // Time-defined springs ignore inherited velocity, see getSpringOptions
-            s.velocity = isTimeDefined ? 0 : -millisecondsToSeconds(newVelocity)
+            s.velocity = inheritVelocity(newVelocity)
             // Default thresholds depend on the scale of the new delta
             if (!(options.restSpeed && options.restDelta)) setRestThresholds()
             // Invalidate any duration lazily cached by JSAnimation
