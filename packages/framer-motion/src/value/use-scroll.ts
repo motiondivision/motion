@@ -82,6 +82,10 @@ function createScrollMotionValues() {
             values[i].set(v)
         )
 
+    /**
+     * MotionValue keeps a sole `change` subscriber directly, and moves them
+     * into `events.change` once there's a second.
+     */
     const update = () => {
         if (
             options &&
