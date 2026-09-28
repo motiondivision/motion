@@ -44,9 +44,7 @@ export function buildTransform(
             valueIsDefault = value === (key.startsWith("scale") ? 1 : 0)
         } else {
             const parsed = parseFloat(value)
-            valueIsDefault =
-                value === "none" ||
-                (key.startsWith("scale") ? parsed === 1 : parsed === 0)
+            valueIsDefault = key.startsWith("scale") ? parsed === 1 : parsed === 0
         }
 
         if (!valueIsDefault || transformTemplate) {
