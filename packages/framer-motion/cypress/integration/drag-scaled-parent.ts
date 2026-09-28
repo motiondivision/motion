@@ -4,10 +4,14 @@ describe("Drag with scaled parent", () => {
             .wait(200)
             .get("[data-testid='draggable']")
             .wait(100)
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 10, 10)
             .trigger("pointermove", 15, 15) // Past threshold
+            .nextFrame()
             .wait(50)
             .trigger("pointermove", 110, 110, { force: true })
+            .nextFrame()
             .wait(50)
             .trigger("pointerup", { force: true })
             .should(($el: any) => {
@@ -35,10 +39,14 @@ describe("Drag with scaled parent", () => {
             .wait(200)
             .get("[data-testid='draggable']")
             .wait(100)
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 10, 10)
             .trigger("pointermove", 15, 15) // Past threshold
+            .nextFrame()
             .wait(50)
             .trigger("pointermove", 110, 110, { force: true })
+            .nextFrame()
             .wait(50)
             .trigger("pointerup", { force: true })
             .should(($el: any) => {

@@ -11,15 +11,21 @@ describe("Reorder axis change on resize", () => {
 
         // Drag Tomato down past Cucumber using element-relative coords
         cy.get("[data-testid='Tomato']")
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 40, 25, { force: true })
             .wait(50)
             .trigger("pointermove", 40, 30, { force: true })
+            .nextFrame()
             .wait(50)
             .trigger("pointermove", 40, 50, { force: true })
+            .nextFrame()
             .wait(50)
             .trigger("pointermove", 40, 80, { force: true })
+            .nextFrame()
             .wait(50)
             .trigger("pointermove", 40, 110, { force: true })
+            .nextFrame()
             .wait(100)
 
         cy.get("[data-testid='current-order']").then(($el) => {
@@ -45,15 +51,21 @@ describe("Reorder axis change on resize", () => {
 
         // Drag Tomato down past Cucumber
         cy.get("[data-testid='Tomato']")
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 40, 25, { force: true })
             .wait(50)
             .trigger("pointermove", 40, 30, { force: true })
+            .nextFrame()
             .wait(50)
             .trigger("pointermove", 40, 50, { force: true })
+            .nextFrame()
             .wait(50)
             .trigger("pointermove", 40, 80, { force: true })
+            .nextFrame()
             .wait(50)
             .trigger("pointermove", 40, 110, { force: true })
+            .nextFrame()
             .wait(100)
 
         cy.get("[data-testid='current-order']").then(($el) => {
