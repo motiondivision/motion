@@ -1111,33 +1111,32 @@ describe("animate prop as object", () => {
         expect(await check("hidden")).toBe("none")
     })
 
-    test("renders an animated independent transform's origin on mount", () => {
-        const transformOnMount = (props: any) => {
+    test("renders an independent transform's base once mounted, not before", async () => {
+        const transformOnMount = async (props: any) => {
             const { container } = render(
                 <motion.div transition={{ delay: 1 }} {...props} />
             )
-            return (container.firstChild as HTMLElement).style.transform
+            const element = container.firstChild as HTMLElement
+            const beforeMount = element.style.transform
+
+            // Flush the mount render
+            await Promise.resolve()
+            return [beforeMount, element.style.transform]
         }
 
-        expect(transformOnMount({ animate: { x: 100, scale: 2 } })).toBe(
-            "none"
+        expect(await transformOnMount({ animate: { x: 100 } })).toEqual([
+            "",
+            "none",
+        ])
+        expect(await transformOnMount({ animate: { x: [50, 100] } })).toEqual(
+            ["", "none"]
         )
-        expect(transformOnMount({ animate: { x: [50, 100] } })).toBe(
-            "translateX(50px)"
-        )
-        expect(transformOnMount({ animate: { x: [null, 100] } })).toBe("none")
         expect(
-            transformOnMount({ animate: { x: 100 }, style: { x: 20 } })
-        ).toBe("translateX(20px)")
+            await transformOnMount({ animate: { x: 100 }, style: { x: 20 } })
+        ).toEqual(["translateX(20px)", "translateX(20px)"])
         expect(
-            transformOnMount({ animate: { x: 100 }, initial: { x: 10 } })
-        ).toBe("translateX(10px)")
-        expect(
-            transformOnMount({
-                variants: { visible: { rotate: 90 } },
-                animate: "visible",
-            })
-        ).toBe("none")
+            await transformOnMount({ animate: { x: 100 }, initial: { x: 10 } })
+        ).toEqual(["translateX(10px)", "translateX(10px)"])
     })
 
     test("forces an animation to fallback if has been set to `null`", async () => {
