@@ -131,12 +131,61 @@ function runTests(render: (components: any) => string) {
 
         expect(true).toBe(true)
     })
-    test("renders an animated independent transform's origin", () => {
-        const div = render(
-            <motion.div className="box" animate={{ x: 100, opacity: 0 }} />
-        )
+    test("only renders independent transforms the user has given a value", () => {
+        const transformOf = (element: any) =>
+            render(element).match(/transform:([^;"]*)/)?.[1]
 
-        expect(div).toBe('<div class="box" style="transform:none"></div>')
+        expect(transformOf(<motion.div style={{ x: 100 }} />)).toBe(
+            "translateX(100px)"
+        )
+        expect(
+            transformOf(<motion.div style={{ x: 100 }} animate={{ x: 200 }} />)
+        ).toBe("translateX(100px)")
+        expect(
+            transformOf(
+                <motion.div
+                    style={{ x: motionValue(100) }}
+                    animate={{ x: 200 }}
+                />
+            )
+        ).toBe("translateX(100px)")
+        expect(
+            transformOf(<motion.div initial={{ x: 50 }} animate={{ x: 200 }} />)
+        ).toBe("translateX(50px)")
+        expect(transformOf(<motion.div animate={{ x: 200 }} />)).toBe(undefined)
+        expect(transformOf(<motion.div animate={{ x: [50, 100] }} />)).toBe(
+            undefined
+        )
+        expect(
+            transformOf(<motion.div initial={false} animate={{ x: 200 }} />)
+        ).toBe("translateX(200px)")
+        expect(
+            transformOf(
+                <motion.div style={{ x: 100 }} animate={{ rotate: 45 }} />
+            )
+        ).toBe("translateX(100px)")
+        expect(
+            transformOf(
+                <motion.div
+                    style={{ x: 100 }}
+                    variants={{ visible: { rotate: 45 } }}
+                    animate="visible"
+                />
+            )
+        ).toBe("translateX(100px)")
+        expect(
+            transformOf(
+                <motion.div initial={{ x: 50 }} animate={{ rotate: 45 }} />
+            )
+        ).toBe("translateX(50px)")
+        expect(
+            transformOf(
+                <motion.div
+                    style={{ transform: "translateX(10px)" }}
+                    animate={{ x: 200 }}
+                />
+            )
+        ).toBe("translateX(10px)")
     })
 
     test("correctly renders HTML", () => {
