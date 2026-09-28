@@ -5,23 +5,10 @@
  *
  * Page: dev/react/src/tests/start-transition-presence.tsx
  *
- * Known limitation, skipped unless run with `--env known=1`:
- *
- * - exitDuringTransition: B's exit completes while a transition that adds D
- *   is rendering. The exit completion calls setRenderedChildren urgently with
- *   the committed children. React then replays the interrupted transition's
- *   render-phase updates (setRenderedChildren/setDiffedChildren with D)
- *   before that urgent update, so renderedChildren ends as [A, C] while
- *   diffedChildren already equals the new children. D is never diffed back
- *   in and stays missing until the children change again. App state commits
- *   "ACD"; the DOM shows A, C. Reproduces on React 18 and 19, in both
- *   presence modes, with startTransition and useTransition.
+ * exitDuringTransition covers B's exit completing while a transition that
+ * adds D is rendering: D must still appear (regression test for #3856).
  */
 const modes = ["transition", "useTransition"]
-
-const knownLimitations = ["exitDuringTransition"]
-const test = (key: string) =>
-    knownLimitations.includes(key) && !Cypress.env("known") ? it.skip : it
 
 function run(scenario: string, mode: string, presence: string, extra = "") {
     return cy
@@ -134,28 +121,25 @@ describe("Concurrent React: AnimatePresence", () => {
                 expectItems(["A", "B", "C"])
             })
 
-            test("exitDuringTransition")(
-                `exitDuringTransition (${presence}, ${mode}) exit completes while a transition renders`,
-                () => {
-                    run(
-                        "exitDuringTransition",
-                        mode,
-                        presence,
-                        "&slowCount=30"
-                    ).then((win: any) => {
-                        const c = win.__analyze({
-                            name: "item-C",
-                            axis: "y",
-                            from: 0,
-                            to: -100,
-                            after: firstClick(win),
-                        })
-                        expect(c.jumps).to.equal(0)
-                        expect(c.finalProgress).to.be.closeTo(1, 0.01)
+            it(`exitDuringTransition (${presence}, ${mode}) exit completes while a transition renders`, () => {
+                run(
+                    "exitDuringTransition",
+                    mode,
+                    presence,
+                    "&slowCount=30"
+                ).then((win: any) => {
+                    const c = win.__analyze({
+                        name: "item-C",
+                        axis: "y",
+                        from: 0,
+                        to: -100,
+                        after: firstClick(win),
                     })
-                    expectItems(["A", "C", "D"])
-                }
-            )
+                    expect(c.jumps).to.equal(0)
+                    expect(c.finalProgress).to.be.closeTo(1, 0.01)
+                })
+                expectItems(["A", "C", "D"])
+            })
         }
     }
 })
