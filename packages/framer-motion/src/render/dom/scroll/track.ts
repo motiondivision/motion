@@ -177,14 +177,13 @@ export function measureScrollInfo(
 ) {
     if (!container) return
 
-    const containerInfo = createScrollInfo()
-    const handler = createOnScrollHandler(
-        container,
-        onScroll,
-        createScrollInfo(),
-        options
-    )
-    updateScrollInfo(container, containerInfo, time.now())
-    handler.measure(containerInfo)
-    handler.notify(containerInfo)
+    /**
+     * The handler copies the container's measurements into its own info
+     * before measuring the target, so one object can be both.
+     */
+    const info = createScrollInfo()
+    const handler = createOnScrollHandler(container, onScroll, info, options)
+    updateScrollInfo(container, info, time.now())
+    handler.measure(info)
+    handler.notify(info)
 }

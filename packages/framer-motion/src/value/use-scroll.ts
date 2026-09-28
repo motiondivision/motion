@@ -3,13 +3,11 @@
 import {
     AnimationPlaybackControls,
     cancelMicrotask,
-    frame,
     microtask,
     MotionValue,
     MotionValueEventCallbacks,
     supportsScrollTimeline,
     supportsViewTimeline,
-    time,
 } from "motion-dom"
 import { invariant } from "motion-utils"
 import { RefObject, useCallback, useEffect, useRef } from "react"
@@ -26,12 +24,6 @@ export interface UseScrollOptions
     target?: RefObject<HTMLElement | null>
 }
 
-interface ScrollTracker {
-    retain: VoidFunction
-    release: VoidFunction
-    measure: VoidFunction
-}
-
 /**
  * useScroll only measures the scroll every frame while one of its values has
  * a `change` subscriber. Values that are only consumed by hardware-accelerated
@@ -39,9 +31,9 @@ interface ScrollTracker {
  * demand when they're read.
  */
 class ScrollMotionValue extends MotionValue<number> {
-    private tracksVelocity?: boolean
+    tracksVelocity?: boolean
 
-    constructor(private tracker: ScrollTracker) {
+    constructor(private update: VoidFunction, private measure: VoidFunction) {
         super(0)
     }
 
@@ -49,115 +41,85 @@ class ScrollMotionValue extends MotionValue<number> {
         eventName: EventName,
         callback: MotionValueEventCallbacks<number>[EventName]
     ): VoidFunction {
-        if (eventName !== "change") return super.on(eventName, callback)
-
         // Catch up before subscribing, so the new subscriber isn't notified
-        this.tracker.retain()
+        this.measure()
         const unsubscribe = super.on(eventName, callback)
-        let isSubscribed = true
+        this.update()
+        return unsubscribe
+    }
 
-        return () => {
-            unsubscribe()
-            if (isSubscribed) {
-                isSubscribed = false
-                this.tracker.release()
-            }
-        }
+    /**
+     * Called a frame after the last `change` subscriber leaves.
+     */
+    stop() {
+        super.stop()
+        this.update()
     }
 
     get() {
-        this.tracker.measure()
+        this.measure()
         return super.get()
     }
 
     /**
      * Velocity is measured between frames, so reading it keeps the scroll
-     * tracked from then on.
+     * tracked from then on. Until then, there aren't frames to measure.
      */
     getVelocity() {
-        if (!this.tracksVelocity) {
-            this.tracksVelocity = true
-            this.tracker.retain()
-        }
-        return super.getVelocity()
+        if (this.tracksVelocity) return super.getVelocity()
+        this.tracksVelocity = true
+        this.update()
+        return 0
     }
 }
 
 function createScrollMotionValues() {
-    let observers = 0
     let options: ScrollInfoOptions | undefined
     let stopTracking: VoidFunction | undefined
-    let measuredAt: number | undefined
 
-    const setValues = (
-        { x, y }: ScrollInfo,
-        method: "set" | "jump" = "set"
-    ) => {
-        values.scrollX[method](x.current)
-        values.scrollXProgress[method](x.progress)
-        values.scrollY[method](y.current)
-        values.scrollYProgress[method](y.progress)
-    }
+    const setValues = ({ x, y }: ScrollInfo) =>
+        [x.current, y.current, x.progress, y.progress].forEach((v, i) =>
+            values[i].set(v)
+        )
 
-    const track = () => {
-        if (observers && options && !stopTracking) {
-            stopTracking = scrollInfo(setValues, options)
-        }
-    }
-
-    const tracker: ScrollTracker = {
-        retain: () => {
-            observers++
-            tracker.measure()
-            track()
-        },
-        /**
-         * Stopping is deferred to the next frame, so effects that re-subscribe
-         * straight away keep the same tracking.
-         */
-        release: () => {
-            if (--observers) return
-            frame.read(() => {
-                if (!observers && stopTracking) {
-                    stopTracking()
-                    stopTracking = undefined
-                }
-            })
-        },
-        /**
-         * Jumping resets velocity, which would otherwise be measured from
-         * however long ago the values were last set.
-         */
-        measure: () => {
-            if (!stopTracking && options && measuredAt !== time.now()) {
-                measuredAt = time.now()
-                measureScrollInfo((info) => setValues(info, "jump"), options)
-            }
-        },
-    }
-
-    const values: Record<
-        "scrollX" | "scrollY" | "scrollXProgress" | "scrollYProgress",
-        MotionValue<number>
-    > = {
-        scrollX: new ScrollMotionValue(tracker),
-        scrollY: new ScrollMotionValue(tracker),
-        scrollXProgress: new ScrollMotionValue(tracker),
-        scrollYProgress: new ScrollMotionValue(tracker),
-    }
-
-    const start = (startOptions: ScrollInfoOptions) => {
-        options = startOptions
-        measuredAt = undefined
-        track()
-
-        return () => {
+    const update = () => {
+        if (
+            options &&
+            values.some(
+                (value) =>
+                    value.tracksVelocity ||
+                    value["changeSubscriber"] ||
+                    value["events"].change?.getSize()
+            )
+        ) {
+            stopTracking ||= scrollInfo(setValues, options)
+        } else {
             stopTracking?.()
-            stopTracking = options = undefined
+            stopTracking = undefined
         }
     }
 
-    return [values, start] as const
+    const measure = () =>
+        stopTracking || (options && measureScrollInfo(setValues, options))
+
+    const values = [0, 0, 0, 0].map(
+        () => new ScrollMotionValue(update, measure)
+    )
+    const [scrollX, scrollY, scrollXProgress, scrollYProgress] =
+        values as MotionValue<number>[]
+
+    const start = (startOptions?: ScrollInfoOptions) => {
+        options = startOptions
+        update()
+        return () => {
+            start()
+        }
+    }
+
+    return [
+        { scrollX, scrollY, scrollXProgress, scrollYProgress },
+        start,
+    ] as const
 }
 
 const isRefPending = (ref?: RefObject<HTMLElement | null>) => {
