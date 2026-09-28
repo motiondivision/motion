@@ -29,7 +29,11 @@ export class SVGVisualElement extends DOMVisualElement<
         props: MotionNodeOptions,
         key: string
     ): AnyResolvedKeyframe | MotionValue<any> | undefined {
-        return props[key as keyof MotionNodeOptions] ?? getTransformBase(key)
+        /**
+         * An independent transform's base is never an attribute of the same
+         * name, e.g. <rect x> is a position, not a translate.
+         */
+        return getTransformBase(key) ?? props[key as keyof MotionNodeOptions]
     }
 
     readValueFromInstance(instance: SVGElement, key: string) {
