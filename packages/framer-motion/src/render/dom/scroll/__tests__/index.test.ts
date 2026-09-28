@@ -1234,25 +1234,39 @@ describe("scroll() ViewTimeline ranges", () => {
         all.stop()
     })
 
-    test("Doesn't create a ViewTimeline for values driven from JS on other ranges", () => {
+    test("Only creates native timelines for WAAPI animations", () => {
         let created = 0
-        ;(window as any).ViewTimeline = class extends FakeViewTimeline {
-            constructor() {
-                super()
-                created++
+        const count = (Timeline: any) =>
+            class extends Timeline {
+                constructor() {
+                    super()
+                    created++
+                }
             }
-        }
+        ;(window as any).ViewTimeline = count(FakeViewTimeline)
+        ;(window as any).ScrollTimeline = count(class {})
+        supportsFlags.scrollTimeline = true
 
         const target = document.createElement("div")
-        const valueAnimation = { time: 0, iterationDuration: 1, pause() {} }
-        const stop = scroll(
-            {
-                attachTimeline: ({ observe }: any) => observe(valueAnimation),
-            } as any,
-            { target, offset: ScrollOffset.Enter }
-        )
+        for (const options of [
+            { target, offset: ScrollOffset.Enter },
+            { target, offset: ["start end", "end start"] },
+            {},
+        ]) {
+            const valueAnimation = { time: 0, iterationDuration: 1, pause() {} }
+            const stop = scroll(
+                {
+                    attachTimeline: ({ observe }: any) =>
+                        observe(valueAnimation),
+                } as any,
+                options as any
+            )
+            stop()
+        }
         expect(created).toBe(0)
-        stop()
+
+        supportsFlags.scrollTimeline = undefined
+        delete (window as any).ScrollTimeline
     })
 
     test("Plays Any backwards over the cover range", () => {
@@ -1297,16 +1311,16 @@ describe("scroll() ViewTimeline ranges", () => {
         expect(waapi.direction).toBe("normal")
     })
 
-    test("Reads cover progress from the ViewTimeline", async () => {
+    test("Tracks JS-driven values on the cover range in JS", async () => {
         const { waapi, valueAnimation, stop } = attach([
             "start end",
             "end start",
         ])
 
-        // JS progress at scroll 50 would be 1/6
+        // Scroll 50 is 1/6 of cover's [0, 300], while the ViewTimeline says 0.5
         await fireScroll(50)
         await nextFrame()
-        expect(valueAnimation.time).toBeCloseTo(0.5)
+        expect(valueAnimation.time).toBeCloseTo(1 / 6)
         expect(waapi).toMatchObject({
             rangeStart: "entry-crossing 0%",
             rangeEnd: "exit-crossing 100%",
@@ -1314,5 +1328,46 @@ describe("scroll() ViewTimeline ranges", () => {
         })
 
         stop()
+    })
+
+    test("Shares one scrollInfo measurement between an animation's JS-driven values, and stops each on its own", async () => {
+        const target = document.createElement("div")
+        document.body.appendChild(target)
+        createMockMeasurement(target, "clientHeight")(200)
+        createMockMeasurement(target, "offsetTop")(100)
+
+        const values = [0, 1].map(() => ({
+            time: 0,
+            iterationDuration: 1,
+            pause() {},
+        }))
+        const stops: VoidFunction[] = []
+        const stop = scroll(
+            {
+                attachTimeline: ({
+                    observe,
+                }: {
+                    observe: (value: object) => VoidFunction
+                }) => {
+                    stops.push(...values.map((value) => observe(value)))
+                    return () => stops.forEach((stopValue) => stopValue())
+                },
+            } as any,
+            { target, offset: ScrollOffset.Enter }
+        )
+
+        await fireScroll(50)
+        await nextFrame()
+        expect(values.map(({ time }) => time)).toEqual([0.25, 0.25])
+
+        stops[1]()
+        await fireScroll(100)
+        await nextFrame()
+        expect(values.map(({ time }) => time)).toEqual([0.5, 0.25])
+
+        stop()
+        await fireScroll(150)
+        await nextFrame()
+        expect(values[0].time).toBe(0.5)
     })
 })

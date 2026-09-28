@@ -1,4 +1,5 @@
-import { AnimationPlaybackControls, observeTimeline, resize } from "motion-dom"
+import { AnimationPlaybackControls, resize } from "motion-dom"
+import { scrollInfo } from "./track"
 import { ScrollOptionsWithDefaults } from "./types"
 import { canUseNativeTimeline } from "./utils/can-use-native-timeline"
 import { getTimeline } from "./utils/get-timeline"
@@ -19,6 +20,8 @@ export function attachToAnimation(
      */
     const native = canUseNativeTimeline(target) && (!target || !!range)
     const animations = new Map<Animation, PlaybackDirection>()
+    const observed = new Set<AnimationPlaybackControls>()
+    let stopObserving: VoidFunction | undefined
     let reverse = false
 
     /**
@@ -48,7 +51,7 @@ export function attachToAnimation(
              * create a native timeline they won't use.
              */
             get timeline() {
-                return native ? getTimeline(options, true) : undefined
+                return native ? getTimeline(options) : undefined
             },
             onAttach:
                 range &&
@@ -57,20 +60,23 @@ export function attachToAnimation(
                     animations.set(waapi, direction)
                     apply(direction, waapi)
                 }),
+            /**
+             * Values driven from JS all track the offset with scrollInfo,
+             * which measures once per frame for all of them.
+             */
             observe: (valueAnimation) => {
                 valueAnimation.pause()
+                observed.add(valueAnimation)
 
-                return observeTimeline(
-                    (progress) => {
-                        valueAnimation.time =
-                            valueAnimation.iterationDuration * progress
-                    },
-                    /**
-                     * A ViewTimeline's progress is its cover range, so values
-                     * driven from JS on other ranges track the offset in JS.
-                     */
-                    getTimeline(options, native && (!range || range.cover))
-                )
+                stopObserving ||= scrollInfo((info) => {
+                    observed.forEach((observedAnimation) => {
+                        observedAnimation.time =
+                            observedAnimation.iterationDuration *
+                            info[axis].progress
+                    })
+                }, options)
+
+                return () => observed.delete(valueAnimation)
             },
         }),
     ]
@@ -94,5 +100,8 @@ export function attachToAnimation(
         }
     }
 
-    return () => stops.forEach((stop) => stop())
+    return () => {
+        stops.forEach((stop) => stop())
+        stopObserving?.()
+    }
 }

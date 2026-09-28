@@ -1,5 +1,4 @@
 import { ProgressTimeline } from "motion-dom"
-import { scrollInfo } from "../track"
 import { ScrollOptionsWithDefaults } from "../types"
 
 declare class ScrollTimeline implements ProgressTimeline {
@@ -23,22 +22,16 @@ const timelineCache = new Map<
     Map<Element | "self", Record<string, ProgressTimeline>>
 >()
 
-function scrollTimelineFallback(options: ScrollOptionsWithDefaults) {
-    const currentTime = { value: 0 }
-
-    const cancel = scrollInfo((info) => {
-        currentTime.value = info[options.axis!].progress * 100
-    }, options)
-
-    return { currentTime, cancel }
-}
-
-export function getTimeline(
-    { container, ...options }: ScrollOptionsWithDefaults,
-    native: boolean
-): ProgressTimeline {
-    const { axis, target } = options
-
+/**
+ * Native timelines are only attached to WAAPI animations. Offsets are
+ * applied to each animation as a range, so a timeline is shared by every
+ * offset.
+ */
+export function getTimeline({
+    container,
+    target,
+    axis,
+}: ScrollOptionsWithDefaults): ProgressTimeline {
     let containerCache = timelineCache.get(container)
     if (!containerCache) {
         containerCache = new Map()
@@ -52,9 +45,7 @@ export function getTimeline(
         containerCache.set(targetKey, targetCache)
     }
 
-    return (targetCache[axis + native + options.offset] ||= native
-        ? target
-            ? new ViewTimeline({ subject: target, axis })
-            : new ScrollTimeline({ source: container, axis } as any)
-        : scrollTimelineFallback({ container, ...options }))
+    return (targetCache[axis] ||= target
+        ? new ViewTimeline({ subject: target, axis })
+        : new ScrollTimeline({ source: container, axis } as any))
 }
