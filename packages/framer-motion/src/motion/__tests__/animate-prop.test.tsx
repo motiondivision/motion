@@ -1004,7 +1004,7 @@ describe("animate prop as object", () => {
         const { container } = render(
             <motion.div
                 initial={{ opacity: 0.5 }}
-                animate={{ x: 100, "--foo": 100 } as any}
+                animate={{ "--foo": 100 } as any}
                 transition={{ delay: 1 }}
             />
         )
@@ -1013,7 +1013,7 @@ describe("animate prop as object", () => {
 
         // Flush the mount render, which runs before the origin is read
         await Promise.resolve()
-        const { opacity, transform } = element.style
+        const { opacity } = element.style
 
         await nextFrame()
         const written = setProperty.mock.calls
@@ -1022,8 +1022,36 @@ describe("animate prop as object", () => {
         setProperty.mockRestore()
 
         expect(opacity).toBe("0.5")
-        expect(transform).toBe("")
         expect(written).not.toContain(undefined)
+    })
+
+    test("renders an animated independent transform's origin on mount", () => {
+        const transformOnMount = (props: any) => {
+            const { container } = render(
+                <motion.div transition={{ delay: 1 }} {...props} />
+            )
+            return (container.firstChild as HTMLElement).style.transform
+        }
+
+        expect(transformOnMount({ animate: { x: 100, scale: 2 } })).toBe(
+            "none"
+        )
+        expect(transformOnMount({ animate: { x: [50, 100] } })).toBe(
+            "translateX(50px)"
+        )
+        expect(transformOnMount({ animate: { x: [null, 100] } })).toBe("none")
+        expect(
+            transformOnMount({ animate: { x: 100 }, style: { x: 20 } })
+        ).toBe("translateX(20px)")
+        expect(
+            transformOnMount({ animate: { x: 100 }, initial: { x: 10 } })
+        ).toBe("translateX(10px)")
+        expect(
+            transformOnMount({
+                variants: { visible: { rotate: 90 } },
+                animate: "visible",
+            })
+        ).toBe("none")
     })
 
     test("forces an animation to fallback if has been set to `null`", async () => {

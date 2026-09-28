@@ -131,6 +131,14 @@ function runTests(render: (components: any) => string) {
 
         expect(true).toBe(true)
     })
+    test("renders an animated independent transform's origin", () => {
+        const div = render(
+            <motion.div className="box" animate={{ x: 100, opacity: 0 }} />
+        )
+
+        expect(div).toBe('<div class="box" style="transform:none"></div>')
+    })
+
     test("correctly renders HTML", () => {
         const y = motionValue(200)
         const div = render(
