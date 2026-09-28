@@ -51,6 +51,23 @@ describe("animateElement", () => {
         animation.stop()
     })
 
+    it("resolves a 'none' transform to its default value", async () => {
+        const element = document.createElement("div")
+
+        const animations = animateElement(
+            element,
+            { x: [20, "none"], scale: [2, "none"], rotate: 45 },
+            { duration: 0.05 }
+        )
+
+        await Promise.all(animations.map((animation) => animation.finished))
+        await nextFrame()
+
+        expect(styleEffect.get(element, "x")!.get()).toBe(0)
+        expect(styleEffect.get(element, "scale")!.get()).toBe(1)
+        expect(element.style.transform).toBe("rotate(45deg)")
+    })
+
     it("animates from a supplied first keyframe without reading the DOM", async () => {
         const element = document.createElement("div")
         const read = jest.spyOn(window, "getComputedStyle")

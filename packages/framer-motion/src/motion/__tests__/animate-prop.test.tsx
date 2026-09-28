@@ -1025,6 +1025,29 @@ describe("animate prop as object", () => {
         expect(written).not.toContain(undefined)
     })
 
+    test("resolves a 'none' transform to its default value", async () => {
+        const x = motionValue(20)
+        const rotate = motionValue(45)
+        const element = await new Promise<HTMLElement>((resolve) => {
+            const { container } = render(
+                <motion.div
+                    style={{ x, rotate }}
+                    animate={{ x: "none", rotate: "none" }}
+                    transition={{ duration: 0.05 }}
+                    onAnimationComplete={() =>
+                        frame.postRender(() =>
+                            resolve(container.firstChild as HTMLElement)
+                        )
+                    }
+                />
+            )
+        })
+
+        expect(x.get()).toBe(0)
+        expect(rotate.get()).toBe(0)
+        expect(element.style.transform).toBe("none")
+    })
+
     test("renders an animated independent transform's origin on mount", () => {
         const transformOnMount = (props: any) => {
             const { container } = render(
