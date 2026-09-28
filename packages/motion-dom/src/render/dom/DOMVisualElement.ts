@@ -2,6 +2,7 @@ import { isMotionValue } from "../../value/utils/is-motion-value"
 import type { MotionValue } from "../../value"
 import type { AnyResolvedKeyframe } from "../../animation/types"
 import { DOMKeyframesResolver } from "../../animation/keyframes/DOMKeyframesResolver"
+import { getTransformBase } from "./parse-transform"
 import type { MotionNodeOptions } from "../../node/types"
 import type { DOMVisualElementOptions } from "./types"
 import type { HTMLRenderState } from "../html/types"
@@ -25,8 +26,8 @@ export abstract class DOMVisualElement<
         props: MotionNodeOptions,
         key: string
     ): AnyResolvedKeyframe | MotionValue<any> | undefined {
-        const style = (props as MotionNodeOptions & { style?: MotionStyle }).style
-        return style ? (style[key] as string) : undefined
+        const { style } = props as MotionNodeOptions & { style?: MotionStyle }
+        return (style?.[key] as string) ?? getTransformBase(key)
     }
 
     removeValueFromRenderState(

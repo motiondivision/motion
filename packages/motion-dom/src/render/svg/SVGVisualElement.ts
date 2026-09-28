@@ -5,6 +5,7 @@ import { transformProps } from "../utils/keys-transform"
 import { getDefaultValueType } from "../../value/types/maps/defaults"
 import { createBox } from "../../projection/geometry/models"
 import { DOMVisualElement } from "../dom/DOMVisualElement"
+import { getTransformBase } from "../dom/parse-transform"
 import type { DOMVisualElementOptions } from "../dom/types"
 import { camelToDash } from "../dom/utils/camel-to-dash"
 import type { ResolvedValues } from "../types"
@@ -28,7 +29,7 @@ export class SVGVisualElement extends DOMVisualElement<
         props: MotionNodeOptions,
         key: string
     ): AnyResolvedKeyframe | MotionValue<any> | undefined {
-        return props[key as keyof MotionNodeOptions]
+        return props[key as keyof MotionNodeOptions] ?? getTransformBase(key)
     }
 
     readValueFromInstance(instance: SVGElement, key: string) {

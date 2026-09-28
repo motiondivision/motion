@@ -6,6 +6,7 @@ import {
     isAnimationControls,
     isControllingVariants as checkIsControllingVariants,
     isVariantNode as checkIsVariantNode,
+    noneAsDefault,
     ResolvedValues,
     resolveVariantFromProps,
     transformProps,
@@ -137,6 +138,8 @@ function makeLatestValues(
             }
         })
     }
+
+    for (const key in values) values[key] = noneAsDefault(key, values[key])
 
     return values
 }

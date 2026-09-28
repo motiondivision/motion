@@ -1,6 +1,4 @@
-import { defaultTransformValue } from "../../render/dom/parse-transform"
 import { positionalKeys } from "../../render/utils/keys-position"
-import { transformProps } from "../../render/utils/keys-transform"
 import { MotionValue } from "../../value"
 import { findDimensionValueType } from "../../value/types/dimensions"
 import { AnyResolvedKeyframe } from "../types"
@@ -134,16 +132,10 @@ export class DOMKeyframesResolver<
 
         const noneKeyframeIndexes: number[] = []
         for (let i = 0; i < unresolvedKeyframes.length; i++) {
-            const keyframe = unresolvedKeyframes[i]
-
-            /**
-             * "none" is an independent transform's default, e.g. x: "none"
-             * is 0, so values never hold a "none" that renderers or box
-             * geometry would have to interpret.
-             */
-            if (keyframe === "none" && transformProps.has(name)) {
-                unresolvedKeyframes[i] = defaultTransformValue(name)
-            } else if (keyframe === null || isNone(keyframe)) {
+            if (
+                unresolvedKeyframes[i] === null ||
+                isNone(unresolvedKeyframes[i])
+            ) {
                 noneKeyframeIndexes.push(i)
             }
         }
