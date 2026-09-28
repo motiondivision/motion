@@ -58,6 +58,7 @@ describe("Drag to reorder", () => {
             .trigger("pointermove", 360, 220, { force: true })
             .nextFrame()
             .wait(100)
+            .get("#Tomato")
             .should(([$item]: any) => {
                 expectBbox($item, {
                     height: 68,
@@ -78,6 +79,7 @@ describe("Drag to reorder", () => {
             .get("#Tomato")
             .trigger("pointerup", 360, 220, { force: true })
             .wait(100)
+            .get("#Tomato")
             .should(([$item]: any) => {
                 expectBbox($item, {
                     height: 68,
@@ -98,6 +100,7 @@ describe("Drag to reorder", () => {
             .trigger("pointermove", 360, 220, { force: true })
             .nextFrame()
             .wait(100)
+            .get("#Cucumber")
             .should(([$item]: any) => {
                 expectBbox($item, {
                     height: 68,
@@ -173,6 +176,7 @@ describe("Drag to reorder", () => {
             .trigger("pointermove", 475, 175, { force: true })
             .nextFrame()
             .wait(100)
+            .get("#Tomato")
             .should(([$item]: any) => {
                 expectBbox($item, {
                     height: 68,
@@ -231,6 +235,11 @@ describe("Drag to reorder", () => {
             cy.visit("?test=drag-to-reorder").wait(50).get("#Tomato")
         )
 
-        checkBox(moveAround(chain, [-4, 14, -8, 4, -5, 2, -6]))
+        /**
+         * Re-query so the check retries: the snap back to origin needs two
+         * frames after release, which slow CI can take longer than
+         * moveAround's 150ms wait to produce.
+         */
+        checkBox(moveAround(chain, [-4, 14, -8, 4, -5, 2, -6]).get("#Tomato"))
     })
 })
