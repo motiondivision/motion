@@ -68,6 +68,23 @@ describe("animateElement", () => {
         expect(element.style.transform).toBe("rotate(45deg)")
     })
 
+    it("animates a transform to 'none' as its default value", async () => {
+        const element = document.createElement("div")
+
+        const [animation] = animateElement(
+            element,
+            { x: [100, "none"] },
+            { duration: 10, ease: "linear" }
+        )
+
+        await nextFrame()
+        animation.time = 5
+        await nextFrame()
+
+        expect(styleEffect.get(element, "x")!.get()).toBeCloseTo(50, -1)
+        animation.stop()
+    })
+
     it("animates from a supplied first keyframe without reading the DOM", async () => {
         const element = document.createElement("div")
         const read = jest.spyOn(window, "getComputedStyle")
