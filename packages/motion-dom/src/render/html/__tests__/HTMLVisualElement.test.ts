@@ -26,6 +26,22 @@ describe("HTMLVisualElement.readValue", () => {
         expect(createVisualElement(element).readValue("opacity", 1)).toBe(0.5)
     })
 
+    test("never reads independent transforms from the DOM", () => {
+        const element = document.createElement("div")
+        element.style.transform = "matrix(2, 0, 0, 2, 50, 0)"
+        const visualElement = createVisualElement(element)
+
+        expect(visualElement.readValue("x")).toBe(0)
+        expect(visualElement.readValue("scale")).toBe(1)
+        expect(visualElement.readValue("transform")).toBe(
+            "matrix(2, 0, 0, 2, 50, 0)"
+        )
+
+        visualElement.props = { style: { x: 20 } } as any
+        expect(visualElement.readValue("y")).toBe(0)
+        expect(visualElement.getBaseTarget("x")).toBe(20)
+    })
+
     test("leaves animatable values as read", () => {
         const element = document.createElement("div")
         element.style.backgroundColor = "rgb(255, 0, 0)"
