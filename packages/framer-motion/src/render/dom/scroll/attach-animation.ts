@@ -9,9 +9,7 @@ export function attachToAnimation(
     options: ScrollOptionsWithDefaults
 ) {
     const { target, container, axis } = options
-    const timeline = getTimeline(options)
-
-    const range = target ? offsetToViewTimelineRange(options.offset) : undefined
+    const range = target && offsetToViewTimelineRange(options.offset)
 
     /**
      * Use native timeline when:
@@ -19,81 +17,79 @@ export function attachToAnimation(
      * - Target with mappable offset: ViewTimeline with named range
      * - Target with unmappable offset: fall back to JS observe
      */
-    const useNative = canUseNativeTimeline(target) && (!target || !!range)
+    const native = canUseNativeTimeline(target) && (!target || !!range)
+    const timeline = getTimeline(options, native)
+    const animations = new Map<Animation, PlaybackDirection>()
+    let reverse = false
 
     /**
-     * Ranges other than cover are set on each WAAPI animation, and reversed
-     * when the offset runs backwards. JS-driven values read the range's
-     * progress from getTimeline, as a ViewTimeline's currentTime is always
-     * its cover progress.
+     * When an offset's second point comes first, its range is swapped and
+     * the animation played backwards. The range is set after the direction,
+     * as that's what realigns a running animation with its timeline.
      */
-    const ranged = useNative && range && !range.cover ? range : undefined
-    const animations = new Map<Animation, PlaybackDirection>()
-    const cleanup: VoidFunction[] = []
-    let forward = true
-
     const apply = (direction: PlaybackDirection, waapi: Animation) => {
-        const [first, second] = ranged!.points
-        Object.assign(waapi, {
-            rangeStart: forward ? first : second,
-            rangeEnd: forward ? second : first,
-        })
+        const [start, end] = range!.points
         waapi.effect!.updateTiming({
-            direction: forward
-                ? direction
-                : direction === "alternate"
-                ? "alternate-reverse"
-                : "reverse",
+            direction: reverse
+                ? direction === "normal"
+                    ? "reverse"
+                    : "alternate-reverse"
+                : direction,
+        })
+        Object.assign(waapi, {
+            rangeStart: reverse ? end : start,
+            rangeEnd: reverse ? start : end,
         })
     }
 
-    const onAttach = (waapi: Animation) => {
-        animations.set(waapi, waapi.effect!.getTiming().direction!)
-        apply(animations.get(waapi)!, waapi)
-        return () => animations.delete(waapi)
-    }
+    const stops = [
+        animation.attachTimeline({
+            timeline: native ? timeline : undefined,
+            onAttach:
+                range &&
+                ((waapi) => {
+                    const direction = waapi.effect!.getTiming().direction!
+                    animations.set(waapi, direction)
+                    apply(direction, waapi)
+                }),
+            observe: (valueAnimation) => {
+                valueAnimation.pause()
 
-    if (ranged) {
-        const { a, b } = ranged
+                return observeTimeline(
+                    (progress) => {
+                        valueAnimation.time =
+                            valueAnimation.iterationDuration * progress
+                    },
+                    /**
+                     * A ViewTimeline's progress is its cover range, so values
+                     * driven from JS on other ranges track the offset in JS.
+                     */
+                    range && !range.cover
+                        ? getTimeline(options, false)
+                        : timeline
+                )
+            },
+        }),
+    ]
+
+    if (native && range) {
+        const { a, b } = range
         const length = axis === "y" ? "clientHeight" : "clientWidth"
 
         /**
-         * Offsets like All run forwards only when the target is longer than
+         * Offsets like All only run forwards when the target is longer than
          * the container, so their direction is remeasured on resize.
          */
         const update = () => {
-            forward =
-                a * b < 0
-                    ? a * target![length] + b * container[length] >= 0
-                    : a + b > 0
+            reverse = a * target![length] + b * container[length] < 0
             animations.forEach(apply)
         }
         update()
 
         if (a * b < 0) {
-            cleanup.push(
-                resize(update),
-                resize(target!, update),
-                resize(container, update)
-            )
+            stops.push(resize(update), resize([target!, container], update))
         }
     }
 
-    const detach = animation.attachTimeline({
-        timeline: useNative ? timeline : undefined,
-        onAttach: ranged && onAttach,
-        observe: (valueAnimation) => {
-            valueAnimation.pause()
-
-            return observeTimeline((progress) => {
-                valueAnimation.time =
-                    valueAnimation.iterationDuration * progress
-            }, (ranged && getTimeline(options, ranged)) || timeline)
-        },
-    })
-
-    return () => {
-        detach()
-        cleanup.forEach((stop) => stop())
-    }
+    return () => stops.forEach((stop) => stop())
 }

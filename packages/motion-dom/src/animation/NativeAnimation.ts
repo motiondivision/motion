@@ -251,8 +251,6 @@ export class NativeAnimation<T extends AnyResolvedKeyframe>
      */
     attachTimeline({
         timeline,
-        rangeStart,
-        rangeEnd,
         onAttach,
         observe,
     }: TimelineWithFallback): VoidFunction {
@@ -264,11 +262,9 @@ export class NativeAnimation<T extends AnyResolvedKeyframe>
 
         if (timeline && supportsScrollTimeline()) {
             this.animation.timeline = timeline as any
+            onAttach?.(this.animation)
 
-            if (rangeStart) (this.animation as any).rangeStart = rangeStart
-            if (rangeEnd) (this.animation as any).rangeEnd = rangeEnd
-
-            return onAttach ? onAttach(this.animation) : noop<void>
+            return noop<void>
         } else {
             return observe(this)
         }

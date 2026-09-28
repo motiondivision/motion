@@ -11,14 +11,6 @@ const all = range(["exit-crossing 0%", "entry-crossing 100%"], 1, -1)
 describe("offsetToViewTimelineRange", () => {
     it("maps Enter to entry-crossing", () => {
         expect(offsetToViewTimelineRange(ScrollOffset.Enter)).toEqual(entry)
-        expect(
-            offsetToViewTimelineRange(ScrollOffset.Enter)!.intersections.map(
-                ([t, c]) => [t, c]
-            )
-        ).toEqual([
-            [0, 1],
-            [1, 1],
-        ])
         expect(offsetToViewTimelineRange(["start end", "end end"])).toEqual(
             entry
         )

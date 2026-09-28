@@ -9,11 +9,6 @@ export interface ViewTimelineRange {
     points: string[]
 
     /**
-     * The two points as [target progress, container progress].
-     */
-    intersections: number[][]
-
-    /**
      * The offset runs forwards when a × target length + b × container length
      * is >= 0. Otherwise its range runs from the second point to the first,
      * with progress reversed.
@@ -61,7 +56,6 @@ export function offsetToViewTimelineRange(
     if (points[0] && points[1] && (a || b)) {
         return {
             points: points as string[],
-            intersections: [start, end],
             a,
             b,
             cover: !start[0] && a === 1 && b === 1,
