@@ -7,13 +7,15 @@ function expectBoxCenteredAt(x: number, y: number) {
 }
 
 function snapAndDrag() {
-    cy.get("#trigger").trigger("pointerdown", 50, 50).wait(50)
+    cy.get("#trigger").trigger("pointerdown", 50, 50).nextFrame().wait(50)
     expectBoxCenteredAt(50, 50)
 
     cy.get("#trigger")
         .trigger("pointermove", 60, 60, { force: true })
+        .nextFrame()
         .wait(50)
         .trigger("pointermove", 200, 100, { force: true })
+        .nextFrame()
         .wait(50)
     expectBoxCenteredAt(200, 100)
 
@@ -23,7 +25,10 @@ function snapAndDrag() {
 
 describe("snapToCursor with initial coordinates", () => {
     it("centres the element under the pointer on every drag start", () => {
-        cy.visit("?test=drag-snap-to-cursor-initial").wait(200)
+        cy.visit("?test=drag-snap-to-cursor-initial")
+            .wait(200)
+            .nextFrame()
+            .nextFrame()
         expectBoxCenteredAt(650, 90)
 
         snapAndDrag()
@@ -32,7 +37,10 @@ describe("snapToCursor with initial coordinates", () => {
     })
 
     it("centres the element under the pointer after re-renders", () => {
-        cy.visit("?test=drag-snap-to-cursor-initial&rerender=true").wait(200)
+        cy.visit("?test=drag-snap-to-cursor-initial&rerender=true")
+            .wait(200)
+            .nextFrame()
+            .nextFrame()
         expectBoxCenteredAt(650, 90)
 
         snapAndDrag()

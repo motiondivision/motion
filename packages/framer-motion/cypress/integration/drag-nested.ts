@@ -52,6 +52,8 @@ function testNestedDrag(parentLayout: boolean, childLayout: boolean) {
             })
         })
         .get("#parent")
+        .nextFrame()
+        .nextFrame()
         .trigger("pointerdown", 5, 5)
         .wait(50)
         .trigger("pointermove", 10, 10) // Gesture will start from first move past threshold
@@ -182,6 +184,8 @@ function testNestedDragConstraints(
     cy.visit(url)
         .wait(200)
         .get("#parent")
+        .nextFrame()
+        .nextFrame()
         .trigger("pointerdown", 40, 40)
         .wait(50)
         .trigger("pointermove", 35, 35) // Gesture will start from first move past threshold
@@ -289,6 +293,8 @@ function testNestedDragConstraintsAndAnimation(
     cy.visit(url)
         .wait(200)
         .get("#parent")
+        .nextFrame()
+        .nextFrame()
         .trigger("pointerdown", 5, 10)
         .wait(50)
         .trigger("pointermove", 10, 10) // Gesture will start from first move past threshold
@@ -377,6 +383,8 @@ function testAlternateAxes(parentLayout: boolean, childLayout: boolean) {
         .visit(url)
         .wait(200)
         .get("#child")
+        .nextFrame()
+        .nextFrame()
         .trigger("pointerdown", 5, 5, { force: true })
         .wait(80)
         .trigger("pointermove", 10, 10, { force: true })

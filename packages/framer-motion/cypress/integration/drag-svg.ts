@@ -43,6 +43,8 @@ describe("Drag SVG", () => {
         cy.visit("?test=drag-svg&axis=x")
             .get("[data-testid='draggable']")
             .wait(200)
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 50, 50, { force: true })
             .trigger("pointermove", 60, 60, { force: true }) // Gesture will start from first move past threshold
             .nextFrame()
@@ -62,6 +64,8 @@ describe("Drag SVG", () => {
         cy.visit("?test=drag-svg&axis=y")
             .get("[data-testid='draggable']")
             .wait(200)
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 50, 50, { force: true })
             .trigger("pointermove", 60, 60, { force: true }) // Gesture will start from first move past threshold
             .nextFrame()
@@ -127,6 +131,8 @@ describe("Drag SVG", () => {
             .wait(200)
             .get("[data-testid='draggable']")
             .wait(100)
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 50, 50, { force: true })
             .trigger("pointermove", 60, 60, { force: true }) // Gesture will start from first move past threshold
             .nextFrame()
@@ -147,6 +153,8 @@ describe("Drag SVG", () => {
             .wait(200)
             .get("[data-testid='draggable']")
             .wait(100)
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 50, 50, { force: true })
             .trigger("pointermove", 60, 60, { force: true }) // Gesture will start from first move past threshold
             .nextFrame()
@@ -198,6 +206,8 @@ describe("Drag SVG & Layout", () => {
             .wait(200)
             .get("[data-testid='draggable']")
             .wait(200)
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 50, 50, { force: true })
             .wait(50)
             .trigger("pointermove", 60, 60, { force: true }) // Gesture will start from first move past threshold
@@ -219,6 +229,8 @@ describe("Drag SVG & Layout", () => {
             .wait(200)
             .get("[data-testid='draggable']")
             .wait(200)
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 50, 50, { force: true })
             .wait(50)
             .trigger("pointermove", 60, 60, { force: true }) // Gesture will start from first move past threshold
@@ -285,6 +297,8 @@ describe("Drag SVG & Layout", () => {
             .wait(200)
             .get("[data-testid='draggable']")
             .wait(200)
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 50, 50, { force: true })
             .trigger("pointermove", 60, 60, { force: true }) // Gesture will start from first move past threshold
             .nextFrame()
@@ -305,6 +319,8 @@ describe("Drag SVG & Layout", () => {
             .wait(200)
             .get("[data-testid='draggable']")
             .wait(200)
+            .nextFrame()
+            .nextFrame()
             .trigger("pointerdown", 50, 50, { force: true })
             .trigger("pointermove", 60, 60, { force: true }) // Gesture will start from first move past threshold
             .nextFrame()

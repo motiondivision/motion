@@ -6,6 +6,10 @@ describe("AnimatePresence popLayout interrupt", () => {
             .should(([$el]: any) => {
                 // Initially no pop id
                 expect($el.hasAttribute("data-motion-pop-id")).to.be.false
+                // Let the entry animation finish first. Exiting to opacity 0
+                // before it has rendered has nothing to animate, so the
+                // element would be removed immediately.
+                expect(getComputedStyle($el).opacity).to.equal("1")
             })
             // Click to start exit (long duration so it won't complete)
             .get("#toggle")
