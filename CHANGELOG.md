@@ -4,6 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [13.4.6] 2026-09-29
+
+### Fixed
+
+-   `AnimatePresence`: `mode="wait"` no longer drops new children if `exit` completes during a React transition.
+
 ## [13.4.5] 2026-09-28
 
 ### Fixed
