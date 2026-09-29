@@ -27,7 +27,9 @@ export function attachToAnimation(
     /**
      * When an offset's second point comes first, its range is swapped and
      * the animation played backwards. The range is set after the direction,
-     * as that's what realigns a running animation with its timeline.
+     * as that's what realigns a running animation with its timeline. Chrome
+     * skips that realignment when the range changes in the frame the
+     * animation starts, leaving it offset for good, so it's replayed too.
      */
     const apply = (direction: PlaybackDirection, waapi: Animation) => {
         const [start, end] = range!.points
@@ -42,6 +44,7 @@ export function attachToAnimation(
             rangeStart: reverse ? end : start,
             rangeEnd: reverse ? start : end,
         })
+        waapi.play()
     }
 
     const stops = [
@@ -90,8 +93,12 @@ export function attachToAnimation(
          * the container, so their direction is remeasured on resize.
          */
         const update = () => {
-            reverse = a * target![length] + b * container[length] < 0
-            animations.forEach(apply)
+            if (
+                reverse !==
+                (reverse = a * target![length] + b * container[length] < 0)
+            ) {
+                animations.forEach(apply)
+            }
         }
         update()
 

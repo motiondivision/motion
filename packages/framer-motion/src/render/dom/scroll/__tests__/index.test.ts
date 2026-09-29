@@ -1160,6 +1160,8 @@ describe("scroll() ViewTimeline ranges", () => {
 
     const fakeWaapi = (direction: string) => {
         const waapi: any = {
+            plays: 0,
+            play: () => waapi.plays++,
             effect: {
                 getTiming: () => ({ direction }),
                 updateTiming: (timing: any) => Object.assign(waapi, timing),
@@ -1292,6 +1294,7 @@ describe("scroll() ViewTimeline ranges", () => {
             direction: "normal",
         })
 
+        const plays = waapi.plays
         setWindowHeight(400)
         window.dispatchEvent(new window.Event("resize"))
         expect(waapi).toMatchObject({
@@ -1299,6 +1302,14 @@ describe("scroll() ViewTimeline ranges", () => {
             rangeEnd: "exit-crossing 0%",
             direction: "reverse",
         })
+
+        // Replayed, so a flip before the first frame realigns with the new range
+        expect(waapi.plays).toBe(plays + 1)
+
+        // Resizes that don't flip the direction leave the animation alone
+        setWindowHeight(300)
+        window.dispatchEvent(new window.Event("resize"))
+        expect(waapi.plays).toBe(plays + 1)
 
         // Equal lengths collapse the range to a point, where JS steps forwards
         setWindowHeight(200)

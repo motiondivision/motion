@@ -161,6 +161,78 @@ test.describe("scroll() ViewTimeline and JS parity", () => {
         expect(mismatches).toEqual([])
     })
 
+    test("native and JS progress agree when a target resizes in the same task as scroll()", async ({
+        page,
+        browserName,
+    }) => {
+        skipWebKit(browserName)
+
+        const mismatches: string[] = []
+
+        // Each resize flips All before the animation's first frame
+        for (const [from, to] of [
+            [100, 800],
+            [800, 100],
+        ]) {
+            const top = await page.evaluate(
+                ([from, to]) => {
+                    const { animate, scroll } = (window as any).Motion
+                    const target = document.createElement("div")
+                    const probe = document.createElement("div")
+                    const spacer = document.createElement("div")
+                    spacer.style.height = "1500px"
+                    target.style.height = `${from}px`
+                    probe.style.cssText = "position:fixed;width:1px;height:1px"
+                    document.body.append(target, spacer, probe)
+
+                    const late = { probe, js: 0 }
+                    ;(window as any).late = late
+                    scroll(
+                        animate(
+                            probe,
+                            { opacity: [0, 1] },
+                            { duration: 1, ease: "linear" }
+                        ),
+                        { target }
+                    )
+                    scroll(
+                        (_: number, info: any) => (late.js = info.y.progress),
+                        {
+                            target,
+                        }
+                    )
+                    target.style.height = `${to}px`
+                    return target.offsetTop
+                },
+                [from, to]
+            )
+
+            for (let y = top - 500; y <= top + 800; y += 50) {
+                await page.evaluate((y) => {
+                    window.scrollTo(0, y)
+                    window.dispatchEvent(new Event("scroll"))
+                }, y)
+                await nextFrames(page)
+                const { native, js } = await page.evaluate(() => {
+                    const { probe, js } = (window as any).late
+                    return {
+                        native: parseFloat(getComputedStyle(probe).opacity),
+                        js,
+                    }
+                })
+                if (Math.abs(native - js) > 0.01) {
+                    mismatches.push(
+                        `${from}px -> ${to}px at ${y}px: ${native.toFixed(
+                            3
+                        )} (JS ${js.toFixed(3)})`
+                    )
+                }
+            }
+        }
+
+        expect(mismatches).toEqual([])
+    })
+
     test("offsets with an exact ViewTimeline range run natively", async ({
         page,
     }) => {
