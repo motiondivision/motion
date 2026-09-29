@@ -76,13 +76,6 @@ export const AnimatePresence = ({
     const isInitialRender = useRef(true)
 
     /**
-     * A ref containing the currently present children. When all exit animations
-     * are complete, we use this to re-render the component with the latest children
-     * *committed* rather than the latest children *rendered*.
-     */
-    const pendingPresentChildren = useRef(presentChildren)
-
-    /**
      * Track which exiting children have finished animating out.
      */
     const exitComplete = useConstant(() => new Map<ComponentKey, boolean>())
@@ -107,7 +100,6 @@ export const AnimatePresence = ({
 
     useIsomorphicLayoutEffect(() => {
         isInitialRender.current = false
-        pendingPresentChildren.current = presentChildren
 
         /**
          * Update complete status of exiting children.
@@ -155,10 +147,17 @@ export const AnimatePresence = ({
         }
 
         /**
-         * If we're in "wait" mode, and we have exiting children, we want to
-         * only render these until they've all exited.
+         * Once every exiting child has finished animating out, remove them
+         * all at once. Otherwise, if we're in "wait" mode, we want to only
+         * render the exiting children until they've all exited.
          */
-        if (mode === "wait" && exitingChildren.length) {
+        if (
+            exitingChildren.every((child) =>
+                exitComplete.get(getChildKey(child))
+            )
+        ) {
+            nextChildren = presentChildren
+        } else if (mode === "wait") {
             nextChildren = exitingChildren
         }
 
@@ -220,13 +219,12 @@ export const AnimatePresence = ({
                     if (isEveryExitComplete) {
                         forceRender?.()
                         /**
-                         * This update can be applied after a transition that
-                         * changes children has committed, making these
-                         * children stale. Resetting the diffed children too
-                         * ensures they're re-diffed against the latest.
+                         * Re-diff rather than setting the children to render
+                         * directly: this update can be applied after a
+                         * transition has committed new children, so any
+                         * children read now could be stale by then.
                          */
-                        setRenderedChildren(pendingPresentChildren.current)
-                        setDiffedChildren(pendingPresentChildren.current)
+                        setDiffedChildren([])
 
                         propagate && safeToRemove?.()
 
