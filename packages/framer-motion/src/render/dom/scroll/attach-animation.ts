@@ -6,7 +6,7 @@ import { getTimeline } from "./utils/get-timeline"
 import { offsetToViewTimelineRange } from "./utils/offset-to-range"
 
 const toPercentage = (value: ScrollRange) =>
-    typeof value === "string" ? parseFloat(value) : value * 100
+    typeof value === "string" ? value : value * 100 + "%"
 
 export function attachToAnimation(
     animation: AnimationPlaybackControls,
@@ -28,11 +28,14 @@ export function attachToAnimation(
         : canUseNativeTimeline()
 
     /**
-     * A user range is resolved against the timeline's full progress: the
-     * scroll range, or the target's cover range, from the target's start
-     * meeting the container's end to its end meeting the container's start.
-     * A native ScrollTimeline or ViewTimeline reports that already, and a JS
-     * one does with the offset replaced.
+     * A range is a percentage of the whole timeline: the full scroll range,
+     * or for a target its "cover" range, from when the target starts to enter
+     * the container until it has completely left. Native ScrollTimeline and
+     * ViewTimeline already measure progress that way, but the JS fallback
+     * follows `offset`. So when a range is set without native timelines,
+     * replace `offset` with the cover range for a target (the target's start
+     * meeting the container's end, to its end meeting the container's start),
+     * or with no offset for the page.
      */
     const timeline = getTimeline(
         hasUserRange && !useNative
@@ -52,11 +55,12 @@ export function attachToAnimation(
     return animation.attachTimeline({
         timeline: useNative ? timeline : undefined,
         ...(useNative &&
-            (hasUserRange
-                ? { rangeStart: start + "%", rangeEnd: end + "%" }
-                : range)),
+            (hasUserRange ? { rangeStart: start, rangeEnd: end } : range)),
         observe: (valueAnimation) => {
             valueAnimation.pause()
+
+            const from = parseFloat(start)
+            const to = parseFloat(end)
 
             /**
              * Outside the range, hold the first or last keyframe, as native
@@ -65,7 +69,7 @@ export function attachToAnimation(
             return observeTimeline((timelineProgress) => {
                 valueAnimation.time =
                     valueAnimation.iterationDuration *
-                    clamp(0, 1, progress(start, end, timelineProgress * 100))
+                    clamp(0, 1, progress(from, to, timelineProgress * 100))
             }, timeline)
         },
     })
