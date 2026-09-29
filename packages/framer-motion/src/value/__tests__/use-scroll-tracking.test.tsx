@@ -264,9 +264,6 @@ describe("useScroll JS tracking", () => {
     })
 
     describe("through derived values", () => {
-        const hasChangeSubscriber = (value: MotionValue) =>
-            !!(value["changeSubscriber"] || value["events"].change?.getSize())
-
         test("an unsubscribed useTransform chain doesn't track, and computes on demand", async () => {
             let opacity!: MotionValue<number>
             const { unmount } = renderScroll(({ scrollYProgress }) => {

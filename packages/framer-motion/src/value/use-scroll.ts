@@ -4,8 +4,8 @@ import {
     AnimationPlaybackControls,
     cancelMicrotask,
     microtask,
+    LazyMotionValue,
     MotionValue,
-    MotionValueEventCallbacks,
     supportsScrollTimeline,
     supportsViewTimeline,
 } from "motion-dom"
@@ -25,63 +25,15 @@ export interface UseScrollOptions
 }
 
 /**
- * useScroll only measures the scroll every frame while one of its values has
- * a `change` subscriber. Values that are only consumed by hardware-accelerated
- * animations, which follow the scroll natively, are otherwise measured on
- * demand when they're read.
+ * useScroll only measures the scroll every frame while one of its values is
+ * observed. Values that are only consumed by hardware-accelerated animations,
+ * which follow the scroll natively, are otherwise measured on demand when
+ * they're read.
  */
-class ScrollMotionValue extends MotionValue<number> {
-    tracksVelocity?: boolean
-
-    /**
-     * @param measure - Measures the scroll if it isn't tracked, and returns
-     * whether it is.
-     */
-    constructor(private update: VoidFunction, private measure: () => unknown) {
-        super(0)
-    }
-
-    on<EventName extends keyof MotionValueEventCallbacks<number>>(
-        eventName: EventName,
-        callback: MotionValueEventCallbacks<number>[EventName]
-    ): VoidFunction {
-        // Catch up before subscribing, so the new subscriber isn't notified
-        this.measure()
-        const unsubscribe = super.on(eventName, callback)
-        this.update()
-        return unsubscribe
-    }
-
-    /**
-     * Called a frame after the last `change` subscriber leaves.
-     */
-    stop() {
-        super.stop()
-        this.update()
-    }
-
-    get() {
-        this.measure()
-        return super.get()
-    }
-
-    /**
-     * Velocity is measured between frames, so reading it keeps the scroll
-     * tracked from then on. Until then, there aren't frames to measure.
-     */
-    getVelocity() {
-        const isTracking = this.measure()
-        if (!this.tracksVelocity) {
-            this.tracksVelocity = true
-            this.update()
-        }
-        return isTracking ? super.getVelocity() : 0
-    }
-}
-
 function createScrollMotionValues() {
     let options: ScrollInfoOptions | undefined
     let stopTracking: VoidFunction | undefined
+    let observers = 0
 
     const setValues = ({ x, y }: ScrollInfo) => {
         scrollX.set(x.current)
@@ -90,20 +42,8 @@ function createScrollMotionValues() {
         scrollYProgress.set(y.progress)
     }
 
-    /**
-     * MotionValue keeps a sole `change` subscriber directly, and moves them
-     * into `events.change` once there's a second.
-     */
     const update = () => {
-        if (
-            options &&
-            values.some(
-                (value) =>
-                    value.tracksVelocity ||
-                    value["changeSubscriber"] ||
-                    value["events"].change?.getSize()
-            )
-        ) {
+        if (options && observers) {
             stopTracking ||= scrollInfo(setValues, options)
         } else {
             stopTracking?.()
@@ -111,14 +51,22 @@ function createScrollMotionValues() {
         }
     }
 
-    const measure = () =>
-        stopTracking || (options && measureScrollInfo(setValues, options))
+    const source = {
+        subscribe: () => {
+            observers++
+            update()
+            return () => {
+                observers--
+                update()
+            }
+        },
+        refresh: () =>
+            stopTracking || (options && measureScrollInfo(setValues, options)),
+    }
 
-    const values = [0, 0, 0, 0].map(
-        () => new ScrollMotionValue(update, measure)
-    )
-    const [scrollX, scrollY, scrollXProgress, scrollYProgress] =
-        values as MotionValue<number>[]
+    const [scrollX, scrollY, scrollXProgress, scrollYProgress] = [
+        0, 0, 0, 0,
+    ].map((): MotionValue<number> => new LazyMotionValue(0, source))
 
     const start = (startOptions?: ScrollInfoOptions) => {
         options = startOptions
