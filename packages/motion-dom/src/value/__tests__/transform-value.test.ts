@@ -93,3 +93,54 @@ describe("transformValue", () => {
         expect(result.get()).toBe(200)
     })
 })
+
+describe("transformValue laziness", () => {
+    const changeSubscribers = (value: any) =>
+        value.events.change?.getSize() ?? (value.changeSubscriber ? 1 : 0)
+
+    test("doesn't subscribe to its inputs until it's subscribed to", () => {
+        const x = motionValue(1)
+        const y = transformValue(() => x.get() * 2)
+
+        expect(changeSubscribers(x)).toBe(0)
+        const unsubscribe = y.on("change", () => {})
+        expect(changeSubscribers(x)).toBe(1)
+        unsubscribe()
+    })
+
+    test("is current without waiting for a frame while unsubscribed", () => {
+        const x = motionValue(1)
+        const y = transformValue(() => x.get() * 2)
+
+        x.set(4)
+        expect(y.get()).toBe(8)
+    })
+
+    test("follows its inputs while subscribed, and unsubscribes a frame after its last subscriber leaves", async () => {
+        const x = motionValue(1)
+        const y = transformValue(() => x.get() * 2)
+        const latest: number[] = []
+        const unsubscribe = y.on("change", (v) => latest.push(v))
+
+        x.set(3)
+        await nextFrame()
+        expect(latest).toEqual([6])
+
+        unsubscribe()
+        await nextFrame()
+        await nextFrame()
+        expect(changeSubscribers(x)).toBe(0)
+        x.set(5)
+        expect(y.get()).toBe(10)
+    })
+
+    test("destroy() unsubscribes from its inputs", () => {
+        const x = motionValue(1)
+        const y = transformValue(() => x.get() * 2)
+        y.on("change", () => {})
+        y.getVelocity()
+
+        y.destroy()
+        expect(changeSubscribers(x)).toBe(0)
+    })
+})

@@ -434,25 +434,5 @@ describe("useScroll JS tracking", () => {
 
             unmount()
         })
-
-        test("transforms of plain values still subscribe to them straight away", async () => {
-            let source!: MotionValue<number>
-            let doubled!: MotionValue<number>
-            const Component = () => {
-                source = useMotionValue(1)
-                doubled = useTransform(source, (v) => v * 2)
-                return null
-            }
-            const { unmount } = render(<Component />)
-            await nextFrame()
-            expect(hasChangeSubscriber(source)).toBe(true)
-
-            source.set(4)
-            expect(doubled.get()).toBe(2)
-            await nextFrame()
-            expect(doubled.get()).toBe(8)
-
-            unmount()
-        })
     })
 })
