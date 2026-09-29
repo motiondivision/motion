@@ -22,8 +22,14 @@ import { useConstant } from "../utils/use-constant"
  *
  * @public
  */
-export function useMotionValue<T>(initial: T): MotionValue<T> {
-    const value = useConstant(() => motionValue(initial))
+export function useMotionValue<T>(
+    initial: T,
+    /**
+     * @internal
+     */
+    create: () => MotionValue<T> = () => motionValue(initial)
+): MotionValue<T> {
+    const value = useConstant(create)
 
     /**
      * If this motion value is being used in static mode, like on
