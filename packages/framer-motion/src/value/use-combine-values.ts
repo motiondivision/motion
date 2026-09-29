@@ -29,14 +29,15 @@ export function useCombineMotionValues<R>(
      * Synchronously update the motion value during the render while it's
      * subscribed, so the styles applied to the DOM are up-to-date.
      */
-    source.sync()
+    value["stopSource"] && source.refresh()
 
     /**
      * Resubscribe to the latest values after each render while subscribed.
+     * Once unmounted, a subscribed value stops following them.
      */
     useIsomorphicLayoutEffect(() => {
         value["stopSource"] && source.subscribe()
-        return source.unsubscribe
+        return () => value["stopSource"]?.()
     })
 
     return value

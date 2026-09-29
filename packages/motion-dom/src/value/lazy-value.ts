@@ -23,7 +23,6 @@ export class LazyMotionValue<
     S extends MotionValueSource = MotionValueSource
 > extends MotionValue<V> {
     private stopSource?: VoidFunction
-    private tracksVelocity?: boolean
 
     constructor(init: V, readonly source: S) {
         super(init)
@@ -41,15 +40,12 @@ export class LazyMotionValue<
     }
 
     /**
-     * Called a frame after the last `change` subscriber leaves.
+     * Called a frame after the last `change` subscriber leaves, and when the
+     * value is destroyed.
      */
     stop() {
         super.stop()
-        if (
-            !this.tracksVelocity &&
-            !this["changeSubscriber"] &&
-            !this["events"].change?.getSize()
-        ) {
+        if (!this["changeSubscriber"] && !this["events"].change?.getSize()) {
             this.stopSource?.()
             this.stopSource = undefined
         }
@@ -62,42 +58,34 @@ export class LazyMotionValue<
 
     /**
      * Velocity is measured between frames, so reading it keeps the value up
-     * to date from then on. Until then, there may not be frames to measure.
+     * to date until it's next stopped unobserved. Until then, there may not
+     * be frames to measure.
      */
     getVelocity() {
         if (!this.stopSource) {
-            this.tracksVelocity = true
-            const isCurrent = this.source.refresh()
+            const isCurrent = this.refresh()
             this.stopSource = this.source.subscribe()
             if (!isCurrent) return 0
         }
         return super.getVelocity()
     }
 
-    destroy() {
-        this.tracksVelocity = false
-        super.destroy()
-    }
-
     /**
      * The source's own reads aren't dependencies of a transform reading this.
      */
     private refresh() {
+        if (this.stopSource) return
         const collecting = collectMotionValues.current
         collectMotionValues.current = undefined
-        this.stopSource || this.source.refresh()
+        const isCurrent = this.source.refresh()
         collectMotionValues.current = collecting
+        return isCurrent
     }
 }
 
 export interface DerivedSource<V> extends MotionValueSource {
     inputs: MotionValue[]
     compute: () => V
-    unsubscribe: VoidFunction
-    /**
-     * Updates the value if it's kept up to date.
-     */
-    sync: VoidFunction
 }
 
 /**
@@ -118,6 +106,12 @@ export function derivedValue<V>(
      */
     const update = () => value.set(source.compute())
 
+    const unsubscribe = () => {
+        subscriptions?.forEach((stop) => stop())
+        subscriptions = undefined
+        cancelFrame(update)
+    }
+
     const source: DerivedSource<V> = {
         inputs,
         compute,
@@ -126,15 +120,9 @@ export function derivedValue<V>(
             subscriptions ||= source.inputs.map((v) =>
                 v.on("change", scheduleUpdate)
             )
-            return source.unsubscribe
-        },
-        unsubscribe: () => {
-            subscriptions?.forEach((unsubscribe) => unsubscribe())
-            subscriptions = undefined
-            cancelFrame(update)
+            return unsubscribe
         },
         refresh: update,
-        sync: () => subscriptions && update(),
     }
 
     const value = new LazyMotionValue(init, source)
