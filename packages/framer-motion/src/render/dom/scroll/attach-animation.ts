@@ -14,11 +14,13 @@ export function attachToAnimation(
 
     /**
      * Use native timeline when:
-     * - No target: ScrollTimeline (existing behaviour)
+     * - No target and no offset: ScrollTimeline
      * - Target with mappable offset: ViewTimeline with named range
-     * - Target with unmappable offset: fall back to JS observe
+     * - Otherwise: fall back to JS observe. A ScrollTimeline has no offset,
+     *   so page offsets are applied by the JS timeline.
      */
-    const native = canUseNativeTimeline(target) && (!target || !!range)
+    const native =
+        canUseNativeTimeline(target) && (target ? !!range : !options.offset)
     const animations = new Map<Animation, PlaybackDirection>()
     const observed = new Set<AnimationPlaybackControls>()
     let stopObserving: VoidFunction | undefined
