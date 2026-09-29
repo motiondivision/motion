@@ -261,4 +261,27 @@ describe("SVG", () => {
         expect(rect.style.transform).toBe("none")
         expect(rect.getAttribute("x")).toBe("10")
     })
+
+    test("uses style as the base of an independent transform", async () => {
+        const Component = ({ animate }: any) => (
+            <svg>
+                <motion.rect
+                    data-testid="rect"
+                    x={10}
+                    style={{ x: 20 }}
+                    animate={animate}
+                    transition={{ duration: 0 }}
+                />
+            </svg>
+        )
+        const { getByTestId, rerender } = render(
+            <Component animate={{ x: 100 }} />
+        )
+        await new Promise((resolve) => setTimeout(resolve, 50))
+        rerender(<Component animate={{}} />)
+        await new Promise((resolve) => setTimeout(resolve, 50))
+        await nextFrame()
+
+        expect(getByTestId("rect").style.transform).toBe("translateX(20px)")
+    })
 })
