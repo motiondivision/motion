@@ -1,4 +1,4 @@
-import { transformPropOrder, transformProps } from "../utils/keys-transform"
+import { transformPropOrder } from "../utils/keys-transform"
 
 const radToDeg = (rad: number) => (rad * 180) / Math.PI
 
@@ -62,14 +62,6 @@ const matrix3dParsers: MatrixParsers = {
 export function defaultTransformValue(name: string): number {
     return name.includes("scale") ? 1 : 0
 }
-
-/**
- * Independent transforms are never read from the DOM, where a computed
- * transform matrix has no sound decomposition into x, scale, rotate etc.
- * Unless initial or style sets one, its base is its default.
- */
-export const getTransformBase = (name: string) =>
-    transformProps.has(name) ? defaultTransformValue(name) : undefined
 
 export function parseValueFromTransform(
     transform: string | undefined,

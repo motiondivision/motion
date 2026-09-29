@@ -5,7 +5,7 @@ import { transformProps } from "../utils/keys-transform"
 import { getDefaultValueType } from "../../value/types/maps/defaults"
 import { createBox } from "../../projection/geometry/models"
 import { DOMVisualElement } from "../dom/DOMVisualElement"
-import { getTransformBase } from "../dom/parse-transform"
+import { defaultTransformValue } from "../dom/parse-transform"
 import type { DOMVisualElementOptions } from "../dom/types"
 import { camelToDash } from "../dom/utils/camel-to-dash"
 import type { ResolvedValues } from "../types"
@@ -33,7 +33,9 @@ export class SVGVisualElement extends DOMVisualElement<
          * An independent transform's base is never an attribute of the same
          * name, e.g. <rect x> is a position, not a translate.
          */
-        return getTransformBase(key) ?? props[key as keyof MotionNodeOptions]
+        return transformProps.has(key)
+            ? defaultTransformValue(key)
+            : props[key as keyof MotionNodeOptions]
     }
 
     readValueFromInstance(instance: SVGElement, key: string) {

@@ -855,10 +855,10 @@ export abstract class VisualElement<
 
         if (value === undefined && defaultValue !== undefined) {
             /**
-             * An independent transform's current value is known without
-             * reading the DOM (its latest value, or its base, e.g. its
-             * default), so start from it and render it now rather than once
-             * the keyframe resolver reads an origin.
+             * An independent transform with a latest value or a base (e.g.
+             * SVG's default) starts from it and renders now. Otherwise it
+             * stays undefined until the keyframe resolver reads its origin,
+             * which for HTML can be the computed transform.
              */
             if (defaultValue === null && transformProps.has(key)) {
                 const base = this.getBaseTargetFromProps(this.props, key)

@@ -1049,7 +1049,7 @@ describe("animate prop as object", () => {
         expect(await check("hidden")).toBe("none")
     })
 
-    test("renders an independent transform's base once mounted, not before", async () => {
+    test("renders an independent transform's base, and nothing before its origin is read", async () => {
         const transformOnMount = async (props: any) => {
             const { container } = render(
                 <motion.div transition={{ delay: 1 }} {...props} />
@@ -1062,13 +1062,11 @@ describe("animate prop as object", () => {
             return [beforeMount, element.style.transform]
         }
 
+        // The origin can be read from the computed transform, so don't
+        // overwrite it first
         expect(await transformOnMount({ animate: { x: 100 } })).toEqual([
             "",
-            "none",
-        ])
-        expect(await transformOnMount({ animate: { x: [50, 100] } })).toEqual([
             "",
-            "none",
         ])
         expect(
             await transformOnMount({ animate: { x: 100 }, style: { x: 20 } })
