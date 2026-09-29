@@ -31,10 +31,12 @@ export class SVGVisualElement extends DOMVisualElement<
     ): AnyResolvedKeyframe | MotionValue<any> | undefined {
         /**
          * An independent transform's base is never an attribute of the same
-         * name, e.g. <rect x> is a position, not a translate.
+         * name, e.g. <rect x> is a position, not a translate. Like HTML it
+         * comes from style, falling back to the transform's default.
          */
         return transformProps.has(key)
-            ? defaultTransformValue(key)
+            ? super.getBaseTargetFromProps(props, key) ??
+                  defaultTransformValue(key)
             : props[key as keyof MotionNodeOptions]
     }
 

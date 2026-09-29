@@ -10,6 +10,8 @@ describe("Independent transforms", () => {
                 transform: "matrix(1, 0, 0, 1, 100, 0)",
             } as CSSStyleDeclaration)
 
+        // m without the projection feature: HTMLVisualElement doesn't read
+        // the computed transform while a projection node is attached
         const x = await new Promise<number>((resolve) => {
             render(
                 <LazyMotion features={domAnimation}>
