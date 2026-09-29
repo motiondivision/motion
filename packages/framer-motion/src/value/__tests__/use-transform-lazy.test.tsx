@@ -265,6 +265,47 @@ describe("lazy transforms", () => {
         expect(y.get()).toBe(10)
     })
 
+    test("a transform that wasn't subscribed at unmount follows its input if subscribed to afterwards", async () => {
+        const x = motionValue(1)
+        let y!: MotionValue<number>
+        const Component = () => {
+            y = useTransform(x, (v) => v * 2)
+            return null
+        }
+        const { unmount } = render(<Component />)
+        unmount()
+
+        const latest: number[] = []
+        const unsubscribe = y.on("change", (v) => latest.push(v))
+        x.set(5)
+        await nextFrame()
+        expect(latest).toEqual([10])
+
+        unsubscribe()
+    })
+
+    test("an unsubscribed transform's function runs when it's read, not on every render", async () => {
+        const x = motionValue(1)
+        let y!: MotionValue<number>
+        let calls = 0
+        const Component = ({ n }: { n: number }) => {
+            y = useTransform(x, (v) => {
+                calls++
+                return v * n
+            })
+            return null
+        }
+        const { rerender, unmount } = render(<Component n={2} />, false)
+        calls = 0
+
+        rerender(<Component n={3} />)
+        expect(calls).toBe(0)
+        expect(y.get()).toBe(3)
+        expect(calls).toBe(1)
+
+        unmount()
+    })
+
     test("StrictMode: a subscribed transform subscribes to its input once, and leaves it on unmount", async () => {
         const x = motionValue(1)
         const latest: number[] = []
