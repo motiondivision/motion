@@ -2,7 +2,6 @@ import { createRef, Suspense, useRef, useState } from "react"
 import {
     frame,
     motion,
-    MotionConfig,
     MotionGlobalConfig,
     motionValue,
     stagger,
@@ -1026,67 +1025,6 @@ describe("animate prop as object", () => {
         expect(written).not.toContain(undefined)
     })
 
-    test("resolves a 'none' transform to its default value", async () => {
-        const x = motionValue(20)
-        const rotate = motionValue(45)
-        const element = await new Promise<HTMLElement>((resolve) => {
-            const { container } = render(
-                <motion.div
-                    style={{ x, rotate }}
-                    animate={{ x: "none", rotate: "none" }}
-                    transition={{ duration: 0.05 }}
-                    onAnimationComplete={() =>
-                        frame.postRender(() =>
-                            resolve(container.firstChild as HTMLElement)
-                        )
-                    }
-                />
-            )
-        })
-
-        expect(x.get()).toBe(0)
-        expect(rotate.get()).toBe(0)
-        expect(element.style.transform).toBe("none")
-    })
-
-    test("resolves 'none' transforms that are set without animating", async () => {
-        const transformAfter = async (props: any) => {
-            const { container } = render(
-                <MotionConfig reducedMotion={props.reducedMotion}>
-                    <motion.div {...props} />
-                </MotionConfig>
-            )
-            await new Promise((resolve) => setTimeout(resolve, 50))
-            await nextFrame()
-            return (container.firstChild as HTMLElement).style.transform
-        }
-
-        expect(
-            await transformAfter({
-                animate: { x: "none", rotate: 45 },
-                transition: { duration: 0 },
-            })
-        ).toBe("rotate(45deg)")
-        expect(
-            await transformAfter({
-                animate: { x: "none", rotate: 45 },
-                reducedMotion: "always",
-            })
-        ).toBe("rotate(45deg)")
-        expect(
-            await transformAfter({
-                animate: { rotate: 45, transitionEnd: { x: "none" } },
-                transition: { duration: 0 },
-            })
-        ).toBe("rotate(45deg)")
-        expect(
-            await transformAfter({
-                initial: false,
-                animate: { x: "none", rotate: 45 },
-            })
-        ).toBe("rotate(45deg)")
-    })
-
     test("animates a removed transform back to its default when initial is set", async () => {
         const check = async (initial: any) => {
             const Component = ({ animate }: any) => (
@@ -1128,9 +1066,10 @@ describe("animate prop as object", () => {
             "",
             "none",
         ])
-        expect(await transformOnMount({ animate: { x: [50, 100] } })).toEqual(
-            ["", "none"]
-        )
+        expect(await transformOnMount({ animate: { x: [50, 100] } })).toEqual([
+            "",
+            "none",
+        ])
         expect(
             await transformOnMount({ animate: { x: 100 }, style: { x: 20 } })
         ).toEqual(["translateX(20px)", "translateX(20px)"])

@@ -13,7 +13,6 @@ import { getDefaultTransition } from "../utils/default-transitions"
 import { getFinalKeyframe } from "../keyframes/get-final"
 import { isTransitionDefined } from "../utils/is-transition-defined"
 import { frame } from "../../frameloop"
-import { noneAsDefault } from "../../render/dom/parse-transform"
 import type { MotionValue, StartAnimation } from "../../value"
 import type { AnimationElement } from "../keyframes/types"
 
@@ -44,9 +43,7 @@ export const animateMotionValue =
         elapsed = elapsed - secondsToMilliseconds(delay)
 
         const options: ValueAnimationOptions = {
-            keyframes: Array.isArray(target)
-                ? target.map((keyframe) => noneAsDefault(name, keyframe))
-                : [null, noneAsDefault(name, target)],
+            keyframes: Array.isArray(target) ? target : [null, target],
             ease: "easeOut",
             velocity: value.getVelocity(),
             ...valueTransition,

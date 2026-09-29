@@ -1,5 +1,4 @@
 import { motionValue } from "../../value"
-import { noneAsDefault } from "../dom/parse-transform"
 import { resolveVariant } from "./resolve-dynamic-variants"
 import { isKeyframesTarget } from "./is-keyframes-target"
 import type { AnimationDefinition } from "../../node/types"
@@ -46,10 +45,6 @@ export function setTarget(
         const value = resolveFinalValueInKeyframes(
             target[key as keyof typeof target] as any
         )
-        setMotionValue(
-            visualElement,
-            key,
-            noneAsDefault(key, value) as AnyResolvedKeyframe
-        )
+        setMotionValue(visualElement, key, value as AnyResolvedKeyframe)
     }
 }

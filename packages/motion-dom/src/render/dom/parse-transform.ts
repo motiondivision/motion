@@ -71,16 +71,6 @@ export function defaultTransformValue(name: string): number {
 export const getTransformBase = (name: string) =>
     transformProps.has(name) ? defaultTransformValue(name) : undefined
 
-/**
- * An independent transform's "none" is its default, e.g. x: "none" is 0,
- * so values never hold a "none" that renderers, box geometry or gestures
- * would each have to interpret.
- */
-export const noneAsDefault = <T>(name: string, value: T) =>
-    value === "none" && transformProps.has(name)
-        ? defaultTransformValue(name)
-        : value
-
 export function parseValueFromTransform(
     transform: string | undefined,
     name: string
