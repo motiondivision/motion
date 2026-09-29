@@ -4,6 +4,18 @@ export interface ScrollOptions {
     target?: Element
     axis?: "x" | "y"
     offset?: ScrollOffset
+    /**
+     * Where an animation starts, as progress from `0` to `1` through the
+     * scroll range, or through the target's cover range when `target` is
+     * set. Replaces `offset`. Before it, the animation holds its first
+     * keyframe. Ignored by callbacks.
+     */
+    rangeStart?: number
+    /**
+     * Where an animation ends, as progress from `0` to `1`, after
+     * `rangeStart`. After it, the animation holds its last keyframe.
+     */
+    rangeEnd?: number
 }
 
 export interface ScrollOptionsWithDefaults extends ScrollOptions {
