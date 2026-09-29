@@ -1,12 +1,9 @@
 import { AnimationPlaybackControls, observeTimeline } from "motion-dom"
 import { clamp, progress } from "motion-utils"
-import { ScrollOptionsWithDefaults, ScrollRange } from "./types"
+import { ScrollOptionsWithDefaults } from "./types"
 import { canUseNativeTimeline } from "./utils/can-use-native-timeline"
 import { getTimeline } from "./utils/get-timeline"
 import { offsetToViewTimelineRange } from "./utils/offset-to-range"
-
-const toPercentage = (value: ScrollRange) =>
-    typeof value === "string" ? value : value * 100 + "%"
 
 export function attachToAnimation(
     animation: AnimationPlaybackControls,
@@ -28,7 +25,7 @@ export function attachToAnimation(
         : canUseNativeTimeline()
 
     /**
-     * A range is a percentage of the whole timeline: the full scroll range,
+     * A range is progress through the whole timeline: the full scroll range,
      * or for a target its "cover" range, from when the target starts to enter
      * the container until it has completely left. Native ScrollTimeline and
      * ViewTimeline already measure progress that way, but the JS fallback
@@ -49,18 +46,17 @@ export function attachToAnimation(
             : options
     )
 
-    const start = toPercentage(rangeStart ?? 0)
-    const end = toPercentage(rangeEnd ?? 1)
+    const start = rangeStart ?? 0
+    const end = rangeEnd ?? 1
 
     return animation.attachTimeline({
         timeline: useNative ? timeline : undefined,
         ...(useNative &&
-            (hasUserRange ? { rangeStart: start, rangeEnd: end } : range)),
+            (hasUserRange
+                ? { rangeStart: start * 100 + "%", rangeEnd: end * 100 + "%" }
+                : range)),
         observe: (valueAnimation) => {
             valueAnimation.pause()
-
-            const from = parseFloat(start)
-            const to = parseFloat(end)
 
             /**
              * Outside the range, hold the first or last keyframe, as native
@@ -69,7 +65,7 @@ export function attachToAnimation(
             return observeTimeline((timelineProgress) => {
                 valueAnimation.time =
                     valueAnimation.iterationDuration *
-                    clamp(0, 1, progress(from, to, timelineProgress * 100))
+                    clamp(0, 1, progress(start, end, timelineProgress))
             }, timeline)
         },
     })

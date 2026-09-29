@@ -68,7 +68,7 @@ describe("scroll() rangeStart/rangeEnd", () => {
     })
 
     /**
-     * 25%–50% of the scroll range is 500–1000px.
+     * Progress 0.25–0.5 of the scroll range is 500–1000px.
      */
     test("Maps the range onto the animation and holds either side of it", async () => {
         const box = document.createElement("div")
@@ -76,7 +76,7 @@ describe("scroll() rangeStart/rangeEnd", () => {
 
         const stop = scroll(
             animate(box, { opacity: [0, 1], x: [0, 100] }, transition),
-            { rangeStart: "25%", rangeEnd: "50%" }
+            { rangeStart: 0.25, rangeEnd: 0.5 }
         )
 
         const expectProgress = (opacity: string, transform: string) => {
@@ -109,7 +109,7 @@ describe("scroll() rangeStart/rangeEnd", () => {
         box.remove()
     })
 
-    test("Accepts fractions, and a range with only one end", async () => {
+    test("Accepts a range with only one end", async () => {
         const start = document.createElement("div")
         const end = document.createElement("div")
         document.body.append(start, end)
@@ -139,12 +139,12 @@ describe("scroll() rangeStart/rangeEnd", () => {
     })
 
     /**
-     * With a target, native ViewTimeline resolves a plain percentage against
-     * the timeline's cover range, so the JS path must too.
+     * With a target, native ViewTimeline resolves a range against its cover
+     * range, so the JS path must too.
      *
      * Target top = 1500, height = 500, viewport = 1000:
      * cover 0% = scroll 500, cover 100% = scroll 2000.
-     * rangeStart "0%" → 500, rangeEnd "50%" → 1250.
+     * rangeStart 0 → 500, rangeEnd 0.5 → 1250.
      */
     test("With a target, the range is relative to the target's cover range", async () => {
         const target = document.createElement("div")
@@ -154,15 +154,15 @@ describe("scroll() rangeStart/rangeEnd", () => {
 
         const stop = scroll(animate(target, { opacity: [0, 1] }, transition), {
             target,
-            rangeStart: "0%",
-            rangeEnd: "50%",
+            rangeStart: 0,
+            rangeEnd: 0.5,
         })
 
         // Before the target enters the viewport.
         await fireScroll(200)
         expect(target.style.opacity).toBe("0")
 
-        // Cover 25% is halfway through the 0%–50% range.
+        // Cover 25% is halfway through the 0–0.5 range.
         await fireScroll(875)
         expect(target.style.opacity).toBe("0.5")
 
@@ -185,7 +185,7 @@ describe("scroll() rangeStart/rangeEnd", () => {
         const held = document.createElement("div")
         document.body.append(inRange, held)
 
-        const range = { rangeStart: "0%", rangeEnd: "50%" } as const
+        const range = { rangeStart: 0, rangeEnd: 0.5 }
         const stopInRange = scroll(
             animate(inRange, { opacity: [0, 1] }, transition),
             range

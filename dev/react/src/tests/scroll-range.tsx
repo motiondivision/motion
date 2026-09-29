@@ -15,8 +15,8 @@ export const App = () => {
         const transition = { ease: "linear" } as const
         const targetRange = {
             target,
-            rangeStart: "0%",
-            rangeEnd: "50%",
+            rangeStart: 0,
+            rangeEnd: 0.5,
         } as const
 
         const stops = [
@@ -25,8 +25,8 @@ export const App = () => {
                 rangeEnd: 0.3,
             }),
             scroll(animate("#js-box", { x: [0, 100] }, transition), {
-                rangeStart: "10%",
-                rangeEnd: "30%",
+                rangeStart: 0.1,
+                rangeEnd: 0.3,
             }),
             scroll(
                 animate("#target-box", { opacity: [0, 1] }, transition),

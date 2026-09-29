@@ -5,21 +5,18 @@ export interface ScrollOptions {
     axis?: "x" | "y"
     offset?: ScrollOffset
     /**
-     * Where an animation starts, as a percentage (`"20%"`) or `0`–`1`
-     * fraction of the scroll range, or of the target's cover range when
-     * `target` is set, mirroring WAAPI `rangeStart`. Replaces `offset`.
-     * Before it, the animation holds its first keyframe. Ignored by
-     * callbacks.
+     * Where an animation starts, as progress from `0` to `1` through the
+     * scroll range, or through the target's cover range when `target` is
+     * set. Replaces `offset`. Before it, the animation holds its first
+     * keyframe. Ignored by callbacks.
      */
-    rangeStart?: ScrollRange
+    rangeStart?: number
     /**
-     * Where an animation ends, after `rangeStart`, mirroring WAAPI
-     * `rangeEnd`. After it, the animation holds its last keyframe.
+     * Where an animation ends, as progress from `0` to `1`, after
+     * `rangeStart`. After it, the animation holds its last keyframe.
      */
-    rangeEnd?: ScrollRange
+    rangeEnd?: number
 }
-
-export type ScrollRange = number | `${number}%`
 
 export interface ScrollOptionsWithDefaults extends ScrollOptions {
     axis: "x" | "y"

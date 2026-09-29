@@ -4,9 +4,9 @@ import { expect, Page, test } from "@playwright/test"
  * scroll() rangeStart/rangeEnd map the range onto the animation and hold the
  * first keyframe before it and the last keyframe after it.
  *
- * With a 1000px viewport the page scrolls 4000px, so the page range 10%–30%
+ * With a 1000px viewport the page scrolls 4000px, so the page range 0.1–0.3
  * is 400–1200px. #target is 500px tall at top 2500px, so its cover range runs
- * from 1500px to 3000px and the target range 0%–50% is 1500–2250px.
+ * from 1500px to 3000px and the target range 0–0.5 is 1500–2250px.
  *
  * Where ScrollTimeline is supported the opacity boxes run natively and the
  * x boxes via the JS observe path, so the two are checked against each other.

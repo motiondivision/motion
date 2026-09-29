@@ -3,11 +3,11 @@
  * first keyframe before it and the last keyframe after it.
  *
  * Page height = 5 * 100vh, so with a 1000px viewport scrollLength = 4000px and
- * the page range 10%–30% is 400–1200px.
+ * the page range 0.1–0.3 is 400–1200px.
  *
  * #target is 500px tall at top 2500px, so its cover range runs from scroll
  * 1500px (top meets viewport bottom) to 3000px (bottom meets viewport top),
- * and the target range 0%–50% is 1500–2250px.
+ * and the target range 0–0.5 is 1500–2250px.
  *
  * In browsers with ScrollTimeline, the opacity boxes run natively and the x
  * boxes via the JS observe path, so the two paths are checked against each
