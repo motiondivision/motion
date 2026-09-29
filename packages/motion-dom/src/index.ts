@@ -128,6 +128,7 @@ export * from "./utils/transform"
 
 export * from "./value"
 export * from "./value/follow-value"
+export * from "./value/lazy-value"
 export * from "./value/map-value"
 export * from "./value/spring-value"
 export * from "./value/transform-value"

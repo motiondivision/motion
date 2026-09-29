@@ -134,6 +134,20 @@ describe("transformValue laziness", () => {
         expect(y.get()).toBe(10)
     })
 
+    test("a transform of a transform only depends on what it reads directly, and updates in the same frame", async () => {
+        const x = motionValue(1)
+        const doubled = transformValue(() => x.get() * 2)
+        const plusOne = transformValue(() => doubled.get() + 1)
+        const latest: number[] = []
+        const unsubscribe = plusOne.on("change", (v) => latest.push(v))
+        expect(changeSubscribers(x)).toBe(1)
+
+        x.set(3)
+        await nextFrame()
+        expect(latest).toEqual([7])
+        unsubscribe()
+    })
+
     test("destroy() unsubscribes from its inputs", () => {
         const x = motionValue(1)
         const y = transformValue(() => x.get() * 2)

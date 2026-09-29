@@ -1,5 +1,5 @@
-import { MotionValue, collectMotionValues, motionValue } from "."
-import { subscribeValue } from "./subscribe-value"
+import { MotionValue, collectMotionValues } from "."
+import { derivedValue } from "./lazy-value"
 
 export type TransformInputRange = number[]
 export type SingleTransformer<I, O> = (input: I) => O
@@ -12,8 +12,9 @@ export type ValueTransformer<I, O> =
  * Create a `MotionValue` that transforms the output of other `MotionValue`s by
  * passing their latest values through a transform function.
  *
- * Whenever a `MotionValue` referred to in the provided function is updated,
- * it will be re-evaluated.
+ * While it's subscribed to, it's re-evaluated whenever a `MotionValue`
+ * referred to in the provided function is updated. Otherwise, it's evaluated
+ * when it's read.
  *
  * ```jsx
  * const x = motionValue(0)
@@ -36,9 +37,5 @@ export function transformValue<O>(transform: () => O): MotionValue<O> {
     const initialValue = transform()
     collectMotionValues.current = undefined
 
-    const value = motionValue(initialValue)
-
-    subscribeValue(collectedValues, value, transform)
-
-    return value
+    return derivedValue(collectedValues, transform, initialValue)
 }
