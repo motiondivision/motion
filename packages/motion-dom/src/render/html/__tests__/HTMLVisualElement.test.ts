@@ -58,6 +58,19 @@ describe("HTMLVisualElement.readValue", () => {
 
         expect(visualElement.readValue("width", "50%")).toBe(200)
     })
+
+    test("reads independent transforms from the computed transform", () => {
+        const getComputedStyle = jest
+            .spyOn(window, "getComputedStyle")
+            .mockReturnValue({
+                transform: "matrix(1, 0, 0, 1, 100, 0)",
+            } as CSSStyleDeclaration)
+        const visualElement = createVisualElement(document.createElement("div"))
+        const x = visualElement.readValue("x", 200)
+        getComputedStyle.mockRestore()
+
+        expect(x).toBe(100)
+    })
 })
 
 describe("HTMLVisualElement.addValue", () => {
