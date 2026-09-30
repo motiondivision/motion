@@ -33,11 +33,11 @@ async function bundle(code: string) {
  * The frameloop is the only code in these bundles that schedules
  * with requestAnimationFrame.
  */
-const frameloop = /requestAnimationFrame/
+const frameloop = "requestAnimationFrame"
 
 describe("frameloop tree-shaking of published entry points", () => {
     test("full animate includes the frameloop", async () => {
-        expect(await bundle(`export { animate } from "motion"`)).toMatch(
+        expect(await bundle(`export { animate } from "motion"`)).toContain(
             frameloop
         )
     })
@@ -47,7 +47,7 @@ describe("frameloop tree-shaking of published entry points", () => {
         ["animateView", `export { animateView } from "motion"`],
     ])("%s does not include the frameloop", async (_, code) => {
         const output = await bundle(code)
-        expect(output).toMatch(/__MOTION_INSPECT__/)
-        expect(output).not.toMatch(frameloop)
+        expect(output).toContain("__MOTION_INSPECT__")
+        expect(output).not.toContain(frameloop)
     })
 })
