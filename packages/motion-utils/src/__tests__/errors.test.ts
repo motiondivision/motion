@@ -84,5 +84,24 @@ describe("errors", () => {
             expect(typeof warning).toBe("function")
             expect(typeof invariant).toBe("function")
         })
+
+        it("should load when process.env is undefined", () => {
+            const { env } = process
+            Object.defineProperty(process, "env", {
+                value: undefined,
+                configurable: true,
+                writable: true,
+            })
+
+            try {
+                jest.isolateModules(() => {
+                    const errors = require("../errors")
+                    expect(() => errors.warning(false, "msg")).not.toThrow()
+                    expect(typeof errors.invariant).toBe("function")
+                })
+            } finally {
+                process.env = env
+            }
+        })
     })
 })

@@ -11,7 +11,8 @@ let invariant: DevMessage = () => {}
 
 if (
     typeof process !== "undefined" &&
-    process.env?.NODE_ENV !== "production"
+    typeof process.env !== "undefined" &&
+    process.env.NODE_ENV !== "production"
 ) {
     warning = (check, message, errorCode) => {
         if (!check && typeof console !== "undefined") {
