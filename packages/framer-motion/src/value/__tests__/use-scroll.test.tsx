@@ -74,7 +74,7 @@ describe("useScroll accelerate", () => {
         expect(accelerateY).toBeUndefined()
     })
 
-    test("does not set accelerate when target has non-preset string offset", () => {
+    test("does not set accelerate when target offset has no ViewTimeline range", () => {
         supportsFlags.viewTimeline = true
 
         let accelerateX: any
@@ -84,7 +84,7 @@ describe("useScroll accelerate", () => {
             const target = useRef<HTMLDivElement>(null)
             const { scrollXProgress, scrollYProgress } = useScroll({
                 target,
-                offset: ["start end", "end start"],
+                offset: ["start center", "end start"],
             })
             accelerateX = scrollXProgress.accelerate
             accelerateY = scrollYProgress.accelerate

@@ -23,12 +23,15 @@ describe("scroll ViewTimeline acceleration", () => {
             })
     })
 
-    it("Does NOT accelerate target with string offset", () => {
+    it("Accelerates target with cover string offset when ViewTimeline supported", () => {
         cy.visit("?test=scroll-view-timeline")
             .wait(200)
             .get("#string-accelerate")
             .should(([$el]: any) => {
-                expect($el.innerText).to.equal("false")
+                const expected = (window as any).ViewTimeline
+                    ? "true"
+                    : "false"
+                expect($el.innerText).to.equal(expected)
             })
     })
 })

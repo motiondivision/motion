@@ -1,4 +1,4 @@
-import { AnimationPlaybackControls, observeTimeline } from "motion-dom"
+import { AnimationPlaybackControls, observeTimeline, resize } from "motion-dom"
 import { ScrollOptionsWithDefaults } from "./types"
 import { canUseNativeTimeline } from "./utils/can-use-native-timeline"
 import { getTimeline } from "./utils/get-timeline"
@@ -8,11 +8,8 @@ export function attachToAnimation(
     animation: AnimationPlaybackControls,
     options: ScrollOptionsWithDefaults
 ) {
-    const timeline = getTimeline(options)
-
-    const range = options.target
-        ? offsetToViewTimelineRange(options.offset)
-        : undefined
+    const { target, container, axis } = options
+    const range = target && offsetToViewTimelineRange(options.offset)
 
     /**
      * Use native timeline when:
@@ -20,24 +17,89 @@ export function attachToAnimation(
      * - Target with mappable offset: ViewTimeline with named range
      * - Target with unmappable offset: fall back to JS observe
      */
-    const useNative = options.target
-        ? canUseNativeTimeline(options.target) && !!range
-        : canUseNativeTimeline()
+    const native = canUseNativeTimeline(target) && (!target || !!range)
+    const animations = new Map<Animation, PlaybackDirection>()
+    let reverse = false
 
-    return animation.attachTimeline({
-        timeline: useNative ? timeline : undefined,
-        ...(range &&
-            useNative && {
-                rangeStart: range.rangeStart,
-                rangeEnd: range.rangeEnd,
-            }),
-        observe: (valueAnimation) => {
-            valueAnimation.pause()
+    /**
+     * When an offset's second point comes first, its range is swapped and
+     * the animation played backwards. The range is set after the direction,
+     * as that's what realigns a running animation with its timeline. Chrome
+     * skips that realignment when the range changes in the frame the
+     * animation starts, leaving it offset for good, so it's replayed too.
+     */
+    const apply = (direction: PlaybackDirection, waapi: Animation) => {
+        const [start, end] = range!.points
+        waapi.effect!.updateTiming({
+            direction: reverse
+                ? direction === "normal"
+                    ? "reverse"
+                    : "alternate-reverse"
+                : direction,
+        })
+        Object.assign(waapi, {
+            rangeStart: reverse ? end : start,
+            rangeEnd: reverse ? start : end,
+        })
+        waapi.play()
+    }
 
-            return observeTimeline((progress) => {
-                valueAnimation.time =
-                    valueAnimation.iterationDuration * progress
-            }, timeline)
-        },
-    })
+    const stops = [
+        animation.attachTimeline({
+            /**
+             * Read only by WAAPI animations, so values driven from JS don't
+             * create a native timeline they won't use.
+             */
+            get timeline() {
+                return native ? getTimeline(options, true) : undefined
+            },
+            onAttach:
+                range &&
+                ((waapi) => {
+                    const direction = waapi.effect!.getTiming().direction!
+                    animations.set(waapi, direction)
+                    apply(direction, waapi)
+                }),
+            observe: (valueAnimation) => {
+                valueAnimation.pause()
+
+                return observeTimeline(
+                    (progress) => {
+                        valueAnimation.time =
+                            valueAnimation.iterationDuration * progress
+                    },
+                    /**
+                     * A ViewTimeline's progress is its cover range, so values
+                     * driven from JS on other ranges track the offset in JS.
+                     */
+                    getTimeline(options, native && (!range || range.cover))
+                )
+            },
+        }),
+    ]
+
+    if (native && range) {
+        const { a, b } = range
+        const length = axis === "y" ? "clientHeight" : "clientWidth"
+
+        /**
+         * Offsets like All only run forwards when the target is longer than
+         * the container, so their direction is remeasured on resize.
+         */
+        const update = () => {
+            if (
+                reverse !==
+                (reverse = a * target![length] + b * container[length] < 0)
+            ) {
+                animations.forEach(apply)
+            }
+        }
+        update()
+
+        if (a * b < 0) {
+            stops.push(resize(update), resize([target!, container], update))
+        }
+    }
+
+    return () => stops.forEach((stop) => stop())
 }
