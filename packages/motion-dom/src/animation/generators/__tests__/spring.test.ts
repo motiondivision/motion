@@ -398,18 +398,25 @@ describe("negative bounce", () => {
     test.each([{ visualDuration: 0.3 }, { duration: 800 }])(
         "bounce of -0.95 decelerates continuously to its target with %o",
         (options) => {
-            const values = sampleUntilDone({
+            // Tiny rest thresholds, so no sample is snapped to the target
+            const generator = spring({
                 ...options,
                 keyframes: [0, 100],
                 bounce: -0.95,
+                restDelta: 1e-6,
+                restSpeed: 1e-6,
             })
 
-            expectMonotonicWithoutOvershoot(values)
-            // Past its initial kick, each step is no larger than the last
-            for (let i = 2; i < values.length - 1; i++) {
-                expect(values[i] - values[i - 1]).toBeLessThanOrEqual(
-                    values[i - 1] - values[i - 2]
-                )
+            let previous = 0
+            let previousStep = Infinity
+            for (let t = 10; t < 800; t += 10) {
+                const { value } = generator.next(t)
+                const step = value - previous
+                expect(step).toBeGreaterThanOrEqual(0)
+                expect(step).toBeLessThanOrEqual(previousStep)
+                expect(value).toBeLessThan(100)
+                previous = value
+                previousStep = step
             }
         }
     )
