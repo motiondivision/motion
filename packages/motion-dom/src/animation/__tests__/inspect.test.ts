@@ -92,6 +92,44 @@ describe("animation inspection", () => {
         }
     })
 
+    test("reports native animations with the synced time and frame state", async () => {
+        const records: any[] = []
+        inspectGlobal.__MOTION_INSPECT__ = (record) => records.push(record)
+        const oldAnimate = Element.prototype.animate
+        Element.prototype.animate = jest.fn(() => nativeAnimation())
+        const start = () =>
+            new NativeAnimation({
+                element: document.createElement("div"),
+                name: "opacity",
+                keyframes: [0, 1],
+                duration: 300,
+                autoplay: false,
+            })
+        try {
+            time.set(123)
+            start()
+            await new Promise<void>((resolve) =>
+                frame.update(() => {
+                    start()
+                    resolve()
+                })
+            )
+        } finally {
+            Element.prototype.animate = oldAnimate
+        }
+        expect(records).toHaveLength(2)
+        expect(records[0]).toMatchObject({
+            timestamp: 123,
+            frameIsProcessing: false,
+        })
+        expect(records[1]).toMatchObject({
+            timestamp: frameData.timestamp,
+            frameTimestamp: frameData.timestamp,
+            frameIsProcessing: true,
+        })
+        expect(records[1].frameTimestamp).toBeGreaterThan(0)
+    })
+
     test("reports layout progress with its projection node in the starting frame", async () => {
         const records: any[] = []
         inspectGlobal.__MOTION_INSPECT__ = (record) => records.push(record)
