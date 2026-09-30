@@ -120,19 +120,36 @@ describe("spring", () => {
         ])
     })
     test("Overdamped spring with very high stiffness/damping", () => {
-        const generator = spring({
-            keyframes: [100, 1000],
-            stiffness: 1000000,
-            damping: 10000000,
-        })
-
-        // A damping ratio of 5000 creeps at stiffness / damping (0.1/s)
-        for (const t of [0, 200, 1000, 10000, 60000]) {
-            expect(generator.next(t).value).toBeCloseTo(
-                1000 - 900 * Math.exp(-t / 10000),
-                0
+        expect(
+            animateSync(
+                spring({
+                    keyframes: [100, 1000],
+                    stiffness: 1000000,
+                    damping: 10000000,
+                    restDelta: 1,
+                    restSpeed: 10,
+                }),
+                200
             )
-        }
+        ).toEqual([100, 1000])
+    })
+
+    /**
+     * Drag's snap-back and boundary springs, as configured by dragElastic: 0
+     * and the Reorder/tabs test pages.
+     */
+    test.each([
+        { stiffness: 1000000, damping: 10000000 },
+        { stiffness: 2000, damping: 10000 },
+        { stiffness: 10000, damping: 10000 },
+    ])("Heavily overdamped %o spring settles quickly", (physics) => {
+        const generator = spring({
+            ...physics,
+            keyframes: [-60, 0],
+            restDelta: 1,
+            restSpeed: 10,
+        })
+        expect(generator.next(100)).toEqual({ done: true, value: 0 })
     })
 
     test("Velocity passed to overdamped spring", () => {
@@ -378,19 +395,24 @@ describe("negative bounce", () => {
         }
     )
 
-    test("heavily overdamped spring moves continuously to its target", () => {
-        // A damping ratio of 20
-        const values = sampleUntilDone({
-            keyframes: [0, 100],
-            stiffness: 100,
-            damping: 400,
-        })
+    test.each([{ visualDuration: 0.3 }, { duration: 800 }])(
+        "bounce of -0.95 decelerates continuously to its target with %o",
+        (options) => {
+            const values = sampleUntilDone({
+                ...options,
+                keyframes: [0, 100],
+                bounce: -0.95,
+            })
 
-        expectMonotonicWithoutOvershoot(values)
-        for (let i = 1; i < values.length; i++) {
-            expect(values[i] - values[i - 1]).toBeLessThan(1)
+            expectMonotonicWithoutOvershoot(values)
+            // Past its initial kick, each step is no larger than the last
+            for (let i = 2; i < values.length - 1; i++) {
+                expect(values[i] - values[i - 1]).toBeLessThanOrEqual(
+                    values[i - 1] - values[i - 2]
+                )
+            }
         }
-    })
+    )
 })
 
 describe("toString", () => {
