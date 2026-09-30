@@ -376,10 +376,13 @@ describe("negative bounce", () => {
         const t = visualDuration * 1000
         const critical = unsnapped({ visualDuration, bounce: 0 }).next(t).value
 
+        test("bounce 0 is 96.68% of the way at visualDuration", () => {
+            expect(critical).toBeCloseTo(96.68, 2)
+        })
+
         test.each(pinnedBounces)(
             "bounce of %d reaches the same progress as bounce 0 at visualDuration",
             (bounce) => {
-                expect(critical).toBeCloseTo(96.68, 2)
                 expect(
                     unsnapped({ visualDuration, bounce }).next(t).value
                 ).toBeCloseTo(critical, 6)
@@ -392,6 +395,7 @@ describe("negative bounce", () => {
             "bounce of %d has 0.1% of the distance left at duration",
             (bounce) => {
                 const generator = unsnapped({ duration, bounce })
+                // Just before duration, where the spring snaps to its target
                 expect(100 - generator.next(duration - 1e-9).value).toBeCloseTo(
                     0.1,
                     6
