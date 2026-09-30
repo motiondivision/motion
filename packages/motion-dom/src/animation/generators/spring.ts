@@ -411,11 +411,12 @@ function spring(
         const fast = decay + dampedAngularFreq
 
         /**
-         * Physics-defined springs keep a limit: once dampedAngularFreq * t
-         * passes 300, both terms decay at the damping rate. Heavily
-         * overdamped drag springs (dragElastic: 0, dragTransition) rely on
-         * this to settle almost at once rather than creep at
-         * stiffness / damping.
+         * Physics-defined springs keep a non-physical limit: once
+         * dampedAngularFreq * t passes 300, both terms decay at the damping
+         * rate. Heavily overdamped drag springs (dragElastic: 0,
+         * dragTransition) rely on this to settle almost at once rather than
+         * creep at stiffness / damping. Negative bounce needs the exact
+         * curve, so time-defined springs are exempt.
          */
         const limit = isTimeDefined ? Infinity : 300 / dampedAngularFreq
         const decayAt = (rate: number, t: number) =>

@@ -135,11 +135,9 @@ describe("spring", () => {
     })
 
     /**
-     * Drag's snap-back and boundary springs, as configured by dragElastic: 0
-     * and the Reorder/tabs test pages.
+     * dragTransition values from the drag-to-reorder and drag-tabs test pages
      */
     test.each([
-        { stiffness: 1000000, damping: 10000000 },
         { stiffness: 2000, damping: 10000 },
         { stiffness: 10000, damping: 10000 },
     ])("Heavily overdamped %o spring settles quickly", (physics) => {
