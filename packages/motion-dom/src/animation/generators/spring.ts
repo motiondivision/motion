@@ -62,8 +62,9 @@ const bounceToDampingRatio = (bounce: number) =>
  * shape of the curve, not when it arrives. 1 at a damping ratio of 1, so
  * there's no jump at a bounce of 0.
  *
- * Solved by Newton on the log of the remaining distance, which is concave,
- * from criticalFreqTime, which is always below the answer, so it converges.
+ * Solved by Newton on the remaining distance (times fast - slow), which is
+ * convex from criticalFreqTime onwards. criticalFreqTime is always below the
+ * answer, so it converges from below without overshooting.
  */
 function overdampedFreqScale(dampingRatio: number, criticalFreqTime: number) {
     if (!(dampingRatio > 1)) return 1
@@ -71,19 +72,17 @@ function overdampedFreqScale(dampingRatio: number, criticalFreqTime: number) {
     const root = Math.sqrt(dampingRatio * dampingRatio - 1)
     const slow = dampingRatio - root
     const fast = dampingRatio + root
-    // The remaining distance, times fast - slow (2 * root)
-    const scaledRemaining = (freqTime: number) =>
-        fast * Math.exp(-slow * freqTime) - slow * Math.exp(-fast * freqTime)
+    const target =
+        2 * root * Math.exp(-criticalFreqTime) * (1 + criticalFreqTime)
 
     return (
         approximateRoot(
             (freqTime) =>
-                Math.log(scaledRemaining(freqTime) / (2 * root)) +
-                criticalFreqTime -
-                Math.log1p(criticalFreqTime),
+                fast * Math.exp(-slow * freqTime) -
+                slow * Math.exp(-fast * freqTime) -
+                target,
             (freqTime) =>
-                (Math.exp(-fast * freqTime) - Math.exp(-slow * freqTime)) /
-                scaledRemaining(freqTime),
+                Math.exp(-fast * freqTime) - Math.exp(-slow * freqTime),
             criticalFreqTime
         ) / criticalFreqTime
     )
