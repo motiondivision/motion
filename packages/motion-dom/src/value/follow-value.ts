@@ -1,10 +1,11 @@
 import { MotionValue, motionValue } from "."
-import { FollowAnimation } from "../animation/FollowAnimation"
+import { keyframes } from "../animation/generators/keyframes"
 import {
     AnyResolvedKeyframe,
-    ValueAnimationOptions,
     ValueAnimationTransition,
 } from "../animation/types"
+import { replaceTransitionType } from "../animation/utils/replace-transition-type"
+import { follow, FollowOptions } from "./utils/follow"
 import { isMotionValue } from "./utils/is-motion-value"
 
 /**
@@ -79,107 +80,10 @@ export function attachFollow<T extends AnyResolvedKeyframe>(
     source: T | MotionValue<T>,
     options: FollowValueOptions = {}
 ): VoidFunction {
-    const initialValue = value.get()
+    // Default to spring if no type specified (matches useSpring behavior)
+    const transition: FollowValueOptions = { type: "spring", ...options }
+    replaceTransitionType(transition)
+    transition.type = transition.type || keyframes
 
-    let activeAnimation: FollowAnimation | null = null
-    let set: (v: T) => void
-
-    const unit =
-        typeof initialValue === "string"
-            ? initialValue.replace(/[\d.-]/g, "")
-            : undefined
-
-    const onUpdate = (v: number) => set((unit ? v + unit : v) as T)
-
-    const onPlay = () => value["events"].animationStart?.notify()
-
-    const stopAnimation = () => {
-        if (activeAnimation) {
-            activeAnimation.stop()
-            activeAnimation = null
-        }
-        value.animation = undefined
-    }
-
-    value.attach((v, safeSet) => {
-        set = safeSet
-        const target = asNumber(v)
-
-        if (activeAnimation?.state === "running") {
-            /**
-             * Steer the running animation rather than replacing it. This
-             * keeps its completion promise and uses its analytical velocity
-             * for accuracy, preventing systematic velocity loss at high
-             * frame rates (240hz+).
-             */
-            activeAnimation.setTarget(target, options.velocity)
-            return
-        }
-
-        const current = asNumber(value.get())
-        const velocity = activeAnimation
-            ? activeAnimation.getGeneratorVelocity()
-            : value.getVelocity()
-
-        stopAnimation()
-
-        // Don't animate if we're already at the target
-        if (current === target) return
-
-        const animationOptions: ValueAnimationOptions<number> = {
-            keyframes: [current, target],
-            velocity,
-            // Default to spring if no type specified (matches useSpring behavior)
-            type: "spring",
-            restDelta: 0.001,
-            restSpeed: 0.01,
-            ...options,
-            onUpdate,
-        }
-
-        const animation = (activeAnimation = new FollowAnimation({
-            ...animationOptions,
-            onPlay,
-        }))
-
-        value.animation = animation
-
-        animation.then(() => {
-            // Ignore if this animation has since been replaced
-            if (activeAnimation !== animation) return
-            activeAnimation = null
-            value.animation = undefined
-            value["events"].animationComplete?.notify()
-        })
-    }, stopAnimation)
-
-    if (isMotionValue(source)) {
-        let skipNextAnimation = options.skipInitialAnimation === true
-
-        const removeSourceOnChange = source.on("change", (v) => {
-            if (skipNextAnimation) {
-                skipNextAnimation = false
-                value.jump(parseValue(v, unit) as T, false)
-            } else {
-                value.set(parseValue(v, unit) as T)
-            }
-        })
-
-        const removeValueOnDestroy = value.on("destroy", removeSourceOnChange)
-
-        return () => {
-            removeSourceOnChange()
-            removeValueOnDestroy()
-        }
-    }
-
-    return stopAnimation
-}
-
-function parseValue(v: AnyResolvedKeyframe, unit?: string) {
-    return unit ? v + unit : v
-}
-
-function asNumber(v: AnyResolvedKeyframe) {
-    return typeof v === "number" ? v : parseFloat(v)
+    return follow(value, source, transition as FollowOptions)
 }
