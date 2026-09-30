@@ -4,6 +4,21 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [13.4.6] 2026-09-29
+
+### Fixed
+
+-   `AnimatePresence`: `mode="wait"` no longer drops new children if `exit` completes during a React transition.
+
+## [13.4.5] 2026-09-28
+
+### Fixed
+
+-   `layout`: Fix relative child jumping when parent interrupts layout animation.
+-   `AnimatePresence`: Can no longer drop a child added while another exit animation completes.
+-   `Reorder`: Only clear Reorder.Group's reorder guard when values change.
+-   `spring`/`useSpring`: 5% smaller.
+
 ## [13.4.4] 2026-09-25
 
 ### Changed
@@ -24,7 +39,7 @@ Undocumented APIs should be considered internal and may change without warning.
 
 ### Fixed
 
--   `<motion />`: Ensure animations replay when `Suspense` reveals memoized content.
+-   `<motion>`: Ensure animations replay when `Suspense` reveals memoized content.
 
 ## [13.4.2] 2026-09-23
 
@@ -325,7 +340,7 @@ Undocumented APIs should be considered internal and may change without warning.
 
 ### Added
 
--   `<motion />`: New `propagate.tap` prop prevents tap gestures from propagating to parents.
+-   `<motion>`: New `propagate.tap` prop prevents tap gestures from propagating to parents.
 
 ## [12.32.0] 2026-02-05
 
@@ -337,7 +352,7 @@ Undocumented APIs should be considered internal and may change without warning.
 
 ### Fixed
 
--   `<motion />`: Ensure animation state is reset after being re-suspended.
+-   `<motion>`: Ensure animation state is reset after being re-suspended.
 -   Prevent stale values when mixing `transitionEnd` and `transition.type: false`.
 -   Drag: Fix "sticky" throw velocity on initial interaciton.
 -   Drag: Ensure catching a thrown element kills its velocity.
@@ -663,7 +678,7 @@ Undocumented APIs should be considered internal and may change without warning.
 
 ### Fixed
 
--   `<motion />` components now support changing `ref` prop.
+-   `<motion>` components now support changing `ref` prop.
 
 ## [12.23.17] 2025-09-19
 

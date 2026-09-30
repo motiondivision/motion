@@ -1,5 +1,7 @@
 # Check https://circleci.com/docs/2.0/language-javascript/ for more details
 #
+version: 2.1
+
 jobs:
     setup:
         docker:
@@ -120,7 +122,6 @@ jobs:
                   path: test_reports
 
 workflows:
-    version: 2
     build:
         jobs:
             - setup
