@@ -56,11 +56,11 @@ describe("dev warnings in published entry points", () => {
     })
 
     test.each(entries)(
-        "%s drops dev warnings and NODE_ENV checks in production",
+        "%s drops dev warnings and process.env in production",
         async (_, code) => {
             const output = await bundle(code, "production")
             expect(output.includes(devWarnings)).toBe(false)
-            expect(output.includes("NODE_ENV")).toBe(false)
+            expect(output.includes("process.env")).toBe(false)
         }
     )
 })
