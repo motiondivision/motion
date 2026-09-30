@@ -56,15 +56,38 @@ const bounceToDampingRatio = (bounce: number) =>
         : Math.max(1 - bounce, springDefaults.minDamping)
 
 /**
- * Speeds up an overdamped spring so its slow exponential decays at the rate
- * of the critically damped spring with the same duration. A negative bounce
- * then changes the shape of the curve, not how long it takes to settle. 1 at
- * a damping ratio of 1, so there's no jump at a bounce of 0.
+ * Scales an overdamped spring's undamped frequency so that, at its defining
+ * time, it has as far left to go as the critically damped spring that's
+ * criticalFreqTime radians in by then. A negative bounce then changes the
+ * shape of the curve, not when it arrives. 1 at a damping ratio of 1, so
+ * there's no jump at a bounce of 0.
+ *
+ * Solved by Newton on the log of the remaining distance, which is concave,
+ * from criticalFreqTime, which is always below the answer, so it converges.
  */
-const overdampedFreqScale = (dampingRatio: number) =>
-    dampingRatio > 1
-        ? dampingRatio + Math.sqrt(dampingRatio * dampingRatio - 1)
-        : 1
+function overdampedFreqScale(dampingRatio: number, criticalFreqTime: number) {
+    if (!(dampingRatio > 1)) return 1
+
+    const root = Math.sqrt(dampingRatio * dampingRatio - 1)
+    const slow = dampingRatio - root
+    const fast = dampingRatio + root
+    // The remaining distance, times fast - slow (2 * root)
+    const scaledRemaining = (freqTime: number) =>
+        fast * Math.exp(-slow * freqTime) - slow * Math.exp(-fast * freqTime)
+
+    return (
+        approximateRoot(
+            (freqTime) =>
+                Math.log(scaledRemaining(freqTime) / (2 * root)) +
+                criticalFreqTime -
+                Math.log1p(criticalFreqTime),
+            (freqTime) =>
+                (Math.exp(-fast * freqTime) - Math.exp(-slow * freqTime)) /
+                scaledRemaining(freqTime),
+            criticalFreqTime
+        ) / criticalFreqTime
+    )
+}
 
 function calcAngularFreq(undampedFreq: number, dampingRatio: number) {
     return undampedFreq * Math.sqrt(1 - dampingRatio * dampingRatio)
@@ -159,9 +182,10 @@ function findSpring({
     }
 
     const initialGuess = 5 / duration
+    const criticalFreq = approximateRoot(envelope, derivative, initialGuess)
     const undampedFreq =
-        approximateRoot(envelope, derivative, initialGuess) *
-        overdampedFreqScale(dampingRatio)
+        criticalFreq *
+        overdampedFreqScale(dampingRatio, criticalFreq * duration)
     const stiffness = undampedFreq * undampedFreq
 
     return {
@@ -227,7 +251,7 @@ function getSpringOptions(options: SpringOptions) {
             const dampingRatio = bounceToDampingRatio(options.bounce || 0)
             const root =
                 ((2 * Math.PI) / (options.visualDuration * 1.2)) *
-                overdampedFreqScale(dampingRatio)
+                overdampedFreqScale(dampingRatio, (2 * Math.PI) / 1.2)
             springOptions.stiffness = root * root
             springOptions.damping =
                 2 * dampingRatio * Math.sqrt(springOptions.stiffness)
