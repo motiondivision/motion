@@ -4,7 +4,13 @@ import replace from "@rollup/plugin-replace"
 import { resolve } from "path"
 import { rollup } from "rollup"
 
+/**
+ * Bundles the built packages through their package.json exports, so
+ * run `yarn build` first.
+ */
 const entry = resolve(__dirname, "virtual-entry.js")
+
+jest.setTimeout(20000)
 
 async function bundle(code: string) {
     const build = await rollup({
@@ -30,8 +36,9 @@ async function bundle(code: string) {
 }
 
 /**
- * The frameloop is the only code in these bundles that schedules
- * with requestAnimationFrame.
+ * The rAF frameloop (frame.ts) is the only code in these bundles that
+ * schedules with requestAnimationFrame. animateView still includes the
+ * microtask batcher, which is expected.
  */
 const frameloop = "requestAnimationFrame"
 

@@ -105,11 +105,13 @@ describe("animation inspection", () => {
                 duration: 300,
                 autoplay: false,
             })
+        let frameTimestamp = 0
         try {
             time.set(123)
             start()
             await new Promise<void>((resolve) =>
                 frame.update(() => {
+                    frameTimestamp = frameData.timestamp
                     start()
                     resolve()
                 })
@@ -122,12 +124,12 @@ describe("animation inspection", () => {
             timestamp: 123,
             frameIsProcessing: false,
         })
+        expect(frameTimestamp).toBeGreaterThan(0)
         expect(records[1]).toMatchObject({
-            timestamp: frameData.timestamp,
-            frameTimestamp: frameData.timestamp,
+            timestamp: frameTimestamp,
+            frameTimestamp,
             frameIsProcessing: true,
         })
-        expect(records[1].frameTimestamp).toBeGreaterThan(0)
     })
 
     test("reports layout progress with its projection node in the starting frame", async () => {
