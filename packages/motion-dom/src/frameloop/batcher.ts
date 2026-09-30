@@ -7,16 +7,15 @@ const maxElapsed = 40
 
 export function createRenderBatcher(
     scheduleNextBatch: (callback: Function) => void,
-    allowKeepAlive: boolean
-) {
-    let runNextFrame = false
-    let useDefaultElapsed = true
-
-    const state: FrameData = {
+    allowKeepAlive: boolean,
+    state: FrameData = {
         delta: 0.0,
         timestamp: 0.0,
         isProcessing: false,
     }
+) {
+    let runNextFrame = false
+    let useDefaultElapsed = true
 
     const flagRunNextFrame = () => (runNextFrame = true)
 

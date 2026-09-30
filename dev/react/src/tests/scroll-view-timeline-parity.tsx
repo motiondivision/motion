@@ -58,7 +58,7 @@ const clamp = (v: number) => Math.min(1, Math.max(0, v))
 
 const cells: Cell[] = []
 
-;(window as any).readCells = () =>
+const readCells = () =>
     cells.map(
         ({ name, size, element, progress, range: [from, to] = [0, 1] }) => ({
             name,
@@ -216,17 +216,22 @@ const FixedOverlay = () => (
     </div>
 )
 
-export const App = () => (
-    <div>
-        <Target size="small" />
-        <Target size="large" />
-        <Target size="equal" />
-        <div style={spacer} />
-        <TransformedParent />
-        <div style={spacer} />
-        <FixedOverlay />
-    </div>
-)
+export const App = () => {
+    // Every test page module is loaded, so only claim the global once rendered
+    ;(window as any).readCells = readCells
+
+    return (
+        <div>
+            <Target size="small" />
+            <Target size="large" />
+            <Target size="equal" />
+            <div style={spacer} />
+            <TransformedParent />
+            <div style={spacer} />
+            <FixedOverlay />
+        </div>
+    )
+}
 
 const spacer = { height: 600 }
 const probes: React.CSSProperties = { position: "fixed", top: 0, left: 0 }

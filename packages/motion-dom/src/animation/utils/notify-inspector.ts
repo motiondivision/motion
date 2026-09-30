@@ -1,4 +1,4 @@
-import { frameData } from "../../frameloop/frame"
+import { frameData } from "../../frameloop/frame-data"
 import { time } from "../../frameloop/sync-time"
 
 interface MotionInspectBase {
