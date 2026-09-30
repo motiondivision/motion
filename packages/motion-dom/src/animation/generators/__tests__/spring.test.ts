@@ -351,10 +351,6 @@ describe("negative bounce", () => {
             expect(overdamped.next(100).value).not.toBeCloseTo(
                 critical.next(100).value
             )
-            // Bounce changes the shape of the curve, not how long it takes
-            expect(calcGeneratorDuration(overdamped)).toBeLessThanOrEqual(
-                calcGeneratorDuration(critical)
-            )
             expectMonotonicWithoutOvershoot(
                 sampleUntilDone({
                     keyframes: [0, 100],
@@ -364,6 +360,45 @@ describe("negative bounce", () => {
             )
         }
     )
+
+    const pinnedBounces = [0, -0.5, -0.9, -0.95, -0.99, -1]
+
+    // Tiny rest thresholds, so no sample is snapped to the target
+    const unsnapped = (options: Partial<ValueAnimationOptions<number>>) =>
+        spring({
+            ...options,
+            keyframes: [0, 100],
+            restDelta: 1e-9,
+            restSpeed: 1e-9,
+        })
+
+    describe.each([0.3, 1])("visualDuration %d", (visualDuration) => {
+        const t = visualDuration * 1000
+        const critical = unsnapped({ visualDuration, bounce: 0 }).next(t).value
+
+        test.each(pinnedBounces)(
+            "bounce of %d reaches the same progress as bounce 0 at visualDuration",
+            (bounce) => {
+                expect(critical).toBeCloseTo(96.68, 2)
+                expect(
+                    unsnapped({ visualDuration, bounce }).next(t).value
+                ).toBeCloseTo(critical, 6)
+            }
+        )
+    })
+
+    describe.each([300, 800, 2000])("duration %d", (duration) => {
+        test.each(pinnedBounces)(
+            "bounce of %d has 0.1% of the distance left at duration",
+            (bounce) => {
+                const generator = unsnapped({ duration, bounce })
+                expect(100 - generator.next(duration - 1e-9).value).toBeCloseTo(
+                    0.1,
+                    6
+                )
+            }
+        )
+    })
 
     test("bounce is limited to -0.95", () => {
         expect(spring(0.3, -5).toString()).toEqual(
