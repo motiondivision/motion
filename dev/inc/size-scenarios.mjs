@@ -137,8 +137,8 @@ export const canaries = [
     },
     {
         scenarios: "*",
-        forbid: "troubleshooting",
-        why: "Dev-only warnings survive production dead-code elimination (plan 036)",
+        forbid: "typeof console",
+        why: "The dev-only warning body survives production dead-code elimination (plan 036)",
         knownLeak: true,
     },
 ]
