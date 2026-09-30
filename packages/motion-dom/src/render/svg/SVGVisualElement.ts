@@ -40,6 +40,16 @@ export class SVGVisualElement extends DOMVisualElement<
             : props[key as keyof MotionNodeOptions]
     }
 
+    /**
+     * An independent transform's origin is never read from the DOM, so it
+     * starts from its latest or default value and renders on mount.
+     */
+    getDefaultValue(key: string) {
+        return transformProps.has(key)
+            ? this.latestValues[key] ?? defaultTransformValue(key)
+            : undefined
+    }
+
     readValueFromInstance(instance: SVGElement, key: string) {
         if (transformProps.has(key)) {
             const defaultType = getDefaultValueType(key)

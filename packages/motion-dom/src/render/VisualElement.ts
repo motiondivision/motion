@@ -173,6 +173,13 @@ export abstract class VisualElement<
     onBindTransform?(): void
 
     /**
+     * The value getValue starts a new motion value from when it isn't given
+     * a default. Without it, values start unread and the keyframe resolver
+     * reads their origin.
+     */
+    getDefaultValue?(key: string): AnyResolvedKeyframe | undefined
+
+    /**
      * If the component child is provided as a motion value, handle subscriptions
      * with the renderer-specific VisualElement.
      */
@@ -854,19 +861,9 @@ export abstract class VisualElement<
         let value = this.values.get(key)
 
         if (value === undefined && defaultValue !== undefined) {
-            /**
-             * An independent transform with a latest value or a base (e.g.
-             * SVG's default) starts from it and renders now. Otherwise it
-             * stays undefined until the keyframe resolver reads its origin,
-             * which for HTML can be the computed transform.
-             */
-            if (defaultValue === null && transformProps.has(key)) {
-                const base = this.getBaseTargetFromProps(this.props, key)
-                defaultValue =
-                    this.latestValues[key] ??
-                    (isMotionValue(base) ? undefined : base)
-            }
-            value = motionValue(defaultValue ?? undefined, { owner: this })
+            value = motionValue(defaultValue ?? this.getDefaultValue?.(key), {
+                owner: this,
+            })
             this.addValue(key, value)
         }
 
