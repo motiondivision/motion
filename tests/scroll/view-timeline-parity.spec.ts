@@ -73,12 +73,6 @@ async function findUnexpectedTimelines(page: Page) {
         )
 }
 
-const skipWebKit = (browserName: string) =>
-    test.skip(
-        browserName === "webkit",
-        "Playwright's WebKit exposes ViewTimeline but its progress doesn't follow scroll"
-    )
-
 test.describe("scroll() ViewTimeline and JS parity", () => {
     test.use({ viewport: { width: 500, height: 500 } })
 
@@ -93,18 +87,13 @@ test.describe("scroll() ViewTimeline and JS parity", () => {
 
     test("native and JS progress agree for every offset and target size", async ({
         page,
-        browserName,
     }) => {
-        skipWebKit(browserName)
         expect(await findMismatches(page)).toEqual([])
     })
 
     test("native and JS progress agree after resizes flip target sizes", async ({
         page,
-        browserName,
     }) => {
-        skipWebKit(browserName)
-
         // Swap the short and tall targets
         await page.evaluate(() => {
             document.getElementById("small")!.style.height = "800px"
@@ -127,10 +116,7 @@ test.describe("scroll() ViewTimeline and JS parity", () => {
 
     test("native and JS progress agree after resizes while scrolled into and past targets", async ({
         page,
-        browserName,
     }) => {
-        skipWebKit(browserName)
-
         const mismatches: string[] = []
 
         // Each resize flips the direction of offsets like All
@@ -163,10 +149,7 @@ test.describe("scroll() ViewTimeline and JS parity", () => {
 
     test("native and JS progress agree when a target resizes in the same task as scroll()", async ({
         page,
-        browserName,
     }) => {
-        skipWebKit(browserName)
-
         const mismatches: string[] = []
 
         // Each resize flips All before the animation's first frame
