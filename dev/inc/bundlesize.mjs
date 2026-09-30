@@ -1,5 +1,8 @@
 import fs from "fs"
 import path from "path"
+import { fileURLToPath } from "url"
+
+const repoRoot = fileURLToPath(new URL("../..", import.meta.url))
 
 const packages = ["framer-motion", "motion-dom"]
 const targetPackage = process.argv[2]
@@ -13,7 +16,7 @@ const packagesToCheck = targetPackage ? [targetPackage] : packages
 
 async function checkBundleSize(packageName) {
     const packagePath = path.join(
-        process.cwd(),
+        repoRoot,
         "packages",
         packageName,
         "package.json"
@@ -34,12 +37,7 @@ async function checkBundleSize(packageName) {
     let hasFailures = false
 
     for (const { path: filePath, maxSize } of pkg.bundlesize) {
-        const fullPath = path.join(
-            process.cwd(),
-            "packages",
-            packageName,
-            filePath
-        )
+        const fullPath = path.join(repoRoot, "packages", packageName, filePath)
 
         if (!fs.existsSync(fullPath)) {
             console.error(`❌ File not found: ${filePath}`)
