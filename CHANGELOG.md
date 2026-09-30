@@ -4,6 +4,25 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [13.4.7] 2026-09-30
+
+### Changed
+
+-   `scroll`/`useScroll`: More `offset`s are now hardware accelerated via `ViewTimeline`.
+
+### Fixed
+
+-   `animate`: Reduced size of Motion Studio introspection call.
+-   `useTransform`: Accelerated values now correctly clamp.
+-   `scroll`/`useScroll`: Ensure offsets work the same across the JS main thread and `ViewTimeline`.
+-   `scroll`/`useScroll`: Remove `ScrollTimeline`/`ViewTimeline` observer in favour of main-thread scroll tracking.
+
+## [13.4.6] 2026-09-29
+
+### Fixed
+
+-   `AnimatePresence`: `mode="wait"` no longer drops new children if `exit` completes during a React transition.
+
 ## [13.4.5] 2026-09-28
 
 ### Fixed

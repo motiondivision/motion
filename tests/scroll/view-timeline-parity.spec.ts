@@ -1,0 +1,227 @@
+import { expect, Page, test } from "@playwright/test"
+
+interface Cell {
+    name: string
+    size: string
+    mapped: boolean
+    js: number
+    native: number
+    x: number
+    timeline?: string
+}
+
+const readCells = (page: Page) =>
+    page.evaluate(() => (window as any).readCells() as Cell[])
+
+const nextFrames = (page: Page) =>
+    page.evaluate(
+        () =>
+            new Promise<void>((resolve) =>
+                requestAnimationFrame(() =>
+                    requestAnimationFrame(() =>
+                        requestAnimationFrame(() => resolve())
+                    )
+                )
+            )
+    )
+
+/**
+ * Scrolls through the page, comparing the WAAPI (native) and JS-driven
+ * (x) progress of every cell against the JS scrollInfo progress.
+ */
+async function findMismatches(page: Page, label = "") {
+    const maxScroll = await page.evaluate(
+        () => document.documentElement.scrollHeight - window.innerHeight
+    )
+
+    const mismatches: string[] = []
+
+    for (let y = 0; y <= maxScroll; y += 50) {
+        // scrollInfo doesn't track target resizes, so always fire a scroll
+        await page.evaluate((y) => {
+            window.scrollTo(0, y)
+            window.dispatchEvent(new Event("scroll"))
+        }, y)
+        await nextFrames(page)
+
+        for (const cell of await readCells(page)) {
+            for (const key of ["native", "x"] as const) {
+                if (Math.abs(cell[key] - cell.js) > 0.01) {
+                    mismatches.push(
+                        `${label}${cell.size} target, ${
+                            cell.name
+                        }, ${key} at ${y}px: ${cell[key].toFixed(
+                            3
+                        )} (JS ${cell.js.toFixed(3)})`
+                    )
+                }
+            }
+        }
+    }
+
+    return mismatches
+}
+
+async function findUnexpectedTimelines(page: Page) {
+    return (await readCells(page))
+        .filter((cell) => (cell.timeline === "ViewTimeline") !== cell.mapped)
+        .map(
+            (cell) =>
+                `${cell.size} target, ${cell.name}: ${
+                    cell.timeline
+                }, expected ${cell.mapped ? "" : "no "}ViewTimeline`
+        )
+}
+
+test.describe("scroll() ViewTimeline and JS parity", () => {
+    test.use({ viewport: { width: 500, height: 500 } })
+
+    // Each test scrolls through the whole page, a few frames per position
+    test.describe.configure({ timeout: 120_000 })
+
+    test.beforeEach(async ({ page }) => {
+        await page.goto("scroll/view-timeline-parity.html")
+        await page.waitForFunction(() => (window as any).readCells)
+        await page.waitForTimeout(100)
+    })
+
+    test("native and JS progress agree for every offset and target size", async ({
+        page,
+    }) => {
+        expect(await findMismatches(page)).toEqual([])
+    })
+
+    test("native and JS progress agree after resizes flip target sizes", async ({
+        page,
+    }) => {
+        // Swap the short and tall targets
+        await page.evaluate(() => {
+            document.getElementById("small")!.style.height = "800px"
+            document.getElementById("large")!.style.height = "100px"
+        })
+        await nextFrames(page)
+        const afterTargetResize = await findMismatches(page, "target resize: ")
+
+        // Everything is now shorter than the viewport
+        await page.setViewportSize({ width: 500, height: 1000 })
+        await nextFrames(page)
+        const afterViewportResize = await findMismatches(
+            page,
+            "viewport resize: "
+        )
+
+        expect([...afterTargetResize, ...afterViewportResize]).toEqual([])
+        expect(await findUnexpectedTimelines(page)).toEqual([])
+    })
+
+    test("native and JS progress agree after resizes while scrolled into and past targets", async ({
+        page,
+    }) => {
+        const mismatches: string[] = []
+
+        // Each resize flips the direction of offsets like All
+        for (const [y, small, large] of [
+            [0, 800, 100],
+            [650, 100, 800],
+            [900, 800, 100],
+            [2000, 100, 800],
+        ]) {
+            await page.evaluate(
+                ([y, small, large]) => {
+                    window.scrollTo(0, y)
+                    document.getElementById(
+                        "small"
+                    )!.style.height = `${small}px`
+                    document.getElementById(
+                        "large"
+                    )!.style.height = `${large}px`
+                },
+                [y, small, large]
+            )
+            await nextFrames(page)
+            mismatches.push(
+                ...(await findMismatches(page, `resize at ${y}px: `))
+            )
+        }
+
+        expect(mismatches).toEqual([])
+    })
+
+    test("native and JS progress agree when a target resizes in the same task as scroll()", async ({
+        page,
+    }) => {
+        const mismatches: string[] = []
+
+        // Each resize flips All before the animation's first frame
+        for (const [from, to] of [
+            [100, 800],
+            [800, 100],
+        ]) {
+            const top = await page.evaluate(
+                ([from, to]) => {
+                    const { animate, scroll } = (window as any).Motion
+                    const target = document.createElement("div")
+                    const probe = document.createElement("div")
+                    const spacer = document.createElement("div")
+                    spacer.style.height = "1500px"
+                    target.style.height = `${from}px`
+                    probe.style.cssText = "position:fixed;width:1px;height:1px"
+                    document.body.append(target, spacer, probe)
+
+                    const late = { probe, js: 0 }
+                    ;(window as any).late = late
+                    scroll(
+                        animate(
+                            probe,
+                            { opacity: [0, 1] },
+                            { duration: 1, ease: "linear" }
+                        ),
+                        { target }
+                    )
+                    scroll(
+                        (_: number, info: any) => (late.js = info.y.progress),
+                        {
+                            target,
+                        }
+                    )
+                    target.style.height = `${to}px`
+                    return target.offsetTop
+                },
+                [from, to]
+            )
+
+            for (let y = top - 500; y <= top + 800; y += 50) {
+                await page.evaluate((y) => {
+                    window.scrollTo(0, y)
+                    window.dispatchEvent(new Event("scroll"))
+                }, y)
+                await nextFrames(page)
+                const { native, js } = await page.evaluate(() => {
+                    const { probe, js } = (window as any).late
+                    return {
+                        native: parseFloat(getComputedStyle(probe).opacity),
+                        js,
+                    }
+                })
+                if (Math.abs(native - js) > 0.01) {
+                    mismatches.push(
+                        `${from}px -> ${to}px at ${y}px: ${native.toFixed(
+                            3
+                        )} (JS ${js.toFixed(3)})`
+                    )
+                }
+            }
+        }
+
+        expect(mismatches).toEqual([])
+    })
+
+    test("offsets with an exact ViewTimeline range run natively", async ({
+        page,
+    }) => {
+        const supported = await page.evaluate(() => "ViewTimeline" in window)
+        test.skip(!supported, "ViewTimeline is not supported")
+
+        expect(await findUnexpectedTimelines(page)).toEqual([])
+    })
+})

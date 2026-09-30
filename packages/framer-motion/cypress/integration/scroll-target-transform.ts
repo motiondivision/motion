@@ -1,10 +1,13 @@
-describe("useScroll with target does not set accelerate", () => {
-    it("Does not set accelerate when target is provided", () => {
+describe("useScroll with target only sets accelerate with ViewTimeline", () => {
+    it("Only sets accelerate when target is provided if ViewTimeline is supported", () => {
         cy.visit("?test=scroll-target-transform")
             .wait(200)
             .get("#has-accelerate")
             .should(([$el]: any) => {
-                expect($el.innerText).to.equal("false")
+                const expected = (window as any).ViewTimeline
+                    ? "true"
+                    : "false"
+                expect($el.innerText).to.equal(expected)
             })
     })
 
