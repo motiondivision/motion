@@ -120,18 +120,19 @@ describe("spring", () => {
         ])
     })
     test("Overdamped spring with very high stiffness/damping", () => {
-        expect(
-            animateSync(
-                spring({
-                    keyframes: [100, 1000],
-                    stiffness: 1000000,
-                    damping: 10000000,
-                    restDelta: 1,
-                    restSpeed: 10,
-                }),
-                200
+        const generator = spring({
+            keyframes: [100, 1000],
+            stiffness: 1000000,
+            damping: 10000000,
+        })
+
+        // A damping ratio of 5000 creeps at stiffness / damping (0.1/s)
+        for (const t of [0, 200, 1000, 10000, 60000]) {
+            expect(generator.next(t).value).toBeCloseTo(
+                1000 - 900 * Math.exp(-t / 10000),
+                0
             )
-        ).toEqual([100, 1000])
+        }
     })
 
     test("Velocity passed to overdamped spring", () => {
@@ -332,7 +333,11 @@ describe("negative bounce", () => {
             const overdamped = spring(0.3, bounce)
             const critical = spring(0.3, 0)
 
-            expect(calcGeneratorDuration(overdamped)).toBeGreaterThan(
+            expect(overdamped.next(100).value).not.toBeCloseTo(
+                critical.next(100).value
+            )
+            // Bounce changes the shape of the curve, not how long it takes
+            expect(calcGeneratorDuration(overdamped)).toBeLessThanOrEqual(
                 calcGeneratorDuration(critical)
             )
             expectMonotonicWithoutOvershoot(
@@ -350,6 +355,28 @@ describe("negative bounce", () => {
             spring(0.3, -0.95).toString()
         )
     })
+
+    test.each([{ duration: 800 }, { visualDuration: 0.3 }])(
+        "bounce just below 0 matches a critically damped spring with %o",
+        (options) => {
+            const overdamped = spring({
+                ...options,
+                keyframes: [0, 100],
+                bounce: -1e-8,
+            })
+            const critical = spring({
+                ...options,
+                keyframes: [0, 100],
+                bounce: 0,
+            })
+            for (const t of [50, 100, 200, 400]) {
+                expect(overdamped.next(t).value).toBeCloseTo(
+                    critical.next(t).value,
+                    1
+                )
+            }
+        }
+    )
 
     test("heavily overdamped spring moves continuously to its target", () => {
         // A damping ratio of 20
