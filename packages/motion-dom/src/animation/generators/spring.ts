@@ -410,6 +410,19 @@ function spring(
         const slow = decay - dampedAngularFreq
         const fast = decay + dampedAngularFreq
 
+        /**
+         * Physics-defined springs keep a limit: once dampedAngularFreq * t
+         * passes 300, both terms decay at the damping rate. Heavily
+         * overdamped drag springs (dragElastic: 0, dragTransition) rely on
+         * this to settle almost at once rather than creep at
+         * stiffness / damping.
+         */
+        const limit = isTimeDefined ? Infinity : 300 / dampedAngularFreq
+        const decayAt = (rate: number, t: number) =>
+            Math.exp(
+                t > limit ? -rate * limit - decay * (t - limit) : -rate * t
+            )
+
         const c = { S: 0, F: 0 }
         update = () => {
             const P = (s.velocity + decay * s.delta) / dampedAngularFreq
@@ -418,11 +431,11 @@ function spring(
         }
 
         resolveSpring = (t: number) =>
-            s.target - c.S * Math.exp(-slow * t) - c.F * Math.exp(-fast * t)
+            s.target - c.S * decayAt(slow, t) - c.F * decayAt(fast, t)
 
         // Analytical derivative of overdamped spring (px/ms)
         resolveVelocity = (t: number) =>
-            slow * c.S * Math.exp(-slow * t) + fast * c.F * Math.exp(-fast * t)
+            slow * c.S * decayAt(slow, t) + fast * c.F * decayAt(fast, t)
     }
 
     update()
