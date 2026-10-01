@@ -3,6 +3,7 @@ import type {
     TargetAndTransition,
     TargetResolver,
 } from "../../node/types"
+import type { AnimationType } from "../types"
 import { resolveVariantFromProps } from "./resolve-variants"
 
 /**
@@ -24,11 +25,17 @@ export function resolveVariant(
     definition?: AnimationDefinition,
     custom?: any
 ) {
-    const props = visualElement.getProps()
     return resolveVariantFromProps(
-        props,
+        visualElement.getProps(),
         definition,
-        custom !== undefined ? custom : props.custom,
+        custom,
         visualElement
     )
 }
+
+/**
+ * Exit variants resolve with AnimatePresence's custom, every other type
+ * with the element's own.
+ */
+export const getTypeCustom = (visualElement: any, type?: AnimationType) =>
+    type === "exit" ? visualElement.presenceContext?.custom : undefined

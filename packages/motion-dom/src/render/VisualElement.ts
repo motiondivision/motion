@@ -42,7 +42,6 @@ import {
     initPrefersReducedMotion,
     prefersReducedMotion,
 } from "./utils/reduced-motion"
-import { resolveVariantFromProps } from "./utils/resolve-variants"
 
 const propEventHandlers = [
     "AnimationStart",
@@ -358,13 +357,15 @@ export abstract class VisualElement<
     /**
      * When values are removed from all animation props we need to search
      * for a fallback value to animate to. These values are tracked in baseTarget.
+     * @internal
      */
-    private baseTarget: ResolvedValues
+    baseTarget: ResolvedValues
 
     /**
      * Create an object of the values we initially animated from (if initial prop present).
+     * @internal
      */
-    private initialValues: ResolvedValues
+    initialValues: ResolvedValues
 
     /**
      * Track whether this element has been mounted before, to detect
@@ -465,8 +466,20 @@ export abstract class VisualElement<
             this.projection.mount(instance)
         }
 
-        if (this.parent && this.isVariantNode && !this.isControllingVariants) {
-            this.removeFromVariantTree = this.parent.addVariantChild(this)
+        /**
+         * Join the closest variant node above, so its variant changes
+         * propagate here, unless inherit={false} cuts the chain.
+         */
+        if (this.isVariantNode && !this.isControllingVariants) {
+            let node: VisualElement | undefined | false = this
+            do node = node.props.inherit !== false && node.parent
+            while (node && !node.isVariantNode)
+
+            if (node) {
+                const { variantChildren } = node
+                variantChildren!.add(this)
+                this.removeFromVariantTree = () => variantChildren!.delete(this)
+            }
         }
 
         this.values.forEach((value, key) => this.bindToMotionValue(key, value))
@@ -780,26 +793,6 @@ export abstract class VisualElement<
         return (this.props as any).transformPagePoint
     }
 
-    getClosestVariantNode(): VisualElement | undefined {
-        return this.isVariantNode
-            ? this
-            : this.parent
-            ? this.parent.getClosestVariantNode()
-            : undefined
-    }
-
-    /**
-     * Add a child visual element to our set of children.
-     */
-    addVariantChild(child: VisualElement) {
-        const closestVariantNode = this.getClosestVariantNode()
-        if (closestVariantNode) {
-            closestVariantNode.variantChildren &&
-                closestVariantNode.variantChildren.add(child)
-            return () => closestVariantNode.variantChildren!.delete(child)
-        }
-    }
-
     /**
      * Add a motion value and bind it to this visual element.
      */
@@ -916,52 +909,6 @@ export abstract class VisualElement<
      */
     setBaseTarget(key: string, value: AnyResolvedKeyframe) {
         this.baseTarget[key] = value
-    }
-
-    /**
-     * Find the base target for a value thats been removed from all animation
-     * props.
-     */
-    getBaseTarget(key: string): ResolvedValues[string] | undefined | null {
-        const { initial } = this.props
-
-        let valueFromInitial: ResolvedValues[string] | undefined | null
-
-        if (typeof initial === "string" || typeof initial === "object") {
-            const variant = resolveVariantFromProps(
-                this.props,
-                initial as any,
-                this.presenceContext?.custom
-            )
-            if (variant) {
-                valueFromInitial = variant[
-                    key as keyof typeof variant
-                ] as string
-            }
-        }
-
-        /**
-         * If this value still exists in the current initial variant, read that.
-         */
-        if (initial && valueFromInitial !== undefined) {
-            return valueFromInitial
-        }
-
-        /**
-         * Alternatively, if this VisualElement config has defined a getBaseTarget
-         * so we can read the value from an alternative source, try that.
-         */
-        const target = this.getBaseTargetFromProps(this.props, key)
-        if (target !== undefined && !isMotionValue(target)) return target
-
-        /**
-         * If the value was initially defined on initial, but it doesn't any more,
-         * return undefined. Otherwise return the value as initially read from the DOM.
-         */
-        return this.initialValues[key] !== undefined &&
-            valueFromInitial === undefined
-            ? undefined
-            : this.baseTarget[key]
     }
 
     on<EventName extends keyof VisualElementEventCallbacks>(

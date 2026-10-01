@@ -7,11 +7,10 @@ import type { AnimationType } from "../types"
 import type { VisualElementAnimationOptions } from "../../animation/interfaces/types"
 import { animateVisualElement } from "../../animation/interfaces/visual-element"
 import { calcChildStagger } from "../../animation/utils/calc-child-stagger"
-import { getVariantContext } from "./get-variant-context"
+import { isMotionValue } from "../../value/utils/is-motion-value"
 import { isAnimationControls } from "./is-animation-controls"
-import { isKeyframesTarget } from "./is-keyframes-target"
 import { isVariantLabel } from "./is-variant-label"
-import { resolveVariant } from "./resolve-dynamic-variants"
+import { getTypeCustom, resolveVariant } from "./resolve-dynamic-variants"
 import { shallowCompare } from "./shallow-compare"
 import { variantPriorityOrder } from "./variant-props"
 
@@ -19,11 +18,7 @@ export type { VisualElementAnimationOptions }
 
 export interface AnimationState {
     animateChanges: (type?: AnimationType) => Promise<any>
-    setActive: (
-        type: AnimationType,
-        isActive: boolean,
-        options?: VisualElementAnimationOptions
-    ) => Promise<any>
+    setActive: (type: AnimationType, isActive: boolean) => Promise<any>
     setAnimateFunction: (fn: any) => void
     getState: () => { [key: string]: AnimationTypeState }
     reset: () => void
@@ -36,303 +31,181 @@ interface DefinitionAndOptions {
 
 export type AnimationList = string[] | TargetAndTransition[]
 
-const reversePriorityOrder = [...variantPriorityOrder].reverse()
-const numAnimationTypes = variantPriorityOrder.length
-
 /**
  * Type for the animate function that can be injected.
  * This allows the animation implementation to be provided by the framework layer.
  */
 export type AnimateFunction = (animations: DefinitionAndOptions[]) => Promise<any>
 
-function createAnimateFunction(visualElement: any): AnimateFunction {
-    return (animations: DefinitionAndOptions[]) => {
-        return Promise.all(
+const reversePriorityOrder = [...variantPriorityOrder].reverse()
+
+/**
+ * Diffs the element's animation props (one layer per AnimationType, highest
+ * priority wins each value) against the previous call and starts animations
+ * for what changed.
+ *
+ * Uses `any` type for visualElement to avoid circular dependencies. It reads
+ * props, parent, presenceContext, variantChildren, enteringChildren,
+ * manuallyAnimateOnMount, blockInitialAnimation, getValue(),
+ * getBaseTargetFromProps(), baseTarget and initialValues.
+ */
+export function createAnimationState(visualElement: any): AnimationState {
+    let animate: AnimateFunction = (animations) =>
+        Promise.all(
             animations.map(({ animation, options }) =>
                 animateVisualElement(visualElement, animation, options)
             )
         )
-    }
-}
-
-export function createAnimationState(visualElement: any): AnimationState {
-    let animate = createAnimateFunction(visualElement)
     let state = createState()
     let isInitialRender = true
+
     /**
-     * Track whether the animation state has been reset (e.g. via StrictMode
-     * double-invocation or Suspense unmount/remount). On the first
-     * animateChanges() call after a reset we need to behave like the initial
-     * render for variant-inheritance checks, even though isInitialRender is
-     * already false.
+     * After a reset (StrictMode, Suspense, AnimatePresence re-entry) the next
+     * animateChanges() mounts again, but initial={false} no longer applies.
      */
     let wasReset = false
 
-    /**
-     * This function will be used to reduce the animation definitions for
-     * each active animation type into an object of resolved values for it.
-     */
-    const buildResolvedTypeValues =
-        (type: AnimationType) =>
-        (
-            acc: { [key: string]: any },
-            definition: string | TargetAndTransition | undefined
-        ) => {
-            const resolved = resolveVariant(
-                visualElement,
-                definition,
-                type === "exit"
-                    ? visualElement.presenceContext?.custom
-                    : undefined
-            )
-
-            if (resolved) {
-                const { transition, transitionEnd, ...target } = resolved
-                acc = { ...acc, ...target, ...transitionEnd }
-            }
-
-            return acc
-        }
-
-    /**
-     * This just allows us to inject mocked animation functions
-     * @internal
-     */
-    function setAnimateFunction(
-        makeAnimator: (visualElement: any) => AnimateFunction
-    ) {
-        animate = makeAnimator(visualElement)
-    }
-
-    /**
-     * When we receive new props, we need to:
-     * 1. Create a list of protected keys for each type. This is a directory of
-     *    value keys that are currently being "handled" by types of a higher priority
-     *    so that whenever an animation is played of a given type, these values are
-     *    protected from being animated.
-     * 2. Determine if an animation type needs animating.
-     * 3. Determine if any values have been removed from a type and figure out
-     *    what to animate those to.
-     */
     function animateChanges(changedActiveType?: AnimationType) {
-        const { props } = visualElement
-        const context = getVariantContext(visualElement.parent) || {}
-
-        /**
-         * A list of animations that we'll build into as we iterate through the animation
-         * types. This will get executed at the end of the function.
-         */
+        const { props, parent, manuallyAnimateOnMount } = visualElement
+        const isMounting = isInitialRender || wasReset
         const animations: DefinitionAndOptions[] = []
 
         /**
-         * Keep track of which values have been removed. Then, as we hit lower priority
-         * animation types, we can check if they contain removed values and animate to that.
+         * Values removed from a type. A lower-priority type that defines
+         * them animates them back, otherwise they fall back to a base target.
          */
         const removedKeys = new Set<string>()
 
         /**
-         * A dictionary of all encountered keys. This is an object to let us build into and
-         * copy it without iteration. Each time we hit an animation type we set its protected
-         * keys - the keys its not allowed to animate - to the latest version of this object.
+         * Values claimed by active, higher-priority types.
          */
         let encounteredKeys: { [key: string]: any } = {}
 
         /**
-         * If a variant has been removed at a given index, and this component is controlling
-         * variant animations, we want to ensure lower-priority variants are forced to animate.
+         * Once a type has been deactivated, lower-priority variant labels
+         * re-animate so variant children animate back too.
          */
         let removedVariantIndex = Infinity
 
         /**
-         * Iterate through all animation types in reverse priority order. For each, we want to
-         * detect which values it's handling and whether or not they've changed (and therefore
-         * need to be animated). If any values have been removed, we want to detect those in
-         * lower priority props and flag for animation.
+         * Variant labels are inherited from the closest variant-controlling
+         * ancestor, unless an element on the way has inherit={false}.
          */
-        for (let i = 0; i < numAnimationTypes; i++) {
-            const type = reversePriorityOrder[i]
-            const typeState = state[type]
-            const prop =
-                props[type] !== undefined
-                    ? props[type]
-                    : context[type as keyof typeof context]
-            const propIsVariant = isVariantLabel(prop)
+        let source = visualElement
+        do source = source.props.inherit !== false && source.parent
+        while (source && !source.isControllingVariants)
 
-            /**
-             * If this type has *just* changed isActive status, set activeDelta
-             * to that status. Otherwise set to null.
-             */
+        reversePriorityOrder.forEach((type, i) => {
+            const typeState = state[type]
+            const ownProp = props[type]
+            const inheritedProp = source && source.props[type]
+            const prop =
+                ownProp !== undefined
+                    ? ownProp
+                    : isVariantLabel(inheritedProp) || inheritedProp === false
+                    ? inheritedProp
+                    : undefined
+            const propIsVariant = isVariantLabel(prop)
             const activeDelta =
                 type === changedActiveType ? typeState.isActive : null
 
             if (activeDelta === false) removedVariantIndex = i
 
             /**
-             * If this prop is an inherited variant, rather than been set directly on the
-             * component itself, we want to make sure we allow the parent to trigger animations.
-             *
-             * TODO: Can probably change this to a !isControllingVariants check
+             * Inherited labels are animated by the parent through
+             * variantChildren, unless this element mounted after its parent.
              */
-            let isInherited =
-                prop === context[type as keyof typeof context] &&
-                prop !== props[type] &&
-                propIsVariant
+            const isInherited =
+                propIsVariant &&
+                ownProp === undefined &&
+                !(isMounting && manuallyAnimateOnMount)
 
-            if (
-                isInherited &&
-                (isInitialRender || wasReset) &&
-                visualElement.manuallyAnimateOnMount
-            ) {
-                isInherited = false
-            }
-
-            /**
-             * Set all encountered keys so far as the protected keys for this type. This will
-             * be any key that has been animated or otherwise handled by active, higher-priority types.
-             */
             typeState.protectedKeys = { ...encounteredKeys }
 
-            // Check if we can skip analysing this prop early
             if (
-                // If it isn't active and hasn't *just* been set as inactive
                 (!typeState.isActive && activeDelta === null) ||
-                // If we didn't and don't have any defined prop for this animation type
                 (!prop && !typeState.prevProp) ||
-                // Or if the prop doesn't define an animation
                 isAnimationControls(prop) ||
                 typeof prop === "boolean"
             ) {
-                continue
+                return
             }
 
             /**
-             * If exit is already active and wasn't just activated, skip
-             * re-processing to prevent interrupting running exit animations.
-             * Re-resolving exit with a changed custom value can start new
-             * value animations that stop the originals, leaving the exit
-             * animation promise unresolved and the component stuck in the DOM.
+             * Don't re-resolve a running exit: a changed custom would start
+             * new value animations that stop the originals, leaving the exit
+             * promise unresolved and the element stuck in the DOM.
              */
             if (type === "exit" && typeState.isActive && activeDelta !== true) {
-                if (typeState.prevResolvedValues) {
-                    encounteredKeys = {
-                        ...encounteredKeys,
-                        ...typeState.prevResolvedValues,
-                    }
+                encounteredKeys = {
+                    ...encounteredKeys,
+                    ...typeState.prevResolvedValues,
                 }
-                continue
+                return
             }
 
-            /**
-             * As we go look through the values defined on this type, if we detect
-             * a changed value or a value that was removed in a higher priority, we set
-             * this to true and add this prop to the animation list.
-             */
             const variantDidChange = checkVariantsDidChange(
                 typeState.prevProp,
                 prop
             )
-
             let shouldAnimateType =
                 variantDidChange ||
-                // If we're making this variant active, we want to always make it active
-                (type === changedActiveType &&
-                    typeState.isActive &&
-                    !isInherited &&
-                    propIsVariant) ||
-                // If we removed a higher-priority variant (i is in reverse order)
-                (i > removedVariantIndex && propIsVariant)
-
+                (propIsVariant &&
+                    ((activeDelta && !isInherited) || i > removedVariantIndex))
             let handledRemovedValues = false
-
-            /**
-             * As animations can be set as variant lists, variants or target objects, we
-             * coerce everything to an array if it isn't one already
-             */
             const definitionList = Array.isArray(prop) ? prop : [prop]
+            let resolvedValues: { [key: string]: any } = {}
 
-            /**
-             * Build an object of all the resolved values. We'll use this in the subsequent
-             * animateChanges calls to determine whether a value has changed.
-             */
-            let resolvedValues = definitionList.reduce(
-                buildResolvedTypeValues(type),
-                {}
-            )
-
-            if (activeDelta === false) resolvedValues = {}
-
-            /**
-             * Now we need to loop through all the keys in the prev prop and this prop,
-             * and decide:
-             * 1. If the value has changed, and needs animating
-             * 2. If it has been removed, and needs adding to the removedKeys set
-             * 3. If it has been removed in a higher priority type and needs animating
-             * 4. If it hasn't been removed in a higher priority but hasn't changed, and
-             *    needs adding to the type's protectedKeys list.
-             */
-            const { prevResolvedValues = {} } = typeState
-
-            const allKeys = {
-                ...prevResolvedValues,
-                ...resolvedValues,
-            }
-            const markToAnimate = (key: string) => {
-                shouldAnimateType = true
-                if (removedKeys.has(key)) {
-                    handledRemovedValues = true
-                    removedKeys.delete(key)
+            if (activeDelta !== false) {
+                for (const definition of definitionList) {
+                    const { transition, transitionEnd, ...target } =
+                        resolveVariant(
+                            visualElement,
+                            definition,
+                            getTypeCustom(visualElement, type)
+                        ) || {}
+                    resolvedValues = {
+                        ...resolvedValues,
+                        ...target,
+                        ...transitionEnd,
+                    }
                 }
-                typeState.needsAnimating[key] = true
-
-                const motionValue = visualElement.getValue(key)
-                if (motionValue) motionValue.liveStyle = false
             }
 
-            for (const key in allKeys) {
+            const { prevResolvedValues } = typeState
+
+            for (const key in { ...prevResolvedValues, ...resolvedValues }) {
+                if (key in encounteredKeys) continue
+
                 const next = resolvedValues[key]
                 const prev = prevResolvedValues[key]
 
-                // If we've already handled this we can just skip ahead
-                if (encounteredKeys.hasOwnProperty(key)) continue
-
                 /**
-                 * If the value has changed, we probably want to animate it.
+                 * Keyframes compare by value, but replay whenever the
+                 * variant label changed.
                  */
-                let valueHasChanged = false
-                if (isKeyframesTarget(next) && isKeyframesTarget(prev)) {
-                    valueHasChanged =
-                        !shallowCompare(next, prev) || variantDidChange
-                } else {
-                    valueHasChanged = next !== prev
-                }
+                const valueHasChanged =
+                    Array.isArray(next) && Array.isArray(prev)
+                        ? !shallowCompare(next, prev) || variantDidChange
+                        : next !== prev
 
-                if (valueHasChanged) {
-                    if (next !== undefined && next !== null) {
-                        // If next is defined and doesn't equal prev, it needs animating
-                        markToAnimate(key)
-                    } else {
-                        // If it's undefined, it's been removed.
-                        removedKeys.add(key)
-                    }
-                } else if (next !== undefined && removedKeys.has(key)) {
-                    /**
-                     * If next hasn't changed and it isn't undefined, we want to check if it's
-                     * been removed by a higher priority
-                     */
-                    markToAnimate(key)
+                if (valueHasChanged && next == null) {
+                    removedKeys.add(key)
+                } else if (
+                    valueHasChanged ||
+                    (next !== undefined && removedKeys.has(key))
+                ) {
+                    shouldAnimateType = true
+                    if (removedKeys.delete(key)) handledRemovedValues = true
+                    typeState.needsAnimating[key] = true
+
+                    const motionValue = visualElement.getValue(key)
+                    if (motionValue) motionValue.liveStyle = false
                 } else {
-                    /**
-                     * If it hasn't changed, we add it to the list of protected values
-                     * to ensure it doesn't get animated.
-                     */
                     typeState.protectedKeys[key] = true
                 }
             }
 
-            /**
-             * Update the typeState so next time animateChanges is called we can compare the
-             * latest prop and resolvedValues to these.
-             */
             typeState.prevProp = prop
             typeState.prevResolvedValues = resolvedValues
 
@@ -341,122 +214,103 @@ export function createAnimationState(visualElement: any): AnimationState {
             }
 
             if (
-                (isInitialRender || wasReset) &&
-                visualElement.blockInitialAnimation
+                shouldAnimateType &&
+                (!(isInherited && variantDidChange) || handledRemovedValues)
             ) {
-                shouldAnimateType = false
+                for (const animation of definitionList) {
+                    const options: VisualElementAnimationOptions = { type }
+
+                    /**
+                     * Elements that mount into an already-mounted parent
+                     * animate themselves, staggered by the parent variant's
+                     * delayChildren.
+                     */
+                    if (
+                        typeof animation === "string" &&
+                        isMounting &&
+                        manuallyAnimateOnMount &&
+                        parent?.enteringChildren
+                    ) {
+                        const delayChildren = resolveVariant(parent, animation)
+                            ?.transition?.delayChildren
+
+                        options.delay = calcChildStagger(
+                            parent.enteringChildren,
+                            visualElement,
+                            delayChildren
+                        )
+                    }
+
+                    animations.push({ animation, options })
+                }
             }
-
-            /**
-             * If this is an inherited prop we want to skip this animation
-             * unless the inherited variants haven't changed on this render.
-             */
-            const willAnimateViaParent = isInherited && variantDidChange
-            const needsAnimating = !willAnimateViaParent || handledRemovedValues
-            if (shouldAnimateType && needsAnimating) {
-                animations.push(
-                    ...definitionList.map((animation) => {
-                        const options: VisualElementAnimationOptions = { type }
-
-                        /**
-                         * If we're performing the initial animation, but we're not
-                         * rendering at the same time as the variant-controlling parent,
-                         * we want to use the parent's transition to calculate the stagger.
-                         */
-                        if (
-                            typeof animation === "string" &&
-                            (isInitialRender || wasReset) &&
-                            !willAnimateViaParent &&
-                            visualElement.manuallyAnimateOnMount &&
-                            visualElement.parent
-                        ) {
-                            const { parent } = visualElement
-                            const parentVariant = resolveVariant(
-                                parent,
-                                animation
-                            )
-
-                            if (parent.enteringChildren && parentVariant) {
-                                const { delayChildren } =
-                                    parentVariant.transition || {}
-                                options.delay = calcChildStagger(
-                                    parent.enteringChildren,
-                                    visualElement,
-                                    delayChildren
-                                )
-                            }
-                        }
-
-                        return {
-                            animation: animation as AnimationDefinition,
-                            options,
-                        }
-                    })
-                )
-            }
-        }
+        })
 
         /**
-         * If there are some removed value that haven't been dealt with,
-         * we need to create a new animation that falls back either to the value
-         * defined in the style prop, or the last read value.
+         * Removed values that no lower-priority type defines animate back to
+         * initial, then style, then the value as first read. If initial no
+         * longer defines a value it once did, it stays where it is.
          */
         if (removedKeys.size) {
-            const fallbackAnimation: TargetAndTransition = {}
-
-            /**
-             * If the initial prop contains a transition we can use that, otherwise
-             * allow the animation function to use the visual element's default.
-             */
-            if (typeof props.initial !== "boolean") {
-                const initialTransition = resolveVariant(
+            const { initial } = props
+            const fallbackAnimation: { [key: string]: any } = {}
+            const resolvedInitial =
+                typeof initial !== "boolean" &&
+                resolveVariant(
                     visualElement,
-                    Array.isArray(props.initial)
-                        ? props.initial[0]
-                        : props.initial
+                    Array.isArray(initial) ? initial[0] : initial,
+                    visualElement.presenceContext?.custom
                 )
 
-                if (initialTransition && initialTransition.transition) {
-                    fallbackAnimation.transition = initialTransition.transition
-                }
+            if (resolvedInitial && resolvedInitial.transition) {
+                fallbackAnimation.transition = resolvedInitial.transition
             }
 
             removedKeys.forEach((key) => {
-                const fallbackTarget = visualElement.getBaseTarget(key)
-
                 const motionValue = visualElement.getValue(key)
                 if (motionValue) motionValue.liveStyle = true
 
-                // @ts-expect-error - @mattgperry to figure if we should do something here
-                fallbackAnimation[key] = fallbackTarget ?? null
+                const fromInitial =
+                    resolvedInitial && !Array.isArray(initial)
+                        ? (resolvedInitial as any)[key]
+                        : undefined
+                const fromProps = visualElement.getBaseTargetFromProps(
+                    props,
+                    key
+                )
+
+                fallbackAnimation[key] =
+                    (fromInitial !== undefined
+                        ? fromInitial
+                        : fromProps !== undefined && !isMotionValue(fromProps)
+                        ? fromProps
+                        : visualElement.initialValues[key] === undefined
+                        ? visualElement.baseTarget[key]
+                        : undefined) ?? null
             })
 
             animations.push({ animation: fallbackAnimation })
         }
 
-        let shouldAnimate = Boolean(animations.length)
+        const blockAnimation =
+            (isMounting && visualElement.blockInitialAnimation) ||
+            (isInitialRender &&
+                !manuallyAnimateOnMount &&
+                (props.initial === false || props.initial === props.animate))
 
-        if (
-            isInitialRender &&
-            (props.initial === false || props.initial === props.animate) &&
-            !visualElement.manuallyAnimateOnMount
-        ) {
-            shouldAnimate = false
-        }
+        isInitialRender = wasReset = false
 
-        isInitialRender = false
-        wasReset = false
-        return shouldAnimate ? animate(animations) : Promise.resolve()
+        return !blockAnimation && animations.length
+            ? animate(animations)
+            : Promise.resolve()
     }
 
     /**
      * Change whether a certain animation type is active.
      */
     function setActive(type: AnimationType, isActive: boolean) {
-        // If the active state hasn't changed, we can safely do nothing here
         if (state[type].isActive === isActive) return Promise.resolve()
 
-        // Propagate active change to children
         visualElement.variantChildren?.forEach((child: any) =>
             child.animationState?.setActive(type, isActive)
         )
@@ -466,7 +320,7 @@ export function createAnimationState(visualElement: any): AnimationState {
         const animations = animateChanges(type)
 
         for (const key in state) {
-            state[key as keyof typeof state].protectedKeys = {}
+            state[key as AnimationType].protectedKeys = {}
         }
 
         return animations
@@ -475,7 +329,13 @@ export function createAnimationState(visualElement: any): AnimationState {
     return {
         animateChanges,
         setActive,
-        setAnimateFunction,
+        /**
+         * Allows tests to inject a mocked animate function.
+         * @internal
+         */
+        setAnimateFunction: (makeAnimator) => {
+            animate = makeAnimator(visualElement)
+        },
         getState: () => state,
         reset: () => {
             state = createState()
@@ -502,23 +362,17 @@ export interface AnimationTypeState {
     prevProp?: VariantLabels | TargetAndTransition
 }
 
-function createTypeState(isActive = false): AnimationTypeState {
-    return {
-        isActive,
-        protectedKeys: {},
-        needsAnimating: {},
-        prevResolvedValues: {},
-    }
-}
-
 function createState() {
-    return {
-        animate: createTypeState(true),
-        whileInView: createTypeState(),
-        whileHover: createTypeState(),
-        whileTap: createTypeState(),
-        whileDrag: createTypeState(),
-        whileFocus: createTypeState(),
-        exit: createTypeState(),
+    const state = {} as { [K in AnimationType]: AnimationTypeState }
+
+    for (const type of variantPriorityOrder) {
+        state[type] = {
+            isActive: type === "animate",
+            protectedKeys: {},
+            needsAnimating: {},
+            prevResolvedValues: {},
+        }
     }
+
+    return state
 }
