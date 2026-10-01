@@ -27,7 +27,9 @@ const addOrigin = (element: HTMLElement | SVGElement, state: MotionValueState) =
     state.set("transformOrigin", new MotionValue(""), () => {
         const originX = styleValue(state, "originX") ?? "50%"
         const originY = styleValue(state, "originY") ?? "50%"
-        const originZ = styleValue(state, "originZ") ?? 0
+        const originZ =
+            styleValue(state, "originZ") ??
+            (state.get("originX") || state.get("originY") ? 0 : "")
         element.style.transformOrigin = `${originX} ${originY} ${originZ}`
     })
 
