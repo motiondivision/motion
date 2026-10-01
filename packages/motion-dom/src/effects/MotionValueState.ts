@@ -71,7 +71,12 @@ export class MotionValueState {
         const onRemove = () => {
             cancelOnChange()
             render && !computed && this.cancel(render)
-            this.values.delete(name)
+            /**
+             * A later set() of the same name has already removed this
+             * entry, so leave the one that replaced it.
+             */
+            this.values.get(name)?.onRemove === onRemove &&
+                this.values.delete(name)
         }
 
         this.values.set(name, {

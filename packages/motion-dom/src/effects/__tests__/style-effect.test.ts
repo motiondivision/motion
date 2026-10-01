@@ -610,4 +610,16 @@ describe("styleEffect as an animate() effect", () => {
 
         expect(styleEffect.get(element, "width")).toBe(width)
     })
+
+    it("keeps a rebound value when the previous binding is cleaned up", () => {
+        const element = document.createElement("div")
+        const width = motionValue("10px")
+        const replacement = motionValue("20px")
+
+        const cleanup = styleEffect(element, { width })
+        styleEffect(element, { width: replacement })
+        cleanup()
+
+        expect(styleEffect.get(element, "width")).toBe(replacement)
+    })
 })
