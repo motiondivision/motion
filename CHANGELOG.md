@@ -4,6 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [Unreleased]
+
+### Fixed
+
+-   `animate`: Reading `time`, `speed`, `state` or `startTime` no longer throws when no values were animated, for instance with `duration: 0`.
+
 ## [13.4.7] 2026-09-30
 
 ### Changed
