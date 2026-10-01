@@ -17,6 +17,20 @@ export class MotionValueState {
     transformKeys?: string[]
     transformValues?: Record<string, MotionValue>
 
+    /**
+     * Called after a bound value changes, so an owner (a VisualElement)
+     * can track it without subscribing to every value a second time.
+     */
+    onValueChange?: (name: string, latest: any) => void
+
+    /**
+     * Replaces the built transform, as the `transformTemplate` prop.
+     */
+    transformTemplate?: (
+        transform: Record<string, string>,
+        generated: string
+    ) => string
+
     private values = new Map<string, Entry>()
 
     /**
@@ -66,7 +80,10 @@ export class MotionValueState {
          */
         value.get() !== undefined && onChange()
 
-        const cancelOnChange = value.on("change", onChange)
+        const cancelOnChange = value.on("change", (latest) => {
+            onChange()
+            this.onValueChange?.(name, latest)
+        })
 
         const onRemove = () => {
             cancelOnChange()
@@ -135,5 +152,17 @@ export class MotionValueState {
         const { pending, numPending } = this
         this.numPending = 0
         for (let i = 0; i < numPending; i++) pending[i]()
+    }
+
+    /**
+     * Write every bound value now, including ones that haven't changed,
+     * e.g. after something else (projection) wrote over them. Consumes
+     * pending renders so none land after this in the same frame.
+     */
+    renderAll() {
+        this.numPending = 0
+        this.values.forEach(
+            ({ value, render }) => value.get() !== undefined && render?.()
+        )
     }
 }

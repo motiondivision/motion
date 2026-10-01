@@ -393,10 +393,8 @@ describe("styleEffect", () => {
         expect(element.style.padding).toBe("10px")
         expect(element.style.opacity).toBe("0.8")
 
-        // But transform should still update since its style effect wasn't cleaned up
-        expect(element.style.transform).toBe(
-            "translateX(40px) translateY(50px)"
-        )
+        // Transform still updates from the value that wasn't cleaned up
+        expect(element.style.transform).toBe("translateY(50px)")
     })
 
     it("handles transform origin values", async () => {

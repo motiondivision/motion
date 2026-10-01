@@ -3,6 +3,7 @@
 import {
     animateVisualElement,
     createBox,
+    propEffect,
     ResolvedValues,
     TargetAndTransition,
     VisualElement,
@@ -23,12 +24,10 @@ class StateVisualElement extends VisualElement<
     AnimatedStateOptions
 > {
     type: "state"
-    build() {}
+    effect = propEffect
     measureInstanceViewportBox = createBox
     resetTransform() {}
     restoreTransform() {}
-    removeValueFromRenderState() {}
-    renderInstance() {}
     scrapeMotionValuesFromProps() {
         return createObject()
     }

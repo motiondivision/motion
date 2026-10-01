@@ -3,7 +3,7 @@ import { MotionValue } from "../../value"
 import { MotionValueState } from "../MotionValueState"
 import { createEffect } from "../utils/create-effect"
 
-interface PropSubject {
+export interface PropSubject {
     [key: string]: any
 }
 

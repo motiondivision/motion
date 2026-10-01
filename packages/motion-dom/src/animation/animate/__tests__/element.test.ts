@@ -241,11 +241,9 @@ describe("animateElement", () => {
         expect(visualElement.getValue("opacity")).toBeDefined()
         // ...not the style effect's derived transform
         expect(visualElement.getValue("transform")).toBeUndefined()
-        // ...and the style effect has let go of them
-        expect(styleEffect.get(element, "x")).toBeUndefined()
-        expect(styleEffect.get(element, "transform")).toBeUndefined()
-        expect(state.transformKeys).toBeUndefined()
-        expect(state.transformValues).toBeUndefined()
+        // ...and the VisualElement renders them through the same effect
+        expect(styleEffect.get(element, "x")).toBe(x)
+        expect(state.transformKeys).toEqual(["x"])
 
         // The VisualElement renders them from here
         x.jump(40)
@@ -295,7 +293,7 @@ describe("animateElement", () => {
             await nextFrame()
 
             expect(path.getAttribute("pathLength")).toBe("1")
-            expect(path.getAttribute("stroke-dasharray")).toBe("1 0")
+            expect(path.getAttribute("stroke-dasharray")).toBe("1 1")
             expect(svgEffect.get(path, "pathLength")!.get()).toBe(1)
             expect(styleEffect.get(path, "pathLength")).toBeUndefined()
         })

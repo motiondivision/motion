@@ -18,7 +18,10 @@ function addSVGPathValue(
     key: string,
     value: MotionValue
 ) {
-    frame.render(() => element.setAttribute("pathLength", "1"))
+    frame.render(() => {
+        element.setAttribute("pathLength", "1")
+        state.get("pathOffset") || element.setAttribute("stroke-dashoffset", "0")
+    })
 
     if (key === "pathOffset") {
         return state.set(key, value, () => {
@@ -30,12 +33,12 @@ function addSVGPathValue(
         if (!state.get("stroke-dasharray")) {
             state.set("stroke-dasharray", new MotionValue("1 1"), () => {
                 const pathLength = state.get("pathLength")?.get() ?? 1
-                const pathSpacing = state.get("pathSpacing")?.get()
+                const pathSpacing = state.get("pathSpacing")?.get() ?? 1
 
                 // Use unitless values to avoid Safari zoom bug
                 element.setAttribute(
                     "stroke-dasharray",
-                    `${pathLength} ${pathSpacing ?? 1 - Number(pathLength)}`
+                    `${pathLength} ${pathSpacing}`
                 )
             })
         }
@@ -56,8 +59,17 @@ export const addSVGValue = (
         return addAttrValue(element, state, key, value, convertAttrKey(key))
     }
 
+    /**
+     * `x`, `skewX`, `originX` etc. are transforms, not attributes, whether
+     * or not the browser also has a CSS property of that name.
+     */
     const handler =
-        isCSSVar(key) || key in element.style ? addStyleValue : addAttrValue
+        transformProps.has(key) ||
+        key.startsWith("origin") ||
+        isCSSVar(key) ||
+        key in element.style
+            ? addStyleValue
+            : addAttrValue
     return handler(element, state, key, value)
 }
 
@@ -75,8 +87,11 @@ export const readSVGValue = (element: SVGElement, key: string) => {
         return numberValueTypes[key]?.default || 0
     }
 
-    if (isCSSVar(key) || cssStyleProperties.includes(key)) {
-        return readStyleValue(element, key)
+    if (isCSSVar(key)) return readStyleValue(element, key)
+
+    if (cssStyleProperties.includes(key)) {
+        const value = (getComputedStyle(element) as any)[key]
+        if (value && value.trim()) return value.trim()
     }
 
     key = convertAttrKey(key)

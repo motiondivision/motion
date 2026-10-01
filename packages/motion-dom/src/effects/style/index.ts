@@ -22,6 +22,15 @@ const originProps = new Set(["originX", "originY", "originZ"])
 const styleValue = (state: MotionValueState, key: string) =>
     getValueAsType(state.get(key)?.get(), numberValueTypes[key])
 
+const addOrigin = (element: HTMLElement | SVGElement, state: MotionValueState) =>
+    state.get("transformOrigin") ||
+    state.set("transformOrigin", new MotionValue(""), () => {
+        const originX = styleValue(state, "originX") ?? "50%"
+        const originY = styleValue(state, "originY") ?? "50%"
+        const originZ = styleValue(state, "originZ") ?? 0
+        element.style.transformOrigin = `${originX} ${originY} ${originZ}`
+    })
+
 export const addStyleValue = (
     element: HTMLElement | SVGElement,
     state: MotionValueState,
@@ -30,10 +39,11 @@ export const addStyleValue = (
 ) => {
     let render: VoidFunction | undefined = undefined
     let computed: MotionValue | undefined = undefined
+    let keys: string[] | undefined
 
     if (transformProps.has(key)) {
         if (key !== "pathRotation") {
-            const keys = (state.transformKeys ??= [])
+            keys = state.transformKeys ??= []
             ;(state.transformValues ??= {})[key] = value
 
             if (!keys.includes(key)) {
@@ -47,8 +57,10 @@ export const addStyleValue = (
         }
 
         if (!state.get("transform")) {
-            // If this is an HTML element, we need to set the transform-box to fill-box
-            // to normalise the transform relative to the element's bounding box
+            /**
+             * SVG transforms are relative to the element's own box, and
+             * pivot around its centre, as with HTML.
+             */
             if (!isHTMLElement(element) && !state.get("transformBox")) {
                 addStyleValue(
                     element,
@@ -56,24 +68,18 @@ export const addStyleValue = (
                     "transformBox",
                     new MotionValue("fill-box")
                 )
+                addOrigin(element, state)
             }
 
             state.set("transform", new MotionValue("none"), () => {
-                element.style.transform = buildTransform(state)
+                const transform = buildTransform(state)
+                if (transform !== undefined) element.style.transform = transform
             })
         }
 
         computed = state.get("transform")
     } else if (originProps.has(key)) {
-        if (!state.get("transformOrigin")) {
-            state.set("transformOrigin", new MotionValue(""), () => {
-                const originX = styleValue(state, "originX") ?? "50%"
-                const originY = styleValue(state, "originY") ?? "50%"
-                const originZ = styleValue(state, "originZ") ?? 0
-                element.style.transformOrigin = `${originX} ${originY} ${originZ}`
-            })
-        }
-
+        addOrigin(element, state)
         computed = state.get("transformOrigin")
     } else if (isCSSVar(key)) {
         render = () => {
@@ -88,7 +94,17 @@ export const addStyleValue = (
         }
     }
 
-    return state.set(key, value, render, computed)
+    const remove = state.set(key, value, render, computed)
+
+    return keys
+        ? () => {
+              remove()
+              if (state.transformValues![key] === value) {
+                  keys!.splice(keys!.indexOf(key), 1)
+                  delete state.transformValues![key]
+              }
+          }
+        : remove
 }
 
 export type StyleSubject = HTMLElement | SVGElement

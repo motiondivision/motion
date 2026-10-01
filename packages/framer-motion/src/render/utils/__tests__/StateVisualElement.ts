@@ -1,4 +1,4 @@
-import { createBox, ResolvedValues, VisualElement } from "motion-dom"
+import { createBox, propEffect, ResolvedValues, VisualElement } from "motion-dom"
 import { MotionProps, MotionStyle } from "../../../motion/types"
 
 export class StateVisualElement extends VisualElement<
@@ -7,10 +7,8 @@ export class StateVisualElement extends VisualElement<
     { initialState: ResolvedValues }
 > {
     type: "state"
-    build() {}
+    effect = propEffect
     measureInstanceViewportBox = createBox
-    removeValueFromRenderState() {}
-    renderInstance() {}
     scrapeMotionValuesFromProps() {
         return {}
     }

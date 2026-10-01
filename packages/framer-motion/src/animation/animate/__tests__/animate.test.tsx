@@ -457,7 +457,7 @@ describe("animate", () => {
         await nextFrame()
 
         expect(path.getAttribute("pathLength")).toBe("1")
-        expect(path.getAttribute("stroke-dasharray")).toBe("1 0")
+        expect(path.getAttribute("stroke-dasharray")).toBe("1 1")
     })
 })
 

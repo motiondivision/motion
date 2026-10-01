@@ -15,9 +15,20 @@ const translateAlias: Record<string, string> = {
  */
 const openers: Record<string, string> = {}
 
+/**
+ * Returns `undefined` while every bound transform is still waiting for
+ * its origin to be read, so the transform it would be read from isn't
+ * overwritten first.
+ */
 export function buildTransform(state: MotionValueState) {
     let transform = ""
-    const { transformKeys: keys = [], transformValues: values = {} } = state
+    const {
+        transformKeys: keys = [],
+        transformValues: values = {},
+        transformTemplate,
+    } = state
+    const typed: Record<string, string> = {}
+    let unresolved = keys.length
 
     /**
      * Loop over the bound transforms in order, adding the ones that
@@ -28,8 +39,13 @@ export function buildTransform(state: MotionValueState) {
         const value = values[key].get()
 
         if (value === undefined) continue
+        unresolved = 0
 
         const parsed = typeof value === "number" ? value : parseFloat(value)
+
+        if (transformTemplate) {
+            typed[key] = getValueAsType(value, transformValueTypes[key])
+        }
 
         if (parsed !== (key.startsWith("scale") ? 1 : 0)) {
             transform +=
@@ -50,7 +66,11 @@ export function buildTransform(state: MotionValueState) {
             "rotate(" +
             getValueAsType(pathRotation, transformValueTypes.pathRotation) +
             ")"
+    } else if (unresolved) {
+        return
     }
 
-    return transform || "none"
+    return transformTemplate
+        ? transformTemplate(typed, transform)
+        : transform || "none"
 }

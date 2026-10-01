@@ -15,6 +15,7 @@ import { microtask } from "../frameloop/microtask"
 import { time } from "../frameloop/sync-time"
 import type { MotionNodeOptions } from "../node/types"
 import { createBox } from "../projection/geometry/models"
+import type { Effect } from "../effects/utils/create-effect"
 import { motionValue, MotionValue } from "../value"
 import { complex } from "../value/types/complex"
 import { getAnimatableNone } from "../value/types/utils/animatable-none"
@@ -135,36 +136,10 @@ export abstract class VisualElement<
     ): AnyResolvedKeyframe | null | undefined
 
     /**
-     * When a value has been removed from the VisualElement we use this to remove
-     * it from the inheriting class' unique render state.
+     * The effect that writes this element's motion values to the Instance,
+     * e.g. styleEffect for HTMLElements, svgEffect for SVGElements.
      */
-    abstract removeValueFromRenderState(
-        key: string,
-        renderState: RenderState
-    ): void
-
-    /**
-     * Run before a React or VisualElement render, builds the latest motion
-     * values into an Instance-specific format. For example, HTMLVisualElement
-     * will use this step to build `style` and `var` values.
-     */
-    abstract build(
-        renderState: RenderState,
-        latestValues: ResolvedValues,
-        props: MotionNodeOptions
-    ): void
-
-    /**
-     * Apply the built values to the Instance. For example, HTMLElements will have
-     * styles applied via `setProperty` and the style attribute, whereas SVGElements
-     * will have values applied to attributes.
-     */
-    abstract renderInstance(
-        instance: Instance,
-        renderState: RenderState,
-        styleProp?: MotionStyle,
-        projection?: any
-    ): void
+    abstract effect: Effect<any>
 
     /**
      * This method is called when a transform property is bound to a motion value.
@@ -229,11 +204,6 @@ export abstract class VisualElement<
      * The depth of this VisualElement within the overall VisualElement tree.
      */
     depth: number
-
-    /**
-     * The current render state of this VisualElement. Defined by inheriting VisualElements.
-     */
-    renderState: RenderState
 
     /**
      * An object containing the latest static values for each of this VisualElement's
@@ -400,11 +370,10 @@ export abstract class VisualElement<
         }: VisualElementOptions<Instance, RenderState>,
         options: Options = {} as any
     ) {
-        const { latestValues, renderState } = visualState
+        const { latestValues } = visualState
         this.latestValues = latestValues
         this.baseTarget = { ...latestValues }
         this.initialValues = props.initial ? { ...latestValues } : {}
-        this.renderState = renderState
         this.parent = parent
         this.props = props
         this.presenceContext = presenceContext
@@ -470,6 +439,21 @@ export abstract class VisualElement<
         }
 
         this.values.forEach((value, key) => this.bindToMotionValue(key, value))
+
+        /**
+         * Values only set by `initial` or a variant have no motion value
+         * until they animate, and were rendered by React until now. The
+         * effect renders them from here, so composites like `transform`
+         * include them. They stay out of `values`, as the animation state
+         * treats a value differently once it has a motion value.
+         */
+        const statics: Record<string, MotionValue> = {}
+        for (const key in this.latestValues) {
+            if (!this.values.has(key)) {
+                statics[key] = motionValue(this.latestValues[key])
+            }
+        }
+        this.valueSubscriptions.set("", this.effect(instance, statics))
 
         /**
          * Determine reduced motion preference. Only initialize the matchMedia
@@ -572,26 +556,23 @@ export abstract class VisualElement<
             return
         }
 
-        const valueIsTransform = transformProps.has(key)
-
-        if (valueIsTransform && this.onBindTransform) {
+        if (transformProps.has(key) && this.onBindTransform) {
             this.onBindTransform()
         }
 
-        const removeOnChange = value.on(
-            "change",
-            (latestValue: AnyResolvedKeyframe) => {
-                this.latestValues[key] = latestValue
+        const { current } = this
+        let removeOnChange: VoidFunction
 
-                this.props.onUpdate && frame.preRender(this.notifyUpdate)
-
-                if (valueIsTransform && this.projection) {
-                    this.projection.isTransformDirty = true
-                }
-
-                this.scheduleRender()
-            }
-        )
+        if (current) {
+            removeOnChange = this.effect(current, { [key]: value })
+            const state = this.effect.state(current)!
+            state.onValueChange = this.onValueChange
+            state.transformTemplate = this.props.transformTemplate as any
+        } else {
+            removeOnChange = value.on("change", (latest) =>
+                this.onValueChange(key, latest)
+            )
+        }
 
         let removeSyncCheck: VoidFunction | void
         if (
@@ -669,18 +650,47 @@ export abstract class VisualElement<
 
     notifyUpdate = () => this.notify("Update", this.latestValues)
 
-    triggerBuild() {
-        this.build(this.renderState, this.latestValues, this.props)
+    private onValueChange = (key: string, latest: AnyResolvedKeyframe) => {
+        this.latestValues[key] = latest
+
+        this.props.onUpdate && frame.preRender(this.notifyUpdate)
+
+        const { projection } = this
+        if (projection) {
+            if (transformProps.has(key)) projection.isTransformDirty = true
+
+            /**
+             * The effect writes this value on its own. A projected
+             * element also needs the projection reapplied over it.
+             */
+            projection.isProjecting() && this.scheduleRender()
+        }
     }
 
+    /**
+     * Write every value now. Values otherwise render themselves through
+     * the effect as they change, so this is for when something else has
+     * written over them, like projection, or needs them written to measure.
+     */
     render = () => {
-        if (!this.current) return
-        this.triggerBuild()
-        this.renderInstance(
-            this.current,
-            this.renderState,
-            (this.props as any).style,
-            this.projection
+        const { current, projection, props } = this
+        if (!current) return
+        const state = this.effect.state(current)
+        state?.renderAll()
+
+        const template = props.transformTemplate
+        if (
+            !state?.get("transform") &&
+            (template || this.prevProps?.transformTemplate)
+        ) {
+            ;(current as any).style.transform = template
+                ? template({}, "")
+                : "none"
+        }
+
+        projection?.applyProjectionStyles(
+            (current as any).style,
+            (props as any).style
         )
     }
 
@@ -708,8 +718,15 @@ export abstract class VisualElement<
         return this.latestValues[key]
     }
 
+    /**
+     * Set a value for the next render only, without notifying
+     * subscribers, e.g. to measure the element with rotation removed.
+     */
     setStaticValue(key: string, value: AnyResolvedKeyframe) {
         this.latestValues[key] = value
+        const motionValue =
+            this.current && (this.effect.get(this.current, key) as any)
+        if (motionValue) motionValue.current = value
     }
 
     /**
@@ -726,6 +743,7 @@ export abstract class VisualElement<
 
         this.prevProps = this.props
         this.props = props
+        this.setTransformTemplate()
 
         this.prevPresenceContext = this.presenceContext
         this.presenceContext = presenceContext
@@ -756,6 +774,11 @@ export abstract class VisualElement<
         if (this.handleChildMotionValue) {
             this.handleChildMotionValue()
         }
+    }
+
+    private setTransformTemplate() {
+        const state = this.current && this.effect.state(this.current)
+        if (state) state.transformTemplate = this.props.transformTemplate as any
     }
 
     getProps() {
@@ -834,7 +857,7 @@ export abstract class VisualElement<
             this.valueSubscriptions.delete(key)
         }
         delete this.latestValues[key]
-        this.removeValueFromRenderState(key, this.renderState)
+        this.scheduleRender()
     }
 
     /**
