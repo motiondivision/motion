@@ -93,10 +93,11 @@ export function createAnimationState(visualElement: any): AnimationState {
 
         /**
          * Variant labels are inherited from the closest variant-controlling
-         * ancestor.
+         * ancestor, unless an element on the way has inherit={false}.
          */
-        let source = visualElement.parent
-        while (source && !source.isControllingVariants) source = source.parent
+        let source = visualElement
+        do source = source.props.inherit !== false && source.parent
+        while (source && !source.isControllingVariants)
 
         reversePriorityOrder.forEach((type, i) => {
             const typeState = state[type]
