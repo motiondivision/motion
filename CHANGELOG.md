@@ -4,6 +4,23 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [13.5.0] 2026-10-01
+
+### Added
+
+-   `spring`: Now accepts negative `bounce` (`0`-`-1`) to define overdamped springs.
+
+### Changed
+
+-   `<m>`: 20% smaller.
+-   `useSpring`: 10% smaller.
+-   `scroll`/`useScroll`: Use main thread for all `offset` animations.
+
+### Fixed
+
+-   Ensure `warning` and `error` messages are cleaned from production build.
+-   Ensure values are never rendered before they've been resolved.
+
 ## [13.4.7] 2026-09-30
 
 ### Changed
