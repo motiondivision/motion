@@ -25,8 +25,7 @@ function shouldBlockAnimation(
     { protectedKeys, needsAnimating }: AnimationTypeState,
     key: string
 ) {
-    const shouldBlock =
-        protectedKeys.hasOwnProperty(key) && needsAnimating[key] !== true
+    const shouldBlock = key in protectedKeys && !needsAnimating[key]
 
     needsAnimating[key] = false
     return shouldBlock
@@ -56,9 +55,7 @@ export function animateTarget(
     const animations: AnimationPlaybackControlsWithThen[] = []
 
     const animationTypeState =
-        type &&
-        visualElement.animationState &&
-        visualElement.animationState.getState()[type]
+        type && visualElement.animationState?.getState()[type]
 
     const path = (transition as { path?: MotionPath } | undefined)?.path
     if (path) {
