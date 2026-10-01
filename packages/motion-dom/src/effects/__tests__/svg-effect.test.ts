@@ -377,7 +377,7 @@ describe("readSVGValue", () => {
         (key, value) => {
             const element = circle()
             element.setAttribute(
-                key.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`),
+                key.replace(/[A-Z]/gu, (c) => `-${c.toLowerCase()}`),
                 value
             )
 
