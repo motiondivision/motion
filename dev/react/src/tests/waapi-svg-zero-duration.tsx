@@ -4,6 +4,16 @@ import { useState } from "react"
 export const App = () => {
     const [hidden, setHidden] = useState(false)
 
+    /**
+     * Mark which animation last completed so the test can wait for it
+     * rather than for a fixed delay, which flakes when frames are late.
+     */
+    const onComplete = (id: string) => () => {
+        document.getElementById(id)!.dataset.complete = hidden
+            ? "hidden"
+            : "visible"
+    }
+
     return (
         <>
             <button id="toggle" onClick={() => setHidden(!hidden)}>
@@ -15,6 +25,7 @@ export const App = () => {
                     animate={{ opacity: hidden ? 0 : 1 }}
                     height={40}
                     initial={false}
+                    onAnimationComplete={onComplete("chip")}
                     transition={
                         hidden
                             ? { duration: 0.3 }
@@ -35,6 +46,7 @@ export const App = () => {
                     }}
                     height={40}
                     initial={false}
+                    onAnimationComplete={onComplete("transform-target")}
                     transition={
                         hidden
                             ? { duration: 0.3 }
