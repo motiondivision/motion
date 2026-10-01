@@ -1770,6 +1770,32 @@ describe("inherit={false}", () => {
         expect(getByTestId("grandchild").style.opacity).toBe("0.5")
     })
 
+    test("descendants of a plain inherit={false} node do not follow the outer parent", async () => {
+        const Component = ({ variant }: { variant: string }) => (
+            <motion.div animate={variant} initial="a">
+                <motion.div inherit={false}>
+                    <motion.div
+                        data-testid="grandchild"
+                        variants={{ a: { opacity: 0.2 }, b: { opacity: 0.8 } }}
+                        transition={{ type: false }}
+                        style={{ opacity: 0.5 }}
+                    />
+                </motion.div>
+            </motion.div>
+        )
+
+        const { getByTestId, rerender } = render(<Component variant="a" />)
+        await nextFrame()
+        expect(getByTestId("grandchild").style.opacity).toBe("0.5")
+
+        rerender(<Component variant="b" />)
+        rerender(<Component variant="b" />)
+        await nextFrame()
+        await nextFrame()
+
+        expect(getByTestId("grandchild").style.opacity).toBe("0.5")
+    })
+
     test("child does not follow parent gesture variants", async () => {
         const { getByTestId } = render(
             <motion.div
