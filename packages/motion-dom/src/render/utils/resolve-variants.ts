@@ -35,39 +35,24 @@ export function resolveVariantFromProps(
     custom?: any,
     visualElement?: any
 ) {
-    /**
-     * If the variant definition is a function, resolve.
-     */
-    if (typeof definition === "function") {
-        const [current, velocity] = getValueState(visualElement)
-        definition = definition(
-            custom !== undefined ? custom : props.custom,
-            current,
-            velocity
-        )
-    }
+    const resolveFunction = (def: any) =>
+        typeof def === "function"
+            ? def(
+                  custom !== undefined ? custom : props.custom,
+                  ...getValueState(visualElement)
+              )
+            : def
 
     /**
-     * If the variant definition is a variant label, or
-     * the function returned a variant label, resolve.
+     * Resolve a function, then a variant label (which the function may have
+     * returned), then a function again as the label may point to one. The
+     * final function can only return a target object.
      */
+    definition = resolveFunction(definition)
+
     if (typeof definition === "string") {
         definition = props.variants && props.variants[definition]
     }
 
-    /**
-     * At this point we've resolved both functions and variant labels,
-     * but the resolved variant label might itself have been a function.
-     * If so, resolve. This can only have returned a valid target object.
-     */
-    if (typeof definition === "function") {
-        const [current, velocity] = getValueState(visualElement)
-        definition = definition(
-            custom !== undefined ? custom : props.custom,
-            current,
-            velocity
-        )
-    }
-
-    return definition
+    return resolveFunction(definition)
 }
