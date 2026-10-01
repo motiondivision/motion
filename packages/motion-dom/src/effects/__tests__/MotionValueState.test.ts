@@ -130,6 +130,26 @@ describe("MotionValueState", () => {
         expect(renderB).toHaveBeenCalledTimes(1)
     })
 
+    it("removing a replaced value leaves the value that replaced it", async () => {
+        const state = new MotionValueState()
+        const first = motionValue(0)
+        const second = motionValue(0)
+        const render = jest.fn()
+
+        const removeFirst = state.set("opacity", first, () => {})
+        const removeSecond = state.set("opacity", second, render)
+        removeFirst()
+
+        expect(state.get("opacity")).toBe(second)
+        expect(state.release().get("opacity")).toBe(second)
+
+        second.set(1)
+        await nextFrame()
+        expect(render).not.toHaveBeenCalled()
+
+        removeSecond()
+    })
+
     it("removing a value cancels its scheduled render", async () => {
         const state = new MotionValueState()
         const opacity = motionValue(1)
