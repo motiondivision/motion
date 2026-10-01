@@ -392,4 +392,8 @@ describe("readSVGValue", () => {
 
         expect(readSVGValue(element, "opacity")).toBe("0.5")
     })
+
+    test("reads 0 when neither style nor attribute is set", () => {
+        expect(readSVGValue(circle(), "opacity")).toBe(0)
+    })
 })

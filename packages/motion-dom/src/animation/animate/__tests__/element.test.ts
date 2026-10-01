@@ -363,6 +363,23 @@ describe("animateElement", () => {
             animation.stop()
         })
 
+        it("starts CSS properties from 0 when neither style nor attribute is set", async () => {
+            const circle = svg("circle")
+
+            const [animation] = animateElement(
+                circle,
+                { opacity: 1 },
+                { duration: 10, ease: "linear" }
+            )
+
+            await nextFrame()
+            await nextFrame()
+
+            expect(svgEffect.get(circle, "opacity")!.get()).toBeLessThan(0.05)
+
+            animation.stop()
+        })
+
         it("writes CSS variables to style rather than as attributes", async () => {
             const path = svg("path")
 
