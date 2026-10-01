@@ -1717,3 +1717,84 @@ describe("Variant propagation to asynchronously mounted children", () => {
         expect(childOpacity.get()).toBe(1)
     })
 })
+
+describe("inherit={false}", () => {
+    test("child does not follow parent variant changes", async () => {
+        const Component = ({ variant }: { variant: string }) => (
+            <motion.div animate={variant} initial="a">
+                <motion.div
+                    data-testid="child"
+                    inherit={false}
+                    variants={{ a: { opacity: 0.2 }, b: { opacity: 0.8 } }}
+                    transition={{ type: false }}
+                    style={{ opacity: 0.5 }}
+                />
+            </motion.div>
+        )
+
+        const { getByTestId, rerender } = render(<Component variant="a" />)
+        await nextFrame()
+        expect(getByTestId("child").style.opacity).toBe("0.5")
+
+        rerender(<Component variant="b" />)
+        rerender(<Component variant="b" />)
+        await nextFrame()
+        await nextFrame()
+
+        expect(getByTestId("child").style.opacity).toBe("0.5")
+    })
+
+    test("descendants of an inherit={false} node do not follow the outer parent", async () => {
+        const Component = ({ variant }: { variant: string }) => (
+            <motion.div animate={variant} initial="a">
+                <motion.div inherit={false} variants={{}}>
+                    <motion.div
+                        data-testid="grandchild"
+                        variants={{ a: { opacity: 0.2 }, b: { opacity: 0.8 } }}
+                        transition={{ type: false }}
+                        style={{ opacity: 0.5 }}
+                    />
+                </motion.div>
+            </motion.div>
+        )
+
+        const { getByTestId, rerender } = render(<Component variant="a" />)
+        await nextFrame()
+        expect(getByTestId("grandchild").style.opacity).toBe("0.5")
+
+        rerender(<Component variant="b" />)
+        rerender(<Component variant="b" />)
+        await nextFrame()
+        await nextFrame()
+
+        expect(getByTestId("grandchild").style.opacity).toBe("0.5")
+    })
+
+    test("child does not follow parent gesture variants", async () => {
+        const { getByTestId } = render(
+            <motion.div
+                data-testid="parent"
+                animate="rest"
+                whileHover="hover"
+            >
+                <motion.div
+                    data-testid="child"
+                    inherit={false}
+                    variants={{
+                        rest: { opacity: 0.2 },
+                        hover: { opacity: 0.8 },
+                    }}
+                    transition={{ type: false }}
+                    style={{ opacity: 0.5 }}
+                />
+            </motion.div>
+        )
+
+        await nextFrame()
+        pointerEnter(getByTestId("parent"))
+        await nextFrame()
+        await nextFrame()
+
+        expect(getByTestId("child").style.opacity).toBe("0.5")
+    })
+})
