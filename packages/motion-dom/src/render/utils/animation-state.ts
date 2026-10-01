@@ -7,6 +7,7 @@ import type { AnimationType } from "../types"
 import type { VisualElementAnimationOptions } from "../../animation/interfaces/types"
 import { animateVisualElement } from "../../animation/interfaces/visual-element"
 import { calcChildStagger } from "../../animation/utils/calc-child-stagger"
+import { isMotionValue } from "../../value/utils/is-motion-value"
 import { isAnimationControls } from "./is-animation-controls"
 import { isVariantLabel } from "./is-variant-label"
 import { getTypeCustom, resolveVariant } from "./resolve-dynamic-variants"
@@ -49,8 +50,8 @@ const reversePriorityOrder = [...variantPriorityOrder].reverse()
  *
  * Uses `any` type for visualElement to avoid circular dependencies. It reads
  * props, parent, presenceContext, variantChildren, enteringChildren,
- * manuallyAnimateOnMount, blockInitialAnimation, getValue() and
- * getBaseTarget().
+ * manuallyAnimateOnMount, blockInitialAnimation, getValue(),
+ * getBaseTargetFromProps(), baseTarget and initialValues.
  */
 export function createAnimationState(visualElement: any): AnimationState {
     let animate: AnimateFunction = (animations) =>
@@ -259,21 +260,39 @@ export function createAnimationState(visualElement: any): AnimationState {
         if (removedKeys.size) {
             const { initial } = props
             const fallbackAnimation: { [key: string]: any } = {}
-            const transition =
+            const resolvedInitial =
                 typeof initial !== "boolean" &&
                 resolveVariant(
                     visualElement,
-                    Array.isArray(initial) ? initial[0] : initial
-                )?.transition
+                    Array.isArray(initial) ? initial[0] : initial,
+                    visualElement.presenceContext?.custom
+                )
 
-            if (transition) fallbackAnimation.transition = transition
+            if (resolvedInitial && resolvedInitial.transition) {
+                fallbackAnimation.transition = resolvedInitial.transition
+            }
 
             removedKeys.forEach((key) => {
                 const motionValue = visualElement.getValue(key)
                 if (motionValue) motionValue.liveStyle = true
 
+                const fromInitial =
+                    resolvedInitial && !Array.isArray(initial)
+                        ? (resolvedInitial as any)[key]
+                        : undefined
+                const fromProps = visualElement.getBaseTargetFromProps(
+                    props,
+                    key
+                )
+
                 fallbackAnimation[key] =
-                    visualElement.getBaseTarget(key) ?? null
+                    (fromInitial !== undefined
+                        ? fromInitial
+                        : fromProps !== undefined && !isMotionValue(fromProps)
+                        ? fromProps
+                        : visualElement.initialValues[key] === undefined
+                        ? visualElement.baseTarget[key]
+                        : undefined) ?? null
             })
 
             animations.push({ animation: fallbackAnimation })
