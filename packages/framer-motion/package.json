@@ -123,11 +123,11 @@
         },
         {
             "path": "./dist/size-rollup-m.js",
-            "maxSize": "6.4 kB"
+            "maxSize": "5 kB"
         },
         {
             "path": "./dist/size-rollup-m-dom-animation.js",
-            "maxSize": "26.6 kB"
+            "maxSize": "26.3 kB"
         },
         {
             "path": "./dist/size-rollup-m-dom-max.js",
