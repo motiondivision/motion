@@ -66,6 +66,46 @@ test.describe("svgEffect", () => {
         expect(numOctaves).toBe("4")
     })
 
+    test("builds transform and origin values into styles, not attributes", async ({
+        page,
+    }) => {
+        await page.goto("effects/svg-transform.html")
+        const rect = page.locator("#via-svg-effect")
+
+        await expect(rect).toHaveCSS("transform-origin", "0px 25px")
+        const result = await rect.evaluate((el) => ({
+            transform: el.style.transform,
+            attributes: el.getAttributeNames(),
+        }))
+        expect(result.transform).toBe(
+            "translateX(10px) scaleX(2) rotateX(30deg) skewX(20deg)"
+        )
+        expect(result.attributes.sort()).toEqual(["height", "id", "width"])
+    })
+
+    test("animate() builds SVG transform and origin values into styles", async ({
+        page,
+    }) => {
+        await page.goto("effects/svg-transform.html")
+        const rect = page.locator("#via-animate")
+
+        await expect(rect).toHaveAttribute("data-complete", "true")
+        const result = await rect.evaluate((el) => ({
+            transform: el.style.transform,
+            transformOrigin: el.style.transformOrigin,
+            attributes: el.getAttributeNames(),
+        }))
+        expect(result.transform).toBe("scaleX(2) skewX(20deg)")
+        expect(result.transformOrigin).toBe("0% 50% 0px")
+        expect(result.attributes.sort()).toEqual([
+            "data-complete",
+            "height",
+            "id",
+            "width",
+            "y",
+        ])
+    })
+
     test("applies transform-box: fill-box via style if element has transform", async ({
         page,
     }) => {
