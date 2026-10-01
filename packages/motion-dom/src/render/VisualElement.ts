@@ -466,8 +466,20 @@ export abstract class VisualElement<
             this.projection.mount(instance)
         }
 
-        if (this.parent && this.isVariantNode && !this.isControllingVariants) {
-            this.removeFromVariantTree = this.parent.addVariantChild(this)
+        /**
+         * Join the closest variant node above, so its variant changes
+         * propagate here, unless inherit={false} cuts the chain.
+         */
+        if (this.isVariantNode && !this.isControllingVariants) {
+            let node: VisualElement | undefined | false = this
+            do node = node.props.inherit !== false && node.parent
+            while (node && !node.isVariantNode)
+
+            if (node) {
+                const { variantChildren } = node
+                variantChildren!.add(this)
+                this.removeFromVariantTree = () => variantChildren!.delete(this)
+            }
         }
 
         this.values.forEach((value, key) => this.bindToMotionValue(key, value))
@@ -779,26 +791,6 @@ export abstract class VisualElement<
 
     getTransformPagePoint() {
         return (this.props as any).transformPagePoint
-    }
-
-    getClosestVariantNode(): VisualElement | undefined {
-        return this.isVariantNode
-            ? this
-            : this.parent
-            ? this.parent.getClosestVariantNode()
-            : undefined
-    }
-
-    /**
-     * Add a child visual element to our set of children.
-     */
-    addVariantChild(child: VisualElement) {
-        const closestVariantNode = this.getClosestVariantNode()
-        if (closestVariantNode) {
-            closestVariantNode.variantChildren &&
-                closestVariantNode.variantChildren.add(child)
-            return () => closestVariantNode.variantChildren!.delete(child)
-        }
     }
 
     /**
