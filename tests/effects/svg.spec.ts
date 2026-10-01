@@ -80,7 +80,12 @@ test.describe("svgEffect", () => {
         expect(result.transform).toBe(
             "translateX(10px) scaleX(2) rotateX(30deg) skewX(20deg)"
         )
-        expect(result.attributes.sort()).toEqual(["height", "id", "width"])
+        expect(result.attributes.sort()).toEqual([
+            "height",
+            "id",
+            "style",
+            "width",
+        ])
     })
 
     test("animate() builds SVG transform and origin values into styles", async ({
@@ -90,17 +95,17 @@ test.describe("svgEffect", () => {
         const rect = page.locator("#via-animate")
 
         await expect(rect).toHaveAttribute("data-complete", "true")
+        await expect(rect).toHaveCSS("transform-origin", "0px 25px")
         const result = await rect.evaluate((el) => ({
             transform: el.style.transform,
-            transformOrigin: el.style.transformOrigin,
             attributes: el.getAttributeNames(),
         }))
         expect(result.transform).toBe("scaleX(2) skewX(20deg)")
-        expect(result.transformOrigin).toBe("0% 50% 0px")
         expect(result.attributes.sort()).toEqual([
             "data-complete",
             "height",
             "id",
+            "style",
             "width",
             "y",
         ])
