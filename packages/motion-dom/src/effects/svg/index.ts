@@ -8,7 +8,7 @@ import { MotionValue } from "../../value"
 import { numberValueTypes } from "../../value/types/maps/number"
 import { addAttrValue } from "../attr"
 import { MotionValueState } from "../MotionValueState"
-import { addStyleValue, readStyleValue } from "../style"
+import { addStyleValue, originProps, readStyleValue } from "../style"
 import { createSelectorEffect } from "../utils/create-dom-effect"
 import { createEffect } from "../utils/create-effect"
 
@@ -56,8 +56,17 @@ export const addSVGValue = (
         return addAttrValue(element, state, key, value, convertAttrKey(key))
     }
 
+    /**
+     * Transforms and origins aren't CSS properties (bar `x`/`y` in some
+     * browsers), so check them by name rather than `key in element.style`.
+     */
     const handler =
-        isCSSVar(key) || key in element.style ? addStyleValue : addAttrValue
+        transformProps.has(key) ||
+        originProps.has(key) ||
+        isCSSVar(key) ||
+        key in element.style
+            ? addStyleValue
+            : addAttrValue
     return handler(element, state, key, value)
 }
 

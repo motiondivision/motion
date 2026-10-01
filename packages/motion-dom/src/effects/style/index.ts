@@ -14,7 +14,7 @@ import { createSelectorEffect } from "../utils/create-dom-effect"
 import { createEffect } from "../utils/create-effect"
 import { buildTransform } from "./transform"
 
-const originProps = new Set(["originX", "originY", "originZ"])
+export const originProps = new Set(["originX", "originY", "originZ"])
 
 /**
  * A bound value in its default unit, e.g. `originX: 50` -> `"50%"`.

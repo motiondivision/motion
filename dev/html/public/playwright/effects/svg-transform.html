@@ -1,0 +1,34 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+        </style>
+    </head>
+    <body>
+        <svg width="200" height="200" viewBox="0 0 200 200">
+            <rect id="via-svg-effect" width="50" height="50" />
+            <rect id="via-animate" y="100" width="50" height="50" />
+        </svg>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            const { motionValue, svgEffect, animate } = window.Motion
+
+            svgEffect("#via-svg-effect", {
+                x: motionValue(10),
+                scaleX: motionValue(2),
+                skewX: motionValue(20),
+                rotateX: motionValue(30),
+                originX: motionValue(0),
+            })
+
+            const rect = document.getElementById("via-animate")
+            animate(
+                rect,
+                { scaleX: 2, skewX: 20, originX: 0 },
+                { duration: 0.1 }
+            ).then(() => rect.setAttribute("data-complete", "true"))
+        </script>
+    </body>
+</html>
