@@ -11,25 +11,22 @@ export function animateVisualElement(
     options: VisualElementAnimationOptions = {}
 ) {
     visualElement.notify("AnimationStart", definition)
-    let animation: Promise<any>
 
-    if (Array.isArray(definition)) {
-        const animations = definition.map((variant) =>
-            animateVariant(visualElement, variant, options)
-        )
-        animation = Promise.all(animations)
-    } else if (typeof definition === "string") {
-        animation = animateVariant(visualElement, definition, options)
-    } else {
-        const resolvedDefinition =
-            typeof definition === "function"
-                ? resolveVariant(visualElement, definition, options.custom)
-                : definition
-
-        animation = Promise.all(
-            animateTarget(visualElement, resolvedDefinition, options)
-        )
-    }
+    const animation = Array.isArray(definition)
+        ? Promise.all(
+              definition.map((variant) =>
+                  animateVariant(visualElement, variant, options)
+              )
+          )
+        : typeof definition === "string"
+        ? animateVariant(visualElement, definition, options)
+        : Promise.all(
+              animateTarget(
+                  visualElement,
+                  resolveVariant(visualElement, definition, options.custom),
+                  options
+              )
+          )
 
     return animation.then(() => {
         visualElement.notify("AnimationComplete", definition)
