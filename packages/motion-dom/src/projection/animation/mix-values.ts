@@ -9,11 +9,9 @@ import {
 } from "motion-utils"
 import type { ResolvedValues } from "../../node/types"
 import { cornerRadiusProps } from "../../utils/border-radius"
+import { asNumber } from "../../value/utils/as-number"
 
 const numBorders = cornerRadiusProps.length
-
-const asNumber = (value: AnyResolvedKeyframe) =>
-    typeof value === "string" ? parseFloat(value) : value
 
 const isPx = (value: AnyResolvedKeyframe) =>
     typeof value === "number" || px.test(value)

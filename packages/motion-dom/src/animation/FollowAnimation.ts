@@ -2,7 +2,6 @@ import { cancelFrame, frame } from "../frameloop"
 import { time } from "../frameloop/sync-time"
 import { FrameData } from "../frameloop/types"
 import { DriverControls } from "./drivers/types"
-import { keyframes as keyframesGenerator } from "./generators/keyframes"
 import { calcGeneratorVelocity } from "./generators/utils/velocity"
 import {
     GeneratorFactory,
@@ -10,7 +9,6 @@ import {
     MotionValueAnimation,
     ValueAnimationOptions,
 } from "./types"
-import { replaceTransitionType } from "./utils/replace-transition-type"
 import { WithPromise } from "./utils/WithPromise"
 
 /**
@@ -71,8 +69,7 @@ export class FollowAnimation
         super()
 
         this.options = options
-        replaceTransitionType(options)
-        this.factory = (options.type as GeneratorFactory) || keyframesGenerator
+        this.factory = options.type as GeneratorFactory
         this.generator = this.factory(options)
 
         const { driver } = options

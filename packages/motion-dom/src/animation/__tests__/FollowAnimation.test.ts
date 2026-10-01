@@ -2,6 +2,7 @@ import { MotionGlobalConfig } from "motion-utils"
 import { frame, frameData, frameSteps } from "../../frameloop"
 import { time } from "../../frameloop/sync-time"
 import { FollowAnimation } from "../FollowAnimation"
+import { keyframes } from "../generators/keyframes"
 import { spring } from "../generators/spring"
 import { syncDriver } from "./utils"
 
@@ -32,7 +33,7 @@ function runUntilDone(animation: FollowAnimation, from = 0, step = 16) {
 }
 
 const springOptions = {
-    type: "spring" as const,
+    type: spring,
     stiffness: 100,
     damping: 10,
     restDelta: 0.001,
@@ -154,7 +155,7 @@ describe("FollowAnimation", () => {
         let latest = 0
         const animation = new FollowAnimation({
             keyframes: [0, 100],
-            type: "spring",
+            type: spring,
             ...options,
             onUpdate: (v) => (latest = v),
         })
@@ -191,7 +192,7 @@ describe("FollowAnimation", () => {
         const onPlay = jest.fn()
         const animation = new FollowAnimation({
             keyframes: [0, 100],
-            type: "spring",
+            type: spring,
             ...options,
             onUpdate: (v) => output.push(v),
             onPlay,
@@ -255,7 +256,7 @@ describe("FollowAnimation", () => {
         const output: number[] = []
         const animation = new FollowAnimation({
             keyframes: [0, 100],
-            type: "tween",
+            type: keyframes,
             duration: 100,
             ease: "linear",
             onUpdate: (v) => output.push(v),
@@ -317,7 +318,7 @@ describe("FollowAnimation", () => {
         const output: number[] = []
         const animation = new FollowAnimation({
             keyframes: [0, 100],
-            type: "tween",
+            type: keyframes,
             duration: 100,
             ease: "linear",
             delay: 100,
@@ -361,7 +362,7 @@ describe("FollowAnimation", () => {
         const onComplete = jest.fn()
         const animation: FollowAnimation = new FollowAnimation({
             keyframes: [0, 100],
-            type: "tween",
+            type: keyframes,
             duration: 100,
             ease: "linear",
             onUpdate: (v) => {
@@ -407,7 +408,7 @@ describe("FollowAnimation", () => {
         const onStop = jest.fn()
         const animation: FollowAnimation = new FollowAnimation({
             keyframes: [0, 100],
-            type: "tween",
+            type: keyframes,
             duration: 100,
             ease: "linear",
             onUpdate: (v) => v === 100 && animation.stop(),

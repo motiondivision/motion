@@ -64,6 +64,18 @@ export function useFollowValue(
     source: MotionValue<string> | MotionValue<number> | AnyResolvedKeyframe,
     options: FollowValueOptions = {}
 ) {
+    return useFollow(source, options, attachFollow)
+}
+
+export function useFollow<O>(
+    source: MotionValue<string> | MotionValue<number> | AnyResolvedKeyframe,
+    options: O,
+    attach: (
+        value: MotionValue<any>,
+        target: MotionValue<any> | AnyResolvedKeyframe,
+        transition: O
+    ) => VoidFunction
+) {
     const { isStatic } = useContext(MotionConfigContext)
     const getFromSource = () => (isMotionValue(source) ? source.get() : source)
 
@@ -75,7 +87,7 @@ export function useFollowValue(
     const value = useMotionValue(getFromSource())
 
     useInsertionEffect(() => {
-        return attachFollow(value, source, options)
+        return attach(value, source, options)
     }, [value, JSON.stringify(options)])
 
     return value

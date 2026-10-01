@@ -264,6 +264,32 @@ const runSpringTests = (unit?: string | undefined) => {
 runSpringTests()
 runSpringTests("%")
 
+describe("springValue transition type", () => {
+    test.each(["spring", "tween"])(
+        "animates with a spring when passed type %s",
+        async (type) => {
+            const spring = springValue(0 as number, {
+                type,
+                stiffness: 1000,
+                damping: 10,
+                driver: syncDriver(10),
+            } as any)
+            const output: number[] = []
+            spring.on("change", (v) => output.push(v))
+
+            spring.set(100)
+
+            await new Promise<void>((resolve) =>
+                spring.on("animationComplete", () => resolve())
+            )
+
+            expect(spring.get()).toBe(100)
+            // Underdamped, so the spring overshoots where a tween wouldn't
+            expect(Math.max(...output)).toBeGreaterThan(100)
+        }
+    )
+})
+
 describe("spring isAnimating and animationComplete", () => {
     test("isAnimating returns true during spring animation via set()", async () => {
         const spring = followValue(0 as number, {
