@@ -1,6 +1,6 @@
 {
     "name": "framer-motion",
-    "version": "13.4.6",
+    "version": "13.4.7",
     "description": "A simple and powerful JavaScript animation library",
     "main": "dist/cjs/index.js",
     "module": "dist/es/index.mjs",
@@ -89,12 +89,12 @@
         "test-server": "jest --config jest.config.ssr.json",
         "prettier": "prettier ./src/* --write",
         "watch": "concurrently -c blue,red -n tsc --noEmitOnError ,rollup --kill-others \"tsc  --noEmitOnError --watch -p . --preserveWatchOutput\" \"rollup --config --watch --no-watch.clearScreen\"",
-        "prepack": "yarn build && yarn measure",
+        "prepack": "yarn build && yarn measure && node ../../dev/inc/bundlesize.mjs framer-motion",
         "postpublish": "git push --tags",
         "measure": "rollup -c ./rollup.size.config.mjs"
     },
     "dependencies": {
-        "motion-dom": "^13.4.5",
+        "motion-dom": "^13.4.7",
         "motion-utils": "^13.3.0",
         "tslib": "^2.4.0"
     },
@@ -119,31 +119,31 @@
     "bundlesize": [
         {
             "path": "./dist/size-rollup-motion.js",
-            "maxSize": "34.9 kB"
+            "maxSize": "39.05 kB"
         },
         {
             "path": "./dist/size-rollup-m.js",
-            "maxSize": "6 kB"
+            "maxSize": "5 kB"
         },
         {
-            "path": "./dist/size-rollup-dom-animation.js",
-            "maxSize": "17.85 kB"
+            "path": "./dist/size-rollup-m-dom-animation.js",
+            "maxSize": "25.5 kB"
         },
         {
-            "path": "./dist/size-rollup-dom-max.js",
-            "maxSize": "29.8 kB"
+            "path": "./dist/size-rollup-m-dom-max.js",
+            "maxSize": "39.15 kB"
         },
         {
             "path": "./dist/size-rollup-animate.js",
-            "maxSize": "19.1 kB"
+            "maxSize": "18.45 kB"
         },
         {
             "path": "./dist/size-rollup-scroll.js",
-            "maxSize": "5.2 kB"
+            "maxSize": "3.55 kB"
         },
         {
             "path": "./dist/size-rollup-waapi-animate.js",
-            "maxSize": "2.26 kB"
+            "maxSize": "3.2 kB"
         }
     ],
     "gitHead": "cddcc66430c5c96b2f560bb6a61160231f512c53"

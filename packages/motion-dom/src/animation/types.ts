@@ -26,8 +26,10 @@ export interface ValueAnimationOptionsWithRenderContext<
 
 export interface TimelineWithFallback {
     timeline?: ProgressTimeline
-    rangeStart?: string
-    rangeEnd?: string
+    /**
+     * Called with the WAAPI animation once it's attached to `timeline`.
+     */
+    onAttach?: (animation: Animation) => void
     observe: (animation: AnimationPlaybackControls) => VoidFunction
 }
 
