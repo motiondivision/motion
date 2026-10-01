@@ -20,7 +20,7 @@ import { resolveMotionValue } from "motion-dom"
 import { MotionProps } from "../types"
 
 export interface VisualState<Instance, RenderState> {
-    renderState: RenderState
+    renderState?: RenderState
     latestValues: ResolvedValues
     onMount?: (instance: Instance) => void
 }
@@ -30,16 +30,12 @@ export type UseVisualState<Instance, RenderState> = (
     isStatic: boolean
 ) => VisualState<Instance, RenderState>
 
-export interface UseVisualStateConfig<RenderState> {
+export interface UseVisualStateConfig<_RenderState> {
     scrapeMotionValuesFromProps: ScrapeMotionValuesFromProps
-    createRenderState: () => RenderState
 }
 
 function makeState<I, RS>(
-    {
-        scrapeMotionValuesFromProps,
-        createRenderState,
-    }: UseVisualStateConfig<RS>,
+    { scrapeMotionValuesFromProps }: UseVisualStateConfig<RS>,
     props: MotionProps,
     context: MotionContextProps,
     presenceContext: PresenceContextProps | null
@@ -51,7 +47,6 @@ function makeState<I, RS>(
             presenceContext,
             scrapeMotionValuesFromProps
         ),
-        renderState: createRenderState(),
     }
 
     return state

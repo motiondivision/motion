@@ -1,10 +1,8 @@
 "use client"
 
-import { scrapeSVGMotionValuesFromProps } from "motion-dom"
+import { scrapeSVGMotionValuesFromProps, type SVGRenderState } from "motion-dom"
 import { makeUseVisualState } from "../../motion/utils/use-visual-state"
-import { createSvgRenderState } from "./utils/create-render-state"
 
-export const useSVGVisualState = /*@__PURE__*/ makeUseVisualState({
+export const useSVGVisualState = /*@__PURE__*/ makeUseVisualState<SVGElement, SVGRenderState>({
     scrapeMotionValuesFromProps: scrapeSVGMotionValuesFromProps,
-    createRenderState: createSvgRenderState,
 })

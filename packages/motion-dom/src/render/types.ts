@@ -78,7 +78,7 @@ export interface MotionConfigContextProps {
 
 export interface VisualState<_Instance, RenderState> {
     latestValues: ResolvedValues
-    renderState: RenderState
+    renderState?: RenderState
 }
 
 export interface VisualElementOptions<Instance, RenderState = any> {

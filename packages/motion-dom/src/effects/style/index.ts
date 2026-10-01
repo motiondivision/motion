@@ -44,7 +44,6 @@ export const addStyleValue = (
     if (transformProps.has(key)) {
         if (key !== "pathRotation") {
             keys = state.transformKeys ??= []
-            ;(state.transformValues ??= {})[key] = value
 
             if (!keys.includes(key)) {
                 keys.push(key)
@@ -98,11 +97,8 @@ export const addStyleValue = (
 
     return keys
         ? () => {
+              state.get(key) === value && keys!.splice(keys!.indexOf(key), 1)
               remove()
-              if (state.transformValues![key] === value) {
-                  keys!.splice(keys!.indexOf(key), 1)
-                  delete state.transformValues![key]
-              }
           }
         : remove
 }

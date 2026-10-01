@@ -15,7 +15,6 @@ export class MotionValueState {
      * bound transforms, reading each value directly.
      */
     transformKeys?: string[]
-    transformValues?: Record<string, MotionValue>
 
     /**
      * Called after a bound value changes, so an owner (a VisualElement)
@@ -85,19 +84,23 @@ export class MotionValueState {
             this.onValueChange?.(name, latest)
         })
 
-        const onRemove = () => {
-            cancelOnChange()
-            render && !computed && this.cancel(render)
-            this.values.delete(name)
-        }
-
-        this.values.set(name, {
+        const entry: Entry = {
             value,
             render: computed ? undefined : render,
-            onRemove,
-        })
+            onRemove: () => {
+                cancelOnChange()
+                render && !computed && this.cancel(render)
+                /**
+                 * A later set() of the same name has already removed this
+                 * entry, so leave the one that replaced it.
+                 */
+                this.values.get(name) === entry && this.values.delete(name)
+            },
+        }
 
-        return onRemove
+        this.values.set(name, entry)
+
+        return entry.onRemove
     }
 
     get(name: string): MotionValue | undefined {
@@ -116,7 +119,7 @@ export class MotionValueState {
             values.set(name, entry.value)
             entry.onRemove()
         })
-        this.transformKeys = this.transformValues = undefined
+        this.transformKeys = undefined
         return values
     }
 

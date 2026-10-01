@@ -1,10 +1,8 @@
 "use client"
 
-import { scrapeHTMLMotionValuesFromProps } from "motion-dom"
+import { scrapeHTMLMotionValuesFromProps, type HTMLRenderState } from "motion-dom"
 import { makeUseVisualState } from "../../motion/utils/use-visual-state"
-import { createHtmlRenderState } from "./utils/create-render-state"
 
-export const useHTMLVisualState = /*@__PURE__*/ makeUseVisualState({
+export const useHTMLVisualState = /*@__PURE__*/ makeUseVisualState<HTMLElement, HTMLRenderState>({
     scrapeMotionValuesFromProps: scrapeHTMLMotionValuesFromProps,
-    createRenderState: createHtmlRenderState,
 })

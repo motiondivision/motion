@@ -1,6 +1,7 @@
+import type { AnyResolvedKeyframe } from "../../animation/types"
 import { transformValueTypes } from "../../value/types/maps/transform"
 import { getValueAsType } from "../../value/types/utils/get-as-type"
-import { MotionValueState } from "../MotionValueState"
+import type { MotionValueState } from "../MotionValueState"
 
 const translateAlias: Record<string, string> = {
     x: "translateX",
@@ -15,28 +16,31 @@ const translateAlias: Record<string, string> = {
  */
 const openers: Record<string, string> = {}
 
+export type TransformTemplate = (
+    transform: Record<string, string>,
+    generated: string
+) => string
+
 /**
- * Returns `undefined` while every bound transform is still waiting for
- * its origin to be read, so the transform it would be read from isn't
- * overwritten first.
+ * Build a transform from `keys`, in `transformPropOrder`, reading each
+ * with `read`. Shared by the style effect, which reads bound motion
+ * values, and the initial render, which reads plain values.
+ *
+ * Returns `undefined` while every key is still waiting for its origin
+ * to be read, so the transform it would be read from isn't overwritten.
  */
-export function buildTransform(state: MotionValueState) {
+export function buildTransformFrom(
+    keys: readonly string[],
+    read: (key: string) => AnyResolvedKeyframe | undefined,
+    transformTemplate?: TransformTemplate
+) {
     let transform = ""
-    const {
-        transformKeys: keys = [],
-        transformValues: values = {},
-        transformTemplate,
-    } = state
     const typed: Record<string, string> = {}
     let unresolved = keys.length
 
-    /**
-     * Loop over the bound transforms in order, adding the ones that
-     * aren't at their default value to the transform string.
-     */
     for (let i = 0; i < keys.length; i++) {
         const key = keys[i]
-        const value = values[key].get()
+        const value = read(key)
 
         if (value === undefined) continue
         unresolved = 0
@@ -59,14 +63,14 @@ export function buildTransform(state: MotionValueState) {
 
     // See build-transform.ts: additive `rotate()` so user `rotate` isn't
     // clobbered. Not a `transformPropOrder` slot.
-    const pathRotation = state.get("pathRotation")?.get()
+    const pathRotation = read("pathRotation")
     if (pathRotation) {
         transform +=
             (transform && " ") +
             "rotate(" +
             getValueAsType(pathRotation, transformValueTypes.pathRotation) +
             ")"
-    } else if (unresolved) {
+    } else if (unresolved && !transformTemplate) {
         return
     }
 
@@ -74,3 +78,10 @@ export function buildTransform(state: MotionValueState) {
         ? transformTemplate(typed, transform)
         : transform || "none"
 }
+
+export const buildTransform = (state: MotionValueState) =>
+    buildTransformFrom(
+        state.transformKeys || [],
+        (key) => state.get(key)?.get(),
+        state.transformTemplate
+    )
