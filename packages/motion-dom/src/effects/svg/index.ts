@@ -65,10 +65,10 @@ export const addSVGValue = (
  * Reads the current value of `key` from an SVG element as the origin of
  * an animation, as the SVG VisualElement does: transforms start from
  * their defaults, CSS variables and the few CSS-only properties come from
- * computed style
- * and everything else is read from the attribute, dash-cased
- * (`strokeWidth` -> `stroke-width`) or, failing that, as written
- * (`baseFrequency`).
+ * computed style, falling back to the attribute when that's empty (e.g.
+ * the element isn't rendered), and everything else is read from the
+ * attribute, dash-cased (`strokeWidth` -> `stroke-width`) or, failing
+ * that, as written (`baseFrequency`).
  */
 export const readSVGValue = (element: SVGElement, key: string) => {
     if (transformProps.has(key)) {
@@ -76,7 +76,11 @@ export const readSVGValue = (element: SVGElement, key: string) => {
     }
 
     if (isCSSVar(key) || cssStyleProperties.includes(key)) {
-        return readStyleValue(element, key)
+        return (
+            readStyleValue(element, key) ||
+            element.getAttribute(camelToDash(key)) ||
+            0
+        )
     }
 
     key = convertAttrKey(key)

@@ -1,6 +1,6 @@
 import { frame } from "../../frameloop"
 import { motionValue } from "../../value"
-import { svgEffect } from "../svg"
+import { readSVGValue, svgEffect } from "../svg"
 
 async function nextFrame() {
     return new Promise<void>((resolve) => {
@@ -344,5 +344,56 @@ describe("svgEffect", () => {
         // Verify values didn't change after cleanup
         expect(element.getAttribute("stroke-dashoffset")).toBe("-0.25")
         expect(element.getAttribute("stroke-dasharray")).toBe("3 2")
+    })
+})
+
+describe("readSVGValue", () => {
+    const circle = () =>
+        document.createElementNS("http://www.w3.org/2000/svg", "circle")
+
+    test.each([
+        ["transform", "translateX(10px)"],
+        ["opacity", "0.5"],
+        ["offsetDistance", "25%"],
+        ["offsetPath", 'path("M 0 0 L 1 1")'],
+        ["offsetRotate", "auto"],
+        ["offsetAnchor", "center"],
+    ])("reads %s from CSS style", (key, value) => {
+        const element = circle()
+        element.style[key as any] = value
+
+        expect(readSVGValue(element, key)).toBe(value)
+    })
+
+    test.each([
+        ["transform", "translate(10 20)"],
+        ["opacity", "0.25"],
+        ["offsetDistance", "50%"],
+        ["offsetPath", "none"],
+        ["offsetRotate", "reverse"],
+        ["offsetAnchor", "auto"],
+    ])(
+        "falls back to the %s attribute when the computed style is empty",
+        (key, value) => {
+            const element = circle()
+            element.setAttribute(
+                key.replace(/[A-Z]/gu, (c) => `-${c.toLowerCase()}`),
+                value
+            )
+
+            expect(readSVGValue(element, key)).toBe(value)
+        }
+    )
+
+    test("prefers the computed style over the attribute", () => {
+        const element = circle()
+        element.setAttribute("opacity", "0.25")
+        element.style.opacity = "0.5"
+
+        expect(readSVGValue(element, "opacity")).toBe("0.5")
+    })
+
+    test("reads 0 when neither style nor attribute is set", () => {
+        expect(readSVGValue(circle(), "opacity")).toBe(0)
     })
 })
