@@ -59,6 +59,7 @@ import {
     isDeltaZero,
 } from "../geometry/utils"
 import { NodeStack } from "../shared/stack"
+import { defaultScaleCorrectors } from "../styles/default-scale-correctors"
 import { buildProjectionTransform } from "../styles/transform"
 import { eachAxis } from "../utils/each-axis"
 import { FlatTree } from "../utils/flat-tree"
@@ -74,6 +75,15 @@ import {
     ProjectionNodeOptions,
     ScrollMeasurements,
 } from "./types"
+
+/**
+ * Correctors registered via addScaleCorrector before projection loaded
+ * (e.g. with an async LazyMotion bundle) take precedence over the defaults.
+ */
+Object.assign(scaleCorrectors, {
+    ...defaultScaleCorrectors,
+    ...scaleCorrectors,
+})
 
 const metrics = {
     nodes: 0,

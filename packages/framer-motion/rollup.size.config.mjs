@@ -1,3 +1,4 @@
+import path from "path"
 import resolve from "@rollup/plugin-node-resolve"
 import terser from "@rollup/plugin-terser"
 import { visualizer } from "rollup-plugin-visualizer"
@@ -51,47 +52,39 @@ const sizeAnimateMini = createSizeBundle(
     "dist/size-rollup-waapi-animate.js"
 )
 
-const domAnimation = Object.assign({}, es, {
-    input: {
-        "size-rollup-dom-animation-m": "lib/render/components/m/size.js",
-        "size-rollup-dom-animation": "lib/render/dom/features-animation.js",
-    },
-    output: {
-        format: "es",
-        exports: "named",
-        preserveModules: false,
-        entryFileNames: "[name].js",
-        chunkFileNames: "size-rollup-dom-animation-assets.js",
-        dir: `dist`,
-    },
-    plugins: [...sizePlugins],
-    external,
-    onwarn(warning, warn) {
-        if (warning.code === "MODULE_LEVEL_DIRECTIVE") {
-            return
-        }
-        warn(warning)
-    },
-})
+/**
+ * Bundles several modules into one file. Passing them as separate inputs
+ * would move their shared modules into a chunk that no budget counts.
+ */
+function createCombinedSizeBundle(inputs, output) {
+    const id = `\0${output}`
+    const code = inputs
+        .map((input) => `export * from ${JSON.stringify(path.resolve(input))}`)
+        .join("\n")
+    const bundle = createSizeBundle(id, output)
+    bundle.plugins = [
+        {
+            name: "size-entry",
+            resolveId: (i) => (i === id ? id : null),
+            load: (i) => (i === id ? code : null),
+        },
+        ...bundle.plugins,
+    ]
+    return bundle
+}
 
-const domMax = Object.assign({}, es, {
-    input: {
-        "size-rollup-dom-animation-m": "lib/render/components/m/size.js",
-        "size-rollup-dom-max": "lib/render/dom/features-max.js",
-    },
-    output: {
-        ...domAnimation.output,
-        chunkFileNames: "size-rollup-dom-max-assets.js",
-    },
-    plugins: sizePlugins,
-    external,
-    onwarn(warning, warn) {
-        if (warning.code === "MODULE_LEVEL_DIRECTIVE") {
-            return
-        }
-        warn(warning)
-    },
-})
+const lazyM = [
+    "lib/render/components/m/size.js",
+    "lib/components/LazyMotion/index.js",
+]
+const domAnimation = createCombinedSizeBundle(
+    [...lazyM, "lib/render/dom/features-animation.js"],
+    "dist/size-rollup-m-dom-animation.js"
+)
+const domMax = createCombinedSizeBundle(
+    [...lazyM, "lib/render/dom/features-max.js"],
+    "dist/size-rollup-m-dom-max.js"
+)
 
 // eslint-disable-next-line import/no-default-export
 export default [

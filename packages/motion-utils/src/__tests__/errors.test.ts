@@ -84,5 +84,27 @@ describe("errors", () => {
             expect(typeof warning).toBe("function")
             expect(typeof invariant).toBe("function")
         })
+
+        it("should load as a no-op when process is undefined", () => {
+            const descriptor = Object.getOwnPropertyDescriptor(
+                globalThis,
+                "process"
+            )!
+            Object.defineProperty(globalThis, "process", {
+                value: undefined,
+                configurable: true,
+            })
+
+            try {
+                jest.isolateModules(() => {
+                    const errors = require("../errors")
+                    expect(() =>
+                        errors.invariant(false, "Test invariant message")
+                    ).not.toThrow()
+                })
+            } finally {
+                Object.defineProperty(globalThis, "process", descriptor)
+            }
+        })
     })
 })
