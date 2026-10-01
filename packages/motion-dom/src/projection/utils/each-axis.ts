@@ -1,5 +1,3 @@
-type Callback = (axis: "x" | "y") => void
-
-export function eachAxis(callback: Callback) {
+export function eachAxis<T>(callback: (axis: "x" | "y") => T): T[] {
     return [callback("x"), callback("y")]
 }

@@ -173,6 +173,13 @@ export abstract class VisualElement<
     onBindTransform?(): void
 
     /**
+     * The value getValue starts a new motion value from when it isn't given
+     * a default. Without it, values start unread and the keyframe resolver
+     * reads their origin.
+     */
+    getDefaultValue?(key: string): AnyResolvedKeyframe | undefined
+
+    /**
      * If the component child is provided as a motion value, handle subscriptions
      * with the renderer-specific VisualElement.
      */
@@ -804,7 +811,15 @@ export abstract class VisualElement<
             if (existingValue) this.removeValue(key)
             this.bindToMotionValue(key, value)
             this.values.set(key, value)
-            this.latestValues[key] = value.get()
+
+            /**
+             * An animated value with no base value is undefined until the
+             * keyframe resolver reads its origin. Rendering it before then
+             * writes an invalid placeholder (e.g. points="undefined") that
+             * the resolver can read back from the DOM as the origin.
+             */
+            const latest = value.get()
+            if (latest !== undefined) this.latestValues[key] = latest
         }
     }
 
@@ -846,10 +861,9 @@ export abstract class VisualElement<
         let value = this.values.get(key)
 
         if (value === undefined && defaultValue !== undefined) {
-            value = motionValue(
-                defaultValue === null ? undefined : defaultValue,
-                { owner: this }
-            )
+            value = motionValue(defaultValue ?? this.getDefaultValue?.(key), {
+                owner: this,
+            })
             this.addValue(key, value)
         }
 
