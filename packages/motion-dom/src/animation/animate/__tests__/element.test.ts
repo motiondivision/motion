@@ -343,6 +343,26 @@ describe("animateElement", () => {
             animation.stop()
         })
 
+        it("reads CSS property origins from the attribute when computed style is empty", async () => {
+            const circle = svg("circle")
+            circle.setAttribute("opacity", "0.25")
+
+            const [animation] = animateElement(
+                circle,
+                { opacity: 1 },
+                { duration: 10, ease: "linear" }
+            )
+
+            await nextFrame()
+            await nextFrame()
+
+            const opacity = svgEffect.get(circle, "opacity")!.get()
+            expect(opacity).toBeGreaterThanOrEqual(0.25)
+            expect(opacity).toBeLessThan(0.3)
+
+            animation.stop()
+        })
+
         it("writes CSS variables to style rather than as attributes", async () => {
             const path = svg("path")
 
