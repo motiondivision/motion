@@ -278,7 +278,9 @@ export interface DurationSpringOptions {
     /**
      * `bounce` determines the "bounciness" of a spring animation.
      *
-     * `0` is no bounce, and `1` is extremely bouncy.
+     * `0` is no bounce, and `1` is extremely bouncy. Negative values, down to
+     * `-1`, make an overdamped spring that starts quicker and eases more
+     * gently into its target.
      *
      * If `duration` is set, this defaults to `0.25`.
      *

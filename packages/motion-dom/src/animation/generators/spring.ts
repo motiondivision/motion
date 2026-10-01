@@ -43,7 +43,49 @@ const springDefaults = {
     minDuration: 0.01, // in seconds
     maxDuration: 10.0, // in seconds
     minDamping: 0.05,
-    maxDamping: 1,
+}
+
+/**
+ * Maps bounce to a damping ratio as SwiftUI does: 0 is critically damped, and
+ * it approaches undamped towards 1 and infinitely overdamped towards -1. Both
+ * ends are limited so the spring still moves and settles.
+ */
+const bounceToDampingRatio = (bounce: number) =>
+    bounce < 0
+        ? 1 / Math.max(1 + bounce, springDefaults.minDamping)
+        : Math.max(1 - bounce, springDefaults.minDamping)
+
+/**
+ * Scales an overdamped spring's undamped frequency so that, at its defining
+ * time, it has as far left to go as the critically damped spring that's
+ * criticalFreqTime radians in by then. A negative bounce then changes the
+ * shape of the curve, not when it arrives. 1 at a damping ratio of 1, so
+ * there's no jump at a bounce of 0.
+ *
+ * Solved by Newton on the remaining distance (times fast - slow), which is
+ * convex from criticalFreqTime onwards. criticalFreqTime is always below the
+ * answer, so it converges from below without overshooting.
+ */
+function overdampedFreqScale(dampingRatio: number, criticalFreqTime: number) {
+    if (!(dampingRatio > 1)) return 1
+
+    const root = Math.sqrt(dampingRatio * dampingRatio - 1)
+    const slow = dampingRatio - root
+    const fast = dampingRatio + root
+    const target =
+        2 * root * Math.exp(-criticalFreqTime) * (1 + criticalFreqTime)
+
+    return (
+        approximateRoot(
+            (freqTime) =>
+                fast * Math.exp(-slow * freqTime) -
+                slow * Math.exp(-fast * freqTime) -
+                target,
+            (freqTime) =>
+                Math.exp(-fast * freqTime) - Math.exp(-slow * freqTime),
+            criticalFreqTime
+        ) / criticalFreqTime
+    )
 }
 
 function calcAngularFreq(undampedFreq: number, dampingRatio: number) {
@@ -86,16 +128,8 @@ function findSpring({
         "spring-duration-limit"
     )
 
-    let dampingRatio = 1 - bounce
+    const dampingRatio = bounceToDampingRatio(bounce)
 
-    /**
-     * Restrict dampingRatio and duration to within acceptable ranges.
-     */
-    dampingRatio = clamp(
-        springDefaults.minDamping,
-        springDefaults.maxDamping,
-        dampingRatio
-    )
     duration = clamp(
         springDefaults.minDuration,
         springDefaults.maxDuration,
@@ -130,7 +164,8 @@ function findSpring({
         }
     } else {
         /**
-         * Critically-damped spring
+         * Critically-damped spring. Overdamped springs reuse this root,
+         * scaled below.
          */
         envelope = (undampedFreq) => {
             const a = Math.exp(-undampedFreq * duration)
@@ -146,7 +181,10 @@ function findSpring({
     }
 
     const initialGuess = 5 / duration
-    const undampedFreq = approximateRoot(envelope, derivative, initialGuess)
+    const criticalFreq = approximateRoot(envelope, derivative, initialGuess)
+    const undampedFreq =
+        criticalFreq *
+        overdampedFreqScale(dampingRatio, criticalFreq * duration)
     const stiffness = undampedFreq * undampedFreq
 
     return {
@@ -209,12 +247,13 @@ function getSpringOptions(options: SpringOptions) {
 
     if (springOptions.isTimeDefined) {
         if (options.visualDuration) {
-            const root = (2 * Math.PI) / (options.visualDuration * 1.2)
+            const dampingRatio = bounceToDampingRatio(options.bounce || 0)
+            const root =
+                ((2 * Math.PI) / (options.visualDuration * 1.2)) *
+                overdampedFreqScale(dampingRatio, (2 * Math.PI) / 1.2)
             springOptions.stiffness = root * root
             springOptions.damping =
-                2 *
-                clamp(0.05, 1, 1 - (options.bounce || 0)) *
-                Math.sqrt(springOptions.stiffness)
+                2 * dampingRatio * Math.sqrt(springOptions.stiffness)
         } else {
             Object.assign(springOptions, findSpring(springOptions))
             springOptions.isResolvedFromDuration = true
@@ -385,40 +424,42 @@ function spring(
             Math.exp(-undampedAngularFreq * t) *
             (undampedAngularFreq * c.C * t - s.velocity)
     } else {
-        // Overdamped spring
+        /**
+         * Overdamped spring: the sum of a slow and a fast decaying
+         * exponential, so no term can overflow however heavily it's damped.
+         */
         const dampedAngularFreq =
             undampedAngularFreq * Math.sqrt(dampingRatio * dampingRatio - 1)
+        const slow = decay - dampedAngularFreq
+        const fast = decay + dampedAngularFreq
 
-        resolveSpring = (t: number) => {
-            const envelope = Math.exp(-decay * t)
-
-            // When performing sinh or cosh values can hit Infinity so we cap them here
-            const freqForT = Math.min(dampedAngularFreq * t, 300)
-
-            return (
-                s.target -
-                (envelope *
-                    ((s.velocity + decay * s.delta) * Math.sinh(freqForT) +
-                        dampedAngularFreq * s.delta * Math.cosh(freqForT))) /
-                    dampedAngularFreq
+        /**
+         * Physics-defined springs keep a non-physical limit: once
+         * dampedAngularFreq * t passes 300, both terms decay at the damping
+         * rate. Heavily overdamped drag springs (dragElastic: 0,
+         * dragTransition) rely on this to settle almost at once rather than
+         * creep at stiffness / damping. Negative bounce needs the exact
+         * curve, so time-defined springs are exempt.
+         */
+        const limit = isTimeDefined ? Infinity : 300 / dampedAngularFreq
+        const decayAt = (rate: number, t: number) =>
+            Math.exp(
+                t > limit ? -rate * limit - decay * (t - limit) : -rate * t
             )
+
+        const c = { S: 0, F: 0 }
+        update = () => {
+            const P = (s.velocity + decay * s.delta) / dampedAngularFreq
+            c.S = (s.delta + P) / 2
+            c.F = (s.delta - P) / 2
         }
+
+        resolveSpring = (t: number) =>
+            s.target - c.S * decayAt(slow, t) - c.F * decayAt(fast, t)
 
         // Analytical derivative of overdamped spring (px/ms)
-        const c = { P: 0, sinh: 0, cosh: 0 }
-        update = () => {
-            c.P = (s.velocity + decay * s.delta) / dampedAngularFreq
-            c.sinh = decay * c.P - s.delta * dampedAngularFreq
-            c.cosh = decay * s.delta - c.P * dampedAngularFreq
-        }
-        resolveVelocity = (t: number) => {
-            const envelope = Math.exp(-decay * t)
-            const freqForT = Math.min(dampedAngularFreq * t, 300)
-            return (
-                envelope *
-                (c.sinh * Math.sinh(freqForT) + c.cosh * Math.cosh(freqForT))
-            )
-        }
+        resolveVelocity = (t: number) =>
+            slow * c.S * decayAt(slow, t) + fast * c.F * decayAt(fast, t)
     }
 
     update()

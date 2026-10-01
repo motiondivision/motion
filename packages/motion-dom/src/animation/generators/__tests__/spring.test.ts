@@ -13,6 +13,8 @@ describe("spring", () => {
         { stiffness: 100, damping: 30 },
         { duration: 600, bounce: 0.3 },
         { visualDuration: 0.4, bounce: 0.3 },
+        { duration: 600, bounce: -0.5 },
+        { visualDuration: 0.4, bounce: -0.5 },
     ])("retargeting matches a new spring with %o", (options) => {
         const generator = spring({ ...options, keyframes: [0, 100] })
         for (const keyframes of [
@@ -130,6 +132,22 @@ describe("spring", () => {
                 200
             )
         ).toEqual([100, 1000])
+    })
+
+    /**
+     * dragTransition values from the drag-to-reorder and drag-tabs test pages
+     */
+    test.each([
+        { stiffness: 2000, damping: 10000 },
+        { stiffness: 10000, damping: 10000 },
+    ])("Heavily overdamped %o spring settles quickly", (physics) => {
+        const generator = spring({
+            ...physics,
+            keyframes: [-60, 0],
+            restDelta: 1,
+            restSpeed: 10,
+        })
+        expect(generator.next(100)).toEqual({ done: true, value: 0 })
     })
 
     test("Velocity passed to overdamped spring", () => {
@@ -275,6 +293,170 @@ describe("visualDuration", () => {
             }).toString()
         ).toEqual(spring(0.5, 0.25).toString())
     })
+})
+
+describe("negative bounce", () => {
+    const sampleUntilDone = (options: ValueAnimationOptions<number>) => {
+        const generator = spring(options)
+        const values: number[] = []
+        for (let t = 0; t <= maxGeneratorDuration; t += 10) {
+            const { value, done } = generator.next(t)
+            values.push(value)
+            if (done) break
+        }
+        return values
+    }
+
+    const expectMonotonicWithoutOvershoot = (values: number[]) => {
+        for (let i = 1; i < values.length; i++) {
+            expect(values[i]).toBeGreaterThanOrEqual(values[i - 1])
+            expect(values[i]).toBeLessThanOrEqual(100)
+        }
+    }
+
+    test.each([-0.25, -0.5, -0.95])(
+        "bounce of %d resolves an overdamped spring from duration",
+        (bounce) => {
+            const options = { keyframes: [0, 100], duration: 800 }
+            const overdamped = spring({ ...options, bounce })
+            const critical = spring({ ...options, bounce: 0 })
+
+            expect(overdamped.calculatedDuration).toBe(800)
+            expect(overdamped.next(200).value).not.toBeCloseTo(
+                critical.next(200).value
+            )
+
+            const values = sampleUntilDone({ ...options, bounce })
+            expectMonotonicWithoutOvershoot(values)
+            // Settles within the duration rather than snapping at the end
+            expect(100 - values[values.length - 2]).toBeLessThan(1)
+        }
+    )
+
+    test("more negative bounce is flatter", () => {
+        const options = { keyframes: [0, 100], duration: 800 }
+        const arrivalSpeed = (bounce: number) =>
+            spring({ ...options, bounce }).velocity!(400)
+
+        expect(arrivalSpeed(-0.5)).toBeLessThan(arrivalSpeed(0))
+        expect(arrivalSpeed(-0.9)).toBeLessThan(arrivalSpeed(-0.5))
+    })
+
+    test.each([-0.25, -0.5, -0.95])(
+        "bounce of %d resolves an overdamped spring from visualDuration",
+        (bounce) => {
+            const overdamped = spring(0.3, bounce)
+            const critical = spring(0.3, 0)
+
+            expect(overdamped.next(100).value).not.toBeCloseTo(
+                critical.next(100).value
+            )
+            expectMonotonicWithoutOvershoot(
+                sampleUntilDone({
+                    keyframes: [0, 100],
+                    visualDuration: 0.3,
+                    bounce,
+                })
+            )
+        }
+    )
+
+    const pinnedBounces = [0, -0.5, -0.9, -0.95, -0.99, -1]
+
+    // Tiny rest thresholds, so no sample is snapped to the target
+    const unsnapped = (options: Partial<ValueAnimationOptions<number>>) =>
+        spring({
+            ...options,
+            keyframes: [0, 100],
+            restDelta: 1e-9,
+            restSpeed: 1e-9,
+        })
+
+    describe.each([0.3, 1])("visualDuration %d", (visualDuration) => {
+        const t = visualDuration * 1000
+        const critical = unsnapped({ visualDuration, bounce: 0 }).next(t).value
+
+        test("bounce 0 is 96.68% of the way at visualDuration", () => {
+            expect(critical).toBeCloseTo(96.68, 2)
+        })
+
+        test.each(pinnedBounces)(
+            "bounce of %d reaches the same progress as bounce 0 at visualDuration",
+            (bounce) => {
+                expect(
+                    unsnapped({ visualDuration, bounce }).next(t).value
+                ).toBeCloseTo(critical, 6)
+            }
+        )
+    })
+
+    describe.each([300, 800, 2000])("duration %d", (duration) => {
+        test.each(pinnedBounces)(
+            "bounce of %d has 0.1% of the distance left at duration",
+            (bounce) => {
+                const generator = unsnapped({ duration, bounce })
+                // Just before duration, where the spring snaps to its target
+                expect(100 - generator.next(duration - 1e-9).value).toBeCloseTo(
+                    0.1,
+                    6
+                )
+            }
+        )
+    })
+
+    test("bounce is limited to -0.95", () => {
+        expect(spring(0.3, -5).toString()).toEqual(
+            spring(0.3, -0.95).toString()
+        )
+    })
+
+    test.each([{ duration: 800 }, { visualDuration: 0.3 }])(
+        "bounce just below 0 matches a critically damped spring with %o",
+        (options) => {
+            const overdamped = spring({
+                ...options,
+                keyframes: [0, 100],
+                bounce: -1e-8,
+            })
+            const critical = spring({
+                ...options,
+                keyframes: [0, 100],
+                bounce: 0,
+            })
+            for (const t of [50, 100, 200, 400]) {
+                expect(overdamped.next(t).value).toBeCloseTo(
+                    critical.next(t).value,
+                    1
+                )
+            }
+        }
+    )
+
+    test.each([{ visualDuration: 0.3 }, { duration: 800 }])(
+        "bounce of -0.95 decelerates continuously to its target with %o",
+        (options) => {
+            // Tiny rest thresholds, so no sample is snapped to the target
+            const generator = spring({
+                ...options,
+                keyframes: [0, 100],
+                bounce: -0.95,
+                restDelta: 1e-6,
+                restSpeed: 1e-6,
+            })
+
+            let previous = 0
+            let previousStep = Infinity
+            for (let t = 10; t < 800; t += 10) {
+                const { value } = generator.next(t)
+                const step = value - previous
+                expect(step).toBeGreaterThanOrEqual(0)
+                expect(step).toBeLessThanOrEqual(previousStep)
+                expect(value).toBeLessThan(100)
+                previous = value
+                previousStep = step
+            }
+        }
+    )
 })
 
 describe("toString", () => {
