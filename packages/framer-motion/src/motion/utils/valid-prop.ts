@@ -13,7 +13,6 @@ const validMotionProps = new Set<keyof MotionProps>([
     "initial",
     "style",
     "values",
-    "variants",
     "transition",
     "transformTemplate",
     "custom",
