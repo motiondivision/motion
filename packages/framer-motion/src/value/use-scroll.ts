@@ -81,7 +81,7 @@ function canAccelerateScroll(
     if (typeof window === "undefined") return false
     return target
         ? supportsViewTimeline() && !!offsetToViewTimelineRange(offset)
-        : supportsScrollTimeline()
+        : supportsScrollTimeline() && !offset
 }
 
 export function useScroll({

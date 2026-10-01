@@ -996,6 +996,86 @@ describe("animate prop as object", () => {
         return expect(promise).resolves.toBe("#000")
     })
 
+    test("doesn't render unseen values before their origin is read", async () => {
+        const setProperty = jest.spyOn(
+            CSSStyleDeclaration.prototype,
+            "setProperty"
+        )
+        const { container } = render(
+            <motion.div
+                initial={{ opacity: 0.5 }}
+                animate={{ "--foo": 100 } as any}
+                transition={{ delay: 1 }}
+            />
+        )
+        const element = container.firstChild as HTMLElement
+        element.style.opacity = ""
+
+        // Flush the mount render, which runs before the origin is read
+        await Promise.resolve()
+        const { opacity } = element.style
+
+        await nextFrame()
+        const written = setProperty.mock.calls
+            .filter(([name]) => name === "--foo")
+            .map(([, value]) => value)
+        setProperty.mockRestore()
+
+        expect(opacity).toBe("0.5")
+        expect(written).not.toContain(undefined)
+    })
+
+    test("animates a removed transform back to its default when initial is set", async () => {
+        const check = async (initial: any) => {
+            const Component = ({ animate }: any) => (
+                <motion.div
+                    initial={initial}
+                    animate={animate}
+                    variants={{ hidden: { opacity: 0 } }}
+                    transition={{ duration: 0 }}
+                />
+            )
+            const { container, rerender } = render(
+                <Component animate={{ opacity: 1, x: 100 }} />
+            )
+            await new Promise((resolve) => setTimeout(resolve, 50))
+            rerender(<Component animate={{ opacity: 1 }} />)
+            await new Promise((resolve) => setTimeout(resolve, 50))
+            await nextFrame()
+            return (container.firstChild as HTMLElement).style.transform
+        }
+
+        expect(await check({ opacity: 0 })).toBe("none")
+        expect(await check("hidden")).toBe("none")
+    })
+
+    test("renders an independent transform's base, and nothing before its origin is read", async () => {
+        const transformOnMount = async (props: any) => {
+            const { container } = render(
+                <motion.div transition={{ delay: 1 }} {...props} />
+            )
+            const element = container.firstChild as HTMLElement
+            const beforeMount = element.style.transform
+
+            // Flush the mount render
+            await Promise.resolve()
+            return [beforeMount, element.style.transform]
+        }
+
+        // The origin can be read from the computed transform, so don't
+        // overwrite it first
+        expect(await transformOnMount({ animate: { x: 100 } })).toEqual([
+            "",
+            "",
+        ])
+        expect(
+            await transformOnMount({ animate: { x: 100 }, style: { x: 20 } })
+        ).toEqual(["translateX(20px)", "translateX(20px)"])
+        expect(
+            await transformOnMount({ animate: { x: 100 }, initial: { x: 10 } })
+        ).toEqual(["translateX(10px)", "translateX(10px)"])
+    })
+
     test("forces an animation to fallback if has been set to `null`", async () => {
         const promise = new Promise(async (resolve) => {
             const complete = () => resolve(true)

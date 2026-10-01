@@ -117,13 +117,11 @@ export const canaries = [
         scenarios: ["m-div"],
         forbid: "hsla(",
         why: "Default scale correctors pull the colour parser into m (plan 037)",
-        knownLeak: true,
     },
     {
         scenarios: ["m-div"],
         forbid: "boxShadow",
         why: "Default scale correctors are bundled into m (plan 037)",
-        knownLeak: true,
     },
     {
         scenarios: ["mini-animate"],
@@ -139,7 +137,6 @@ export const canaries = [
         scenarios: "*",
         forbid: "typeof console",
         why: "The dev-only warning body survives production dead-code elimination (plan 036)",
-        knownLeak: true,
     },
 ]
 

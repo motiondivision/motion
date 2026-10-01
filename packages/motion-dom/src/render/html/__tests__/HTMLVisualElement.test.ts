@@ -1,3 +1,4 @@
+import { motionValue } from "../../../value"
 import { HTMLVisualElement } from "../HTMLVisualElement"
 
 const createVisualElement = (element: HTMLElement) => {
@@ -56,5 +57,31 @@ describe("HTMLVisualElement.readValue", () => {
         visualElement.latestValues.width = 200
 
         expect(visualElement.readValue("width", "50%")).toBe(200)
+    })
+
+    test("reads independent transforms from the computed transform", () => {
+        const getComputedStyle = jest
+            .spyOn(window, "getComputedStyle")
+            .mockReturnValue({
+                transform: "matrix(1, 0, 0, 1, 100, 0)",
+            } as CSSStyleDeclaration)
+        const visualElement = createVisualElement(document.createElement("div"))
+        const x = visualElement.readValue("x", 200)
+        getComputedStyle.mockRestore()
+
+        expect(x).toBe(100)
+    })
+})
+
+describe("HTMLVisualElement.addValue", () => {
+    test("doesn't render a value until it has resolved", () => {
+        const visualElement = createVisualElement(document.createElement("div"))
+        const x = motionValue<number | undefined>(undefined)
+        visualElement.addValue("x", x as any)
+
+        expect("x" in visualElement.latestValues).toBe(false)
+
+        x.set(5)
+        expect(visualElement.latestValues.x).toBe(5)
     })
 })

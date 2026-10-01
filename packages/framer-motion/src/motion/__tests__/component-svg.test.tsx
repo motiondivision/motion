@@ -176,6 +176,48 @@ describe("SVG", () => {
         )
     })
 
+    test("never writes undefined or NaN points while resolving the origin", async () => {
+        const setAttribute = jest.spyOn(Element.prototype, "setAttribute")
+        const pointPairs = [
+            ["0,20 550,38", "720,38 712,50 389,50 380,36"],
+            ["710,38 712,50 389,50 380,36", "850,38 830,50 400,50 390,36"],
+        ]
+        const { container } = render(
+            <svg>
+                {pointPairs.map(([from, to], i) => (
+                    <motion.polygon
+                        key={i}
+                        points={from}
+                        animate={{ points: to }}
+                        transition={{
+                            delay: 0.2 * i,
+                            duration: 3,
+                            type: "spring",
+                        }}
+                    />
+                ))}
+            </svg>
+        )
+        for (let i = 0; i < 20; i++) await nextFrame()
+
+        const written = setAttribute.mock.calls
+            .filter(([name]) => name === "points")
+            .map(([, value]) => String(value))
+        setAttribute.mockRestore()
+
+        expect(written.length).toBeGreaterThan(1)
+        written.forEach((points) =>
+            expect(points).not.toMatch(/NaN|undefined/u)
+        )
+        container
+            .querySelectorAll("polygon")
+            .forEach((polygon) =>
+                expect(polygon.getAttribute("points")).not.toMatch(
+                    /NaN|undefined/u
+                )
+            )
+    })
+
     test("animates viewBox", async () => {
         const Component = () => {
             return (
@@ -194,5 +236,52 @@ describe("SVG", () => {
             "viewBox",
             "100 100 200 200"
         )
+    })
+
+    test("doesn't use the x attribute as the base of the x transform", async () => {
+        const Component = ({ animate }: any) => (
+            <svg>
+                <motion.rect
+                    data-testid="rect"
+                    x={10}
+                    animate={animate}
+                    transition={{ duration: 0 }}
+                />
+            </svg>
+        )
+        const { getByTestId, rerender } = render(
+            <Component animate={{ x: 100 }} />
+        )
+        await new Promise((resolve) => setTimeout(resolve, 50))
+        rerender(<Component animate={{}} />)
+        await new Promise((resolve) => setTimeout(resolve, 50))
+        await nextFrame()
+
+        const rect = getByTestId("rect")
+        expect(rect.style.transform).toBe("none")
+        expect(rect.getAttribute("x")).toBe("10")
+    })
+
+    test("uses style as the base of an independent transform", async () => {
+        const Component = ({ animate }: any) => (
+            <svg>
+                <motion.rect
+                    data-testid="rect"
+                    x={10}
+                    style={{ x: 20 }}
+                    animate={animate}
+                    transition={{ duration: 0 }}
+                />
+            </svg>
+        )
+        const { getByTestId, rerender } = render(
+            <Component animate={{ x: 100 }} />
+        )
+        await new Promise((resolve) => setTimeout(resolve, 50))
+        rerender(<Component animate={{}} />)
+        await new Promise((resolve) => setTimeout(resolve, 50))
+        await nextFrame()
+
+        expect(getByTestId("rect").style.transform).toBe("translateX(20px)")
     })
 })
