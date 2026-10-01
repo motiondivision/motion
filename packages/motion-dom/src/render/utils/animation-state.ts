@@ -18,7 +18,11 @@ export type { VisualElementAnimationOptions }
 
 export interface AnimationState {
     animateChanges: (type?: AnimationType) => Promise<any>
-    setActive: (type: AnimationType, isActive: boolean) => Promise<any>
+    setActive: (
+        type: AnimationType,
+        isActive: boolean,
+        options?: VisualElementAnimationOptions
+    ) => Promise<any>
     setAnimateFunction: (fn: any) => void
     getState: () => { [key: string]: AnimationTypeState }
     reset: () => void
