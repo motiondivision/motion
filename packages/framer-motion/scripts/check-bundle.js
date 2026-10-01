@@ -57,3 +57,19 @@ if (ownLazyContext) {
         `CJS m bundle (dist/cjs/m.js) defines its own LazyContext (${ownLazyContext.length} time(s)) instead of importing it from the shared chunk — this breaks LazyMotion + m component interop across CJS bundles (#3091)`
     )
 }
+
+/**
+ * Verify the production UMD bundles contain no `process.env` reference.
+ * `process.env?.NODE_ENV` (optional chaining) is invisible to
+ * @rollup/plugin-replace's exact `process.env.NODE_ENV` pattern, so dev-only
+ * warning machinery and message strings ship to production (plan 036).
+ */
+for (const name of ["framer-motion.js", "mini.js", "dom.js", "dom-mini.js"]) {
+    const prodUmd = readFileSync(path.join(dist, name), "utf8")
+    if (prodUmd.includes("process.env")) {
+        throw new Error(
+            `Production UMD bundle (dist/${name}) references process.env — ` +
+                "an env check is not in the exact replaceable `process.env.NODE_ENV` form"
+        )
+    }
+}

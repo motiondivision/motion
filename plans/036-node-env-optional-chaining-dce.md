@@ -244,3 +244,13 @@ Stop and report back (do not improvise) if:
 - Consumers on modern bundlers (webpack ≥ 5.38, Vite, esbuild) already handle
   optional chaining in define/replace; the populations that benefit are this
   repo's own UMD/size artifacts and older-toolchain consumers.
+
+## Execution notes (2026-09-30)
+
+Executed on branch `cursor/node-env-dce-a7d3` against `main` at `1d99abd53` (v13.4.7).
+
+- **The plan's guard shape was wrong about DCE.** Terser and esbuild both keep `typeof process.env !== "undefined"`, because reading `process.env` might have side effects. With the three-clause guard, every production bundle kept a `"undefined"!=typeof process&&process.env;` residue, esbuild output grew by 15–18 B gzip, and Step 4 / the done criteria (`process.env` count → 0) failed. Shipped instead: `typeof process !== "undefined" && process.env.NODE_ENV !== "production"`, which terser, esbuild and webpack remove entirely. esbuild output is byte-identical to `main` for every scenario. Trade-off: a runtime that defines `process` without `process.env` now throws at import. This was the behaviour before `7a78368b3`, with the #3417 `typeof process` fix kept.
+- The `check-bundle.js` assertion covers all four production UMD bundles (`framer-motion.js`, `mini.js`, `dom.js`, `dom-mini.js`), not only `framer-motion.js`.
+- Added `packages/motion/src/__tests__/dev-warnings-tree-shaking.test.ts`: Rollup + exact-token replace over the published entry points. It fails on `main` and passes with the fix.
+- Measured (gzip): `motion.div` −887 B, `animate` −1,004 B, `m` + `domAnimation` −796 B, `useSpring` −555 B, `motion/mini` −239 B. In a real Next.js 15 (webpack) build of `dev/next`, the motion chunk drops by 153 B gzip, because Next.js's minifier keeps the call-site message strings. Vite 6 output is byte-identical.
+- Step 5 skipped: plan 035 hasn't landed.
