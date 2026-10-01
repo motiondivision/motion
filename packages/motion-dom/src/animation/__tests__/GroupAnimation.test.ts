@@ -1,3 +1,5 @@
+import { motionValue } from "../../value"
+import { animateSingleValue } from "../animate/single-value"
 import { GroupAnimation } from "../GroupAnimation"
 import { GroupAnimationWithThen } from "../GroupAnimationWithThen"
 import { AnimationPlaybackControlsWithThen } from "../types"
@@ -234,5 +236,40 @@ describe("GroupAnimation", () => {
         const controls = new GroupAnimation([])
 
         expect(controls.duration).toEqual(0)
+    })
+
+    test("Reads and writes a group with no animations", async () => {
+        const controls = new GroupAnimation([undefined])
+
+        expect(controls.time).toBe(0)
+        expect(controls.speed).toBe(1)
+        expect(controls.state).toBe("finished")
+        expect(controls.startTime).toBe(null)
+        expect(controls.iterationDuration).toBe(0)
+
+        controls.time = 1
+        controls.speed = 2
+        expect(controls.time).toBe(0)
+        expect(controls.speed).toBe(1)
+
+        controls.play()
+        controls.pause()
+        controls.complete()
+        controls.cancel()
+        controls.stop()
+        controls.attachTimeline({} as any)()
+
+        await expect(controls.finished).resolves.toEqual([])
+    })
+
+    test("Reads a zero-duration value animation", async () => {
+        const controls = new GroupAnimationWithThen([
+            animateSingleValue(motionValue(0), 100, { duration: 0 }),
+        ])
+
+        expect(controls.animations).toHaveLength(0)
+        expect(controls.time).toBe(0)
+        expect(controls.state).toBe("finished")
+        await controls
     })
 })

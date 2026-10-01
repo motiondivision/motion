@@ -12,6 +12,18 @@ export type AcceptedAnimations = AnimationPlaybackControls
 
 export type GroupedAnimations = AcceptedAnimations[]
 
+/**
+ * A group with no animations (for instance every value already at its
+ * target, or a zero-duration animation of a motion value) has already
+ * finished, like its empty `finished` promise and zero `duration`.
+ */
+const emptyGroupValues = {
+    time: 0,
+    speed: 1,
+    state: "finished" as AnimationPlayState,
+    startTime: null,
+}
+
 export class GroupAnimation implements AnimationPlaybackControls {
     animations: GroupedAnimations
 
@@ -28,8 +40,8 @@ export class GroupAnimation implements AnimationPlaybackControls {
     /**
      * TODO: Filter out cancelled or stopped animations before returning
      */
-    private getAll(propName: PropNames) {
-        return this.animations[0][propName] as any
+    private getAll(propName: keyof typeof emptyGroupValues) {
+        return (this.animations[0] || emptyGroupValues)[propName] as any
     }
 
     private setAll(propName: PropNames, newValue: any) {
