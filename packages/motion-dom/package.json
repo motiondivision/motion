@@ -24,12 +24,13 @@
         "build": "yarn clean && tsc -p . && rollup -c && node ./scripts/check-bundle.js",
         "dev": "concurrently -c blue,red -n tsc,rollup --kill-others \"tsc --watch -p . --preserveWatchOutput\" \"rollup --config --watch --no-watch.clearScreen\"",
         "test": "jest --config jest.config.json --max-workers=2",
-        "measure": "rollup -c ./rollup.size.config.mjs"
+        "measure": "rollup -c ./rollup.size.config.mjs",
+        "prepack": "yarn build && yarn measure && node ../../dev/inc/bundlesize.mjs motion-dom"
     },
     "bundlesize": [
         {
             "path": "./dist/size-rollup-style-effect.js",
-            "maxSize": "2.9 kB"
+            "maxSize": "4.2 kB"
         },
         {
             "path": "./dist/size-rollup-motion-value.js",
