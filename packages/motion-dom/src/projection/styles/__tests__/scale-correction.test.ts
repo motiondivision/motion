@@ -110,3 +110,59 @@ describe("correctBoxShadow", () => {
         )
     })
 })
+
+describe("scaleCorrectors registry", () => {
+    test("starts empty until projection is loaded", () => {
+        jest.isolateModules(() => {
+            const { scaleCorrectors } = require("../scale-correction")
+            expect(scaleCorrectors).toEqual({})
+        })
+    })
+
+    test("loading the projection node registers the default correctors", () => {
+        jest.isolateModules(() => {
+            const { scaleCorrectors } = require("../scale-correction")
+            require("../../node/create-projection-node")
+            const radius = require("../scale-border-radius").correctBorderRadius
+            const shadow = require("../scale-box-shadow").correctBoxShadow
+
+            expect(scaleCorrectors).toEqual({
+                borderRadius: {
+                    ...radius,
+                    applyTo: [
+                        "borderTopLeftRadius",
+                        "borderTopRightRadius",
+                        "borderBottomRightRadius",
+                        "borderBottomLeftRadius",
+                    ],
+                },
+                borderTopLeftRadius: radius,
+                borderTopRightRadius: radius,
+                borderBottomLeftRadius: radius,
+                borderBottomRightRadius: radius,
+                boxShadow: shadow,
+            })
+        })
+    })
+
+    test("loading the projection node doesn't overwrite user correctors", () => {
+        jest.isolateModules(() => {
+            const {
+                scaleCorrectors,
+                addScaleCorrector,
+            } = require("../scale-correction")
+            const boxShadow = { correct: () => "none" }
+            const customProperty = { correct: (v: string) => v }
+            addScaleCorrector({ boxShadow, "--custom": customProperty })
+
+            require("../../node/create-projection-node")
+
+            expect(scaleCorrectors.boxShadow).toBe(boxShadow)
+            expect(scaleCorrectors["--custom"]).toBe(customProperty)
+            expect(customProperty).toEqual(
+                expect.objectContaining({ isCSSVariable: true })
+            )
+            expect(scaleCorrectors.borderRadius).toBeDefined()
+        })
+    })
+})

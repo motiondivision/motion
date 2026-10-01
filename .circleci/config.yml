@@ -53,6 +53,23 @@ jobs:
             - store_test_results:
                   path: test_reports
 
+    measure:
+        docker:
+            - image: cimg/node:20.11.1-browsers
+        working_directory: ~/repo
+        resource_class: large
+        steps:
+            - attach_workspace:
+                  at: ~/repo
+
+            - run:
+                  name: Check bundle budgets
+                  command: yarn turbo run measure --only --force && node dev/inc/bundlesize.mjs
+
+            - run:
+                  name: Check size scenarios and leak canaries
+                  command: yarn size --check
+
     test-react:
         docker:
             - image: cimg/node:20.11.1-browsers
@@ -126,6 +143,9 @@ workflows:
         jobs:
             - setup
             - test:
+                  requires:
+                      - setup
+            - measure:
                   requires:
                       - setup
             - test-react:

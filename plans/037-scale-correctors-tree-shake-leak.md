@@ -297,3 +297,17 @@ Stop and report back (do not improvise) if:
 - The effects/VisualElement unification (`worktree-style-effect`) will give
   this a cleaner home eventually (feature-scoped registration); this plan's
   shape (defaults module + registry) ports directly.
+
+## Execution notes (2026-09-30)
+
+Executed in PR #3866 (branch `cursor/scale-correctors-out-of-m-4629`).
+
+- The drift check showed one change since planning: `scale-correction.ts` builds the `borderRadius` `applyTo` from `cornerRadiusProps`. The moved literal keeps that.
+- **Leak check:** the plan's `borderTopLeftRadius` grep is wrong at HEAD, because the number value-type map legitimately contains that key. The leak canaries are `m-div` ∌ `boxShadow` / `hsla(` instead, as a Jest test (`render/components/m/__tests__/tree-shaking.test.ts`) and in `yarn size --check` (PR #3867).
+- **Deviation:** the registration is `Object.assign(scaleCorrectors, { ...defaultScaleCorrectors, ...scaleCorrectors })` rather than `addScaleCorrector(defaultScaleCorrectors)`:
+  - With async `LazyMotion`, a user's `addScaleCorrector` call can run before the projection chunk loads, and the plan's call would then overwrite their corrector.
+  - `Object.assign` also avoids terser inlining the `addScaleCorrector` loop at the call site: +14 B instead of +30 B gzip on `motion.div`. None of the default keys are CSS variables, so the `isCSSVariable` flag isn't needed.
+- **LazyMotion STOP condition, checked:** `motion/__tests__/lazy-scale-correction.test.tsx` empties the registry, renders an `m.div` with `layout`, `borderRadius` and `boxShadow` under async `domMax`, and registers the defaults in the loader. After load, both styles are visual-element motion values, projection exists, and the inline styles are intact. The re-render does re-scrape. The dev React app eagerly imports every test page, so Cypress can't reproduce the empty-registry first render.
+- **Gzip:** `m.div` −1,398 B, `m+LazyMotion+domAnimation` −282 B, `motion.div` +14 B, `m+LazyMotion+domMax` +24 B.
+- **Budget ratchet (step 5):** not done. Plan 035 isn't DONE, and budget lines are ratcheted once per wave.
+

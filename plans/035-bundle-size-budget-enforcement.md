@@ -228,3 +228,34 @@ Stop and report back (do not improvise) if:
   than `gzip -9`; budgets are calibrated to the script, not to CLI gzip.
 - If CircleCI minutes become a concern, the `measure` job can be folded into
   the `test` job as an extra step; it was kept separate for signal clarity.
+
+## Execution notes (2026-09-30)
+
+Executed on top of the `yarn size` harness PR (#3867), which also changed
+`rollup.size.config.mjs`: the `dom-animation`/`dom-max` entries are now single
+bundles, `size-rollup-m-dom-animation.js` and `size-rollup-m-dom-max.js`
+(`m.div` + `LazyMotion` + features), instead of a feature entry plus an
+uncounted shared chunk. That PR set their two budgets; this one re-baselines
+the rest.
+
+- Drift check: the in-scope files only changed by version bumps, turbo 1 → 2,
+  the motion-value budget (1.8 → 1.9 kB) and CircleCI 2.1. The steps applied
+  as written.
+- Actuals at `1d99abd53` (kB gz → new budget): motion 39.45 → 39.85, m 6.31 →
+  6.4, m-dom-animation 26.29 → 26.6, m-dom-max 39.59 → 40, animate 19.21 →
+  19.4, scroll 3.49 → 3.55, waapi-animate 3.37 → 3.45, style-effect 4.12 →
+  4.2, motion-value 1.83 → 1.9.
+- Two actuals moved more than 1 kB from the plan's table: scroll dropped 2.69
+  kB (scroll measure-once, #3835) and style-effect grew 1.02 kB. Per the STOP
+  condition these were re-baselined against the new reality.
+- Deviation: the CircleCI `measure` job runs `yarn turbo run measure --only
+  --force && node dev/inc/bundlesize.mjs` rather than `yarn measure`. Turbo's
+  `measure` task depends on `build`, so with `--force` `yarn measure` rebuilds
+  everything `setup` already built. `--only` runs just the size rollups
+  (~10 s). The job then runs `yarn size --check` (scenario budgets and leak
+  canaries, ~25 s).
+- `yarn prepack` in a package directory only finds `tsc`/`rollup` when it's
+  started from a root yarn script, which is how `lerna publish` runs it.
+  Verified with `yarn exec "cd packages/<pkg> && yarn prepack"`; both exit 0.
+- Budget ratchets now happen once per wave with `yarn size --update-budgets`
+  plus the `bundlesize` lines, rather than in each size PR.

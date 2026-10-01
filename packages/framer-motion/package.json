@@ -89,7 +89,7 @@
         "test-server": "jest --config jest.config.ssr.json",
         "prettier": "prettier ./src/* --write",
         "watch": "concurrently -c blue,red -n tsc --noEmitOnError ,rollup --kill-others \"tsc  --noEmitOnError --watch -p . --preserveWatchOutput\" \"rollup --config --watch --no-watch.clearScreen\"",
-        "prepack": "yarn build && yarn measure",
+        "prepack": "yarn build && yarn measure && node ../../dev/inc/bundlesize.mjs framer-motion",
         "postpublish": "git push --tags",
         "measure": "rollup -c ./rollup.size.config.mjs"
     },
@@ -119,31 +119,31 @@
     "bundlesize": [
         {
             "path": "./dist/size-rollup-motion.js",
-            "maxSize": "34.9 kB"
+            "maxSize": "39.85 kB"
         },
         {
             "path": "./dist/size-rollup-m.js",
-            "maxSize": "6 kB"
+            "maxSize": "6.4 kB"
         },
         {
-            "path": "./dist/size-rollup-dom-animation.js",
-            "maxSize": "17.85 kB"
+            "path": "./dist/size-rollup-m-dom-animation.js",
+            "maxSize": "26.6 kB"
         },
         {
-            "path": "./dist/size-rollup-dom-max.js",
-            "maxSize": "29.8 kB"
+            "path": "./dist/size-rollup-m-dom-max.js",
+            "maxSize": "40 kB"
         },
         {
             "path": "./dist/size-rollup-animate.js",
-            "maxSize": "19.1 kB"
+            "maxSize": "19.4 kB"
         },
         {
             "path": "./dist/size-rollup-scroll.js",
-            "maxSize": "5.2 kB"
+            "maxSize": "3.55 kB"
         },
         {
             "path": "./dist/size-rollup-waapi-animate.js",
-            "maxSize": "2.26 kB"
+            "maxSize": "3.45 kB"
         }
     ],
     "gitHead": "cddcc66430c5c96b2f560bb6a61160231f512c53"
