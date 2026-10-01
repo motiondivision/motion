@@ -62,7 +62,7 @@ The 2026-06-10 runs were non-interactive, so plans were written for the top find
 | 034 | Move `inView()` from framer-motion to motion-dom (behavior-preserving + first unit tests) | P3 | M | — (026 soft: same feature file, trivial merge) | TODO |
 | 035 | Make bundle-size budgets a blocking gate (CI + prepack) and re-baseline | P1 | S | — (007 soft: both add a CircleCI job) | TODO |
 | 036 | Restore DCE of dev warnings broken by `process.env?.NODE_ENV` | P1 | S | 035 (soft: budget ratchet step) | TODO |
-| 037 | Stop scale correctors leaking into the minimal `m` bundle | P2 | S | 035 (soft), 008 (soft: disjoint files, re-run scale-correction suite) | TODO |
+| 037 | Stop scale correctors leaking into the minimal `m` bundle | P2 | S | 035 (soft), 008 (soft: disjoint files, re-run scale-correction suite) | IN PROGRESS (#3866) |
 | 038 | `[audit]` filesize pass over heaviest non-contended motion-dom modules | P2 | M | 035 (soft); coordinate 030–033, 019–021 | TODO |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale)
