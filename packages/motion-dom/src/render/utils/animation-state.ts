@@ -193,7 +193,10 @@ export function createAnimationState(visualElement: any): AnimationState {
                         ? !shallowCompare(next, prev) || variantDidChange
                         : next !== prev
 
-                if (valueHasChanged && next == null) {
+                if (
+                    valueHasChanged &&
+                    (next === undefined || next === null)
+                ) {
                     removedKeys.add(key)
                 } else if (
                     valueHasChanged ||
