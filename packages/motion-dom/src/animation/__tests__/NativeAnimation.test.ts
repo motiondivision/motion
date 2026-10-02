@@ -1,4 +1,6 @@
+import { supportsFlags } from "../../utils/supports/flags"
 import { motionValue } from "../../value"
+import { NativeAnimation } from "../NativeAnimation"
 import { NativeAnimationExtended } from "../NativeAnimationExtended"
 
 /**
@@ -62,5 +64,76 @@ describe("NativeAnimation - onfinish style commit", () => {
          * the correct value back to the element.
          */
         expect(element.style.opacity).toBe("1")
+    })
+})
+
+describe("NativeAnimation - attachTimeline", () => {
+    let mockAnimation: any
+
+    beforeEach(() => {
+        supportsFlags.scrollTimeline = true
+        mockAnimation = {
+            cancel: jest.fn(),
+            onfinish: null,
+            playbackRate: 1,
+            currentTime: 0,
+            playState: "running",
+            effect: {
+                getComputedTiming: () => ({ duration: 300 }),
+                updateTiming: jest.fn(),
+            },
+        }
+
+        Element.prototype.animate = jest
+            .fn()
+            .mockImplementation(() => mockAnimation)
+    })
+
+    afterEach(() => {
+        supportsFlags.scrollTimeline = undefined
+        ;(Element.prototype as any).animate = undefined
+        jest.restoreAllMocks()
+    })
+
+    const createAnimation = () =>
+        new NativeAnimation({
+            element: document.createElement("div"),
+            name: "opacity",
+            keyframes: [0, 1],
+            duration: 300,
+        } as any)
+
+    test("applies rangeStart and rangeEnd passed by framer-motion 13.0–13.4", () => {
+        const timeline = { currentTime: null }
+        const options = {
+            timeline,
+            rangeStart: "contain 0%",
+            rangeEnd: "contain 100%",
+            observe: () => () => {},
+        }
+
+        createAnimation().attachTimeline(options)
+
+        expect(mockAnimation.timeline).toBe(timeline)
+        expect(mockAnimation.rangeStart).toBe("contain 0%")
+        expect(mockAnimation.rangeEnd).toBe("contain 100%")
+        expect(mockAnimation).not.toHaveProperty("observe")
+    })
+
+    test("leaves the range to onAttach when none is passed", () => {
+        const onAttach = jest.fn((animation: any) => {
+            animation.rangeStart = "entry 0%"
+        })
+
+        createAnimation().attachTimeline({
+            timeline: { currentTime: null },
+            onAttach,
+            observe: () => () => {},
+        })
+
+        expect(onAttach).toHaveBeenCalledWith(mockAnimation)
+        expect(mockAnimation.rangeStart).toBe("entry 0%")
+        expect(mockAnimation).not.toHaveProperty("rangeEnd")
+        expect(mockAnimation).not.toHaveProperty("onAttach")
     })
 })

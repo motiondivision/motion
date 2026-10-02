@@ -253,6 +253,8 @@ export class NativeAnimation<T extends AnyResolvedKeyframe>
         timeline,
         onAttach,
         observe,
+        // Deprecated rangeStart/rangeEnd from framer-motion 13.0–13.4. Removed in v14.
+        ...range
     }: TimelineWithFallback): VoidFunction {
         if (this.allowFlatten) {
             this.animation.effect?.updateTiming({ easing: "linear" })
@@ -262,6 +264,7 @@ export class NativeAnimation<T extends AnyResolvedKeyframe>
 
         if (timeline && supportsScrollTimeline()) {
             this.animation.timeline = timeline as any
+            Object.assign(this.animation, range)
             onAttach?.(this.animation)
 
             return noop<void>
