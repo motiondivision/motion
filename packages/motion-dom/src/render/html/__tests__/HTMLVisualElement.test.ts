@@ -111,8 +111,8 @@ describe("HTMLVisualElement.sortNodePosition", () => {
         const unmounted = createVisualElement()
         const mounted = createVisualElement(document.createElement("div"))
 
-        expect(() =>
+        expect(
             calcChildStagger(new Set([unmounted, mounted]), mounted, 0, 0.1)
-        ).not.toThrow()
+        ).toBe(0.1)
     })
 })
