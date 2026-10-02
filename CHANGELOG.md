@@ -4,6 +4,21 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [13.5.1] 2026-10-02
+
+### Changed
+
+-   `<motion>`: Fall back to the attribute in readSVGValue when computed style is empty.
+-   `<motion>`: Internal changes to `animateChanges` for size reductions.
+
+### Fixed
+
+-   `scroll`: Temporarily reverted removal of internal `observeTimeline` API to fix compatibility with previous `13.x` APIs. Moving to pinned dependencies before removing in `14.x`.
+-   `styleEffect`: Cleaning up an earlier value no longer removes a value that was bound to the same key after it.
+-   `svgEffect`: No longer writes transforms and origins as attributes.
+-   `<motion>`: `inherit={false}` now correctly not inheriting parent animations.
+-   `<motion>`: Fix `sortNodePosition` throwing when a sibling hasn't mounted
+
 ## [13.5.0] 2026-10-01
 
 ### Added
