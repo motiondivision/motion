@@ -27,16 +27,6 @@ export interface ValueAnimationOptionsWithRenderContext<
 export interface TimelineWithFallback {
     timeline?: ProgressTimeline
     /**
-     * @deprecated Passed by framer-motion 13.0–13.4 for ViewTimelines.
-     * Removed in v14.
-     */
-    rangeStart?: string
-    /**
-     * @deprecated Passed by framer-motion 13.0–13.4 for ViewTimelines.
-     * Removed in v14.
-     */
-    rangeEnd?: string
-    /**
      * Called with the WAAPI animation once it's attached to `timeline`.
      */
     onAttach?: (animation: Animation) => void
