@@ -4,14 +4,11 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
-## [14.0.0] Unreleased
+## [14.0.0] 2026-10-02
 
 ### Changed
 
-Removed internal APIs restored in `13.5.1` for compatibility with `framer-motion` `13.0`–`13.4`:
-
--   `scroll`: Removed `observeTimeline`.
--   `attachTimeline`: Removed `rangeStart`/`rangeEnd` options. Use `onAttach` to set the range on the attached animation.
+-   Removed internal APIs restored in `13.5.1` for compatibility with `framer-motion` `13.0`–`13.4`. Future removed internal APIs won't cause cross-compatibility issues since pinning internal `framer-motion`, `motion-dom` and `motion-utils` dependencies.
 
 ## [13.5.1] 2026-10-02
 
