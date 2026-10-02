@@ -628,10 +628,12 @@ export abstract class VisualElement<
 
     sortNodePosition(other: VisualElement<Instance>) {
         /**
-         * If these nodes aren't even of the same type we can't compare their depth.
+         * If either node isn't mounted, or they aren't even of the same type,
+         * we can't compare their document order.
          */
         if (
             !this.current ||
+            !other.current ||
             !this.sortInstanceNodePosition ||
             this.type !== other.type
         ) {
