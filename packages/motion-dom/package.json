@@ -17,7 +17,7 @@
         }
     },
     "dependencies": {
-        "motion-utils": "^13.5.0"
+        "motion-utils": "13.5.0"
     },
     "scripts": {
         "clean": "rm -rf types dist lib",

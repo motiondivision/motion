@@ -94,8 +94,8 @@
         "measure": "rollup -c ./rollup.size.config.mjs"
     },
     "dependencies": {
-        "motion-dom": "^13.5.0",
-        "motion-utils": "^13.5.0",
+        "motion-dom": "13.5.0",
+        "motion-utils": "13.5.0",
         "tslib": "^2.4.0"
     },
     "devDependencies": {
