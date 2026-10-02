@@ -10,15 +10,20 @@ import { resolve } from "path"
 const root = resolve(__dirname, "../../../..")
 const readJSON = (path: string) => JSON.parse(readFileSync(path, "utf8"))
 
-const manifests = ["packages", "dev"].flatMap((dir) =>
-    readdirSync(resolve(root, dir))
+const workspaces: string[] = readJSON(resolve(root, "package.json")).workspaces
+
+const manifests: any[] = workspaces.flatMap((glob) => {
+    const dir = glob.replace("/*", "")
+    return readdirSync(resolve(root, dir))
         .map((name) => resolve(root, dir, name, "package.json"))
         .filter(existsSync)
         .map(readJSON)
-)
+})
 
 const versions = new Map<string, string>(
-    manifests.map(({ name, version }) => [name, version])
+    manifests
+        .filter((manifest) => !manifest.private)
+        .map(({ name, version }) => [name, version])
 )
 
 const dependencyTypes = [

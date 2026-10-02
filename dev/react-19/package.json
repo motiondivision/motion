@@ -12,7 +12,7 @@
     },
     "dependencies": {
         "@tanstack/react-virtual": "^3.13.22",
-        "motion": "^13.5.0",
+        "motion": "13.5.0",
         "react": "^19.3.0",
         "react-dom": "^19.3.0"
     },

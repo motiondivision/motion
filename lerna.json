@@ -4,5 +4,10 @@
     "packages/*",
     "dev/*"
   ],
-  "npmClient": "yarn"
+  "npmClient": "yarn",
+  "command": {
+    "version": {
+      "exact": true
+    }
+  }
 }
