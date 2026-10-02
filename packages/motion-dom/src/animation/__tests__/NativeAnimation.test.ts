@@ -103,37 +103,15 @@ describe("NativeAnimation - attachTimeline", () => {
             duration: 300,
         } as any)
 
-    test("applies rangeStart and rangeEnd passed by framer-motion 13.0–13.4", () => {
+    test("attaches the timeline and passes the WAAPI animation to onAttach", () => {
         const timeline = { currentTime: null }
-        const options = {
-            timeline,
-            rangeStart: "contain 0%",
-            rangeEnd: "contain 100%",
-            observe: () => () => {},
-        }
+        const onAttach = jest.fn()
+        const observe = jest.fn()
 
-        createAnimation().attachTimeline(options)
+        createAnimation().attachTimeline({ timeline, onAttach, observe })
 
         expect(mockAnimation.timeline).toBe(timeline)
-        expect(mockAnimation.rangeStart).toBe("contain 0%")
-        expect(mockAnimation.rangeEnd).toBe("contain 100%")
-        expect(mockAnimation).not.toHaveProperty("observe")
-    })
-
-    test("leaves the range to onAttach when none is passed", () => {
-        const onAttach = jest.fn((animation: any) => {
-            animation.rangeStart = "entry 0%"
-        })
-
-        createAnimation().attachTimeline({
-            timeline: { currentTime: null },
-            onAttach,
-            observe: () => () => {},
-        })
-
         expect(onAttach).toHaveBeenCalledWith(mockAnimation)
-        expect(mockAnimation.rangeStart).toBe("entry 0%")
-        expect(mockAnimation).not.toHaveProperty("rangeEnd")
-        expect(mockAnimation).not.toHaveProperty("onAttach")
+        expect(observe).not.toHaveBeenCalled()
     })
 })
