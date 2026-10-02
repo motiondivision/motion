@@ -1,7 +1,8 @@
+import { calcChildStagger } from "../../../animation/utils/calc-child-stagger"
 import { motionValue } from "../../../value"
 import { HTMLVisualElement } from "../HTMLVisualElement"
 
-const createVisualElement = (element: HTMLElement) => {
+const createVisualElement = (element?: HTMLElement) => {
     const visualElement = new HTMLVisualElement({
         props: {},
         presenceContext: null,
@@ -15,7 +16,7 @@ const createVisualElement = (element: HTMLElement) => {
             },
         },
     } as any)
-    visualElement.mount(element)
+    if (element) visualElement.mount(element)
     return visualElement
 }
 
@@ -83,5 +84,35 @@ describe("HTMLVisualElement.addValue", () => {
 
         x.set(5)
         expect(visualElement.latestValues.x).toBe(5)
+    })
+})
+
+describe("HTMLVisualElement.sortNodePosition", () => {
+    test("sorts mounted elements by document position", () => {
+        const parent = document.createElement("div")
+        const a = parent.appendChild(document.createElement("div"))
+        const b = parent.appendChild(document.createElement("div"))
+        const first = createVisualElement(a)
+        const second = createVisualElement(b)
+
+        expect(first.sortNodePosition(second)).toBe(-1)
+        expect(second.sortNodePosition(first)).toBe(1)
+    })
+
+    test("doesn't throw when either element hasn't mounted", () => {
+        const mounted = createVisualElement(document.createElement("div"))
+        const unmounted = createVisualElement()
+
+        expect(mounted.sortNodePosition(unmounted)).toBe(0)
+        expect(unmounted.sortNodePosition(mounted)).toBe(0)
+    })
+
+    test("calcChildStagger doesn't throw with an unmounted entering sibling", () => {
+        const unmounted = createVisualElement()
+        const mounted = createVisualElement(document.createElement("div"))
+
+        expect(() =>
+            calcChildStagger(new Set([unmounted, mounted]), mounted, 0, 0.1)
+        ).not.toThrow()
     })
 })
