@@ -117,6 +117,7 @@ describe("NativeAnimation - attachTimeline", () => {
         expect(mockAnimation.timeline).toBe(timeline)
         expect(mockAnimation.rangeStart).toBe("contain 0%")
         expect(mockAnimation.rangeEnd).toBe("contain 100%")
+        expect(mockAnimation).not.toHaveProperty("observe")
     })
 
     test("leaves the range to onAttach when none is passed", () => {
@@ -133,5 +134,6 @@ describe("NativeAnimation - attachTimeline", () => {
         expect(onAttach).toHaveBeenCalledWith(mockAnimation)
         expect(mockAnimation.rangeStart).toBe("entry 0%")
         expect(mockAnimation).not.toHaveProperty("rangeEnd")
+        expect(mockAnimation).not.toHaveProperty("onAttach")
     })
 })
