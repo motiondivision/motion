@@ -950,14 +950,12 @@ export function createProjectionNode<I>({
             this.layout = this.measure(false)
             /**
              * Record this before notifyLayoutUpdate, which can rewrite the
-             * snapshot (e.g. for layout="size").
+             * snapshot (e.g. for layout="size"). A dragged node without
+             * `layout` has no snapshot, so fall back to its previous layout.
              */
+            const prev = this.snapshot || prevLayout
             this.isLayoutChanged = Boolean(
-                this.snapshot &&
-                    !boxEqualsRounded(
-                        this.snapshot.layoutBox,
-                        this.layout.layoutBox
-                    )
+                prev && !boxEqualsRounded(prev.layoutBox, this.layout.layoutBox)
             )
             if (!this.layoutCorrected) this.layoutCorrected = createBox()
             this.isLayoutDirty = false
