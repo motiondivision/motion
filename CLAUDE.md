@@ -22,9 +22,6 @@ yarn test-playwright # Playwright E2E tests
 cd packages/framer-motion && yarn test-client  # Client-side Jest tests
 cd packages/framer-motion && yarn test-server  # SSR Jest tests
 
-# Lint
-yarn lint            # or: make lint
-
 # Run E2E tests
 make test-e2e        # Runs all E2E tests (Next.js, HTML, React, React 19, Playwright)
 make test-single     # Run a single Cypress test (edit spec path in Makefile)
@@ -150,7 +147,7 @@ async function nextFrame() {
 
 - **Prioritise small file size** — this is a library shipped to end users. Prefer concise patterns that minimise output bytes.
 - Prefer optional chaining (`value?.jump()`) over explicit `if` statements
-- Use `interface` for type definitions (enforced by ESLint)
+- Use `interface` for type definitions
 - No default exports (use named exports)
 - Prefer arrow callbacks
 - Use strict equality (`===`)

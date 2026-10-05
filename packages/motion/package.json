@@ -110,5 +110,11 @@
             "optional": true
         }
     },
-    "gitHead": "cddcc66430c5c96b2f560bb6a61160231f512c53"
+    "gitHead": "cddcc66430c5c96b2f560bb6a61160231f512c53",
+    "devDependencies": {
+        "concurrently": "^7.3.0",
+        "jest": "^29.7.0",
+        "rollup": "4.59.0",
+        "typescript": "5.4.3"
+    }
 }

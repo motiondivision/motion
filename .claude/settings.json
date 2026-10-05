@@ -1,0 +1,10 @@
+{
+    "permissions": {
+        "allow": [
+            "WebFetch(domain:codesandbox.io)",
+            "WebFetch(domain:*.codesandbox.io)",
+            "WebFetch(domain:*.csb.app)",
+            "WebFetch(domain:raw.githubusercontent.com)"
+        ]
+    }
+}

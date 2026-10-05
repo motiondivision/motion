@@ -249,7 +249,6 @@ const vgpuTypes = {
     plugins: typePlugins,
 }
 
-// eslint-disable-next-line import/no-default-export
 export default [
     umd,
     umdProd,
