@@ -9,8 +9,14 @@
  */
 import { expect, Page, test } from "@playwright/test"
 
-async function handleOffsetAfterToggle(page: Page, drag: boolean) {
-    await page.goto(`?test=issue-1630&drag=${drag}`)
+async function handleOffsetAfterToggle(
+    page: Page,
+    drag: boolean,
+    parentLayout = false
+) {
+    await page.goto(
+        `?test=issue-1630&drag=${drag}&parentLayout=${parentLayout}`
+    )
     await expect(page.locator("#handle")).toBeVisible()
     await page.waitForTimeout(200)
 
@@ -47,6 +53,13 @@ test.describe("issue #1630: layout animation while parent is dragged", () => {
         page,
     }) => {
         const offset = await handleOffsetAfterToggle(page, true)
+        expect(offset).toBeLessThan(150)
+    })
+
+    test("child layout animates while a `layout` parent is being dragged", async ({
+        page,
+    }) => {
+        const offset = await handleOffsetAfterToggle(page, true, true)
         expect(offset).toBeLessThan(150)
     })
 })

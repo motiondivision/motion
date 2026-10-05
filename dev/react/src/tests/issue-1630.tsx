@@ -6,11 +6,13 @@ import { useEffect, useState } from "react"
  * parent is being dragged. Based on the "framer-motion 2 layout animations"
  * switch sandbox, with the switch container made draggable.
  * ?drag=false -> parent not draggable (control).
+ * ?parentLayout=true -> parent also has `layout`.
  * Press "t" to toggle the switch (so it can be toggled mid-drag).
  */
 export const App = () => {
     const params = new URLSearchParams(window.location.search)
     const draggable = params.get("drag") !== "false"
+    const parentLayout = params.get("parentLayout") === "true" || undefined
     const [isOn, setIsOn] = useState(false)
 
     useEffect(() => {
@@ -23,6 +25,7 @@ export const App = () => {
         <motion.div
             id="switch"
             drag={draggable}
+            layout={parentLayout}
             dragMomentum={false}
             style={{
                 position: "absolute",

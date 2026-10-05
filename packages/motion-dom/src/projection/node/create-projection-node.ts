@@ -638,10 +638,34 @@ export function createProjectionNode<I>({
             return this.updateManuallyBlocked || this.updateBlockedByResize
         }
 
+        /**
+         * Whether this node's own layout changed in the update currently being
+         * committed. Only meaningful between updateLayout and
+         * clearAllSnapshots.
+         */
+        hasLayoutChanged() {
+            const { snapshot, layout } = this
+            return Boolean(
+                snapshot &&
+                    layout &&
+                    !boxEqualsRounded(snapshot.layoutBox, layout.layoutBox)
+            )
+        }
+
         isTreeAnimationBlocked() {
             return (
                 this.isAnimationBlocked ||
-                (this.parent && this.parent.isTreeAnimationBlocked()) ||
+                /**
+                 * A blocked ancestor (one being dragged) only blocks this node
+                 * if the ancestor's own layout changed. This node's layout
+                 * change is then just the ancestor's unanimated move - a
+                 * Reorder.Item changing slot, say - and animating it would make
+                 * this node lag behind the pointer. If the ancestor stayed put,
+                 * this node's layout genuinely changed within it, and should
+                 * animate.
+                 */
+                (this.parent?.isTreeAnimationBlocked() &&
+                    this.parent.hasLayoutChanged()) ||
                 false
             )
         }

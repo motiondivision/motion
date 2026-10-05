@@ -120,6 +120,7 @@ export interface IProjectionNode<I = unknown> {
     isTreeAnimating?: boolean
     isAnimationBlocked?: boolean
     isTreeAnimationBlocked: () => boolean
+    hasLayoutChanged: () => boolean
     setAnimationOrigin(
         delta: Delta,
         hasOnlyRelativeTargetChanged?: boolean,
