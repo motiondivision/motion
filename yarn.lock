@@ -7646,10 +7646,15 @@ __metadata:
     "@radix-ui/react-dialog": ^1.1.15
     "@thednp/dommatrix": ^2.0.11
     "@types/three": 0.137.0
+    concurrently: ^7.3.0
+    eslint: ^8.57.0
+    jest: ^29.7.0
     motion-dom: 14.0.0
     motion-utils: 14.0.0
+    rollup: 4.59.0
     three: 0.137.0
     tslib: ^2.4.0
+    typescript: 5.4.3
   peerDependencies:
     react: ^18.0.0 || ^19.0.0
     react-dom: ^18.0.0 || ^19.0.0
@@ -10815,7 +10820,11 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "motion-dom@workspace:packages/motion-dom"
   dependencies:
+    concurrently: ^7.3.0
+    jest: ^29.7.0
     motion-utils: 14.0.0
+    rollup: 4.59.0
+    typescript: 5.4.3
   languageName: unknown
   linkType: soft
 
@@ -10884,6 +10893,11 @@ __metadata:
 "motion-utils@14.0.0, motion-utils@workspace:packages/motion-utils":
   version: 0.0.0-use.local
   resolution: "motion-utils@workspace:packages/motion-utils"
+  dependencies:
+    concurrently: ^7.3.0
+    jest: ^29.7.0
+    rollup: 4.59.0
+    typescript: 5.4.3
   languageName: unknown
   linkType: soft
 
@@ -10891,8 +10905,12 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "motion@workspace:packages/motion"
   dependencies:
+    concurrently: ^7.3.0
     framer-motion: 14.0.0
+    jest: ^29.7.0
+    rollup: 4.59.0
     tslib: ^2.4.0
+    typescript: 5.4.3
   peerDependencies:
     react: ^18.0.0 || ^19.0.0
     react-dom: ^18.0.0 || ^19.0.0
@@ -12363,6 +12381,7 @@ __metadata:
     "@typescript-eslint/eslint-plugin": ^7.2.0
     "@typescript-eslint/parser": ^7.2.0
     "@vitejs/plugin-react-swc": ^3.5.0
+    eslint: ^8.57.0
     eslint-plugin-react-refresh: ^0.4.6
     motion: 14.0.0
     react: ^19.3.0
@@ -12449,6 +12468,7 @@ __metadata:
     "@typescript-eslint/eslint-plugin": ^7.2.0
     "@typescript-eslint/parser": ^7.2.0
     "@vitejs/plugin-react-swc": ^3.5.0
+    eslint: ^8.57.0
     eslint-plugin-react-refresh: ^0.4.6
     framer-motion: 14.0.0
     motion: 14.0.0

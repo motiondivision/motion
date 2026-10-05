@@ -1,4 +1,6 @@
-import { defineConfig, devices } from "@playwright/test"
+import { chromium, defineConfig, devices } from "@playwright/test"
+import { existsSync } from "fs"
+import { join } from "path"
 
 /**
  * Read environment variables from file.
@@ -7,6 +9,24 @@ import { defineConfig, devices } from "@playwright/test"
 // import dotenv from 'dotenv';
 // import path from 'path';
 // dotenv.config({ path: path.resolve(__dirname, '.env') });
+
+/**
+ * If the Chromium build pinned by this Playwright version isn't installed,
+ * fall back to a preinstalled Chromium. Cloud containers ship one at
+ * $PLAYWRIGHT_BROWSERS_PATH/chromium whose build can differ from the pinned
+ * one. Set PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH to point at any other build.
+ */
+const chromiumFallback =
+    process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ||
+    (process.env.PLAYWRIGHT_BROWSERS_PATH &&
+        join(process.env.PLAYWRIGHT_BROWSERS_PATH, "chromium"))
+
+const chromiumLaunchOptions =
+    !existsSync(chromium.executablePath()) &&
+    chromiumFallback &&
+    existsSync(chromiumFallback)
+        ? { executablePath: chromiumFallback }
+        : {}
 
 /**
  * See https://playwright.dev/docs/test-configuration.
@@ -36,7 +56,10 @@ export default defineConfig({
     projects: [
         {
             name: "chromium",
-            use: { ...devices["Desktop Chrome"] },
+            use: {
+                ...devices["Desktop Chrome"],
+                launchOptions: chromiumLaunchOptions,
+            },
             testIgnore: /tests\/react\//,
         },
 
@@ -55,6 +78,7 @@ export default defineConfig({
             testMatch: /tests\/react\/.*\.spec\.ts/,
             use: {
                 ...devices["Desktop Chrome"],
+                launchOptions: chromiumLaunchOptions,
                 baseURL: "http://localhost:9991/",
             },
         },

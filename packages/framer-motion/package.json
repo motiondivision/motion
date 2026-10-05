@@ -80,7 +80,7 @@
     ],
     "scripts": {
         "eslint": "yarn run lint",
-        "lint": "yarn eslint src/**/*.ts",
+        "lint": "eslint src/**/*.ts",
         "build": "yarn clean && tsc --noEmitOnError -p . && rollup -c && node ./scripts/check-bundle.js",
         "dev": "yarn watch",
         "clean": "rm -rf types dist lib",
@@ -102,7 +102,12 @@
         "@radix-ui/react-dialog": "^1.1.15",
         "@thednp/dommatrix": "^2.0.11",
         "@types/three": "0.137.0",
-        "three": "0.137.0"
+        "concurrently": "^7.3.0",
+        "eslint": "^8.57.0",
+        "jest": "^29.7.0",
+        "rollup": "4.59.0",
+        "three": "0.137.0",
+        "typescript": "5.4.3"
     },
     "peerDependencies": {
         "react": "^18.0.0 || ^19.0.0",
