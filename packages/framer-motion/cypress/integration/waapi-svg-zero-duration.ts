@@ -46,4 +46,42 @@ describe("waapi-svg-zero-duration", () => {
                 expect($target.style.transform).to.equal("translateX(0px)")
             })
     })
+
+    it("Restores SVG clipPath with a zero-duration animation", () => {
+        cy.visit("?test=waapi-svg-zero-duration")
+            .get("#toggle")
+            .click()
+            .get('#clip-path-target[data-complete="hidden"]')
+            .then(([$target]: any) => {
+                expect(getComputedStyle($target).clipPath).to.contain(
+                    "circle(0%"
+                )
+            })
+            .get("#toggle")
+            .click()
+        nextFrame()
+            .get("#clip-path-target")
+            .then(([$target]: any) => {
+                expect(getComputedStyle($target).clipPath).to.contain(
+                    "circle(50%"
+                )
+            })
+    })
+
+    it("Restores SVG filter with a zero-duration animation", () => {
+        cy.visit("?test=waapi-svg-zero-duration")
+            .get("#toggle")
+            .click()
+            .get('#filter-target[data-complete="hidden"]')
+            .then(([$target]: any) => {
+                expect(getComputedStyle($target).filter).to.equal("blur(5px)")
+            })
+            .get("#toggle")
+            .click()
+        nextFrame()
+            .get("#filter-target")
+            .then(([$target]: any) => {
+                expect(getComputedStyle($target).filter).to.equal("blur(0px)")
+            })
+    })
 })

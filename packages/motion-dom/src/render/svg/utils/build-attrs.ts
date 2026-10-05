@@ -4,9 +4,16 @@ import { ResolvedValues } from "../../types"
 import { SVGRenderState } from "../types"
 import { buildSVGPath } from "./path"
 
+/**
+ * Values rendered via style rather than as attributes. This must include
+ * every value WAAPI can accelerate, as WAAPI writes its final value to
+ * style, which would otherwise override later attribute writes.
+ */
 export const cssStyleProperties = [
     "transform",
     "opacity",
+    "clipPath",
+    "filter",
     "offsetDistance",
     "offsetPath",
     "offsetRotate",
