@@ -14,7 +14,8 @@ import { join } from "path"
  * If the Chromium build pinned by this Playwright version isn't installed,
  * fall back to a preinstalled Chromium. Cloud containers ship one at
  * $PLAYWRIGHT_BROWSERS_PATH/chromium whose build can differ from the pinned
- * one. Set PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH to point at any other build.
+ * one. PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH, if set, takes precedence over
+ * that path. The pinned build is always used when it's installed.
  */
 const chromiumFallback =
     process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ||
