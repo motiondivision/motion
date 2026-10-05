@@ -302,10 +302,12 @@ export function createAnimationState(visualElement: any): AnimationState {
                         /**
                          * It stays where it is, which is now its base. Otherwise
                          * a later removal (like a gesture ending) would also
-                         * stay, leaving the value stuck (#3787).
+                         * stay, leaving the value stuck (#3787). Stop first so
+                         * accelerated animations sync the value they reached.
                          */
                         delete initialValues[key]
-                        baseTarget[key] = visualElement.latestValues[key]
+                        motionValue?.stop()
+                        baseTarget[key] = motionValue?.get()
                     }
                 }
 

@@ -7,11 +7,23 @@ const transition = { duration: 0.1 }
 /**
  * Swapping unkeyed siblings reuses each motion component with the other's
  * props, which is what Fast Refresh does when siblings are reordered (#3787).
+ *
+ * With ?midflight, the swap interrupts a slow opacity animation.
  */
 export const App = () => {
     const [swapped, setSwapped] = useState(false)
+    const midflight = new URLSearchParams(window.location.search).has(
+        "midflight"
+    )
 
-    const box = (
+    const box = midflight ? (
+        <motion.div
+            id="box"
+            style={{ ...size, background: "red" }}
+            whileHover={{ opacity: 0.8 }}
+            transition={transition}
+        />
+    ) : (
         <motion.div
             id="box"
             style={{ ...size, background: "red" }}
@@ -20,7 +32,15 @@ export const App = () => {
             transition={transition}
         />
     )
-    const sibling = (
+    const sibling = midflight ? (
+        <motion.div
+            id="sibling"
+            style={{ ...size, background: "blue" }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 4, ease: "linear" }}
+        />
+    ) : (
         <motion.div
             id="sibling"
             style={{ ...size, background: "blue" }}
