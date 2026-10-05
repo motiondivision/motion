@@ -86,7 +86,6 @@ const domMax = createCombinedSizeBundle(
     "dist/size-rollup-m-dom-max.js"
 )
 
-// eslint-disable-next-line import/no-default-export
 export default [
     motion,
     m,
