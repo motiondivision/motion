@@ -536,7 +536,7 @@ describe("scrollInfo", () => {
         Object.assign(container.style, style)
         const setHeight = createMockMeasurement(container, "clientHeight")
         const setScrollHeight = createMockMeasurement(container, "scrollHeight")
-        const setScrollTop = createMockMeasurement(container, "scrollTop")
+        const setTop = createMockMeasurement(container, "scrollTop")
         const setWidth = createMockMeasurement(container, "clientWidth")
         const setScrollWidth = createMockMeasurement(container, "scrollWidth")
         const setScrollLeft = createMockMeasurement(container, "scrollLeft")
@@ -549,7 +549,7 @@ describe("scrollInfo", () => {
         const stop = scrollInfo((info) => (latest = info), { container })
 
         const fire = async (top: number, left = 0) => {
-            setScrollTop(top)
+            setTop(top)
             setScrollLeft(left)
             container.dispatchEvent(new window.Event("scroll"))
             await nextFrame()
@@ -567,22 +567,24 @@ describe("scrollInfo", () => {
         let latest: ScrollInfo
         const stop = scrollInfo((info) => (latest = info))
 
-        await fireScroll(100)
-        expect(latest!.y.current).toBe(100)
+        try {
+            await fireScroll(100)
+            expect(latest!.y.current).toBe(100)
 
-        // Safari rubber-band at the top reports a negative scrollY
-        await fireScroll(-25)
-        expect(latest!.y.current).toBe(-25)
-        expect(latest!.y.progress).toBe(0)
-        expect(latest!.y.velocity).toBeLessThan(0)
+            // Safari rubber-band at the top reports a negative scrollY
+            await fireScroll(-25)
+            expect(latest!.y.current).toBe(-25)
+            expect(latest!.y.progress).toBe(0)
+            expect(latest!.y.velocity).toBeLessThan(0)
 
-        // ...and past the bottom, a scrollY beyond the scroll length
-        await fireScroll(2025)
-        expect(latest!.y.current).toBe(2025)
-        expect(latest!.y.progress).toBe(1)
-
-        stop()
-        await fireScroll(0)
+            // ...and past the bottom, a scrollY beyond the scroll length
+            await fireScroll(2025)
+            expect(latest!.y.current).toBe(2025)
+            expect(latest!.y.progress).toBe(1)
+        } finally {
+            stop()
+            await fireScroll(0)
+        }
     })
 
     test("Reports elastic overscroll in an element container as backward scroll (#3791).", async () => {

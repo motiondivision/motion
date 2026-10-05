@@ -48,16 +48,19 @@ const styles = new WeakMap<Element, CSSStyleDeclaration>()
  * the position past 0 in either kind of axis (#3791).
  */
 function isReversed(element: Element, axisName: Axis) {
-    let style = styles.get(element)
-    if (!style) styles.set(element, (style = getComputedStyle(element)))
+    /**
+     * The viewport takes its writing mode and direction from <body>, which
+     * not every browser reflects in the root element's computed style. It
+     * doesn't adopt the root element's flex layout.
+     */
+    const isRoot = element === document.scrollingElement
+    const source = (isRoot && document.body) || element
+
+    let style = styles.get(source)
+    if (!style) styles.set(source, (style = getComputedStyle(source)))
 
     const { writingMode, flexDirection } = style
-
-    /**
-     * The viewport doesn't adopt the root element's flex layout.
-     */
-    const isFlex =
-        style.display.includes("flex") && element !== document.scrollingElement
+    const isFlex = !isRoot && style.display.includes("flex")
     const mainReversed = isFlex && flexDirection.endsWith("reverse")
     const crossReversed = isFlex && style.flexWrap.endsWith("reverse")
     const isColumn = flexDirection[0] === "c"

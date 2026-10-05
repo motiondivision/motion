@@ -32,8 +32,8 @@
             const params = new URLSearchParams(location.search)
 
             /**
-             * ?root=<style> applies a style to the root element and tracks
-             * page scroll. Otherwise each style is tracked in its own container.
+             * ?root=<style> (and optionally &body=<style>) applies a style to the
+             * root element and tracks page scroll. Otherwise each style is tracked in its own container.
              */
             const rootStyle = params.get("root")
 
@@ -71,6 +71,7 @@
             if (rootStyle !== null) {
                 document.documentElement.setAttribute("style", rootStyle)
                 document.body.innerHTML = '<div class="page"></div>'
+                document.body.setAttribute("style", params.get("body") || "")
             }
 
             window.containers = containers

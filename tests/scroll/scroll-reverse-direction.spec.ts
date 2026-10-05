@@ -96,4 +96,19 @@ test.describe("scroll() in reverse-direction containers", () => {
             await expectForwardScroll(page)
         })
     }
+
+    // The viewport takes its writing mode and direction from <body>
+    for (const body of ["direction: rtl", "writing-mode: vertical-rl"]) {
+        test(`page reports forward scroll with body style "${body}"`, async ({
+            page,
+        }) => {
+            await page.goto(
+                `scroll/scroll-reverse-direction.html?root=&body=${encodeURIComponent(
+                    body
+                )}`
+            )
+            await settle(page)
+            await expectForwardScroll(page)
+        })
+    }
 })
