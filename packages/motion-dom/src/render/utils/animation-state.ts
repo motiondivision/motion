@@ -286,14 +286,30 @@ export function createAnimationState(visualElement: any): AnimationState {
                     key
                 )
 
-                fallbackAnimation[key] =
-                    (fromInitial !== undefined
+                let target =
+                    fromInitial !== undefined
                         ? fromInitial
                         : fromProps !== undefined && !isMotionValue(fromProps)
                         ? fromProps
-                        : visualElement.initialValues[key] === undefined
-                        ? visualElement.baseTarget[key]
-                        : undefined) ?? null
+                        : undefined
+
+                if (target === undefined) {
+                    const { initialValues, baseTarget } = visualElement
+
+                    if (initialValues[key] === undefined) {
+                        target = baseTarget[key]
+                    } else {
+                        /**
+                         * It stays where it is, which is now its base. Otherwise
+                         * a later removal (like a gesture ending) would also
+                         * stay, leaving the value stuck (#3787).
+                         */
+                        delete initialValues[key]
+                        baseTarget[key] = visualElement.latestValues[key]
+                    }
+                }
+
+                fallbackAnimation[key] = target ?? null
             })
 
             animations.push({ animation: fallbackAnimation })
