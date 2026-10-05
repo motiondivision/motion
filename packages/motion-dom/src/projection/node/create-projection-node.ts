@@ -266,6 +266,11 @@ export function createProjectionNode<I>({
         isAnimationBlocked = false
 
         /**
+         * Whether this node's layout changed in the current update.
+         */
+        isLayoutChanged = false
+
+        /**
          * If true, attempt to resolve relativeTarget.
          */
         attemptToResolveRelativeTarget?: boolean
@@ -638,20 +643,6 @@ export function createProjectionNode<I>({
             return this.updateManuallyBlocked || this.updateBlockedByResize
         }
 
-        /**
-         * Whether this node's own layout changed in the update currently being
-         * committed. Only meaningful between updateLayout and
-         * clearAllSnapshots.
-         */
-        hasLayoutChanged() {
-            const { snapshot, layout } = this
-            return Boolean(
-                snapshot &&
-                    layout &&
-                    !boxEqualsRounded(snapshot.layoutBox, layout.layoutBox)
-            )
-        }
-
         isTreeAnimationBlocked() {
             return (
                 this.isAnimationBlocked ||
@@ -664,9 +655,9 @@ export function createProjectionNode<I>({
                  * this node's layout genuinely changed within it, and should
                  * animate.
                  */
-                (this.parent?.isTreeAnimationBlocked() &&
-                    this.parent.hasLayoutChanged()) ||
-                false
+                this.path.some(
+                    (node) => node.isAnimationBlocked && node.isLayoutChanged
+                )
             )
         }
 
@@ -957,6 +948,17 @@ export function createProjectionNode<I>({
 
             const prevLayout = this.layout
             this.layout = this.measure(false)
+            /**
+             * Record this before notifyLayoutUpdate, which can rewrite the
+             * snapshot (e.g. for layout="size").
+             */
+            this.isLayoutChanged = Boolean(
+                this.snapshot &&
+                    !boxEqualsRounded(
+                        this.snapshot.layoutBox,
+                        this.layout.layoutBox
+                    )
+            )
             if (!this.layoutCorrected) this.layoutCorrected = createBox()
             this.isLayoutDirty = false
             this.projectionDelta = undefined
