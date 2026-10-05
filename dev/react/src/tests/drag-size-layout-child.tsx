@@ -2,12 +2,16 @@ import { motion } from "framer-motion"
 import { useEffect, useState } from "react"
 
 /**
- * A dragged element with layout="size" moves (pressing "t" toggles its
+ * A dragged element (with layout="size", or no layout at all with
+ * ?parentLayout=false) moves (pressing "t" toggles its
  * margin). Its `layout` child has a long linear transition, so if the child
  * layout animated instead of moving with its parent, it would visibly lag.
  */
 export const App = () => {
     const [moved, setMoved] = useState(false)
+    const parentLayout =
+        new URLSearchParams(window.location.search).get("parentLayout") !==
+        "false"
 
     useEffect(() => {
         const toggle = (e: KeyboardEvent) =>
@@ -20,7 +24,7 @@ export const App = () => {
         <motion.div
             id="parent"
             drag
-            layout="size"
+            layout={parentLayout ? "size" : undefined}
             style={{
                 width: 300,
                 height: 200,
