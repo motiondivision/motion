@@ -11,7 +11,11 @@ export type IndependentTransformProperty = "translate" | "scale" | "rotate"
  * the animation module so renderers don't bundle it.
  */
 export const independentTransformHooks: {
-    sync?: (element: Element, values: ResolvedValues) => void
+    /**
+     * Returns true if an animation was moved to the main thread, in which
+     * case the values should be read again.
+     */
+    sync?: (element: Element, values: ResolvedValues) => boolean
 } = {}
 
 /**

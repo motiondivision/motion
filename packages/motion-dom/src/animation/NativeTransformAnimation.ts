@@ -133,13 +133,11 @@ function demoteGroup(element: Element, group: TransformGroup) {
     const { animation, axes, property } = group
     deleteGroup(element, group)
 
-    const currentTime = Number(animation.currentTime) || 0
-    const { playbackRate, playState } = animation
     let owner: TransformOwner | undefined
 
     axes.forEach((axis) => {
         owner = getOwner(axis.options)
-        axis.demote(currentTime, playbackRate, playState === "paused")
+        axis.demote(animation)
     })
 
     if (owner) {
@@ -164,25 +162,30 @@ export function syncTransformGroups(
     latestValues: ResolvedValues
 ) {
     const elementGroups = groups.get(element)
-    if (!elementGroups) return
+    if (!elementGroups) return false
 
     const canAccelerate = canUseIndependentTransforms(latestValues)
+    let demoted = false
     let property: IndependentTransformProperty
 
     for (property in elementGroups) {
         const group = elementGroups[property]!
         if (!canAccelerate) {
             demoteGroup(element, group)
+            demoted = true
             continue
         }
 
         for (const axis in group.statics) {
             if (!isSameValue(axis, latestValues[axis], group.statics[axis])) {
                 demoteGroup(element, group)
+                demoted = true
                 break
             }
         }
     }
+
+    return demoted
 }
 
 independentTransformHooks.sync = syncTransformGroups
@@ -350,29 +353,44 @@ export class NativeTransformAnimation<
      * Continue this value on the main thread from the accelerated
      * animation's current time, rate and play state.
      */
-    demote(currentTime: number, playbackRate: number, paused: boolean) {
+    demote({ currentTime, startTime, playbackRate, playState }: Animation) {
         const { options } = this
         const { motionValue, onComplete } = options
+        const paused = playState === "paused"
+        const now = Number(currentTime) || 0
 
-        const sampler = new JSAnimation({
-            ...options,
-            autoplay: false,
-            onUpdate: undefined,
-            onComplete: undefined,
-        })
-        motionValue!.set(sampler.sample(currentTime).value)
-        sampler.stop()
+        /**
+         * Set the current value now so the inline style written when the
+         * accelerated animation is cancelled is correct.
+         */
+        const { previous, current, delta } = sampleNativeAnimation(
+            options,
+            now,
+            paused ? 0 : playbackRate
+        )
+        motionValue!.setWithVelocity(previous, current, delta)
 
+        /**
+         * Share the accelerated animation's start time rather than
+         * measuring from now: the accelerated animation's time is that of
+         * the last frame, so measuring from now would lose up to a frame.
+         */
         const animation = new JSAnimation({
             ...options,
+            autoplay: false,
+            startTime: startTime === null ? undefined : Number(startTime),
             onComplete: () => {
                 onComplete?.()
                 this.notifyFinished()
             },
         })
         animation.speed = playbackRate
-        if (paused) animation.pause()
-        animation.time = currentTime / 1000
+
+        if (paused) {
+            animation.time = now / 1000
+        } else {
+            animation.play()
+        }
 
         this.swap(animation)
     }
@@ -387,9 +405,11 @@ export class NativeTransformAnimation<
             return
         }
 
+        const { animation } = this.group
         const { previous, current, delta } = sampleNativeAnimation(
             this.options,
-            this.startTime
+            Number(animation.currentTime) || 0,
+            animation.playState === "paused" ? 0 : animation.playbackRate
         )
 
         motionValue.setWithVelocity(previous, current, delta)

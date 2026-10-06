@@ -213,6 +213,74 @@ describe("NativeTransformAnimation", () => {
         expect(rotate.swap).toHaveBeenCalledTimes(1)
     })
 
+    test("a demoted animation continues from the native start time", () => {
+        const owner = createOwner()
+        const x = start(owner, "x", [0, 100])
+        const y = motionValue(0)
+        owner.bind("y", y)
+
+        /**
+         * The native animation's time is that of the last frame. The main
+         * thread is later than that when the hand-off happens, so measuring
+         * from now would lose up to a frame.
+         */
+        const startTime = animations[0].startTime
+        animations[0].currentTime = 500
+        time.set(startTime + 512)
+
+        y.set(20)
+        syncTransformGroups(owner.element, owner.latestValues)
+
+        const js = x.swap.mock.calls[0][0] as JSAnimation<number>
+        expect(js.startTime).toBeCloseTo(startTime, 5)
+        expect(js.state).toBe("running")
+        expect(x.value.get()).toBe(50)
+        expect(x.value.getVelocity()).toBeCloseTo(100, -1)
+    })
+
+    test("a paused native animation is demoted paused", () => {
+        const owner = createOwner()
+        const x = start(owner, "x", [0, 100])
+        const y = motionValue(0)
+        owner.bind("y", y)
+
+        animations[0].playState = "paused"
+        animations[0].currentTime = 300
+        time.set(time.now() + 1000)
+
+        y.set(20)
+        syncTransformGroups(owner.element, owner.latestValues)
+
+        const js = x.swap.mock.calls[0][0] as JSAnimation<number>
+        expect(js.state).toBe("paused")
+        expect(js.time).toBe(0.3)
+        expect(x.value.get()).toBe(30)
+        expect(x.value.getVelocity()).toBe(0)
+    })
+
+    test("stopping samples the native current time, not the elapsed time", () => {
+        const owner = createOwner()
+        const x = start(owner, "x", [0, 100])
+
+        // Playing at double speed: 250ms elapsed, 500ms of animation time
+        animations[0].playbackRate = 2
+        animations[0].currentTime = 500
+        time.set(time.now() + 250)
+        x.animation.stop()
+
+        expect(x.value.get()).toBe(50)
+        expect(x.value.getVelocity()).toBeCloseTo(200, -1)
+
+        const scale = start(owner, "scale", [1, 2])
+        animations[1].playState = "paused"
+        animations[1].currentTime = 300
+        time.set(time.now() + 1000)
+        scale.animation.stop()
+
+        expect(scale.value.get()).toBe(1.3)
+        expect(scale.value.getVelocity()).toBe(0)
+    })
+
     test("pause, seek and speed use the native animation", () => {
         const owner = createOwner()
         const x = start(owner, "x", [0, 100])

@@ -35,18 +35,26 @@ export function sampleNativeAnimation<T extends AnyResolvedKeyframe>(
         element,
         ...options
     }: NativeAnimationOptionsExtended<T>,
-    startTime: number
+    /**
+     * The animation's current time in ms.
+     */
+    sampleTime: number,
+    /**
+     * Animation time elapsed per ms of real time, so velocity is in real
+     * time. 0 when paused.
+     */
+    rate = 1
 ) {
     const sampleAnimation = new JSAnimation({
         ...options,
         autoplay: false,
     })
 
-    const sampleTime = Math.max(sampleDelta, time.now() - startTime)
+    sampleTime = Math.max(sampleDelta, sampleTime)
     const delta = clamp(0, sampleDelta, sampleTime - sampleDelta)
     const current = sampleAnimation.sample(sampleTime).value
     const previous = sampleAnimation.sample(
-        Math.max(0, sampleTime - delta)
+        Math.max(0, sampleTime - delta * rate)
     ).value
 
     sampleAnimation.stop()
@@ -114,7 +122,7 @@ export class NativeAnimationExtended<
 
         const { previous, current, delta } = sampleNativeAnimation(
             this.options,
-            this.startTime
+            time.now() - this.startTime
         )
 
         /**

@@ -82,8 +82,15 @@ export const addStyleValue = (
 
             state.set("transform", new MotionValue("none"), () => {
                 if (state.independentTransforms) {
-                    const values = readTransformValues(state)
-                    independentTransformHooks.sync?.(element, values)
+                    let values = readTransformValues(state)
+
+                    /**
+                     * Moving an animation to the main thread sets its
+                     * current value, so read the values again.
+                     */
+                    if (independentTransformHooks.sync?.(element, values)) {
+                        values = readTransformValues(state)
+                    }
 
                     if (canUseIndependentTransforms(values)) {
                         buildIndependentTransforms(values, element.style as any)
