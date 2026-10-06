@@ -1,6 +1,7 @@
 import {
     millisecondsToSeconds,
     MotionGlobalConfig,
+    noop,
     secondsToMilliseconds,
 } from "motion-utils"
 import { time } from "../../frameloop/sync-time"
@@ -9,6 +10,7 @@ import { frameloopDriver } from "../drivers/frame"
 import { DriverControls } from "../drivers/types"
 import { getFinalKeyframe } from "../keyframes/get-final"
 import {
+    flushKeyframeResolvers,
     KeyframeResolver as DefaultKeyframeResolver,
     ResolvedKeyframes,
 } from "../keyframes/KeyframesResolver"
@@ -25,6 +27,7 @@ import { isCSSVariableToken } from "../utils/is-css-variable"
 import { makeAnimationInstant } from "../utils/make-animation-instant"
 import { notifyAnimationStart } from "../utils/notify-inspector"
 import { resolveStartTime } from "../utils/resolve-start-time"
+import { supportsScrollTimeline } from "../../utils/supports/scroll-timeline"
 import { WithPromise } from "../utils/WithPromise"
 import {
     blockChannel,
@@ -110,7 +113,7 @@ export class TrackHandle extends WithPromise implements MotionValueAnimation {
      */
     current() {
         const { track, pool } = this
-        return track.channel && !track.done
+        return track.channel && !track.done && pool.startTime !== null
             ? sampleTrack(track, pool.currentTime, pool.speed).value
             : undefined
     }
@@ -575,18 +578,25 @@ export class Pool extends WithPromise implements AnimationPlaybackControlsWithTh
      * taken it over.
      */
     release(track: PoolTrack) {
-        if (track.done || track.released || this.state === "idle") return
+        if (track.done || track.released) return
 
         track.released = true
         this.wasReleased = true
-        this.sync(track)
 
-        if (track.channel) {
-            const { channel } = track
-            releaseFromChannel(track)
-            channel.tracks.length || this.channels.delete(channel)
+        if (track.resolver) {
+            track.resolver.cancel()
+            track.resolver = undefined
+            this.pendingResolvers--
         } else {
-            this.removeJS(track)
+            this.sync(track)
+
+            if (track.channel) {
+                const { channel } = track
+                releaseFromChannel(track)
+                channel.tracks.length || this.channels.delete(channel)
+            } else {
+                this.removeJS(track)
+            }
         }
 
         this.unblock(track)
@@ -598,7 +608,31 @@ export class Pool extends WithPromise implements AnimationPlaybackControlsWithTh
         if (!--this.active) this.teardown()
     }
 
+    /**
+     * Controls act on resolved tracks, so if keyframes are still being
+     * resolved, resolve them now.
+     */
+    private ensureResolved() {
+        this.pendingResolvers && flushKeyframeResolvers()
+    }
+
+    /**
+     * Write every main-thread value at a time, e.g. after a seek. Tracks on
+     * channels are already there.
+     */
+    private seek(currentTime: number) {
+        for (const track of this.tracks) {
+            if (!track.released && !track.channel && track.generator) {
+                this.output(
+                    track,
+                    sampleTrack(track, currentTime, this.playbackSpeed).value
+                )
+            }
+        }
+    }
+
     get duration() {
+        this.ensureResolved()
         let max = 0
         for (const track of this.tracks) {
             max = Math.max(max, track.calculatedDuration || 0)
@@ -607,6 +641,7 @@ export class Pool extends WithPromise implements AnimationPlaybackControlsWithTh
     }
 
     get iterationDuration() {
+        this.ensureResolved()
         let max = 0
         for (const track of this.tracks) {
             max = Math.max(
@@ -622,6 +657,8 @@ export class Pool extends WithPromise implements AnimationPlaybackControlsWithTh
     }
 
     set time(newTime: number) {
+        this.ensureResolved()
+
         newTime = secondsToMilliseconds(newTime)
         const now = time.now()
 
@@ -637,7 +674,7 @@ export class Pool extends WithPromise implements AnimationPlaybackControlsWithTh
         }
 
         this.channels.forEach(syncChannel)
-        this.jsTracks.length && this.tick(now)
+        this.seek(this.currentTime)
     }
 
     get speed() {
@@ -647,6 +684,17 @@ export class Pool extends WithPromise implements AnimationPlaybackControlsWithTh
     set speed(newSpeed: number) {
         if (this.playbackSpeed === newSpeed) return
 
+        this.ensureResolved()
+
+        /**
+         * A pool that isn't running (finished, cancelled or stopped) has no
+         * time to re-anchor; its next play() starts from the right end.
+         */
+        if (this.startTime === null) {
+            this.playbackSpeed = newSpeed
+            return
+        }
+
         const currentTime = this.currentTime
         this.playbackSpeed = newSpeed
         this.time = millisecondsToSeconds(currentTime)
@@ -655,38 +703,40 @@ export class Pool extends WithPromise implements AnimationPlaybackControlsWithTh
     play() {
         if (this.isStopped) return
 
+        this.ensureResolved()
+
         const now = time.now()
 
         if (this.state === "finished") {
             this.updateFinished()
             this.restart(now)
-            return
-        }
-
-        if (this.holdTime !== null) {
+        } else if (this.state === "idle") {
+            // Cancelled: play from the start again
+            this.restart(now)
+        } else if (this.holdTime !== null) {
             this.startTime = now - this.holdTime / this.playbackSpeed
-        } else if (!this.startTime) {
-            this.startTime = now
+            this.holdTime = null
+            this.state = "running"
+            this.channels.forEach(syncChannel)
+            this.jsTracks.length && this.startDriver()
         }
-
-        this.holdTime = null
-        this.state = "running"
-
-        this.channels.forEach(syncChannel)
-        this.jsTracks.length && this.startDriver()
     }
 
     /**
-     * Play again from the start after finishing.
+     * Play again from the start (or the end, in reverse).
      */
     private restart(now: number) {
         const { tracks, owner } = this
         const byProperty = new Map<string, PoolTrack[]>()
 
+        this.jsTracks.length = 0
+        this.active = 0
+
         for (const track of tracks) {
             if (track.released) continue
             track.done = false
             track.isJS = true
+            track.channel = undefined
             this.active++
             if (canAccelerate(track, owner)) {
                 const property = getChannelProperty(track.key)
@@ -695,13 +745,17 @@ export class Pool extends WithPromise implements AnimationPlaybackControlsWithTh
             }
         }
 
-        this.startTime = now
+        if (!this.active) return
+
+        this.startTime =
+            this.playbackSpeed < 0 ? now - this.end / this.playbackSpeed : now
         this.holdTime = null
         this.state = "running"
         this.allocate(byProperty)
     }
 
     pause() {
+        this.ensureResolved()
         if (this.state !== "running") return
         this.holdTime = this.currentTime
         this.state = "paused"
@@ -734,9 +788,22 @@ export class Pool extends WithPromise implements AnimationPlaybackControlsWithTh
         this.teardown()
     }
 
+    /**
+     * Return every value to its start and stop, keeping the values so the
+     * pool can play again.
+     */
     cancel() {
+        this.ensureResolved()
+
+        /**
+         * Detach tracks from their channels first so the values read as
+         * written, then the channels write those values inline as they
+         * cancel.
+         */
         for (const track of this.tracks) {
             if (track.done || track.released) continue
+            track.channel = undefined
+            this.unblock(track)
             this.output(track, sampleTrack(track, 0, 1).value)
             track.options.onCancel?.()
         }
@@ -744,21 +811,14 @@ export class Pool extends WithPromise implements AnimationPlaybackControlsWithTh
         this.channels.forEach(windDownChannel)
         this.channels.clear()
 
-        for (const track of this.tracks) {
-            if (track.done || track.released) continue
-            track.released = true
-            this.unblock(track)
-        }
-
         this.jsTracks.length = 0
-        this.wasReleased = true
-        this.active = 0
         this.teardown()
     }
 
     /**
-     * Timelines drive the pool's time every frame, so everything runs on
-     * the main thread.
+     * Drive the pool from a timeline. Channels attach to a native scroll
+     * timeline where there is one, and leave the pool's control; the
+     * rest run on the main thread from the timeline's progress.
      */
     attachTimeline(timeline: TimelineWithFallback): VoidFunction {
         if (this.state === "idle" && this.pendingResolvers) {
@@ -774,10 +834,27 @@ export class Pool extends WithPromise implements AnimationPlaybackControlsWithTh
             }
         }
 
-        this.channels.forEach(demoteChannel)
+        if (timeline.timeline && supportsScrollTimeline()) {
+            this.channels.forEach((channel) => {
+                const { animation, tracks } = channel
+                if (!animation) return
+
+                if (tracks.some((track) => track.options.allowFlatten)) {
+                    animation.effect?.updateTiming({ easing: "linear" })
+                }
+
+                animation.onfinish = null
+                animation.timeline = timeline.timeline as any
+                timeline.onAttach?.(animation)
+                this.channels.delete(channel)
+            })
+        } else {
+            this.channels.forEach(demoteChannel)
+        }
+
         this.driver?.stop()
 
-        return timeline.observe(this)
+        return this.jsTracks.length ? timeline.observe(this) : noop<void>
     }
 
     /**

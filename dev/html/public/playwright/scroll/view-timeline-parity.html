@@ -142,13 +142,13 @@
                         options
                     )
 
-                    // x can't run on WAAPI, so it's driven from JS by the timeline
+                    // onUpdate keeps x off WAAPI, so it's driven from JS by the timeline
                     cell.x = probe()
                     scroll(
                         animate(
                             cell.x,
                             { x: [0, 100] },
-                            { duration: 1, ease: "linear" }
+                            { duration: 1, ease: "linear", onUpdate: () => {} }
                         ),
                         options
                     )

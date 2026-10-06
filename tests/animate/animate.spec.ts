@@ -261,12 +261,17 @@ test.describe("animate() methods", () => {
             const id = await box.getAttribute("id")
 
             if (id === "js") {
-                // Check if the JS animation has applied a transform style that starts with translateX
+                // x runs on the compositor through the translate property
+                // when it can, otherwise it renders a translateX transform.
                 const hasTranslateX = await page.evaluate((boxId) => {
                     const element = document.getElementById(boxId)
                     if (!element) return false
                     const style = element.getAttribute("style") || ""
-                    return style.includes("translateX")
+                    return (
+                        style.includes("translateX") ||
+                        (style.includes("translate:") &&
+                            element.getAnimations().length > 0)
+                    )
                 }, id)
 
                 expect(hasTranslateX).toBeTruthy()

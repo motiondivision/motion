@@ -68,7 +68,10 @@ Element.prototype.animate = function (
         keyframes,
         options
     )
-    animations.push(animation)
+    /**
+     * Feature probes animate detached elements; only record ours.
+     */
+    if ((this as HTMLElement).isConnected) animations.push(animation)
     return animation as unknown as Animation
 }
 

@@ -181,6 +181,18 @@ export function canAccelerate(track: PoolTrack, owner?: ChannelOwner) {
         return false
     }
 
+    /**
+     * A spring between equal keyframes moves only through its velocity,
+     * which identical WAAPI keyframes can't show.
+     */
+    const { keyframes } = options
+    if (
+        options.type !== keyframesGenerator &&
+        keyframes[0] === keyframes[keyframes.length - 1]
+    ) {
+        return false
+    }
+
     if (!independentTransformProperty[name!]) {
         return supportsBrowserAnimation(options)
     }
@@ -426,6 +438,7 @@ export function blockChannel(owner: ChannelOwner, key: string) {
 
 function cancelChannel(channel: Channel, ec: ElementChannels) {
     const wasTransform = isTransformChannel(channel.property)
+    for (const track of channel.tracks) track.channel = undefined
     channel.tracks = []
     channel.pool = undefined
 
