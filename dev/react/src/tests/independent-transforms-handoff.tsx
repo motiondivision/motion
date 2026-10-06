@@ -372,9 +372,9 @@ function analyse(samples: Sample[], scenario: Scenario) {
 
         /**
          * Enough frames must have been recorded for the window to mean
-         * anything. Headless browsers run at 60fps or more.
+         * anything. Headless browsers run at 60fps, loaded CI runners less.
          */
-        if (frames[key] < ((to - from) / 1000) * 30) {
+        if (frames[key] < ((to - from) / 1000) * 15) {
             drops.push(`${key}: only ${frames[key]} frames recorded`)
         }
     }
@@ -391,7 +391,12 @@ function analyse(samples: Sample[], scenario: Scenario) {
             i++
         ) {
             const jump = Math.abs(samples[i][axis] - samples[i - 1][axis])
-            if (jump > maxJump) {
+            /**
+             * A long frame legitimately moves further: allow 200px/s on
+             * top of the bound, double the fastest speed used here.
+             */
+            const allowed = maxJump + 0.2 * (samples[i].t - samples[i - 1].t)
+            if (jump > allowed) {
                 drops.push(
                     `${axis} jumped ${jump.toFixed(1)}px at ${Math.round(
                         samples[i].t

@@ -2,20 +2,22 @@
  * Composes the element's rendered transform from the individual translate,
  * rotate and scale properties and the transform shorthand, in the order the
  * browser applies them. Accelerated transforms render through the individual
- * properties, so the shorthand alone doesn't describe the element.
+ * properties, so the shorthand alone doesn't describe the element. Browsers
+ * without the individual properties report them as undefined.
  */
 const readTransform = (element: HTMLElement) => {
     const { translate, rotate, scale, transform } = getComputedStyle(element)
+    const isSet = (value?: string) => value && value !== "none"
     let matrix = new DOMMatrix()
 
-    if (translate !== "none") {
+    if (isSet(translate)) {
         const [x, y = "0"] = translate.split(" ")
         matrix = matrix.translate(parseFloat(x), parseFloat(y))
     }
-    if (rotate !== "none") {
+    if (isSet(rotate)) {
         matrix = matrix.rotate(parseFloat(rotate))
     }
-    if (scale !== "none") {
+    if (isSet(scale)) {
         const [x, y = x] = scale.split(" ")
         matrix = matrix.scale(parseFloat(x), parseFloat(y))
     }
