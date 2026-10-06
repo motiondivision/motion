@@ -52,6 +52,31 @@
                             .some((keyframe) => "transform" in keyframe)
                     )
 
+            /**
+             * Record the element's transform after Motion renders, every
+             * frame. t is the document timeline's time, which WAAPI
+             * animations are sampled at, and ts is Motion's frame
+             * timestamp, which JS animations are sampled at.
+             */
+            window.recordFrames = (element, ms) =>
+                new Promise((resolve) => {
+                    const frames = []
+                    const start = performance.now()
+                    const record = ({ timestamp }) => {
+                        frames.push({
+                            t: document.timeline.currentTime,
+                            ts: timestamp,
+                            ...window.readTransform(element),
+                            count: window.transformAnimations(element).length,
+                        })
+                        if (performance.now() - start >= ms) {
+                            window.Motion.cancelFrame(record)
+                            resolve(frames)
+                        }
+                    }
+                    window.Motion.frame.postRender(record, true)
+                })
+
             window.ready = true
         </script>
     </body>

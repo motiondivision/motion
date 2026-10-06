@@ -22,10 +22,18 @@ import { transformGroups } from "./groups"
  * Independent transforms (x, y, scale, rotate etc) all write to the one
  * `transform` style, so they can't each run as their own WAAPI animation.
  * Instead, every transform animation on an element joins a group. While
- * every animation in the group can be accelerated, the group samples them
- * all into a single `transform` WAAPI animation, rebuilt whenever one
- * starts, stops, pauses or seeks. The animations stay JSAnimations, but
- * their driver doesn't tick, so they do no work per frame.
+ * every animation in the group can be accelerated, the group composes them
+ * into a single `transform` WAAPI animation. The animations stay
+ * JSAnimations, but their driver doesn't tick, so they do no work per
+ * frame.
+ *
+ * When every animation follows the same eased progress, which is the case
+ * for values that share a transition, the WAAPI animation has just two
+ * keyframes and that easing. Otherwise it has as few sampled keyframes
+ * as keep it accurate. It's only rebuilt when an animation starts or
+ * stops. Pausing, seeking and speed changes that apply to every animation
+ * in the group are made to the WAAPI animation, and animations complete
+ * on its finish events.
  *
  * If one of them can't be accelerated, or something else keeps writing
  * the element's transform, the whole group moves to the main thread.
@@ -57,9 +65,28 @@ interface TransformGroup {
     isFinishing: boolean
 
     schedule(needsBuild: boolean): void
-    churn(): void
+    seek(): void
     check(): void
-    demote(): void
+    demote(canReturn?: boolean): void
+}
+
+/**
+ * Where each animation was when the WAAPI animation was built.
+ */
+interface BuiltState {
+    time: number
+    speed: number
+    isHeld: boolean
+}
+
+interface Segment {
+    animation: Animation
+    /**
+     * When this starts and ends, relative to when the group was built.
+     */
+    offset: number
+    end: number
+    isDone?: boolean
 }
 
 /**
@@ -67,14 +94,26 @@ interface TransformGroup {
  * NativeAnimationExtended, up to a cap for long animations.
  */
 const sampleDelta = 10
-const maxSamples = 400
+const maxSamples = 200
 
 /**
- * If an outside write or seek happens again within this window, the group
- * is being driven every frame (scrubbing, drag), which is cheaper on the
- * main thread than rebuilding the WAAPI animation every frame.
+ * How far values may stray from the WAAPI animation: as a fraction of
+ * each value's change when they share an easing, otherwise in px or deg,
+ * or for scale.
+ */
+const easingTolerance = 0.001
+const sampleTolerance = 0.1
+const scaleTolerance = 0.001
+
+/**
+ * If an outside write, or a seek the WAAPI animation can't follow,
+ * happens again within this window, the group is being driven every
+ * frame (scrubbing, drag), which is cheaper on the main thread than
+ * rebuilding the WAAPI animation every frame.
  */
 const churnWindow = 100
+
+const round = (value: number) => Math.round(value * 10000) / 10000
 
 const noop = () => {}
 const noopDriver = () => ({ start: noop, stop: noop, now: time.now })
@@ -144,7 +183,7 @@ export class TransformAnimation<
         /**
          * The driver ticks on the main thread only once the group has
          * moved there. Until then, starting or stopping tells the group to
-         * rebuild.
+         * update its WAAPI animation.
          */
         options.driver = (update) => {
             const js = frameloopDriver(update)
@@ -162,8 +201,8 @@ export class TransformAnimation<
                     isJS
                         ? js.start(keepAlive)
                         : keepAlive
-                        ? group.schedule(true)
-                        : group.churn()
+                        ? group.schedule(false)
+                        : group.seek()
                 },
                 stop: () => {
                     js.stop()
@@ -236,6 +275,15 @@ export class TransformAnimation<
     }
 
     /**
+     * This animation's time, including delay, at a timestamp.
+     */
+    at(timestamp: number) {
+        return (
+            this.holdTime ?? round((timestamp - this.startTime!) * this.speed)
+        )
+    }
+
+    /**
      * The value at a timestamp, without changing this animation's state.
      */
     sampleAt(timestamp: number) {
@@ -250,9 +298,14 @@ export class TransformAnimation<
             onCancel: undefined,
         })
 
-        return this.sampler.sample(
-            this.holdTime ?? (timestamp - this.startTime!) * this.speed
-        ).value
+        return this.sampler.sample(this.at(timestamp)).value
+    }
+
+    /**
+     * The value at a timestamp, as a number.
+     */
+    numberAt(timestamp: number) {
+        return parseFloat(this.sampleAt(timestamp) as string)
     }
 
     /**
@@ -285,7 +338,7 @@ export class TransformAnimation<
 
         if (this.isAccelerated()) {
             this.sync()
-            this.group!.schedule(true)
+            this.group!.schedule(false)
         }
     }
 
@@ -338,11 +391,12 @@ function createGroup(owner: TransformOwner): TransformGroup {
      * Transforms that aren't animating, as built into the WAAPI animation.
      */
     let statics: Record<string, AnyResolvedKeyframe | undefined> = {}
-    let animations: Animation[] = []
+    let built = new Map<TransformAnimation<any>, BuiltState>()
+    let segments: Segment[] = []
     let needsBuild = false
     let isScheduled = false
+    let hasChurned = false
     let lastChurn = -Infinity
-    let timer: ReturnType<typeof setTimeout> | undefined
 
     const has = (key: string) => {
         for (const track of tracks) if (track.name === key) return true
@@ -352,9 +406,11 @@ function createGroup(owner: TransformOwner): TransformGroup {
      * Build the transform at a timestamp or, without one, from the motion
      * values. Unlike buildTransform, every key is written, even at its
      * default, so each keyframe has the same list of functions and the
-     * browser interpolates them one by one.
+     * browser interpolates them one by one. Animations that don't repeat
+     * forever are sampled no earlier than settled, so a loop that starts
+     * from an earlier cycle boundary holds them at their end.
      */
-    const compose = (timestamp?: number) => {
+    const compose = (timestamp?: number, settled = -Infinity) => {
         let transform = ""
         for (const key of transformPropOrder) {
             const track = byKey.get(key)
@@ -362,7 +418,11 @@ function createGroup(owner: TransformOwner): TransformGroup {
                 timestamp === undefined
                     ? read(owner, key)
                     : track
-                    ? track.sampleAt(timestamp)
+                    ? track.sampleAt(
+                          track.timing()[1]
+                              ? timestamp
+                              : Math.max(timestamp, settled)
+                      )
                     : statics[key]
 
             if (value !== undefined) {
@@ -382,44 +442,153 @@ function createGroup(owner: TransformOwner): TransformGroup {
      * own version on its next render.
      */
     const stop = (commit = true) => {
-        clearTimeout(timer)
         if (commit) element.style.transform = compose()
-        animations.forEach((animation) => animation.cancel())
-        animations = []
+        segments.forEach(({ animation }) => animation.cancel())
+        segments = []
     }
 
-    const segment = (from: number, to: number, iterations: number) => {
-        const duration = to - from
-        const samples = Math.max(
-            1,
-            Math.min(maxSamples, Math.ceil(duration / sampleDelta))
-        )
+    const add = (animation: Animation, offset: number, end = Infinity) => {
+        const segment: Segment = { animation, offset, end }
+        animation.startTime = time.now() + offset
 
-        const transform: string[] = []
-        for (let i = 0; i <= samples; i++) {
-            transform.push(compose(from + (duration * i) / samples))
-        }
-
-        const animation = element.animate(
-            { transform },
-            {
-                duration,
-                easing: "linear",
-                /**
-                 * The looping part must not fill backwards over the
-                 * finite part that runs before it.
-                 */
-                fill: iterations === Infinity ? "forwards" : "both",
-                iterations,
+        /**
+         * Animations finish when the WAAPI animation reaches their end.
+         */
+        if (end < Infinity) {
+            animation.onfinish = () => {
+                segment.isDone = true
+                group.schedule(false)
             }
-        )
-        animation.startTime = from
-        animations.push(animation)
+        }
+        segments.push(segment)
     }
 
     /**
-     * Replace the WAAPI animation(s) with ones sampled from now. Returns
-     * false if the animations can't be composed.
+     * If every moving animation follows the same eased progress between
+     * two timestamps, the easing that describes it.
+     */
+    const getEasing = (
+        moving: TransformAnimation<any>[],
+        from: number,
+        to: number
+    ) => {
+        const samples = Math.min(
+            maxSamples,
+            Math.max(2, Math.ceil((to - from) / sampleDelta))
+        )
+        let shared: number[] | undefined
+
+        for (const track of moving) {
+            const values: number[] = []
+            for (let i = 0; i <= samples; i++) {
+                values.push(track.numberAt(from + ((to - from) * i) / samples))
+            }
+
+            const [first] = values
+            const range = values[samples] - first
+            const progress = values.map((value) =>
+                range ? (value - first) / range : value - first
+            )
+
+            /**
+             * A value that doesn't change, like one still in its delay,
+             * fits any easing. One that changes but ends where it started
+             * fits none.
+             */
+            if (!range) {
+                if (progress.some((p) => !(Math.abs(p) <= easingTolerance))) {
+                    return
+                }
+            } else if (!shared) {
+                shared = progress
+            } else if (
+                progress.some(
+                    (p, i) => !(Math.abs(p - shared![i]) <= easingTolerance)
+                )
+            ) {
+                return
+            }
+        }
+
+        return shared &&
+            shared.some((p, i) => Math.abs(p - i / samples) > easingTolerance)
+            ? "linear(" + shared.map(round).join(",") + ")"
+            : "linear"
+    }
+
+    /**
+     * Sample timestamps between two timestamps, closer together where the
+     * moving animations curve.
+     */
+    const sample = (
+        moving: TransformAnimation<any>[],
+        from: number,
+        to: number
+    ) => {
+        const times = [from]
+
+        const isStraight = (a: number, b: number) =>
+            moving.every(
+                (track) =>
+                    Math.abs(
+                        track.numberAt((a + b) / 2) -
+                            (track.numberAt(a) + track.numberAt(b)) / 2
+                    ) <=
+                    (track.name.startsWith("scale")
+                        ? scaleTolerance
+                        : sampleTolerance)
+            )
+
+        const split = (a: number, b: number, depth: number) => {
+            if (depth < 4 && !isStraight(a, b)) {
+                split(a, (a + b) / 2, depth + 1)
+                split((a + b) / 2, b, depth + 1)
+            } else {
+                times.push(b)
+            }
+        }
+
+        const steps = Math.ceil((to - from) / 100)
+        for (let i = 0; i < steps; i++) {
+            split(
+                from + ((to - from) * i) / steps,
+                from + ((to - from) * (i + 1)) / steps,
+                0
+            )
+        }
+
+        return times
+    }
+
+    /**
+     * A WAAPI animation of the composed transform between two timestamps.
+     */
+    const run = (
+        moving: TransformAnimation<any>[],
+        from: number,
+        to: number,
+        options: KeyframeAnimationOptions,
+        settled?: number
+    ) => {
+        const easing = getEasing(moving, from, to)
+        const times = easing ? [from, to] : sample(moving, from, to)
+        const keyframes: PropertyIndexedKeyframes = {
+            transform: times.map((t) => compose(t, settled)),
+        }
+        if (!easing) {
+            keyframes.offset = times.map((t) => (t - from) / (to - from))
+        }
+
+        return element.animate(keyframes, {
+            ...options,
+            duration: to - from,
+            easing: easing || "linear",
+        })
+    }
+
+    /**
+     * Replace the WAAPI animations with ones built from now. Returns
+     * undefined if the animations can't be composed.
      */
     const animate = (now: number) => {
         /**
@@ -430,26 +599,56 @@ function createGroup(owner: TransformOwner): TransformGroup {
          */
         let end = now
         let cycle = 0
+        let cycleStart = 0
+        const moving: TransformAnimation<any>[] = []
+        const looping: TransformAnimation<any>[] = []
+        const ends = new Set<number>()
 
         byKey.clear()
+        built = new Map()
+
         for (const track of tracks) {
             byKey.set(track.name, track)
 
             const [trackEnd, trackCycle] = track.timing()
+            const isHeld = trackEnd === Infinity
 
-            if (trackCycle) {
-                if (cycle && Math.abs(trackCycle - cycle) > 1) return
-                cycle = trackCycle
-            } else if (trackEnd === Infinity) {
-                /**
-                 * Held animations don't move, so keep their motion values
-                 * up to date, as a JSAnimation would on a seek.
-                 */
+            built.set(track, {
+                time: track.at(now),
+                speed: track.speed,
+                isHeld,
+            })
+
+            /**
+             * Held animations don't move, so keep their motion values up
+             * to date, as a JSAnimation would on a seek.
+             */
+            if (isHeld) {
                 track.sync()
                 continue
             }
 
             if (track.speed < 0) return
+
+            if (trackCycle) {
+                if (cycle) {
+                    const phase = (trackEnd - cycleStart) / trackCycle
+                    if (
+                        Math.abs(trackCycle - cycle) > 1 ||
+                        Math.abs(phase - Math.round(phase)) * cycle > 1
+                    ) {
+                        return
+                    }
+                } else {
+                    cycle = trackCycle
+                    cycleStart = trackEnd
+                }
+                looping.push(track)
+            } else {
+                ends.add(trackEnd)
+            }
+
+            moving.push(track)
             end = Math.max(end, trackEnd)
         }
 
@@ -461,8 +660,53 @@ function createGroup(owner: TransformOwner): TransformGroup {
         stop(false)
 
         try {
-            end > now && segment(now, end, 1)
-            cycle && segment(end, end + cycle, Infinity)
+            if (end > now) {
+                add(run(moving, now, end, { fill: "both" }), 0, end - now)
+
+                /**
+                 * Animations that end sooner finish on the events of
+                 * empty animations that end with them.
+                 */
+                ends.forEach(
+                    (trackEnd) =>
+                        trackEnd < end - 1 &&
+                        add(
+                            element.animate(null, {
+                                duration: trackEnd - now,
+                            }),
+                            0,
+                            trackEnd - now
+                        )
+                )
+            }
+
+            if (cycle) {
+                /**
+                 * Build one cycle from a cycle boundary, so it repeats
+                 * seamlessly, and start it part way through.
+                 */
+                const from =
+                    cycleStart + Math.floor((end - cycleStart) / cycle) * cycle
+
+                add(
+                    run(
+                        looping,
+                        from,
+                        from + cycle,
+                        {
+                            iterations: Infinity,
+                            iterationStart: (end - from) / cycle,
+                            /**
+                             * It must not fill backwards over the finite part
+                             * that runs before it.
+                             */
+                            fill: "forwards",
+                        },
+                        end
+                    ),
+                    end - now
+                )
+            }
         } catch {
             return
         }
@@ -470,40 +714,105 @@ function createGroup(owner: TransformOwner): TransformGroup {
         /**
          * Everything is held, so hold it with an inline style instead.
          */
-        animations.length || stop()
+        segments.length || stop()
 
         return true
     }
 
     /**
-     * Finish the animations that have reached their end.
+     * If every animation has been paused, played, seeked or sped up
+     * together since the WAAPI animation was built, do the same to it.
+     * Returns false if it needs rebuilding instead.
      */
-    const finish = () => {
-        const now = time.now()
-        group.isFinishing = true
-        tracks.forEach((track) => {
-            const [trackEnd, trackCycle] = track.timing()
+    const retime = (now: number) => {
+        let elapsed: number | undefined
+        let rate = 0
 
-            if (
-                track.state === "running" &&
-                !trackCycle &&
-                trackEnd <= now + 1
-            ) {
-                track.tick(now)
+        for (const track of tracks) {
+            const state = built.get(track)
+            if (!state) return false
 
-                /**
-                 * Its final value is already in the WAAPI animation, so
-                 * from now it's checked for outside writes like any other
-                 * static transform.
-                 */
-                statics[track.name] = read(owner, track.name)
+            const trackTime = track.at(now)
+            const isHeld = track.timing()[0] === Infinity
+
+            if (state.isHeld) {
+                if (isHeld && trackTime === state.time) continue
+                return false
             }
-        })
-        group.isFinishing = false
-        group.schedule(false)
+
+            const trackElapsed = (trackTime - state.time) / state.speed
+            const trackRate = isHeld ? 0 : track.speed / state.speed
+
+            if (elapsed === undefined) {
+                elapsed = trackElapsed
+                rate = trackRate
+            } else if (
+                Math.abs(trackElapsed - elapsed) > 1 ||
+                trackRate !== rate
+            ) {
+                return false
+            }
+        }
+
+        if (elapsed === undefined) return true
+        if (!segments.length) return false
+
+        for (const { offset, end, isDone } of segments) {
+            const local = elapsed - offset
+            if (
+                end < Infinity &&
+                (isDone ? local < end - 1 : local < 0 || local >= end)
+            ) {
+                return false
+            }
+        }
+
+        for (const { animation, offset, isDone } of segments) {
+            if (isDone) continue
+
+            const local = elapsed - offset
+            if (rate) {
+                animation.playbackRate = rate
+                animation.startTime = now - local / rate
+            } else {
+                animation.pause()
+                animation.currentTime = local
+            }
+        }
+
+        return true
     }
 
     const build = () => {
+        const now = time.now()
+
+        /**
+         * Finish the animations that have reached their end, which the
+         * WAAPI animation has already rendered.
+         */
+        if (!group.isJS) {
+            group.isFinishing = true
+            tracks.forEach((track) => {
+                const [trackEnd, trackCycle] = track.timing()
+
+                if (
+                    track.state === "running" &&
+                    track.speed > 0 &&
+                    !trackCycle &&
+                    trackEnd <= now + 1
+                ) {
+                    track.complete()
+
+                    /**
+                     * From now it's checked for outside writes like any
+                     * other static transform.
+                     */
+                    statics[track.name] = read(owner, track.name)
+                }
+            })
+            group.isFinishing = false
+        }
+
         isScheduled = false
 
         tracks.forEach(({ state }, track) => {
@@ -517,7 +826,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
         }
 
         for (const track of tracks) {
-            if (!track.canAccelerate) return group.demote()
+            if (!track.canAccelerate) return group.demote(true)
         }
 
         /**
@@ -530,20 +839,17 @@ function createGroup(owner: TransformOwner): TransformGroup {
             tracks.forEach((track) => track.js?.stop())
         }
 
-        const now = time.now()
+        const shouldBuild = needsBuild
+        const churned = hasChurned
+        needsBuild = hasChurned = false
 
-        if (needsBuild) {
-            needsBuild = false
+        if (shouldBuild || !retime(now)) {
+            if (churned) {
+                if (now - lastChurn < churnWindow) return group.demote()
+                lastChurn = now
+            }
             if (!animate(now)) return group.demote()
         }
-
-        clearTimeout(timer)
-        let next = Infinity
-        tracks.forEach((track) => {
-            const [trackEnd, trackCycle] = track.timing()
-            trackCycle || (next = Math.min(next, trackEnd))
-        })
-        if (next < Infinity) timer = setTimeout(finish, Math.max(0, next - now))
     }
 
     const group: TransformGroup = {
@@ -568,36 +874,43 @@ function createGroup(owner: TransformOwner): TransformGroup {
         },
 
         /**
-         * An outside write or a seek. Rebuild once, but if it keeps
-         * happening, move to the main thread.
+         * Seeking the WAAPI animation is free, but if a seek needs a
+         * rebuild and keeps happening, move to the main thread.
          */
-        churn() {
-            const now = time.now()
-            now - lastChurn < churnWindow
-                ? group.demote()
-                : group.schedule(true)
-            lastChurn = now
+        seek() {
+            hasChurned = true
+            group.schedule(false)
         },
 
+        /**
+         * An outside write. Rebuild once, but if it keeps happening, move
+         * to the main thread.
+         */
         check() {
             if (group.isJS) return
 
             for (const key in statics) {
                 if (read(owner, key) !== statics[key] && !has(key)) {
-                    return group.churn()
+                    hasChurned = true
+                    return group.schedule(true)
                 }
             }
         },
 
-        demote() {
+        demote(canReturn?: boolean) {
             if (group.isJS) return
 
+            /**
+             * Unless only another animation is holding the group on the
+             * main thread, these animations stay there until they end.
+             */
             tracks.forEach((track) => {
                 track.isAccelerated() && track.sync()
-                track.canAccelerate = false
+                canReturn || (track.canAccelerate = false)
             })
 
             group.isJS = true
+            built = new Map()
 
             stop()
 
