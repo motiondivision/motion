@@ -1079,6 +1079,33 @@ describe("JSAnimation", () => {
         expect(output).toEqual([0, 20, 50, 50, 50, 50, 50, 50])
     })
 
+    test("Keeps its time when speed changes during pause", async () => {
+        const driver = syncDriver(20)
+        const output: number[] = []
+
+        await new Promise<void>((resolve) => {
+            const animation = animateValue({
+                keyframes: [0, 100],
+                duration: 100,
+                ease: "linear",
+                onUpdate: (v) => {
+                    output.push(Math.round(v))
+
+                    if (output.length === 2) {
+                        animation.pause()
+                        animation.speed = 2
+                    } else if (output.length === 4) {
+                        animation.play()
+                    }
+                },
+                onComplete: () => resolve(),
+                driver,
+            })
+        })
+
+        expect(output).toEqual([0, 20, 20, 20, 60, 100])
+    })
+
     test(".play() restarts the animation if already finished", async () => {
         const driver = syncDriver(20)
         const output: number[] = []
