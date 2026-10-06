@@ -36,35 +36,6 @@ export class DOMKeyframesResolver<
         super(unresolvedKeyframes, onComplete, name, motionValue, element, true)
     }
 
-    /**
-     * Keyframes that need nothing from the DOM resolve immediately, so the
-     * animation starts without waiting for the next frame's batched read.
-     * That's every keyframe given explicitly, or an origin we already hold
-     * in the motion value, with no CSS variables to sample. If reading them
-     * finds a unit change, they join the batch and measure with the rest.
-     */
-    scheduleResolve() {
-        const { unresolvedKeyframes, motionValue, element } = this
-
-        if (
-            element?.current &&
-            (unresolvedKeyframes[0] !== null ||
-                motionValue?.get() !== undefined) &&
-            !unresolvedKeyframes.some(containsCSSVariable)
-        ) {
-            this.readKeyframes()
-            this.isRead = true
-
-            if (!this.needsMeasurement) {
-                this.state = "scheduled"
-                this.complete()
-                return
-            }
-        }
-
-        super.scheduleResolve()
-    }
-
     readKeyframes() {
         const { unresolvedKeyframes, element, name } = this
 
