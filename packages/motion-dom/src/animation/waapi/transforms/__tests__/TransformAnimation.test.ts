@@ -377,6 +377,33 @@ describe("independent transform acceleration", () => {
         expect(running(element)).toHaveLength(1)
     })
 
+    it("writes none when the transform ends at its defaults", async () => {
+        const element = document.createElement("div")
+
+        await Promise.all(
+            animateElement(element, { x: [100, 0] }, { duration: 0.05 })
+        )
+        await nextFrame()
+
+        expect(element.style.transform).toBe("none")
+    })
+
+    it("doesn't hold a transform for values that don't move", async () => {
+        const element = document.createElement("div")
+
+        const finished = animateElement(
+            element,
+            { x: [0, 0], y: [0, 0] },
+            { duration: 0.05 }
+        )
+        await nextFrame()
+
+        // A transform, even at its default, makes a containing block.
+        expect(running(element)).toHaveLength(0)
+        expect(element.style.transform).toBe("none")
+        await Promise.all(finished)
+    })
+
     it("stays on the main thread for SVG elements", async () => {
         const element = document.createElementNS(
             "http://www.w3.org/2000/svg",

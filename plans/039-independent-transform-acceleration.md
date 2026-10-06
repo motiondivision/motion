@@ -49,7 +49,7 @@ These stay accelerated, because tracks are sampled and the group rebuilds:
 
 -   `motionValue.get()` returns the start value while the group is accelerated, as with today's accelerated opacity. Animation `time` is correct.
 -   Optimised appear handoff stays on JS. A follow-up could adopt the appear animation into the group.
--   Bundle cost is about +2.1 kB gz for `motion`/`m` bundles and `animate`.
+-   Bundle cost is about +2.1 kB gz for `motion`/`m` bundles and +2.3 kB for `animate`.
 -   A transition's own `onUpdate` (`animate(el, { x: 100 }, { onUpdate })`) isn't called while accelerated, as with accelerated opacity today. The `onUpdate` prop is handled.
 -   Not tested in WebKit or Firefox. Cypress can't run in the cloud environment, so the React E2E tests are Playwright specs.
 

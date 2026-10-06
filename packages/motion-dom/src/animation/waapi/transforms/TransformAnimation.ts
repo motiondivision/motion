@@ -2,7 +2,11 @@ import { clamp, millisecondsToSeconds } from "motion-utils"
 import { frame } from "../../../frameloop/frame"
 import { frameData } from "../../../frameloop/frame-data"
 import { time } from "../../../frameloop/sync-time"
-import { translateAlias } from "../../../render/html/utils/build-transform"
+import {
+    buildTransform,
+    translateAlias,
+} from "../../../render/html/utils/build-transform"
+import type { ResolvedValues } from "../../../render/types"
 import { transformPropOrder } from "../../../render/utils/keys-transform"
 import type { MotionValue, Owner } from "../../../value"
 import { numberValueTypes } from "../../../value/types/maps/number"
@@ -403,15 +407,13 @@ function createGroup(owner: TransformOwner): TransformGroup {
     }
 
     /**
-     * Build the transform at a timestamp or, without one, from the motion
-     * values. Unlike buildTransform, every key is written, even at its
-     * default, so each keyframe has the same list of functions and the
-     * browser interpolates them one by one. Animations that don't repeat
-     * forever are sampled no earlier than settled, so a loop that starts
-     * from an earlier cycle boundary holds them at their end.
+     * The transform values at a timestamp or, without one, from the
+     * motion values. Animations that don't repeat forever are sampled no
+     * earlier than settled, so a loop that starts from an earlier cycle
+     * boundary holds them at their end.
      */
-    const compose = (timestamp?: number, settled = -Infinity) => {
-        let transform = ""
+    const valuesAt = (timestamp?: number, settled = -Infinity) => {
+        const values: ResolvedValues = {}
         for (const key of transformPropOrder) {
             const track = byKey.get(key)
             const value =
@@ -425,24 +427,42 @@ function createGroup(owner: TransformOwner): TransformGroup {
                       )
                     : statics[key]
 
-            if (value !== undefined) {
-                transform +=
-                    (translateAlias[key] || key) +
-                    "(" +
-                    getValueAsType(value, numberValueTypes[key]) +
-                    ") "
-            }
+            if (value !== undefined) values[key] = value
+        }
+        return values
+    }
+
+    /**
+     * Build the transform at a timestamp. Unlike buildTransform, every key
+     * is written, even at its default, so each keyframe has the same list
+     * of functions and the browser interpolates them one by one.
+     */
+    const compose = (timestamp: number, settled?: number) => {
+        let transform = ""
+        const values = valuesAt(timestamp, settled)
+        for (const key in values) {
+            transform +=
+                (translateAlias[key] || key) +
+                "(" +
+                getValueAsType(values[key], numberValueTypes[key]) +
+                ") "
         }
         return transform || "none"
     }
 
     /**
-     * Cancel the WAAPI animations, by default first writing the transform
-     * from the motion values as an inline style. The renderer writes its
-     * own version on its next render.
+     * Write the transform as an inline style, as the renderer would.
      */
-    const stop = (commit = true) => {
-        if (commit) element.style.transform = compose()
+    const commit = (values = valuesAt()) => {
+        element.style.transform = buildTransform(values, {})
+    }
+
+    /**
+     * Cancel the WAAPI animations, by default first committing the
+     * transform. The renderer writes its own version on its next render.
+     */
+    const stop = (shouldCommit = true) => {
+        shouldCommit && commit()
         segments.forEach(({ animation }) => animation.cancel())
         segments = []
     }
@@ -527,16 +547,22 @@ function createGroup(owner: TransformOwner): TransformGroup {
     ) => {
         const times = [from]
 
+        /**
+         * Values that aren't numbers, like calc(), are left to the
+         * browser to interpolate.
+         */
         const isStraight = (a: number, b: number) =>
             moving.every(
                 (track) =>
-                    Math.abs(
-                        track.numberAt((a + b) / 2) -
-                            (track.numberAt(a) + track.numberAt(b)) / 2
-                    ) <=
-                    (track.name.startsWith("scale")
-                        ? scaleTolerance
-                        : sampleTolerance)
+                    !(
+                        Math.abs(
+                            track.numberAt((a + b) / 2) -
+                                (track.numberAt(a) + track.numberAt(b)) / 2
+                        ) >
+                        (track.name.startsWith("scale")
+                            ? scaleTolerance
+                            : sampleTolerance)
+                    )
             )
 
         const split = (a: number, b: number, depth: number) => {
@@ -572,11 +598,20 @@ function createGroup(owner: TransformOwner): TransformGroup {
     ) => {
         const easing = getEasing(moving, from, to)
         const times = easing ? [from, to] : sample(moving, from, to)
-        const keyframes: PropertyIndexedKeyframes = {
-            transform: times.map((t) => compose(t, settled)),
-        }
+        const transform = times.map((t) => compose(t, settled))
+        let keyframes: PropertyIndexedKeyframes | null = { transform }
         if (!easing) {
             keyframes.offset = times.map((t) => (t - from) / (to - from))
+        }
+
+        /**
+         * If nothing moves, don't hold a transform, which, even at its
+         * default, would make the element a containing block. The empty
+         * animation still finishes the animations.
+         */
+        if (transform.every((t) => t === transform[0])) {
+            commit(valuesAt(from, settled))
+            keyframes = null
         }
 
         return element.animate(keyframes, {
