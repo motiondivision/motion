@@ -1,4 +1,14 @@
 describe("independent transform acceleration", () => {
+    /**
+     * Browsers without the individual transform properties keep animating
+     * on the main thread, which the hand-off spec covers.
+     */
+    beforeEach(function () {
+        cy.window().then((win) => {
+            if (!win.CSS?.supports("translate", "0px")) this.skip()
+        })
+    })
+
     it("runs x, y, scale and rotate as separate native animations", () => {
         cy.visit("?test=independent-transforms")
             .wait(5000)

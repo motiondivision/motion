@@ -1,3 +1,4 @@
+import { supportsFlags } from "../../../../utils/supports/flags"
 import { supportsBrowserAnimation } from "../waapi"
 
 beforeAll(() => {
@@ -6,6 +7,11 @@ beforeAll(() => {
         writable: true,
         configurable: true,
     })
+    supportsFlags.independentTransforms = true
+})
+
+afterAll(() => {
+    supportsFlags.independentTransforms = undefined
 })
 
 function createOptions(
@@ -44,6 +50,13 @@ describe("supportsBrowserAnimation - independent transforms", () => {
         for (const name of ["x", "y", "z", "scale", "scaleX", "rotate"]) {
             expect(supportsBrowserAnimation(createOptions(name))).toBe(true)
         }
+    })
+
+    it("does not accelerate in browsers without the individual transform properties", () => {
+        supportsFlags.independentTransforms = false
+        expect(supportsBrowserAnimation(createOptions("x"))).toBe(false)
+        supportsFlags.independentTransforms = true
+        expect(supportsBrowserAnimation(createOptions("x"))).toBe(true)
     })
 
     it("does not accelerate transforms that have no individual CSS property", () => {

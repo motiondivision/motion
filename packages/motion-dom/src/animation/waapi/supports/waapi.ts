@@ -13,6 +13,7 @@ import {
     canUseIndependentTransforms,
     independentTransformProperty,
 } from "../../../render/html/utils/independent-transforms"
+import { supportsIndependentTransforms } from "../../../utils/supports/independent-transforms"
 
 const colorProperties = new Set([
     "color",
@@ -116,6 +117,7 @@ export function supportsBrowserAnimation<T extends AnyResolvedKeyframe>(
         (acceleratedValues.has(name) ||
             (colorProperties.has(name) && hasBrowserOnlyColors(keyframes)) ||
             (Boolean(independentTransformProperty[name]) &&
+                supportsIndependentTransforms() &&
                 !transformTemplate &&
                 canAccelerateTransform(owner as TransformOwner, name))) &&
         (name !== "transform" || !transformTemplate) &&
