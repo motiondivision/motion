@@ -79,12 +79,12 @@ export const addStyleValue = (
         computed = state.get("transformOrigin")
     } else if (isCSSVar(key)) {
         render = () => {
-            element.style.setProperty(key, value.get() as string)
+            element.style.setProperty(key, value.getCurrent() as string)
         }
     } else {
         render = () => {
             element.style[key as any] = getValueAsType(
-                value.get(),
+                value.getCurrent(),
                 numberValueTypes[key]
             ) as string
         }

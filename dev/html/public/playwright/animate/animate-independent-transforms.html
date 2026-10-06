@@ -67,7 +67,11 @@
                             t: document.timeline.currentTime,
                             ts: timestamp,
                             ...window.readTransform(element),
+                            opacity: parseFloat(
+                                getComputedStyle(element).opacity
+                            ),
                             count: window.transformAnimations(element).length,
+                            animations: element.getAnimations().length,
                         })
                         if (performance.now() - start >= ms) {
                             window.Motion.cancelFrame(record)

@@ -172,6 +172,7 @@ export function canAccelerateTransform(options: ValueAnimationOptions<any>) {
          * onUpdate needs every value, every frame.
          */
         !onUpdate &&
+        !options.hasOnUpdate &&
         /**
          * transformTemplate could output anything.
          */
@@ -415,6 +416,10 @@ function createGroup(owner: TransformOwner): TransformGroup {
      * Transforms that aren't animating, as built into the WAAPI animation.
      */
     let statics: Record<string, AnyResolvedKeyframe | undefined> = {}
+    /**
+     * The transforms in the WAAPI animation, in order.
+     */
+    let keys: string[] = []
     let built = new Map<TransformAnimation<any>, BuiltState>()
     let segments: Segment[] = []
     let needsBuild = false
@@ -434,7 +439,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
      */
     const valuesAt = (timestamp?: number, settled = -Infinity) => {
         const values: ResolvedValues = {}
-        for (const key of transformPropOrder) {
+        for (const key of timestamp === undefined ? transformPropOrder : keys) {
             const track = byKey.get(key)
             const value =
                 timestamp === undefined
@@ -734,9 +739,11 @@ function createGroup(owner: TransformOwner): TransformGroup {
         }
 
         statics = {}
-        for (const key of transformPropOrder) {
-            if (!byKey.has(key)) statics[key] = read(owner, key)
-        }
+        keys = transformPropOrder.filter(
+            (key) =>
+                byKey.has(key) ||
+                (statics[key] = read(owner, key)) !== undefined
+        )
 
         stop(false)
 

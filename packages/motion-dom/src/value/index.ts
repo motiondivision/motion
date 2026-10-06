@@ -437,6 +437,14 @@ export class MotionValue<V = any> {
     }
 
     /**
+     * The value as last set. Unlike get(), this doesn't read an animation
+     * running on the compositor, which renders the value itself.
+     */
+    getCurrent() {
+        return this.current!
+    }
+
+    /**
      * @public
      */
     getPrevious() {

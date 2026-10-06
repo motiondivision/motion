@@ -166,6 +166,12 @@ export interface ValueAnimationOptions<V extends AnyResolvedKeyframe = number>
     isHandoff?: boolean
     allowFlatten?: boolean
     finalKeyframe?: V
+
+    /**
+     * Whether the transition has its own onUpdate, which needs the value
+     * every frame.
+     */
+    hasOnUpdate?: boolean
 }
 
 export type GeneratorFactoryFunction = (

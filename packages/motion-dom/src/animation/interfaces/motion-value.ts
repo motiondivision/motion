@@ -62,6 +62,7 @@ export function valueAnimationOptions<V extends AnyResolvedKeyframe>(
             name,
             motionValue: value,
             element: isHandoff ? undefined : element,
+            hasOnUpdate: !!valueTransition.onUpdate,
         }
 
         /**
