@@ -23,6 +23,7 @@ import {
     supportsBrowserAnimation,
     supportsWaapi,
 } from "../waapi/supports/waapi"
+import { supportsIndividualTransforms } from "../../utils/supports/individual-transforms"
 import type { Pool, PoolTrack } from "./Pool"
 import { createTrack, getTrackEnd } from "./track"
 
@@ -201,6 +202,7 @@ export function canAccelerate(track: PoolTrack, owner?: ChannelOwner) {
 
     return (
         supportsWaapi() &&
+        supportsIndividualTransforms() &&
         !props.onUpdate &&
         !props.transformTemplate &&
         !repeatDelay &&
@@ -237,9 +239,7 @@ function getEasing(track: PoolTrack, duration: number) {
         return mapEasingToNativeEasing(options.ease, duration)
     }
 
-    const [from, to] = mixKeyframes
-        ? [0, 100]
-        : (options.keyframes as number[])
+    const [from, to] = mixKeyframes ? [0, 100] : (options.keyframes as number[])
     const range = to - from
 
     return range
@@ -525,7 +525,8 @@ function finishChannel(channel: Channel, ec: ElementChannels) {
  * Called by a pool when it's completed: its channels jump to their end.
  */
 export const completeChannel = (channel: Channel) =>
-    channel.pool && finishChannel(channel, getElementChannels(channel.pool.owner!))
+    channel.pool &&
+    finishChannel(channel, getElementChannels(channel.pool.owner!))
 
 /**
  * Called by a pool when it's cancelled: the channel's tracks have already
@@ -588,9 +589,7 @@ export function demoteTransformChannels(element: Element) {
     const ec = elementChannels.get(element)
     if (!ec || !ec.transforms) return
 
-    ec.channels.forEach(
-        (channel) => channel.statics && demoteChannel(channel)
-    )
+    ec.channels.forEach((channel) => channel.statics && demoteChannel(channel))
 }
 
 transformChannelHooks.demote = demoteTransformChannels

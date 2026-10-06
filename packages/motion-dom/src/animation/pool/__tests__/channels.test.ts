@@ -7,6 +7,7 @@ import { styleSubjectEffect } from "../../../effects/style"
 import { animateElement } from "../../animate/element"
 import { Pool } from "../Pool"
 import { canAccelerate } from "../channels"
+import { supportsFlags } from "../../../utils/supports/flags"
 
 /**
  * JSDOM has no WAAPI. This stands in for it: it records what the channels
@@ -59,15 +60,8 @@ class FakeAnimation {
 
 const animations: FakeAnimation[] = []
 
-Element.prototype.animate = function (
-    keyframes: any,
-    options: any
-): Animation {
-    const animation = new FakeAnimation(
-        this as HTMLElement,
-        keyframes,
-        options
-    )
+Element.prototype.animate = function (keyframes: any, options: any): Animation {
+    const animation = new FakeAnimation(this as HTMLElement, keyframes, options)
     /**
      * Feature probes animate detached elements; only record ours.
      */
@@ -101,11 +95,17 @@ function createElement() {
 beforeEach(() => {
     animations.length = 0
     MotionGlobalConfig.useManualTiming = true
+    /**
+     * JSDOM has no individual transform properties; pretend it does so
+     * the channels accelerate transforms as a current browser would.
+     */
+    supportsFlags.individualTransforms = true
     setTime(0)
 })
 
 afterEach(() => {
     MotionGlobalConfig.useManualTiming = false
+    supportsFlags.individualTransforms = undefined
 })
 
 describe("channels", () => {
@@ -243,9 +243,7 @@ describe("channels", () => {
         animations.forEach((animation) => animation.finish())
 
         expect(x.get()).toBe(100)
-        expect(animations[0].styleAtCancel.transform).toBe(
-            "translateX(100px)"
-        )
+        expect(animations[0].styleAtCancel.transform).toBe("translateX(100px)")
         expect(animations[0].styleAtCancel.translate).toBe("")
         expect(animations[1].styleAtCancel.opacity).toBe("1")
 
@@ -359,9 +357,28 @@ describe("channels", () => {
                 },
             })
         ).toBe(false)
-        expect(
-            canAccelerate(track({ name: "skewX" }), owner)
-        ).toBe(false)
+        expect(canAccelerate(track({ name: "skewX" }), owner)).toBe(false)
+    })
+
+    test("transforms stay on the main thread without individual transform properties", async () => {
+        supportsFlags.individualTransforms = false
+        const element = createElement()
+        const [pool] = animateElement(
+            element,
+            { x: [0, 100], opacity: [0, 1] },
+            linear
+        )
+
+        expect(animations.map((a) => Object.keys(a.keyframes)[0])).toEqual([
+            "opacity",
+        ])
+
+        setTime(50)
+        await nextFrame()
+
+        expect(element.style.transform).toBe("translateX(50px)")
+        expect((element.style as any).translate).toBeFalsy()
+        expect(pool.state).toBe("running")
     })
 
     test("the pool starts at a fixed time when any value is accelerated", () => {
