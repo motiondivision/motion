@@ -94,7 +94,7 @@ function measureAllKeyframes() {
 
 function readAllKeyframes() {
     toResolve.forEach((resolver) => {
-        resolver.readKeyframes()
+        if (!resolver.isRead) resolver.readKeyframes()
 
         if (resolver.needsMeasurement) {
             anyNeedsMeasurement = true
@@ -162,6 +162,12 @@ export class KeyframeResolver<T extends AnyResolvedKeyframe = any> {
      * to resolve its keyframes.
      */
     needsMeasurement = false
+
+    /**
+     * Whether keyframes were already read when scheduling, so the batched
+     * read pass can skip them.
+     */
+    isRead = false
 
     constructor(
         unresolvedKeyframes: UnresolvedKeyframes<AnyResolvedKeyframe>,
