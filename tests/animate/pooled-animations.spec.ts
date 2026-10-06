@@ -277,6 +277,81 @@ test.describe("pooled animations", () => {
         expect(frames[handoff].opacity).toBeGreaterThan(0.15)
     })
 
+    test("a pool's transforms move to the main thread while its opacity stays on WAAPI", async ({
+        page,
+    }) => {
+        const frames = await page.evaluate(async () => {
+            const element = document.getElementById("a")!
+            const { animate } = window.Motion
+            animate(
+                element,
+                { x: 600, opacity: [0, 1] },
+                { duration: 3, ease: "linear" }
+            )
+            await window.wait(300)
+            const recording = window.recordFrames(element, 1000)
+            await window.wait(300)
+            animate(
+                element,
+                { y: [0, 100] },
+                { type: "inertia", velocity: 400, timeConstant: 100 }
+            )
+            return recording
+        })
+
+        const handoff = frames.findIndex((f) => !f.count)
+        expect(handoff).toBeGreaterThan(2)
+        expect(frames.slice(0, handoff).every((f) => f.count === 1)).toBe(true)
+        // Opacity stays on WAAPI throughout.
+        expect(frames.every((f) => f.animations >= 1)).toBe(true)
+
+        // x carries on at 600px over 3s, and opacity at 1 over 3s.
+        for (let i = 1; i < frames.length; i++) {
+            const isJS = !frames[i].count || !frames[i - 1].count
+            const dt = isJS
+                ? frames[i].ts - frames[i - 1].ts
+                : frames[i].t - frames[i - 1].t
+            const dx = frames[i].x - frames[i - 1].x
+            expect(
+                Math.abs(dx - 0.2 * dt),
+                `frame ${i}: moved ${dx.toFixed(2)}px in ${dt.toFixed(1)}ms`
+            ).toBeLessThan(tolerance)
+        }
+        expectSteady(
+            frames.map((f) => ({ ...f, animations: 1 })),
+            1 / 3000,
+            "opacity",
+            0.01
+        )
+    })
+
+    test("a value paused on the compositor is interrupted from where it was paused", async ({
+        page,
+    }) => {
+        const frames = await page.evaluate(async () => {
+            const element = document.getElementById("a")!
+            const { animate } = window.Motion
+            const animation = animate(
+                element,
+                { x: 600 },
+                { duration: 3, ease: "linear" }
+            )
+            await window.wait(300)
+            animation.pause()
+            await window.wait(100)
+            const recording = window.recordFrames(element, 600)
+            await window.wait(200)
+            animate(element, { x: 0 }, { duration: 3, ease: "linear" })
+            return recording
+        })
+
+        expect(frames[0].x).toBeGreaterThan(40)
+        expect(frames.every((f) => f.count === 1)).toBe(true)
+        // Moves back at under 0.2px/ms, without a jump.
+        expectNoJump(frames, 0.2, "x")
+        expect(frames[frames.length - 1].x).toBeLessThan(frames[0].x - 5)
+    })
+
     test("stop() leaves every value where it was", async ({ page }) => {
         const result = await page.evaluate(async () => {
             const element = document.getElementById("a")!

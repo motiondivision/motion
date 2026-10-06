@@ -128,4 +128,5 @@ export const styleSubjectEffect = /*@__PURE__*/ createEffect(addStyleValue, {
     read: readStyleValue,
 })
 
-export const styleEffect = /*@__PURE__*/ createSelectorEffect(styleSubjectEffect)
+export const styleEffect =
+    /*@__PURE__*/ createSelectorEffect(styleSubjectEffect)

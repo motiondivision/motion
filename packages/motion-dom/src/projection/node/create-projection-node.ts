@@ -592,8 +592,7 @@ export function createProjectionNode<I>({
                             this.setAnimationOrigin(
                                 delta,
                                 hasOnlyRelativeTargetChanged,
-                                (animationOptions as { path?: MotionPath })
-                                    .path
+                                (animationOptions as { path?: MotionPath }).path
                             )
                         } else {
                             /**
@@ -2249,8 +2248,7 @@ function notifyLayoutUpdate(node: IProjectionNode) {
                     relativeParent
 
                 if (parentSnapshot && parentLayout) {
-                    const anchor =
-                        node.options.layoutAnchor || undefined
+                    const anchor = node.options.layoutAnchor || undefined
 
                     const relativeSnapshot = createBox()
                     calcRelativePosition(

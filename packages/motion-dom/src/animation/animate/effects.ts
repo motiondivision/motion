@@ -117,9 +117,7 @@ export function animateValues(
                 }
             })
 
-        animations.length
-            ? pool.then(applyTransitionEnd)
-            : applyTransitionEnd()
+        animations.length ? pool.then(applyTransitionEnd) : applyTransitionEnd()
     }
 
     return animations

@@ -189,9 +189,7 @@ export class PoolAnimation
      * A pool of one value can be read while it runs off the main thread.
      */
     liveValue() {
-        return this.tracks.length === 1
-            ? this.tracks[0].liveValue()
-            : undefined
+        return this.tracks.length === 1 ? this.tracks[0].liveValue() : undefined
     }
 }
 
@@ -321,8 +319,9 @@ export class PoolTrack<T extends AnyResolvedKeyframe = any>
     }
 
     liveValue() {
-        return (this.animation as { liveValue?: () => T | undefined })
-            ?.liveValue?.()
+        return (
+            this.animation as { liveValue?: () => T | undefined }
+        )?.liveValue?.()
     }
 
     cancel() {

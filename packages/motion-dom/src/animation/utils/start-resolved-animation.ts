@@ -95,10 +95,7 @@ export function startResolvedAnimation<T extends AnyResolvedKeyframe>(
      * animation started in that moment stays in sync. WAAPI has no frame
      * of ours to do that on.
      */
-    if (
-        sync &&
-        (useWaapi || isGroupedTransform || resolvedAt !== createdAt)
-    ) {
+    if (sync && (useWaapi || isGroupedTransform || resolvedAt !== createdAt)) {
         options.startTime ??= resolveStartTime(createdAt, resolvedAt)
     }
 

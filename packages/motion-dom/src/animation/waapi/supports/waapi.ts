@@ -40,10 +40,7 @@ export function supportsBrowserAnimation<T extends AnyResolvedKeyframe>(
      * Most values can't be accelerated at all, so check the name before
      * looking at the element or its props.
      */
-    if (
-        !name ||
-        !(acceleratedValues.has(name) || colorProperties.has(name))
-    ) {
+    if (!name || !(acceleratedValues.has(name) || colorProperties.has(name))) {
         return false
     }
 
@@ -56,10 +53,7 @@ export function supportsBrowserAnimation<T extends AnyResolvedKeyframe>(
      * these animations properly with those driven from the main window
      * frameloop.
      */
-    if (
-        !(subject instanceof HTMLElement) &&
-        !(subject instanceof SVGElement)
-    ) {
+    if (!(subject instanceof HTMLElement) && !(subject instanceof SVGElement)) {
         return false
     }
 
@@ -72,8 +66,7 @@ export function supportsBrowserAnimation<T extends AnyResolvedKeyframe>(
          * (oklch, oklab, lab, lch, etc.) that the JS animation path can't parse.
          */
         (acceleratedValues.has(name) ||
-            (colorProperties.has(name) &&
-                hasBrowserOnlyColors(keyframes))) &&
+            (colorProperties.has(name) && hasBrowserOnlyColors(keyframes))) &&
         (name !== "transform" || !transformTemplate) &&
         /**
          * If we're outputting values to onUpdate then we can't use WAAPI as there's

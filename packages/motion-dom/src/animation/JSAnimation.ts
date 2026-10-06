@@ -294,8 +294,9 @@ export class JSAnimation<T extends number | string>
     at(timestamp: number) {
         return (
             this.holdTime ??
-            Math.round((timestamp - this.startTime!) * this.playbackSpeed * 1e4) /
-                1e4
+            Math.round(
+                (timestamp - this.startTime!) * this.playbackSpeed * 1e4
+            ) / 1e4
         )
     }
 
@@ -307,7 +308,11 @@ export class JSAnimation<T extends number | string>
         const t = this.at(timestamp) - (options.delay || 0)
 
         return t >= totalDuration && options.type !== inertia
-            ? getFinalKeyframe(options.keyframes, options, options.finalKeyframe)
+            ? getFinalKeyframe(
+                  options.keyframes,
+                  options,
+                  options.finalKeyframe
+              )
             : this.generate(Math.max(t, 0), t < 0).value
     }
 

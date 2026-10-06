@@ -26,13 +26,9 @@ const createSubject = (values: Subject["values"] = {}): Subject => ({
 
 const subjectEffect = createEffect<Subject>(
     (subject, state, key, value) =>
-        state.set(
-            key,
-            value,
-            () => {
-                subject.values[key] = value.get()
-            }
-        ),
+        state.set(key, value, () => {
+            subject.values[key] = value.get()
+        }),
     {
         test: (subject): subject is Subject =>
             Boolean((subject as Subject)?.isSubject),

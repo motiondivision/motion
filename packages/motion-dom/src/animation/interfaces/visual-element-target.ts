@@ -37,18 +37,15 @@ export function animateTarget(
     targetAndTransition: TargetAndTransition,
     { delay = 0, transitionOverride, type }: VisualElementAnimationOptions = {}
 ): AnimationPlaybackControlsWithThen[] {
-    let {
-        transition,
-        transitionEnd,
-        ...target
-    } = targetAndTransition
+    let { transition, transitionEnd, ...target } = targetAndTransition
 
     const defaultTransition = visualElement.getDefaultTransition()
     transition = transition
         ? resolveTransition(transition, defaultTransition)
         : defaultTransition
 
-    const reduceMotion = (transition as { reduceMotion?: boolean })?.reduceMotion
+    const reduceMotion = (transition as { reduceMotion?: boolean })
+        ?.reduceMotion
     const skipAnimations = transition?.skipAnimations
 
     if (transitionOverride) transition = transitionOverride

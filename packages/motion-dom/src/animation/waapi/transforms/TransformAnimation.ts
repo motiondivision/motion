@@ -307,8 +307,7 @@ export class TransformAnimation<
      * when it starts and stops moving, and that easing.
      */
     tween(): [number, number, string] | undefined {
-        const { keyframes, type, ease, times, repeat, delay = 0 } =
-            this.options
+        const { keyframes, type, ease, times, repeat, delay = 0 } = this.options
         const easing = isBezierDefinition(ease!)
             ? cubicBezierAsString(ease as BezierDefinition)
             : nativeEasings[ease as string]
