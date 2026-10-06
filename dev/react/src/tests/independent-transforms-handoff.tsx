@@ -8,7 +8,6 @@ import {
     useAnimationControls,
     useMotionValue,
 } from "framer-motion"
-import { styleEffect } from "motion-dom"
 import { useEffect, useRef, useState } from "react"
 
 /**
@@ -61,7 +60,7 @@ interface Scenario {
     duration: number
     /** Render a motion component rather than a plain element (styleEffect). */
     component?: boolean
-    /** Bind y to a motion value so it can be driven from the main thread. */
+    /** Bind the component's y to a motion value driven from the main thread. */
     externalY?: boolean
     /** Animate a reference box on the main thread with the same spring. */
     reference?: boolean
@@ -126,13 +125,18 @@ const scenarios: Record<string, Scenario> = {
         ],
     },
     /**
-     * A sibling value driven from the main thread while x is accelerated.
+     * A sibling value animated on the main thread while x is accelerated.
      */
     "sibling-main-thread": {
         duration: 2000,
-        externalY: true,
         start: ({ a, box }) => a(box, { x: 400 }, linear(4)),
-        steps: [{ at: 1000, run: ({ y }) => drive(y) }],
+        steps: [
+            {
+                at: 1000,
+                run: ({ a, box }) =>
+                    a(box, { y: 400 }, { ...linear(4), ...mainThread }),
+            },
+        ],
         segments: [
             { axis: "x", from: 100, to: 2000, speed: 100 },
             { axis: "y", from: 100, to: 1000, speed: 0 },
@@ -340,9 +344,21 @@ const scenarios: Record<string, Scenario> = {
     },
 }
 
-function analyse(samples: Sample[], scenario: Scenario) {
+function analyse(recorded: Sample[], scenario: Scenario) {
     const drops: string[] = []
     const frames: Record<string, number> = {}
+
+    /**
+     * A frame that ran late can be followed by the next one within a
+     * millisecond or two. Both show the same painted state, so keep the
+     * later one only.
+     */
+    const samples: Sample[] = []
+    for (const sample of recorded) {
+        const last = samples[samples.length - 1]
+        if (last && sample.t - last.t < 5) samples.pop()
+        samples.push(sample)
+    }
 
     for (const { axis, from, to, speed } of scenario.segments) {
         const key = `${axis} ${from}-${to}`
@@ -448,11 +464,6 @@ export const App = () => {
         const origin = element.getBoundingClientRect()
         const referenceOrigin = reference.current?.getBoundingClientRect()
 
-        const cancelEffect =
-            scenario.externalY && !scenario.component
-                ? styleEffect(element, { y })
-                : undefined
-
         const context: Context = {
             a: animateBox as typeof animate,
             box: element,
@@ -496,7 +507,6 @@ export const App = () => {
         return () => {
             cancelFrame(record)
             timers.forEach(clearTimeout)
-            cancelEffect?.()
         }
     }, [])
 
