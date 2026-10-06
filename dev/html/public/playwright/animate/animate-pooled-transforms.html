@@ -1,0 +1,116 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+
+            .box {
+                width: 100px;
+                height: 100px;
+                background-color: #0077ff;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="box" id="a"></div>
+        <div class="box" id="b"></div>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            /**
+             * Helpers for tests/animate/pooled-handoff.spec.ts, which run
+             * their scenarios with page.evaluate().
+             */
+            window.wait = (ms) =>
+                new Promise((resolve) => setTimeout(resolve, ms))
+
+            const matrixOf = (value) =>
+                value === "none" ? new DOMMatrix() : new DOMMatrix(value)
+
+            const parseLength = (value) =>
+                value === "none" ? [] : value.split(" ").map(parseFloat)
+
+            /**
+             * The element's visual transform, composed as the browser
+             * does: translate, rotate, scale, then transform. Accelerated
+             * transforms live on the individual properties, main-thread
+             * ones on the shorthand, so both are read.
+             */
+            window.readTransform = (element) => {
+                const style = getComputedStyle(element)
+                const [tx = 0, ty = 0] = parseLength(style.translate)
+                const [sx = 1, sy = sx] = parseLength(style.scale)
+                const rotate =
+                    style.rotate === "none" ? 0 : parseFloat(style.rotate)
+                const matrix = new DOMMatrix()
+                    .translate(tx, ty)
+                    .rotate(rotate)
+                    .scale(sx, sy)
+                    .multiply(matrixOf(style.transform))
+
+                return {
+                    x: matrix.m41,
+                    y: matrix.m42,
+                    scale: Math.hypot(matrix.a, matrix.b),
+                    rotate: (Math.atan2(matrix.b, matrix.a) * 180) / Math.PI,
+                }
+            }
+
+            const transformProperties = [
+                "translate",
+                "scale",
+                "rotate",
+                "transform",
+            ]
+
+            /**
+             * The element's running hardware-accelerated transform
+             * animations.
+             */
+            window.transformAnimations = (element) =>
+                element
+                    .getAnimations()
+                    .filter((animation) =>
+                        animation.effect
+                            .getKeyframes()
+                            .some((keyframe) =>
+                                transformProperties.some(
+                                    (property) => property in keyframe
+                                )
+                            )
+                    )
+
+            /**
+             * Record the element's transform after Motion renders, every
+             * frame, for ms. t is the document timeline's time, which
+             * WAAPI animations are sampled at, and ts is Motion's frame
+             * timestamp, which main-thread animations are sampled at.
+             * count is how many accelerated transform animations the
+             * element has.
+             */
+            window.recordFrames = (element, ms) =>
+                new Promise((resolve) => {
+                    const frames = []
+                    const start = performance.now()
+                    const record = ({ timestamp }) => {
+                        frames.push({
+                            t: document.timeline.currentTime,
+                            ts: timestamp,
+                            ...window.readTransform(element),
+                            opacity: parseFloat(
+                                getComputedStyle(element).opacity
+                            ),
+                            count: window.transformAnimations(element).length,
+                        })
+                        if (performance.now() - start >= ms) {
+                            window.Motion.cancelFrame(record)
+                            resolve(frames)
+                        }
+                    }
+                    window.Motion.frame.postRender(record, true)
+                })
+
+            window.ready = true
+        </script>
+    </body>
+</html>

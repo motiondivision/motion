@@ -64,6 +64,7 @@ import { buildProjectionTransform } from "../styles/transform"
 import { eachAxis } from "../utils/each-axis"
 import { FlatTree } from "../utils/flat-tree"
 import { has2DTranslate, hasScale, hasTransform } from "../utils/has-transform"
+import { transformChannelHooks } from "../../render/html/utils/independent-transforms"
 import { globalProjectionState } from "./state"
 import {
     IProjectionNode,
@@ -998,6 +999,12 @@ export function createProjectionNode<I>({
                     hasTransform(this.latestValues) ||
                     transformTemplateHasChanged)
             ) {
+                /**
+                 * Hardware-accelerated transforms would survive the reset
+                 * and skew the measurement, so they move to the main
+                 * thread first.
+                 */
+                transformChannelHooks.demote?.(this.instance as unknown as Element)
                 resetTransform(this.instance, transformTemplateValue)
                 this.shouldResetTransform = false
                 this.scheduleRender()

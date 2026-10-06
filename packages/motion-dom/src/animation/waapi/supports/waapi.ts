@@ -19,7 +19,7 @@ const colorProperties = new Set([
     "borderLeftColor",
 ])
 
-const supportsWaapi = /*@__PURE__*/ memo(() =>
+export const supportsWaapi = /*@__PURE__*/ memo(() =>
     Object.hasOwnProperty.call(Element.prototype, "animate")
 )
 

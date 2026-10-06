@@ -5,12 +5,17 @@ import { isCSSVariableName } from "../../../animation/utils/is-css-variable"
 import { ResolvedValues } from "../../types"
 import { HTMLRenderState } from "../types"
 import { buildTransform } from "./build-transform"
+import {
+    buildIndependentTransform,
+    independentTransformProperties,
+} from "./independent-transforms"
 import type { MotionNodeOptions } from "../../../node/types"
 
 export function buildHTMLStyles(
     state: HTMLRenderState,
     latestValues: ResolvedValues,
-    transformTemplate?: MotionNodeOptions["transformTemplate"]
+    transformTemplate?: MotionNodeOptions["transformTemplate"],
+    independent = false
 ) {
     const { style, vars, transformOrigin } = state
 
@@ -50,7 +55,21 @@ export function buildHTMLStyles(
     }
 
     if (!latestValues.transform) {
-        if (hasTransform || transformTemplate) {
+        if (independent) {
+            /**
+             * While the element has hardware-accelerated transforms it
+             * renders through the individual transform properties, so each
+             * can be animated and interrupted without touching the others.
+             */
+            style.transform = "none"
+            for (const property of independentTransformProperties) {
+                style[property] = buildIndependentTransform(
+                    latestValues,
+                    property
+                )
+            }
+            state.independent = true
+        } else if (hasTransform || transformTemplate) {
             style.transform = buildTransform(
                 latestValues,
                 state.transform,
@@ -62,6 +81,13 @@ export function buildHTMLStyles(
              * reset transform style to none.
              */
             style.transform = "none"
+        }
+
+        if (!independent && state.independent) {
+            state.independent = false
+            for (const property of independentTransformProperties) {
+                style[property] = ""
+            }
         }
     }
 

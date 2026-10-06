@@ -14,6 +14,7 @@ import type { ResolvedValues, MotionConfigContextProps } from "../types"
 import type { VisualElement } from "../VisualElement"
 import { HTMLRenderState } from "./types"
 import { buildHTMLStyles } from "./utils/build-styles"
+import { transformChannelHooks } from "./utils/independent-transforms"
 import { renderHTML } from "./utils/render"
 import { scrapeMotionValuesFromProps } from "./utils/scrape-motion-values"
 
@@ -74,7 +75,15 @@ export class HTMLVisualElement extends DOMVisualElement<
         latestValues: ResolvedValues,
         props: MotionNodeOptions
     ) {
-        buildHTMLStyles(renderState, latestValues, props.transformTemplate)
+        buildHTMLStyles(
+            renderState,
+            latestValues,
+            props.transformTemplate,
+            Boolean(
+                this.current &&
+                    transformChannelHooks.render?.(this.current, latestValues)
+            )
+        )
     }
 
     scrapeMotionValuesFromProps(

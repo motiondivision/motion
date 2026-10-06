@@ -25,7 +25,7 @@ export type PassiveEffect<T> = (v: T, safeSetter: (v: T) => void) => void
 
 export type StartAnimation = (
     complete: () => void
-) => AnimationPlaybackControlsWithThen | undefined
+) => MotionValueAnimation | undefined
 
 export interface MotionValueEventCallbacks<V> {
     animationStart: () => void
@@ -427,7 +427,7 @@ export class MotionValue<V = any> {
             collectMotionValues.current.push(this)
         }
 
-        return this.current!
+        return (this.animation?.current?.() ?? this.current) as V
     }
 
     /**

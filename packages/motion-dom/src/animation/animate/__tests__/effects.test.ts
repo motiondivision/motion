@@ -170,7 +170,19 @@ describe("animateEffectSubject", () => {
             { duration: 0.1, y: { duration: 0.2 } }
         )
 
-        expect(animations[0].duration).toBe(0.1)
-        expect(animations[1].duration).toBe(0.2)
+        /**
+         * Both values animate as one pool, which lasts as long as its
+         * longest value.
+         */
+        expect(animations.length).toBe(1)
+        expect(animations[0].duration).toBe(0.2)
+
+        animations[0].time = 0.15
+
+        const x = subjectEffect.get(subject, "x")!.get()
+        const y = subjectEffect.get(subject, "y")!.get() as number
+        expect(x).toBe(100)
+        expect(y).toBeGreaterThan(0)
+        expect(y).toBeLessThan(100)
     })
 })

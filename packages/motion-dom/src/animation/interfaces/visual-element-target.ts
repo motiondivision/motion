@@ -5,7 +5,8 @@ import { positionalKeys } from "../../render/utils/keys-position"
 import { setTarget } from "../../render/utils/setters"
 import { addValueToWillChange } from "../../value/will-change/add-will-change"
 import { getOptimisedAppearId } from "../optimized-appear/get-appear-id"
-import { animateMotionValue } from "./motion-value"
+import { animateInPool } from "./motion-value"
+import { Pool } from "../pool/Pool"
 import type { MotionPath } from "../types"
 import type { VisualElementAnimationOptions } from "./types"
 import type { AnimationPlaybackControlsWithThen } from "../types"
@@ -53,6 +54,14 @@ export function animateTarget(
     if (transitionOverride) transition = transitionOverride
 
     const animations: AnimationPlaybackControlsWithThen[] = []
+
+    /**
+     * The values of one transition animate as one pool. Values handed off
+     * from optimised appear animations are timed to those, so they pool
+     * separately.
+     */
+    const pool = new Pool(visualElement)
+    let handoffPool: Pool | undefined
 
     const animationTypeState =
         type && visualElement.animationState?.getState()[type]
@@ -135,25 +144,25 @@ export function animateTarget(
         const shouldReduceMotion =
             reduceMotion ?? visualElement.shouldReduceMotion
 
-        value.start(
-            animateMotionValue(
-                key,
-                value,
-                valueTarget,
-                shouldReduceMotion && positionalKeys.has(key)
-                    ? { type: false }
-                    : valueTransition,
-                visualElement,
-                isHandoff
-            )
+        const standalone = animateInPool(
+            isHandoff ? (handoffPool ||= new Pool()) : pool,
+            key,
+            value,
+            valueTarget,
+            shouldReduceMotion && positionalKeys.has(key)
+                ? { type: false }
+                : valueTransition,
+            visualElement,
+            isHandoff
         )
 
-        const animation = value.animation as
-            | AnimationPlaybackControlsWithThen
-            | undefined
+        standalone && animations.push(standalone)
+    }
 
-        if (animation) {
-            animations.push(animation)
+    for (const p of [pool, handoffPool]) {
+        if (p?.size) {
+            animations.push(p)
+            p.resolve()
         }
     }
 

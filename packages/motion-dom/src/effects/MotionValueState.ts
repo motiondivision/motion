@@ -16,6 +16,10 @@ export class MotionValueState {
      */
     transformKeys?: string[]
     transformValues?: Record<string, MotionValue>
+    /**
+     * Whether the last render wrote the individual transform properties.
+     */
+    independent?: boolean
 
     private values = new Map<string, Entry>()
 

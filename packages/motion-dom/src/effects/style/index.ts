@@ -13,6 +13,12 @@ import { MotionValueState } from "../MotionValueState"
 import { createSelectorEffect } from "../utils/create-dom-effect"
 import { createEffect } from "../utils/create-effect"
 import { buildTransform } from "./transform"
+import {
+    buildIndependentTransform,
+    independentTransformProperties,
+    transformChannelHooks,
+} from "../../render/html/utils/independent-transforms"
+import { ResolvedValues } from "../../render/types"
 
 export const originProps = new Set(["originX", "originY", "originZ"])
 
@@ -21,6 +27,47 @@ export const originProps = new Set(["originX", "originY", "originZ"])
  */
 const styleValue = (state: MotionValueState, key: string) =>
     getValueAsType(state.get(key)?.get(), numberValueTypes[key])
+
+/**
+ * Write the bound transforms to the element: through the individual
+ * transform properties while any is hardware-accelerated, otherwise
+ * through the transform shorthand.
+ */
+function renderTransform(
+    element: HTMLElement | SVGElement,
+    state: MotionValueState
+) {
+    const { render, has } = transformChannelHooks
+    let values: ResolvedValues | undefined
+
+    if (render && has?.(element)) {
+        values = {}
+        for (const key of state.transformKeys!) {
+            const value = state.transformValues![key].get()
+            if (value !== undefined) values[key] = value
+        }
+        if (!render(element, values)) values = undefined
+    }
+
+    if (values) {
+        element.style.transform = "none"
+        for (const property of independentTransformProperties) {
+            element.style[property] = buildIndependentTransform(
+                values,
+                property
+            )
+        }
+        state.independent = true
+    } else {
+        element.style.transform = buildTransform(state)
+        if (state.independent) {
+            state.independent = false
+            for (const property of independentTransformProperties) {
+                element.style[property] = ""
+            }
+        }
+    }
+}
 
 export const addStyleValue = (
     element: HTMLElement | SVGElement,
@@ -59,7 +106,7 @@ export const addStyleValue = (
             }
 
             state.set("transform", new MotionValue("none"), () => {
-                element.style.transform = buildTransform(state)
+                renderTransform(element, state)
             })
         }
 

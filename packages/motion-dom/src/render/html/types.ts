@@ -20,6 +20,12 @@ export interface HTMLRenderState {
     transformOrigin: TransformOrigin
 
     /**
+     * Whether the last render wrote the individual transform properties,
+     * because the element had hardware-accelerated transforms.
+     */
+    independent?: boolean
+
+    /**
      * A mutable record of styles we want to apply directly to the rendered Element
      * every frame. We use a mutable data structure to reduce GC during animations.
      */

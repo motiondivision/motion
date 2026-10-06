@@ -2,6 +2,13 @@ export * from "./animation/AsyncMotionValueAnimation"
 export * from "./animation/GroupAnimation"
 export * from "./animation/GroupAnimationWithThen"
 export * from "./animation/JSAnimation"
+export * from "./animation/pool/Pool"
+export * from "./animation/pool/track"
+export {
+    canAccelerate,
+    demoteTransformChannels,
+} from "./animation/pool/channels"
+export * from "./render/html/utils/independent-transforms"
 export * from "./animation/NativeAnimation"
 export * from "./animation/NativeAnimationExtended"
 export * from "./animation/NativeAnimationWrapper"

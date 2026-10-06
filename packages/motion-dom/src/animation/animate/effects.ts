@@ -3,8 +3,9 @@ import { AnimateEffect } from "../../effects/utils/create-effect"
 import { frame } from "../../frameloop"
 import { positionalKeys } from "../../render/utils/keys-position"
 import { MotionValue, motionValue } from "../../value"
-import { animateMotionValue } from "../interfaces/motion-value"
+import { animateInPool } from "../interfaces/motion-value"
 import { AnimationElement } from "../keyframes/types"
+import { Pool } from "../pool/Pool"
 import {
     AnimationPlaybackControlsWithThen,
     AnyResolvedKeyframe,
@@ -70,6 +71,12 @@ export function animateValues(
     const { velocity } = transition
     const reduceMotion = transition.reduceMotion ?? element?.shouldReduceMotion
 
+    /**
+     * Every value animates as part of one pool: one keyframe resolve, one
+     * frameloop subscription and one set of controls for the element.
+     */
+    const pool = new Pool(element)
+
     for (const key in keyframes) {
         if (key === "transition" || key === "transitionEnd") continue
 
@@ -95,22 +102,21 @@ export function animateValues(
             continue
         }
 
-        value.start(
-            animateMotionValue(
-                key,
-                value,
-                target as any,
-                reduceMotion && positionalKeys.has(key)
-                    ? { type: false }
-                    : transition,
-                element
-            )
+        const standalone = animateInPool(
+            pool,
+            key,
+            value,
+            target as any,
+            reduceMotion && positionalKeys.has(key) ? { type: false } : transition,
+            element
         )
 
-        value.animation &&
-            animations.push(
-                value.animation as AnimationPlaybackControlsWithThen
-            )
+        standalone && animations.push(standalone)
+    }
+
+    if (pool.size) {
+        animations.push(pool)
+        pool.resolve()
     }
 
     const { transitionEnd } = keyframes

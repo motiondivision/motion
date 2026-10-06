@@ -122,7 +122,13 @@ export type AnimationPlaybackControlsWithThen = AnimationPlaybackControls & {
 export type MotionValueAnimation = Pick<
     AnimationPlaybackControlsWithThen,
     "state" | "stop" | "finished" | "then"
->
+> & {
+    /**
+     * The value's current animated value, when it isn't written to the
+     * motion value every frame (while hardware-accelerated).
+     */
+    current?: () => AnyResolvedKeyframe | undefined
+}
 
 export interface AnimationState<V> {
     value: V
