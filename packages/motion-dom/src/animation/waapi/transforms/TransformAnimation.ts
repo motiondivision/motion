@@ -1,4 +1,9 @@
-import { clamp, millisecondsToSeconds } from "motion-utils"
+import {
+    BezierDefinition,
+    clamp,
+    isBezierDefinition,
+    millisecondsToSeconds,
+} from "motion-utils"
 import { frame } from "../../../frameloop/frame"
 import { frameData } from "../../../frameloop/frame-data"
 import { time } from "../../../frameloop/sync-time"
@@ -13,12 +18,15 @@ import { numberValueTypes } from "../../../value/types/maps/number"
 import { getValueAsType } from "../../../value/types/utils/get-as-type"
 import { frameloopDriver } from "../../drivers/frame"
 import { DriverControls } from "../../drivers/types"
+import { keyframes as keyframesGenerator } from "../../generators/keyframes"
 import { JSAnimation } from "../../JSAnimation"
 import {
     AnyResolvedKeyframe,
     TimelineWithFallback,
     ValueAnimationOptions,
 } from "../../types"
+import { cubicBezierAsString } from "../easing/cubic-bezier"
+import { supportedWaapiEasing } from "../easing/supported"
 import { supportsWaapi } from "../supports/waapi"
 import { transformGroups } from "./groups"
 
@@ -117,6 +125,17 @@ const scaleTolerance = 0.001
  */
 const churnWindow = 100
 
+/**
+ * Named easings that are the same cubic-bezier in JS and CSS.
+ */
+const { linear, easeIn, easeOut, easeInOut } = supportedWaapiEasing
+const nativeEasings: Record<string, string> = {
+    linear,
+    easeIn,
+    easeOut,
+    easeInOut,
+}
+
 const round = (value: number) => Math.round(value * 10000) / 10000
 
 const noop = () => {}
@@ -183,6 +202,7 @@ export class TransformAnimation<
 
     constructor(options: ValueAnimationOptions<T>, canAccelerate: boolean) {
         const element = getOwner(options).current
+        const { driver = frameloopDriver } = options
 
         /**
          * The driver ticks on the main thread only once the group has
@@ -190,7 +210,7 @@ export class TransformAnimation<
          * update its WAAPI animation.
          */
         options.driver = (update) => {
-            const js = frameloopDriver(update)
+            const js = driver(update)
 
             return {
                 js,
@@ -303,6 +323,38 @@ export class TransformAnimation<
         })
 
         return this.sampler.sample(this.at(timestamp)).value
+    }
+
+    /**
+     * The value now, while this runs on the compositor and so doesn't
+     * set its motion value every frame.
+     */
+    liveValue() {
+        return this.isAccelerated() ? this.sampleAt(time.now()) : undefined
+    }
+
+    /**
+     * If this is a two-keyframe tween whose easing WAAPI runs exactly,
+     * when it starts and stops moving, and that easing.
+     */
+    tween(): [number, number, string] | undefined {
+        const { keyframes, type, ease, times, repeat, delay = 0 } =
+            this.options
+        const easing = isBezierDefinition(ease!)
+            ? cubicBezierAsString(ease as BezierDefinition)
+            : nativeEasings[ease as string]
+
+        if (
+            easing &&
+            !repeat &&
+            !times &&
+            keyframes.length === 2 &&
+            type === keyframesGenerator &&
+            this.holdTime === null
+        ) {
+            const start = this.startTime! + delay / this.speed
+            return [start, start + this.resolvedDuration / this.speed, easing]
+        }
     }
 
     /**
@@ -587,6 +639,31 @@ function createGroup(owner: TransformOwner): TransformGroup {
     }
 
     /**
+     * If every moving animation is the same tween, started together, as
+     * happens for the values of one animate() call or transition, when
+     * they move and their native easing.
+     */
+    const getTween = (moving: TransformAnimation<any>[]) => {
+        let shared: [number, number, string] | undefined
+
+        for (const track of moving) {
+            const tween = track.tween()
+            if (
+                !tween ||
+                (shared &&
+                    (Math.abs(tween[0] - shared[0]) > 1 ||
+                        Math.abs(tween[1] - shared[1]) > 1 ||
+                        tween[2] !== shared[2]))
+            ) {
+                return
+            }
+            shared = tween
+        }
+
+        return shared
+    }
+
+    /**
      * A WAAPI animation of the composed transform between two timestamps.
      */
     const run = (
@@ -594,9 +671,10 @@ function createGroup(owner: TransformOwner): TransformGroup {
         from: number,
         to: number,
         options: KeyframeAnimationOptions,
-        settled?: number
+        settled?: number,
+        nativeEasing?: string
     ) => {
-        const easing = getEasing(moving, from, to)
+        const easing = nativeEasing || getEasing(moving, from, to)
         const times = easing ? [from, to] : sample(moving, from, to)
         const transform = times.map((t) => compose(t, settled))
         let keyframes: PropertyIndexedKeyframes | null = { transform }
@@ -694,8 +772,21 @@ function createGroup(owner: TransformOwner): TransformGroup {
 
         stop(false)
 
+        /**
+         * Values that share one tween are one WAAPI animation of it, with
+         * two keyframes and its own easing, from when they started.
+         */
+        const tween = !cycle && getTween(moving)
+
         try {
-            if (end > now) {
+            if (tween && tween[1] > now) {
+                const [from, to, easing] = tween
+                add(
+                    run(moving, from, to, { fill: "both" }, undefined, easing),
+                    from - now,
+                    to - from
+                )
+            } else if (end > now) {
                 add(run(moving, now, end, { fill: "both" }), 0, end - now)
 
                 /**

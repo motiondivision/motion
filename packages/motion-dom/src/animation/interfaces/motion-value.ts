@@ -1,5 +1,5 @@
-import { MotionGlobalConfig, secondsToMilliseconds } from "motion-utils"
-import { AsyncMotionValueAnimation } from "../AsyncMotionValueAnimation"
+import { MotionGlobalConfig, noop, secondsToMilliseconds } from "motion-utils"
+import { PoolAnimation, PoolTrack } from "../PoolAnimation"
 import { JSAnimation } from "../JSAnimation"
 import type {
     AnyResolvedKeyframe,
@@ -16,16 +16,19 @@ import { frame } from "../../frameloop"
 import type { MotionValue, StartAnimation } from "../../value"
 import type { AnimationElement } from "../keyframes/types"
 
-export const animateMotionValue =
-    <V extends AnyResolvedKeyframe>(
-        name: string,
-        value: MotionValue<V>,
-        target: V | UnresolvedKeyframes<V>,
-        transition: ValueTransition & { elapsed?: number } = {},
-        element?: AnimationElement,
-        isHandoff?: boolean
-    ): StartAnimation =>
-    (onComplete) => {
+/**
+ * The options for an animation of one value, or undefined if it can be
+ * skipped, in which case its final keyframe is set on the next frame.
+ */
+export function valueAnimationOptions<V extends AnyResolvedKeyframe>(
+    name: string,
+    value: MotionValue<V>,
+    target: V | UnresolvedKeyframes<V>,
+    transition: ValueTransition & { elapsed?: number } = {},
+    element?: AnimationElement,
+    isHandoff?: boolean,
+    onComplete: VoidFunction = noop as VoidFunction
+): ValueAnimationOptions | undefined {
         const valueTransition = getValueTransition(transition, name) || {}
 
         /**
@@ -135,7 +138,68 @@ export const animateMotionValue =
             }
         }
 
-        return valueTransition.isSync
-            ? new JSAnimation(options)
-            : new AsyncMotionValueAnimation(options)
+        return options
+}
+
+export const animateMotionValue =
+    <V extends AnyResolvedKeyframe>(
+        name: string,
+        value: MotionValue<V>,
+        target: V | UnresolvedKeyframes<V>,
+        transition: ValueTransition & { elapsed?: number } = {},
+        element?: AnimationElement,
+        isHandoff?: boolean
+    ): StartAnimation =>
+    (onComplete) => {
+        const options = valueAnimationOptions(
+            name,
+            value,
+            target,
+            transition,
+            element,
+            isHandoff,
+            onComplete
+        )
+
+        if (!options) return
+
+        if (options.isSync) return new JSAnimation(options)
+
+        /**
+         * A pool of one.
+         */
+        const pool = new PoolAnimation()
+        pool.add(options)
+        return pool.seal()
     }
+
+/**
+ * Add the animation of one value to a pool, which takes the value from
+ * whatever was animating it.
+ */
+export function addToPool<V extends AnyResolvedKeyframe>(
+    pool: PoolAnimation,
+    name: string,
+    value: MotionValue<V>,
+    target: V | UnresolvedKeyframes<V>,
+    transition?: ValueTransition & { elapsed?: number },
+    element?: AnimationElement,
+    isHandoff?: boolean
+) {
+    value.stop()
+
+    let track: PoolTrack | undefined
+    const options = valueAnimationOptions(
+        name,
+        value,
+        target,
+        transition,
+        element,
+        isHandoff,
+        () => value.finishAnimation(track)
+    )
+
+    if (options) track = pool.add(options)
+
+    value.claim(track)
+}

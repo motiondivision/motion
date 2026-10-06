@@ -3,7 +3,8 @@ import { AnimateEffect } from "../../effects/utils/create-effect"
 import { frame } from "../../frameloop"
 import { positionalKeys } from "../../render/utils/keys-position"
 import { MotionValue, motionValue } from "../../value"
-import { animateMotionValue } from "../interfaces/motion-value"
+import { addToPool } from "../interfaces/motion-value"
+import { PoolAnimation } from "../PoolAnimation"
 import { AnimationElement } from "../keyframes/types"
 import {
     AnimationPlaybackControlsWithThen,
@@ -66,7 +67,7 @@ export function animateValues(
     transition: EffectTransition = {},
     element?: AnimationElement
 ): AnimationPlaybackControlsWithThen[] {
-    const animations: AnimationPlaybackControlsWithThen[] = []
+    const pool = new PoolAnimation()
     const { velocity } = transition
     const reduceMotion = transition.reduceMotion ?? element?.shouldReduceMotion
 
@@ -95,23 +96,19 @@ export function animateValues(
             continue
         }
 
-        value.start(
-            animateMotionValue(
-                key,
-                value,
-                target as any,
-                reduceMotion && positionalKeys.has(key)
-                    ? { type: false }
-                    : transition,
-                element
-            )
+        addToPool(
+            pool,
+            key,
+            value,
+            target as any,
+            reduceMotion && positionalKeys.has(key)
+                ? { type: false }
+                : transition,
+            element
         )
-
-        value.animation &&
-            animations.push(
-                value.animation as AnimationPlaybackControlsWithThen
-            )
     }
+
+    const animations = pool.tracks.length ? [pool.seal()] : []
 
     const { transitionEnd } = keyframes
     if (transitionEnd) {
@@ -123,7 +120,7 @@ export function animateValues(
             })
 
         animations.length
-            ? Promise.all(animations).then(applyTransitionEnd)
+            ? pool.then(applyTransitionEnd)
             : applyTransitionEnd()
     }
 

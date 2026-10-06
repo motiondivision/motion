@@ -281,7 +281,7 @@ describe("independent transform acceleration", () => {
         const [{ keyframes, options }] = running(element)
         expect(keyframes.transform).toHaveLength(2)
         expect(keyframes.transform[1]).toBe("translateX(100px) scale(2) ")
-        expect(options.easing).toMatch(/^linear\(0,/)
+        expect(options.easing).toBe("ease-out")
     })
 
     it("uses two keyframes for springs that share a transition", async () => {
@@ -341,9 +341,9 @@ describe("independent transform acceleration", () => {
 
         animation.forEach((a) => (a.time = 0.5))
         await nextFrame()
-        // The WAAPI animation starts where it was built, a frame in.
-        expect(waapi.currentTime).toBeGreaterThan(450)
-        expect(waapi.currentTime).toBeLessThanOrEqual(500)
+        // The values share a tween, so the WAAPI animation is that tween,
+        // from when it started.
+        expect(waapi.currentTime).toBeCloseTo(500, 1)
 
         animation.forEach((a) => a.play())
         await nextFrame()

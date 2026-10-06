@@ -57,6 +57,28 @@ export class NativeAnimationExtended<
         this.options = options
     }
 
+    private sampler?: JSAnimation<T>
+
+    /**
+     * The value now, sampled from a renderless JS animation, as WAAPI
+     * doesn't set the motion value while it runs.
+     */
+    liveValue() {
+        const { state } = this
+        if (state !== "running" && state !== "paused") return
+
+        const { motionValue, onUpdate, onComplete, element, ...options } =
+            this.options
+
+        this.sampler ||= new JSAnimation({ ...options, autoplay: false })
+
+        return this.sampler.sample(
+            state === "paused"
+                ? this.time * 1000
+                : Math.max(0, (time.now() - this.startTime) * this.speed)
+        ).value
+    }
+
     /**
      * WAAPI doesn't natively have any interruption capabilities.
      *

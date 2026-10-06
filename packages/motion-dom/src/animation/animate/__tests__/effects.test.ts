@@ -170,7 +170,13 @@ describe("animateEffectSubject", () => {
             { duration: 0.1, y: { duration: 0.2 } }
         )
 
-        expect(animations[0].duration).toBe(0.1)
-        expect(animations[1].duration).toBe(0.2)
+        /**
+         * One pool for the call, with a track per value.
+         */
+        expect(animations).toHaveLength(1)
+        const [pool] = animations as any
+        expect(pool.tracks[0].animation.duration).toBe(0.1)
+        expect(pool.tracks[1].animation.duration).toBe(0.2)
+        expect(pool.duration).toBe(0.2)
     })
 })

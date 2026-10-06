@@ -427,7 +427,13 @@ export class MotionValue<V = any> {
             collectMotionValues.current.push(this)
         }
 
-        return this.current!
+        /**
+         * A value animating on the compositor isn't updated every frame,
+         * so read it from its animation.
+         */
+        const sampled = this.animation?.liveValue?.()
+
+        return sampled === undefined ? this.current! : (sampled as V)
     }
 
     /**
@@ -505,6 +511,27 @@ export class MotionValue<V = any> {
 
             this.events.animationStart?.notify()
         })
+    }
+
+    /**
+     * Make `animation` this value's animation, as start() does, for
+     * animations that drive many values and complete them through
+     * finishAnimation() rather than a promise per value.
+     *
+     * @internal
+     */
+    claim(animation?: MotionValueAnimation) {
+        this.hasAnimated = true
+        this.animation = animation
+        this.events.animationStart?.notify()
+    }
+
+    /**
+     * @internal
+     */
+    finishAnimation(animation?: MotionValueAnimation) {
+        this.events.animationComplete?.notify()
+        if (this.animation === animation) this.clearAnimation()
     }
 
     /**

@@ -10,6 +10,9 @@ describe("animateTarget in a non-browser environment", () => {
         isAnimating: () => false,
         start: () => {},
         stop: () => {},
+        getVelocity: () => 0,
+        claim: () => {},
+        finishAnimation: () => {},
         animation: undefined,
     })
 
@@ -20,6 +23,11 @@ describe("animateTarget in a non-browser environment", () => {
             animationState: undefined,
             latestValues: {},
             shouldReduceMotion: false,
+            /**
+             * Values are set rather than animated, as there's no DOM to
+             * animate.
+             */
+            shouldSkipAnimations: true,
             props: {},
             getValue: (key: string) => {
                 if (key === "willChange") return undefined

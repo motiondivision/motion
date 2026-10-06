@@ -36,6 +36,34 @@ export class DOMKeyframesResolver<
         super(unresolvedKeyframes, onComplete, name, motionValue, element, true)
     }
 
+    /**
+     * Keyframes that don't need reading from the DOM, or measuring,
+     * resolve straight away rather than in the frame loop's batched read.
+     */
+    scheduleResolve() {
+        if (this.canReadNow()) {
+            this.readKeyframes()
+            if (!this.needsMeasurement) return this.complete()
+        }
+
+        super.scheduleResolve()
+    }
+
+    private canReadNow() {
+        const { unresolvedKeyframes, element, motionValue } = this
+        const origin = unresolvedKeyframes[0] ?? motionValue?.get()
+
+        if (!element?.current || origin === undefined) return false
+
+        for (let i = 0; i < unresolvedKeyframes.length; i++) {
+            if (containsCSSVariable(i ? unresolvedKeyframes[i] : origin)) {
+                return false
+            }
+        }
+
+        return true
+    }
+
     readKeyframes() {
         const { unresolvedKeyframes, element, name } = this
 

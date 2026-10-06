@@ -10,7 +10,26 @@ export function createGeneratorEasing(
     scale = 100,
     createGenerator: GeneratorFactory
 ) {
-    const generator = createGenerator({ ...options, keyframes: [0, scale] })
+    /**
+     * The easing is generated over a 0 - scale range. Velocity is in the
+     * value's own units, so scale it to match, otherwise an interrupted
+     * animation hands off the wrong speed and direction.
+     */
+    const { keyframes, velocity = 0 } = options as {
+        keyframes?: number[]
+        velocity?: number
+    }
+    const delta =
+        keyframes && keyframes.length > 1
+            ? parseFloat(keyframes[keyframes.length - 1] as any) -
+              parseFloat(keyframes[0] as any)
+            : 0
+
+    const generator = createGenerator({
+        ...options,
+        velocity: delta ? (velocity * scale) / delta : velocity,
+        keyframes: [0, scale],
+    })
     const duration = Math.min(
         calcGeneratorDuration(generator),
         maxGeneratorDuration

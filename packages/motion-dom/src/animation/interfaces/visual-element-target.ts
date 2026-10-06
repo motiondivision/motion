@@ -5,7 +5,8 @@ import { positionalKeys } from "../../render/utils/keys-position"
 import { setTarget } from "../../render/utils/setters"
 import { addValueToWillChange } from "../../value/will-change/add-will-change"
 import { getOptimisedAppearId } from "../optimized-appear/get-appear-id"
-import { animateMotionValue } from "./motion-value"
+import { addToPool } from "./motion-value"
+import { PoolAnimation } from "../PoolAnimation"
 import type { MotionPath } from "../types"
 import type { VisualElementAnimationOptions } from "./types"
 import type { AnimationPlaybackControlsWithThen } from "../types"
@@ -53,6 +54,12 @@ export function animateTarget(
     if (transitionOverride) transition = transitionOverride
 
     const animations: AnimationPlaybackControlsWithThen[] = []
+
+    /**
+     * Every value animated here is one pool. A path animation adds its
+     * own.
+     */
+    const pool = new PoolAnimation()
 
     const animationTypeState =
         type && visualElement.animationState?.getState()[type]
@@ -135,27 +142,20 @@ export function animateTarget(
         const shouldReduceMotion =
             reduceMotion ?? visualElement.shouldReduceMotion
 
-        value.start(
-            animateMotionValue(
-                key,
-                value,
-                valueTarget,
-                shouldReduceMotion && positionalKeys.has(key)
-                    ? { type: false }
-                    : valueTransition,
-                visualElement,
-                isHandoff
-            )
+        addToPool(
+            pool,
+            key,
+            value,
+            valueTarget,
+            shouldReduceMotion && positionalKeys.has(key)
+                ? { type: false }
+                : valueTransition,
+            visualElement,
+            isHandoff
         )
-
-        const animation = value.animation as
-            | AnimationPlaybackControlsWithThen
-            | undefined
-
-        if (animation) {
-            animations.push(animation)
-        }
     }
+
+    pool.tracks.length && animations.push(pool.seal())
 
     if (transitionEnd) {
         const applyTransitionEnd = () =>
