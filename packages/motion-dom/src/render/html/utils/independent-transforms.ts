@@ -12,8 +12,9 @@ export type IndependentTransformProperty = "translate" | "scale" | "rotate"
  */
 export const independentTransformHooks: {
     /**
-     * Returns true if an animation was moved to the main thread, in which
-     * case the values should be read again.
+     * Returns whether the element still has an accelerated transform
+     * animation. Moving an animation to the main thread sets its current
+     * value, so the values should be read again afterwards.
      */
     sync?: (element: Element, values: ResolvedValues) => boolean
 } = {}

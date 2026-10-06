@@ -43,6 +43,9 @@ describe("independent transform acceleration", () => {
                 expect(result.animations).to.equal(0)
                 expect(result.minOffset).to.be.greaterThan(5)
                 expect(result.y).to.be.greaterThan(12)
+                // Nothing is accelerated any more, so the element renders
+                // through the transform shorthand again
+                expect(result.transform).to.contain("translateY(")
             })
     })
 

@@ -112,7 +112,9 @@ test.describe("independent transform acceleration", () => {
         expect(result.minOffset).toBeGreaterThan(5)
         // y carried on from where the accelerated animation left it
         expect(result.y).toBeGreaterThan(12)
-        expect(result.transform).toBe("none")
+        // Nothing is accelerated any more, so the element renders through
+        // the transform shorthand again
+        expect(result.transform).toContain("translateY(")
     })
 
     test("pause, seek and speed control the native animation", async ({

@@ -77,8 +77,22 @@ export class HTMLVisualElement extends DOMVisualElement<
         latestValues: ResolvedValues,
         props: MotionNodeOptions
     ) {
-        if (renderState.independentTransforms && this.current) {
-            independentTransformHooks.sync?.(this.current, latestValues)
+        if (
+            renderState.independentTransforms &&
+            !(
+                this.current &&
+                independentTransformHooks.sync?.(this.current, latestValues)
+            )
+        ) {
+            /**
+             * No transform is accelerated any more, so render through the
+             * transform shorthand again.
+             */
+            renderState.independentTransforms = false
+            renderState.style.translate =
+                renderState.style.scale =
+                renderState.style.rotate =
+                    "none"
         }
 
         buildHTMLStyles(renderState, latestValues, props.transformTemplate)

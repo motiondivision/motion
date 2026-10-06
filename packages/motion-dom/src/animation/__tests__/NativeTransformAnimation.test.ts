@@ -190,15 +190,52 @@ describe("NativeTransformAnimation", () => {
         const y = motionValue(0)
         owner.bind("y", y)
 
-        syncTransformGroups(owner.element, owner.latestValues)
+        expect(syncTransformGroups(owner.element, owner.latestValues)).toBe(
+            true
+        )
         expect(x.swap).not.toHaveBeenCalled()
 
         animations[0].currentTime = 100
         y.set(20)
-        syncTransformGroups(owner.element, owner.latestValues)
+        // Nothing is accelerated any more
+        expect(syncTransformGroups(owner.element, owner.latestValues)).toBe(
+            false
+        )
 
         expect(x.swap).toHaveBeenCalledTimes(1)
         expect(animations[0].cancel).toHaveBeenCalledTimes(1)
+    })
+
+    test("finishing leaves nothing accelerated", () => {
+        const owner = createOwner()
+        start(owner, "x", [0, 100])
+        const scale = start(owner, "scale", [1, 2])
+
+        animations[0].onfinish!()
+        expect(syncTransformGroups(owner.element, owner.latestValues)).toBe(
+            true
+        )
+
+        animations[1].onfinish!()
+        expect(scale.value.get()).toBe(2)
+        expect(syncTransformGroups(owner.element, owner.latestValues)).toBe(
+            false
+        )
+    })
+
+    test("attaching a timeline continues the value on the main thread", () => {
+        const owner = createOwner()
+        const x = start(owner, "x", [0, 100])
+        const y = start(owner, "y", [0, 50])
+        const observe = jest.fn(() => () => {})
+
+        x.animation.attachTimeline({ observe } as any)
+
+        expect(animations[0].cancel).toHaveBeenCalledTimes(1)
+        expect(x.swap).toHaveBeenCalledTimes(1)
+        expect(y.swap).toHaveBeenCalledTimes(1)
+        expect(observe).toHaveBeenCalledWith(x.swap.mock.calls[0][0])
+        expect(x.swap.mock.calls[0][0]).toBeInstanceOf(JSAnimation)
     })
 
     test("a transform without an individual property demotes every group", () => {

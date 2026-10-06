@@ -45,12 +45,19 @@ export const App = () => {
             }, 800),
             setTimeout(() => {
                 running = false
-                const { translate } = getComputedStyle(box)
+                /**
+                 * With nothing accelerated any more the element renders
+                 * through the transform shorthand again.
+                 */
+                const { translate, transform } = getComputedStyle(box)
                 setResult(
                     JSON.stringify({
                         animations: box.getAnimations().length,
                         minOffset: Math.round(minOffset),
-                        y: parseFloat(translate.split(" ")[1] || "0"),
+                        y:
+                            translate === "none"
+                                ? new DOMMatrix(transform).m42
+                                : parseFloat(translate.split(" ")[1] || "0"),
                         transform: box.style.transform,
                     })
                 )

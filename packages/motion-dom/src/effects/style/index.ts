@@ -15,7 +15,6 @@ import { createEffect } from "../utils/create-effect"
 import { buildTransform } from "./transform"
 import {
     buildIndependentTransforms,
-    canUseIndependentTransforms,
     independentTransformHooks,
 } from "../../render/html/utils/independent-transforms"
 
@@ -82,21 +81,27 @@ export const addStyleValue = (
 
             state.set("transform", new MotionValue("none"), () => {
                 if (state.independentTransforms) {
-                    let values = readTransformValues(state)
-
                     /**
                      * Moving an animation to the main thread sets its
-                     * current value, so read the values again.
+                     * current value, so read the values again afterwards.
                      */
-                    if (independentTransformHooks.sync?.(element, values)) {
-                        values = readTransformValues(state)
-                    }
-
-                    if (canUseIndependentTransforms(values)) {
-                        buildIndependentTransforms(values, element.style as any)
+                    if (
+                        independentTransformHooks.sync?.(
+                            element,
+                            readTransformValues(state)
+                        )
+                    ) {
+                        buildIndependentTransforms(
+                            readTransformValues(state),
+                            element.style as any
+                        )
                         return
                     }
 
+                    /**
+                     * No transform is accelerated any more, so render through
+                     * the transform shorthand again.
+                     */
                     state.independentTransforms = false
                     element.style.translate =
                         element.style.scale =

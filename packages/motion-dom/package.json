@@ -30,7 +30,7 @@
     "bundlesize": [
         {
             "path": "./dist/size-rollup-style-effect.js",
-            "maxSize": "4.75 kB"
+            "maxSize": "4.8 kB"
         },
         {
             "path": "./dist/size-rollup-motion-value.js",

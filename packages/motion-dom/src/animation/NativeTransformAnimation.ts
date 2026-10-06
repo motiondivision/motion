@@ -19,6 +19,7 @@ import {
 import {
     AnimationPlaybackControls,
     AnyResolvedKeyframe,
+    TimelineWithFallback,
     ValueTransition,
 } from "./types"
 import { notifyAnimationStart } from "./utils/notify-inspector"
@@ -156,6 +157,10 @@ function demoteGroup(element: Element, group: TransformGroup) {
  * value sharing a property with an accelerated animation has changed on the
  * main thread, or a transform arrived that has no individual property, the
  * accelerated animation would mask the render, so move it to the main thread.
+ *
+ * Returns whether any accelerated animation remains. If none does, the
+ * element renders through the transform shorthand again, so an idle element
+ * looks the same as one that was never accelerated.
  */
 export function syncTransformGroups(
     element: Element,
@@ -165,27 +170,28 @@ export function syncTransformGroups(
     if (!elementGroups) return false
 
     const canAccelerate = canUseIndependentTransforms(latestValues)
-    let demoted = false
+    let active = false
     let property: IndependentTransformProperty
 
     for (property in elementGroups) {
         const group = elementGroups[property]!
         if (!canAccelerate) {
             demoteGroup(element, group)
-            demoted = true
             continue
         }
 
+        let changed = false
         for (const axis in group.statics) {
             if (!isSameValue(axis, latestValues[axis], group.statics[axis])) {
-                demoteGroup(element, group)
-                demoted = true
+                changed = true
                 break
             }
         }
+
+        changed ? demoteGroup(element, group) : (active = true)
     }
 
-    return demoted
+    return active
 }
 
 independentTransformHooks.sync = syncTransformGroups
@@ -393,6 +399,8 @@ export class NativeTransformAnimation<
         }
 
         this.swap(animation)
+
+        return animation
     }
 
     updateMotionValue(value?: T) {
@@ -446,6 +454,16 @@ export class NativeTransformAnimation<
             deleteGroup(element!, group)
             group.animation.cancel()
         }
+    }
+
+    /**
+     * A timeline-driven animation on a shared property can't be joined by
+     * other values, so continue it on the main thread as before.
+     */
+    attachTimeline(options: TimelineWithFallback): VoidFunction {
+        const { animation } = this.group
+        this.leaveGroup()
+        return this.demote(animation).attachTimeline(options)
     }
 
     stop() {
