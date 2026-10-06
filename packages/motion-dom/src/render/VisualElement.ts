@@ -10,6 +10,7 @@ import { KeyframeResolver } from "../animation/keyframes/KeyframesResolver"
 import { NativeAnimation } from "../animation/NativeAnimation"
 import type { AnyResolvedKeyframe } from "../animation/types"
 import { acceleratedValues } from "../animation/waapi/utils/accelerated-values"
+import { transformGroups } from "../animation/waapi/transforms/groups"
 import { cancelFrame, frame } from "../frameloop"
 import { microtask } from "../frameloop/microtask"
 import { time } from "../frameloop/sync-time"
@@ -598,8 +599,11 @@ export abstract class VisualElement<
 
                 this.props.onUpdate && frame.preRender(this.notifyUpdate)
 
-                if (valueIsTransform && this.projection) {
-                    this.projection.isTransformDirty = true
+                if (valueIsTransform) {
+                    if (this.projection) {
+                        this.projection.isTransformDirty = true
+                    }
+                    transformGroups.get(this.current!)?.check()
                 }
 
                 this.scheduleRender()

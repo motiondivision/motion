@@ -1,3 +1,4 @@
+import { transformGroups } from "../../animation/waapi/transforms/groups"
 import { isCSSVar } from "../../render/dom/is-css-var"
 import { readTransformValue } from "../../render/dom/parse-transform"
 import {
@@ -59,6 +60,7 @@ export const addStyleValue = (
             }
 
             state.set("transform", new MotionValue("none"), () => {
+                transformGroups.get(element)?.check()
                 element.style.transform = buildTransform(state)
             })
         }

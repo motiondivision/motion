@@ -42,7 +42,7 @@ export class JSAnimation<T extends number | string>
      * The driver that's controlling the animation loop. Normally this is a requestAnimationFrame loop
      * but in tests we can pass in a synchronous loop.
      */
-    private driver?: DriverControls
+    protected driver?: DriverControls
 
     private isStopped = false
 
@@ -55,11 +55,11 @@ export class JSAnimation<T extends number | string>
 
     private calculatedDuration: number
 
-    private resolvedDuration: number
+    protected resolvedDuration: number
 
-    private totalDuration: number
+    protected totalDuration: number
 
-    private options: ValueAnimationOptions<T>
+    protected options: ValueAnimationOptions<T>
 
     /**
      * The current time of the animation.
@@ -69,7 +69,7 @@ export class JSAnimation<T extends number | string>
     /**
      * The time at which the animation was paused.
      */
-    private holdTime: number | null = null
+    protected holdTime: number | null = null
 
     /**
      * Playback speed as a factor. 0 would be stopped, -1 reverse and 2 double speed.

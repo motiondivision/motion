@@ -1,0 +1,58 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+
+            .box {
+                width: 100px;
+                height: 100px;
+                background-color: #0077ff;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="box" id="a"></div>
+        <div class="box" id="b"></div>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            /**
+             * Helpers for tests/animate/independent-transforms.spec.ts,
+             * which run their scenarios with page.evaluate().
+             */
+            window.nextFrames = (count = 1) =>
+                new Promise((resolve) => {
+                    const next = () =>
+                        --count ? requestAnimationFrame(next) : resolve()
+                    requestAnimationFrame(next)
+                })
+
+            window.wait = (ms) =>
+                new Promise((resolve) => setTimeout(resolve, ms))
+
+            window.readTransform = (element) => {
+                const matrix = new DOMMatrixReadOnly(
+                    getComputedStyle(element).transform
+                )
+                return {
+                    x: matrix.m41,
+                    y: matrix.m42,
+                    scale: Math.hypot(matrix.a, matrix.b),
+                    rotate: (Math.atan2(matrix.b, matrix.a) * 180) / Math.PI,
+                }
+            }
+
+            window.transformAnimations = (element) =>
+                element
+                    .getAnimations()
+                    .filter((animation) =>
+                        animation.effect
+                            .getKeyframes()
+                            .some((keyframe) => "transform" in keyframe)
+                    )
+
+            window.ready = true
+        </script>
+    </body>
+</html>
