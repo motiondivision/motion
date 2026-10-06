@@ -8,6 +8,7 @@ import {
     ResolvedKeyframes,
 } from "./keyframes/KeyframesResolver"
 import { NativeAnimationExtended } from "./NativeAnimationExtended"
+import { NativeTransformAnimation } from "./NativeTransformAnimation"
 import {
     AnimationPlaybackControls,
     AnyResolvedKeyframe,
@@ -19,6 +20,7 @@ import { makeAnimationInstant } from "./utils/make-animation-instant"
 import { resolveStartTime } from "./utils/resolve-start-time"
 import { WithPromise } from "./utils/WithPromise"
 import { supportsBrowserAnimation } from "./waapi/supports/waapi"
+import { independentTransformProperty } from "../render/html/utils/independent-transforms"
 
 type ResolvedOptions<T extends AnyResolvedKeyframe> =
     ValueAnimationOptions<T> & {
@@ -168,7 +170,17 @@ export class AsyncMotionValueAnimation<T extends AnyResolvedKeyframe>
              */
             options.element = options.motionValue?.owner?.current
             try {
-                animation = new NativeAnimationExtended(options as any)
+                animation = independentTransformProperty[name!]
+                    ? new NativeTransformAnimation(
+                          options as any,
+                          /**
+                           * If the transform property can no longer be
+                           * accelerated, the animation continues on the
+                           * main thread and replaces itself here.
+                           */
+                          (next) => (this._animation = next)
+                      )
+                    : new NativeAnimationExtended(options as any)
             } catch {
                 animation = new JSAnimation(options)
             }

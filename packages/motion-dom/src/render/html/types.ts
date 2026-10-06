@@ -30,4 +30,12 @@ export interface HTMLRenderState {
      * every frame. We use a mutable data structure to reduce GC during animations.
      */
     vars: ResolvedValues
+
+    /**
+     * When set, independent transforms (x, scale, rotate etc) render via
+     * the individual translate, scale and rotate CSS properties so each can
+     * be hardware-accelerated separately. Set by the first accelerated
+     * transform animation on the element.
+     */
+    independentTransforms?: boolean
 }

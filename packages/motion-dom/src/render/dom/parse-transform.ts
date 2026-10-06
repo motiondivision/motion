@@ -1,3 +1,4 @@
+import { independentTransformProperty } from "../html/utils/independent-transforms"
 import { transformPropOrder } from "../utils/keys-transform"
 
 const radToDeg = (rad: number) => (rad * 180) / Math.PI
@@ -98,9 +99,49 @@ export function parseValueFromTransform(
         : values[valueParser]
 }
 
+const individualIndex: Record<string, number> = {
+    x: 0,
+    y: 1,
+    z: 2,
+    scale: 0,
+    scaleX: 0,
+    scaleY: 1,
+}
+
+/**
+ * Read a transform value from the individual translate, scale and rotate
+ * properties. Returns undefined when the property isn't set so the caller
+ * can fall back to parsing the transform matrix.
+ */
+export function parseIndividualTransform(
+    computed: CSSStyleDeclaration,
+    name: string
+): number | undefined {
+    const property = independentTransformProperty[name]
+    const value = property && computed[property]
+
+    if (!value || value === "none") return undefined
+
+    const parts = value.split(" ")
+
+    if (property === "rotate") {
+        return parts.length > 1
+            ? defaultTransformValue(name)
+            : parseFloat(value)
+    }
+
+    const part =
+        parts[individualIndex[name]] ?? (name === "scaleY" ? parts[0] : "0")
+
+    return parseFloat(part)
+}
+
 export const readTransformValue = (instance: HTMLElement, name: string) => {
-    const { transform = "none" } = getComputedStyle(instance)
-    return parseValueFromTransform(transform, name)
+    const computed = getComputedStyle(instance)
+    return (
+        parseIndividualTransform(computed, name) ??
+        parseValueFromTransform(computed.transform || "none", name)
+    )
 }
 
 function convertTransformToNumber(value: string): number {

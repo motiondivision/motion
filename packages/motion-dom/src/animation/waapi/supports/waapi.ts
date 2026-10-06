@@ -3,8 +3,16 @@ import {
     AnyResolvedKeyframe,
     ValueAnimationOptionsWithRenderContext,
 } from "../../types"
+import type { Owner } from "../../../value"
+import type { ResolvedValues } from "../../../render/types"
+import { getOptimisedAppearId } from "../../optimized-appear/get-appear-id"
+import type { WithAppearProps } from "../../optimized-appear/types"
 import { acceleratedValues } from "../utils/accelerated-values"
 import { hasBrowserOnlyColors } from "../utils/is-browser-color"
+import {
+    canUseIndependentTransforms,
+    independentTransformProperty,
+} from "../../../render/html/utils/independent-transforms"
 
 const colorProperties = new Set([
     "color",
@@ -22,6 +30,38 @@ const colorProperties = new Set([
 const supportsWaapi = /*@__PURE__*/ memo(() =>
     Object.hasOwnProperty.call(Element.prototype, "animate")
 )
+
+/**
+ * Independent transforms (x, scale, rotate etc) accelerate via the individual
+ * translate, scale and rotate CSS properties. This is only possible when the
+ * element renders its transform through Motion's own pipeline: layout
+ * animations and transformTemplate compose the transform shorthand
+ * themselves, and an optimised appear animation is still writing it.
+ */
+interface TransformOwner extends Owner, Partial<WithAppearProps> {
+    latestValues: ResolvedValues
+    projection?: { options: { layout?: boolean | string; layoutId?: string } }
+}
+
+function canAccelerateTransform(owner: TransformOwner, name: string) {
+    const { projection, current, latestValues } = owner
+
+    return (
+        current instanceof HTMLElement &&
+        !(
+            projection &&
+            (projection.options.layout || projection.options.layoutId)
+        ) &&
+        !(
+            owner.props &&
+            window.MotionHasOptimisedAnimation?.(
+                getOptimisedAppearId(owner as WithAppearProps),
+                name
+            )
+        ) &&
+        canUseIndependentTransforms(latestValues, name)
+    )
+}
 
 export function supportsBrowserAnimation<T extends AnyResolvedKeyframe>(
     options: ValueAnimationOptionsWithRenderContext<T>
@@ -42,7 +82,11 @@ export function supportsBrowserAnimation<T extends AnyResolvedKeyframe>(
      */
     if (
         !name ||
-        !(acceleratedValues.has(name) || colorProperties.has(name))
+        !(
+            acceleratedValues.has(name) ||
+            colorProperties.has(name) ||
+            independentTransformProperty[name]
+        )
     ) {
         return false
     }
@@ -56,14 +100,12 @@ export function supportsBrowserAnimation<T extends AnyResolvedKeyframe>(
      * these animations properly with those driven from the main window
      * frameloop.
      */
-    if (
-        !(subject instanceof HTMLElement) &&
-        !(subject instanceof SVGElement)
-    ) {
+    if (!(subject instanceof HTMLElement) && !(subject instanceof SVGElement)) {
         return false
     }
 
-    const { onUpdate, transformTemplate } = motionValue!.owner!.getProps()
+    const owner = motionValue!.owner!
+    const { onUpdate, transformTemplate } = owner.getProps()
 
     return (
         supportsWaapi() &&
@@ -72,8 +114,10 @@ export function supportsBrowserAnimation<T extends AnyResolvedKeyframe>(
          * (oklch, oklab, lab, lch, etc.) that the JS animation path can't parse.
          */
         (acceleratedValues.has(name) ||
-            (colorProperties.has(name) &&
-                hasBrowserOnlyColors(keyframes))) &&
+            (colorProperties.has(name) && hasBrowserOnlyColors(keyframes)) ||
+            (Boolean(independentTransformProperty[name]) &&
+                !transformTemplate &&
+                canAccelerateTransform(owner as TransformOwner, name))) &&
         (name !== "transform" || !transformTemplate) &&
         /**
          * If we're outputting values to onUpdate then we can't use WAAPI as there's

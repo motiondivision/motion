@@ -16,6 +16,7 @@ import { HTMLRenderState } from "./types"
 import { buildHTMLStyles } from "./utils/build-styles"
 import { renderHTML } from "./utils/render"
 import { scrapeMotionValuesFromProps } from "./utils/scrape-motion-values"
+import { independentTransformHooks } from "./utils/independent-transforms"
 
 export function getComputedStyle(element: HTMLElement) {
     return window.getComputedStyle(element)
@@ -64,7 +65,9 @@ export class HTMLVisualElement extends DOMVisualElement<
 
     measureInstanceViewportBox(
         instance: HTMLElement,
-        { transformPagePoint }: MotionNodeOptions & Partial<MotionConfigContextProps>
+        {
+            transformPagePoint,
+        }: MotionNodeOptions & Partial<MotionConfigContextProps>
     ): Box {
         return measureViewportBox(instance, transformPagePoint)
     }
@@ -74,6 +77,10 @@ export class HTMLVisualElement extends DOMVisualElement<
         latestValues: ResolvedValues,
         props: MotionNodeOptions
     ) {
+        if (renderState.independentTransforms && this.current) {
+            independentTransformHooks.sync?.(this.current, latestValues)
+        }
+
         buildHTMLStyles(renderState, latestValues, props.transformTemplate)
     }
 

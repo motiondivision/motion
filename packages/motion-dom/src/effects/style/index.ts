@@ -13,6 +13,11 @@ import { MotionValueState } from "../MotionValueState"
 import { createSelectorEffect } from "../utils/create-dom-effect"
 import { createEffect } from "../utils/create-effect"
 import { buildTransform } from "./transform"
+import {
+    buildIndependentTransforms,
+    canUseIndependentTransforms,
+    independentTransformHooks,
+} from "../../render/html/utils/independent-transforms"
 
 export const originProps = new Set(["originX", "originY", "originZ"])
 
@@ -21,6 +26,23 @@ export const originProps = new Set(["originX", "originY", "originZ"])
  */
 const styleValue = (state: MotionValueState, key: string) =>
     getValueAsType(state.get(key)?.get(), numberValueTypes[key])
+
+/**
+ * The bound transform values as a plain object, read by accelerated
+ * transform animations.
+ */
+export const readTransformValues = (state?: MotionValueState) => {
+    const values: Record<string, any> = {}
+    if (!state) return values
+
+    const { transformKeys = [], transformValues = {} } = state
+    for (const key of transformKeys) values[key] = transformValues[key].get()
+
+    const pathRotation = state.get("pathRotation")?.get()
+    if (pathRotation !== undefined) values.pathRotation = pathRotation
+
+    return values
+}
 
 export const addStyleValue = (
     element: HTMLElement | SVGElement,
@@ -59,6 +81,22 @@ export const addStyleValue = (
             }
 
             state.set("transform", new MotionValue("none"), () => {
+                if (state.independentTransforms) {
+                    const values = readTransformValues(state)
+                    independentTransformHooks.sync?.(element, values)
+
+                    if (canUseIndependentTransforms(values)) {
+                        buildIndependentTransforms(values, element.style as any)
+                        return
+                    }
+
+                    state.independentTransforms = false
+                    element.style.translate =
+                        element.style.scale =
+                        element.style.rotate =
+                            "none"
+                }
+
                 element.style.transform = buildTransform(state)
             })
         }
@@ -126,4 +164,5 @@ export const styleSubjectEffect = /*@__PURE__*/ createEffect(addStyleValue, {
     read: readStyleValue,
 })
 
-export const styleEffect = /*@__PURE__*/ createSelectorEffect(styleSubjectEffect)
+export const styleEffect =
+    /*@__PURE__*/ createSelectorEffect(styleSubjectEffect)

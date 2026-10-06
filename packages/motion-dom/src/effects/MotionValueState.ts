@@ -17,6 +17,12 @@ export class MotionValueState {
     transformKeys?: string[]
     transformValues?: Record<string, MotionValue>
 
+    /**
+     * Transforms render through the individual translate, scale and rotate
+     * properties while they're hardware-accelerated.
+     */
+    independentTransforms?: boolean
+
     private values = new Map<string, Entry>()
 
     /**

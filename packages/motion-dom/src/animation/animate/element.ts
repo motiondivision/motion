@@ -1,4 +1,8 @@
-import { styleSubjectEffect, StyleSubject } from "../../effects/style"
+import {
+    readTransformValues,
+    styleSubjectEffect,
+    StyleSubject,
+} from "../../effects/style"
 import { svgSubjectEffect } from "../../effects/svg"
 import { measureViewportBox } from "../../projection/utils/measure"
 import type { VisualElement } from "../../render/VisualElement"
@@ -53,6 +57,18 @@ class EffectSubject implements AnimationElement, Owner {
     getProps() {
         return noProps
     }
+
+    /**
+     * The transform values bound to the element, in the shape accelerated
+     * transform animations read them from a VisualElement.
+     */
+    get latestValues() {
+        return readTransformValues(this.effect.state(this.current))
+    }
+
+    get renderState() {
+        return this.effect.state(this.current)
+    }
 }
 
 /**
@@ -104,7 +120,10 @@ export function handOffElementState(
     const state = getElementEffect(element).state(element as StyleSubject)
     if (!state) return
 
-    const { transformKeys } = state
+    const { transformKeys, independentTransforms } = state
+    if (independentTransforms) {
+        ;(visualElement.renderState as any).independentTransforms = true
+    }
     state.release().forEach((value: MotionValue, key: string) => {
         /**
          * The style effect derives transform (from the bound transform

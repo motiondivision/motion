@@ -4,6 +4,16 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [Unreleased]
+
+### Added
+
+-   `<motion>`/`animate`: `x`, `y`, `z`, `scale`, `scaleX`, `scaleY`, `rotate` and `rotateZ` are now hardware-accelerated. Each renders through the individual `translate`, `scale` and `rotate` CSS properties so they can be animated, interrupted, paused, seeked and repeated independently with native WAAPI controls. Elements with `layout`, `layoutId`, `transformTemplate`, perspective, skew or 3D rotation keep using the `transform` shorthand on the main thread.
+
+### Fixed
+
+-   `animate`: Spring animations running on WAAPI now scale the handed-off velocity to the easing range, so an interrupted animation continues at the right speed and direction.
+
 ## [14.0.0] 2026-10-02
 
 ### Changed

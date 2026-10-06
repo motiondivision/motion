@@ -5,6 +5,10 @@ import { isCSSVariableName } from "../../../animation/utils/is-css-variable"
 import { ResolvedValues } from "../../types"
 import { HTMLRenderState } from "../types"
 import { buildTransform } from "./build-transform"
+import {
+    buildIndependentTransforms,
+    canUseIndependentTransforms,
+} from "./independent-transforms"
 import type { MotionNodeOptions } from "../../../node/types"
 
 export function buildHTMLStyles(
@@ -50,6 +54,20 @@ export function buildHTMLStyles(
     }
 
     if (!latestValues.transform) {
+        if (state.independentTransforms) {
+            if (canUseIndependentTransforms(latestValues)) {
+                buildIndependentTransforms(latestValues, style)
+                hasTransform = false
+            } else {
+                /**
+                 * A transform arrived that has no individual property, so
+                 * move everything back into the transform shorthand.
+                 */
+                state.independentTransforms = false
+                style.translate = style.scale = style.rotate = "none"
+            }
+        }
+
         if (hasTransform || transformTemplate) {
             style.transform = buildTransform(
                 latestValues,

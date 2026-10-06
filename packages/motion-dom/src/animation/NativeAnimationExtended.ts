@@ -17,6 +17,43 @@ export type NativeAnimationOptionsExtended<T extends AnyResolvedKeyframe> =
  */
 const sampleDelta = 10 //ms
 
+/**
+ * Rather than read committed styles back out of the DOM, create a
+ * renderless JS animation and sample it twice to calculate the current
+ * value, "previous" value, and therefore allow Motion to calculate
+ * velocity for any subsequent animation.
+ *
+ * Use wall-clock elapsed time for sampling. Under CPU load, WAAPI's
+ * currentTime may not reflect actual elapsed time, causing incorrect
+ * sampling and visual jumps.
+ */
+export function sampleNativeAnimation<T extends AnyResolvedKeyframe>(
+    {
+        motionValue,
+        onUpdate,
+        onComplete,
+        element,
+        ...options
+    }: NativeAnimationOptionsExtended<T>,
+    startTime: number
+) {
+    const sampleAnimation = new JSAnimation({
+        ...options,
+        autoplay: false,
+    })
+
+    const sampleTime = Math.max(sampleDelta, time.now() - startTime)
+    const delta = clamp(0, sampleDelta, sampleTime - sampleDelta)
+    const current = sampleAnimation.sample(sampleTime).value
+    const previous = sampleAnimation.sample(
+        Math.max(0, sampleTime - delta)
+    ).value
+
+    sampleAnimation.stop()
+
+    return { previous, current, delta }
+}
+
 export class NativeAnimationExtended<
     T extends AnyResolvedKeyframe
 > extends NativeAnimation<T> {
@@ -66,8 +103,7 @@ export class NativeAnimationExtended<
      * Motion to calculate velocity for any subsequent animation.
      */
     updateMotionValue(value?: T) {
-        const { motionValue, onUpdate, onComplete, element, ...options } =
-            this.options
+        const { motionValue, element, name } = this.options
 
         if (!motionValue) return
 
@@ -76,34 +112,18 @@ export class NativeAnimationExtended<
             return
         }
 
-        const sampleAnimation = new JSAnimation({
-            ...options,
-            autoplay: false,
-        })
-
-        /**
-         * Use wall-clock elapsed time for sampling.
-         * Under CPU load, WAAPI's currentTime may not reflect actual
-         * elapsed time, causing incorrect sampling and visual jumps.
-         */
-        const sampleTime = Math.max(sampleDelta, time.now() - this.startTime)
-        const delta = clamp(0, sampleDelta, sampleTime - sampleDelta)
-        const current = sampleAnimation.sample(sampleTime).value
+        const { previous, current, delta } = sampleNativeAnimation(
+            this.options,
+            this.startTime
+        )
 
         /**
          * Write the estimated value to inline style so it persists
          * after cancel(), covering the async gap before the next
          * animation starts.
          */
-        const { name } = this.options
         if (element && name) setStyle(element, name, current)
 
-        motionValue.setWithVelocity(
-            sampleAnimation.sample(Math.max(0, sampleTime - delta)).value,
-            current,
-            delta
-        )
-
-        sampleAnimation.stop()
+        motionValue.setWithVelocity(previous, current, delta)
     }
 }
