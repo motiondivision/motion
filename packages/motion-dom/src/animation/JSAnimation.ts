@@ -200,23 +200,13 @@ export class JSAnimation<T extends number | string>
     }
 
     tick(timestamp: number, sample = false) {
-        const {
-            generator,
-            totalDuration,
-            mixKeyframes,
-            mirroredGenerator,
-            resolvedDuration,
-            calculatedDuration,
-        } = this
+        const { generator, totalDuration, calculatedDuration } = this
 
         if (this.startTime === null) return generator.next(0)
 
         const {
             delay = 0,
             keyframes,
-            repeat,
-            repeatType,
-            repeatDelay,
             type,
             onUpdate,
             finalKeyframe,
@@ -262,7 +252,83 @@ export class JSAnimation<T extends number | string>
             this.currentTime = totalDuration
         }
 
-        let elapsed = this.currentTime
+        const state = this.generate(this.currentTime, isInDelayPhase)
+
+        let { done } = state
+
+        if (!isInDelayPhase && calculatedDuration !== null) {
+            done =
+                this.playbackSpeed >= 0
+                    ? this.currentTime >= totalDuration
+                    : this.currentTime <= 0
+        }
+
+        const isAnimationFinished =
+            this.holdTime === null &&
+            (this.state === "finished" || (this.state === "running" && done))
+
+        // TODO: The exception for inertia could be cleaner here
+        if (isAnimationFinished && type !== inertia) {
+            state.value = getFinalKeyframe(
+                keyframes,
+                this.options,
+                finalKeyframe,
+                this.speed
+            )
+        }
+
+        if (onUpdate) {
+            onUpdate(state.value)
+        }
+
+        if (isAnimationFinished) {
+            this.finish()
+        }
+
+        return state
+    }
+
+    /**
+     * This animation's time, including delay, at a timestamp.
+     */
+    at(timestamp: number) {
+        return (
+            this.holdTime ??
+            Math.round((timestamp - this.startTime!) * this.playbackSpeed * 1e4) /
+                1e4
+        )
+    }
+
+    /**
+     * The value at a timestamp, without changing this animation's state.
+     */
+    sampleAt(timestamp: number): T {
+        const { options, totalDuration } = this
+        const t = this.at(timestamp) - (options.delay || 0)
+
+        return t >= totalDuration && options.type !== inertia
+            ? getFinalKeyframe(options.keyframes, options, options.finalKeyframe)
+            : this.generate(Math.max(t, 0), t < 0).value
+    }
+
+    /**
+     * The generator's state `currentTime` ms after the delay, without
+     * changing the animation's own state.
+     */
+    protected generate(
+        currentTime: number,
+        isInDelayPhase: boolean
+    ): AnimationState<T> {
+        const {
+            generator,
+            totalDuration,
+            mixKeyframes,
+            mirroredGenerator,
+            resolvedDuration,
+        } = this
+        const { keyframes, repeat, repeatType, repeatDelay } = this.options
+
+        let elapsed = currentTime
         let frameGenerator = generator
 
         if (repeat) {
@@ -272,7 +338,7 @@ export class JSAnimation<T extends number | string>
              * third iteration)
              */
             const progress =
-                Math.min(this.currentTime, totalDuration) / resolvedDuration
+                Math.min(currentTime, totalDuration) / resolvedDuration
 
             /**
              * Get the current iteration (0 indexed). For instance the floor of
@@ -332,37 +398,6 @@ export class JSAnimation<T extends number | string>
 
         if (mixKeyframes && !isInDelayPhase) {
             state.value = mixKeyframes(state.value as number)
-        }
-
-        let { done } = state
-
-        if (!isInDelayPhase && calculatedDuration !== null) {
-            done =
-                this.playbackSpeed >= 0
-                    ? this.currentTime >= totalDuration
-                    : this.currentTime <= 0
-        }
-
-        const isAnimationFinished =
-            this.holdTime === null &&
-            (this.state === "finished" || (this.state === "running" && done))
-
-        // TODO: The exception for inertia could be cleaner here
-        if (isAnimationFinished && type !== inertia) {
-            state.value = getFinalKeyframe(
-                keyframes,
-                this.options,
-                finalKeyframe,
-                this.speed
-            )
-        }
-
-        if (onUpdate) {
-            onUpdate(state.value)
-        }
-
-        if (isAnimationFinished) {
-            this.finish()
         }
 
         return state

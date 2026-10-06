@@ -138,9 +138,6 @@ const nativeEasings: Record<string, string> = {
 
 const round = (value: number) => Math.round(value * 10000) / 10000
 
-const noop = () => {}
-const noopDriver = () => ({ start: noop, stop: noop, now: time.now })
-
 const getOwner = (options: ValueAnimationOptions<any>) =>
     options.motionValue!.owner as TransformOwner
 
@@ -197,8 +194,6 @@ export class TransformAnimation<
     T extends number | string
 > extends JSAnimation<T> {
     canAccelerate: boolean
-
-    private sampler?: JSAnimation<T>
 
     constructor(options: ValueAnimationOptions<T>, canAccelerate: boolean) {
         const element = getOwner(options).current
@@ -296,33 +291,6 @@ export class TransformAnimation<
                 this.canAccelerate &&
                 (state === "running" || state === "paused")
         )
-    }
-
-    /**
-     * This animation's time, including delay, at a timestamp.
-     */
-    at(timestamp: number) {
-        return (
-            this.holdTime ?? round((timestamp - this.startTime!) * this.speed)
-        )
-    }
-
-    /**
-     * The value at a timestamp, without changing this animation's state.
-     */
-    sampleAt(timestamp: number) {
-        this.sampler ||= new JSAnimation({
-            ...this.options,
-            autoplay: false,
-            driver: noopDriver,
-            onUpdate: undefined,
-            onComplete: undefined,
-            onPlay: undefined,
-            onStop: undefined,
-            onCancel: undefined,
-        })
-
-        return this.sampler.sample(this.at(timestamp)).value
     }
 
     /**

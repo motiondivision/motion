@@ -84,12 +84,10 @@ export function animateValues(
          * We still re-assert the value via frame.update to take precedence
          * over any stale transitionEnd callbacks from previous animations.
          */
-        const current = value.get()
         if (
-            current !== undefined &&
             !value.isAnimating() &&
             !Array.isArray(target) &&
-            target === current &&
+            target === value.get() &&
             !velocity
         ) {
             frame.update(() => value.set(target))
