@@ -60,18 +60,23 @@ function isReversed(element: Element, axisName: Axis) {
     if (!style) styles.set(source, (style = getComputedStyle(source)))
 
     const { writingMode, flexDirection } = style
-    const isFlex = !isRoot && style.display.includes("flex")
-    const mainReversed = isFlex && flexDirection.endsWith("reverse")
-    const crossReversed = isFlex && style.flexWrap.endsWith("reverse")
-    const isColumn = flexDirection[0] === "c"
+    const isInline = (axisName === "x") !== /^[vs]/.test(writingMode)
 
-    return (axisName === "x") !== /^[vs]/.test(writingMode)
-        ? // Inline axis
-          ((style.direction === "rtl") !== (writingMode === "sideways-lr")) !==
-              (isColumn ? crossReversed : mainReversed)
-        : // Block axis
-          writingMode.endsWith("rl") !==
-              (isColumn ? mainReversed : crossReversed)
+    return (
+        (isInline
+            ? (style.direction === "rtl") !== (writingMode === "sideways-lr")
+            : writingMode.endsWith("rl")) !==
+        /**
+         * A reversed flex axis flips this. The main axis is the inline axis
+         * unless flex-direction is a column.
+         */
+        (!isRoot &&
+            style.display.includes("flex") &&
+            (isInline !== (flexDirection[0] === "c")
+                ? flexDirection
+                : style.flexWrap
+            ).endsWith("reverse"))
+    )
 }
 
 function updateAxisInfo(
