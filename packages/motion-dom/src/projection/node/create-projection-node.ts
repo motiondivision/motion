@@ -222,6 +222,11 @@ export function createProjectionNode<I>({
         dragSnapshot: Measurements | undefined
 
         /**
+         * The nearest dragged ancestor, recorded in willUpdate.
+         */
+        dragAncestor: IProjectionNode | undefined
+
+        /**
          * The layout used to calculate the previous layout animation. We use this to compare
          * layouts between renders and decide whether we need to trigger a new layout animation
          * or just let the current one play out.
@@ -715,13 +720,19 @@ export function createProjectionNode<I>({
                 if (node.options.layoutRoot) {
                     node.willUpdate(false)
                 }
+
+                /**
+                 * Measure the nearest dragged ancestor before the DOM
+                 * changes, so this node can follow its layout change.
+                 */
+                if (node.isAnimationBlocked) {
+                    node.dragSnapshot ||= node.measure()
+                    this.dragAncestor = node
+                }
             }
 
             const { layoutId, layout } = this.options
-            if (layoutId === undefined && !layout) {
-                if (this.isAnimationBlocked) this.dragSnapshot = this.measure()
-                return
-            }
+            if (layoutId === undefined && !layout) return
 
             const transformTemplate = this.getTransformTemplate()
             this.prevTransformTemplateValue = transformTemplate
@@ -795,11 +806,6 @@ export function createProjectionNode<I>({
                  */
                 // Update layout measurements of updated children
                 this.nodes!.forEach(updateLayout)
-
-                /**
-                 * Make snapshots relative to any dragged ancestor
-                 */
-                this.nodes!.forEach(followDraggedAncestor)
 
                 /**
                  * Write
@@ -2144,7 +2150,11 @@ export function createProjectionNode<I>({
         }
 
         clearSnapshot() {
-            this.resumeFrom = this.snapshot = this.dragSnapshot = undefined
+            this.resumeFrom =
+                this.snapshot =
+                this.dragSnapshot =
+                this.dragAncestor =
+                    undefined
         }
 
         // Only run on root
@@ -2158,8 +2168,13 @@ export function createProjectionNode<I>({
     }
 }
 
+/**
+ * Nodes are depth-ordered, so a dragged ancestor's layout is updated before
+ * its descendants'.
+ */
 function updateLayout(node: IProjectionNode) {
     node.updateLayout()
+    followDraggedAncestor(node)
 }
 
 function notifyLayoutUpdate(node: IProjectionNode) {
@@ -2362,25 +2377,17 @@ function clearIsLayoutDirty(node: IProjectionNode) {
  * changes relative to it, rather than lagging behind.
  */
 function followDraggedAncestor(node: IProjectionNode) {
-    const { snapshot, path } = node
-    if (!snapshot || node.resumeFrom || node.isAnimationBlocked) return
+    const { snapshot, dragAncestor } = node
+    const to = dragAncestor?.layout
+    if (!snapshot || !to || node.resumeFrom || node.isAnimationBlocked) return
 
-    for (let i = path.length - 1; i >= 0; i--) {
-        const parent = path[i]
-        if (parent.isAnimationBlocked) {
-            const from = parent.snapshot || parent.dragSnapshot
-            const to = parent.layout
-            from &&
-                to &&
-                eachAxis((axis) =>
-                    translateAxis(
-                        snapshot.layoutBox[axis],
-                        to.layoutBox[axis].min - from.layoutBox[axis].min
-                    )
-                )
-            return
-        }
-    }
+    const from = dragAncestor!.dragSnapshot!
+    eachAxis((axis) =>
+        translateAxis(
+            snapshot.layoutBox[axis],
+            to.layoutBox[axis].min - from.layoutBox[axis].min
+        )
+    )
 }
 
 /**
@@ -2391,7 +2398,7 @@ function followDraggedAncestor(node: IProjectionNode) {
  */
 function ensureDraggedNodesSnapshotted(node: IProjectionNode) {
     if (node.isAnimationBlocked && node.layout && !node.isLayoutDirty) {
-        node.snapshot = node.layout
+        node.snapshot = node.dragSnapshot || node.layout
         node.isLayoutDirty = true
     }
 }
