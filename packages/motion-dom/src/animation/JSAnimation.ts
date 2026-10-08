@@ -462,7 +462,7 @@ export class JSAnimation<T extends number | string>
             this.updateFinished()
             this.startTime = now
         } else if (this.holdTime !== null) {
-            this.startTime = now - this.holdTime
+            this.startTime = now - this.holdTime / (this.playbackSpeed || 1)
         } else if (!this.startTime) {
             this.startTime = startTime ?? (this.pendingStartTime = now)
         }
