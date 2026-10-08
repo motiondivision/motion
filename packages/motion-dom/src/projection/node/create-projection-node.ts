@@ -216,9 +216,10 @@ export function createProjectionNode<I>({
         layout: Measurements | undefined
 
         /**
-         * The layout measured before `layout`.
+         * A measurement taken just before the current update of a dragged node
+         * without a snapshot (one without `layout`).
          */
-        prevLayout: Measurements | undefined
+        dragSnapshot: Measurements | undefined
 
         /**
          * The layout used to calculate the previous layout animation. We use this to compare
@@ -717,7 +718,10 @@ export function createProjectionNode<I>({
             }
 
             const { layoutId, layout } = this.options
-            if (layoutId === undefined && !layout) return
+            if (layoutId === undefined && !layout) {
+                if (this.isAnimationBlocked) this.dragSnapshot = this.measure()
+                return
+            }
 
             const transformTemplate = this.getTransformTemplate()
             this.prevTransformTemplateValue = transformTemplate
@@ -937,7 +941,7 @@ export function createProjectionNode<I>({
                 }
             }
 
-            const prevLayout = (this.prevLayout = this.layout)
+            const prevLayout = this.layout
             this.layout = this.measure(false)
             if (!this.layoutCorrected) this.layoutCorrected = createBox()
             this.isLayoutDirty = false
@@ -2140,7 +2144,7 @@ export function createProjectionNode<I>({
         }
 
         clearSnapshot() {
-            this.resumeFrom = this.snapshot = undefined
+            this.resumeFrom = this.snapshot = this.dragSnapshot = undefined
         }
 
         // Only run on root
@@ -2364,11 +2368,7 @@ function followDraggedAncestor(node: IProjectionNode) {
     for (let i = path.length - 1; i >= 0; i--) {
         const parent = path[i]
         if (parent.isAnimationBlocked) {
-            /**
-             * A dragged node without `layout` has no snapshot, but it's
-             * always measured, so it has a fresh previous layout instead.
-             */
-            const from = parent.snapshot || parent.prevLayout
+            const from = parent.snapshot || parent.dragSnapshot
             const to = parent.layout
             from &&
                 to &&
