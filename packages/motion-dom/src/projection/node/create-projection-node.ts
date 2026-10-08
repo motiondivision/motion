@@ -216,6 +216,11 @@ export function createProjectionNode<I>({
         layout: Measurements | undefined
 
         /**
+         * The layout measured before `layout`.
+         */
+        prevLayout: Measurements | undefined
+
+        /**
          * The layout used to calculate the previous layout animation. We use this to compare
          * layouts between renders and decide whether we need to trigger a new layout animation
          * or just let the current one play out.
@@ -932,7 +937,7 @@ export function createProjectionNode<I>({
                 }
             }
 
-            const prevLayout = this.layout
+            const prevLayout = (this.prevLayout = this.layout)
             this.layout = this.measure(false)
             if (!this.layoutCorrected) this.layoutCorrected = createBox()
             this.isLayoutDirty = false
@@ -2357,8 +2362,14 @@ function followDraggedAncestor(node: IProjectionNode) {
     if (!snapshot || node.resumeFrom || node.isAnimationBlocked) return
 
     for (let i = path.length - 1; i >= 0; i--) {
-        const { isAnimationBlocked, snapshot: from, layout: to } = path[i]
-        if (isAnimationBlocked) {
+        const parent = path[i]
+        if (parent.isAnimationBlocked) {
+            /**
+             * A dragged node without `layout` has no snapshot, but it's
+             * always measured, so it has a fresh previous layout instead.
+             */
+            const from = parent.snapshot || parent.prevLayout
+            const to = parent.layout
             from &&
                 to &&
                 eachAxis((axis) =>
@@ -2375,12 +2386,11 @@ function followDraggedAncestor(node: IProjectionNode) {
 /**
  * When a node is animation-blocked (e.g. during drag) and its component
  * didn't re-render (memoized), willUpdate() is never called so there's
- * no snapshot. Nor is there one without `layout`. Use the previous layout as
- * a snapshot and mark dirty so resetTransform/updateLayout/notifyLayoutUpdate
- * process it normally.
+ * no snapshot. Use the previous layout as a snapshot and mark dirty so
+ * resetTransform/updateLayout/notifyLayoutUpdate process it normally.
  */
 function ensureDraggedNodesSnapshotted(node: IProjectionNode) {
-    if (node.isAnimationBlocked && node.layout && !node.snapshot) {
+    if (node.isAnimationBlocked && node.layout && !node.isLayoutDirty) {
         node.snapshot = node.layout
         node.isLayoutDirty = true
     }

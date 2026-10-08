@@ -54,6 +54,7 @@ export interface IProjectionNode<I = unknown> {
     options: ProjectionNodeOptions
     setOptions(options: ProjectionNodeOptions): void
     layout?: Measurements
+    prevLayout?: Measurements
     snapshot?: Measurements
     target?: Box
     relativeTarget?: Box
