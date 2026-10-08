@@ -121,7 +121,6 @@ export interface IProjectionNode<I = unknown> {
     currentAnimation?: JSAnimation<number>
     isTreeAnimating?: boolean
     isAnimationBlocked?: boolean
-    isTreeAnimationBlocked: () => boolean
     setAnimationOrigin(
         delta: Delta,
         hasOnlyRelativeTargetChanged?: boolean,

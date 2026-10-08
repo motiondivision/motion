@@ -523,7 +523,7 @@ export function createProjectionNode<I>({
                         hasRelativeLayoutChanged,
                         layout: newLayout,
                     }: LayoutUpdateData) => {
-                        if (this.isTreeAnimationBlocked()) {
+                        if (this.isAnimationBlocked) {
                             this.target = undefined
                             this.relativeTarget = undefined
                             return
@@ -647,10 +647,6 @@ export function createProjectionNode<I>({
 
         isUpdateBlocked() {
             return this.updateManuallyBlocked || this.updateBlockedByResize
-        }
-
-        isTreeAnimationBlocked() {
-            return this.isAnimationBlocked
         }
 
         // Note: currently only running on root node
