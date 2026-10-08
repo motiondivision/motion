@@ -294,6 +294,24 @@ export function createAnimationState(visualElement: any): AnimationState {
                         : visualElement.initialValues[key] === undefined
                         ? visualElement.baseTarget[key]
                         : undefined) ?? null
+
+                /**
+                 * If it stays where it is, that's now its base. Otherwise a
+                 * later removal (like a gesture ending) would also stay,
+                 * leaving the value stuck. Stop first so accelerated
+                 * animations sync the value they reached. In practice initial
+                 * only changes like this with Fast Refresh, so this is
+                 * dev-only (#3787).
+                 */
+                if (
+                    process.env.NODE_ENV !== "production" &&
+                    fallbackAnimation[key] === null &&
+                    visualElement.initialValues[key] !== undefined
+                ) {
+                    delete visualElement.initialValues[key]
+                    motionValue?.stop()
+                    visualElement.baseTarget[key] = motionValue?.get()
+                }
             })
 
             animations.push({ animation: fallbackAnimation })

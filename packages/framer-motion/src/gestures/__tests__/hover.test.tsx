@@ -377,4 +377,69 @@ describe("hover", () => {
 
         return expect(promise).resolves.toEqual([0.5, 2])
     })
+
+    /**
+     * Fast Refresh (or any unkeyed sibling reorder) can hand a motion component
+     * that animated scale from initial to animate a new set of props with only
+     * whileHover/whileTap. The removed animate value stays where it is, but
+     * that must become its new resting value, not leave every later gesture
+     * stuck at its target (#3787).
+     */
+    test("whileHover returns to rest after initial and animate are removed", async () => {
+        const { container, rerender } = render(
+            <motion.div
+                initial={{ scale: 0.5 }}
+                animate={{ scale: 1 }}
+                transition={{ type: false }}
+            />
+        )
+        await nextFrame()
+        const element = container.firstChild as HTMLElement
+        expect(element.style.transform).toBe("none")
+
+        rerender(
+            <motion.div
+                whileHover={{ scale: 1.2 }}
+                transition={{ type: false }}
+            />
+        )
+        await nextFrame()
+        expect(element.style.transform).toBe("none")
+
+        pointerEnter(element)
+        await nextFrame()
+        expect(element.style.transform).toBe("scale(1.2)")
+
+        pointerLeave(element)
+        await nextFrame()
+        expect(element.style.transform).toBe("none")
+    })
+
+    test("whileTap returns to rest after initial and animate are removed", async () => {
+        const { container, rerender } = render(
+            <motion.div
+                initial={{ scale: 0.5 }}
+                animate={{ scale: 1 }}
+                transition={{ type: false }}
+            />
+        )
+        await nextFrame()
+        const element = container.firstChild as HTMLElement
+
+        rerender(
+            <motion.div
+                whileTap={{ scale: 0.8 }}
+                transition={{ type: false }}
+            />
+        )
+        await nextFrame()
+
+        pointerDown(element)
+        await nextFrame()
+        expect(element.style.transform).toBe("scale(0.8)")
+
+        pointerUp(element)
+        await nextFrame()
+        expect(element.style.transform).toBe("none")
+    })
 })
