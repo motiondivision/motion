@@ -266,11 +266,6 @@ export function createProjectionNode<I>({
         isAnimationBlocked = false
 
         /**
-         * Whether this node's layout changed in the current update.
-         */
-        isLayoutChanged = false
-
-        /**
          * If true, attempt to resolve relativeTarget.
          */
         attemptToResolveRelativeTarget?: boolean
@@ -644,21 +639,7 @@ export function createProjectionNode<I>({
         }
 
         isTreeAnimationBlocked() {
-            return (
-                this.isAnimationBlocked ||
-                /**
-                 * A blocked ancestor (one being dragged) only blocks this node
-                 * if the ancestor's own layout changed. This node's layout
-                 * change is then just the ancestor's unanimated move - a
-                 * Reorder.Item changing slot, say - and animating it would make
-                 * this node lag behind the pointer. If the ancestor stayed put,
-                 * this node's layout genuinely changed within it, and should
-                 * animate.
-                 */
-                this.path.some(
-                    (node) => node.isAnimationBlocked && node.isLayoutChanged
-                )
-            )
+            return this.isAnimationBlocked
         }
 
         // Note: currently only running on root node
@@ -807,6 +788,11 @@ export function createProjectionNode<I>({
                 this.nodes!.forEach(updateLayout)
 
                 /**
+                 * Make snapshots relative to any dragged ancestor
+                 */
+                this.nodes!.forEach(followDraggedAncestor)
+
+                /**
                  * Write
                  */
                 // Notify listeners that the layout is updated
@@ -948,15 +934,6 @@ export function createProjectionNode<I>({
 
             const prevLayout = this.layout
             this.layout = this.measure(false)
-            /**
-             * Record this before notifyLayoutUpdate, which can rewrite the
-             * snapshot (e.g. for layout="size"). A dragged node without
-             * `layout` has no snapshot, so fall back to its previous layout.
-             */
-            const prev = this.snapshot || prevLayout
-            this.isLayoutChanged = Boolean(
-                prev && !boxEqualsRounded(prev.layoutBox, this.layout.layoutBox)
-            )
             if (!this.layoutCorrected) this.layoutCorrected = createBox()
             this.isLayoutDirty = false
             this.projectionDelta = undefined
@@ -2371,13 +2348,39 @@ function clearIsLayoutDirty(node: IProjectionNode) {
 }
 
 /**
+ * A dragged node doesn't layout animate, so it jumps to its new layout. Shift
+ * its descendants' snapshots by the same amount, so they only animate layout
+ * changes relative to it, rather than lagging behind.
+ */
+function followDraggedAncestor(node: IProjectionNode) {
+    const { snapshot, path } = node
+    if (!snapshot || node.resumeFrom || node.isAnimationBlocked) return
+
+    for (let i = path.length - 1; i >= 0; i--) {
+        const { isAnimationBlocked, snapshot: from, layout: to } = path[i]
+        if (isAnimationBlocked) {
+            from &&
+                to &&
+                eachAxis((axis) =>
+                    translateAxis(
+                        snapshot.layoutBox[axis],
+                        to.layoutBox[axis].min - from.layoutBox[axis].min
+                    )
+                )
+            return
+        }
+    }
+}
+
+/**
  * When a node is animation-blocked (e.g. during drag) and its component
  * didn't re-render (memoized), willUpdate() is never called so there's
- * no snapshot. Use the previous layout as a snapshot and mark dirty so
- * resetTransform/updateLayout/notifyLayoutUpdate process it normally.
+ * no snapshot. Nor is there one without `layout`. Use the previous layout as
+ * a snapshot and mark dirty so resetTransform/updateLayout/notifyLayoutUpdate
+ * process it normally.
  */
 function ensureDraggedNodesSnapshotted(node: IProjectionNode) {
-    if (node.isAnimationBlocked && node.layout && !node.isLayoutDirty) {
+    if (node.isAnimationBlocked && node.layout && !node.snapshot) {
         node.snapshot = node.layout
         node.isLayoutDirty = true
     }
