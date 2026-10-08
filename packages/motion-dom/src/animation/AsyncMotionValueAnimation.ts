@@ -16,18 +16,9 @@ import {
 } from "./types"
 import { canAnimate } from "./utils/can-animate"
 import { makeAnimationInstant } from "./utils/make-animation-instant"
+import { resolveStartTime } from "./utils/resolve-start-time"
 import { WithPromise } from "./utils/WithPromise"
 import { supportsBrowserAnimation } from "./waapi/supports/waapi"
-
-/**
- * Maximum time allowed between an animation being created and it being
- * resolved for us to use the latter as the start time.
- *
- * This is to ensure that while we prefer to "start" an animation as soon
- * as it's triggered, we also want to avoid a visual jump if there's a big delay
- * between these two moments.
- */
-const MAX_RESOLVE_DELAY = 40
 
 type ResolvedOptions<T extends AnyResolvedKeyframe> =
     ValueAnimationOptions<T> & {
@@ -122,32 +113,7 @@ export class AsyncMotionValueAnimation<T extends AnyResolvedKeyframe>
             options.repeat = 0
         }
 
-        /**
-         * Resolve startTime for the animation.
-         *
-         * This method uses the createdAt and resolvedAt to calculate the
-         * animation startTime. *Ideally*, we would use the createdAt time as t=0
-         * as the following frame would then be the first frame of the animation in
-         * progress, which would feel snappier.
-         *
-         * However, if there's a delay (main thread work) between the creation of
-         * the animation and the first committed frame, we prefer to use resolvedAt
-         * to avoid a sudden jump into the animation.
-         */
-        const startTime = sync
-            ? !this.resolvedAt
-                ? this.createdAt
-                : this.resolvedAt - this.createdAt > MAX_RESOLVE_DELAY
-                ? this.resolvedAt
-                : this.createdAt
-            : undefined
-
         const { onComplete } = options
-        /**
-         * A startTime passed in options (an optimised appear handoff syncing
-         * to its WAAPI animation) takes precedence over the derived one.
-         */
-        options.startTime ??= startTime
         options.finalKeyframe = finalKeyframe
         options.keyframes = keyframes
         /**
@@ -170,6 +136,28 @@ export class AsyncMotionValueAnimation<T extends AnyResolvedKeyframe>
          */
         const useWaapi =
             canAnimateValue && !isHandoff && supportsBrowserAnimation(options)
+
+        /**
+         * Resolve startTime for the animation. A startTime passed in options
+         * (an optimised appear handoff syncing to its WAAPI animation) takes
+         * precedence.
+         *
+         * *Ideally*, we would use the createdAt time as t=0 as the following
+         * frame would then be the first frame of the animation in progress,
+         * which would feel snappier. If keyframes resolved on a later frame,
+         * and long after creation, we start from then instead.
+         *
+         * If they resolved immediately, a JSAnimation picks its own start
+         * time and resolves it the same way on its first frame, so every
+         * animation started in that moment stays in sync. WAAPI has no frame
+         * of ours to do that on.
+         */
+        if (sync && (useWaapi || this.resolvedAt !== this.createdAt)) {
+            options.startTime ??= resolveStartTime(
+                this.createdAt,
+                this.resolvedAt!
+            )
+        }
 
         let animation: AnimationPlaybackControls
         if (useWaapi) {

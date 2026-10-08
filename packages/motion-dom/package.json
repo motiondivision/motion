@@ -37,5 +37,11 @@
             "maxSize": "1.9 kB"
         }
     ],
-    "gitHead": "0d3c11b5f54647ecc5d1ee93e827651291fe7ce3"
+    "gitHead": "0d3c11b5f54647ecc5d1ee93e827651291fe7ce3",
+    "devDependencies": {
+        "concurrently": "^7.3.0",
+        "jest": "^29.7.0",
+        "rollup": "4.59.0",
+        "typescript": "5.4.3"
+    }
 }

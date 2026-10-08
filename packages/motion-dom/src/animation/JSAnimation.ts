@@ -24,6 +24,7 @@ import {
     ValueAnimationOptions,
 } from "./types"
 import { replaceTransitionType } from "./utils/replace-transition-type"
+import { resolveStartTime } from "./utils/resolve-start-time"
 import { notifyAnimationStart } from "./utils/notify-inspector"
 import { WithPromise } from "./utils/WithPromise"
 
@@ -44,6 +45,11 @@ export class JSAnimation<T extends number | string>
     private driver?: DriverControls
 
     private isStopped = false
+
+    /**
+     * The start time this animation picked for itself, until its first tick.
+     */
+    private pendingStartTime?: number
 
     private generator: KeyframeGenerator<T>
 
@@ -215,6 +221,11 @@ export class JSAnimation<T extends number | string>
             onUpdate,
             finalKeyframe,
         } = this.options
+
+        if (this.startTime === this.pendingStartTime) {
+            this.startTime = resolveStartTime(this.startTime, timestamp)
+        }
+        this.pendingStartTime = undefined
 
         /**
          * requestAnimationFrame timestamps can come through as lower than
@@ -453,7 +464,7 @@ export class JSAnimation<T extends number | string>
         } else if (this.holdTime !== null) {
             this.startTime = now - this.holdTime
         } else if (!this.startTime) {
-            this.startTime = startTime ?? now
+            this.startTime = startTime ?? (this.pendingStartTime = now)
         }
 
         if (this.state === "finished" && this.speed < 0) {

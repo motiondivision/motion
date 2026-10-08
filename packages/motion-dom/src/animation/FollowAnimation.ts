@@ -3,6 +3,7 @@ import { time } from "../frameloop/sync-time"
 import { FrameData } from "../frameloop/types"
 import { DriverControls } from "./drivers/types"
 import { calcGeneratorVelocity } from "./generators/utils/velocity"
+import { resolveStartTime } from "./utils/resolve-start-time"
 import {
     GeneratorFactory,
     KeyframeGenerator,
@@ -118,6 +119,10 @@ export class FollowAnimation
     tick(timestamp: number) {
         const { options, hasNextTarget: retargeted } = this
         const { delay = 0, onUpdate, onPlay } = options
+        // Retargets happen on a tick, so only the first start can lag
+        if (!this.started) {
+            this.startTime = resolveStartTime(this.startTime, timestamp)
+        }
         const elapsed = Math.round(timestamp - this.startTime) - delay
         const t = (this.currentTime = Math.max(0, elapsed))
         const state = this.generator.next(t)

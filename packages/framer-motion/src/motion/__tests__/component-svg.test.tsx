@@ -22,6 +22,23 @@ describe("SVG", () => {
         expect(getByTestId("h")).toHaveStyle("transform: translateX(100px)")
     })
 
+    test("renders WAAPI-accelerated clipPath and filter as style", () => {
+        const { getByTestId } = render(
+            <svg>
+                <motion.circle
+                    data-testid="circle"
+                    initial={{ clipPath: "circle(50%)", filter: "blur(2px)" }}
+                />
+            </svg>
+        )
+
+        const circle = getByTestId("circle")
+        expect(circle.style.clipPath).toBe("circle(50%)")
+        expect(circle.style.filter).toBe("blur(2px)")
+        expect(circle.getAttribute("clip-path")).toBe(null)
+        expect(circle.getAttribute("filter")).toBe(null)
+    })
+
     test("accepts attrX/attrY/attrScale in types", () => {
         render(<motion.circle animate={{ attrX: 1, attrY: 2, attrScale: 3 }} />)
     })

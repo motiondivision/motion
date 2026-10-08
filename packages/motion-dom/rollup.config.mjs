@@ -134,7 +134,6 @@ function createTypes(input, file) {
 
 const types = createTypes("types/index.d.ts", "dist/index.d.ts")
 
-// eslint-disable-next-line import/no-default-export
 export default [
     umd, 
     umdProd,

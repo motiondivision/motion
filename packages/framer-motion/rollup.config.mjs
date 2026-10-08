@@ -192,7 +192,6 @@ const animateMiniTypes = createTypes("types/dom-mini.d.ts", "dist/dom-mini.d.ts"
 const mTypes = createTypes("types/m.d.ts", "dist/m.d.ts")
 const projectionTypes = createTypes("types/projection.d.ts", "dist/projection.d.ts")
 
-// eslint-disable-next-line import/no-default-export
 export default [
     umd,
     umdProd,
