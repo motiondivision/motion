@@ -141,7 +141,7 @@
         },
         {
             "path": "./dist/size-rollup-scroll.js",
-            "maxSize": "3.55 kB"
+            "maxSize": "3.7 kB"
         },
         {
             "path": "./dist/size-rollup-waapi-animate.js",

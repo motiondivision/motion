@@ -426,6 +426,8 @@ describe("scrollInfo", () => {
         let latest: ScrollInfo
 
         const container = document.createElement("div")
+        container.style.display = "flex"
+        container.style.flexDirection = "column-reverse"
 
         const setContainerHeight = createMockMeasurement(
             container,
@@ -485,6 +487,7 @@ describe("scrollInfo", () => {
         let latest: ScrollInfo
 
         const container = document.createElement("div")
+        container.style.direction = "rtl"
 
         const setContainerWidth = createMockMeasurement(
             container,
@@ -527,6 +530,189 @@ describe("scrollInfo", () => {
             resolve()
         })
     })
+
+    function createOverscrollContainer(style: Partial<CSSStyleDeclaration>) {
+        const container = document.createElement("div")
+        Object.assign(container.style, style)
+        const setHeight = createMockMeasurement(container, "clientHeight")
+        const setScrollHeight = createMockMeasurement(container, "scrollHeight")
+        const setTop = createMockMeasurement(container, "scrollTop")
+        const setWidth = createMockMeasurement(container, "clientWidth")
+        const setScrollWidth = createMockMeasurement(container, "scrollWidth")
+        const setScrollLeft = createMockMeasurement(container, "scrollLeft")
+        setHeight(100)
+        setScrollHeight(1000)
+        setWidth(100)
+        setScrollWidth(1000)
+
+        let latest: ScrollInfo
+        const stop = scrollInfo((info) => (latest = info), { container })
+
+        const fire = async (top: number, left = 0) => {
+            setTop(top)
+            setScrollLeft(left)
+            container.dispatchEvent(new window.Event("scroll"))
+            await nextFrame()
+            return latest
+        }
+
+        return { fire, stop }
+    }
+
+    test("Reports elastic overscroll at the start of the page as backward scroll (#3791).", async () => {
+        await fireScroll(0)
+        setWindowHeight(1000)
+        setDocumentHeight(3000)
+
+        let latest: ScrollInfo
+        const stop = scrollInfo((info) => (latest = info))
+
+        try {
+            await fireScroll(100)
+            expect(latest!.y.current).toBe(100)
+
+            // Safari rubber-band at the top reports a negative scrollY
+            await fireScroll(-25)
+            expect(latest!.y.current).toBe(-25)
+            expect(latest!.y.progress).toBe(0)
+            expect(latest!.y.velocity).toBeLessThan(0)
+
+            // ...and past the bottom, a scrollY beyond the scroll length
+            await fireScroll(2025)
+            expect(latest!.y.current).toBe(2025)
+            expect(latest!.y.progress).toBe(1)
+        } finally {
+            stop()
+            await fireScroll(0)
+        }
+    })
+
+    test("Reports elastic overscroll in an element container as backward scroll (#3791).", async () => {
+        const { fire, stop } = createOverscrollContainer({})
+
+        let info = await fire(-25, -10)
+        expect(info.y.current).toBe(-25)
+        expect(info.y.progress).toBe(0)
+        expect(info.x.current).toBe(-10)
+        expect(info.x.progress).toBe(0)
+
+        info = await fire(925, 910)
+        expect(info.y.progress).toBe(1)
+        expect(info.x.progress).toBe(1)
+
+        stop()
+    })
+
+    test("Reports elastic overscroll in reverse-direction containers as backward scroll (#3791).", async () => {
+        // column-reverse scrolls from 0 up to -scrollLength, so overscroll
+        // at its start is a positive scrollTop
+        const column = createOverscrollContainer({
+            display: "flex",
+            flexDirection: "column-reverse",
+        })
+
+        let info = await column.fire(0)
+        expect(Object.is(info.y.current, 0)).toBe(true)
+
+        info = await column.fire(-450)
+        expect(info.y.current).toBe(450)
+        expect(info.y.progress).toBe(0.5)
+
+        info = await column.fire(25)
+        expect(info.y.current).toBe(-25)
+        expect(info.y.progress).toBe(0)
+
+        info = await column.fire(-925)
+        expect(info.y.current).toBe(925)
+        expect(info.y.progress).toBe(1)
+
+        column.stop()
+
+        const rtl = createOverscrollContainer({ direction: "rtl" })
+
+        info = await rtl.fire(0, -450)
+        expect(info.x.current).toBe(450)
+        expect(info.x.progress).toBe(0.5)
+
+        info = await rtl.fire(0, 25)
+        expect(info.x.current).toBe(-25)
+        expect(info.x.progress).toBe(0)
+
+        rtl.stop()
+    })
+
+    test.each([
+        // [style, scrollLeft sign, scrollTop sign]
+        [{}, 1, 1],
+        [{ direction: "rtl" }, -1, 1],
+        [{ display: "flex", flexDirection: "row-reverse" }, -1, 1],
+        [
+            { display: "flex", flexDirection: "row-reverse", direction: "rtl" },
+            1,
+            1,
+        ],
+        [{ display: "inline-flex", flexDirection: "column-reverse" }, 1, -1],
+        // flex-direction has no effect outside flex containers
+        [{ flexDirection: "column-reverse" }, 1, 1],
+        [{ writingMode: "vertical-rl" }, -1, 1],
+        [{ writingMode: "vertical-lr" }, 1, 1],
+        [{ writingMode: "vertical-lr", direction: "rtl" }, 1, -1],
+        [{ writingMode: "vertical-rl", direction: "rtl" }, -1, -1],
+        [{ writingMode: "sideways-rl" }, -1, 1],
+        [{ writingMode: "sideways-lr" }, 1, -1],
+        [
+            {
+                writingMode: "vertical-lr",
+                display: "flex",
+                flexDirection: "column-reverse",
+            },
+            -1,
+            1,
+        ],
+        [
+            {
+                writingMode: "vertical-rl",
+                display: "flex",
+                flexDirection: "row-reverse",
+            },
+            -1,
+            -1,
+        ],
+        [
+            {
+                writingMode: "vertical-rl",
+                display: "flex",
+                flexDirection: "column-reverse",
+            },
+            1,
+            1,
+        ],
+        [{ writingMode: "sideways-lr", direction: "rtl" }, 1, 1],
+        // wrap-reverse reverses the cross axis
+        [{ display: "flex", flexWrap: "wrap-reverse" }, 1, -1],
+        [
+            {
+                display: "flex",
+                flexDirection: "column",
+                flexWrap: "wrap-reverse",
+            },
+            -1,
+            1,
+        ],
+        [{ display: "grid" }, 1, 1],
+    ] as const)(
+        // Signs as measured in Chromium
+        "Normalises scroll position for %o",
+        async (style, xSign, ySign) => {
+            const { fire, stop } = createOverscrollContainer(style as any)
+
+            const info = await fire(450 * ySign, 300 * xSign)
+            expect(info.x.current).toBe(300)
+            expect(info.y.current).toBe(450)
+
+            stop()
+        }
+    )
 })
 
 describe("scroll", () => {
@@ -1023,6 +1209,20 @@ describe.each([
         await c.fire()
         expect(latest.progress).toBeCloseTo(0.25, 5)
         expect(latest.progress).toBe(latest.infoProgress)
+
+        stop()
+    })
+
+    test("Element container, x axis, RTL.", async () => {
+        const c = createContainer()
+        c.container.style.direction = "rtl"
+        c.setWidth(100)
+        c.setScrollWidth(500)
+
+        const { latest, stop } = trackProgress({
+            container: c.container,
+            axis: "x",
+        })
 
         // RTL containers report negative scrollLeft
         c.setScrollLeft(-300)
