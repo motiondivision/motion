@@ -404,6 +404,60 @@ describe("independent transform acceleration", () => {
         await Promise.all(finished)
     })
 
+    it.each([
+        ["duration: 0", { y: 50 }, { duration: 0 }],
+        ["keyframes that don't change", { y: [50, 50] }, { duration: 1 }],
+    ])(
+        "adds a value set instantly (%s) while the group is accelerated",
+        async (_, values, transition) => {
+            const element = document.createElement("div")
+
+            animateElement(
+                element,
+                { x: [0, 100] },
+                { duration: 1, ease: "linear" }
+            )
+            await nextFrame()
+            expect(running(element)).toHaveLength(1)
+
+            animateElement(element, values as any, transition)
+            await nextFrame()
+            await nextFrame()
+
+            const [{ keyframes }] = running(element)
+            for (const transform of keyframes.transform) {
+                expect(transform).toContain("translateY(50px)")
+            }
+        }
+    )
+
+    it("ignores pause() and play() on an animation that was interrupted", async () => {
+        const element = document.createElement("div")
+
+        const first = animateElement(
+            element,
+            { x: [0, 100] },
+            { duration: 1, ease: "linear" }
+        )
+        await nextFrame()
+        animateElement(element, { x: 50 }, { duration: 0.2, ease: "linear" })
+        await nextFrame()
+
+        first.forEach((a) => a.pause())
+        first.forEach((a) => a.play())
+        await nextFrame()
+
+        const [{ keyframes }] = running(element)
+        expect(keyframes.transform[keyframes.transform.length - 1]).toBe(
+            "translateX(50px) "
+        )
+
+        // The interrupted animation doesn't hold the group open.
+        await wait(400)
+        expect(running(element)).toHaveLength(0)
+        expect(element.style.transform).toBe("translateX(50px)")
+    })
+
     it("stays on the main thread for SVG elements", async () => {
         const element = document.createElementNS(
             "http://www.w3.org/2000/svg",
@@ -413,6 +467,6 @@ describe("independent transform acceleration", () => {
         animateElement(element, { x: [0, 100] }, { duration: 1 })
         await nextFrame()
 
-        expect(animations).toHaveLength(0)
+        expect(animations.filter((a) => a.element === element)).toHaveLength(0)
     })
 })

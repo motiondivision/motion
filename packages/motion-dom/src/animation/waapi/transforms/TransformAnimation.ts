@@ -271,7 +271,7 @@ export class TransformAnimation<
     isAccelerated() {
         const { group, state } = this
         return Boolean(
-            group &&
+            group?.tracks.has(this) &&
                 !group.isJS &&
                 this.canAccelerate &&
                 (state === "running" || state === "paused")
@@ -325,6 +325,12 @@ export class TransformAnimation<
     }
 
     play() {
+        /**
+         * A stopped animation (one that was interrupted) can't play again,
+         * so it mustn't join the group.
+         */
+        if (this.isStopped) return
+
         const owner = getOwner(this.options)
         let { group } = this
 
@@ -840,9 +846,11 @@ function createGroup(owner: TransformOwner): TransformGroup {
 
                     /**
                      * From now it's checked for outside writes like any
-                     * other static transform.
+                     * other static transform. If the WAAPI animation never
+                     * rendered it (it was instant), rebuild with its value.
                      */
                     statics[track.name] = read(owner, track.name)
+                    built.has(track) || (needsBuild = true)
                 }
             })
             group.isFinishing = false

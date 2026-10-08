@@ -44,7 +44,7 @@ export class JSAnimation<T extends number | string>
      */
     protected driver?: DriverControls
 
-    private isStopped = false
+    protected isStopped = false
 
     /**
      * The start time this animation picked for itself, until its first tick.

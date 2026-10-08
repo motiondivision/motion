@@ -348,4 +348,62 @@ test.describe("animate() independent transforms", () => {
         expect(result.count).toBe(0)
         expect(result.x).toBeCloseTo(50)
     })
+
+    test("shows a value set instantly while others run on the compositor", async ({
+        page,
+    }) => {
+        const result = await page.evaluate(async () => {
+            const element = document.getElementById("a")!
+            const { animate } = window.Motion
+            animate(element, { x: 100 }, { duration: 1, ease: "linear" })
+            await window.wait(200)
+            animate(element, { y: 50 }, { duration: 0 })
+            animate(element, { scale: [2, 2] }, { duration: 1 })
+            await window.nextFrames(2)
+            return {
+                count: window.transformAnimations(element).length,
+                ...window.readTransform(element),
+            }
+        })
+
+        expect(result.count).toBe(1)
+        expect(result.x).toBeGreaterThan(15)
+        expect(result.x).toBeLessThan(40)
+        expect(result.y).toBeCloseTo(50)
+        expect(result.scale).toBeCloseTo(2)
+    })
+
+    test("pause() and play() on interrupted controls change nothing", async ({
+        page,
+    }) => {
+        const result = await page.evaluate(async () => {
+            const element = document.getElementById("a")!
+            const { animate } = window.Motion
+            const first = animate(
+                element,
+                { x: 100 },
+                { duration: 1, ease: "linear" }
+            )
+            await window.wait(100)
+            animate(element, { x: 50 }, { duration: 0.3, ease: "linear" })
+            await window.wait(50)
+            const recording = (window as any).recordFrames(element, 400)
+            first.pause()
+            first.play()
+            const frames: Array<{ x: number }> = await recording
+            return {
+                frames: frames.map((frame) => frame.x),
+                count: window.transformAnimations(element).length,
+                ...window.readTransform(element),
+            }
+        })
+
+        // The interrupting animation keeps moving until it ends.
+        const stalled = result.frames.filter(
+            (x, i) => i && x < 49.9 && x === result.frames[i - 1]
+        )
+        expect(stalled.length).toBeLessThanOrEqual(1)
+        expect(result.count).toBe(0)
+        expect(result.x).toBeCloseTo(50)
+    })
 })
