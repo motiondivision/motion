@@ -286,32 +286,32 @@ export function createAnimationState(visualElement: any): AnimationState {
                     key
                 )
 
-                let target =
-                    fromInitial !== undefined
+                fallbackAnimation[key] =
+                    (fromInitial !== undefined
                         ? fromInitial
                         : fromProps !== undefined && !isMotionValue(fromProps)
                         ? fromProps
-                        : undefined
+                        : visualElement.initialValues[key] === undefined
+                        ? visualElement.baseTarget[key]
+                        : undefined) ?? null
 
-                if (target === undefined) {
-                    const { initialValues, baseTarget } = visualElement
-
-                    if (initialValues[key] === undefined) {
-                        target = baseTarget[key]
-                    } else {
-                        /**
-                         * It stays where it is, which is now its base. Otherwise
-                         * a later removal (like a gesture ending) would also
-                         * stay, leaving the value stuck (#3787). Stop first so
-                         * accelerated animations sync the value they reached.
-                         */
-                        delete initialValues[key]
-                        motionValue?.stop()
-                        baseTarget[key] = motionValue?.get()
-                    }
+                /**
+                 * If it stays where it is, that's now its base. Otherwise a
+                 * later removal (like a gesture ending) would also stay,
+                 * leaving the value stuck. Stop first so accelerated
+                 * animations sync the value they reached. In practice initial
+                 * only changes like this with Fast Refresh, so this is
+                 * dev-only (#3787).
+                 */
+                if (
+                    process.env.NODE_ENV !== "production" &&
+                    fallbackAnimation[key] === null &&
+                    visualElement.initialValues[key] !== undefined
+                ) {
+                    delete visualElement.initialValues[key]
+                    motionValue?.stop()
+                    visualElement.baseTarget[key] = motionValue?.get()
                 }
-
-                fallbackAnimation[key] = target ?? null
             })
 
             animations.push({ animation: fallbackAnimation })
