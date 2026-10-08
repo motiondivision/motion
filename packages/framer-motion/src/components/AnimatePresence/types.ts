@@ -54,7 +54,8 @@ export interface AnimatePresenceProps {
 
     /**
      * Root element to use when injecting styles, used when mode === `"popLayout"`.
-     * This defaults to document.head but can be overridden e.g. for use in shadow DOM.
+     * This defaults to the head of the document the element is rendered in, but can
+     * be overridden e.g. for use in shadow DOM.
      */
     root?: HTMLElement | ShadowRoot;
 

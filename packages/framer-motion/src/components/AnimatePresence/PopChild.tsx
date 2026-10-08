@@ -118,12 +118,18 @@ export function PopChild({ children, isPresent, anchorX, anchorY, root, pop }: P
             : (isRTL ? `left: ${left}` : `right: ${right}`)
         const y = anchorY === "bottom" ? `bottom: ${bottom}` : `top: ${top}`
 
-        ref.current.dataset.motionPopId = id
+        const element = ref.current
+        element.dataset.motionPopId = id
 
-        const style = document.createElement("style")
+        /**
+         * Use the element's own document so this works when rendering
+         * into another window or iframe (e.g. via window.open()).
+         */
+        const doc = element.ownerDocument
+        const style = doc.createElement("style")
         if (nonce) style.nonce = nonce
 
-        const parent = root ?? document.head
+        const parent = root ?? doc.head
         parent.appendChild(style)
 
         if (style.sheet) {

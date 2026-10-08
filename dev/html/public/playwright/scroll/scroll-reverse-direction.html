@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+
+            .scroller {
+                position: relative;
+                width: 100px;
+                height: 100px;
+                overflow: scroll;
+            }
+
+            .content {
+                flex: none;
+                width: 500px;
+                height: 500px;
+            }
+
+            .page {
+                width: 3000px;
+                height: 3000px;
+            }
+        </style>
+    </head>
+    <body>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            const { scroll } = window.Motion
+            const params = new URLSearchParams(location.search)
+
+            /**
+             * ?root=<style> (and optionally &body=<style>) applies a style to the
+             * root element and tracks page scroll. Otherwise each style is tracked in its own container.
+             */
+            const rootStyle = params.get("root")
+
+            const styles = [
+                "",
+                "direction: rtl",
+                "display: flex; flex-direction: row-reverse",
+                "display: flex; flex-direction: row-reverse; direction: rtl",
+                "display: flex; flex-direction: column-reverse",
+                "display: inline-flex; flex-direction: column-reverse",
+                "flex-direction: column-reverse",
+                "display: flex; flex-wrap: wrap-reverse",
+                "display: flex; flex-direction: column; flex-wrap: wrap-reverse",
+                "writing-mode: vertical-rl",
+                "writing-mode: vertical-lr",
+                "writing-mode: vertical-lr; direction: rtl",
+                "writing-mode: vertical-rl; direction: rtl",
+                "writing-mode: vertical-rl; display: flex; flex-direction: row-reverse",
+                "writing-mode: vertical-rl; display: flex; flex-direction: column-reverse",
+                "writing-mode: vertical-lr; display: flex; flex-direction: column-reverse",
+            ]
+
+            const containers =
+                rootStyle === null
+                    ? styles.map((style) => {
+                          const scroller = document.createElement("div")
+                          scroller.className = "scroller"
+                          scroller.setAttribute("style", style)
+                          scroller.innerHTML = '<div class="content"></div>'
+                          document.body.appendChild(scroller)
+                          return scroller
+                      })
+                    : [document.scrollingElement]
+
+            if (rootStyle !== null) {
+                document.documentElement.setAttribute("style", rootStyle)
+                document.body.innerHTML = '<div class="page"></div>'
+                document.body.setAttribute("style", params.get("body") || "")
+            }
+
+            window.containers = containers
+            window.results = containers.map((container) => {
+                const result = {}
+                for (const axis of ["x", "y"]) {
+                    scroll(
+                        (_p, info) => {
+                            result[axis] = {
+                                current: info[axis].current,
+                                progress: info[axis].progress,
+                                scrollLength: info[axis].scrollLength,
+                            }
+                        },
+                        { container, axis }
+                    )
+                }
+                return result
+            })
+        </script>
+    </body>
+</html>

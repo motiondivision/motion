@@ -1,4 +1,4 @@
-import { progress, velocityPerSecond } from "motion-utils"
+import { clamp, progress, velocityPerSecond } from "motion-utils"
 import { AxisScrollInfo, ScrollInfo } from "./types"
 
 /**
@@ -39,6 +39,46 @@ export const axisKeys = {
 
 export type Axis = keyof typeof axisKeys
 
+const styles = new WeakMap<Element, CSSStyleDeclaration>()
+
+/**
+ * Whether an axis scrolls from its end, which browsers report as a scroll
+ * position running from 0 to -scrollLength (#3340). This is read from style
+ * rather than the sign of the scroll position, as elastic overscroll pushes
+ * the position past 0 in either kind of axis (#3791).
+ */
+function isReversed(element: Element, axisName: Axis) {
+    /**
+     * The viewport takes its writing mode and direction from <body>, which
+     * not every browser reflects in the root element's computed style. It
+     * doesn't adopt the root element's flex layout.
+     */
+    const isRoot = element === document.scrollingElement
+    const source = (isRoot && document.body) || element
+
+    let style = styles.get(source)
+    if (!style) styles.set(source, (style = getComputedStyle(source)))
+
+    const { writingMode, flexDirection } = style
+    const isInline = (axisName === "x") !== /^[vs]/.test(writingMode)
+
+    return (
+        (isInline
+            ? (style.direction === "rtl") !== (writingMode === "sideways-lr")
+            : writingMode.endsWith("rl")) !==
+        /**
+         * A reversed flex axis flips this. The main axis is the inline axis
+         * unless flex-direction is a column.
+         */
+        (!isRoot &&
+            style.display.includes("flex") &&
+            (isInline !== (flexDirection[0] === "c")
+                ? flexDirection
+                : style.flexWrap
+            ).endsWith("reverse"))
+    )
+}
+
 function updateAxisInfo(
     element: Element,
     axisName: Axis,
@@ -51,7 +91,10 @@ function updateAxisInfo(
     const prev = axis.current
     const prevTime = info.time
 
-    axis.current = Math.abs(element[`scroll${position}`])
+    const scrollPosition = element[`scroll${position}`]
+    axis.current = isReversed(element, axisName)
+        ? -scrollPosition || 0 // Avoid -0
+        : scrollPosition
     axis.containerLength = element[`client${length}`]
     axis.targetLength = element[`scroll${length}`]
     axis.scrollLength = axis.targetLength - axis.containerLength
@@ -59,7 +102,7 @@ function updateAxisInfo(
     axis.offset.length = 0
     axis.offset[0] = 0
     axis.offset[1] = axis.scrollLength
-    axis.progress = progress(0, axis.scrollLength, axis.current)
+    axis.progress = clamp(0, 1, progress(0, axis.scrollLength, axis.current))
 
     const elapsed = time - prevTime
     axis.velocity =
