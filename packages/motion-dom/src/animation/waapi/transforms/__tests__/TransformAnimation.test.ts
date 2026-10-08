@@ -95,6 +95,27 @@ const running = (element: Element) =>
             !animation.cancel.mock.calls.length
     ) as Array<MockAnimation & { keyframes: { transform: string[] } }>
 
+/**
+ * Evaluate a CSS linear() easing at progress t.
+ */
+const linearAt = (easing: string, t: number) => {
+    const items = easing.slice(7, -1).split(",")
+    const points = items.map((item, i) => {
+        const [value, position] = item.trim().split(" ")
+        return [
+            parseFloat(value),
+            position ? parseFloat(position) / 100 : i / (items.length - 1),
+        ]
+    })
+    for (let i = 1; i < points.length; i++) {
+        const [v0, p0] = points[i - 1]
+        const [v1, p1] = points[i]
+        if (t <= p1)
+            return p1 === p0 ? v1 : v0 + ((v1 - v0) * (t - p0)) / (p1 - p0)
+    }
+    return points[points.length - 1][0]
+}
+
 const readX = (transform: string) =>
     parseFloat(transform.match(/translateX\(([\d.]+)px\)/)![1])
 
@@ -456,6 +477,59 @@ describe("independent transform acceleration", () => {
         await wait(400)
         expect(running(element)).toHaveLength(0)
         expect(element.style.transform).toBe("translateX(50px)")
+    })
+
+    it("jumps back to the start when a shared easing repeats", async () => {
+        const element = document.createElement("div")
+
+        animateElement(
+            element,
+            { x: [0, 100], y: [0, 30] },
+            { duration: 1, ease: "easeInOut", repeat: 2 }
+        )
+        await nextFrame()
+
+        const [{ options }] = running(element)
+        const easing = options.easing as string
+        const duration = options.duration as number
+        expect(easing).toMatch(/^linear\(/)
+
+        // Each repeat restarts at the same point in its progress.
+        const restart = (duration % 1000) / duration
+        expect(linearAt(easing, restart - 0.001)).toBeGreaterThan(0.99)
+        expect(linearAt(easing, restart + 0.001)).toBeLessThan(0.01)
+    })
+
+    it("jumps back to the start when sampled keyframes repeat", async () => {
+        const element = document.createElement("div")
+
+        animateElement(
+            element,
+            { x: [0, 100] },
+            { duration: 1, ease: "linear", repeat: 2 }
+        )
+        animateElement(
+            element,
+            { scale: [1, 2] },
+            { duration: 3, ease: "easeIn" }
+        )
+        await nextFrame()
+
+        const [{ keyframes }] = running(element)
+        const { transform, offset } = keyframes as any
+        expect(offset).toHaveLength(transform.length)
+
+        // Wherever x jumps back, it does so between two keyframes that are
+        // less than a millisecond apart.
+        const duration = 3000
+        let jumps = 0
+        for (let i = 1; i < transform.length; i++) {
+            if (readX(transform[i - 1]) - readX(transform[i]) > 50) {
+                jumps++
+                expect((offset[i] - offset[i - 1]) * duration).toBeLessThan(1)
+            }
+        }
+        expect(jumps).toBe(2)
     })
 
     it("stays on the main thread for SVG elements", async () => {

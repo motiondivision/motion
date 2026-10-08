@@ -514,6 +514,21 @@ function createGroup(owner: TransformOwner): TransformGroup {
     }
 
     /**
+     * Where a value jumps between two timestamps, as when a repeat starts
+     * again: the timestamps either side of the jump, or none if it moves
+     * there continuously.
+     */
+    const jumpAt = (value: (t: number) => number, a: number, b: number) => {
+        const change = (x: number, y: number) => Math.abs(value(y) - value(x))
+        const size = change(a, b)
+        while (b - a > 0.01) {
+            const mid = (a + b) / 2
+            change(a, mid) > change(mid, b) ? (b = mid) : (a = mid)
+        }
+        return change(a, b) > size / 2 ? [a, b] : []
+    }
+
+    /**
      * If every moving animation follows the same eased progress between
      * two timestamps, the easing that describes it.
      */
@@ -526,13 +541,14 @@ function createGroup(owner: TransformOwner): TransformGroup {
             maxSamples,
             Math.max(2, Math.ceil((to - from) / sampleDelta))
         )
+        const at = (i: number) => from + ((to - from) * i) / samples
         let shared: number[] | undefined
+        let progressAt: (t: number) => number
 
         for (const track of moving) {
             const values: number[] = []
-            for (let i = 0; i <= samples; i++) {
-                values.push(track.numberAt(from + ((to - from) * i) / samples))
-            }
+            for (let i = 0; i <= samples; i++)
+                values.push(track.numberAt(at(i)))
 
             const [first] = values
             const range = values[samples] - first
@@ -551,6 +567,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
                 }
             } else if (!shared) {
                 shared = progress
+                progressAt = (t) => (track.numberAt(t) - first) / range
             } else if (
                 progress.some(
                     (p, i) => !(Math.abs(p - shared![i]) <= easingTolerance)
@@ -560,10 +577,30 @@ function createGroup(owner: TransformOwner): TransformGroup {
             }
         }
 
-        return shared &&
-            shared.some((p, i) => Math.abs(p - i / samples) > easingTolerance)
-            ? "linear(" + shared.map(round).join(",") + ")"
-            : "linear"
+        if (
+            !shared ||
+            shared.every((p, i) => Math.abs(p - i / samples) <= easingTolerance)
+        ) {
+            return "linear"
+        }
+
+        /**
+         * A repeat that starts again jumps back, which takes two points at
+         * the same position.
+         */
+        const points: string[] = []
+        const point = (t: number, p = progressAt(t)) =>
+            points.push(
+                round(p) + " " + round(((t - from) / (to - from)) * 100) + "%"
+            )
+        shared.forEach((p, i) => {
+            i &&
+                Math.abs(p - shared![i - 1]) > 0.2 &&
+                jumpAt(progressAt, at(i - 1), at(i)).forEach((t) => point(t))
+            point(at(i), p)
+        })
+
+        return "linear(" + points + ")"
     }
 
     /**
@@ -596,10 +633,19 @@ function createGroup(owner: TransformOwner): TransformGroup {
             )
 
         const split = (a: number, b: number, depth: number) => {
-            if (depth < 4 && !isStraight(a, b)) {
+            if (isStraight(a, b)) {
+                times.push(b)
+            } else if (depth < 4) {
                 split(a, (a + b) / 2, depth + 1)
                 split((a + b) / 2, b, depth + 1)
             } else {
+                /**
+                 * Keyframes either side of a jump, like a repeat starting
+                 * again, so it doesn't play as a quick sweep.
+                 */
+                for (const track of moving) {
+                    times.push(...jumpAt((t) => track.numberAt(t), a, b))
+                }
                 times.push(b)
             }
         }
@@ -613,7 +659,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
             )
         }
 
-        return times
+        return times.sort((a, b) => a - b)
     }
 
     /**
