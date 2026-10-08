@@ -59,6 +59,7 @@ export const animateMotionValue =
             name,
             motionValue: value,
             element: isHandoff ? undefined : element,
+            hasOnUpdate: !!valueTransition.onUpdate,
         }
 
         /**

@@ -122,7 +122,13 @@ export type AnimationPlaybackControlsWithThen = AnimationPlaybackControls & {
 export type MotionValueAnimation = Pick<
     AnimationPlaybackControlsWithThen,
     "state" | "stop" | "finished" | "then"
->
+> & {
+    /**
+     * The value now, if the animation is running somewhere other than
+     * the main thread and so isn't setting it every frame.
+     */
+    liveValue?: () => AnyResolvedKeyframe | undefined
+}
 
 export interface AnimationState<V> {
     value: V
@@ -160,6 +166,12 @@ export interface ValueAnimationOptions<V extends AnyResolvedKeyframe = number>
     isHandoff?: boolean
     allowFlatten?: boolean
     finalKeyframe?: V
+
+    /**
+     * Whether the transition has its own onUpdate, which needs the value
+     * every frame.
+     */
+    hasOnUpdate?: boolean
 }
 
 export type GeneratorFactoryFunction = (

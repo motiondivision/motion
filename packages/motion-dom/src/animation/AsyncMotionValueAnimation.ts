@@ -213,6 +213,15 @@ export class AsyncMotionValueAnimation<T extends AnyResolvedKeyframe>
         return this.finished.finally(onResolve).then(() => {})
     }
 
+    /**
+     * The value now, if the animation runs on the compositor.
+     */
+    liveValue() {
+        return (
+            this._animation as { liveValue?: () => T | undefined } | undefined
+        )?.liveValue?.()
+    }
+
     get animation(): AnimationPlaybackControls {
         if (!this._animation) {
             this.keyframeResolver?.resume()
