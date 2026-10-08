@@ -122,6 +122,14 @@
                 text-transform: uppercase;
                 color: var(--muted);
             }
+            .warning {
+                margin: 0;
+                padding: 10px 14px;
+                border-radius: 8px;
+                border: 1px solid var(--cpu);
+                background: var(--cpu-tint);
+                max-width: 80ch;
+            }
             .hint {
                 margin: 0;
                 font-size: 12px;
@@ -411,6 +419,8 @@
                     thread.
                 </p>
             </header>
+
+            <p class="warning" id="warning" hidden></p>
 
             <div class="layout">
                 <div class="column">
@@ -1442,6 +1452,37 @@
             frame.postRender(record, true)
             showCode(formTargets(), transitionFor("x", 0, read()))
             log("Ready")
+
+            /**
+             * Check that this browser and this Motion build can run
+             * transforms on the compositor, with a short test animation on
+             * a hidden element.
+             */
+            const warn = (text) => {
+                $("warning").textContent = text
+                $("warning").hidden = false
+                log(text, "to-main")
+            }
+            const probe = document.createElement("div")
+            probe.style.cssText = "position:absolute;visibility:hidden"
+            document.body.append(probe)
+            const probeAnimation = animate(probe, { x: 10 }, { duration: 1 })
+            requestAnimationFrame(() =>
+                requestAnimationFrame(() => {
+                    const isAccelerated = transformAnimations(probe).length > 0
+                    probeAnimation.cancel()
+                    probe.remove()
+                    if (isAccelerated) return
+                    warn(
+                        !CSS.supports(
+                            "animation-timing-function",
+                            "linear(0, 1)"
+                        )
+                            ? "This browser doesn't support linear() easing, so transforms stay on the main thread. Use Chrome, Edge, Firefox 112+ or Safari 17.2+."
+                            : "This Motion build runs transforms on the main thread. Run yarn build on the PR branch, then restart the dev server."
+                    )
+                })
+            )
         </script>
     </body>
 </html>

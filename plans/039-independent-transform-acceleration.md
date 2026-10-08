@@ -34,7 +34,7 @@ When the group moved because one animation couldn't be accelerated, the other tr
 
 Every hand-off writes the current transform as an inline style in the same frame, and the JS drivers carry on from the same time, so there's no jump or stalled frame. `tests/animate/independent-transforms-handoff.spec.ts` and `tests/react/independent-transforms-handoff.spec.ts` record every frame across each hand-off (inertia joining and leaving, outside writes, missed seeks, mid-spring, projection renders and layout animations) and check every frame's movement. They pass 8 times in a row with 4 parallel workers, and fail when the value sync on hand-off is removed.
 
-To try settings, interruptions and hand-offs by hand, run `yarn dev` in `dev/html` and open `/examples/independent-transforms-playground.html`. It shows the WAAPI animations on the element, when it moves between the compositor and the main thread, and each frame's velocity next to a main-thread reference.
+To try settings, interruptions and hand-offs by hand, run `yarn build` at the repo root, then `yarn dev` in `dev/html`, and open `/examples/independent-transforms-playground.html`. It shows the WAAPI animations on the element, when it moves between the compositor and the main thread, and each frame's velocity next to a main-thread reference.
 
 ## What stays on the main thread
 
