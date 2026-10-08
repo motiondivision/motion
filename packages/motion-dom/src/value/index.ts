@@ -427,6 +427,20 @@ export class MotionValue<V = any> {
             collectMotionValues.current.push(this)
         }
 
+        /**
+         * A value animating on the compositor isn't updated every frame,
+         * so read it from its animation.
+         */
+        const sampled = this.animation?.liveValue?.()
+
+        return sampled === undefined ? this.current! : (sampled as V)
+    }
+
+    /**
+     * The value as last set. Unlike get(), this doesn't read an animation
+     * running on the compositor, which renders the value itself.
+     */
+    getCurrent() {
         return this.current!
     }
 

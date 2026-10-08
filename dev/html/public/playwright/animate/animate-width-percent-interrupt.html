@@ -1,0 +1,53 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+
+            .container {
+                width: 400px;
+            }
+
+            .box {
+                width: 10px;
+                height: 20px;
+                background-color: #0077ff;
+            }
+
+            #clamped {
+                max-width: 150px;
+            }
+
+            #padded {
+                box-sizing: border-box;
+                padding: 0 20px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="box" id="a"></div>
+            <div class="box" id="clamped"></div>
+            <div class="box" id="padded"></div>
+        </div>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            /**
+             * Helpers for tests/animate/width-percent-interrupt.spec.ts,
+             * which run their scenarios with page.evaluate().
+             */
+            window.nextFrames = (count = 1) =>
+                new Promise((resolve) => {
+                    const next = () =>
+                        --count ? requestAnimationFrame(next) : resolve()
+                    requestAnimationFrame(next)
+                })
+
+            window.wait = (ms) =>
+                new Promise((resolve) => setTimeout(resolve, ms))
+
+            window.ready = true
+        </script>
+    </body>
+</html>
