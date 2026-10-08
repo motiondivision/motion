@@ -4,11 +4,20 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
-## [Unreleased]
+## [14.1.0] 2026-10-09
 
 ### Added
 
--   `animateLayout`: Now exported from `motion`. Out of early access.
+-   `animateLayout`: Layout animations for vanilla JS.
+
+### Fixed
+
+-   Delay animation start when main thread held to prevent visual jumps.
+-   Fix `whileHover`/`whileTap` getting stuck after Fast Refresh reorders siblings.
+-   `scroll`/`useScroll`: Fix reporting of elastic overscroll.
+-   `AnimatePresence`: Fix `popLayout` when rendering into another window or iframe.
+-   `animate`: Fix JS animations jumping ahead when played after a pause at non-`1` speed.
+-   Allow layout animations inside dragged elements.
 
 ## [14.0.0] 2026-10-02
 
