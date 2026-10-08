@@ -32,4 +32,21 @@ describe("createGeneratorEasing", () => {
         expect(still(0)).toBe(0)
         expect(still(0.02)).toBeGreaterThan(0)
     })
+
+    test("doesn't scale velocity between keyframes with different units", () => {
+        const options = { stiffness: 100, damping: 10, mass: 1, velocity: 1 }
+
+        const { ease } = createGeneratorEasing(
+            { ...options, keyframes: [0.5, "80%"] } as any,
+            100,
+            spring
+        )
+        const { ease: unscaled } = createGeneratorEasing(
+            options as any,
+            100,
+            spring
+        )
+
+        expect(ease(0.02)).toBe(unscaled(0.02))
+    })
 })

@@ -13,13 +13,17 @@ export function createGeneratorEasing(
     /**
      * The easing is generated over 0 - scale, but velocity is in the
      * value's own units, so scale it to match. Otherwise an interrupted
-     * spring hands off the wrong speed, or direction.
+     * spring hands off the wrong speed, or direction. Only numbers are
+     * known to share a unit.
      */
     const { keyframes: k, velocity } = options as {
-        keyframes?: string[]
+        keyframes?: unknown[]
         velocity?: number
     }
-    const delta = k && parseFloat(k[k.length - 1]) - parseFloat(k[0])
+    const from = k?.[0]
+    const to = k?.[k.length - 1]
+    const delta =
+        typeof from === "number" && typeof to === "number" && to - from
 
     const generator = createGenerator({
         ...options,
