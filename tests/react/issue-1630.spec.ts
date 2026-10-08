@@ -12,10 +12,11 @@ import { expect, Page, test } from "@playwright/test"
 async function handleOffsetAfterToggle(
     page: Page,
     drag: boolean,
-    parentLayout = false
+    parentLayout = false,
+    moveParent = false
 ) {
     await page.goto(
-        `?test=issue-1630&drag=${drag}&parentLayout=${parentLayout}`
+        `?test=issue-1630&drag=${drag}&parentLayout=${parentLayout}&moveParent=${moveParent}`
     )
     await expect(page.locator("#handle")).toBeVisible()
     await page.waitForTimeout(200)
@@ -35,7 +36,7 @@ async function handleOffsetAfterToggle(
     const offset = await page.evaluate(() => {
         const s = document.getElementById("switch")!.getBoundingClientRect()
         const h = document.getElementById("handle")!.getBoundingClientRect()
-        return h.left - s.left
+        return { x: h.left - s.left, y: h.top - s.top }
     })
     await page.mouse.up()
     return offset
@@ -46,20 +47,30 @@ test.describe("issue #1630: layout animation while parent is dragged", () => {
         page,
     }) => {
         const offset = await handleOffsetAfterToggle(page, false)
-        expect(offset).toBeLessThan(150)
+        expect(offset.x).toBeLessThan(150)
     })
 
     test("child layout animates while parent is being dragged", async ({
         page,
     }) => {
         const offset = await handleOffsetAfterToggle(page, true)
-        expect(offset).toBeLessThan(150)
+        expect(offset.x).toBeLessThan(150)
     })
 
     test("child layout animates while a `layout` parent is being dragged", async ({
         page,
     }) => {
         const offset = await handleOffsetAfterToggle(page, true, true)
-        expect(offset).toBeLessThan(150)
+        expect(offset.x).toBeLessThan(150)
+    })
+
+    test("child animates relative to a dragged parent that also moves", async ({
+        page,
+    }) => {
+        const offset = await handleOffsetAfterToggle(page, true, false, true)
+        // Animates within the switch...
+        expect(offset.x).toBeLessThan(150)
+        // ...while moving with it, rather than from its old page position
+        expect(offset.y).toBeCloseTo(0, 0)
     })
 })

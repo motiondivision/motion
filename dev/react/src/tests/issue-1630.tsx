@@ -7,12 +7,14 @@ import { useEffect, useState } from "react"
  * switch sandbox, with the switch container made draggable.
  * ?drag=false -> parent not draggable (control).
  * ?parentLayout=true -> parent also has `layout`.
+ * ?moveParent=true -> toggling also moves the parent down 200px.
  * Press "t" to toggle the switch (so it can be toggled mid-drag).
  */
 export const App = () => {
     const params = new URLSearchParams(window.location.search)
     const draggable = params.get("drag") !== "false"
     const parentLayout = params.get("parentLayout") === "true" || undefined
+    const moveParent = params.get("moveParent") === "true"
     const [isOn, setIsOn] = useState(false)
 
     useEffect(() => {
@@ -29,7 +31,7 @@ export const App = () => {
             dragMomentum={false}
             style={{
                 position: "absolute",
-                top: 100,
+                top: moveParent && isOn ? 300 : 100,
                 left: 100,
                 width: 400,
                 height: 100,
