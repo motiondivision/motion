@@ -54,6 +54,8 @@ export interface IProjectionNode<I = unknown> {
     options: ProjectionNodeOptions
     setOptions(options: ProjectionNodeOptions): void
     layout?: Measurements
+    dragSnapshot?: Measurements
+    dragAncestor?: IProjectionNode
     snapshot?: Measurements
     target?: Box
     relativeTarget?: Box
@@ -119,7 +121,6 @@ export interface IProjectionNode<I = unknown> {
     currentAnimation?: JSAnimation<number>
     isTreeAnimating?: boolean
     isAnimationBlocked?: boolean
-    isTreeAnimationBlocked: () => boolean
     setAnimationOrigin(
         delta: Delta,
         hasOnlyRelativeTargetChanged?: boolean,
