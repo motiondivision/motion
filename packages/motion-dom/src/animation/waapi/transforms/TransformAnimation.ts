@@ -152,7 +152,8 @@ const read = (owner: TransformOwner, key: string) =>
 /**
  * Whether this animation should join its element's transform group.
  * Animations that can't be accelerated still join, so the group knows
- * to stay on the main thread while they run.
+ * to stay on the main thread while they run. Browsers without linear()
+ * easing stay on the main thread.
  */
 export const canGroupTransform = ({
     name,
@@ -162,7 +163,8 @@ export const canGroupTransform = ({
         name &&
             transformPropOrder.includes(name) &&
             motionValue?.owner?.current instanceof HTMLElement &&
-            supportsWaapi()
+            supportsWaapi() &&
+            supportsLinearEasing()
     )
 
 export function canAccelerateTransform(options: ValueAnimationOptions<any>) {
@@ -787,12 +789,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
         settled?: number,
         nativeEasing?: string
     ) => {
-        /**
-         * Browsers without linear() easing get sampled keyframes instead.
-         */
-        const easing =
-            nativeEasing ||
-            (supportsLinearEasing() ? getEasing(moving, from, to) : undefined)
+        const easing = nativeEasing || getEasing(moving, from, to)
         const times = easing ? [from, to] : sample(moving, from, to)
         const transform = times.map((t) => compose(t, settled))
         let keyframes: PropertyIndexedKeyframes | null = { transform }

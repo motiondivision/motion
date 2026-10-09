@@ -54,7 +54,7 @@ These stay accelerated, because tracks are sampled and the group rebuilds:
 -   Bundle cost is about +3 kB gz for `motion`/`m` bundles and for `animate`.
 -   A transition's own `onUpdate` (`animate(el, { x: 100 }, { onUpdate })`), like the `onUpdate` prop, keeps the value on the main thread.
 -   `element.getAnimations()` includes the group's transform animations. If other code cancels them, the group moves to the main thread.
--   Browsers without `linear()` easing (Safari before 17.2, Firefox before 112) get sampled keyframes with linear easing.
+-   Browsers without `linear()` easing (Safari before 17.2, Firefox before 112) keep transforms on the main thread.
 -   Not tested in WebKit or Firefox. Cypress can't run in the cloud environment, so the React E2E tests are Playwright specs.
 
 ## Follow-ups

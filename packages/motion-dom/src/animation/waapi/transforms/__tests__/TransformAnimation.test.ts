@@ -601,21 +601,17 @@ describe("independent transform acceleration", () => {
         expect(element.style.transform).toContain("rotate(45deg)")
     })
 
-    it("uses sampled keyframes when linear() easing isn't supported", async () => {
+    it("stays on the main thread when linear() easing isn't supported", async () => {
         supportsFlags.linearEasing = false
         const element = document.createElement("div")
 
-        animateElement(
-            element,
-            { x: [0, 100], rotate: [0, 90] },
-            { type: "spring", stiffness: 300, damping: 20 }
-        )
+        animateElement(element, { x: [0, 100] }, { duration: 0.2 })
+        await nextFrame()
         await nextFrame()
         supportsFlags.linearEasing = undefined
 
-        const [{ keyframes, options }] = running(element)
-        expect(options.easing).toBe("linear")
-        expect((keyframes as any).offset.length).toBeGreaterThan(2)
+        expect(animations.filter((a) => a.element === element)).toHaveLength(0)
+        expect(element.style.transform).toMatch(/translateX/)
     })
 
     it("leaves out transforms that aren't animating at their default", async () => {
