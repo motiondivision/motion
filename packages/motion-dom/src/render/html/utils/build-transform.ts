@@ -5,7 +5,7 @@ import { ResolvedValues } from "../../types"
 import { HTMLRenderState } from "../types"
 import type { MotionNodeOptions } from "../../../node/types"
 
-const translateAlias = {
+export const translateAlias: Record<string, string> = {
     x: "translateX",
     y: "translateY",
     z: "translateZ",
@@ -34,7 +34,7 @@ export function buildTransform(
      * are present to the transform string.
      */
     for (let i = 0; i < numTransforms; i++) {
-        const key = transformPropOrder[i] as keyof typeof translateAlias
+        const key = transformPropOrder[i]
         const value = latestValues[key]
 
         if (value === undefined) continue

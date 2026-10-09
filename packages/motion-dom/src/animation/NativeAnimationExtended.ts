@@ -57,17 +57,67 @@ export class NativeAnimationExtended<
         this.options = options
     }
 
+    private sampler?: JSAnimation<T>
+
+    /**
+     * The animation's time now, in ms. Wall-clock rather than WAAPI's
+     * currentTime while running, as under CPU load currentTime may not
+     * reflect the actual elapsed time, causing incorrect sampling and
+     * visual jumps.
+     */
+    private elapsed() {
+        return this.state === "running"
+            ? (time.now() - this.startTime) * this.speed
+            : this.time * 1000
+    }
+
+    /**
+     * The value at a time, from a renderless JS animation.
+     */
+    private sample(sampleTime: number) {
+        if (!this.sampler) {
+            const {
+                motionValue,
+                onUpdate,
+                onComplete,
+                onPlay,
+                onStop,
+                element,
+                ...options
+            } = this.options
+
+            /**
+             * Stop it straight away so its driver doesn't run every frame.
+             * It can still be sampled.
+             */
+            this.sampler = new JSAnimation({ ...options, autoplay: false })
+            this.sampler.stop()
+        }
+
+        return this.sampler.sample(Math.max(0, sampleTime)).value
+    }
+
+    /**
+     * The value now, as WAAPI doesn't set the motion value while it runs.
+     */
+    liveValue() {
+        const { state } = this
+
+        if (state === "running" || state === "paused") {
+            return this.sample(this.elapsed())
+        }
+    }
+
     /**
      * WAAPI doesn't natively have any interruption capabilities.
      *
      * Rather than read committed styles back out of the DOM, we can
-     * create a renderless JS animation and sample it twice to calculate
-     * its current value, "previous" value, and therefore allow
-     * Motion to calculate velocity for any subsequent animation.
+     * sample a renderless JS animation twice to calculate its current
+     * value, "previous" value, and therefore allow Motion to calculate
+     * velocity for any subsequent animation.
      */
     updateMotionValue(value?: T) {
-        const { motionValue, onUpdate, onComplete, element, ...options } =
-            this.options
+        const { motionValue, element, name } = this.options
 
         if (!motionValue) return
 
@@ -76,34 +126,25 @@ export class NativeAnimationExtended<
             return
         }
 
-        const sampleAnimation = new JSAnimation({
-            ...options,
-            autoplay: false,
-        })
-
-        /**
-         * Use wall-clock elapsed time for sampling.
-         * Under CPU load, WAAPI's currentTime may not reflect actual
-         * elapsed time, causing incorrect sampling and visual jumps.
-         */
-        const sampleTime = Math.max(sampleDelta, time.now() - this.startTime)
-        const delta = clamp(0, sampleDelta, sampleTime - sampleDelta)
-        const current = sampleAnimation.sample(sampleTime).value
+        const { speed } = this
+        const sampleTime = this.elapsed()
+        const delta =
+            this.state === "running" && speed
+                ? clamp(0, sampleDelta, sampleTime)
+                : 0
+        const current = this.sample(sampleTime)
 
         /**
          * Write the estimated value to inline style so it persists
          * after cancel(), covering the async gap before the next
          * animation starts.
          */
-        const { name } = this.options
         if (element && name) setStyle(element, name, current)
 
         motionValue.setWithVelocity(
-            sampleAnimation.sample(Math.max(0, sampleTime - delta)).value,
+            this.sample(sampleTime - delta * Math.sign(speed)),
             current,
-            delta
+            delta / Math.abs(speed || 1)
         )
-
-        sampleAnimation.stop()
     }
 }

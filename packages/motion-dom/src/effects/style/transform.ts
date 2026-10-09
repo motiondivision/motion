@@ -25,7 +25,7 @@ export function buildTransform(state: MotionValueState) {
      */
     for (let i = 0; i < keys.length; i++) {
         const key = keys[i]
-        const value = values[key].get()
+        const value = values[key].getCurrent()
 
         if (value === undefined) continue
 

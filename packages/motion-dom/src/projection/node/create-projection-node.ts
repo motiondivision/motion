@@ -35,6 +35,7 @@ import { mixNumber } from "../../utils/mix/number"
 import { MotionValue, motionValue } from "../../value"
 import { resolveMotionValue } from "../../value/utils/resolve-motion-value"
 import { mixValues } from "../animation/mix-values"
+import { transformGroups } from "../../animation/waapi/transforms/groups"
 import { copyAxisDeltaInto, copyAxisInto, copyBoxInto } from "../geometry/copy"
 import {
     applyBoxDelta,
@@ -118,6 +119,9 @@ function resetDistortingTransform(
         }
     }
 }
+
+const demoteTransforms = ({ instance }: IProjectionNode) =>
+    instance && transformGroups.get(instance)?.demote()
 
 function cancelTreeOptimisedTransformAnimations(
     projectionNode: IProjectionNode
@@ -695,10 +699,18 @@ export function createProjectionNode<I>({
 
             if (this.isLayoutDirty) return
 
+            /**
+             * Accelerated transforms aren't reflected in latestValues or
+             * removed by resetTransform, so move them back to the main
+             * thread before this node, or its ancestors, are measured.
+             */
+            demoteTransforms(this)
+
             this.isLayoutDirty = true
             for (let i = 0; i < this.path.length; i++) {
                 const node = this.path[i]
                 node.shouldResetTransform = true
+                demoteTransforms(node)
 
                 /**
                  * Percentage translates resolve against layoutBox dimensions,
@@ -991,6 +1003,8 @@ export function createProjectionNode<I>({
                 this.isLayoutDirty ||
                 this.shouldResetTransform ||
                 this.options.alwaysMeasureLayout
+
+            isResetRequested && demoteTransforms(this)
 
             const hasProjection =
                 this.projectionDelta && !isDeltaZero(this.projectionDelta)

@@ -19,6 +19,11 @@ import { makeAnimationInstant } from "./utils/make-animation-instant"
 import { resolveStartTime } from "./utils/resolve-start-time"
 import { WithPromise } from "./utils/WithPromise"
 import { supportsBrowserAnimation } from "./waapi/supports/waapi"
+import {
+    canAccelerateTransform,
+    canGroupTransform,
+    TransformAnimation,
+} from "./waapi/transforms/TransformAnimation"
 
 type ResolvedOptions<T extends AnyResolvedKeyframe> =
     ValueAnimationOptions<T> & {
@@ -138,6 +143,12 @@ export class AsyncMotionValueAnimation<T extends AnyResolvedKeyframe>
             canAnimateValue && !isHandoff && supportsBrowserAnimation(options)
 
         /**
+         * Independent transforms (x, scale etc) on an HTML element are
+         * composed into one WAAPI transform animation per element.
+         */
+        const isGroupedTransform = !useWaapi && canGroupTransform(options)
+
+        /**
          * Resolve startTime for the animation. A startTime passed in options
          * (an optimised appear handoff syncing to its WAAPI animation) takes
          * precedence.
@@ -152,7 +163,12 @@ export class AsyncMotionValueAnimation<T extends AnyResolvedKeyframe>
          * animation started in that moment stays in sync. WAAPI has no frame
          * of ours to do that on.
          */
-        if (sync && (useWaapi || this.resolvedAt !== this.createdAt)) {
+        if (
+            sync &&
+            (useWaapi ||
+                isGroupedTransform ||
+                this.resolvedAt !== this.createdAt)
+        ) {
             options.startTime ??= resolveStartTime(
                 this.createdAt,
                 this.resolvedAt!
@@ -172,6 +188,11 @@ export class AsyncMotionValueAnimation<T extends AnyResolvedKeyframe>
             } catch {
                 animation = new JSAnimation(options)
             }
+        } else if (isGroupedTransform) {
+            animation = new TransformAnimation(
+                options,
+                !isHandoff && canAccelerateTransform(options)
+            )
         } else {
             animation = new JSAnimation(options)
         }
@@ -190,6 +211,15 @@ export class AsyncMotionValueAnimation<T extends AnyResolvedKeyframe>
 
     then(onResolve: VoidFunction, _onReject?: VoidFunction) {
         return this.finished.finally(onResolve).then(() => {})
+    }
+
+    /**
+     * The value now, if the animation runs on the compositor.
+     */
+    liveValue() {
+        return (
+            this._animation as { liveValue?: () => T | undefined } | undefined
+        )?.liveValue?.()
     }
 
     get animation(): AnimationPlaybackControls {

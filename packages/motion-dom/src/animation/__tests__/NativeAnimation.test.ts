@@ -65,6 +65,32 @@ describe("NativeAnimation - onfinish style commit", () => {
          */
         expect(element.style.opacity).toBe("1")
     })
+
+    test("doesn't leave a frame driver running after sampling its value", () => {
+        const running = new Set<object>()
+        const driver = () => {
+            const controls = {
+                start: () => running.add(controls),
+                stop: () => running.delete(controls),
+                now: () => 0,
+            }
+            return controls
+        }
+
+        const animation = new NativeAnimationExtended({
+            element: document.createElement("div"),
+            name: "opacity",
+            keyframes: [0, 1],
+            motionValue: motionValue(0),
+            duration: 300,
+            driver,
+        } as any)
+
+        animation.liveValue()
+        animation.updateMotionValue()
+
+        expect(running.size).toBe(0)
+    })
 })
 
 describe("NativeAnimation - attachTimeline", () => {

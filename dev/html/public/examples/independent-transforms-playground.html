@@ -1,0 +1,1488 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Independent Transforms Playground</title>
+        <style>
+            :root {
+                --bg: #f4f4f1;
+                --surface: #ffffff;
+                --sunken: #ecece7;
+                --fg: #16171a;
+                --muted: #686b73;
+                --line: #dcdcd5;
+                --accent: #4b47e0;
+                --accent-fg: #ffffff;
+                --ref: #9a9ca3;
+                --gpu: #138a43;
+                --gpu-tint: rgba(19, 138, 67, 0.12);
+                --cpu: #c26a00;
+                --cpu-tint: rgba(194, 106, 0, 0.14);
+                --long: #d12f3a;
+            }
+            @media (prefers-color-scheme: dark) {
+                :root:not([data-theme="light"]) {
+                    --bg: #111214;
+                    --surface: #1a1b1f;
+                    --sunken: #141518;
+                    --fg: #ececee;
+                    --muted: #9a9da6;
+                    --line: #2c2e34;
+                    --accent: #8c8aff;
+                    --accent-fg: #111214;
+                    --ref: #6c6f78;
+                    --gpu: #3fcf7b;
+                    --gpu-tint: rgba(63, 207, 123, 0.13);
+                    --cpu: #f0a43a;
+                    --cpu-tint: rgba(240, 164, 58, 0.15);
+                    --long: #ff5c66;
+                    color-scheme: dark;
+                }
+            }
+            :root[data-theme="dark"] {
+                --bg: #111214;
+                --surface: #1a1b1f;
+                --sunken: #141518;
+                --fg: #ececee;
+                --muted: #9a9da6;
+                --line: #2c2e34;
+                --accent: #8c8aff;
+                --accent-fg: #111214;
+                --ref: #6c6f78;
+                --gpu: #3fcf7b;
+                --gpu-tint: rgba(63, 207, 123, 0.13);
+                --cpu: #f0a43a;
+                --cpu-tint: rgba(240, 164, 58, 0.15);
+                --long: #ff5c66;
+                color-scheme: dark;
+            }
+
+            * {
+                box-sizing: border-box;
+            }
+            [hidden] {
+                display: none !important;
+            }
+            body {
+                margin: 0;
+                background: var(--bg);
+                color: var(--fg);
+                font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto,
+                    sans-serif;
+            }
+            .page {
+                max-width: 1280px;
+                margin: 0 auto;
+                padding: 24px 16px 48px;
+                display: grid;
+                gap: 20px;
+            }
+            header h1 {
+                margin: 0;
+                font-size: 20px;
+                text-wrap: balance;
+            }
+            header p {
+                margin: 4px 0 0;
+                color: var(--muted);
+                max-width: 70ch;
+            }
+            .layout {
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) 360px;
+                gap: 20px;
+                align-items: start;
+            }
+            @media (max-width: 920px) {
+                .layout {
+                    grid-template-columns: minmax(0, 1fr);
+                }
+            }
+            .column {
+                display: grid;
+                gap: 16px;
+                min-width: 0;
+            }
+            .panel {
+                background: var(--surface);
+                border: 1px solid var(--line);
+                border-radius: 10px;
+                padding: 14px;
+                display: grid;
+                align-content: start;
+                gap: 12px;
+                min-width: 0;
+            }
+            .panel h2 {
+                margin: 0;
+                font-size: 11px;
+                font-weight: 600;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+                color: var(--muted);
+            }
+            .warning {
+                margin: 0;
+                padding: 10px 14px;
+                border-radius: 8px;
+                border: 1px solid var(--cpu);
+                background: var(--cpu-tint);
+                max-width: 80ch;
+            }
+            .hint {
+                margin: 0;
+                font-size: 12px;
+                color: var(--muted);
+            }
+
+            /* Stage */
+            .stage {
+                display: grid;
+                border: 1px solid var(--line);
+                border-radius: 10px;
+                overflow: hidden;
+                background: var(--sunken);
+            }
+            .lane {
+                position: relative;
+                height: 170px;
+                overflow: hidden;
+                background-image: linear-gradient(
+                    to right,
+                    var(--line) 1px,
+                    transparent 1px
+                );
+                background-size: 50px 100%;
+                background-position: 49px 0;
+            }
+            .lane + .lane {
+                border-top: 1px solid var(--line);
+            }
+            .lane-label {
+                position: absolute;
+                top: 8px;
+                left: 10px;
+                display: flex;
+                gap: 8px;
+                align-items: center;
+                font-size: 12px;
+                color: var(--muted);
+                z-index: 1;
+            }
+            .box {
+                position: absolute;
+                left: 24px;
+                top: 57px;
+                width: 56px;
+                height: 56px;
+                border-radius: 10px;
+            }
+            #box {
+                background: var(--accent);
+            }
+            #ref {
+                border: 2px dashed var(--ref);
+                background: transparent;
+            }
+            .pill {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                padding: 2px 8px;
+                border-radius: 999px;
+                font-size: 12px;
+                font-weight: 600;
+                border: 1px solid var(--line);
+                background: var(--surface);
+                color: var(--muted);
+            }
+            .pill::before {
+                content: "";
+                width: 7px;
+                height: 7px;
+                border-radius: 50%;
+                background: currentColor;
+            }
+            .pill[data-mode="compositor"] {
+                color: var(--gpu);
+                border-color: var(--gpu);
+            }
+            .pill[data-mode="main"] {
+                color: var(--cpu);
+                border-color: var(--cpu);
+            }
+
+            /* Readouts */
+            .readouts {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+                gap: 16px;
+            }
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                font-variant-numeric: tabular-nums;
+                font-size: 13px;
+            }
+            th,
+            td {
+                text-align: right;
+                padding: 3px 0;
+                border-bottom: 1px solid var(--line);
+            }
+            th:first-child,
+            td:first-child {
+                text-align: left;
+                color: var(--muted);
+                font-weight: 400;
+            }
+            th {
+                font-weight: 600;
+                font-size: 12px;
+            }
+            .mono {
+                font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+                font-size: 12px;
+            }
+            .waapi {
+                display: grid;
+                gap: 6px;
+                overflow-wrap: anywhere;
+            }
+            .waapi div {
+                padding: 6px 8px;
+                border-radius: 6px;
+                background: var(--sunken);
+            }
+            canvas {
+                width: 100%;
+                height: 190px;
+                display: block;
+            }
+            .legend {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 14px;
+                font-size: 12px;
+                color: var(--muted);
+            }
+            .legend span::before {
+                content: "";
+                display: inline-block;
+                width: 14px;
+                height: 3px;
+                margin-right: 6px;
+                vertical-align: middle;
+                background: var(--c);
+            }
+            #log {
+                margin: 0;
+                padding: 0;
+                list-style: none;
+                max-height: 220px;
+                overflow: auto;
+                display: grid;
+                gap: 2px;
+            }
+            #log li {
+                display: grid;
+                grid-template-columns: 4.5em minmax(0, 1fr);
+                gap: 8px;
+            }
+            #log time {
+                color: var(--muted);
+                font-variant-numeric: tabular-nums;
+            }
+            #log .to-main {
+                color: var(--cpu);
+            }
+            #log .to-compositor {
+                color: var(--gpu);
+            }
+            pre {
+                margin: 0;
+                padding: 10px;
+                border-radius: 6px;
+                background: var(--sunken);
+                overflow-x: auto;
+            }
+
+            /* Controls */
+            .field {
+                display: grid;
+                grid-template-columns: 6.5em minmax(0, 1fr) 4em;
+                align-items: center;
+                gap: 8px;
+                font-size: 13px;
+            }
+            .field output {
+                text-align: right;
+                font-variant-numeric: tabular-nums;
+                color: var(--muted);
+            }
+            .field select {
+                grid-column: span 2;
+            }
+            input[type="range"] {
+                width: 100%;
+                accent-color: var(--accent);
+            }
+            select {
+                font: inherit;
+                padding: 4px 6px;
+                border-radius: 6px;
+                border: 1px solid var(--line);
+                background: var(--surface);
+                color: var(--fg);
+            }
+            .check {
+                display: flex;
+                gap: 8px;
+                align-items: center;
+                font-size: 13px;
+            }
+            .value-row {
+                grid-template-columns: 6.5em minmax(0, 1fr) 4em;
+            }
+            .value-row label {
+                display: flex;
+                gap: 6px;
+                align-items: center;
+            }
+            .buttons {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+            button {
+                font: inherit;
+                font-size: 13px;
+                font-weight: 600;
+                padding: 7px 12px;
+                border-radius: 7px;
+                border: 1px solid var(--line);
+                background: var(--surface);
+                color: var(--fg);
+                cursor: pointer;
+            }
+            button:hover {
+                border-color: var(--muted);
+            }
+            button.primary {
+                background: var(--accent);
+                border-color: var(--accent);
+                color: var(--accent-fg);
+            }
+            button[aria-pressed="true"] {
+                background: var(--cpu-tint);
+                border-color: var(--cpu);
+            }
+            .segmented {
+                display: inline-flex;
+                border: 1px solid var(--line);
+                border-radius: 7px;
+                overflow: hidden;
+            }
+            .segmented label {
+                padding: 5px 12px;
+                cursor: pointer;
+                font-size: 13px;
+            }
+            .segmented input {
+                position: absolute;
+                opacity: 0;
+                pointer-events: none;
+            }
+            .segmented label:has(input:checked) {
+                background: var(--accent);
+                color: var(--accent-fg);
+            }
+            .group {
+                display: grid;
+                gap: 8px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="page">
+            <header>
+                <h1>Independent transforms playground</h1>
+                <p>
+                    The filled box animates <code>x</code>, <code>y</code>,
+                    <code>scale</code> and <code>rotate</code> with
+                    <code>animate(element)</code>, which runs them as one WAAPI
+                    <code>transform</code> animation when it can. The dashed box
+                    runs the same animations on the main thread, for comparison.
+                    Change the settings, interrupt the animation and watch when
+                    the filled box moves between the compositor and the main
+                    thread.
+                </p>
+            </header>
+
+            <p class="warning" id="warning" hidden></p>
+
+            <div class="layout">
+                <div class="column">
+                    <div class="stage" id="stage">
+                        <div class="lane">
+                            <div class="lane-label">
+                                WAAPI group
+                                <span class="pill" id="mode" data-mode="idle"
+                                    >At rest</span
+                                >
+                            </div>
+                            <div class="box" id="box"></div>
+                        </div>
+                        <div class="lane">
+                            <div class="lane-label">
+                                Main-thread reference (motion values)
+                            </div>
+                            <div class="box" id="ref"></div>
+                        </div>
+                    </div>
+
+                    <div class="readouts">
+                        <section class="panel">
+                            <h2>Values now</h2>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th></th>
+                                        <th>WAAPI group</th>
+                                        <th>Reference</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="values"></tbody>
+                            </table>
+                            <p class="hint" id="playback-state"></p>
+                        </section>
+                        <section class="panel">
+                            <h2>WAAPI animations on the element</h2>
+                            <div class="waapi mono" id="waapi"></div>
+                        </section>
+                    </div>
+
+                    <section class="panel">
+                        <h2>Velocity per frame</h2>
+                        <label class="check"
+                            >Plot
+                            <select id="plot">
+                                <option value="x">x (px/s)</option>
+                                <option value="y">y (px/s)</option>
+                                <option value="scale">scale (/s)</option>
+                                <option value="rotate">rotate (deg/s)</option>
+                            </select>
+                        </label>
+                        <canvas id="chart"></canvas>
+                        <div class="legend">
+                            <span style="--c: var(--accent)">WAAPI group</span>
+                            <span style="--c: var(--ref)">Reference</span>
+                            <span style="--c: var(--gpu)"
+                                >On the compositor</span
+                            >
+                            <span style="--c: var(--cpu)"
+                                >On the main thread</span
+                            >
+                            <span style="--c: var(--long)"
+                                >Main-thread frame over 25 ms</span
+                            >
+                        </div>
+                        <p class="hint">
+                            A hand-off without a drop keeps the line continuous
+                            where the band colour changes. Each frame is timed
+                            with the clock that drew it: the document timeline
+                            for WAAPI, Motion's frame timestamp for the main
+                            thread.
+                        </p>
+                    </section>
+
+                    <section class="panel">
+                        <h2>Last call</h2>
+                        <pre class="mono" id="code"></pre>
+                    </section>
+
+                    <section class="panel">
+                        <h2>Log</h2>
+                        <ol id="log" class="mono"></ol>
+                    </section>
+                </div>
+
+                <div class="column">
+                    <section class="panel">
+                        <h2>Values</h2>
+                        <div class="group" id="value-fields"></div>
+                        <div class="buttons">
+                            <button class="primary" id="animate">
+                                Animate to values
+                            </button>
+                            <button id="back">Back to start</button>
+                            <button id="reset">Reset</button>
+                        </div>
+                    </section>
+
+                    <section class="panel">
+                        <h2>Transition</h2>
+                        <div class="segmented" role="radiogroup">
+                            <label
+                                ><input
+                                    type="radio"
+                                    name="type"
+                                    value="tween"
+                                    checked
+                                />Tween</label
+                            >
+                            <label
+                                ><input
+                                    type="radio"
+                                    name="type"
+                                    value="spring"
+                                />Spring</label
+                            >
+                        </div>
+                        <div class="group" id="tween-fields">
+                            <label class="field"
+                                >Duration
+                                <input
+                                    id="duration"
+                                    type="range"
+                                    min="0.1"
+                                    max="5"
+                                    step="0.1"
+                                    value="2"
+                                /><output></output>
+                            </label>
+                            <label class="field"
+                                >Ease
+                                <select id="ease">
+                                    <option>linear</option>
+                                    <option>easeIn</option>
+                                    <option>easeOut</option>
+                                    <option selected>easeInOut</option>
+                                    <option>circOut</option>
+                                    <option>backOut</option>
+                                    <option>backInOut</option>
+                                    <option>anticipate</option>
+                                    <option value="bezier">
+                                        [0.7, 0, 0.2, 1]
+                                    </option>
+                                    <option value="function">
+                                        JS function (wobble)
+                                    </option>
+                                </select>
+                            </label>
+                        </div>
+                        <div class="group" id="spring-fields" hidden>
+                            <label class="field"
+                                >Stiffness
+                                <input
+                                    id="stiffness"
+                                    type="range"
+                                    min="10"
+                                    max="1000"
+                                    step="10"
+                                    value="120"
+                                /><output></output>
+                            </label>
+                            <label class="field"
+                                >Damping
+                                <input
+                                    id="damping"
+                                    type="range"
+                                    min="1"
+                                    max="80"
+                                    step="1"
+                                    value="10"
+                                /><output></output>
+                            </label>
+                            <label class="field"
+                                >Mass
+                                <input
+                                    id="mass"
+                                    type="range"
+                                    min="0.1"
+                                    max="5"
+                                    step="0.1"
+                                    value="1"
+                                /><output></output>
+                            </label>
+                        </div>
+                        <label class="field"
+                            >Delay
+                            <input
+                                id="delay"
+                                type="range"
+                                min="0"
+                                max="2"
+                                step="0.05"
+                                value="0"
+                            /><output></output>
+                        </label>
+                        <label class="field"
+                            >Stagger
+                            <input
+                                id="stagger"
+                                type="range"
+                                min="0"
+                                max="0.5"
+                                step="0.05"
+                                value="0"
+                            /><output></output>
+                        </label>
+                        <label class="field"
+                            >Repeat
+                            <select id="repeat">
+                                <option value="0">0</option>
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="Infinity">Infinity</option>
+                            </select>
+                        </label>
+                        <label class="field"
+                            >Repeat type
+                            <select id="repeatType">
+                                <option>loop</option>
+                                <option>reverse</option>
+                                <option>mirror</option>
+                            </select>
+                        </label>
+                        <label class="field"
+                            >Repeat delay
+                            <input
+                                id="repeatDelay"
+                                type="range"
+                                min="0"
+                                max="1"
+                                step="0.05"
+                                value="0"
+                            /><output></output>
+                        </label>
+                        <label class="check"
+                            ><input type="checkbox" id="ySpring" />y has its own
+                            bouncy spring</label
+                        >
+                        <label class="check"
+                            ><input type="checkbox" id="overshoot" />Keyframes
+                            that overshoot: [null, past, target]</label
+                        >
+                        <p class="hint">
+                            Values that share one eased progress use two
+                            keyframes. Stagger, a separate y spring or keyframes
+                            make the group sample its keyframes.
+                        </p>
+                    </section>
+
+                    <section class="panel">
+                        <h2>Interrupt</h2>
+                        <div class="buttons">
+                            <button id="random">Random target</button>
+                            <button id="random-spring">
+                                Random target, spring
+                            </button>
+                            <button id="x-only">New x only</button>
+                        </div>
+                        <p class="hint">
+                            An interruption starts from the current value and
+                            velocity. "New x only" leaves the other values
+                            running.
+                        </p>
+                    </section>
+
+                    <section class="panel">
+                        <h2>Playback (last call)</h2>
+                        <div class="buttons">
+                            <button id="pause">Pause</button>
+                            <button id="play">Play</button>
+                            <button id="stop">Stop</button>
+                            <button id="complete">Complete</button>
+                            <button id="cancel">Cancel</button>
+                        </div>
+                        <label class="field"
+                            >Speed
+                            <input
+                                id="speed"
+                                type="range"
+                                min="-2"
+                                max="3"
+                                step="0.25"
+                                value="1"
+                            /><output></output>
+                        </label>
+                        <label class="field"
+                            >Time
+                            <input
+                                id="time"
+                                type="range"
+                                min="0"
+                                max="2"
+                                step="0.01"
+                                value="0"
+                            /><output></output>
+                        </label>
+                        <p class="hint">
+                            Pause, play, speed and seeks inside the built WAAPI
+                            animation stay on the compositor. Negative speed, or
+                            fast scrubbing outside it, moves to the main thread.
+                        </p>
+                    </section>
+
+                    <section class="panel">
+                        <h2>Hand-off triggers</h2>
+                        <div class="buttons">
+                            <button id="inertia">Inertia on y</button>
+                            <button id="spin" aria-pressed="false">
+                                Write skewX every frame
+                            </button>
+                            <button id="seek">Seek to 0 twice</button>
+                        </div>
+                        <p class="hint">
+                            Inertia needs a value each frame, so the group moves
+                            to the main thread and comes back when it ends.
+                            Outside writes (like drag) keep it on the main
+                            thread until the animations end. Seeks inside the
+                            built WAAPI animation are free. It starts a frame
+                            in, or later after a rebuild, so seeking to 0 twice
+                            moves to the main thread.
+                        </p>
+                    </section>
+
+                    <section class="panel">
+                        <h2>Main thread load</h2>
+                        <div class="buttons">
+                            <button id="block">Block for 1 s</button>
+                            <button id="busy" aria-pressed="false">
+                                40 ms of work every frame
+                            </button>
+                        </div>
+                        <p class="hint">
+                            The reference stutters. The WAAPI group keeps moving
+                            while it is on the compositor.
+                        </p>
+                    </section>
+                </div>
+            </div>
+        </div>
+
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            const {
+                animate,
+                frame,
+                cancelFrame,
+                motionValue,
+                styleEffect,
+                GroupAnimation,
+            } = window.Motion
+
+            const $ = (id) => document.getElementById(id)
+            const box = $("box")
+            const ref = $("ref")
+
+            /**
+             * Values
+             */
+            const fields = {
+                x: { min: -100, max: 500, step: 5, target: 300, start: 0 },
+                y: { min: -50, max: 50, step: 1, target: 30, start: 0 },
+                scale: {
+                    min: 0.3,
+                    max: 1.8,
+                    step: 0.05,
+                    target: 1.4,
+                    start: 1,
+                },
+                rotate: { min: -360, max: 360, step: 5, target: 90, start: 0 },
+            }
+            const keys = Object.keys(fields)
+            const refValues = {}
+            const lastTarget = {}
+
+            for (const key of keys) {
+                const { min, max, step, target, start } = fields[key]
+                const row = document.createElement("div")
+                row.className = "field value-row"
+                row.innerHTML = `<label><input type="checkbox" id="use-${key}" checked />${key}</label><input id="to-${key}" type="range" min="${min}" max="${max}" step="${step}" value="${target}" /><output></output>`
+                $("value-fields").append(row)
+                refValues[key] = motionValue(start)
+                lastTarget[key] = start
+                $("values").insertAdjacentHTML(
+                    "beforeend",
+                    `<tr><td>${key}</td><td id="box-${key}"></td><td id="ref-${key}"></td></tr>`
+                )
+            }
+            styleEffect(ref, refValues)
+
+            // Keep x targets inside the stage.
+            const fitStage = () => {
+                const max = Math.max(
+                    100,
+                    Math.floor(($("stage").clientWidth - 110) / 5) * 5
+                )
+                $("to-x").max = max
+                if (+$("to-x").value > max) $("to-x").value = max
+                showOutputs()
+            }
+
+            const showOutputs = () => {
+                for (const output of document.querySelectorAll("output")) {
+                    const input = output.previousElementSibling
+                    output.textContent = input.value
+                }
+            }
+            document.addEventListener("input", showOutputs)
+
+            for (const radio of document.querySelectorAll("[name=type]")) {
+                radio.addEventListener("change", () => {
+                    const isSpring = read().type === "spring"
+                    $("tween-fields").hidden = isSpring
+                    $("spring-fields").hidden = !isSpring
+                })
+            }
+
+            const wobble = (p) => p + Math.sin(p * Math.PI * 3) * 0.12 * (1 - p)
+
+            const read = () => ({
+                type: document.querySelector("[name=type]:checked").value,
+                duration: +$("duration").value,
+                ease: $("ease").value,
+                stiffness: +$("stiffness").value,
+                damping: +$("damping").value,
+                mass: +$("mass").value,
+                delay: +$("delay").value,
+                stagger: +$("stagger").value,
+                repeat: Number($("repeat").value),
+                repeatType: $("repeatType").value,
+                repeatDelay: +$("repeatDelay").value,
+                ySpring: $("ySpring").checked,
+                overshoot: $("overshoot").checked,
+            })
+
+            const easeFor = (ease) =>
+                ease === "bezier"
+                    ? [0.7, 0, 0.2, 1]
+                    : ease === "function"
+                    ? wobble
+                    : ease
+
+            /**
+             * Build each value's transition from the form. override
+             * replaces the type settings (for the spring interrupt).
+             */
+            const transitionFor = (key, index, settings, override) => {
+                const s = settings
+                let transition =
+                    s.type === "spring"
+                        ? {
+                              type: "spring",
+                              stiffness: s.stiffness,
+                              damping: s.damping,
+                              mass: s.mass,
+                          }
+                        : { duration: s.duration, ease: easeFor(s.ease) }
+                if (key === "y" && s.ySpring) {
+                    transition = { type: "spring", stiffness: 300, damping: 8 }
+                }
+                if (override) transition = { ...override }
+                const delay = round(s.delay + index * s.stagger)
+                if (delay) transition.delay = delay
+                if (s.repeat) {
+                    transition.repeat = s.repeat
+                    transition.repeatType = s.repeatType
+                    if (s.repeatDelay) transition.repeatDelay = s.repeatDelay
+                }
+                return transition
+            }
+
+            const round = (v) => Math.round(v * 100) / 100
+
+            /**
+             * Show the last call as code.
+             */
+            const toCode = (value) =>
+                JSON.stringify(
+                    value,
+                    (_, v) =>
+                        v === Infinity
+                            ? "__Infinity__"
+                            : typeof v === "function"
+                            ? "__wobble__"
+                            : v,
+                    4
+                )
+                    .replace(/"__Infinity__"/g, "Infinity")
+                    .replace(/"__wobble__"/g, "wobble")
+                    .replace(/"(\w+)":/g, "$1:")
+                    // Keep arrays of numbers on one line.
+                    .replace(
+                        /\[([^[\]{}]*)\]/g,
+                        (_, items) =>
+                            `[${items.trim().split(/,\s*/).join(", ")}]`
+                    )
+
+            const showCode = (values, transition) => {
+                $("code").textContent = `animate(element, ${toCode(
+                    values
+                )}, ${toCode(transition)})`
+            }
+
+            /**
+             * The last call's animations, on the box and the reference.
+             */
+            let current = null
+
+            const run = (targets, label, override) => {
+                const settings = read()
+                const values = {}
+                const transition = {}
+                const refAnimations = []
+                Object.keys(targets).forEach((key, i) => {
+                    const to = targets[key]
+                    values[key] = settings.overshoot
+                        ? [null, round(to + (to - lastTarget[key]) * 0.3), to]
+                        : to
+                    transition[key] = transitionFor(key, i, settings, override)
+                    lastTarget[key] = to
+                    refAnimations.push(
+                        animate(refValues[key], values[key], transition[key])
+                    )
+                })
+
+                const transitions = Object.values(transition)
+                const shared = transitions.every(
+                    (t) => toCode(t) === toCode(transitions[0])
+                )
+                showCode(values, shared ? transitions[0] : transition)
+
+                current = {
+                    box: animate(box, values, transition),
+                    ref: new GroupAnimation(refAnimations),
+                }
+                $("speed").value = 1
+                showOutputs()
+                log(label)
+            }
+
+            const enabledKeys = () =>
+                keys.filter((key) => $(`use-${key}`).checked)
+
+            const formTargets = () => {
+                const targets = {}
+                for (const key of enabledKeys()) {
+                    targets[key] = +$(`to-${key}`).value
+                }
+                return targets
+            }
+
+            const randomTargets = (only = enabledKeys()) => {
+                const targets = {}
+                for (const key of only) {
+                    const { min, max, step } = fields[key]
+                    const top = key === "x" ? +$("to-x").max : max
+                    targets[key] = round(
+                        Math.round((min + Math.random() * (top - min)) / step) *
+                            step
+                    )
+                }
+                return targets
+            }
+
+            const startTargets = () => {
+                const targets = {}
+                for (const key of keys) targets[key] = fields[key].start
+                return targets
+            }
+
+            const describe = (targets) =>
+                Object.entries(targets)
+                    .map(([k, v]) => `${k} ${v}`)
+                    .join(", ")
+
+            $("animate").onclick = () => {
+                const targets = formTargets()
+                run(targets, `Animate to ${describe(targets)}`)
+            }
+            $("back").onclick = () => run(startTargets(), "Back to start")
+            $("reset").onclick = () => {
+                current?.box.cancel()
+                current?.ref.cancel()
+                stopSpin()
+                const targets = startTargets()
+                animate(box, targets, { duration: 0 })
+                for (const key of keys) {
+                    refValues[key].stop()
+                    refValues[key].set(targets[key])
+                    lastTarget[key] = targets[key]
+                }
+                current = null
+                log("Reset")
+            }
+            $("random").onclick = () => {
+                const targets = randomTargets()
+                run(targets, `Interrupt: ${describe(targets)}`)
+            }
+            $("random-spring").onclick = () => {
+                const targets = randomTargets()
+                run(targets, `Interrupt with spring: ${describe(targets)}`, {
+                    type: "spring",
+                    stiffness: 200,
+                    damping: 14,
+                })
+            }
+            $("x-only").onclick = () => {
+                const targets = randomTargets(["x"])
+                run(targets, `Interrupt x only: ${describe(targets)}`)
+            }
+
+            /**
+             * Playback
+             */
+            const both = (fn, label) => {
+                if (!current) return
+                fn(current.box)
+                fn(current.ref)
+                log(label)
+            }
+            $("pause").onclick = () => both((a) => a.pause(), "pause()")
+            $("play").onclick = () => both((a) => a.play(), "play()")
+            $("stop").onclick = () => both((a) => a.stop(), "stop()")
+            $("complete").onclick = () =>
+                both((a) => a.complete(), "complete()")
+            $("cancel").onclick = () => both((a) => a.cancel(), "cancel()")
+            $("speed").oninput = () => {
+                const speed = +$("speed").value
+                both((a) => (a.speed = speed), `speed = ${speed}`)
+            }
+
+            let isScrubbing = false
+            let lastScrubLog = 0
+            $("time").onpointerdown = () => (isScrubbing = true)
+            $("time").onpointerup = () => (isScrubbing = false)
+            $("time").oninput = () => {
+                const time = +$("time").value
+                if (!current) return
+                current.box.time = time
+                current.ref.time = time
+                // Log scrubbing at most every 250ms.
+                if (performance.now() - lastScrubLog > 250) {
+                    lastScrubLog = performance.now()
+                    log(`time = ${time}`)
+                }
+            }
+
+            /**
+             * Hand-off triggers
+             */
+            $("inertia").onclick = () => {
+                const y = round(readTransform(box).y)
+                const velocity = y > 0 ? -400 : 400
+                const options = {
+                    type: "inertia",
+                    velocity,
+                    power: 0.12,
+                    timeConstant: 250,
+                }
+                /**
+                 * Inertia starts from the first keyframe and works out its
+                 * own target. Keyframes that don't change would be instant.
+                 */
+                const keyframes = [y, round(y + velocity * options.power)]
+                animate(box, { y: keyframes }, options)
+                animate(refValues.y, keyframes, options)
+                $("code").textContent = `animate(element, ${toCode({
+                    y: keyframes,
+                })}, ${toCode(options)})`
+                log(`Inertia on y, velocity ${velocity}`)
+            }
+
+            /**
+             * Another transform written every frame from outside the
+             * animations, like a drag gesture or a scroll-linked value.
+             */
+            const skewX = motionValue(0)
+            let removeSkew = null
+            const spin = ({ timestamp }) =>
+                skewX.set(round(Math.sin(timestamp / 150) * 12))
+            const stopSpin = () => {
+                if (!removeSkew) return
+                cancelFrame(spin)
+                skewX.set(0)
+                removeSkew()
+                removeSkew = null
+                $("spin").setAttribute("aria-pressed", "false")
+                log("Stop writing skewX")
+            }
+            $("spin").onclick = () => {
+                if (removeSkew) return stopSpin()
+                removeSkew = styleEffect(box, { skewX })
+                frame.update(spin, true)
+                $("spin").setAttribute("aria-pressed", "true")
+                log("Write skewX every frame")
+            }
+
+            $("seek").onclick = () => {
+                if (!current) return
+                both((a) => (a.time = 0), "time = 0")
+                setTimeout(() => both((a) => (a.time = 0), "time = 0"), 20)
+            }
+
+            /**
+             * Main thread load
+             */
+            const work = (ms) => {
+                const end = performance.now() + ms
+                while (performance.now() < end) {}
+            }
+            $("block").onclick = () => {
+                log("Block the main thread for 1 s")
+                setTimeout(() => work(1000), 0)
+            }
+            const busy = () => work(40)
+            $("busy").onclick = () => {
+                const isOn = $("busy").getAttribute("aria-pressed") === "true"
+                if (isOn) cancelFrame(busy)
+                else frame.read(busy, true)
+                $("busy").setAttribute("aria-pressed", String(!isOn))
+                log(isOn ? "Stop the frame work" : "40 ms of work every frame")
+            }
+
+            /**
+             * Log
+             */
+            const startTime = performance.now()
+            const log = (text, className = "") => {
+                const item = document.createElement("li")
+                const seconds = (performance.now() - startTime) / 1000
+                item.innerHTML = `<time>${seconds.toFixed(
+                    2
+                )}s</time><span class="${className}"></span>`
+                item.lastChild.textContent = text
+                $("log").prepend(item)
+                while ($("log").children.length > 60)
+                    $("log").lastChild.remove()
+            }
+
+            /**
+             * Readouts
+             */
+            const readTransform = (element) => {
+                const matrix = new DOMMatrixReadOnly(
+                    getComputedStyle(element).transform
+                )
+                return {
+                    x: matrix.m41,
+                    y: matrix.m42,
+                    scale: Math.hypot(matrix.a, matrix.b),
+                    rotate: (Math.atan2(matrix.b, matrix.a) * 180) / Math.PI,
+                }
+            }
+
+            const transformAnimations = (element) =>
+                element
+                    .getAnimations()
+                    .filter((animation) =>
+                        animation.effect
+                            .getKeyframes()
+                            .some((keyframe) => "transform" in keyframe)
+                    )
+
+            const modeText = {
+                compositor: "On the compositor",
+                main: "On the main thread",
+                idle: "At rest",
+            }
+
+            const describeAnimation = (animation, i) => {
+                const timing = animation.effect.getTiming()
+                const keyframes = animation.effect.getKeyframes()
+                const easing =
+                    timing.easing.length > 70
+                        ? timing.easing.slice(0, 70) + "…)"
+                        : timing.easing
+                return [
+                    `#${i + 1} ${animation.playState}, ${
+                        keyframes.length
+                    } keyframes`,
+                    `duration ${round(timing.duration)}ms, iterations ${
+                        timing.iterations
+                    }`,
+                    timing.iterationStart
+                        ? `iterationStart ${round(timing.iterationStart)}`
+                        : "",
+                    `playbackRate ${
+                        animation.playbackRate
+                    }, currentTime ${round(animation.currentTime ?? 0)}ms`,
+                    `easing ${easing}`,
+                ]
+                    .filter(Boolean)
+                    .join("\n")
+            }
+
+            let lastWaapiText = ""
+            let mode = "idle"
+            let lastInline = ""
+            let changes = 0
+            let previous = null
+            const history = []
+            const windowMs = 5000
+
+            const record = ({ timestamp }) => {
+                const animations = transformAnimations(box)
+                const t = document.timeline.currentTime
+                const now = { box: readTransform(box), ref: readTransform(ref) }
+                const inline = box.style.transform
+                changes = inline !== lastInline ? changes + 1 : 0
+                lastInline = inline
+                /**
+                 * JS animations write the inline transform every frame. A
+                 * single write is a commit (a hand-off or the end), so keep
+                 * the mode for that frame.
+                 */
+                const nextMode = animations.length
+                    ? "compositor"
+                    : changes > 1
+                    ? "main"
+                    : changes
+                    ? mode
+                    : "idle"
+
+                if (nextMode !== mode) {
+                    if (nextMode !== "idle" && mode !== "idle") {
+                        log(
+                            `Hand-off: ${modeText[
+                                mode
+                            ].toLowerCase()} → ${modeText[
+                                nextMode
+                            ].toLowerCase()}`,
+                            nextMode === "main" ? "to-main" : "to-compositor"
+                        )
+                    }
+                    mode = nextMode
+                    $("mode").dataset.mode = mode
+                    $("mode").textContent = modeText[mode]
+                }
+
+                for (const key of keys) {
+                    $(`box-${key}`).textContent = now.box[key].toFixed(2)
+                    $(`ref-${key}`).textContent = now.ref[key].toFixed(2)
+                }
+
+                const markers = box.getAnimations().length - animations.length
+                const waapiText = animations.length
+                    ? animations.map(describeAnimation).join("\n\n") +
+                      (markers
+                          ? `\n\n+ ${markers} empty finish marker${
+                                markers > 1 ? "s" : ""
+                            }`
+                          : "")
+                    : "None. Transforms are inline styles."
+                if (waapiText !== lastWaapiText) {
+                    lastWaapiText = waapiText
+                    $("waapi").innerHTML = ""
+                    for (const block of waapiText.split("\n\n")) {
+                        const div = document.createElement("div")
+                        div.style.whiteSpace = "pre-wrap"
+                        div.textContent = block
+                        $("waapi").append(div)
+                    }
+                }
+
+                /**
+                 * animate() returns no animations when every value is
+                 * already at its target.
+                 */
+                if (current?.box.animations.length) {
+                    const { duration, iterationDuration, time, speed, state } =
+                        current.box
+                    const max = Number.isFinite(duration)
+                        ? duration
+                        : iterationDuration * 3
+                    $("time").max = round(max) || 1
+                    if (!isScrubbing) $("time").value = time
+                    $("time").nextElementSibling.textContent = round(time)
+                    $(
+                        "playback-state"
+                    ).textContent = `Last call: ${state}, time ${round(
+                        time
+                    )} s of ${
+                        Number.isFinite(duration)
+                            ? round(duration) + " s"
+                            : "Infinity"
+                    }, speed ${speed}`
+                } else {
+                    $("playback-state").textContent = ""
+                }
+
+                const frameTime = {
+                    box: animations.length ? t : timestamp,
+                    ref: timestamp,
+                }
+                if (previous) {
+                    const sample = {
+                        t,
+                        mode,
+                        isLong: timestamp - previous.timestamp > 25,
+                    }
+                    for (const which of ["box", "ref"]) {
+                        const dt = frameTime[which] - previous.frameTime[which]
+                        sample[which] = {}
+                        for (const key of keys) {
+                            let delta =
+                                now[which][key] - previous.now[which][key]
+                            if (key === "rotate") {
+                                if (delta > 180) delta -= 360
+                                if (delta < -180) delta += 360
+                            }
+                            sample[which][key] =
+                                dt > 0 ? (delta / dt) * 1000 : 0
+                        }
+                    }
+                    history.push(sample)
+                    while (history.length && t - history[0].t > windowMs) {
+                        history.shift()
+                    }
+                }
+                previous = { timestamp, frameTime, now }
+                draw(t)
+            }
+
+            /**
+             * Velocity chart
+             */
+            const canvas = $("chart")
+            const context = canvas.getContext("2d")
+            const token = (name) =>
+                getComputedStyle(document.documentElement)
+                    .getPropertyValue(name)
+                    .trim()
+
+            const draw = (now) => {
+                const ratio = window.devicePixelRatio || 1
+                const width = canvas.clientWidth
+                const height = canvas.clientHeight
+                if (canvas.width !== width * ratio) {
+                    canvas.width = width * ratio
+                    canvas.height = height * ratio
+                }
+                context.setTransform(ratio, 0, 0, ratio, 0, 0)
+                context.clearRect(0, 0, width, height)
+
+                const key = $("plot").value
+                const xAt = (t) => width - ((now - t) / windowMs) * width
+                const top = 8
+                const bottom = height - 14
+                /**
+                 * Scale to most of the samples, so a seek or a reset (a
+                 * deliberate jump) doesn't flatten everything else. Jumps
+                 * are clipped to the edge.
+                 */
+                const speeds = history
+                    .flatMap((s) => [
+                        Math.abs(s.box[key]),
+                        Math.abs(s.ref[key]),
+                    ])
+                    .sort((a, b) => a - b)
+                const typical = speeds[Math.floor(speeds.length * 0.95)] || 0
+                const peak = Math.max(key === "scale" ? 0.5 : 50, typical * 1.3)
+                const middle = (top + bottom) / 2
+                const yAt = (v) =>
+                    middle -
+                    (Math.max(-peak, Math.min(peak, v)) / peak) * (middle - top)
+
+                // Mode bands and long frames.
+                const tints = {
+                    compositor: token("--gpu-tint"),
+                    main: token("--cpu-tint"),
+                }
+                let runStart = 0
+                for (let i = 1; i <= history.length; i++) {
+                    const s = history[i]
+                    const runMode = history[runStart].mode
+                    if (s?.mode === runMode) continue
+                    // One band per run of frames in the same mode.
+                    if (tints[runMode] && i - 1 > runStart) {
+                        const x0 = xAt(history[runStart].t)
+                        context.fillStyle = tints[runMode]
+                        context.fillRect(
+                            x0,
+                            top,
+                            xAt(history[i - 1].t) - x0,
+                            bottom - top
+                        )
+                    }
+                    runStart = i
+                }
+                context.fillStyle = token("--long")
+                for (const s of history) {
+                    if (s.isLong)
+                        context.fillRect(xAt(s.t) - 1, bottom + 4, 2, 8)
+                }
+
+                // Zero line and scale.
+                context.strokeStyle = token("--line")
+                context.lineWidth = 1
+                context.beginPath()
+                context.moveTo(0, middle)
+                context.lineTo(width, middle)
+                context.stroke()
+                context.fillStyle = token("--muted")
+                context.font = "11px ui-monospace, Menlo, monospace"
+                context.fillText(`+${round(peak)}`, 4, top + 10)
+                context.fillText(`-${round(peak)}`, 4, bottom - 2)
+                context.fillText("0", 4, middle - 3)
+
+                const line = (which, color, dash) => {
+                    context.strokeStyle = color
+                    context.lineWidth = 1.5
+                    context.setLineDash(dash)
+                    context.beginPath()
+                    history.forEach((s, i) => {
+                        const x = xAt(s.t)
+                        const y = yAt(s[which][key])
+                        i ? context.lineTo(x, y) : context.moveTo(x, y)
+                    })
+                    context.stroke()
+                    context.setLineDash([])
+                }
+                line("ref", token("--ref"), [4, 3])
+                line("box", token("--accent"), [])
+            }
+
+            fitStage()
+            window.addEventListener("resize", fitStage)
+            frame.postRender(record, true)
+            showCode(formTargets(), transitionFor("x", 0, read()))
+            log("Ready")
+
+            /**
+             * Check that this browser and this Motion build can run
+             * transforms on the compositor, with a short test animation on
+             * a hidden element.
+             */
+            const warn = (text) => {
+                $("warning").textContent = text
+                $("warning").hidden = false
+                log(text, "to-main")
+            }
+            const probe = document.createElement("div")
+            probe.style.cssText = "position:absolute;visibility:hidden"
+            document.body.append(probe)
+            const probeAnimation = animate(probe, { x: 10 }, { duration: 1 })
+            requestAnimationFrame(() =>
+                requestAnimationFrame(() => {
+                    const isAccelerated = transformAnimations(probe).length > 0
+                    probeAnimation.cancel()
+                    probe.remove()
+                    if (isAccelerated) return
+                    warn(
+                        !CSS.supports(
+                            "animation-timing-function",
+                            "linear(0, 1)"
+                        )
+                            ? "This browser doesn't support linear() easing, so transforms stay on the main thread. Use Chrome, Edge, Firefox 112+ or Safari 17.2+."
+                            : "This Motion build runs transforms on the main thread. Run yarn build on the PR branch, then restart the dev server."
+                    )
+                })
+            )
+        </script>
+    </body>
+</html>
