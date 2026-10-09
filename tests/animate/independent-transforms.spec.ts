@@ -406,4 +406,106 @@ test.describe("animate() independent transforms", () => {
         expect(result.count).toBe(0)
         expect(result.x).toBeCloseTo(50)
     })
+
+    test.describe("a spring from px to %", () => {
+        for (const transition of [
+            { type: "spring", stiffness: 300, damping: 30 },
+            { duration: 0.6, ease: "anticipate" },
+        ]) {
+            test(`stays within its target (${
+                transition.type || transition.ease
+            })`, async ({ page }) => {
+                const result = await page.evaluate(async (transition) => {
+                    const element = document.getElementById("a")!
+                    element.style.width = "200px"
+                    const { animate } = window.Motion
+                    await animate(element, { x: 20 }, { duration: 0 })
+                    await window.nextFrames(2)
+                    animate(element, { x: "50%" }, transition)
+                    const xs: number[] = []
+                    for (let i = 0; i < 60; i++) {
+                        xs.push(window.readTransform(element).x)
+                        await window.nextFrames(1)
+                    }
+                    return { max: Math.max(...xs), end: xs[xs.length - 1] }
+                }, transition)
+
+                expect(result.max).toBeLessThan(110)
+                expect(result.end).toBeCloseTo(100, 0)
+            })
+        }
+    })
+
+    test("pause() and time with a delay", async ({ page }) => {
+        const result = await page.evaluate(async () => {
+            const element = document.getElementById("a")!
+            const animation = window.Motion.animate(
+                element,
+                { x: 100 },
+                { duration: 1, delay: 1, ease: "linear" }
+            )
+            await window.wait(1500)
+            animation.pause()
+            await window.nextFrames(3)
+            const paused = animation.time
+
+            // As with WAAPI's currentTime, a seek includes the delay.
+            animation.time = 1.25
+            await window.nextFrames(2)
+            return {
+                paused,
+                time: animation.time,
+                x: window.readTransform(element).x,
+            }
+        })
+
+        expect(result.paused).toBeGreaterThan(0.4)
+        expect(result.paused).toBeLessThan(0.65)
+        expect(result.time).toBeCloseTo(0.25, 2)
+        expect(result.x).toBeCloseTo(25, 0)
+    })
+
+    test("an animation cancelled from outside still finishes", async ({
+        page,
+    }) => {
+        const result = await page.evaluate(async () => {
+            const element = document.getElementById("a")!
+            let finished = false
+            window.Motion.animate(
+                element,
+                { x: 100 },
+                { duration: 0.5, ease: "linear" }
+            ).then(() => (finished = true))
+            await window.wait(200)
+            element.getAnimations().forEach((animation) => animation.cancel())
+            await window.nextFrames(1)
+            const x = window.readTransform(element).x
+            await window.wait(500)
+            return { x, finished, end: window.readTransform(element).x }
+        })
+
+        expect(result.x).toBeGreaterThan(30)
+        expect(result.x).toBeLessThan(70)
+        expect(result.finished).toBe(true)
+        expect(result.end).toBe(100)
+    })
+
+    test("a finished animation doesn't stay alongside a loop", async ({
+        page,
+    }) => {
+        const count = await page.evaluate(async () => {
+            const element = document.getElementById("a")!
+            const { animate } = window.Motion
+            animate(
+                element,
+                { rotate: [0, 90] },
+                { duration: 0.4, repeat: Infinity, repeatType: "reverse" }
+            )
+            animate(element, { x: 100 }, { duration: 0.3 })
+            await window.wait(700)
+            return window.transformAnimations(element).length
+        })
+
+        expect(count).toBe(1)
+    })
 })

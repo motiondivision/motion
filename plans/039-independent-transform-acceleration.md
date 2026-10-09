@@ -49,10 +49,12 @@ These stay accelerated, because tracks are sampled and the group rebuilds:
 
 ## Known gaps
 
--   `motionValue.get()` returns the start value while the group is accelerated, as with today's accelerated opacity. Animation `time` is correct.
+-   `motionValue.get()` reads the value from the WAAPI animation's time while accelerated, but `getVelocity()` returns 0, as with today's accelerated opacity. Interruption uses the animation's own velocity, so it isn't affected.
 -   Optimised appear handoff stays on JS. A follow-up could adopt the appear animation into the group.
--   Bundle cost is about +2.1 kB gz for `motion`/`m` bundles and +2.3 kB for `animate`.
--   A transition's own `onUpdate` (`animate(el, { x: 100 }, { onUpdate })`) isn't called while accelerated, as with accelerated opacity today. The `onUpdate` prop is handled.
+-   Bundle cost is about +3 kB gz for `motion`/`m` bundles and for `animate`.
+-   A transition's own `onUpdate` (`animate(el, { x: 100 }, { onUpdate })`), like the `onUpdate` prop, keeps the value on the main thread.
+-   `element.getAnimations()` includes the group's transform animations. If other code cancels them, the group moves to the main thread.
+-   Browsers without `linear()` easing (Safari before 17.2, Firefox before 112) get sampled keyframes with linear easing.
 -   Not tested in WebKit or Firefox. Cypress can't run in the cloud environment, so the React E2E tests are Playwright specs.
 
 ## Follow-ups

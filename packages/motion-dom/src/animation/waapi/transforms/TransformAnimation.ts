@@ -29,6 +29,7 @@ import {
 import { cubicBezierAsString } from "../easing/cubic-bezier"
 import { supportedWaapiEasing } from "../easing/supported"
 import { supportsWaapi } from "../supports/waapi"
+import { supportsLinearEasing } from "../../../utils/supports/linear-easing"
 import { transformGroups } from "./groups"
 
 /**
@@ -380,7 +381,7 @@ export class TransformAnimation<
      * The value at a timestamp, as a number.
      */
     numberAt(timestamp: number) {
-        return parseFloat(this.sampleAt(timestamp) as string)
+        return parseFloat(this.sampleAt(timestamp, true) as string)
     }
 
     /**
@@ -389,8 +390,8 @@ export class TransformAnimation<
     sync() {
         const now = time.now()
         this.options.motionValue!.setWithVelocity(
-            this.sampleAt(now - sampleDelta),
-            this.sampleAt(now),
+            this.sampleAt(now - sampleDelta, true),
+            this.sampleAt(now, true),
             sampleDelta
         )
     }
@@ -433,14 +434,17 @@ export class TransformAnimation<
         group && !group.isJS && this.canAccelerate && this.tick(time.now())
     }
 
+    /**
+     * Without a tick to rebase it, a held time still includes the delay,
+     * so take it off here, as a JS animation does on its next tick.
+     */
     get time() {
-        if (this.isAccelerated() && this.holdTime === null) {
-            const { delay = 0 } = this.options
+        if (this.isAccelerated()) {
             return millisecondsToSeconds(
                 clamp(
                     0,
                     this.totalDuration,
-                    (time.now() - this.startTime!) * this.speed - delay
+                    this.at(time.now()) - (this.options.delay || 0)
                 )
             )
         }
@@ -458,7 +462,7 @@ export class TransformAnimation<
      */
     attachTimeline(timeline: TimelineWithFallback) {
         this.canAccelerate = false
-        this.group?.demote()
+        this.group?.demote(true)
         return super.attachTimeline(timeline)
     }
 }
@@ -554,13 +558,24 @@ function createGroup(owner: TransformOwner): TransformGroup {
 
         /**
          * Animations finish when the WAAPI animation reaches their end.
+         * Once a loop has taken over, the finished animation isn't needed.
          */
         if (end < Infinity) {
             animation.onfinish = () => {
                 segment.isDone = true
+                if (segments.some((s) => s.end === Infinity)) {
+                    animation.cancel()
+                    segments = segments.filter((s) => s !== segment)
+                }
                 group.schedule(false)
             }
         }
+
+        /**
+         * Something else cancelled it, so carry on on the main thread.
+         */
+        animation.oncancel = () => segments.includes(segment) && group.demote()
+
         segments.push(segment)
     }
 
@@ -772,7 +787,12 @@ function createGroup(owner: TransformOwner): TransformGroup {
         settled?: number,
         nativeEasing?: string
     ) => {
-        const easing = nativeEasing || getEasing(moving, from, to)
+        /**
+         * Browsers without linear() easing get sampled keyframes instead.
+         */
+        const easing =
+            nativeEasing ||
+            (supportsLinearEasing() ? getEasing(moving, from, to) : undefined)
         const times = easing ? [from, to] : sample(moving, from, to)
         const transform = times.map((t) => compose(t, settled))
         let keyframes: PropertyIndexedKeyframes | null = { transform }
@@ -864,11 +884,18 @@ function createGroup(owner: TransformOwner): TransformGroup {
         }
 
         statics = {}
-        keys = transformPropOrder.filter(
-            (key) =>
-                byKey.has(key) ||
-                (statics[key] = read(owner, key)) !== undefined
-        )
+        /**
+         * Transforms that aren't animating are left out at their default.
+         */
+        keys = transformPropOrder.filter((key) => {
+            if (byKey.has(key)) return true
+            const value = (statics[key] = read(owner, key))
+            return (
+                value !== undefined &&
+                parseFloat(value as string) !==
+                    (key.startsWith("scale") ? 1 : 0)
+            )
+        })
 
         stop(false)
 

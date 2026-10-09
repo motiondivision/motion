@@ -2,6 +2,7 @@ import { animateElement } from "../../../animate/element"
 import { frame } from "../../../../frameloop"
 import { styleEffect } from "../../../../effects/style"
 import { motionValue } from "../../../../value"
+import { supportsFlags } from "../../../../utils/supports/flags"
 
 /**
  * JSDOM has no WAAPI, so record what would be sent to Element.animate().
@@ -598,6 +599,58 @@ describe("independent transform acceleration", () => {
 
         expect(running(element)).toHaveLength(0)
         expect(element.style.transform).toContain("rotate(45deg)")
+    })
+
+    it("uses sampled keyframes when linear() easing isn't supported", async () => {
+        supportsFlags.linearEasing = false
+        const element = document.createElement("div")
+
+        animateElement(
+            element,
+            { x: [0, 100], rotate: [0, 90] },
+            { type: "spring", stiffness: 300, damping: 20 }
+        )
+        await nextFrame()
+        supportsFlags.linearEasing = undefined
+
+        const [{ keyframes, options }] = running(element)
+        expect(options.easing).toBe("linear")
+        expect((keyframes as any).offset.length).toBeGreaterThan(2)
+    })
+
+    it("leaves out transforms that aren't animating at their default", async () => {
+        const element = document.createElement("div")
+
+        animateElement(element, { rotate: 0, scale: 2 }, { duration: 0 })
+        await nextFrame()
+        animateElement(element, { x: [0, 100] }, { duration: 1 })
+        await nextFrame()
+
+        const [{ keyframes }] = running(element)
+        for (const transform of keyframes.transform) {
+            expect(transform).not.toContain("rotate(")
+            expect(transform).toContain("scale(2)")
+        }
+    })
+
+    it("returns to the compositor after a scroll-linked animation ends", async () => {
+        const element = document.createElement("div")
+
+        animateElement(element, { x: [0, 100] }, { duration: 1 })
+        const [scrollLinked] = animateElement(
+            element,
+            { y: [0, 100] },
+            { duration: 1 }
+        )
+        await nextFrame()
+        scrollLinked.attachTimeline({ observe: () => () => {} } as any)
+        await nextFrame()
+        expect(running(element)).toHaveLength(0)
+
+        scrollLinked.stop()
+        await nextFrame()
+        await nextFrame()
+        expect(running(element)).toHaveLength(1)
     })
 
     it("stays on the main thread for SVG elements", async () => {

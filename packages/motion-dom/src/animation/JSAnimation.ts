@@ -302,8 +302,10 @@ export class JSAnimation<T extends number | string>
 
     /**
      * The value at a timestamp, without changing this animation's state.
+     * If resolved, it ends at the last resolved keyframe, which is in the
+     * same unit as the others, rather than at finalKeyframe.
      */
-    sampleAt(timestamp: number): T {
+    sampleAt(timestamp: number, resolved?: boolean): T {
         const { options, totalDuration } = this
         const t = this.at(timestamp) - (options.delay || 0)
 
@@ -311,7 +313,7 @@ export class JSAnimation<T extends number | string>
             ? getFinalKeyframe(
                   options.keyframes,
                   options,
-                  options.finalKeyframe
+                  resolved ? undefined : options.finalKeyframe
               )
             : this.generate(Math.max(t, 0), t < 0).value
     }
