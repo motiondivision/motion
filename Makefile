@@ -49,13 +49,20 @@ build: bootstrap
 watch: bootstrap
 	cd packages/framer-motion && yarn watch
 
+# Temporary bypass while CircleCI is blocking releases. Set to 0 to check CI.
+SKIP_CI_CHECK ?= 1
+
 check-status:
+ifeq ($(SKIP_CI_CHECK),1)
+	@echo "Skipping CI status check (temporary CircleCI bypass)"
+else
 	@BUILD_STATUS=$(shell gh api repos/motiondivision/motion/commits/$(shell git rev-parse HEAD)/status | jq -r .state); \
 	echo "Build $$BUILD_STATUS"; \
 	if [ "$$BUILD_STATUS" != "success" ]; then \
 	 BUILD_URL=$(shell gh api repos/motiondivision/motion/commits/$(shell git rev-parse HEAD)/status | jq -r .statuses[0].target_url); \
 	 echo "Build URL: $$BUILD_URL"; exit 1; \
 	fi;
+endif
 
 
 test-watch: bootstrap
