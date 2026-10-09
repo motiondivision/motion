@@ -4,6 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [Unreleased]
+
+### Added
+
+-   `animateLayout`: Now exported from `motion`. Out of early access.
+
 ## [14.0.0] 2026-10-02
 
 ### Changed

@@ -314,6 +314,7 @@ export {
     LayoutAnimationBuilder,
     parseAnimateLayoutArgs,
 } from "./layout/LayoutAnimationBuilder"
+export { animateLayout } from "./layout/animate-layout"
 
 /**
  * Deprecated
