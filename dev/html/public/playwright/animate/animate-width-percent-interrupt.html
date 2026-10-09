@@ -19,6 +19,17 @@
                 max-width: 150px;
             }
 
+            .row {
+                display: flex;
+                width: 400px;
+            }
+
+            .row > div {
+                min-width: 0;
+                height: 20px;
+                background-color: #0077ff;
+            }
+
             #padded {
                 box-sizing: border-box;
                 padding: 0 20px;
@@ -30,6 +41,10 @@
             <div class="box" id="a"></div>
             <div class="box" id="clamped"></div>
             <div class="box" id="padded"></div>
+        </div>
+        <div class="row">
+            <div id="flex" style="width: 100px"></div>
+            <div style="width: 300px"></div>
         </div>
         <script type="module" src="/src/inc.js"></script>
         <script type="module">

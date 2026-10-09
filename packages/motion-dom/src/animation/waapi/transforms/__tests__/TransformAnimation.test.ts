@@ -119,6 +119,28 @@ const linearAt = (easing: string, t: number) => {
 const readX = (transform: string) =>
     parseFloat(transform.match(/translateX\(([\d.]+)px\)/)![1])
 
+/**
+ * The x a WAAPI animation shows a number of ms after it starts, for
+ * animations with linear or linear() easing.
+ */
+const xAt = ({ keyframes, options }: MockAnimation, ms: number) => {
+    const { transform, offset } = keyframes as any
+    const easing = options.easing as string
+    let p = Math.min(1, Math.max(0, ms / (options.duration as number)))
+    if (easing.startsWith("linear(")) p = linearAt(easing, p)
+    const offsets: number[] =
+        offset ||
+        transform.map((_: string, i: number) => i / (transform.length - 1))
+    for (let i = 1; i < offsets.length; i++) {
+        if (p <= offsets[i]) {
+            const span = offsets[i] - offsets[i - 1]
+            const [a, b] = [readX(transform[i - 1]), readX(transform[i])]
+            return span ? a + ((b - a) * (p - offsets[i - 1])) / span : b
+        }
+    }
+    return readX(transform[transform.length - 1])
+}
+
 describe("independent transform acceleration", () => {
     it("composes every transform on an element into one WAAPI animation", async () => {
         const element = document.createElement("div")
@@ -530,6 +552,52 @@ describe("independent transform acceleration", () => {
             }
         }
         expect(jumps).toBe(2)
+    })
+
+    it("keeps every repeat of a short animation that repeats many times", async () => {
+        const element = document.createElement("div")
+
+        animateElement(
+            element,
+            { x: [0, 100] },
+            { duration: 0.1, ease: "linear", repeat: 199 }
+        )
+        await nextFrame()
+
+        const [animation] = running(element)
+        expect(xAt(animation, 150)).toBeCloseTo(50, -1)
+        expect(xAt(animation, 10_050)).toBeCloseTo(50, -1)
+    })
+
+    it("keeps keyframes that return to where they started", async () => {
+        const element = document.createElement("div")
+
+        frame.update(() => {
+            animateElement(
+                element,
+                { x: [0, 100, 0, 100, 0] },
+                { duration: 0.1, ease: "linear" }
+            )
+        })
+        await nextFrame()
+        await nextFrame()
+
+        const [animation] = running(element)
+        expect(animation).toBeDefined()
+        expect(xAt(animation, 25)).toBeCloseTo(100, -1)
+        expect(xAt(animation, 50)).toBeCloseTo(0, -1)
+        expect(xAt(animation, 75)).toBeCloseTo(100, -1)
+    })
+
+    it("doesn't hide a transform bound with styleEffect", async () => {
+        const element = document.createElement("div")
+        styleEffect(element, { transform: motionValue("rotate(45deg)") })
+
+        animateElement(element, { x: [0, 100] }, { duration: 1 })
+        await nextFrame()
+
+        expect(running(element)).toHaveLength(0)
+        expect(element.style.transform).toContain("rotate(45deg)")
     })
 
     it("stays on the main thread for SVG elements", async () => {

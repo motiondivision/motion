@@ -1,7 +1,6 @@
 import { positionalKeys } from "../../render/utils/keys-position"
 import { MotionValue } from "../../value"
 import { findDimensionValueType } from "../../value/types/dimensions"
-import { percent } from "../../value/types/numbers/units"
 import { AnyResolvedKeyframe } from "../types"
 import { getVariableValue } from "../utils/css-variables-conversion"
 import {
@@ -178,10 +177,11 @@ export class DOMKeyframesResolver<
         }
     }
 
-    private measure(style = window.getComputedStyle(this.element!.current!)) {
+    private measure() {
         const { element, name } = this
-        return positionalValues[name](style, () =>
-            element!.measureViewportBox()
+        return positionalValues[name](
+            window.getComputedStyle(element!.current!),
+            () => element!.measureViewportBox()
         )
     }
 
@@ -208,7 +208,7 @@ export class DOMKeyframesResolver<
     }
 
     measureEndState() {
-        const { element, unresolvedKeyframes, name } = this
+        const { element, unresolvedKeyframes } = this
 
         if (!element || !element.current) return
 
@@ -216,30 +216,8 @@ export class DOMKeyframesResolver<
 
         const finalKeyframeIndex = unresolvedKeyframes.length - 1
         const finalKeyframe = unresolvedKeyframes[finalKeyframeIndex]
-        const style = window.getComputedStyle(element.current)
-        const measured = this.measure(style)
 
-        /**
-         * A % width is in proportion to its pixels unless min-width or
-         * max-width clamps it. So convert the origin to % rather than the
-         * target to pixels. The value then keeps animating in %, and
-         * interrupting it with another % doesn't need measuring again.
-         */
-        if (
-            name === "width" &&
-            measured &&
-            findDimensionValueType(finalKeyframe) === percent &&
-            style.minWidth === "0px" &&
-            style.maxWidth === "none"
-        ) {
-            unresolvedKeyframes[0] = percent.transform!(
-                ((this.measuredOrigin as number) *
-                    parseFloat(finalKeyframe as string)) /
-                    measured
-            )
-        } else {
-            unresolvedKeyframes[finalKeyframeIndex] = measured as any
-        }
+        unresolvedKeyframes[finalKeyframeIndex] = this.measure() as any
 
         if (finalKeyframe !== null && this.finalKeyframe === undefined) {
             this.finalKeyframe = finalKeyframe as T

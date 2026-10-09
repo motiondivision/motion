@@ -739,8 +739,21 @@ export abstract class VisualElement<
         props: MotionNodeOptions,
         presenceContext: PresenceContextProps | null
     ) {
-        if (props.transformTemplate || this.props.transformTemplate) {
+        const { transformTemplate, onUpdate } = this.props
+
+        if (props.transformTemplate || transformTemplate) {
             this.scheduleRender()
+        }
+
+        /**
+         * Transforms on the compositor can't use a new transformTemplate
+         * or onUpdate, so move them to the main thread.
+         */
+        if (
+            (props.transformTemplate && !transformTemplate) ||
+            (props.onUpdate && !onUpdate)
+        ) {
+            transformGroups.get(this.current!)?.demote()
         }
 
         this.prevProps = this.props

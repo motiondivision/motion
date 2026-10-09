@@ -1,9 +1,8 @@
 import { expect, Page, test } from "@playwright/test"
 
 /**
- * Animating width from px to % needs the element measuring. Interrupting
- * that animation with another % target shouldn't need measuring again,
- * and the width shouldn't jump when it's interrupted.
+ * Animating width from px to % needs the element measuring. The width
+ * shouldn't jump when it starts, or when another % target interrupts it.
  */
 
 declare global {
@@ -29,29 +28,13 @@ async function interrupt(page: Page, id: string) {
         animate(element, { width: "100%" }, transition)
         await window.wait(500)
 
-        let measured = 0
-        const getComputedStyle = window.getComputedStyle
-        window.getComputedStyle = (...args) => {
-            measured++
-            return getComputedStyle(...args)
-        }
-
         const before = width()
-        const latest: string[] = []
-        animate(
-            element,
-            { width: "25%" },
-            {
-                ...transition,
-                onUpdate: (v: string) => latest.push(v),
-            }
-        )
+        animate(element, { width: "25%" }, transition)
         await window.nextFrames(2)
-        window.getComputedStyle = getComputedStyle
         const after = width()
 
         await window.wait(1100)
-        return { measured, before, after, latest, end: width() }
+        return { before, after, end: width() }
     }, id)
 }
 
@@ -60,14 +43,9 @@ test.describe("animate() width % interrupt", () => {
 
     test.beforeEach(async ({ page }) => load(page))
 
-    test("doesn't measure again or jump when interrupted", async ({ page }) => {
-        const { measured, before, after, latest, end } = await interrupt(
-            page,
-            "a"
-        )
+    test("doesn't jump when interrupted", async ({ page }) => {
+        const { before, after, end } = await interrupt(page, "a")
 
-        expect(measured).toBe(0)
-        expect(latest[0]).toMatch(/%$/)
         expect(before).toBeGreaterThan(150)
         expect(before).toBeLessThan(260)
         expect(Math.abs(after - before)).toBeLessThan(20)
@@ -90,5 +68,28 @@ test.describe("animate() width % interrupt", () => {
         expect(before).toBeLessThan(260)
         expect(Math.abs(after - before)).toBeLessThan(20)
         expect(end).toBeCloseTo(100, 0)
+    })
+
+    test("doesn't jump when flex shrinks the target", async ({ page }) => {
+        const widths = await page.evaluate(async () => {
+            const element = document.getElementById("flex")!
+            const width = () => element.getBoundingClientRect().width
+            window.Motion.animate(
+                element,
+                { width: "100%" },
+                { duration: 1, ease: "linear" }
+            )
+            const widths = [width()]
+            for (let i = 0; i < 3; i++) {
+                await window.nextFrames(1)
+                widths.push(width())
+            }
+            return widths
+        })
+
+        for (const width of widths) {
+            expect(width).toBeGreaterThan(99)
+            expect(width).toBeLessThan(110)
+        }
     })
 })

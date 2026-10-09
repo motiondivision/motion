@@ -55,6 +55,17 @@ export const App = () => {
                 transformTemplate={(_, generated) => generated}
             />
             <motion.div
+                id="late-template"
+                style={box}
+                animate={{ x: 100 }}
+                transition={transition}
+                transformTemplate={
+                    isWide
+                        ? (_, generated) => generated + " rotate(45deg)"
+                        : undefined
+                }
+            />
+            <motion.div
                 id="on-update"
                 style={box}
                 animate={{ x: 100 }}

@@ -19,6 +19,7 @@ import { getValueAsType } from "../../../value/types/utils/get-as-type"
 import { frameloopDriver } from "../../drivers/frame"
 import { DriverControls } from "../../drivers/types"
 import { keyframes as keyframesGenerator } from "../../generators/keyframes"
+import { defaultOffset } from "../../keyframes/offsets/default"
 import { JSAnimation } from "../../JSAnimation"
 import {
     AnyResolvedKeyframe,
@@ -180,9 +181,9 @@ export function canAccelerateTransform(options: ValueAnimationOptions<any>) {
         options.type !== "inertia" &&
         /**
          * A literal transform, or pathRotation, replaces or adds to the
-         * transform we'd build.
+         * transform we'd build. styleEffect builds its own as "none".
          */
-        !owner.latestValues?.transform &&
+        (read(owner, "transform") || "none") === "none" &&
         !read(owner, "pathRotation") &&
         /**
          * Layout animations write transform every frame.
@@ -323,6 +324,56 @@ export class TransformAnimation<
             const start = this.startTime! + delay / this.speed
             return [start, start + this.resolvedDuration / this.speed, easing]
         }
+    }
+
+    /**
+     * The timestamps between two timestamps where this reaches a
+     * keyframe or starts a repeat, where it can turn or jump.
+     */
+    boundaries(from: number, to: number) {
+        const { startTime, speed, resolvedDuration, options } = this
+        const {
+            delay = 0,
+            repeat = 0,
+            repeatDelay = 0,
+            repeatType,
+            times,
+            keyframes,
+            type,
+        } = options
+        const offsets =
+            (type || keyframesGenerator) === keyframesGenerator
+                ? times || defaultOffset(keyframes)
+                : [0, 1]
+        const start = startTime! + delay / speed
+        const result: number[] = []
+
+        if (this.holdTime !== null || !(resolvedDuration > 0)) return result
+
+        for (
+            let i = Math.max(
+                0,
+                Math.floor(((from - start) * speed) / resolvedDuration)
+            );
+            i <= repeat;
+            i++
+        ) {
+            const iterationStart = start + (i * resolvedDuration) / speed
+            if (iterationStart > to) break
+
+            for (const offset of offsets) {
+                const t =
+                    iterationStart +
+                    ((i % 2 && repeatType && repeatType !== "loop"
+                        ? 1 - offset
+                        : offset) *
+                        (resolvedDuration - repeatDelay)) /
+                        speed
+                t > from && t < to && result.push(t)
+            }
+        }
+
+        return result
     }
 
     /**
@@ -541,17 +592,28 @@ function createGroup(owner: TransformOwner): TransformGroup {
             maxSamples,
             Math.max(2, Math.ceil((to - from) / sampleDelta))
         )
-        const at = (i: number) => from + ((to - from) * i) / samples
+        const bounds = moving.flatMap((track) => track.boundaries(from, to))
+
+        /**
+         * Too many keyframes or repeats to follow with this many samples.
+         */
+        if (bounds.length * 4 > samples) return
+
+        const at: number[] = []
+        for (let i = 0; i <= samples; i++) {
+            at.push(from + ((to - from) * i) / samples)
+        }
+        at.push(...bounds)
+        at.sort((a, b) => a - b)
+
+        const position = (t: number) => (t - from) / (to - from)
         let shared: number[] | undefined
         let progressAt: (t: number) => number
 
         for (const track of moving) {
-            const values: number[] = []
-            for (let i = 0; i <= samples; i++)
-                values.push(track.numberAt(at(i)))
-
+            const values = at.map((t) => track.numberAt(t))
             const [first] = values
-            const range = values[samples] - first
+            const range = values[values.length - 1] - first
             const progress = values.map((value) =>
                 range ? (value - first) / range : value - first
             )
@@ -579,7 +641,9 @@ function createGroup(owner: TransformOwner): TransformGroup {
 
         if (
             !shared ||
-            shared.every((p, i) => Math.abs(p - i / samples) <= easingTolerance)
+            shared.every(
+                (p, i) => Math.abs(p - position(at[i])) <= easingTolerance
+            )
         ) {
             return "linear"
         }
@@ -590,14 +654,12 @@ function createGroup(owner: TransformOwner): TransformGroup {
          */
         const points: string[] = []
         const point = (t: number, p = progressAt(t)) =>
-            points.push(
-                round(p) + " " + round(((t - from) / (to - from)) * 100) + "%"
-            )
+            points.push(round(p) + " " + round(position(t) * 100) + "%")
         shared.forEach((p, i) => {
             i &&
                 Math.abs(p - shared![i - 1]) > 0.2 &&
-                jumpAt(progressAt, at(i - 1), at(i)).forEach((t) => point(t))
-            point(at(i), p)
+                jumpAt(progressAt, at[i - 1], at[i]).forEach((t) => point(t))
+            point(at[i], p)
         })
 
         return "linear(" + points + ")"
@@ -633,7 +695,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
             )
 
         const split = (a: number, b: number, depth: number) => {
-            if (isStraight(a, b)) {
+            if (b - a < 1 || isStraight(a, b)) {
                 times.push(b)
             } else if (depth < 4) {
                 split(a, (a + b) / 2, depth + 1)
@@ -650,13 +712,25 @@ function createGroup(owner: TransformOwner): TransformGroup {
             }
         }
 
+        /**
+         * Split at least every 100ms, and at every keyframe and repeat,
+         * either side of where a value can jump.
+         */
+        const ends: number[] = []
         const steps = Math.ceil((to - from) / 100)
-        for (let i = 0; i < steps; i++) {
-            split(
-                from + ((to - from) * i) / steps,
-                from + ((to - from) * (i + 1)) / steps,
-                0
-            )
+        for (let i = 1; i <= steps; i++) {
+            ends.push(from + ((to - from) * i) / steps)
+        }
+        for (const track of moving) {
+            for (const t of track.boundaries(from, to)) {
+                ends.push(t, Math.min(t + 0.01, to))
+            }
+        }
+
+        let start = from
+        for (const end of ends.sort((a, b) => a - b)) {
+            end > start && split(start, end, 0)
+            start = end
         }
 
         return times.sort((a, b) => a - b)

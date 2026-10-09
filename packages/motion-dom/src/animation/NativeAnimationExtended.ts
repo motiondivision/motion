@@ -75,10 +75,24 @@ export class NativeAnimationExtended<
      * The value at a time, from a renderless JS animation.
      */
     private sample(sampleTime: number) {
-        const { motionValue, onUpdate, onComplete, element, ...options } =
-            this.options
+        if (!this.sampler) {
+            const {
+                motionValue,
+                onUpdate,
+                onComplete,
+                onPlay,
+                onStop,
+                element,
+                ...options
+            } = this.options
 
-        this.sampler ||= new JSAnimation({ ...options, autoplay: false })
+            /**
+             * Stop it straight away so its driver doesn't run every frame.
+             * It can still be sampled.
+             */
+            this.sampler = new JSAnimation({ ...options, autoplay: false })
+            this.sampler.stop()
+        }
 
         return this.sampler.sample(Math.max(0, sampleTime)).value
     }

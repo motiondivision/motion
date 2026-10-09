@@ -54,6 +54,25 @@ test.describe("independent transforms on motion components", () => {
         expect(await readX(page, "on-update")).toBeGreaterThan(5)
     })
 
+    test("adding transformTemplate moves the element to the main thread", async ({
+        page,
+    }) => {
+        // Accelerated until transformTemplate is added 300ms in.
+        expect(await count(page, "late-template")).toBe(1)
+        await page.waitForTimeout(300)
+        expect(await count(page, "late-template")).toBe(0)
+        const { x, rotate } = await page.evaluate(() => {
+            const { a, b, m41 } = new DOMMatrixReadOnly(
+                getComputedStyle(
+                    document.getElementById("late-template")!
+                ).transform
+            )
+            return { x: m41, rotate: (Math.atan2(b, a) * 180) / Math.PI }
+        })
+        expect(rotate).toBeCloseTo(45, 0)
+        expect(x).toBeGreaterThan(30)
+    })
+
     test("an external motion value moves the element to the main thread", async ({
         page,
     }) => {
