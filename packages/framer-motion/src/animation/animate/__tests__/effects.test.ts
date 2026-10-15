@@ -1,5 +1,6 @@
 import { createEffect, frame, motionValue } from "motion-dom"
 import { animate } from ".."
+import { timeline } from "../../timeline"
 
 async function nextFrame() {
     return new Promise<void>((resolve) => {
@@ -92,7 +93,7 @@ describe("animate.addEffect", () => {
         const element = document.createElement("div")
         const subject = createSubject({ x: 0 })
 
-        await animate(
+        await timeline(
             [
                 [element, { opacity: 0.5 }, { duration: 0.01 }],
                 [subject, { x: 100 }, { duration: 0.01 }],

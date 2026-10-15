@@ -1,4 +1,4 @@
-import { useAnimate } from "framer-motion"
+import { timeline, useAnimate } from "framer-motion"
 import { useEffect, useState } from "react"
 
 /**
@@ -7,16 +7,16 @@ import { useEffect, useState } from "react"
  * and inertia animations".
  */
 export const App = () => {
-    const [scope, animate] = useAnimate()
+    const [scope] = useAnimate()
     const [result, setResult] = useState("")
 
     useEffect(() => {
-        animate(
+        timeline(
             [
                 ["#box-a", { x: [0, 20], y: [0, 20] }],
                 ["#box-b", { scale: [1, 2] }],
             ],
-            { defaultTransition: { type: "spring" } }
+            { defaultTransition: { type: "spring" }, scope }
         )
             .then(() => setResult("Success"))
             .catch(() => setResult("Error"))

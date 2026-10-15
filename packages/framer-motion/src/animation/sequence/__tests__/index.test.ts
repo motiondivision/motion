@@ -997,3 +997,76 @@ describe("Sequence callbacks", () => {
         expect(animations.has(mv)).toBe(true)
     })
 })
+
+describe("nested sequences", () => {
+    const a = document.createElement("div")
+    const b = document.createElement("div")
+    const c = document.createElement("div")
+
+    test("It resolves nested sequences from where they start", () => {
+        const info: { duration?: number; labels?: Map<string, number> } = {}
+        const animations = createAnimationsFromSequence(
+            [
+                [a, { x: 100 }, { duration: 1 }],
+                {
+                    sequence: [
+                        [b, { x: 100 }, { duration: 1, at: 0.5 }],
+                        "inner",
+                        [b, { y: 200 }, { duration: 1, at: "<" }],
+                    ],
+                    at: 1,
+                },
+                [c, { x: 100 }, { duration: 1, at: "<" }],
+                [c, { x: 200 }, { duration: 1 }],
+            ],
+            { defaultTransition: { ease: "linear" } },
+            undefined,
+            undefined,
+            info
+        )
+
+        /**
+         * Nested: b.x runs 1.5 - 2.5, then b.y 1.5 - 2.5 ("<").
+         * "<" after the nested sequence points to its start (1).
+         */
+        expect(info.labels!.get("inner")).toBe(2.5)
+        expect(animations.get(b)!.transition.x.times).toEqual([
+            0,
+            1.5 / 3,
+            2.5 / 3,
+            1,
+        ])
+        expect(animations.get(b)!.transition.y.times).toEqual(
+            animations.get(b)!.transition.x.times
+        )
+        expect(animations.get(c)!.transition.x.times).toEqual([
+            0,
+            1 / 3,
+            2 / 3,
+            2 / 3,
+            1,
+        ])
+        expect(info.duration).toBe(3)
+    })
+
+    test("The next segment follows the end of a nested sequence", () => {
+        const info: { duration?: number } = {}
+        createAnimationsFromSequence(
+            [
+                {
+                    sequence: [
+                        [a, { x: 100 }, { duration: 2 }],
+                        [b, { x: 100 }, { duration: 1, at: 0 }],
+                    ],
+                },
+                [c, { x: 100 }, { duration: 1 }],
+            ],
+            undefined,
+            undefined,
+            undefined,
+            info
+        )
+
+        expect(info.duration).toBe(3)
+    })
+})

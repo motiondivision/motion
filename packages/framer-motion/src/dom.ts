@@ -2,6 +2,8 @@ export * from "motion-dom"
 export * from "motion-utils"
 
 export { animate, createScopedAnimate } from "./animation/animate"
+export { timeline, Timeline } from "./animation/timeline"
+export type { TimelineItem, TimelineOptions } from "./animation/timeline"
 export { animateMini } from "./animation/animators/waapi/animate-style"
 export { scroll } from "./render/dom/scroll"
 export { scrollInfo } from "./render/dom/scroll/track"

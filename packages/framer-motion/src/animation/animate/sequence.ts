@@ -5,13 +5,18 @@ import {
     spring,
 } from "motion-dom"
 import { createAnimationsFromSequence } from "../sequence/create"
-import { AnimationSequence, SequenceOptions } from "../sequence/types"
+import {
+    AnimationSequence,
+    SequenceInfo,
+    SequenceOptions,
+} from "../sequence/types"
 import { animateSubject } from "./subject"
 
 export function animateSequence(
     sequence: AnimationSequence,
     options?: SequenceOptions,
-    scope?: AnimationScope
+    scope?: AnimationScope,
+    info?: SequenceInfo
 ) {
     const animations: AnimationPlaybackControlsWithThen[] = []
 
@@ -40,7 +45,8 @@ export function animateSequence(
         processedSequence,
         options,
         scope,
-        { spring }
+        { spring },
+        info
     )
 
     animationDefinitions.forEach(({ keyframes, transition }, subject) => {

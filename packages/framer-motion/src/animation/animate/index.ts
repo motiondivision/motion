@@ -9,18 +9,13 @@ import type {
     ValueAnimationTransition,
 } from "motion-dom"
 import { addEffect, GroupAnimationWithThen, removeEffect } from "motion-dom"
-import { removeItem } from "motion-utils"
+import { invariant, removeItem } from "motion-utils"
 import {
     AnimationSequence,
     ObjectTarget,
     SequenceOptions,
 } from "../sequence/types"
-import { animateSequence } from "./sequence"
 import { animateSubject } from "./subject"
-
-function isSequence(value: unknown): value is AnimationSequence {
-    return Array.isArray(value) && value.some(Array.isArray)
-}
 
 interface ScopedAnimateOptions {
     scope?: AnimationScope
@@ -35,12 +30,13 @@ interface ScopedAnimateOptions {
 export function createScopedAnimate(options: ScopedAnimateOptions = {}) {
     const { scope, reduceMotion, skipAnimations } = options
     /**
-     * Animate a sequence
+     * @deprecated Sequences have moved to `timeline()`:
+     * `timeline([...segments], options)`.
      */
     function scopedAnimate(
         sequence: AnimationSequence,
         options?: SequenceOptions
-    ): AnimationPlaybackControlsWithThen
+    ): never
     /**
      * Animate a string
      */
@@ -85,7 +81,7 @@ export function createScopedAnimate(options: ScopedAnimateOptions = {}) {
      * Implementation
      */
     function scopedAnimate<O extends {}>(
-        subjectOrSequence:
+        subject:
             | AnimationSequence
             | MotionValue<number>
             | MotionValue<string>
@@ -94,7 +90,7 @@ export function createScopedAnimate(options: ScopedAnimateOptions = {}) {
             | ElementOrSelector
             | O
             | O[],
-        optionsOrKeyframes?:
+        keyframes?:
             | SequenceOptions
             | number
             | string
@@ -107,8 +103,11 @@ export function createScopedAnimate(options: ScopedAnimateOptions = {}) {
             | ValueAnimationTransition<string>
             | DynamicAnimationOptions
     ): AnimationPlaybackControlsWithThen {
-        let animations: AnimationPlaybackControlsWithThen[] = []
-        let animationOnComplete: VoidFunction | undefined
+        invariant(
+            !(Array.isArray(subject) && subject.some(Array.isArray)),
+            "Sequences have moved from animate() to timeline(): timeline([...segments], options)",
+            "animate-sequence"
+        )
 
         const inherited: { reduceMotion?: boolean; skipAnimations?: boolean } =
             {}
@@ -116,35 +115,20 @@ export function createScopedAnimate(options: ScopedAnimateOptions = {}) {
         if (skipAnimations !== undefined)
             inherited.skipAnimations = skipAnimations
 
-        if (isSequence(subjectOrSequence)) {
-            const { onComplete, ...sequenceOptions } =
-                (optionsOrKeyframes as SequenceOptions) || {}
-            if (typeof onComplete === "function") {
-                animationOnComplete = onComplete as VoidFunction
-            }
-            animations = animateSequence(
-                subjectOrSequence,
-                { ...inherited, ...sequenceOptions } as SequenceOptions,
-                scope
-            )
-        } else {
-            // Extract top-level onComplete so it doesn't get applied per-value
-            const { onComplete, ...rest } = options || {}
-            if (typeof onComplete === "function") {
-                animationOnComplete = onComplete as VoidFunction
-            }
-            animations = animateSubject(
-                subjectOrSequence as ElementOrSelector,
-                optionsOrKeyframes as DOMKeyframesDefinition,
+        // Extract top-level onComplete so it doesn't get applied per-value
+        const { onComplete, ...rest } = options || {}
+
+        const animation = new GroupAnimationWithThen(
+            animateSubject(
+                subject as ElementOrSelector,
+                keyframes as DOMKeyframesDefinition,
                 { ...inherited, ...rest } as DynamicAnimationOptions,
                 scope
             )
-        }
+        )
 
-        const animation = new GroupAnimationWithThen(animations)
-
-        if (animationOnComplete) {
-            animation.finished.then(animationOnComplete)
+        if (typeof onComplete === "function") {
+            animation.finished.then(onComplete as VoidFunction)
         }
 
         if (scope) {

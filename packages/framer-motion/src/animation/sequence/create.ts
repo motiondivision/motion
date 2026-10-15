@@ -27,7 +27,9 @@ import {
     At,
     ResolvedAnimationDefinitions,
     SequenceMap,
+    SequenceInfo,
     SequenceOptions,
+    SequenceTime,
     ValueSequence,
 } from "./types"
 import { calculateRepeatDuration } from "./utils/calc-repeat-duration"
@@ -44,7 +46,8 @@ export function createAnimationsFromSequence(
     sequence: AnimationSequence,
     { defaultTransition = {}, ...sequenceTransition }: SequenceOptions = {},
     scope?: AnimationScope,
-    generators?: { [key: string]: GeneratorFactory }
+    generators?: { [key: string]: GeneratorFactory },
+    info?: SequenceInfo
 ): ResolvedAnimationDefinitions {
     const defaultDuration = defaultTransition.duration || 0.3
     const animationDefinitions: ResolvedAnimationDefinitions = new Map()
@@ -60,322 +63,358 @@ export function createAnimationsFromSequence(
      * Build the timeline by mapping over the sequence array and converting
      * the definitions into keyframes and offsets with absolute time values.
      * These will later get converted into relative offsets in a second pass.
+     *
+     * Nested sequences are resolved recursively. `base` is the absolute
+     * start of the sequence being resolved, so numeric `at` values inside
+     * a nested sequence are relative to where it starts. Returns the time
+     * the sequence ends.
      */
-    for (let i = 0; i < sequence.length; i++) {
-        const segment = sequence[i]
+    const resolveSequence = (sequence: AnimationSequence, base: number) => {
+        let sequenceEnd = base
 
-        /**
-         * If this is a timeline label, mark it and skip the rest of this iteration.
-         */
-        if (typeof segment === "string") {
-            timeLabels.set(segment, currentTime)
-            continue
-        } else if (!Array.isArray(segment)) {
-            timeLabels.set(
-                segment.name,
-                calcNextTime(currentTime, segment.at, prevTime, timeLabels)
-            )
-            continue
-        }
+        const resolveTime = (at: SequenceTime) =>
+            typeof at === "number"
+                ? base + at
+                : calcNextTime(currentTime, at, prevTime, timeLabels)
 
-        let [subject, keyframes, transition = {}] = segment
-
-        /**
-         * If a relative or absolute time value has been specified we need to resolve
-         * it in relation to the currentTime.
-         */
-        if (transition.at !== undefined) {
-            currentTime = calcNextTime(
-                currentTime,
-                transition.at,
-                prevTime,
-                timeLabels
-            )
-        }
-
-        /**
-         * Keep track of the maximum duration in this definition. This will be
-         * applied to currentTime once the definition has been parsed.
-         */
-        let maxDuration = 0
-
-        const resolveValueSequence = (
-            valueKeyframes: UnresolvedValueKeyframe | UnresolvedValueKeyframe[],
-            valueTransition: Transition | DynamicAnimationOptions,
-            valueSequence: ValueSequence,
-            elementIndex = 0,
-            numSubjects = 0
-        ) => {
-            const valueKeyframesAsList = keyframesAsList(valueKeyframes)
-            const {
-                delay = 0,
-                times = defaultOffset(valueKeyframesAsList),
-                type = defaultTransition.type || "keyframes",
-                repeat,
-                repeatType,
-                repeatDelay = 0,
-                ...remainingTransition
-            } = valueTransition
-            let { ease = defaultTransition.ease || "easeOut", duration } =
-                valueTransition
+        for (let i = 0; i < sequence.length; i++) {
+            const segment = sequence[i]
 
             /**
-             * Resolve stagger() if defined.
+             * If this is a timeline label, mark it and skip the rest of this iteration.
              */
-            const calculatedDelay =
-                typeof delay === "function"
-                    ? delay(elementIndex, numSubjects)
-                    : delay
+            if (typeof segment === "string") {
+                timeLabels.set(segment, currentTime)
+                continue
+            } else if (!Array.isArray(segment)) {
+                const start =
+                    segment.at === undefined
+                        ? currentTime
+                        : resolveTime(segment.at)
 
-            /**
-             * If this animation should and can use a spring, generate a spring easing function.
-             */
-            const numKeyframes = valueKeyframesAsList.length
-            const createGenerator = isGenerator(type)
-                ? type
-                : generators?.[type || "keyframes"]
-
-            if (numKeyframes <= 2 && createGenerator) {
-                /**
-                 * As we're creating an easing function from a spring,
-                 * ideally we want to generate it using the real distance
-                 * between the two keyframes. However this isn't always
-                 * possible - in these situations we use 0-100.
-                 */
-                let absoluteDelta = 100
-                if (
-                    numKeyframes === 2 &&
-                    isNumberKeyframesArray(valueKeyframesAsList)
-                ) {
-                    const delta =
-                        valueKeyframesAsList[1] - valueKeyframesAsList[0]
-                    absoluteDelta = Math.abs(delta)
-                }
-
-                const springTransition = {
-                    ...defaultTransition,
-                    ...remainingTransition,
-                }
-                if (duration !== undefined) {
-                    springTransition.duration = secondsToMilliseconds(duration)
-                }
-
-                const springEasing = createGeneratorEasing(
-                    springTransition,
-                    absoluteDelta,
-                    createGenerator
-                )
-
-                ease = springEasing.ease
-                duration = springEasing.duration
-            }
-
-            duration ??= defaultDuration
-
-            const startTime = currentTime + calculatedDelay
-
-            /**
-             * If there's only one time offset of 0, fill in a second with length 1
-             */
-            if (times.length === 1 && times[0] === 0) {
-                times[1] = 1
-            }
-
-            /**
-             * Fill out if offset if fewer offsets than keyframes
-             */
-            const remainder = times.length - valueKeyframesAsList.length
-            remainder > 0 && fillOffset(times, remainder)
-
-            /**
-             * If only one value has been set, ie [1], push a null to the start of
-             * the keyframe array. This will let us mark a keyframe at this point
-             * that will later be hydrated with the previous value.
-             */
-            valueKeyframesAsList.length === 1 &&
-                valueKeyframesAsList.unshift(null)
-
-            /**
-             * Segments can't express `repeat: Infinity` or very large
-             * counts — they'd leave dead time after the segment or
-             * explode the keyframe array. Ignore with a warning.
-             */
-            if (repeat) {
-                warning(
-                    repeat < MAX_REPEAT,
-                    `Sequence segments can't repeat ${repeat} times — ignoring repeat option. Use a value below ${MAX_REPEAT} or apply repeat at the sequence level instead.`
-                )
-            }
-
-            if (repeat && repeat < MAX_REPEAT) {
-                /**
-                 * Express repeatDelay in units of a single iteration's duration
-                 * so it can be added to the per-iteration time offsets below
-                 * before they're normalized to 0-1.
-                 */
-                const repeatDelayUnits =
-                    duration > 0 ? repeatDelay / duration : 0
-
-                duration = calculateRepeatDuration(
-                    duration,
-                    repeat,
-                    repeatDelay
-                )
-
-                const originalKeyframes = [...valueKeyframesAsList]
-                const originalTimes = [...times]
-                ease = Array.isArray(ease) ? [...ease] : [ease]
-                const originalEase = [...ease]
-
-                /**
-                 * For reverse/mirror, alternate iterations play the segment
-                 * backwards. mirror matches JSAnimation's mirroredGenerator:
-                 * reversed keyframes, easings unchanged. reverse matches
-                 * JSAnimation's iterationProgress = 1 - p: reversed
-                 * keyframes, easing array reversed AND each function easing
-                 * mapped through reverseEasing (string easings unchanged —
-                 * they're resolved later by the keyframes engine).
-                 */
-                const isFlipping =
-                    repeatType === "reverse" || repeatType === "mirror"
-                let flippedKeyframes = originalKeyframes
-                let flippedEases = originalEase
-                if (isFlipping) {
-                    flippedKeyframes = [...originalKeyframes].reverse()
-                    if (repeatType === "reverse") {
-                        flippedEases = [...originalEase]
-                            .reverse()
-                            .map((e) =>
-                                typeof e === "function"
-                                    ? reverseEasing(e)
-                                    : e
-                            )
-                    }
-                }
-
-                for (
-                    let repeatIndex = 0;
-                    repeatIndex < repeat;
-                    repeatIndex++
-                ) {
-                    const isFlipped = isFlipping && repeatIndex % 2 === 0
-                    const iterKeyframes = isFlipped
-                        ? flippedKeyframes
-                        : originalKeyframes
-                    const iterEase = isFlipped ? flippedEases : originalEase
-                    const iterStartOffset =
-                        (repeatIndex + 1) * (1 + repeatDelayUnits)
-
+                if ("sequence" in segment) {
                     /**
-                     * If repeatDelay is set, hold the previous iteration's
-                     * final value through the delay by inserting a keyframe
-                     * at the moment the next iteration begins.
+                     * Resolve the nested sequence from its start. Afterwards
+                     * "<" points at its start and the next segment follows
+                     * its end, as if it were a single segment.
                      */
-                    if (repeatDelayUnits > 0) {
-                        valueKeyframesAsList.push(
-                            valueKeyframesAsList[
-                                valueKeyframesAsList.length - 1
-                            ]
-                        )
-                        times.push(iterStartOffset)
-                        ease.push("linear")
-                    }
-
-                    valueKeyframesAsList.push(...iterKeyframes)
-
-                    for (
-                        let keyframeIndex = 0;
-                        keyframeIndex < iterKeyframes.length;
-                        keyframeIndex++
-                    ) {
-                        times.push(
-                            originalTimes[keyframeIndex] + iterStartOffset
-                        )
-                        ease.push(
-                            keyframeIndex === 0
-                                ? "linear"
-                                : getEasingForSegment(
-                                      iterEase,
-                                      keyframeIndex - 1
-                                  )
-                        )
-                    }
+                    prevTime = currentTime = start
+                    currentTime = resolveSequence(segment.sequence, start)
+                    prevTime = start
+                    sequenceEnd = Math.max(sequenceEnd, currentTime)
+                } else {
+                    timeLabels.set(segment.name, start)
                 }
-
-                normalizeTimes(times, repeat, repeatDelayUnits)
+                continue
             }
 
-            const targetTime = startTime + duration
+            let [subject, keyframes, transition = {}] = segment
 
             /**
-             * Add keyframes, mapping offsets to absolute time.
+             * If a relative or absolute time value has been specified we need to resolve
+             * it in relation to the currentTime.
              */
-            addKeyframes(
-                valueSequence,
-                valueKeyframesAsList,
-                ease as Easing | Easing[],
-                times,
-                startTime,
-                targetTime
-            )
-
-            maxDuration = Math.max(calculatedDelay + duration, maxDuration)
-            totalDuration = Math.max(targetTime, totalDuration)
-        }
-
-        if (isMotionValue(subject)) {
-            const subjectSequence = getSubjectSequence(subject, sequences)
-            resolveValueSequence(
-                keyframes as AnyResolvedKeyframe,
-                transition,
-                getValueSequence("default", subjectSequence)
-            )
-        } else {
-            const subjects = resolveSubjects(
-                subject,
-                keyframes as DOMKeyframesDefinition,
-                scope,
-                elementCache
-            )
-
-            const numSubjects = subjects.length
+            if (transition.at !== undefined) {
+                currentTime = resolveTime(transition.at)
+            }
 
             /**
-             * For every element in this segment, process the defined values.
+             * Keep track of the maximum duration in this definition. This will be
+             * applied to currentTime once the definition has been parsed.
              */
-            for (
-                let subjectIndex = 0;
-                subjectIndex < numSubjects;
-                subjectIndex++
-            ) {
+            let maxDuration = 0
+
+            const resolveValueSequence = (
+                valueKeyframes:
+                    | UnresolvedValueKeyframe
+                    | UnresolvedValueKeyframe[],
+                valueTransition: Transition | DynamicAnimationOptions,
+                valueSequence: ValueSequence,
+                elementIndex = 0,
+                numSubjects = 0
+            ) => {
+                const valueKeyframesAsList = keyframesAsList(valueKeyframes)
+                const {
+                    delay = 0,
+                    times = defaultOffset(valueKeyframesAsList),
+                    type = defaultTransition.type || "keyframes",
+                    repeat,
+                    repeatType,
+                    repeatDelay = 0,
+                    ...remainingTransition
+                } = valueTransition
+                let { ease = defaultTransition.ease || "easeOut", duration } =
+                    valueTransition
+
                 /**
-                 * Cast necessary, but we know these are of this type
+                 * Resolve stagger() if defined.
                  */
-                keyframes = keyframes as DOMKeyframesDefinition
-                transition = transition as DynamicAnimationOptions
+                const calculatedDelay =
+                    typeof delay === "function"
+                        ? delay(elementIndex, numSubjects)
+                        : delay
 
-                const thisSubject = subjects[subjectIndex]
-                const subjectSequence = getSubjectSequence(
-                    thisSubject,
-                    sequences
-                )
+                /**
+                 * If this animation should and can use a spring, generate a spring easing function.
+                 */
+                const numKeyframes = valueKeyframesAsList.length
+                const createGenerator = isGenerator(type)
+                    ? type
+                    : generators?.[type || "keyframes"]
 
-                for (const key in keyframes) {
-                    resolveValueSequence(
-                        keyframes[
-                            key as keyof typeof keyframes
-                        ] as UnresolvedValueKeyframe,
-                        getValueTransition(transition, key),
-                        getValueSequence(key, subjectSequence),
-                        subjectIndex,
-                        numSubjects
+                if (numKeyframes <= 2 && createGenerator) {
+                    /**
+                     * As we're creating an easing function from a spring,
+                     * ideally we want to generate it using the real distance
+                     * between the two keyframes. However this isn't always
+                     * possible - in these situations we use 0-100.
+                     */
+                    let absoluteDelta = 100
+                    if (
+                        numKeyframes === 2 &&
+                        isNumberKeyframesArray(valueKeyframesAsList)
+                    ) {
+                        const delta =
+                            valueKeyframesAsList[1] - valueKeyframesAsList[0]
+                        absoluteDelta = Math.abs(delta)
+                    }
+
+                    const springTransition = {
+                        ...defaultTransition,
+                        ...remainingTransition,
+                    }
+                    if (duration !== undefined) {
+                        springTransition.duration =
+                            secondsToMilliseconds(duration)
+                    }
+
+                    const springEasing = createGeneratorEasing(
+                        springTransition,
+                        absoluteDelta,
+                        createGenerator
+                    )
+
+                    ease = springEasing.ease
+                    duration = springEasing.duration
+                }
+
+                duration ??= defaultDuration
+
+                const startTime = currentTime + calculatedDelay
+
+                /**
+                 * If there's only one time offset of 0, fill in a second with length 1
+                 */
+                if (times.length === 1 && times[0] === 0) {
+                    times[1] = 1
+                }
+
+                /**
+                 * Fill out if offset if fewer offsets than keyframes
+                 */
+                const remainder = times.length - valueKeyframesAsList.length
+                remainder > 0 && fillOffset(times, remainder)
+
+                /**
+                 * If only one value has been set, ie [1], push a null to the start of
+                 * the keyframe array. This will let us mark a keyframe at this point
+                 * that will later be hydrated with the previous value.
+                 */
+                valueKeyframesAsList.length === 1 &&
+                    valueKeyframesAsList.unshift(null)
+
+                /**
+                 * Segments can't express `repeat: Infinity` or very large
+                 * counts — they'd leave dead time after the segment or
+                 * explode the keyframe array. Ignore with a warning.
+                 */
+                if (repeat) {
+                    warning(
+                        repeat < MAX_REPEAT,
+                        `Sequence segments can't repeat ${repeat} times — ignoring repeat option. Use a value below ${MAX_REPEAT} or apply repeat at the sequence level instead.`
                     )
                 }
+
+                if (repeat && repeat < MAX_REPEAT) {
+                    /**
+                     * Express repeatDelay in units of a single iteration's duration
+                     * so it can be added to the per-iteration time offsets below
+                     * before they're normalized to 0-1.
+                     */
+                    const repeatDelayUnits =
+                        duration > 0 ? repeatDelay / duration : 0
+
+                    duration = calculateRepeatDuration(
+                        duration,
+                        repeat,
+                        repeatDelay
+                    )
+
+                    const originalKeyframes = [...valueKeyframesAsList]
+                    const originalTimes = [...times]
+                    ease = Array.isArray(ease) ? [...ease] : [ease]
+                    const originalEase = [...ease]
+
+                    /**
+                     * For reverse/mirror, alternate iterations play the segment
+                     * backwards. mirror matches JSAnimation's mirroredGenerator:
+                     * reversed keyframes, easings unchanged. reverse matches
+                     * JSAnimation's iterationProgress = 1 - p: reversed
+                     * keyframes, easing array reversed AND each function easing
+                     * mapped through reverseEasing (string easings unchanged —
+                     * they're resolved later by the keyframes engine).
+                     */
+                    const isFlipping =
+                        repeatType === "reverse" || repeatType === "mirror"
+                    let flippedKeyframes = originalKeyframes
+                    let flippedEases = originalEase
+                    if (isFlipping) {
+                        flippedKeyframes = [...originalKeyframes].reverse()
+                        if (repeatType === "reverse") {
+                            flippedEases = [...originalEase]
+                                .reverse()
+                                .map((e) =>
+                                    typeof e === "function"
+                                        ? reverseEasing(e)
+                                        : e
+                                )
+                        }
+                    }
+
+                    for (
+                        let repeatIndex = 0;
+                        repeatIndex < repeat;
+                        repeatIndex++
+                    ) {
+                        const isFlipped = isFlipping && repeatIndex % 2 === 0
+                        const iterKeyframes = isFlipped
+                            ? flippedKeyframes
+                            : originalKeyframes
+                        const iterEase = isFlipped ? flippedEases : originalEase
+                        const iterStartOffset =
+                            (repeatIndex + 1) * (1 + repeatDelayUnits)
+
+                        /**
+                         * If repeatDelay is set, hold the previous iteration's
+                         * final value through the delay by inserting a keyframe
+                         * at the moment the next iteration begins.
+                         */
+                        if (repeatDelayUnits > 0) {
+                            valueKeyframesAsList.push(
+                                valueKeyframesAsList[
+                                    valueKeyframesAsList.length - 1
+                                ]
+                            )
+                            times.push(iterStartOffset)
+                            ease.push("linear")
+                        }
+
+                        valueKeyframesAsList.push(...iterKeyframes)
+
+                        for (
+                            let keyframeIndex = 0;
+                            keyframeIndex < iterKeyframes.length;
+                            keyframeIndex++
+                        ) {
+                            times.push(
+                                originalTimes[keyframeIndex] + iterStartOffset
+                            )
+                            ease.push(
+                                keyframeIndex === 0
+                                    ? "linear"
+                                    : getEasingForSegment(
+                                          iterEase,
+                                          keyframeIndex - 1
+                                      )
+                            )
+                        }
+                    }
+
+                    normalizeTimes(times, repeat, repeatDelayUnits)
+                }
+
+                const targetTime = startTime + duration
+
+                /**
+                 * Add keyframes, mapping offsets to absolute time.
+                 */
+                addKeyframes(
+                    valueSequence,
+                    valueKeyframesAsList,
+                    ease as Easing | Easing[],
+                    times,
+                    startTime,
+                    targetTime
+                )
+
+                maxDuration = Math.max(calculatedDelay + duration, maxDuration)
+                totalDuration = Math.max(targetTime, totalDuration)
             }
+
+            if (isMotionValue(subject)) {
+                const subjectSequence = getSubjectSequence(subject, sequences)
+                resolveValueSequence(
+                    keyframes as AnyResolvedKeyframe,
+                    transition,
+                    getValueSequence("default", subjectSequence)
+                )
+            } else {
+                const subjects = resolveSubjects(
+                    subject,
+                    keyframes as DOMKeyframesDefinition,
+                    scope,
+                    elementCache
+                )
+
+                const numSubjects = subjects.length
+
+                /**
+                 * For every element in this segment, process the defined values.
+                 */
+                for (
+                    let subjectIndex = 0;
+                    subjectIndex < numSubjects;
+                    subjectIndex++
+                ) {
+                    /**
+                     * Cast necessary, but we know these are of this type
+                     */
+                    keyframes = keyframes as DOMKeyframesDefinition
+                    transition = transition as DynamicAnimationOptions
+
+                    const thisSubject = subjects[subjectIndex]
+                    const subjectSequence = getSubjectSequence(
+                        thisSubject,
+                        sequences
+                    )
+
+                    for (const key in keyframes) {
+                        resolveValueSequence(
+                            keyframes[
+                                key as keyof typeof keyframes
+                            ] as UnresolvedValueKeyframe,
+                            getValueTransition(transition, key),
+                            getValueSequence(key, subjectSequence),
+                            subjectIndex,
+                            numSubjects
+                        )
+                    }
+                }
+            }
+
+            prevTime = currentTime
+            currentTime += maxDuration
+            sequenceEnd = Math.max(sequenceEnd, currentTime)
         }
 
-        prevTime = currentTime
-        currentTime += maxDuration
+        return sequenceEnd
+    }
+
+    resolveSequence(sequence, 0)
+
+    if (info) {
+        info.duration = totalDuration
+        info.labels = timeLabels
     }
 
     /**

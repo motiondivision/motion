@@ -107,7 +107,17 @@ export type FunctionSegment =
           SegmentTransitionOptions
       ]
 
+/**
+ * A sequence placed inside another sequence. Numeric `at` values inside
+ * it are relative to where it starts.
+ */
+export interface NestedSequence {
+    sequence: AnimationSequence
+    at?: SequenceTime
+}
+
 export type Segment =
+    | NestedSequence
     | ObjectSegment
     | ObjectSegmentWithTransition
     | SequenceLabel
@@ -127,6 +137,15 @@ export interface SequenceOptions extends AnimationPlaybackOptions {
     reduceMotion?: boolean
     skipAnimations?: boolean
     onComplete?: () => void
+}
+
+/**
+ * Filled by createAnimationsFromSequence with the resolved total
+ * duration and label times, in seconds.
+ */
+export interface SequenceInfo {
+    duration?: number
+    labels?: Map<string, number>
 }
 
 export interface AbsoluteKeyframe {
