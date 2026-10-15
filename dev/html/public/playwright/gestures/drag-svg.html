@@ -1,0 +1,66 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+
+            svg {
+                display: block;
+            }
+        </style>
+    </head>
+    <body>
+        <!--
+            Mirrors dev/react/src/tests/drag-svg.tsx and drag-svg-viewbox.tsx.
+
+            Default: a circle (cx 50, cy 50, r 20) in a 500x500 <svg>.
+            Params: axis, lock, top/left/right/bottom.
+
+            ?viewBox=true: a rect (x 10, y 10, 20x20) in an <svg> with a
+            viewBox of viewBoxX viewBoxY viewBoxWidth viewBoxHeight
+            (default 0 0 100 100), rendered at svgWidth x svgHeight
+            (default 500x500).
+        -->
+        <div id="root"></div>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            const { drag } = window.MotionDOM
+
+            const params = new URLSearchParams(window.location.search)
+            const num = (name, fallback) =>
+                params.has(name) ? parseFloat(params.get(name)) : fallback
+            const root = document.getElementById("root")
+
+            if (params.has("viewBox")) {
+                root.innerHTML = `<svg
+                    viewBox="${num("viewBoxX", 0)} ${num("viewBoxY", 0)} ${num(
+                    "viewBoxWidth",
+                    100
+                )} ${num("viewBoxHeight", 100)}"
+                    width="${num("svgWidth", 500)}"
+                    height="${num("svgHeight", 500)}"
+                ><rect id="box" x="10" y="10" width="20" height="20" fill="red" /></svg>`
+            } else {
+                root.innerHTML = `<svg style="width: 500px; height: 500px"><circle id="box" fill="red" cx="50" cy="50" r="20" /></svg>`
+            }
+
+            window.events = []
+
+            drag("#box", {
+                axis: params.get("axis") || undefined,
+                directionLock: params.has("lock"),
+                constraints: {
+                    top: num("top"),
+                    left: num("left"),
+                    right: num("right"),
+                    bottom: num("bottom"),
+                },
+                elastic: 0,
+                momentum: false,
+                onStart: () => window.events.push("start"),
+                onEnd: () => window.events.push("end"),
+            })
+        </script>
+    </body>
+</html>

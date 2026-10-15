@@ -1062,7 +1062,11 @@ function createGroup(owner: TransformOwner): TransformGroup {
         })
 
         if (!tracks.size) {
-            transformGroups.delete(element)
+            /**
+             * The element may have a newer group if this one was detached
+             * (see handOffElementState).
+             */
+            getGroup(element) === group && transformGroups.delete(element)
             group.isJS || stop()
             return
         }

@@ -1,0 +1,59 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+
+            #page {
+                height: 4000px;
+                padding-top: 1500px;
+            }
+
+            #container {
+                width: 300px;
+                height: 300px;
+                background: #eee;
+            }
+
+            .box {
+                width: 100px;
+                height: 100px;
+                background-color: red;
+            }
+        </style>
+    </head>
+    <body>
+        <!--
+            Mirrors dev/react/src/tests/drag-momentum.tsx.
+
+            #free has momentum and no constraints. #constrained has momentum
+            and must stay within #container. The page is scrolled so both
+            have space to travel upwards.
+        -->
+        <div id="page">
+            <div class="box" id="free"></div>
+            <div id="container">
+                <div class="box" id="constrained"></div>
+            </div>
+        </div>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            const { drag } = window.MotionDOM
+
+            window.scrollTo(0, 1000)
+            window.events = []
+
+            drag("#free", {
+                onEnd: () => window.events.push("free-end"),
+                onTransitionEnd: () => window.events.push("free-settled"),
+            })
+
+            drag("#constrained", {
+                constraints: document.getElementById("container"),
+                onTransitionEnd: () =>
+                    window.events.push("constrained-settled"),
+            })
+        </script>
+    </body>
+</html>

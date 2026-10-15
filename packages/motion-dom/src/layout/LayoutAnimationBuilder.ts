@@ -176,6 +176,32 @@ function prepareNode(
     return node
 }
 
+/**
+ * Get a projection node for an element, so imperative gestures like
+ * drag() can measure its layout. Reuses a node owned by a `motion`
+ * component or animateLayout(), otherwise creates one in the shared
+ * imperative tree. Returns the node and a function that releases it.
+ */
+export function acquireProjectionNode(
+    element: HTMLElement
+): [IProjectionNode, VoidFunction] {
+    const owned =
+        layoutNodes.get(element) || visualElementStore.get(element)?.projection
+
+    /**
+     * A VisualElement can outlive a node we released (e.g. a stopped
+     * drag()), so only reuse a node that's still mounted.
+     */
+    if (owned?.instance) return [owned, () => {}]
+
+    const node = prepareNode(element)
+
+    return [
+        node,
+        () => layoutNodes.get(element) === node && dropNode(element, node),
+    ]
+}
+
 function sortDocumentOrder(elements: Iterable<HTMLElement>) {
     return [...elements].sort((a, b) =>
         a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1

@@ -1,0 +1,43 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+
+            #box {
+                width: 100px;
+                height: 100px;
+                background: red;
+            }
+        </style>
+    </head>
+    <body>
+        <!--
+            Mirrors dev/react/src/tests/drag-scaled-parent.tsx (?scale=)
+            and drag-rotated-parent.tsx (?rotate=). React compensates with
+            transformPagePoint={correctParentTransform(ref)}, which
+            vanilla drag() has no option for.
+        -->
+        <div id="container"><div id="box"></div></div>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            const { drag } = window.MotionDOM
+
+            const params = new URLSearchParams(window.location.search)
+            const container = document.getElementById("container")
+
+            if (params.has("rotate")) {
+                container.style.cssText = `position: absolute; top: 0; left: 0; width: 400px; height: 400px; transform: rotate(${params.get(
+                    "rotate"
+                )}deg)`
+            } else {
+                container.style.cssText = `width: 800px; height: 800px; background: blue; transform: scale(${
+                    params.get("scale") || 0.5
+                }); transform-origin: top left`
+            }
+
+            drag("#box", { elastic: 0, momentum: false })
+        </script>
+    </body>
+</html>

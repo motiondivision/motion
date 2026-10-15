@@ -1,0 +1,89 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+                padding: 100px;
+            }
+
+            #draggable {
+                width: 400px;
+                height: 200px;
+                background: red;
+                display: flex;
+                flex-wrap: wrap;
+                align-items: center;
+                justify-content: center;
+                gap: 10px;
+                padding: 10px;
+                box-sizing: content-box;
+            }
+
+            #draggable > * {
+                height: 30px;
+            }
+        </style>
+    </head>
+    <body>
+        <!-- Mirrors dev/react/src/tests/drag-input-propagation.tsx -->
+        <div id="draggable">
+            <input
+                type="text"
+                id="input"
+                value="Select me"
+                style="width: 80px; padding: 5px"
+            />
+            <textarea id="textarea" style="width: 60px; padding: 5px">
+Text</textarea
+            >
+            <button id="button" style="width: 60px; padding: 5px">Click</button>
+            <a
+                href="#test"
+                id="link"
+                style="
+                    display: inline-block;
+                    width: 60px;
+                    padding: 5px;
+                    background: white;
+                "
+                >Link</a
+            >
+            <select id="select" style="width: 80px">
+                <option value="1">Option 1</option>
+                <option value="2">Option 2</option>
+            </select>
+            <label
+                id="label"
+                style="
+                    display: flex;
+                    align-items: center;
+                    gap: 5px;
+                    background: white;
+                    padding: 5px;
+                "
+            >
+                <input type="checkbox" id="checkbox" />
+                Check
+            </label>
+            <div
+                contenteditable
+                id="contenteditable"
+                style="width: 80px; padding: 5px; background: white"
+            >
+                Edit me
+            </div>
+        </div>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            const { drag } = window.MotionDOM
+
+            window.events = []
+
+            drag("#draggable", {
+                elastic: 0,
+                momentum: false,
+                onStart: () => window.events.push("start"),
+            })
+        </script>
+    </body>
+</html>
