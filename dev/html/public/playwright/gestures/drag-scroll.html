@@ -1,0 +1,70 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+
+            #scrollable {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 500px;
+                height: 400px;
+                overflow: auto;
+                background: #f0f0f0;
+            }
+
+            .content {
+                height: 1500px;
+                width: 800px;
+                padding-top: 50px;
+                padding-left: 50px;
+            }
+
+            .window-content {
+                height: 2000px;
+                padding-top: 50px;
+                padding-left: 50px;
+                background: #f0f0f0;
+            }
+
+            #draggable {
+                width: 100px;
+                height: 100px;
+                background: #ff0066;
+                border-radius: 10px;
+            }
+        </style>
+    </head>
+    <body>
+        <!--
+            Mirrors dev/react/src/tests/drag-scroll-while-drag.tsx.
+            ?window=true puts the draggable in a tall document instead of
+            an overflow container.
+        -->
+        <div id="root"></div>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            const { drag } = window.MotionDOM
+
+            const useWindow =
+                new URLSearchParams(window.location.search).get("window") ===
+                "true"
+
+            const root = document.getElementById("root")
+            root.innerHTML = useWindow
+                ? `<div class="window-content"><div id="draggable"></div></div>`
+                : `<div id="scrollable"><div class="content"><div id="draggable"></div></div></div>`
+
+            window.events = []
+
+            drag("#draggable", {
+                elastic: 0,
+                momentum: false,
+                onStart: () => window.events.push("start"),
+                onEnd: () => window.events.push("end"),
+            })
+        </script>
+    </body>
+</html>

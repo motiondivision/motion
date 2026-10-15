@@ -188,7 +188,11 @@ export function acquireProjectionNode(
     const owned =
         layoutNodes.get(element) || visualElementStore.get(element)?.projection
 
-    if (owned) return [owned, () => {}]
+    /**
+     * A VisualElement can outlive a node we released (e.g. a stopped
+     * drag()), so only reuse a node that's still mounted.
+     */
+    if (owned?.instance) return [owned, () => {}]
 
     const node = prepareNode(element)
 

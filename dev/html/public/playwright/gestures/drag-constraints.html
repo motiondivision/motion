@@ -1,0 +1,160 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+
+            #box {
+                background-color: red;
+            }
+
+            #constraints {
+                background: rgba(0, 0, 255, 0.2);
+            }
+        </style>
+    </head>
+    <body>
+        <!--
+            Element constraint scenarios. Pick one with ?case=:
+
+            sibling-layout    dev/react/src/tests/drag-ref-constraints.tsx
+            viewport-resize   dev/react/src/tests/drag-ref-constraints-resize.tsx
+            element-resize    dev/react/src/tests/drag-ref-constraints-element-resize.tsx
+                              and drag-ref-constraints-resize-handle.tsx
+            absolute-scrolled dev/react/src/tests/drag-ref-constraints-absolute-scrolled.tsx
+            return            dev/react/src/tests/drag-constraints-return.tsx
+
+            Shared params: elastic, momentum.
+        -->
+        <div id="root"></div>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            const { drag, animateLayout } = window.MotionDOM
+            const { animate } = window.Motion
+
+            const params = new URLSearchParams(window.location.search)
+            const scenario = params.get("case")
+            const root = document.getElementById("root")
+
+            const el = (style, attrs = {}, children = []) => {
+                const node = document.createElement("div")
+                node.style.cssText = style
+                for (const key in attrs) node.setAttribute(key, attrs[key])
+                children.forEach((child) => node.appendChild(child))
+                return node
+            }
+
+            window.events = []
+            window.measured = null
+
+            const options = {
+                elastic: params.has("elastic")
+                    ? parseFloat(params.get("elastic"))
+                    : 0,
+                momentum: params.get("momentum") === "true",
+                onStart: () => window.events.push("start"),
+                onEnd: () => window.events.push("end"),
+                onTransitionEnd: () => window.events.push("settled"),
+                onMeasureConstraints: (constraints) => {
+                    window.measured = constraints
+                    if (params.has("override")) {
+                        return { top: 0, left: 0, right: 20, bottom: 20 }
+                    }
+                },
+            }
+
+            let box, constraints
+
+            if (scenario === "sibling-layout") {
+                /**
+                 * Page scrolled by 100px. A sibling below the constraint
+                 * runs a layout animation every 200ms, which remeasures the
+                 * projection tree while dragging.
+                 */
+                box = el("width: 50px; height: 50px", { id: "box" })
+                constraints = el(
+                    "width: 200px; height: 200px",
+                    { id: "constraints" },
+                    [box]
+                )
+                const sibling = el(
+                    "width: 200px; height: 200px; background: blue; position: relative; left: 0px",
+                    { id: "sibling", "data-layout": "" }
+                )
+                root.appendChild(
+                    el("height: 2000px; padding-top: 100px", {}, [constraints])
+                )
+                root.appendChild(sibling)
+                window.scrollTo(0, 100)
+
+                let toggled = false
+                setInterval(() => {
+                    animateLayout(
+                        () => {
+                            toggled = !toggled
+                            sibling.style.left = toggled ? "100px" : "0px"
+                        },
+                        { duration: 0.15 }
+                    )
+                }, 200)
+            } else if (scenario === "viewport-resize") {
+                box = el("width: 200px; height: 200px; border-radius: 20px", {
+                    id: "box",
+                })
+                constraints = el(
+                    "width: 50%; height: 300px; border-radius: 20px; display: flex; justify-content: center; align-items: center; margin: 0 auto",
+                    { id: "constraints" },
+                    [box]
+                )
+                root.appendChild(constraints)
+            } else if (scenario === "element-resize") {
+                box = el("width: 100px; height: 100px", { id: "box" })
+                constraints = el(
+                    "width: 500px; height: 500px; position: relative",
+                    { id: "constraints" },
+                    [box]
+                )
+                root.appendChild(constraints)
+                window.resizeBox = () => {
+                    box.style.width = "300px"
+                    box.style.height = "300px"
+                }
+                window.resizeConstraints = () => {
+                    constraints.style.width = "300px"
+                    constraints.style.height = "300px"
+                }
+            } else if (scenario === "absolute-scrolled") {
+                /**
+                 * The page is scrolled before drag() is attached, like a
+                 * browser restoring scroll on refresh.
+                 */
+                box = el(
+                    "width: 50px; height: 50px; position: absolute; top: 0; left: 0",
+                    { id: "box" }
+                )
+                constraints = el(
+                    "position: absolute; top: 0; left: 0; right: 0; bottom: 0",
+                    { id: "constraints" },
+                    [box]
+                )
+                root.appendChild(el("height: 3000px", {}, [constraints]))
+                window.scrollTo(0, Number(params.get("scroll") || 300))
+            } else if (scenario === "return") {
+                box = el("width: 100px; height: 100px", { id: "box" })
+                constraints = el(
+                    "width: 300px; height: 300px",
+                    { id: "constraints" },
+                    [box]
+                )
+                root.appendChild(constraints)
+            }
+
+            window.stopDrag = drag(box, { ...options, constraints })
+
+            if (scenario === "sibling-layout") {
+                animate(box, { x: "100%" }, { duration: 0 })
+            }
+        </script>
+    </body>
+</html>

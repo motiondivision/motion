@@ -105,6 +105,38 @@ const toProps = ({
     onMeasureDragConstraints: onMeasureConstraints,
 })
 
+const dragStyles = [
+    "user-select",
+    "-webkit-user-select",
+    "-webkit-touch-callout",
+    "touch-action",
+]
+
+/**
+ * Apply the styles React's drag prop applies, so touch input drags
+ * instead of panning the page, and text selection and native drag (ghost
+ * image) don't interrupt the gesture. Returns a function that restores
+ * the element's previous values.
+ */
+function applyDragStyles(element: HTMLElement, axis?: "x" | "y") {
+    const { style } = element
+    const draggable = element.getAttribute("draggable")
+    const prev = dragStyles.map((key) => style.getPropertyValue(key))
+    const touchAction = axis ? "pan-" + (axis === "x" ? "y" : "x") : "none"
+
+    dragStyles.forEach((key, i) =>
+        style.setProperty(key, i < 3 ? "none" : touchAction)
+    )
+    element.setAttribute("draggable", "false")
+
+    return () => {
+        dragStyles.forEach((key, i) => style.setProperty(key, prev[i]))
+        draggable === null
+            ? element.removeAttribute("draggable")
+            : element.setAttribute("draggable", draggable)
+    }
+}
+
 /**
  * Make elements draggable. Returns a function that removes the gesture.
  *
@@ -137,8 +169,13 @@ export function drag(
             () => props
         )
         const removeListeners = controls.addListeners()
+        const removeStyles = applyDragStyles(
+            element as HTMLElement,
+            options.axis
+        )
 
         return () => {
+            removeStyles()
             removeListeners?.()
             controls.cancel()
             release()

@@ -1,0 +1,88 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+
+            #parent {
+                position: absolute;
+                top: 100px;
+                left: 100px;
+                width: 300px;
+                height: 300px;
+                border-radius: 10px;
+                background: #ff0055;
+            }
+
+            #child {
+                position: relative;
+                top: 50px;
+                left: 50px;
+                width: 600px;
+                height: 200px;
+                border-radius: 10px;
+                background: #ffcc00;
+            }
+
+            #control {
+                position: relative;
+                top: 50px;
+                left: 50px;
+                width: 100px;
+                height: 100px;
+                border-radius: 10px;
+                background: #ffaa00;
+            }
+        </style>
+    </head>
+    <body>
+        <!--
+            Mirrors dev/react/src/tests/drag-layout-nested.tsx without the
+            layout props. #control is a plain element inside #child.
+
+            Params: constraints, animation (momentum + elastic 0.5 when
+            combined with constraints), bothAxes (parent y, child x),
+            propagation (child propagates to parent).
+        -->
+        <div id="parent">
+            <div id="child">
+                <div id="control"></div>
+            </div>
+        </div>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            const { drag } = window.MotionDOM
+
+            const params = new URLSearchParams(window.location.search)
+            const constraints = params.has("constraints")
+            const animation = params.has("animation")
+            const bothAxes = params.has("bothAxes")
+            const propagation = params.has("propagation")
+
+            window.events = []
+
+            const shared = (name) => ({
+                momentum: animation,
+                elastic: constraints && animation ? 0.5 : 0,
+                propagation,
+                onStart: () => window.events.push(name + "-start"),
+                onEnd: () => window.events.push(name + "-end"),
+            })
+
+            drag("#parent", {
+                ...shared("parent"),
+                axis: bothAxes ? "y" : undefined,
+                constraints: constraints ? { top: -10, right: 100 } : undefined,
+            })
+
+            drag("#child", {
+                ...shared("child"),
+                axis: bothAxes ? "x" : undefined,
+                constraints: constraints
+                    ? { top: 0, left: -100, right: 100 }
+                    : undefined,
+            })
+        </script>
+    </body>
+</html>

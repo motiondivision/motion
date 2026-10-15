@@ -1,0 +1,110 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+
+            #page {
+                height: 2000px;
+                padding-top: 100px;
+            }
+
+            #box {
+                width: 50px;
+                height: 50px;
+                background-color: red;
+            }
+        </style>
+    </head>
+    <body>
+        <!--
+            Mirrors dev/react/src/tests/drag.tsx. The page is scrolled by
+            100px before drag() is attached, so the box starts at the top
+            of the viewport and the page scroll isn't 0/0.
+
+            Params: axis, lock, top/left/right/bottom, return (true|x|y),
+            x/y (initial offset set with animate()), percentage, offset=before (call
+            animate() before drag()), duration, showChild.
+        -->
+        <div id="page">
+            <div id="box"></div>
+        </div>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            const { drag } = window.MotionDOM
+            const { animate } = window.Motion
+
+            const params = new URLSearchParams(window.location.search)
+            const num = (name) =>
+                params.has(name) ? parseFloat(params.get(name)) : undefined
+            const isPercentage = params.has("percentage")
+            const offset = (name) =>
+                params.has(name)
+                    ? isPercentage
+                        ? params.get(name) + "%"
+                        : num(name)
+                    : undefined
+
+            const returnParam = params.get("return")
+            const snapToOrigin =
+                returnParam === "x" || returnParam === "y"
+                    ? returnParam
+                    : Boolean(returnParam)
+
+            window.scrollTo(0, 100)
+
+            const box = document.getElementById("box")
+
+            if (params.has("showChild")) {
+                const child = document.createElement("div")
+                child.id = "child"
+                child.style.cssText =
+                    "width: 50px; height: 50px; background: blue"
+                box.appendChild(child)
+            }
+
+            /**
+             * Set an initial offset with animate(), either before drag() is
+             * attached (handing the values over) or after (sharing them).
+             */
+            const setInitialOffset = () =>
+                animate(
+                    box,
+                    { x: offset("x") ?? 0, y: offset("y") ?? 0 },
+                    { duration: Number(params.get("duration") || 0) }
+                )
+            const hasOffset = params.has("x") || params.has("y")
+            const offsetFirst = params.get("offset") === "before"
+
+            if (hasOffset && offsetFirst) setInitialOffset()
+
+            window.events = []
+            window.moves = 0
+            window.dragEndOffset = null
+
+            window.stopDrag = drag(box, {
+                axis: params.get("axis") || undefined,
+                directionLock: params.has("lock"),
+                constraints: {
+                    top: num("top"),
+                    left: num("left"),
+                    right: num("right"),
+                    bottom: num("bottom"),
+                },
+                snapToOrigin,
+                elastic: 0,
+                momentum: false,
+                onStart: () => window.events.push("start"),
+                onMove: () => window.moves++,
+                onEnd: (_, info) => {
+                    window.events.push("end")
+                    window.dragEndOffset = info.offset
+                },
+                onDirectionLock: (axis) => window.events.push("lock-" + axis),
+            })
+
+            if (hasOffset && !offsetFirst) setInitialOffset()
+        </script>
+    </body>
+</html>

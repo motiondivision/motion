@@ -1,0 +1,71 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+                padding: 100px;
+            }
+
+            #spacer {
+                height: 0px;
+            }
+
+            #box {
+                width: 100px;
+                height: 100px;
+                background: red;
+            }
+        </style>
+    </head>
+    <body>
+        <!--
+            drag() shares the element's x/y motion values with animate()
+            and animateLayout(). ?layout=true tags the box with data-layout
+            so animateLayout() measures and animates it. ?momentum=true
+            enables momentum.
+        -->
+        <div id="spacer"></div>
+        <div id="box"></div>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            const { drag, animateLayout } = window.MotionDOM
+            const { animate } = window.Motion
+
+            const params = new URLSearchParams(window.location.search)
+            const box = document.getElementById("box")
+            const spacer = document.getElementById("spacer")
+
+            if (params.has("layout")) box.setAttribute("data-layout", "")
+
+            window.events = []
+
+            // Where the box was when the pointer went down, before drag's
+            // own pointerdown listener runs
+            window.addEventListener(
+                "pointerdown",
+                () => (window.pressedLeft = box.getBoundingClientRect().left),
+                true
+            )
+
+            drag(box, {
+                elastic: 0,
+                momentum: params.get("momentum") === "true",
+                onStart: () => window.events.push("start"),
+                onEnd: () => window.events.push("end"),
+            })
+
+            window.animateBox = (target, duration = 0.2) =>
+                animate(box, target, { duration, ease: "linear" }).then(() =>
+                    window.events.push("animated")
+                )
+
+            window.shiftLayout = (height) =>
+                animateLayout(
+                    () => {
+                        spacer.style.height = height + "px"
+                    },
+                    { duration: 0.3 }
+                )
+        </script>
+    </body>
+</html>
