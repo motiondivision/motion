@@ -4,6 +4,7 @@ import { measureViewportBox } from "../../projection/utils/measure"
 import type { VisualElement } from "../../render/VisualElement"
 import { isSVGElement } from "../../utils/is-svg-element"
 import { MotionValue, Owner } from "../../value"
+import { transformGroups } from "../waapi/transforms/groups"
 import { DOMKeyframesResolver } from "../keyframes/DOMKeyframesResolver"
 import { AnimationElement } from "../keyframes/types"
 import { AnimationPlaybackControlsWithThen } from "../types"
@@ -104,6 +105,18 @@ export function handOffElementState(
     const state = getElementEffect(element).state(element as StyleSubject)
     if (!state) return
 
+    /**
+     * A transform group reads values through the effect state, which is
+     * about to be emptied. Hand its animations to the main thread (writing
+     * their current transform) and detach it, so animations the
+     * VisualElement starts form a new group that reads from it.
+     */
+    const group = transformGroups.get(element)
+    if (group) {
+        group.demote()
+        transformGroups.delete(element)
+    }
+
     const { transformKeys } = state
     state.release().forEach((value: MotionValue, key: string) => {
         /**
@@ -114,6 +127,9 @@ export function handOffElementState(
             key === "transformBox" ||
             (key === "transform" && transformKeys?.length)
 
-        derived || visualElement.addValue(key, value)
+        if (!derived) {
+            value.owner = visualElement
+            visualElement.addValue(key, value)
+        }
     })
 }

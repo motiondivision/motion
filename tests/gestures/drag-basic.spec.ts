@@ -51,17 +51,13 @@ test.describe("drag: basic", () => {
     })
 
     /**
-     * Known issue: animate() runs x/y as an accelerated transform group
-     * bound to the element's style effect. drag() hands the values to a
-     * VisualElement, but the finished group stays registered. When the
-     * drag stops the values on release, the group cleans up and commits a
-     * transform built from the released effect state (transform: none),
-     * so the element jumps back to its origin while x is still 300.
+     * animate() binds x/y to the style effect and may run them as an
+     * accelerated transform group. drag() must take both over, so the
+     * element doesn't jump back to its origin on release.
      */
     test("drags from an offset animated before drag() is attached", async ({
         page,
     }) => {
-        test.fail()
         await open(page, "?x=100&y=100&offset=before&duration=0.1")
         await expect.poll(async () => (await rect(page, "#box")).left).toBe(100)
 
@@ -71,16 +67,12 @@ test.describe("drag: basic", () => {
     })
 
     /**
-     * Known issue: an instant animate() whose values are handed to drag()'s
-     * VisualElement commits its final value after that frame's render, and
-     * VisualElement.scheduleRender ignores a second request with the same
-     * frame timestamp. latestValues holds x: 100 but the element is left
-     * rendered at transform: none.
+     * An instant animate() value handed to drag()'s VisualElement must
+     * still render.
      */
     test("renders an instant animate() offset set before drag() is attached", async ({
         page,
     }) => {
-        test.fail()
         await open(page, "?x=100&y=100&offset=before")
         await frames(page, 5)
         expect(await rect(page, "#box")).toMatchObject({ left: 100, top: 100 })
