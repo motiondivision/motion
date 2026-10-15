@@ -1,4 +1,6 @@
-import { calcLength, mixNumber, type DragElastic, type ResolvedConstraints } from "motion-dom"
+import { calcLength } from "../../../projection/geometry/delta-calc"
+import { mixNumber } from "../../../utils/mix/number"
+import type { DragElastic, ResolvedConstraints } from "../types"
 import {
     Axis,
     BoundingBox,

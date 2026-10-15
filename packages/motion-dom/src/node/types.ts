@@ -626,7 +626,7 @@ export interface MotionNodeDraggableOptions {
      *
      * Alternatively, it can accept a `ref` to another component created with React's `useRef` hook.
      * This `ref` should be passed both to the draggable component's `dragConstraints` prop, and the `ref`
-     * of the component you want to use as constraints.
+     * of the component you want to use as constraints. The element itself can also be passed.
      *
      * ```jsx
      * // In pixels
@@ -647,7 +647,11 @@ export interface MotionNodeDraggableOptions {
      * }
      * ```
      */
-    dragConstraints?: false | Partial<BoundingBox> | { current: Element | null }
+    dragConstraints?:
+        | false
+        | Partial<BoundingBox>
+        | Element
+        | { current: Element | null }
 
     /**
      * The degree of movement allowed outside constraints. 0 = no movement, 1 =

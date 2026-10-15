@@ -17,8 +17,6 @@ export type {
     ScrapeMotionValuesFromProps,
 } from "./render/types"
 
-export { addPointerEvent } from "./events/add-pointer-event"
-export { addPointerInfo } from "./events/event-info"
 export { animations } from "./motion/features/animations"
 export {
     makeUseVisualState,

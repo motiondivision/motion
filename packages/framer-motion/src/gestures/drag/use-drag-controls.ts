@@ -1,9 +1,6 @@
 import * as React from "react"
 import { useConstant } from "../../utils/use-constant"
-import {
-    DragControlOptions,
-    VisualElementDragControls,
-} from "./VisualElementDragControls"
+import type { DragControlOptions, VisualElementDragControls } from "motion-dom"
 
 /**
  * Can manually trigger a drag gesture on one or more `drag`-enabled `motion` components.

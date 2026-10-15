@@ -1,4 +1,5 @@
-import { EventInfo, isPrimaryPointer } from "motion-dom"
+import { isPrimaryPointer } from "../gestures/utils/is-primary-pointer"
+import type { EventInfo } from "../node/types"
 
 export type EventListenerWithPointInfo = (
     e: PointerEvent,
