@@ -558,11 +558,15 @@ describe("independent transform acceleration", () => {
     it("keeps every repeat of a short animation that repeats many times", async () => {
         const element = document.createElement("div")
 
-        animateElement(
-            element,
-            { x: [0, 100] },
-            { duration: 0.1, ease: "linear", repeat: 199 }
-        )
+        // Start in a frame, so the build uses the same timestamp as the
+        // start, however long the test runner takes to reach the build.
+        frame.update(() => {
+            animateElement(
+                element,
+                { x: [0, 100] },
+                { duration: 0.1, ease: "linear", repeat: 199 }
+            )
+        })
         await nextFrame()
 
         const [animation] = running(element)
