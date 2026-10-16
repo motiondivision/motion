@@ -727,4 +727,56 @@ describe("independent transform acceleration", () => {
 
         expect(animations.filter((a) => a.element === element)).toHaveLength(0)
     })
+
+    it("leaves the element's transform to its caller once stopped", async () => {
+        const element = document.createElement("div")
+
+        const animations = animateElement(
+            element,
+            { x: [0, 100], scale: [1, 2] },
+            { duration: 1, ease: "linear" }
+        )
+        await nextFrame()
+        for (const animation of animations) {
+            animation.pause()
+            animation.time = 0.5
+        }
+        await nextFrame()
+
+        for (const animation of animations) animation.stop()
+
+        /**
+         * It stops where it was, without waiting for a frame.
+         */
+        expect(running(element)).toHaveLength(0)
+        expect(element.style.transform).toBe("translateX(50px) scale(1.5)")
+
+        element.style.transform = "translateX(-40px)"
+        await nextFrame()
+        await nextFrame()
+
+        expect(element.style.transform).toBe("translateX(-40px)")
+    })
+
+    it("keeps an animation that starts as another is stopped from its onPlay", async () => {
+        const element = document.createElement("div")
+
+        const [x] = animateElement(
+            element,
+            { x: [0, 100], scale: [1, 2] },
+            { duration: 1 }
+        )
+        await nextFrame()
+
+        const [y] = animateElement(
+            element,
+            { y: [0, 100] },
+            { duration: 0.1, onPlay: () => x.stop() }
+        )
+        await nextFrame()
+
+        const transform = running(element)[0].keyframes.transform
+        expect(transform[transform.length - 1]).toContain("translateY(100px)")
+        await y.finished
+    })
 })
