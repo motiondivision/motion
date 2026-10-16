@@ -1,4 +1,9 @@
-import { ElementOrSelector, resolveElements } from "motion-dom"
+import {
+    addToScope,
+    bindToScope,
+    ElementOrSelector,
+    resolveElements,
+} from "motion-dom"
 
 export type ViewChangeHandler = (entry: IntersectionObserverEntry) => void
 
@@ -29,6 +34,7 @@ export function inView(
     { root, margin: rootMargin, amount = "some" }: InViewOptions = {}
 ): VoidFunction {
     const elements = resolveElements(elementOrSelector)
+    onStart = bindToScope(onStart)
 
     const activeIntersections = new WeakMap<Element, ViewChangeHandler>()
 
@@ -64,5 +70,5 @@ export function inView(
 
     elements.forEach((element) => observer.observe(element))
 
-    return () => observer.disconnect()
+    return addToScope(() => observer.disconnect())
 }

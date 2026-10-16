@@ -1,4 +1,5 @@
 import type { AnimationOptions } from "../animation/types"
+import { activeScope, addBuilderToScope } from "../scope/active"
 import type { ElementOrSelector } from "../utils/resolve-elements"
 import {
     LayoutAnimationBuilder,
@@ -25,5 +26,10 @@ export function animateLayout(
         updateDomOrOptions,
         options
     )
-    return new LayoutAnimationBuilder(scope, updateDom, defaultOptions)
+    const builder = new LayoutAnimationBuilder(scope, updateDom, {
+        ...activeScope.current?.transition,
+        ...defaultOptions,
+    })
+    addBuilderToScope(builder)
+    return builder
 }

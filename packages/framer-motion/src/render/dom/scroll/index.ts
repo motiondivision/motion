@@ -1,4 +1,4 @@
-import { AnimationPlaybackControls } from "motion-dom"
+import { addToScope, AnimationPlaybackControls, bindToScope } from "motion-dom"
 import { noop } from "motion-utils"
 import { attachToAnimation } from "./attach-animation"
 import { scrollInfo } from "./track"
@@ -21,10 +21,15 @@ export function scroll(
         ...options,
     }
 
-    return typeof onScroll === "function"
-        ? scrollInfo(
-              (info) => onScroll(info[axis].progress, info),
-              optionsWithDefaults
-          )
-        : attachToAnimation(onScroll, optionsWithDefaults)
+    if (typeof onScroll === "function") {
+        const callback = bindToScope(onScroll)
+        return addToScope(
+            scrollInfo(
+                (info) => callback(info[axis].progress, info),
+                optionsWithDefaults
+            )
+        )
+    }
+
+    return addToScope(attachToAnimation(onScroll, optionsWithDefaults))
 }

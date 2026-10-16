@@ -2,6 +2,7 @@ import { cancelFrame, frame } from "../frameloop"
 import { time } from "../frameloop/sync-time"
 import type { FrameData } from "../frameloop/types"
 import { secondsToMilliseconds } from "motion-utils"
+import { addToScope, bindToScope } from "../scope/active"
 
 export type DelayedFunction = (overshoot: number) => void
 
@@ -10,6 +11,7 @@ export type DelayedFunction = (overshoot: number) => void
  */
 export function delay(callback: DelayedFunction, timeout: number) {
     const start = time.now()
+    callback = bindToScope(callback)
 
     const checkElapsed = ({ timestamp }: FrameData) => {
         const elapsed = timestamp - start
@@ -22,7 +24,7 @@ export function delay(callback: DelayedFunction, timeout: number) {
 
     frame.setup(checkElapsed, true)
 
-    return () => cancelFrame(checkElapsed)
+    return addToScope(() => cancelFrame(checkElapsed))
 }
 
 export function delayInSeconds(callback: DelayedFunction, timeout: number) {

@@ -1,3 +1,4 @@
+import { bindToScope } from "../../scope/active"
 import { isHTMLElement } from "../../utils/is-html-element"
 import { ElementOrSelector } from "../../utils/resolve-elements"
 import { isDragActive } from "../drag/state/is-active"
@@ -49,6 +50,8 @@ export function press(
     onPressStart: OnPressStartEvent,
     options: PointerEventOptions = {}
 ): VoidFunction {
+    onPressStart = bindToScope(onPressStart)
+
     const [targets, eventOptions, cancelEvents] = setupGesture(
         targetOrSelector,
         options

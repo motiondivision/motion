@@ -3,6 +3,7 @@ import { svgSubjectEffect } from "../../effects/svg"
 import { measureViewportBox } from "../../projection/utils/measure"
 import type { VisualElement } from "../../render/VisualElement"
 import { isSVGElement } from "../../utils/is-svg-element"
+import { activeScope } from "../../scope/active"
 import { MotionValue, Owner } from "../../value"
 import { DOMKeyframesResolver } from "../keyframes/DOMKeyframesResolver"
 import { AnimationElement } from "../keyframes/types"
@@ -71,6 +72,8 @@ export function animateElement(
     transition?: EffectTransition,
     visualElement?: VisualElement
 ): AnimationPlaybackControlsWithThen[] {
+    activeScope.current?.track(element)
+
     if (visualElement) {
         return animateValues(
             (key) => visualElement.getValue(key, null),
@@ -90,6 +93,15 @@ export function animateElement(
         new EffectSubject(effect, element)
     )
 }
+
+/**
+ * Detach the values styleEffect/svgEffect bound to `element`, so the
+ * next animation reads its starting values from the DOM again.
+ */
+export const releaseElement = (element: Element) =>
+    getElementEffect(element)
+        .state(element as StyleSubject)
+        ?.release()
 
 /**
  * Hand the values styleEffect/svgEffect are rendering on `element`,

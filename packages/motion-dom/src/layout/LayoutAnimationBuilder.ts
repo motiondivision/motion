@@ -1,3 +1,4 @@
+import { activeScope } from "../scope/active"
 import { clamp } from "motion-utils"
 import { handOffElementState } from "../animation/animate/element"
 import { GroupAnimation } from "../animation/GroupAnimation"
@@ -441,7 +442,7 @@ export function parseAnimateLayoutArgs(
 } {
     if (typeof scopeOrUpdateDom === "function") {
         return {
-            scope: document,
+            scope: activeScope.current?.root || document,
             updateDom: scopeOrUpdateDom,
             defaultOptions: updateDomOrOptions as AnimationOptions | undefined,
         }

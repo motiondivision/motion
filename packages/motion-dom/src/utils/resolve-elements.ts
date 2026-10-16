@@ -1,3 +1,5 @@
+import { activeScope } from "../scope/active"
+
 export type ElementOrSelector =
     | Element
     | Element[]
@@ -31,11 +33,9 @@ export function resolveElements(
     if (elementOrSelector instanceof EventTarget) {
         return [elementOrSelector]
     } else if (typeof elementOrSelector === "string") {
-        let root: WithQuerySelectorAll = document
-
-        if (scope) {
-            root = scope.current
-        }
+        const root: WithQuerySelectorAll = scope
+            ? scope.current
+            : activeScope.current?.root || document
 
         const elements =
             selectorCache?.[elementOrSelector] ??

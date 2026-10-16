@@ -1,3 +1,4 @@
+import { addToScope } from "../scope/active"
 import { ElementOrSelector } from "../utils/resolve-elements"
 import { resizeElement } from "./handle-element"
 import { resizeWindow } from "./handle-window"
@@ -12,5 +13,7 @@ export function resize(
     a: WindowResizeHandler | ElementOrSelector,
     b?: ResizeHandler<Element>
 ) {
-    return typeof a === "function" ? resizeWindow(a) : resizeElement(a, b!)
+    return addToScope(
+        typeof a === "function" ? resizeWindow(a) : resizeElement(a, b!)
+    )
 }

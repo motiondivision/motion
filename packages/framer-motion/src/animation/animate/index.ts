@@ -8,7 +8,12 @@ import type {
     UnresolvedValueKeyframe,
     ValueAnimationTransition,
 } from "motion-dom"
-import { addEffect, GroupAnimationWithThen, removeEffect } from "motion-dom"
+import {
+    activeScope,
+    addEffect,
+    GroupAnimationWithThen,
+    removeEffect,
+} from "motion-dom"
 import { removeItem } from "motion-utils"
 import {
     AnimationSequence,
@@ -109,6 +114,8 @@ export function createScopedAnimate(options: ScopedAnimateOptions = {}) {
     ): AnimationPlaybackControlsWithThen {
         let animations: AnimationPlaybackControlsWithThen[] = []
         let animationOnComplete: VoidFunction | undefined
+        const motionScope = activeScope.current
+        const scopeTransition = motionScope?.transition
 
         const inherited: { reduceMotion?: boolean; skipAnimations?: boolean } =
             {}
@@ -121,6 +128,12 @@ export function createScopedAnimate(options: ScopedAnimateOptions = {}) {
                 (optionsOrKeyframes as SequenceOptions) || {}
             if (typeof onComplete === "function") {
                 animationOnComplete = onComplete as VoidFunction
+            }
+            if (scopeTransition) {
+                sequenceOptions.defaultTransition = {
+                    ...scopeTransition,
+                    ...sequenceOptions.defaultTransition,
+                } as SequenceOptions["defaultTransition"]
             }
             animations = animateSequence(
                 subjectOrSequence,
@@ -136,7 +149,11 @@ export function createScopedAnimate(options: ScopedAnimateOptions = {}) {
             animations = animateSubject(
                 subjectOrSequence as ElementOrSelector,
                 optionsOrKeyframes as DOMKeyframesDefinition,
-                { ...inherited, ...rest } as DynamicAnimationOptions,
+                {
+                    ...inherited,
+                    ...scopeTransition,
+                    ...rest,
+                } as DynamicAnimationOptions,
                 scope
             )
         }
@@ -145,6 +162,10 @@ export function createScopedAnimate(options: ScopedAnimateOptions = {}) {
 
         if (animationOnComplete) {
             animation.finished.then(animationOnComplete)
+        }
+
+        if (motionScope) {
+            animation.finished.then(motionScope.add(() => animation.stop()))
         }
 
         if (scope) {

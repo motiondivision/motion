@@ -2,6 +2,7 @@ import {
     ElementOrSelector,
     resolveElements,
 } from "../../utils/resolve-elements"
+import { addToScope } from "../../scope/active"
 import { EventOptions } from "../types"
 
 export function setupGesture(
@@ -18,7 +19,7 @@ export function setupGesture(
         signal: gestureAbortController.signal,
     }
 
-    const cancel = () => gestureAbortController.abort()
+    const cancel = addToScope(() => gestureAbortController.abort())
 
     return [elements, eventOptions, cancel]
 }

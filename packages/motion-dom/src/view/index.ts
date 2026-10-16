@@ -1,6 +1,7 @@
 import { noop } from "motion-utils"
 import type { GroupAnimation } from "../animation/GroupAnimation"
 import { AnimationOptions, DOMKeyframesDefinition } from "../animation/types"
+import { addBuilderToScope } from "../scope/active"
 import { addToQueue } from "./queue"
 import {
     ViewTransitionOptions,
@@ -232,5 +233,7 @@ export function animateView(
     update: () => void | Promise<void>,
     options: ViewTransitionOptions = {}
 ) {
-    return new ViewTransitionBuilder(update, options)
+    const builder = new ViewTransitionBuilder(update, options)
+    addBuilderToScope(builder)
+    return builder
 }

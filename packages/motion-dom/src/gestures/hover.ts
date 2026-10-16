@@ -1,3 +1,4 @@
+import { bindToScope } from "../scope/active"
 import { ElementOrSelector } from "../utils/resolve-elements"
 import { isDragActive } from "./drag/state/is-active"
 import { EventOptions } from "./types"
@@ -39,6 +40,8 @@ export function hover(
     onHoverStart: OnHoverStartEvent,
     options: EventOptions = {}
 ): VoidFunction {
+    onHoverStart = bindToScope(onHoverStart)
+
     const [elements, eventOptions, cancel] = setupGesture(
         elementOrSelector,
         options
