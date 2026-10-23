@@ -4,7 +4,24 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
-## [14.6.0] 2026-10-20
+## [14.7.0] 2026-10-23
+
+### Added
+
+-   `animate`: Mutable timeline sequences.
+-   `animate`: Relative label offsets for timeline sequences.
+-   `useScroll`: Returns `scrollXLength` and `scrollYLength`.
+-   `Reorder`: Add `LazyMotion`-compatible import.
+
+### Fixed
+
+-   Fix one flash when changing playback speed of accelerated independent transform.
+-   `AnimatePresence`: Improved positioning of popped elements.
+-   `spring`: Fix overdamped springs snapping to target.
+-   `drag`: Ref-constraints kept up-to-date after scroll.
+-   `motion`: Animate `layoutId` elements relative to `layoutRoot` container.
+
+## [14.6.0] 2026-10-22
 
 ### Added
 
@@ -22,10 +39,6 @@ Undocumented APIs should be considered internal and may change without warning.
 -   Fix replaying mount animation when an element takes over a `layoutId`.
 -   `motion`: Fix updating SVG styles.
 -   `useTransform`: Improving value resolution.
-
-### Changed
-
--   `MotionGlobalConfig.useManualTiming`:
 
 ## [14.5.0] 2026-10-20
 
