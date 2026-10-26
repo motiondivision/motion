@@ -214,12 +214,11 @@ function resolvePhysics(value: number | undefined, canBeZero?: boolean) {
     if (isValidPhysics(value, canBeZero)) return value
 
     if (process.env.NODE_ENV !== "production") {
-        process.env.NODE_ENV !== "production" &&
-            warning(
-                value === undefined,
-                "Spring stiffness and mass must be positive, damping 0 or greater",
-                "spring-invalid-physics"
-            )
+        warning(
+            value === undefined,
+            "Spring stiffness and mass must be positive, damping 0 or greater",
+            "spring-invalid-physics"
+        )
     }
 
     return undefined

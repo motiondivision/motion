@@ -73,7 +73,8 @@ export class NativeAnimation<T extends AnyResolvedKeyframe>
         this.allowFlatten = allowFlatten
         this.options = options
 
-        process.env.NODE_ENV !== "production" &&
+        typeof process !== "undefined" &&
+            process.env.NODE_ENV !== "production" &&
             invariant(
                 typeof options.type !== "string",
                 `Mini animate() doesn't support "type" as a string.`,

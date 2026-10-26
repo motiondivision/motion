@@ -130,12 +130,11 @@ export class JSAnimation<T extends number | string>
             process.env.NODE_ENV !== "production" &&
             generatorFactory !== keyframesGenerator
         ) {
-            process.env.NODE_ENV !== "production" &&
-                invariant(
-                    keyframes.length <= 2,
-                    `Only two keyframes currently supported with spring and inertia animations. Trying to animate ${keyframes}`,
-                    "spring-two-frames"
-                )
+            invariant(
+                keyframes.length <= 2,
+                `Only two keyframes currently supported with spring and inertia animations. Trying to animate ${keyframes}`,
+                "spring-two-frames"
+            )
         }
 
         if (

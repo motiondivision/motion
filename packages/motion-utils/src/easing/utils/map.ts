@@ -31,7 +31,8 @@ export const easingDefinitionToFunction = (
 ): EasingFunction => {
     if (isBezierDefinition(definition)) {
         // If cubic bezier definition, create bezier curve
-        process.env.NODE_ENV !== "production" &&
+        typeof process !== "undefined" &&
+            process.env.NODE_ENV !== "production" &&
             invariant(
                 definition.length === 4,
                 `Cubic bezier arrays must contain four numerical values.`,
@@ -42,7 +43,8 @@ export const easingDefinitionToFunction = (
         return cubicBezier(x1, y1, x2, y2)
     } else if (isValidEasing(definition)) {
         // Else lookup from table
-        process.env.NODE_ENV !== "production" &&
+        typeof process !== "undefined" &&
+            process.env.NODE_ENV !== "production" &&
             invariant(
                 easingLookup[definition] !== undefined,
                 `Invalid easing type '${definition}'`,

@@ -150,13 +150,13 @@ export const canaries = [
         why: "The dev-only warning body survives production dead-code elimination (plan 036)",
     },
     {
-        scenarios: ["animate", "motion-div"],
-        forbid: "Only two keyframes",
+        scenarios: ["animate", "motion-div", "mini-animate"],
+        forbid: "Invalid easing type",
         why: "An invariant/warning call isn't wrapped in a NODE_ENV check, so esbuild/webpack keep its message",
         esbuild: true,
     },
     {
-        scenarios: ["animate"],
+        scenarios: ["animate", "mini-animate"],
         forbid: "No valid elements provided",
         why: "An invariant/warning call isn't wrapped in a NODE_ENV check, so esbuild/webpack keep its message",
         esbuild: true,

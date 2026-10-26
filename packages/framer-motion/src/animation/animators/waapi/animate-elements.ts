@@ -43,7 +43,8 @@ export function animateElements(
     >
     const numElements = elements.length
 
-    process.env.NODE_ENV !== "production" &&
+    typeof process !== "undefined" &&
+        process.env.NODE_ENV !== "production" &&
         invariant(
             Boolean(numElements),
             "No valid elements provided.",

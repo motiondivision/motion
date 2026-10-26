@@ -65,9 +65,7 @@ export class HTMLVisualElement extends DOMVisualElement<
 
     measureInstanceViewportBox(
         instance: HTMLElement,
-        {
-            transformPagePoint,
-        }: MotionNodeOptions & Partial<MotionConfigContextProps>
+        { transformPagePoint }: MotionNodeOptions & Partial<MotionConfigContextProps>
     ): Box {
         return measureViewportBox(instance, transformPagePoint)
     }
