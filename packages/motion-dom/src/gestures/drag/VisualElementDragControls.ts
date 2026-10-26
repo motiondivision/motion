@@ -11,6 +11,7 @@ import {
     convertBoundingBoxToBox,
     convertBoxToBoundingBox,
 } from "../../projection/geometry/conversion"
+import { transformAxis } from "../../projection/geometry/delta-apply"
 import { calcLength } from "../../projection/geometry/delta-calc"
 import { createBox } from "../../projection/geometry/models"
 import type {
@@ -19,6 +20,8 @@ import type {
 } from "../../projection/node/types"
 import { eachAxis } from "../../projection/utils/each-axis"
 import { measurePageBox } from "../../projection/utils/measure"
+import { readTransformValue } from "../../render/dom/parse-transform"
+import { visualElementStore } from "../../render/store"
 import type { VisualElement } from "../../render/VisualElement"
 import { resize } from "../../resize"
 import { mixNumber } from "../../utils/mix/number"
@@ -496,6 +499,34 @@ export class VisualElementDragControls {
         )
 
         /**
+         * A motion constraints element can be measured before its latest
+         * scale renders, e.g. when it changes in the re-render that measured
+         * this layout (#1827). Swap the scale it's rendered at for its latest.
+         * An ancestor's scale scales this element with it, so constraints
+         * stay in its unscaled space.
+         */
+        const latest = visualElementStore.get(constraintsElement)
+            ?.latestValues as { [key: string]: number } | undefined
+        latest &&
+            !constraintsElement!.contains(this.visualElement.current as Node) &&
+            eachAxis((axis) => {
+                const xy = axis.toUpperCase()
+                const rendered = readTransformValue(
+                    constraintsElement as HTMLElement,
+                    "scale" + xy
+                )
+                rendered &&
+                    transformAxis(
+                        constraintsBox[axis],
+                        0,
+                        ((latest.scale ?? 1) * (latest["scale" + xy] ?? 1)) /
+                            rendered,
+                        undefined,
+                        latest["origin" + xy]
+                    )
+            })
+
+        /**
          * layoutBox removes the scroll of `layoutScroll` ancestors, so
          * remove it from the constraints box too.
          */
@@ -794,14 +825,9 @@ export class VisualElementDragControls {
 
         const { projection } = this.visualElement
 
-        /**
-         * Measure the constraints after the render that follows a layout
-         * measurement, as the re-render that triggered it can also have
-         * changed the constraints element's transform, e.g. its scale (#1827).
-         */
         const stopMeasureLayoutListener = projection!.addEventListener(
             "measure",
-            () => frame.postRender(measureDragConstraints)
+            measureDragConstraints
         )
 
         if (projection && !projection!.layout) {
