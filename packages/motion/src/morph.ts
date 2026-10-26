@@ -10,6 +10,7 @@ import {
     nest,
     Points,
     reverse,
+    room,
 } from "./morph/geometry"
 import { parsePath, Subpath } from "./morph/parse"
 
@@ -53,17 +54,24 @@ interface Track {
  * partner shrink away or grow from a point. In-between shapes are written
  * as polylines, and the original strings are returned at 0 and 1, so an
  * interrupted morph carries on from wherever it was.
+ *
+ * Returns `undefined` unless both values start with a moveto, which
+ * leaves other values in the same transition to Motion's usual mixing.
  */
 export function morph(from: string, to: string, options?: MorphOptions) {
     let draw: ((t: number) => string) | undefined
 
-    return (p: number) =>
-        !p
-            ? from
-            : p === 1 || from === to
-            ? to
-            : (draw ||= prepare(from, to, options))(p)
+    return isPath(from) && isPath(to)
+        ? (p: number) =>
+              !p
+                  ? from
+                  : p === 1 || from === to
+                  ? to
+                  : (draw ||= prepare(from, to, options))(p)
+        : undefined
 }
+
+const isPath = (value: string) => /^\s*m/i.test(value)
 
 function prepare(from: string, to: string, { linear }: MorphOptions = {}) {
     const a = parsePath(from)
@@ -85,7 +93,7 @@ function prepare(from: string, to: string, { linear }: MorphOptions = {}) {
         }
     }
     const size = hypot(maxX - minX, maxY - minY) || 1
-    const precision = 10 ** Math.round(Math.log10(5000 / size))
+    const precision = 10 ** Math.max(0, Math.round(Math.log10(5000 / size)))
     const shapes = (subpaths: Subpath[]) =>
         nest(
             subpaths.map((subpath) =>
@@ -109,7 +117,7 @@ function prepare(from: string, to: string, { linear }: MorphOptions = {}) {
         parent = -1,
         parentA?: Points,
         parentB?: Points,
-        sign = 0
+        flip = 1
     ) => {
         const candidates: number[][] = []
         as.forEach(({ x, y }, i) => {
@@ -134,10 +142,10 @@ function prepare(from: string, to: string, { linear }: MorphOptions = {}) {
 
         as.forEach((a, i) =>
             partners[i]
-                ? pair(a, partners[i], parent, parentA, parentB, sign)
-                : single(a, false, parent, parentA, sign)
+                ? pair(a, partners[i], parent, parentA, parentB)
+                : single(a, false, parent, parentA)
         )
-        bs.forEach((b, j) => taken[j] || single(b, true, parent, parentB, sign))
+        bs.forEach((b, j) => taken[j] || single(b, true, parent, parentB, flip))
     }
 
     const pair = (
@@ -145,22 +153,20 @@ function prepare(from: string, to: string, { linear }: MorphOptions = {}) {
         b: Contour,
         parent: number,
         parentA?: Points,
-        parentB?: Points,
-        sign = 0
+        parentB?: Points
     ) => {
         const closed = a.closed && b.closed
         let pa = a.points
         let pb = b.points
 
+        /**
+         * The first shape's contours keep their winding, and the second's
+         * turn to match, so in-between shapes fill like the first with
+         * either fill rule.
+         */
+        const flip = a.area * b.area < 0 ? -1 : 1
         if (closed) {
-            /**
-             * Roots keep the winding of the first shape, and each nested
-             * contour winds against the one around it, so holes stay open
-             * with either fill rule.
-             */
-            sign ||= Math.sign(a.area)
-            if (a.area * sign < 0) pa = reverse(pa)
-            if (b.area * sign < 0) pb = reverse(pb)
+            if (flip < 0) pb = reverse(pb)
         } else {
             // A closed outline paired with an open one opens into a loop
             if (a.closed) pa = loop(pa, pb)
@@ -180,6 +186,8 @@ function prepare(from: string, to: string, { linear }: MorphOptions = {}) {
         const mix = blend(ea, eb, closed, linear)
         const weightsA = parentA && meanValue(...centre(ea), parentA)
         const weightsB = parentB && meanValue(...centre(eb), parentB)
+        const fillA = parentA && 1 / room(ea, ...centre(ea), parentA)
+        const fillB = parentB && 1 / room(eb, ...centre(eb), parentB)
         const out: Points = []
         const index = tracks.length
 
@@ -191,7 +199,8 @@ function prepare(from: string, to: string, { linear }: MorphOptions = {}) {
                 if (outer) {
                     /**
                      * Holes follow the parts of their parent they sit
-                     * among, blending how they sit at either end.
+                     * among, blending how they sit and how much of it
+                     * they fill at either end.
                      */
                     const [x, y] = anchor(t, weightsA!, weightsB!, outer)
                     const [cx, cy] = centre(out)
@@ -199,13 +208,13 @@ function prepare(from: string, to: string, { linear }: MorphOptions = {}) {
                         out[i] += x - cx
                         out[i + 1] += y - cy
                     }
-                    keepInside(out, x, y, outer)
+                    keepInside(out, x, y, outer, fillA! + (fillB! - fillA!) * t)
                 }
                 return out
             },
         })
 
-        match(a.children, b.children, index, ea, eb, -sign)
+        match(a.children, b.children, index, ea, eb, flip)
     }
 
     /**
@@ -217,13 +226,14 @@ function prepare(from: string, to: string, { linear }: MorphOptions = {}) {
         grow: boolean,
         parent: number,
         parentPoints?: Points,
-        sign = 0
+        flip = 1
     ) => {
-        let { points, closed, area, x, y, children } = c
-        sign ||= Math.sign(area)
-        if (area * sign < 0) points = reverse(points)
+        let { points, closed, x, y, children } = c
+        // The second shape's contours turn with the contour around them
+        if (grow && flip < 0) points = reverse(points)
 
         const weights = parentPoints && meanValue(x, y, parentPoints)
+        const fill = parentPoints && 1 / room(points, x, y, parentPoints)
         const out: Points = []
         const index = tracks.length
 
@@ -240,7 +250,7 @@ function prepare(from: string, to: string, { linear }: MorphOptions = {}) {
                     out[i] = ax + (points[i] - x) * scale
                     out[i + 1] = ay + (points[i + 1] - y) * scale
                 }
-                outer && keepInside(out, ax, ay, outer)
+                outer && keepInside(out, ax, ay, outer, fill!)
                 return out
             },
         })
@@ -251,7 +261,7 @@ function prepare(from: string, to: string, { linear }: MorphOptions = {}) {
             index,
             points,
             points,
-            -sign
+            flip
         )
     }
 

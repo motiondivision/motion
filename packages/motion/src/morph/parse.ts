@@ -15,7 +15,8 @@ const flagPattern = /[\s,]*([01])/y
 
 /**
  * Read SVG path data into subpaths of cubics. Like a browser, it stops at
- * the first malformed token and keeps everything before it.
+ * the first malformed token, or number too large to draw, and keeps
+ * everything before it.
  */
 export function parsePath(d: string): Subpath[] {
     const subpaths: Subpath[] = []
@@ -37,7 +38,11 @@ export function parsePath(d: string): Subpath[] {
         index = pattern.lastIndex
         return match[1]
     }
-    const num = () => +read(numberPattern)
+    const num = () => {
+        const value = +read(numberPattern)
+        if (!isFinite(value)) throw 0
+        return value
+    }
     const flag = () => +read(flagPattern)
 
     const cubic = (
@@ -86,7 +91,8 @@ export function parsePath(d: string): Subpath[] {
             commandPattern.lastIndex = index
             if (commandPattern.test(d)) {
                 command = read(commandPattern)
-            } else if (/z/i.test(command)) {
+            } else if (/^z?$/i.test(command)) {
+                // Nothing can follow a close, and data must start with a command
                 break
             }
 

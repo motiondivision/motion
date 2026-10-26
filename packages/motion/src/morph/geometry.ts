@@ -232,35 +232,16 @@ export function meanValue(x: number, y: number, points: Points) {
 }
 
 /**
- * Shrink `points` about (cx, cy) until they sit clear of `outer`, so a hole
- * or island never touches the contour around it.
+ * How many times further from (cx, cy) the points could be before the
+ * first of them meets `outer`, along the line from (cx, cy) through it.
+ * Points can't be drawn in towards a centre outside `outer`, as round a
+ * hole that bends round a corner, so they have all the room they need.
  */
-export function keepInside(
-    points: Points,
-    cx: number,
-    cy: number,
-    outer: Points
-) {
-    let radius = 0
-    for (let i = 0; i < points.length; i += 2) {
-        radius = Math.max(radius, hypot(points[i] - cx, points[i + 1] - cy))
-    }
-
+export function room(points: Points, cx: number, cy: number, outer: Points) {
+    let room = Infinity
+    if (!isInside(cx, cy, outer)) return room
     const n = outer.length
-    let clearance = Infinity
-    for (let i = 0; i < n; i += 2) {
-        clearance = Math.min(
-            clearance,
-            segmentDistance(cx, cy, outer[i], outer[i + 1], outer[(i + 2) % n], outer[(i + 3) % n])
-        )
-    }
-
-    // Every point is closer than any edge, with room to spare
-    if (radius <= MARGIN * clearance) return
-
-    // How far along the ray from the centre to each point the outline is
-    let reach = isInside(cx, cy, outer) ? Infinity : 0
-    for (let i = 0; i < points.length && reach; i += 2) {
+    for (let i = 0; i < points.length; i += 2) {
         const dx = points[i] - cx
         const dy = points[i + 1] - cy
         for (let j = 0; j < n; j += 2) {
@@ -273,12 +254,45 @@ export function keepInside(
             const along = (px * ey - py * ex) / denominator
             const across = (px * dy - py * dx) / denominator
             if (along > 0 && across >= 0 && across <= 1) {
-                reach = Math.min(reach, along)
+                room = Math.min(room, along)
             }
         }
     }
+    return room
+}
 
-    const scale = Math.min(1, MARGIN * reach)
+/**
+ * Shrink `points` about (cx, cy) until they fill no more than `fill` of
+ * the way to `outer`, or MARGIN if that's more, so a hole or island never
+ * touches the contour around it unless it does at either end.
+ */
+export function keepInside(
+    points: Points,
+    cx: number,
+    cy: number,
+    outer: Points,
+    fill: number
+) {
+    fill = Math.max(MARGIN, fill)
+
+    // Squared distances, which compare the same
+    let radius = 0
+    for (let i = 0; i < points.length; i += 2) {
+        radius = Math.max(radius, (points[i] - cx) ** 2 + (points[i + 1] - cy) ** 2)
+    }
+    const n = outer.length
+    let clearance = Infinity
+    for (let i = 0; i < n; i += 2) {
+        clearance = Math.min(
+            clearance,
+            segmentDistance(cx, cy, outer[i], outer[i + 1], outer[(i + 2) % n], outer[(i + 3) % n])
+        )
+    }
+
+    // Every point is closer than any edge, with room to spare
+    if (radius <= fill * fill * clearance) return
+
+    const scale = fill * room(points, cx, cy, outer)
     if (scale >= 1) return
     for (let i = 0; i < points.length; i += 2) {
         points[i] = cx + (points[i] - cx) * scale
@@ -288,6 +302,9 @@ export function keepInside(
 
 const MARGIN = 0.9
 
+/**
+ * The squared distance from (x, y) to the segment from (x0, y0) to (x1, y1).
+ */
 function segmentDistance(
     x: number,
     y: number,
@@ -302,5 +319,5 @@ function segmentDistance(
     const t = lengthSquared
         ? Math.max(0, Math.min(1, ((x - x0) * dx + (y - y0) * dy) / lengthSquared))
         : 0
-    return hypot(x - x0 - t * dx, y - y0 - t * dy)
+    return (x - x0 - t * dx) ** 2 + (y - y0 - t * dy) ** 2
 }

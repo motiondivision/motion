@@ -160,10 +160,11 @@ export function blend(a: Points, b: Points, closed: boolean, linear?: boolean): 
          * Closed outlines keep their centre on the blend of the two
          * centres. Keeping edges at length puffs a spiky outline up as it
          * rounds off, so the outline is also scaled to the blend of the two
-         * areas.
+         * areas. An outline that crosses itself on the way can enclose
+         * almost no area, so it's never scaled up by more than a fifth.
          */
         const ratio = (areaA + (areaB - areaA) * t) / area(out)
-        const scale = ratio > 0 ? Math.sqrt(ratio) : 1
+        const scale = ratio > 0 ? Math.min(Math.sqrt(ratio), 1.2) : 1
         for (let i = 0; i < 2 * n; i += 2) {
             out[i] = centreAX + (centreBX - centreAX) * t + (out[i] - centreX) * scale
             out[i + 1] =

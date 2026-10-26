@@ -155,7 +155,8 @@ function search(a: Points, b: Points, closed: boolean, scale: number) {
         const columns = closed ? n + 1 : n
         const work = new Float64Array(rows * columns).fill(Infinity)
         const steps = new Uint8Array(rows * columns)
-        const band = Math.max(BAND * columns, 3)
+        // Wide enough for neighbouring rows to overlap, so there's a path
+        const band = Math.max(BAND * columns, 3, columns / (rows - 1 || 1))
         const indexB = (j: number) => (j + offset) % n
 
         work[0] = 0
@@ -321,7 +322,7 @@ function expand(
     } else {
         // Open ends always pair with each other
         us[0] = vs[0] = 0
-        us[last] = vs[last] = 1
+        us[last || 1] = vs[last || 1] = 1
     }
 
     const entries: number[][] = []
@@ -347,8 +348,12 @@ function expand(
             j = Math.max(j, next[3])
             e++
         }
-        ea.push(...(i < 0 ? at(a, distancesA, x) : [a[2 * i], a[2 * i + 1]]))
-        eb.push(...(j < 0 ? at(b, distancesB, y) : [b[2 * j], b[2 * j + 1]]))
+        ea.push(
+            ...(i < 0 ? at(a, distancesA, x, closed) : [a[2 * i], a[2 * i + 1]])
+        )
+        eb.push(
+            ...(j < 0 ? at(b, distancesB, y, closed) : [b[2 * j], b[2 * j + 1]])
+        )
     }
     return [ea, eb]
 }
@@ -383,12 +388,12 @@ function distances(points: Points, closed: boolean) {
 /**
  * The point a share `s` of the way along an outline.
  */
-function at(points: Points, distances: number[], s: number) {
+function at(points: Points, distances: number[], s: number, closed: boolean) {
     const n = distances.length
-    s -= Math.floor(s)
+    if (closed) s -= Math.floor(s)
     let i = 0
     while (i < n - 1 && distances[i + 1] <= s) i++
-    const j = (i + 1) % n
+    const j = closed ? (i + 1) % n : Math.min(i + 1, n - 1)
     const t = (s - distances[i]) / ((distances[i + 1] ?? 1) - distances[i] || 1)
     return [
         points[2 * i] + (points[2 * j] - points[2 * i]) * t,
