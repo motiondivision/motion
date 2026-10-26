@@ -26,6 +26,7 @@ const colorProperties = new Set([
  */
 export const supportsWaapi = () =>
     !MotionGlobalConfig.useManualTiming &&
+    typeof Element !== "undefined" &&
     Object.hasOwnProperty.call(Element.prototype, "animate")
 
 export function supportsBrowserAnimation<T extends AnyResolvedKeyframe>(
@@ -47,7 +48,12 @@ export function supportsBrowserAnimation<T extends AnyResolvedKeyframe>(
      */
     if (
         !name ||
-        !(acceleratedValues.has(name) || colorProperties.has(name))
+        !(acceleratedValues.has(name) || colorProperties.has(name)) ||
+        /**
+         * Before checking the element's class: outside the browser (React
+         * Native, Node) some or all of the DOM element classes don't exist.
+         */
+        !supportsWaapi()
     ) {
         return false
     }
@@ -71,7 +77,6 @@ export function supportsBrowserAnimation<T extends AnyResolvedKeyframe>(
     const { onUpdate, transformTemplate } = motionValue!.owner!.getProps()
 
     return (
-        supportsWaapi() &&
         /**
          * Force WAAPI for color properties with browser-only color formats
          * (oklch, oklab, lab, lch, etc.) that the JS animation path can't parse.

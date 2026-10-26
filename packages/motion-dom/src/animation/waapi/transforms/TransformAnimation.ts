@@ -172,8 +172,8 @@ export const canGroupTransform = ({
 }: ValueAnimationOptions<any>) =>
     name &&
     transformPropOrder.includes(name) &&
-    motionValue?.owner?.current instanceof HTMLElement &&
     supportsWaapi() &&
+    motionValue?.owner?.current instanceof HTMLElement &&
     supportsLinearEasing()
 
 function canAccelerateTransform(options: ValueAnimationOptions<any>) {
