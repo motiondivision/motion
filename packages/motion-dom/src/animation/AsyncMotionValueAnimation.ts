@@ -103,10 +103,8 @@ export class AsyncMotionValueAnimation<T extends AnyResolvedKeyframe>
          * If we can't animate this value with the resolved keyframes
          * then we should complete it immediately.
          */
-        let canAnimateValue = true
-        if (!canAnimate(keyframes, name, type, velocity)) {
-            canAnimateValue = false
-
+        const canAnimateValue = canAnimate(keyframes, name, type, velocity)
+        if (!canAnimateValue) {
             if (MotionGlobalConfig.instantAnimations || !delay) {
                 onUpdate?.(getFinalKeyframe(keyframes, options, finalKeyframe))
             }
@@ -282,10 +280,7 @@ export class AsyncMotionValueAnimation<T extends AnyResolvedKeyframe>
     }
 
     cancel() {
-        if (this._animation) {
-            this.animation.cancel()
-        }
-
+        this._animation?.cancel()
         this.keyframeResolver?.cancel()
     }
 

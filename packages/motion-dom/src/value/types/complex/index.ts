@@ -99,7 +99,7 @@ function parseComplexValue(v: AnyResolvedKeyframe) {
     return analyseComplexValue(v).values
 }
 
-function buildTransformer({ split, types }: ComplexValueInfo) {
+export function buildTransformer({ split, types }: ComplexValueInfo) {
     const numSections = split.length
     return (v: Array<CSSVariableToken | Color | number | string>) => {
         let output = ""

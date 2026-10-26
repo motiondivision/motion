@@ -13,10 +13,28 @@ export function hasScale({ scale, scaleX, scaleY }: ResolvedValues) {
     )
 }
 
+/**
+ * Rotations and skews, which projection can't correct for.
+ */
+export const angleTransforms = [
+    "rotate",
+    "rotateX",
+    "rotateY",
+    "rotateZ",
+    "skewX",
+    "skewY",
+]
+
 export function hasTransform(values: ResolvedValues) {
     return (
         hasScale(values) ||
         has2DTranslate(values) ||
+        hasDistortingTransform(values)
+    )
+}
+
+export function hasDistortingTransform(values: ResolvedValues) {
+    return (
         values.z ||
         values.rotate ||
         values.rotateX ||

@@ -106,18 +106,6 @@ export function removeBoxTransforms(
     originBox?: Box,
     sourceBox?: Box
 ): void {
-    removeAxisTransforms(
-        box.x,
-        transforms,
-        xKeys,
-        originBox ? originBox.x : undefined,
-        sourceBox ? sourceBox.x : undefined
-    )
-    removeAxisTransforms(
-        box.y,
-        transforms,
-        yKeys,
-        originBox ? originBox.y : undefined,
-        sourceBox ? sourceBox.y : undefined
-    )
+    removeAxisTransforms(box.x, transforms, xKeys, originBox?.x, sourceBox?.x)
+    removeAxisTransforms(box.y, transforms, yKeys, originBox?.y, sourceBox?.y)
 }

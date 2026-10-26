@@ -1,6 +1,6 @@
 import { frame, motionValue, MotionValue } from "motion-dom"
 import { useEffect, useInsertionEffect } from "react"
-import { motion, useMotionValueEvent } from "../../"
+import { motion, MotionConfig, useMotionValueEvent } from "../../"
 import { syncDriver } from "../../animation/animators/__tests__/utils"
 import { stepFrames, withManualFrames } from "../../gestures/__tests__/utils"
 import { render } from "../../jest.setup"
@@ -378,5 +378,28 @@ describe("source changed before useSpring attaches", () => {
 
         expect(spring.get()).toBe(100)
         expect(spring.isAnimating()).toBe(false)
+    })
+})
+
+describe("useSpring with MotionConfig isStatic", () => {
+    test("follows a motion value source without animating", async () => {
+        const source = motionValue(0)
+        let x: MotionValue<number> | undefined
+
+        const Component = () => {
+            x = useSpring(source)
+            return null
+        }
+        render(
+            <MotionConfig isStatic>
+                <Component />
+            </MotionConfig>
+        )
+
+        expect(x!.get()).toBe(0)
+        source.set(100)
+        await new Promise<void>((resolve) => frame.postRender(() => resolve()))
+        expect(x!.get()).toBe(100)
+        expect(x!.isAnimating()).toBe(false)
     })
 })

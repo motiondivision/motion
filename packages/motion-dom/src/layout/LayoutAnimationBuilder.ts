@@ -78,7 +78,7 @@ function getProjectionParent(element: Element): IProjectionNode | undefined {
     let ancestor = element.parentElement
     while (ancestor) {
         const node = layoutNodes.get(ancestor)
-        if (node && node.instance) return node
+        if (node?.instance) return node
         ancestor = ancestor.parentElement
     }
     return undefined
@@ -412,7 +412,7 @@ export class LayoutAnimationBuilder {
                 if (restore && restore.parent.isConnected) {
                     restore.parent.insertBefore(
                         element,
-                        restore.next && restore.next.parentNode === restore.parent
+                        restore.next?.parentNode === restore.parent
                             ? restore.next
                             : null
                     )

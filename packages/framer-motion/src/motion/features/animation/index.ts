@@ -33,9 +33,7 @@ export class AnimationFeature extends Feature<unknown> {
     }
 
     update() {
-        const { animate } = this.node.getProps()
-        const { animate: prevAnimate } = this.node.prevProps || {}
-        if (animate !== prevAnimate) {
+        if (this.node.getProps().animate !== this.node.prevProps?.animate) {
             this.updateAnimationControlsSubscription()
         }
     }

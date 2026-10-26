@@ -10,7 +10,7 @@ import {
 import { useContext, useInsertionEffect } from "react"
 import { MotionConfigContext } from "../context/MotionConfigContext"
 import { useMotionValue } from "./use-motion-value"
-import { useTransform } from "./use-transform"
+import { useComputed } from "./use-computed"
 
 /**
  * Creates a `MotionValue` that, when `set`, will use the specified animation transition to animate to its new state.
@@ -81,7 +81,7 @@ export function useFollow<O>(
 
     // isStatic will never change, allowing early hooks return
     if (isStatic) {
-        return useTransform(getFromSource)
+        return useComputed(getFromSource)
     }
 
     const value = useMotionValue(getFromSource())
