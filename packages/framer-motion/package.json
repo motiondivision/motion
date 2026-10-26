@@ -58,6 +58,12 @@
             "import": "./dist/es/animate-view.mjs",
             "default": "./dist/cjs/animate-view.js"
         },
+        "./native": {
+            "types": "./dist/native.d.ts",
+            "require": "./dist/cjs/native.js",
+            "import": "./dist/es/native.mjs",
+            "default": "./dist/cjs/native.js"
+        },
         "./package.json": "./package.json"
     },
     "types": "dist/index.d.ts",
@@ -103,19 +109,30 @@
         "@types/three": "0.137.0",
         "concurrently": "^7.3.0",
         "jest": "^29.7.0",
+        "react-native": "0.88.0",
+        "react-native-reanimated": "4.7.1",
+        "react-native-worklets": "0.13.0",
         "rollup": "4.59.0",
         "three": "0.137.0",
         "typescript": "5.4.3"
     },
     "peerDependencies": {
         "react": "^18.0.0 || ^19.0.0",
-        "react-dom": "^18.0.0 || ^19.0.0"
+        "react-dom": "^18.0.0 || ^19.0.0",
+        "react-native": ">=0.81.0",
+        "react-native-reanimated": ">=4.0.0"
     },
     "peerDependenciesMeta": {
         "react": {
             "optional": true
         },
         "react-dom": {
+            "optional": true
+        },
+        "react-native": {
+            "optional": true
+        },
+        "react-native-reanimated": {
             "optional": true
         }
     },

@@ -1,0 +1,6 @@
+{
+    "private": true,
+    "types": "../dist/react-native.d.ts",
+    "main": "../dist/cjs/react-native.js",
+    "module": "../dist/es/react-native.mjs"
+}

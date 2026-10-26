@@ -65,6 +65,12 @@
             "import": "./dist/es/react-animate-view.mjs",
             "default": "./dist/cjs/react-animate-view.js"
         },
+        "./react-native": {
+            "types": "./dist/react-native.d.ts",
+            "require": "./dist/cjs/react-native.js",
+            "import": "./dist/es/react-native.mjs",
+            "default": "./dist/cjs/react-native.js"
+        },
         "./package.json": "./package.json"
     },
     "types": "dist/index.d.ts",
@@ -101,13 +107,21 @@
     },
     "peerDependencies": {
         "react": "^18.0.0 || ^19.0.0",
-        "react-dom": "^18.0.0 || ^19.0.0"
+        "react-dom": "^18.0.0 || ^19.0.0",
+        "react-native": ">=0.81.0",
+        "react-native-reanimated": ">=4.0.0"
     },
     "peerDependenciesMeta": {
         "react": {
             "optional": true
         },
         "react-dom": {
+            "optional": true
+        },
+        "react-native": {
+            "optional": true
+        },
+        "react-native-reanimated": {
             "optional": true
         }
     },

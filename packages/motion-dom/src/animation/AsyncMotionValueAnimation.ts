@@ -195,9 +195,7 @@ export class AsyncMotionValueAnimation<T extends AnyResolvedKeyframe>
              * Native) can take the resolved animation instead.
              */
             animation =
-                (canAnimateValue &&
-                    !isHandoff &&
-                    options.element?.createAnimation?.(options)) ||
+                options.element?.createAnimation?.(options) ||
                 new JSAnimation(options)
         }
 

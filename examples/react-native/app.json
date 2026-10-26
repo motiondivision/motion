@@ -1,0 +1,9 @@
+{
+    "expo": {
+        "name": "Motion Native",
+        "slug": "motion-react-native-example",
+        "version": "1.0.0",
+        "orientation": "portrait",
+        "userInterfaceStyle": "light"
+    }
+}

@@ -43,7 +43,8 @@ const external = [
     "framer-motion/mini",
     "framer-motion/debug",
     "framer-motion/animate-view",
-    
+    "framer-motion/native",
+
 ]
 
 const pureClass = {
@@ -129,6 +130,7 @@ const cjsClient = Object.assign({}, cjs, { input : "lib/react-client.js" })
 const cjsM = Object.assign({}, cjs, { input : "lib/react-m.js" })
 const cjsThree = Object.assign({}, cjs, { input : "lib/three.js" })
 const cjsVgpu = Object.assign({}, cjs, { input : "lib/vgpu.js" })
+const cjsReactNative = Object.assign({}, cjs, { input : "lib/react-native.js" })
 
 export const es = Object.assign({}, config, {
     input: [
@@ -142,6 +144,7 @@ export const es = Object.assign({}, config, {
         "lib/debug.js",
         "lib/three.js",
         "lib/vgpu.js",
+        "lib/react-native.js",
     ],
     output: {
         entryFileNames: "[name].mjs",
@@ -240,6 +243,15 @@ const threeTypes = {
     plugins: typePlugins,
 }
 
+const reactNativeTypes = {
+    input: "types/react-native.d.ts",
+    output: {
+        format: "es",
+        file: "dist/react-native.d.ts",
+    },
+    plugins: typePlugins,
+}
+
 const vgpuTypes = {
     input: "types/vgpu.d.ts",
     output: {
@@ -262,6 +274,7 @@ export default [
     cjsM,
     cjsThree,
     cjsVgpu,
+    cjsReactNative,
     es,
     animateViewTypes,
     types,
@@ -273,4 +286,5 @@ export default [
     clientTypes,
     threeTypes,
     vgpuTypes,
+    reactNativeTypes,
 ]
