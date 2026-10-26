@@ -1,7 +1,6 @@
 import { addPointerEvent } from "../../events/add-pointer-event"
 import { extractEventInfo } from "../../events/event-info"
 import { cancelFrame, frame } from "../../frameloop/frame"
-import { frameData } from "../../frameloop/frame-data"
 import { time } from "../../frameloop/sync-time"
 import type { EventInfo } from "../../node/types"
 import { distance2D } from "../../utils/distance"
@@ -115,9 +114,13 @@ export class PanSession {
         const initialInfo = transformPoint(info, this.transformPagePoint)
         const { point } = initialInfo
 
-        const { timestamp } = frameData
-
-        this.history = [{ ...point, timestamp }]
+        /**
+         * Stamp the origin with time.now(), not frameData.timestamp: when
+         * the frameloop is idle, frameData.timestamp is from the last frame
+         * that ran, which can be seconds old, and a fast flick from a
+         * standstill would then report near-zero velocity. See #1747.
+         */
+        this.history = [{ ...point, timestamp: time.now() }]
 
         const { onSessionStart } = handlers
         onSessionStart &&
