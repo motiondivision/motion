@@ -13,7 +13,11 @@ export interface ReorderContextProps<T> {
      * The group's `motion` or `m`, for its items to render.
      */
     proxy: MotionProxy
-    registerItem: (item: T, layout: Box, element?: Element) => void
+    registerItem: (
+        item: T,
+        layout: Box,
+        ref?: RefObject<Element | null>
+    ) => void
     updateOrder: (item: T, offset: Point, velocity: Point) => void
     groupRef: RefObject<Element | null>
     hasReordered: { current: boolean }
@@ -35,7 +39,12 @@ export interface ReorderContextProps<T> {
 export interface ItemData<T> {
     value: T
     layout: Box
-    element?: Element
+    /**
+     * Its element while it's mounted, for a `Reorder.Board`. A group keeps
+     * the data of unmounted (e.g. virtualized) items while their values
+     * remain, so not the element itself.
+     */
+    ref?: RefObject<Element | null>
 }
 
 type Group = ReorderContextProps<any>

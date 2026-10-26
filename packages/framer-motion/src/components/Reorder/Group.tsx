@@ -231,8 +231,8 @@ export function ReorderGroupComponent<
             }
             event.preventDefault()
         },
-        registerItem: (value, layout, element) => {
-            items.current.set(value, { value, layout, element })
+        registerItem: (value, layout, ref) => {
+            items.current.set(value, { value, layout, ref })
 
             if (!axisOverride) {
                 const nextAxis = detectAxis(

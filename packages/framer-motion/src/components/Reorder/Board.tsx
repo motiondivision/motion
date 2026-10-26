@@ -49,6 +49,15 @@ const centre = (element: Element): Point => {
 }
 
 /**
+ * Its centre in page coordinates.
+ */
+const pageCentre = (element: Element): Point => {
+    const { x, y } = centre(element)
+    const { scrollX, scrollY } = element.ownerDocument.defaultView!
+    return { x: x + scrollX, y: y + scrollY }
+}
+
+/**
  * Whether `point` comes before `element` in its group's order: before its
  * centre on `axis` or, on "xy", above its line or before its centre on it.
  */
@@ -112,11 +121,11 @@ function createBoard(): ReorderBoardProps {
              */
             const order = to
                 .getOrder()
-                .filter((item) => item.element?.isConnected)
+                .filter((item) => item.ref?.current?.isConnected)
             const isRTL =
                 getComputedStyle(to.groupRef.current!).direction === "rtl"
             const next = order.find((item) =>
-                isBefore(point, item.element!, to.axis, isRTL)
+                isBefore(point, item.ref!.current!, to.axis, isRTL)
             )
             const last = order[order.length - 1]
             index = next
@@ -126,12 +135,11 @@ function createBoard(): ReorderBoardProps {
                 : values.length
         }
 
-        const { scrollX, scrollY } = element.ownerDocument.defaultView!
         handoff = {
             value,
             to: to.groupRef,
             element,
-            centre: { x: point.x + scrollX, y: point.y + scrollY },
+            centre: pageCentre(element),
             ...props,
         }
 
@@ -158,17 +166,24 @@ function createBoard(): ReorderBoardProps {
 
         drag: (from, value, element, event) => {
             /**
-             * Wait for the item to arrive in its new group before moving
-             * it again. If the groups don't take it, it stays here until
-             * this gesture ends.
-             */
-            if (handoff?.controls?.isDragging) return true
-
-            /**
              * The item can unmount mid-drag (e.g. the app removed it), while
              * its gesture carries on until release.
              */
             if (!element?.isConnected) return false
+
+            /**
+             * Wait for the item to arrive in its new group before moving
+             * it again, keeping up with where it's dragged meanwhile, for
+             * its drag to carry on from there. If the groups don't take
+             * it, it stays here until this gesture ends.
+             */
+            if (handoff?.controls?.isDragging) {
+                if (handoff.value === value) {
+                    handoff.centre = pageCentre(element)
+                    handoff.event = event
+                }
+                return true
+            }
 
             const point = centre(element)
             let to: Group | undefined
@@ -290,7 +305,7 @@ function createBoard(): ReorderBoardProps {
                 return false
             }
 
-            const { keys, from, controls, event } = latest
+            const { keys, from, controls } = latest
             /**
              * Whether the groups moved the item, rather than copied it.
              */
@@ -334,8 +349,6 @@ function createBoard(): ReorderBoardProps {
                             ?.set(current)
                     })
 
-                const point = centre(element)
-                const { scrollX, scrollY } = element.ownerDocument.defaultView!
                 /**
                  * Into the item's own coordinates, e.g. in a scaled parent.
                  */
@@ -343,10 +356,7 @@ function createBoard(): ReorderBoardProps {
                     visualElement!.getTransformPagePoint() ||
                     ((p: Point) => p)
                 const a = transform(latest.centre)
-                const b = transform({
-                    x: point.x + scrollX,
-                    y: point.y + scrollY,
-                })
+                const b = transform(pageCentre(element))
                 visualElement!.getValue("x")!.set(a.x - b.x)
                 visualElement!.getValue("y")!.set(a.y - b.y)
                 visualElement!.render()
@@ -356,7 +366,9 @@ function createBoard(): ReorderBoardProps {
                  * back to its slot there.
                  */
                 isMoved ? controls.cancel() : controls.stop()
-                nextControls.start(event as PointerEvent, { immediate: true })
+                nextControls.start(latest.event as PointerEvent, {
+                    immediate: true,
+                })
             })
 
             /**

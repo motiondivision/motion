@@ -219,11 +219,7 @@ export function ReorderItemComponent<
                 grabbedFrom && grab(event.currentTarget)
             }}
             onLayoutMeasure={(measured) => {
-                /**
-                 * Only a board needs the element. A group keeps unmounted
-                 * (e.g. virtualized) items' data while their values remain.
-                 */
-                registerItem(value, measured, board ? ref.current! : undefined)
+                registerItem(value, measured, ref)
             }}
             ref={(element: Element | null) => {
                 ref.current = element
