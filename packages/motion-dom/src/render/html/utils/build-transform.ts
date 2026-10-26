@@ -25,10 +25,11 @@ const openers: Record<string, string> = {}
 /**
  * A transform function, e.g. `translateX(10px)` for `x: 10`.
  */
-export const transformFunction = (key: string, value: AnyResolvedKeyframe) =>
-    (openers[key] ||= (translateAlias[key] || key) + "(") +
-    getValueAsType(value, transformValueTypes[key]) +
-    ")"
+export const transformFunction = (
+    key: string,
+    value: AnyResolvedKeyframe,
+    valueAsType = getValueAsType(value, transformValueTypes[key])
+) => (openers[key] ||= (translateAlias[key] || key) + "(") + valueAsType + ")"
 
 /**
  * Whether a transform value is at its default, so can be left out.
@@ -61,12 +62,13 @@ export function buildTransform(
 
         if (value === undefined) continue
 
-        if (!isDefaultTransform(key, value)) {
-            transformString += transformFunction(key, value) + " "
-        }
+        const valueAsType =
+            transformTemplate &&
+            (transform[key] = getValueAsType(value, numberValueTypes[key]))
 
-        if (transformTemplate) {
-            transform[key] = getValueAsType(value, numberValueTypes[key])
+        if (!isDefaultTransform(key, value)) {
+            transformString +=
+                transformFunction(key, value, valueAsType || undefined) + " "
         }
     }
 
