@@ -1,6 +1,6 @@
 import "@testing-library/jest-dom"
 import { render } from "@testing-library/react"
-import { motionValue } from "motion-dom"
+import { motionValue, scopeMotion } from "motion-dom"
 import { useEffect } from "react"
 import { MotionConfig } from "../../../components/MotionConfig"
 import { useAnimate } from "../use-animate"
@@ -142,6 +142,40 @@ describe("useAnimate", () => {
         await new Promise((resolve) => setTimeout(resolve, 50))
         expect(x.get()).toBe(stopped)
         expect(stopped).toBeLessThan(100)
+    })
+
+    test("Sequences follow a scopeMotion() reduceMotion over useAnimate's, like single values", async () => {
+        let single: HTMLDivElement | null = null
+        let sequence: HTMLDivElement | null = null
+
+        const Component = () => {
+            const [scope, animate] = useAnimate()
+
+            useEffect(() => {
+                single = scope.current.children[0] as HTMLDivElement
+                sequence = scope.current.children[1] as HTMLDivElement
+                scopeMotion(
+                    () => {
+                        animate(single!, { x: 100 }, { duration: 10 })
+                        animate([[sequence!, { x: 100 }, { duration: 10 }]])
+                    },
+                    { transition: { reduceMotion: true } }
+                )
+            }, [])
+
+            return (
+                <div ref={scope}>
+                    <div />
+                    <div />
+                </div>
+            )
+        }
+
+        render(<Component />)
+        await new Promise((resolve) => setTimeout(resolve, 50))
+
+        expect(single!.style.transform).toBe("translateX(100px)")
+        expect(sequence!.style.transform).toBe("translateX(100px)")
     })
 
     test("Sequences follow MotionConfig reducedMotion", async () => {
