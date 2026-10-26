@@ -1,8 +1,5 @@
 import { frame, motionValue } from "motion-dom"
-import { Timeline, TimelineItem, TimelineOptions } from ".."
-
-const timeline = (items?: TimelineItem[], options?: TimelineOptions) =>
-    new Timeline(items, options)
+import { timeline } from ".."
 
 async function nextFrame() {
     return new Promise<void>((resolve) => {

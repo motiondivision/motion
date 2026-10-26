@@ -42,7 +42,8 @@ export const scenarios = {
     // Vanilla
     animate: `export { animate } from "motion"`,
     "mini-animate": `export { animate } from "motion/mini"`,
-    "animate-sequence": `import { animate } from "motion"; export const a = () => animate([["div", { x: 1 }]])`,
+    "animate-sequence": `import { animate, timeline } from "motion"; export const a = () => timeline([["div", { x: 1 }]]); export { animate }`,
+    timeline: `export { timeline } from "motion"`,
     scroll: `export { scroll } from "motion"`,
     "scroll+animate": `export { scroll, animate } from "motion"`,
     inView: `export { inView } from "motion"`,
@@ -114,6 +115,14 @@ export const scenarios = {
  * more, --check fails until the PR that fixed the leak deletes that line, so
  * the canary then guards against regressions.
  */
+const animateOnly = [
+    "animate",
+    "scroll+animate",
+    "useAnimate",
+    "motion-div+animate",
+    "motion-div+useAnimate",
+]
+
 export const canaries = [
     {
         scenarios: ["m-div"],
@@ -144,6 +153,16 @@ export const canaries = [
         scenarios: ["scroll", "useScroll"],
         forbid: "hsla(",
         why: "Scroll offsets pull in the colour parser",
+    },
+    {
+        scenarios: animateOnly,
+        forbid: "getLabelTime",
+        why: "animate() bundles the Timeline class, which only timeline() needs",
+    },
+    {
+        scenarios: animateOnly,
+        forbid: '"sequence"in',
+        why: "animate() bundles sequence building, which only timeline() needs",
     },
     {
         scenarios: "*",

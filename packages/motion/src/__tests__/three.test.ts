@@ -1,4 +1,4 @@
-import { animate, frame, motionValue } from "framer-motion/dom"
+import { animate, frame, motionValue, timeline } from "framer-motion/dom"
 import { threeEffect } from "../three"
 
 async function nextFrame() {
@@ -308,7 +308,7 @@ describe("animate() with threeEffect", () => {
         const mesh = createMesh()
         const element = document.createElement("div")
 
-        await animate([
+        await timeline([
             [element, { opacity: 0.5 }, { duration: 0.001 }],
             [mesh, { x: 2 }, { duration: 0.001 }],
         ])

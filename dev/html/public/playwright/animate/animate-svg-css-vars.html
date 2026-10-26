@@ -32,7 +32,7 @@
         </svg>
         <script type="module" src="/src/inc.js"></script>
         <script type="module">
-            const { animate } = window.Motion
+            const { animate, timeline } = window.Motion
 
             const single = document.getElementById("single")
             const sequence = document.getElementById("sequence")
@@ -41,7 +41,7 @@
             const options = { duration: 10, ease: "linear" }
 
             animate(single, { "--trim-end": [0, 1] }, options)
-            animate([[sequence, { "--trim-end": [0, 1] }, options]])
+            timeline([[sequence, { "--trim-end": [0, 1] }, options]])
         </script>
     </body>
 </html>

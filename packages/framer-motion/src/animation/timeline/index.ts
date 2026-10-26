@@ -1,4 +1,5 @@
 import {
+    activeScope,
     animateSingleValue,
     AnimationPlaybackControls,
     AnimationPlaybackControlsWithThen,
@@ -148,40 +149,20 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
 
     private resolveFinished!: VoidFunction
 
-    /**
-     * True while this plays the animations it was created with, before
-     * any change compiles it as a sequence.
-     */
-    private isWrapped = false
-
-    /**
-     * `animations` are already running animations of `items`, as
-     * animate() makes them. The timeline plays these until it's first
-     * changed, so it costs nothing over the animations themselves until
-     * then.
-     */
     constructor(
         items: TimelineItem[] = [],
-        private options: TimelineOptions = {},
-        animations?: AnimationPlaybackControlsWithThen[]
+        private options: TimelineOptions = {}
     ) {
         this.isPaused = options.autoplay === false
         this.newFinished()
         items.forEach((item) => this.add(item))
 
-        if (animations) {
-            this.isDirty = false
-            this.isWrapped = true
-            this.group = new GroupAnimationWithThen(animations)
-            this.watch()
-        } else {
-            /**
-             * Build now, like animate(), so selectors resolve while a
-             * scope is attached. Later changes are batched.
-             */
-            this.invalidate()
-            this.flush()
-        }
+        /**
+         * Build now, like animate(), so selectors resolve while a scope
+         * is attached. Later changes are batched.
+         */
+        this.invalidate()
+        this.flush()
 
         /**
          * Register with the scope (for instance from useAnimate()) so it
@@ -317,14 +298,11 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
 
     get duration() {
         this.flush()
-        return this.isWrapped ? this.group!.duration : this.totalDuration
+        return this.totalDuration
     }
 
     get iterationDuration() {
-        this.flush()
-        return this.isWrapped
-            ? this.group!.iterationDuration
-            : this.totalDuration
+        return this.duration
     }
 
     get state() {
@@ -433,7 +411,6 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
 
     private build() {
         this.isDirty = false
-        this.isWrapped = false
 
         const prev = this.group
         let time = 0
@@ -679,4 +656,42 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
             this.resolveFinished = resolve
         })
     }
+}
+
+/**
+ * Create a timeline from a sequence. It can be changed after it's
+ * created.
+ *
+ * ```js
+ * const tl = timeline([[".box", { x: 100 }]])
+ *
+ * tl.add("spin")
+ *   .add([".box", { rotate: 180 }])
+ *   .call(() => console.log("halfway"), "spin")
+ *
+ * tl.seek("spin")
+ * ```
+ *
+ * In React, pass the scope from useAnimate() to resolve selectors
+ * within it and stop when it unmounts: `timeline(sequence, { scope })`.
+ */
+export function timeline(items?: TimelineItem[], options?: TimelineOptions) {
+    /**
+     * Inherit the transition of a scopeMotion() scope, and stop with it.
+     */
+    const motionScope = activeScope.current
+    const transition = motionScope?.transition
+    if (transition) {
+        options = {
+            ...options,
+            defaultTransition: {
+                ...transition,
+                ...options?.defaultTransition,
+            } as TimelineOptions["defaultTransition"],
+        }
+    }
+
+    const tl = new Timeline(items, options)
+    motionScope && tl.finished.then(motionScope.add(tl.stop))
+    return tl
 }

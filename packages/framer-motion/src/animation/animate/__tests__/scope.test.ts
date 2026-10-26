@@ -12,6 +12,7 @@ import {
     toMediaQuery,
 } from "motion-dom"
 import { animate } from ".."
+import { timeline } from "../../timeline"
 import { inView } from "../../../render/dom/viewport"
 
 async function nextFrame() {
@@ -155,17 +156,28 @@ describe("scopeMotion", () => {
         expect(withOverride).toBe(2)
     })
 
-    test("applies the default transition to sequences", async () => {
+    test("applies the default transition to timelines", async () => {
         let duration = 0
 
         scopeMotion(
             () => {
-                duration = animate([[motionValue(0), 1]]).duration
+                duration = timeline([[motionValue(0), 1]]).duration
             },
             { transition: { duration: 4 } }
         )
 
         expect(duration).toBe(4)
+    })
+
+    test("stop() stops timelines started in setup", async () => {
+        const x = motionValue(0)
+        const scope = scopeMotion(() => {
+            timeline([[x, 100, { duration: 10 }]])
+        })
+
+        expect(await isAnimating(x)).toBe(true)
+        scope.stop()
+        expect(await isAnimating(x)).toBe(false)
     })
 
     test("resolves selectors inside the root element", async () => {
