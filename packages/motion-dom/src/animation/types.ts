@@ -518,6 +518,26 @@ export interface ValueTransition
     inherit?: boolean
 
     /**
+     * The transition a value uses when it leaves this state for a
+     * lower-priority one, like `whileHover` ending and values returning to
+     * `animate`. `true` reuses this transition. Otherwise, the state being
+     * entered defines the transition.
+     *
+     * On `initial`, it's used for the mount animation.
+     *
+     * ```jsx
+     * <motion.div
+     *   initial={{ scale: 0, transition: { out: { delay: 1 } } }}
+     *   animate={{ scale: 1 }}
+     *   whileHover={{ scale: 2, transition: { out: true, duration: 0.2 } }}
+     * />
+     * ```
+     *
+     * @public
+     */
+    out?: boolean | Transition
+
+    /**
      * If true, the animation skips straight to its final value instead of
      * tweening. Used by `MotionConfig`'s `skipAnimations` to opt entire
      * subtrees out of animation (e.g. for E2E screenshot stability).

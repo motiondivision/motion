@@ -1,0 +1,111 @@
+<html>
+    <head>
+        <style>
+            body {
+                padding: 100px;
+                margin: 0;
+            }
+
+            #box {
+                width: 100px;
+                height: 100px;
+                background-color: #0077ff;
+            }
+
+            [data-layout-correct="false"] {
+                background: #dd1144 !important;
+                opacity: 1 !important;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="root"></div>
+        <script type="module" src="/src/imports/optimized-appear.js"></script>
+        <script type="module" src="/src/imports/script-assert.js"></script>
+
+        <script type="module">
+            /**
+             * initial sets transition.out, so the generator builds the appear
+             * animation from initial's out transition, as the runtime does for
+             * the mount animation. After hydration the runtime continues with
+             * the same transition: the visible opacity keeps moving at the
+             * appear animation's rate, with no snap back or jump ahead.
+             */
+            const {
+                motion,
+                startOptimizedAppearAnimation,
+                optimizedAppearDataAttribute,
+            } = window.Motion
+            const root = document.getElementById("root")
+
+            const animateDuration = 0.6
+            const outDuration = 2.4
+
+            const Component = React.createElement(motion.div, {
+                id: "box",
+                initial: {
+                    opacity: 0,
+                    transition: {
+                        out: { duration: outDuration, ease: "linear" },
+                    },
+                },
+                animate: { opacity: 1 },
+                transition: { duration: animateDuration, ease: "linear" },
+                [optimizedAppearDataAttribute]: "a",
+                children: "Content",
+            })
+
+            // Emulate server rendering of element
+            root.innerHTML = ReactDOMServer.renderToString(Component)
+
+            const box = () => document.getElementById("box")
+
+            let hydratedAt
+            let prev
+            const sample = () => {
+                const element = box()
+                const time = performance.now()
+                const latest = parseFloat(getComputedStyle(element).opacity)
+
+                if (prev) {
+                    const [prevTime, prevOpacity] = prev
+                    const maxStep =
+                        (time - prevTime) / 1000 / outDuration + 0.08
+
+                    if (latest < prevOpacity - 0.02) {
+                        return showError(
+                            element,
+                            `Opacity went back from ${prevOpacity} to ${latest}`
+                        )
+                    } else if (latest - prevOpacity > maxStep) {
+                        return showError(
+                            element,
+                            `Opacity jumped from ${prevOpacity} to ${latest}`
+                        )
+                    }
+                }
+
+                prev = [time, latest]
+                if (hydratedAt === undefined || time - hydratedAt < 400) {
+                    requestAnimationFrame(sample)
+                }
+            }
+
+            // Generated from initial's out transition
+            startOptimizedAppearAnimation(
+                box(),
+                "opacity",
+                [0, 1],
+                { duration: outDuration * 1000, ease: "linear" },
+                () => {
+                    requestAnimationFrame(sample)
+
+                    setTimeout(() => {
+                        hydratedAt = performance.now()
+                        ReactDOMClient.hydrateRoot(root, Component)
+                    }, 150)
+                }
+            )
+        </script>
+    </body>
+</html>
