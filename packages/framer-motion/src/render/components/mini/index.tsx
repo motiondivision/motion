@@ -4,6 +4,7 @@ import {
     addDomEvent,
     AnimationPlaybackControls,
     frame,
+    getComputedStyle,
     hover,
     isMotionValue,
     press,
@@ -18,7 +19,6 @@ import {
     forwardRef,
     ForwardRefExoticComponent,
     JSX,
-    Ref,
     RefAttributes,
     useContext,
     useEffect,
@@ -34,6 +34,7 @@ import { MotionConfigContext } from "../../../context/MotionConfigContext"
 import { PresenceContext } from "../../../context/PresenceContext"
 import { MotionStyle } from "../../../motion/types"
 import { useConstant } from "../../../utils/use-constant"
+import { useIsomorphicLayoutEffect } from "../../../utils/use-isomorphic-effect"
 import { inView, InViewOptions } from "../../dom/viewport"
 
 type Definition = boolean | VariantLabels | TargetAndTransition | undefined
@@ -91,7 +92,6 @@ interface MiniNode {
     children: Set<MiniNode>
     active: { [K in Layer]?: boolean }
     element: HTMLElement | null
-    ref?: Ref<HTMLElement>
     /**
      * The value each key returns to when no active layer sets it.
      */
@@ -101,14 +101,22 @@ interface MiniNode {
      */
     prev: Record<string, string>
     keys: Set<string>
+    /**
+     * The latest animation of each CSS property.
+     */
+    animations: Record<string, AnimationPlaybackControls>
+    /**
+     * The values the component was last animated to.
+     */
+    values: Values
     config: Transition | undefined
     presenceCustom: any
+    isPresenceInitialBlocked: boolean
     isScheduled: boolean
     isMounted: boolean
     onExitComplete?: VoidFunction
     schedule: VoidFunction
     process: (delay?: number) => void
-    setRef: (element: HTMLElement | null) => void
 }
 
 /**
@@ -184,25 +192,39 @@ function toCSS(values: Values) {
     return [css, sources] as const
 }
 
-function getLayer(node: MiniNode, layer: Layer): [Definition, boolean] {
+/**
+ * A layer's definition, whether it's active, and whether it's a variant
+ * label inherited from a parent.
+ */
+function getLayer(
+    node: MiniNode,
+    layer: Layer
+): [Definition, boolean, boolean?] {
     const definition = node.props[layer]
     if (definition !== undefined) {
         return [definition, layer === "animate" || !!node.active[layer]]
     }
     if (node.parent && node.props.inherit !== false) {
-        const inherited = getLayer(node.parent, layer)
-        if (isLabel(inherited[0])) return inherited
+        const [inherited, isActive] = getLayer(node.parent, layer)
+        if (isLabel(inherited)) return [inherited, isActive, true]
     }
     return [undefined, false]
 }
 
-function getInitial(node: MiniNode | null): Definition {
-    if (!node) return
-    const { initial } = node.props
-    return initial !== undefined || node.props.inherit === false
-        ? initial
-        : getInitial(node.parent)
+/**
+ * Children inherit variant labels and initial={false}, not targets.
+ */
+function getInitial(node: MiniNode): Definition {
+    const { initial, inherit } = node.props
+    if (initial !== undefined || inherit === false || !node.parent) {
+        return initial
+    }
+    const inherited = getInitial(node.parent)
+    return isLabel(inherited) || inherited === false ? inherited : undefined
 }
+
+const isInitialBlocked = (node: MiniNode) =>
+    node.isPresenceInitialBlocked || getInitial(node) === false
 
 function resolve(
     node: MiniNode,
@@ -223,11 +245,15 @@ function resolve(
     return target
 }
 
-function resolveStyle(style: MotionStyle = {}) {
+function resolveStyle(style: MotionStyle = {}, onlyMotionValues?: boolean) {
     const values: Values = {}
     for (const key in style) {
         const value = (style as any)[key]
-        values[key] = isMotionValue(value) ? value.get() : value
+        if (isMotionValue(value)) {
+            values[key] = value.get()
+        } else if (!onlyMotionValues) {
+            values[key] = value
+        }
     }
     return values
 }
@@ -262,20 +288,16 @@ function createNode(parent: MiniNode | null): MiniNode {
         base: {},
         prev: {},
         keys: new Set(),
+        animations: {},
+        values: {},
         config: undefined,
         presenceCustom: undefined,
+        isPresenceInitialBlocked: false,
         isScheduled: false,
         isMounted: false,
         schedule: () => {
             node.isScheduled = true
             frame.setup(processSelf)
-        },
-        setRef: (element) => {
-            node.element = element
-            const { ref } = node
-            typeof ref === "function"
-                ? ref(element)
-                : ref && ((ref as any).current = element)
         },
         process: (delay?: number) => {
             const { element, props, parent } = node
@@ -293,14 +315,22 @@ function createNode(parent: MiniNode | null): MiniNode {
 
             const values: Values = {}
             const transitions: Record<string, Transition | undefined> = {}
+            /**
+             * Only values set by an inherited variant are staggered.
+             */
+            const isStaggered: Record<string, boolean | undefined> = {}
             const newKeys: string[] = []
             const defaultTransition = props.transition ?? node.config
             let transition = defaultTransition
             let animateTransition = transition
+            let isAnimateInherited: boolean | undefined
             let definition: Definition
 
             for (const layer of layers) {
-                const [layerDefinition, isActive] = getLayer(node, layer)
+                const [layerDefinition, isActive, isInherited] = getLayer(
+                    node,
+                    layer
+                )
                 if (!isActive) continue
                 const target = resolve(
                     node,
@@ -317,11 +347,15 @@ function createNode(parent: MiniNode | null): MiniNode {
 
                 definition = layerDefinition
                 transition = layerTransition ?? defaultTransition
-                if (layer === "animate") animateTransition = transition
+                if (layer === "animate") {
+                    animateTransition = transition
+                    isAnimateInherited = isInherited
+                }
 
                 for (const key in rest) {
                     values[key] = (rest as any)[key]
                     transitions[key] = transition
+                    isStaggered[key] = isInherited
                     if (!node.keys.has(key)) {
                         node.keys.add(key)
                         newKeys.push(key)
@@ -336,12 +370,24 @@ function createNode(parent: MiniNode | null): MiniNode {
                 if (key in values) continue
                 values[key] = node.base[key]
                 transitions[key] = animateTransition
+                isStaggered[key] = isAnimateInherited
             }
+            node.values = values
 
-            const [css, sources] = toCSS(values)
+            /**
+             * Motion values in style aren't animated, but share CSS
+             * properties like `translate` with animated values, so are
+             * written alongside them.
+             */
+            const [animated, sources] = toCSS(values)
+            const [css] = toCSS({
+                ...resolveStyle(props.style, true),
+                ...values,
+            })
             const groups = new Map<Transition | undefined, Values>()
+            const staggeredGroups = new Map<Transition | undefined, Values>()
 
-            for (const name in css) {
+            for (const name in animated) {
                 const keyframes = String(css[name])
                 if (node.prev[name] === keyframes) continue
 
@@ -351,21 +397,28 @@ function createNode(parent: MiniNode | null): MiniNode {
                 /**
                  * Skip the mount animation with initial={false}.
                  */
-                if (isFirst && !node.isMounted && getInitial(node) === false)
+                if (isFirst && !node.isMounted && isInitialBlocked(node)) {
                     continue
-
-                const valueTransition = transitions[sources[name]]
-                if (!groups.has(valueTransition)) {
-                    groups.set(valueTransition, {})
                 }
-                groups.get(valueTransition)![name] = css[name]
+
+                const source = sources[name]
+                const group = isStaggered[source] ? staggeredGroups : groups
+                const valueTransition = transitions[source]
+                if (!group.has(valueTransition)) {
+                    group.set(valueTransition, {})
+                }
+                group.get(valueTransition)![name] = css[name]
             }
             node.isMounted = true
 
             const definitions: AnimationDefinition[] = []
-            groups.forEach((keyframes, groupTransition) => {
+            const define = (
+                keyframes: Values,
+                groupTransition: Transition | undefined,
+                groupDelay: number
+            ) => {
                 const options: Transition = { ...groupTransition }
-                options.delay = (options.delay || 0) + delay!
+                options.delay = (options.delay || 0) + groupDelay
                 stopAndDefineAnimations(
                     element,
                     keyframes,
@@ -373,24 +426,28 @@ function createNode(parent: MiniNode | null): MiniNode {
                     undefined,
                     definitions
                 )
-            })
+            }
+            groups.forEach((keyframes, t) => define(keyframes, t, 0))
+            staggeredGroups.forEach((keyframes, t) =>
+                define(keyframes, t, delay!)
+            )
 
-            const { onExitComplete } = node
-            node.onExitComplete = undefined
-
-            if (definitions.length || newKeys.length) {
+            if (definitions.length || newKeys.length || node.active.exit) {
                 queue.push([
                     definitions,
                     (animations) => {
-                        if (!animations.length) {
-                            onExitComplete?.()
-                            return
+                        animations.forEach(
+                            (animation, i) =>
+                                (node.animations[definitions[i].options.name!] =
+                                    animation)
+                        )
+                        if (animations.length) {
+                            props.onAnimationStart?.(definition)
+                            Promise.all(animations).then(() =>
+                                node.props.onAnimationComplete?.(definition)
+                            )
                         }
-                        props.onAnimationStart?.(definition)
-                        Promise.all(animations).then(() => {
-                            node.props.onAnimationComplete?.(definition)
-                            onExitComplete?.()
-                        })
+                        node.active.exit && completeExit(node)
                     },
                 ])
 
@@ -403,13 +460,11 @@ function createNode(parent: MiniNode | null): MiniNode {
                         if (key in node.base) continue
                         node.base[key] = transformKeys.has(key)
                             ? +key.startsWith("scale")
-                            : getComputedStyle(element)[key as any]
+                            : getComputedStyle(element, key)
                     }
                 })
                 frame.read(resolveQueue)
                 frame.render(startQueue)
-            } else {
-                onExitComplete?.()
             }
 
             /**
@@ -436,6 +491,26 @@ function createNode(parent: MiniNode | null): MiniNode {
     }
     const processSelf = () => node.process()
     return node
+}
+
+/**
+ * Remove an exiting component once its latest animations finish. An
+ * animation that's interrupted never finishes, but the animation that
+ * replaced it is checked when it starts.
+ */
+function completeExit(node: MiniNode) {
+    const animations = Object.values(node.animations)
+    Promise.all(animations).then(() => {
+        if (
+            node.active.exit &&
+            animations.every(
+                (animation, i) =>
+                    Object.values(node.animations)[i] === animation
+            )
+        ) {
+            node.onExitComplete?.()
+        }
+    })
 }
 
 const MiniContext = createContext<MiniNode | null>(null)
@@ -480,24 +555,27 @@ export function createMiniMotionComponent<
 
         const parent = useContext(MiniContext)
         const node = useConstant(() => createNode(parent))
+        const setElement = useConstant(
+            () => (element: HTMLElement | null) => (node.element = element)
+        )
         node.props = props
-        node.ref = externalRef
         node.config = useContext(MotionConfigContext).transition
-        node.presenceCustom = useContext(PresenceContext)?.custom
+        const presence = useContext(PresenceContext)
+        node.presenceCustom = presence?.custom
 
         const [isPresent, safeToRemove] = usePresence()
-        if (!isPresent && !node.active.exit) {
-            node.active.exit = true
-            node.onExitComplete = safeToRemove!
-        }
+        node.active.exit = !isPresent
+        node.onExitComplete = safeToRemove || undefined
 
         /**
          * Render the initial values, or animate values with initial={false}.
          * These are computed once, so React never writes them again.
          */
         const initialValues = useConstant(() => {
-            let definition = getInitial(node)
-            if (definition === false) definition = getLayer(node, "animate")[0]
+            node.isPresenceInitialBlocked = presence?.initial === false
+            let definition = isInitialBlocked(node)
+                ? getLayer(node, "animate")[0]
+                : getInitial(node)
             const target: Values = { ...resolve(node, definition) }
             delete target.transition
             delete target.transitionEnd
@@ -522,6 +600,22 @@ export function createMiniMotionComponent<
 
         useEffect(node.schedule)
 
+        useIsomorphicLayoutEffect(() => {
+            const { element } = node
+            if (typeof externalRef === "function") {
+                const cleanup: unknown = externalRef(element)
+                return () =>
+                    typeof cleanup === "function"
+                        ? cleanup()
+                        : externalRef(null)
+            } else if (externalRef) {
+                externalRef.current = element
+                return () => {
+                    externalRef.current = null
+                }
+            }
+        }, [externalRef])
+
         /**
          * Render motion values in style outside React.
          */
@@ -529,8 +623,13 @@ export function createMiniMotionComponent<
             const render = () => {
                 const { element } = node
                 if (!element) return
-                const [css] = toCSS(resolveStyle(node.props.style))
-                for (const name in css) {
+                const motionValues = resolveStyle(node.props.style, true)
+                const latest: Values = {}
+                for (const key in node.values) {
+                    latest[key] = last(node.values[key])
+                }
+                const [css] = toCSS({ ...latest, ...motionValues })
+                for (const name in toCSS(motionValues)[0]) {
                     ;(element.style as any)[name] = css[name]
                 }
             }
@@ -623,7 +722,7 @@ export function createMiniMotionComponent<
             { value: node },
             createElement(Component, {
                 ...rest,
-                ref: node.setRef,
+                ref: setElement,
                 style: toCSS({ ...styleValues, ...initialValues })[0],
             })
         )

@@ -15,6 +15,12 @@ import fs from "fs"
 import path from "path"
 import { parse } from "@babel/parser"
 
+/**
+ * Imports the plugin replaces. "motion/react-client" is left alone: its
+ * namespace export is the element components, not a `motion` proxy.
+ */
+const compiledSources = new Set(["motion/react", "framer-motion"])
+
 const motionSources = new Set([
     "motion/react",
     "motion/react-client",
@@ -68,11 +74,18 @@ const featureImports = {
     useDragControls: ["drag"],
 }
 
-const svgTags = new Set(
-    "svg path circle ellipse line polygon polyline rect g text tspan use mask clipPath defs linearGradient radialGradient stop pattern symbol image foreignObject filter feGaussianBlur".split(
-        " "
+/**
+ * The same test the motion component uses to pick the SVG renderer.
+ */
+const { lowercaseSVGElements } = await import(
+    new URL(
+        "../../packages/framer-motion/dist/es/render/svg/lowercase-elements.mjs",
+        import.meta.url
     )
 )
+const isSVGTag = (tag) =>
+    !tag.includes("-") &&
+    (lowercaseSVGElements.includes(tag) || /[A-Z]/u.test(tag))
 
 const miniProps = new Set([
     "initial",
@@ -115,8 +128,22 @@ const motionProps = new Set([
     "ignoreStrict",
 ])
 
+/**
+ * Nodes that can't reference `motion` at runtime.
+ */
+const skipNodes = new Set([
+    "ImportDeclaration",
+    "TSTypeAnnotation",
+    "TSTypeReference",
+    "TSTypeQuery",
+    "TSInterfaceDeclaration",
+    "TSTypeAliasDeclaration",
+    "TSTypeParameterInstantiation",
+])
+
 function walk(node, visit, parent) {
     if (!node || typeof node.type !== "string") return
+    if (skipNodes.has(node.type)) return
     visit(node, parent)
     for (const key in node) {
         if (key === "loc" || key === "start" || key === "end") continue
@@ -156,20 +183,50 @@ export function analyzeFile(file, code, result) {
         return
     }
 
+    /**
+     * Local names of the `motion` and `m` proxies, and of namespaces that
+     * hold them (`import * as M from "motion/react"` → `M.motion.div`).
+     */
     const motionNames = new Set()
+    const namespaces = new Set()
     for (const node of ast.program.body) {
+        const source = node.source?.value
         if (
-            node.type !== "ImportDeclaration" ||
-            !motionSources.has(node.source.value)
-        )
+            (node.type === "ExportAllDeclaration" ||
+                node.type === "ExportNamedDeclaration") &&
+            motionSources.has(source)
+        ) {
+            result.unknown.push(
+                `${file}: re-exports ${source}, so its users can't be traced`
+            )
+        }
+        if (node.type !== "ImportDeclaration") continue
+
+        if (!motionSources.has(source)) {
+            /**
+             * `motion` from a barrel file or wrapper library.
+             */
+            for (const s of node.specifiers) {
+                if (["motion", "m"].includes(s.imported?.name)) {
+                    result.unknown.push(
+                        `${file}: imports ${s.imported.name} from "${source}"`
+                    )
+                }
+            }
             continue
+        }
+        if (source === "motion/react-client") {
+            result.unknown.push(`${file}: "motion/react-client" isn't compiled`)
+        }
         for (const s of node.specifiers) {
-            const imported =
-                s.type === "ImportNamespaceSpecifier"
-                    ? "*"
-                    : s.imported?.name ?? "default"
-            if (imported === "motion" || imported === "m" || imported === "*")
+            if (s.type === "ImportNamespaceSpecifier") {
+                namespaces.add(s.local.name)
+                continue
+            }
+            const imported = s.imported?.name ?? "default"
+            if (imported === "motion" || imported === "m") {
                 motionNames.add(s.local.name)
+            }
             featureImports[imported]?.forEach((f) => result.features.add(f))
             if (
                 ["useAnimationControls", "useAnimation", "Reorder"].includes(
@@ -180,40 +237,50 @@ export function analyzeFile(file, code, result) {
             }
         }
     }
-    if (!motionNames.size) return
+    if (!motionNames.size && !namespaces.size) return
 
-    walk(ast.program, (node, parent) => {
-        // motion.create(Component), motion(Component), m.create(...)
-        if (node.type === "CallExpression") {
-            const callee = node.callee
-            const isFactory =
-                (callee.type === "Identifier" &&
-                    motionNames.has(callee.name)) ||
-                (callee.type === "MemberExpression" &&
-                    motionNames.has(callee.object.name) &&
-                    callee.property.name === "create")
-            if (isFactory) {
-                result.unknown.push(
-                    `${file}:${node.loc.start.line} ${code.slice(
-                        node.start,
-                        node.end
-                    )}: props reach it through another component`
-                )
-            }
+    const isMotion = (name) => motionNames.has(name) || namespaces.has(name)
+
+    walk(ast.program, (node) => {
+        /**
+         * Any use of `motion` other than `<motion.tag>` in JSX, like
+         * `motion.create(Box)`, `const Box = motion.div` or
+         * `createElement(motion.div, props)`, hides which props it gets.
+         */
+        if (node.type === "Identifier" && isMotion(node.name)) {
+            result.unknown.push(
+                `${file}:${node.loc.start.line} ${
+                    code.slice(node.start, node.end + 20).split("\n")[0]
+                }…: used outside JSX`
+            )
+            return
         }
 
-        if (node.type !== "JSXOpeningElement") return
-        const name = node.name
-        if (
-            name.type !== "JSXMemberExpression" ||
-            !motionNames.has(name.object.name)
-        )
-            return
+        if (node.type === "JSXOpeningElement") analyzeElement(node)
+    })
 
-        const tag = name.property.name
-        const where = `${file}:${node.loc.start.line} <${name.object.name}.${tag}>`
+    function analyzeElement(node) {
+        const path = []
+        for (let n = node.name; n; n = n.object) {
+            path.unshift(n.name ?? n.property?.name)
+            if (n.type !== "JSXMemberExpression") break
+        }
+        if (!isMotion(path[0])) return
+
+        if (namespaces.has(path[0])) {
+            if (!["motion", "m"].includes(path[1]) || path.length !== 3) {
+                result.unknown.push(
+                    `${file}:${node.loc.start.line} <${path.join(".")}>`
+                )
+                return
+            }
+            path.shift()
+        }
+        const tag = path[1]
+        const where = `${file}:${node.loc.start.line} <${path.join(".")}>`
         result.elements++
-        if (svgTags.has(tag)) result.svg = true
+        const isSVG = isSVGTag(tag)
+        if (isSVG) result.svg = true
 
         for (const attr of node.attributes) {
             if (attr.type === "JSXSpreadAttribute") {
@@ -250,12 +317,12 @@ export function analyzeFile(file, code, result) {
                 )
             }
         }
-        if (svgTags.has(tag) && tag !== "svg" && tag !== "g") {
+        if (isSVG && tag !== "svg" && tag !== "g") {
             result.miniBlockers.push(
                 `${where}: SVG attributes can't animate with WAAPI`
             )
         }
-    })
+    }
 }
 
 export function analyze(files) {
@@ -320,10 +387,13 @@ export function generate(result, { fm }) {
         entries.push("...layout")
     }
 
+    if (result.svg) {
+        imports.push(
+            `import { isSVGComponent } from "${fm}/render/dom/utils/is-svg-component.mjs"`
+        )
+    }
     const renderer = result.svg
-        ? `(C, o) => (o.isSVG ?? (typeof C === "string" && /^[a-z]/.test(C) && ${JSON.stringify(
-              [...svgTags]
-          )}.includes(C))) ? new SVGVisualElement(o) : new HTMLVisualElement(o, { allowProjection: true })`
+        ? `(C, o) => (o.isSVG ?? isSVGComponent(C)) ? new SVGVisualElement(o) : new HTMLVisualElement(o, { allowProjection: true })`
         : `(C, o) => new HTMLVisualElement(o, { allowProjection: ${
               f.has("layout") || f.has("drag")
           } })`
@@ -377,7 +447,7 @@ export function motionCompiler({ files, fm }) {
         },
         resolveId(id, importer) {
             if (id === "\0motion-compiled" || id === "\0motion-react") return id
-            if (!motionSources.has(id) || !importer) return
+            if (!compiledSources.has(id) || !importer) return
             /**
              * Only the app's own imports are compiled. Libraries, and
              * the generated modules, get the real package.
