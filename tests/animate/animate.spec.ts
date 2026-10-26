@@ -548,8 +548,8 @@ test.describe("animate() options", () => {
     })
 })
 
-test.describe("animate() color acceleration", () => {
-    test("backgroundColor runs as an accelerated WAAPI animation", async ({
+test.describe("animate() backgroundColor", () => {
+    test("backgroundColor runs as a JS animation, not WAAPI", async ({
         page,
     }) => {
         await waitForAnimation(
@@ -560,12 +560,14 @@ test.describe("animate() color acceleration", () => {
 
         const box = page.locator("#color")
 
-        // backgroundColor is now in the accelerated set, so it should be
-        // driven by a WAAPI animation rather than the per-frame JS path.
+        // backgroundColor isn't accelerated: WAAPI mixes colors in sRGB but
+        // Motion's JS (including its interrupt sampling) mixes in linear
+        // space, so an interrupted WAAPI color jumped. It runs on the
+        // per-frame JS path instead.
         const animationCount = await box.evaluate(
             (el) => el.getAnimations().length
         )
-        expect(animationCount).toBeGreaterThan(0)
+        expect(animationCount).toBe(0)
 
         // Mid-animation (500ms into a 10s linear red -> blue tween) the colour
         // must be strictly between the endpoints: red fading down, blue rising.

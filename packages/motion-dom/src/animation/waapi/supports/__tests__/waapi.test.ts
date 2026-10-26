@@ -89,7 +89,12 @@ describe("supportsBrowserAnimation", () => {
         ).toBe(false)
     })
 
-    it("returns true for backgroundColor with standard hex keyframes", () => {
+    /**
+     * WAAPI mixes colors in sRGB, but Motion's JS animations (and the
+     * sampler that estimates a WAAPI animation's value on interrupt) mix
+     * in linear color space, so an interrupted WAAPI color visibly jumped.
+     */
+    it("returns false for backgroundColor with standard hex keyframes", () => {
         expect(
             supportsBrowserAnimation(
                 createMockOptions({
@@ -97,7 +102,7 @@ describe("supportsBrowserAnimation", () => {
                     keyframes: ["#ffffff", "#000000"],
                 })
             )
-        ).toBe(true)
+        ).toBe(false)
     })
 
     it("returns false for color with standard rgba keyframes", () => {
@@ -111,13 +116,12 @@ describe("supportsBrowserAnimation", () => {
         ).toBe(false)
     })
 
-    it("returns false for backgroundColor when onUpdate is set", () => {
+    it("returns false for an accelerated value when onUpdate is set", () => {
         const element = document.createElement("div")
         expect(
             supportsBrowserAnimation(
                 createMockOptions({
-                    name: "backgroundColor",
-                    keyframes: ["#ffffff", "#000000"],
+                    keyframes: [0, 1],
                     motionValue: {
                         owner: {
                             current: element,
