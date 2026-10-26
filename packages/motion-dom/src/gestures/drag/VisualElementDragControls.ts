@@ -95,7 +95,11 @@ export class VisualElementDragControls {
     isDragging = false
     private currentDirection: DragDirection | null = null
 
-    private originPoint: Point = { x: 0, y: 0 }
+    /**
+     * Where the drag started, which pointer offsets are added to. Public
+     * so pinch() can move it when it moves a dragged element.
+     */
+    originPoint: Point = { x: 0, y: 0 }
 
     /**
      * The permitted boundaries of travel, in pixels.

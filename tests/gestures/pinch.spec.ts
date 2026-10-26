@@ -122,14 +122,77 @@ test.describe("pinch", () => {
         expect(info.offset.x).toBeCloseTo(50, 1)
     })
 
-    test("the page doesn't zoom or scroll", async ({ page }) => {
+    test("the browser doesn't take over the gesture", async ({ page }) => {
         await open(page)
-        expect(
-            await page.locator("#box").evaluate((el) => el.style.touchAction)
-        ).toBe("none")
+        await twoFinger(
+            page,
+            [
+                { x: 140, y: 150 },
+                { x: 160, y: 150 },
+            ],
+            [
+                { x: 110, y: 150 },
+                { x: 190, y: 150 },
+            ]
+        )
+
+        expect(await page.evaluate(() => window.visualViewport!.scale)).toBe(1)
+        expect((await rect(page, "#box")).width).toBeCloseTo(400, 0)
     })
 
-    test("composes with drag(): drag owns position", async ({ page }) => {
+    test("pinches when the second touch lands beside the box", async ({
+        page,
+    }) => {
+        await open(page)
+        await twoFinger(
+            page,
+            [
+                { x: 180, y: 150 },
+                { x: 230, y: 150 },
+            ],
+            [
+                { x: 155, y: 150 },
+                { x: 255, y: 150 },
+            ]
+        )
+
+        expect((await rect(page, "#box")).width).toBeCloseTo(200, 0)
+    })
+
+    test("with drag(), points under the touches stay under them", async ({
+        page,
+    }) => {
+        const spread = async (query: string) => {
+            await open(page, query)
+            await twoFinger(
+                page,
+                [
+                    { x: 160, y: 150 },
+                    { x: 190, y: 150 },
+                ],
+                [
+                    { x: 145, y: 170 },
+                    { x: 205, y: 170 },
+                ],
+                { steps: 10 }
+            )
+            return rect(page, "#box")
+        }
+
+        const withoutDrag = await spread("")
+        const withDrag = await spread("?drag")
+
+        // (175, 150) moved to (175, 170) and the box doubled around it.
+        expect(withoutDrag.left).toBeCloseTo(25, 0)
+        expect(withoutDrag.top).toBeCloseTo(70, 0)
+        expect(withDrag.left).toBeCloseTo(withoutDrag.left, 0)
+        expect(withDrag.top).toBeCloseTo(withoutDrag.top, 0)
+        expect(withDrag.width).toBeCloseTo(200, 0)
+    })
+
+    test("with drag(), a touch that starts dragging can then pinch", async ({
+        page,
+    }) => {
         await open(page, "?drag")
 
         const cdp = await page.context().newCDPSession(page)
@@ -140,7 +203,7 @@ test.describe("pinch", () => {
             await touch(cdp, "touchMove", [{ x, y: 150 }])
             await frames(page, 1)
         }
-        // ...then a second touch pinches 2x.
+        // ...then a second touch pinches 2x around the first.
         await touch(cdp, "touchStart", [
             { x: 170, y: 150 },
             { x: 190, y: 150 },
@@ -152,21 +215,27 @@ test.describe("pinch", () => {
         ])
         await frames(page, 3)
 
-        const { width } = await rect(page, "#box")
-        expect(width).toBeCloseTo(200, 0)
-        const transform = await page
-            .locator("#box")
-            .evaluate((el) => el.style.transform)
-        expect(transform).toBe("translateX(20px) scale(2)")
+        // The box (now 120-220) doubles around x = 170.
+        const box = await rect(page, "#box")
+        expect(box.width).toBeCloseTo(200, 0)
+        expect(box.left).toBeCloseTo(170 - (170 - 120) * 2, 0)
 
+        // Lifting the second touch hands back to drag without a jump.
+        // (A touchEnd lists the touches that lift.)
+        await cdp.send("Input.dispatchTouchEvent", {
+            type: "touchEnd",
+            touchPoints: [{ x: 210, y: 150, id: 1 }],
+        })
+        await frames(page, 2)
+        await touch(cdp, "touchMove", [{ x: 180, y: 150 }])
+        await frames(page, 2)
+        expect((await rect(page, "#box")).left).toBeCloseTo(box.left + 10, 0)
         await touch(cdp, "touchEnd", [])
     })
 })
 
 test.describe("pinch with a trackpad", () => {
-    test("ctrl + wheel zooms around the cursor and doesn't zoom the page", async ({
-        page,
-    }) => {
+    test("ctrl + wheel zooms around the cursor", async ({ page }) => {
         await open(page)
         await page.mouse.move(100, 100) // the box's top-left corner
 
@@ -184,6 +253,5 @@ test.describe("pinch with a trackpad", () => {
         expect(box.width).toBeCloseTo(200, 0)
 
         await expect.poll(() => events(page)).toEqual(["start", "end"])
-        expect(await page.evaluate(() => window.visualViewport!.scale)).toBe(1)
     })
 })

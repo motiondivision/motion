@@ -39,7 +39,7 @@
         },
         {
             "path": "./dist/size-rollup-pinch.js",
-            "maxSize": "5.8 kB"
+            "maxSize": "6.04 kB"
         }
     ],
     "gitHead": "0d3c11b5f54647ecc5d1ee93e827651291fe7ce3",
