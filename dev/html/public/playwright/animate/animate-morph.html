@@ -1,0 +1,87 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+                padding: 50px;
+            }
+        </style>
+    </head>
+    <body>
+        <svg width="200" height="100" viewBox="0 0 200 100">
+            <path id="morph" d="M0 0H100V100H0Z" fill="#0077ff" />
+            <path
+                id="interrupt"
+                d="M100 0H200V100H100Z"
+                fill="#ff0055"
+            />
+        </svg>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module" src="/src/imports/morph.js"></script>
+        <script type="module">
+            const { animate } = window.Motion
+            const { morph } = window.MotionMorph
+
+            // Area of an in-between shape, which is written as a polyline
+            window.polylineArea = (d) => {
+                const n = d.match(/-?[\d.]+/g).map(Number)
+                let sum = 0
+                for (let i = 0; i < n.length; i += 2) {
+                    const j = (i + 2) % n.length
+                    sum += n[i] * n[j + 1] - n[j] * n[i + 1]
+                }
+                return Math.abs(sum / 2)
+            }
+
+            const star =
+                "M50 0L61 35L98 35L68 57L79 91L50 70L21 91L32 57L2 35L39 35Z"
+
+            // Long and linear, so the shape can be sampled mid-way
+            animate(
+                "#morph",
+                { d: star },
+                { mixer: morph, duration: 10, ease: "linear" }
+            )
+
+            /**
+             * Interrupt a morph with another, and record the shape just
+             * before and just after.
+             */
+            const path = document.getElementById("interrupt")
+            const measure = () => {
+                const { x, y, width, height } = path.getBBox()
+                return {
+                    x,
+                    y,
+                    width,
+                    height,
+                    length: path.getTotalLength(),
+                    area: window.polylineArea(path.getAttribute("d")),
+                }
+            }
+
+            animate(
+                path,
+                {
+                    d: "M150 0L161 35L198 35L168 57L179 91L150 70L121 91L132 57L102 35L139 35Z",
+                },
+                { mixer: morph, duration: 1, ease: "linear" }
+            )
+
+            setTimeout(() => {
+                const before = measure()
+                animate(
+                    path,
+                    { d: "M100 50A50 50 0 1 1 200 50A50 50 0 1 1 100 50Z" },
+                    { mixer: morph, duration: 10, ease: "linear" }
+                )
+                requestAnimationFrame(() =>
+                    requestAnimationFrame(() => {
+                        path.dataset.before = JSON.stringify(before)
+                        path.dataset.after = JSON.stringify(measure())
+                    })
+                )
+            }, 400)
+        </script>
+    </body>
+</html>
