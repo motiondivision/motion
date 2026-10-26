@@ -82,6 +82,8 @@ export const scenarios = {
     useInView: `export { useInView } from "motion/react"`,
     useAnimate: `export { useAnimate } from "motion/react"`,
     "useAnimate(mini)": `export { useAnimate } from "motion/react-mini"`,
+    "motion-div(mini)": `import { motion } from "motion/react-mini"; export const D = motion.div`,
+    "motion-div(mini)+AnimatePresence": `import { motion } from "motion/react-mini"; export const D = motion.div; export { AnimatePresence } from "motion/react"`,
     useMotionValueEvent: `export { useMotionValueEvent } from "motion/react"`,
     useReducedMotion: `export { useReducedMotion } from "motion/react"`,
     useAnimationFrame: `export { useAnimationFrame } from "motion/react"`,
