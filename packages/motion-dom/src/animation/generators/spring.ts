@@ -122,11 +122,12 @@ function findSpring({
     let envelope: (num: number) => number
     let derivative: (num: number) => number
 
-    warning(
-        duration <= secondsToMilliseconds(springDefaults.maxDuration),
-        "Spring duration must be 10 seconds or less",
-        "spring-duration-limit"
-    )
+    process.env.NODE_ENV !== "production" &&
+        warning(
+            duration <= secondsToMilliseconds(springDefaults.maxDuration),
+            "Spring duration must be 10 seconds or less",
+            "spring-duration-limit"
+        )
 
     const dampingRatio = bounceToDampingRatio(bounce)
 
@@ -213,11 +214,12 @@ function resolvePhysics(value: number | undefined, canBeZero?: boolean) {
     if (isValidPhysics(value, canBeZero)) return value
 
     if (process.env.NODE_ENV !== "production") {
-        warning(
-            value === undefined,
-            "Spring stiffness and mass must be positive, damping 0 or greater",
-            "spring-invalid-physics"
-        )
+        process.env.NODE_ENV !== "production" &&
+            warning(
+                value === undefined,
+                "Spring stiffness and mass must be positive, damping 0 or greater",
+                "spring-invalid-physics"
+            )
     }
 
     return undefined

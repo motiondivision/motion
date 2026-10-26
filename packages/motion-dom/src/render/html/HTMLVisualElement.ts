@@ -34,11 +34,12 @@ export class HTMLVisualElement extends DOMVisualElement<
          * HTML/SVG element (a class instance, an imperative handle) there's
          * nothing for Motion to style, measure or attach gestures to. #2777
          */
-        invariant(
-            Boolean(instance.style),
-            "motion.create() components must forward their ref to a HTML or SVG element",
-            "custom-component-ref"
-        )
+        process.env.NODE_ENV !== "production" &&
+            invariant(
+                Boolean(instance.style),
+                "motion.create() components must forward their ref to a HTML or SVG element",
+                "custom-component-ref"
+            )
 
         super.mount(instance)
     }
@@ -64,7 +65,9 @@ export class HTMLVisualElement extends DOMVisualElement<
 
     measureInstanceViewportBox(
         instance: HTMLElement,
-        { transformPagePoint }: MotionNodeOptions & Partial<MotionConfigContextProps>
+        {
+            transformPagePoint,
+        }: MotionNodeOptions & Partial<MotionConfigContextProps>
     ): Box {
         return measureViewportBox(instance, transformPagePoint)
     }

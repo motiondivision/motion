@@ -468,11 +468,12 @@ export class VisualElementDragControls {
 
         const constraintsElement = resolveConstraintsElement(constraints)
 
-        invariant(
-            !!constraintsElement,
-            "If `dragConstraints` is set as a React ref, that ref must be passed to another component's `ref` prop.",
-            "drag-constraints-ref"
-        )
+        process.env.NODE_ENV !== "production" &&
+            invariant(
+                !!constraintsElement,
+                "If `dragConstraints` is set as a React ref, that ref must be passed to another component's `ref` prop.",
+                "drag-constraints-ref"
+            )
 
         const { projection } = this.visualElement
 

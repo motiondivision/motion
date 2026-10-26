@@ -113,11 +113,12 @@ export function ReorderGroupComponent<
     const groupRef = useRef<Element>(null)
     const axis = axisOverride || detectedAxis
 
-    invariant(
-        Boolean(values),
-        "Reorder.Group must be provided a values prop",
-        "reorder-values"
-    )
+    process.env.NODE_ENV !== "production" &&
+        invariant(
+            Boolean(values),
+            "Reorder.Group must be provided a values prop",
+            "reorder-values"
+        )
 
     const valuesSet = new Set(values)
     itemLayouts.current.forEach((_, value) => {

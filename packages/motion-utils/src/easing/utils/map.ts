@@ -31,21 +31,23 @@ export const easingDefinitionToFunction = (
 ): EasingFunction => {
     if (isBezierDefinition(definition)) {
         // If cubic bezier definition, create bezier curve
-        invariant(
-            definition.length === 4,
-            `Cubic bezier arrays must contain four numerical values.`,
-            "cubic-bezier-length"
-        )
+        process.env.NODE_ENV !== "production" &&
+            invariant(
+                definition.length === 4,
+                `Cubic bezier arrays must contain four numerical values.`,
+                "cubic-bezier-length"
+            )
 
         const [x1, y1, x2, y2] = definition
         return cubicBezier(x1, y1, x2, y2)
     } else if (isValidEasing(definition)) {
         // Else lookup from table
-        invariant(
-            easingLookup[definition] !== undefined,
-            `Invalid easing type '${definition}'`,
-            "invalid-easing-type"
-        )
+        process.env.NODE_ENV !== "production" &&
+            invariant(
+                easingLookup[definition] !== undefined,
+                `Invalid easing type '${definition}'`,
+                "invalid-easing-type"
+            )
         return easingLookup[definition]
     }
 

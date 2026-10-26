@@ -72,11 +72,12 @@ export function ReorderItemComponent<
 ): React.JSX.Element {
     const context = useContext(ReorderContext)
 
-    invariant(
-        Boolean(context),
-        "Reorder.Item must be a child of Reorder.Group",
-        "reorder-item-child"
-    )
+    process.env.NODE_ENV !== "production" &&
+        invariant(
+            Boolean(context),
+            "Reorder.Item must be a child of Reorder.Group",
+            "reorder-item-child"
+        )
 
     /**
      * Render the group's kind of component, `motion` or `m`.
