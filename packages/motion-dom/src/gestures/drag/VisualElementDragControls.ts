@@ -232,7 +232,6 @@ export class VisualElementDragControls {
             this.latestPanInfo = info
 
             const {
-                drag,
                 dragPropagation,
                 dragDirectionLock,
                 onDirectionLock,
@@ -258,8 +257,8 @@ export class VisualElementDragControls {
             }
 
             // Update each point with the latest position
-            this.updateAxis("x", drag, offset)
-            this.updateAxis("y", drag, offset)
+            this.updateAxis("x", offset)
+            this.updateAxis("y", offset)
 
             /**
              * Ideally we would leave the renderer to fire naturally at the end of
@@ -370,11 +369,13 @@ export class VisualElementDragControls {
         this.panSession = undefined
     }
 
-    private updateAxis(
-        axis: DragDirection,
-        drag: MotionNodeOptions["drag"],
-        offset?: Point
-    ) {
+    private updateAxis(axis: DragDirection, offset?: Point) {
+        /**
+         * Read drag per axis: a callback fired while updating the x axis
+         * can synchronously re-render with new props.
+         */
+        const { drag } = this.readProps()
+
         // If we're not dragging this axis, do an early return.
         if (!offset || !shouldDrag(axis, drag, this.currentDirection)) return
 
