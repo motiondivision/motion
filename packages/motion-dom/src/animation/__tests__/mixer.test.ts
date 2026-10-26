@@ -1,6 +1,7 @@
 import { noop } from "motion-utils"
 import { JSAnimation } from "../JSAnimation"
 import { ValueAnimationOptions } from "../types"
+import { interpolate } from "../../utils/interpolate"
 import { isTransitionDefined } from "../utils/is-transition-defined"
 import { supportsBrowserAnimation } from "../waapi/supports/waapi"
 import { syncDriver } from "./utils"
@@ -65,6 +66,37 @@ describe("transition.mixer", () => {
         expect(mid.length).toBeGreaterThan(0)
         for (const v of mid)
             expect(v.startsWith(`${from} > ${to} @`)).toBe(true)
+    })
+
+    test("leaves keyframes to the default mixer when it returns nothing", async () => {
+        const decline = () => undefined
+
+        const tween = await run({
+            keyframes: ["0px", "100px"],
+            mixer: decline,
+        })
+        expect(tween).toContain("20px")
+
+        const keyframes = await run({
+            keyframes: ["0px", "100px", "0px"],
+            mixer: decline,
+        })
+        expect(keyframes).toContain("40px")
+
+        const spring = await run({
+            keyframes: ["0px", "100px"],
+            type: "spring",
+            stiffness: 100,
+            damping: 20,
+            mixer: decline,
+        })
+        expect(
+            spring.some((v) => parseFloat(v) > 0 && parseFloat(v) < 100)
+        ).toBe(true)
+
+        expect(interpolate([0, 1], [0, 100], { mixer: decline })(0.5)).toBe(
+            50
+        )
     })
 
     test("keeps a value's default transition", () => {

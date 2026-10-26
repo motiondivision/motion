@@ -323,6 +323,26 @@ describe("independent transform acceleration", () => {
         expect(element.style.transform).toContain("translateY")
     })
 
+    it("stays on the main thread for values with a mixer", async () => {
+        const element = document.createElement("div")
+        let mixed = 0
+        const mixer = (a: number, b: number) => (p: number) => {
+            mixed++
+            return p < 0.5 ? a : b
+        }
+
+        animateElement(
+            element,
+            { x: [0, 100] },
+            { duration: 1, ease: "linear", mixer }
+        )
+        await nextFrame()
+        await nextFrame()
+
+        expect(running(element)).toHaveLength(0)
+        expect(mixed).toBeGreaterThan(0)
+    })
+
     it("moves to the main thread when another source keeps writing a transform", async () => {
         /**
          * Frames are 1000/60ms apart however long this environment takes

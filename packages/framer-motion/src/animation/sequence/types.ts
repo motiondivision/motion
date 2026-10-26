@@ -154,7 +154,9 @@ export interface AbsoluteKeyframe {
     easing?: Easing
 }
 
-export type ValueSequence = AbsoluteKeyframe[]
+export type ValueSequence = AbsoluteKeyframe[] & {
+    mixer?: Transition["mixer"]
+}
 
 export interface SequenceMap {
     [key: string]: ValueSequence

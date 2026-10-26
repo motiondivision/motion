@@ -147,6 +147,13 @@ export function createAnimationsFromSequence(
                     valueTransition
 
                 /**
+                 * The value animates as one, so it takes the first mixer
+                 * given for it.
+                 */
+                valueSequence.mixer ||=
+                    valueTransition.mixer || defaultTransition.mixer
+
+                /**
                  * Resolve stagger() if defined.
                  */
                 const calculatedDelay =
@@ -489,6 +496,7 @@ export function createAnimationsFromSequence(
                 duration: totalDuration,
                 ease: valueEasing,
                 times: valueOffset,
+                mixer: valueSequence.mixer,
                 ...sequenceTransition,
             }
         }

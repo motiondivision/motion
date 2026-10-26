@@ -62,7 +62,8 @@ export function keyframes<T extends AnyResolvedKeyframe>({
         const mixer =
             origin === target
                 ? undefined
-                : (customMixer || MotionGlobalConfig.mix || mix)(origin, target)
+                : customMixer?.(origin, target) ||
+                  (MotionGlobalConfig.mix || mix)(origin, target)
 
         return {
             calculatedDuration: duration,

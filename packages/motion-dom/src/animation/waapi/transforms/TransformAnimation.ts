@@ -182,11 +182,12 @@ function canAccelerateTransform(options: ValueAnimationOptions<any>) {
         /**
          * A handoff from an optimised appear animation is already running
          * on its own WAAPI animation. onUpdate needs every value, every
-         * frame.
+         * frame, and a mixer has to make them.
          */
         !options.isHandoff &&
         !onUpdate &&
         !options.hasOnUpdate &&
+        !options.mixer &&
         /**
          * transformTemplate could output anything.
          */

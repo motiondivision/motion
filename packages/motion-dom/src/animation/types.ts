@@ -7,7 +7,7 @@ import { MotionValue } from "../value"
 import { Driver } from "./drivers/types"
 import { KeyframeResolver } from "./keyframes/KeyframesResolver"
 import { WithRender } from "./keyframes/types"
-import type { MixerFactory } from "../utils/mix/types"
+import type { Mixer } from "../utils/mix/types"
 
 export type AnyResolvedKeyframe = string | number
 
@@ -563,18 +563,20 @@ export interface ValueTransition
      * Replaces the function that blends between each pair of keyframes.
      * It receives the two keyframes and returns a function that maps
      * progress (`0`-`1`, or beyond with springs and overshooting easing)
-     * to a value. For example, `morph` from `motion/morph` blends between
-     * SVG paths of different shapes:
+     * to a value, or `undefined` to blend them as usual. For example,
+     * `morph` from `motion/morph` blends between SVG paths of different
+     * shapes, and leaves other values to the usual blending:
      *
      * ```jsx
-     * <motion.path animate={{ d }} transition={{ d: { mixer: morph } }} />
+     * <motion.path animate={{ d, fill }} transition={{ mixer: morph }} />
      * ```
      *
-     * Animations with a mixer always run on the main thread.
+     * Animations with a mixer always run on the main thread. Springs
+     * between two numbers animate the number itself, without a mixer.
      *
      * @public
      */
-    mixer?: MixerFactory<any>
+    mixer?: (from: any, to: any) => Mixer<any> | undefined
 }
 
 /**

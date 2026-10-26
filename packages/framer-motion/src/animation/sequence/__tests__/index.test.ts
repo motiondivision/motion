@@ -33,6 +33,23 @@ describe("createAnimationsFromSequence", () => {
         })
     })
 
+    test("It passes a segment's mixer to the values it animates", () => {
+        const mixer = (from: string, to: string) => (p: number) =>
+            p < 0.5 ? from : to
+        const animations = createAnimationsFromSequence(
+            [
+                [a, { d: "M0 0L10 10" }, { mixer }],
+                [b, { opacity: 1 }],
+            ],
+            undefined,
+            undefined,
+            { spring }
+        )
+
+        expect(animations.get(a)!.transition.d.mixer).toBe(mixer)
+        expect(animations.get(b)!.transition.opacity.mixer).toBe(undefined)
+    })
+
     test("It orders grouped keyframes correctly", () => {
         const animations = createAnimationsFromSequence(
             [
