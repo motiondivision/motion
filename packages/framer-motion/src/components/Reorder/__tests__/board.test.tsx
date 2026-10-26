@@ -382,6 +382,30 @@ describe("Reorder.Board", () => {
         expect(onDragEnd).toBeCalledTimes(1)
     })
 
+    it("carries the drag on from where the pointer is when React commits the move", async () => {
+        const { getByTestId } = render(
+            <Board initial={{ A: ["a", "b"], B: ["c", "d"] }} />
+        )
+
+        const gesture = await drag(getByTestId("a")).to(100, 10)
+
+        // Over B, then on another 30px before React commits the move
+        await act(async () => {
+            pointer("pointermove", document.body, 250, 65)
+            await nextFrame()
+            pointer("pointermove", document.body, 280, 65)
+            await nextFrame()
+        })
+        await act(nextFrame)
+
+        // Its slot's centre is at 250, 75: it's still under the pointer
+        const moved = getByTestId("a")
+        expect(moved.closest("ul")).toBe(getByTestId("B"))
+        expect(offset(moved)).toEqual({ x: 30, y: -10 })
+
+        await gesture.end()
+    })
+
     it("carries how the item looks into its new group", async () => {
         const { getByTestId } = render(
             <Board
@@ -755,32 +779,50 @@ describe("Reorder without a Board", () => {
 
         await gesture.end()
     })
+})
 
-    it("doesn't keep the elements of unmounted (e.g. virtualized) items", async () => {
-        const captured: { context?: ReorderContextProps<number> | null } = {}
-        const Capture = () => {
-            captured.context = useContext(ReorderContext)
-            return null
+describe("Reorder with unmounted (e.g. virtualized) items", () => {
+    it.each([
+        ["outside", false],
+        ["inside", true],
+    ])(
+        "doesn't keep their elements %s a Board",
+        async (_, inBoard) => {
+            const captured: { context?: ReorderContextProps<number> | null } =
+                {}
+            const Capture = () => {
+                captured.context = useContext(ReorderContext)
+                return null
+            }
+            const values = [0, 1, 2, 3, 4, 5]
+            const List = ({ from }: { from: number }) => {
+                const group = (
+                    <Reorder.Group axis="y" values={values} onReorder={() => {}}>
+                        <Capture />
+                        {values.slice(from, from + 3).map((value) => (
+                            <Reorder.Item key={value} value={value} />
+                        ))}
+                    </Reorder.Group>
+                )
+                return inBoard ? <Reorder.Board>{group}</Reorder.Board> : group
+            }
+            const { rerender } = render(<List from={0} />)
+            await act(nextFrame)
+            rerender(<List from={3} />)
+            await act(nextFrame)
+
+            // Elements, or refs to them, no longer in the document
+            const detached = captured
+                .context!.getOrder()
+                .filter((data) =>
+                    Object.values(data).some((field) => {
+                        const element = field?.current ?? field
+                        return element instanceof Element && !element.isConnected
+                    })
+                )
+            expect(detached).toEqual([])
         }
-        const values = [0, 1, 2, 3, 4, 5]
-        const List = ({ from }: { from: number }) => (
-            <Reorder.Group axis="y" values={values} onReorder={() => {}}>
-                <Capture />
-                {values.slice(from, from + 3).map((value) => (
-                    <Reorder.Item key={value} value={value} />
-                ))}
-            </Reorder.Group>
-        )
-        const { rerender } = render(<List from={0} />)
-        await act(nextFrame)
-        rerender(<List from={3} />)
-        await act(nextFrame)
-
-        const detached = captured
-            .context!.getOrder()
-            .filter(({ element }) => element && !element.isConnected)
-        expect(detached).toEqual([])
-    })
+    )
 })
 
 describe("Reorder.Board keyboard", () => {
