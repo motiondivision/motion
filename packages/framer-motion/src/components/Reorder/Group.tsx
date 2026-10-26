@@ -26,7 +26,7 @@ import {
 } from "./types"
 import { checkReorder } from "./utils/check-reorder"
 import { detectAxis } from "./utils/detect-axis"
-import { setRef } from "./utils/set-ref"
+import { mergeRefs } from "./utils/merge-refs"
 
 export interface Props<
     V,
@@ -190,8 +190,14 @@ export function ReorderGroupComponent<
             const isX = keyIndex % 2
             if (key === " ") {
                 event.repeat || grab(currentTarget, from ? undefined : values)
-            } else if (!from) {
+            } else if (!from || (keyIndex < 0 && key !== "Escape")) {
                 return
+            } else if (board?.isMoving(currentTarget)) {
+                /**
+                 * Until React renders its move to another group, this item
+                 * and its group's values are out of date: moving it again,
+                 * or back, would leave it in both groups.
+                 */
             } else if (key === "Escape") {
                 /**
                  * Drop it first: a move back to the group it was grabbed in
@@ -212,8 +218,6 @@ export function ReorderGroupComponent<
                         item
                     )
                 }
-            } else if (keyIndex < 0) {
-                return
             } else {
                 const isAlongAxis = axis === "xy" || axis === (isX ? "x" : "y")
                 const index = order.findIndex(({ value }) => value === item)
@@ -292,10 +296,7 @@ export function ReorderGroupComponent<
         <Component
             {...props}
             style={groupStyle}
-            ref={(element: Element | null) => {
-                setRef(groupRef, element)
-                return setRef(externalRef, element)
-            }}
+            ref={mergeRefs(groupRef, externalRef)}
             /**
              * A release that ends a reordering drag isn't a click. Browsers
              * only click an element holding both the press and release

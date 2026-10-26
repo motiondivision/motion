@@ -27,6 +27,9 @@ export interface Props<V> {
      * over another, and a keyboard move skips on to the next group that
      * way. Escape always returns a grabbed item to where it was grabbed.
      *
+     * While a dragged item is over a group it refuses, it's called every
+     * frame, so keep it fast and free of side effects.
+     *
      * ```jsx
      * <Reorder.Board canMove={(card, from, to) => to.length < 5}>
      * ```
@@ -259,10 +262,13 @@ function createBoard(props: {
 
                 // Hidden, e.g. display: none
                 if (!width && !height) continue
-                const groupCentre =
-                    axis === "x" ? (left + right) / 2 : (top + bottom) / 2
 
-                if ((groupCentre - point[axis]) * direction <= 0) continue
+                /**
+                 * Its near edge is past the item that way, so a group beside
+                 * this one isn't below its last item, whatever their heights.
+                 */
+                const edge = [bottom, right, top, left][keyIndex]
+                if ((edge - point[axis]) * direction <= 0) continue
 
                 const x = Math.max(left - point.x, 0, point.x - right)
                 const y = Math.max(top - point.y, 0, point.y - bottom)
@@ -313,6 +319,8 @@ function createBoard(props: {
             if (handoff?.value === value) handoff = undefined
         },
 
+        isMoving: (element) => handoff?.element === element,
+
         receive: (to, value, element, grab) => {
             const visualElement = visualElementStore.get(element)
             const nextControls =
@@ -342,7 +350,12 @@ function createBoard(props: {
 
             if (keys) {
                 handoff = undefined
-                if (isMoved) {
+                /**
+                 * Unless focus has moved on since, e.g. the groups took it
+                 * much later.
+                 */
+                const { activeElement, body } = element.ownerDocument
+                if (isMoved && (!activeElement || activeElement === body)) {
                     ;(element as HTMLElement).focus()
                     grab(element, from)
                 }

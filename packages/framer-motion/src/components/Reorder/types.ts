@@ -96,6 +96,11 @@ export interface ReorderBoardContextProps {
      */
     end: (value: unknown) => void
     /**
+     * Whether the item at `element` has moved to another group that hasn't
+     * picked it up yet.
+     */
+    isMoving: (element: Element) => boolean
+    /**
      * Called by a mounting item, to continue the drag or keyboard grab
      * that moved it here from another group. Returns whether it continues
      * a drag, whose onDragStart has already been called.

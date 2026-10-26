@@ -15,7 +15,7 @@ import { useTransform } from "../../value/use-transform"
 
 import { DefaultItemElement, Grab, ReorderElementTag } from "./types"
 import { autoScrollIfNeeded, resetAutoScrollState } from "./utils/auto-scroll"
-import { setRef } from "./utils/set-ref"
+import { mergeRefs } from "./utils/merge-refs"
 
 export interface Props<
     V,
@@ -217,10 +217,7 @@ export function ReorderItemComponent<
             onLayoutMeasure={(measured) => {
                 registerItem(value, measured, ref)
             }}
-            ref={(element: Element | null) => {
-                ref.current = element
-                return setRef(externalRef, element)
-            }}
+            ref={mergeRefs(ref, externalRef)}
             ignoreStrict
         >
             {children}
