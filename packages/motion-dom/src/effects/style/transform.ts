@@ -1,13 +1,8 @@
-import { translateAlias } from "../../render/html/utils/build-transform"
-import { transformValueTypes } from "../../value/types/maps/transform"
-import { getValueAsType } from "../../value/types/utils/get-as-type"
+import {
+    isDefaultTransform,
+    transformFunction,
+} from "../../render/html/utils/build-transform"
 import { MotionValueState } from "../MotionValueState"
-
-/**
- * Cache of `translateX(`-style openers so each render is a few string
- * concatenations rather than a template per transform.
- */
-const openers: Record<string, string> = {}
 
 export function buildTransform(state: MotionValueState) {
     let transform = ""
@@ -23,15 +18,8 @@ export function buildTransform(state: MotionValueState) {
 
         if (value === undefined) continue
 
-        const parsed = typeof value === "number" ? value : parseFloat(value)
-
-        if (parsed !== (key.startsWith("scale") ? 1 : 0)) {
-            transform +=
-                (transform && " ") +
-                (openers[key] ||
-                    (openers[key] = (translateAlias[key] || key) + "(")) +
-                getValueAsType(value, transformValueTypes[key]) +
-                ")"
+        if (!isDefaultTransform(key, value)) {
+            transform += (transform && " ") + transformFunction(key, value)
         }
     }
 
@@ -40,10 +28,7 @@ export function buildTransform(state: MotionValueState) {
     const pathRotation = state.get("pathRotation")?.get()
     if (pathRotation) {
         transform +=
-            (transform && " ") +
-            "rotate(" +
-            getValueAsType(pathRotation, transformValueTypes.pathRotation) +
-            ")"
+            (transform && " ") + transformFunction("rotate", pathRotation)
     }
 
     return transform || "none"
