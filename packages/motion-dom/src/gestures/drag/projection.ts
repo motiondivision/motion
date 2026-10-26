@@ -14,7 +14,9 @@ type CreateNode = (element: HTMLElement) => [IProjectionNode, VoidFunction]
  * animateLayout() registers a function here that creates nodes in the
  * layout projection tree. When it's in the bundle, drag() uses those, so
  * the two work together (e.g. a drag follows a layout change mid-gesture).
- * Otherwise drag() makes do with a node that only measures.
+ * Otherwise drag() makes do with a node that only measures. Bundles that
+ * don't tree-shake (dev pre-bundling, CDN builds) always register it, and
+ * a drag() started before animateLayout() is lazy loaded keeps its node.
  */
 export const layoutProjection: { create?: CreateNode } = {}
 
@@ -61,7 +63,17 @@ const createMeasureNode: CreateNode = (element) => {
         },
         addEventListener: (name: string, handler: VoidFunction) =>
             name === "measure" ? measureListeners.add(handler) : noop,
-        unmount: () => (node.instance = undefined),
+        /**
+         * Detach from the VisualElement too, so it doesn't later remount
+         * (or a `motion` component's layout feature adopt) a node that
+         * can't do either.
+         */
+        unmount: () => {
+            node.instance = undefined
+            if (visualElement.projection === node) {
+                visualElement.projection = undefined
+            }
+        },
     }
 
     visualElement.projection = node
@@ -79,8 +91,8 @@ export const acquireDragNode: CreateNode = (element) => {
     const owned = visualElementStore.get(element)?.projection
 
     /**
-     * A VisualElement can outlive a node we released (e.g. a stopped
-     * drag()), so only reuse a node that's still mounted.
+     * A VisualElement can outlive its node (e.g. an unmounted `motion`
+     * component's), so only reuse a node that's still mounted.
      */
     return owned?.instance
         ? [owned, noop as VoidFunction]
