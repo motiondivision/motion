@@ -18,7 +18,7 @@ import {
 } from "motion-dom"
 import { invariant, secondsToMilliseconds } from "motion-utils"
 
-interface AnimationDefinition {
+export interface AnimationDefinition {
     map: Map<string, NativeAnimation<any>>
     key: string
     unresolvedKeyframes: UnresolvedValueKeyframe[]
@@ -38,6 +38,30 @@ export function animateElements(
         return []
     }
 
+    const animationDefinitions = stopAndDefineAnimations(
+        elementOrSelector,
+        keyframes,
+        options,
+        scope
+    )
+    resolveAnimationDefinitions(animationDefinitions)
+    return startAnimationDefinitions(animationDefinitions)
+}
+
+/**
+ * Step 1: Build options and stop existing animations (write)
+ *
+ * The three steps are exported separately so callers animating many
+ * elements, like the mini `motion` component, can run each one for every
+ * element in its own frame step.
+ */
+export function stopAndDefineAnimations(
+    elementOrSelector: ElementOrSelector,
+    keyframes: DOMKeyframesDefinition,
+    options?: DynamicAnimationOptions,
+    scope?: AnimationScope,
+    animationDefinitions: AnimationDefinition[] = []
+) {
     const elements = resolveElements(elementOrSelector, scope) as Array<
         HTMLElement | SVGElement
     >
@@ -65,11 +89,6 @@ export function animateElements(
      *
      * In the motion-native-animate-mini-interrupt benchmark this
      * was 80% faster than a single loop.
-     */
-    const animationDefinitions: AnimationDefinition[] = []
-
-    /**
-     * Step 1: Build options and stop existing animations (write)
      */
     for (let i = 0; i < numElements; i++) {
         const element = elements[i]
@@ -126,9 +145,15 @@ export function animateElements(
         }
     }
 
-    /**
-     * Step 2: Resolve keyframes (read)
-     */
+    return animationDefinitions
+}
+
+/**
+ * Step 2: Resolve keyframes (read)
+ */
+export function resolveAnimationDefinitions(
+    animationDefinitions: AnimationDefinition[]
+) {
     for (let i = 0; i < animationDefinitions.length; i++) {
         const { unresolvedKeyframes, options: animationOptions } =
             animationDefinitions[i]
@@ -153,10 +178,14 @@ export function animateElements(
 
         animationOptions.keyframes = unresolvedKeyframes as ValueKeyframe[]
     }
+}
 
-    /**
-     * Step 3: Create new animations (write)
-     */
+/**
+ * Step 3: Create new animations (write)
+ */
+export function startAnimationDefinitions(
+    animationDefinitions: AnimationDefinition[]
+) {
     const animations: AnimationPlaybackControls[] = []
     for (let i = 0; i < animationDefinitions.length; i++) {
         const { map, key, options: animationOptions } = animationDefinitions[i]
