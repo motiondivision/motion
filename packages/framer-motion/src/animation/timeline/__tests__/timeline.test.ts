@@ -453,6 +453,39 @@ describe("timeline", () => {
         expect(stopped).toBeLessThan(100)
     })
 
+    test("reduceMotion makes positional values instant", async () => {
+        const element = document.createElement("div")
+        timeline([[element, { x: 100, opacity: [1, 0] }, { duration: 10 }]], {
+            reduceMotion: true,
+        })
+
+        await nextFrame()
+        await nextFrame()
+        expect(element.style.transform).toBe("translateX(100px)")
+        expect(Number(element.style.opacity)).toBeGreaterThan(0)
+    })
+
+    test("stops with its scopeMotion() scope after finishing and playing again", async () => {
+        const v = motionValue(0)
+        let tl: ReturnType<typeof timeline>
+        const scope = scopeMotion(() => {
+            tl = timeline([[v, 100, { duration: 0.01 }]], linear)
+        })
+
+        await tl!
+        tl!.add([v, 0, { duration: 10 }])
+        tl!.play()
+        await nextFrame()
+        await nextFrame()
+
+        scope.stop()
+        await nextFrame()
+        const stopped = v.get()
+        await nextFrame()
+        await nextFrame()
+        expect(v.get()).toBe(stopped)
+    })
+
     test("resolves selectors in its scopeMotion() root, also when changed later", async () => {
         const container = document.createElement("div")
         container.innerHTML = `<div class="a"></div><div class="b"></div>`

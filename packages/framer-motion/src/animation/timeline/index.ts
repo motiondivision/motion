@@ -680,6 +680,10 @@ export function timeline(items?: TimelineItem[], options?: TimelineOptions) {
     }
 
     const tl = new Timeline(items, options)
-    motionScope && tl.finished.then(motionScope.add(tl.stop))
+    /**
+     * Stay registered after finishing, as a timeline can be changed and
+     * played again.
+     */
+    motionScope?.add(tl.stop)
     return tl
 }

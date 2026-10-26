@@ -119,7 +119,10 @@ export function scopeMotion(...args: [any?, any?, any?]): MotionScope {
 
     const active: ActiveScope = {
         root: resolveElements(root)[0],
-        transition,
+        /**
+         * A scope created inside another inherits its transition.
+         */
+        transition: { ...activeScope.current?.transition, ...transition },
         add(cleanup) {
             cleanups.push(cleanup)
             return () => removeItem(cleanups, cleanup)

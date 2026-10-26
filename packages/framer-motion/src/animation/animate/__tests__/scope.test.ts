@@ -156,6 +156,29 @@ describe("scopeMotion", () => {
         expect(withOverride).toBe(2)
     })
 
+    test("nested scopes inherit the parent's transition, which theirs overrides", async () => {
+        let inherited = 0
+        let overridden = 0
+
+        scopeMotion(
+            () => {
+                scopeMotion(() => {
+                    inherited = animate(motionValue(0), 1).duration
+                })
+                scopeMotion(
+                    () => {
+                        overridden = animate(motionValue(0), 1).duration
+                    },
+                    { transition: { duration: 2 } }
+                )
+            },
+            { transition: { duration: 5 } }
+        )
+
+        expect(inherited).toBe(5)
+        expect(overridden).toBe(2)
+    })
+
     test("applies the default transition to timelines", async () => {
         let duration = 0
 

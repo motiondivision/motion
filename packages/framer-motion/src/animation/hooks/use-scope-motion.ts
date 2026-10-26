@@ -45,7 +45,7 @@ export function useScopeMotion(
     const latestSetup = useRef(setup)
     latestSetup.current = setup
 
-    const reduceMotion = useReducedMotionConfig() ?? undefined
+    const reduceMotion = useReducedMotionConfig()
     const { skipAnimations } = useContext(MotionConfigContext)
 
     useIsomorphicLayoutEffect(() => {
@@ -54,9 +54,14 @@ export function useScopeMotion(
             (s) => latestSetup.current(s),
             {
                 ...options,
+                /**
+                 * Only pass them on when set, so they don't override
+                 * a motion component's own MotionConfig or a scoped
+                 * animate()'s settings.
+                 */
                 transition: {
-                    reduceMotion,
-                    skipAnimations,
+                    ...(reduceMotion && { reduceMotion }),
+                    ...(skipAnimations && { skipAnimations }),
                     ...options.transition,
                 },
             }

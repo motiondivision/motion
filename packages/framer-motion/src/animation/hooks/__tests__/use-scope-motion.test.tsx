@@ -2,7 +2,8 @@ import { render } from "@testing-library/react"
 import { delay, hover, motionValue } from "motion-dom"
 import { StrictMode, useRef } from "react"
 import { MotionConfig } from "../../../components/MotionConfig"
-import { animate } from "../../animate"
+import { motion } from "../../../render/components/motion/proxy"
+import { animate, createScopedAnimate } from "../../animate"
 import { timeline } from "../../timeline"
 import { useScopeMotion } from "../use-scope-motion"
 
@@ -235,11 +236,7 @@ describe("useScopeMotion", () => {
             expect(a.get()).toBe(100)
         })
 
-        /**
-         * Sequences set reduceMotion per value, which animate() doesn't
-         * read, so this checks animate() in the same scope.
-         */
-        test("inherits reducedMotion from MotionConfig", async () => {
+        test("animate() in the same scope inherits reducedMotion from MotionConfig", async () => {
             let element: HTMLElement | null = null
 
             const Component = () => {
@@ -260,6 +257,73 @@ describe("useScopeMotion", () => {
             await nextFrame()
 
             expect(element!.style.transform).toBe("translateX(100px)")
+        })
+
+        test("follows reducedMotion from MotionConfig", async () => {
+            let element: HTMLElement | null = null
+
+            const Component = () => {
+                const ref = useRef<HTMLDivElement>(null)
+                useScopeMotion(ref, () => {
+                    element = ref.current
+                    timeline([[ref.current!, { x: 100 }, { duration: 10 }]])
+                })
+                return <div ref={ref} />
+            }
+
+            render(
+                <MotionConfig reducedMotion="always">
+                    <Component />
+                </MotionConfig>
+            )
+            await nextFrame()
+            await nextFrame()
+
+            expect(element!.style.transform).toBe("translateX(100px)")
+        })
+    })
+
+    describe("MotionConfig defaults", () => {
+        test("don't override skipAnimations set by a scoped animate()", async () => {
+            const v = motionValue(0)
+
+            const Component = () => {
+                const ref = useRef<HTMLDivElement>(null)
+                useScopeMotion(ref, () => {
+                    createScopedAnimate({ skipAnimations: true })(v, 100, {
+                        duration: 10,
+                    })
+                })
+                return <div ref={ref} />
+            }
+
+            render(<Component />)
+            await nextFrame()
+            await nextFrame()
+
+            expect(v.get()).toBe(100)
+        })
+
+        test("don't override reducedMotion of a motion component's own MotionConfig", async () => {
+            const Component = () => {
+                const ref = useRef<HTMLDivElement>(null)
+                useScopeMotion(ref, () => {
+                    animate(".box", { x: 100 }, { duration: 10 })
+                })
+                return (
+                    <div ref={ref}>
+                        <MotionConfig reducedMotion="always">
+                            <motion.div className="box" data-testid="box" />
+                        </MotionConfig>
+                    </div>
+                )
+            }
+
+            const { getByTestId } = render(<Component />)
+            await nextFrame()
+            await nextFrame()
+
+            expect(getByTestId("box").style.transform).toBe("translateX(100px)")
         })
     })
 })
