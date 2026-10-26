@@ -326,9 +326,10 @@ export function within(points: Points, x: number, y: number) {
  * comes within `margin` of its outline: the least scale at which one of
  * its points meets an edge or corner of the outline, or one of its edges
  * meets a corner. A hole that (x, y) sees all of keeps clear of the
- * outline at any smaller scale. Long polylines are thinned first, keeping
- * enough of their points to stray from them by no more than a quarter of
- * the margin, which is widened by how far they do.
+ * outline at any smaller scale. Long polylines are thinned first, to
+ * `keep` points, and the margin is widened by how far they stray from
+ * what's left. Unless the hole keeps clear of that, they're thinned less
+ * while they stray by more than half the margin.
  */
 export function contact(
     hole: Points,
@@ -336,18 +337,19 @@ export function contact(
     x: number,
     y: number,
     margin: number,
-    most: number
-) {
-    const [points, strayA] = sparse(hole, margin)
-    const [polygon, strayB] = sparse(outer, margin)
+    most: number,
+    keep = 2 * CAGE,
+    top = most
+): number {
+    const [points, strayA] = sparse(hole, keep)
+    const [polygon, strayB] = sparse(outer, keep)
+    const stray = strayA + strayB
     const h = points.length
     const n = polygon.length
-    const far: number[] = []
     let radius = 0
-    margin += strayA + strayB
+    margin += stray
     for (let i = 0; i < h; i += 2) {
-        far[i] = hypot(points[i] - x, points[i + 1] - y)
-        radius = Math.max(radius, far[i])
+        radius = Math.max(radius, hypot(points[i] - x, points[i + 1] - y))
     }
 
     for (let j = 0; j < n; j += 2) {
@@ -356,15 +358,20 @@ export function contact(
         const ex = polygon[(j + 2) % n] - x - ax
         const ey = polygon[(j + 3) % n] - y - ay
         const [px, py] = closest(x, y, polygon, j)
+        const d = hypot(px - x, py - y)
         // A point this far from (x, y) can't come near the edge any sooner
-        const near = hypot(px - x, py - y) - margin
+        const near = d - margin
         if (near >= radius * most) continue
+        const ahead = (i: number) =>
+            (points[i % h] - x) * (px - x) +
+            (points[(i + 1) % h] - y) * (py - y)
 
         for (let i = 0; i < h; i += 2) {
             const ux = points[i] - x
             const uy = points[i + 1] - y
-            // Nor can this point, or its edge to the next
-            if (near < Math.max(far[i], far[(i + 2) % h]) * most) {
+            // Nor can this point, or its edge to the next, if they don't
+            // reach that far in the direction of the edge's nearest point
+            if (near * d < Math.max(0, ahead(i), ahead(i + 2)) * most) {
                 most = Math.min(
                     most,
                     meet(ux, uy, ax, ay, margin),
@@ -383,7 +390,9 @@ export function contact(
             }
         }
     }
-    return most
+    return most < top && 3 * stray > margin
+        ? contact(hole, outer, x, y, margin - stray, top, 2 * keep)
+        : most
 }
 
 /**
@@ -396,15 +405,10 @@ export const every = (points: Points, most: number): [Points, number] => {
 }
 
 /**
- * Every few points of a closed polyline, no more than 2 * CAGE of them
- * unless it would then stray from them by more than a quarter of
- * `margin`, and how far it strays from them.
+ * Every few points of a closed polyline, at most `most` of them, and how
+ * far it strays from them.
  */
-function sparse(
-    points: Points,
-    margin: number,
-    most = 2 * CAGE
-): [Points, number] {
+function sparse(points: Points, most: number): [Points, number] {
     const [kept, step] = every(points, most)
     let stray = 0
     for (let i = 0; i < points.length; i += 2) {
@@ -416,10 +420,7 @@ function sparse(
         )
         stray = Math.max(stray, hypot(px - points[i], py - points[i + 1]))
     }
-    // Keep twice as many while it strays too far
-    return step > 2 && stray > margin / 4
-        ? sparse(points, margin, most * 2)
-        : [kept, stray]
+    return [kept, stray]
 }
 
 /**

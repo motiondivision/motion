@@ -1060,6 +1060,32 @@ describe("morph", () => {
         ).toBeGreaterThan(0.999)
     })
 
+    test("finds that long, thin holes beside finely jagged outlines fit without testing every point against every edge", () => {
+        // At least 3.4 apart. Every edge of the outline is near enough the
+        // middle of the hole for its far ends to reach, so none can be
+        // skipped that way.
+        let seed = 42
+        const jagged = (rx: number, ry: number, n: number) => {
+            const points: number[] = []
+            for (let i = 0; i < n; i++) {
+                seed = (seed * 16807) % 2147483647
+                const jag = 0.6 * (seed / 2147483647 - 0.5)
+                const angle = (i / n) * 2 * Math.PI
+                points.push(
+                    100 + (rx + jag) * Math.cos(angle),
+                    50 + (ry + jag) * Math.sin(angle)
+                )
+            }
+            return points
+        }
+        const outline = jagged(100, 20, 10000)
+        const hole = jagged(95, 16, 4000)
+
+        const start = performance.now()
+        expect(contact(hole, outline, 100, 50, 1.5, 1)).toBe(1)
+        expect(performance.now() - start).toBeLessThan(200)
+    })
+
     test("keeps holes inside their outline when a spring overshoots", () => {
         const ring = (r: number) => circle(50, 50, 50) + circle(50, 50, r, 0)
         for (const [a, b] of [
