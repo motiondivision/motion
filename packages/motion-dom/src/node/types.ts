@@ -956,7 +956,9 @@ export interface MotionNodeLayoutOptions {
 
     /**
      * Whether an element should be considered a "layout root", where
-     * all children will be forced to resolve relatively to it.
+     * all children will be forced to resolve relatively to it. This
+     * includes shared `layoutId` elements, which animate within the root
+     * when the previous element was also inside it.
      * Currently used for `position: sticky` elements in Framer.
      */
     layoutRoot?: boolean
