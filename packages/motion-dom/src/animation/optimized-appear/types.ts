@@ -28,6 +28,11 @@ export type HandoffFunction = (
 declare global {
     interface Window {
         MotionHandoffAnimation?: HandoffFunction
+        /**
+         * Whether the appear animation was generated from initial's
+         * transition.out (#1725). Defined by appear scripts that know `out`.
+         */
+        MotionHandoffUsesOut?: (elementId: string, valueName: string) => boolean
         MotionHandoffMarkAsComplete?: (elementId: string) => void
         MotionHandoffIsComplete?: (elementId: string) => boolean
         MotionHasOptimisedAnimation?: (

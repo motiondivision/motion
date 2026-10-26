@@ -96,15 +96,11 @@ export function animateTarget(
             continue
         }
 
-        const valueTransition = {
+        const outTransition = animationTypeState?.out[key]
+        let valueTransition = {
             delay,
-            ...getValueTransition(
-                animationTypeState?.out[key] || transition || {},
-                key
-            ),
+            ...getValueTransition(outTransition || transition || {}, key),
         }
-
-        if (skipAnimations) valueTransition.skipAnimations = true
 
         /**
          * If the value is already at the defined target, skip the animation.
@@ -139,11 +135,29 @@ export function animateTarget(
                 )
 
                 if (startTime !== null) {
+                    /**
+                     * The appear animation was generated with the entered
+                     * state's transition unless its script says it used
+                     * initial's out (older scripts predate it), so continue
+                     * with that.
+                     */
+                    if (
+                        outTransition &&
+                        !window.MotionHandoffUsesOut?.(appearId, key)
+                    ) {
+                        valueTransition = {
+                            delay,
+                            ...getValueTransition(transition || {}, key),
+                        }
+                    }
+
                     valueTransition.startTime = startTime
                     isHandoff = true
                 }
             }
         }
+
+        if (skipAnimations) valueTransition.skipAnimations = true
 
         addValueToWillChange(visualElement, key)
 

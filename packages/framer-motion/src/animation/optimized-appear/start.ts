@@ -106,6 +106,17 @@ export function startOptimizedAppearAnimation(
             return Boolean(appearAnimationStore.get(animationId))
         }
 
+        /**
+         * Generators that build the appear animation from initial's
+         * transition.out pass `out: true`, so the runtime continues with the
+         * same transition. Runtimes that predate it don't call this.
+         */
+        window.MotionHandoffUsesOut = (elementId, valueName) =>
+            Boolean(
+                appearAnimationStore.get(appearStoreId(elementId, valueName))
+                    ?.out
+            )
+
         window.MotionHandoffMarkAsComplete = (elementId: string): void => {
             if (appearComplete.has(elementId)) {
                 appearComplete.set(elementId, true)
@@ -222,6 +233,7 @@ export function startOptimizedAppearAnimation(
         appearAnimationStore.set(storeId, {
             animation: appearAnimation,
             startTime: startFrameTime,
+            out: !!options.out,
         })
 
         if (onReady) onReady(appearAnimation)

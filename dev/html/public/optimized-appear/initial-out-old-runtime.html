@@ -1,0 +1,139 @@
+<html>
+    <head>
+        <style>
+            body {
+                padding: 100px;
+                margin: 0;
+            }
+
+            #box {
+                width: 100px;
+                height: 100px;
+                background-color: #0077ff;
+            }
+
+            [data-layout-correct="false"] {
+                background: #dd1144 !important;
+                opacity: 1 !important;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="root"></div>
+        <script type="module" src="/src/imports/optimized-appear.js"></script>
+        <script type="module" src="/src/imports/script-assert.js"></script>
+
+        <script type="module">
+            /**
+             * An appear script generated from initial's out, with a runtime that doesn't support out (emulated by leaving out off initial, which such a runtime ignores): no errors, and the element settles on the target.
+             */
+            const {
+                motion,
+                startOptimizedAppearAnimation,
+                optimizedAppearDataAttribute,
+            } = window.Motion
+            const root = document.getElementById("root")
+
+            const animateDuration = 0.2
+            const outDuration = 0.6
+            const generatedFromOut = true
+            const isOldScript = false
+            const runtimeHasOut = false
+            const appearDuration = generatedFromOut
+                ? outDuration
+                : animateDuration
+
+            const Component = React.createElement(motion.div, {
+                id: "box",
+                initial: {
+                    opacity: 0,
+                    transition: runtimeHasOut
+                        ? { out: { duration: outDuration, ease: "linear" } }
+                        : undefined,
+                },
+                animate: { opacity: 1 },
+                transition: { duration: animateDuration, ease: "linear" },
+                [optimizedAppearDataAttribute]: "a",
+                children: "Content",
+            })
+
+            // Emulate server rendering of element
+            root.innerHTML = ReactDOMServer.renderToString(Component)
+
+            const box = () => document.getElementById("box")
+
+            /**
+             * Record the visible opacity every frame. Across the handoff it
+             * must keep moving forward at the appear animation's rate: no
+             * snap back, no jump ahead.
+             */
+            let hydratedAt
+            let prev
+            const sample = () => {
+                const element = box()
+                const time = performance.now()
+                const latest = parseFloat(getComputedStyle(element).opacity)
+
+                if (prev) {
+                    const [prevTime, prevOpacity] = prev
+                    const maxStep =
+                        (time - prevTime) / 1000 / appearDuration + 0.08
+
+                    if (latest < prevOpacity - 0.02) {
+                        return showError(
+                            element,
+                            `Opacity went back from ${prevOpacity} to ${latest}`
+                        )
+                    } else if (latest - prevOpacity > maxStep) {
+                        return showError(
+                            element,
+                            `Opacity jumped from ${prevOpacity} to ${latest}`
+                        )
+                    }
+                }
+
+                prev = [time, latest]
+                if (hydratedAt === undefined || time - hydratedAt < 400) {
+                    requestAnimationFrame(sample)
+                }
+            }
+
+            const opacityOptions = {
+                duration: appearDuration * 1000,
+                ease: "linear",
+            }
+            // Optional field: older scripts ignore it.
+            if (generatedFromOut) opacityOptions.out = true
+
+            startOptimizedAppearAnimation(
+                box(),
+                "opacity",
+                [0, 1],
+                opacityOptions,
+                () => {
+                    // Emulate an appear script from before transition.out.
+                    if (isOldScript) delete window.MotionHandoffUsesOut
+
+                    if (runtimeHasOut) requestAnimationFrame(sample)
+
+                    setTimeout(() => {
+                        hydratedAt = performance.now()
+                        ReactDOMClient.hydrateRoot(root, Component)
+
+                        if (!runtimeHasOut) {
+                            setTimeout(() => {
+                                const opacity = getComputedStyle(box()).opacity
+                                if (opacity !== "1") {
+                                    showError(
+                                        box(),
+                                        `Opacity settled on ${opacity}, not 1`
+                                    )
+                                }
+                            }, appearDuration * 1000 - 50)
+                        }
+                    }, 150)
+                }
+            )
+        </script>
+    </body>
+</html>
