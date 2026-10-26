@@ -134,6 +134,7 @@ describe("useAnimate", () => {
 
         const { unmount } = render(<Component />)
         await animation
+        animation.time = 0
         animation.play()
         await new Promise((resolve) => setTimeout(resolve, 20))
 

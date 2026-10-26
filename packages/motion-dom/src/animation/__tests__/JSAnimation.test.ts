@@ -1,5 +1,6 @@
 import { noop, reverseEasing } from "motion-utils"
 import { frame } from "../../frameloop"
+import { GroupAnimation } from "../GroupAnimation"
 import { JSAnimation, animateValue } from "../JSAnimation"
 import { AnyResolvedKeyframe, ValueAnimationOptions } from "../types"
 import { syncDriver } from "./utils"
@@ -1225,6 +1226,33 @@ describe("JSAnimation", () => {
         await animation
 
         expect(output).toEqual([0, 20, 40, 60, 80, 100, 0, 20, 40, 60, 80, 100])
+    })
+
+    test("seeking a finished animation and playing it renews finished", async () => {
+        const output: number[] = []
+        const animation = animateValue({
+            keyframes: [0, 100],
+            duration: 100,
+            ease: "linear",
+            onUpdate: (v) => output.push(v),
+        })
+
+        await animation.finished
+
+        animation.time = 0
+        animation.play()
+
+        let isResolved = false
+        const group = new GroupAnimation([animation])
+        group.finished.then(() => (isResolved = true))
+
+        await nextFrame()
+        await nextFrame()
+        expect(isResolved).toBe(false)
+
+        await group.finished
+        expect(animation.state).toBe("finished")
+        expect(output[output.length - 1]).toBe(100)
     })
 
     test(".play() doesn't start the animation if it has been manually stopped", async () => {

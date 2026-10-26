@@ -114,6 +114,7 @@ describe("scopeMotion", () => {
         })
 
         await animation!
+        animation!.time = 0
         animation!.play()
 
         expect(await isAnimating(x)).toBe(true)

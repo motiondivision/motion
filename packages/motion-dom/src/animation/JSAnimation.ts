@@ -424,6 +424,12 @@ export class JSAnimation<T extends number | string>
     }
 
     set time(newTime: number) {
+        /**
+         * Seeking out of "finished" leaves the animation paused, so play()
+         * won't renew finished. Renew it here.
+         */
+        if (this.state === "finished") this.updateFinished()
+
         newTime = secondsToMilliseconds(newTime)
         this.currentTime = newTime
 
