@@ -94,6 +94,24 @@ describe("Reorder", () => {
         ])
     })
 
+    it("Doesn't keep its element once a callback ref's cleanup is called", () => {
+        let context: any = null
+        const Capture = () => {
+            context = useContext(ReorderContext)
+            return null
+        }
+
+        const { unmount } = render(
+            <Reorder.Group ref={() => () => {}} onReorder={() => {}} values={[]}>
+                <Capture />
+            </Reorder.Group>
+        )
+        expect(context.groupRef.current).toBeInstanceOf(Element)
+        unmount()
+
+        expect(context.groupRef.current).toBeNull()
+    })
+
     it("Preserves unmeasured items during reorder (virtualized list support)", () => {
         const onReorder = jest.fn()
         let capturedContext: any = null

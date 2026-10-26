@@ -50,13 +50,16 @@ function rect(this: HTMLElement): DOMRect {
     // Or hidden, like display: none
     if (!group || this.closest("[hidden]")) return box(0, 0, 0, 0)
 
-    const left =
-        Array.from(document.querySelectorAll("ul")).indexOf(group) * 200
-    if (this === group) return box(left, 0, 100, 300)
+    // Or, with data-stacked, groups 350px apart down the page
+    const order = Array.from(document.querySelectorAll("ul")).indexOf(group)
+    const [left, top] = group.hasAttribute("data-stacked")
+        ? [0, order * 350]
+        : [order * 200, 0]
+    if (this === group) return box(left, top, 100, 300)
 
     const { x, y } = translate(this.style)
     const index = Array.from(group.children).indexOf(this)
-    return box(left + x, index * 50 + y, 100, 50)
+    return box(left + x, top + index * 50 + y, 100, 50)
 }
 
 /**
@@ -154,6 +157,10 @@ interface BoardProps {
      * A group to hide, like display: none
      */
     hidden?: string
+    /**
+     * Stack the groups down the page, rather than side by side
+     */
+    stacked?: boolean
     [key: string]: any
 }
 
@@ -169,6 +176,7 @@ function Board({
     reject,
     canMove,
     hidden,
+    stacked,
     namespace: R = Reorder,
     ...itemProps
 }: BoardProps) {
@@ -182,6 +190,7 @@ function Board({
                     key={id}
                     axis={axis}
                     hidden={id === hidden}
+                    data-stacked={stacked || undefined}
                     data-testid={id}
                     values={lists[id]}
                     onReorder={(order: string[], moved: string) => {
@@ -814,11 +823,13 @@ describe("Reorder without a Board", () => {
 
 describe("Reorder with unmounted (e.g. virtualized) items", () => {
     it.each([
-        ["outside", false],
-        ["inside", true],
+        ["outside a Board", false, undefined],
+        ["inside a Board", true, undefined],
+        // A callback ref's cleanup is called rather than the ref with null
+        ["with a callback ref that returns a cleanup", false, () => () => {}],
     ])(
-        "doesn't keep their elements %s a Board",
-        async (_, inBoard) => {
+        "doesn't keep their elements %s",
+        async (_, inBoard, itemRef) => {
             const captured: { context?: ReorderContextProps<number> | null } =
                 {}
             const Capture = () => {
@@ -831,7 +842,11 @@ describe("Reorder with unmounted (e.g. virtualized) items", () => {
                     <Reorder.Group axis="y" values={values} onReorder={() => {}}>
                         <Capture />
                         {values.slice(from, from + 3).map((value) => (
-                            <Reorder.Item key={value} value={value} />
+                            <Reorder.Item
+                                key={value}
+                                value={value}
+                                ref={itemRef}
+                            />
                         ))}
                     </Reorder.Group>
                 )
@@ -872,6 +887,12 @@ describe("Reorder.Board keyboard", () => {
                 initial={initial}
                 onReorder={onReorder}
                 whileDrag={{ opacity: 0.5 }}
+                /**
+                 * Without layout animations: a keyboard move lands by where
+                 * the items are drawn, so an item still animating into its
+                 * slot would make the slot depend on timing.
+                 */
+                transition={{ type: false }}
             />
         )
         return { onReorder, ...result }
@@ -1042,5 +1063,142 @@ describe("Reorder.Board keyboard", () => {
         press(getByTestId("b"), "Escape")
         await nextFrame()
         expect(lists(container)).toEqual({ A: ["a", "b"], B: ["c"] })
+    })
+
+    it("only moves past either end into a group that way, not one beside it", async () => {
+        const { container, getByTestId } = setup({ A: ["a"], B: ["b"] })
+
+        // A and B are side by side: neither's last item has anywhere to go
+        // down, to the right or the left
+        for (const id of ["a", "b"]) {
+            const item = getByTestId(id)
+            act(() => item.focus())
+            press(item, " ")
+            press(item, "ArrowDown")
+            await nextFrame()
+            expect(lists(container)).toEqual({ A: ["a"], B: ["b"] })
+            expect(document.activeElement).toBe(getByTestId(id))
+            press(getByTestId(id), " ")
+        }
+    })
+
+    it("moves past either end into the group that way", async () => {
+        const { container, getByTestId } = render(
+            <Board
+                initial={{ A: ["a", "b"], B: ["c"] }}
+                stacked
+                whileDrag={{ opacity: 0.5 }}
+            />
+        )
+
+        const b = getByTestId("b")
+        act(() => b.focus())
+        press(b, " ")
+        expect(press(b, "ArrowDown")).toBe(false)
+        await nextFrame()
+        expect(lists(container)).toEqual({ A: ["a"], B: ["b", "c"] })
+
+        press(getByTestId("b"), "ArrowUp")
+        await nextFrame()
+        expect(lists(container)).toEqual({ A: ["a", "b"], B: ["c"] })
+    })
+
+    it("waits for a move to another group to render before moving the item again", async () => {
+        const { container, getByTestId } = setup()
+
+        const a = getByTestId("a")
+        act(() => a.focus())
+        // As a test runner can send them, or as a user can type while a
+        // transition renders the move: all before React renders it
+        act(() => {
+            fireEvent.keyDown(a, { key: " " })
+            fireEvent.keyDown(a, { key: "ArrowRight" })
+            fireEvent.keyDown(a, { key: "ArrowDown" })
+        })
+        await nextFrame()
+        expect(lists(container)).toEqual({ A: ["b"], B: ["a", "c", "d"] })
+
+        // Once it has, arrows move it again
+        press(getByTestId("a"), "ArrowDown")
+        expect(lists(container)).toEqual({ A: ["b"], B: ["c", "a", "d"] })
+    })
+
+    it("waits for a move to another group to render before returning the item on Escape", async () => {
+        const { container, getByTestId } = setup()
+
+        const a = getByTestId("a")
+        act(() => a.focus())
+        press(a, " ")
+        press(a, "ArrowDown")
+        expect(lists(container)).toEqual({ A: ["b", "a"], B: ["c", "d"] })
+
+        // Escape before React renders the move
+        act(() => {
+            fireEvent.keyDown(getByTestId("a"), { key: "ArrowRight" })
+            fireEvent.keyDown(getByTestId("a"), { key: "Escape" })
+        })
+        await nextFrame()
+        expect(lists(container)).toEqual({ A: ["b"], B: ["c", "a", "d"] })
+        expect(document.activeElement).toBe(getByTestId("a"))
+
+        // Once it has, Escape returns it
+        press(getByTestId("a"), "Escape")
+        await nextFrame()
+        expect(lists(container)).toEqual({ A: ["a", "b"], B: ["c", "d"] })
+    })
+
+    it("leaves focus where it is when a keyboard move lands later", async () => {
+        const { container, getByTestId } = render(
+            <Board
+                initial={{ A: ["a", "b"], B: ["c"] }}
+                // Only the group it joins ignores the move: the item disappears
+                reject={(id) => id === "B"}
+                whileDrag={{ opacity: 0.5 }}
+            />
+        )
+
+        const a = getByTestId("a")
+        act(() => a.focus())
+        press(a, " ")
+        press(a, "ArrowRight")
+        await nextFrame()
+        expect(lists(container)).toEqual({ A: ["b"], B: ["c"] })
+
+        // The user carries on elsewhere
+        act(() => getByTestId("c").focus())
+
+        // Later (e.g. an undo), the app puts it there itself
+        act(() => setBoardLists((latest) => ({ ...latest, B: ["c", "a"] })))
+        await act(nextFrame)
+
+        expect(document.activeElement).toBe(getByTestId("c"))
+        expect(isGrabbed(getByTestId("a"))).toBe(false)
+    })
+
+    it("moves an item again after a keyboard move that never landed", async () => {
+        const { container, getByTestId } = render(
+            <Board
+                initial={{ A: ["a", "b"], B: ["c"] }}
+                // Only the group it joins ignores the move: the item disappears
+                reject={(id) => id === "B"}
+                whileDrag={{ opacity: 0.5 }}
+            />
+        )
+
+        const a = getByTestId("a")
+        act(() => a.focus())
+        press(a, " ")
+        press(a, "ArrowRight")
+        await nextFrame()
+        expect(lists(container)).toEqual({ A: ["b"], B: ["c"] })
+
+        // The app puts it back (e.g. an undo), and it's grabbed again
+        act(() => setBoardLists((latest) => ({ ...latest, A: ["a", "b"] })))
+        await act(nextFrame)
+        const restored = getByTestId("a")
+        act(() => restored.focus())
+        press(restored, " ")
+        expect(press(restored, "ArrowDown")).toBe(false)
+        expect(lists(container)).toEqual({ A: ["b", "a"], B: ["c"] })
     })
 })
