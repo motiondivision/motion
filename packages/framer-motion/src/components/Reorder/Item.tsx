@@ -3,13 +3,7 @@
 import { isMotionValue, visualElementStore } from "motion-dom"
 import { invariant } from "motion-utils"
 import * as React from "react"
-import {
-    forwardRef,
-    FunctionComponent,
-    useContext,
-    useRef,
-    useState,
-} from "react"
+import { forwardRef, FunctionComponent, useContext, useRef } from "react"
 import { ReorderBoardContext } from "../../context/ReorderBoardContext"
 import { ReorderContext } from "../../context/ReorderContext"
 import type { MotionProxy } from "../../render/components/create-proxy"
@@ -101,9 +95,11 @@ export function ReorderItemComponent<
 
     /**
      * The group's values when this item was grabbed with the keyboard, for
-     * Escape to restore. Set only while grabbed.
+     * Escape to restore. Set only while grabbed. Only key and focus events
+     * read it, so it's a ref: a key sent before React renders, as test
+     * runners can, still sees the grab.
      */
-    const [grabbedFrom, setGrabbedFrom] = useState<V[]>()
+    const grabbedFrom = useRef<V[]>()
     const point = {
         x: useDefaultMotionValue(style.x),
         y: useDefaultMotionValue(style.y),
@@ -131,7 +127,7 @@ export function ReorderItemComponent<
      * (but not the drag callbacks, which need a pointer and PanInfo).
      */
     const grab: Grab<V> = (element, from) => {
-        setGrabbedFrom(from)
+        grabbedFrom.current = from
         from || board?.end(value)
         visualElementStore
             .get(element)
@@ -206,7 +202,7 @@ export function ReorderItemComponent<
             }}
             onKeyDown={(event: React.KeyboardEvent<HTMLElement>) => {
                 onKeyDown?.(event as any)
-                handleKeyDown(event, value, grabbedFrom, grab)
+                handleKeyDown(event, value, grabbedFrom.current, grab)
             }}
             /**
              * A move blurs the item, but that blur is never dispatched:
@@ -216,7 +212,7 @@ export function ReorderItemComponent<
              */
             onBlur={(event: React.FocusEvent<HTMLElement>) => {
                 onBlur?.(event as any)
-                grabbedFrom && grab(event.currentTarget)
+                grabbedFrom.current && grab(event.currentTarget)
             }}
             onLayoutMeasure={(measured) => {
                 registerItem(value, measured, ref)
