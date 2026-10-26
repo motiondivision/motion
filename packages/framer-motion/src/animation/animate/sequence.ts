@@ -51,9 +51,12 @@ export function animateSequence(
 
     /**
      * Transitions are made per value, but reduceMotion is read from the
-     * top level.
+     * top level. animate() resolves it into options, and the default
+     * transition covers timelines made directly.
      */
-    const reduceMotion = options?.reduceMotion
+    const reduceMotion =
+        options?.reduceMotion ??
+        (options?.defaultTransition as SequenceOptions)?.reduceMotion
 
     animationDefinitions.forEach(({ keyframes, transition }, subject) => {
         animations.push(
