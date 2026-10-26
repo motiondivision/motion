@@ -1,5 +1,4 @@
 import { positionalKeys } from "../../render/utils/keys-position"
-import { MotionValue } from "../../value"
 import { findDimensionValueType } from "../../value/types/dimensions"
 import { AnyResolvedKeyframe } from "../types"
 import { getVariableValue } from "../utils/css-variables-conversion"
@@ -7,11 +6,7 @@ import {
     containsCSSVariable,
     isCSSVariableToken,
 } from "../utils/is-css-variable"
-import {
-    KeyframeResolver,
-    OnKeyframesResolved,
-    UnresolvedKeyframes,
-} from "./KeyframesResolver"
+import { KeyframeResolver } from "./KeyframesResolver"
 import { WithRender } from "./types"
 import { isNone } from "./utils/is-none"
 import { makeNoneKeyframesAnimatable } from "./utils/make-none-animatable"
@@ -23,18 +18,9 @@ export class DOMKeyframesResolver<
     name: string
     element?: WithRender
 
-    private removedTransforms?: [string, AnyResolvedKeyframe][]
     private measuredOrigin?: AnyResolvedKeyframe
 
-    constructor(
-        unresolvedKeyframes: UnresolvedKeyframes<AnyResolvedKeyframe>,
-        onComplete: OnKeyframesResolved<T>,
-        name?: string,
-        motionValue?: MotionValue<T>,
-        element?: WithRender
-    ) {
-        super(unresolvedKeyframes, onComplete, name, motionValue, element, true)
-    }
+    protected isAsync = true
 
     /**
      * Keyframes that don't need reading from the DOM, or measuring,
@@ -67,7 +53,7 @@ export class DOMKeyframesResolver<
     readKeyframes() {
         const { unresolvedKeyframes, element, name } = this
 
-        if (!element || !element.current) return
+        if (!element?.current) return
 
         super.readKeyframes()
 
@@ -188,11 +174,9 @@ export class DOMKeyframesResolver<
     measureInitialState() {
         const { element, unresolvedKeyframes, name } = this
 
-        if (!element || !element.current) return
+        if (!element?.current) return
 
-        if (name === "height") {
-            this.suspendedScrollY = window.pageYOffset
-        }
+        if (name === "height") this.suspendedScrollY = window.pageYOffset
 
         this.measuredOrigin = this.measure()
 
@@ -210,7 +194,7 @@ export class DOMKeyframesResolver<
     measureEndState() {
         const { element, unresolvedKeyframes } = this
 
-        if (!element || !element.current) return
+        if (!element?.current) return
 
         this.motionValue?.jump(this.measuredOrigin as T, false)
 
@@ -221,17 +205,6 @@ export class DOMKeyframesResolver<
 
         if (finalKeyframe !== null && this.finalKeyframe === undefined) {
             this.finalKeyframe = finalKeyframe as T
-        }
-
-        // If we removed transform values, reapply them before the next render
-        if (this.removedTransforms?.length) {
-            this.removedTransforms.forEach(
-                ([unsetTransformName, unsetTransformValue]) => {
-                    element
-                        .getValue(unsetTransformName)!
-                        .set(unsetTransformValue)
-                }
-            )
         }
 
         this.resolveNoneKeyframes()

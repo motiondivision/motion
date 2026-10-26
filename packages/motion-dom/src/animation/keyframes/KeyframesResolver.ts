@@ -155,7 +155,7 @@ export class KeyframeResolver<T extends AnyResolvedKeyframe = any> {
      * resolver queue and flushed in the next frame. Resolvers that aren't going
      * to trigger read/write thrashing don't need to be async.
      */
-    private isAsync = false
+    protected isAsync = false
 
     /**
      * Track whether this resolver needs to perform a measurement
