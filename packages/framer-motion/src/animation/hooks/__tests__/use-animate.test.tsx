@@ -117,17 +117,37 @@ describe("useAnimate", () => {
         expect(frameCount).toEqual(3)
     })
 
+    test("Sequences follow MotionConfig reducedMotion", async () => {
+        let element: HTMLDivElement | null = null
+
+        const Component = () => {
+            const [scope, animate] = useAnimate()
+
+            useEffect(() => {
+                element = scope.current
+                animate([[scope.current, { x: 100 }, { duration: 10 }]])
+            })
+
+            return <div ref={scope} />
+        }
+
+        render(
+            <MotionConfig reducedMotion="always">
+                <Component />
+            </MotionConfig>
+        )
+        await new Promise((resolve) => setTimeout(resolve, 50))
+
+        expect(element!.style.transform).toBe("translateX(100px)")
+    })
+
     test("Applies final value instantly when MotionConfig skipAnimations is true", () => {
         return new Promise<void>((resolve) => {
             const Component = () => {
                 const [scope, animate] = useAnimate()
 
                 useEffect(() => {
-                    animate(
-                        scope.current,
-                        { opacity: 0.5 },
-                        { duration: 10 }
-                    )
+                    animate(scope.current, { opacity: 0.5 }, { duration: 10 })
 
                     setTimeout(() => {
                         expect(scope.current).toHaveStyle("opacity: 0.5;")
