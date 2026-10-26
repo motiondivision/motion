@@ -1,5 +1,6 @@
 import { Box } from "motion-utils"
 import type { MotionValue, Owner } from "../../value"
+import type { AnimationPlaybackControls, ValueAnimationOptions } from "../types"
 import type { KeyframeResolver } from "./KeyframesResolver"
 
 /**
@@ -32,6 +33,13 @@ export interface AnimationElement
     extends Omit<WithRender, "current">,
         Owner {
     KeyframeResolver?: typeof KeyframeResolver
+    /**
+     * Start a value's animation in the renderer, for instance on React
+     * Native's UI thread. Return nothing to animate it in JS.
+     */
+    createAnimation?: (
+        options: ValueAnimationOptions<any>
+    ) => AnimationPlaybackControls | undefined
     shouldSkipAnimations?: boolean
     shouldReduceMotion?: boolean | null
 }

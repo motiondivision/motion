@@ -190,7 +190,15 @@ export class AsyncMotionValueAnimation<T extends AnyResolvedKeyframe>
         } else if (isGroupedTransform) {
             animation = new TransformAnimation(options)
         } else {
-            animation = new JSAnimation(options)
+            /**
+             * A renderer that runs animations off the JS thread (React
+             * Native) can take the resolved animation instead.
+             */
+            animation =
+                (canAnimateValue &&
+                    !isHandoff &&
+                    options.element?.createAnimation?.(options)) ||
+                new JSAnimation(options)
         }
 
         if (this.pendingTimeline) {

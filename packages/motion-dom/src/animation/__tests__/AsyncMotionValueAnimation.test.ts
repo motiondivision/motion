@@ -43,4 +43,41 @@ describe("AsyncMotionValueAnimation", () => {
 
         expect(output).toEqual([0, 20, 40, 60, 80, 100])
     })
+
+    test("Starts a renderer's own animation when its element provides one", () => {
+        const nativeAnimation = { stop: () => {} } as any
+        const createAnimation = jest.fn(() => nativeAnimation)
+
+        const animation = new AsyncMotionValueAnimation({
+            keyframes: [0, 100],
+            duration: 100,
+            element: { createAnimation } as any,
+        })
+
+        expect(animation.animation).toBe(nativeAnimation)
+        expect(createAnimation).toHaveBeenCalledTimes(1)
+        expect((createAnimation.mock.calls[0] as any)[0].keyframes).toEqual([
+            0, 100,
+        ])
+    })
+
+    test("Runs in JS when the renderer's element declines", async () => {
+        const output: number[] = []
+        const createAnimation = jest.fn(() => undefined)
+
+        await new Promise<void>((resolve) => {
+            new AsyncMotionValueAnimation({
+                keyframes: [0, 100],
+                duration: 100,
+                ease: "linear",
+                driver: syncDriver(20),
+                element: { createAnimation } as any,
+                onUpdate: (v) => output.push(Math.round(v)),
+                onComplete: resolve,
+            })
+        })
+
+        expect(createAnimation).toHaveBeenCalledTimes(1)
+        expect(output).toEqual([0, 20, 40, 60, 80, 100])
+    })
 })
