@@ -1,7 +1,9 @@
 import { animateElement } from "../../../animation/animate/element"
 import { styleSubjectEffect } from "../../../effects/style"
 import { frame } from "../../../frameloop"
+import { visualElementStore } from "../../../render/store"
 import { scopeMotion } from "../../../scope"
+import { motionValue } from "../../../value"
 import { drag } from "../../drag"
 import { pinch, PinchInfo, PinchOptions } from ".."
 
@@ -69,21 +71,25 @@ type Pair = [number, number, number, number]
  * Put two touches down at a/b, wait for the gesture to measure, then
  * move them to the given positions one frame at a time.
  */
-async function twoFinger(target: Element, [ax, ay, bx, by]: Pair) {
-    pointer(target, "pointerdown", 1, ax, ay)
-    pointer(target, "pointerdown", 2, bx, by)
+async function twoFinger(
+    target: Element,
+    [ax, ay, bx, by]: Pair,
+    [a, b] = [1, 2]
+) {
+    pointer(target, "pointerdown", a, ax, ay)
+    pointer(target, "pointerdown", b, bx, by)
     await nextFrame()
 
     const controls = {
         to: async ([ax, ay, bx, by]: Pair) => {
-            pointer(window, "pointermove", 1, ax, ay)
-            pointer(window, "pointermove", 2, bx, by)
+            pointer(window, "pointermove", a, ax, ay)
+            pointer(window, "pointermove", b, bx, by)
             await nextFrame()
             return controls
         },
         end: async () => {
-            pointer(window, "pointerup", 1, 0, 0)
-            pointer(window, "pointerup", 2, 0, 0)
+            pointer(window, "pointerup", a, 0, 0)
+            pointer(window, "pointerup", b, 0, 0)
             await nextFrame()
         },
     }
@@ -95,9 +101,22 @@ async function twoFinger(target: Element, [ax, ay, bx, by]: Pair) {
  * follows its x/y motion values, as a browser's would.
  */
 function layout(element: HTMLElement, cx: number, cy: number, size = 100) {
+    const px = (key: string) => {
+        const latest =
+            (visualElementStore.get(element)?.getValue(key)?.get() as
+                | number
+                | string) ??
+            styleSubjectEffect.get(element, key)?.get() ??
+            0
+        return typeof latest === "string" && latest.endsWith("%")
+            ? (parseFloat(latest) * size) / 100
+            : parseFloat(latest as string)
+    }
+    Object.defineProperty(element, "offsetWidth", { value: size })
+    Object.defineProperty(element, "offsetHeight", { value: size })
     element.getBoundingClientRect = () => {
-        const x = (styleSubjectEffect.get(element, "x")?.get() as number) ?? 0
-        const y = (styleSubjectEffect.get(element, "y")?.get() as number) ?? 0
+        const x = px("x")
+        const y = px("y")
         const left = cx + x - size / 2
         const top = cy + y - size / 2
         return {
@@ -151,7 +170,7 @@ describe("pinch", () => {
         expect(value(element, "y")).toBeCloseTo(0)
 
         await nextFrame()
-        expect(element.style.transform).toBe("scale(2)")
+        expect(element.style.transform).toMatch(/^scale\((2|1\.9999\d*)\)$/)
 
         await gesture.end()
     })
@@ -412,8 +431,9 @@ describe("pinch with a trackpad", () => {
         layout(element, 0, 0)
         makePinchable(element)
 
-        const event = wheel(element, -100 * Math.log(2), 100, 0)
+        const event = wheel(element, -50 * Math.log(2), 100, 0)
         expect(event.defaultPrevented).toBe(true)
+        wheel(element, -50 * Math.log(2), 100, 0)
         await nextFrame()
         await nextFrame()
 
@@ -483,33 +503,269 @@ describe("pinch with a trackpad", () => {
 })
 
 describe("pinch with drag", () => {
-    test("drag keeps the position while pinch scales", async () => {
+    test("the element follows both touches while one of them drags", async () => {
         const removeDrag = drag(element, { momentum: false })
         stops.push(removeDrag)
         makePinchable(element)
 
-        // First touch drags...
+        // First touch drags 20px...
         pointer(element, "pointerdown", 1, 0, 0)
         await nextFrame()
         pointer(window, "pointermove", 1, 20, 0)
         await nextFrame()
 
-        // ...the second pinches.
+        // ...then a second pinches: 20 -> 30 and 120 -> 230 is 2x.
         pointer(element, "pointerdown", 2, 120, 0)
         await nextFrame()
         pointer(window, "pointermove", 1, 30, 0)
         pointer(window, "pointermove", 2, 230, 0)
         await nextFrame()
+        await nextFrame()
 
-        const ve = require("../../../render/store").visualElementStore.get(
-            element
-        )
-        expect(ve.getValue("scale").get()).toBeCloseTo(2)
-        // Drag owns x, so it follows the dragging touch only.
-        expect(ve.getValue("x").get()).toBeCloseTo(30)
+        const ve = visualElementStore.get(element)!
+        expect(ve.getValue("scale")!.get()).toBeCloseTo(2)
 
-        pointer(window, "pointerup", 1, 30, 0)
+        /**
+         * Points under the touches stay under them: the centre, at 70
+         * after the drag, maps to 30 + 2 * (70 - 20) = 130, so x is 80.
+         */
+        expect(ve.getValue("x")!.get()).toBeCloseTo(80)
+
+        // Drag carries on from there once the pinch ends.
         pointer(window, "pointerup", 2, 230, 0)
         await nextFrame()
+        pointer(window, "pointermove", 1, 40, 0)
+        await nextFrame()
+        await nextFrame()
+        expect(ve.getValue("x")!.get()).toBeCloseTo(90)
+
+        pointer(window, "pointerup", 1, 40, 0)
+        await nextFrame()
+    })
+
+    test("pinching one element while another drags still moves it", async () => {
+        const other = document.createElement("div")
+        document.body.appendChild(other)
+        stops.push(drag(other, { momentum: false }))
+        makePinchable(element)
+
+        pointer(other, "pointerdown", 1, 500, 0)
+        await nextFrame()
+        pointer(window, "pointermove", 1, 520, 0)
+        await nextFrame()
+        expect(visualElementStore.get(other)!.getValue("x")!.get()).toBe(20)
+
+        const gesture = await twoFinger(element, [0, 0, 100, 0], [2, 3])
+        await gesture.to([50, 20, 150, 20])
+        expect(value(element, "x")).toBeCloseTo(50)
+        expect(value(element, "y")).toBeCloseTo(20)
+        await gesture.end()
+
+        pointer(window, "pointerup", 1, 520, 0)
+    })
+})
+
+describe("pinch edge cases", () => {
+    test("zooms and rotates around an off-centre point", async () => {
+        layout(element, 0, 0)
+        makePinchable(element, { rotate: true })
+
+        const gesture = await twoFinger(element, [50, 0, 150, 0])
+        await gesture.to([100, -50, 100, 50])
+
+        // Rotating 90deg around (100, 0) moves the centre to (100, -100).
+        expect(value(element, "rotate")).toBeCloseTo(90)
+        expect(value(element, "scale")).toBeCloseTo(1)
+        expect(value(element, "x")).toBeCloseTo(100)
+        expect(value(element, "y")).toBeCloseTo(-100)
+
+        await gesture.end()
+    })
+
+    test("works with px and % x/y", async () => {
+        const x = motionValue<number | string>("-50%")
+        const y = motionValue<number | string>("20px")
+        styleSubjectEffect(element, { x, y } as any)
+        makePinchable(element)
+
+        const gesture = await twoFinger(element, [0, 0, 100, 0])
+        await gesture.to([50, 20, 150, 20])
+
+        expect(x.get()).toBeCloseTo(0)
+        expect(y.get()).toBeCloseTo(40)
+
+        await gesture.end()
+    })
+
+    test("doesn't produce NaN from a scale of 0", async () => {
+        const scale = motionValue(0)
+        styleSubjectEffect(element, { scale })
+        makePinchable(element)
+
+        const gesture = await twoFinger(element, [0, 0, 100, 0])
+        await gesture.to([-50, 10, 150, 10])
+
+        expect(scale.get()).toBe(0)
+        expect(value(element, "x")).toBeCloseTo(0)
+        expect(value(element, "y")).toBeCloseTo(10)
+
+        await gesture.end()
+    })
+
+    test("disabling mid-gesture ends it", async () => {
+        const onEnd = jest.fn()
+        let enabled = true
+        const options = { max: 1.2, onEnd }
+        const { addPinchListeners } = require("..")
+        const remove = addPinchListeners(
+            element,
+            () =>
+                ["scale", "rotate", "x", "y"].map((key) => {
+                    let v = styleSubjectEffect.get(element, key)
+                    if (!v) {
+                        v = motionValue(key === "scale" ? 1 : 0)
+                        styleSubjectEffect(element, { [key]: v })
+                    }
+                    return v
+                }),
+            () => enabled && options
+        )
+        stops.push(remove)
+
+        const gesture = await twoFinger(element, [0, 0, 100, 0])
+        enabled = false
+        await gesture.to([-50, 0, 150, 0])
+
+        expect(onEnd).toHaveBeenCalledTimes(1)
+        expect(value(element, "scale")).toBe(1)
+
+        await gesture.end()
+        expect(onEnd).toHaveBeenCalledTimes(1)
+    })
+
+    test("pinches when the second touch lands off the element", async () => {
+        makePinchable(element)
+
+        pointer(element, "pointerdown", 1, 0, 0)
+        pointer(document.body, "pointerdown", 2, 100, 0)
+        await nextFrame()
+        pointer(window, "pointermove", 1, -50, 0)
+        pointer(window, "pointermove", 2, 150, 0)
+        await nextFrame()
+
+        expect(value(element, "scale")).toBeCloseTo(2)
+
+        pointer(window, "pointerup", 1, 0, 0)
+        pointer(window, "pointerup", 2, 0, 0)
+    })
+
+    test("ignores mouse pointers", async () => {
+        const onStart = jest.fn()
+        makePinchable(element, { onStart })
+
+        // A mouse press whose pointerup is swallowed (e.g. by a context menu)...
+        const event = new Event("pointerdown", { bubbles: true })
+        Object.assign(event, {
+            pointerId: 9,
+            pointerType: "mouse",
+            clientX: 0,
+            clientY: 0,
+        })
+        element.dispatchEvent(event)
+
+        // ...doesn't turn the next single touch into a pinch.
+        pointer(element, "pointerdown", 1, 50, 0)
+        await nextFrame()
+        expect(onStart).not.toHaveBeenCalled()
+        pointer(window, "pointerup", 1, 50, 0)
+    })
+
+    test("doesn't stop animations on values it won't write", async () => {
+        makePinchable(element)
+        animateElement(element, { rotate: 90 }, { duration: 10 })
+        await nextFrame()
+
+        const gesture = await twoFinger(element, [0, 0, 100, 0])
+        const start = value(element, "rotate")
+        await sleep(50)
+        expect(value(element, "rotate")).not.toBe(start)
+
+        await gesture.end()
+    })
+
+    test("stopping mid-gesture calls onEnd", async () => {
+        const onEnd = jest.fn()
+        const stop = makePinchable(element, { onEnd })
+
+        await twoFinger(element, [0, 0, 100, 0])
+        stop()
+
+        expect(onEnd).toHaveBeenCalledTimes(1)
+    })
+
+    test("a gesture that ends before measuring doesn't leave a pending move", async () => {
+        const onMove = jest.fn()
+        makePinchable(element, { onMove })
+
+        pointer(element, "pointerdown", 1, 0, 0)
+        pointer(element, "pointerdown", 2, 100, 0)
+        pointer(window, "pointermove", 2, 150, 0)
+        pointer(window, "pointerup", 1, 0, 0)
+        pointer(window, "pointerup", 2, 0, 0)
+        await nextFrame()
+
+        const gesture = await twoFinger(element, [0, 0, 100, 0])
+        await nextFrame()
+        expect(onMove).not.toHaveBeenCalled()
+        await gesture.end()
+    })
+})
+
+describe("pinch with a trackpad: wheel deltas", () => {
+    function wheelWithMode(deltaY: number, deltaMode: number) {
+        const event = new Event("wheel", { bubbles: true, cancelable: true })
+        Object.assign(event, {
+            deltaY,
+            deltaMode,
+            clientX: 50,
+            clientY: 0,
+            ctrlKey: true,
+        })
+        element.dispatchEvent(event)
+    }
+
+    test("line deltas zoom as much as the equivalent pixels", async () => {
+        makePinchable(element)
+
+        wheelWithMode(-1, 1) // one line
+        await nextFrame()
+        await nextFrame()
+
+        expect(value(element, "scale")).toBeCloseTo(Math.exp(0.16))
+    })
+
+    test("a mouse wheel notch with ctrl zooms a step, not 2.7x", async () => {
+        makePinchable(element)
+
+        wheelWithMode(-100, 0)
+        await nextFrame()
+        await nextFrame()
+
+        expect(value(element, "scale")).toBeCloseTo(Math.exp(0.5))
+    })
+
+    test("pinching past max doesn't build up", async () => {
+        makePinchable(element, { max: 2 })
+
+        for (let i = 0; i < 2000; i++) wheelWithMode(-1e6, 0)
+        await nextFrame()
+        await nextFrame()
+        expect(value(element, "scale")).toBe(2)
+
+        await sleep(250)
+        wheelWithMode(50, 0)
+        await nextFrame()
+        await nextFrame()
+        expect(value(element, "scale")).toBeCloseTo(2 * Math.exp(-0.5))
     })
 })

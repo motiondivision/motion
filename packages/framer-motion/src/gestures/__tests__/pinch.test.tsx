@@ -130,6 +130,80 @@ describe("pinch prop", () => {
         expect(scale.get()).toBe(1)
     })
 
+    test("pinch={false} gives the page its touch gestures back", () => {
+        let setPinch: (pinch: boolean) => void = () => {}
+        const Component = () => {
+            const [pinch, set] = useState(true)
+            setPinch = set
+            return <m.div pinch={pinch} />
+        }
+        const { container } = render(
+            <LazyMotion features={features}>
+                <Component />
+            </LazyMotion>
+        )
+        const element = container.firstChild as HTMLElement
+
+        expect(element.style.touchAction).toBe("none")
+        act(() => setPinch(false))
+        // JSDOM doesn't know touch-action, so the restored value is unset.
+        expect(element.style.touchAction).not.toBe("none")
+        act(() => setPinch(true))
+        expect(element.style.touchAction).toBe("none")
+    })
+
+    test("keeps touch gestures off when drag's axis changes", () => {
+        let setAxis: (axis: "x" | "y") => void = () => {}
+        const Component = () => {
+            const [axis, set] = useState<"x" | "y">("x")
+            setAxis = set
+            return <m.div pinch drag={axis} />
+        }
+        const { container } = render(
+            <LazyMotion features={features}>
+                <Component />
+            </LazyMotion>
+        )
+        const element = container.firstChild as HTMLElement
+
+        expect(element.style.touchAction).toBe("none")
+        act(() => setAxis("y"))
+        expect(element.style.touchAction).toBe("none")
+    })
+
+    test("pinch={false} mid-gesture ends it", async () => {
+        const scale = motionValue(1)
+        const onEnd = jest.fn()
+        let setPinch: (pinch: boolean) => void = () => {}
+        const Component = () => {
+            const [pinch, set] = useState(true)
+            setPinch = set
+            return (
+                <m.div pinch={pinch && { max: 1.2, onEnd }} style={{ scale }} />
+            )
+        }
+        const { container } = render(
+            <LazyMotion features={features}>
+                <Component />
+            </LazyMotion>
+        )
+        const element = container.firstChild as Element
+
+        pointer(element, "pointerdown", 1, -50)
+        pointer(element, "pointerdown", 2, 50)
+        await act(() => nextFrame())
+        act(() => setPinch(false))
+        pointer(window, "pointermove", 1, -100)
+        pointer(window, "pointermove", 2, 100)
+        await act(() => nextFrame())
+
+        expect(scale.get()).toBe(1)
+        expect(onEnd).toHaveBeenCalledTimes(1)
+
+        pointer(window, "pointerup", 1, -100)
+        pointer(window, "pointerup", 2, 100)
+    })
+
     test("removes listeners on unmount", async () => {
         const onStart = jest.fn()
         const { container, rerender } = render(

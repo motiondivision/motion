@@ -11,7 +11,7 @@ import {
     type ElementOrSelector,
 } from "../../utils/resolve-elements"
 import { motionValue, type MotionValue } from "../../value"
-import { isDragActive } from "../drag/state/is-active"
+import { elementDragControls } from "../drag/VisualElementDragControls"
 
 /**
  * @public
@@ -58,7 +58,10 @@ export interface PinchOptions {
     /**
      * Move the element with the focal point, and keep the point under the
      * fingers (or cursor) in place while scaling and rotating. Defaults to
-     * `true`. Skipped while the element is dragged, as drag owns `x`/`y`.
+     * `true`. Composes with drag: a drag that one of the touches started
+     * carries on from wherever the pinch leaves the element.
+     *
+     * Assumes the default `transform-origin` (the element's centre).
      */
     pan?: boolean
 
@@ -91,6 +94,18 @@ export type PinchValues = [
 const wheelTimeout = 150
 
 /**
+ * Convert an `x`/`y` set in other units (e.g. `"-50%"` to centre an
+ * element) to pixels, so the gesture can add to it.
+ */
+const toPixels = (value: MotionValue<number>, size: number) => {
+    const latest = value.get() as number | string
+
+    if (typeof latest === "string") {
+        value.set(parseFloat(latest) * (latest.endsWith("%") ? size / 100 : 1))
+    }
+}
+
+/**
  * Listen for pinch gestures on `element`: two touches (or pens), a trackpad
  * pinch (`wheel` with `ctrlKey`, as Chrome, Edge and Firefox report it),
  * and Safari's `gesture*` events.
@@ -100,37 +115,47 @@ const wheelTimeout = 150
  * element measurement so neither forces a layout.
  *
  * `getOptions` is read whenever it's needed, so options can change while
- * listening. Return `false` to disable the gesture.
+ * listening. Return `false` to disable the gesture, which also ends one in
+ * progress.
  */
 export function addPinchListeners(
     element: Element,
     getValues: () => PinchValues,
     getEnabledOptions: () => PinchOptions | false | undefined
 ): VoidFunction {
-    const getOptions = () => getEnabledOptions() || {}
     const pointers = new Map<number, Point>()
 
     /**
-     * The gesture as last reported: focal point, a distance and an angle.
-     * Only changes in distance and angle matter, so trackpad and Safari
-     * input write a virtual distance (the scale) here.
+     * The gesture as last reported: focal point, log of a distance and an
+     * angle. Only changes in distance and angle matter, so trackpad and
+     * Safari input write a virtual distance (the scale) here. Logs keep
+     * a long trackpad pinch from overflowing.
      */
-    const current = { x: 0, y: 0, d: 1, a: 0 }
-    let start = { ...current }
-    let prev = { ...current }
+    const current = { x: 0, y: 0, l: 0, a: 0 }
+    const start = { ...current }
+    const prev = { ...current }
 
     let source: "pointer" | "wheel" | "gesture" | undefined
     let lastEvent: Event
     let values: PinchValues | undefined
     let originX = 0
     let originY = 0
+    let lastX = 0
+    let lastY = 0
     let hasMoved = false
     let wheelTime = 0
+
+    /**
+     * The latest enabled options, so a gesture disabled mid-way can still
+     * report its end.
+     */
+    let options: PinchOptions = {}
+    const getOptions = () => (options = getEnabledOptions() || options)
 
     const info = (): PinchInfo => ({
         point: { x: current.x, y: current.y },
         offset: { x: current.x - start.x, y: current.y - start.y },
-        scale: current.d / start.d,
+        scale: Math.exp(current.l - start.l),
         rotate: current.a - start.a,
     })
 
@@ -141,10 +166,27 @@ export function addPinchListeners(
      */
     const measure = () => {
         const { left, top, width, height } = element.getBoundingClientRect()
-        values = getValues()
-        for (const value of values) value.stop()
-        originX = left + width / 2 - values[2].get()
-        originY = top + height / 2 - values[3].get()
+        const { scale, rotate, pan } = getOptions()
+        const [s, r, x, y] = (values = getValues())
+
+        /**
+         * Stop animations on values this gesture writes, and leave the
+         * rest running.
+         */
+        scale !== false && s.stop()
+        rotate && r.stop()
+
+        if (pan !== false) {
+            x.stop()
+            y.stop()
+            toPixels(x, (element as HTMLElement).offsetWidth ?? width)
+            toPixels(y, (element as HTMLElement).offsetHeight ?? height)
+        }
+
+        lastX = x.get()
+        lastY = y.get()
+        originX = left + width / 2 - lastX
+        originY = top + height / 2 - lastY
     }
 
     /**
@@ -159,14 +201,14 @@ export function addPinchListeners(
         const options = getOptions()
         const [scale, rotate, x, y] = values
         const theta = options.rotate ? current.a - prev.a : 0
+        const latest = scale.get()
         let k = 1
 
-        if (options.scale !== false) {
-            const latest = scale.get()
+        if (options.scale !== false && latest) {
             const next = clamp(
                 options.min ?? 0,
                 options.max ?? Infinity,
-                (latest * current.d) / prev.d
+                latest * Math.exp(current.l - prev.l)
             )
             k = next / latest
             scale.set(next)
@@ -174,29 +216,51 @@ export function addPinchListeners(
 
         if (theta) rotate.set(rotate.get() + theta)
 
-        if (options.pan !== false && !isDragActive()) {
-            const latestX = x.get()
-            const latestY = y.get()
-            const dx = prev.x - originX - latestX
-            const dy = prev.y - originY - latestY
+        if (options.pan !== false) {
             const angle = (theta * Math.PI) / 180
             const cos = Math.cos(angle) * k
             const sin = Math.sin(angle) * k
+            const dx = prev.x - originX - lastX
+            const dy = prev.y - originY - lastY
 
             /**
              * Move the centre so the previous focal point, scaled and
              * rotated around the centre, lands on the current focal point.
              */
-            x.set(latestX + dx + current.x - prev.x - (cos * dx - sin * dy))
-            y.set(latestY + dy + current.y - prev.y - (sin * dx + cos * dy))
+            lastX += dx + current.x - prev.x - (cos * dx - sin * dy)
+            lastY += dy + current.y - prev.y - (sin * dx + cos * dy)
+
+            /**
+             * Pinch owns x/y while it runs. If drag() or the drag prop is
+             * dragging this element with one of the touches, it sets x/y
+             * from where it started plus the touch's offset, so move where
+             * it started by however far its latest write is from ours.
+             */
+            const drag = elementDragControls.get(
+                visualElementStore.get(element)!
+            )
+            if (drag?.isDragging) {
+                drag.originPoint.x += lastX - x.get()
+                drag.originPoint.y += lastY - y.get()
+            }
+
+            x.set(lastX)
+            y.set(lastY)
         }
 
-        prev = { ...current }
+        Object.assign(prev, current)
         options.onMove?.(lastEvent, info())
     }
 
+    /**
+     * Runs after the update step, where drag sets x/y, so it has the final
+     * say on them each frame.
+     */
     const update = () => {
+        if (!getEnabledOptions()) return end(lastEvent)
+
         apply()
+
         if (source === "wheel" && time.now() - wheelTime > wheelTimeout) {
             end(lastEvent)
         }
@@ -207,11 +271,12 @@ export function addPinchListeners(
 
         source = from
         lastEvent = event
-        start = { ...current }
-        prev = { ...current }
+        hasMoved = false
         values = undefined
+        Object.assign(start, current)
+        Object.assign(prev, current)
         frame.read(measure)
-        frame.update(update, true)
+        frame.preRender(update, true)
         getOptions().onStart?.(event, info())
     }
 
@@ -219,7 +284,7 @@ export function addPinchListeners(
         if (!source) return
         cancelFrame(measure)
         cancelFrame(update)
-        apply()
+        getEnabledOptions() && apply()
         source = undefined
         getOptions().onEnd?.(event, info())
     }
@@ -236,7 +301,7 @@ export function addPinchListeners(
 
         current.x = (a.x + b.x) / 2
         current.y = (a.y + b.y) / 2
-        current.d = Math.hypot(b.x - a.x, b.y - a.y) || 1
+        current.l = Math.log(Math.hypot(b.x - a.x, b.y - a.y) || 1)
 
         /**
          * Take the shortest way round, so rotation keeps counting past
@@ -245,9 +310,12 @@ export function addPinchListeners(
         current.a += delta - 360 * Math.round(delta / 360)
     }
 
+    const setPointer = (event: PointerEvent) =>
+        pointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
+
     const onPointerMove = (event: PointerEvent) => {
         if (!pointers.has(event.pointerId)) return
-        pointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
+        setPointer(event)
 
         if (source === "pointer") {
             readPointers()
@@ -262,18 +330,22 @@ export function addPinchListeners(
         if (source === "pointer") end(event)
     }
 
-    const toggleWindowListeners = (add?: boolean) => {
-        const method = add ? "addEventListener" : "removeEventListener"
-        window[method]("pointermove", onPointerMove as EventListener)
-        window[method]("pointerup", onPointerUp as EventListener)
-        window[method]("pointercancel", onPointerUp as EventListener)
-    }
-
+    /**
+     * Once a touch is down on the element, listen on the window too, so
+     * the second touch can land beside it (for instance on a small image).
+     */
     const onPointerDown = (event: PointerEvent) => {
-        if (source || pointers.size > 1) return
-        if (!pointers.size) toggleWindowListeners(true)
+        if (
+            source ||
+            pointers.size > 1 ||
+            pointers.has(event.pointerId) ||
+            event.pointerType === "mouse"
+        ) {
+            return
+        }
 
-        pointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
+        if (!pointers.size) toggleWindowListeners(true)
+        setPointer(event)
 
         if (pointers.size === 2) {
             readPointers()
@@ -281,17 +353,34 @@ export function addPinchListeners(
         }
     }
 
+    const toggleWindowListeners = (add?: boolean) => {
+        const method = add ? "addEventListener" : "removeEventListener"
+        window[method]("pointerdown", onPointerDown as EventListener)
+        window[method]("pointermove", onPointerMove as EventListener)
+        window[method]("pointerup", onPointerUp as EventListener)
+        window[method]("pointercancel", onPointerUp as EventListener)
+    }
+
     const onWheel = (event: WheelEvent) => {
         if (!event.ctrlKey || (source && source !== "wheel")) return
 
         current.x = event.clientX
         current.y = event.clientY
-        if (!source) begin(event, "wheel")
-        if (!source) return
+
+        if (!source) {
+            current.l = 0
+            begin(event, "wheel")
+            if (!source) return
+        }
 
         event.preventDefault()
 
-        current.d *= Math.exp(-event.deltaY / 100)
+        /**
+         * Lines (Firefox's mouse wheel) to pixels, and cap each event so a
+         * mouse wheel notch with ctrl held (about 100px) zooms a step.
+         */
+        current.l -=
+            clamp(-50, 50, event.deltaY * (event.deltaMode ? 16 : 1)) / 100
         wheelTime = time.now()
         moved(event)
     }
@@ -305,7 +394,7 @@ export function addPinchListeners(
             const { scale, rotation, clientX, clientY } = event as any
             current.x = clientX
             current.y = clientY
-            current.d = scale
+            current.l = Math.log(scale)
             current.a = rotation
 
             if (source) {
@@ -316,7 +405,7 @@ export function addPinchListeners(
             }
         }
 
-        if (source || pointers.size) event.preventDefault()
+        if (source) event.preventDefault()
     }
 
     const listeners = {
@@ -343,10 +432,8 @@ export function addPinchListeners(
             )
         }
         toggleWindowListeners()
-        cancelFrame(measure)
-        cancelFrame(update)
+        end(lastEvent)
         pointers.clear()
-        source = undefined
     }
 }
 
