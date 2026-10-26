@@ -43,7 +43,12 @@ interface TimestampedPoint extends Point {
 const overflowStyles = /*#__PURE__*/ new Set(["auto", "scroll"])
 
 export class PanSession {
-    private history: TimestampedPoint[]
+    /**
+     * The pointer's points since the session started. The first is where
+     * offsets are measured from. Public so pinch() can restart a drag
+     * from where it leaves the element.
+     */
+    history: TimestampedPoint[]
 
     private startEvent: PointerEvent | null = null
 

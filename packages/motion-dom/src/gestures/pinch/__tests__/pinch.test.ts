@@ -543,6 +543,25 @@ describe("pinch with drag", () => {
         await nextFrame()
     })
 
+    test("drag doesn't fling the element after a zoom", async () => {
+        layout(element, 0, 0)
+        stops.push(drag(element))
+        makePinchable(element)
+
+        // A zoom around a fixed point: the touches move fast, the focal
+        // point doesn't.
+        const gesture = await twoFinger(element, [40, 0, 60, 0])
+        for (let i = 1; i <= 8; i++) {
+            await gesture.to([40 - i * 20, 0, 60 + i * 20, 0])
+        }
+        const ve = visualElementStore.get(element)!
+        const x = ve.getValue("x")!.get()
+        await gesture.end()
+        await sleep(300)
+
+        expect(ve.getValue("x")!.get()).toBeCloseTo(x)
+    })
+
     test("pinching one element while another drags still moves it", async () => {
         const other = document.createElement("div")
         document.body.appendChild(other)
@@ -566,6 +585,40 @@ describe("pinch with drag", () => {
 })
 
 describe("pinch edge cases", () => {
+    test("x/y set during the gesture are kept", async () => {
+        let nudged = false
+        makePinchable(element, {
+            onMove: () => {
+                if (nudged) return
+                nudged = true
+                const x = styleSubjectEffect.get(element, "x")!
+                x.set((x.get() as number) + 100)
+            },
+        })
+
+        const gesture = await twoFinger(element, [0, 0, 100, 0])
+        await gesture.to([50, 0, 150, 0])
+        expect(value(element, "x")).toBeCloseTo(150)
+        await gesture.to([60, 0, 160, 0])
+        expect(value(element, "x")).toBeCloseTo(160)
+
+        await gesture.end()
+    })
+
+    test("an animation started mid-gesture doesn't take over afterwards", async () => {
+        makePinchable(element)
+
+        const gesture = await twoFinger(element, [0, 0, 100, 0])
+        await gesture.to([10, 0, 110, 0])
+        animateElement(element, { x: 300 }, { duration: 1 })
+        await gesture.to([20, 0, 120, 0])
+        await gesture.end()
+
+        const x = value(element, "x")
+        await sleep(100)
+        expect(value(element, "x")).toBe(x)
+    })
+
     test("zooms and rotates around an off-centre point", async () => {
         layout(element, 0, 0)
         makePinchable(element, { rotate: true })

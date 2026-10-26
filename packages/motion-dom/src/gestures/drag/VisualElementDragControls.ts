@@ -88,7 +88,7 @@ type DragDirection = "x" | "y"
 export class VisualElementDragControls {
     private visualElement: VisualElement<HTMLElement>
 
-    private panSession?: PanSession
+    panSession?: PanSession
 
     private openDragLock: VoidFunction | null = null
 
@@ -97,7 +97,7 @@ export class VisualElementDragControls {
 
     /**
      * Where the drag started, which pointer offsets are added to. Public
-     * so pinch() can move it when it moves a dragged element.
+     * so pinch() can restart a drag from where it leaves the element.
      */
     originPoint: Point = { x: 0, y: 0 }
 
