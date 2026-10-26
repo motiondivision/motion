@@ -63,7 +63,11 @@ describe("recordStats", () => {
         })
     })
 
-    it("projection doesn't count when stats aren't recorded", () => {
+    it("stops counting when recordStats() throws", () => {
+        recordStats()
+        expect(() => recordStats()).toThrow()
+
+        expect(statsBuffer.value).toBeNull()
         expect(statsBuffer.countProjection).toBeUndefined()
     })
 })
