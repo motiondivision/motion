@@ -37,6 +37,7 @@ const validMotionProps = new Set<keyof MotionProps>([
     "propagate",
     "ignoreStrict",
     "viewport",
+    "pinch",
 ])
 
 /**
