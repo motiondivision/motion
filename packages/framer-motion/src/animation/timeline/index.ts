@@ -660,8 +660,13 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
              * direction, as it does for a single animation.
              */
             const callback = (this.speed < 0 && onReverseComplete) || onComplete
+            /**
+             * Resolve this run's promise, even if the callback plays the
+             * timeline again and so makes a new one.
+             */
+            const resolve = this.resolveFinished
             callback?.()
-            this.resolveFinished()
+            resolve()
         })
     }
 
