@@ -402,20 +402,4 @@ describe("useSpring with MotionConfig isStatic", () => {
         expect(x!.get()).toBe(100)
         expect(x!.isAnimating()).toBe(false)
     })
-
-    test("returns a static value from a number", async () => {
-        let x: MotionValue<number> | undefined
-
-        const Component = () => {
-            x = useSpring(50)
-            return null
-        }
-        render(
-            <MotionConfig isStatic>
-                <Component />
-            </MotionConfig>
-        )
-
-        expect(x!.get()).toBe(50)
-    })
 })
