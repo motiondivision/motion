@@ -1,6 +1,5 @@
 import { activeScope } from "../scope/active"
 import { clamp } from "motion-utils"
-import { handOffElementState } from "../animation/animate/element"
 import { GroupAnimation } from "../animation/GroupAnimation"
 import type { AnimationOptions, Transition } from "../animation/types"
 import { frameData, frameSteps } from "../frameloop"
@@ -8,13 +7,12 @@ import { microtask } from "../frameloop/microtask"
 import { time } from "../frameloop/sync-time"
 import { HTMLProjectionNode } from "../projection/node/HTMLProjectionNode"
 import type { IProjectionNode } from "../projection/node/types"
-import { HTMLVisualElement } from "../render/html/HTMLVisualElement"
-import { visualElementStore } from "../render/store"
-import { hasTransform } from "../projection/utils/has-transform"
+import { resolveVisualElement } from "./visual-element"
 import {
     resolveElements,
     type ElementOrSelector,
 } from "../utils/resolve-elements"
+import { layoutProjection } from "../gestures/drag/projection"
 
 type LayoutAnimationScope = Element | Document
 type LayoutBuilderResolve = (animation: GroupAnimation) => void
@@ -84,25 +82,6 @@ function getProjectionParent(element: Element): IProjectionNode | undefined {
     return undefined
 }
 
-function createVisualElement() {
-    return new HTMLVisualElement(
-        {
-            props: {},
-            presenceContext: null,
-            visualState: {
-                latestValues: {},
-                renderState: {
-                    transform: {},
-                    transformOrigin: {},
-                    style: {},
-                    vars: {},
-                },
-            },
-        },
-        { allowProjection: true }
-    )
-}
-
 function readNodeOptions(element: HTMLElement, transition?: Transition) {
     const layoutAttr = element.getAttribute("data-layout")
     const layoutId = element.getAttribute("data-layout-id") ?? undefined
@@ -124,34 +103,7 @@ function prepareNode(
     let node = layoutNodes.get(element)
 
     if (!node) {
-        let visualElement = visualElementStore.get(element) as
-            | HTMLVisualElement
-            | undefined
-
-        if (!visualElement) {
-            visualElement = createVisualElement()
-
-            /**
-             * Values animate() has been rendering on this element move to
-             * the VisualElement, so the layout animation composes with
-             * them instead of overwriting them.
-             */
-            handOffElementState(element, visualElement)
-        }
-
-        /**
-         * A first-time element may carry a projection transform in its
-         * inline style (e.g. it was cloned from an element mid-animation).
-         * That transform isn't tracked in latestValues so the engine can't
-         * reset it before measuring - clear it now so the first layout
-         * measurement isn't inflated.
-         */
-        if (
-            element.style.transform &&
-            !hasTransform(visualElement.latestValues)
-        ) {
-            element.style.transform = ""
-        }
+        const visualElement = resolveVisualElement(element)
 
         node = new HTMLProjectionNode(
             visualElement.latestValues,
@@ -178,23 +130,11 @@ function prepareNode(
 }
 
 /**
- * Get a projection node for an element, so imperative gestures like
- * drag() can measure its layout. Reuses a node owned by a `motion`
- * component or animateLayout(), otherwise creates one in the shared
- * imperative tree. Returns the node and a function that releases it.
+ * Let drag() create its nodes in the shared imperative tree, so drag
+ * gestures and layout animations work together. Returns the node and a
+ * function that releases it.
  */
-export function acquireProjectionNode(
-    element: HTMLElement
-): [IProjectionNode, VoidFunction] {
-    const owned =
-        layoutNodes.get(element) || visualElementStore.get(element)?.projection
-
-    /**
-     * A VisualElement can outlive a node we released (e.g. a stopped
-     * drag()), so only reuse a node that's still mounted.
-     */
-    if (owned?.instance) return [owned, () => {}]
-
+layoutProjection.create = (element) => {
     const node = prepareNode(element)
 
     return [
