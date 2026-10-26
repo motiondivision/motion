@@ -19,8 +19,8 @@ export interface Contour {
     children: Contour[]
     /**
      * How far along the path each point is, from 0 to 1. Each of the
-     * path's curves takes an equal share, gone through evenly by its own
-     * parameter, as the path was drawn.
+     * path's curves that goes anywhere takes an equal share, gone through
+     * evenly by its own parameter, as the path was drawn.
      */
     along: number[]
 }
@@ -55,8 +55,10 @@ export function flatten(
         }
     }
 
+    // Curves that don't move take no share
+    const drawn = segments.filter((c) => c.some((v, i) => v !== c[i & 1]))
     add(segments[0][0], segments[0][1])
-    segments.forEach(([x0, y0, x1, y1, x2, y2, x3, y3], s) => {
+    drawn.forEach(([x0, y0, x1, y1, x2, y2, x3, y3], s) => {
         // Second differences bound how far a uniform split strays from the curve
         const dd = hypot(
             Math.max(Math.abs(x0 - 2 * x1 + x2), Math.abs(x1 - 2 * x2 + x3)),
@@ -73,7 +75,7 @@ export function flatten(
             const b = 3 * u * u * t
             const c = 3 * u * t * t
             const e = t * t * t
-            share = (s + t) / segments.length
+            share = (s + t) / drawn.length
             add(
                 a * x0 + b * x1 + c * x2 + e * x3,
                 a * y0 + b * y1 + c * y2 + e * y3
@@ -324,8 +326,9 @@ export function within(points: Points, x: number, y: number) {
  * comes within `margin` of its outline: the least scale at which one of
  * its points meets an edge or corner of the outline, or one of its edges
  * meets a corner. A hole that (x, y) sees all of keeps clear of the
- * outline at any smaller scale. Long polylines are thinned first, with
- * how far they stray from what's left added to the margin.
+ * outline at any smaller scale. Long polylines are thinned first, keeping
+ * enough of their points to stray from them by no more than a quarter of
+ * the margin, which is widened by how far they do.
  */
 export function contact(
     hole: Points,
@@ -335,8 +338,8 @@ export function contact(
     margin: number,
     most: number
 ) {
-    const [points, strayA] = sparse(hole)
-    const [polygon, strayB] = sparse(outer)
+    const [points, strayA] = sparse(hole, margin)
+    const [polygon, strayB] = sparse(outer, margin)
     const h = points.length
     const n = polygon.length
     const far: number[] = []
@@ -352,12 +355,9 @@ export function contact(
         const ay = polygon[j + 1] - y
         const ex = polygon[(j + 2) % n] - x - ax
         const ey = polygon[(j + 3) % n] - y - ay
-        const k = Math.max(
-            0,
-            Math.min(1, -(ax * ex + ay * ey) / (ex * ex + ey * ey || 1))
-        )
+        const [px, py] = closest(x, y, polygon, j)
         // A point this far from (x, y) can't come near the edge any sooner
-        const near = hypot(ax + k * ex, ay + k * ey) - margin
+        const near = hypot(px - x, py - y) - margin
         if (near >= radius * most) continue
 
         for (let i = 0; i < h; i += 2) {
@@ -387,23 +387,39 @@ export function contact(
 }
 
 /**
- * Every few points of a closed polyline, so there are at most 2 * CAGE of
- * them, and how far the polyline strays from them.
+ * Every few points of a polygon, at most `most` of them, and how many
+ * entries apart they are.
  */
-function sparse(points: Points): [Points, number] {
-    const step = 2 * Math.ceil(points.length / 4 / CAGE)
-    const kept = points.filter((_, i) => i % step < 2)
+export const every = (points: Points, most: number): [Points, number] => {
+    const step = 2 * Math.ceil(points.length / 2 / most)
+    return [points.filter((_, i) => i % step < 2), step]
+}
+
+/**
+ * Every few points of a closed polyline, no more than 2 * CAGE of them
+ * unless it would then stray from them by more than a quarter of
+ * `margin`, and how far it strays from them.
+ */
+function sparse(
+    points: Points,
+    margin: number,
+    most = 2 * CAGE
+): [Points, number] {
+    const [kept, step] = every(points, most)
     let stray = 0
     for (let i = 0; i < points.length; i += 2) {
         const [px, py] = closest(
             points[i],
             points[i + 1],
             kept,
-            (2 * (i - (i % step))) / step
+            2 * ((i / step) | 0)
         )
         stray = Math.max(stray, hypot(px - points[i], py - points[i + 1]))
     }
-    return [kept, stray]
+    // Keep twice as many while it strays too far
+    return step > 2 && stray > margin / 4
+        ? sparse(points, margin, most * 2)
+        : [kept, stray]
 }
 
 /**
@@ -440,7 +456,7 @@ function touch(
             ? (across - Math.sign(across) * margin * length) /
               (ex * uy - ey * ux)
             : swept
-            ? NaN
+            ? -1
             : 0
     const along = ((s * ux - ax) * ex + (s * uy - ay) * ey) / length ** 2
     return s >= 0 &&

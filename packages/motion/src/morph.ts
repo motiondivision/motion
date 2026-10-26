@@ -5,6 +5,7 @@ import {
     contact,
     contour,
     Contour,
+    every,
     fit,
     flatten,
     hypot,
@@ -46,14 +47,16 @@ const FINE = 16
 const JUMP = 0.1
 
 /**
- * Holes never shrink or grow faster than this, as a share of their size
- * over the whole morph.
+ * Holes shrink and grow no faster than this, as a share of their size
+ * over the whole morph, unless they'd touch their outline between the
+ * times it's measured.
  */
 const SLOPE = 6
 
 /**
- * Holes keep at least this share of how close they come to their outline
- * at either end, blended evenly through the morph.
+ * Holes keep this share of how close they come to their outline at
+ * either end, blended evenly through the morph, or as much of it as they
+ * can while they shrink.
  */
 const GAP = 0.5
 
@@ -352,8 +355,9 @@ function prepare(from: string, to: string, { linear }: MorphOptions = {}) {
      */
     const shape = (i: number, t: number): Points | undefined => {
         const { draw, parent } = tracks[i]
-        const outer = parent < 0 ? undefined : shape(parent, t)
-        return parent < 0 || outer ? draw(t, outer) : undefined
+        // Tracks with no parent ignore `outer`
+        const outer = parent < 0 || shape(parent, t)
+        return outer && draw(t, outer as Points)
     }
 
     /**
@@ -422,18 +426,16 @@ type Mix = (t: number, out: Points, outer: Points) => number | void
  * the parent's, how a point inside it does, the gap it keeps from the
  * parent's outline, and whether it can't shrink towards that point
  * without touching the outline, like a U inside a U. The gap is GAP of
- * how close it comes to the outline, or as much of that as it can keep
- * while it shrinks.
+ * how close it comes to the outline. A hole that can shrink keeps as much
+ * of that as it can while it shrinks, and one that can't is pushed to
+ * keep all of it.
  */
 type Seat = [Float64Array[], Float64Array, number, boolean]
 
 /**
  * At most CAGE of a polygon's points, evenly spread.
  */
-const cage = (points: Points) => {
-    const step = 2 * Math.ceil(points.length / 2 / CAGE)
-    return points.filter((_, i) => i % step < 2)
-}
+const cage = (points: Points) => every(points, CAGE)[0]
 
 /**
  * Mean value coordinates of each point with respect to a polygon.
@@ -448,7 +450,8 @@ const weigh = (points: Points, polygon: Points) => {
 
 function sit(points: Points, parent: Points, x: number, y: number): Seat {
     const polygon = cage(parent)
-    let gap = fit(points.slice(), parent, 0) * GAP
+    const keep = fit(points.slice(), parent, 0) * GAP
+    let gap = keep
     ;[x, y] = within(points, x, y)
     const fits = (margin: number) =>
         contact(points, parent, x, y, margin, 1) > 0.999
@@ -463,7 +466,13 @@ function sit(points: Points, parent: Points, x: number, y: number): Seat {
         }
         gap = low
     }
-    return [weigh(points, polygon), meanValue(x, y, polygon), gap, !fits(gap)]
+    const band = !fits(gap)
+    return [
+        weigh(points, polygon),
+        meanValue(x, y, polygon),
+        band ? keep : gap,
+        band,
+    ]
 }
 
 /**
@@ -474,10 +483,10 @@ function sit(points: Points, parent: Points, x: number, y: number): Seat {
  * shrink towards a point that sees all of them, to keep an even blend of
  * the gaps they keep at either end. They're gone while that point is
  * outside the outline. How much they shrink is planned ahead from
- * `parentAt`, which draws the parent at any `t`, so they never shrink
- * suddenly, as when part of them nears a corner of the outline. Holes
- * that can't shrink that way, like a U inside a U, are pushed away from
- * the outline instead.
+ * `parentAt`, which draws the parent at any `t`, so they start to shrink
+ * in time, as when part of them nears a corner of the outline, rather
+ * than suddenly. Holes that can't shrink that way, like a U inside a U,
+ * are pushed point by point to keep their gap instead.
  */
 function hold(
     [weightsA, middleA, gapA, bandA]: Seat,
@@ -535,7 +544,9 @@ function hold(
     }
 
     return (t, out, outer) => {
-        const u = Math.max(0, Math.min(1, t)) * last
+        // Past either end, as when a spring overshoots, holes keep their end
+        // shape and gap, among the points of their overshooting parent
+        const u = (t = Math.max(0, Math.min(1, t))) * last
         const k = Math.min(last - 1, u | 0)
         return mix(t, out, outer, plan[k] + (plan[k + 1] - plan[k]) * (u - k))
     }

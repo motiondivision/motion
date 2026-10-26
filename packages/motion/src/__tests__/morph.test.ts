@@ -1,5 +1,6 @@
 import { animate, interpolate, motionValue, transform } from "framer-motion/dom"
 import { morph } from "../morph"
+import { contact } from "../morph/geometry"
 
 /**
  * Geometry helpers for reading morph output, which is written as
@@ -563,6 +564,31 @@ describe("morph", () => {
         }
     })
 
+    test("keeps open paths on their curve though some of their segments don't move", () => {
+        const curve = "M0 0C30 60 70 60 100 0"
+        const cubic = (u: number): Point => [
+            3 * (1 - u) ** 2 * u * 30 + 3 * (1 - u) * u * u * 70 + u ** 3 * 100,
+            3 * (1 - u) ** 2 * u * 60 + 3 * (1 - u) * u * u * 60,
+        ]
+        const truth = Array.from({ length: 1001 }, (_, i) => cubic(i / 1000))
+        // As some exporters write them
+        for (const from of [
+            curve + "L100 0",
+            curve + "l0 0l0 0",
+            "M0 0l0 0C30 60 70 60 100 0",
+        ]) {
+            const [line] = read(morph(from, curve)!(0.5))
+            for (const p of line.points) {
+                const gap = Math.min(
+                    ...truth
+                        .slice(1)
+                        .map((q, i) => segmentDistance(p, truth[i], q))
+                )
+                expect(gap).toBeLessThan(0.5)
+            }
+        }
+    })
+
     test("moves the points of a line chart straight up and down", () => {
         const a = [80, 40, 60, 20, 50, 30]
         const b = [30, 70, 20, 60, 40, 80]
@@ -961,6 +987,63 @@ describe("morph", () => {
                     expect(jump).toBeLessThan(2)
                 }
                 previous = hole
+            }
+        }
+    })
+
+    test("keeps U-shaped holes at least half as far from their outline as an even blend of their ends", () => {
+        for (const [a, b] of [
+            [U, T],
+            [U, plus],
+            [U, box],
+            [plus, U],
+            [L, U],
+        ]) {
+            const mix = morph(outlined(a, 4), outlined(b, 4))!
+            for (let t = 0.02; t < 1; t += 0.02) {
+                const [outer, hole] = read(mix(t))
+                // Both ends are 4 from their outline
+                expect(clearance(hole, outer)).toBeGreaterThan(0.49 * 4)
+            }
+        }
+    })
+
+    test("finds that holes beside finely jagged outlines fit, so they needn't be pushed point by point", () => {
+        // A lake by a jagged coast. Thinning either outline strays further
+        // than the gap between them.
+        let seed = 42
+        const jagged = (r: number, n: number) => {
+            const points: Point[] = []
+            for (let i = 0; i < n; i++) {
+                seed = (seed * 16807) % 2147483647
+                const radius = r + 1.5 * (seed / 2147483647 - 0.5)
+                const angle = (i / n) * 2 * Math.PI
+                points.push([
+                    50 + radius * Math.cos(angle),
+                    50 + radius * Math.sin(angle),
+                ])
+            }
+            return { points, closed: true }
+        }
+        const coast = jagged(45, 1500)
+        const lake = jagged(42, 600)
+        const gap = clearance(lake, coast)
+        expect(
+            contact(lake.points.flat(), coast.points.flat(), 50, 50, gap / 2, 1)
+        ).toBeGreaterThan(0.999)
+    })
+
+    test("keeps holes inside their outline when a spring overshoots", () => {
+        const ring = (r: number) => circle(50, 50, 50) + circle(50, 50, r, 0)
+        for (const [a, b] of [
+            [ring(25), ring(48)],
+            [outlined(L, 8), outlined(U, 2)],
+        ]) {
+            const mix = morph(a, b)!
+            for (const t of [1.05, 1.1, 1.2, 1.3]) {
+                const [outer, hole] = read(mix(t))
+                expect(hole.points.every((p) => inside(p, outer))).toBe(true)
+                expect(crosses(hole, outer)).toBe(false)
             }
         }
     })
