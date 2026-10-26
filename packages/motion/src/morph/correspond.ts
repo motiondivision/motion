@@ -3,19 +3,13 @@ import { hypot, perimeter, Points } from "./geometry"
 /**
  * Work done per unit of each kind of change, relative to stretching an
  * edge, with both shapes scaled to the same size: moving the outline
- * (squared distance, per unit of length), moving neighbouring points
- * differently (squared difference, per unit of length), bending a corner
- * (radians) and turning the whole shape (squared radians). Stretching
- * stops edges collapsing, bending lines corners up with corners, and
- * moving keeps each part of a shape where it was, so parts don't twist
- * past each other on the way. On open paths, moving the least alone would
- * bunch points up wherever the paths are furthest apart, pinching the
- * crests of a flattening wave into peaks, so neighbours there also move
- * alike. Closed outlines pair as well without it, and the way holes keep
- * inside their outlines is tuned to how they pair.
+ * (squared distance, per unit of length), bending a corner (radians) and
+ * turning the whole shape (squared radians). Stretching stops edges
+ * collapsing, bending lines corners up with corners, and moving keeps
+ * each part of a shape where it was, so parts don't twist past each other
+ * on the way.
  */
 const MOVE = 15
-const WARP = 0.5
 const BEND = 0.15
 const ROTATE = 0.25
 
@@ -33,17 +27,16 @@ const FAN = 0.9
 const BAND = 0.25
 
 /**
- * Pair up the points of two polylines so that blending between them takes
- * the least work, after Sederberg & Greenwood 1992.
+ * Pair up the points of two closed outlines so that blending between them
+ * takes the least work, after Sederberg & Greenwood 1992.
  *
- * Returns both polylines with a point for every pair, so the same number
- * of points. The first is taken from `along`, a polyline with a point for
+ * Returns both outlines with a point for every pair, so the same number
+ * of points. The first is taken from `along`, an outline with a point for
  * each of a's, which is a itself unless a has been moved to match.
  */
 export function correspond(
     a: Points,
     b: Points,
-    closed: boolean,
     scale: number,
     along = a
 ): [Points, Points] {
@@ -51,16 +44,38 @@ export function correspond(
      * The search takes time in proportion to the product of the outlines'
      * point counts, so it runs on just enough points to follow each one.
      */
-    const keptA = thin(a, closed)
-    const keptB = thin(b, closed)
-    const pairs = search(pick(a, keptA), pick(b, keptB), closed, scale)
+    const keptA = thin(a)
+    const keptB = thin(b)
+    const pairs = search(pick(a, keptA), pick(b, keptB), scale)
     return expand(
         a,
         b,
         pairs.map((index, k) => (k & 1 ? keptB : keptA)[index]),
-        closed,
         along
     )
+}
+
+/**
+ * Pair up the points of two open paths by how far along them they are, so
+ * each part of one moves straight to the same part of the other, as a
+ * curve's points do when its control points move. Each path gets a point
+ * wherever the other has one.
+ */
+export function merge(
+    a: Points,
+    alongA: number[],
+    b: Points,
+    alongB: number[]
+): [Points, Points] {
+    const ea: Points = []
+    const eb: Points = []
+    for (const s of [...new Set(alongA.concat(alongB))].sort(
+        (p, q) => p - q
+    )) {
+        ea.push(...at(a, alongA, s, false))
+        eb.push(...at(b, alongB, s, false))
+    }
+    return [ea, eb]
 }
 
 /**
@@ -69,10 +84,10 @@ export function correspond(
  * of its length. Outlines that wiggle a lot keep a point for every
  * 1/TURNS of their turning instead, so there are never too many.
  */
-function thin(points: Points, closed: boolean) {
+function thin(points: Points) {
     const n = points.length / 2
-    const lengths = edges(points, closed)
-    const angles = turns(points, closed)
+    const lengths = edges(points, true)
+    const angles = turns(points)
     const turn = Math.max(
         TURN,
         angles.reduce((total, angle) => total + Math.abs(angle), 0) / TURNS
@@ -83,11 +98,7 @@ function thin(points: Points, closed: boolean) {
     for (let i = 1; i < n; i++) {
         travelled += lengths[i - 1]
         turned += Math.abs(angles[i])
-        if (
-            turned > turn ||
-            travelled + lengths[i] > SPACING ||
-            (!closed && i === n - 1)
-        ) {
+        if (turned > turn || travelled + lengths[i] > SPACING) {
             kept.push(i)
             travelled = turned = 0
         }
@@ -109,23 +120,21 @@ function pick(points: Points, indices: number[]) {
  * The cheapest way through the grid of point pairs, as a list of pairs
  * [indexA, indexB, ...].
  */
-function search(a: Points, b: Points, closed: boolean, scale: number) {
+function search(a: Points, b: Points, scale: number) {
     const m = a.length / 2
     const n = b.length / 2
-    let turnsA = turns(a, closed)
-    const turnsB = turns(b, closed)
+    let turnsA = turns(a)
+    const turnsB = turns(b)
 
     // Start a at its sharpest corner, to try pairing it with b's
     let sharpest = 0
-    if (closed) {
-        turnsA.forEach((turn, i) => {
-            if (Math.abs(turn) > Math.abs(turnsA[sharpest])) sharpest = i
-        })
-        a = a.slice(2 * sharpest).concat(a.slice(0, 2 * sharpest))
-        turnsA = turns(a, closed)
-    }
-    const edgesA = edges(a, closed)
-    const edgesB = edges(b, closed)
+    turnsA.forEach((turn, i) => {
+        if (Math.abs(turn) > Math.abs(turnsA[sharpest])) sharpest = i
+    })
+    a = a.slice(2 * sharpest).concat(a.slice(0, 2 * sharpest))
+    turnsA = turns(a)
+    const edgesA = edges(a, true)
+    const edgesB = edges(b, true)
 
     // Distances are measured with both centres in the same place
     let ax = 0
@@ -141,17 +150,16 @@ function search(a: Points, b: Points, closed: boolean, scale: number) {
         by += b[j + 1] / n
     }
 
-    const warp = closed ? 0 : WARP * scale * scale
     let best: number[] = []
     let bestWork = Infinity
-    for (const offset of closed ? startPoints(a, b, turnsA[0], turnsB) : [0]) {
+    for (const offset of startPoints(a, b, turnsA[0], turnsB)) {
         /**
          * Paired from this start, b may fit a best turned round, as when
          * the shapes are the same but rotated. Distances are measured
          * after that turn, which costs a little of its own, so a shape can
          * turn as a whole but parts can't twist.
          */
-        const angle = closed ? fit(a, b, offset, ax, ay, bx, by) : 0
+        const angle = fit(a, b, offset, ax, ay, bx, by)
         const cos = Math.cos(angle)
         const sin = Math.sin(angle)
         const fitted: number[] = []
@@ -161,8 +169,8 @@ function search(a: Points, b: Points, closed: boolean, scale: number) {
             fitted.push(ax + cos * x - sin * y, ay + sin * x + cos * y)
         }
 
-        const rows = closed ? m + 1 : m
-        const columns = closed ? n + 1 : n
+        const rows = m + 1
+        const columns = n + 1
         const work = new Float64Array(rows * columns).fill(Infinity)
         const steps = new Uint8Array(rows * columns)
         // Wide enough for neighbouring rows to overlap, so there's a path
@@ -234,16 +242,10 @@ function search(a: Points, b: Points, closed: boolean, scale: number) {
                                   )
                             : 1
 
-                    // How differently this pair moves to the previous one
-                    const wx = ex - a[2 * (pi % m)] + fitted[2 * indexB(pj)]
-                    const wy =
-                        ey - a[2 * (pi % m) + 1] + fitted[2 * indexB(pj) + 1]
-
                     const total =
                         previous +
                         (MOVE * distance * (lengthA + lengthB)) / 2 +
-                        (fan * 2 * (lengthA - lengthB) ** 2 +
-                            warp * (wx * wx + wy * wy)) /
+                        (fan * 2 * (lengthA - lengthB) ** 2) /
                             (lengthA + lengthB || 1) +
                         BEND * Math.abs(turnA - turnB)
 
@@ -264,7 +266,7 @@ function search(a: Points, b: Points, closed: boolean, scale: number) {
             best = []
             let i = rows - 1
             let j = columns - 1
-            while (closed ? i || j : i >= 0) {
+            while (i || j) {
                 // Pushed b-first, so reversing leaves [a, b] pairs
                 best.push(indexB(j), (i + sharpest) % m)
                 const step = steps[i * columns + j]
@@ -292,11 +294,10 @@ function expand(
     a: Points,
     b: Points,
     pairs: number[],
-    closed: boolean,
     along: Points
 ): [Points, Points] {
-    const distancesA = distances(a, closed)
-    const distancesB = distances(b, closed)
+    const distancesA = distances(a, true)
+    const distancesB = distances(b, true)
     const count = pairs.length / 2
     const previous = (k: number) => 2 * ((k + count - 1) % count)
     const sharesPoint = (k: number) =>
@@ -305,7 +306,7 @@ function expand(
 
     // Start between runs, so that none wraps round the end
     let start = 0
-    while (closed && start < count - 1 && sharesPoint(start)) start++
+    while (start < count - 1 && sharesPoint(start)) start++
 
     // The middle of each run, unwrapped so distances keep increasing
     const us: number[] = []
@@ -332,23 +333,16 @@ function expand(
         size++
     }
 
-    const last = us.length - 1
-    if (closed) {
-        us.push(us[0] + 1)
-        vs.push(vs[0] + 1)
-    } else {
-        // Open ends always pair with each other
-        us[0] = vs[0] = 0
-        us[last || 1] = vs[last || 1] = 1
-    }
+    us.push(us[0] + 1)
+    vs.push(vs[0] + 1)
 
     const entries: number[][] = []
     distancesA.forEach((x, i) => {
-        if (closed && x < us[0]) x++
+        if (x < us[0]) x++
         entries.push([x, map(us, vs, x), i, -1])
     })
     distancesB.forEach((y, j) => {
-        if (closed && y < vs[0]) y++
+        if (y < vs[0]) y++
         entries.push([map(vs, us, y), y, -1, j])
     })
     entries.sort((p, q) => p[0] - q[0])
@@ -367,11 +361,11 @@ function expand(
         }
         ea.push(
             ...(i < 0
-                ? at(along, distancesA, x, closed)
+                ? at(along, distancesA, x, true)
                 : [along[2 * i], along[2 * i + 1]])
         )
         eb.push(
-            ...(j < 0 ? at(b, distancesB, y, closed) : [b[2 * j], b[2 * j + 1]])
+            ...(j < 0 ? at(b, distancesB, y, true) : [b[2 * j], b[2 * j + 1]])
         )
     }
     return [ea, eb]
@@ -397,7 +391,7 @@ function map(xs: number[], ys: number[], x: number) {
 /**
  * How far along the outline each point is, as a share of its length.
  */
-function distances(points: Points, closed: boolean) {
+export function distances(points: Points, closed: boolean) {
     const lengths = edges(points, closed)
     const result = [0]
     for (let i = 1; i < lengths.length; i++) {
@@ -445,10 +439,10 @@ function edges(points: Points, closed: boolean) {
 /**
  * The angle the outline turns through at each point, in -π to π.
  */
-function turns(points: Points, closed: boolean) {
+function turns(points: Points) {
     const n = points.length / 2
     const angles = new Float64Array(n)
-    for (let i = closed ? 0 : 1; i < (closed ? n : n - 1); i++) {
+    for (let i = 0; i < n; i++) {
         const h = (i + n - 1) % n
         const j = (i + 1) % n
         angles[i] = wrap(

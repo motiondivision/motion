@@ -1,5 +1,5 @@
 import { blend } from "./morph/blend"
-import { correspond } from "./morph/correspond"
+import { correspond, distances, merge } from "./morph/correspond"
 import {
     contour,
     Contour,
@@ -18,7 +18,8 @@ import { parsePath, Subpath } from "./morph/parse"
 export interface MorphOptions {
     /**
      * Move every point in a straight line, rather than blending the
-     * lengths and angles of the outline's edges.
+     * lengths and angles of the outline's edges. Open paths always move
+     * in straight lines.
      */
     linear?: boolean
 }
@@ -64,9 +65,11 @@ interface Track {
  * ```
  *
  * Holes and separate pieces are matched by proximity. Pieces without a
- * partner shrink away or grow from a point. In-between shapes are written
- * as polylines, and the original strings are returned at 0 and 1, so an
- * interrupted morph carries on from wherever it was.
+ * partner shrink away or grow from a point. Each part of an open path
+ * moves straight to the same part of the other, as when a curve's control
+ * points move. In-between shapes are written as polylines, and the
+ * original strings are returned at 0 and 1, so an interrupted morph
+ * carries on from wherever it was.
  *
  * Returns `undefined` unless both values start with a moveto, which
  * leaves other values in the same transition to Motion's usual mixing.
@@ -109,12 +112,14 @@ function prepare(from: string, to: string, { linear }: MorphOptions = {}) {
     const precision = 10 ** Math.max(0, Math.round(Math.log10(5000 / size)))
     const shapes = (subpaths: Subpath[]) =>
         nest(
-            subpaths.map((subpath) =>
-                contour(
-                    flatten(subpath, size * TOLERANCE, DETAIL),
-                    subpath.closed
+            subpaths.map((subpath) => {
+                const [points, along] = flatten(
+                    subpath,
+                    size * TOLERANCE,
+                    DETAIL
                 )
-            )
+                return contour(points, subpath.closed, along)
+            })
         )
 
     const tracks: Track[] = []
@@ -171,6 +176,8 @@ function prepare(from: string, to: string, { linear }: MorphOptions = {}) {
         const closed = a.closed && b.closed
         let pa = a.points
         let pb = b.points
+        let alongA = a.along
+        let alongB = b.along
 
         /**
          * The first shape's contours keep their winding, and the second's
@@ -182,32 +189,38 @@ function prepare(from: string, to: string, { linear }: MorphOptions = {}) {
             if (flip < 0) pb = reverse(pb)
         } else {
             // A closed outline paired with an open one opens into a loop
-            if (a.closed) pa = loop(pa, pb)
-            if (b.closed) pb = loop(pb, pa)
+            if (a.closed) alongA = distances((pa = loop(pa, pb)), false)
+            if (b.closed) alongB = distances((pb = loop(pb, pa)), false)
             // Run both the same way, so the ends don't swap places
             const reversed = reverse(pb)
-            if (ends(pa, reversed) < ends(pa, pb)) pb = reversed
+            if (ends(pa, reversed) < ends(pa, pb)) {
+                pb = reversed
+                alongB = alongB.map((s) => 1 - s).reverse()
+            }
         }
 
         /**
          * Holes are matched where they'd sit in the second shape's parent,
          * so each point keeps to the same part of its parent throughout.
+         * Open paths move straight from each part to the same part of the
+         * other, like the points of a curve whose control points move.
          */
-        const [ea, eb] = correspond(
-            parentA
-                ? weigh(pa, cage(parentA)).flatMap((w) =>
-                      anchor(0, w, w, cage(parentB!))
-                  )
-                : pa,
-            pb,
-            closed,
-            1 / (Math.max(a.size, b.size) || 1),
-            pa
-        )
+        const [ea, eb] = closed
+            ? correspond(
+                  parentA
+                      ? weigh(pa, cage(parentA)).flatMap((w) =>
+                            anchor(0, w, w, cage(parentB!))
+                        )
+                      : pa,
+                  pb,
+                  1 / (Math.max(a.size, b.size) || 1),
+                  pa
+              )
+            : merge(pa, alongA, pb, alongB)
 
         const mix: Mix = parentA
             ? hold(sit(ea, parentA, a.x, a.y), sit(eb, parentB!, b.x, b.y))
-            : blend(ea, eb, closed, linear)
+            : blend(ea, eb, linear || !closed)
         const out: Points = []
         const index = tracks.length
 

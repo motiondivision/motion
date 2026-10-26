@@ -17,6 +17,12 @@ export interface Contour {
     y: number
     size: number
     children: Contour[]
+    /**
+     * How far along the path each point is, from 0 to 1. Each of the
+     * path's curves takes an equal share, gone through evenly by its own
+     * parameter, as the path was drawn.
+     */
+    along: number[]
 }
 
 export const hypot = Math.hypot
@@ -25,23 +31,27 @@ export const hypot = Math.hypot
  * Flatten cubics into a polyline whose distance from the curve stays
  * under `tolerance`, then split edges longer than 1/`detail` of the
  * perimeter. Short edges and corners are kept as they are, so features
- * survive and long sides get enough points to match against.
+ * survive and long sides get enough points to match against. Returns the
+ * polyline and how far along the path each point is.
  */
 export function flatten(
     { segments, closed }: Subpath,
     tolerance: number,
     detail: number
-): Points {
+): [Points, number[]] {
     const points: Points = []
+    const along: number[] = []
+    let share = 0
     const add = (px: number, py: number) => {
         const n = points.length
         if (!n || px !== points[n - 2] || py !== points[n - 1]) {
             points.push(px, py)
+            along.push(share)
         }
     }
 
     add(segments[0][0], segments[0][1])
-    for (const [x0, y0, x1, y1, x2, y2, x3, y3] of segments) {
+    segments.forEach(([x0, y0, x1, y1, x2, y2, x3, y3], s) => {
         // Second differences bound how far a uniform split strays from the curve
         const dd = hypot(
             Math.max(Math.abs(x0 - 2 * x1 + x2), Math.abs(x1 - 2 * x2 + x3)),
@@ -58,12 +68,13 @@ export function flatten(
             const b = 3 * u * u * t
             const c = 3 * u * t * t
             const e = t * t * t
+            share = (s + t) / segments.length
             add(
                 a * x0 + b * x1 + c * x2 + e * x3,
                 a * y0 + b * y1 + c * y2 + e * y3
             )
         }
-    }
+    })
 
     const n = points.length
     if (
@@ -73,17 +84,20 @@ export function flatten(
         points[1] === points[n - 1]
     ) {
         points.length -= 2
+        along.pop()
     }
 
     const maxLength = perimeter(points, closed) / detail
-    if (!maxLength) return points
+    if (!maxLength) return [points, along]
 
     const split: Points = []
+    const splitAlong: number[] = []
     const count = points.length / 2
     for (let i = 0; i < count; i++) {
         const x = points[2 * i]
         const y = points[2 * i + 1]
         split.push(x, y)
+        splitAlong.push(along[i])
         if (i < count - 1 || closed) {
             const j = (2 * i + 2) % points.length
             const dx = points[j] - x
@@ -91,10 +105,13 @@ export function flatten(
             const pieces = Math.ceil(hypot(dx, dy) / maxLength)
             for (let k = 1; k < pieces; k++) {
                 split.push(x + (dx * k) / pieces, y + (dy * k) / pieces)
+                splitAlong.push(
+                    along[i] + (((along[i + 1] ?? 1) - along[i]) * k) / pieces
+                )
             }
         }
     }
-    return split
+    return [split, splitAlong]
 }
 
 export function perimeter(points: Points, closed: boolean) {
@@ -109,7 +126,11 @@ export function perimeter(points: Points, closed: boolean) {
     return length
 }
 
-export function contour(points: Points, closed: boolean): Contour {
+export function contour(
+    points: Points,
+    closed: boolean,
+    along: number[] = []
+): Contour {
     const n = points.length
     let area = 0
     let x = 0
@@ -137,6 +158,7 @@ export function contour(points: Points, closed: boolean): Contour {
         y: (2 * y) / n,
         size: hypot(maxX - minX, maxY - minY),
         children: [],
+        along,
     }
 }
 

@@ -417,6 +417,65 @@ describe("morph", () => {
         }
     })
 
+    test("squashes a wave flat, moving each point straight to the line", () => {
+        // The wave's height at x, found along whichever of its curves holds x
+        const curves = [
+            [10, 50, 25, 15, 35, 15, 50, 50],
+            [50, 50, 65, 85, 75, 85, 90, 50],
+        ]
+        const cubic = (p: number[], i: number, u: number) =>
+            (1 - u) ** 3 * p[i] +
+            3 * (1 - u) ** 2 * u * p[i + 2] +
+            3 * (1 - u) * u * u * p[i + 4] +
+            u ** 3 * p[i + 6]
+        const height = (x: number) => {
+            const curve = curves[x < 50 ? 0 : 1]
+            let low = 0
+            let high = 1
+            for (let k = 0; k < 40; k++) {
+                const middle = (low + high) / 2
+                if (cubic(curve, 0, middle) < x) low = middle
+                else high = middle
+            }
+            return cubic(curve, 1, low)
+        }
+
+        for (const linear of [false, true]) {
+            const mix = morph(
+                "M10 50C25 15 35 15 50 50S75 85 90 50",
+                "M10 50H90",
+                { linear }
+            )!
+            for (const t of [0.25, 0.5, 0.75]) {
+                for (const [x, y] of read(mix(t))[0].points) {
+                    const squashed = 50 + (height(x) - 50) * (1 - t)
+                    expect(Math.abs(y - squashed)).toBeLessThan(0.5)
+                }
+            }
+        }
+    })
+
+    test("moves the points of a line chart straight up and down", () => {
+        const a = [80, 40, 60, 20, 50, 30]
+        const b = [30, 70, 20, 60, 40, 80]
+        const chart = (ys: number[]) =>
+            "M" + ys.map((y, i) => `${i * 20} ${y}`).join("L")
+
+        for (const linear of [false, true]) {
+            const mix = morph(chart(a), chart(b), { linear })!
+            for (const t of [0.25, 0.5, 0.75]) {
+                for (const [x, y] of read(mix(t))[0].points) {
+                    // Each chart's line at x, between the points either side
+                    const i = Math.min(Math.max(Math.floor(x / 20), 0), 4)
+                    const along = (ys: number[]) =>
+                        ys[i] + (ys[i + 1] - ys[i]) * (x / 20 - i)
+                    const blended = along(a) + (along(b) - along(a)) * t
+                    expect(Math.abs(y - blended)).toBeLessThan(0.5)
+                }
+            }
+        }
+    })
+
     test("continues from an interrupted morph", () => {
         const mid = morph(square, star)!(0.4)
         const next = morph(mid, circle(50, 50, 50))!
