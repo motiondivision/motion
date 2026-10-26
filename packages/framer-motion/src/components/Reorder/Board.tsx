@@ -8,13 +8,33 @@ import {
 } from "motion-dom"
 import type { Point } from "motion-utils"
 import * as React from "react"
+import { useRef } from "react"
 import { ReorderBoardContext } from "../../context/ReorderBoardContext"
 import { useConstant } from "../../utils/use-constant"
+import { useIsomorphicLayoutEffect } from "../../utils/use-isomorphic-effect"
 import type {
     ReorderAxis,
-    ReorderBoardProps,
+    ReorderBoardContextProps,
     ReorderContextProps,
 } from "./types"
+
+export interface Props<V> {
+    /**
+     * Whether `value` can move between two groups, from the group whose
+     * values are `from` to the group whose values are `to`. It's called
+     * before either group's `onReorder`. Return `false` to leave the item
+     * where it is: a dragged item stays in its group until it's dragged
+     * over another, and a keyboard move skips on to the next group that
+     * way. Escape always returns a grabbed item to where it was grabbed.
+     *
+     * ```jsx
+     * <Reorder.Board canMove={(card, from, to) => to.length < 5}>
+     * ```
+     *
+     * @public
+     */
+    canMove?: (value: V, from: V[], to: V[]) => boolean
+}
 
 type Group = ReorderContextProps<any>
 type DragEvent = MouseEvent | TouchEvent | PointerEvent
@@ -90,9 +110,18 @@ const isNested = (a: Group, b: Group) => {
     return x.contains(y) || y.contains(x)
 }
 
-function createBoard(): ReorderBoardProps {
+function createBoard(props: {
+    current: Props<unknown>
+}): ReorderBoardContextProps {
     const groups = new Set<Group>()
     let handoff: Handoff | undefined
+
+    /**
+     * Whether `value` can move between these groups, if the app lets it.
+     */
+    const canMove = (from: Group, to: Group, value: unknown) =>
+        !isNested(from, to) &&
+        props.current.canMove?.(value, from.values, to.values) !== false
 
     /**
      * Where the latest keyboard grab began, for Escape to return it there.
@@ -202,7 +231,7 @@ function createBoard(): ReorderBoardProps {
                 if (to) break
             }
 
-            if (!to || isNested(from, to)) return false
+            if (!to || !canMove(from, to, value)) return false
 
             const visualElement = visualElementStore.get(element)
             move(from, to, value, element, {
@@ -223,7 +252,7 @@ function createBoard(): ReorderBoardProps {
 
             for (const group of groups) {
                 const target = group.groupRef.current
-                if (!target || isNested(from, group)) continue
+                if (!target) continue
 
                 const { left, right, top, bottom, width, height } =
                     target.getBoundingClientRect()
@@ -237,7 +266,7 @@ function createBoard(): ReorderBoardProps {
 
                 const x = Math.max(left - point.x, 0, point.x - right)
                 const y = Math.max(top - point.y, 0, point.y - bottom)
-                if (x * x + y * y < nearest) {
+                if (x * x + y * y < nearest && canMove(from, group, value)) {
                     nearest = x * x + y * y
                     to = group
                 }
@@ -422,15 +451,32 @@ function createBoard(): ReorderBoardProps {
  * direction of an arrow key across its group's axis, or along it from
  * either end. Escape returns it to the group and slot it was grabbed from.
  *
+ * `canMove` can refuse a move before either group updates.
+ *
  * Values must be unique across the groups. If the app keeps the groups'
  * values in one state, update it from the latest state (e.g.
  * `setColumns((columns) => ...)`), as both groups update it in turn.
  *
  * @public
  */
-export function ReorderBoard({ children }: React.PropsWithChildren<{}>) {
+export function ReorderBoard<V = any>({
+    children,
+    ...props
+}: React.PropsWithChildren<Props<V>>) {
+    const latest = useRef(props as Props<unknown>)
+
+    /**
+     * In a layout effect, so a render React discards can't leave its
+     * props here.
+     */
+    useIsomorphicLayoutEffect(() => {
+        latest.current = props as Props<unknown>
+    })
+
     return (
-        <ReorderBoardContext.Provider value={useConstant(createBoard)}>
+        <ReorderBoardContext.Provider
+            value={useConstant(() => createBoard(latest))}
+        >
             {children}
         </ReorderBoardContext.Provider>
     )

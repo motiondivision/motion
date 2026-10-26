@@ -52,7 +52,7 @@ type Group = ReorderContextProps<any>
 /**
  * Lets the `Reorder.Group`s in a `Reorder.Board` move items between them.
  */
-export interface ReorderBoardProps {
+export interface ReorderBoardContextProps {
     /**
      * Register a group's latest context. Returns a function to remove it.
      */

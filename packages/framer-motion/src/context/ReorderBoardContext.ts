@@ -1,7 +1,7 @@
 "use client"
 
 import { createContext } from "react"
-import type { ReorderBoardProps } from "../components/Reorder/types"
+import type { ReorderBoardContextProps } from "../components/Reorder/types"
 
 export const ReorderBoardContext =
-    /* @__PURE__ */ createContext<ReorderBoardProps | null>(null)
+    /* @__PURE__ */ createContext<ReorderBoardContextProps | null>(null)
