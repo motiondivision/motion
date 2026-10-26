@@ -66,6 +66,34 @@ describe("Reorder", () => {
         expect(itemRefPass).toBe(true)
     })
 
+    it("Calls the cleanup a callback ref returns, rather than the ref with null", () => {
+        const calls: Array<string | null> = []
+        const callbackRef = (name: string) => (element: Element | null) => {
+            calls.push(element ? name : null)
+            return () => {
+                calls.push(`${name} cleanup`)
+            }
+        }
+
+        const { unmount } = render(
+            <Reorder.Group
+                ref={callbackRef("group")}
+                onReorder={() => {}}
+                values={[0]}
+            >
+                <Reorder.Item ref={callbackRef("item")} value={0} />
+            </Reorder.Group>
+        )
+        unmount()
+
+        expect([...calls].sort()).toEqual([
+            "group",
+            "group cleanup",
+            "item",
+            "item cleanup",
+        ])
+    })
+
     it("Preserves unmeasured items during reorder (virtualized list support)", () => {
         const onReorder = jest.fn()
         let capturedContext: any = null

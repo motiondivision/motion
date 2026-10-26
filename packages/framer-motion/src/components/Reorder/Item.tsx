@@ -3,16 +3,25 @@
 import { isMotionValue, visualElementStore } from "motion-dom"
 import { invariant } from "motion-utils"
 import * as React from "react"
-import { forwardRef, FunctionComponent, useContext, useState } from "react"
+import {
+    forwardRef,
+    FunctionComponent,
+    useContext,
+    useRef,
+    useState,
+} from "react"
+import { ReorderBoardContext } from "../../context/ReorderBoardContext"
 import { ReorderContext } from "../../context/ReorderContext"
 import type { MotionProxy } from "../../render/components/create-proxy"
 import { HTMLMotionProps } from "../../render/html/types"
 import { useConstant } from "../../utils/use-constant"
+import { useIsomorphicLayoutEffect } from "../../utils/use-isomorphic-effect"
 import { useMotionValue } from "../../value/use-motion-value"
 import { useTransform } from "../../value/use-transform"
 
-import { DefaultItemElement, ReorderElementTag } from "./types"
+import { DefaultItemElement, Grab, ReorderElementTag } from "./types"
 import { autoScrollIfNeeded, resetAutoScrollState } from "./utils/auto-scroll"
+import { setRef } from "./utils/set-ref"
 
 export interface Props<
     V,
@@ -61,6 +70,7 @@ export function ReorderItemComponent<
         style = {},
         value,
         as = "li" as TagName,
+        onDragStart,
         onDrag,
         onDragEnd,
         onKeyDown,
@@ -71,6 +81,8 @@ export function ReorderItemComponent<
     externalRef?: React.ForwardedRef<any>
 ): React.JSX.Element {
     const context = useContext(ReorderContext)
+    const board = useContext(ReorderBoardContext)
+    const ref = useRef<Element | null>(null)
 
     invariant(
         Boolean(context),
@@ -109,18 +121,32 @@ export function ReorderItemComponent<
         hasReordered,
         onKeyDown: handleKeyDown,
     } = context!
-    const dragAxis = axis === "xy" ? true : axis
+    /**
+     * In a Reorder.Board, items can be dragged out of their group.
+     */
+    const dragAxis = axis === "xy" || board ? true : axis
 
     /**
      * A keyboard grab is a drag without a pointer, so it shares whileDrag
      * (but not the drag callbacks, which need a pointer and PanInfo).
      */
-    const grab = (element: Element, from?: V[]) => {
+    const grab: Grab<V> = (element, from) => {
         setGrabbedFrom(from)
         visualElementStore
             .get(element)
             ?.animationState?.setActive("whileDrag", !!from)
     }
+
+    /**
+     * If this item was just moved here from another group, carry on its
+     * drag or keyboard grab. A drag carried on is the same gesture, so it
+     * doesn't call onDragStart again.
+     */
+    const isContinued = useRef(false)
+    useIsomorphicLayoutEffect(() => {
+        board?.receive(context!, value, ref.current!, grab) &&
+            (isContinued.current = true)
+    }, [])
 
     return (
         <Component
@@ -130,24 +156,39 @@ export function ReorderItemComponent<
             dragSnapToOrigin
             style={{ ...style, x: point.x, y: point.y, zIndex }}
             layout={layout}
+            onDragStart={(event, gesturePoint) => {
+                isContinued.current
+                    ? (isContinued.current = false)
+                    : onDragStart?.(event, gesturePoint)
+            }}
             onDrag={(event, gesturePoint) => {
                 const { velocity, point: pointerPoint } = gesturePoint
                 const offset = { x: point.x.get(), y: point.y.get() }
 
-                updateOrder(value, offset, velocity)
+                board?.drag(context!, value, ref.current!, event) ||
+                    updateOrder(value, offset, velocity)
 
-                const scrollAxis =
-                    axis === "xy"
-                        ? Math.abs(velocity.x) > Math.abs(velocity.y)
-                            ? "x"
-                            : "y"
-                        : axis
-                autoScrollIfNeeded(
-                    groupRef.current,
-                    pointerPoint[scrollAxis],
-                    scrollAxis,
-                    velocity[scrollAxis]
-                )
+                /**
+                 * In a Reorder.Board, scroll on both axes, e.g. across
+                 * columns as well as down them.
+                 */
+                const scrollAxes: Array<"x" | "y"> = board
+                    ? ["x", "y"]
+                    : [
+                          axis === "xy"
+                              ? Math.abs(velocity.x) > Math.abs(velocity.y)
+                                  ? "x"
+                                  : "y"
+                              : axis,
+                      ]
+                for (const scrollAxis of scrollAxes) {
+                    autoScrollIfNeeded(
+                        groupRef.current,
+                        pointerPoint[scrollAxis],
+                        scrollAxis,
+                        velocity[scrollAxis]
+                    )
+                }
 
                 onDrag && onDrag(event, gesturePoint)
             }}
@@ -172,9 +213,12 @@ export function ReorderItemComponent<
                 grabbedFrom && grab(event.currentTarget)
             }}
             onLayoutMeasure={(measured) => {
-                registerItem(value, measured)
+                registerItem(value, measured, ref.current!)
             }}
-            ref={externalRef}
+            ref={(element: Element | null) => {
+                ref.current = element
+                return setRef(externalRef, element)
+            }}
             ignoreStrict
         >
             {children}

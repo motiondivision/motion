@@ -48,7 +48,8 @@ function rect(this: HTMLElement): DOMRect {
     const group = this.closest("ul")
     if (!group) return box(0, 0, 0, 0)
 
-    const left = Array.from(document.querySelectorAll("ul")).indexOf(group) * 200
+    const left =
+        Array.from(document.querySelectorAll("ul")).indexOf(group) * 200
     if (this === group) return box(left, 0, 100, 300)
 
     const { x, y } = translate(this.style)
@@ -219,7 +220,10 @@ describe("Reorder.Board", () => {
     it("moves an item into the group its centre is dragged over", async () => {
         const onReorder = jest.fn()
         const { container, getByTestId } = render(
-            <Board initial={{ A: ["a", "b"], B: ["c", "d"] }} onReorder={onReorder} />
+            <Board
+                initial={{ A: ["a", "b"], B: ["c", "d"] }}
+                onReorder={onReorder}
+            />
         )
 
         // Between the groups: nothing moves
@@ -298,7 +302,10 @@ describe("Reorder.Board", () => {
                 initial={{ A: ["a"], B: ["b"] }}
                 onDragStart={onDragStart}
                 onDragEnd={onDragEnd}
-                dragTransition={{ bounceStiffness: 100000, bounceDamping: 100000 }}
+                dragTransition={{
+                    bounceStiffness: 100000,
+                    bounceDamping: 100000,
+                }}
             />
         )
 
@@ -326,16 +333,64 @@ describe("Reorder.Board", () => {
 
         const gesture = await drag(getByTestId("a")).to(200, 60)
         expect(getByTestId("a").closest("ul")).toBe(getByTestId("B"))
+
+        // Its drag carries on from the next frame
+        await act(nextFrame)
         expect(isGrabbed(getByTestId("a"))).toBe(true)
 
         await gesture.end()
         expect(isGrabbed(getByTestId("a"))).toBe(false)
     })
 
-    it("lets items in a board move on both axes", async () => {
+    it("ends the drag if it's released before the drag carries on", async () => {
+        const onDragEnd = jest.fn()
         const { getByTestId } = render(
-            <Board initial={{ A: ["a", "b"] }} />
+            <Board
+                initial={{ A: ["a"], B: ["b"] }}
+                whileDrag={{ opacity: 0.5 }}
+                onDragEnd={onDragEnd}
+            />
         )
+
+        const gesture = await drag(getByTestId("a")).to(200, 60)
+        await gesture.end()
+
+        expect(isGrabbed(getByTestId("a"))).toBe(false)
+        expect(onDragEnd).toBeCalledTimes(1)
+    })
+
+    it("carries how the item looks into its new group", async () => {
+        const { getByTestId } = render(
+            <Board
+                initial={{ A: ["a"], B: ["b"] }}
+                whileDrag={{ scale: 1.5 }}
+                transition={{ duration: 0.05 }}
+            />
+        )
+        const scale = () =>
+            visualElementStore.get(getByTestId("a"))!.getValue("scale")?.get()
+        const wait = () =>
+            act(async () => {
+                await new Promise((resolve) => setTimeout(resolve, 200))
+            })
+
+        const gesture = await drag(getByTestId("a")).to(100, 10)
+        await wait()
+        expect(scale()).toBe(1.5)
+
+        // Its whileDrag doesn't start over in its new group
+        await gesture.to(200, 60)
+        expect(getByTestId("a").closest("ul")).toBe(getByTestId("B"))
+        expect(scale()).toBe(1.5)
+
+        // And ends on release
+        await gesture.end()
+        await wait()
+        expect(scale()).toBe(1)
+    })
+
+    it("lets items in a board move on both axes", async () => {
+        const { getByTestId } = render(<Board initial={{ A: ["a", "b"] }} />)
 
         const gesture = await drag(getByTestId("a")).to(30, 10)
         expect(offset(getByTestId("a"))).toEqual({ x: 30, y: 10 })
@@ -387,7 +442,11 @@ describe("Reorder without a Board", () => {
                 <>
                     <Reorder.Group axis="y" values={a} onReorder={setA}>
                         {a.map((value) => (
-                            <Reorder.Item key={value} value={value} data-testid={value} />
+                            <Reorder.Item
+                                key={value}
+                                value={value}
+                                data-testid={value}
+                            />
                         ))}
                     </Reorder.Group>
                     <Reorder.Group
@@ -399,7 +458,11 @@ describe("Reorder without a Board", () => {
                         }}
                     >
                         {c.map((value) => (
-                            <Reorder.Item key={value} value={value} data-testid={value} />
+                            <Reorder.Item
+                                key={value}
+                                value={value}
+                                data-testid={value}
+                            />
                         ))}
                     </Reorder.Group>
                 </>
