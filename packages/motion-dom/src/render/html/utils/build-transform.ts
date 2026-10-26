@@ -1,5 +1,7 @@
 import { getValueAsType } from "../../../value/types/utils/get-as-type"
 import { numberValueTypes } from "../../../value/types/maps/number"
+import { transformValueTypes } from "../../../value/types/maps/transform"
+import type { AnyResolvedKeyframe } from "../../../animation/types"
 import { transformPropOrder } from "../../utils/keys-transform"
 import { ResolvedValues } from "../../types"
 import { HTMLRenderState } from "../types"
@@ -15,6 +17,27 @@ export const translateAlias: Record<string, string> = {
 const numTransforms = transformPropOrder.length
 
 /**
+ * Cache of `translateX(`-style openers so each transform function is a few
+ * string concatenations rather than a template.
+ */
+const openers: Record<string, string> = {}
+
+/**
+ * A transform function, e.g. `translateX(10px)` for `x: 10`.
+ */
+export const transformFunction = (key: string, value: AnyResolvedKeyframe) =>
+    (openers[key] ||= (translateAlias[key] || key) + "(") +
+    getValueAsType(value, transformValueTypes[key]) +
+    ")"
+
+/**
+ * Whether a transform value is at its default, so can be left out.
+ */
+export const isDefaultTransform = (key: string, value: AnyResolvedKeyframe) =>
+    (typeof value === "number" ? value : parseFloat(value)) ===
+    (key.startsWith("scale") ? 1 : 0)
+
+/**
  * Build a CSS transform style from individual x/y/scale etc properties.
  *
  * This outputs with a default order of transforms/scales/rotations, this can be customised by
@@ -27,7 +50,6 @@ export function buildTransform(
 ) {
     // The transform string we're going to build into.
     let transformString = ""
-    let transformIsDefault = true
 
     /**
      * Loop over all possible transforms in order, adding the ones that
@@ -39,26 +61,12 @@ export function buildTransform(
 
         if (value === undefined) continue
 
-        let valueIsDefault = true
-        if (typeof value === "number") {
-            valueIsDefault = value === (key.startsWith("scale") ? 1 : 0)
-        } else {
-            const parsed = parseFloat(value)
-            valueIsDefault = key.startsWith("scale") ? parsed === 1 : parsed === 0
+        if (!isDefaultTransform(key, value)) {
+            transformString += transformFunction(key, value) + " "
         }
 
-        if (!valueIsDefault || transformTemplate) {
-            const valueAsType = getValueAsType(value, numberValueTypes[key])
-
-            if (!valueIsDefault) {
-                transformIsDefault = false
-                const transformName = translateAlias[key] || key
-                transformString += `${transformName}(${valueAsType}) `
-            }
-
-            if (transformTemplate) {
-                transform[key] = valueAsType
-            }
+        if (transformTemplate) {
+            transform[key] = getValueAsType(value, numberValueTypes[key])
         }
     }
 
@@ -67,25 +75,14 @@ export function buildTransform(
     // `transformPropOrder`.
     const pathRotation = latestValues.pathRotation
     if (pathRotation) {
-        transformIsDefault = false
-        transformString += `rotate(${getValueAsType(
-            pathRotation,
-            numberValueTypes.pathRotation
-        )}) `
+        transformString += transformFunction("rotate", pathRotation)
     }
 
     transformString = transformString.trim()
 
     // If we have a custom `transform` template, pass our transform values and
     // generated transformString to that before returning
-    if (transformTemplate) {
-        transformString = transformTemplate(
-            transform,
-            transformIsDefault ? "" : transformString
-        )
-    } else if (transformIsDefault) {
-        transformString = "none"
-    }
-
-    return transformString
+    return transformTemplate
+        ? transformTemplate(transform, transformString)
+        : transformString || "none"
 }

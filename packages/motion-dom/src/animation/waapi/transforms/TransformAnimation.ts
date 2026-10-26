@@ -9,15 +9,13 @@ import { frame } from "../../../frameloop/frame"
 import { frameData } from "../../../frameloop/frame-data"
 import { time } from "../../../frameloop/sync-time"
 import {
-    buildTransform,
-    translateAlias,
+    isDefaultTransform,
+    transformFunction,
 } from "../../../render/html/utils/build-transform"
 import type { ResolvedValues } from "../../../render/types"
 import { transformPropOrder } from "../../../render/utils/keys-transform"
 import { mixNumber } from "../../../utils/mix/number"
 import type { MotionValue, Owner } from "../../../value"
-import { numberValueTypes } from "../../../value/types/maps/number"
-import { getValueAsType } from "../../../value/types/utils/get-as-type"
 import { frameloopDriver } from "../../drivers/frame"
 import { DriverControls } from "../../drivers/types"
 import { keyframes as keyframesGenerator } from "../../generators/keyframes"
@@ -538,28 +536,33 @@ function createGroup(owner: TransformOwner): TransformGroup {
     }
 
     /**
-     * Build the transform at a timestamp. Unlike buildTransform, every key
-     * is written, even at its default, so each keyframe has the same list
-     * of functions and the browser interpolates them one by one.
+     * Build a transform from values in transformPropOrder. For a keyframe,
+     * every key is written, even at its default, so each keyframe has the
+     * same list of functions and the browser interpolates them one by one.
+     * As an inline style, defaults are left out, as buildTransform does.
      */
-    const compose = (timestamp: number, settled?: number) => {
+    const toTransform = (values: ResolvedValues, isStyle?: boolean) => {
         let transform = ""
-        const values = valuesAt(timestamp, settled)
         for (const key in values) {
-            transform +=
-                (translateAlias[key] || key) +
-                "(" +
-                getValueAsType(values[key], numberValueTypes[key]) +
-                ") "
+            const value = values[key]
+            if (!isStyle || !isDefaultTransform(key, value)) {
+                transform += transformFunction(key, value) + " "
+            }
         }
-        return transform || "none"
+        return (isStyle ? transform.trim() : transform) || "none"
     }
+
+    /**
+     * Build the transform at a timestamp.
+     */
+    const compose = (timestamp: number, settled?: number) =>
+        toTransform(valuesAt(timestamp, settled))
 
     /**
      * Write the transform as an inline style, as the renderer would.
      */
     const commit = (values = valuesAt()) => {
-        element.style.transform = buildTransform(values, {})
+        element.style.transform = toTransform(values, true)
     }
 
     /**
