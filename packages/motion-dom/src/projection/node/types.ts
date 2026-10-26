@@ -109,7 +109,8 @@ export interface IProjectionNode<I = unknown> {
         box: Box,
         transformOnly?: boolean,
         output?: Box,
-        skipOwnTransform?: boolean
+        skipOwnTransform?: boolean,
+        start?: number
     ): Box
     resolveTargetDelta(force?: boolean): void
     removeRelativeTarget(): void
