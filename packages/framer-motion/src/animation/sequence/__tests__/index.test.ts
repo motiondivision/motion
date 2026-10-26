@@ -50,6 +50,26 @@ describe("createAnimationsFromSequence", () => {
         expect(animations.get(b)!.transition.opacity.mixer).toBe(undefined)
     })
 
+    test("It prefers a segment's mixer to the default transition's", () => {
+        const mixer = (from: string, to: string) => (p: number) =>
+            p < 0.5 ? from : to
+        const defaultMixer = (from: string, to: string) => (p: number) =>
+            p < 0.5 ? from : to
+        const animations = createAnimationsFromSequence(
+            [
+                [a, { d: "M0 0L10 10" }],
+                [a, { d: "M0 0L20 20" }, { mixer }],
+                [b, { d: "M0 0L10 10" }],
+            ],
+            { defaultTransition: { mixer: defaultMixer } },
+            undefined,
+            { spring }
+        )
+
+        expect(animations.get(a)!.transition.d.mixer).toBe(mixer)
+        expect(animations.get(b)!.transition.d.mixer).toBe(defaultMixer)
+    })
+
     test("It orders grouped keyframes correctly", () => {
         const animations = createAnimationsFromSequence(
             [
