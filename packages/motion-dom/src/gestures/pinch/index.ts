@@ -59,7 +59,8 @@ export interface PinchOptions {
      * Move the element with the focal point, and keep the point under the
      * fingers (or cursor) in place while scaling and rotating. Defaults to
      * `true`. Composes with drag: a drag that one of the touches started
-     * carries on from wherever the pinch leaves the element.
+     * carries on from wherever the pinch leaves the element (its offset
+     * restarts there). Drag constraints aren't applied while pinching.
      *
      * Assumes the default `transform-origin` (the element's centre).
      */
@@ -198,16 +199,23 @@ export function addPinchListeners(
         if (!values || !hasMoved) return
         hasMoved = false
 
-        const options = getOptions()
+        const {
+            rotate: canRotate,
+            scale: canScale,
+            pan,
+            min,
+            max,
+            onMove,
+        } = getOptions()
         const [scale, rotate, x, y] = values
-        const theta = options.rotate ? current.a - prev.a : 0
+        const theta = canRotate ? current.a - prev.a : 0
         const latest = scale.get()
         let k = 1
 
-        if (options.scale !== false && latest) {
+        if (canScale !== false && latest) {
             const next = clamp(
-                options.min ?? 0,
-                options.max ?? Infinity,
+                min ?? 0,
+                max ?? Infinity,
                 latest * Math.exp(current.l - prev.l)
             )
             k = next / latest
@@ -216,7 +224,33 @@ export function addPinchListeners(
 
         if (theta) rotate.set(rotate.get() + theta)
 
-        if (options.pan !== false) {
+        if (pan !== false) {
+            /**
+             * Pinch owns x/y while it runs, so stop any animation started
+             * on them since (like a drag's snap back) taking over after.
+             */
+            x.stop()
+            y.stop()
+
+            /**
+             * If drag() or the drag prop is dragging this element with one
+             * of the touches, it has set x/y this frame to where it started
+             * plus the touch's offset. Carry on from our own values instead,
+             * and restart the drag from them and the touch's latest point.
+             * That way it continues from wherever the pinch leaves the
+             * element, and its release velocity only counts movement after
+             * the pinch, so a zoom doesn't end in a fling.
+             */
+            const drag = elementDragControls.get(
+                visualElementStore.get(element)!
+            )
+            const isDragging = drag?.isDragging
+
+            if (!isDragging) {
+                lastX = x.get()
+                lastY = y.get()
+            }
+
             const angle = (theta * Math.PI) / 180
             const cos = Math.cos(angle) * k
             const sin = Math.sin(angle) * k
@@ -230,18 +264,11 @@ export function addPinchListeners(
             lastX += dx + current.x - prev.x - (cos * dx - sin * dy)
             lastY += dy + current.y - prev.y - (sin * dx + cos * dy)
 
-            /**
-             * Pinch owns x/y while it runs. If drag() or the drag prop is
-             * dragging this element with one of the touches, it sets x/y
-             * from where it started plus the touch's offset, so move where
-             * it started by however far its latest write is from ours.
-             */
-            const drag = elementDragControls.get(
-                visualElementStore.get(element)!
-            )
-            if (drag?.isDragging) {
-                drag.originPoint.x += lastX - x.get()
-                drag.originPoint.y += lastY - y.get()
+            if (isDragging) {
+                const history = drag!.panSession?.history
+                history?.splice(0, history.length - 1)
+                drag!.originPoint.x = lastX
+                drag!.originPoint.y = lastY
             }
 
             x.set(lastX)
@@ -249,7 +276,7 @@ export function addPinchListeners(
         }
 
         Object.assign(prev, current)
-        options.onMove?.(lastEvent, info())
+        onMove?.(lastEvent, info())
     }
 
     /**
