@@ -105,9 +105,10 @@ describe("scroll() animation", () => {
             .wait(200)
             .get("#color")
             .should(([$element]: any) => {
-                // backgroundColor is WAAPI-accelerated so the browser interpolates in sRGB
+                // backgroundColor isn't accelerated, so it's mixed in JS in
+                // linear color space
                 expect(getComputedStyle($element).backgroundColor).to.equal(
-                    "rgb(128, 128, 128)"
+                    "rgb(180, 180, 180)"
                 )
 
                 // This is animated by animate mini and thus doesn't use linear RGB mixing
@@ -125,7 +126,7 @@ describe("scroll() animation", () => {
             .get("#color")
             .should(([$element]: any) => {
                 expect(getComputedStyle($element).backgroundColor).to.equal(
-                    "rgb(191, 191, 191)"
+                    "rgb(221, 221, 221)"
                 )
                 expect(getComputedStyle($element).color).to.equal(
                     "rgb(64, 64, 64)"

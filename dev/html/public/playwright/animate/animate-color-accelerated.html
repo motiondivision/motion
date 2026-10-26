@@ -20,8 +20,9 @@
             const { animate } = window.Motion
 
             // Long duration + linear ease so a mid-animation measurement lands
-            // strictly between the endpoints. backgroundColor is now in the
-            // accelerated set, so this should run as a WAAPI animation.
+            // strictly between the endpoints. backgroundColor isn't in the
+            // accelerated set (WAAPI mixes colors in sRGB, JS in linear space,
+            // so interrupts jumped), so this should run on the JS path.
             animate(
                 "#color",
                 { backgroundColor: "rgb(0, 0, 255)" },
