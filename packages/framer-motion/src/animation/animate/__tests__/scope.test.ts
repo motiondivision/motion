@@ -89,6 +89,38 @@ describe("scopeMotion", () => {
         expect(await isAnimating(x)).toBe(false)
     })
 
+    test("stop() stops a sequence that's changed and played after finishing", async () => {
+        const x = motionValue(0)
+        let animation: ReturnType<typeof animate>
+        const scope = scopeMotion(() => {
+            animation = animate([[x, 100, { duration: 0.01 }]])
+        })
+
+        await animation!
+        animation!.add([x, 0, { duration: 10 }])
+        animation!.play()
+
+        expect(await isAnimating(x)).toBe(true)
+        scope.stop()
+        expect(await isAnimating(x)).toBe(false)
+    })
+
+    test("stop() stops an animation played again after finishing", async () => {
+        const x = motionValue(0)
+        let animation: ReturnType<typeof animate>
+        const scope = scopeMotion(() => {
+            animation = animate(x, 100, { duration: 0.05 })
+        })
+
+        await animation!
+        animation!.time = 0
+        animation!.play()
+
+        expect(await isAnimating(x)).toBe(true)
+        scope.stop()
+        expect(await isAnimating(x)).toBe(false)
+    })
+
     test("doesn't collect animations started outside the scope", async () => {
         const x = motionValue(0)
         const scope = scopeMotion()
