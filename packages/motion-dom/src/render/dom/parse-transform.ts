@@ -73,27 +73,17 @@ export function parseValueFromTransform(
         return defaultTransformValue(name)
     }
 
-    const matrix3dMatch = transform.match(/^matrix3d\(([-\d.e\s,]+)\)$/u)
-
-    let parsers: MatrixParsers
-    let match: RegExpMatchArray | null
-
-    if (matrix3dMatch) {
-        parsers = matrix3dParsers
-        match = matrix3dMatch
-    } else {
-        const matrix2dMatch = transform.match(/^matrix\(([-\d.e\s,]+)\)$/u)
-
-        parsers = matrix2dParsers
-        match = matrix2dMatch
-    }
+    const match = transform.match(/^matrix(3d)?\(([-\d.e\s,]+)\)$/u)
 
     if (!match) {
         return defaultTransformValue(name)
     }
 
-    const valueParser = parsers[name]
-    const values = match[1].split(",").map(convertTransformToNumber)
+    const valueParser = (match[1] ? matrix3dParsers : matrix2dParsers)[name]
+    /**
+     * parseFloat skips leading whitespace and stops at trailing whitespace.
+     */
+    const values = match[2].split(",").map((v) => parseFloat(v))
 
     return typeof valueParser === "function"
         ? valueParser(values)
@@ -103,8 +93,4 @@ export function parseValueFromTransform(
 export const readTransformValue = (instance: HTMLElement, name: string) => {
     const { transform = "none" } = getComputedStyle(instance)
     return parseValueFromTransform(transform, name)
-}
-
-function convertTransformToNumber(value: string): number {
-    return parseFloat(value.trim())
 }

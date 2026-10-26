@@ -463,9 +463,7 @@ export abstract class VisualElement<
 
         visualElementStore.set(instance, this)
 
-        if (this.projection && !this.projection.instance) {
-            this.projection.mount(instance)
-        }
+        this.projection?.instance || this.projection?.mount(instance)
 
         /**
          * Join the closest variant node above, so its variant changes
@@ -522,12 +520,12 @@ export abstract class VisualElement<
     }
 
     unmount() {
-        this.projection && this.projection.unmount()
+        this.projection?.unmount()
         cancelFrame(this.notifyUpdate)
         cancelFrame(this.render)
         this.valueSubscriptions.forEach((remove) => remove())
         this.valueSubscriptions.clear()
-        this.removeFromVariantTree && this.removeFromVariantTree()
+        this.removeFromVariantTree?.()
         this.parent?.removeChild(this)
 
         for (const key in this.events) {
@@ -546,19 +544,18 @@ export abstract class VisualElement<
 
     addChild(child: VisualElement) {
         this.children.add(child)
-        this.enteringChildren ??= new Set()
-        this.enteringChildren.add(child)
+        ;(this.enteringChildren || (this.enteringChildren = new Set())).add(
+            child
+        )
     }
 
     removeChild(child: VisualElement) {
         this.children.delete(child)
-        this.enteringChildren && this.enteringChildren.delete(child)
+        this.enteringChildren?.delete(child)
     }
 
     private bindToMotionValue(key: string, value: MotionValue) {
-        if (this.valueSubscriptions.has(key)) {
-            this.valueSubscriptions.get(key)!()
-        }
+        this.valueSubscriptions.get(key)?.()
 
         if (
             value.accelerate &&
@@ -624,7 +621,7 @@ export abstract class VisualElement<
 
         this.valueSubscriptions.set(key, () => {
             removeOnChange()
-            if (removeSyncCheck) removeSyncCheck()
+            removeSyncCheck?.()
             // Defer to MotionValue.on("change") auto-stop so React 19 remounts
             // can resubscribe before the animation is cancelled (#3315).
         })
@@ -767,10 +764,8 @@ export abstract class VisualElement<
          */
         for (let i = 0; i < propEventHandlers.length; i++) {
             const key = propEventHandlers[i]
-            if (this.propEventSubscriptions[key]) {
-                this.propEventSubscriptions[key]()
-                delete this.propEventSubscriptions[key]
-            }
+            this.propEventSubscriptions[key]?.()
+            delete this.propEventSubscriptions[key]
 
             const listenerName = ("on" + key) as keyof typeof props
             const listener = props[listenerName]
@@ -785,9 +780,7 @@ export abstract class VisualElement<
             this.prevMotionValues
         )
 
-        if (this.handleChildMotionValue) {
-            this.handleChildMotionValue()
-        }
+        this.handleChildMotionValue?.()
     }
 
     getProps() {
@@ -798,7 +791,7 @@ export abstract class VisualElement<
      * Returns the variant definition with a given name.
      */
     getVariant(name: string) {
-        return this.props.variants ? this.props.variants[name] : undefined
+        return this.props.variants?.[name]
     }
 
     /**
@@ -840,11 +833,8 @@ export abstract class VisualElement<
      */
     removeValue(key: string) {
         this.values.delete(key)
-        const unsubscribe = this.valueSubscriptions.get(key)
-        if (unsubscribe) {
-            unsubscribe()
-            this.valueSubscriptions.delete(key)
-        }
+        this.valueSubscriptions.get(key)?.()
+        this.valueSubscriptions.delete(key)
         delete this.latestValues[key]
         this.removeValueFromRenderState(key, this.renderState)
     }
@@ -866,11 +856,10 @@ export abstract class VisualElement<
         key: string,
         defaultValue?: AnyResolvedKeyframe | null
     ): MotionValue | undefined {
-        if (this.props.values && this.props.values[key]) {
-            return this.props.values[key]
-        }
+        let value: MotionValue | undefined = this.props.values?.[key]
+        if (value) return value
 
-        let value = this.values.get(key)
+        value = this.values.get(key)
 
         if (value === undefined && defaultValue !== undefined) {
             value = motionValue(defaultValue ?? this.getDefaultValue?.(key), {
@@ -934,20 +923,17 @@ export abstract class VisualElement<
         eventName: EventName,
         callback: VisualElementEventCallbacks[EventName]
     ) {
-        if (!this.events[eventName]) {
-            this.events[eventName] = new SubscriptionManager()
-        }
-
-        return this.events[eventName].add(callback)
+        return (
+            this.events[eventName] ||
+            (this.events[eventName] = new SubscriptionManager())
+        ).add(callback)
     }
 
     notify<EventName extends keyof VisualElementEventCallbacks>(
         eventName: EventName,
         ...args: any
     ) {
-        if (this.events[eventName]) {
-            this.events[eventName].notify(...args)
-        }
+        this.events[eventName]?.notify(...args)
     }
 
     scheduleRenderMicrotask() {

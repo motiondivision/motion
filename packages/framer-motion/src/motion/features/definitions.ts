@@ -1,18 +1,13 @@
-import { getFeatureDefinitions, setFeatureDefinitions } from "motion-dom"
+import {
+    getFeatureDefinitions,
+    setFeatureDefinitions,
+    variantPriorityOrder,
+} from "motion-dom"
 import { MotionProps } from "../types"
 import { FeatureDefinitions } from "./types"
 
 const featureProps = {
-    animation: [
-        "animate",
-        "variants",
-        "whileHover",
-        "whileTap",
-        "exit",
-        "whileInView",
-        "whileFocus",
-        "whileDrag",
-    ],
+    animation: ["variants", ...variantPriorityOrder],
     exit: ["exit"],
     drag: ["drag", "dragControls"],
     focus: ["whileFocus"],

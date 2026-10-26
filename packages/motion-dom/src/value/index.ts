@@ -330,11 +330,9 @@ export class MotionValue<V = any> {
      * @public
      */
     set(v: V) {
-        if (!this.passiveEffect) {
-            this.updateAndNotify(v)
-        } else {
-            this.passiveEffect(v, this.updateAndNotify)
-        }
+        this.passiveEffect
+            ? this.passiveEffect(v, this.updateAndNotify)
+            : this.updateAndNotify(v)
     }
 
     setWithVelocity(prev: V, current: V, delta: number) {
@@ -353,14 +351,10 @@ export class MotionValue<V = any> {
         this.prev = v
         this.prevUpdatedAt = this.prevFrameValue = undefined
         endAnimation && this.stop()
-        if (this.stopPassiveEffect) this.stopPassiveEffect()
+        this.stopPassiveEffect?.()
     }
 
     dirty() {
-        this.notifyChange()
-    }
-
-    private notifyChange() {
         const { current, changeSubscriber } = this
         /**
          * One or the other exists. Subscribing during the direct
@@ -375,16 +369,11 @@ export class MotionValue<V = any> {
     }
 
     addDependent(dependent: MotionValue) {
-        if (!this.dependents) {
-            this.dependents = new Set()
-        }
-        this.dependents.add(dependent)
+        ;(this.dependents ||= new Set()).add(dependent)
     }
 
     removeDependent(dependent: MotionValue) {
-        if (this.dependents) {
-            this.dependents.delete(dependent)
-        }
+        this.dependents?.delete(dependent)
     }
 
     updateAndNotify = (v: V) => {
@@ -405,7 +394,7 @@ export class MotionValue<V = any> {
 
         // Update update subscribers
         if (this.current !== this.prev) {
-            this.notifyChange()
+            this.dirty()
 
             if (this.dependents) {
                 for (const dependent of this.dependents) {
@@ -423,9 +412,7 @@ export class MotionValue<V = any> {
      * @public
      */
     get() {
-        if (collectMotionValues.current) {
-            collectMotionValues.current.push(this)
-        }
+        collectMotionValues.current?.push(this)
 
         /**
          * A value animating on the compositor isn't updated every frame,
@@ -511,7 +498,7 @@ export class MotionValue<V = any> {
             animation = startAnimation(() => {
                 isComplete = true
                 this.events.animationComplete?.notify()
-                if (this.animation === animation) this.clearAnimation()
+                if (this.animation === animation) this.animation = undefined
                 resolve()
             })
 
@@ -529,11 +516,10 @@ export class MotionValue<V = any> {
     stop() {
         if (this.animation) {
             this.animation.stop()
-            if (this.events.animationCancel) {
-                this.events.animationCancel.notify()
-            }
+            this.events.animationCancel?.notify()
         }
-        this.clearAnimation()
+        // Assign rather than delete to keep the object's shape stable
+        this.animation = undefined
     }
 
     /**
@@ -543,11 +529,6 @@ export class MotionValue<V = any> {
      */
     isAnimating() {
         return !!this.animation
-    }
-
-    private clearAnimation() {
-        // Assign rather than delete to keep the object's shape stable
-        this.animation = undefined
     }
 
     /**
@@ -564,10 +545,7 @@ export class MotionValue<V = any> {
         this.events.destroy?.notify()
         this.clearListeners()
         this.stop()
-
-        if (this.stopPassiveEffect) {
-            this.stopPassiveEffect()
-        }
+        this.stopPassiveEffect?.()
     }
 }
 

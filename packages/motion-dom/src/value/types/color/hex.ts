@@ -2,36 +2,23 @@ import { RGBA } from "../types"
 import { rgba } from "./rgba"
 import { isColorString } from "./utils"
 
+/**
+ * #FF0000 has two characters per channel, #F00 one, which is doubled.
+ */
+const channel = (v: string, i: number, size: number) => {
+    const c = v.substring(1 + i * size, 1 + (i + 1) * size)
+    return size > 1 ? c : c + c
+}
+
 function parseHex(v: string): RGBA {
-    let r = ""
-    let g = ""
-    let b = ""
-    let a = ""
-
-    // If we have 6 characters, ie #FF0000
-    if (v.length > 5) {
-        r = v.substring(1, 3)
-        g = v.substring(3, 5)
-        b = v.substring(5, 7)
-        a = v.substring(7, 9)
-
-        // Or we have 3 characters, ie #F00
-    } else {
-        r = v.substring(1, 2)
-        g = v.substring(2, 3)
-        b = v.substring(3, 4)
-        a = v.substring(4, 5)
-        r += r
-        g += g
-        b += b
-        a += a
-    }
+    const size = v.length > 5 ? 2 : 1
+    const alpha = channel(v, 3, size)
 
     return {
-        red: parseInt(r, 16),
-        green: parseInt(g, 16),
-        blue: parseInt(b, 16),
-        alpha: a ? parseInt(a, 16) / 255 : 1,
+        red: parseInt(channel(v, 0, size), 16),
+        green: parseInt(channel(v, 1, size), 16),
+        blue: parseInt(channel(v, 2, size), 16),
+        alpha: alpha ? parseInt(alpha, 16) / 255 : 1,
     }
 }
 

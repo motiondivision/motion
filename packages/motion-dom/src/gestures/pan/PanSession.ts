@@ -1,3 +1,4 @@
+import { addDomEvent } from "../../events/add-dom-event"
 import { addPointerEvent } from "../../events/add-pointer-event"
 import { extractEventInfo } from "../../events/event-info"
 import { cancelFrame, frame } from "../../frameloop/frame"
@@ -71,7 +72,7 @@ export class PanSession {
 
     private handlers: Partial<PanSessionHandlers> = {}
 
-    private removeListeners: Function
+    private removeListeners?: Function
 
     /**
      * For determining if an animation should resume after it is interrupted
@@ -93,7 +94,7 @@ export class PanSession {
     /**
      * Cleanup function for scroll listeners.
      */
-    private removeScrollListeners: (() => void) | null = null
+    private removeScrollListeners?: Function
 
     constructor(
         event: PointerEvent,
@@ -174,34 +175,22 @@ export class PanSession {
                 overflowStyles.has(style.overflowX) ||
                 overflowStyles.has(style.overflowY)
             ) {
-                this.scrollPositions.set(current, {
-                    x: current.scrollLeft,
-                    y: current.scrollTop,
-                })
+                this.scrollPositions.set(current, getScroll(current))
             }
             current = current.parentElement
         }
 
         // Track window scroll
-        this.scrollPositions.set(window, {
-            x: window.scrollX,
-            y: window.scrollY,
-        })
+        this.scrollPositions.set(window, getScroll(window))
 
-        // Capture listener catches element scroll events as they bubble
-        window.addEventListener("scroll", this.onElementScroll, {
-            capture: true,
-        })
-
-        // Direct window scroll listener (window scroll doesn't bubble)
-        window.addEventListener("scroll", this.onWindowScroll)
-
-        this.removeScrollListeners = () => {
-            window.removeEventListener("scroll", this.onElementScroll, {
+        this.removeScrollListeners = pipe(
+            // Capture listener catches element scroll events as they bubble
+            addDomEvent(window, "scroll", this.onElementScroll, {
                 capture: true,
-            })
-            window.removeEventListener("scroll", this.onWindowScroll)
-        }
+            }),
+            // Direct window scroll listener (window scroll doesn't bubble)
+            addDomEvent(window, "scroll", this.onWindowScroll, {})
+        )
     }
 
     private onElementScroll = (event: Event): void => {
@@ -223,12 +212,7 @@ export class PanSession {
         if (!initial) return
 
         const isWindow = target === window
-        const current = isWindow
-            ? { x: window.scrollX, y: window.scrollY }
-            : {
-                  x: (target as Element).scrollLeft,
-                  y: (target as Element).scrollTop,
-              }
+        const current = getScroll(target)
 
         const delta = { x: current.x - initial.x, y: current.y - initial.y }
         if (delta.x === 0 && delta.y === 0) return
@@ -281,11 +265,11 @@ export class PanSession {
         const { onStart, onMove } = this.handlers
 
         if (!isPanStarted) {
-            onStart && onStart(this.lastMoveEvent, info)
+            onStart?.(this.lastMoveEvent, info)
             this.startEvent = this.lastMoveEvent
         }
 
-        onMove && onMove(this.lastMoveEvent, info)
+        onMove?.(this.lastMoveEvent, info)
     }
 
     private handlePointerMove = (event: PointerEvent, info: EventInfo) => {
@@ -316,7 +300,7 @@ export class PanSession {
         // Resume animation if dragSnapToOrigin is set OR if no drag started (user just clicked)
         // This ensures constraint animations continue when interrupted by a click
         if (this.dragSnapToOrigin || !this.startEvent) {
-            resumeAnimation && resumeAnimation()
+            resumeAnimation?.()
         }
         if (!(this.lastMoveEvent && this.lastMoveEventInfo)) return
 
@@ -327,11 +311,8 @@ export class PanSession {
             this.history
         )
 
-        if (this.startEvent && onEnd) {
-            onEnd(event, panInfo)
-        }
-
-        onSessionEnd && onSessionEnd(event, panInfo)
+        this.startEvent && onEnd?.(event, panInfo)
+        onSessionEnd?.(event, panInfo)
     }
 
     updateHandlers(handlers: Partial<PanSessionHandlers>) {
@@ -339,12 +320,20 @@ export class PanSession {
     }
 
     end() {
-        this.removeListeners && this.removeListeners()
-        this.removeScrollListeners && this.removeScrollListeners()
+        this.removeListeners?.()
+        this.removeScrollListeners?.()
         this.scrollPositions.clear()
         cancelFrame(this.updatePoint)
     }
 }
+
+const getScroll = (target: Element | Window): Point =>
+    target === window
+        ? { x: window.scrollX, y: window.scrollY }
+        : {
+              x: (target as Element).scrollLeft,
+              y: (target as Element).scrollTop,
+          }
 
 function transformPoint(
     info: EventInfo,
