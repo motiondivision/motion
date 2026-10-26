@@ -81,6 +81,7 @@ export interface IProjectionNode<I = unknown> {
     unblockUpdate(): void
     isUpdating: boolean
     needsReset: boolean
+    needsShow?: boolean
     startUpdate(): void
     willUpdate(notifyListeners?: boolean): void
     didUpdate(): void
