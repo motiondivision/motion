@@ -55,7 +55,8 @@ export type ObjectTarget<O> = {
  * When a segment starts: a time in seconds, "+0.5" or "-0.5" from the end
  * of the previous segment, "<" or "<0.5" from its start, or a label with
  * an optional offset like "intro+0.5". Offsets from the previous segment
- * can be a percentage of its duration, like "<50%" or "-25%".
+ * ("+", "-" and "<") can also be a percentage of its duration, like "<50%"
+ * or "-25%".
  */
 export type SequenceTime =
     | number

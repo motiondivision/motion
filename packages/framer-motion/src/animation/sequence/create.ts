@@ -8,6 +8,7 @@ import {
     GeneratorFactory,
     isGenerator,
     isMotionValue,
+    isRelativeKeyframe,
     Transition,
     UnresolvedValueKeyframe,
     type AnyResolvedKeyframe,
@@ -452,6 +453,12 @@ export function createAnimationsFromSequence(
             if (valueOffset[0] !== 0) {
                 valueOffset.unshift(0)
                 keyframes.unshift(keyframes[0])
+
+                /**
+                 * A relative first keyframe now applies at the start, so
+                 * its copy mustn't apply it again.
+                 */
+                if (isRelativeKeyframe(keyframes[1])) keyframes[1] = "+=0"
                 valueEasing.unshift(defaultSegmentEasing)
             }
 

@@ -31,3 +31,9 @@ test("fillRelativeWildcards leaves other strings alone", () => {
     fillRelativeWildcards(keyframes)
     expect(keyframes).toEqual(["#fff", "#000", "calc(100% - 10px)", "-10px"])
 })
+
+test("fillRelativeWildcards doesn't read exponents as units", () => {
+    const keyframes = [1e-7, "+=1", "+=1e3", "+=1.5em"]
+    fillRelativeWildcards(keyframes)
+    expect(keyframes).toEqual([1e-7, 1.0000001, 1001.0000001, "1002.5000001em"])
+})

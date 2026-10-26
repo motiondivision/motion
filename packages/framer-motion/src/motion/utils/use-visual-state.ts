@@ -16,7 +16,7 @@ import {
 } from "../../context/PresenceContext"
 import { ScrapeMotionValuesFromProps } from "../../render/types"
 import { useConstant } from "../../utils/use-constant"
-import { resolveMotionValue } from "motion-dom"
+import { isRelativeKeyframe, resolveMotionValue } from "motion-dom"
 import { MotionProps } from "../types"
 
 export interface VisualState<Instance, RenderState> {
@@ -115,7 +115,14 @@ function makeLatestValues(
                         valueTarget = valueTarget[index] as any
                     }
 
-                    if (valueTarget !== null) {
+                    /**
+                     * A relative target ("+=100") has nothing to be
+                     * relative to yet, so the value renders as it is.
+                     */
+                    if (
+                        valueTarget !== null &&
+                        !isRelativeKeyframe(valueTarget)
+                    ) {
                         values[key] = valueTarget as AnyResolvedKeyframe
                     }
                 }

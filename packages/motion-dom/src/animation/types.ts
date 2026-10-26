@@ -592,9 +592,10 @@ export type UnresolvedValueKeyframe<
 > = ValueKeyframe<T> | null
 
 /**
- * A keyframe relative to the keyframe before it, like "+=100" or "-=10px".
+ * A number keyframe relative to the keyframe before it, like "+=100".
+ * String values also take offsets with units, like "-=10px".
  */
-export type RelativeKeyframe = `${"+" | "-"}=${number}${string}`
+export type RelativeKeyframe = `${"+" | "-"}=${number}`
 
 export type ResolvedValueKeyframe = ValueKeyframe | ValueKeyframe[]
 

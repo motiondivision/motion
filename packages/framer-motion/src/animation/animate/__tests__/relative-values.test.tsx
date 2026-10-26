@@ -31,7 +31,7 @@ describe("animate: relative values", () => {
     })
 
     test("takes the unit of the offset when the value is a number", async () => {
-        const x = motionValue(0)
+        const x = motionValue<number | string>(0)
         await animate(x, "+=50%", { duration })
         expect(x.get()).toBe("50%")
     })
@@ -162,5 +162,44 @@ describe("animate: relative values", () => {
         rerender(<Component />)
         await new Promise((resolve) => setTimeout(resolve, 50))
         expect(x.get()).toBe(150)
+    })
+
+    test("a relative first keyframe is relative to the current value", async () => {
+        const x = motionValue(100)
+        await animate(x, ["+=10", "+=20"], { duration })
+        expect(x.get()).toBe(130)
+    })
+
+    test("a relative first keyframe in a later sequence segment", async () => {
+        const x = motionValue(100)
+        const y = motionValue(0)
+        await animate([
+            [y, 1, { duration }],
+            [x, ["+=10", "+=20"], { duration }],
+        ])
+        expect(x.get()).toBe(130)
+    })
+
+    test("a number origin never gives the result a unit", async () => {
+        const x = motionValue(1e-7)
+        await animate(x, "+=1", { duration })
+        expect(x.get()).toBeCloseTo(1)
+    })
+
+    test("initial={false} doesn't render a relative target", async () => {
+        const { container } = render(
+            <motion.div initial={false} animate={{ x: "+=100", opacity: 0.5 }} />
+        )
+        const element = container.firstChild as HTMLElement
+        await nextFrame()
+        expect(element.style.transform).not.toContain("=")
+        expect(element.style.opacity).toBe("0.5")
+    })
+
+    test("Types: number values only take unitless relative offsets", () => {
+        const x = motionValue(0)
+        animate(x, "+=10", { duration })
+        // @ts-expect-error a unit would turn the number into a string
+        animate(x, "+=10px", { duration })
     })
 })

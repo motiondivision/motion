@@ -5,7 +5,11 @@ import { complex } from "../../value/types/complex"
 import { getAnimatableNone } from "../../value/types/utils/animatable-none"
 import { AnyResolvedKeyframe } from "../types"
 import { WithRender } from "./types"
-import { fillRelativeWildcards } from "./utils/fill-relative"
+import {
+    fillRelativeWildcards,
+    isRelativeKeyframe,
+    resolveRelative,
+} from "./utils/fill-relative"
 import {
     boxDependentValues,
     removeNonTranslationalTransform,
@@ -198,6 +202,11 @@ export class KeyframeResolver<T extends AnyResolvedKeyframe = any> {
 
     readKeyframes() {
         const { unresolvedKeyframes, name, element, motionValue } = this
+        const first = unresolvedKeyframes[0]
+        const isFirstRelative = isRelativeKeyframe(first)
+
+        // A relative initial keyframe is relative to the current value
+        if (isFirstRelative) unresolvedKeyframes[0] = null
 
         // If initial keyframe is null we need to read it from the DOM
         if (unresolvedKeyframes[0] === null) {
@@ -230,6 +239,12 @@ export class KeyframeResolver<T extends AnyResolvedKeyframe = any> {
             }
         }
 
+        if (isFirstRelative) {
+            unresolvedKeyframes[0] = resolveRelative(
+                first,
+                unresolvedKeyframes[0]
+            )
+        }
         fillRelativeWildcards(unresolvedKeyframes)
     }
 

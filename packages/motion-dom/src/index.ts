@@ -50,6 +50,7 @@ export * from "./animation/keyframes/offsets/default"
 export * from "./animation/keyframes/offsets/fill"
 export * from "./animation/keyframes/offsets/time"
 export * from "./animation/keyframes/utils/apply-px-defaults"
+export * from "./animation/keyframes/utils/fill-relative"
 export * from "./animation/keyframes/utils/fill-wildcards"
 
 export * from "./animation/waapi/easing/cubic-bezier"
