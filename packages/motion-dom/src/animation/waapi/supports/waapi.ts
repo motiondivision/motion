@@ -39,6 +39,7 @@ export function supportsBrowserAnimation<T extends AnyResolvedKeyframe>(
         damping,
         type,
         keyframes,
+        mixer,
     } = options
 
     /**
@@ -88,6 +89,7 @@ export function supportsBrowserAnimation<T extends AnyResolvedKeyframe>(
         !repeatDelay &&
         repeatType !== "mirror" &&
         damping !== 0 &&
-        type !== "inertia"
+        type !== "inertia" &&
+        !mixer
     )
 }

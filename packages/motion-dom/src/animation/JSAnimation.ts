@@ -143,7 +143,7 @@ export class JSAnimation<T extends number | string>
         ) {
             this.mixKeyframes = pipe(
                 percentToProgress,
-                mix(keyframes[0], keyframes[1])
+                (options.mixer || mix)(keyframes[0], keyframes[1])
             ) as (t: number) => T
 
             keyframes = [0 as T, 100 as T]
