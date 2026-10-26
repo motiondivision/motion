@@ -5,11 +5,11 @@ import {
     Contour,
     fit,
     flatten,
-    gap,
     hypot,
     meanValue,
     nest,
     Points,
+    reach,
     reverse,
     within,
 } from "./morph/geometry"
@@ -32,6 +32,18 @@ const TOLERANCE = 0.001
  * Long edges are split until each is at most this share of the outline.
  */
 const DETAIL = 40
+
+/**
+ * Holes are placed among at most this many of their outline's points.
+ */
+const CAGE = 64
+
+/**
+ * Holes can reach this share of the way to their outline from a point
+ * inside them, or as far as they do at either end, before they shrink to
+ * keep clear of it.
+ */
+const FILL = 0.9
 
 interface Track {
     /**
@@ -123,8 +135,8 @@ function prepare(from: string, to: string, { linear }: MorphOptions = {}) {
         const candidates: number[][] = []
         as.forEach(({ x, y }, i) => {
             if (parentA) {
-                const weights = meanValue(x, y, parentA)
-                ;[x, y] = anchor(0, weights, weights, parentB!)
+                const weights = meanValue(x, y, cage(parentA))
+                ;[x, y] = anchor(0, weights, weights, cage(parentB!))
             }
             bs.forEach((b, j) =>
                 candidates.push([hypot(b.x - x, b.y - y), i, j])
@@ -183,7 +195,9 @@ function prepare(from: string, to: string, { linear }: MorphOptions = {}) {
          */
         const [ea, eb] = correspond(
             parentA
-                ? cage(pa, parentA).flatMap((w) => anchor(0, w, w, parentB!))
+                ? weigh(pa, cage(parentA)).flatMap((w) =>
+                      anchor(0, w, w, cage(parentB!))
+                  )
                 : pa,
             pb,
             closed,
@@ -191,31 +205,16 @@ function prepare(from: string, to: string, { linear }: MorphOptions = {}) {
             pa
         )
 
-        /**
-         * Holes are drawn among the points of their parent, each point
-         * blending how it sits among them at either end. So holes bend
-         * and stretch with their parent, and keep their distance from its
-         * sides.
-         */
-        const weightsA = parentA && cage(ea, parentA)
-        const weightsB = parentB && cage(eb, parentB)
-        const gapA = parentA && gap(ea, parentA)
-        const gapB = parentB && gap(eb, parentB)
-        const mix = !parentA && blend(ea, eb, closed, linear)
+        const mix: Mix = parentA
+            ? hold(sit(ea, parentA, a.x, a.y), sit(eb, parentB!, b.x, b.y))
+            : blend(ea, eb, closed, linear)
         const out: Points = []
         const index = tracks.length
 
         tracks.push({
             parent,
             closed,
-            draw: (t, outer) => {
-                if (mix) mix(t, out)
-                else {
-                    const margin = (gapA! + (gapB! - gapA!) * t) / 2
-                    place(out, t, weightsA!, weightsB!, outer!, margin)
-                }
-                return out
-            },
+            draw: (t, outer) => (mix(t, out, outer!), out),
         })
 
         match(a.children, b.children, index, ea, eb, flip)
@@ -223,24 +222,35 @@ function prepare(from: string, to: string, { linear }: MorphOptions = {}) {
 
     /**
      * A contour with no partner shrinks away to a point, or grows from
-     * one, along with anything inside it.
+     * one. Anything inside it keeps its place in it, so shrinks and grows
+     * along with it.
      */
     const single = (
         c: Contour,
         grow: boolean,
         parent: number,
         parentPoints?: Points,
-        flip = 1
+        flip = 1,
+        follow?: boolean
     ) => {
         let { points, closed, x, y, children } = c
         // The second shape's contours turn with the contour around them
         if (grow && flip < 0) points = reverse(points)
 
-        // Holes shrink to a point inside them, so they stay inside too
-        if (parentPoints) [x, y] = within(points, x, y)
-        const weights = parentPoints && cage(points, parentPoints)
-        const middle = parentPoints && [meanValue(x, y, parentPoints)]
-        const clearance = parentPoints && gap(points, parentPoints) / 2
+        /**
+         * Holes grow from a point inside them, among the points of their
+         * parent. Those in a piece that grows keep their place in it, and
+         * their distance from its sides grows with it.
+         */
+        const seat = parentPoints && sit(points, parentPoints, x, y)
+        const mix =
+            seat &&
+            hold(
+                follow
+                    ? [seat[0], seat[1], seat[2], 0]
+                    : [[seat[1]], seat[1], 0, 0],
+                seat
+            )
         const out: Points = []
         const index = tracks.length
 
@@ -250,26 +260,14 @@ function prepare(from: string, to: string, { linear }: MorphOptions = {}) {
             draw: (t, outer) => {
                 const scale = grow ? t : 1 - t
                 if (scale <= 0) return
-                if (outer) {
-                    place(out, scale, middle!, weights!, outer, clearance!)
-                } else {
-                    for (let i = 0; i < points.length; i += 2) {
-                        out[i] = x + (points[i] - x) * scale
-                        out[i + 1] = y + (points[i + 1] - y) * scale
-                    }
-                }
+                mix ? mix(scale, out, outer!) : toward(out, points, x, y, scale)
                 return out
             },
         })
 
-        match(
-            grow ? [] : children,
-            grow ? children : [],
-            index,
-            points,
-            points,
-            flip
-        )
+        for (const child of children) {
+            single(child, grow, index, points, flip, true)
+        }
     }
 
     /**
@@ -326,10 +324,29 @@ function anchor(
     return [x, y]
 }
 
+type Mix = (t: number, out: Points, outer: Points) => void
+
+/**
+ * Where a contour sits in its parent: how each of its points sits among
+ * the parent's, how a point inside it does, how far it reaches towards
+ * the parent's outline from there, and how close it comes to it. It
+ * reaches past the outline if it can't shrink towards that point without
+ * crossing it, like a U inside a U.
+ */
+type Seat = [Float64Array[], Float64Array, number, number]
+
+/**
+ * At most CAGE of a polygon's points, evenly spread.
+ */
+const cage = (points: Points) => {
+    const step = 2 * Math.ceil(points.length / 2 / CAGE)
+    return points.filter((_, i) => i % step < 2)
+}
+
 /**
  * Mean value coordinates of each point with respect to a polygon.
  */
-const cage = (points: Points, polygon: Points) => {
+const weigh = (points: Points, polygon: Points) => {
     const weights: Float64Array[] = []
     for (let i = 0; i < points.length; i += 2) {
         weights.push(meanValue(points[i], points[i + 1], polygon))
@@ -337,29 +354,65 @@ const cage = (points: Points, polygon: Points) => {
     return weights
 }
 
+function sit(points: Points, parent: Points, x: number, y: number): Seat {
+    const polygon = cage(parent)
+    ;[x, y] = within(points, x, y)
+    return [
+        weigh(points, polygon),
+        meanValue(x, y, polygon),
+        reach(points, parent, x, y, FILL),
+        fit(points.slice(), parent, 0),
+    ]
+}
+
 /**
- * Write the points that blended weights pick out of a polygon into
- * `out`. A single set of weights `from` blends into every point's. A
- * polygon that changes shape a lot can still pinch them, so they're kept
- * `margin` inside it too.
+ * Holes are drawn among the points of their parent, each point blending
+ * how it sits among them at either end, so they bend and stretch with
+ * it. A single point's weights in `from` blend into every point's. A
+ * parent that changes shape a lot can still pinch them. So then they
+ * shrink towards a point inside them, to reach no further towards the
+ * outline than they do at either end. Holes that can't shrink that way
+ * are pushed to keep half as far from the outline as they do at either
+ * end instead.
  */
-function place(
+const hold =
+    (
+        [weightsA, middleA, reachA, gapA]: Seat,
+        [weightsB, middleB, reachB, gapB]: Seat
+    ): Mix =>
+    (t, out, outer) => {
+        const polygon = cage(outer)
+        weightsB.forEach((weights, i) => {
+            ;[out[2 * i], out[2 * i + 1]] = anchor(
+                t,
+                weightsA[i] || weightsA[0],
+                weights,
+                polygon
+            )
+        })
+        if (reachA > 1 || reachB > 1) {
+            return fit(out, outer, (gapA + (gapB - gapA) * t) / 2)
+        }
+        const [x, y] = anchor(t, middleA, middleB, polygon)
+        const most = Math.max(FILL, reachA + (reachB - reachA) * t)
+        const scale = most / reach(out, outer, x, y, most)
+        if (scale < 1) toward(out, out, x, y, scale)
+    }
+
+/**
+ * Write `points`, scaled by `scale` towards (x, y), into `out`.
+ */
+function toward(
     out: Points,
-    t: number,
-    from: Float64Array[],
-    to: Float64Array[],
-    polygon: Points,
-    margin: number
+    points: Points,
+    x: number,
+    y: number,
+    scale: number
 ) {
-    to.forEach((weights, i) => {
-        ;[out[2 * i], out[2 * i + 1]] = anchor(
-            t,
-            from[i] || from[0],
-            weights,
-            polygon
-        )
-    })
-    fit(out, polygon, margin)
+    for (let i = 0; i < points.length; i++) {
+        const centre = i % 2 ? y : x
+        out[i] = centre + (points[i] - centre) * scale
+    }
 }
 
 /**

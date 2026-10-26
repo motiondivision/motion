@@ -113,6 +113,13 @@ function crosses(a: Subpath, b: Subpath) {
     return false
 }
 
+// The bounds of a subpath: [minX, maxX, minY, maxY]
+const span = ({ points }: Subpath) => {
+    const xs = points.map(([x]) => x)
+    const ys = points.map(([, y]) => y)
+    return [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)]
+}
+
 const circle = (cx: number, cy: number, r: number, sweep = 1) =>
     `M${cx - r} ${cy}A${r} ${r} 0 1 ${sweep} ${
         cx + r
@@ -576,6 +583,172 @@ describe("morph", () => {
                 }
             }
         }
+    })
+
+    test("grows a new hole from a speck inside a small shape", () => {
+        const mix = morph(
+            circle(50, 50, 20),
+            circle(50, 50, 50) + circle(50, 50, 5, 0)
+        )!
+        const [outer, hole] = read(mix(0.02))
+        const [minX, maxX, minY, maxY] = span(hole)
+        expect(maxX - minX).toBeLessThan(2)
+        expect(maxY - minY).toBeLessThan(2)
+        expect(hole.points.every((p) => inside(p, outer))).toBe(true)
+    })
+
+    test("keeps a new hole inside a thin shape as it grows", () => {
+        const mix = morph(
+            rect(0, 45, 100, 10),
+            rect(0, 0, 100, 100) + rect(45, 45, 10, 10, false)
+        )!
+        for (const t of [0.02, 0.05, 0.1, 0.2]) {
+            const [outer, hole] = read(mix(t))
+            expect(hole.points.every((p) => inside(p, outer))).toBe(true)
+        }
+    })
+
+    test("shrinks the holes of a piece that shrinks away along with it", () => {
+        const ring = (x: number, r: number) =>
+            circle(x, 50, r) + circle(x, 50, r * 0.6, 0)
+        const mix = morph(ring(30, 25) + ring(80, 15), ring(30, 25))!
+        for (const t of [0.2, 0.5, 0.8]) {
+            const [, , piece, hole] = read(mix(t))
+            expect(hole.points.every((p) => inside(p, piece))).toBe(true)
+            const width = (sub: Subpath) => span(sub)[1] - span(sub)[0]
+            expect(width(hole) / width(piece)).toBeCloseTo(0.6, 1)
+        }
+    })
+
+    test("keeps a small hole small in outlines that cross themselves on the way", () => {
+        const a =
+            "M84.2 54.4L42.5 80.5Q67.1 69.5 4.5 41.1L50.6 0.3Q45.1 12.8 84.2 54.4Z" +
+            circle(45, 40, 4, 0)
+        const b =
+            "M81.7 55.7Q68.2 69.7 68.2 85.9Q66.7 9.9 39.6 84.4L21 57Q81.2 32 31.4 40.9Q93 31.1 42.1 14.3L76.8 28Q91.8 97.4 81.7 55.7Z" +
+            circle(75, 45, 4, 0)
+        const mix = morph(a, b)!
+        for (let t = 0.05; t < 1; t += 0.05) {
+            const [minX, maxX, minY, maxY] = span(read(mix(t))[1])
+            expect(Math.max(maxX - minX, maxY - minY)).toBeLessThan(12)
+        }
+    })
+
+    test("moves paired holes smoothly, inside their outline and turned against it", () => {
+        const P =
+            "M10 5H60C80 5 90 18 90 32C90 46 80 60 60 60H30V95H10Z" +
+            "M30 22V43H58C65 43 70 38 70 32C70 26 65 22 58 22Z"
+        const four =
+            polygon([
+                [60, 5],
+                [75, 5],
+                [75, 60],
+                [90, 60],
+                [90, 75],
+                [75, 75],
+                [75, 95],
+                [60, 95],
+                [60, 75],
+                [10, 75],
+                [10, 62],
+            ]) +
+            polygon([
+                [30, 60],
+                [60, 60],
+                [60, 28],
+            ])
+        const A =
+            polygon([
+                [40, 5],
+                [60, 5],
+                [95, 95],
+                [75, 95],
+                [67, 72],
+                [33, 72],
+                [25, 95],
+                [5, 95],
+            ]) +
+            polygon([
+                [39, 57],
+                [61, 57],
+                [50, 25],
+            ])
+        const bolt =
+            polygon([
+                [55, 0],
+                [15, 55],
+                [45, 55],
+                [35, 100],
+                [85, 40],
+                [55, 40],
+                [70, 0],
+            ]) +
+            polygon([
+                [58, 12],
+                [48, 47],
+                [73, 47],
+                [46, 78],
+                [52, 50],
+                [28, 50],
+                [55, 12],
+            ])
+
+        for (const [a, b] of [
+            [P, four],
+            [A, bolt],
+        ]) {
+            const mix = morph(a, b)!
+            let previous: Subpath | undefined
+            for (let t = 0.005; t < 1; t += 0.005) {
+                const [outer, hole] = read(mix(t))
+                expect(Math.sign(area(hole))).toBe(-Math.sign(area(outer)))
+                expect(hole.points.every((p) => inside(p, outer))).toBe(true)
+                if (previous) {
+                    const jump = Math.max(
+                        ...hole.points.map((p, i) =>
+                            distance(p, previous!.points[i])
+                        )
+                    )
+                    expect(jump).toBeLessThan(5)
+                }
+                previous = hole
+            }
+        }
+    })
+
+    test("leaves holes that touch their outline where they are", () => {
+        const flush = rect(0, 0, 100, 100) + rect(0, 30, 40, 40, false)
+        const [, hole] = read(morph(flush, flush + " ")!(1e-9))
+        for (const [x, y] of hole.points) {
+            const onWindow =
+                ((Math.abs(x) < 0.01 || Math.abs(x - 40) < 0.01) &&
+                    y > 29.99 &&
+                    y < 70.01) ||
+                ((Math.abs(y - 30) < 0.01 || Math.abs(y - 70) < 0.01) &&
+                    x > -0.01 &&
+                    x < 40.01)
+            expect(onWindow).toBe(true)
+        }
+    })
+
+    test("leaves a hole under a notch where it is when nothing changes", () => {
+        const notched =
+            polygon([
+                [0, 0],
+                [45, 0],
+                [50, 11.5],
+                [55, 0],
+                [100, 0],
+                [100, 100],
+                [0, 100],
+            ]) + rect(8, 12, 84, 80, false)
+        const [, hole] = read(morph(notched, notched + " ")!(1e-9))
+        const [, , top] = span(hole)
+        const lowest = Math.max(
+            ...hole.points.filter(([, y]) => y < 20).map(([, y]) => y)
+        )
+        expect(top).toBeCloseTo(12, 1)
+        expect(lowest).toBeCloseTo(12, 1)
     })
 
     test("keeps holes that wrap round a corner open", () => {

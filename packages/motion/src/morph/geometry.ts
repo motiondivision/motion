@@ -219,20 +219,23 @@ export function meanValue(x: number, y: number, points: Points) {
         const ay = points[2 * i + 1] - y
         const bx = points[2 * j] - x
         const by = points[2 * j + 1] - y
-        // tan(angle / 2) = cross / (|a||b| + dot), stable for coincident points
-        halfTan[i] =
-            (ax * by - ay * bx) /
-            (hypot(ax, ay) * hypot(bx, by) + ax * bx + ay * by || 1e-12)
+        const a = hypot(ax, ay)
+        const b = hypot(bx, by)
+        const turn = a * b + ax * bx + ay * by
+        // A point on an edge, or a corner, is a blend of the edge's ends
+        if (turn <= 1e-9 * a * b && a + b) {
+            weights[i] = b / (a + b)
+            weights[j] = a / (a + b)
+            return weights
+        }
+        // tan(angle / 2) = cross / (|a||b| + dot)
+        halfTan[i] = (ax * by - ay * bx) / turn
     }
 
     for (let i = 0; i < n; i++) {
-        const distance = hypot(points[2 * i] - x, points[2 * i + 1] - y)
-        if (distance < 1e-9) {
-            weights.fill(0)
-            weights[i] = 1
-            return weights
-        }
-        weights[i] = (halfTan[(i + n - 1) % n] + halfTan[i]) / distance
+        weights[i] =
+            (halfTan[(i + n - 1) % n] + halfTan[i]) /
+            hypot(points[2 * i] - x, points[2 * i + 1] - y)
         sum += weights[i]
     }
 
@@ -264,73 +267,122 @@ export function within(points: Points, x: number, y: number) {
             }
         }
     }
-    const point = [x, y]
-    push(point, points, 0, false)
-    return point
+    return isInside(x, y, points) ? [x, y] : nearest(x, y, points).slice(2)
 }
 
 /**
- * Keep `points` `margin` inside `outer`: points outside it, or too close
- * to its edge, move inside the edge nearest them, and corners of it that
- * poke in, or come too close, push the edge of `points` nearest them back.
+ * How far a hole reaches towards its outline from (x, y): the most, over
+ * rays from (x, y), of how far along each ray the hole last ends, as a
+ * share of how far it is to the outline. Shrinking the hole towards (x, y)
+ * any more than this keeps it inside the outline. Rays through the points
+ * of either cover every way the two can meet. Parts of the outline too
+ * far away for the hole to reach `least` of the way to them are left out.
  */
-export function fit(points: Points, outer: Points, margin: number) {
-    push(points, outer, margin, false)
-    push(outer, points, margin, true)
+export function reach(
+    hole: Points,
+    outer: Points,
+    x: number,
+    y: number,
+    least: number
+) {
+    let radius = 0
+    for (let i = 0; i < hole.length; i += 2) {
+        radius = Math.max(radius, hypot(hole[i] - x, hole[i + 1] - y))
+    }
+
+    const n = outer.length
+    const near: number[] = []
+    for (let j = 0; j < n; j += 2) {
+        const [ex, ey] = closest(x, y, outer, j)
+        if (hypot(ex - x, ey - y) * least <= radius) near.push(j)
+    }
+
+    let most = 0
+    if (!near.length) return most
+    const look = (px: number, py: number) => {
+        const dx = px - x
+        const dy = py - y
+        most = Math.max(
+            most,
+            ray(x, y, dx, dy, hole, true) /
+                ray(x, y, dx, dy, outer, false, near)
+        )
+    }
+    for (let i = 0; i < hole.length; i += 2) look(hole[i], hole[i + 1])
+    for (const j of near) look(outer[j], outer[j + 1])
+    return most
 }
 
 /**
- * Move the points of `from` to `margin` inside `polygon` (or outside it,
- * if `move` is set), past its nearest edge. Moving the polygon's edge
- * instead, if `move` is set. Returns the squared distance of the closest
- * point to the polygon's edges.
+ * How many times (dx, dy) from (x, y) a ray last or first meets the
+ * edges of a polygon, those starting at `edges` or else all of them.
  */
-function push(from: Points, polygon: Points, margin: number, move: boolean) {
+function ray(
+    x: number,
+    y: number,
+    dx: number,
+    dy: number,
+    polygon: Points,
+    last: boolean,
+    edges?: number[]
+) {
     const n = polygon.length
-    let closest = Infinity
-    const { area, x: cx, y: cy, size } = contour(polygon, true)
-    const sign = Math.sign(area) * (move ? -1 : 1)
+    let found = last ? 0 : Infinity
+    for (let k = 0; k < (edges ? edges.length : n / 2); k++) {
+        const j = edges ? edges[k] : 2 * k
+        const px = polygon[j] - x
+        const py = polygon[j + 1] - y
+        const ex = polygon[(j + 2) % n] - polygon[j]
+        const ey = polygon[(j + 3) % n] - polygon[j + 1]
+        const denominator = dx * ey - dy * ex
+        // Rays along an edge pass it by
+        if (
+            denominator ** 2 <
+            1e-18 * (dx * dx + dy * dy) * (ex * ex + ey * ey)
+        ) {
+            continue
+        }
+        const along = (px * ey - py * ex) / denominator
+        const across = (px * dy - py * dx) / denominator
+        if (along > 1e-9 && across >= 0 && across <= 1) {
+            found = last ? Math.max(found, along) : Math.min(found, along)
+        }
+    }
+    return found
+}
+
+/**
+ * Keep the points of a hole `margin` inside its outline, and the corners
+ * of the outline `margin` outside the hole, moving the hole either way.
+ * Returns the closest they came to each other.
+ */
+export const fit = (hole: Points, outer: Points, margin: number) =>
+    Math.min(push(hole, outer, margin, false), push(outer, hole, margin, true))
+
+/**
+ * Move each point of `from` that's outside `polygon`, or less than
+ * `margin` inside it, to `margin` inside its nearest edge. If `out` is
+ * set, keep them outside instead, by moving the edge. Returns how close
+ * the closest point comes to the edges.
+ */
+function push(from: Points, polygon: Points, margin: number, out: boolean) {
+    const n = polygon.length
+    const sign = Math.sign(contour(polygon, true).area) * (out ? -1 : 1)
+    let least = Infinity
     for (let i = 0; i < from.length; i += 2) {
         const x = from[i]
         const y = from[i + 1]
-        // Points well clear of the polygon can't be inside it, or near it
-        if (move && hypot(x - cx, y - cy) > size + margin) continue
-        let nearest = Infinity
-        let edge = 0
-        for (let j = 0; j < n; j += 2) {
-            const distance = segmentDistance(
-                x,
-                y,
-                polygon[j],
-                polygon[j + 1],
-                polygon[(j + 2) % n],
-                polygon[(j + 3) % n]
-            )
-            if (distance < nearest) {
-                nearest = distance
-                edge = j
-            }
-        }
-        closest = Math.min(closest, nearest)
-        // On the right side, and far enough from the edge
-        if (isInside(x, y, polygon) !== move && nearest >= margin * margin) {
-            continue
-        }
+        const [distance, edge, px, py] = nearest(x, y, polygon)
+        least = Math.min(least, distance)
+        if (isInside(x, y, polygon) !== out && distance >= margin) continue
 
-        // Move to `margin` the right side of the edge
         const next = (edge + 2) % n
-        const x0 = polygon[edge]
-        const y0 = polygon[edge + 1]
-        const dx = polygon[next] - x0
-        const dy = polygon[next + 1] - y0
+        const dx = polygon[next] - polygon[edge]
+        const dy = polygon[next + 1] - polygon[edge + 1]
         const length = hypot(dx, dy) || 1
-        const along = Math.max(
-            0,
-            Math.min(1, ((x - x0) * dx + (y - y0) * dy) / length ** 2)
-        )
-        const ox = x0 + along * dx - (dy / length) * sign * margin - x
-        const oy = y0 + along * dy + (dx / length) * sign * margin - y
-        if (move) {
+        const ox = px - (dy / length) * sign * margin - x
+        const oy = py + (dx / length) * sign * margin - y
+        if (out) {
             polygon[edge] -= ox
             polygon[edge + 1] -= oy
             polygon[next] -= ox
@@ -340,34 +392,36 @@ function push(from: Points, polygon: Points, margin: number, move: boolean) {
             from[i + 1] += oy
         }
     }
-    return closest
+    return least
 }
 
 /**
- * The closest any of `points` come to the edges of `outer`.
+ * How far (x, y) is from the edges of a polygon, and the edge and the
+ * point on it that are closest.
  */
-export const gap = (points: Points, outer: Points) =>
-    Math.sqrt(push(points.slice(), outer, 0, false))
+function nearest(x: number, y: number, polygon: Points) {
+    let least = [Infinity, 0, x, y]
+    for (let j = 0; j < polygon.length; j += 2) {
+        const [px, py] = closest(x, y, polygon, j)
+        const distance = hypot(px - x, py - y)
+        if (distance < least[0]) least = [distance, j, px, py]
+    }
+    return least
+}
 
 /**
- * The squared distance from (x, y) to the segment from (x0, y0) to (x1, y1).
+ * The closest point to (x, y) on the edge of a polygon that starts at
+ * index `j`.
  */
-function segmentDistance(
-    x: number,
-    y: number,
-    x0: number,
-    y0: number,
-    x1: number,
-    y1: number
-) {
-    const dx = x1 - x0
-    const dy = y1 - y0
-    const lengthSquared = dx * dx + dy * dy
-    const t = lengthSquared
-        ? Math.max(
-              0,
-              Math.min(1, ((x - x0) * dx + (y - y0) * dy) / lengthSquared)
-          )
-        : 0
-    return (x - x0 - t * dx) ** 2 + (y - y0 - t * dy) ** 2
+function closest(x: number, y: number, polygon: Points, j: number) {
+    const n = polygon.length
+    const x0 = polygon[j]
+    const y0 = polygon[j + 1]
+    const dx = polygon[(j + 2) % n] - x0
+    const dy = polygon[(j + 3) % n] - y0
+    const t = Math.max(
+        0,
+        Math.min(1, ((x - x0) * dx + (y - y0) * dy) / (dx * dx + dy * dy || 1))
+    )
+    return [x0 + t * dx, y0 + t * dy]
 }
