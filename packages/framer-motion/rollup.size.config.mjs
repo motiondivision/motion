@@ -87,6 +87,15 @@ const domMax = createCombinedSizeBundle(
     "dist/size-rollup-m-dom-max.js"
 )
 
+const domMaxPinch = createCombinedSizeBundle(
+    [
+        ...lazyM,
+        "lib/render/dom/features-max.js",
+        "lib/render/dom/features-pinch.js",
+    ],
+    "dist/size-rollup-m-dom-max-pinch.js"
+)
+
 export default [
     motion,
     m,
@@ -94,6 +103,7 @@ export default [
     sizeScroll,
     domAnimation,
     domMax,
+    domMaxPinch,
     sizeAnimateMini,
     sizeRemix,
 ]
