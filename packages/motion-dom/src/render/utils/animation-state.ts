@@ -46,6 +46,14 @@ export type AnimateFunction = (
 const reversePriorityOrder = [...variantPriorityOrder].reverse()
 
 /**
+ * The transition a value uses when it leaves a state (#1725): the state's
+ * own transition when `out: true`, or the `out` transition itself.
+ * Value-specific keys are resolved by animateTarget.
+ */
+const getOutTransition = (transition: any) =>
+    transition?.out === true ? transition : transition?.out
+
+/**
  * Diffs the element's animation props (one layer per AnimationType, highest
  * priority wins each value) against the previous call and starts animations
  * for what changed.
@@ -73,14 +81,24 @@ export function createAnimationState(visualElement: any): AnimationState {
 
     function animateChanges(changedActiveType?: AnimationType) {
         const { props, parent, manuallyAnimateOnMount } = visualElement
+        const { initial } = props
         const isMounting = isInitialRender || wasReset
         const animations: DefinitionAndOptions[] = []
+        const resolveInitial = (definition = initial) =>
+            (typeof definition !== "boolean" &&
+                resolveVariant(
+                    visualElement,
+                    Array.isArray(definition) ? definition[0] : definition,
+                    visualElement.presenceContext?.custom
+                )) ||
+            undefined
 
         /**
-         * Values removed from a type. A lower-priority type that defines
-         * them animates them back, otherwise they fall back to a base target.
+         * Values removed from a type, mapped to the out transition of the
+         * state they're leaving. A lower-priority type that defines them
+         * animates them back, otherwise they fall back to a base target.
          */
-        const removedKeys = new Set<string>()
+        const removedKeys = new Map<string, any>()
 
         /**
          * Values claimed by active, higher-priority types.
@@ -100,6 +118,17 @@ export function createAnimationState(visualElement: any): AnimationState {
         let source = visualElement
         do source = source.props.inherit !== false && source.parent
         while (source && !source.isControllingVariants)
+
+        /**
+         * Mounting leaves initial, so values use its out transition. Like the
+         * other types, variant children inherit initial's label.
+         */
+        const initialOut =
+            isMounting &&
+            getOutTransition(
+                resolveInitial(initial ?? (source && source.props.initial))
+                    ?.transition
+            )
 
         reversePriorityOrder.forEach((type, i) => {
             const typeState = state[type]
@@ -166,6 +195,7 @@ export function createAnimationState(visualElement: any): AnimationState {
             let handledRemovedValues = false
             const definitionList = Array.isArray(prop) ? prop : [prop]
             let resolvedValues: { [key: string]: any } = {}
+            let out: any
 
             if (activeDelta !== false) {
                 for (const definition of definitionList) {
@@ -180,6 +210,11 @@ export function createAnimationState(visualElement: any): AnimationState {
                         ...target,
                         ...transitionEnd,
                     }
+                    /**
+                     * One out transition per type. With a list of labels,
+                     * the last one that sets out applies to all its values.
+                     */
+                    out = getOutTransition(transition) || out
                 }
             }
 
@@ -200,13 +235,20 @@ export function createAnimationState(visualElement: any): AnimationState {
                         ? !shallowCompare(next, prev) || variantDidChange
                         : next !== prev
 
+                let outTransition
+
                 if (valueHasChanged && (next === undefined || next === null)) {
-                    removedKeys.add(key)
+                    /**
+                     * The highest-priority state a value leaves wins.
+                     */
+                    removedKeys.has(key) ||
+                        removedKeys.set(key, typeState.prevOut)
                 } else if (
                     valueHasChanged ||
                     (next !== undefined && removedKeys.has(key))
                 ) {
                     shouldAnimateType = true
+                    outTransition = removedKeys.get(key) || initialOut
                     if (removedKeys.delete(key)) handledRemovedValues = true
                     typeState.needsAnimating[key] = true
 
@@ -215,10 +257,13 @@ export function createAnimationState(visualElement: any): AnimationState {
                 } else {
                     typeState.protectedKeys[key] = true
                 }
+
+                typeState.out[key] = outTransition
             }
 
             typeState.prevProp = prop
             typeState.prevResolvedValues = resolvedValues
+            typeState.prevOut = out
 
             if (typeState.isActive) {
                 encounteredKeys = { ...encounteredKeys, ...resolvedValues }
@@ -263,21 +308,19 @@ export function createAnimationState(visualElement: any): AnimationState {
          * longer defines a value it once did, it stays where it is.
          */
         if (removedKeys.size) {
-            const { initial } = props
             const fallbackAnimation: { [key: string]: any } = {}
-            const resolvedInitial =
-                typeof initial !== "boolean" &&
-                resolveVariant(
-                    visualElement,
-                    Array.isArray(initial) ? initial[0] : initial,
-                    visualElement.presenceContext?.custom
-                )
+            const resolvedInitial = resolveInitial()
+            let fallbackTransition = resolvedInitial?.transition
 
-            if (resolvedInitial && resolvedInitial.transition) {
-                fallbackAnimation.transition = resolvedInitial.transition
-            }
+            removedKeys.forEach((outTransition, key) => {
+                if (outTransition) {
+                    fallbackTransition = {
+                        ...(fallbackTransition ||
+                            visualElement.getDefaultTransition()),
+                        [key]: outTransition,
+                    }
+                }
 
-            removedKeys.forEach((key) => {
                 const motionValue = visualElement.getValue(key)
                 if (motionValue) motionValue.liveStyle = true
 
@@ -318,6 +361,9 @@ export function createAnimationState(visualElement: any): AnimationState {
                 }
             })
 
+            if (fallbackTransition) {
+                fallbackAnimation.transition = fallbackTransition
+            }
             animations.push({ animation: fallbackAnimation })
         }
 
@@ -388,6 +434,15 @@ export interface AnimationTypeState {
     protectedKeys: { [key: string]: true }
     needsAnimating: { [key: string]: boolean }
     prevResolvedValues: { [key: string]: any }
+    /**
+     * The out transition of prevProp (#1725).
+     */
+    prevOut?: any
+    /**
+     * Out transitions of the states that values flagged in needsAnimating
+     * are leaving (#1725).
+     */
+    out: { [key: string]: any }
     prevProp?: VariantLabels | TargetAndTransition
 }
 
@@ -400,6 +455,7 @@ function createState() {
             protectedKeys: {},
             needsAnimating: {},
             prevResolvedValues: {},
+            out: {},
         }
     }
 

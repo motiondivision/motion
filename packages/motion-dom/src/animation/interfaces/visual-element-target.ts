@@ -98,7 +98,10 @@ export function animateTarget(
 
         const valueTransition = {
             delay,
-            ...getValueTransition(transition || {}, key),
+            ...getValueTransition(
+                animationTypeState?.out[key] || transition || {},
+                key
+            ),
         }
 
         if (skipAnimations) valueTransition.skipAnimations = true

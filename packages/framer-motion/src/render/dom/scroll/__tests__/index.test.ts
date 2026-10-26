@@ -277,6 +277,36 @@ describe("scrollInfo", () => {
         })
     })
 
+    test("Tracks a child target in a horizontal container by default (#2546).", async () => {
+        let latest: ScrollInfo
+
+        const container = document.createElement("div")
+        const target = document.createElement("div")
+        container.appendChild(target)
+
+        createMockMeasurement(container, "clientWidth")(400)
+        createMockMeasurement(container, "scrollWidth")(2000)
+        const setScrollLeft = createMockMeasurement(container, "scrollLeft")
+        createMockMeasurement(target, "clientWidth")(200)
+        createMockMeasurement(target, "offsetLeft")(1000)
+
+        const stopScroll = scrollInfo(
+            (info) => {
+                latest = info
+            },
+            { container, target, offset: ["start end", "end start"] }
+        )
+
+        setScrollLeft(700)
+        container.dispatchEvent(new window.Event("scroll"))
+        await nextFrame()
+
+        expect(latest!.x.offset).toEqual([600, 1200])
+        expect(latest!.x.progress).toBeCloseTo(1 / 6)
+
+        stopScroll()
+    })
+
     test("Fires onScroll on window scroll with child target.", async () => {
         await fireScroll(0)
         let latest: ScrollInfo

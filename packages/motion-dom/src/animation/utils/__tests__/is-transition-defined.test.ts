@@ -11,4 +11,11 @@ describe("isTransitionDefined", () => {
         expect(isTransitionDefined({ type: "tween" })).toBe(true)
         expect(isTransitionDefined({ ease: "linear" })).toBe(true)
     })
+
+    test("Ignores out, so setting it keeps a value's default transition (#1725)", () => {
+        expect(isTransitionDefined({ out: true })).toBe(false)
+        expect(isTransitionDefined({ out: { duration: 1 } })).toBe(false)
+        expect(isTransitionDefined({ delay: 1, out: true })).toBe(false)
+        expect(isTransitionDefined({ duration: 1, out: true })).toBe(true)
+    })
 })
