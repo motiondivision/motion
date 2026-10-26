@@ -1,10 +1,12 @@
-import { timeline, useAnimate } from "framer-motion"
+import { timeline, useScopeMotion } from "framer-motion"
+import { useRef } from "react"
 
 export const App = () => {
-    const [scope] = useAnimate()
+    const ref = useRef<HTMLDivElement>(null)
+    const scope = useScopeMotion(ref, () => {})
 
     return (
-        <div className="App" ref={scope}>
+        <div className="App" ref={ref}>
             <div
                 className="four"
                 style={{
@@ -18,16 +20,15 @@ export const App = () => {
             <p>Take in original transform</p>
             <button
                 onClick={() => {
-                    timeline(
-                        [
+                    scope.current?.run(() => {
+                        timeline([
                             [
                                 ".four",
                                 { x: 90, scale: 2, opacity: 1 },
                                 { duration: 2 },
                             ],
-                        ],
-                        { scope }
-                    )
+                        ])
+                    })
                 }}
             >
                 play

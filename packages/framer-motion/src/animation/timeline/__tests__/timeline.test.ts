@@ -1,4 +1,4 @@
-import { frame, motionValue } from "motion-dom"
+import { frame, motionValue, scopeMotion } from "motion-dom"
 import { timeline } from ".."
 
 async function nextFrame() {
@@ -438,43 +438,75 @@ describe("timeline", () => {
         expect(v.get()).toBe(50)
     })
 
-    test("registers with a scope so it stops with it", () => {
+    test("stops with the scopeMotion() scope it's created in", async () => {
         const v = motionValue(0)
-        const scope = { current: undefined, animations: [] } as any
-        const tl = timeline([[v, 100, { duration: 1 }]], { ...paused, scope })
-
-        expect(scope.animations).toContain(tl)
-    })
-
-    test("inherits skipAnimations from a useAnimate() scope", async () => {
-        const v = motionValue(0)
-        const scope = {
-            current: undefined,
-            animations: [],
-            skipAnimations: true,
-        } as any
-        const tl = timeline([[v, 100, { duration: 10 }]], { ...linear, scope })
-
-        await tl
-        await nextFrame()
-        expect(v.get()).toBe(100)
-        expect(tl.time).toBe(0)
-    })
-
-    test("resolves selectors while created, before the scope can detach", () => {
-        const container = document.createElement("div")
-        container.innerHTML = `<div class="box"></div>`
-        const scope = { current: container, animations: [] } as any
-        const tl = timeline([[".box", { opacity: 0 }, { duration: 1 }]], {
-            ...paused,
-            scope,
+        const scope = scopeMotion(() => {
+            timeline([[v, 100, { duration: 10 }]], linear)
         })
 
-        /**
-         * React 19 Strict Mode detaches refs between its simulated
-         * unmount and remount.
-         */
-        scope.current = null
-        expect(tl.duration).toBe(1)
+        await nextFrame()
+        scope.stop()
+        await nextFrame()
+        const stopped = v.get()
+        await nextFrame()
+        expect(v.get()).toBe(stopped)
+        expect(stopped).toBeLessThan(100)
+    })
+
+    test("resolves selectors in its scopeMotion() root, also when changed later", async () => {
+        const container = document.createElement("div")
+        container.innerHTML = `<div class="a"></div><div class="b"></div>`
+        const outside = document.createElement("div")
+        outside.className = "b"
+        document.body.append(container, outside)
+
+        let tl: ReturnType<typeof timeline>
+        scopeMotion(container, () => {
+            tl = timeline([[".a", { opacity: 0.5 }, { duration: 0.01 }]])
+        })
+        tl!.add([".b", { opacity: 0.5 }, { duration: 0.01 }])
+
+        await tl!
+        await nextFrame()
+        expect(container.querySelector<HTMLElement>(".b")!.style.opacity).toBe(
+            "0.5"
+        )
+        expect(outside.style.opacity).toBe("")
+        container.remove()
+        outside.remove()
+    })
+
+    test("skips its clock with skipAnimations from scopeMotion()", async () => {
+        const onUpdate = jest.fn()
+        let tl: ReturnType<typeof timeline>
+        scopeMotion(
+            () => {
+                tl = timeline([[motionValue(0), 100, { duration: 10 }]], {
+                    onUpdate,
+                })
+            },
+            { transition: { skipAnimations: true } }
+        )
+
+        const finished = await Promise.race([
+            tl!.then(() => true),
+            wait(200).then(() => false),
+        ])
+        expect(finished).toBe(true)
+    })
+
+    test("inherits skipAnimations from its scopeMotion() transition", async () => {
+        const v = motionValue(0)
+        let tl: ReturnType<typeof timeline>
+        scopeMotion(
+            () => {
+                tl = timeline([[v, 100, { duration: 10 }]], linear)
+            },
+            { transition: { skipAnimations: true } }
+        )
+
+        await tl!
+        await nextFrame()
+        expect(v.get()).toBe(100)
     })
 })

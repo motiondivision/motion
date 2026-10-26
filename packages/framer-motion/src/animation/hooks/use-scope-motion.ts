@@ -2,7 +2,9 @@
 
 import { scopeMotion } from "motion-dom"
 import type { MotionScope, ScopeOptions, ScopeSetup } from "motion-dom"
-import { DependencyList, RefObject, useRef } from "react"
+import { DependencyList, RefObject, useContext, useRef } from "react"
+import { MotionConfigContext } from "../../context/MotionConfigContext"
+import { useReducedMotionConfig } from "../../utils/reduced-motion/use-reduced-motion-config"
 import { useIsomorphicLayoutEffect } from "../../utils/use-isomorphic-effect"
 
 export interface UseScopeMotionOptions extends ScopeOptions {
@@ -21,9 +23,13 @@ export interface UseScopeMotionOptions extends ScopeOptions {
  * const ref = useRef(null)
  * useScopeMotion(ref, () => {
  *     inView("li", (el) => animate(el, { opacity: 1 }))
+ *     timeline([["h1", { opacity: 1 }], ["p", { y: 0 }]])
  * })
  * return <ul ref={ref}>...</ul>
  * ```
+ *
+ * Animations and timelines started in it follow `MotionConfig`'s
+ * `reducedMotion` and `skipAnimations`, unless `transition` sets them.
  *
  * Returns a ref to the current scope, for `run()` and `bind()` in event
  * handlers.
@@ -39,11 +45,21 @@ export function useScopeMotion(
     const latestSetup = useRef(setup)
     latestSetup.current = setup
 
+    const reduceMotion = useReducedMotionConfig() ?? undefined
+    const { skipAnimations } = useContext(MotionConfigContext)
+
     useIsomorphicLayoutEffect(() => {
         const current = (scope.current = scopeMotion(
             ref?.current || undefined,
             (s) => latestSetup.current(s),
-            options
+            {
+                ...options,
+                transition: {
+                    reduceMotion,
+                    skipAnimations,
+                    ...options.transition,
+                },
+            }
         ))
 
         return () => {

@@ -83,6 +83,8 @@ export const scenarios = {
     useInView: `export { useInView } from "motion/react"`,
     useAnimate: `export { useAnimate } from "motion/react"`,
     "useAnimate(mini)": `export { useAnimate } from "motion/react-mini"`,
+    useScopeMotion: `export { useScopeMotion } from "motion/react"`,
+    "useScopeMotion+timeline": `export { useScopeMotion, timeline } from "motion/react"`,
     useMotionValueEvent: `export { useMotionValueEvent } from "motion/react"`,
     useReducedMotion: `export { useReducedMotion } from "motion/react"`,
     useAnimationFrame: `export { useAnimationFrame } from "motion/react"`,
@@ -115,10 +117,11 @@ export const scenarios = {
  * more, --check fails until the PR that fixed the leak deletes that line, so
  * the canary then guards against regressions.
  */
-const animateOnly = [
+const withoutTimeline = [
     "animate",
     "scroll+animate",
     "useAnimate",
+    "useScopeMotion",
     "motion-div+animate",
     "motion-div+useAnimate",
 ]
@@ -155,14 +158,14 @@ export const canaries = [
         why: "Scroll offsets pull in the colour parser",
     },
     {
-        scenarios: animateOnly,
+        scenarios: withoutTimeline,
         forbid: "getLabelTime",
-        why: "animate() bundles the Timeline class, which only timeline() needs",
+        why: "Timeline is bundled without timeline()",
     },
     {
-        scenarios: animateOnly,
+        scenarios: withoutTimeline,
         forbid: '"sequence"in',
-        why: "animate() bundles sequence building, which only timeline() needs",
+        why: "Sequence building is bundled without timeline()",
     },
     {
         scenarios: "*",

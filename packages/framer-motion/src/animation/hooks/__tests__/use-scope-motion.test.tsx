@@ -1,7 +1,9 @@
 import { render } from "@testing-library/react"
-import { delay, hover } from "motion-dom"
+import { delay, hover, motionValue } from "motion-dom"
 import { StrictMode, useRef } from "react"
+import { MotionConfig } from "../../../components/MotionConfig"
 import { animate } from "../../animate"
+import { timeline } from "../../timeline"
 import { useScopeMotion } from "../use-scope-motion"
 
 const nextFrame = () => new Promise((resolve) => requestAnimationFrame(resolve))
@@ -126,5 +128,138 @@ describe("useScopeMotion", () => {
         )
 
         expect(scopes.filter((s) => s.state === "active").length).toBe(1)
+    })
+
+    describe("timeline()", () => {
+        test("resolves selectors inside the ref", async () => {
+            const Component = () => {
+                const ref = useRef<HTMLDivElement>(null)
+                useScopeMotion(ref, () => {
+                    timeline([[".box", { opacity: 0.5 }, { duration: 0 }]])
+                })
+                return (
+                    <div ref={ref}>
+                        <div className="box" data-testid="inside" />
+                    </div>
+                )
+            }
+
+            const outside = document.createElement("div")
+            outside.className = "box"
+            document.body.appendChild(outside)
+
+            const { getByTestId } = render(<Component />)
+            await nextFrame()
+            await nextFrame()
+
+            expect(getByTestId("inside").style.opacity).toBe("0.5")
+            expect(outside.style.opacity).toBe("")
+            outside.remove()
+        })
+
+        test("stops and restores styles on unmount", async () => {
+            let element: HTMLElement | null = null
+
+            const Component = () => {
+                const ref = useRef<HTMLDivElement>(null)
+                useScopeMotion(ref, () => {
+                    element = ref.current
+                    timeline([[ref.current!, { x: 100 }, { duration: 10 }]])
+                })
+                return <div ref={ref} style={{ color: "red" }} />
+            }
+
+            const { unmount } = render(<Component />)
+            await nextFrame()
+            await nextFrame()
+            expect(element!.style.transform).not.toBe("")
+
+            unmount()
+            await nextFrame()
+            expect(element!.getAttribute("style")).toBe("color: red;")
+        })
+
+        test("is stopped and created again when deps change", async () => {
+            const values: ReturnType<typeof motionValue<number>>[] = []
+
+            const Component = ({ value }: { value: number }) => {
+                const ref = useRef<HTMLDivElement>(null)
+                useScopeMotion(
+                    ref,
+                    () => {
+                        const v = motionValue(0)
+                        values.push(v)
+                        timeline([[v, 100, { duration: 10 }]])
+                    },
+                    { deps: [value] }
+                )
+                return <div ref={ref} />
+            }
+
+            const { rerender, unmount } = render(<Component value={1} />)
+            await nextFrame()
+            rerender(<Component value={2} />)
+            await nextFrame()
+
+            expect(values.length).toBe(2)
+            const first = values[0].get()
+            await nextFrame()
+            await nextFrame()
+            expect(values[0].get()).toBe(first)
+            expect(values[1].get()).toBeGreaterThan(0)
+            unmount()
+        })
+
+        test("inherits skipAnimations from MotionConfig", async () => {
+            const v = motionValue(0)
+            const a = motionValue(0)
+
+            const Component = () => {
+                const ref = useRef<HTMLDivElement>(null)
+                useScopeMotion(ref, () => {
+                    timeline([[v, 100, { duration: 10 }]])
+                    animate(a, 100, { duration: 10 })
+                })
+                return <div ref={ref} />
+            }
+
+            render(
+                <MotionConfig skipAnimations>
+                    <Component />
+                </MotionConfig>
+            )
+            await nextFrame()
+            await nextFrame()
+
+            expect(v.get()).toBe(100)
+            expect(a.get()).toBe(100)
+        })
+
+        /**
+         * Sequences set reduceMotion per value, which animate() doesn't
+         * read, so this checks animate() in the same scope.
+         */
+        test("inherits reducedMotion from MotionConfig", async () => {
+            let element: HTMLElement | null = null
+
+            const Component = () => {
+                const ref = useRef<HTMLDivElement>(null)
+                useScopeMotion(ref, () => {
+                    element = ref.current
+                    animate(ref.current!, { x: 100 }, { duration: 10 })
+                })
+                return <div ref={ref} />
+            }
+
+            render(
+                <MotionConfig reducedMotion="always">
+                    <Component />
+                </MotionConfig>
+            )
+            await nextFrame()
+            await nextFrame()
+
+            expect(element!.style.transform).toBe("translateX(100px)")
+        })
     })
 })

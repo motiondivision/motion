@@ -3,13 +3,12 @@ import {
     animateSingleValue,
     AnimationPlaybackControls,
     AnimationPlaybackControlsWithThen,
-    AnimationScope,
+    bindToScope,
     GroupAnimationWithThen,
     MotionValue,
     motionValue,
     TimelineWithFallback,
 } from "motion-dom"
-import { removeItem } from "motion-utils"
 import { animateSequence } from "../animate/sequence"
 import { calcLabelTime } from "../sequence/utils/calc-time"
 import {
@@ -32,11 +31,6 @@ export interface TimelineOptions extends SequenceOptions {
      * Start paused. Defaults to `true` (plays as soon as it's built).
      */
     autoplay?: boolean
-    /**
-     * Resolve selectors within this scope, and stop when it's torn
-     * down. Pass the scope from useAnimate() in React.
-     */
-    scope?: AnimationScope
     /**
      * Called every frame while the playhead moves, with its time in
      * seconds within the current repeat.
@@ -149,6 +143,13 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
 
     private resolveFinished!: VoidFunction
 
+    /**
+     * Builds in the scopeMotion() scope this was created in, if any, so
+     * selectors resolve within its root and animated elements are
+     * restored when it's cancelled, also for changes made later.
+     */
+    private rebuild = bindToScope(() => this.build())
+
     constructor(
         items: TimelineItem[] = [],
         private options: TimelineOptions = {}
@@ -158,21 +159,10 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
         items.forEach((item) => this.add(item))
 
         /**
-         * Build now, like animate(), so selectors resolve while a scope
-         * is attached. Later changes are batched.
+         * Build now, like animate(). Later changes are batched.
          */
         this.invalidate()
         this.flush()
-
-        /**
-         * Register with the scope (for instance from useAnimate()) so it
-         * stops when the scope is torn down.
-         */
-        const { scope } = options
-        if (scope) {
-            scope.animations.push(this)
-            this.finished.then(() => removeItem(scope.animations, this))
-        }
     }
 
     /**
@@ -397,7 +387,7 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
      * reflect it.
      */
     private flush() {
-        this.isDirty && !this.parent && this.build()
+        this.isDirty && !this.parent && this.rebuild()
     }
 
     private adopt(parent: Timeline) {
@@ -439,27 +429,13 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
             onRepeat,
             onReverseComplete,
             autoplay,
-            scope,
-            ...options
+            ...playback
         } = this.options
-
-        /**
-         * Inherit MotionConfig settings from a useAnimate() scope.
-         */
-        const playback: SequenceOptions = {}
-        if (scope?.reduceMotion !== undefined) {
-            playback.reduceMotion = scope.reduceMotion
-        }
-        if (scope?.skipAnimations !== undefined) {
-            playback.skipAnimations = scope.skipAnimations
-        }
-        Object.assign(playback, options)
         const markers = new Map<string, Marker>()
         const info: SequenceInfo = {}
         const animations = animateSequence(
             this.toSequence(markers),
             { defaultTransition, ...playback },
-            scope,
             info
         )
 
@@ -506,6 +482,12 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
                     clock,
                     [0, duration],
                     {
+                        /**
+                         * Skip with the segments, for instance when a
+                         * scopeMotion() transition skips animations.
+                         */
+                        skipAnimations: (defaultTransition as SequenceOptions)
+                            ?.skipAnimations,
                         ...playback,
                         duration,
                         ease: "linear",
@@ -643,8 +625,7 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
              * Without onReverseComplete, onComplete fires in either
              * direction, as it does for a single animation.
              */
-            const callback =
-                (this.speed < 0 && onReverseComplete) || onComplete
+            const callback = (this.speed < 0 && onReverseComplete) || onComplete
             callback?.()
             this.resolveFinished()
         })
@@ -672,8 +653,15 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
  * tl.seek("spin")
  * ```
  *
- * In React, pass the scope from useAnimate() to resolve selectors
- * within it and stop when it unmounts: `timeline(sequence, { scope })`.
+ * Inside a `scopeMotion()` scope, or `useScopeMotion()` in React, it
+ * resolves selectors within the scope's root, inherits its transition and
+ * stops with it:
+ *
+ * ```jsx
+ * useScopeMotion(ref, () => {
+ *     timeline([["li", { opacity: 1 }], ["button", { scale: 1 }]])
+ * })
+ * ```
  */
 export function timeline(items?: TimelineItem[], options?: TimelineOptions) {
     /**

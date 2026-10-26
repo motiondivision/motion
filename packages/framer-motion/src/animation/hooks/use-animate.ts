@@ -17,12 +17,6 @@ export function useAnimate<T extends Element = any>() {
     const reduceMotion = useReducedMotionConfig() ?? undefined
     const { skipAnimations } = useContext(MotionConfigContext)
 
-    /**
-     * Read by timelines created with this scope.
-     */
-    scope.reduceMotion = reduceMotion
-    scope.skipAnimations = skipAnimations
-
     const animate = useMemo(
         () => createScopedAnimate({ scope, reduceMotion, skipAnimations }),
         [scope, reduceMotion, skipAnimations]

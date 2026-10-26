@@ -1,5 +1,5 @@
-import { timeline, useAnimate } from "framer-motion"
-import { useEffect, useState } from "react"
+import { timeline, useScopeMotion } from "framer-motion"
+import { useRef, useState } from "react"
 
 /**
  * Reproduction for #3158: spring animations with animation sequences
@@ -7,23 +7,23 @@ import { useEffect, useState } from "react"
  * and inertia animations".
  */
 export const App = () => {
-    const [scope] = useAnimate()
+    const ref = useRef<HTMLDivElement>(null)
     const [result, setResult] = useState("")
 
-    useEffect(() => {
+    useScopeMotion(ref, () => {
         timeline(
             [
                 ["#box-a", { x: [0, 20], y: [0, 20] }],
                 ["#box-b", { scale: [1, 2] }],
             ],
-            { defaultTransition: { type: "spring" }, scope }
+            { defaultTransition: { type: "spring" } }
         )
             .then(() => setResult("Success"))
             .catch(() => setResult("Error"))
-    }, [])
+    })
 
     return (
-        <div ref={scope} style={{ padding: 100 }}>
+        <div ref={ref} style={{ padding: 100 }}>
             <div
                 id="box-a"
                 style={{

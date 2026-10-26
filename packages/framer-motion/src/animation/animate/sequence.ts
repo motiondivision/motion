@@ -1,6 +1,5 @@
 import {
     AnimationPlaybackControlsWithThen,
-    AnimationScope,
     motionValue,
     spring,
 } from "motion-dom"
@@ -15,7 +14,6 @@ import { animateSubject } from "./subject"
 export function animateSequence(
     sequence: AnimationSequence,
     options?: SequenceOptions,
-    scope?: AnimationScope,
     info?: SequenceInfo
 ) {
     const animations: AnimationPlaybackControlsWithThen[] = []
@@ -44,7 +42,7 @@ export function animateSequence(
     const animationDefinitions = createAnimationsFromSequence(
         processedSequence,
         options,
-        scope,
+        undefined,
         { spring },
         info
     )
