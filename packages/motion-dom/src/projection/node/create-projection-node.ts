@@ -376,6 +376,12 @@ export function createProjectionNode<I>({
         needsReset = false
 
         /**
+         * Set when this node gives up its layoutId, so styles it was given
+         * while following another node are cleared on its next render.
+         */
+        needsShow?: boolean
+
+        /**
          * Flags whether this node should have its transform reset prior to measuring.
          */
         shouldResetTransform = false
@@ -2036,7 +2042,14 @@ export function createProjectionNode<I>({
         ) {
             if (!this.instance || this.isSVG) return
 
-            if (!this.isVisible) {
+            const lead = this.getLead()
+
+            /**
+             * Without crossfade, a new lead hides the previous one, as it's
+             * usually unmounting. One that gave its layoutId away keeps
+             * rendering, so only hide nodes that follow another.
+             */
+            if (!this.isVisible && lead !== this) {
                 targetStyle.visibility = "hidden"
                 return
             }
@@ -2056,9 +2069,10 @@ export function createProjectionNode<I>({
                 return
             }
 
-            const lead = this.getLead()
             if (!this.projectionDelta || !this.layout || !lead.target) {
-                if (this.options.layoutId) {
+                if (this.options.layoutId || this.needsShow) {
+                    this.needsShow = false
+                    targetStyle.visibility = ""
                     targetStyle.opacity =
                         this.latestValues.opacity !== undefined
                             ? this.latestValues.opacity
