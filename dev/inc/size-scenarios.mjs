@@ -55,6 +55,7 @@ export const scenarios = {
     stagger: `export { stagger } from "motion"`,
     frame: `export { frame, cancelFrame } from "motion"`,
     mix: `export { mix } from "motion"`,
+    morph: `export { morph } from "motion/morph"`,
     "vanilla-all": `export * from "motion"`,
 
     // React components

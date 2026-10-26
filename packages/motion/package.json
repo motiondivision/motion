@@ -35,6 +35,12 @@
             "import": "./dist/es/vgpu.mjs",
             "default": "./dist/cjs/vgpu.js"
         },
+        "./morph": {
+            "types": "./dist/morph.d.ts",
+            "require": "./dist/cjs/morph.js",
+            "import": "./dist/es/morph.mjs",
+            "default": "./dist/cjs/morph.js"
+        },
         "./react": {
             "types": "./dist/react.d.ts",
             "require": "./dist/cjs/react.js",
