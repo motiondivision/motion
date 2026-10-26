@@ -1,5 +1,6 @@
 import type { Delta, Point } from "motion-utils"
 import type { ResolvedValues } from "../../node/types"
+import { angleTransforms } from "../utils/has-transform"
 
 export function buildProjectionTransform(
     delta: Delta,
@@ -30,26 +31,18 @@ export function buildProjectionTransform(
     }
 
     if (latestTransform) {
-        const {
-            transformPerspective,
-            rotate,
-            pathRotation,
-            rotateX,
-            rotateY,
-            rotateZ,
-            skewX,
-            skewY,
-        } = latestTransform
+        const { transformPerspective } = latestTransform
         if (transformPerspective)
             transform = `perspective(${transformPerspective}px) ${transform}`
-        if (rotate) transform += `rotate(${rotate}deg) `
-        // Additive `rotate()` so user `rotate` isn't clobbered.
-        if (pathRotation) transform += `rotate(${pathRotation}deg) `
-        if (rotateX) transform += `rotateX(${rotateX}deg) `
-        if (rotateY) transform += `rotateY(${rotateY}deg) `
-        if (rotateZ) transform += `rotateZ(${rotateZ}deg) `
-        if (skewX) transform += `skewX(${skewX}deg) `
-        if (skewY) transform += `skewY(${skewY}deg) `
+
+        for (let i = 0; i < angleTransforms.length; i++) {
+            const key = angleTransforms[i]
+            const value = latestTransform[key]
+            if (value) transform += `${key}(${value}deg) `
+            // Additive `rotate()` so user `rotate` isn't clobbered.
+            if (!i && latestTransform.pathRotation)
+                transform += `rotate(${latestTransform.pathRotation}deg) `
+        }
     }
 
     /**
