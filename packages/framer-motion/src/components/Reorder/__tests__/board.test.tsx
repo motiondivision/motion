@@ -908,6 +908,22 @@ describe("Reorder.Board keyboard", () => {
         expect(isGrabbed(getByTestId("a"))).toBe(false)
     })
 
+    it("moves to another group on an arrow sent before React renders the grab", async () => {
+        const { container, getByTestId } = setup()
+
+        const a = getByTestId("a")
+        act(() => a.focus())
+        // As Cypress sends them: both keys before React renders
+        act(() => {
+            fireEvent.keyDown(a, { key: " " })
+            fireEvent.keyDown(a, { key: "ArrowRight" })
+        })
+        await nextFrame()
+        expect(lists(container)).toEqual({ A: ["b"], B: ["a", "c", "d"] })
+        expect(document.activeElement).toBe(getByTestId("a"))
+        expect(isGrabbed(getByTestId("a"))).toBe(true)
+    })
+
     it("leaves arrows to the browser where there's no group", () => {
         const { getByTestId, onReorder } = setup()
 
