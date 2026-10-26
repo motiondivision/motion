@@ -2554,10 +2554,10 @@ function roundBox(box: Box): void {
 
 /**
  * Align an axis to the start of another, keeping the length of a layout axis.
+ * The length is read first, as output can be the layout axis itself.
  */
 function alignAxis(output: Axis, from: Axis, layout: Axis) {
-    output.min = from.min
-    output.max = output.min + calcLength(layout)
+    output.max = calcLength(layout) + (output.min = from.min)
 }
 
 function shouldAnimatePositionOnly(
