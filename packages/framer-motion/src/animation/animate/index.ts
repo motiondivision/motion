@@ -4,6 +4,7 @@ import type {
     AnimationOptions as DynamicAnimationOptions,
     ElementOrSelector,
     MotionValue,
+    RelativeKeyframe,
     UnresolvedValueKeyframe,
     ValueAnimationTransition,
 } from "motion-dom"
@@ -53,7 +54,10 @@ export function createScopedAnimate(options: ScopedAnimateOptions = {}) {
      */
     function scopedAnimate(
         value: number | MotionValue<number>,
-        keyframes: number | UnresolvedValueKeyframe<number>[],
+        keyframes:
+            | number
+            | RelativeKeyframe
+            | (UnresolvedValueKeyframe<number> | RelativeKeyframe)[],
         options?: ValueAnimationTransition<number>
     ): Timeline
     /**
@@ -99,6 +103,7 @@ export function createScopedAnimate(options: ScopedAnimateOptions = {}) {
             | string
             | UnresolvedValueKeyframe<number>[]
             | UnresolvedValueKeyframe<string>[]
+            | (UnresolvedValueKeyframe<number> | RelativeKeyframe)[]
             | DOMKeyframesDefinition
             | ObjectTarget<O>,
         options?:

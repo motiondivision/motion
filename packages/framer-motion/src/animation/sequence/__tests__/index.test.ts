@@ -242,6 +242,84 @@ describe("createAnimationsFromSequence", () => {
         })
     })
 
+    test("It starts partway through the previous animation with a percentage", () => {
+        const animations = createAnimationsFromSequence(
+            [
+                [a, { x: 100 }, { duration: 1 }],
+                [b, { y: 500 }, { duration: 1, at: "<50%" }],
+            ],
+            undefined,
+            undefined,
+            { spring }
+        )
+
+        expect(animations.get(b)!.keyframes.y).toEqual([null, null, 500])
+        const { duration, times } = animations.get(b)!.transition.y
+        expect(duration).toBe(1.5)
+        expect(times![1]).toBeCloseTo(1 / 3)
+    })
+
+    test("It overlaps the previous animation by a percentage", () => {
+        const animations = createAnimationsFromSequence(
+            [
+                [a, { x: 100 }, { duration: 2 }],
+                [b, { y: 500 }, { duration: 1, at: "-25%" }],
+            ],
+            undefined,
+            undefined,
+            { spring }
+        )
+
+        expect(animations.get(b)!.keyframes.y).toEqual([null, null, 500])
+        expect(animations.get(b)!.transition.y).toEqual({
+            duration: 2.5,
+            ease: ["easeInOut", "easeOut", "easeOut"],
+            times: [0, 0.6, 1],
+        })
+    })
+
+    test("A percentage includes the previous segment's stagger", () => {
+        const animations = createAnimationsFromSequence(
+            [
+                [[a, b], { opacity: 1 }, { duration: 1, delay: stagger(1) }],
+                [c, { opacity: 1 }, { duration: 1, at: "<50%" }],
+            ],
+            undefined,
+            undefined,
+            { spring }
+        )
+
+        expect(animations.get(c)!.keyframes.opacity).toEqual([null, null, 1])
+        expect(animations.get(c)!.transition.opacity).toEqual({
+            duration: 2,
+            ease: ["easeInOut", "easeOut", "easeOut"],
+            times: [0, 0.5, 1],
+        })
+    })
+
+    test("A percentage after a nested sequence uses the nested sequence's duration", () => {
+        const animations = createAnimationsFromSequence(
+            [
+                {
+                    sequence: [
+                        [a, { x: 100 }, { duration: 1 }],
+                        [b, { x: 100 }, { duration: 1 }],
+                    ],
+                },
+                [c, { x: 100 }, { duration: 1, at: "<50%" }],
+            ],
+            undefined,
+            undefined,
+            { spring }
+        )
+
+        expect(animations.get(c)!.transition.x).toEqual({
+            duration: 2,
+            ease: ["easeInOut", "easeOut", "easeOut"],
+            times: [0, 0.5, 1],
+        })
+    })
+
     test("It adds subtracts time to another animation", () => {
         const animations = createAnimationsFromSequence(
             [

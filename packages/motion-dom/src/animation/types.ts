@@ -591,6 +591,11 @@ export type UnresolvedValueKeyframe<
     T extends AnyResolvedKeyframe = AnyResolvedKeyframe
 > = ValueKeyframe<T> | null
 
+/**
+ * A keyframe relative to the keyframe before it, like "+=100" or "-=10px".
+ */
+export type RelativeKeyframe = `${"+" | "-"}=${number}${string}`
+
 export type ResolvedValueKeyframe = ValueKeyframe | ValueKeyframe[]
 
 export type ValueKeyframesDefinition =

@@ -16,8 +16,15 @@ export function calcLabelTime(
 }
 
 /**
+ * An offset in seconds, or as a percentage of `duration` like "50%".
+ */
+const calcOffset = (offset: string, duration: number) =>
+    parseFloat(offset) * (offset.endsWith("%") ? duration / 100 : 1)
+
+/**
  * Given a absolute or relative time definition and current/prev time state of the sequence,
- * calculate an absolute time for the next keyframes.
+ * calculate an absolute time for the next keyframes. Percentage offsets
+ * ("<50%", "-25%") are relative to the previous segment's duration.
  */
 export function calcNextTime(
     current: number,
@@ -28,11 +35,11 @@ export function calcNextTime(
     if (typeof next === "number") {
         return next
     } else if (next.startsWith("-") || next.startsWith("+")) {
-        return Math.max(0, current + parseFloat(next))
+        return Math.max(0, current + calcOffset(next, current - prev))
     } else if (next === "<") {
         return prev
     } else if (next.startsWith("<")) {
-        return Math.max(0, prev + parseFloat(next.slice(1)))
+        return Math.max(0, prev + calcOffset(next.slice(1), current - prev))
     } else {
         return calcLabelTime(next, labels) ?? current
     }

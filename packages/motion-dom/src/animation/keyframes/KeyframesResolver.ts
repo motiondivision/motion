@@ -5,7 +5,7 @@ import { complex } from "../../value/types/complex"
 import { getAnimatableNone } from "../../value/types/utils/animatable-none"
 import { AnyResolvedKeyframe } from "../types"
 import { WithRender } from "./types"
-import { fillWildcards } from "./utils/fill-wildcards"
+import { fillRelativeWildcards } from "./utils/fill-relative"
 import {
     boxDependentValues,
     removeNonTranslationalTransform,
@@ -230,7 +230,7 @@ export class KeyframeResolver<T extends AnyResolvedKeyframe = any> {
             }
         }
 
-        fillWildcards(unresolvedKeyframes)
+        fillRelativeWildcards(unresolvedKeyframes)
     }
 
     setFinalKeyframe() {}

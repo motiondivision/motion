@@ -11,6 +11,7 @@ import { getValueTransition } from "../utils/get-value-transition"
 import { makeAnimationInstant } from "../utils/make-animation-instant"
 import { getDefaultTransition } from "../utils/default-transitions"
 import { getFinalKeyframe } from "../keyframes/get-final"
+import { isRelativeKeyframe } from "../keyframes/utils/fill-relative"
 import { isTransitionDefined } from "../utils/is-transition-defined"
 import { frame } from "../../frameloop"
 import type { MotionValue, StartAnimation } from "../../value"
@@ -126,7 +127,14 @@ export const animateMotionValue =
                 valueTransition
             )
 
-            if (finalKeyframe !== undefined) {
+            /**
+             * A relative final keyframe ("+=100") is resolved against the
+             * keyframes before it, so leave it to the keyframe resolver.
+             */
+            if (
+                finalKeyframe !== undefined &&
+                !isRelativeKeyframe(finalKeyframe)
+            ) {
                 frame.update(() => {
                     options.onUpdate!(finalKeyframe)
                     options.onComplete!()

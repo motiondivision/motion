@@ -48,4 +48,25 @@ describe("calcNextTime", () => {
         // Unknown label
         expect(calcNextTime(5, "bar+1", 100, labels)).toBe(5)
     })
+
+    test("Offsets by a percentage of the previous segment's duration", () => {
+        const labels = new Map()
+
+        // Previous segment ran from 3 to 5, so it lasted 2
+        expect(calcNextTime(5, "<50%", 3, labels)).toBe(4)
+        expect(calcNextTime(5, "<+50%", 3, labels)).toBe(4)
+        expect(calcNextTime(5, "<-50%", 3, labels)).toBe(2)
+        expect(calcNextTime(5, "<100%", 3, labels)).toBe(5)
+        expect(calcNextTime(5, "-25%", 3, labels)).toBe(4.5)
+        expect(calcNextTime(5, "+50%", 3, labels)).toBe(6)
+        expect(calcNextTime(5, "+12.5%", 3, labels)).toBe(5.25)
+
+        // Clamped to the start of the timeline
+        expect(calcNextTime(5, "<-300%", 3, labels)).toBe(0)
+        expect(calcNextTime(5, "-500%", 3, labels)).toBe(0)
+
+        // No previous segment, so there's no duration to offset by
+        expect(calcNextTime(0, "<50%", 0, labels)).toBe(0)
+        expect(calcNextTime(0, "+50%", 0, labels)).toBe(0)
+    })
 })
