@@ -56,7 +56,8 @@ const SLOPE = 6
 /**
  * Holes keep this share of how close they come to their outline at
  * either end, blended evenly through the morph, or as much of it as they
- * can while they shrink.
+ * can while they shrink. Those that can't shrink are pushed to keep it,
+ * as far as their outline leaves room.
  */
 const GAP = 0.5
 
@@ -435,7 +436,7 @@ type Mix = (t: number, out: Points, outer: Points) => number | void
  * without touching the outline, like a U inside a U. The gap is GAP of
  * how close it comes to the outline. A hole that can shrink keeps as much
  * of that as it can while it shrinks, and one that can't is pushed to
- * keep all of it.
+ * keep all of it, as far as the outline leaves room.
  */
 type Seat = [Float64Array[], Float64Array, number, boolean]
 
@@ -493,7 +494,8 @@ function sit(points: Points, parent: Points, x: number, y: number): Seat {
  * `parentAt`, which draws the parent at any `t`, so they start to shrink
  * in time, as when part of them nears a corner of the outline, rather
  * than suddenly. Holes that can't shrink that way, like a U inside a U,
- * are pushed point by point to keep their gap instead.
+ * are pushed point by point to keep their gap instead. Where the outline
+ * pinches them, that can fold them, or leave them crossing it.
  */
 function hold(
     [weightsA, middleA, gapA, bandA]: Seat,
