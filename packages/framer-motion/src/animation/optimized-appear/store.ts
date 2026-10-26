@@ -1,10 +1,6 @@
 export interface AppearStoreEntry {
     animation: Animation
     startTime: number | null
-    /**
-     * Generated from initial's transition.out (#1725).
-     */
-    out?: boolean
 }
 
 export type AppearElementId = string

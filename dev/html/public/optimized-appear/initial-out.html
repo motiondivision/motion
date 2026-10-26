@@ -25,7 +25,11 @@
 
         <script type="module">
             /**
-             * An appear script that records out, generated from initial's transition.out: after hydration the runtime animation must track the appear animation, so it's using initial's out transition too.
+             * initial sets transition.out, so the generator builds the appear
+             * animation from initial's out transition, as the runtime does for
+             * the mount animation. After hydration the runtime continues with
+             * the same transition: the visible opacity keeps moving at the
+             * appear animation's rate, with no snap back or jump ahead.
              */
             const {
                 motion,
@@ -36,20 +40,14 @@
 
             const animateDuration = 0.6
             const outDuration = 2.4
-            const generatedFromOut = true
-            const isOldScript = false
-            const runtimeHasOut = true
-            const appearDuration = generatedFromOut
-                ? outDuration
-                : animateDuration
 
             const Component = React.createElement(motion.div, {
                 id: "box",
                 initial: {
                     opacity: 0,
-                    transition: runtimeHasOut
-                        ? { out: { duration: outDuration, ease: "linear" } }
-                        : undefined,
+                    transition: {
+                        out: { duration: outDuration, ease: "linear" },
+                    },
                 },
                 animate: { opacity: 1 },
                 transition: { duration: animateDuration, ease: "linear" },
@@ -62,11 +60,6 @@
 
             const box = () => document.getElementById("box")
 
-            /**
-             * Record the visible opacity every frame. Across the handoff it
-             * must keep moving forward at the appear animation's rate: no
-             * snap back, no jump ahead.
-             */
             let hydratedAt
             let prev
             const sample = () => {
@@ -77,7 +70,7 @@
                 if (prev) {
                     const [prevTime, prevOpacity] = prev
                     const maxStep =
-                        (time - prevTime) / 1000 / appearDuration + 0.08
+                        (time - prevTime) / 1000 / outDuration + 0.08
 
                     if (latest < prevOpacity - 0.02) {
                         return showError(
@@ -98,39 +91,18 @@
                 }
             }
 
-            const opacityOptions = {
-                duration: appearDuration * 1000,
-                ease: "linear",
-            }
-            // Optional field: older scripts ignore it.
-            if (generatedFromOut) opacityOptions.out = true
-
+            // Generated from initial's out transition
             startOptimizedAppearAnimation(
                 box(),
                 "opacity",
                 [0, 1],
-                opacityOptions,
+                { duration: outDuration * 1000, ease: "linear" },
                 () => {
-                    // Emulate an appear script from before transition.out.
-                    if (isOldScript) delete window.MotionHandoffUsesOut
-
-                    if (runtimeHasOut) requestAnimationFrame(sample)
+                    requestAnimationFrame(sample)
 
                     setTimeout(() => {
                         hydratedAt = performance.now()
                         ReactDOMClient.hydrateRoot(root, Component)
-
-                        if (!runtimeHasOut) {
-                            setTimeout(() => {
-                                const opacity = getComputedStyle(box()).opacity
-                                if (opacity !== "1") {
-                                    showError(
-                                        box(),
-                                        `Opacity settled on ${opacity}, not 1`
-                                    )
-                                }
-                            }, appearDuration * 1000 - 50)
-                        }
                     }, 150)
                 }
             )
