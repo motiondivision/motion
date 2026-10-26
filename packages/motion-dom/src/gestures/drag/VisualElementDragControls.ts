@@ -147,8 +147,7 @@ export class VisualElementDragControls {
         /**
          * Don't start dragging if this component is exiting
          */
-        const { presenceContext } = this.visualElement
-        if (presenceContext && presenceContext.isPresent === false) return
+        if (this.visualElement.presenceContext?.isPresent === false) return
 
         const onSessionStart = (event: PointerEvent) => {
             if (snapToCursor) this.snapToCursor(event)
@@ -160,7 +159,7 @@ export class VisualElementDragControls {
             const { drag, dragPropagation, onDragStart } = this.getProps()
 
             if (drag && !dragPropagation) {
-                if (this.openDragLock) this.openDragLock()
+                this.openDragLock?.()
 
                 this.openDragLock = setDragLock(drag)
 
@@ -176,9 +175,10 @@ export class VisualElementDragControls {
 
             this.resolveConstraints()
 
-            if (this.visualElement.projection) {
-                this.visualElement.projection.isAnimationBlocked = true
-                this.visualElement.projection.target = undefined
+            const { projection } = this.visualElement
+            if (projection) {
+                projection.isAnimationBlocked = true
+                projection.target = undefined
             }
 
             /**
@@ -205,15 +205,12 @@ export class VisualElementDragControls {
                 if (px.test(current)) {
                     current = parseFloat(current)
                 } else if (percent.test(current)) {
-                    const { projection } = this.visualElement
+                    const measuredAxis = projection?.layout?.layoutBox[axis]
 
-                    if (projection && projection.layout) {
-                        const measuredAxis = projection.layout.layoutBox[axis]
-
-                        if (measuredAxis) {
-                            const length = calcLength(measuredAxis)
-                            current = length * (parseFloat(current) / 100)
-                        }
+                    if (measuredAxis) {
+                        current =
+                            calcLength(measuredAxis) *
+                            (parseFloat(current) / 100)
                     }
                 }
 
@@ -227,8 +224,7 @@ export class VisualElementDragControls {
 
             addValueToWillChange(this.visualElement, "transform")
 
-            const { animationState } = this.visualElement
-            animationState && animationState.setActive("whileDrag", true)
+            this.visualElement.animationState?.setActive("whileDrag", true)
         }
 
         const onMove = (event: PointerEvent, info: PanInfo) => {
@@ -236,6 +232,7 @@ export class VisualElementDragControls {
             this.latestPanInfo = info
 
             const {
+                drag,
                 dragPropagation,
                 dragDirectionLock,
                 onDirectionLock,
@@ -261,8 +258,8 @@ export class VisualElementDragControls {
             }
 
             // Update each point with the latest position
-            this.updateAxis("x", info.point, offset)
-            this.updateAxis("y", info.point, offset)
+            this.updateAxis("x", drag, offset)
+            this.updateAxis("y", drag, offset)
 
             /**
              * Ideally we would leave the renderer to fire naturally at the end of
@@ -355,14 +352,12 @@ export class VisualElementDragControls {
 
         this.endPanSession()
 
-        const { dragPropagation } = this.getProps()
-
-        if (!dragPropagation && this.openDragLock) {
+        if (!this.getProps().dragPropagation && this.openDragLock) {
             this.openDragLock()
             this.openDragLock = null
         }
 
-        animationState && animationState.setActive("whileDrag", false)
+        animationState?.setActive("whileDrag", false)
     }
 
     /**
@@ -371,13 +366,15 @@ export class VisualElementDragControls {
      * without affecting projection animations or drag locks.
      */
     endPanSession() {
-        this.panSession && this.panSession.end()
+        this.panSession?.end()
         this.panSession = undefined
     }
 
-    private updateAxis(axis: DragDirection, _point: Point, offset?: Point) {
-        const { drag } = this.getProps()
-
+    private updateAxis(
+        axis: DragDirection,
+        drag: MotionNodeOptions["drag"],
+        offset?: Point
+    ) {
         // If we're not dragging this axis, do an early return.
         if (!offset || !shouldDrag(axis, drag, this.currentDirection)) return
 
@@ -385,12 +382,9 @@ export class VisualElementDragControls {
         let next = this.originPoint[axis] + offset[axis]
 
         // Apply constraints
-        if (this.constraints && this.constraints[axis]) {
-            next = applyConstraints(
-                next,
-                this.constraints[axis],
-                this.elastic[axis]
-            )
+        const constraints = this.constraints && this.constraints[axis]
+        if (constraints) {
+            next = applyConstraints(next, constraints, this.elastic[axis])
         }
 
         axisValue.set(next)
@@ -399,11 +393,9 @@ export class VisualElementDragControls {
     private resolveConstraints() {
         const { dragConstraints, dragElastic } = this.getProps()
 
+        const { projection } = this.visualElement
         const layout =
-            this.visualElement.projection &&
-            !this.visualElement.projection.layout
-                ? this.visualElement.projection.measure(false)
-                : this.visualElement.projection?.layout
+            projection && (projection.layout || projection.measure(false))
 
         const prevConstraints = this.constraints
 
@@ -417,7 +409,7 @@ export class VisualElementDragControls {
              */
             if (
                 !this.constraints ||
-                this.scroll !== measureScroll(this.visualElement.projection!)
+                this.scroll !== measureScroll(projection!)
             ) {
                 this.constraints = this.resolveRefConstraints()
             }
@@ -543,7 +535,7 @@ export class VisualElementDragControls {
                 return
             }
 
-            let transition = (constraints && constraints[axis]) || {}
+            let transition = constraints[axis] || {}
 
             if (
                 dragSnapToOrigin === true ||
@@ -693,7 +685,7 @@ export class VisualElementDragControls {
         this.visualElement.current.style.transform = transformTemplate
             ? transformTemplate({}, "")
             : "none"
-        projection.root && projection.root.updateScroll()
+        projection.root?.updateScroll()
         projection.updateLayout()
 
         /**
@@ -799,9 +791,9 @@ export class VisualElementDragControls {
             measureDragConstraints
         )
 
-        if (projection && !projection!.layout) {
-            projection.root && projection.root.updateScroll()
-            projection.updateLayout()
+        if (!projection!.layout) {
+            projection!.root?.updateScroll()
+            projection!.updateLayout()
         }
 
         frame.read(measureDragConstraints)
@@ -854,30 +846,15 @@ export class VisualElementDragControls {
             stopResizeListener()
             stopPointerListener()
             stopMeasureLayoutListener()
-            stopLayoutUpdateListener && stopLayoutUpdateListener()
-            stopResizeObservers && stopResizeObservers()
+            stopLayoutUpdateListener()
+            stopResizeObservers?.()
         }
     }
 
     getProps(): MotionNodeOptions {
         const props = this.readProps()
-        const {
-            drag = false,
-            dragDirectionLock = false,
-            dragPropagation = false,
-            dragConstraints = false,
-            dragElastic = defaultElastic,
-            dragMomentum = true,
-        } = props
-        return {
-            ...props,
-            drag,
-            dragDirectionLock,
-            dragPropagation,
-            dragConstraints,
-            dragElastic,
-            dragMomentum,
-        }
+        const { dragElastic = defaultElastic, dragMomentum = true } = props
+        return { ...props, dragElastic, dragMomentum }
     }
 }
 
