@@ -6,37 +6,20 @@ const maxSpeed = 1.5
 
 const overflowStyles = new Set(["auto", "scroll"])
 
-// Track initial scroll limits per scrollable element (Bug 1 fix)
-const initialScrollLimits = new WeakMap<HTMLElement, number>()
+/**
+ * Per scrollable element, for the current drag: its initial scroll limit
+ * (Bug 1 fix), and the edge it's auto-scrolling towards, "start" (top/left)
+ * or "end" (bottom/right). A drag in a Reorder.Board can scroll several,
+ * so they're all cleared when it ends.
+ */
+const initialScrollLimits = new Map<HTMLElement, number>()
 
-// Track auto-scroll active state per edge: "start" (top/left) or "end" (bottom/right)
 type ActiveEdge = "start" | "end" | null
-const activeScrollEdge = new WeakMap<HTMLElement, ActiveEdge>()
-
-// Track which group element is currently dragging to clear state on end
-let currentGroupElement: Element | null = null
+const activeScrollEdge = new Map<HTMLElement, ActiveEdge>()
 
 export function resetAutoScrollState(): void {
-    if (currentGroupElement) {
-        const scrollableAncestor = findScrollableAncestor(
-            currentGroupElement,
-            "y"
-        )
-        if (scrollableAncestor) {
-            activeScrollEdge.delete(scrollableAncestor)
-            initialScrollLimits.delete(scrollableAncestor)
-        }
-        // Also try x axis
-        const scrollableAncestorX = findScrollableAncestor(
-            currentGroupElement,
-            "x"
-        )
-        if (scrollableAncestorX && scrollableAncestorX !== scrollableAncestor) {
-            activeScrollEdge.delete(scrollableAncestorX)
-            initialScrollLimits.delete(scrollableAncestorX)
-        }
-        currentGroupElement = null
-    }
+    activeScrollEdge.clear()
+    initialScrollLimits.clear()
 }
 
 function isScrollableElement(element: Element, axis: "x" | "y"): boolean {
@@ -47,7 +30,18 @@ function isScrollableElement(element: Element, axis: "x" | "y"): boolean {
         element === document.body ||
         element === document.documentElement
 
-    return overflowStyles.has(overflow) || isDocumentScroll
+    /**
+     * An element that scrolls on one axis computes overflow auto on both
+     * (e.g. a column of a board that scrolls the other way), so it must also
+     * have content to scroll on this one.
+     */
+    return (
+        isDocumentScroll ||
+        (overflowStyles.has(overflow) &&
+            (axis === "x"
+                ? element.scrollWidth > element.clientWidth
+                : element.scrollHeight > element.clientHeight))
+    )
 }
 
 function findScrollableAncestor(
@@ -104,9 +98,6 @@ export function autoScrollIfNeeded(
     velocity: number
 ): void {
     if (!groupElement) return
-
-    // Track the group element for cleanup
-    currentGroupElement = groupElement
 
     const scrollableAncestor = findScrollableAncestor(groupElement, axis)
     if (!scrollableAncestor) return

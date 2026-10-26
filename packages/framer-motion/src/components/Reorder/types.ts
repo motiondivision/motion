@@ -91,6 +91,12 @@ export interface ReorderBoardProps {
         element: Element,
         grab: Grab<any>
     ) => boolean
+    /**
+     * The outermost element around `group` that holds none of the other
+     * groups, like its column. Dragging across groups scrolls the
+     * containers around it, rather than the column.
+     */
+    column: (group: Group) => Element | null
 }
 
 // Reorder component type helpers

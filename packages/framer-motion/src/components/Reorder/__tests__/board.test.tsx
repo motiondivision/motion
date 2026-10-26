@@ -430,6 +430,107 @@ describe("Reorder.Board", () => {
         expect(lists(container)).toEqual({ A: ["b"], B: ["c", "a", "d"] })
         await gesture.end()
     })
+
+    it("scrolls the container around the groups across them, rather than the item's column", async () => {
+        function ScrollingBoard() {
+            const [lists, setLists] = useState<Lists>({
+                A: ["a"],
+                B: ["b"],
+                C: [],
+            })
+
+            return (
+                <Reorder.Board>
+                    <div data-testid="board">
+                        {Object.keys(lists).map((id) => (
+                            <div key={id} data-testid={`${id}-column`}>
+                                <Reorder.Group
+                                    axis="y"
+                                    data-testid={id}
+                                    values={lists[id]}
+                                    onReorder={(order) =>
+                                        setLists((latest) => ({
+                                            ...latest,
+                                            [id]: order,
+                                        }))
+                                    }
+                                >
+                                    {lists[id].map((value) => (
+                                        <Reorder.Item
+                                            key={value}
+                                            value={value}
+                                            data-testid={value}
+                                        >
+                                            {value}
+                                        </Reorder.Item>
+                                    ))}
+                                </Reorder.Group>
+                            </div>
+                        ))}
+                    </div>
+                </Reorder.Board>
+            )
+        }
+
+        const { getByTestId } = render(<ScrollingBoard />)
+
+        /**
+         * A 400px wide board that scrolls across to its last group, around
+         * columns that scroll down. A browser computes a column's
+         * overflow-x as auto too, and an item dragged out of it widens its
+         * scrollable overflow, so it can scroll across a little as well.
+         */
+        const scrollLeft = (element: HTMLElement) => {
+            let value = 0
+            Object.defineProperty(element, "scrollLeft", {
+                get: () => value,
+                set: (latest) => (value = latest),
+            })
+            return () => value
+        }
+        const metrics = (
+            element: HTMLElement,
+            getRect: () => DOMRect,
+            scrollWidth: number
+        ) => {
+            element.style.overflowX = "auto"
+            element.style.overflowY = "auto"
+            element.getBoundingClientRect = getRect
+            const { width, height } = getRect()
+            Object.defineProperties(element, {
+                clientWidth: { value: width },
+                clientHeight: { value: height },
+                scrollWidth: { value: scrollWidth },
+                scrollHeight: { value: height },
+            })
+            return scrollLeft(element)
+        }
+
+        const board = metrics(
+            getByTestId("board"),
+            () => box(0, 0, 400, 300),
+            600
+        )
+        const columns = ["A", "B", "C"].map((id) => {
+            const group = getByTestId(id)
+            return metrics(
+                getByTestId(`${id}-column`),
+                () => group.getBoundingClientRect(),
+                250
+            )
+        })
+
+        // Into B, then on towards the board's right edge, short of C
+        const gesture = await drag(getByTestId("a")).to(200, 0)
+        expect(getByTestId("a").closest("ul")).toBe(getByTestId("B"))
+        await gesture.to(320, 0)
+        await gesture.to(340, 0)
+
+        expect(board()).toBeGreaterThan(0)
+        expect(columns.map((column) => column())).toEqual([0, 0, 0])
+
+        await gesture.end()
+    })
 })
 
 describe("Reorder without a Board", () => {

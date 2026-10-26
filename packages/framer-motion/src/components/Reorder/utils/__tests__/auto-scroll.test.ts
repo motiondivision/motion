@@ -98,3 +98,87 @@ describe("autoScrollIfNeeded", () => {
         expect(total).toBeCloseTo(25)
     })
 })
+
+describe("autoScrollIfNeeded in nested scroll containers", () => {
+    afterEach(() => {
+        resetAutoScrollState()
+        document.body.innerHTML = ""
+    })
+
+    /**
+     * A container that scrolls on `scrolls`, or neither, with a 300x300 box
+     * at the top left of the viewport. Its scrollLeft/Top are recorded.
+     */
+    function container(scrolls?: "x" | "y") {
+        const element = document.createElement("div")
+        // JSDOM doesn't expand the overflow shorthand
+        element.style.overflowX = "auto"
+        element.style.overflowY = "auto"
+        element.getBoundingClientRect = () =>
+            ({ top: 0, left: 0, bottom: 300, right: 300 } as DOMRect)
+        for (const [size, axis] of [
+            ["Width", "x"],
+            ["Height", "y"],
+        ]) {
+            Object.defineProperty(element, `client${size}`, { value: 300 })
+            Object.defineProperty(element, `scroll${size}`, {
+                value: scrolls === axis ? 600 : 300,
+            })
+        }
+        const scroll = { left: 0, top: 0 }
+        Object.defineProperty(element, "scrollLeft", {
+            get: () => scroll.left,
+            set: (value) => (scroll.left = value),
+        })
+        Object.defineProperty(element, "scrollTop", {
+            get: () => scroll.top,
+            set: (value) => (scroll.top = value),
+        })
+        return element
+    }
+
+    /**
+     * A board that scrolls horizontally, around a column that scrolls
+     * vertically. A browser computes the column's overflow-x as auto too.
+     */
+    function board() {
+        const outer = container("x")
+        const column = container("y")
+        const group = document.createElement("ul")
+        outer.appendChild(column)
+        column.appendChild(group)
+        document.body.appendChild(outer)
+        frameData.delta = 1000 / 60
+        return { outer, column, group }
+    }
+
+    test("scrolls the nearest ancestor that can scroll on the axis", () => {
+        const { outer, column, group } = board()
+
+        autoScrollIfNeeded(group, 290, "x", 1)
+        expect(outer.scrollLeft).toBeGreaterThan(0)
+        expect(column.scrollLeft).toBe(0)
+
+        autoScrollIfNeeded(group, 290, "y", 1)
+        expect(column.scrollTop).toBeGreaterThan(0)
+        expect(outer.scrollTop).toBe(0)
+    })
+
+    test("forgets every container it scrolled once the drag ends", () => {
+        const { outer, column, group } = board()
+        const next = container("y")
+        const nextGroup = document.createElement("ul")
+        next.appendChild(nextGroup)
+        outer.appendChild(next)
+
+        // Scroll a column, then carry on in the next one
+        autoScrollIfNeeded(group, 290, "y", 1)
+        autoScrollIfNeeded(nextGroup, 100, "y", 1)
+        resetAutoScrollState()
+
+        // The next drag starts by its end, moving away from it
+        const scrolled = column.scrollTop
+        autoScrollIfNeeded(group, 290, "y", -1)
+        expect(column.scrollTop).toBe(scrolled)
+    })
+})

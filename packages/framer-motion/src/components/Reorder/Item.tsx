@@ -170,7 +170,9 @@ export function ReorderItemComponent<
 
                 /**
                  * In a Reorder.Board, scroll on both axes, e.g. across
-                 * columns as well as down them.
+                 * columns as well as down them. Across them, scroll what's
+                 * around the columns: an item dragged out of its column
+                 * overflows it, so the column could scroll across too.
                  */
                 const scrollAxes: Array<"x" | "y"> = board
                     ? ["x", "y"]
@@ -183,7 +185,9 @@ export function ReorderItemComponent<
                       ]
                 for (const scrollAxis of scrollAxes) {
                     autoScrollIfNeeded(
-                        groupRef.current,
+                        board && !axis.includes(scrollAxis)
+                            ? board.column(context!)
+                            : groupRef.current,
                         pointerPoint[scrollAxis],
                         scrollAxis,
                         velocity[scrollAxis]

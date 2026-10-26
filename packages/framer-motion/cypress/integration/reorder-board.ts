@@ -202,3 +202,55 @@ describe("Reorder.Board", () => {
         cy.get("[data-testid='drags']").should("have.text", "0,0")
     })
 })
+
+describe("Reorder.Board in a scrolling board", () => {
+    beforeEach(() => {
+        cy.visit("?test=reorder-board&overflow").wait(200)
+        item("a").nextFrame().nextFrame()
+    })
+
+    it("scrolls the board, not the item's column, to reach a column out of view", () => {
+        let start: Point
+        let edge: Point
+
+        cy.get("[data-testid='board']").then(([board]) => {
+            edge = { x: board.getBoundingClientRect().right - 20, y: 0 }
+        })
+        item("a")
+            .then(([a]) => {
+                start = centre(a)
+                edge.y = start.y
+                pointer(a, "pointerdown", start)
+            })
+            .then(() => moveTo(start, edge, 10))
+
+        // Held by its edge, the board scrolls across to its end, passing
+        // "done" under the item on the way
+        cy.get("[data-testid='board']").should(([board]) => {
+            expect(board.scrollLeft).to.be.closeTo(
+                board.scrollWidth - board.clientWidth,
+                1
+            )
+        })
+        cy.get("[data-testid='state']").should(
+            "have.text",
+            "todo:b,c doing:d,e done:a"
+        )
+
+        // The columns, which scroll down, don't scroll across
+        cy.get("[data-testid='board'] > div").then((columns) => {
+            expect(
+                columns.toArray().map((column) => column.scrollLeft)
+            ).to.deep.equal([0, 0, 0])
+        })
+
+        cy.get("body").then(([body]) => pointer(body, "pointerup", edge))
+        cy.get("[data-testid='done']").then(([done]) => {
+            const slot = done.getBoundingClientRect().top + 10
+            item("a").should(([a]) => {
+                expect(a.getBoundingClientRect().top).to.be.closeTo(slot, 1)
+            })
+        })
+        cy.get("[data-testid='drags']").should("have.text", "1,1")
+    })
+})

@@ -330,6 +330,25 @@ function createBoard(): ReorderBoardProps {
              */
             return isMoved
         },
+
+        column: ({ groupRef }) => {
+            let element = groupRef.current
+            const holdsOther = (ancestor: Element) =>
+                [...groups].some(
+                    (group) =>
+                        group.groupRef !== groupRef &&
+                        ancestor.contains(group.groupRef.current)
+                )
+
+            while (
+                element?.parentElement?.parentElement &&
+                !holdsOther(element.parentElement)
+            ) {
+                element = element.parentElement
+            }
+
+            return element
+        },
     }
 }
 
