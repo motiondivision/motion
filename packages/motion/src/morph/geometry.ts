@@ -66,7 +66,12 @@ export function flatten(
     }
 
     const n = points.length
-    if (closed && n > 2 && points[0] === points[n - 2] && points[1] === points[n - 1]) {
+    if (
+        closed &&
+        n > 2 &&
+        points[0] === points[n - 2] &&
+        points[1] === points[n - 1]
+    ) {
         points.length -= 2
     }
 
@@ -151,8 +156,7 @@ function isInside(x: number, y: number, points: Points) {
         const yj = points[j + 1]
         if (
             yi > y !== yj > y &&
-            x <
-                ((points[j] - points[i]) * (y - yi)) / (yj - yi) + points[i]
+            x < ((points[j] - points[i]) * (y - yi)) / (yj - yi) + points[i]
         ) {
             inside = !inside
         }
@@ -176,7 +180,11 @@ export function nest(contours: Contour[]): Contour[] {
         // The smallest larger contour that holds every point of this one
         for (let j = i - 1; j >= 0 && !parent; j--) {
             const candidate = bySize[j]
-            if (candidate.closed && child.closed && encloses(candidate, child)) {
+            if (
+                candidate.closed &&
+                child.closed &&
+                encloses(candidate, child)
+            ) {
                 parent = candidate
             }
         }
@@ -213,7 +221,8 @@ export function meanValue(x: number, y: number, points: Points) {
         const by = points[2 * j + 1] - y
         // tan(angle / 2) = cross / (|a||b| + dot), stable for coincident points
         halfTan[i] =
-            (ax * by - ay * bx) / (hypot(ax, ay) * hypot(bx, by) + ax * bx + ay * by || 1e-12)
+            (ax * by - ay * bx) /
+            (hypot(ax, ay) * hypot(bx, by) + ax * bx + ay * by || 1e-12)
     }
 
     for (let i = 0; i < n; i++) {
@@ -232,75 +241,113 @@ export function meanValue(x: number, y: number, points: Points) {
 }
 
 /**
- * How many times further from (cx, cy) the points could be before the
- * first of them meets `outer`, along the line from (cx, cy) through it.
- * Points can't be drawn in towards a centre outside `outer`, as round a
- * hole that bends round a corner, so they have all the room they need.
+ * A point inside a polygon that, if any can, sees all of it, so the
+ * polygon can shrink towards it without leaving itself. (x, y) moves onto
+ * the inside of each edge's line in turn, which settles where the insides
+ * of every edge meet, if they do. A point that's left outside moves onto
+ * the nearest edge.
  */
-export function room(points: Points, cx: number, cy: number, outer: Points) {
-    let room = Infinity
-    if (!isInside(cx, cy, outer)) return room
-    const n = outer.length
-    for (let i = 0; i < points.length; i += 2) {
-        const dx = points[i] - cx
-        const dy = points[i + 1] - cy
-        for (let j = 0; j < n; j += 2) {
-            const px = outer[j] - cx
-            const py = outer[j + 1] - cy
-            const ex = outer[(j + 2) % n] - outer[j]
-            const ey = outer[(j + 3) % n] - outer[j + 1]
-            const denominator = dx * ey - dy * ex
-            if (!denominator) continue
-            const along = (px * ey - py * ex) / denominator
-            const across = (px * dy - py * dx) / denominator
-            if (along > 0 && across >= 0 && across <= 1) {
-                room = Math.min(room, along)
+export function within(points: Points, x: number, y: number) {
+    const n = points.length
+    const sign = Math.sign(contour(points, true).area)
+    for (let pass = 0; pass < 20; pass++) {
+        for (let i = 0; i < n; i += 2) {
+            const x0 = points[i]
+            const y0 = points[i + 1]
+            const dx = points[(i + 2) % n] - x0
+            const dy = points[(i + 3) % n] - y0
+            const side =
+                (dx * (y - y0) - dy * (x - x0)) / (dx * dx + dy * dy || 1)
+            if (side * sign < 0) {
+                x += side * dy
+                y -= side * dx
             }
         }
     }
-    return room
+    const point = [x, y]
+    push(point, points, 0, false)
+    return point
 }
 
 /**
- * Shrink `points` about (cx, cy) until they fill no more than `fill` of
- * the way to `outer`, or MARGIN if that's more, so a hole or island never
- * touches the contour around it unless it does at either end.
+ * Keep `points` `margin` inside `outer`: points outside it, or too close
+ * to its edge, move inside the edge nearest them, and corners of it that
+ * poke in, or come too close, push the edge of `points` nearest them back.
  */
-export function keepInside(
-    points: Points,
-    cx: number,
-    cy: number,
-    outer: Points,
-    fill: number
-) {
-    fill = Math.max(MARGIN, fill)
-
-    // Squared distances, which compare the same
-    let radius = 0
-    for (let i = 0; i < points.length; i += 2) {
-        radius = Math.max(radius, (points[i] - cx) ** 2 + (points[i + 1] - cy) ** 2)
-    }
-    const n = outer.length
-    let clearance = Infinity
-    for (let i = 0; i < n; i += 2) {
-        clearance = Math.min(
-            clearance,
-            segmentDistance(cx, cy, outer[i], outer[i + 1], outer[(i + 2) % n], outer[(i + 3) % n])
-        )
-    }
-
-    // Every point is closer than any edge, with room to spare
-    if (radius <= fill * fill * clearance) return
-
-    const scale = fill * room(points, cx, cy, outer)
-    if (scale >= 1) return
-    for (let i = 0; i < points.length; i += 2) {
-        points[i] = cx + (points[i] - cx) * scale
-        points[i + 1] = cy + (points[i + 1] - cy) * scale
-    }
+export function fit(points: Points, outer: Points, margin: number) {
+    push(points, outer, margin, false)
+    push(outer, points, margin, true)
 }
 
-const MARGIN = 0.9
+/**
+ * Move the points of `from` to `margin` inside `polygon` (or outside it,
+ * if `move` is set), past its nearest edge. Moving the polygon's edge
+ * instead, if `move` is set. Returns the squared distance of the closest
+ * point to the polygon's edges.
+ */
+function push(from: Points, polygon: Points, margin: number, move: boolean) {
+    const n = polygon.length
+    let closest = Infinity
+    const { area, x: cx, y: cy, size } = contour(polygon, true)
+    const sign = Math.sign(area) * (move ? -1 : 1)
+    for (let i = 0; i < from.length; i += 2) {
+        const x = from[i]
+        const y = from[i + 1]
+        // Points well clear of the polygon can't be inside it, or near it
+        if (move && hypot(x - cx, y - cy) > size + margin) continue
+        let nearest = Infinity
+        let edge = 0
+        for (let j = 0; j < n; j += 2) {
+            const distance = segmentDistance(
+                x,
+                y,
+                polygon[j],
+                polygon[j + 1],
+                polygon[(j + 2) % n],
+                polygon[(j + 3) % n]
+            )
+            if (distance < nearest) {
+                nearest = distance
+                edge = j
+            }
+        }
+        closest = Math.min(closest, nearest)
+        // On the right side, and far enough from the edge
+        if (isInside(x, y, polygon) !== move && nearest >= margin * margin) {
+            continue
+        }
+
+        // Move to `margin` the right side of the edge
+        const next = (edge + 2) % n
+        const x0 = polygon[edge]
+        const y0 = polygon[edge + 1]
+        const dx = polygon[next] - x0
+        const dy = polygon[next + 1] - y0
+        const length = hypot(dx, dy) || 1
+        const along = Math.max(
+            0,
+            Math.min(1, ((x - x0) * dx + (y - y0) * dy) / length ** 2)
+        )
+        const ox = x0 + along * dx - (dy / length) * sign * margin - x
+        const oy = y0 + along * dy + (dx / length) * sign * margin - y
+        if (move) {
+            polygon[edge] -= ox
+            polygon[edge + 1] -= oy
+            polygon[next] -= ox
+            polygon[next + 1] -= oy
+        } else {
+            from[i] += ox
+            from[i + 1] += oy
+        }
+    }
+    return closest
+}
+
+/**
+ * The closest any of `points` come to the edges of `outer`.
+ */
+export const gap = (points: Points, outer: Points) =>
+    Math.sqrt(push(points.slice(), outer, 0, false))
 
 /**
  * The squared distance from (x, y) to the segment from (x0, y0) to (x1, y1).
@@ -317,7 +364,10 @@ function segmentDistance(
     const dy = y1 - y0
     const lengthSquared = dx * dx + dy * dy
     const t = lengthSquared
-        ? Math.max(0, Math.min(1, ((x - x0) * dx + (y - y0) * dy) / lengthSquared))
+        ? Math.max(
+              0,
+              Math.min(1, ((x - x0) * dx + (y - y0) * dy) / lengthSquared)
+          )
         : 0
     return (x - x0 - t * dx) ** 2 + (y - y0 - t * dy) ** 2
 }

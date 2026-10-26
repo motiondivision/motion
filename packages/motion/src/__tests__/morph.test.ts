@@ -1,9 +1,4 @@
-import {
-    animate,
-    interpolate,
-    motionValue,
-    transform,
-} from "framer-motion/dom"
+import { animate, interpolate, motionValue, transform } from "framer-motion/dom"
 import { morph } from "../morph"
 
 /**
@@ -89,7 +84,10 @@ function segmentDistance(p: Point, a: Point, b: Point) {
     const t = lengthSquared
         ? Math.max(
               0,
-              Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / lengthSquared)
+              Math.min(
+                  1,
+                  ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / lengthSquared
+              )
           )
         : 0
     return distance(p, [a[0] + t * dx, a[1] + t * dy])
@@ -115,20 +113,96 @@ function crosses(a: Subpath, b: Subpath) {
     return false
 }
 
-
 const circle = (cx: number, cy: number, r: number, sweep = 1) =>
-    `M${cx - r} ${cy}A${r} ${r} 0 1 ${sweep} ${cx + r} ${cy}A${r} ${r} 0 1 ${sweep} ${
-        cx - r
-    } ${cy}Z`
+    `M${cx - r} ${cy}A${r} ${r} 0 1 ${sweep} ${
+        cx + r
+    } ${cy}A${r} ${r} 0 1 ${sweep} ${cx - r} ${cy}Z`
 
 const rect = (x: number, y: number, w: number, h: number, clockwise = true) =>
     clockwise
         ? `M${x} ${y}H${x + w}V${y + h}H${x}Z`
         : `M${x} ${y}V${y + h}H${x + w}V${y}Z`
 
+/**
+ * A polygon with a hole a constant `width` inside its edges, like an
+ * outline converted to a path.
+ */
+function outlined(points: number[][], width: number) {
+    const n = points.length
+    const lines = points.map(([x0, y0], i) => {
+        const [x1, y1] = points[(i + 1) % n]
+        const length = Math.hypot(x1 - x0, y1 - y0)
+        // Clockwise on screen, so the inside is to the right
+        const nx = (-(y1 - y0) / length) * width
+        const ny = ((x1 - x0) / length) * width
+        return [x0 + nx, y0 + ny, x1 - x0, y1 - y0]
+    })
+    const inset = lines.map(([bx, by, bdx, bdy], i) => {
+        const [ax, ay, adx, ady] = lines[(i + n - 1) % n]
+        const s = ((bx - ax) * bdy - (by - ay) * bdx) / (adx * bdy - ady * bdx)
+        return [ax + adx * s, ay + ady * s]
+    })
+    return polygon(points) + polygon(inset.reverse())
+}
+
+const polygon = (points: number[][]) =>
+    "M" + points.map((p) => p.join(" ")).join("L") + "Z"
+
+/**
+ * Polygons with and without concave corners, for outlining.
+ */
+const L = [
+    [0, 0],
+    [30, 0],
+    [30, 70],
+    [60, 70],
+    [60, 100],
+    [0, 100],
+]
+const T = [
+    [0, 0],
+    [100, 0],
+    [100, 30],
+    [65, 30],
+    [65, 100],
+    [35, 100],
+    [35, 30],
+    [0, 30],
+]
+const U = [
+    [0, 0],
+    [25, 0],
+    [25, 70],
+    [75, 70],
+    [75, 0],
+    [100, 0],
+    [100, 100],
+    [0, 100],
+]
+const plus = [
+    [35, 0],
+    [65, 0],
+    [65, 35],
+    [100, 35],
+    [100, 65],
+    [65, 65],
+    [65, 100],
+    [35, 100],
+    [35, 65],
+    [0, 65],
+    [0, 35],
+    [35, 35],
+]
+const box = [
+    [0, 0],
+    [100, 0],
+    [100, 100],
+    [0, 100],
+]
+const shapes = [L, T, U, plus, box]
+
 const square = rect(0, 0, 100, 100)
-const star =
-    "M50 0L61 35L98 35L68 57L79 91L50 70L21 91L32 57L2 35L39 35Z"
+const star = "M50 0L61 35L98 35L68 57L79 91L50 70L21 91L32 57L2 35L39 35Z"
 
 describe("morph", () => {
     test("returns the original strings at 0 and 1", () => {
@@ -185,7 +259,8 @@ describe("morph", () => {
             const { points } = read(d)[0]
             let longest = 0
             for (const p of points) {
-                for (const q of points) longest = Math.max(longest, distance(p, q))
+                for (const q of points)
+                    longest = Math.max(longest, distance(p, q))
             }
             return longest
         }
@@ -205,18 +280,20 @@ describe("morph", () => {
             20,
             0
         )}`
-        const b = `${circle(100, 50, 100)}${rect(
-            30,
+        const b = `${circle(100, 50, 100)}${rect(30, 30, 40, 40, false)}${rect(
+            130,
             30,
             40,
             40,
             false
-        )}${rect(130, 30, 40, 40, false)}`
+        )}`
 
         for (const t of [0.25, 0.5, 0.75]) {
             const [outer, ...holes] = read(morph(a, b)!(t))
             expect(holes.length).toBe(2)
-            const xs = holes.map((hole) => centroid(hole)[0]).sort((x, y) => x - y)
+            const xs = holes
+                .map((hole) => centroid(hole)[0])
+                .sort((x, y) => x - y)
             expect(xs[0]).toBeLessThan(80)
             expect(xs[1]).toBeGreaterThan(120)
             for (const hole of holes) {
@@ -257,7 +334,12 @@ describe("morph", () => {
     test("keeps holes inside a shape that bends", () => {
         // A wide L whose upright swings down to the left, with a hole near
         // its tip. Moving the hole in a straight line cuts the corner.
-        const l = `M0 0L100 0L100 30L30 30L30 100L0 100Z${circle(15, 80, 10, 0)}`
+        const l = `M0 0L100 0L100 30L30 30L30 100L0 100Z${circle(
+            15,
+            80,
+            10,
+            0
+        )}`
         const bar = `M-100 0L0 0L100 0L100 30L0 30L-100 30Z${circle(
             -80,
             15,
@@ -274,7 +356,13 @@ describe("morph", () => {
 
     test("winds holes against their shape, so nonzero fills keep them open", () => {
         const ring = `${circle(50, 50, 50)}${circle(50, 50, 25, 0)}`
-        const roundedRing = `${rect(0, 0, 100, 100)}${rect(25, 25, 50, 50, false)}`
+        const roundedRing = `${rect(0, 0, 100, 100)}${rect(
+            25,
+            25,
+            50,
+            50,
+            false
+        )}`
         const [outer, hole] = read(morph(ring, roundedRing)!(0.5))
         expect(Math.sign(area(outer))).toBe(-Math.sign(area(hole)))
     })
@@ -295,6 +383,31 @@ describe("morph", () => {
         expect(
             distance(line.points[line.points.length - 1], [100, 0])
         ).toBeLessThan(5)
+    })
+
+    test("flattens a wave without pinching its crests into peaks", () => {
+        const wave = "M10 50C25 15 35 15 50 50S75 85 90 50"
+
+        // How wide the first crest is, a tenth of the way down from its top
+        const crest = (d: string) => {
+            const points = read(d)[0].points.filter(([x]) => x < 50)
+            const top = Math.min(...points.map(([, y]) => y))
+            const level = top + (50 - top) / 10
+            const xs: number[] = []
+            for (let i = 1; i < points.length; i++) {
+                const [x0, y0] = points[i - 1]
+                const [x1, y1] = points[i]
+                if ((y0 - level) * (y1 - level) < 0) {
+                    xs.push(x0 + ((x1 - x0) * (level - y0)) / (y1 - y0))
+                }
+            }
+            return Math.max(...xs) - Math.min(...xs)
+        }
+
+        for (const linear of [false, true]) {
+            const mix = morph(wave, "M10 50H90", { linear })!
+            expect(crest(mix(0.5))).toBeGreaterThan(crest(mix(0.01)) * 0.75)
+        }
     })
 
     test("continues from an interrupted morph", () => {
@@ -343,6 +456,12 @@ describe("morph", () => {
         expect(morph("none", square)).toBeUndefined()
         expect(morph(square, "10 10")).toBeUndefined()
         expect(morph(0 as any, 100 as any)).toBeUndefined()
+
+        const matrix = ["matrix(1, 0, 0, 1, 0, 0)", "matrix(2, 0, 0, 2, 40, 0)"]
+        expect(morph(matrix[0], matrix[1])).toBeUndefined()
+        expect(interpolate([0, 1], matrix, { mixer: morph })(0.5)).toBe(
+            interpolate([0, 1], matrix)(0.5)
+        )
 
         const colors = interpolate([0, 1], ["#000", "#fff"], { mixer: morph })
         expect(colors(0.5)).toBe(interpolate([0, 1], ["#000", "#fff"])(0.5))
@@ -417,9 +536,45 @@ describe("morph", () => {
         for (const t of [0.001, 0.5, 0.999]) {
             const [outer, hole] = read(morph(ring(50), ring(60))!(t))
             const centre: Point = [50 + 10 * t, 50]
-            const radius = Math.max(...hole.points.map((p) => distance(p, centre)))
+            const radius = Math.max(
+                ...hole.points.map((p) => distance(p, centre))
+            )
             expect(radius).toBeCloseTo(48, 0)
             expect(crosses(hole, outer)).toBe(false)
+        }
+    })
+
+    test("keeps holes inside concave outlines as they change shape", () => {
+        for (const a of shapes) {
+            for (const b of shapes) {
+                if (a === b) continue
+                const mix = morph(outlined(a, 4), outlined(b, 4))!
+                for (let t = 0.05; t < 1; t += 0.05) {
+                    const [outer, hole] = read(mix(t))
+                    expect(hole.points.every((p) => inside(p, outer))).toBe(
+                        true
+                    )
+                    expect(crosses(hole, outer)).toBe(false)
+                }
+            }
+        }
+    })
+
+    test("keeps holes inside concave outlines as they open and close", () => {
+        for (const shape of [L, T, plus]) {
+            for (const [a, b] of [
+                [outlined(shape, 4), polygon(shape)],
+                [polygon(shape), outlined(shape, 4)],
+            ]) {
+                const mix = morph(a, b)!
+                for (let t = 0.05; t < 1; t += 0.05) {
+                    const [outer, hole] = read(mix(t))
+                    expect(hole.points.every((p) => inside(p, outer))).toBe(
+                        true
+                    )
+                    expect(crosses(hole, outer)).toBe(false)
+                }
+            }
         }
     })
 
@@ -456,6 +611,16 @@ describe("morph", () => {
         for (const t of [0.25, 0.5, 0.75]) {
             const [outer, hole] = read(morph(disc, ring)!(t))
             expect(Math.sign(area(hole))).toBe(-Math.sign(area(outer)))
+        }
+    })
+
+    test("winds new pieces like the pieces they appear beside", () => {
+        // Two bars that overlap, drawn the other way round to the disc
+        const disc = circle(50, 50, 50)
+        const plus = rect(35, 0, 30, 100, false) + rect(0, 35, 100, 30, false)
+        for (const t of [0.25, 0.5, 0.75]) {
+            const [first, second] = read(morph(disc, plus)!(t))
+            expect(Math.sign(area(second))).toBe(Math.sign(area(first)))
         }
     })
 

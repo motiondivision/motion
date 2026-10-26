@@ -3,13 +3,19 @@ import { hypot, perimeter, Points } from "./geometry"
 /**
  * Work done per unit of each kind of change, relative to stretching an
  * edge, with both shapes scaled to the same size: moving the outline
- * (squared distance, per unit of length), bending a corner (radians) and
- * turning the whole shape (squared radians). Stretching stops edges
- * collapsing, bending lines corners up with corners, and moving keeps
- * each part of a shape where it was, so parts don't twist past each other
- * on the way.
+ * (squared distance, per unit of length), moving neighbouring points
+ * differently (squared difference, per unit of length), bending a corner
+ * (radians) and turning the whole shape (squared radians). Stretching
+ * stops edges collapsing, bending lines corners up with corners, and
+ * moving keeps each part of a shape where it was, so parts don't twist
+ * past each other on the way. On open paths, moving the least alone would
+ * bunch points up wherever the paths are furthest apart, pinching the
+ * crests of a flattening wave into peaks, so neighbours there also move
+ * alike. Closed outlines pair as well without it, and the way holes keep
+ * inside their outlines is tuned to how they pair.
  */
 const MOVE = 15
+const WARP = 0.5
 const BEND = 0.15
 const ROTATE = 0.25
 
@@ -31,13 +37,15 @@ const BAND = 0.25
  * the least work, after Sederberg & Greenwood 1992.
  *
  * Returns both polylines with a point for every pair, so the same number
- * of points.
+ * of points. The first is taken from `along`, a polyline with a point for
+ * each of a's, which is a itself unless a has been moved to match.
  */
 export function correspond(
     a: Points,
     b: Points,
     closed: boolean,
-    scale: number
+    scale: number,
+    along = a
 ): [Points, Points] {
     /**
      * The search takes time in proportion to the product of the outlines'
@@ -50,7 +58,8 @@ export function correspond(
         a,
         b,
         pairs.map((index, k) => (k & 1 ? keptB : keptA)[index]),
-        closed
+        closed,
+        along
     )
 }
 
@@ -132,6 +141,7 @@ function search(a: Points, b: Points, closed: boolean, scale: number) {
         by += b[j + 1] / n
     }
 
+    const warp = closed ? 0 : WARP * scale * scale
     let best: number[] = []
     let bestWork = Infinity
     for (const offset of closed ? startPoints(a, b, turnsA[0], turnsB) : [0]) {
@@ -224,10 +234,16 @@ function search(a: Points, b: Points, closed: boolean, scale: number) {
                                   )
                             : 1
 
+                    // How differently this pair moves to the previous one
+                    const wx = ex - a[2 * (pi % m)] + fitted[2 * indexB(pj)]
+                    const wy =
+                        ey - a[2 * (pi % m) + 1] + fitted[2 * indexB(pj) + 1]
+
                     const total =
                         previous +
                         (MOVE * distance * (lengthA + lengthB)) / 2 +
-                        (fan * 2 * (lengthA - lengthB) ** 2) /
+                        (fan * 2 * (lengthA - lengthB) ** 2 +
+                            warp * (wx * wx + wy * wy)) /
                             (lengthA + lengthB || 1) +
                         BEND * Math.abs(turnA - turnB)
 
@@ -276,7 +292,8 @@ function expand(
     a: Points,
     b: Points,
     pairs: number[],
-    closed: boolean
+    closed: boolean,
+    along: Points
 ): [Points, Points] {
     const distancesA = distances(a, closed)
     const distancesB = distances(b, closed)
@@ -343,13 +360,15 @@ function expand(
         let [x, y, i, j] = entries[e]
         const next = entries[e + 1]
         // A point of each outline in almost the same place pair up directly
-        if (next && (i < 0) !== (next[2] < 0) && next[0] - x < snap) {
+        if (next && i < 0 !== next[2] < 0 && next[0] - x < snap) {
             i = Math.max(i, next[2])
             j = Math.max(j, next[3])
             e++
         }
         ea.push(
-            ...(i < 0 ? at(a, distancesA, x, closed) : [a[2 * i], a[2 * i + 1]])
+            ...(i < 0
+                ? at(along, distancesA, x, closed)
+                : [along[2 * i], along[2 * i + 1]])
         )
         eb.push(
             ...(j < 0 ? at(b, distancesB, y, closed) : [b[2 * j], b[2 * j + 1]])
@@ -370,7 +389,9 @@ const SNAP = 0.5
 function map(xs: number[], ys: number[], x: number) {
     let g = 0
     while (g < xs.length - 2 && xs[g + 1] <= x) g++
-    return ys[g] + ((x - xs[g]) / (xs[g + 1] - xs[g] || 1)) * (ys[g + 1] - ys[g])
+    return (
+        ys[g] + ((x - xs[g]) / (xs[g + 1] - xs[g] || 1)) * (ys[g + 1] - ys[g])
+    )
 }
 
 /**
@@ -526,7 +547,8 @@ function startPoints(
             }
         }
         corners.sort(
-            (x, y) => Math.abs(turnsB[x] - corner) - Math.abs(turnsB[y] - corner)
+            (x, y) =>
+                Math.abs(turnsB[x] - corner) - Math.abs(turnsB[y] - corner)
         )
         for (const j of corners.slice(0, 3)) starts.add(j)
     }

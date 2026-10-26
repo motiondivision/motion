@@ -3,14 +3,15 @@ import { correspond } from "./morph/correspond"
 import {
     contour,
     Contour,
+    fit,
     flatten,
+    gap,
     hypot,
-    keepInside,
     meanValue,
     nest,
     Points,
     reverse,
-    room,
+    within,
 } from "./morph/geometry"
 import { parsePath, Subpath } from "./morph/parse"
 
@@ -71,7 +72,7 @@ export function morph(from: string, to: string, options?: MorphOptions) {
         : undefined
 }
 
-const isPath = (value: string) => /^\s*m/i.test(value)
+const isPath = (value: string) => /^\s*m(?![a-z])/i.test(value)
 
 function prepare(from: string, to: string, { linear }: MorphOptions = {}) {
     const a = parsePath(from)
@@ -176,18 +177,31 @@ function prepare(from: string, to: string, { linear }: MorphOptions = {}) {
             if (ends(pa, reversed) < ends(pa, pb)) pb = reversed
         }
 
+        /**
+         * Holes are matched where they'd sit in the second shape's parent,
+         * so each point keeps to the same part of its parent throughout.
+         */
         const [ea, eb] = correspond(
-            pa,
+            parentA
+                ? cage(pa, parentA).flatMap((w) => anchor(0, w, w, parentB!))
+                : pa,
             pb,
             closed,
-            1 / (Math.max(a.size, b.size) || 1)
+            1 / (Math.max(a.size, b.size) || 1),
+            pa
         )
 
-        const mix = blend(ea, eb, closed, linear)
-        const weightsA = parentA && meanValue(...centre(ea), parentA)
-        const weightsB = parentB && meanValue(...centre(eb), parentB)
-        const fillA = parentA && 1 / room(ea, ...centre(ea), parentA)
-        const fillB = parentB && 1 / room(eb, ...centre(eb), parentB)
+        /**
+         * Holes are drawn among the points of their parent, each point
+         * blending how it sits among them at either end. So holes bend
+         * and stretch with their parent, and keep their distance from its
+         * sides.
+         */
+        const weightsA = parentA && cage(ea, parentA)
+        const weightsB = parentB && cage(eb, parentB)
+        const gapA = parentA && gap(ea, parentA)
+        const gapB = parentB && gap(eb, parentB)
+        const mix = !parentA && blend(ea, eb, closed, linear)
         const out: Points = []
         const index = tracks.length
 
@@ -195,20 +209,10 @@ function prepare(from: string, to: string, { linear }: MorphOptions = {}) {
             parent,
             closed,
             draw: (t, outer) => {
-                mix(t, out)
-                if (outer) {
-                    /**
-                     * Holes follow the parts of their parent they sit
-                     * among, blending how they sit and how much of it
-                     * they fill at either end.
-                     */
-                    const [x, y] = anchor(t, weightsA!, weightsB!, outer)
-                    const [cx, cy] = centre(out)
-                    for (let i = 0; i < out.length; i += 2) {
-                        out[i] += x - cx
-                        out[i + 1] += y - cy
-                    }
-                    keepInside(out, x, y, outer, fillA! + (fillB! - fillA!) * t)
+                if (mix) mix(t, out)
+                else {
+                    const margin = (gapA! + (gapB! - gapA!) * t) / 2
+                    place(out, t, weightsA!, weightsB!, outer!, margin)
                 }
                 return out
             },
@@ -232,8 +236,11 @@ function prepare(from: string, to: string, { linear }: MorphOptions = {}) {
         // The second shape's contours turn with the contour around them
         if (grow && flip < 0) points = reverse(points)
 
-        const weights = parentPoints && meanValue(x, y, parentPoints)
-        const fill = parentPoints && 1 / room(points, x, y, parentPoints)
+        // Holes shrink to a point inside them, so they stay inside too
+        if (parentPoints) [x, y] = within(points, x, y)
+        const weights = parentPoints && cage(points, parentPoints)
+        const middle = parentPoints && [meanValue(x, y, parentPoints)]
+        const clearance = parentPoints && gap(points, parentPoints) / 2
         const out: Points = []
         const index = tracks.length
 
@@ -243,14 +250,14 @@ function prepare(from: string, to: string, { linear }: MorphOptions = {}) {
             draw: (t, outer) => {
                 const scale = grow ? t : 1 - t
                 if (scale <= 0) return
-                const [ax, ay] = outer
-                    ? anchor(0, weights!, weights!, outer)
-                    : [x, y]
-                for (let i = 0; i < points.length; i += 2) {
-                    out[i] = ax + (points[i] - x) * scale
-                    out[i + 1] = ay + (points[i + 1] - y) * scale
+                if (outer) {
+                    place(out, scale, middle!, weights!, outer, clearance!)
+                } else {
+                    for (let i = 0; i < points.length; i += 2) {
+                        out[i] = x + (points[i] - x) * scale
+                        out[i + 1] = y + (points[i + 1] - y) * scale
+                    }
                 }
-                outer && keepInside(out, ax, ay, outer, fill!)
                 return out
             },
         })
@@ -265,7 +272,20 @@ function prepare(from: string, to: string, { linear }: MorphOptions = {}) {
         )
     }
 
-    match(shapes(a), shapes(b))
+    /**
+     * New pieces turn with the second shape, if its outline winds the
+     * other way to the first's.
+     */
+    const rootsA = shapes(a)
+    const rootsB = shapes(b)
+    match(
+        rootsA,
+        rootsB,
+        -1,
+        undefined,
+        undefined,
+        rootsA[0].area * rootsB[0].area < 0 ? -1 : 1
+    )
 
     return (t: number) => {
         const drawn: (Points | undefined)[] = []
@@ -306,15 +326,40 @@ function anchor(
     return [x, y]
 }
 
-function centre(points: Points): [number, number] {
-    const n = points.length / 2
-    let x = 0
-    let y = 0
-    for (let i = 0; i < 2 * n; i += 2) {
-        x += points[i] / n
-        y += points[i + 1] / n
+/**
+ * Mean value coordinates of each point with respect to a polygon.
+ */
+const cage = (points: Points, polygon: Points) => {
+    const weights: Float64Array[] = []
+    for (let i = 0; i < points.length; i += 2) {
+        weights.push(meanValue(points[i], points[i + 1], polygon))
     }
-    return [x, y]
+    return weights
+}
+
+/**
+ * Write the points that blended weights pick out of a polygon into
+ * `out`. A single set of weights `from` blends into every point's. A
+ * polygon that changes shape a lot can still pinch them, so they're kept
+ * `margin` inside it too.
+ */
+function place(
+    out: Points,
+    t: number,
+    from: Float64Array[],
+    to: Float64Array[],
+    polygon: Points,
+    margin: number
+) {
+    to.forEach((weights, i) => {
+        ;[out[2 * i], out[2 * i + 1]] = anchor(
+            t,
+            from[i] || from[0],
+            weights,
+            polygon
+        )
+    })
+    fit(out, polygon, margin)
 }
 
 /**
