@@ -55,18 +55,8 @@ export function calcBoxDelta(
     target: Box,
     origin?: ResolvedValues
 ): void {
-    calcAxisDelta(
-        delta.x,
-        source.x,
-        target.x,
-        origin ? (origin.originX as number) : undefined
-    )
-    calcAxisDelta(
-        delta.y,
-        source.y,
-        target.y,
-        origin ? (origin.originY as number) : undefined
-    )
+    calcAxisDelta(delta.x, source.x, target.x, origin?.originX as number)
+    calcAxisDelta(delta.y, source.y, target.y, origin?.originY as number)
 }
 
 export function calcRelativeAxis(

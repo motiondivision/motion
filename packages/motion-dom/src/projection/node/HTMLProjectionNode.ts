@@ -21,5 +21,5 @@ export const HTMLProjectionNode =
             instance.style.transform = value !== undefined ? value : "none"
         },
         checkIsScrollRoot: (instance) =>
-            Boolean(window.getComputedStyle(instance).position === "fixed"),
+            window.getComputedStyle(instance).position === "fixed",
     })

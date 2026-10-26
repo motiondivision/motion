@@ -10,18 +10,9 @@ import {
 import type { ResolvedValues } from "../../node/types"
 import { cornerRadiusProps } from "../../utils/border-radius"
 import { asNumber } from "../../value/utils/as-number"
+import { angleTransforms } from "../utils/has-transform"
 
 const numBorders = cornerRadiusProps.length
-
-const mixedTransforms = [
-    "rotate",
-    "rotateX",
-    "rotateY",
-    "rotateZ",
-    "skewX",
-    "skewY",
-]
-const numMixedTransforms = mixedTransforms.length
 
 const isPx = (value: AnyResolvedKeyframe) =>
     typeof value === "number" || px.test(value)
@@ -93,8 +84,8 @@ export function mixValues(
      * Mix rotation and skew. These can't be projected, so mix them every
      * frame rather than leaving them frozen at the animation-start snapshot.
      */
-    for (let i = 0; i < numMixedTransforms; i++) {
-        const key = mixedTransforms[i]
+    for (let i = 0; i < angleTransforms.length; i++) {
+        const key = angleTransforms[i]
         if (follow[key] || lead[key]) {
             target[key] = mixNumber(
                 (follow[key] as number) || 0,

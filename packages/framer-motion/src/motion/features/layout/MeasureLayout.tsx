@@ -1,6 +1,11 @@
 "use client"
 
-import { frame, microtask, globalProjectionState, type VisualElement } from "motion-dom"
+import {
+    frame,
+    microtask,
+    globalProjectionState,
+    type VisualElement,
+} from "motion-dom"
 import { Component, useContext } from "react"
 import { usePresence } from "../../../components/AnimatePresence/use-presence"
 import {
@@ -171,8 +176,7 @@ class MeasureLayoutWithContext extends Component<MeasureProps> {
     }
 
     safeToRemove() {
-        const { safeToRemove } = this.props
-        safeToRemove && safeToRemove()
+        this.props.safeToRemove?.()
     }
 
     render() {
