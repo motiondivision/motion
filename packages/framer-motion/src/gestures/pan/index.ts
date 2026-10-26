@@ -6,7 +6,6 @@ import {
     type PanInfo,
 } from "motion-dom"
 import { noop } from "motion-utils"
-import { getContextWindow } from "../../utils/get-context-window"
 
 type PanEventHandler = (event: PointerEvent, info: PanInfo) => void
 const asyncHandler =
@@ -27,7 +26,8 @@ export class PanGesture extends Feature<Element> {
             this.createPanHandlers(),
             {
                 transformPagePoint: this.node.getTransformPagePoint(),
-                contextWindow: getContextWindow(this.node),
+                // Fixes https://github.com/motiondivision/motion/issues/2270
+                contextWindow: this.node.current?.ownerDocument.defaultView,
             }
         )
     }
@@ -58,11 +58,11 @@ export class PanGesture extends Feature<Element> {
     }
 
     update() {
-        this.session && this.session.updateHandlers(this.createPanHandlers())
+        this.session?.updateHandlers(this.createPanHandlers())
     }
 
     unmount() {
         this.removePointerDownListener()
-        this.session && this.session.end()
+        this.session?.end()
     }
 }
