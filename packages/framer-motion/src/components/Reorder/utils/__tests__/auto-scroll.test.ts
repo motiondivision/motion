@@ -182,3 +182,68 @@ describe("autoScrollIfNeeded in nested scroll containers", () => {
         expect(column.scrollTop).toBe(scrolled)
     })
 })
+
+describe("autoScrollIfNeeded on both axes of one container", () => {
+    afterEach(() => {
+        resetAutoScrollState()
+        document.body.innerHTML = ""
+    })
+
+    /**
+     * A Reorder.Board scrolls on x then y each frame. Here both find the
+     * same 300x300 container, which scrolls on both.
+     */
+    function setup() {
+        const element = document.createElement("div")
+        element.style.overflowX = "auto"
+        element.style.overflowY = "auto"
+        element.getBoundingClientRect = () =>
+            ({ top: 0, left: 0, bottom: 300, right: 300 } as DOMRect)
+        const size = { scrollHeight: 600 }
+        const scroll = { left: 0, top: 0 }
+        Object.defineProperties(element, {
+            clientWidth: { value: 300 },
+            clientHeight: { value: 300 },
+            scrollWidth: { value: 600 },
+            scrollHeight: { get: () => size.scrollHeight },
+            scrollLeft: {
+                get: () => scroll.left,
+                set: (value) => (scroll.left = value),
+            },
+            scrollTop: {
+                get: () => scroll.top,
+                set: (value) => (scroll.top = value),
+            },
+        })
+        const group = document.createElement("ul")
+        element.appendChild(group)
+        document.body.appendChild(element)
+        frameData.delta = 1000 / 60
+
+        const onDrag = (y: number, velocityY: number) => {
+            autoScrollIfNeeded(group, 150, "x", 0)
+            autoScrollIfNeeded(group, y, "y", velocityY)
+        }
+        return { element, size, onDrag }
+    }
+
+    test("keeps scrolling while the pointer is held at an edge", () => {
+        const { element, onDrag } = setup()
+        onDrag(290, 1)
+        const scrolled = element.scrollTop
+        expect(scrolled).toBeGreaterThan(0)
+
+        onDrag(290, 0)
+        expect(element.scrollTop).toBeGreaterThan(scrolled)
+    })
+
+    test("stops at the scroll limit from when it started scrolling", () => {
+        const { element, size, onDrag } = setup()
+        for (let i = 0; i < 100; i++) {
+            onDrag(299, 1)
+            // The dragged item, moved on by the scroll, grows the content
+            size.scrollHeight = 600 + element.scrollTop
+        }
+        expect(element.scrollTop).toBeLessThan(300 + 25)
+    })
+})

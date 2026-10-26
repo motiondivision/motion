@@ -1,13 +1,14 @@
 import { fireEvent } from "@testing-library/react"
 import { visualElementStore } from "motion-dom"
-import { act, useState } from "react"
+import { act, useContext, useState } from "react"
 import { Reorder } from ".."
+import { ReorderContext } from "../../../context/ReorderContext"
 import { nextFrame } from "../../../gestures/__tests__/utils"
 import { render } from "../../../jest.setup"
 import { Reorder as ReorderM } from "../../../m"
 import { domMax } from "../../../render/dom/features-max"
 import { LazyMotion } from "../../LazyMotion"
-import { ReorderAxis } from "../types"
+import { ReorderAxis, ReorderContextProps } from "../types"
 
 /**
  * JSDOM has no layout. Each group (ul) is a 100x300 column, 200px apart,
@@ -46,7 +47,8 @@ function translate({ transform }: CSSStyleDeclaration) {
 
 function rect(this: HTMLElement): DOMRect {
     const group = this.closest("ul")
-    if (!group) return box(0, 0, 0, 0)
+    // Or hidden, like display: none
+    if (!group || this.closest("[hidden]")) return box(0, 0, 0, 0)
 
     const left =
         Array.from(document.querySelectorAll("ul")).indexOf(group) * 200
@@ -147,18 +149,29 @@ interface BoardProps {
     onReorder?: (id: string, order: string[], moved: string) => void
     reject?: (id: string) => boolean
     namespace?: typeof Reorder
+    /**
+     * A group to hide, like display: none
+     */
+    hidden?: string
     [key: string]: any
 }
+
+/**
+ * Sets the latest rendered Board's lists, as its app would.
+ */
+let setBoardLists: (update: (latest: Lists) => Lists) => void
 
 function Board({
     initial,
     axis = "y",
     onReorder,
     reject,
+    hidden,
     namespace: R = Reorder,
     ...itemProps
 }: BoardProps) {
     const [lists, setLists] = useState(initial)
+    setBoardLists = setLists
 
     return (
         <R.Board>
@@ -166,6 +179,7 @@ function Board({
                 <R.Group
                     key={id}
                     axis={axis}
+                    hidden={id === hidden}
                     data-testid={id}
                     values={lists[id]}
                     onReorder={(order: string[], moved: string) => {
@@ -344,7 +358,7 @@ describe("Reorder.Board", () => {
 
     it("ends the drag if it's released before the drag carries on", async () => {
         const onDragEnd = jest.fn()
-        const { getByTestId } = render(
+        const { container, getByTestId } = render(
             <Board
                 initial={{ A: ["a"], B: ["b"] }}
                 whileDrag={{ opacity: 0.5 }}
@@ -352,9 +366,18 @@ describe("Reorder.Board", () => {
             />
         )
 
-        const gesture = await drag(getByTestId("a")).to(200, 60)
-        await gesture.end()
+        await drag(getByTestId("a")).to(100, 10)
 
+        // Over B, and released in the same act, before React commits the move
+        await act(async () => {
+            pointer("pointermove", document.body, 250, 85)
+            await nextFrame()
+            expect(getByTestId("a").closest("ul")).toBe(getByTestId("A"))
+            pointer("pointerup", document.body, 250, 85)
+        })
+        await act(nextFrame)
+
+        expect(lists(container)).toEqual({ A: [], B: ["b", "a"] })
         expect(isGrabbed(getByTestId("a"))).toBe(false)
         expect(onDragEnd).toBeCalledTimes(1)
     })
@@ -531,6 +554,157 @@ describe("Reorder.Board", () => {
 
         await gesture.end()
     })
+
+    it("drops into a virtualized group by the items it shows", async () => {
+        let latest: Lists = {}
+        function Virtualized({ shown }: { shown: number }) {
+            const [lists, setLists] = useState<Lists>({
+                A: ["a"],
+                B: ["c", "d", "e"],
+            })
+            latest = lists
+            return (
+                <Reorder.Board>
+                    {Object.keys(lists).map((id) => (
+                        <Reorder.Group
+                            key={id}
+                            axis="y"
+                            data-testid={id}
+                            values={lists[id]}
+                            onReorder={(order: string[]) =>
+                                setLists((l) => ({ ...l, [id]: order }))
+                            }
+                        >
+                            {lists[id]
+                                .slice(0, id === "B" ? shown : undefined)
+                                .map((value) => (
+                                    <Reorder.Item
+                                        key={value}
+                                        value={value}
+                                        data-testid={value}
+                                    />
+                                ))}
+                        </Reorder.Group>
+                    ))}
+                </Reorder.Board>
+            )
+        }
+        const { getByTestId, rerender } = render(<Virtualized shown={3} />)
+        await act(nextFrame)
+
+        // Scrolled: only "c" is still rendered, "d" and "e" stay in values
+        rerender(<Virtualized shown={1} />)
+        await act(nextFrame)
+
+        // Its centre just below "c"
+        const gesture = await drag(getByTestId("a")).to(200, 35)
+        expect(latest).toEqual({ A: [], B: ["c", "a", "d", "e"] })
+        await gesture.end()
+    })
+
+    it("lets the item move again in a later gesture once the groups refused it", async () => {
+        let refuse = true
+        const { container, getByTestId } = render(
+            <Board
+                initial={{ A: ["a", "b"], B: ["c", "d"] }}
+                reject={() => refuse}
+                dragTransition={{
+                    bounceStiffness: 100000,
+                    bounceDamping: 100000,
+                }}
+            />
+        )
+
+        let gesture = await drag(getByTestId("a")).to(200, 40)
+        await gesture.end()
+        await act(async () => {
+            await new Promise((resolve) => setTimeout(resolve, 300))
+        })
+        expect(offset(getByTestId("a"))).toEqual({ x: 0, y: 0 })
+
+        refuse = false
+        gesture = await drag(getByTestId("a")).to(200, 40)
+        await gesture.to(200, 41)
+        expect(lists(container)).toEqual({ A: ["b"], B: ["c", "a", "d"] })
+        await gesture.end()
+    })
+
+    it("doesn't move items between a group and a group inside its items", async () => {
+        // A list of columns, each holding a list of cards
+        function Columns() {
+            const [columns, setColumns] = useState(["x", "y"])
+            const [cards, setCards] = useState<Lists>({ x: ["a"], y: ["b"] })
+            return (
+                <Reorder.Board>
+                    <Reorder.Group
+                        axis="y"
+                        data-testid="columns"
+                        values={columns}
+                        onReorder={setColumns}
+                    >
+                        {columns.map((id) => (
+                            <Reorder.Item key={id} value={id} data-testid={id}>
+                                <Reorder.Group
+                                    axis="y"
+                                    data-testid={`${id}-cards`}
+                                    values={cards[id]}
+                                    onReorder={(order) =>
+                                        setCards((latest) => ({
+                                            ...latest,
+                                            [id]: order,
+                                        }))
+                                    }
+                                >
+                                    {cards[id].map((card) => (
+                                        <Reorder.Item
+                                            key={card}
+                                            value={card}
+                                            data-testid={card}
+                                        />
+                                    ))}
+                                </Reorder.Group>
+                            </Reorder.Item>
+                        ))}
+                    </Reorder.Group>
+                </Reorder.Board>
+            )
+        }
+        const { container, getByTestId } = render(<Columns />)
+        // Which column holds which cards. Columns may reorder among themselves.
+        const state = () => {
+            const { columns, ...cards } = lists(container)
+            return { columns: [...columns].sort(), ...cards }
+        }
+        const initial = state()
+
+        // A card over the list of columns, outside any list of cards
+        let gesture = await drag(getByTestId("a")).to(-170, 0)
+        expect(state()).toEqual(initial)
+        await gesture.end()
+
+        // A column over another column's cards
+        gesture = await drag(getByTestId("y")).to(200, -50)
+        expect(state()).toEqual(initial)
+        await gesture.end()
+    })
+
+    it("carries on after the dragged item unmounts mid-drag", async () => {
+        const { container, getByTestId } = render(
+            <Board initial={{ A: ["a", "b"], B: ["c"] }} />
+        )
+
+        const gesture = await drag(getByTestId("a")).to(10, 10)
+        // The app removes it
+        act(() => setBoardLists((latest) => ({ ...latest, A: ["b"] })))
+        await gesture.to(20, 20)
+        await gesture.end()
+
+        // Items still move between groups
+        const next = await drag(getByTestId("b")).to(200, 40)
+        await next.to(200, 41)
+        expect(lists(container)).toEqual({ A: [], B: ["c", "b"] })
+        await next.end()
+    })
 })
 
 describe("Reorder without a Board", () => {
@@ -580,6 +754,32 @@ describe("Reorder without a Board", () => {
         expect(offset(getByTestId("a")).x).toBe(0)
 
         await gesture.end()
+    })
+
+    it("doesn't keep the elements of unmounted (e.g. virtualized) items", async () => {
+        const captured: { context?: ReorderContextProps<number> | null } = {}
+        const Capture = () => {
+            captured.context = useContext(ReorderContext)
+            return null
+        }
+        const values = [0, 1, 2, 3, 4, 5]
+        const List = ({ from }: { from: number }) => (
+            <Reorder.Group axis="y" values={values} onReorder={() => {}}>
+                <Capture />
+                {values.slice(from, from + 3).map((value) => (
+                    <Reorder.Item key={value} value={value} />
+                ))}
+            </Reorder.Group>
+        )
+        const { rerender } = render(<List from={0} />)
+        await act(nextFrame)
+        rerender(<List from={3} />)
+        await act(nextFrame)
+
+        const detached = captured
+            .context!.getOrder()
+            .filter(({ element }) => element && !element.isConnected)
+        expect(detached).toEqual([])
     })
 })
 
@@ -660,5 +860,52 @@ describe("Reorder.Board keyboard", () => {
         expect(lists(container)).toEqual({ A: ["a", "b"], B: ["c", "d"] })
         expect(document.activeElement).toBe(getByTestId("b"))
         expect(isGrabbed(getByTestId("b"))).toBe(false)
+    })
+
+    it("doesn't move a grabbed item into a hidden group", () => {
+        const { container, getByTestId } = render(
+            <Board
+                initial={{ H: ["h"], A: ["a"], B: ["b"] }}
+                hidden="H"
+                whileDrag={{ opacity: 0.5 }}
+            />
+        )
+
+        const a = getByTestId("a")
+        act(() => a.focus())
+        press(a, " ")
+        expect(press(a, "ArrowLeft")).toBe(true)
+        expect(lists(container)).toEqual({ H: ["h"], A: ["a"], B: ["b"] })
+        expect(document.activeElement).toBe(a)
+    })
+
+    it("forgets a refused move once the item is dropped", async () => {
+        let refuse = true
+        const { container, getByTestId } = render(
+            <Board
+                initial={{ A: ["a", "b"], B: ["c"] }}
+                reject={() => refuse}
+                whileDrag={{ opacity: 0.5 }}
+            />
+        )
+
+        const a = getByTestId("a")
+        act(() => a.focus())
+        press(a, " ")
+        press(a, "ArrowRight")
+        await nextFrame()
+        expect(lists(container)).toEqual({ A: ["a", "b"], B: ["c"] })
+        press(a, " ")
+        act(() => getByTestId("c").focus())
+
+        // Later, the app moves it itself
+        refuse = false
+        act(() =>
+            setBoardLists((latest) => ({ A: ["b"], B: ["a", ...latest.B] }))
+        )
+        await act(nextFrame)
+
+        expect(document.activeElement).toBe(getByTestId("c"))
+        expect(isGrabbed(getByTestId("a"))).toBe(false)
     })
 })
