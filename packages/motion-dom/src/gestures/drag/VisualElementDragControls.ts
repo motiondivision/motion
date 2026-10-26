@@ -845,9 +845,14 @@ export class VisualElementDragControls {
             this.visualElement.render()
         }
 
+        /**
+         * Measure the constraints after the render that follows a layout
+         * measurement, as the re-render that triggered it can also have
+         * changed the constraints element's transform, e.g. its scale (#1827).
+         */
         const stopMeasureLayoutListener = projection!.addEventListener(
             "measure",
-            measureDragConstraints
+            () => frame.postRender(measureDragConstraints)
         )
 
         frame.read(measureDragConstraints)
