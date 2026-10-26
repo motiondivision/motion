@@ -190,8 +190,11 @@ export function createProjectionNode<I>({
         /**
          * Create the projection node of a `motion` component's VisualElement,
          * from its props. This runs while the component renders, before its
-         * children. It's here rather than in the component so it's only
-         * bundled with the features that supply a ProjectionNode.
+         * children. It's here rather than in the component so React
+         * bundles only include it with the features that supply a
+         * ProjectionNode. Vanilla bundles that use the projection node
+         * (drag(), animateLayout()) include it too, as a class static
+         * can't be tree-shaken.
          */
         static create(
             visualElement: VisualElement<any>,

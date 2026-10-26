@@ -97,8 +97,8 @@ export function useVisualElement<
     ) {
         /**
          * Classes built by createProjectionNode set up their node from the
-         * component's props, so the setup is only bundled with the layout
-         * and drag features.
+         * component's props, so components only bundle the setup with the
+         * layout and drag features.
          */
         ProjectionNodeConstructor.create(
             visualElement,
