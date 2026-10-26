@@ -24,11 +24,13 @@ import { microtask } from "../../frameloop/microtask"
 import { time } from "../../frameloop/sync-time"
 import type { Process } from "../../frameloop/types"
 import { HTMLVisualElement } from "../../render/html/HTMLVisualElement"
+import type { MotionNodeOptions } from "../../node/types"
 import type { ResolvedValues } from "../../render/types"
 import { scaleCorrectors } from "../../render/utils/is-forced-motion-value"
 import type { MotionStyle, VisualElement } from "../../render/VisualElement"
 import { statsBuffer } from "../../stats/buffer"
 import { delay } from "../../utils/delay"
+import { isRefObject } from "../../utils/is-ref-object"
 import { isSVGElement } from "../../utils/is-svg-element"
 import { isSVGSVGElement } from "../../utils/is-svg-svg-element"
 import { mixNumber } from "../../utils/mix/number"
@@ -67,6 +69,7 @@ import { FlatTree } from "../utils/flat-tree"
 import { has2DTranslate, hasScale, hasTransform } from "../utils/has-transform"
 import { globalProjectionState } from "./state"
 import {
+    InitialPromotionConfig,
     IProjectionNode,
     LayoutEvents,
     LayoutUpdateData,
@@ -142,6 +145,20 @@ function cancelTreeOptimisedTransformAnimations(
     }
 }
 
+function getClosestProjectingNode(
+    visualElement?: VisualElement<
+        unknown,
+        unknown,
+        { allowProjection?: boolean }
+    >
+): IProjectionNode | undefined {
+    if (!visualElement) return undefined
+
+    return visualElement.options.allowProjection !== false
+        ? visualElement.projection
+        : getClosestProjectingNode(visualElement.parent)
+}
+
 export function createProjectionNode<I>({
     attachResizeListener,
     defaultParent,
@@ -161,6 +178,75 @@ export function createProjectionNode<I>({
     })
 
     return class ProjectionNode implements IProjectionNode<I> {
+        /**
+         * Create the projection node of a `motion` component's VisualElement,
+         * from its props. This runs while the component renders, before its
+         * children. It's here rather than in the component so it's only
+         * bundled with the features that supply a ProjectionNode.
+         */
+        static create(
+            visualElement: VisualElement<any>,
+            props: MotionNodeOptions,
+            initialPromotionConfig?: InitialPromotionConfig
+        ) {
+            const {
+                layoutId,
+                layout,
+                drag,
+                dragConstraints,
+                layoutScroll,
+                layoutRoot,
+                layoutAnchor,
+                layoutCrossfade,
+            } = props
+
+            const projection = (visualElement.projection = new this(
+                visualElement.latestValues,
+                props["data-framer-portal-id"]
+                    ? undefined
+                    : getClosestProjectingNode(visualElement.parent)
+            ) as IProjectionNode)
+
+            projection.setOptions({
+                layoutId,
+                layout,
+                alwaysMeasureLayout:
+                    Boolean(drag) ||
+                    (dragConstraints && isRefObject(dragConstraints)),
+                visualElement,
+                /**
+                 * TODO: Update options in an effect. This could be tricky as it'll be too late
+                 * to update by the time layout animations run.
+                 * We also need to fix this safeToRemove by linking it up to the one returned by usePresence,
+                 * ensuring it gets called if there's no potential layout animations.
+                 *
+                 */
+                animationType: typeof layout === "string" ? layout : "both",
+                initialPromotionConfig,
+                crossfade: layoutCrossfade,
+                layoutScroll,
+                layoutRoot,
+                layoutAnchor,
+            })
+
+            /**
+             * This node will take over from its layoutId's current lead, so snapshot
+             * the lead now, while rendering. By the time the lead unmounts (or this
+             * node mounts) React may already have committed DOM changes that come
+             * before it in the tree, like a sibling changing height, and a snapshot
+             * taken then starts the animation from a position never seen on screen.
+             *
+             * If React discards this render (e.g. it suspends), nothing else
+             * completes the update, so check it after the next frame as an
+             * unmounting node does.
+             */
+            const lead = projection.getStack()?.lead
+            if (lead && !projection.root!.isUpdateBlocked()) {
+                lead.willUpdate()
+                lead.scheduleCheckAfterUnmount()
+            }
+        }
+
         /**
          * A unique ID generated for every projection node.
          */

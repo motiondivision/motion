@@ -12,15 +12,10 @@ import { LazyContext } from "../../context/LazyContext"
 import { MotionConfigContext } from "../../context/MotionConfigContext"
 import { MotionContext } from "../../context/MotionContext"
 import { PresenceContext } from "../../context/PresenceContext"
-import {
-    InitialPromotionConfig,
-    SwitchLayoutGroupContext,
-} from "../../context/SwitchLayoutGroupContext"
+import { SwitchLayoutGroupContext } from "../../context/SwitchLayoutGroupContext"
 import { MotionProps } from "../../motion/types"
-import type { IProjectionNode } from "motion-dom"
 import { DOMMotionComponents } from "../../render/dom/types"
 import { CreateVisualElement } from "../../render/types"
-import { isRefObject } from "../../utils/is-ref-object"
 import { useIsomorphicLayoutEffect } from "../../utils/use-isomorphic-effect"
 import { VisualState } from "./use-visual-state"
 
@@ -100,10 +95,14 @@ export function useVisualElement<
         ProjectionNodeConstructor &&
         (visualElement.type === "html" || visualElement.type === "svg")
     ) {
-        createProjectionNode(
-            visualElementRef.current!,
+        /**
+         * Classes built by createProjectionNode set up their node from the
+         * component's props, so the setup is only bundled with the layout
+         * and drag features.
+         */
+        ProjectionNodeConstructor.create(
+            visualElement,
             props,
-            ProjectionNodeConstructor,
             initialLayoutGroupConfig
         )
     }
@@ -199,82 +198,4 @@ export function useVisualElement<
     })
 
     return visualElement!
-}
-
-function createProjectionNode(
-    visualElement: VisualElement<any>,
-    props: MotionProps,
-    ProjectionNodeConstructor: any,
-    initialPromotionConfig?: InitialPromotionConfig
-) {
-    const {
-        layoutId,
-        layout,
-        drag,
-        dragConstraints,
-        layoutScroll,
-        layoutRoot,
-        layoutAnchor,
-        layoutCrossfade,
-    } = props
-
-    const projection = (visualElement.projection =
-        new ProjectionNodeConstructor(
-            visualElement.latestValues,
-            props["data-framer-portal-id"]
-                ? undefined
-                : getClosestProjectingNode(visualElement.parent)
-        ) as IProjectionNode)
-
-    projection.setOptions({
-        layoutId,
-        layout,
-        alwaysMeasureLayout:
-            Boolean(drag) || (dragConstraints && isRefObject(dragConstraints)),
-        visualElement,
-        /**
-         * TODO: Update options in an effect. This could be tricky as it'll be too late
-         * to update by the time layout animations run.
-         * We also need to fix this safeToRemove by linking it up to the one returned by usePresence,
-         * ensuring it gets called if there's no potential layout animations.
-         *
-         */
-        animationType: typeof layout === "string" ? layout : "both",
-        initialPromotionConfig,
-        crossfade: layoutCrossfade,
-        layoutScroll,
-        layoutRoot,
-        layoutAnchor,
-    })
-
-    /**
-     * This node will take over from its layoutId's current lead, so snapshot
-     * the lead now, while rendering. By the time the lead unmounts (or this
-     * node mounts) React may already have committed DOM changes that come
-     * before it in the tree, like a sibling changing height, and a snapshot
-     * taken then starts the animation from a position never seen on screen.
-     *
-     * If React discards this render (e.g. it suspends), nothing else
-     * completes the update, so check it after the next frame as an
-     * unmounting node does.
-     */
-    const lead = projection.getStack()?.lead
-    if (lead && !projection.root!.isUpdateBlocked()) {
-        lead.willUpdate()
-        lead.scheduleCheckAfterUnmount()
-    }
-}
-
-function getClosestProjectingNode(
-    visualElement?: VisualElement<
-        unknown,
-        unknown,
-        { allowProjection?: boolean }
-    >
-): IProjectionNode | undefined {
-    if (!visualElement) return undefined
-
-    return visualElement.options.allowProjection !== false
-        ? visualElement.projection
-        : getClosestProjectingNode(visualElement.parent)
 }

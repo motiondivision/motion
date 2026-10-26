@@ -82,7 +82,7 @@ describe("projection node creation", () => {
                 x: instance.scrollLeft,
                 y: instance.scrollTop,
             }),
-            defaultParent: () => rootProjectionNode.current,
+            defaultParent: () => rootProjectionNode.current!,
             resetTransform: (instance, value) => {
                 instance.style.transform = value !== undefined ? value : "none"
             },
