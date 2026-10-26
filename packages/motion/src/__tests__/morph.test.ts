@@ -491,6 +491,33 @@ describe("morph", () => {
         }
     })
 
+    test("keeps pieces with no partner clear of the piece they shrink into as it moves", () => {
+        // Where they ran into it, fills with the evenodd rule, or pieces
+        // wound the other way to it, would notch it
+        const host = rect(10, 30, 40, 40)
+        const grid =
+            rect(5, 5, 40, 40) +
+            rect(55, 5, 40, 40) +
+            rect(5, 55, 40, 40) +
+            rect(55, 55, 40, 40)
+        for (const [a, b] of [
+            [host + rect(70, 40, 20, 20, false), rect(20, 20, 60, 60)],
+            [grid, rect(20, 20, 60, 60)],
+            [rect(30, 30, 40, 40), rect(0, 30, 40, 40) + rect(60, 30, 40, 40)],
+        ]) {
+            const mix = morph(a, b)!
+            for (let t = 0.02; t < 0.95; t += 0.02) {
+                const [first, ...rest] = read(mix(t))
+                for (const piece of rest) {
+                    expect(piece.points.some((p) => inside(p, first))).toBe(
+                        false
+                    )
+                    expect(crosses(piece, first)).toBe(false)
+                }
+            }
+        }
+    })
+
     test("morphs open paths as open paths", () => {
         const d = morph("M0 0L100 0", "M0 0Q50 100 100 0")!(0.5)
         const [line] = read(d)
