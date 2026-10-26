@@ -1,6 +1,12 @@
 "use client"
 
-import { frame, microtask, globalProjectionState, type VisualElement } from "motion-dom"
+import {
+    frame,
+    microtask,
+    globalProjectionState,
+    type IProjectionNode,
+    type VisualElement,
+} from "motion-dom"
 import { Component, useContext } from "react"
 import { usePresence } from "../../../components/AnimatePresence/use-presence"
 import {
@@ -45,7 +51,53 @@ const layoutOptions = ({
     animationType: typeof layout === "string" ? layout : "both",
 })
 
+/**
+ * Move a mounted node to its new layoutId's stack, as an unmount and remount
+ * would. Returns a takeover to run once every node in the commit has had the
+ * chance to change its layoutId.
+ */
+const switchLayoutId = (projection: IProjectionNode, layoutId?: string) => {
+    const { snapshot } = projection
+    const stack = projection.getStack()
+    const wasLead = projection.isLead()
+    stack?.remove(projection)
+    /**
+     * If this node led the old stack, the new lead animates from this
+     * node's snapshot, which it now holds. Unlike a node that unmounts, this
+     * one stays mounted, so unlink them: the new lead mustn't read this
+     * node's snapshot after it changes, or stop or share its animation.
+     */
+    const lead = stack?.lead
+    if (wasLead && lead?.resumeFrom === projection)
+        lead.resumeFrom = lead.currentAnimation = projection.resumingFrom =
+            undefined
+    projection.options.layoutId = layoutId
+
+    if (!layoutId) return
+    projection.root!.registerSharedNode(layoutId, projection)
+
+    /**
+     * Like a mounting node, this one animates from the lead it replaces.
+     * But if that lead is still on screen with this layoutId (e.g. an open
+     * card moving to another thumbnail), this node is already on screen
+     * too, so it takes over instantly: it keeps its own snapshot, and the
+     * lead is hidden, as at the end of a crossfade. A lead that left the
+     * stack in this commit (e.g. layoutId={selected ? "x" : undefined})
+     * is animated from.
+     */
+    return () => {
+        const { resumeFrom } = projection
+        if (resumeFrom && projection.getStack()!.members.includes(resumeFrom)) {
+            resumeFrom.hide()
+            projection.resumeFrom = undefined
+            projection.snapshot = snapshot
+        }
+    }
+}
+
 class MeasureLayoutWithContext extends Component<MeasureProps> {
+    takeOver?: VoidFunction
+
     /**
      * This only mounts projection nodes for components that
      * need measuring, we might want to do it for all components
@@ -63,6 +115,13 @@ class MeasureLayoutWithContext extends Component<MeasureProps> {
             if (hasTakenAnySnapshot) {
                 projection.root!.didUpdate()
             }
+
+            /**
+             * Without `layout` or `drag`, this only renders while there's a
+             * layoutId, so a mounted node can gain one here.
+             */
+            if (projection.options.layoutId !== layoutId)
+                switchLayoutId(projection, layoutId)?.()
 
             projection.addEventListener("animationComplete", () =>
                 this.safeToRemove()
@@ -93,36 +152,9 @@ class MeasureLayoutWithContext extends Component<MeasureProps> {
          */
         projection.isPresent = isPresent
 
-        /**
-         * If layoutId changes, move this node to the new layoutId's stack.
-         * It's already on screen, so it takes over the new stack instantly:
-         * it keeps its own snapshot rather than resuming from the lead, and
-         * the lead is hidden, as it would be at the end of a crossfade.
-         */
         if (prevProps.layoutId !== layoutId) {
             projection.willUpdate()
-            const { snapshot } = projection
-            const stack = projection.getStack()
-            stack?.remove(projection)
-            /**
-             * The old stack's new lead animates from this node's snapshot,
-             * which it now holds. Unlike a node that unmounts, this one stays
-             * mounted, so unlink them: the new lead mustn't read this node's
-             * snapshot after it changes, or stop or share its animation.
-             */
-            const lead = stack?.lead
-            if (lead?.resumeFrom === projection)
-                lead.resumeFrom =
-                    lead.currentAnimation =
-                    projection.resumingFrom =
-                        undefined
-            projection.options.layoutId = layoutId
-            if (layoutId) {
-                projection.getStack()?.lead?.hide()
-                projection.root!.registerSharedNode(layoutId, projection)
-                projection.resumeFrom = undefined
-                projection.snapshot = snapshot
-            }
+            this.takeOver = switchLayoutId(projection, layoutId)
         }
 
         projection.setOptions({
@@ -164,6 +196,8 @@ class MeasureLayoutWithContext extends Component<MeasureProps> {
     componentDidUpdate() {
         const { projection } = this.props.visualElement
         if (projection) {
+            this.takeOver?.()
+            this.takeOver = undefined
             projection.root!.didUpdate()
 
             microtask.postRender(() => {

@@ -137,7 +137,6 @@ export function createMotionComponent<
             useStrictMode(configAndProps, preloadedFeatures)
 
             const layoutProjection = getProjectionFunctionality(configAndProps)
-            MeasureLayout = layoutProjection.MeasureLayout
 
             /**
              * Create a VisualElement for this component. A VisualElement provides a common
@@ -153,6 +152,16 @@ export function createMotionComponent<
                 layoutProjection.ProjectionNode,
                 isSVG
             )
+
+            /**
+             * Keep measuring for the render that removes a layoutId, so the
+             * node can leave its stack.
+             */
+            if (
+                layoutProjection.isEnabled ||
+                context.visualElement?.projection?.options.layoutId
+            )
+                MeasureLayout = layoutProjection.MeasureLayout
         }
 
         /**
@@ -246,10 +255,8 @@ function getProjectionFunctionality(props: MotionProps) {
     const combined = { ...drag, ...layout }
 
     return {
-        MeasureLayout:
-            drag?.isEnabled(props) || layout?.isEnabled(props)
-                ? combined.MeasureLayout
-                : undefined,
+        MeasureLayout: combined.MeasureLayout,
+        isEnabled: drag?.isEnabled(props) || layout?.isEnabled(props),
         ProjectionNode: combined.ProjectionNode,
     }
 }

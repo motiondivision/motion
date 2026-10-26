@@ -203,6 +203,74 @@ describe("changing layoutId after mount (#1411)", () => {
             expect(visible).not.toContain("hidden")
         }
     )
+
+    /**
+     * Without `layout` or `drag`, MeasureLayout only renders while there's a
+     * layoutId, but the node must still join and leave stacks.
+     */
+    test("joins and leaves a stack without the layout prop", async () => {
+        const ref = createRef<HTMLDivElement>()
+        const { rerender } = render(<motion.div ref={ref} />)
+        const node = getNode(ref.current!)
+        const { sharedNodes } = node.root!
+
+        rerender(<motion.div ref={ref} layoutId="joined" />)
+        await nextFrame()
+        expect(sharedNodes.get("joined")?.lead === node).toBe(true)
+
+        rerender(<motion.div ref={ref} />)
+        await nextFrame()
+        expect((sharedNodes.get("joined")?.members ?? []).includes(node)).toBe(
+            false
+        )
+    })
+
+    /**
+     * Tabs: layoutId={selected ? "underline" : undefined}. The id moves from
+     * one element to another in the same commit, so the new holder animates
+     * from the old one, as it would if it had mounted, whichever order the
+     * two update in. Both stay visible.
+     */
+    test.each([
+        ["a", "b", true],
+        ["b", "a", true],
+        ["a", "b", undefined],
+        ["b", "a", undefined],
+    ])(
+        "animates the layoutId from %s to %s (layout %s)",
+        async (from, to, layout) => {
+            const refs = {
+                a: createRef<HTMLDivElement>(),
+                b: createRef<HTMLDivElement>(),
+            }
+            const App = ({ selected }: { selected: string }) => (
+                <>
+                    {(["a", "b"] as const).map((id) => (
+                        <motion.div
+                            key={id}
+                            ref={refs[id]}
+                            layout={layout}
+                            layoutId={selected === id ? "underline" : undefined}
+                        />
+                    ))}
+                </>
+            )
+            const { rerender } = render(<App selected={from} />)
+            await nextFrame()
+            const prev = getNode(refs[from as "a"].current!)
+            const next = getNode(refs[to as "a"].current!)
+
+            rerender(<App selected={to} />)
+
+            expect(next.getStack()?.lead === next).toBe(true)
+            expect(next.resumeFrom === prev).toBe(true)
+
+            await nextFrame()
+            expect(refs.a.current!.style.visibility).not.toBe("hidden")
+            expect(refs.b.current!.style.visibility).not.toBe("hidden")
+            expect(refs[from as "a"].current!.style.opacity).not.toBe("0")
+        }
+    )
 })
 
 /**
