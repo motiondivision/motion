@@ -1,4 +1,5 @@
 import { clamp, progress } from "motion-utils"
+import { Axis, axisKeys } from "../info"
 import { ScrollInfo, ScrollInfoOptions } from "../types"
 import { resolveOffset } from "./offset"
 import { ScrollOffset } from "./presets"
@@ -27,32 +28,39 @@ function offsetsToProgress(offsets: number[], v: number) {
     return reverse ? 1 - p : p
 }
 
-export function resolveOffsets(info: ScrollInfo, options: ScrollInfoOptions) {
-    const { offset: offsetDefinition = ScrollOffset.All, axis = "y" } = options
-    const axisInfo = info[axis]
+/**
+ * Resolves offsets on both axes, as useScroll reports the target's progress
+ * on each (#2546). `axis` only picks which progress scroll() reports.
+ */
+export function resolveOffsets(
+    info: ScrollInfo,
+    { offset: offsetDefinition = ScrollOffset.All }: ScrollInfoOptions
+) {
+    for (const axis in axisKeys) {
+        const axisInfo = info[axis as Axis]
 
-    /**
-     * Reset the length of the resolved offset array rather than creating a new one.
-     */
-    axisInfo.offset.length = 0
+        /**
+         * Reset the length of the resolved offset array rather than creating a new one.
+         */
+        axisInfo.offset.length = 0
 
-    /**
-     * Populate the offset array by resolving the user's offset definition into
-     * a list of pixel scroll offsets.
-     */
-    const numOffsets = offsetDefinition.length
-    for (let i = 0; i < numOffsets; i++) {
-        axisInfo.offset[i] = resolveOffset(
-            offsetDefinition[i],
-            axisInfo.containerLength,
-            axisInfo.targetLength,
-            axisInfo.targetOffset
+        /**
+         * Populate the offset array by resolving the user's offset definition into
+         * a list of pixel scroll offsets.
+         */
+        for (let i = 0; i < offsetDefinition.length; i++) {
+            axisInfo.offset[i] = resolveOffset(
+                offsetDefinition[i],
+                axisInfo.containerLength,
+                axisInfo.targetLength,
+                axisInfo.targetOffset
+            )
+        }
+
+        axisInfo.progress = clamp(
+            0,
+            1,
+            offsetsToProgress(axisInfo.offset, axisInfo.current)
         )
     }
-
-    axisInfo.progress = clamp(
-        0,
-        1,
-        offsetsToProgress(axisInfo.offset, axisInfo.current)
-    )
 }
