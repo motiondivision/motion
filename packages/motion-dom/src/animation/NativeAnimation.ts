@@ -105,9 +105,7 @@ export class NativeAnimation<T extends AnyResolvedKeyframe>
                     finalKeyframe,
                     this.speed
                 )
-                if (this.updateMotionValue) {
-                    this.updateMotionValue(keyframe)
-                }
+                this.updateMotionValue?.(keyframe)
 
                 /**
                  * If we can, we want to commit the final style as set by the user,

@@ -6,19 +6,26 @@ import {
     type VisualElement,
 } from "motion-dom"
 
-function handleHoverEvent(
+/**
+ * Toggle `while{gesture}` and fire `on{gesture}{lifecycle}`, e.g.
+ * `onHoverStart` or, with an empty lifecycle, `onTap`.
+ */
+export function handleGestureEvent(
     node: VisualElement<Element>,
     event: PointerEvent,
-    lifecycle: "Start" | "End"
+    gesture: "Hover" | "Tap",
+    lifecycle: "Start" | "End" | "Cancel" | ""
 ) {
     const { props } = node
+    const whileKey = ("while" + gesture) as "whileHover" | "whileTap"
 
-    if (node.animationState && props.whileHover) {
-        node.animationState.setActive("whileHover", lifecycle === "Start")
+    if (node.animationState && props[whileKey]) {
+        node.animationState.setActive(whileKey, lifecycle === "Start")
     }
 
-    const eventName = ("onHover" + lifecycle) as "onHoverStart" | "onHoverEnd"
-    const callback = props[eventName]
+    const callback = props[("on" + gesture + lifecycle) as "onHoverStart"] as
+        | ((event: PointerEvent, info: any) => void)
+        | undefined
     if (callback) {
         frame.postRender(() => callback(event, extractEventInfo(event)))
     }
@@ -30,9 +37,10 @@ export class HoverGesture extends Feature<Element> {
         if (!current) return
 
         this.unmount = hover(current, (_element, startEvent) => {
-            handleHoverEvent(this.node, startEvent, "Start")
+            handleGestureEvent(this.node, startEvent, "Hover", "Start")
 
-            return (endEvent) => handleHoverEvent(this.node, endEvent, "End")
+            return (endEvent) =>
+                handleGestureEvent(this.node, endEvent, "Hover", "End")
         })
     }
 

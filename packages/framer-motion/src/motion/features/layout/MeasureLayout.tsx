@@ -1,6 +1,12 @@
 "use client"
 
-import { frame, microtask, globalProjectionState, type VisualElement } from "motion-dom"
+import {
+    frame,
+    microtask,
+    globalProjectionState,
+    type IProjectionNode,
+    type VisualElement,
+} from "motion-dom"
 import { Component, useContext } from "react"
 import { usePresence } from "../../../components/AnimatePresence/use-presence"
 import {
@@ -32,15 +38,76 @@ let hasTakenAnySnapshot = false
 
 /**
  * The projection node is created with the props from the component's first
- * render, so keep these in sync as `layout` can change (or be enabled) later.
+ * render, so keep these in sync as they can change (or be enabled) later.
  */
-const layoutOptions = ({ layout, layoutDependency }: MeasureProps) => ({
+const layoutOptions = ({
     layout,
     layoutDependency,
+    layoutAnchor,
+}: MeasureProps) => ({
+    layout,
+    layoutDependency,
+    layoutAnchor,
     animationType: typeof layout === "string" ? layout : "both",
 })
 
+/**
+ * Move a mounted node to its new layoutId's stack, as an unmount and remount
+ * would. Returns a takeover to run once every node in the commit has had the
+ * chance to change its layoutId.
+ */
+const switchLayoutId = (projection: IProjectionNode, layoutId?: string) => {
+    const { snapshot } = projection
+    const stack = projection.getStack()
+    stack?.remove(projection)
+    /**
+     * If this node led the old stack (so remove() made it the prevLead of
+     * the new lead), the new lead animates from this node's snapshot, which
+     * it now holds. Unlike a node that unmounts, this one stays mounted, so
+     * unlink them: the new lead mustn't read this node's snapshot after it
+     * changes, or stop or share its animation.
+     */
+    const lead = stack?.lead
+    if (stack?.prevLead === projection && lead!.resumeFrom === projection)
+        lead!.resumeFrom = lead!.currentAnimation = projection.resumingFrom =
+            undefined
+    projection.options.layoutId = layoutId
+
+    /**
+     * A node that followed another no longer does, so clear the styles
+     * that hid it.
+     */
+    if (!layoutId) {
+        projection.needsShow = true
+        return
+    }
+    projection.root!.registerSharedNode(layoutId, projection)
+
+    /**
+     * Like a mounting node, this one animates from the lead it replaces.
+     * But if that lead is still on screen with this layoutId (e.g. an open
+     * card moving to another thumbnail), this node is already on screen
+     * too, so it takes over instantly: it keeps its own snapshot, and the
+     * lead is hidden, as at the end of a crossfade. A lead that left the
+     * stack in this commit (e.g. layoutId={selected ? "x" : undefined})
+     * is animated from, as is one that's exiting.
+     */
+    return () => {
+        const { resumeFrom } = projection
+        if (
+            resumeFrom?.isPresent !== false &&
+            projection.getStack()!.members.includes(resumeFrom!)
+        ) {
+            resumeFrom!.hide()
+            projection.resumeFrom = undefined
+            projection.snapshot = snapshot
+        }
+    }
+}
+
 class MeasureLayoutWithContext extends Component<MeasureProps> {
+    takeOver?: VoidFunction
+
     /**
      * This only mounts projection nodes for components that
      * need measuring, we might want to do it for all components
@@ -52,19 +119,23 @@ class MeasureLayoutWithContext extends Component<MeasureProps> {
         const { projection } = visualElement
 
         if (projection) {
-            if (layoutGroup.group) layoutGroup.group.add(projection)
-
-            if (switchLayoutGroup && switchLayoutGroup.register && layoutId) {
-                switchLayoutGroup.register(projection)
-            }
+            layoutGroup.group?.add(projection)
+            layoutId && switchLayoutGroup?.register?.(projection)
 
             if (hasTakenAnySnapshot) {
                 projection.root!.didUpdate()
             }
 
-            projection.addEventListener("animationComplete", () => {
+            /**
+             * Without `layout` or `drag`, this only renders while there's a
+             * layoutId, so a mounted node can gain one here.
+             */
+            if (projection.options.layoutId !== layoutId)
+                switchLayoutId(projection, layoutId)?.()
+
+            projection.addEventListener("animationComplete", () =>
                 this.safeToRemove()
-            })
+            )
             projection.setOptions({
                 ...projection.options,
                 ...layoutOptions(this.props),
@@ -76,7 +147,7 @@ class MeasureLayoutWithContext extends Component<MeasureProps> {
     }
 
     getSnapshotBeforeUpdate(prevProps: MeasureProps) {
-        const { layout, layoutDependency, visualElement, drag, isPresent } =
+        const { layoutDependency, layoutId, visualElement, drag, isPresent } =
             this.props
         const { projection } = visualElement
 
@@ -91,15 +162,15 @@ class MeasureLayoutWithContext extends Component<MeasureProps> {
          */
         projection.isPresent = isPresent
 
-        if (
-            prevProps.layoutDependency !== layoutDependency ||
-            prevProps.layout !== layout
-        ) {
-            projection.setOptions({
-                ...projection.options,
-                ...layoutOptions(this.props),
-            })
-        }
+        this.takeOver =
+            prevProps.layoutId !== layoutId
+                ? (projection.willUpdate(), switchLayoutId(projection, layoutId))
+                : undefined
+
+        projection.setOptions({
+            ...projection.options,
+            ...layoutOptions(this.props),
+        })
 
         hasTakenAnySnapshot = true
 
@@ -124,10 +195,7 @@ class MeasureLayoutWithContext extends Component<MeasureProps> {
                  * be in charge of the safe to remove. Otherwise we call it here.
                  */
                 frame.postRender(() => {
-                    const stack = projection.getStack()
-                    if (!stack || !stack.members.length) {
-                        this.safeToRemove()
-                    }
+                    projection.getStack()?.members.length || this.safeToRemove()
                 })
             }
         }
@@ -136,11 +204,9 @@ class MeasureLayoutWithContext extends Component<MeasureProps> {
     }
 
     componentDidUpdate() {
-        const { visualElement, layoutAnchor } = this.props
-        const { projection } = visualElement
+        const { projection } = this.props.visualElement
         if (projection) {
-            projection.options.layoutAnchor = layoutAnchor
-
+            this.takeOver?.()
             projection.root!.didUpdate()
 
             microtask.postRender(() => {
@@ -163,16 +229,13 @@ class MeasureLayoutWithContext extends Component<MeasureProps> {
 
         if (projection) {
             projection.scheduleCheckAfterUnmount()
-            if (layoutGroup && layoutGroup.group)
-                layoutGroup.group.remove(projection)
-            if (promoteContext && promoteContext.deregister)
-                promoteContext.deregister(projection)
+            layoutGroup.group?.remove(projection)
+            promoteContext?.deregister?.(projection)
         }
     }
 
     safeToRemove() {
-        const { safeToRemove } = this.props
-        safeToRemove && safeToRemove()
+        this.props.safeToRemove?.()
     }
 
     render() {

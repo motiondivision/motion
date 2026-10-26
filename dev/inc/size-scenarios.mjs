@@ -140,6 +140,11 @@ export const canaries = [
         why: "The frameloop batcher is bundled into motion/mini",
     },
     {
+        scenarios: ["useSpring"],
+        forbid: "hsla(",
+        why: "useSpring pulls in useTransform's range mapping and the colour mixer",
+    },
+    {
         scenarios: ["scroll", "useScroll"],
         forbid: "hsla(",
         why: "Scroll offsets pull in the colour parser",

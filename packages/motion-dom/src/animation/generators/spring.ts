@@ -18,32 +18,26 @@ import {
 } from "./utils/calc-duration"
 import { createGeneratorEasing } from "./utils/create-generator-easing"
 
-const springDefaults = {
-    // Default spring physics
-    stiffness: 100,
-    damping: 10,
-    mass: 1.0,
+// Default spring physics
+const defaultStiffness = 100
+const defaultDamping = 10
+const defaultMass = 1.0
 
-    // Default duration/bounce-based options
-    duration: 800, // in ms
-    bounce: 0.3,
-    visualDuration: 0.3, // in seconds
+// Default duration/bounce-based options
+const defaultDuration = 800 // in ms
+const defaultBounce = 0.3
+const defaultVisualDuration = 0.3 // in seconds
 
-    // Rest thresholds
-    restSpeed: {
-        granular: 0.01,
-        default: 2,
-    },
-    restDelta: {
-        granular: 0.005,
-        default: 0.5,
-    },
+// Rest thresholds
+const restSpeedGranular = 0.01
+const restSpeedDefault = 2
+const restDeltaGranular = 0.005
+const restDeltaDefault = 0.5
 
-    // Limits
-    minDuration: 0.01, // in seconds
-    maxDuration: 10.0, // in seconds
-    minDamping: 0.05,
-}
+// Limits
+const minDuration = 0.01 // in seconds
+const maxDuration = 10.0 // in seconds
+const minDamping = 0.05
 
 /**
  * Maps bounce to a damping ratio as SwiftUI does: 0 is critically damped, and
@@ -52,8 +46,8 @@ const springDefaults = {
  */
 const bounceToDampingRatio = (bounce: number) =>
     bounce < 0
-        ? 1 / Math.max(1 + bounce, springDefaults.minDamping)
-        : Math.max(1 - bounce, springDefaults.minDamping)
+        ? 1 / Math.max(1 + bounce, minDamping)
+        : Math.max(1 - bounce, minDamping)
 
 /**
  * Scales an overdamped spring's undamped frequency so that, at its defining
@@ -116,26 +110,22 @@ const safeMin = 0.001
  * NaN physics when the root search doesn't converge.
  */
 function findSpring({
-    duration = springDefaults.duration,
-    bounce = springDefaults.bounce,
+    duration = defaultDuration,
+    bounce = defaultBounce,
 }: SpringOptions) {
     let envelope: (num: number) => number
     let derivative: (num: number) => number
 
     process.env.NODE_ENV !== "production" &&
         warning(
-            duration <= secondsToMilliseconds(springDefaults.maxDuration),
+            duration <= secondsToMilliseconds(maxDuration),
             "Spring duration must be 10 seconds or less",
             "spring-duration-limit"
         )
 
     const dampingRatio = bounceToDampingRatio(bounce)
 
-    duration = clamp(
-        springDefaults.minDuration,
-        springDefaults.maxDuration,
-        millisecondsToSeconds(duration)
-    )
+    duration = clamp(minDuration, maxDuration, millisecondsToSeconds(duration))
 
     if (dampingRatio < 1) {
         /**
@@ -236,9 +226,9 @@ function getSpringOptions(options: SpringOptions) {
 
     const springOptions = {
         ...options,
-        stiffness: validStiffness ?? springDefaults.stiffness,
-        damping: validDamping ?? springDefaults.damping,
-        mass: validMass ?? springDefaults.mass,
+        stiffness: validStiffness ?? defaultStiffness,
+        damping: validDamping ?? defaultDamping,
+        mass: validMass ?? defaultMass,
         isResolvedFromDuration: false,
         // stiffness/damping/mass overrides duration/bounce
         isTimeDefined:
@@ -271,8 +261,8 @@ function getSpringOptions(options: SpringOptions) {
             !isValidPhysics(springOptions.stiffness) ||
             !isValidPhysics(springOptions.damping, true)
         ) {
-            springOptions.stiffness = springDefaults.stiffness
-            springOptions.damping = springDefaults.damping
+            springOptions.stiffness = defaultStiffness
+            springOptions.damping = defaultDamping
         }
     }
 
@@ -282,8 +272,8 @@ function getSpringOptions(options: SpringOptions) {
 function springGenerator(
     optionsOrVisualDuration:
         | ValueAnimationOptions<number>
-        | number = springDefaults.visualDuration,
-    bounce = springDefaults.bounce
+        | number = defaultVisualDuration,
+    bounce = defaultBounce
 ): KeyframeGenerator<number> {
     const options =
         typeof optionsOrVisualDuration !== "object"
@@ -352,14 +342,10 @@ function springGenerator(
         const isGranularScale = Math.abs(s.delta) < 5
         s.restSpeed =
             options.restSpeed ||
-            (isGranularScale
-                ? springDefaults.restSpeed.granular
-                : springDefaults.restSpeed.default)
+            (isGranularScale ? restSpeedGranular : restSpeedDefault)
         s.restDelta =
             options.restDelta ||
-            (isGranularScale
-                ? springDefaults.restDelta.granular
-                : springDefaults.restDelta.default)
+            (isGranularScale ? restDeltaGranular : restDeltaDefault)
     }
     setRestThresholds()
 

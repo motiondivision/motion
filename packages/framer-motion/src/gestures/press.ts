@@ -1,35 +1,16 @@
-import {
-    extractEventInfo,
-    Feature,
-    frame,
-    press,
-    type VisualElement,
-} from "motion-dom"
+import { Feature, press, type VisualElement } from "motion-dom"
+import { handleGestureEvent } from "./hover"
 
 function handlePressEvent(
     node: VisualElement<Element>,
     event: PointerEvent,
-    lifecycle: "Start" | "End" | "Cancel"
+    lifecycle: "Start" | "" | "Cancel"
 ) {
-    const { props } = node
-
     if (node.current instanceof HTMLButtonElement && node.current.disabled) {
         return
     }
 
-    if (node.animationState && props.whileTap) {
-        node.animationState.setActive("whileTap", lifecycle === "Start")
-    }
-
-    const eventName = ("onTap" + (lifecycle === "End" ? "" : lifecycle)) as
-        | "onTapStart"
-        | "onTap"
-        | "onTapCancel"
-
-    const callback = props[eventName]
-    if (callback) {
-        frame.postRender(() => callback(event, extractEventInfo(event)))
-    }
+    handleGestureEvent(node, event, "Tap", lifecycle)
 }
 
 export class PressGesture extends Feature<Element> {
@@ -48,7 +29,7 @@ export class PressGesture extends Feature<Element> {
                     handlePressEvent(
                         this.node,
                         endEvent,
-                        success ? "End" : "Cancel"
+                        success ? "" : "Cancel"
                     )
             },
             {

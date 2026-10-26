@@ -187,18 +187,12 @@ export class JSAnimation<T extends number | string>
     }
 
     updateTime(timestamp: number) {
-        const animationTime =
+        // Rounding the time because floating point arithmetic is not always accurate, e.g. 3000.367 - 1000.367 =
+        // 2000.0000000000002. This is a problem when we are comparing the currentTime with the duration, for
+        // example.
+        this.currentTime =
+            this.holdTime ??
             Math.round(timestamp - this.startTime!) * this.playbackSpeed
-
-        // Update currentTime
-        if (this.holdTime !== null) {
-            this.currentTime = this.holdTime
-        } else {
-            // Rounding the time because floating point arithmetic is not always accurate, e.g. 3000.367 - 1000.367 =
-            // 2000.0000000000002. This is a problem when we are comparing the currentTime with the duration, for
-            // example.
-            this.currentTime = animationTime
-        }
     }
 
     tick(timestamp: number, sample = false) {
@@ -417,22 +411,12 @@ export class JSAnimation<T extends number | string>
         return state
     }
 
-    /**
-     * Allows the returned animation to be awaited or promise-chained. Currently
-     * resolves when the animation finishes at all but in a future update could/should
-     * reject if its cancels.
-     */
-    then(resolve: VoidFunction, reject?: VoidFunction) {
-        return this.finished.then(resolve, reject)
-    }
-
     get duration() {
         return millisecondsToSeconds(this.calculatedDuration)
     }
 
     get iterationDuration() {
-        const { delay = 0 } = this.options || {}
-        return this.duration + millisecondsToSeconds(delay)
+        return this.duration + millisecondsToSeconds(this.options.delay ?? 0)
     }
 
     get time() {
@@ -580,14 +564,9 @@ export class JSAnimation<T extends number | string>
 
     private teardown() {
         this.state = "idle"
-        this.stopDriver()
-        this.startTime = this.holdTime = null
-    }
-
-    private stopDriver() {
-        if (!this.driver) return
-        this.driver.stop()
+        this.driver?.stop()
         this.driver = undefined
+        this.startTime = this.holdTime = null
     }
 
     sample(sampleTime: number): AnimationState<T> {
