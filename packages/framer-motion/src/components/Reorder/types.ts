@@ -81,6 +81,12 @@ export interface ReorderBoardProps {
         from: unknown[]
     ) => boolean
     /**
+     * The drag or keyboard grab of `value` ended, so drop any move of it
+     * that its new group hasn't picked up, e.g. because the groups refused
+     * it.
+     */
+    end: (value: unknown) => void
+    /**
      * Called by a mounting item, to continue the drag or keyboard grab
      * that moved it here from another group. Returns whether it continues
      * a drag, whose onDragStart has already been called.

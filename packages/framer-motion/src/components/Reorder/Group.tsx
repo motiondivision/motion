@@ -193,6 +193,11 @@ export function ReorderGroupComponent<
             } else if (!from) {
                 return
             } else if (key === "Escape") {
+                /**
+                 * Drop it first: a move back to the group it was grabbed in
+                 * hands it on to the item that mounts there.
+                 */
+                grab(currentTarget)
                 if (!board?.restore(context, item, currentTarget, from)) {
                     /**
                      * Values added since the grab keep their slots.
@@ -207,7 +212,6 @@ export function ReorderGroupComponent<
                         item
                     )
                 }
-                grab(currentTarget)
             } else if (keyIndex < 0) {
                 return
             } else {

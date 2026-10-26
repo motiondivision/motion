@@ -71,6 +71,16 @@ function isBefore(
         : point.y < top || (point.y < bottom && x)
 }
 
+/**
+ * Whether one group is, or holds, the other: like a list of columns and the
+ * list of cards in one of them. Items only move between unrelated groups.
+ */
+const isNested = (a: Group, b: Group) => {
+    const x = a.groupRef.current!
+    const y = b.groupRef.current!
+    return x.contains(y) || y.contains(x)
+}
+
 function createBoard(): ReorderBoardProps {
     const groups = new Set<Group>()
     let handoff: Handoff | undefined
@@ -96,13 +106,17 @@ function createBoard(): ReorderBoardProps {
         const { values } = to
 
         if (index === undefined) {
-            const order = to.getOrder()
+            /**
+             * Only the items it shows: a group keeps unmounted (e.g.
+             * virtualized) items' data while their values remain.
+             */
+            const order = to
+                .getOrder()
+                .filter((item) => item.element?.isConnected)
             const isRTL =
                 getComputedStyle(to.groupRef.current!).direction === "rtl"
-            const next = order.find(
-                (item) =>
-                    item.element &&
-                    isBefore(point, item.element, to.axis, isRTL)
+            const next = order.find((item) =>
+                isBefore(point, item.element!, to.axis, isRTL)
             )
             const last = order[order.length - 1]
             index = next
@@ -150,6 +164,12 @@ function createBoard(): ReorderBoardProps {
              */
             if (handoff?.controls?.isDragging) return true
 
+            /**
+             * The item can unmount mid-drag (e.g. the app removed it), while
+             * its gesture carries on until release.
+             */
+            if (!element?.isConnected) return false
+
             const point = centre(element)
             let to: Group | undefined
 
@@ -167,7 +187,7 @@ function createBoard(): ReorderBoardProps {
                 if (to) break
             }
 
-            if (!to || to.groupRef === from.groupRef) return false
+            if (!to || isNested(from, to)) return false
 
             const visualElement = visualElementStore.get(element)
             move(from, to, value, element, {
@@ -188,10 +208,13 @@ function createBoard(): ReorderBoardProps {
 
             for (const group of groups) {
                 const target = group.groupRef.current
-                if (!target || group.groupRef === from.groupRef) continue
+                if (!target || isNested(from, group)) continue
 
-                const { left, right, top, bottom } =
+                const { left, right, top, bottom, width, height } =
                     target.getBoundingClientRect()
+
+                // Hidden, e.g. display: none
+                if (!width && !height) continue
                 const groupCentre =
                     axis === "x" ? (left + right) / 2 : (top + bottom) / 2
 
@@ -240,6 +263,10 @@ function createBoard(): ReorderBoardProps {
             )
 
             return true
+        },
+
+        end: (value) => {
+            if (handoff?.value === value) handoff = undefined
         },
 
         receive: (to, value, element, grab) => {
@@ -309,12 +336,19 @@ function createBoard(): ReorderBoardProps {
 
                 const point = centre(element)
                 const { scrollX, scrollY } = element.ownerDocument.defaultView!
-                visualElement!
-                    .getValue("x")!
-                    .set(latest.centre.x - point.x - scrollX)
-                visualElement!
-                    .getValue("y")!
-                    .set(latest.centre.y - point.y - scrollY)
+                /**
+                 * Into the item's own coordinates, e.g. in a scaled parent.
+                 */
+                const transform =
+                    visualElement!.getTransformPagePoint() ||
+                    ((p: Point) => p)
+                const a = transform(latest.centre)
+                const b = transform({
+                    x: point.x + scrollX,
+                    y: point.y + scrollY,
+                })
+                visualElement!.getValue("x")!.set(a.x - b.x)
+                visualElement!.getValue("y")!.set(a.y - b.y)
                 visualElement!.render()
 
                 /**

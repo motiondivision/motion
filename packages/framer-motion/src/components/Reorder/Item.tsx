@@ -132,6 +132,7 @@ export function ReorderItemComponent<
      */
     const grab: Grab<V> = (element, from) => {
         setGrabbedFrom(from)
+        from || board?.end(value)
         visualElementStore
             .get(element)
             ?.animationState?.setActive("whileDrag", !!from)
@@ -200,6 +201,7 @@ export function ReorderItemComponent<
                 // Runs a frame after release, so after the release's click
                 hasReordered.current = false
                 resetAutoScrollState()
+                board?.end(value)
                 onDragEnd && onDragEnd(event, gesturePoint)
             }}
             onKeyDown={(event: React.KeyboardEvent<HTMLElement>) => {
@@ -217,7 +219,11 @@ export function ReorderItemComponent<
                 grabbedFrom && grab(event.currentTarget)
             }}
             onLayoutMeasure={(measured) => {
-                registerItem(value, measured, ref.current!)
+                /**
+                 * Only a board needs the element. A group keeps unmounted
+                 * (e.g. virtualized) items' data while their values remain.
+                 */
+                registerItem(value, measured, board ? ref.current! : undefined)
             }}
             ref={(element: Element | null) => {
                 ref.current = element

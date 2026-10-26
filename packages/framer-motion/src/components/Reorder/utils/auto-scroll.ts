@@ -6,20 +6,28 @@ const maxSpeed = 1.5
 
 const overflowStyles = new Set(["auto", "scroll"])
 
-/**
- * Per scrollable element, for the current drag: its initial scroll limit
- * (Bug 1 fix), and the edge it's auto-scrolling towards, "start" (top/left)
- * or "end" (bottom/right). A drag in a Reorder.Board can scroll several,
- * so they're all cleared when it ends.
- */
-const initialScrollLimits = new Map<HTMLElement, number>()
-
 type ActiveEdge = "start" | "end" | null
-const activeScrollEdge = new Map<HTMLElement, ActiveEdge>()
+
+interface ScrollState {
+    edge: ActiveEdge
+    limit: number
+}
+
+/**
+ * Per axis and scrollable element, for the current drag: the edge it's
+ * auto-scrolling towards, "start" (top/left) or "end" (bottom/right), and
+ * its scroll limit when that began (Bug 1 fix). A drag in a Reorder.Board
+ * scrolls on both axes, often of one element (like the page), and can
+ * scroll several, so they're kept per axis and all cleared when it ends.
+ */
+const scrollStates = {
+    x: new Map<HTMLElement, ScrollState>(),
+    y: new Map<HTMLElement, ScrollState>(),
+}
 
 export function resetAutoScrollState(): void {
-    activeScrollEdge.clear()
-    initialScrollLimits.clear()
+    scrollStates.x.clear()
+    scrollStates.y.clear()
 }
 
 function isScrollableElement(element: Element, axis: "x" | "y"): boolean {
@@ -114,47 +122,47 @@ export function autoScrollIfNeeded(
         axis
     )
 
-    // If not in any threshold zone, clear all state
+    const states = scrollStates[axis]
+
+    // If not in any threshold zone, clear this axis' state
     if (edge === null) {
-        activeScrollEdge.delete(scrollableAncestor)
-        initialScrollLimits.delete(scrollableAncestor)
+        states.delete(scrollableAncestor)
         return
     }
 
-    const currentActiveEdge = activeScrollEdge.get(scrollableAncestor)
+    let state = states.get(scrollableAncestor)
 
     const isDocumentScroll =
         scrollableAncestor === document.body ||
         scrollableAncestor === document.documentElement
 
     // If not currently scrolling this edge, check velocity to see if we should start
-    if (currentActiveEdge !== edge) {
+    if (state?.edge !== edge) {
         // Only start scrolling if velocity is towards the edge
         const shouldStart =
             (edge === "start" && velocity < 0) ||
             (edge === "end" && velocity > 0)
         if (!shouldStart) return
 
-        // Activate this edge
-        activeScrollEdge.set(scrollableAncestor, edge)
-
-        // Record initial scroll limit (prevents infinite scroll)
-        const maxScroll =
-            axis === "x"
-                ? scrollableAncestor.scrollWidth - (isDocumentScroll ? window.innerWidth : scrollableAncestor.clientWidth)
-                : scrollableAncestor.scrollHeight - (isDocumentScroll ? window.innerHeight : scrollableAncestor.clientHeight)
-
-        initialScrollLimits.set(scrollableAncestor, maxScroll)
+        // Activate this edge, and record the initial scroll limit
+        // (prevents infinite scroll)
+        state = {
+            edge,
+            limit:
+                axis === "x"
+                    ? scrollableAncestor.scrollWidth - (isDocumentScroll ? window.innerWidth : scrollableAncestor.clientWidth)
+                    : scrollableAncestor.scrollHeight - (isDocumentScroll ? window.innerHeight : scrollableAncestor.clientHeight),
+        }
+        states.set(scrollableAncestor, state)
     }
 
     // Cap scrolling at initial limit (prevents infinite scroll)
     if (scrollAmount > 0) {
-        const initialLimit = initialScrollLimits.get(scrollableAncestor)!
         const currentScroll =
             axis === "x"
                 ? (isDocumentScroll ? window.scrollX : scrollableAncestor.scrollLeft)
                 : (isDocumentScroll ? window.scrollY : scrollableAncestor.scrollTop)
-        if (currentScroll >= initialLimit) return
+        if (currentScroll >= state.limit) return
     }
 
     // Apply scroll
