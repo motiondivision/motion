@@ -2,8 +2,9 @@ import { motion } from "framer-motion"
 import { useEffect, useState } from "react"
 
 /**
- * backgroundColor runs on WAAPI. Interrupting it halfway (by animating
- * back to the start colour) should continue from the colour on screen.
+ * Interrupting a backgroundColor animation halfway (by animating back to
+ * the start colour) should continue from the colour on screen. It jumped
+ * while backgroundColor ran on WAAPI.
  *
  * Every frame's rendered colour is logged to window.colorFrames as
  * [timestamp, computed backgroundColor], and the interrupt time to

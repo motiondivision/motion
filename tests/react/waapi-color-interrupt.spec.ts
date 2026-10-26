@@ -27,7 +27,7 @@ const cases = [
     { from: "rgba(255, 0, 0, 0.2)", to: "rgb(0, 0, 255)" },
 ]
 
-test.describe("WAAPI color animation interrupted midway", () => {
+test.describe("backgroundColor animation interrupted midway", () => {
     for (const { from, to } of cases) {
         test(`${from} -> ${to} continues from the rendered colour`, async ({
             page,
