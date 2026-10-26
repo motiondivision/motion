@@ -395,8 +395,7 @@ function createBoard(props: {
                  * Into the item's own coordinates, e.g. in a scaled parent.
                  */
                 const transform =
-                    visualElement!.getTransformPagePoint() ||
-                    ((p: Point) => p)
+                    visualElement!.getTransformPagePoint() || ((p: Point) => p)
                 const a = transform(latest.centre)
                 const b = transform(pageCentre(element))
                 visualElement!.getValue("x")!.set(a.x - b.x)

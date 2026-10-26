@@ -682,7 +682,11 @@ describe("Reorder.Board", () => {
         const gesture = await drag(getByTestId("a")).to(200, 10)
         expect(canMove).toBeCalledWith("a", ["a", "b"], ["c", "d"])
         expect(onReorder).not.toBeCalled()
-        expect(lists(container)).toEqual({ A: ["a", "b"], B: ["c", "d"], C: [] })
+        expect(lists(container)).toEqual({
+            A: ["a", "b"],
+            B: ["c", "d"],
+            C: [],
+        })
         expect(offset(getByTestId("a"))).toEqual({ x: 200, y: 10 })
 
         // The same gesture can still take it on to C
@@ -827,48 +831,38 @@ describe("Reorder with unmounted (e.g. virtualized) items", () => {
         ["inside a Board", true, undefined],
         // A callback ref's cleanup is called rather than the ref with null
         ["with a callback ref that returns a cleanup", false, () => () => {}],
-    ])(
-        "doesn't keep their elements %s",
-        async (_, inBoard, itemRef) => {
-            const captured: { context?: ReorderContextProps<number> | null } =
-                {}
-            const Capture = () => {
-                captured.context = useContext(ReorderContext)
-                return null
-            }
-            const values = [0, 1, 2, 3, 4, 5]
-            const List = ({ from }: { from: number }) => {
-                const group = (
-                    <Reorder.Group axis="y" values={values} onReorder={() => {}}>
-                        <Capture />
-                        {values.slice(from, from + 3).map((value) => (
-                            <Reorder.Item
-                                key={value}
-                                value={value}
-                                ref={itemRef}
-                            />
-                        ))}
-                    </Reorder.Group>
-                )
-                return inBoard ? <Reorder.Board>{group}</Reorder.Board> : group
-            }
-            const { rerender } = render(<List from={0} />)
-            await act(nextFrame)
-            rerender(<List from={3} />)
-            await act(nextFrame)
-
-            // Elements, or refs to them, no longer in the document
-            const detached = captured
-                .context!.getOrder()
-                .filter((data) =>
-                    Object.values(data).some((field) => {
-                        const element = field?.current ?? field
-                        return element instanceof Element && !element.isConnected
-                    })
-                )
-            expect(detached).toEqual([])
+    ])("doesn't keep their elements %s", async (_, inBoard, itemRef) => {
+        const captured: { context?: ReorderContextProps<number> | null } = {}
+        const Capture = () => {
+            captured.context = useContext(ReorderContext)
+            return null
         }
-    )
+        const values = [0, 1, 2, 3, 4, 5]
+        const List = ({ from }: { from: number }) => {
+            const group = (
+                <Reorder.Group axis="y" values={values} onReorder={() => {}}>
+                    <Capture />
+                    {values.slice(from, from + 3).map((value) => (
+                        <Reorder.Item key={value} value={value} ref={itemRef} />
+                    ))}
+                </Reorder.Group>
+            )
+            return inBoard ? <Reorder.Board>{group}</Reorder.Board> : group
+        }
+        const { rerender } = render(<List from={0} />)
+        await act(nextFrame)
+        rerender(<List from={3} />)
+        await act(nextFrame)
+
+        // Elements, or refs to them, no longer in the document
+        const detached = captured.context!.getOrder().filter((data) =>
+            Object.values(data).some((field) => {
+                const element = field?.current ?? field
+                return element instanceof Element && !element.isConnected
+            })
+        )
+        expect(detached).toEqual([])
+    })
 })
 
 describe("Reorder.Board keyboard", () => {

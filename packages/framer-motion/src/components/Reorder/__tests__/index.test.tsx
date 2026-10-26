@@ -102,7 +102,11 @@ describe("Reorder", () => {
         }
 
         const { unmount } = render(
-            <Reorder.Group ref={() => () => {}} onReorder={() => {}} values={[]}>
+            <Reorder.Group
+                ref={() => () => {}}
+                onReorder={() => {}}
+                values={[]}
+            >
                 <Capture />
             </Reorder.Group>
         )
