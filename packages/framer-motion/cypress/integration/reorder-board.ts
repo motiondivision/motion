@@ -122,9 +122,11 @@ describe("Reorder.Board", () => {
             pointer(body, "pointerup", { x: target.x, y: target.y + 96 })
         )
 
-        // It settles into its slot, and its drag ends once
-        item("e").then(([e]) => {
-            const slot = e.getBoundingClientRect().top + 60
+        // It settles into its slot, after d and e, and its drag ends once.
+        // The slot is measured from the group, as e may still be animating.
+        cy.get("[data-testid='doing']").then(([doing]) => {
+            // The group's padding, then two items and their margins
+            const slot = doing.getBoundingClientRect().top + 10 + 2 * 60
             item("a").should(([a]) => {
                 expect(a.getBoundingClientRect().top).to.be.closeTo(slot, 1)
                 expect(scale(a)).to.equal(1)
