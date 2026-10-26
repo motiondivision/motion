@@ -69,9 +69,7 @@ export function merge(
 ): [Points, Points] {
     const ea: Points = []
     const eb: Points = []
-    for (const s of [...new Set(alongA.concat(alongB))].sort(
-        (p, q) => p - q
-    )) {
+    for (const s of [...new Set(alongA.concat(alongB))].sort((p, q) => p - q)) {
         ea.push(...at(a, alongA, s, false))
         eb.push(...at(b, alongB, s, false))
     }

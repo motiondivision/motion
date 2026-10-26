@@ -143,9 +143,14 @@ export function blend(a: Points, b: Points, linear?: boolean): Blend {
         const ratio = (areaA + (areaB - areaA) * t) / area(out)
         const scale = ratio > 0 ? Math.min(Math.sqrt(ratio), 1.2) : 1
         for (let i = 0; i < 2 * n; i += 2) {
-            out[i] = centreAX + (centreBX - centreAX) * t + (out[i] - centreX) * scale
+            out[i] =
+                centreAX +
+                (centreBX - centreAX) * t +
+                (out[i] - centreX) * scale
             out[i + 1] =
-                centreAY + (centreBY - centreAY) * t + (out[i + 1] - centreY) * scale
+                centreAY +
+                (centreBY - centreAY) * t +
+                (out[i + 1] - centreY) * scale
         }
     }
 }
@@ -157,7 +162,9 @@ function area(points: Points) {
     let sum = 0
     const n = points.length
     for (let i = 0; i < n; i += 2) {
-        sum += points[i] * points[(i + 3) % n] - points[(i + 2) % n] * points[i + 1]
+        sum +=
+            points[i] * points[(i + 3) % n] -
+            points[(i + 2) % n] * points[i + 1]
     }
     return sum / 2
 }

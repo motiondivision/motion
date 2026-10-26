@@ -93,6 +93,23 @@ function segmentDistance(p: Point, a: Point, b: Point) {
     return distance(p, [a[0] + t * dx, a[1] + t * dy])
 }
 
+// How close two closed polylines come to each other
+const clearance = (a: Subpath, b: Subpath) => {
+    let least = Infinity
+    for (const [from, to] of [
+        [a, b],
+        [b, a],
+    ]) {
+        for (const p of from.points) {
+            to.points.forEach((q, i) => {
+                const next = to.points[(i + 1) % to.points.length]
+                least = Math.min(least, segmentDistance(p, q, next))
+            })
+        }
+    }
+    return least
+}
+
 function crosses(a: Subpath, b: Subpath) {
     const cross = (o: Point, p: Point, q: Point) =>
         (p[0] - o[0]) * (q[1] - o[1]) - (p[1] - o[1]) * (q[0] - o[0])
@@ -210,6 +227,67 @@ const shapes = [L, T, U, plus, box]
 
 const square = rect(0, 0, 100, 100)
 const star = "M50 0L61 35L98 35L68 57L79 91L50 70L21 91L32 57L2 35L39 35Z"
+
+/**
+ * Letters and icons with holes, which move as they change shape.
+ */
+const P =
+    "M10 5H60C80 5 90 18 90 32C90 46 80 60 60 60H30V95H10Z" +
+    "M30 22V43H58C65 43 70 38 70 32C70 26 65 22 58 22Z"
+const four =
+    polygon([
+        [60, 5],
+        [75, 5],
+        [75, 60],
+        [90, 60],
+        [90, 75],
+        [75, 75],
+        [75, 95],
+        [60, 95],
+        [60, 75],
+        [10, 75],
+        [10, 62],
+    ]) +
+    polygon([
+        [30, 60],
+        [60, 60],
+        [60, 28],
+    ])
+const A =
+    polygon([
+        [40, 5],
+        [60, 5],
+        [95, 95],
+        [75, 95],
+        [67, 72],
+        [33, 72],
+        [25, 95],
+        [5, 95],
+    ]) +
+    polygon([
+        [39, 57],
+        [61, 57],
+        [50, 25],
+    ])
+const bolt =
+    polygon([
+        [55, 0],
+        [15, 55],
+        [45, 55],
+        [35, 100],
+        [85, 40],
+        [55, 40],
+        [70, 0],
+    ]) +
+    polygon([
+        [58, 12],
+        [48, 47],
+        [73, 47],
+        [46, 78],
+        [52, 50],
+        [28, 50],
+        [55, 12],
+    ])
 
 describe("morph", () => {
     test("returns the original strings at 0 and 1", () => {
@@ -679,7 +757,7 @@ describe("morph", () => {
         }
     })
 
-    test("keeps a small hole small in outlines that cross themselves on the way", () => {
+    test("keeps a small hole small, or gone, in outlines that cross themselves on the way", () => {
         const a =
             "M84.2 54.4L42.5 80.5Q67.1 69.5 4.5 41.1L50.6 0.3Q45.1 12.8 84.2 54.4Z" +
             circle(45, 40, 4, 0)
@@ -688,70 +766,14 @@ describe("morph", () => {
             circle(75, 45, 4, 0)
         const mix = morph(a, b)!
         for (let t = 0.05; t < 1; t += 0.05) {
-            const [minX, maxX, minY, maxY] = span(read(mix(t))[1])
+            const hole: Subpath | undefined = read(mix(t))[1]
+            if (!hole) continue
+            const [minX, maxX, minY, maxY] = span(hole)
             expect(Math.max(maxX - minX, maxY - minY)).toBeLessThan(12)
         }
     })
 
     test("moves paired holes smoothly, inside their outline and turned against it", () => {
-        const P =
-            "M10 5H60C80 5 90 18 90 32C90 46 80 60 60 60H30V95H10Z" +
-            "M30 22V43H58C65 43 70 38 70 32C70 26 65 22 58 22Z"
-        const four =
-            polygon([
-                [60, 5],
-                [75, 5],
-                [75, 60],
-                [90, 60],
-                [90, 75],
-                [75, 75],
-                [75, 95],
-                [60, 95],
-                [60, 75],
-                [10, 75],
-                [10, 62],
-            ]) +
-            polygon([
-                [30, 60],
-                [60, 60],
-                [60, 28],
-            ])
-        const A =
-            polygon([
-                [40, 5],
-                [60, 5],
-                [95, 95],
-                [75, 95],
-                [67, 72],
-                [33, 72],
-                [25, 95],
-                [5, 95],
-            ]) +
-            polygon([
-                [39, 57],
-                [61, 57],
-                [50, 25],
-            ])
-        const bolt =
-            polygon([
-                [55, 0],
-                [15, 55],
-                [45, 55],
-                [35, 100],
-                [85, 40],
-                [55, 40],
-                [70, 0],
-            ]) +
-            polygon([
-                [58, 12],
-                [48, 47],
-                [73, 47],
-                [46, 78],
-                [52, 50],
-                [28, 50],
-                [55, 12],
-            ])
-
         for (const [a, b] of [
             [P, four],
             [A, bolt],
@@ -820,6 +842,96 @@ describe("morph", () => {
             expect(Math.abs(area(hole))).toBeCloseTo(2064, -2)
             expect(hole.points.every((p) => inside(p, outer))).toBe(true)
             expect(crosses(hole, outer)).toBe(false)
+        }
+    })
+
+    test("never draws a hole outside its outline, though its partner is across a gap", () => {
+        // A U with a hole in each arm. Straight across, a hole would pass
+        // through the gap between them.
+        const u = "M0 0H30V70H70V0H100V100H0Z"
+        const mix = morph(
+            u + rect(10, 20, 10, 10, false),
+            u + rect(80, 20, 10, 10, false)
+        )!
+        for (let t = 0.01; t < 1; t += 0.01) {
+            const [outer, ...holes] = read(mix(t))
+            for (const hole of holes) {
+                expect(hole.points.every((p) => inside(p, outer))).toBe(true)
+                expect(crosses(hole, outer)).toBe(false)
+            }
+        }
+    })
+
+    test("grows and shrinks holes only where their outline is closed round them", () => {
+        const u =
+            "M10 0H35V60C35 70 42 75 50 75C58 75 65 70 65 60V0H90V60C90 85 72 100 50 100C28 100 10 85 10 60Z"
+        const c =
+            "M85 25C77 12 64 5 50 5C25 5 5 25 5 50C5 75 25 95 50 95C64 95 77 88 85 75L65 62C61 70 56 73 50 73C37 73 27 63 27 50C27 37 37 27 50 27C56 27 61 30 65 38Z"
+        const o = circle(50, 50, 45) + circle(50, 50, 25, 0)
+        for (const [a, b] of [
+            [u, o],
+            [o, u],
+            [c, o],
+            [o, c],
+        ]) {
+            const mix = morph(a, b)!
+            for (let t = 0.01; t < 1; t += 0.01) {
+                const [outer, ...holes] = read(mix(t))
+                for (const hole of holes) {
+                    expect(hole.points.every((p) => inside(p, outer))).toBe(
+                        true
+                    )
+                    expect(crosses(hole, outer)).toBe(false)
+                }
+            }
+        }
+    })
+
+    test("keeps paired holes at least half as far from their outline as an even blend of their ends", () => {
+        for (const [a, b] of [
+            [P, four],
+            [A, bolt],
+        ]) {
+            const mix = morph(a, b)!
+            const [outerA, holeA] = read(mix(1e-9))
+            const [outerB, holeB] = read(mix(1 - 1e-9))
+            const gapA = clearance(holeA, outerA)
+            const gapB = clearance(holeB, outerB)
+            for (let t = 0.02; t < 1; t += 0.02) {
+                const [outer, hole] = read(mix(t))
+                expect(clearance(hole, outer)).toBeGreaterThan(
+                    0.49 * (gapA + (gapB - gapA) * t)
+                )
+            }
+        }
+    })
+
+    test("shrinks holes smoothly as they pass a corner of their outline", () => {
+        // Outlined Ls, whose holes turn into a bar along the bottom, or the
+        // hole of an outlined 7
+        const l = "M0 0H30V70H100V100H0Z"
+        const lHole = "M6 94L94 94L94 76L24 76L24 6L6 6Z"
+        const seven =
+            "M0 0L100 0L100 25L55 100L25 100L68 25L0 25Z" +
+            "M6 19L78.356 19L35.356 94L51.603 94L94 23.338L94 6L6 6Z"
+        for (const [a, b] of [
+            [l + lHole, l + "M40 92L94 92L94 78L40 78Z"],
+            [l + lHole, seven],
+        ]) {
+            const mix = morph(a, b)!
+            let previous: Subpath | undefined
+            for (let t = 0.002; t < 1; t += 0.002) {
+                const hole: Subpath | undefined = read(mix(t))[1]
+                if (previous && hole) {
+                    const jump = Math.max(
+                        ...hole.points.map((p, i) =>
+                            distance(p, previous!.points[i])
+                        )
+                    )
+                    expect(jump).toBeLessThan(2)
+                }
+                previous = hole
+            }
         }
     })
 

@@ -28,6 +28,11 @@ export interface Contour {
 export const hypot = Math.hypot
 
 /**
+ * Holes are placed among at most this many of their outline's points.
+ */
+export const CAGE = 64
+
+/**
  * Flatten cubics into a polyline whose distance from the curve stays
  * under `tolerance`, then split edges longer than 1/`detail` of the
  * perimeter. Short edges and corners are kept as they are, so features
@@ -170,7 +175,7 @@ export function reverse(points: Points): Points {
     return reversed
 }
 
-function isInside(x: number, y: number, points: Points) {
+export function isInside(x: number, y: number, points: Points) {
     let inside = false
     const n = points.length
     for (let i = 0, j = n - 2; i < n; j = i, i += 2) {
@@ -267,110 +272,181 @@ export function meanValue(x: number, y: number, points: Points) {
 
 /**
  * A point inside a polygon that, if any can, sees all of it, so the
- * polygon can shrink towards it without leaving itself. (x, y) moves onto
- * the inside of each edge's line in turn, which settles where the insides
- * of every edge meet, if they do. A point that's left outside moves onto
- * the nearest edge.
+ * polygon can shrink towards it without leaving itself: the middle of
+ * what's left of its bounds once the outside of each edge is cut away.
+ * Otherwise (x, y), moved onto the nearest edge if it's outside.
  */
 export function within(points: Points, x: number, y: number) {
     const n = points.length
-    const sign = Math.sign(contour(points, true).area)
-    for (let pass = 0; pass < 20; pass++) {
-        for (let i = 0; i < n; i += 2) {
-            const x0 = points[i]
-            const y0 = points[i + 1]
-            const dx = points[(i + 2) % n] - x0
-            const dy = points[(i + 3) % n] - y0
-            const side =
-                (dx * (y - y0) - dy * (x - x0)) / (dx * dx + dy * dy || 1)
-            if (side * sign < 0) {
-                x += side * dy
-                y -= side * dx
+    const { area, x: cx, y: cy, size } = contour(points, true)
+    let kernel: Points = [
+        cx,
+        cy - 2 * size,
+        cx + 2 * size,
+        cy + size,
+        cx - 2 * size,
+        cy + size,
+    ]
+    for (let i = 0; i < n; i += 2) {
+        const x0 = points[i]
+        const y0 = points[i + 1]
+        const dx = points[(i + 2) % n] - x0
+        const dy = points[(i + 3) % n] - y0
+        const cut: Points = []
+        const m = kernel.length
+        for (let k = 0; k < m; k += 2) {
+            const px = kernel[k]
+            const py = kernel[k + 1]
+            const qx = kernel[(k + 2) % m]
+            const qy = kernel[(k + 3) % m]
+            const p = (dx * (py - y0) - dy * (px - x0)) * area
+            const q = (dx * (qy - y0) - dy * (qx - x0)) * area
+            if (p >= 0) cut.push(px, py)
+            if (p * q < 0) {
+                cut.push(
+                    px + ((qx - px) * p) / (p - q),
+                    py + ((qy - py) * p) / (p - q)
+                )
             }
         }
+        kernel = cut
     }
-    return isInside(x, y, points) ? [x, y] : nearest(x, y, points).slice(2)
+    const middle = contour(kernel, true)
+    return kernel.length
+        ? [middle.x, middle.y]
+        : isInside(x, y, points)
+        ? [x, y]
+        : nearest(x, y, points).slice(2)
 }
 
 /**
- * How far a hole reaches towards its outline from (x, y): the most, over
- * rays from (x, y), of how far along each ray the hole last ends, as a
- * share of how far it is to the outline. Shrinking the hole towards (x, y)
- * any more than this keeps it inside the outline. Rays through the points
- * of either cover every way the two can meet. Parts of the outline too
- * far away for the hole to reach `least` of the way to them are left out.
+ * How far a hole can be scaled towards (x, y), up to `most`, before it
+ * comes within `margin` of its outline: the least scale at which one of
+ * its points meets an edge or corner of the outline, or one of its edges
+ * meets a corner. A hole that (x, y) sees all of keeps clear of the
+ * outline at any smaller scale. Long polylines are thinned first, with
+ * how far they stray from what's left added to the margin.
  */
-export function reach(
+export function contact(
     hole: Points,
     outer: Points,
     x: number,
     y: number,
-    least: number
+    margin: number,
+    most: number
 ) {
+    const [points, strayA] = sparse(hole)
+    const [polygon, strayB] = sparse(outer)
+    const h = points.length
+    const n = polygon.length
+    const far: number[] = []
     let radius = 0
-    for (let i = 0; i < hole.length; i += 2) {
-        radius = Math.max(radius, hypot(hole[i] - x, hole[i + 1] - y))
+    margin += strayA + strayB
+    for (let i = 0; i < h; i += 2) {
+        far[i] = hypot(points[i] - x, points[i + 1] - y)
+        radius = Math.max(radius, far[i])
     }
 
-    const n = outer.length
-    const near: number[] = []
     for (let j = 0; j < n; j += 2) {
-        const [ex, ey] = closest(x, y, outer, j)
-        if (hypot(ex - x, ey - y) * least <= radius) near.push(j)
-    }
-
-    let most = 0
-    if (!near.length) return most
-    const look = (px: number, py: number) => {
-        const dx = px - x
-        const dy = py - y
-        most = Math.max(
-            most,
-            ray(x, y, dx, dy, hole, true) /
-                ray(x, y, dx, dy, outer, false, near)
+        const ax = polygon[j] - x
+        const ay = polygon[j + 1] - y
+        const ex = polygon[(j + 2) % n] - x - ax
+        const ey = polygon[(j + 3) % n] - y - ay
+        const k = Math.max(
+            0,
+            Math.min(1, -(ax * ex + ay * ey) / (ex * ex + ey * ey || 1))
         )
+        // A point this far from (x, y) can't come near the edge any sooner
+        const near = hypot(ax + k * ex, ay + k * ey) - margin
+        if (near >= radius * most) continue
+
+        for (let i = 0; i < h; i += 2) {
+            const ux = points[i] - x
+            const uy = points[i + 1] - y
+            // Nor can this point, or its edge to the next
+            if (near < Math.max(far[i], far[(i + 2) % h]) * most) {
+                most = Math.min(
+                    most,
+                    meet(ux, uy, ax, ay, margin),
+                    touch(ux, uy, ax, ay, ex, ey, margin),
+                    touch(
+                        ux,
+                        uy,
+                        ax,
+                        ay,
+                        points[(i + 2) % h] - x - ux,
+                        points[(i + 3) % h] - y - uy,
+                        margin,
+                        true
+                    )
+                )
+            }
+        }
     }
-    for (let i = 0; i < hole.length; i += 2) look(hole[i], hole[i + 1])
-    for (const j of near) look(outer[j], outer[j + 1])
     return most
 }
 
 /**
- * How many times (dx, dy) from (x, y) a ray last or first meets the
- * edges of a polygon, those starting at `edges` or else all of them.
+ * Every few points of a closed polyline, so there are at most 2 * CAGE of
+ * them, and how far the polyline strays from them.
  */
-function ray(
-    x: number,
-    y: number,
-    dx: number,
-    dy: number,
-    polygon: Points,
-    last: boolean,
-    edges?: number[]
-) {
-    const n = polygon.length
-    let found = last ? 0 : Infinity
-    for (let k = 0; k < (edges ? edges.length : n / 2); k++) {
-        const j = edges ? edges[k] : 2 * k
-        const px = polygon[j] - x
-        const py = polygon[j + 1] - y
-        const ex = polygon[(j + 2) % n] - polygon[j]
-        const ey = polygon[(j + 3) % n] - polygon[j + 1]
-        const denominator = dx * ey - dy * ex
-        // Rays along an edge pass it by
-        if (
-            denominator ** 2 <
-            1e-18 * (dx * dx + dy * dy) * (ex * ex + ey * ey)
-        ) {
-            continue
-        }
-        const along = (px * ey - py * ex) / denominator
-        const across = (px * dy - py * dx) / denominator
-        if (along > 1e-9 && across >= 0 && across <= 1) {
-            found = last ? Math.max(found, along) : Math.min(found, along)
-        }
+function sparse(points: Points): [Points, number] {
+    const step = 2 * Math.ceil(points.length / 4 / CAGE)
+    const kept = points.filter((_, i) => i % step < 2)
+    let stray = 0
+    for (let i = 0; i < points.length; i += 2) {
+        const [px, py] = closest(
+            points[i],
+            points[i + 1],
+            kept,
+            (2 * (i - (i % step))) / step
+        )
+        stray = Math.max(stray, hypot(px - points[i], py - points[i + 1]))
     }
-    return found
+    return [kept, stray]
+}
+
+/**
+ * The least s >= 0 at which s·(ux, uy) comes within `margin` of (ax, ay).
+ */
+function meet(ux: number, uy: number, ax: number, ay: number, margin: number) {
+    const uu = ux * ux + uy * uy
+    const ua = ux * ax + uy * ay
+    const aa = ax * ax + ay * ay - margin * margin
+    const d = ua * ua - uu * aa
+    return aa <= 0 ? 0 : d >= 0 && ua > 0 ? (ua - Math.sqrt(d)) / uu : Infinity
+}
+
+/**
+ * The least s >= 0 at which s·(ux, uy) comes within `margin` of the edge
+ * from (ax, ay) along (ex, ey), away from its ends. If `swept`, it's the
+ * edge from s·(ux, uy) along s·(ex, ey) that comes within `margin` of
+ * (ax, ay) instead.
+ */
+function touch(
+    ux: number,
+    uy: number,
+    ax: number,
+    ay: number,
+    ex: number,
+    ey: number,
+    margin: number,
+    swept?: boolean
+) {
+    const across = ex * ay - ey * ax
+    const length = hypot(ex, ey)
+    const s =
+        Math.abs(across) > margin * length
+            ? (across - Math.sign(across) * margin * length) /
+              (ex * uy - ey * ux)
+            : swept
+            ? NaN
+            : 0
+    const along = ((s * ux - ax) * ex + (s * uy - ay) * ey) / length ** 2
+    return s >= 0 &&
+        (swept ? along <= 0 && along >= -s : along >= 0 && along <= 1)
+        ? s
+        : Infinity
 }
 
 /**
