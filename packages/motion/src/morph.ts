@@ -63,6 +63,10 @@ interface Track {
      * Returns nothing while the contour has shrunk away.
      */
     draw: (t: number, parent?: Points) => Points | undefined
+    /**
+     * The track this one is drawn inside, or moves along with, which is
+     * drawn before it. -1 for none.
+     */
     parent: number
     closed: boolean
 }
@@ -76,10 +80,11 @@ interface Track {
  * ```
  *
  * Holes and separate pieces are matched by proximity. Pieces without a
- * partner shrink away or grow from a point. Each part of an open path
- * moves straight to the same part of the other, as when a curve's control
- * points move. In-between shapes are written as polylines, and the
- * original strings are returned at 0 and 1, so an interrupted morph
+ * partner shrink into the nearest piece, or grow out of it, and holes
+ * without one shrink to a point or grow from one. Each part of an open
+ * path moves straight to the same part of the other, as when a curve's
+ * control points move. In-between shapes are written as polylines, and
+ * the original strings are returned at 0 and 1, so an interrupted morph
  * carries on from wherever it was.
  *
  * Returns `undefined` unless both values start with a moveto, which
@@ -169,12 +174,40 @@ function prepare(from: string, to: string, { linear }: MorphOptions = {}) {
             }
         }
 
-        as.forEach((a, i) =>
-            partners[i]
-                ? pair(a, partners[i], parent, parentA, parentB)
-                : single(a, false, parent, parentA)
+        const hosts: [number, Points, Points][] = []
+        as.forEach(
+            (a, i) =>
+                partners[i] &&
+                hosts.push(pair(a, partners[i], parent, parentA, parentB))
         )
-        bs.forEach((b, j) => taken[j] || single(b, true, parent, parentB, flip))
+
+        /**
+         * Pieces with no partner shrink into, or grow out of, the nearest
+         * point of a piece that has one, and move along with it. So they
+         * end or start on its line, where a stroke's caps leave no dot.
+         * Holes shrink to a point inside them instead, to keep clear of
+         * their outline.
+         */
+        const lone = (c: Contour, grow: boolean) => {
+            let host = parent
+            let spot = 0
+            let nearest = Infinity
+            for (const [index, ...ends] of parentA ? [] : hosts) {
+                // Nearest at the end the piece is drawn at
+                const points = ends[+grow]
+                for (let i = 0; i < points.length; i += 2) {
+                    const d = hypot(points[i] - c.x, points[i + 1] - c.y)
+                    if (d < nearest) {
+                        nearest = d
+                        host = index
+                        spot = i
+                    }
+                }
+            }
+            single(c, grow, host, grow ? parentB : parentA, flip, false, spot)
+        }
+        as.forEach((a, i) => partners[i] || lone(a, false))
+        bs.forEach((b, j) => taken[j] || lone(b, true))
     }
 
     const pair = (
@@ -183,7 +216,7 @@ function prepare(from: string, to: string, { linear }: MorphOptions = {}) {
         parent: number,
         parentA?: Points,
         parentB?: Points
-    ) => {
+    ): [number, Points, Points] => {
         const closed = a.closed && b.closed
         let pa = a.points
         let pb = b.points
@@ -246,12 +279,15 @@ function prepare(from: string, to: string, { linear }: MorphOptions = {}) {
         })
 
         match(a.children, b.children, index, ea, eb, flip)
+        return [index, ea, eb]
     }
 
     /**
      * A contour with no partner shrinks away to a point, or grows from
-     * one. Anything inside it keeps its place in it, so shrinks and grows
-     * along with it.
+     * one. A hole's point is inside it, among its parent's points. Other
+     * pieces use the point at `spot` in the track they move with. Anything
+     * inside a contour keeps its place in it, so shrinks and grows along
+     * with it.
      */
     const single = (
         c: Contour,
@@ -259,7 +295,8 @@ function prepare(from: string, to: string, { linear }: MorphOptions = {}) {
         parent: number,
         parentPoints?: Points,
         flip = 1,
-        follow?: boolean
+        follow?: boolean,
+        spot = 0
     ) => {
         let { points, closed, x, y, children } = c
         // The second shape's contours turn with the contour around them
@@ -290,7 +327,14 @@ function prepare(from: string, to: string, { linear }: MorphOptions = {}) {
                     scale > 0 &&
                     (mix
                         ? mix(scale, out, outer!)
-                        : (toward(out, points, x, y, scale), 1))
+                        : (toward(
+                              out,
+                              points,
+                              outer![spot],
+                              outer![spot + 1],
+                              scale
+                          ),
+                          1))
                 ) {
                     return out
                 }

@@ -460,6 +460,36 @@ describe("morph", () => {
         expect(Math.abs(area(leaving))).toBeLessThan(16)
     })
 
+    test("shrinks pieces with no partner into the nearest piece, so strokes leave no dot", () => {
+        const hamburger = "M20 30H80M20 50H80M20 70H80"
+        const close = "M25 25L75 75M75 25L25 75"
+        const check = "M30 52L45 67L72 38"
+        const ring = circle(50, 50, 40)
+        const pairs: [string, string, number][] = [
+            [hamburger, close, 0.999],
+            [close, hamburger, 0.001],
+            [ring + check, check, 0.999],
+            [check, ring + check, 0.001],
+        ]
+        for (const [from, to, t] of pairs) {
+            const subpaths = read(morph(from, to)!(t))
+            const speck = subpaths.find((sub) => perimeter(sub) < 1)!
+            for (const p of speck.points) {
+                // How far it is from the line of any other piece
+                const gap = Math.min(
+                    ...subpaths
+                        .filter((sub) => sub !== speck)
+                        .flatMap(({ points }) =>
+                            points
+                                .slice(1)
+                                .map((q, i) => segmentDistance(p, points[i], q))
+                        )
+                )
+                expect(gap).toBeLessThan(0.1)
+            }
+        }
+    })
+
     test("morphs open paths as open paths", () => {
         const d = morph("M0 0L100 0", "M0 0Q50 100 100 0")!(0.5)
         const [line] = read(d)
