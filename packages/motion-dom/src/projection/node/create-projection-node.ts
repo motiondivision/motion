@@ -83,12 +83,6 @@ import {
     ScrollMeasurements,
 } from "./types"
 
-const metrics = {
-    nodes: 0,
-    calculatedTargetDeltas: 0,
-    calculatedProjections: 0,
-}
-
 /**
  * Transforms that distort an element's layout, so must be reset before measuring.
  */
@@ -932,25 +926,15 @@ export function createProjectionNode<I>({
         updateProjection = () => {
             this.projectionUpdateScheduled = false
 
-            /**
-             * Reset debug counts. Manually resetting rather than creating a new
-             * object each frame.
-             */
-            if (statsBuffer.value) {
-                metrics.nodes =
-                    metrics.calculatedTargetDeltas =
-                    metrics.calculatedProjections =
-                        0
-            }
-
             this.nodes!.forEach(propagateDirtyNodes)
             this.nodes!.forEach(resolveTargetDelta)
             this.nodes!.forEach(calcProjection)
             this.nodes!.forEach(cleanDirtyNodes)
 
-            if (statsBuffer.addProjectionMetrics) {
-                statsBuffer.addProjectionMetrics(metrics)
-            }
+            /**
+             * Record this frame's debug counts, if recordStats() is running.
+             */
+            statsBuffer.countProjection?.()
         }
 
         /**
@@ -1419,9 +1403,7 @@ export function createProjectionNode<I>({
             /**
              * Increase debug counter for resolved target deltas
              */
-            if (statsBuffer.value) {
-                metrics.calculatedTargetDeltas++
-            }
+            statsBuffer.countProjection?.(1) // calculatedTargetDeltas
         }
 
         getClosestProjectingParent() {
@@ -1635,9 +1617,7 @@ export function createProjectionNode<I>({
             /**
              * Increase debug counter for recalculated projections
              */
-            if (statsBuffer.value) {
-                metrics.calculatedProjections++
-            }
+            statsBuffer.countProjection?.(2) // calculatedProjections
         }
 
         isVisible = true
@@ -2378,9 +2358,7 @@ export function propagateDirtyNodes(node: IProjectionNode) {
     /**
      * Increase debug counter for nodes encountered this frame
      */
-    if (statsBuffer.value) {
-        metrics.nodes++
-    }
+    statsBuffer.countProjection?.(0) // nodes
 
     if (!node.parent) return
 
