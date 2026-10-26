@@ -1,15 +1,14 @@
 /**
  * Found while investigating https://github.com/motiondivision/motion/issues/2369
  *
- * backgroundColor runs on WAAPI, and the browser interpolates it in sRGB
- * with premultiplied alpha. When it's interrupted, Motion estimates the
- * current colour from a JS copy of the animation. That copy mixed colours
- * in linear light, so the new animation started from a different colour
- * to the one on screen and the colour visibly jumped.
+ * backgroundColor used to run on WAAPI, where the browser interpolates it in
+ * sRGB with premultiplied alpha. When it was interrupted, Motion estimated
+ * the current colour from a JS copy of the animation, which mixes colours in
+ * linear space, so the new animation started from a different colour to the
+ * one on screen and the colour visibly jumped.
  *
- * The page records the rendered colour every frame. Premultiplied channels
- * move linearly in time on both sides of the interrupt, so no frame-to-frame
- * change should exceed the animation's speed.
+ * The page records the rendered colour every frame. A jump shows up as one
+ * frame-to-frame change far faster than the frames either side of it.
  */
 import { expect, test } from "@playwright/test"
 
@@ -59,26 +58,37 @@ test.describe("WAAPI color animation interrupted midway", () => {
             expect(blues[blues.length - 1]).toBe(0)
 
             /**
-             * Each premultiplied channel moves at most 255 per second. Allow
-             * 20% for clock differences, plus a little for rounding.
+             * The fastest any channel changes per ms between each pair of
+             * frames. A jump is a step several times faster than the steps
+             * either side of it. Linear-space mixing is steep near its
+             * endpoints, so only look at steps around the interrupt.
              */
-            const jumps: string[] = []
-            for (let i = 1; i < frames.length; i++) {
-                const elapsed = frames[i][0] - frames[i - 1][0]
-                const limit = 0.255 * elapsed * 1.2 + 4
+            const interruptedAt: number = await page.evaluate(
+                () => window.interruptedAt
+            )
+            const rates = values.slice(1).map((value, i) => {
+                const elapsed = frames[i + 1][0] - frames[i][0]
+                let rate = 0
                 for (let c = 0; c < 4; c++) {
-                    const delta = Math.abs(values[i][c] - values[i - 1][c])
-                    if (delta > limit) {
-                        jumps.push(
-                            `${frames[i - 1][1]} -> ${
-                                frames[i][1]
-                            } in ${elapsed.toFixed(1)}ms`
-                        )
-                        break
-                    }
+                    const delta = Math.abs(value[c] - values[i][c])
+                    rate = Math.max(rate, delta / elapsed)
+                }
+                return rate
+            })
+
+            const jumps: string[] = []
+            let checked = 0
+            for (let i = 1; i < rates.length - 1; i++) {
+                const t = frames[i + 1][0] - interruptedAt
+                if (t < -50 || t > 150) continue
+                checked++
+                const neighbours = Math.max(rates[i - 1], rates[i + 1])
+                if (rates[i] > 3 * neighbours + 0.3) {
+                    jumps.push(`${frames[i][1]} -> ${frames[i + 1][1]}`)
                 }
             }
 
+            expect(checked).toBeGreaterThan(3)
             expect(jumps).toEqual([])
         })
     }

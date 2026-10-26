@@ -6,12 +6,13 @@ import { useEffect, useState } from "react"
  * back to the start colour) should continue from the colour on screen.
  *
  * Every frame's rendered colour is logged to window.colorFrames as
- * [timestamp, computed backgroundColor], so the spec can look for a
- * discontinuity at the interrupt.
+ * [timestamp, computed backgroundColor], and the interrupt time to
+ * window.interruptedAt, so the spec can look for a discontinuity there.
  */
 declare global {
     interface Window {
         colorFrames: Array<[number, string]>
+        interruptedAt: number
     }
 }
 
@@ -33,7 +34,10 @@ export const App = () => {
         }
         id = requestAnimationFrame(record)
 
-        const timeout = setTimeout(() => setTarget(from), 550)
+        const timeout = setTimeout(() => {
+            window.interruptedAt = performance.now()
+            setTarget(from)
+        }, 550)
         const stop = setTimeout(() => cancelAnimationFrame(id), 1900)
 
         return () => {

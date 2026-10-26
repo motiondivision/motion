@@ -1,7 +1,6 @@
 import { clamp } from "motion-utils"
 import { time } from "../frameloop/sync-time"
 import { setStyle } from "../render/dom/style-set"
-import { mixColorsLikeBrowser } from "../utils/mix/color"
 import { JSAnimation } from "./JSAnimation"
 import { NativeAnimation, NativeAnimationOptions } from "./NativeAnimation"
 import { AnyResolvedKeyframe, ValueAnimationOptions } from "./types"
@@ -88,13 +87,10 @@ export class NativeAnimationExtended<
             } = this.options
 
             /**
-             * Mix colors like the browser does, so the estimate matches
-             * what's on screen. Stop it straight away so its driver doesn't
-             * run every frame. It can still be sampled.
+             * Stop it straight away so its driver doesn't run every frame.
+             * It can still be sampled.
              */
-            mixColorsLikeBrowser(true)
             this.sampler = new JSAnimation({ ...options, autoplay: false })
-            mixColorsLikeBrowser(false)
             this.sampler.stop()
         }
 

@@ -42,19 +42,6 @@ function asRGBA(color: Color | string) {
     return model as RGBA
 }
 
-let browserMixing = false
-
-/**
- * While on, new color mixers blend like browsers do for CSS and WAAPI: in
- * sRGB with premultiplied alpha, rather than in linear color space.
- *
- * Used to estimate the value of a WAAPI animation, so it matches the
- * color on screen.
- */
-export const mixColorsLikeBrowser = (on: boolean) => {
-    browserMixing = on
-}
-
 export const mixColor = (from: Color | string, to: Color | string) => {
     const fromRGBA = asRGBA(from)
     const toRGBA = asRGBA(to)
@@ -64,17 +51,12 @@ export const mixColor = (from: Color | string, to: Color | string) => {
     }
 
     const blended = { ...fromRGBA }
-    const mixChannel = browserMixing
-        ? (a: number, b: number, v: number) =>
-              mixNumber(a * fromRGBA.alpha, b * toRGBA.alpha, v) /
-                  blended.alpha || 0
-        : mixLinearColor
 
     return (v: number) => {
+        blended.red = mixLinearColor(fromRGBA.red, toRGBA.red, v)
+        blended.green = mixLinearColor(fromRGBA.green, toRGBA.green, v)
+        blended.blue = mixLinearColor(fromRGBA.blue, toRGBA.blue, v)
         blended.alpha = mixNumber(fromRGBA.alpha, toRGBA.alpha, v)
-        blended.red = mixChannel(fromRGBA.red, toRGBA.red, v)
-        blended.green = mixChannel(fromRGBA.green, toRGBA.green, v)
-        blended.blue = mixChannel(fromRGBA.blue, toRGBA.blue, v)
         return rgba.transform!(blended)
     }
 }

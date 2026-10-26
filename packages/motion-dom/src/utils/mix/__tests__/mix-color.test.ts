@@ -1,5 +1,4 @@
-import { mixColor, mixColorsLikeBrowser, mixLinearColor } from "../color"
-import { mix } from ".."
+import { mixColor, mixLinearColor } from "../color"
 
 test("mixColor hex", () => {
     expect(mixColor("#fff", "#000")(0.5)).toBe("rgba(180, 180, 180, 1)")
@@ -134,64 +133,4 @@ test("mixColor mixes immediately with unknown color", () => {
     expect(mixColor("red", "rgba(0, 0, 0, 0)")(0)).toBe("red")
     expect(mixColor("red", "rgba(0, 0, 0, 0)")(0.5)).toBe("rgba(0, 0, 0, 0)")
     expect(mixColor("red", "rgba(0, 0, 0, 0)")(1)).toBe("rgba(0, 0, 0, 0)")
-})
-
-/**
- * Expected values are what Chrome's WAAPI renders for these keyframes with
- * linear easing, sampled with getComputedStyle.
- */
-describe("mixColorsLikeBrowser", () => {
-    function likeBrowser<T>(create: () => T) {
-        mixColorsLikeBrowser(true)
-        const mixer = create()
-        mixColorsLikeBrowser(false)
-        return mixer
-    }
-
-    test("mixes in sRGB", () => {
-        const mixer = likeBrowser(() =>
-            mixColor("rgb(255, 0, 0)", "rgb(0, 0, 255)")
-        )
-        expect(mixer(0.333)).toBe("rgba(170, 0, 85, 1)")
-        expect(mixer(0.45)).toBe("rgba(140, 0, 115, 1)")
-        expect(mixer(0.777)).toBe("rgba(57, 0, 198, 1)")
-    })
-
-    test("mixes hsla in sRGB", () => {
-        const mixer = likeBrowser(() =>
-            mixColor("#f00", "hsla(240, 100%, 50%, 1)")
-        )
-        expect(mixer(0.45)).toBe("rgba(140, 0, 115, 1)")
-    })
-
-    test("mixes with premultiplied alpha", () => {
-        const mixer = likeBrowser(() =>
-            mixColor("rgba(255, 0, 0, 0.2)", "rgba(0, 0, 255, 1)")
-        )
-        expect(mixer(0.333)).toBe("rgba(73, 0, 182, 0.4664)")
-        expect(mixer(0.45)).toBe("rgba(50, 0, 205, 0.56)")
-
-        const fromTransparent = likeBrowser(() =>
-            mixColor("rgba(0, 0, 0, 0)", "rgb(255, 0, 0)")
-        )
-        expect(fromTransparent(0)).toBe("rgba(0, 0, 0, 0)")
-        expect(fromTransparent(0.45)).toBe("rgba(255, 0, 0, 0.45)")
-    })
-
-    test("mixes colors in complex values", () => {
-        const mixer = likeBrowser(() =>
-            mix(
-                "drop-shadow(0px 0px 0px rgb(255, 0, 0))",
-                "drop-shadow(0px 0px 0px rgb(0, 0, 255))"
-            )
-        )
-        expect(mixer(0.45)).toBe(
-            "drop-shadow(0px 0px 0px rgba(140, 0, 115, 1))"
-        )
-    })
-
-    test("only affects mixers created while on", () => {
-        likeBrowser(() => mixColor("#f00", "#00f"))
-        expect(mixColor("#fff", "#000")(0.5)).toBe("rgba(180, 180, 180, 1)")
-    })
 })
