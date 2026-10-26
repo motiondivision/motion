@@ -72,12 +72,17 @@ const TREE_SCALE_SNAP_MAX = 1.0000000000001
  * in a tree upon our box before then calculating how to project it into our desired viewport-relative box
  *
  * This is the final nested loop within updateLayoutDelta for future refactoring
+ *
+ * isSharedTransition is true for a shared layout animation in page space, which
+ * also applies ancestor scroll and transforms. Or it's the layoutRoot a shared
+ * animation is relative to, so only transforms of ancestors not shared with it
+ * (or above it) are applied.
  */
 export function applyTreeDeltas(
     box: Box,
     treeScale: Point,
     treePath: any[],
-    isSharedTransition: boolean = false
+    isSharedTransition: any = false
 ) {
     const treeLength = treePath.length
     if (!treeLength) return
@@ -106,7 +111,7 @@ export function applyTreeDeltas(
         }
 
         if (
-            isSharedTransition &&
+            isSharedTransition === true &&
             node.options.layoutScroll &&
             node.scroll &&
             node !== node.root
@@ -124,7 +129,11 @@ export function applyTreeDeltas(
             applyBoxDelta(box, delta)
         }
 
-        if (isSharedTransition && hasTransform(node.latestValues)) {
+        if (
+            isSharedTransition &&
+            (isSharedTransition.path?.[i] || isSharedTransition) !== node &&
+            hasTransform(node.latestValues)
+        ) {
             transformBox(box, node.latestValues, node.layout?.layoutBox)
         }
     }
