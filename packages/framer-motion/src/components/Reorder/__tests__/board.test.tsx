@@ -148,6 +148,7 @@ interface BoardProps {
     axis?: ReorderAxis
     onReorder?: (id: string, order: string[], moved: string) => void
     reject?: (id: string) => boolean
+    canMove?: (value: string, from: string[], to: string[]) => boolean
     namespace?: typeof Reorder
     /**
      * A group to hide, like display: none
@@ -166,6 +167,7 @@ function Board({
     axis = "y",
     onReorder,
     reject,
+    canMove,
     hidden,
     namespace: R = Reorder,
     ...itemProps
@@ -174,7 +176,7 @@ function Board({
     setBoardLists = setLists
 
     return (
-        <R.Board>
+        <R.Board canMove={canMove}>
             {Object.keys(lists).map((id) => (
                 <R.Group
                     key={id}
@@ -653,6 +655,35 @@ describe("Reorder.Board", () => {
         await gesture.end()
     })
 
+    it("leaves the item in its group while canMove refuses the move", async () => {
+        const onReorder = jest.fn()
+        // Up to two items in a group
+        const canMove = jest.fn(
+            (_: string, __: string[], to: string[]) => to.length < 2
+        )
+        const { container, getByTestId } = render(
+            <Board
+                initial={{ A: ["a", "b"], B: ["c", "d"], C: [] }}
+                onReorder={onReorder}
+                canMove={canMove}
+            />
+        )
+
+        // Over B, which is full
+        const gesture = await drag(getByTestId("a")).to(200, 10)
+        expect(canMove).toBeCalledWith("a", ["a", "b"], ["c", "d"])
+        expect(onReorder).not.toBeCalled()
+        expect(lists(container)).toEqual({ A: ["a", "b"], B: ["c", "d"], C: [] })
+        expect(offset(getByTestId("a"))).toEqual({ x: 200, y: 10 })
+
+        // The same gesture can still take it on to C
+        await gesture.to(400, 10)
+        expect(lists(container)).toEqual({ A: ["b"], B: ["c", "d"], C: ["a"] })
+        expect(canMove).toHaveBeenLastCalledWith("a", ["a", "b"], [])
+
+        await gesture.end()
+    })
+
     it("doesn't move items between a group and a group inside its items", async () => {
         // A list of columns, each holding a list of cards
         function Columns() {
@@ -949,5 +980,51 @@ describe("Reorder.Board keyboard", () => {
 
         expect(document.activeElement).toBe(getByTestId("c"))
         expect(isGrabbed(getByTestId("a"))).toBe(false)
+    })
+
+    it("skips a group that canMove refuses for the next one that way", async () => {
+        const { container, getByTestId } = render(
+            <Board
+                initial={{ A: ["a"], B: ["b", "c"], C: [], D: ["d", "e"] }}
+                // Up to two items in a group
+                canMove={(_, __, to) => to.length < 2}
+                whileDrag={{ opacity: 0.5 }}
+            />
+        )
+
+        const a = getByTestId("a")
+        act(() => a.focus())
+        press(a, " ")
+        expect(press(a, "ArrowRight")).toBe(false)
+        await nextFrame()
+        const moved = { A: [], B: ["b", "c"], C: ["a"], D: ["d", "e"] }
+        expect(lists(container)).toEqual(moved)
+        expect(document.activeElement).toBe(getByTestId("a"))
+
+        // No group takes it further that way
+        expect(press(getByTestId("a"), "ArrowRight")).toBe(true)
+        expect(lists(container)).toEqual(moved)
+    })
+
+    it("returns the item on Escape whatever canMove says", async () => {
+        const { container, getByTestId } = render(
+            <Board
+                initial={{ A: ["a", "b"], B: ["c"] }}
+                // Nothing moves into A
+                canMove={(_, __, to) => !to.includes("a")}
+                whileDrag={{ opacity: 0.5 }}
+            />
+        )
+
+        const b = getByTestId("b")
+        act(() => b.focus())
+        press(b, " ")
+        press(b, "ArrowRight")
+        await nextFrame()
+        expect(lists(container)).toEqual({ A: ["a"], B: ["c", "b"] })
+
+        press(getByTestId("b"), "Escape")
+        await nextFrame()
+        expect(lists(container)).toEqual({ A: ["a", "b"], B: ["c"] })
     })
 })
