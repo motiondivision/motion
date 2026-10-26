@@ -301,9 +301,9 @@ function prepare(from: string, to: string, { linear }: MorphOptions = {}) {
      * one. A hole's point is inside it, among its parent's points. Other
      * pieces shrink towards the point at `spot` in the track they move
      * with, keeping their place beside it as it was in `end`, the track at
-     * their own end, so they don't run into it as it moves. Anything
-     * inside a contour keeps its place in it, so shrinks and grows along
-     * with it.
+     * their own end, turned as far as the track has turned there. So they
+     * move along with it as it moves and turns. Anything inside a contour
+     * keeps its place in it, so shrinks and grows along with it.
      */
     const single = (
         c: Contour,
@@ -344,13 +344,7 @@ function prepare(from: string, to: string, { linear }: MorphOptions = {}) {
                     scale > 0 &&
                     (mix
                         ? mix(scale, out, outer!)
-                        : (points.forEach(
-                              (v, i) =>
-                                  (out[i] =
-                                      outer![spot + (i & 1)] +
-                                      (v - end![spot + (i & 1)]) * scale)
-                          ),
-                          1))
+                        : (place(out, points, outer!, end!, spot, scale), 1))
                 ) {
                     return out
                 }
@@ -523,7 +517,8 @@ function hold(
         const scale = isInside(x, y, outer)
             ? contact(out, outer, x, y, margin, most)
             : 0
-        toward(out, out, x, y, scale)
+        const centre = [x, y]
+        place(out, out, centre, centre, 0, scale)
         return scale
     }
 
@@ -566,18 +561,33 @@ function hold(
 }
 
 /**
- * Write `points`, scaled by `scale` towards (x, y), into `out`.
+ * Write `points`, scaled by `scale`, into `out`: from beside point `spot`
+ * of `end` to beside the same point of `outer`, turned as far as the line
+ * through its neighbours has. With one point for both, that scales them
+ * towards it.
  */
-function toward(
+function place(
     out: Points,
     points: Points,
-    x: number,
-    y: number,
+    outer: Points,
+    end: Points,
+    spot: number,
     scale: number
 ) {
-    for (let i = 0; i < points.length; i++) {
-        const centre = i % 2 ? y : x
-        out[i] = centre + (points[i] - centre) * scale
+    const n = end.length
+    const angle = (p: Points) =>
+        Math.atan2(
+            p[(spot + 3) % n] - p[(spot + n - 1) % n],
+            p[(spot + 2) % n] - p[(spot + n - 2) % n]
+        )
+    const a = angle(outer) - angle(end)
+    const c = Math.cos(a) * scale
+    const s = Math.sin(a) * scale
+    for (let i = 0; i < points.length; i += 2) {
+        const x = points[i] - end[spot]
+        const y = points[i + 1] - end[spot + 1]
+        out[i] = outer[spot] + c * x - s * y
+        out[i + 1] = outer[spot + 1] + s * x + c * y
     }
 }
 

@@ -518,6 +518,47 @@ describe("morph", () => {
         }
     })
 
+    test("keeps pieces with no partner clear of the piece they shrink into as it turns", () => {
+        const bar = [
+            [10, 45],
+            [90, 45],
+            [90, 55],
+            [10, 55],
+        ]
+        const arrow = [
+            [10, 45],
+            [70, 45],
+            [70, 35],
+            [90, 50],
+            [70, 65],
+            [70, 55],
+            [10, 55],
+        ]
+        // A quarter turn either way, and a half turn
+        const quarter = (points: number[][], k: number) =>
+            points.map(([x, y]) => [50 - k * (y - 50), 50 + k * (x - 50)])
+        const half = (points: number[][]) =>
+            points.map(([x, y]) => [100 - x, 100 - y])
+        const beside = rect(75, 35, 10, 6)
+        for (const [a, b] of [
+            [polygon(bar) + beside, polygon(quarter(bar, 1))],
+            [polygon(bar) + beside, polygon(quarter(bar, -1))],
+            [polygon(quarter(bar, 1)), polygon(bar) + beside],
+            [polygon(arrow) + rect(94, 40, 6, 20), polygon(half(arrow))],
+        ]) {
+            const mix = morph(a, b)!
+            for (let t = 0.02; t < 0.98; t += 0.02) {
+                const [first, ...rest] = read(mix(t))
+                for (const piece of rest) {
+                    expect(piece.points.some((p) => inside(p, first))).toBe(
+                        false
+                    )
+                    expect(crosses(piece, first)).toBe(false)
+                }
+            }
+        }
+    })
+
     test("morphs open paths as open paths", () => {
         const d = morph("M0 0L100 0", "M0 0Q50 100 100 0")!(0.5)
         const [line] = read(d)
