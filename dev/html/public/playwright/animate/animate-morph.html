@@ -8,13 +8,14 @@
         </style>
     </head>
     <body>
-        <svg width="200" height="100" viewBox="0 0 200 100">
+        <svg width="300" height="100" viewBox="0 0 300 100">
             <path id="morph" d="M0 0H100V100H0Z" fill="#0077ff" />
             <path
                 id="interrupt"
                 d="M100 0H200V100H100Z"
                 fill="#ff0055"
             />
+            <path id="both" d="M200 0H300V100H200Z" fill="#0000ff" />
         </svg>
         <script type="module" src="/src/inc.js"></script>
         <script type="module" src="/src/imports/morph.js"></script>
@@ -65,7 +66,7 @@
                 {
                     d: "M150 0L161 35L198 35L168 57L179 91L150 70L121 91L132 57L102 35L139 35Z",
                 },
-                { mixer: morph, duration: 1, ease: "linear" }
+                { mixer: morph, duration: 4, ease: "linear" }
             )
 
             setTimeout(() => {
@@ -81,7 +82,17 @@
                         path.dataset.after = JSON.stringify(measure())
                     })
                 )
-            }, 400)
+            }, 1000)
+
+            // Values that aren't paths are mixed as usual
+            animate(
+                "#both",
+                {
+                    d: "M250 0L261 35L298 35L268 57L279 91L250 70L221 91L232 57L202 35L239 35Z",
+                    fill: "#ff0000",
+                },
+                { mixer: morph, duration: 10, ease: "linear" }
+            )
         </script>
     </body>
 </html>

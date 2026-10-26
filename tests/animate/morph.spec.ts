@@ -41,7 +41,7 @@ test.describe("morph", () => {
         )
 
         // Interrupted part way from the square to the star
-        expect(before.area).toBeLessThan(9000)
+        expect(before.area).toBeLessThan(9800)
         expect(before.area).toBeGreaterThan(3500)
 
         // The next morph starts from that shape
@@ -49,5 +49,27 @@ test.describe("morph", () => {
             expect(Math.abs(after[key] - before[key])).toBeLessThan(2)
         }
         expect(Math.abs(after.area - before.area)).toBeLessThan(100)
+    })
+
+    test("mixes other values in the same transition as usual", async ({
+        page,
+    }) => {
+        await page.goto("animate/animate-morph.html")
+        await page.waitForTimeout(1000)
+
+        const { d, fill } = await page
+            .locator("#both")
+            .evaluate((element: SVGPathElement) => ({
+                d: element.getAttribute("d")!,
+                fill: getComputedStyle(element).fill,
+            }))
+
+        expect(d).toMatch(/^M[\d.\s-]+Z$/)
+        const [r, g, b] = fill.match(/[\d.]+/g)!.map(Number)
+        expect(r).toBeGreaterThan(0)
+        expect(r).toBeLessThan(255)
+        expect(b).toBeGreaterThan(0)
+        expect(b).toBeLessThan(255)
+        expect(g).toBe(0)
     })
 })
