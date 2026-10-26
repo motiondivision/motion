@@ -24,9 +24,8 @@
             })
 
             // Start a long red -> blue animation, then interrupt it mid-flight
-            // with a short animation to green. Interrupt sampling reads the
-            // WAAPI value, so the new animation must start from the current
-            // colour (no jump) and land exactly on green.
+            // with a short animation to green. The new animation must start
+            // from the current colour (no jump) and land exactly on green.
             animate(
                 "#color",
                 { backgroundColor: "rgb(0, 0, 255)" },
