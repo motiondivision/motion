@@ -1,5 +1,6 @@
 import "@testing-library/jest-dom"
 import { render } from "@testing-library/react"
+import { motionValue } from "motion-dom"
 import { useEffect } from "react"
 import { MotionConfig } from "../../../components/MotionConfig"
 import { useAnimate } from "../use-animate"
@@ -115,6 +116,32 @@ describe("useAnimate", () => {
         })
 
         expect(frameCount).toEqual(3)
+    })
+
+    test("Stops an animation played again after finishing on unmount", async () => {
+        const x = motionValue(0)
+        let animation: any
+
+        const Component = () => {
+            const [scope, animate] = useAnimate()
+
+            useEffect(() => {
+                animation = animate(x, 100, { duration: 0.1 })
+            }, [])
+
+            return <div ref={scope} />
+        }
+
+        const { unmount } = render(<Component />)
+        await animation
+        animation.play()
+        await new Promise((resolve) => setTimeout(resolve, 20))
+
+        unmount()
+        const stopped = x.get()
+        await new Promise((resolve) => setTimeout(resolve, 50))
+        expect(x.get()).toBe(stopped)
+        expect(stopped).toBeLessThan(100)
     })
 
     test("Sequences follow MotionConfig reducedMotion", async () => {

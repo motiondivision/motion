@@ -1,4 +1,5 @@
 import {
+    activeScope,
     addBuilderToScope,
     animateLayout,
     delayInSeconds as delay,
@@ -113,12 +114,42 @@ describe("scopeMotion", () => {
         })
 
         await animation!
-        animation!.time = 0
         animation!.play()
 
         expect(await isAnimating(x)).toBe(true)
         scope.stop()
         expect(await isAnimating(x)).toBe(false)
+    })
+
+    test("finished animations don't stay registered", async () => {
+        const x = motionValue(0)
+        const scope = scopeMotion()
+
+        /**
+         * Count the cleanups registered with the scope that haven't been
+         * removed.
+         */
+        let registered = 0
+        scope.run(() => {
+            const active = activeScope.current!
+            const add = active.add
+            active.add = (cleanup) => {
+                registered++
+                const remove = add(cleanup)
+                return () => {
+                    registered--
+                    remove()
+                }
+            }
+        })
+
+        for (let i = 0; i < 50; i++) {
+            await scope.run(() => animate(x, i, { duration: 0.001 }))
+            await scope.run(() => animate([[x, i, { duration: 0.001 }]]))
+        }
+
+        expect(registered).toBeLessThanOrEqual(1)
+        scope.stop()
     })
 
     test("doesn't collect animations started outside the scope", async () => {

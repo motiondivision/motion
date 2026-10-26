@@ -1,4 +1,5 @@
 import {
+    activeScope,
     animateSingleValue,
     AnimationPlaybackControls,
     AnimationPlaybackControlsWithThen,
@@ -148,6 +149,8 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
 
     private resolveFinished!: VoidFunction
 
+    private motionScope = activeScope.current
+
     /**
      * True while this plays the animations it was created with, before
      * any change compiles it as a sequence.
@@ -181,16 +184,6 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
              */
             this.invalidate()
             this.flush()
-        }
-
-        /**
-         * Register with the scope (for instance from useAnimate()) so it
-         * stops when the scope is torn down.
-         */
-        const { scope } = options
-        if (scope) {
-            scope.animations.push(this)
-            this.finished.then(() => removeItem(scope.animations, this))
         }
     }
 
@@ -666,8 +659,7 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
              * Without onReverseComplete, onComplete fires in either
              * direction, as it does for a single animation.
              */
-            const callback =
-                (this.speed < 0 && onReverseComplete) || onComplete
+            const callback = (this.speed < 0 && onReverseComplete) || onComplete
             callback?.()
             this.resolveFinished()
         })
@@ -677,6 +669,19 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
         this.isDone = false
         this.finished = new Promise<void>((resolve) => {
             this.resolveFinished = resolve
+        })
+
+        /**
+         * Register with the scopeMotion() scope this was created in and
+         * the useAnimate() scope until finished, so they stop it. Each
+         * replay registers again.
+         */
+        const { scope } = this.options
+        const remove = this.motionScope?.add(this.stop)
+        scope?.animations.push(this)
+        this.finished.then(() => {
+            remove?.()
+            scope && removeItem(scope.animations, this)
         })
     }
 }

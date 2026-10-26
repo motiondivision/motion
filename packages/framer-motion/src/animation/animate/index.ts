@@ -172,12 +172,6 @@ export function createScopedAnimate(options: ScopedAnimateOptions = {}) {
             )
         }
 
-        /**
-         * Stay registered after finishing, as a timeline can be changed
-         * and played again.
-         */
-        motionScope?.add(timeline.stop)
-
         return timeline
     }
 
