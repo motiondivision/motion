@@ -6,21 +6,9 @@ import { useRef, useState } from "react"
  * draggable are siblings, both scaled with `style`. Buttons cycle the
  * draggable's scale (1, 0.75, 0.5) and the drag area's (1, 1.25, 1.5), and
  * Refresh remounts. Styles follow the classic drag constraints example.
- *
- * ?variant=animate scales with `animate` instead of `style`.
  */
-const animate =
-    new URLSearchParams(window.location.search).get("variant") === "animate"
-
-const scaleProps = (scale: number) =>
-    animate
-        ? { animate: { scale }, transition: { duration: 0.1 } }
-        : { style: { scale } }
-
 const Example = ({ scale, conScale }: { scale: number; conScale: number }) => {
     const constraintsRef = useRef<HTMLDivElement>(null)
-    const area = scaleProps(conScale)
-    const item = scaleProps(scale)
 
     return (
         <>
@@ -28,13 +16,11 @@ const Example = ({ scale, conScale }: { scale: number; conScale: number }) => {
                 id="constraints"
                 className="drag-area"
                 ref={constraintsRef}
-                {...area}
-                style={{ ...dragArea, ...area.style }}
+                style={{ ...dragArea, scale: conScale }}
             />
             <motion.div
                 id="box"
-                {...item}
-                style={{ ...draggable, ...item.style }}
+                style={{ ...draggable, scale }}
                 drag
                 dragConstraints={constraintsRef}
             />
