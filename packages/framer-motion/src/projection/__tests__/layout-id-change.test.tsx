@@ -8,6 +8,7 @@
 
 import { createRef, StrictMode } from "react"
 import { visualElementStore } from "motion-dom"
+import { AnimatePresence } from "../../components/AnimatePresence"
 import { LayoutGroup } from "../../components/LayoutGroup"
 import { motion } from "../../render/components/motion"
 import { render } from "../../jest.setup"
@@ -395,4 +396,98 @@ describe("changing an open card's layoutId (#1411)", () => {
         expect(element("card").style.opacity).not.toBe("0")
         expect(element("two").style.visibility).toBe("hidden")
     })
+
+    /**
+     * A thumbnail gives its layoutId to a modal while it's open, and takes
+     * it back when the modal closes. The modal is exiting, so it's still in
+     * the stack, but the thumbnail must animate from it rather than take
+     * over instantly, or the exit never completes.
+     */
+    test.each([undefined, true])(
+        "takes a layoutId back from an exiting element (layout %s)",
+        async (layout) => {
+            const App = ({ open }: { open: boolean }) => (
+                <>
+                    <motion.div
+                        id="one"
+                        data-box="one"
+                        layout={layout}
+                        layoutId={open ? undefined : "hero"}
+                        transition={transition}
+                    />
+                    <AnimatePresence>
+                        {open && (
+                            <motion.div
+                                key="card"
+                                id="card"
+                                data-box="card"
+                                layoutId="hero"
+                                transition={transition}
+                            />
+                        )}
+                    </AnimatePresence>
+                </>
+            )
+            const { rerender } = render(<App open={false} />)
+            await nextFrame()
+            rerender(<App open />)
+            await nextFrame()
+            getNode(element("card")).currentAnimation?.complete()
+            await nextFrame()
+
+            const card = element("card")
+            rerender(<App open={false} />)
+            await nextFrame()
+            await nextFrame()
+
+            expect(getNode(element("one")).currentAnimation).toBeDefined()
+            expect(card.style.visibility).not.toBe("hidden")
+        }
+    )
+
+    /**
+     * A thumbnail that follows an open card and then loses its layoutId
+     * must show again, as it no longer follows anything.
+     */
+    test.each([undefined, false])(
+        "shows a follower again once it loses its layoutId (crossfade %s)",
+        async (layoutCrossfade) => {
+            const App = ({ id, open }: { id?: string; open: boolean }) => (
+                <>
+                    <motion.div
+                        id="one"
+                        data-box="one"
+                        layoutId={id}
+                        layoutCrossfade={layoutCrossfade}
+                        transition={transition}
+                    />
+                    {open && (
+                        <motion.div
+                            id="card"
+                            data-box="card"
+                            layoutId="x"
+                            layoutCrossfade={layoutCrossfade}
+                            transition={transition}
+                        />
+                    )}
+                </>
+            )
+            const { rerender } = render(<App id="x" open={false} />)
+            await nextFrame()
+            rerender(<App id="x" open />)
+            await nextFrame()
+            getNode(element("card")).currentAnimation?.complete()
+            await nextFrame()
+
+            rerender(<App open />)
+            await nextFrame()
+            rerender(<App open={false} />)
+            await nextFrame()
+
+            const { style } = element("one")
+            expect(style.visibility).not.toBe("hidden")
+            expect(style.opacity).not.toBe("0")
+            expect(style.pointerEvents).not.toBe("none")
+        }
+    )
 })

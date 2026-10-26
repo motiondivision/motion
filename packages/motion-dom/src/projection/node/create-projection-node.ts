@@ -367,6 +367,12 @@ export function createProjectionNode<I>({
         needsReset = false
 
         /**
+         * Set when this node gives up its layoutId, so styles it was given
+         * while following another node are cleared on its next render.
+         */
+        needsShow?: boolean
+
+        /**
          * Flags whether this node should have its transform reset prior to measuring.
          */
         shouldResetTransform = false
@@ -2102,7 +2108,9 @@ export function createProjectionNode<I>({
             }
 
             if (!this.projectionDelta || !this.layout || !lead.target) {
-                if (this.options.layoutId) {
+                if (this.options.layoutId || this.needsShow) {
+                    this.needsShow = false
+                    targetStyle.visibility = ""
                     targetStyle.opacity =
                         this.latestValues.opacity !== undefined
                             ? this.latestValues.opacity

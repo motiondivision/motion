@@ -59,21 +59,28 @@ const layoutOptions = ({
 const switchLayoutId = (projection: IProjectionNode, layoutId?: string) => {
     const { snapshot } = projection
     const stack = projection.getStack()
-    const wasLead = projection.isLead()
     stack?.remove(projection)
     /**
-     * If this node led the old stack, the new lead animates from this
-     * node's snapshot, which it now holds. Unlike a node that unmounts, this
-     * one stays mounted, so unlink them: the new lead mustn't read this
-     * node's snapshot after it changes, or stop or share its animation.
+     * If this node led the old stack (so remove() made it the prevLead of
+     * the new lead), the new lead animates from this node's snapshot, which
+     * it now holds. Unlike a node that unmounts, this one stays mounted, so
+     * unlink them: the new lead mustn't read this node's snapshot after it
+     * changes, or stop or share its animation.
      */
     const lead = stack?.lead
-    if (wasLead && lead?.resumeFrom === projection)
-        lead.resumeFrom = lead.currentAnimation = projection.resumingFrom =
+    if (stack?.prevLead === projection && lead!.resumeFrom === projection)
+        lead!.resumeFrom = lead!.currentAnimation = projection.resumingFrom =
             undefined
     projection.options.layoutId = layoutId
 
-    if (!layoutId) return
+    /**
+     * A node that followed another no longer does, so clear the styles
+     * that hid it.
+     */
+    if (!layoutId) {
+        projection.needsShow = true
+        return
+    }
     projection.root!.registerSharedNode(layoutId, projection)
 
     /**
@@ -83,12 +90,15 @@ const switchLayoutId = (projection: IProjectionNode, layoutId?: string) => {
      * too, so it takes over instantly: it keeps its own snapshot, and the
      * lead is hidden, as at the end of a crossfade. A lead that left the
      * stack in this commit (e.g. layoutId={selected ? "x" : undefined})
-     * is animated from.
+     * is animated from, as is one that's exiting.
      */
     return () => {
         const { resumeFrom } = projection
-        if (resumeFrom && projection.getStack()!.members.includes(resumeFrom)) {
-            resumeFrom.hide()
+        if (
+            resumeFrom?.isPresent !== false &&
+            projection.getStack()!.members.includes(resumeFrom!)
+        ) {
+            resumeFrom!.hide()
             projection.resumeFrom = undefined
             projection.snapshot = snapshot
         }
@@ -152,10 +162,10 @@ class MeasureLayoutWithContext extends Component<MeasureProps> {
          */
         projection.isPresent = isPresent
 
-        if (prevProps.layoutId !== layoutId) {
-            projection.willUpdate()
-            this.takeOver = switchLayoutId(projection, layoutId)
-        }
+        this.takeOver =
+            prevProps.layoutId !== layoutId
+                ? (projection.willUpdate(), switchLayoutId(projection, layoutId))
+                : undefined
 
         projection.setOptions({
             ...projection.options,
@@ -197,7 +207,6 @@ class MeasureLayoutWithContext extends Component<MeasureProps> {
         const { projection } = this.props.visualElement
         if (projection) {
             this.takeOver?.()
-            this.takeOver = undefined
             projection.root!.didUpdate()
 
             microtask.postRender(() => {
