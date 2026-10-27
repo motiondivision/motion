@@ -566,8 +566,10 @@ function hold(
  * Write `points`, scaled by `scale`, into `out`: from beside point `spot`
  * of `end` to beside the same point of `outer`, turned as far as the lines
  * to the next point, from the one before and from this one, have on the
- * whole. The first has no length at a spike, or the end of a line. With
- * one point for both, that scales them towards it.
+ * whole. The first has no length at a spike, or the end of a line. At a
+ * corner that opens or closes, that leans towards the second. On an open
+ * track, the point before the first is the last, and after the last, the
+ * first. With one point for both, that scales them towards it.
  */
 function place(
     out: Points,
