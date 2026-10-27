@@ -158,6 +158,28 @@ describe("useScroll accelerate", () => {
         // An extra leading ease keeps each easing on its original segment
         expect(transformAccelerate.ease).toHaveLength(2)
     })
+
+    test("doesn't accelerate useTransform with a mixer, as WAAPI can't call it", () => {
+        supportsFlags.scrollTimeline = true
+
+        let transformAccelerate: any
+
+        const Component = () => {
+            const { scrollYProgress } = useScroll()
+            const filter = useTransform(
+                scrollYProgress,
+                [0, 1],
+                ["blur(0px)", "blur(10px)"],
+                { mixer: () => () => "blur(5px)" }
+            )
+            transformAccelerate = filter.accelerate
+            return null
+        }
+
+        render(<Component />)
+
+        expect(transformAccelerate).toBeUndefined()
+    })
 })
 
 describe("useScroll scrollXLength/scrollYLength (#2189)", () => {
