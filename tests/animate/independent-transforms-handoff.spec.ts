@@ -231,6 +231,42 @@ test.describe("independent transforms hand-off", () => {
         expect(dx).toBeLessThan(0.4 * dt + tolerance)
     })
 
+    test("speed changes after pause() and play() don't jump", async ({
+        page,
+    }) => {
+        const frames = await page.evaluate(async () => {
+            const element = document.getElementById("a")!
+            const { animate } = window.Motion
+            const animation = animate(
+                element,
+                { x: 600 },
+                { duration: 3, ease: "linear" }
+            )
+            await window.wait(200)
+            animation.pause()
+            await window.wait(100)
+            animation.play()
+            await window.wait(100)
+            const recording = window.recordFrames(element, 800)
+            await window.wait(400)
+            animation.speed = 2
+            return recording
+        })
+
+        expect(frames.every((f) => f.count === 1)).toBe(true)
+        const changed = frames.findIndex(
+            (f, i) =>
+                i && (f.x - frames[i - 1].x) / (f.t - frames[i - 1].t) > 0.3
+        )
+        expect(changed).toBeGreaterThan(2)
+        expectSteady(frames.slice(0, changed), 0.2)
+        expectSteady(frames.slice(changed), 0.4)
+        const dt = frames[changed].t - frames[changed - 1].t
+        const dx = frames[changed].x - frames[changed - 1].x
+        expect(dx).toBeGreaterThan(0.2 * dt - tolerance)
+        expect(dx).toBeLessThan(0.4 * dt + tolerance)
+    })
+
     test("pause() and play() stay on the compositor without a jump", async ({
         page,
     }) => {

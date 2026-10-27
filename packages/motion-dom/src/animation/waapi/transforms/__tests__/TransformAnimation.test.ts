@@ -5,7 +5,8 @@ import { motionValue } from "../../../../value"
 import { supportsFlags } from "../../../../utils/supports/flags"
 
 /**
- * JSDOM has no WAAPI, so record what would be sent to Element.animate().
+ * JSDOM has no WAAPI, so record the animations created with
+ * Element.animate() or the Animation and KeyframeEffect constructors.
  */
 interface MockAnimation {
     element: Element
@@ -24,9 +25,9 @@ interface MockAnimation {
 let animations: MockAnimation[] = []
 
 /**
- * readyTime is when the animation's play became ready. WebKit keeps it even
- * once setting startTime has cancelled that play, and uses it for the next
- * updatePlaybackRate().
+ * readyTime is when the animation's last play() or pause() became ready.
+ * WebKit keeps it even once setting startTime or currentTime has finished
+ * that play or pause, and uses it for the next updatePlaybackRate().
  */
 const createAnimation = (
     element: Element,
@@ -42,6 +43,8 @@ const createAnimation = (
      * Finish at the end of the (finite) animation, like WAAPI.
      */
     const setStartTime = (value: number | null) => {
+        heldTime = value === null ? animation.currentTime : null
+        animation.playState = value === null ? "paused" : "running"
         startTime = value
         clearTimeout(timer)
         const { duration, iterations = 1 } = options
@@ -86,6 +89,7 @@ const createAnimation = (
         pause: jest.fn(() => {
             clearTimeout(timer)
             animation.playState = "paused"
+            readyTime = performance.now()
         }),
         /**
          * Keep the current time at the ready time, as the spec does.
@@ -471,7 +475,7 @@ describe("independent transform acceleration", () => {
 
         animation.forEach((a) => a.pause())
         await nextFrame()
-        expect(waapi.pause).toHaveBeenCalled()
+        expect(waapi.playState).toBe("paused")
 
         animation.forEach((a) => (a.time = 0.5))
         await nextFrame()
@@ -483,9 +487,13 @@ describe("independent transform acceleration", () => {
         await nextFrame()
         expect(waapi.playbackRate).toBe(1)
 
+        await wait(100)
         animation.forEach((a) => (a.speed = 2))
         await nextFrame()
         expect(waapi.playbackRate).toBe(2)
+        expect(
+            Math.abs(waapi.currentTime! - animation[0].time * 1000)
+        ).toBeLessThan(20)
 
         expect(created(element).length).toBe(count)
         expect(running(element)).toEqual([waapi])
