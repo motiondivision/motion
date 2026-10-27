@@ -24,11 +24,12 @@ function asRGBA(color: Color | string) {
     const type = getColorType(color)
 
     if (!type) {
-        warning(
-            false,
-            `'${color}' is not an animatable color. Use the equivalent color code instead.`,
-            "color-not-animatable"
-        )
+        process.env.NODE_ENV !== "production" &&
+            warning(
+                false,
+                `'${color}' is not an animatable color. Use the equivalent color code instead.`,
+                "color-not-animatable"
+            )
         return false
     }
 

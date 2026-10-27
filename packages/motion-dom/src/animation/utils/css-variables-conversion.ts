@@ -29,11 +29,12 @@ export function getVariableValue(
     element: Element,
     depth = 1
 ): AnyResolvedKeyframe | undefined {
-    invariant(
-        depth <= maxDepth,
-        `Max CSS variable fallback depth detected in property "${current}". This may indicate a circular fallback dependency.`,
-        "max-css-var-depth"
-    )
+    process.env.NODE_ENV !== "production" &&
+        invariant(
+            depth <= maxDepth,
+            `Max CSS variable fallback depth detected in property "${current}". This may indicate a circular fallback dependency.`,
+            "max-css-var-depth"
+        )
 
     const [token, fallback] = parseCSSVariable(current)
 

@@ -43,6 +43,7 @@ export function canAnimate(
     if (!isOriginAnimatable || !isTargetAnimatable) {
         // Only build the message when we're going to warn
         isOriginAnimatable !== isTargetAnimatable &&
+            process.env.NODE_ENV !== "production" &&
             warning(
                 false,
                 `You are trying to animate ${name} from "${originKeyframe}" to "${targetKeyframe}". "${
