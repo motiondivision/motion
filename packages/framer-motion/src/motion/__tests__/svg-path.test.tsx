@@ -37,14 +37,16 @@ describe("SVG path", () => {
         const element = await new Promise<SVGPathElement>((resolve) => {
             const ref = createRef<SVGPathElement>()
             const Component = () => (
-                <motion.path
-                    ref={ref}
-                    initial={{ d: from }}
-                    animate={{ d: to }}
-                    transition={{ d: { mixer: tagMixer, duration: 0.05 } }}
-                    onUpdate={({ d }) => updates.push(d as string)}
-                    onAnimationComplete={() => resolve(ref.current!)}
-                />
+                <svg>
+                    <motion.path
+                        ref={ref}
+                        initial={{ d: from }}
+                        animate={{ d: to }}
+                        transition={{ d: { mixer: tagMixer, duration: 0.05 } }}
+                        onUpdate={({ d }) => updates.push(d as string)}
+                        onAnimationComplete={() => resolve(ref.current!)}
+                    />
+                </svg>
             )
             const { rerender } = render(<Component />)
             rerender(<Component />)
@@ -53,6 +55,7 @@ describe("SVG path", () => {
         expect(updates.some((d) => d.startsWith(`${from} > ${to} @`))).toBe(
             true
         )
+        expect(element).toBeInstanceOf(SVGElement)
         expect(element).toHaveAttribute("d", to)
     })
 
