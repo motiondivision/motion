@@ -1,6 +1,6 @@
 {
     "name": "framer-motion",
-    "version": "14.7.0",
+    "version": "14.7.1",
     "description": "A simple and powerful JavaScript animation library",
     "main": "dist/cjs/index.js",
     "module": "dist/es/index.mjs",
@@ -93,7 +93,7 @@
         "measure": "rollup -c ./rollup.size.config.mjs"
     },
     "dependencies": {
-        "motion-dom": "14.7.0",
+        "motion-dom": "14.7.1",
         "motion-utils": "14.7.0",
         "tslib": "^2.4.0"
     },
