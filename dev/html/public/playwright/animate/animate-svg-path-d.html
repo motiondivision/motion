@@ -1,0 +1,29 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+                padding: 50px;
+            }
+        </style>
+    </head>
+    <body>
+        <svg width="100" height="100" viewBox="0 0 100 100">
+            <path id="single" d="M10 10L90 10L90 90Z" fill="#0077ff" />
+            <path id="sequence" d="M10 10L90 10L90 90Z" fill="#0077ff" />
+        </svg>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            const { animate } = window.Motion
+
+            const single = document.getElementById("single")
+            const sequence = document.getElementById("sequence")
+
+            // Long, linear animations so the mid-point can be sampled
+            const options = { duration: 10, ease: "linear" }
+
+            animate(single, { d: "M10 10L90 10L10 90Z" }, options)
+            animate([[sequence, { d: "M10 10L90 10L10 90Z" }, options]])
+        </script>
+    </body>
+</html>

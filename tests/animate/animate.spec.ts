@@ -540,6 +540,25 @@ test.describe("animate() options", () => {
         }
     })
 
+    test("SVG path d is written as an attribute", async ({ page }) => {
+        await waitForAnimation("animate/animate-svg-path-d.html", page, 1000)
+
+        for (const id of ["single", "sequence"]) {
+            const path = page.locator(`#${id}`)
+
+            const { d, styleD } = await path.evaluate((element) => ({
+                d: element.getAttribute("d")!,
+                styleD: element.style.getPropertyValue("d"),
+            }))
+
+            // The third point travels from (90, 90) to (10, 90)
+            const x = parseFloat(d.split(/[ML Z]+/).filter(Boolean)[4])
+            expect(styleD).toBe("")
+            expect(x).toBeLessThan(90)
+            expect(x).toBeGreaterThan(10)
+        }
+    })
+
     test("spring velocity", async ({ page }) => {
         await waitForAnimation("animate/animate-spring-velocity.html", page)
         const box = page.locator(".box")

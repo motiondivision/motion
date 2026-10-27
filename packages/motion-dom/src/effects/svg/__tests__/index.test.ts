@@ -44,4 +44,21 @@ describe("svgEffect", () => {
             expect(rect.hasAttribute(key)).toBe(false)
         }
     })
+
+    it("writes path data as the d attribute", async () => {
+        const path = svg("path")
+
+        /**
+         * Chrome and Firefox expose `d` as a CSS property, which only
+         * accepts `path(...)`. JSDOM doesn't, so stand one in.
+         */
+        Object.defineProperty(path.style, "d", { value: "", writable: true })
+
+        svgEffect(path, { d: motionValue("M0 0L10 10") })
+
+        await nextFrame()
+
+        expect(path.getAttribute("d")).toBe("M0 0L10 10")
+        expect((path.style as any).d).toBe("")
+    })
 })

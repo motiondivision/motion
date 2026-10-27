@@ -59,12 +59,14 @@ export const addSVGValue = (
     /**
      * Transforms and origins aren't CSS properties (bar `x`/`y` in some
      * browsers), so check them by name rather than `key in element.style`.
+     * `d` is a CSS property in Chrome and Firefox, but only as `path(...)`,
+     * so the path data has to go to the attribute.
      */
     const handler =
         transformProps.has(key) ||
         originProps.has(key) ||
         isCSSVar(key) ||
-        key in element.style
+        (key !== "d" && key in element.style)
             ? addStyleValue
             : addAttrValue
     return handler(element, state, key, value)
