@@ -326,10 +326,10 @@ export function within(points: Points, x: number, y: number) {
  * comes within `margin` of its outline: the least scale at which one of
  * its points meets an edge or corner of the outline, or one of its edges
  * meets a corner. A hole that (x, y) sees all of keeps clear of the
- * outline at any smaller scale. Long polylines are thinned first, to
- * `keep` points, and the margin is widened by how far they stray from
- * what's left. Unless the hole keeps clear of that, they're thinned less
- * while they stray by more than half the margin.
+ * outline at any smaller scale. Long polylines are thinned first, and the
+ * margin is widened by how far they stray from what's left. Unless the
+ * hole keeps clear of that, it's checked again, with each thinned only as
+ * far as it can be while straying by at most a quarter of the margin.
  */
 export function contact(
     hole: Points,
@@ -338,11 +338,11 @@ export function contact(
     y: number,
     margin: number,
     most: number,
-    keep = 2 * CAGE,
+    fine?: boolean,
     top = most
 ): number {
-    const [points, strayA] = sparse(hole, keep)
-    const [polygon, strayB] = sparse(outer, keep)
+    const [points, strayA] = sparse(hole, fine ? margin : Infinity)
+    const [polygon, strayB] = sparse(outer, fine ? margin : Infinity)
     const stray = strayA + strayB
     const h = points.length
     const n = polygon.length
@@ -362,16 +362,17 @@ export function contact(
         // A point this far from (x, y) can't come near the edge any sooner
         const near = d - margin
         if (near >= radius * most) continue
-        const ahead = (i: number) =>
-            (points[i % h] - x) * (px - x) +
-            (points[(i + 1) % h] - y) * (py - y)
-
+        let next = (points[0] - x) * (px - x) + (points[1] - y) * (py - y)
         for (let i = 0; i < h; i += 2) {
             const ux = points[i] - x
             const uy = points[i + 1] - y
+            const ahead = next
+            next =
+                (points[(i + 2) % h] - x) * (px - x) +
+                (points[(i + 3) % h] - y) * (py - y)
             // Nor can this point, or its edge to the next, if they don't
             // reach that far in the direction of the edge's nearest point
-            if (near * d < Math.max(0, ahead(i), ahead(i + 2)) * most) {
+            if (near * d < Math.max(0, ahead, next) * most) {
                 most = Math.min(
                     most,
                     meet(ux, uy, ax, ay, margin),
@@ -390,8 +391,8 @@ export function contact(
             }
         }
     }
-    return most < top && 3 * stray > margin
-        ? contact(hole, outer, x, y, margin - stray, top, 2 * keep)
+    return most < top && !fine && 4 * Math.max(strayA, strayB) > margin - stray
+        ? contact(hole, outer, x, y, margin - stray, top, true)
         : most
 }
 
@@ -406,9 +407,14 @@ export const every = (points: Points, most: number): [Points, number] => {
 
 /**
  * Every few points of a closed polyline, at most `most` of them, and how
- * far it strays from them.
+ * far it strays from them: twice as many while it strays by more than a
+ * quarter of `margin`.
  */
-function sparse(points: Points, most: number): [Points, number] {
+function sparse(
+    points: Points,
+    margin: number,
+    most = 2 * CAGE
+): [Points, number] {
     const [kept, step] = every(points, most)
     let stray = 0
     for (let i = 0; i < points.length; i += 2) {
@@ -420,7 +426,9 @@ function sparse(points: Points, most: number): [Points, number] {
         )
         stray = Math.max(stray, hypot(px - points[i], py - points[i + 1]))
     }
-    return [kept, stray]
+    return step > 2 && stray > margin / 4
+        ? sparse(points, margin, most * 2)
+        : [kept, stray]
 }
 
 /**

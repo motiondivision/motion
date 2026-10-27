@@ -1128,7 +1128,7 @@ describe("morph", () => {
     })
 
     test("finds that long, thin holes beside finely jagged outlines fit without testing every point against every edge", () => {
-        // At least 3.4 apart. Every edge of the outline is near enough the
+        // At least 2.7 apart. Every edge of the outline is near enough the
         // middle of the hole for its far ends to reach, so none can be
         // skipped that way.
         let seed = 42
@@ -1151,6 +1151,66 @@ describe("morph", () => {
         const start = performance.now()
         expect(contact(hole, outline, 100, 50, 1.5, 1)).toBe(1)
         expect(performance.now() - start).toBeLessThan(200)
+    })
+
+    test("finds that finely jagged holes inside smooth outlines fit without drawing the outline in full", () => {
+        let seed = 42
+        const ring = (r: number, jag: number, n: number, turn: number) => {
+            const points: number[] = []
+            for (let i = 0; i < n; i++) {
+                seed = (seed * 16807) % 2147483647
+                const radius = r + jag * (seed / 2147483647 - 0.5)
+                const angle = ((turn * i) / n) * 2 * Math.PI
+                points.push(
+                    50 + radius * Math.cos(angle),
+                    50 + radius * Math.sin(angle)
+                )
+            }
+            return points
+        }
+        const outline = ring(45, 0, 10000, 1)
+        const hole = ring(42.5, 1.5, 4000, -1)
+
+        const start = performance.now()
+        expect(contact(hole, outline, 50, 50, 1, 1)).toBe(1)
+        expect(performance.now() - start).toBeLessThan(200)
+    })
+
+    test("shrinks holes beside finely jagged outlines no further than they need to", () => {
+        // A round lake by a jagged coast, which it would touch at its size
+        let seed = 42
+        const coast: number[] = []
+        for (let i = 0; i < 1500; i++) {
+            seed = (seed * 16807) % 2147483647
+            const radius = 45 + 1.5 * (seed / 2147483647 - 0.5)
+            const angle = (i / 1500) * 2 * Math.PI
+            coast.push(
+                50 + radius * Math.cos(angle),
+                50 + radius * Math.sin(angle)
+            )
+        }
+        const lake: number[] = []
+        for (let i = 0; i < 800; i++) {
+            const angle = (-i / 800) * 2 * Math.PI
+            lake.push(50 + 42.5 * Math.cos(angle), 50 + 42.5 * Math.sin(angle))
+        }
+        // How near the coast comes to the middle
+        let near = Infinity
+        coast.forEach((_, i) => {
+            if (i % 2) return
+            const next = (i + 2) % coast.length
+            near = Math.min(
+                near,
+                segmentDistance(
+                    [50, 50],
+                    [coast[i], coast[i + 1]],
+                    [coast[next], coast[next + 1]]
+                )
+            )
+        })
+        const scale = contact(lake, coast, 50, 50, 3, 1)
+        expect(scale).toBeLessThan((near - 3) / 42.5 + 0.001)
+        expect(scale).toBeGreaterThan((near - 3) / 42.5 - 0.005)
     })
 
     test("keeps holes inside their outline when a spring overshoots", () => {
