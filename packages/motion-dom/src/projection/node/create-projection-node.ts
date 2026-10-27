@@ -121,10 +121,10 @@ function resetDistortingTransform(
 }
 
 /**
- * Move accelerated transforms back to the main thread. Rotations and skews
- * on the compositor were still showing when startUpdate() reset them, so
- * reset them again now they're rendered by the main thread, before this
- * node is measured.
+ * Move accelerated transforms back to the main thread. The WAAPI animation
+ * hid startUpdate()'s reset of rotations, skews and z, and moving off it
+ * writes the whole transform back, so reset them again before this node
+ * is measured.
  */
 const demoteTransforms = (node: IProjectionNode) =>
     node.instance &&

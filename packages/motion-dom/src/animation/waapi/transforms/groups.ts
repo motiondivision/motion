@@ -15,7 +15,7 @@ export interface TransformGroupHooks {
     /**
      * Hand every animation in the group back to the main thread, with
      * up-to-date values, e.g. before layout is measured. Returns true if
-     * any were on the compositor.
+     * this wrote the element's transform.
      */
     demote(): true | void
 }
