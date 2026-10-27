@@ -728,6 +728,28 @@ describe("drag path constraints: fill rule", () => {
         expectPoint(element, -40, 0)
     })
 
+    test("doesn't stop where subpaths overlap, short of the edge", async () => {
+        makeDraggable(element, {
+            constraints: pathConstraints(
+                "M-10 -50h20v100h-20z M-50 -10h100v20H-50z"
+            ),
+            elastic: false,
+            momentum: false,
+        })
+
+        // Against the top arm's right side
+        const pointer = await dragThrough(element, [
+            [0, -5],
+            [0, -30],
+            [30, -30],
+        ])
+        expectPoint(element, 10, -30)
+
+        // Down that side, which is within the right arm from y -10
+        await pointer.to(60, 5)
+        expectPoint(element, 50, 5)
+    })
+
     test("a subpath that runs the other way round is a hole", async () => {
         makeDraggable(element, {
             constraints: pathConstraints(
@@ -1123,5 +1145,43 @@ describe("drag path constraints: layout changes", () => {
         constraint.x = 70
         constraint.move()
         expect(x.get()).toBe(60)
+    })
+
+    test("a release straight after a layout change springs back to the path", async () => {
+        const x = motionValue(0)
+        const y = motionValue(0)
+        const controls = {
+            visualElement: {
+                getTransformPagePoint: () => undefined,
+                getValue: () => undefined,
+            },
+            originPoint: { x: 0, y: 0 },
+            elastic: {
+                x: { min: 0.5, max: 0.5 },
+                y: { min: 0.5, max: 0.5 },
+            },
+            getAxisMotionValue: (axis: string) => (axis === "x" ? x : y),
+        } as unknown as VisualElementDragControls
+
+        const constraint = pathConstraints(square)(controls)
+        constraint.x = 90
+        constraint.y = 0
+        constraint.move()
+        expect(x.get()).toBe(70)
+
+        // The layout moves 10px left before the pointer moves again
+        controls.originPoint.x += 10
+        x.set(x.get() + 10)
+
+        await constraint.release(
+            { x: 0, y: 0 },
+            {
+                timeConstant: 750,
+                restDelta: 1,
+                bounceStiffness: 200,
+                bounceDamping: 40,
+            }
+        )
+        expect(x.get()).toBeCloseTo(60, 0)
     })
 })

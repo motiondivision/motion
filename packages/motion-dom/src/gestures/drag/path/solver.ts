@@ -167,10 +167,30 @@ function isInside(rings: Ring[], { x, y }: Point, evenOdd?: boolean) {
 }
 
 /**
+ * Whether the contact's segment is an edge of the area, rather than a line
+ * with the area on both sides, where subpaths overlap.
+ */
+function isEdge(
+    rings: Ring[],
+    { r, i, x, y }: Contact,
+    inside: (p: Point) => boolean
+) {
+    const { points } = rings[r]
+    const dx = points[i * 2 + 2] - points[i * 2]
+    const dy = points[i * 2 + 3] - points[i * 2 + 1]
+    // A hair either side of it
+    const length = Math.hypot(dx, dy) * 1e4
+
+    return (
+        !inside({ x: x + dy / length, y: y - dx / length }) ||
+        !inside({ x: x - dy / length, y: y + dx / length })
+    )
+}
+
+/**
  * The first point at which the segment from `a` to `b` crosses an edge.
  * Starting on an edge isn't crossing it, so a point resting on an edge
- * can leave it. An edge with the area on both sides, where subpaths
- * overlap, isn't one.
+ * can leave it.
  */
 function cross(
     rings: Ring[],
@@ -178,40 +198,42 @@ function cross(
     b: Point,
     inside: (p: Point) => boolean
 ) {
-    let hit: Contact | undefined
-    let min = 1
     const ex = b.x - a.x
     const ey = b.y - a.y
+    let from = 1e-9
 
-    rings.forEach(({ points }, r) => {
-        for (let i = 0; i < points.length - 2; i += 2) {
-            const ax = points[i] - a.x
-            const ay = points[i + 1] - a.y
-            const dx = points[i + 2] - points[i]
-            const dy = points[i + 3] - points[i + 1]
-            const denominator = ex * dy - ey * dx
-            const s = (ax * dy - ay * dx) / denominator
-            const t = (ax * ey - ay * ex) / denominator
+    while (true) {
+        let hit: Contact | undefined
+        let min = 1
 
-            if (s > 1e-9 && s <= min && t >= 0 && t <= 1) {
-                const x = a.x + ex * s
-                const y = a.y + ey * s
-                // A hair either side of the edge
-                const nx = (dy / Math.hypot(dx, dy)) * 1e-4
-                const ny = (-dx / Math.hypot(dx, dy)) * 1e-4
+        rings.forEach(({ points }, r) => {
+            for (let i = 0; i < points.length - 2; i += 2) {
+                const ax = points[i] - a.x
+                const ay = points[i + 1] - a.y
+                const dx = points[i + 2] - points[i]
+                const dy = points[i + 3] - points[i + 1]
+                const denominator = ex * dy - ey * dx
+                const s = (ax * dy - ay * dx) / denominator
+                const t = (ax * ey - ay * ex) / denominator
 
-                if (
-                    !inside({ x: x + nx, y: y + ny }) ||
-                    !inside({ x: x - nx, y: y - ny })
-                ) {
+                if (s > from && s <= min && t >= 0 && t <= 1) {
                     min = s
-                    hit = { r, i: i / 2, t, x, y, d: 0 }
+                    hit = {
+                        r,
+                        i: i / 2,
+                        t,
+                        x: a.x + ex * s,
+                        y: a.y + ey * s,
+                        d: 0,
+                    }
                 }
             }
-        }
-    })
+        })
 
-    return hit
+        // Look past any line within the area for the edge beyond
+        if (!hit || isEdge(rings, hit, inside)) return hit
+        from = min
+    }
 }
 
 /**
@@ -267,6 +289,21 @@ export function createPathSolver(
             lookahead
         )
         current = { x: contact.x, y: contact.y }
+
+        /**
+         * A slide can run on into another subpath's area. If it stops
+         * there, carry on to the edge of that area.
+         */
+        for (
+            let k = 0;
+            k < rings.length && !isEdge(rings, contact, inside);
+            k++
+        ) {
+            const next = cross(rings, current, target, inside)
+            if (!next) break
+            contact = slide(rings, next, target, lookahead)
+            current = { x: contact.x, y: contact.y }
+        }
 
         if (inside(target) && !cross(rings, current, target, inside)) {
             contact = undefined

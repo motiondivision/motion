@@ -284,14 +284,24 @@ export function pathConstraints(
                     bounceDamping,
                 }
             ) {
-                // Moved since, by something else
-                if (x.get() !== drawn.x || y.get() !== drawn.y) {
+                const overshootX = drawn.x - shiftX - current.x
+                const overshootY = drawn.y - shiftY - current.y
+
+                /**
+                 * Moved since, by something else. A layout change since
+                 * the last move shifted it with the origin, so follow that.
+                 */
+                shiftX = originPoint.x - origin.x
+                shiftY = originPoint.y - origin.y
+                if (
+                    Math.abs(x.get() - shiftX - current.x - overshootX) >
+                        1e-6 ||
+                    Math.abs(y.get() - shiftY - current.y - overshootY) > 1e-6
+                ) {
                     return Promise.resolve()
                 }
 
                 const speed = Math.hypot(velocity.x, velocity.y)
-                const overshootX = drawn.x - shiftX - current.x
-                const overshootY = drawn.y - shiftY - current.y
                 const overshootLength = Math.hypot(overshootX, overshootY)
                 let overshoot = overshootLength > restDelta! ? 1 : 0
                 let directionX = velocity.x / (speed || 1)
