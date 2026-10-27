@@ -120,11 +120,12 @@ export function animateSubject<O extends Object>(
 
         const numSubjects = subjects.length
 
-        invariant(
-            Boolean(numSubjects),
-            "No valid elements provided.",
-            "no-valid-elements"
-        )
+        process.env.NODE_ENV !== "production" &&
+            invariant(
+                Boolean(numSubjects),
+                "No valid elements provided.",
+                "no-valid-elements"
+            )
 
         for (let i = 0; i < numSubjects; i++) {
             const thisSubject = subjects[i]

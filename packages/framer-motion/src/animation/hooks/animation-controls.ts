@@ -60,10 +60,11 @@ export function animationControls(): LegacyAnimationControls {
         },
 
         start(definition, transitionOverride) {
-            invariant(
-                hasMounted,
-                "controls.start() should only be called after a component has mounted. Consider calling within a useEffect hook."
-            )
+            process.env.NODE_ENV !== "production" &&
+                invariant(
+                    hasMounted,
+                    "controls.start() should only be called after a component has mounted. Consider calling within a useEffect hook."
+                )
 
             const animations: Array<Promise<any>> = []
             subscribers.forEach((visualElement) => {
@@ -78,10 +79,11 @@ export function animationControls(): LegacyAnimationControls {
         },
 
         set(definition) {
-            invariant(
-                hasMounted,
-                "controls.set() should only be called after a component has mounted. Consider calling within a useEffect hook."
-            )
+            process.env.NODE_ENV !== "production" &&
+                invariant(
+                    hasMounted,
+                    "controls.set() should only be called after a component has mounted. Consider calling within a useEffect hook."
+                )
 
             return subscribers.forEach((visualElement) => {
                 setValues(visualElement, definition)

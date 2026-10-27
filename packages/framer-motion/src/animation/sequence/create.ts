@@ -229,10 +229,12 @@ export function createAnimationsFromSequence(
                  * explode the keyframe array. Ignore with a warning.
                  */
                 if (repeat) {
-                    warning(
-                        repeat < MAX_REPEAT,
-                        `Sequence segments can't repeat ${repeat} times — ignoring repeat option. Use a value below ${MAX_REPEAT} or apply repeat at the sequence level instead.`
-                    )
+                    typeof process !== "undefined" &&
+                        process.env.NODE_ENV !== "production" &&
+                        warning(
+                            repeat < MAX_REPEAT,
+                            `Sequence segments can't repeat ${repeat} times — ignoring repeat option. Use a value below ${MAX_REPEAT} or apply repeat at the sequence level instead.`
+                        )
                 }
 
                 if (repeat && repeat < MAX_REPEAT) {
