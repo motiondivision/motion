@@ -61,12 +61,12 @@ export const addSVGValue = (
          * `path(...)` if it's written that way. Path data itself has no
          * quotes or brackets.
          */
-        return state.set(key, value, () =>
-            element.setAttribute(
-                key,
-                `${value.get()}`.replace(/path\(|["')]/g, "")
-            )
-        )
+        return state.set(key, value, () => {
+            const d = value.get()
+            d === null || d === undefined
+                ? element.removeAttribute(key)
+                : element.setAttribute(key, `${d}`.replace(/path\(|["')]/g, ""))
+        })
     }
 
     /**

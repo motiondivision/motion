@@ -74,4 +74,21 @@ describe("svgEffect", () => {
 
         expect(path.getAttribute("d")).toBe("M0 0L10 10")
     })
+
+    it("removes the d attribute when path data is unset", async () => {
+        const path = svg("path")
+        const d = motionValue<string | null | undefined>("M0 0L10 10")
+        svgEffect(path, { d })
+        await nextFrame()
+
+        for (const value of [null, undefined]) {
+            d.set(value)
+            await nextFrame()
+            expect(path.hasAttribute("d")).toBe(false)
+
+            d.set("M0 0L10 10")
+            await nextFrame()
+            expect(path.getAttribute("d")).toBe("M0 0L10 10")
+        }
+    })
 })
