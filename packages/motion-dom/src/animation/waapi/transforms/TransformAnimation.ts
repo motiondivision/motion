@@ -29,7 +29,8 @@ import {
 } from "../../types"
 import { cubicBezierAsString } from "../easing/cubic-bezier"
 import { supportedWaapiEasing } from "../easing/supported"
-import { needsMixer, supportsWaapi } from "../supports/waapi"
+import { supportsWaapi } from "../supports/waapi"
+import { needsMixer } from "../utils/needs-mixer"
 import { supportsLinearEasing } from "../../../utils/supports/linear-easing"
 import { TransformGroupHooks, transformGroups } from "./groups"
 
@@ -182,12 +183,11 @@ function canAccelerateTransform(options: ValueAnimationOptions<any>) {
         /**
          * A handoff from an optimised appear animation is already running
          * on its own WAAPI animation. onUpdate needs every value, every
-         * frame, and a mixer that blends them has to make them.
+         * frame.
          */
         !options.isHandoff &&
         !onUpdate &&
         !options.hasOnUpdate &&
-        !needsMixer(options) &&
         /**
          * transformTemplate could output anything.
          */
@@ -202,7 +202,12 @@ function canAccelerateTransform(options: ValueAnimationOptions<any>) {
         /**
          * Layout animations write transform every frame.
          */
-        !owner.projection?.isProjecting()
+        !owner.projection?.isProjecting() &&
+        /**
+         * A mixer that blends these values makes them every frame. It's
+         * asked last, as it's user code.
+         */
+        !needsMixer(options)
     )
 }
 

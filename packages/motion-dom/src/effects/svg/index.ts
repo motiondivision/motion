@@ -62,10 +62,10 @@ export const addSVGValue = (
          * quotes or brackets.
          */
         return state.set(key, value, () => {
-            const d = value.get()
-            d === null || d === undefined
+            const d = value.get()?.replace(/path\(|["')]/g, "")
+            d === undefined
                 ? element.removeAttribute(key)
-                : element.setAttribute(key, `${d}`.replace(/path\(|["')]/g, ""))
+                : element.setAttribute(key, d)
         })
     }
 

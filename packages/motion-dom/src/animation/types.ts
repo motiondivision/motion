@@ -564,9 +564,9 @@ export interface ValueTransition
      * that aren't numbers. It receives the two keyframes and returns a
      * function that maps progress (`0`-`1`, or beyond with springs and
      * overshooting easing) to a value, or `undefined` to blend them as
-     * usual. For example, a path morphing mixer can animate `d` between
-     * paths of different shapes, and return `undefined` for `fill` so it
-     * blends as usual:
+     * usual. For example, a mixer that morphs paths can animate `d`
+     * between paths of different shapes, and return `undefined` for values
+     * that aren't paths, like `fill`, so they blend as usual:
      *
      * ```jsx
      * <motion.path animate={{ d, fill }} transition={{ mixer: morph }} />
@@ -578,6 +578,9 @@ export interface ValueTransition
      * mixer can be called. Animations that only run in the browser, like
      * those from `motion/mini`, don't use it. Values Motion can't animate,
      * like text without numbers, still change at once.
+     *
+     * A mixer can be asked for the same pair more than once, so keep any
+     * costly setup for when its function is first called.
      *
      * @public
      */

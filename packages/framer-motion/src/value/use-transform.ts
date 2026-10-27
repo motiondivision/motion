@@ -221,15 +221,13 @@ export function useTransform<I, O, K extends string>(
         ? (input as MotionValue).accelerate
         : undefined
 
-    /**
-     * WAAPI can't call a mixer.
-     */
     if (
         inputAccelerate &&
         !inputAccelerate.isTransformed &&
         typeof inputRangeOrTransformer !== "function" &&
         Array.isArray(outputRangeOrMap) &&
         options?.clamp !== false &&
+        // WAAPI can't call a mixer
         !options?.mixer
     ) {
         const ease = options?.ease

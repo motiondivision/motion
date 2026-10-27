@@ -1,11 +1,11 @@
 import { MotionGlobalConfig } from "motion-utils"
 import {
     AnyResolvedKeyframe,
-    ValueAnimationOptions,
     ValueAnimationOptionsWithRenderContext,
 } from "../../types"
 import { acceleratedValues } from "../utils/accelerated-values"
 import { hasBrowserOnlyColors } from "../utils/is-browser-color"
+import { needsMixer } from "../utils/needs-mixer"
 
 const colorProperties = new Set([
     "color",
@@ -28,16 +28,6 @@ const colorProperties = new Set([
 export const supportsWaapi = () =>
     !MotionGlobalConfig.useManualTiming &&
     Object.hasOwnProperty.call(Element.prototype, "animate")
-
-/**
- * Whether an animation needs its mixer, which WAAPI can't call. Numbers
- * blend as usual, and an animation whose mixer declines every pair runs
- * as it would without one.
- */
-export const needsMixer = ({ mixer, keyframes }: ValueAnimationOptions<any>) =>
-    mixer &&
-    typeof keyframes[0] !== "number" &&
-    keyframes.some((keyframe, i) => i && mixer(keyframes[i - 1], keyframe))
 
 export function supportsBrowserAnimation<T extends AnyResolvedKeyframe>(
     options: ValueAnimationOptionsWithRenderContext<T>
