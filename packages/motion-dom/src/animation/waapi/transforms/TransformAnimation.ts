@@ -575,6 +575,20 @@ function createGroup(owner: TransformOwner): TransformGroup {
         segments = []
     }
 
+    /**
+     * A WAAPI animation that add() starts by setting its startTime. Playing
+     * it first, as element.animate() does, would leave WebKit holding that
+     * play's ready time once startTime ends the play, and it uses that for
+     * the next updatePlaybackRate(), so the animation would jump.
+     */
+    const create = (
+        keyframes: PropertyIndexedKeyframes | null,
+        options: KeyframeAnimationOptions
+    ) =>
+        new Animation(
+            new KeyframeEffect(element, keyframes, options) as AnimationEffect
+        )
+
     const add = (animation: Animation, offset: number, end = Infinity) => {
         const segment: Segment = { animation, offset, end }
         animation.startTime = time.now() + offset
@@ -833,7 +847,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
             keyframes = null
         }
 
-        return element.animate(keyframes, {
+        return create(keyframes, {
             ...options,
             duration: to - from,
             easing: easing || "linear",
@@ -943,9 +957,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
                     (trackEnd) =>
                         trackEnd < end - 1 &&
                         add(
-                            element.animate(null, {
-                                duration: trackEnd - now,
-                            }),
+                            create(null, { duration: trackEnd - now }),
                             0,
                             trackEnd - now
                         )
@@ -1061,7 +1073,12 @@ function createGroup(owner: TransformOwner): TransformGroup {
                 animation.playbackRate = rate
                 animation.startTime = now - local / rate
             } else {
-                animation.pause()
+                /**
+                 * Hold it without pause(), whose pending pause setting
+                 * currentTime would end at once, leaving WebKit holding its
+                 * ready time (see create()).
+                 */
+                animation.startTime = null
                 animation.currentTime = local
             }
         }
