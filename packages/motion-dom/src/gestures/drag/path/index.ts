@@ -242,6 +242,25 @@ export function pathConstraints(
             drawn.rest = { x: current.x + shiftX, y: current.y + shiftY }
         }
 
+        /**
+         * When the pointer comes into sight past a wall, or a corner, the
+         * element jumps further than the pointer moved. With elastic, it
+         * moves only as far as the pointer did, and eases out the rest: an
+         * offset from where it wants to be that shrinks to nothing.
+         */
+        let wanted = current
+        let pointer = origin
+        let catchUp: JSAnimation<number> | undefined
+        let catchUpX = 0
+        let catchUpY = 0
+        let catchUpAmount = 0
+
+        const drawWanted = () =>
+            draw({
+                x: wanted.x + catchUpX * catchUpAmount,
+                y: wanted.y + catchUpY * catchUpAmount,
+            })
+
         const constraint: DragPointConstraint = {
             ...origin,
 
@@ -252,21 +271,55 @@ export function pathConstraints(
             move() {
                 shiftX = originPoint.x - origin.x
                 shiftY = originPoint.y - origin.y
-                const px = constraint.x - shiftX
-                const py = constraint.y - shiftY
-                current = solve({ x: px, y: py })
-                const dx = px - current.x
-                const dy = py - current.y
-                draw(
-                    solve.reach({
-                        x:
-                            current.x +
-                            dx * (dx < 0 ? elastic.x.min : elastic.x.max),
-                        y:
-                            current.y +
-                            dy * (dy < 0 ? elastic.y.min : elastic.y.max),
+                const last = pointer
+                pointer = {
+                    x: constraint.x - shiftX,
+                    y: constraint.y - shiftY,
+                }
+                current = solve(pointer)
+                const dx = pointer.x - current.x
+                const dy = pointer.y - current.y
+                wanted = solve.reach({
+                    x:
+                        current.x +
+                        dx * (dx < 0 ? elastic.x.min : elastic.x.max),
+                    y:
+                        current.y +
+                        dy * (dy < 0 ? elastic.y.min : elastic.y.max),
+                })
+
+                // How far it would jump, and how far the pointer moved
+                const jumpX =
+                    wanted.x + catchUpX * catchUpAmount - x.get() + shiftX
+                const jumpY =
+                    wanted.y + catchUpY * catchUpAmount - y.get() + shiftY
+                const jump = Math.hypot(jumpX, jumpY)
+                const moved = Math.hypot(pointer.x - last.x, pointer.y - last.y)
+
+                if (
+                    jump > moved + 1 &&
+                    (elastic.x.min ||
+                        elastic.x.max ||
+                        elastic.y.min ||
+                        elastic.y.max)
+                ) {
+                    const rest = 1 - moved / jump
+                    catchUpX = catchUpX * catchUpAmount - jumpX * rest
+                    catchUpY = catchUpY * catchUpAmount - jumpY * rest
+                    catchUpAmount = 1
+                    catchUp?.stop()
+                    catchUp = new JSAnimation({
+                        keyframes: [1, 0],
+                        duration: 200,
+                        ease: "easeOut",
+                        onUpdate: (latest) => {
+                            catchUpAmount = latest
+                            drawWanted()
+                        },
                     })
-                )
+                }
+
+                drawWanted()
             },
 
             /**
@@ -285,6 +338,7 @@ export function pathConstraints(
                     bounceDamping,
                 }
             ) {
+                catchUp?.stop()
                 const overshootX = drawn.x - shiftX - current.x
                 const overshootY = drawn.y - shiftY - current.y
 

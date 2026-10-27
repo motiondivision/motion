@@ -853,6 +853,88 @@ describe("drag path constraints: elastic across walls", () => {
     })
 })
 
+describe("drag path constraints: catching up", () => {
+    let element: HTMLElement
+
+    beforeEach(() => {
+        element = createElement()
+    })
+
+    /**
+     * Held against the wall (y 10) with the pointer behind it, then the
+     * pointer moves along, 2px a frame, past the wall's end, where the
+     * element can see it. Returns the furthest it moved in a frame.
+     */
+    async function aroundTheWall() {
+        const pointer = await dragThrough(element, [
+            [2, 2],
+            [50, 30],
+        ])
+        let last = values(element)
+        let furthest = 0
+        for (let x = 52; x <= 110; x += 2) {
+            await pointer.to(x, 30)
+            const point = values(element)
+            furthest = Math.max(
+                furthest,
+                Math.hypot(point.x - last.x, point.y - last.y)
+            )
+            last = point
+        }
+        return { pointer, furthest }
+    }
+
+    test("with elastic, the element eases to the pointer once nothing blocks it", async () => {
+        makeDraggable(element, {
+            constraints: pathConstraints(corridors),
+            elastic: 0.5,
+            momentum: false,
+        })
+
+        const { pointer, furthest } = await aroundTheWall()
+        expect(furthest).toBeLessThan(6)
+
+        await sleep(300)
+        expectPoint(element, 110, 30)
+
+        // Then follows the pointer as usual
+        await pointer.to(115, 35)
+        expectPoint(element, 115, 35)
+        pointer.end()
+    })
+
+    test("without elastic, the element goes straight to the pointer", async () => {
+        makeDraggable(element, {
+            constraints: pathConstraints(corridors),
+            elastic: false,
+            momentum: false,
+        })
+
+        const { pointer, furthest } = await aroundTheWall()
+        expect(furthest).toBeGreaterThan(6)
+        expectPoint(element, 110, 30)
+        pointer.end()
+    })
+
+    test("leaving an edge for the pointer doesn't lag behind it", async () => {
+        makeDraggable(element, {
+            constraints: pathConstraints(square),
+            elastic: 0.5,
+            momentum: false,
+        })
+
+        const pointer = await dragThrough(element, [
+            [5, 5],
+            [70, 0],
+            [40, 0],
+        ])
+        expectPoint(element, 40, 0)
+        await pointer.to(10, 0)
+        expectPoint(element, 10, 0)
+        pointer.end()
+    })
+})
+
 describe("drag path constraints: between gestures", () => {
     let element: HTMLElement
 
