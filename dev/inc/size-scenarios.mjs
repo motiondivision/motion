@@ -49,6 +49,7 @@ export const scenarios = {
     resize: `export { resize } from "motion"`,
     "hover+press": `export { hover, press } from "motion"`,
     drag: `export { drag } from "motion"`,
+    "drag+pathConstraints": `export { drag, pathConstraints } from "motion"`,
     motionValue: `export { motionValue } from "motion"`,
     styleEffect: `export { styleEffect } from "motion"`,
     animateView: `export { animateView } from "motion"`,
@@ -102,6 +103,7 @@ export const scenarios = {
         "useScroll, useTransform, useSpring"
     ),
     "motion-div+Reorder": combo("Reorder"),
+    "motion-div+pathConstraints": combo("pathConstraints"),
     "domMax+useScroll": `export { domMax, useScroll } from "motion/react"`,
 }
 
@@ -144,6 +146,11 @@ export const canaries = [
         scenarios: ["scroll", "useScroll"],
         forbid: "hsla(",
         why: "Scroll offsets pull in the colour parser",
+    },
+    {
+        scenarios: ["drag", "motion-div", "domMax-only"],
+        forbid: "forgiveness",
+        why: "Path drag constraints are bundled without pathConstraints() being imported",
     },
     {
         scenarios: "*",

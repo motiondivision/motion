@@ -8,7 +8,11 @@ import {
     resolveElements,
     type ElementOrSelector,
 } from "../../utils/resolve-elements"
-import type { DragElastic, DragHandler } from "./types"
+import type {
+    DragConstraintsFunction,
+    DragElastic,
+    DragHandler,
+} from "./types"
 import { VisualElementDragControls } from "./VisualElementDragControls"
 
 /**
@@ -23,10 +27,11 @@ export interface DragOptions {
 
     /**
      * The permitted draggable area. Either `top`/`left`/`right`/`bottom`
-     * distances in pixels, relative to the element's origin, or an element
-     * the draggable element must stay within.
+     * distances in pixels, relative to the element's origin, an element
+     * the draggable element must stay within, or `pathConstraints()` to
+     * keep it within, or along, a path.
      */
-    constraints?: Partial<BoundingBox> | Element
+    constraints?: Partial<BoundingBox> | Element | DragConstraintsFunction
 
     /**
      * How far, from `0` to `1`, the element can move outside its

@@ -6,7 +6,10 @@ import type {
     TransformProperties,
     Transition,
 } from "../animation/types"
-import type { DragElastic } from "../gestures/drag/types"
+import type {
+    DragConstraintsFunction,
+    DragElastic,
+} from "../gestures/drag/types"
 import { PanInfo } from "../gestures/pan/types"
 import type { MotionValue } from "../value"
 
@@ -646,12 +649,20 @@ export interface MotionNodeDraggableOptions {
      *   )
      * }
      * ```
+     *
+     * Or `pathConstraints()` keeps the element within the area a path
+     * encloses, or along its line.
+     *
+     * ```jsx
+     * <motion.div drag dragConstraints={pathConstraints(pathRef)} />
+     * ```
      */
     dragConstraints?:
         | false
         | Partial<BoundingBox>
         | Element
         | { current: Element | null }
+        | DragConstraintsFunction
 
     /**
      * The degree of movement allowed outside constraints. 0 = no movement, 1 =
