@@ -120,8 +120,16 @@ function resetDistortingTransform(
     }
 }
 
-const demoteTransforms = ({ instance }: IProjectionNode) =>
-    instance && transformGroups.get(instance)?.demote()
+/**
+ * Move accelerated transforms back to the main thread. The WAAPI animation
+ * hid startUpdate()'s reset of rotations, skews and z, and moving off it
+ * writes the whole transform back, so reset them again before this node
+ * is measured.
+ */
+const demoteTransforms = (node: IProjectionNode) =>
+    node.instance &&
+    transformGroups.get(node.instance)?.demote() &&
+    node.resetSkewAndRotation()
 
 function cancelTreeOptimisedTransformAnimations(
     projectionNode: IProjectionNode
