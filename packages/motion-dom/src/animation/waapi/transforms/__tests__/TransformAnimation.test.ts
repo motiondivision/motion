@@ -370,13 +370,29 @@ describe("independent transform acceleration", () => {
         expect(element.style.transform).toContain("translateY")
     })
 
-    it("stays on the main thread for values with a mixer", async () => {
+    it("stays on the main thread for values a mixer mixes", async () => {
         const element = document.createElement("div")
         let mixed = 0
-        const mixer = (a: number, b: number) => (p: number) => {
+        const mixer = (a: string, b: string) => (p: number) => {
             mixed++
             return p < 0.5 ? a : b
         }
+
+        animateElement(
+            element,
+            { x: ["0px", "100px"] },
+            { duration: 1, ease: "linear", mixer }
+        )
+        await nextFrame()
+        await nextFrame()
+
+        expect(running(element)).toHaveLength(0)
+        expect(mixed).toBeGreaterThan(0)
+    })
+
+    it("accelerates numbers with a mixer, as it leaves them to the usual blending", async () => {
+        const element = document.createElement("div")
+        const mixer = jest.fn()
 
         animateElement(
             element,
@@ -386,8 +402,8 @@ describe("independent transform acceleration", () => {
         await nextFrame()
         await nextFrame()
 
-        expect(running(element)).toHaveLength(0)
-        expect(mixed).toBeGreaterThan(0)
+        expect(running(element)).toHaveLength(1)
+        expect(mixer).not.toHaveBeenCalled()
     })
 
     it("moves to the main thread when another source keeps writing a transform", async () => {

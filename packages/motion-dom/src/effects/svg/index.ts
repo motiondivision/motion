@@ -54,19 +54,30 @@ export const addSVGValue = (
         return addSVGPathValue(element, state, key, value)
     } else if (key.startsWith("attr")) {
         return addAttrValue(element, state, key, value, convertAttrKey(key))
+    } else if (key === "d") {
+        /**
+         * `d` is a CSS property in Chrome and Firefox, but only as
+         * `path(...)`, so path data goes to the attribute, taken out of
+         * `path(...)` if it's written that way. Path data itself has no
+         * quotes or brackets.
+         */
+        return state.set(key, value, () =>
+            element.setAttribute(
+                key,
+                `${value.get()}`.replace(/path\(|["')]/g, "")
+            )
+        )
     }
 
     /**
      * Transforms and origins aren't CSS properties (bar `x`/`y` in some
      * browsers), so check them by name rather than `key in element.style`.
-     * `d` is a CSS property in Chrome and Firefox, but only as `path(...)`,
-     * so the path data has to go to the attribute.
      */
     const handler =
         transformProps.has(key) ||
         originProps.has(key) ||
         isCSSVar(key) ||
-        (key !== "d" && key in element.style)
+        key in element.style
             ? addStyleValue
             : addAttrValue
     return handler(element, state, key, value)

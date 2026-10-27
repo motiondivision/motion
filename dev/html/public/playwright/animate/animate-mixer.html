@@ -18,14 +18,16 @@
             <path id="single" d="M10 10L90 10L90 90Z" fill="#0077ff" />
             <path id="sequence" d="M10 10L90 10L90 90Z" fill="#0077ff" />
         </svg>
-        <div id="box" class="box"></div>
+        <div id="filter" class="box"></div>
+        <div id="opacity" class="box"></div>
         <script type="module" src="/src/inc.js"></script>
         <script type="module">
             const { animate } = window.Motion
 
             const single = document.getElementById("single")
             const sequence = document.getElementById("sequence")
-            const box = document.getElementById("box")
+            const filter = document.getElementById("filter")
+            const opacity = document.getElementById("opacity")
 
             // Long, linear animations so the mid-point can be sampled
             const options = { duration: 10, ease: "linear" }
@@ -42,9 +44,25 @@
             animate(single, { d: square }, { ...options, mixer: corner })
             animate([[sequence, { d: square }, { ...options, mixer: corner }]])
 
-            // Holds opacity halfway, so the page can tell the mixer drives it
-            const halfway = (from, to) => () => (from + to) / 2
-            animate(box, { opacity: [0, 1] }, { ...options, mixer: halfway })
+            // Holds filter at one value, so the page can tell the mixer drives it
+            animate(
+                filter,
+                { filter: ["blur(0px)", "blur(10px)"] },
+                { ...options, mixer: () => () => "blur(5px)" }
+            )
+
+            // Numbers blend as usual, so opacity can still run on WAAPI
+            window.opacityMixed = false
+            animate(
+                opacity,
+                { opacity: [0, 1] },
+                {
+                    ...options,
+                    mixer: () => {
+                        window.opacityMixed = true
+                    },
+                }
+            )
         </script>
     </body>
 </html>

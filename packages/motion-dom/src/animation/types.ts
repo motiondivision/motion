@@ -560,19 +560,24 @@ export interface ValueTransition
     path?: MotionPath
 
     /**
-     * Replaces the function that blends between each pair of keyframes.
-     * It receives the two keyframes and returns a function that maps
-     * progress (`0`-`1`, or beyond with springs and overshooting easing)
-     * to a value, or `undefined` to blend them as usual. For example, a
-     * path morphing mixer can animate `d` between paths of different
-     * shapes, and return `undefined` for `fill` so it blends as usual:
+     * Replaces the function that blends between each pair of keyframes
+     * that aren't numbers. It receives the two keyframes and returns a
+     * function that maps progress (`0`-`1`, or beyond with springs and
+     * overshooting easing) to a value, or `undefined` to blend them as
+     * usual. For example, a path morphing mixer can animate `d` between
+     * paths of different shapes, and return `undefined` for `fill` so it
+     * blends as usual:
      *
      * ```jsx
      * <motion.path animate={{ d, fill }} transition={{ mixer: morph }} />
      * ```
      *
-     * Animations with a mixer always run on the main thread. Springs
-     * between two numbers animate the number itself, without a mixer.
+     * Numbers always blend as usual. Other values animate on the main
+     * thread, where the mixer can be called, so to keep a value like
+     * `filter` hardware accelerated, set the mixer for just the values
+     * that need it, like `transition={{ d: { mixer: morph } }}`. Values
+     * Motion can't animate, like text without numbers, still change at
+     * once.
      *
      * @public
      */

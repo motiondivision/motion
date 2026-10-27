@@ -11,6 +11,7 @@
         <svg width="100" height="100" viewBox="0 0 100 100">
             <path id="single" d="M10 10L90 10L90 90Z" fill="#0077ff" />
             <path id="sequence" d="M10 10L90 10L90 90Z" fill="#0077ff" />
+            <path id="css" d="M10 10L90 10L90 90Z" fill="#0077ff" />
         </svg>
         <script type="module" src="/src/inc.js"></script>
         <script type="module">
@@ -18,12 +19,25 @@
 
             const single = document.getElementById("single")
             const sequence = document.getElementById("sequence")
+            const css = document.getElementById("css")
 
             // Long, linear animations so the mid-point can be sampled
             const options = { duration: 10, ease: "linear" }
 
             animate(single, { d: "M10 10L90 10L10 90Z" }, options)
             animate([[sequence, { d: "M10 10L90 10L10 90Z" }, options]])
+
+            // Path data written as CSS path() values
+            animate(
+                css,
+                {
+                    d: [
+                        'path("M10 10L90 10L90 90Z")',
+                        'path("M10 10L90 10L10 90Z")',
+                    ],
+                },
+                options
+            )
         </script>
     </body>
 </html>

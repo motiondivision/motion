@@ -1,7 +1,11 @@
 import { noop } from "motion-utils"
+import { motionValue } from "../../value"
+import { animateElement } from "../animate/element"
+import { animateSingleValue } from "../animate/single-value"
 import { JSAnimation } from "../JSAnimation"
 import { ValueAnimationOptions } from "../types"
 import { interpolate } from "../../utils/interpolate"
+import { arc } from "../utils/arc"
 import { isTransitionDefined } from "../utils/is-transition-defined"
 import { supportsBrowserAnimation } from "../waapi/supports/waapi"
 import { syncDriver } from "./utils"
@@ -94,9 +98,7 @@ describe("transition.mixer", () => {
             spring.some((v) => parseFloat(v) > 0 && parseFloat(v) < 100)
         ).toBe(true)
 
-        expect(interpolate([0, 1], [0, 100], { mixer: decline })(0.5)).toBe(
-            50
-        )
+        expect(interpolate([0, 1], [0, 100], { mixer: decline })(0.5)).toBe(50)
     })
 
     test("keeps a value's default transition", () => {
@@ -104,7 +106,53 @@ describe("transition.mixer", () => {
         expect(isTransitionDefined({ mixer: tagMixer, duration: 1 })).toBe(true)
     })
 
-    test("runs on the main thread, where the mixer can be called", () => {
+    test("leaves numbers to the usual blending", async () => {
+        const mixer = jest.fn(() => () => 42)
+
+        const tween = await run({
+            keyframes: [0, 100] as any,
+            mixer,
+        })
+        expect(tween).toContain(20)
+
+        const keyframes = await run({
+            keyframes: [0, 100, 0] as any,
+            mixer,
+        })
+        expect(keyframes).toContain(40)
+
+        expect(mixer).not.toHaveBeenCalled()
+    })
+
+    test("leaves the progress of a path to the path", async () => {
+        const element = document.createElement("div")
+        const mixer = jest.fn()
+
+        await Promise.all(
+            animateElement(
+                element,
+                { x: 100, y: 0 },
+                { path: arc(), mixer, duration: 0.05 }
+            )
+        )
+
+        expect(mixer).not.toHaveBeenCalled()
+        expect(element.style.transform).toBe("translateX(100px)")
+    })
+
+    test("leaves values Motion can't animate to change at once", async () => {
+        const value = motionValue("url(#a1)")
+        const output: string[] = []
+        value.on("change", (v) => output.push(v))
+        const mixer = jest.fn(() => () => "url(#mixed)")
+
+        await animateSingleValue(value, "url(#a2)", { mixer, duration: 0.1 })
+
+        expect(mixer).not.toHaveBeenCalled()
+        expect(output).toEqual(["url(#a2)"])
+    })
+
+    test("runs values that aren't numbers on the main thread, where the mixer can be called", () => {
         Object.defineProperty(Element.prototype, "animate", {
             value: () => {},
             writable: true,
@@ -118,13 +166,25 @@ describe("transition.mixer", () => {
                     getProps: () => ({}),
                 },
             },
-            keyframes: [0, 1],
-            name: "opacity",
+            keyframes: ["blur(0px)", "blur(10px)"],
+            name: "filter",
         } as any
 
         expect(supportsBrowserAnimation(options)).toBe(true)
         expect(supportsBrowserAnimation({ ...options, mixer: tagMixer })).toBe(
             false
         )
+
+        // Numbers mix as usual, so they can still run on WAAPI
+        expect(
+            supportsBrowserAnimation({
+                ...options,
+                keyframes: [0, 1],
+                name: "opacity",
+                mixer: tagMixer,
+            })
+        ).toBe(true)
+
+        delete (Element.prototype as any).animate
     })
 })

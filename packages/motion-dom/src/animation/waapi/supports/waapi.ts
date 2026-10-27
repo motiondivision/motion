@@ -90,6 +90,9 @@ export function supportsBrowserAnimation<T extends AnyResolvedKeyframe>(
         repeatType !== "mirror" &&
         damping !== 0 &&
         type !== "inertia" &&
-        !mixer
+        /**
+         * WAAPI can't call a mixer, which blends values that aren't numbers.
+         */
+        (!mixer || typeof keyframes[0] === "number")
     )
 }

@@ -61,4 +61,17 @@ describe("svgEffect", () => {
         expect(path.getAttribute("d")).toBe("M0 0L10 10")
         expect((path.style as any).d).toBe("")
     })
+
+    it("unwraps CSS path() values for the d attribute", async () => {
+        const path = svg("path")
+        Object.defineProperty(path.style, "d", { value: "", writable: true })
+
+        svgEffect(path, {
+            d: motionValue('path("M0 0L10 10")'),
+        })
+
+        await nextFrame()
+
+        expect(path.getAttribute("d")).toBe("M0 0L10 10")
+    })
 })
