@@ -1074,8 +1074,9 @@ function createGroup(owner: TransformOwner): TransformGroup {
                 animation.startTime = now - local / rate
             } else {
                 /**
-                 * Hold it without pause(), which, like a play, would leave
-                 * WebKit holding a ready time (see create()).
+                 * Hold it without pause(), whose pending pause setting
+                 * currentTime would end at once, leaving WebKit holding its
+                 * ready time (see create()).
                  */
                 animation.startTime = null
                 animation.currentTime = local
