@@ -137,6 +137,12 @@ export class JSAnimation<T extends number | string>
             )
         }
 
+        /**
+         * This runs again when a spring is flattened to attach it to a
+         * timeline, and the keyframes generator blends values itself.
+         */
+        this.mixKeyframes = undefined
+
         if (
             generatorFactory !== keyframesGenerator &&
             typeof keyframes[0] !== "number"
