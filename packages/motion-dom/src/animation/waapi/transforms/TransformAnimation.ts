@@ -90,7 +90,7 @@ interface TransformGroup extends TransformGroupHooks {
      * end the group.
      */
     release(track: TransformAnimation<any>): void
-    demote(canReturn?: boolean): void
+    demote(canReturn?: boolean): true | void
 }
 
 /**
@@ -1245,6 +1245,8 @@ function createGroup(owner: TransformOwner): TransformGroup {
             tracks.forEach(
                 (track) => track.state === "running" && track.js?.start()
             )
+
+            return true
         },
     }
 
