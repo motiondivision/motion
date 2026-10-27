@@ -106,6 +106,8 @@ export function blend(a: Points, b: Points, linear?: boolean): Blend {
     }
     const areaA = area(a)
     const areaB = area(b)
+    // Outlines with no area, like a closed line, have none to keep
+    const flat = Math.abs(areaA) + Math.abs(areaB) < 1e-9 * totalLength ** 2
 
     return (t, out) => {
         let x = 0
@@ -141,7 +143,7 @@ export function blend(a: Points, b: Points, linear?: boolean): Blend {
          * area, so it's never scaled up by more than a fifth.
          */
         const ratio = (areaA + (areaB - areaA) * t) / area(out)
-        const scale = ratio > 0 ? Math.min(Math.sqrt(ratio), 1.2) : 1
+        const scale = ratio > 0 && !flat ? Math.min(Math.sqrt(ratio), 1.2) : 1
         for (let i = 0; i < 2 * n; i += 2) {
             out[i] =
                 centreAX +

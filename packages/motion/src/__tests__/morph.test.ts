@@ -359,6 +359,35 @@ describe("morph", () => {
         expect(perimeter(read(linear)[0])).toBeLessThan(380)
     })
 
+    test("turns closed lines smoothly, no longer than they are", () => {
+        const line = (angle: number) => {
+            const x = 40 * Math.cos((angle * Math.PI) / 180)
+            const y = 40 * Math.sin((angle * Math.PI) / 180)
+            return `M${50 - x} ${50 - y}L${50 + x} ${50 + y}Z`
+        }
+        for (const angle of [30, 60, 150]) {
+            // Moving its ends straight, a line turned 150° turns 30° back
+            const turn = (Math.min(angle, 180 - angle) * Math.PI) / 180
+            const mix = morph(line(0), line(angle))!
+            let previous: Point[] = []
+            for (let t = 0.005; t < 1; t += 0.005) {
+                const { points } = read(mix(t))[0]
+                let longest = 0
+                for (const p of points) {
+                    for (const q of points) {
+                        longest = Math.max(longest, distance(p, q))
+                    }
+                }
+                expect(longest).toBeLessThan(80.5)
+                expect(longest).toBeGreaterThan(80 * Math.cos(turn / 2) - 0.5)
+                previous.forEach((p, i) => {
+                    expect(distance(p, points[i])).toBeLessThan(1)
+                })
+                previous = points
+            }
+        }
+    })
+
     test("matches holes by proximity", () => {
         const a = `${rect(0, 0, 200, 100)}${circle(50, 50, 20, 0)}${circle(
             150,
