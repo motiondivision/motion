@@ -29,7 +29,7 @@ import {
 } from "../../types"
 import { cubicBezierAsString } from "../easing/cubic-bezier"
 import { supportedWaapiEasing } from "../easing/supported"
-import { supportsWaapi } from "../supports/waapi"
+import { needsMixer, supportsWaapi } from "../supports/waapi"
 import { supportsLinearEasing } from "../../../utils/supports/linear-easing"
 import { TransformGroupHooks, transformGroups } from "./groups"
 
@@ -182,13 +182,12 @@ function canAccelerateTransform(options: ValueAnimationOptions<any>) {
         /**
          * A handoff from an optimised appear animation is already running
          * on its own WAAPI animation. onUpdate needs every value, every
-         * frame, and a mixer, which blends values that aren't numbers, has
-         * to make them.
+         * frame, and a mixer that blends them has to make them.
          */
         !options.isHandoff &&
         !onUpdate &&
         !options.hasOnUpdate &&
-        (!options.mixer || typeof options.keyframes[0] === "number") &&
+        !needsMixer(options) &&
         /**
          * transformTemplate could output anything.
          */

@@ -1,6 +1,7 @@
 import { MotionGlobalConfig } from "motion-utils"
 import {
     AnyResolvedKeyframe,
+    ValueAnimationOptions,
     ValueAnimationOptionsWithRenderContext,
 } from "../../types"
 import { acceleratedValues } from "../utils/accelerated-values"
@@ -28,6 +29,16 @@ export const supportsWaapi = () =>
     !MotionGlobalConfig.useManualTiming &&
     Object.hasOwnProperty.call(Element.prototype, "animate")
 
+/**
+ * Whether an animation needs its mixer, which WAAPI can't call. Numbers
+ * blend as usual, and an animation whose mixer declines every pair runs
+ * as it would without one.
+ */
+export const needsMixer = ({ mixer, keyframes }: ValueAnimationOptions<any>) =>
+    mixer &&
+    typeof keyframes[0] !== "number" &&
+    keyframes.some((keyframe, i) => i && mixer(keyframes[i - 1], keyframe))
+
 export function supportsBrowserAnimation<T extends AnyResolvedKeyframe>(
     options: ValueAnimationOptionsWithRenderContext<T>
 ) {
@@ -39,7 +50,6 @@ export function supportsBrowserAnimation<T extends AnyResolvedKeyframe>(
         damping,
         type,
         keyframes,
-        mixer,
     } = options
 
     /**
@@ -90,9 +100,6 @@ export function supportsBrowserAnimation<T extends AnyResolvedKeyframe>(
         repeatType !== "mirror" &&
         damping !== 0 &&
         type !== "inertia" &&
-        /**
-         * WAAPI can't call a mixer, which blends values that aren't numbers.
-         */
-        (!mixer || typeof keyframes[0] === "number")
+        !needsMixer(options)
     )
 }

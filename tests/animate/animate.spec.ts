@@ -592,6 +592,14 @@ test.describe("animate() options", () => {
         expect(await page.evaluate(() => (window as any).opacityMixed)).toBe(
             false
         )
+
+        // A mixer that declines a color only the browser can blend leaves it to WAAPI
+        const oklch = await page.locator("#oklch").evaluate((element) => ({
+            animations: element.getAnimations().length,
+            color: getComputedStyle(element).backgroundColor,
+        }))
+        expect(oklch.animations).toBe(1)
+        expect(oklch.color).not.toBe("oklch(0.7 0.1 200)")
     })
 
     test("spring velocity", async ({ page }) => {

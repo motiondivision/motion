@@ -390,6 +390,20 @@ describe("independent transform acceleration", () => {
         expect(mixed).toBeGreaterThan(0)
     })
 
+    it("accelerates values a mixer declines", async () => {
+        const element = document.createElement("div")
+
+        animateElement(
+            element,
+            { x: ["0px", "100px"] },
+            { duration: 1, ease: "linear", mixer: () => undefined }
+        )
+        await nextFrame()
+        await nextFrame()
+
+        expect(running(element)).toHaveLength(1)
+    })
+
     it("accelerates numbers with a mixer, as it leaves them to the usual blending", async () => {
         const element = document.createElement("div")
         const mixer = jest.fn()

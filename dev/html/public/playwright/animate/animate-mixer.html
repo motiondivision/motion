@@ -20,6 +20,7 @@
         </svg>
         <div id="filter" class="box"></div>
         <div id="opacity" class="box"></div>
+        <div id="oklch" class="box"></div>
         <script type="module" src="/src/inc.js"></script>
         <script type="module">
             const { animate } = window.Motion
@@ -28,6 +29,7 @@
             const sequence = document.getElementById("sequence")
             const filter = document.getElementById("filter")
             const opacity = document.getElementById("opacity")
+            const oklch = document.getElementById("oklch")
 
             // Long, linear animations so the mid-point can be sampled
             const options = { duration: 10, ease: "linear" }
@@ -62,6 +64,13 @@
                         window.opacityMixed = true
                     },
                 }
+            )
+
+            // Only the browser can blend oklch, so a mixer that declines it leaves it to WAAPI
+            animate(
+                oklch,
+                { backgroundColor: ["#ff0000", "oklch(0.7 0.1 200)"] },
+                { ...options, mixer: () => undefined }
             )
         </script>
     </body>

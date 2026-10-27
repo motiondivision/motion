@@ -35,6 +35,37 @@ function run(options: Partial<ValueAnimationOptions<string>>) {
     })
 }
 
+/**
+ * A filter animation on an element, as supportsBrowserAnimation reads it.
+ */
+const filter = {
+    motionValue: {
+        owner: {
+            current: document.createElement("div"),
+            getProps: () => ({}),
+        },
+    },
+    keyframes: ["blur(0px)", "blur(10px)"],
+    name: "filter",
+} as any
+
+/**
+ * JSDOM has no WAAPI, so stand one in while the callback runs.
+ */
+function withWaapi(callback: VoidFunction) {
+    Object.defineProperty(Element.prototype, "animate", {
+        value: () => {},
+        writable: true,
+        configurable: true,
+    })
+
+    try {
+        callback()
+    } finally {
+        delete (Element.prototype as any).animate
+    }
+}
+
 describe("transition.mixer", () => {
     test("mixes two keyframes", async () => {
         const output = await run({ mixer: tagMixer })
@@ -101,9 +132,26 @@ describe("transition.mixer", () => {
         expect(interpolate([0, 1], [0, 100], { mixer: decline })(0.5)).toBe(50)
     })
 
-    test("keeps a value's default transition", () => {
+    test("keeps a value's default transition", async () => {
         expect(isTransitionDefined({ mixer: tagMixer })).toBe(false)
         expect(isTransitionDefined({ mixer: tagMixer, duration: 1 })).toBe(true)
+
+        // x springs by default, so its progress overshoots
+        const progress: number[] = []
+        await Promise.all(
+            animateElement(
+                document.createElement("div"),
+                { x: ["0px", "100px"] },
+                {
+                    mixer: (_: string, b: string) => (p: number) => {
+                        progress.push(p)
+                        return b
+                    },
+                }
+            )
+        )
+
+        expect(Math.max(...progress)).toBeGreaterThan(1)
     })
 
     test("leaves numbers to the usual blending", async () => {
@@ -153,38 +201,51 @@ describe("transition.mixer", () => {
     })
 
     test("runs values that aren't numbers on the main thread, where the mixer can be called", () => {
-        Object.defineProperty(Element.prototype, "animate", {
-            value: () => {},
-            writable: true,
-            configurable: true,
+        withWaapi(() => {
+            expect(supportsBrowserAnimation(filter)).toBe(true)
+            expect(
+                supportsBrowserAnimation({ ...filter, mixer: tagMixer })
+            ).toBe(false)
+
+            // Numbers mix as usual, so they can still run on WAAPI
+            expect(
+                supportsBrowserAnimation({
+                    ...filter,
+                    keyframes: [0, 1],
+                    name: "opacity",
+                    mixer: tagMixer,
+                })
+            ).toBe(true)
         })
+    })
 
-        const options = {
-            motionValue: {
-                owner: {
-                    current: document.createElement("div"),
-                    getProps: () => ({}),
-                },
-            },
-            keyframes: ["blur(0px)", "blur(10px)"],
-            name: "filter",
-        } as any
+    test("runs values the mixer declines as they would run without it", () => {
+        withWaapi(() => {
+            const decline = () => undefined
 
-        expect(supportsBrowserAnimation(options)).toBe(true)
-        expect(supportsBrowserAnimation({ ...options, mixer: tagMixer })).toBe(
-            false
-        )
+            expect(
+                supportsBrowserAnimation({ ...filter, mixer: decline })
+            ).toBe(true)
 
-        // Numbers mix as usual, so they can still run on WAAPI
-        expect(
-            supportsBrowserAnimation({
-                ...options,
-                keyframes: [0, 1],
-                name: "opacity",
-                mixer: tagMixer,
-            })
-        ).toBe(true)
+            // Only the browser can blend these colors
+            expect(
+                supportsBrowserAnimation({
+                    ...filter,
+                    keyframes: ["#ff0000", "oklch(0.7 0.1 200)"],
+                    name: "backgroundColor",
+                    mixer: decline,
+                })
+            ).toBe(true)
 
-        delete (Element.prototype as any).animate
+            // It takes one pair of several
+            expect(
+                supportsBrowserAnimation({
+                    ...filter,
+                    keyframes: ["blur(0px)", "blur(10px)", "blur(5px)"],
+                    mixer: (a: string, b: string) =>
+                        b === "blur(5px)" ? tagMixer(a, b) : undefined,
+                })
+            ).toBe(false)
+        })
     })
 })

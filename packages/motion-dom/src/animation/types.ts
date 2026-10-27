@@ -572,12 +572,12 @@ export interface ValueTransition
      * <motion.path animate={{ d, fill }} transition={{ mixer: morph }} />
      * ```
      *
-     * Numbers always blend as usual. Other values animate on the main
-     * thread, where the mixer can be called, so to keep a value like
-     * `filter` hardware accelerated, set the mixer for just the values
-     * that need it, like `transition={{ d: { mixer: morph } }}`. Values
-     * Motion can't animate, like text without numbers, still change at
-     * once.
+     * Animations between numbers (not strings with units, like `"100px"`),
+     * and those where the mixer returns `undefined` for every pair, run as
+     * they would without it. The rest run on the main thread, where the
+     * mixer can be called. Animations that only run in the browser, like
+     * those from `motion/mini`, don't use it. Values Motion can't animate,
+     * like text without numbers, still change at once.
      *
      * @public
      */
