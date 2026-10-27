@@ -12,6 +12,7 @@ Undocumented APIs should be considered internal and may change without warning.
 -   `animate`: Relative label offsets for timeline sequences.
 -   `useScroll`: Returns `scrollXLength` and `scrollYLength`.
 -   `Reorder`: Add `LazyMotion`-compatible import.
+-   `motion`: `transition.out` prop for transitions when exiting a state.
 
 ### Fixed
 
@@ -20,6 +21,13 @@ Undocumented APIs should be considered internal and may change without warning.
 -   `spring`: Fix overdamped springs snapping to target.
 -   `drag`: Ref-constraints kept up-to-date after scroll.
 -   `motion`: Animate `layoutId` elements relative to `layoutRoot` container.
+-   `motion`: Bundle size reductions.
+-   Moving `background-color` animations back to main thread for improved interpolation.
+-   `drag`: Fix drag inertia stopping dead after a fast flick from a standstill.
+-   `layout`: `layoutId` elements now animate relative to their closest `layoutRoot` ancestor, if any.
+-   `layout`: `layoutId` may be changed after mount.
+-   `useScroll`: Fix tracking in horizontal containers.
+-   `useSpring`: Reduced bundle size by 30%.
 
 ## [14.6.0] 2026-10-22
 
