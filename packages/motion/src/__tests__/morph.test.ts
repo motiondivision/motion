@@ -1213,6 +1213,34 @@ describe("morph", () => {
         expect(scale).toBeGreaterThan((near - 3) / 42.5 - 0.005)
     })
 
+    test("finds that holes shrinking towards a point on their outline touch it at once", () => {
+        const outline = [0, 0, 100, 0, 100, 100, 0, 100]
+        expect(
+            contact([40, 1, 60, 1, 60, 20, 40, 20], outline, 50, 0, 1, 1)
+        ).toBe(0)
+        expect(
+            contact([1, 1, 10, 1, 10, 10, 1, 10], outline, 0, 0, 0.5, 1)
+        ).toBe(0)
+
+        // Or on a slanted edge, to within rounding, with no gap to keep
+        const turn = (points: number[]) => {
+            const c = Math.cos(Math.PI / 180)
+            const s = Math.sin(Math.PI / 180)
+            const turned: number[] = []
+            for (let i = 0; i < points.length; i += 2) {
+                const x = points[i] - 50
+                const y = points[i + 1] - 50
+                turned.push(50 + c * x - s * y, 50 + s * x + c * y)
+            }
+            return turned
+        }
+        const slanted = turn(outline)
+        const x = slanted[0] + 0.35 * (slanted[2] - slanted[0])
+        const y = slanted[1] + 0.35 * (slanted[3] - slanted[1])
+        const hole = turn([40, 40, 60, 40, 60, 60, 40, 60])
+        expect(contact(hole, slanted, x, y, 0, 1)).toBeLessThan(1e-9)
+    })
+
     test("keeps holes inside their outline when a spring overshoots", () => {
         const ring = (r: number) => circle(50, 50, 50) + circle(50, 50, r, 0)
         for (const [a, b] of [

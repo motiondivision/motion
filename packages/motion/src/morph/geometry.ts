@@ -371,8 +371,9 @@ export function contact(
                 (points[(i + 2) % h] - x) * (px - x) +
                 (points[(i + 3) % h] - y) * (py - y)
             // Nor can this point, or its edge to the next, if they don't
-            // reach that far in the direction of the edge's nearest point
-            if (near * d < Math.max(0, ahead, next) * most) {
+            // reach that far in the direction of the edge's nearest point.
+            // Within rounding of (x, y), that has no direction to go by.
+            if (near * d <= Math.max(1e-9, ahead, next) * most) {
                 most = Math.min(
                     most,
                     meet(ux, uy, ax, ay, margin),
