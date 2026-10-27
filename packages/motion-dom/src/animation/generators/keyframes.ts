@@ -29,6 +29,7 @@ export function keyframes<T extends AnyResolvedKeyframe>({
     keyframes: keyframeValues,
     times,
     ease = "easeInOut",
+    mixer: customMixer,
 }: ValueAnimationOptions<T>): KeyframeGenerator<T> {
     /**
      * Easing functions can be externally defined as strings. Here we convert them
@@ -48,9 +49,11 @@ export function keyframes<T extends AnyResolvedKeyframe>({
     }
 
     /**
-     * Fast setup path for two keyframes one easing.
+     * Fast setup path for two keyframes one easing. interpolate() handles
+     * a custom mixer, and falls back to the usual one where it declines.
      */
     if (
+        !customMixer &&
         keyframeValues.length === 2 &&
         !Array.isArray(easingFunctions) &&
         (!times ||
@@ -95,6 +98,7 @@ export function keyframes<T extends AnyResolvedKeyframe>({
         ease: Array.isArray(easingFunctions)
             ? easingFunctions
             : defaultEasing(keyframeValues, easingFunctions),
+        mixer: customMixer,
     })
 
     return {

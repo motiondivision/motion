@@ -559,6 +559,31 @@ test.describe("animate() options", () => {
         }
     })
 
+    test("transition.mixer mixes values the default mixer can't", async ({
+        page,
+    }) => {
+        await waitForAnimation("animate/animate-mixer.html", page, 1000)
+
+        for (const id of ["single", "sequence"]) {
+            const d = await page.locator(`#${id}`).getAttribute("d")
+
+            // The square's last corner travels from (90, 90) to (10, 90)
+            const x = parseFloat(d!.split(/[ML Z]+/).filter(Boolean)[6])
+            expect(x).toBeLessThan(90)
+            expect(x).toBeGreaterThan(10)
+        }
+
+        // A mixer can't run on WAAPI, so opacity animates on the main thread
+        const { animations, opacity } = await page
+            .locator("#box")
+            .evaluate((element) => ({
+                animations: element.getAnimations().length,
+                opacity: getComputedStyle(element).opacity,
+            }))
+        expect(animations).toBe(0)
+        expect(opacity).toBe("0.5")
+    })
+
     test("spring velocity", async ({ page }) => {
         await waitForAnimation("animate/animate-spring-velocity.html", page)
         const box = page.locator(".box")

@@ -13,6 +13,7 @@ const orchestrationKeys = new Set([
     "from",
     "elapsed",
     "out",
+    "mixer",
 ])
 
 /**
