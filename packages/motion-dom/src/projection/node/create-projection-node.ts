@@ -120,8 +120,16 @@ function resetDistortingTransform(
     }
 }
 
-const demoteTransforms = ({ instance }: IProjectionNode) =>
-    instance && transformGroups.get(instance)?.demote()
+/**
+ * Move accelerated transforms back to the main thread. Rotations and skews
+ * on the compositor were still showing when startUpdate() reset them, so
+ * reset them again now they're rendered by the main thread, before this
+ * node is measured.
+ */
+const demoteTransforms = (node: IProjectionNode) =>
+    node.instance &&
+    transformGroups.get(node.instance)?.demote() &&
+    node.resetSkewAndRotation()
 
 function cancelTreeOptimisedTransformAnimations(
     projectionNode: IProjectionNode
