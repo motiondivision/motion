@@ -578,8 +578,8 @@ function createGroup(owner: TransformOwner): TransformGroup {
     /**
      * A WAAPI animation that add() starts by setting its startTime. Playing
      * it first, as element.animate() does, would leave WebKit holding that
-     * play's ready time, which it then uses for the next
-     * updatePlaybackRate(), so the animation would jump.
+     * play's ready time once startTime ends the play, and it uses that for
+     * the next updatePlaybackRate(), so the animation would jump.
      */
     const create = (
         keyframes: PropertyIndexedKeyframes | null,
@@ -1073,7 +1073,11 @@ function createGroup(owner: TransformOwner): TransformGroup {
                 animation.playbackRate = rate
                 animation.startTime = now - local / rate
             } else {
-                animation.pause()
+                /**
+                 * Hold it without pause(), which, like a play, would leave
+                 * WebKit holding a ready time (see create()).
+                 */
+                animation.startTime = null
                 animation.currentTime = local
             }
         }
