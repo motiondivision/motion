@@ -84,11 +84,12 @@ function measureRings(
         const element = "current" in target ? target.current : target
         matrix = element && element.getScreenCTM()
 
-        warning(
-            !!matrix,
-            "pathConstraints() was given a ref to an element that isn't rendered.",
-            "drag-constraints-ref"
-        )
+        process.env.NODE_ENV !== "production" &&
+            warning(
+                !!matrix,
+                "pathConstraints() was given a ref to an element that isn't rendered.",
+                "drag-constraints-ref"
+            )
 
         if (matrix) {
             fillRule = fillRule || getComputedStyle(element!).fillRule
