@@ -564,9 +564,10 @@ function hold(
 
 /**
  * Write `points`, scaled by `scale`, into `out`: from beside point `spot`
- * of `end` to beside the same point of `outer`, turned as far as the line
- * through its neighbours has. With one point for both, that scales them
- * towards it.
+ * of `end` to beside the same point of `outer`, turned as far as the lines
+ * to the next point, from the one before and from this one, have on the
+ * whole. The first has no length at a spike, or the end of a line. With
+ * one point for both, that scales them towards it.
  */
 function place(
     out: Points,
@@ -577,14 +578,20 @@ function place(
     scale: number
 ) {
     const n = end.length
-    const angle = (p: Points) =>
-        Math.atan2(
-            p[(spot + 3) % n] - p[(spot + n - 1) % n],
-            p[(spot + 2) % n] - p[(spot + n - 2) % n]
-        )
-    const a = angle(outer) - angle(end)
-    const c = Math.cos(a) * scale
-    const s = Math.sin(a) * scale
+    const k = (spot + 2) % n
+    let c = 0
+    let s = 0
+    for (const i of [(spot + n - 2) % n, spot]) {
+        const ex = end[k] - end[i]
+        const ey = end[k + 1] - end[i + 1]
+        const ox = outer[k] - outer[i]
+        const oy = outer[k + 1] - outer[i + 1]
+        c += ex * ox + ey * oy
+        s += ex * oy - ey * ox
+    }
+    const a = Math.atan2(s, c)
+    c = Math.cos(a) * scale
+    s = Math.sin(a) * scale
     for (let i = 0; i < points.length; i += 2) {
         const x = points[i] - end[spot]
         const y = points[i + 1] - end[spot + 1]

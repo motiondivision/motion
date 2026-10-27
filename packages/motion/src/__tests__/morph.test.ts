@@ -559,6 +559,32 @@ describe("morph", () => {
         }
     })
 
+    test("keeps pieces with no partner beside a spike, or the end of a line, as it turns", () => {
+        // The points either side of where they shrink into are the same
+        // point, so the line through them points nowhere
+        const spike = (x: number, y: number) =>
+            `M20 40L60 40L${x} ${y}L60 40L60 60L20 60Z`
+        for (const [a, b] of [
+            [spike(90, 50) + rect(93, 47, 6, 6), spike(80, 20)],
+            [spike(80, 20), spike(90, 50) + rect(93, 47, 6, 6)],
+            ["M10 50L90 50Z" + rect(94, 47, 6, 6), "M50 10L50 90Z"],
+            ["M50 10L50 90Z", "M10 50L90 50Z" + rect(94, 47, 6, 6)],
+        ]) {
+            const mix = morph(a, b)!
+            let last: Point[] | undefined
+            for (let t = 0.01; t < 0.995; t += 0.01) {
+                const [host, piece] = read(mix(t))
+                expect(piece.points.some((p) => inside(p, host))).toBe(false)
+                expect(crosses(piece, host)).toBe(false)
+                // Smoothly, rather than flipping from side to side
+                last?.forEach((p, i) =>
+                    expect(distance(p, piece.points[i])).toBeLessThan(1.5)
+                )
+                last = piece.points
+            }
+        }
+    })
+
     test("morphs open paths as open paths", () => {
         const d = morph("M0 0L100 0", "M0 0Q50 100 100 0")!(0.5)
         const [line] = read(d)
