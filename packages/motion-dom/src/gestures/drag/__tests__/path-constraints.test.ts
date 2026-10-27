@@ -1,4 +1,7 @@
+import { MotionGlobalConfig } from "motion-utils"
 import { drag, DragOptions } from ".."
+import { motionValue } from "../../../value"
+import type { VisualElementDragControls } from "../VisualElementDragControls"
 import { pathConstraints } from "../path"
 import {
     createElement,
@@ -6,6 +9,7 @@ import {
     gesture,
     getValue,
     nextFrame,
+    sleep,
     values,
 } from "./utils"
 
@@ -315,6 +319,8 @@ describe("drag path constraints: area", () => {
                 { x: 10, y: 20 },
             ],
         ])
+        // The hole runs the same way round as the square
+        path.style.fillRule = "evenodd"
 
         makeDraggable(element, {
             constraints: pathConstraints(path),
@@ -687,5 +693,435 @@ describe("drag path constraints: stroke", () => {
         ])
 
         expectPoint(element, 50, 15)
+    })
+})
+
+describe("drag path constraints: fill rule", () => {
+    let element: HTMLElement
+
+    beforeEach(() => {
+        element = createElement()
+    })
+
+    test("overlapping subpaths fill one area, as SVG's default nonzero rule draws them", async () => {
+        // A plus of two rects that run the same way round
+        makeDraggable(element, {
+            constraints: pathConstraints(
+                "M-10 -50h20v100h-20z M-50 -10h100v20H-50z"
+            ),
+            elastic: false,
+            momentum: false,
+        })
+
+        const pointer = await dragThrough(element, [
+            [3, 3],
+            // From the centre, up the top arm
+            [0, -40],
+        ])
+        expectPoint(element, 0, -40)
+
+        // Back down to the centre, where they overlap, and out along the
+        // left arm
+        await pointer.to(0, 0)
+        expectPoint(element, 0, 0)
+        await pointer.to(-40, 0)
+        expectPoint(element, -40, 0)
+    })
+
+    test("a subpath that runs the other way round is a hole", async () => {
+        makeDraggable(element, {
+            constraints: pathConstraints(
+                "M-50 -50H50V50H-50Z M10 -20V20H30V-20Z"
+            ),
+            elastic: false,
+            momentum: false,
+        })
+
+        await dragThrough(element, [
+            [2, 2],
+            [40, 0],
+        ])
+        expectPoint(element, 10, 0)
+    })
+
+    test("an inner subpath that runs the same way round is filled", async () => {
+        makeDraggable(element, {
+            constraints: pathConstraints(
+                "M-50 -50H50V50H-50Z M10 -20H30V20H10Z"
+            ),
+            elastic: false,
+            momentum: false,
+        })
+
+        await dragThrough(element, [
+            [2, 2],
+            [40, 0],
+        ])
+        expectPoint(element, 40, 0)
+    })
+
+    test("fillRule: evenodd makes any inner subpath a hole", async () => {
+        makeDraggable(element, {
+            constraints: pathConstraints(
+                "M-50 -50H50V50H-50Z M10 -20H30V20H10Z",
+                { fillRule: "evenodd" }
+            ),
+            elastic: false,
+            momentum: false,
+        })
+
+        await dragThrough(element, [
+            [2, 2],
+            [40, 0],
+        ])
+        expectPoint(element, 10, 0)
+    })
+})
+
+describe("drag path constraints: elastic across walls", () => {
+    let element: HTMLElement
+
+    beforeEach(() => {
+        element = createElement()
+    })
+
+    test("elastic doesn't draw the element across a thin wall", async () => {
+        makeDraggable(element, {
+            constraints: pathConstraints(corridors),
+            // The default elastic
+            momentum: false,
+        })
+
+        await dragThrough(element, [
+            [2, 2],
+            [50, 80],
+        ])
+
+        // Held at the wall's near side (y 10). Its far side is at y 20.
+        const { y } = values(element)
+        expect(y).toBeGreaterThan(10)
+        expect(y).toBeLessThan(20)
+    })
+
+    test("elastic doesn't draw the element onto another part of a stroke", async () => {
+        makeDraggable(element, {
+            // A hairpin: out along y 0 and back along y 20
+            constraints: pathConstraints(
+                [
+                    { x: 0, y: 0 },
+                    { x: 100, y: 0 },
+                    { x: 100, y: 20 },
+                    { x: 0, y: 20 },
+                ],
+                { stroke: true }
+            ),
+            elastic: 0.8,
+            momentum: false,
+        })
+
+        await dragThrough(element, [
+            [5, 0],
+            [50, 0],
+            [50, 60],
+        ])
+
+        const { y } = values(element)
+        expect(y).toBeGreaterThan(0)
+        expect(y).toBeLessThan(20)
+    })
+})
+
+describe("drag path constraints: between gestures", () => {
+    let element: HTMLElement
+
+    beforeEach(() => {
+        element = createElement()
+    })
+
+    test("grabbing the element as it springs back keeps it on its side of a wall", async () => {
+        makeDraggable(element, {
+            constraints: pathConstraints(corridors),
+            elastic: 0.5,
+            momentum: false,
+        })
+
+        // Held at the wall (y 10), drawn toward the pointer
+        const first = await dragThrough(element, [
+            [2, 2],
+            [50, 18],
+        ])
+        expectPoint(element, 50, 14)
+        first.end()
+        await nextFrame()
+
+        // Grab it again before it's back, and pull it further down
+        const second = await dragThrough(element, [
+            [0, 4],
+            [0, 30],
+        ])
+        const { y } = values(element)
+        expect(y).toBeGreaterThan(10)
+        expect(y).toBeLessThan(20)
+        second.end()
+    })
+
+    test("grabbing the element as it springs back keeps it on its part of a stroke", async () => {
+        makeDraggable(element, {
+            constraints: pathConstraints(
+                [
+                    { x: 0, y: 0 },
+                    { x: 100, y: 0 },
+                    { x: 100, y: 20 },
+                    { x: 0, y: 20 },
+                ],
+                { stroke: true }
+            ),
+            elastic: 0.5,
+            momentum: false,
+        })
+
+        const first = await dragThrough(element, [
+            [5, 0],
+            [50, 0],
+            [50, 16],
+        ])
+        expectPoint(element, 50, 8)
+        first.end()
+        await nextFrame()
+
+        // Straight back up to the top line, which it never left
+        const second = await dragThrough(element, [
+            [0, 4],
+            [0, -8],
+        ])
+        expect(values(element).y).toBeCloseTo(0, 0)
+        second.end()
+    })
+
+    test("a tap doesn't animate the element back to where it was dragged", async () => {
+        makeDraggable(element, {
+            constraints: pathConstraints(square),
+            elastic: false,
+            momentum: false,
+        })
+
+        const first = await dragThrough(element, [
+            [5, 5],
+            [30, 30],
+        ])
+        first.end()
+        await nextFrame()
+
+        // Moved elsewhere, as by a reset button
+        getValue(element, "x")!.set(0)
+        getValue(element, "y")!.set(0)
+
+        gesture(element).end()
+        await sleep(100)
+
+        expectPoint(element, 0, 0)
+    })
+
+    test("a new drag after the element is moved elsewhere starts from there", async () => {
+        makeDraggable(element, {
+            constraints: pathConstraints(square),
+            elastic: false,
+            momentum: false,
+        })
+
+        const first = await dragThrough(element, [
+            [5, 5],
+            [30, 30],
+        ])
+        first.end()
+        await nextFrame()
+
+        getValue(element, "x")!.set(-20)
+        getValue(element, "y")!.set(0)
+
+        const second = await dragThrough(element, [
+            [0, 5],
+            [0, 10],
+        ])
+        expectPoint(element, -20, 10)
+        second.end()
+    })
+})
+
+describe("drag path constraints: axes", () => {
+    let element: HTMLElement
+
+    beforeEach(() => {
+        element = createElement()
+    })
+
+    test("momentum only glides along a locked direction", async () => {
+        const onTransitionEnd = deferred()
+        makeDraggable(element, {
+            constraints: pathConstraints(square),
+            elastic: false,
+            directionLock: true,
+            transition: { timeConstant: 100 },
+            onTransitionEnd: () => onTransitionEnd.resolve(),
+        })
+
+        // Locks to x, then drifts down
+        const pointer = await dragThrough(element, [
+            [12, 0],
+            [20, 6],
+            [28, 12],
+        ])
+        expectPoint(element, 28, 0)
+        pointer.end()
+
+        await onTransitionEnd.promise
+        expect(values(element).y).toBeCloseTo(0, 1)
+    })
+
+    test("snapping one axis to its origin doesn't glide the other off the path", async () => {
+        const onTransitionEnd = deferred()
+        makeDraggable(element, {
+            constraints: pathConstraints(square),
+            elastic: false,
+            snapToOrigin: "x",
+            transition: { timeConstant: 200 },
+            onTransitionEnd: () => onTransitionEnd.resolve(),
+        })
+
+        const pointer = await dragThrough(element, [
+            [0, 10],
+            [0, 45],
+        ])
+        pointer.end()
+
+        await onTransitionEnd.promise
+        expect(values(element).y).toBeLessThanOrEqual(50)
+    })
+})
+
+describe("drag path constraints: edge cases", () => {
+    let element: HTMLElement
+    let warn: jest.SpyInstance
+
+    beforeEach(() => {
+        element = createElement()
+        warn = jest.spyOn(console, "warn").mockImplementation(() => {})
+    })
+
+    afterEach(() => warn.mockRestore())
+
+    test.each([
+        ["empty path data", () => pathConstraints("")],
+        ["path data with no lines", () => pathConstraints("M10 10")],
+        ["a single point", () => pathConstraints([{ x: 10, y: 10 }])],
+        [
+            "a path with no data",
+            () => pathConstraints(svgElement("path", [square], { x: 0, y: 0 })),
+        ],
+        ["a ref to nothing", () => pathConstraints({ current: null })],
+    ])("%s holds the element where it is", async (_, constraints) => {
+        const target = constraints()
+        document.querySelector("path")?.removeAttribute("d")
+
+        const errors: unknown[] = []
+        const onError = (event: ErrorEvent) => errors.push(event.error)
+        window.addEventListener("error", onError)
+
+        makeDraggable(element, {
+            constraints: target,
+            elastic: false,
+            momentum: false,
+        })
+
+        const pointer = await dragThrough(element, [
+            [5, 5],
+            [30, 30],
+        ])
+        pointer.end()
+        await nextFrame()
+        window.removeEventListener("error", onError)
+
+        expect(errors).toEqual([])
+        expectPoint(element, 0, 0)
+    })
+
+    test("a shape with no length holds the element on its point", async () => {
+        const shape = svgElement("circle", [[{ x: 0, y: 0 }]])
+        const getPointAtLength = shape.getPointAtLength
+        shape.getPointAtLength = (distance: number) => {
+            if (!Number.isFinite(distance)) throw new TypeError("non-finite")
+            return getPointAtLength.call(shape, distance)
+        }
+
+        makeDraggable(element, {
+            constraints: pathConstraints(shape, { stroke: true }),
+            elastic: false,
+            momentum: false,
+        })
+
+        await dragThrough(element, [
+            [5, 5],
+            [30, 30],
+        ])
+        expectPoint(element, 0, 0)
+    })
+
+    test("skipAnimations ends the release at once", async () => {
+        MotionGlobalConfig.skipAnimations = true
+        const onTransitionEnd = deferred()
+
+        try {
+            makeDraggable(element, {
+                constraints: pathConstraints(square),
+                elastic: 0.5,
+                onTransitionEnd: () => onTransitionEnd.resolve(),
+            })
+
+            const pointer = await dragThrough(element, [
+                [5, 5],
+                [70, 10],
+            ])
+            pointer.end()
+
+            await onTransitionEnd.promise
+            expectPoint(element, 50, 10)
+        } finally {
+            MotionGlobalConfig.skipAnimations = false
+        }
+    })
+})
+
+describe("drag path constraints: layout changes", () => {
+    test("a layout change mid-drag keeps the path where it's drawn", () => {
+        const x = motionValue(0)
+        const y = motionValue(0)
+        const controls = {
+            visualElement: { getTransformPagePoint: () => undefined },
+            originPoint: { x: 0, y: 0 },
+            elastic: {
+                x: { min: 0, max: 0 },
+                y: { min: 0, max: 0 },
+            },
+            getAxisMotionValue: (axis: string) => (axis === "x" ? x : y),
+        } as unknown as VisualElementDragControls
+
+        const constraint = pathConstraints(square)(controls)
+        constraint.x = 60
+        constraint.y = 0
+        constraint.move()
+        expect(x.get()).toBe(50)
+
+        /**
+         * The element's layout moves 10px left. Drag shifts its origin and
+         * `x` 10px right, so it stays where it's drawn, and so does the
+         * path's right edge.
+         */
+        controls.originPoint.x += 10
+        x.set(x.get() + 10)
+
+        // The pointer hasn't moved: in `x` space, it's 10px further on
+        constraint.x = 70
+        constraint.move()
+        expect(x.get()).toBe(60)
     })
 })

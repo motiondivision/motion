@@ -559,9 +559,19 @@ export class VisualElementDragControls {
             ...dragTransition,
         }
 
+        const axisVelocity = (axis: DragDirection) =>
+            dragMomentum &&
+            !(this.point && dragSnapToOrigin) &&
+            shouldDrag(axis, dragAxes || drag, this.currentDirection)
+                ? velocity[axis]
+                : 0
+
         if (this.point && !dragSnapToOrigin) {
             return this.point
-                .release(dragMomentum ? velocity : { x: 0, y: 0 }, options)
+                .release(
+                    { x: axisVelocity("x"), y: axisVelocity("y") },
+                    options
+                )
                 .then(onDragTransitionEnd)
         }
 
@@ -582,7 +592,7 @@ export class VisualElementDragControls {
 
             const inertia: Transition = {
                 type: "inertia",
-                velocity: dragMomentum ? velocity[axis] : 0,
+                velocity: axisVelocity(axis),
                 ...options,
                 ...transition,
             }

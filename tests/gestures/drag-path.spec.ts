@@ -98,6 +98,17 @@ test.describe("drag: pathConstraints", () => {
         await expectCenter(page, 500, 140)
     })
 
+    test("elastic doesn't draw the element across a wall", async ({ page }) => {
+        await open(page, "?elastic=0.35")
+        // The wall runs from page y 190 to 210
+        await pressAndMove(page, { x: 140, y: 140 }, { x: 140, y: 400 })
+
+        const { y } = await center(page, "#box")
+        expect(y).toBeGreaterThan(190)
+        expect(y).toBeLessThanOrEqual(200.5)
+        await page.mouse.up()
+    })
+
     test("momentum doesn't carry the element across a wall", async ({
         page,
     }) => {

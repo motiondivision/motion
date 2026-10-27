@@ -141,11 +141,43 @@ function nearest(rings: Ring[], p: Point) {
 }
 
 /**
+ * Whether `p` is within the area `rings` enclose, by the nonzero fill
+ * rule (SVG's default) or, if `evenOdd`, the even-odd rule.
+ */
+function isInside(rings: Ring[], { x, y }: Point, evenOdd?: boolean) {
+    let winding = 0
+
+    for (const { points } of rings) {
+        for (let i = 0; i < points.length - 2; i += 2) {
+            const ax = points[i]
+            const ay = points[i + 1]
+            const bx = points[i + 2]
+            const by = points[i + 3]
+
+            if (
+                ay > y !== by > y &&
+                x < ax + ((y - ay) * (bx - ax)) / (by - ay)
+            ) {
+                winding += by > ay ? 1 : -1
+            }
+        }
+    }
+
+    return !!(evenOdd ? winding % 2 : winding)
+}
+
+/**
  * The first point at which the segment from `a` to `b` crosses an edge.
  * Starting on an edge isn't crossing it, so a point resting on an edge
- * can leave it.
+ * can leave it. An edge with the area on both sides, where subpaths
+ * overlap, isn't one.
  */
-function cross(rings: Ring[], a: Point, b: Point) {
+function cross(
+    rings: Ring[],
+    a: Point,
+    b: Point,
+    inside: (p: Point) => boolean
+) {
     let hit: Contact | undefined
     let min = 1
     const ex = b.x - a.x
@@ -162,45 +194,24 @@ function cross(rings: Ring[], a: Point, b: Point) {
             const t = (ax * ey - ay * ex) / denominator
 
             if (s > 1e-9 && s <= min && t >= 0 && t <= 1) {
-                min = s
-                hit = {
-                    r,
-                    i: i / 2,
-                    t,
-                    x: a.x + ex * s,
-                    y: a.y + ey * s,
-                    d: 0,
+                const x = a.x + ex * s
+                const y = a.y + ey * s
+                // A hair either side of the edge
+                const nx = (dy / Math.hypot(dx, dy)) * 1e-4
+                const ny = (-dx / Math.hypot(dx, dy)) * 1e-4
+
+                if (
+                    !inside({ x: x + nx, y: y + ny }) ||
+                    !inside({ x: x - nx, y: y - ny })
+                ) {
+                    min = s
+                    hit = { r, i: i / 2, t, x, y, d: 0 }
                 }
             }
         }
     })
 
     return hit
-}
-
-/**
- * Even-odd, so a ring inside another is a hole.
- */
-function isInside(rings: Ring[], { x, y }: Point) {
-    let inside = false
-
-    for (const { points } of rings) {
-        for (let i = 0; i < points.length - 2; i += 2) {
-            const ax = points[i]
-            const ay = points[i + 1]
-            const bx = points[i + 2]
-            const by = points[i + 3]
-
-            if (
-                ay > y !== by > y &&
-                x < ax + ((y - ay) * (bx - ax)) / (by - ay)
-            ) {
-                inside = !inside
-            }
-        }
-    }
-
-    return inside
 }
 
 /**
@@ -213,21 +224,30 @@ function isInside(rings: Ring[], { x, y }: Point) {
  * jumps a wall to reach the target, but it rounds a corner up to
  * `forgiveness` px away (or a `lookahead` given with the target) to reach
  * a point beyond it.
+ *
+ * Its `reach()` limits how far toward a point the point can be drawn (by
+ * elastic): halfway to the next edge or line in the way, so it's never
+ * nearer one beyond than the one it rests on.
  */
 export function createPathSolver(
     rings: Ring[],
     start: Point,
     stroke: boolean,
-    forgiveness: number
+    forgiveness: number,
+    evenOdd?: boolean
 ) {
     let current = start
     let contact: Contact | undefined
 
-    const isFree = (target: Point) =>
-        !stroke && isInside(rings, target) && !cross(rings, current, target)
+    const inside = (p: Point) => !stroke && isInside(rings, p, evenOdd)
+    const halfway = (hit?: Point) =>
+        hit && { x: (current.x + hit.x) / 2, y: (current.y + hit.y) / 2 }
 
-    return (target: Point, lookahead = forgiveness): Point => {
-        if (isFree(target)) {
+    const solve = (target: Point, lookahead = forgiveness): Point => {
+        if (!rings.length) return current
+
+        const hit = cross(rings, current, target, inside)
+        if (inside(target) && !hit) {
             contact = undefined
             return (current = target)
         }
@@ -237,16 +257,8 @@ export function createPathSolver(
          * an edge and heading out of the area: then any edge beyond is on
          * the far side of a wall, so keep sliding on this one.
          */
-        const hit = !stroke && cross(rings, current, target)
-        if (
-            hit &&
-            isInside(rings, {
-                x: (current.x + hit.x) / 2,
-                y: (current.y + hit.y) / 2,
-            })
-        ) {
-            contact = hit
-        }
+        const mid = halfway(hit)
+        if (mid && inside(mid)) contact = hit
 
         contact = slide(
             rings,
@@ -256,11 +268,16 @@ export function createPathSolver(
         )
         current = { x: contact.x, y: contact.y }
 
-        if (isFree(target)) {
+        if (inside(target) && !cross(rings, current, target, inside)) {
             contact = undefined
             current = target
         }
 
         return current
     }
+
+    solve.reach = (to: Point): Point =>
+        halfway(cross(rings, current, to, inside)) || to
+
+    return solve
 }

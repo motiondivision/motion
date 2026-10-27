@@ -8,7 +8,7 @@
     "resize": 700,
     "hover+press": 1200,
     "drag": 37150,
-    "drag+pathConstraints": 39460,
+    "drag+pathConstraints": 39448,
     "motionValue": 1850,
     "styleEffect": 4250,
     "animateView": 6300,
@@ -52,6 +52,6 @@
     "motion-div+useTransform+useMotionTemplate": 44356,
     "motion-div+useScroll+useTransform+useSpring": 47857,
     "motion-div+Reorder": 46553,
-    "motion-div+pathConstraints": 46290,
+    "motion-div+pathConstraints": 46225,
     "domMax+useScroll": 43839
 }

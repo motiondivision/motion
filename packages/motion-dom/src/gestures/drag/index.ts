@@ -8,11 +8,7 @@ import {
     resolveElements,
     type ElementOrSelector,
 } from "../../utils/resolve-elements"
-import type {
-    DragConstraintsFunction,
-    DragElastic,
-    DragHandler,
-} from "./types"
+import type { DragConstraintsFunction, DragElastic, DragHandler } from "./types"
 import { VisualElementDragControls } from "./VisualElementDragControls"
 
 /**

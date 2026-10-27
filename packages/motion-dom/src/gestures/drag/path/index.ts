@@ -1,8 +1,10 @@
-import type { Point } from "motion-utils"
+import { MotionGlobalConfig, warning, type Point } from "motion-utils"
 import { inertia } from "../../../animation/generators/inertia"
 import { spring } from "../../../animation/generators/spring"
 import { JSAnimation } from "../../../animation/JSAnimation"
 import type { VisualElement } from "../../../render/VisualElement"
+import type { MotionValue } from "../../../value"
+import { addValueToWillChange } from "../../../value/will-change/add-will-change"
 import type { DragConstraintsFunction, DragPointConstraint } from "../types"
 import { flattenPath } from "./parse"
 import { createPathSolver, createRing, type Ring } from "./solver"
@@ -22,6 +24,12 @@ export interface PathConstraintsOptions {
      * this lets it follow a pointer that cuts a corner.
      */
     forgiveness?: number
+
+    /**
+     * Which parts of the path are within its area, as SVG's `fill-rule`.
+     * Defaults to an element's own `fill-rule`, or `"nonzero"`.
+     */
+    fillRule?: "nonzero" | "evenodd"
 }
 
 type PathElement = SVGGeometryElement
@@ -39,7 +47,7 @@ export type PathTarget =
  */
 function sampleShape(shape: PathElement, step: number): [number[], boolean] {
     const length = shape.getTotalLength()
-    const count = Math.min(2000, Math.ceil(length / step))
+    const count = Math.min(2000, Math.ceil(length / step)) || 1
     const points: number[] = []
 
     for (let i = 0; i <= count; i++) {
@@ -52,15 +60,16 @@ function sampleShape(shape: PathElement, step: number): [number[], boolean] {
 
 /**
  * A path's outline as polylines, one per subpath, in the draggable's
- * `x`/`y` space.
+ * `x`/`y` space, and whether its area is filled even-odd.
  */
 function measureRings(
     target: Exclude<PathTarget, Point[]>,
     visualElement: VisualElement<HTMLElement>,
     origin: Point,
-    stroke: boolean
-): Ring[] {
-    let subpaths: Array<[number[], boolean]>
+    stroke: boolean,
+    fillRule?: string
+): [Ring[], boolean] {
+    let subpaths: Array<[number[], boolean]> = []
     let matrix: DOMMatrix | null = null
     let offsetX = 0
     let offsetY = 0
@@ -72,59 +81,83 @@ function measureRings(
          */
         subpaths = flattenPath(target, 2)
     } else {
-        const element = "current" in target ? target.current! : target
+        const element = "current" in target ? target.current : target
+        matrix = element && element.getScreenCTM()
 
-        /**
-         * Map the outline into the viewport, then into the draggable's
-         * `x`/`y` space via its centre, as that's what's constrained.
-         */
-        matrix = element.getScreenCTM()!
-        const { x, y } = visualElement.measureViewportBox()
-        offsetX = (x.min + x.max) / 2 - origin.x
-        offsetY = (y.min + y.max) / 2 - origin.y
+        warning(
+            !!matrix,
+            "pathConstraints() was given a ref to an element that isn't rendered.",
+            "drag-constraints-ref"
+        )
 
-        // Steps of about 2px on screen
-        const step = 2 / (Math.hypot(matrix.a, matrix.b) || 1)
-        subpaths =
-            element.tagName === "path"
-                ? flattenPath(element.getAttribute("d") || "", step)
-                : [sampleShape(element, step)]
+        if (matrix) {
+            fillRule = fillRule || getComputedStyle(element!).fillRule
+
+            /**
+             * Map the outline into the viewport, then into the
+             * draggable's `x`/`y` space via its centre, as that's what's
+             * constrained.
+             */
+            const { x, y } = visualElement.measureViewportBox()
+            offsetX = (x.min + x.max) / 2 - origin.x
+            offsetY = (y.min + y.max) / 2 - origin.y
+
+            // Steps of about 2px on screen
+            const step = 2 / (Math.hypot(matrix.a, matrix.b) || 1)
+            subpaths =
+                element!.tagName === "path"
+                    ? flattenPath(element!.getAttribute("d") || "", step)
+                    : [sampleShape(element!, step)]
+        }
     }
 
     const transformPoint = visualElement.getTransformPagePoint()
 
-    return subpaths.map(([points, closed]) => {
-        if (matrix) {
-            for (let i = 0; i < points.length; i += 2) {
-                let point: Point = {
-                    x:
-                        matrix.a * points[i] +
-                        matrix.c * points[i + 1] +
-                        matrix.e,
-                    y:
-                        matrix.b * points[i] +
-                        matrix.d * points[i + 1] +
-                        matrix.f,
+    return [
+        subpaths.map(([points, closed]) => {
+            if (matrix) {
+                for (let i = 0; i < points.length; i += 2) {
+                    let point: Point = {
+                        x:
+                            matrix.a * points[i] +
+                            matrix.c * points[i + 1] +
+                            matrix.e,
+                        y:
+                            matrix.b * points[i] +
+                            matrix.d * points[i + 1] +
+                            matrix.f,
+                    }
+                    if (transformPoint) point = transformPoint(point)
+                    points[i] = point.x - offsetX
+                    points[i + 1] = point.y - offsetY
                 }
-                if (transformPoint) point = transformPoint(point)
-                points[i] = point.x - offsetX
-                points[i + 1] = point.y - offsetY
             }
-        }
 
-        const n = points.length
+            const n = points.length
 
-        return createRing(
-            points,
-            !stroke ||
-                closed ||
-                Math.hypot(
-                    points[0] - points[n - 2],
-                    points[1] - points[n - 1]
-                ) < 0.5
-        )
-    })
+            return createRing(
+                points,
+                !stroke ||
+                    closed ||
+                    Math.hypot(
+                        points[0] - points[n - 2],
+                        points[1] - points[n - 1]
+                    ) < 0.5
+            )
+        }),
+        fillRule === "evenodd",
+    ]
 }
+
+/**
+ * Where each draggable was last drawn and the point on the path it rests
+ * on, by its `x` motion value, so a drag that grabs it mid-spring carries
+ * on from that point rather than from where it's drawn.
+ */
+const rests = /* @__PURE__ */ new WeakMap<
+    MotionValue,
+    { x: number; y: number; rest: Point }
+>()
 
 /**
  * Constrain dragging to the area within a path, or along its line.
@@ -138,31 +171,75 @@ function measureRings(
  * to where the element is drawn. Or path data or a list of points, in
  * pixels relative to where the draggable sits when `x` and `y` are `0`.
  *
+ * The path is measured when each drag starts, and stays where it was for
+ * the rest of the drag. An element that starts outside it moves onto its
+ * nearest edge.
+ *
+ * With `drag="x"` or `dragDirectionLock`, the pointer only moves the
+ * element along its axis, but the element still follows the path, so a
+ * sloped edge or line moves it on the other axis too. `dragTransition`'s
+ * `modifyTarget`, `min` and `max` don't apply.
+ *
  * @public
  */
 export function pathConstraints(
     target: PathTarget,
-    { stroke = false, forgiveness = 20 }: PathConstraintsOptions = {}
+    { stroke = false, forgiveness = 20, fillRule }: PathConstraintsOptions = {}
 ): DragConstraintsFunction {
     return (controls) => {
-        const { visualElement, elastic } = controls
-        const origin = { ...controls.originPoint }
+        const { visualElement, elastic, originPoint } = controls
+        const origin = { ...originPoint }
         const x = controls.getAxisMotionValue("x")
         const y = controls.getAxisMotionValue("y")
+        const [rings, evenOdd] = Array.isArray(target)
+            ? [
+                  target[1]
+                      ? [
+                            createRing(
+                                target.flatMap((p) => [p.x, p.y]),
+                                !stroke
+                            ),
+                        ]
+                      : [],
+                  fillRule === "evenodd",
+              ]
+            : measureRings(target, visualElement, origin, stroke, fillRule)
+
+        /**
+         * Carry on from where the last drag left the element, if it's
+         * still drawn there.
+         */
+        const last = rests.get(x)
+        const drawn = { x: x.get(), y: y.get(), rest: origin }
+        if (last && last.x === drawn.x && last.y === drawn.y) {
+            drawn.rest = last.rest
+        }
+        rests.set(x, drawn)
+
         const solve = createPathSolver(
-            Array.isArray(target)
-                ? [
-                      createRing(
-                          target.flatMap((p) => [p.x, p.y]),
-                          !stroke
-                      ),
-                  ]
-                : measureRings(target, visualElement, origin, stroke),
-            origin,
+            rings,
+            drawn.rest,
             stroke,
-            forgiveness
+            forgiveness,
+            evenOdd
         )
-        let current = origin
+        let current = drawn.rest
+
+        /**
+         * The path stays where it was measured. If the element's layout
+         * changes, drag shifts its origin (and `x`/`y`) to keep it where
+         * it's drawn, so shift the path's space with it.
+         */
+        let shiftX = 0
+        let shiftY = 0
+
+        const draw = (to: Point) => {
+            x.set(to.x + shiftX)
+            y.set(to.y + shiftY)
+            drawn.x = x.get()
+            drawn.y = y.get()
+            drawn.rest = { x: current.x + shiftX, y: current.y + shiftY }
+        }
 
         const constraint: DragPointConstraint = {
             ...origin,
@@ -172,11 +249,23 @@ export function pathConstraints(
              * it by the elastic of the edge it's beyond.
              */
             move() {
-                current = solve({ x: constraint.x, y: constraint.y })
-                const dx = constraint.x - current.x
-                const dy = constraint.y - current.y
-                x.set(current.x + dx * (dx < 0 ? elastic.x.min : elastic.x.max))
-                y.set(current.y + dy * (dy < 0 ? elastic.y.min : elastic.y.max))
+                shiftX = originPoint.x - origin.x
+                shiftY = originPoint.y - origin.y
+                const px = constraint.x - shiftX
+                const py = constraint.y - shiftY
+                current = solve({ x: px, y: py })
+                const dx = px - current.x
+                const dy = py - current.y
+                draw(
+                    solve.reach({
+                        x:
+                            current.x +
+                            dx * (dx < 0 ? elastic.x.min : elastic.x.max),
+                        y:
+                            current.y +
+                            dy * (dy < 0 ? elastic.y.min : elastic.y.max),
+                    })
+                )
             },
 
             /**
@@ -195,9 +284,14 @@ export function pathConstraints(
                     bounceDamping,
                 }
             ) {
+                // Moved since, by something else
+                if (x.get() !== drawn.x || y.get() !== drawn.y) {
+                    return Promise.resolve()
+                }
+
                 const speed = Math.hypot(velocity.x, velocity.y)
-                const overshootX = x.get() - current.x
-                const overshootY = y.get() - current.y
+                const overshootX = drawn.x - shiftX - current.x
+                const overshootY = drawn.y - shiftY - current.y
                 const overshootLength = Math.hypot(overshootX, overshootY)
                 let overshoot = overshootLength > restDelta! ? 1 : 0
                 let directionX = velocity.x / (speed || 1)
@@ -205,10 +299,24 @@ export function pathConstraints(
                 let distance = 0
                 let glide: JSAnimation<number> | undefined
 
-                const render = () => {
-                    x.set(current.x + overshootX * overshoot)
-                    y.set(current.y + overshootY * overshoot)
+                const render = () =>
+                    draw({
+                        x: current.x + overshootX * overshoot,
+                        y: current.y + overshootY * overshoot,
+                    })
+
+                if (
+                    MotionGlobalConfig.skipAnimations ||
+                    MotionGlobalConfig.instantAnimations ||
+                    visualElement.shouldSkipAnimations
+                ) {
+                    overshoot = 0
+                    render()
+                    return Promise.resolve()
                 }
+
+                addValueToWillChange(visualElement, "x")
+                addValueToWillChange(visualElement, "y")
 
                 return Promise.all([
                     x.start(

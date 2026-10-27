@@ -32,9 +32,29 @@ export interface DragPointConstraint extends Point {
 }
 
 /**
+ * What a drag gives a `DragConstraintsFunction` when it starts.
+ */
+export interface DragConstraintsContext {
+    visualElement: VisualElementDragControls["visualElement"]
+
+    /**
+     * The `x`/`y` values the drag started from. A layout change mid-drag
+     * shifts them to keep the element where it's drawn.
+     */
+    originPoint: Point
+
+    /**
+     * The per-axis, per-side elastic.
+     */
+    elastic: VisualElementDragControls["elastic"]
+
+    getAxisMotionValue: VisualElementDragControls["getAxisMotionValue"]
+}
+
+/**
  * Called when a drag starts, after the drag's origin and elastic are
  * resolved.
  */
 export type DragConstraintsFunction = (
-    controls: VisualElementDragControls
+    controls: DragConstraintsContext
 ) => DragPointConstraint

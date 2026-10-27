@@ -16,6 +16,15 @@ const box = (x: number, y: number, width: number, height: number) =>
         { x, y: y + height },
     ])
 
+// The other way round, so it's a hole in a box by the nonzero rule
+const hole = (x: number, y: number, width: number, height: number) =>
+    ring([
+        { x, y },
+        { x, y: y + height },
+        { x: x + width, y: y + height },
+        { x: x + width, y },
+    ])
+
 function expectPoint({ x, y }: P, expected: P) {
     expect(x).toBeCloseTo(expected.x, 5)
     expect(y).toBeCloseTo(expected.y, 5)
@@ -23,7 +32,7 @@ function expectPoint({ x, y }: P, expected: P) {
 
 describe("createPathSolver: area", () => {
     // A room with a 40px square pillar at x 0 to 40, y 0 to 40
-    const room = () => [box(-100, -100, 300, 300), box(0, 0, 40, 40)]
+    const room = () => [box(-100, -100, 300, 300), hole(0, 0, 40, 40)]
 
     test("a pointer behind a pillar holds the element in front of it", () => {
         const solve = createPathSolver(room(), { x: -20, y: 20 }, false, 20)
