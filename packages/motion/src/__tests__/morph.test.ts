@@ -1153,6 +1153,31 @@ describe("morph", () => {
         expect(performance.now() - start).toBeLessThan(200)
     })
 
+    test("finds that long, thin holes more jagged than their outline fit by drawing only the hole in full", () => {
+        // At least 2.5 apart. Thinned, both stray further than the hole has
+        // to spare, but with the hole drawn in full the outline doesn't.
+        let seed = 42
+        const jagged = (rx: number, ry: number, n: number, jag: number) => {
+            const points: number[] = []
+            for (let i = 0; i < n; i++) {
+                seed = (seed * 16807) % 2147483647
+                const r = jag * (seed / 2147483647 - 0.5)
+                const angle = (i / n) * 2 * Math.PI
+                points.push(
+                    100 + (rx + r) * Math.cos(angle),
+                    50 + (ry + r) * Math.sin(angle)
+                )
+            }
+            return points
+        }
+        const outline = jagged(100, 20, 10000, 0.6)
+        const hole = jagged(95, 16, 600, 1.2)
+
+        const start = performance.now()
+        expect(contact(hole, outline, 100, 50, 1.5, 1)).toBe(1)
+        expect(performance.now() - start).toBeLessThan(200)
+    })
+
     test("finds that finely jagged holes inside smooth outlines fit without drawing the outline in full", () => {
         let seed = 42
         const ring = (r: number, jag: number, n: number, turn: number) => {

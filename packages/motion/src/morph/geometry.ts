@@ -327,9 +327,11 @@ export function within(points: Points, x: number, y: number) {
  * its points meets an edge or corner of the outline, or one of its edges
  * meets a corner. A hole that (x, y) sees all of keeps clear of the
  * outline at any smaller scale. Long polylines are thinned first, and the
- * margin is widened by how far they stray from what's left. Unless the
- * hole keeps clear of that, it's checked again, with each thinned only as
- * far as it can be while straying by at most a quarter of the margin.
+ * margin is widened by how far they stray from what's left. If the hole
+ * doesn't keep clear of that, and either strays by more than a quarter of
+ * the margin, the one that strays further is thinned only as far as it can
+ * be while straying by at most that, and the hole checked again, then the
+ * other too if need be.
  */
 export function contact(
     hole: Points,
@@ -338,11 +340,11 @@ export function contact(
     y: number,
     margin: number,
     most: number,
-    fine?: boolean,
+    fine = 0,
     top = most
 ): number {
-    const [points, strayA] = sparse(hole, fine ? margin : Infinity)
-    const [polygon, strayB] = sparse(outer, fine ? margin : Infinity)
+    const [points, strayA] = sparse(hole, fine & 1 ? margin : Infinity)
+    const [polygon, strayB] = sparse(outer, fine & 2 ? margin : Infinity)
     const stray = strayA + strayB
     const h = points.length
     const n = polygon.length
@@ -392,8 +394,16 @@ export function contact(
             }
         }
     }
-    return most < top && !fine && 4 * Math.max(strayA, strayB) > margin - stray
-        ? contact(hole, outer, x, y, margin - stray, top, true)
+    return most < top && stray && 4 * Math.max(strayA, strayB) > margin - stray
+        ? contact(
+              hole,
+              outer,
+              x,
+              y,
+              margin - stray,
+              top,
+              fine | (strayA > strayB ? 1 : 2)
+          )
         : most
 }
 
