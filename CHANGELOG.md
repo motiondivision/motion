@@ -4,7 +4,13 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
-## [14.7.0] 2026-10-23
+## [14.7.1] 2026-10-27
+
+### Fixed
+
+-   Demote transforms to CPU when interrupted by layout animations.
+
+## [14.7.0] 2026-10-27
 
 ### Added
 
