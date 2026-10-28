@@ -1,5 +1,6 @@
 import { MotionGlobalConfig } from "motion-utils"
 import { motionValue } from "../"
+import { NativeAnimationExtended } from "../../animation/NativeAnimationExtended"
 import { animateMotionValue } from "../../animation/interfaces/motion-value"
 import {
     MotionValueAnimation,
@@ -172,6 +173,55 @@ describe("MotionValue change subscribers", () => {
         value.set(1)
 
         expect(callback).not.toHaveBeenCalled()
+    })
+})
+
+describe("MotionValue.jump", () => {
+    afterEach(() => {
+        ;(Element.prototype as any).animate = undefined
+        jest.restoreAllMocks()
+    })
+
+    /**
+     * Stopping a running WAAPI animation writes the value it's showing back
+     * into the motion value. That must not override the value jumped to.
+     */
+    test("ends at the jumped value when stopping a running animation", () => {
+        Element.prototype.animate = jest.fn().mockImplementation(() => ({
+            cancel: jest.fn(),
+            onfinish: null,
+            playbackRate: 1,
+            currentTime: 300,
+            startTime: time.now() - 300,
+            playState: "running",
+            effect: { getComputedTiming: () => ({ duration: 300 }) },
+        }))
+
+        const element = document.createElement("div")
+        const value = motionValue(0)
+        const onChange = jest.fn()
+
+        value.start(
+            () =>
+                new NativeAnimationExtended({
+                    element,
+                    name: "opacity",
+                    keyframes: [0, 1],
+                    motionValue: value,
+                    duration: 300,
+                    ease: "linear",
+                } as any)
+        )
+
+        expect(value.isAnimating()).toBe(true)
+
+        value.on("change", onChange)
+        value.jump(0)
+
+        expect(value.isAnimating()).toBe(false)
+        expect(value.get()).toBe(0)
+        expect(onChange).toHaveBeenLastCalledWith(0)
+        expect(value.getVelocity()).toBe(0)
     })
 })
 

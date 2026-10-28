@@ -1541,6 +1541,59 @@ describe("Suspense boundary re-suspends and reveals memoized content", () => {
         expect(get("box")!.style.opacity).toBe("1")
     })
 
+    test("accelerated enter animation still running at the remount replays to its target", async () => {
+        /**
+         * WAAPI animations that only finish when told to, like a finish
+         * event held up by a busy main thread.
+         */
+        const animations: any[] = []
+        Element.prototype.animate = jest.fn().mockImplementation(() => {
+            const animation = {
+                cancel: () => (animation.playState = "idle"),
+                onfinish: null as null | VoidFunction,
+                playbackRate: 1,
+                currentTime: 0,
+                startTime: performance.now(),
+                playState: "running",
+                effect: { getComputedTiming: () => ({ duration: 50 }) },
+            }
+            animations.push(animation)
+            return animation
+        })
+        const finishAll = () =>
+            act(() => {
+                for (const animation of animations) {
+                    if (animation.playState === "running") {
+                        animation.playState = "finished"
+                        animation.onfinish?.()
+                    }
+                }
+            })
+
+        try {
+            const { get, reSuspend } = renderInSuspense(
+                <motion.div
+                    data-testid="box"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.05 }}
+                />
+            )
+
+            // Past the animation's duration, but it hasn't finished yet
+            await wait(100)
+            expect(animations.length).toBe(1)
+
+            await reSuspend()
+            await finishAll()
+            await wait(50)
+
+            expect(get("box")!.style.opacity).toBe("1")
+        } finally {
+            ;(Element.prototype as any).animate = undefined
+        }
+    })
+
     test("children added after the reveal aren't staggered", async () => {
         let addItem!: () => void
 
