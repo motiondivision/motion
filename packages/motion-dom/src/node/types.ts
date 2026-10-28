@@ -650,12 +650,9 @@ export interface MotionNodeDraggableOptions {
      * }
      * ```
      *
-     * Or `pathConstraints()` keeps the element within the area a path
-     * encloses, or along its line.
-     *
-     * ```jsx
-     * <motion.div drag dragConstraints={pathConstraints(pathRef)} />
-     * ```
+     * Or a function, called when each drag starts, that returns a
+     * `DragPointConstraint`. Drag then hands it the pointer's position and
+     * release velocity, and it moves the element itself.
      */
     dragConstraints?:
         | false

@@ -2,11 +2,11 @@ import { useState } from "react"
 import {
     AnimatePresence,
     BoundingBox,
+    DragConstraintsFunction,
     motion,
     MotionConfig,
     motionValue,
     MotionValue,
-    pathConstraints,
     useWillChange,
 } from "../../../"
 import {
@@ -790,60 +790,49 @@ describe("dragging", () => {
         })
     })
 
-    test("pathConstraints holds the element within a path", async () => {
+    test("a dragConstraints function moves the element itself, across re-renders", async () => {
         const x = motionValue(0)
         const y = motionValue(0)
-        const Component = () => (
-            <MockDrag>
-                <motion.div
-                    drag
-                    dragConstraints={pathConstraints("M-50 -50 H50 V50 H-50 Z")}
-                    dragElastic={false}
-                    dragMomentum={false}
-                    style={{ x, y }}
-                />
-            </MockDrag>
-        )
+        const started = jest.fn()
+
+        // Holds the element on the line y = x. A new function each render
+        const Component = () => {
+            const diagonal: DragConstraintsFunction = (context) => {
+                started()
+                const point = {
+                    ...context.originPoint,
+                    move() {
+                        const along = (point.x + point.y) / 2
+                        context.getAxisMotionValue("x").set(along)
+                        context.getAxisMotionValue("y").set(along)
+                    },
+                    release: () => Promise.resolve(),
+                }
+                return point
+            }
+
+            return (
+                <MockDrag>
+                    <motion.div
+                        drag
+                        dragConstraints={diagonal}
+                        dragMomentum={false}
+                        style={{ x, y }}
+                    />
+                </MockDrag>
+            )
+        }
 
         const { container, rerender } = render(<Component />)
         rerender(<Component />)
 
-        const pointer = await drag(container.firstChild).to(1, 1)
-        await pointer.to(200, 20)
+        const pointer = await drag(container.firstChild).to(10, 0)
+        rerender(<Component />)
+        await pointer.to(30, 10)
         pointer.end()
 
-        expect({ x: x.get(), y: y.get() }).toEqual({ x: 50, y: 20 })
-    })
-
-    test("pathConstraints keeps its place when re-rendered mid-drag", async () => {
-        const x = motionValue(0)
-        const y = motionValue(0)
-        // A new pathConstraints() each render
-        const Component = () => (
-            <MockDrag>
-                <motion.div
-                    drag
-                    // Two corridors, split by a wall at y 10 to 20
-                    dragConstraints={pathConstraints(
-                        "M-10 -10 H120 V40 H-10 V20 H100 V10 H-10 Z"
-                    )}
-                    dragElastic={false}
-                    dragMomentum={false}
-                    style={{ x, y }}
-                />
-            </MockDrag>
-        )
-
-        const { container, rerender } = render(<Component />)
-        rerender(<Component />)
-
-        const pointer = await drag(container.firstChild).to(1, 1)
-        await pointer.to(0, 30)
-        rerender(<Component />)
-        await pointer.to(50, 30)
-        pointer.end()
-
-        expect({ x: x.get(), y: y.get() }).toEqual({ x: 50, y: 10 })
+        expect(started).toHaveBeenCalledTimes(1)
+        expect({ x: x.get(), y: y.get() }).toEqual({ x: 20, y: 20 })
     })
 
     test("impose right drag constraint", async () => {

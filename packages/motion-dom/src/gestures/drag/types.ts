@@ -22,9 +22,11 @@ export interface ResolvedElastic {
 
 /**
  * A constraint drag hands the pointer to, rather than clamping each axis
- * to a box, as made by `pathConstraints()`. Drag writes the pointer's
- * position (in `x`/`y` motion value space) to `x` and `y`, then calls
- * `move()` to set the motion values.
+ * to a box. Drag writes the pointer's position (in `x`/`y` motion value
+ * space) to `x` and `y`, then calls `move()`, which sets the motion values.
+ * On release, `release()` takes over with the release velocity (masked by
+ * the drag axes, direction lock and `dragMomentum`) and the inertia
+ * options, and drag fires `onDragTransitionEnd` once it resolves.
  */
 export interface DragPointConstraint extends Point {
     move(): void

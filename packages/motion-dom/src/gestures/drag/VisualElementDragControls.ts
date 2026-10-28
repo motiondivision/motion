@@ -105,8 +105,8 @@ export class VisualElementDragControls {
     private hasMutatedConstraints = false
 
     /**
-     * A constraint, like `pathConstraints()`, that moves the element
-     * itself, from the drag's latest pointer position.
+     * A constraint, from a `dragConstraints` function, that moves the
+     * element itself, from the drag's latest pointer position.
      */
     private point?: DragPointConstraint | false
 

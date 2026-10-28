@@ -24,8 +24,8 @@ export interface DragOptions {
     /**
      * The permitted draggable area. Either `top`/`left`/`right`/`bottom`
      * distances in pixels, relative to the element's origin, an element
-     * the draggable element must stay within, or `pathConstraints()` to
-     * keep it within, or along, a path.
+     * the draggable element must stay within, or a function that returns
+     * a `DragPointConstraint` to move the element itself.
      */
     constraints?: Partial<BoundingBox> | Element | DragConstraintsFunction
 
