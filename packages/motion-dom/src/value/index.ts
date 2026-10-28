@@ -347,10 +347,14 @@ export class MotionValue<V = any> {
      * effects, and resets velocity to `0`.
      */
     jump(v: V, endAnimation = true) {
+        /**
+         * Stop first, as stopping a running animation can set the value
+         * it's showing, which would replace v.
+         */
+        endAnimation && this.stop()
         this.updateAndNotify(v)
         this.prev = v
         this.prevUpdatedAt = this.prevFrameValue = undefined
-        endAnimation && this.stop()
         this.stopPassiveEffect?.()
     }
 

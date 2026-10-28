@@ -1466,10 +1466,13 @@ describe("animate prop as object", () => {
             resolveSuspense!()
         })
 
-        // After remount, values should be reset to initial (not stuck at
-        // intermediate animation values)
-        expect(opacityChanges[0]).toBe(0)
-        expect(scaleChanges[0]).toBe(0)
+        /**
+         * After remount, values should be reset to initial (not stuck at
+         * intermediate animation values). Before the reset, the stopped
+         * animation can commit the value it reached.
+         */
+        expect(opacityChanges).toContain(0)
+        expect(scaleChanges).toContain(0)
     })
 })
 
