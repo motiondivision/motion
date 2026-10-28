@@ -5,19 +5,29 @@
     "scripts": {
         "start": "expo start",
         "ios": "expo start --ios",
-        "android": "expo start --android"
+        "android": "expo start --android",
+        "web:build": "expo export --platform web --output-dir dist",
+        "test:web": "node ../../node_modules/@playwright/test/cli.js test",
+        "test": "jest"
     },
     "dependencies": {
+        "@expo/metro-runtime": "~58.0.15",
         "expo": "~58.0.19",
         "react": "19.3.0",
+        "react-dom": "^19.3.0",
         "react-native": "0.88.0",
         "react-native-reanimated": "4.7.1",
+        "react-native-web": "^0.21.4",
         "react-native-worklets": "0.13.0",
         "tslib": "^2.8.1"
     },
     "devDependencies": {
+        "@react-native/jest-preset": "^0.88.0",
+        "@testing-library/react-native": "^14.1.0",
         "@types/react": "~19.3.0",
         "babel-preset-expo": "~58.0.20",
+        "jest": "^30.5.2",
+        "jest-expo": "~58.0.12",
         "typescript": "~5.9.0"
     }
 }

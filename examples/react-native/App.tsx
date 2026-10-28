@@ -14,6 +14,7 @@ export function App() {
             <BlockJS />
             <Demo label="Spring entrance">
                 <motion.View
+                    testID="entrance"
                     style={styles.box}
                     initial={{ opacity: 0, scale: 0.5 }}
                     animate={{ opacity: 1, scale: 1 }}
@@ -23,6 +24,7 @@ export function App() {
             <Toggle />
             <Demo label="whileTap">
                 <motion.View
+                    testID="tap"
                     style={styles.box}
                     whileTap={{ scale: 0.8, backgroundColor: "#ff0088" }}
                 />
@@ -32,6 +34,7 @@ export function App() {
             <PresenceList />
             <Demo label="onUpdate (runs in JS, freezes when blocked)">
                 <motion.View
+                    testID="onupdate"
                     style={styles.box}
                     animate={{ rotate: 360 }}
                     transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
@@ -53,7 +56,7 @@ function Demo({ label, children }: { label: string; children: React.ReactNode })
 
 function Button({ label, onPress }: { label: string; onPress: () => void }) {
     return (
-        <Pressable style={styles.button} onPress={onPress}>
+        <Pressable testID={label} style={styles.button} onPress={onPress}>
             <Text style={styles.buttonText}>{label}</Text>
         </Pressable>
     )
@@ -77,6 +80,7 @@ function Toggle() {
     return (
         <Demo label="Toggle (tap fast to interrupt)">
             <motion.View
+                testID="toggle"
                 style={styles.box}
                 animate={{ x: on ? 200 : 0, rotate: on ? 180 : 0 }}
                 transition={{ type: "spring", visualDuration: 0.6, bounce: 0.3 }}
@@ -90,6 +94,7 @@ function Loader() {
     return (
         <Demo label="Infinite loop">
             <motion.View
+                testID="loader"
                 style={[styles.box, styles.loader]}
                 animate={{ rotate: 360 }}
                 transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
@@ -121,7 +126,12 @@ function Stagger() {
                 animate="visible"
             >
                 {[0, 1, 2, 3].map((i) => (
-                    <motion.View key={i} style={styles.dot} variants={item} />
+                    <motion.View
+                        key={i}
+                        testID={`stagger-${i}`}
+                        style={styles.dot}
+                        variants={item}
+                    />
                 ))}
             </motion.View>
             <Button label="Replay" onPress={() => setCount(count + 1)} />
@@ -139,6 +149,7 @@ function PresenceList() {
                     {items.map((id) => (
                         <motion.View
                             key={id}
+                            testID={`presence-${id}`}
                             style={styles.dot}
                             initial={{ opacity: 0, scale: 0 }}
                             animate={{ opacity: 1, scale: 1 }}

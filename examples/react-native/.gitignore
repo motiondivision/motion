@@ -2,3 +2,5 @@ node_modules
 .expo
 dist
 package-lock.json
+test-results
+playwright-report
