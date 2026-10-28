@@ -178,7 +178,7 @@ describe("MotionValue change subscribers", () => {
 
 describe("MotionValue.jump", () => {
     afterEach(() => {
-        ;(Element.prototype as any).animate = undefined
+        delete (Element.prototype as any).animate
         jest.restoreAllMocks()
     })
 

@@ -1466,13 +1466,10 @@ describe("animate prop as object", () => {
             resolveSuspense!()
         })
 
-        /**
-         * After remount, values should be reset to initial (not stuck at
-         * intermediate animation values). Before the reset, the stopped
-         * animation can commit the value it reached.
-         */
-        expect(opacityChanges).toContain(0)
-        expect(scaleChanges).toContain(0)
+        // After remount, values should be reset to initial (not stuck at
+        // intermediate animation values)
+        expect(opacityChanges[0]).toBe(0)
+        expect(scaleChanges[0]).toBe(0)
     })
 })
 
@@ -1512,9 +1509,10 @@ describe("Suspense boundary re-suspends and reveals memoized content", () => {
         const get = (testId: string) =>
             container.querySelector<HTMLElement>(`[data-testid="${testId}"]`)
 
-        const reSuspend = async () => {
+        const reSuspend = async (whileSuspended?: VoidFunction) => {
             await act(async () => suspend())
             expect(get("fallback")).not.toBeNull()
+            whileSuspended?.()
 
             await act(async () => {
                 isResolved = true
@@ -1542,6 +1540,34 @@ describe("Suspense boundary re-suspends and reveals memoized content", () => {
 
         await reSuspend()
         expect(get("box")!.style.opacity).toBe("1")
+    })
+
+    test("an overdue animation stopped by the remount doesn't complete", async () => {
+        const onAnimationComplete = jest.fn()
+        const { get, reSuspend } = renderInSuspense(
+            <motion.div
+                data-testid="box"
+                initial={{ opacity: 1 }}
+                animate={{ opacity: 0, transitionEnd: { display: "none" } }}
+                transition={{ duration: 0.3 }}
+                onAnimationComplete={onAnimationComplete}
+            />
+        )
+
+        await act(async () => {
+            await nextFrame()
+            await nextFrame()
+        })
+
+        // Hold up the main thread past the animation's end, then remount
+        await reSuspend(() => {
+            const start = performance.now()
+            while (performance.now() - start < 400) {}
+        })
+
+        // The replayed animation is still running, so its end isn't applied
+        expect(get("box")!.style.display).toBe("")
+        expect(onAnimationComplete).not.toHaveBeenCalled()
     })
 
     test("accelerated enter animation still running at the remount replays to its target", async () => {
@@ -1593,7 +1619,7 @@ describe("Suspense boundary re-suspends and reveals memoized content", () => {
 
             expect(get("box")!.style.opacity).toBe("1")
         } finally {
-            ;(Element.prototype as any).animate = undefined
+            delete (Element.prototype as any).animate
         }
     })
 
