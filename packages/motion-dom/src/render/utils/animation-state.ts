@@ -7,6 +7,7 @@ import type { AnimationType } from "../types"
 import type { VisualElementAnimationOptions } from "../../animation/interfaces/types"
 import { animateVisualElement } from "../../animation/interfaces/visual-element"
 import { calcChildStagger } from "../../animation/utils/calc-child-stagger"
+import type { MotionValue } from "../../value"
 import { isMotionValue } from "../../value/utils/is-motion-value"
 import { isAnimationControls } from "./is-animation-controls"
 import { isVariantLabel } from "./is-variant-label"
@@ -26,6 +27,7 @@ export interface AnimationState {
     setAnimateFunction: (fn: any) => void
     getState: () => { [key: string]: AnimationTypeState }
     reset: () => void
+    measureAutoSizes: () => () => void
 }
 
 interface DefinitionAndOptions {
@@ -228,12 +230,13 @@ export function createAnimationState(visualElement: any): AnimationState {
 
                 /**
                  * Keyframes compare by value, but replay whenever the
-                 * variant label changed.
+                 * variant label changed. "auto" always replays, as the
+                 * size it resolves to can change on any render.
                  */
                 const valueHasChanged =
                     Array.isArray(next) && Array.isArray(prev)
                         ? !shallowCompare(next, prev) || variantDidChange
-                        : next !== prev
+                        : next !== prev || next === "auto"
 
                 let outTransition
 
@@ -412,6 +415,32 @@ export function createAnimationState(visualElement: any): AnimationState {
             animate = makeAnimator(visualElement)
         },
         getState: () => state,
+        /**
+         * Width and height animated to "auto" replay on every render.
+         * Measure the ones resting at "auto" before React commits a
+         * render's DOM changes, and return a function that holds that
+         * size (until the animation starts) once it has.
+         */
+        measureAutoSizes: () => {
+            const element = visualElement.current as HTMLElement | null
+            const sizes: Array<[MotionValue, "width" | "height", string]> = []
+
+            if (element) {
+                for (const key of ["width", "height"] as const) {
+                    const value = visualElement.getValue(key)
+                    state.animate.prevResolvedValues[key] === "auto" &&
+                        value?.get() === "auto" &&
+                        sizes.push([value, key, getComputedStyle(element)[key]])
+                }
+            }
+
+            return () => {
+                for (const [value, key, size] of sizes) {
+                    value.jump(parseFloat(size))
+                    element!.style[key] = size
+                }
+            }
+        },
         reset: () => {
             state = createState()
             wasReset = true

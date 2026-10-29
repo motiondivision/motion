@@ -1,8 +1,9 @@
-import { motion, useAutoSize } from "framer-motion"
-import { useRef, useState } from "react"
+import { motion } from "framer-motion"
+import { useState } from "react"
 
 /**
- * useAutoSize: animate between two auto sizes when content changes.
+ * animate={{ height: "auto" }} animates between auto sizes: whenever a
+ * render changes the content, the height animates from its previous size.
  */
 
 const transition = { type: "spring", visualDuration: 0.35, bounce: 0.15 } as const
@@ -22,8 +23,6 @@ const tabs = {
 
 function Tabs() {
     const [tab, setTab] = useState<keyof typeof tabs>("Short")
-    const ref = useRef<HTMLDivElement>(null)
-    useAutoSize(ref, transition)
 
     return (
         <section style={card}>
@@ -39,11 +38,15 @@ function Tabs() {
                     </button>
                 ))}
             </div>
-            <div ref={ref} style={panel}>
+            <motion.div
+                animate={{ height: "auto" }}
+                transition={transition}
+                style={panel}
+            >
                 {tabs[tab].map((line) => (
                     <p key={line}>{line}</p>
                 ))}
-            </div>
+            </motion.div>
             <p>Content below the panel.</p>
         </section>
     )
@@ -52,17 +55,14 @@ function Tabs() {
 function Accordion() {
     const [open, setOpen] = useState(false)
     const [items, setItems] = useState(2)
-    const ref = useRef<HTMLDivElement>(null)
-    useAutoSize(ref, transition)
 
     return (
         <section style={card}>
-            <h3>Accordion (animate height 0 / "auto") plus content changes</h3>
+            <h3>Accordion: height 0 / "auto", plus content changes</h3>
             <button onClick={() => setOpen(!open)}>
                 {open ? "Close" : "Open"}
             </button>
             <motion.div
-                ref={ref}
                 initial={false}
                 animate={{ height: open ? "auto" : 0 }}
                 transition={transition}
@@ -82,46 +82,51 @@ function Accordion() {
 
 function Label() {
     const [copied, setCopied] = useState(false)
-    const ref = useRef<HTMLButtonElement>(null)
-    useAutoSize(ref, { ...transition, axis: "x" })
 
     return (
         <section style={card}>
-            <h3>Width (axis: "x")</h3>
-            <button
-                ref={ref}
+            <h3>width: "auto"</h3>
+            <motion.button
+                animate={{ width: "auto" }}
+                transition={transition}
                 onClick={() => setCopied(!copied)}
                 style={{ overflow: "hidden", whiteSpace: "nowrap" }}
             >
                 {copied ? "Copied to clipboard!" : "Copy"}
-            </button>
+            </motion.button>
         </section>
     )
 }
 
 function Comparison() {
     const [long, setLong] = useState(false)
-    const ref = useRef<HTMLDivElement>(null)
-    useAutoSize(ref, transition)
     const text = long ? tabs.Long.slice(0, 5) : tabs.Short
 
     return (
         <section style={card}>
-            <h3>layout (scale) vs useAutoSize (height)</h3>
+            <h3>layout (scale) vs height: "auto"</h3>
             <button onClick={() => setLong(!long)}>Toggle content</button>
             <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
-                <motion.div layout transition={transition} style={{ ...panel, flex: 1 }}>
+                <motion.div
+                    layout
+                    transition={transition}
+                    style={{ ...panel, flex: 1 }}
+                >
                     <strong>layout</strong>
                     {text.map((line) => (
                         <p key={line}>{line}</p>
                     ))}
                 </motion.div>
-                <div ref={ref} style={{ ...panel, flex: 1 }}>
-                    <strong>useAutoSize</strong>
+                <motion.div
+                    animate={{ height: "auto" }}
+                    transition={transition}
+                    style={{ ...panel, flex: 1 }}
+                >
+                    <strong>height: "auto"</strong>
                     {text.map((line) => (
                         <p key={line}>{line}</p>
                     ))}
-                </div>
+                </motion.div>
             </div>
         </section>
     )

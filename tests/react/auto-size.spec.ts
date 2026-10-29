@@ -1,6 +1,6 @@
 /**
- * useAutoSize animates an element's height between two auto sizes when
- * its content changes, over a 1s linear transition.
+ * animate={{ height: "auto" }} animates between two auto sizes when a
+ * render changes the element's content, over a 1s linear transition.
  */
 import { expect, Page, test } from "@playwright/test"
 
@@ -43,7 +43,7 @@ test("animates height when content grows", async ({ page }) => {
     // Returns to auto once finished
     expect(
         await page.evaluate(() => document.getElementById("box")!.style.height)
-    ).toBe("")
+    ).toBe("auto")
 })
 
 test("animates height when content shrinks", async ({ page }) => {
@@ -82,17 +82,7 @@ test("the element below moves with it", async ({ page }) => {
     expect(mid).toBeLessThan(150)
 })
 
-test("snaps when the width changes the height (reflow)", async ({ page }) => {
-    await load(page, "&aspect=true")
-    // 100 + 400 / 2
-    expect((await page.locator("#box").boundingBox())!.height).toBeCloseTo(300, 0)
-    const heights = await record(page, "narrow", 300)
-    // Straight to 100 + 200 / 2, with no frames in between
-    const changed = heights.find((h) => Math.abs(h - 300) > 0.5)
-    expect(changed).toBeCloseTo(200, 0)
-})
-
-test("animates width too with axis: both", async ({ page }) => {
+test("animates width: \"auto\" too", async ({ page }) => {
     await load(page, "&axis=both")
     const start = await page.evaluate(() => window.widths.length)
     await page.click("#h300")
@@ -134,7 +124,7 @@ test("an instant transition returns to auto", async ({ page }) => {
     await page.click("#h300")
     await page.waitForTimeout(200)
     const box = page.locator("#box")
-    expect(await box.evaluate((e) => e.style.height)).toBe("")
+    expect(await box.evaluate((e) => e.style.height)).toBe("auto")
     expect((await box.boundingBox())!.height).toBeCloseTo(300, 0)
     // Still follows its content afterwards
     await page.click("#h500")

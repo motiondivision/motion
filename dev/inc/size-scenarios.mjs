@@ -47,7 +47,6 @@ export const scenarios = {
     "scroll+animate": `export { scroll, animate } from "motion"`,
     inView: `export { inView } from "motion"`,
     resize: `export { resize } from "motion"`,
-    autoSize: `export { autoSize } from "motion"`,
     "hover+press": `export { hover, press } from "motion"`,
     drag: `export { drag } from "motion"`,
     motionValue: `export { motionValue } from "motion"`,
@@ -88,7 +87,6 @@ export const scenarios = {
     useAnimationFrame: `export { useAnimationFrame } from "motion/react"`,
     useVelocity: `export { useVelocity } from "motion/react"`,
     useAnimationControls: `export { useAnimationControls } from "motion/react"`,
-    useAutoSize: `export { useAutoSize } from "motion/react"`,
     "react-all": `export * from "motion/react"`,
 
     // Combinations (marginal cost of mixing APIs in one app)
@@ -96,7 +94,6 @@ export const scenarios = {
     "motion-div+useAnimate": combo("useAnimate"),
     "motion-div+animate": combo("animate"),
     "motion-div+useInView": combo("useInView"),
-    "motion-div+useAutoSize": combo("useAutoSize"),
     "motion-div+useScroll": combo("useScroll"),
     "motion-div+useTransform+useMotionTemplate": combo(
         "useTransform, useMotionTemplate"

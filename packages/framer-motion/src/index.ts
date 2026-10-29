@@ -98,7 +98,6 @@ export { useCycle } from "./utils/use-cycle"
 export type { Cycle, CycleState } from "./utils/use-cycle"
 export { useInView } from "./utils/use-in-view"
 export type { UseInViewOptions } from "./utils/use-in-view"
-export { useAutoSize } from "./utils/use-auto-size"
 export {
     disableInstantTransitions,
     useInstantTransition,

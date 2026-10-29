@@ -1,19 +1,16 @@
-import { motion, useAutoSize } from "framer-motion"
+import { motion } from "framer-motion"
 import { useEffect, useRef, useState } from "react"
 
 /**
- * useAutoSize: the box's height animates whenever its content changes
- * size. Every frame's height is recorded in window.heights so tests can
- * assert on the whole animation rather than sampling it.
+ * animate={{ height: "auto" }} animates between auto sizes: when a render
+ * changes the box's content, its height animates from the previous size.
+ * Every frame's height is recorded in window.heights so tests can assert
+ * on the whole animation rather than sampling it.
  *
- * ?axis=both also animates width. The box contains a block of the chosen
- * height and, with ?aspect=true, a block whose height follows the
- * container width (to check width-driven reflow snaps).
+ * ?axis=both animates width: "auto" too. ?duration sets the transition
+ * duration (default 1). #more adds a child element.
  *
- * ?duration sets the transition duration (default 1). #more adds a
- * child element, which only the MutationObserver can notice.
- *
- * ?accordion=true also opens and closes the box with
+ * ?accordion=true opens and closes the box with
  * animate={{ height: open ? "auto" : 0 }}.
  */
 declare global {
@@ -25,19 +22,16 @@ declare global {
 
 export const App = () => {
     const params = new URLSearchParams(window.location.search)
-    const axis = (params.get("axis") as "y" | "both") || "y"
-    const [height, setHeight] = useState(100)
-    const [width, setWidth] = useState(400)
+    const both = params.get("axis") === "both"
     const accordion = Boolean(params.get("accordion"))
-    const [open, setOpen] = useState(false)
+    const [height, setHeight] = useState(100)
     const [more, setMore] = useState(false)
+    const [open, setOpen] = useState(false)
+    const ref = useRef<HTMLDivElement>(null)
     const transition = {
         duration: Number(params.get("duration") ?? 1),
         ease: "linear",
     } as const
-    const ref = useRef<HTMLDivElement>(null)
-
-    useAutoSize(ref, { axis, ...transition })
 
     useEffect(() => {
         window.heights = []
@@ -50,36 +44,22 @@ export const App = () => {
             id = requestAnimationFrame(record)
         }
         id = requestAnimationFrame(record)
-
-        /**
-         * Sizes read in requestAnimationFrame are from before this frame's
-         * ResizeObserver callbacks, which useAutoSize uses to keep the
-         * previous size on screen. This observer runs after useAutoSize's,
-         * so correct the frame's entry to what's actually painted.
-         */
-        const observer = new ResizeObserver(() => {
-            const box = ref.current!.getBoundingClientRect()
-            window.heights[window.heights.length - 1] = box.height
-            window.widths[window.widths.length - 1] = box.width
-        })
-        observer.observe(ref.current!)
-
-        return () => {
-            cancelAnimationFrame(id)
-            observer.disconnect()
-        }
+        return () => cancelAnimationFrame(id)
     }, [])
 
+    const animate = accordion
+        ? { height: open ? "auto" : 0 }
+        : both
+        ? { height: "auto", width: "auto" }
+        : { height: "auto" }
+
     return (
-        <div style={{ width }}>
+        <div style={{ width: 400 }}>
             {[100, 300, 500].map((h) => (
                 <button key={h} id={"h" + h} onClick={() => setHeight(h)}>
                     {h}
                 </button>
             ))}
-            <button id="narrow" onClick={() => setWidth(200)}>
-                narrow
-            </button>
             <button id="more" onClick={() => setMore(true)}>
                 more
             </button>
@@ -90,19 +70,16 @@ export const App = () => {
                 ref={ref}
                 id="box"
                 initial={accordion ? { height: 0 } : false}
-                animate={accordion ? { height: open ? "auto" : 0 } : undefined}
+                animate={animate}
                 transition={transition}
                 style={{
                     overflow: "hidden",
                     background: "#09f",
-                    display: axis === "both" ? "inline-block" : "block",
+                    display: both ? "inline-block" : "block",
                 }}
             >
-                <div style={{ height, width: axis === "both" ? height : "auto" }} />
+                <div style={{ height, width: both ? height : "auto" }} />
                 {more ? <div style={{ height: 200 }} /> : null}
-                {params.get("aspect") ? (
-                    <div style={{ aspectRatio: "2", background: "#f09" }} />
-                ) : null}
             </motion.div>
             <div id="below">Below</div>
         </div>
