@@ -13,6 +13,7 @@ Undocumented APIs should be considered internal and may change without warning.
 ### Fixed
 
 -   Only counts projection stats while `recordStats()` is running.
+-   Fix accelerated animations stuck at `initial` after remount.
 
 ## [14.7.1] 2026-10-27
 
