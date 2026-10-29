@@ -1,4 +1,5 @@
 import {
+    activeScope,
     animateSingleValue,
     AnimationPlaybackControls,
     AnimationPlaybackControlsWithThen,
@@ -147,6 +148,18 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
     private detachScroll?: VoidFunction
 
     private resolveFinished!: VoidFunction
+
+    /**
+     * The scopeMotion() scope this was created in. Rebuilds run in it, so
+     * selectors resolve in its root and cancel() restores what they
+     * animate.
+     */
+    private motionScope = activeScope.current
+
+    /**
+     * Set when the scope stops, so later changes don't restart it.
+     */
+    private isKilled = false
 
     /**
      * True while this plays the animations it was created with, before
@@ -419,7 +432,7 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
      * reflect it.
      */
     private flush() {
-        this.isDirty && !this.parent && this.build()
+        this.isDirty && !this.parent && !this.isKilled && this.build()
     }
 
     private adopt(parent: Timeline) {
@@ -479,12 +492,19 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
         Object.assign(playback, options)
         const markers = new Map<string, Marker>()
         const info: SequenceInfo = {}
-        const animations = animateSequence(
-            this.toSequence(markers),
-            { defaultTransition, ...playback },
-            scope,
-            info
-        )
+        const prevScope = activeScope.current
+        activeScope.current = this.motionScope
+        let animations: AnimationPlaybackControlsWithThen[]
+        try {
+            animations = animateSequence(
+                this.toSequence(markers),
+                { defaultTransition, ...playback },
+                scope,
+                info
+            )
+        } finally {
+            activeScope.current = prevScope
+        }
 
         const labels = info.labels!
         let duration = playback.duration ?? info.duration!
@@ -678,5 +698,15 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
         this.finished = new Promise<void>((resolve) => {
             this.resolveFinished = resolve
         })
+
+        /**
+         * Stay in the scope while playing, including after a change
+         * restarts a finished timeline.
+         */
+        const remove = this.motionScope?.add(() => {
+            this.isKilled = true
+            this.stop()
+        })
+        remove && this.finished.then(remove)
     }
 }
