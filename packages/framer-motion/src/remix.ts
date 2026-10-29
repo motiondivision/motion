@@ -105,7 +105,6 @@ interface VariantContext {
 interface PresenceGroup {
     props: AnimatePresenceProps
     isFirstRender: boolean
-    exit(done: Promise<void>): void
 }
 
 let featuresLoaded = false
@@ -139,27 +138,91 @@ export function MotionConfig(
 const flatten = (node: RemixNode): any[] =>
     Array.isArray(node) ? (node as any[]).flat(Infinity) : [node]
 
-const getKeys = (node: RemixNode) =>
-    flatten(node)
-        .map((child) => child?.key)
-        .join()
-
 /**
  * A motion component is a component, so Remix can't see the key of the
- * element it renders, and can't reuse that element when it comes back
- * during its exit. Pass each child's key to the element.
+ * element it renders. Pass the key to the element, so Remix keeps the
+ * element when the component is reordered.
  */
-const withPresenceKeys = (node: RemixNode) =>
-    flatten(node).map((child) =>
-        child?.key != null && motionComponents.has(child.type)
-            ? { ...child, props: { ...child.props, presenceKey: child.key } }
-            : child
-    )
+const withPresenceKey = (child: any) =>
+    child?.key != null && motionComponents.has(child.type)
+        ? { ...child, props: { ...child.props, presenceKey: child.key } }
+        : child
 
 /**
- * Motion elements animate `exit` when they're removed anywhere in the
- * tree. Wrap them in `AnimatePresence` to choose how entering and exiting
- * elements share the screen, skip their first `initial` animation, or
+ * What a child of `AnimatePresence` tells the motion elements inside it.
+ */
+interface PresenceChildContext {
+    isPresent: boolean
+    custom?: any
+    /**
+     * Exits started in this render. The child is removed when they finish.
+     */
+    exits: Promise<void>[]
+    /**
+     * In "popLayout" mode, whether an element has left the layout yet.
+     */
+    popLayout?: boolean
+    popped?: boolean
+}
+
+interface PresenceChildProps {
+    isPresent: boolean
+    custom?: any
+    popLayout?: boolean
+    onExitComplete: VoidFunction
+    children?: RemixNode
+}
+
+/**
+ * Keeps an exiting child of `AnimatePresence` until the exits of the
+ * motion elements inside it finish, as React's PresenceChild.
+ */
+function PresenceChild(
+    handle: Handle<PresenceChildProps, PresenceChildContext>
+) {
+    let exitId = 0
+    let popped = false
+
+    return () => {
+        const { isPresent, custom, popLayout, children } = handle.props
+        const context: PresenceChildContext = {
+            isPresent,
+            custom,
+            exits: [],
+            popLayout,
+            popped,
+        }
+        handle.context.set(context)
+
+        if (isPresent) {
+            exitId++
+            popped = false
+        } else {
+            const id = exitId
+            handle.queueTask(() => {
+                popped ||= !!context.popped
+                Promise.all(context.exits).then(() => {
+                    if (id === exitId) handle.props.onExitComplete()
+                })
+            })
+        }
+
+        return children
+    }
+}
+
+interface PresenceItem {
+    key: any
+    child: any
+    isPresent: boolean
+}
+
+const getKey = (child: any, index: number) => child?.key ?? "__i" + index
+
+/**
+ * Keep removed children of `AnimatePresence` until their motion elements
+ * finish their `exit` animations. Also choose how entering and exiting
+ * children share the screen, skip their first `initial` animation, and
  * know when exits finish.
  *
  * @public
@@ -167,22 +230,17 @@ const withPresenceKeys = (node: RemixNode) =>
 export function AnimatePresence(
     handle: Handle<AnimatePresenceProps, PresenceGroup>
 ) {
-    let exiting = 0
-    let shown: RemixNode
-    let hasShown = false
-    let isSwapping = false
+    let items: PresenceItem[] = []
+    const exited = new Set<any>()
 
     const group: PresenceGroup = {
         props: handle.props,
         isFirstRender: true,
-        exit: (done) => {
-            exiting++
-            done.then(() => {
-                if (--exiting) return
-                handle.props.onExitComplete?.()
-                if (isSwapping) handle.update()
-            })
-        },
+    }
+
+    const remove = (key: any) => {
+        exited.add(key)
+        handle.update()
     }
 
     return () => {
@@ -191,25 +249,87 @@ export function AnimatePresence(
             handle.queueTask(() => (group.isFirstRender = false))
         }
 
-        const children = withPresenceKeys(handle.props.children)
-        if (handle.props.mode !== "wait") return children
+        const { mode, custom } = handle.props
+        const present = flatten(handle.props.children).filter(
+            (child) => child != null && child !== false && child !== true
+        )
+        const presentKeys = new Map(
+            present.map((child, i) => [getKey(child, i), child])
+        )
 
         /**
-         * When the children change, remove the old ones first, and render
-         * the new ones once their exits finish.
+         * Merge the present children with the exiting ones, which keep
+         * their place.
          */
-        if (exiting) return null
-        if (hasShown && !isSwapping && getKeys(shown) !== getKeys(children)) {
-            isSwapping = true
-            handle.queueTask(() => {
-                if (!exiting) handle.update()
+        const next: PresenceItem[] = present.map((child, i) => ({
+            key: getKey(child, i),
+            child,
+            isPresent: true,
+        }))
+        items.forEach((item, i) => {
+            if (presentKeys.has(item.key) || exited.has(item.key)) return
+            next.splice(Math.min(i, next.length), 0, {
+                ...item,
+                isPresent: false,
             })
-            return null
+        })
+
+        const hadExits = items.some((item) => !item.isPresent)
+        exited.clear()
+        items = next
+
+        const isExiting = next.some((item) => !item.isPresent)
+        if (hadExits && !isExiting) {
+            handle.queueTask(() => handle.props.onExitComplete?.())
         }
-        isSwapping = false
-        hasShown = true
-        return (shown = children)
+
+        /**
+         * In "wait" mode, render the new children once the old ones
+         * have exited.
+         */
+        const shown =
+            mode === "wait" && isExiting
+                ? next.filter((item) => !item.isPresent)
+                : next
+
+        return shown.map(({ key, child, isPresent }) =>
+            createElement(
+                PresenceChild,
+                {
+                    key,
+                    isPresent,
+                    custom: isPresent ? undefined : custom,
+                    popLayout: mode === "popLayout",
+                    onExitComplete: () => remove(key),
+                },
+                withPresenceKey(child)
+            )
+        )
     }
+}
+
+/**
+ * Inside `AnimatePresence`: whether the component is present, or exiting.
+ *
+ * @public
+ */
+export function isPresent(handle: Handle<any, any>) {
+    const context = handle.context.get(PresenceChild) as
+        | PresenceChildContext
+        | undefined
+    return context?.isPresent ?? true
+}
+
+/**
+ * Inside `AnimatePresence`: the `custom` value of `AnimatePresence`, while
+ * the component exits.
+ *
+ * @public
+ */
+export function getPresenceData(handle: Handle<any, any>) {
+    return (
+        handle.context.get(PresenceChild) as PresenceChildContext | undefined
+    )?.custom
 }
 
 /**
@@ -412,6 +532,28 @@ function queueInsert(
     insertQueue.push([create, mount, animate])
 }
 
+/**
+ * Updates queued in one commit: every element gets its new props before
+ * any of them animates, as React's insertion effects run before its
+ * effects. So a variant change from a parent animates its children with
+ * their new transitions.
+ */
+let updateQueue: Array<[update: VoidFunction, animate: VoidFunction]> | undefined
+
+function queueUpdate(update: VoidFunction, animate: VoidFunction) {
+    if (!updateQueue) {
+        updateQueue = []
+        queueMicrotask(() => {
+            const queue = updateQueue!
+            updateQueue = undefined
+            for (const [update] of queue) run(update)
+            // Parents render first, so animate in reverse: children first.
+            for (let i = queue.length - 1; i >= 0; i--) run(queue[i][1])
+        })
+    }
+    updateQueue.push([update, animate])
+}
+
 type AnyVisualElement = HTMLVisualElement | SVGVisualElement
 
 /**
@@ -500,6 +642,17 @@ function snapshotLayout() {
     requestAnimationFrame(commit)
 }
 
+/**
+ * Animate to the latest props. Then forget which children entered with
+ * this render, so the next children's `delayChildren` stagger starts
+ * from 0, as in React.
+ */
+function animateChanges(visualElement: AnyVisualElement | undefined) {
+    if (!visualElement) return
+    visualElement.animationState?.animateChanges()
+    visualElement.enteringChildren = undefined
+}
+
 let presenceId = 0
 
 const motionMixin = createMixin<Element, [props: MotionProps]>(
@@ -521,6 +674,19 @@ const motionMixin = createMixin<Element, [props: MotionProps]>(
             handle.context.get(VariantProvider) as VariantContext | undefined
         const getGroup = () =>
             handle.context.get(AnimatePresence) as PresenceGroup | undefined
+        const getPresenceChild = () =>
+            handle.context.get(PresenceChild) as
+                | PresenceChildContext
+                | undefined
+
+        /**
+         * Inside AnimatePresence: the exit this element started, and
+         * whether its layoutId node must hand over in this commit.
+         */
+        let exitDone: Promise<void> | undefined
+        let relegateLayout: VoidFunction | undefined
+        let pop: VoidFunction | undefined
+        let restoreLayout: VoidFunction | undefined
 
         const getProps = (): MotionProps => {
             const transition = props.transition ?? getConfig()?.transition
@@ -539,7 +705,7 @@ const motionMixin = createMixin<Element, [props: MotionProps]>(
             isPresent: boolean,
             onExitComplete?: VoidFunction
         ) => {
-            const custom = getGroup()?.props.custom
+            const custom = getPresenceChild()?.custom
             presence = {
                 id,
                 isPresent,
@@ -549,6 +715,59 @@ const motionMixin = createMixin<Element, [props: MotionProps]>(
             }
             visualElement!.update(getProps() as any, presence)
             visualElement!.updateFeatures()
+        }
+
+        /**
+         * Drag measures layout, so it needs a projection node before its
+         * feature mounts, including when drag is turned on later.
+         */
+        const acquireDragProjection = (node: Element) => {
+            if (!props.drag || releaseProjection) return
+            const [projection, release] = acquireProjectionNode(
+                node as HTMLElement
+            )
+            projection.setOptions({ alwaysMeasureLayout: true })
+            releaseProjection = release
+        }
+
+        /**
+         * Exit within AnimatePresence: animate `exit`, and hand a layoutId
+         * over to the element that replaces it, as React's exit does.
+         */
+        const startExit = (layoutId?: string) => {
+            const current = visualElement!
+            const exits: Promise<void>[] = []
+
+            if (props.exit) {
+                isExiting = true
+                exits.push(
+                    new Promise<void>((resolve) =>
+                        handle.queueTask(() => {
+                            if (visualElement === current && isExiting) {
+                                setPresence(false, resolve)
+                            } else resolve()
+                        })
+                    )
+                )
+            }
+
+            const { projection } = current
+            if (layoutId && projection) {
+                exits.push(
+                    new Promise<void>((resolve) => {
+                        relegateLayout = () => {
+                            projection.isPresent = false
+                            projection.setOptions({ onExitComplete: resolve })
+                            if (!projection.relegate()) resolve()
+                        }
+                    })
+                )
+            }
+
+            // In case this element didn't update in the commit.
+            handle.queueTask(beforeLayout)
+
+            return Promise.all(exits).then(() => {})
         }
 
         handle.addEventListener("insert", ({ node }) => {
@@ -605,31 +824,18 @@ const motionMixin = createMixin<Element, [props: MotionProps]>(
 
                     visualElement.mount(node as any)
 
-                    /**
-                     * Drag measures layout, so it needs a projection node
-                     * before its feature mounts.
-                     */
-                    if (props.drag) {
-                        const [projection, release] = acquireProjectionNode(
-                            node as HTMLElement
-                        )
-                        projection.setOptions({ alwaysMeasureLayout: true })
-                        releaseProjection = release
-                    }
-
+                    acquireDragProjection(node)
                     visualElement.updateFeatures()
                 },
                 () => {
-                    if (element === node) {
-                        visualElement?.animationState?.animateChanges()
-                    }
+                    if (element === node) animateChanges(visualElement)
                 }
             )
         })
 
         handle.addEventListener("beforeRemove", (event) => {
             const node = element
-            if (!node || isExiting) return
+            if (!node || isExiting || getPresenceChild()) return
 
             const leaving = [node, ...node.querySelectorAll("*")]
                 .map((el) => presences.get(el))
@@ -640,20 +846,14 @@ const motionMixin = createMixin<Element, [props: MotionProps]>(
 
             if (!exited.length) return
 
-            const group = getGroup()
-            const restore =
-                group?.props.mode === "popLayout" ? popLayout(node) : undefined
-
             let cancel!: VoidFunction
             const done = new Promise<void>((resolve) => {
                 cancel = resolve
                 Promise.all(exited).then(() => resolve())
             })
-            group?.exit(done)
 
             event.persistNode((signal) => {
                 const reclaim = () => {
-                    restore?.()
                     leaving.forEach((presence) => presence.enter())
                     cancel()
                 }
@@ -671,15 +871,39 @@ const motionMixin = createMixin<Element, [props: MotionProps]>(
             presence = null
         })
 
-        handle.addEventListener("beforeUpdate", ({ node }) => {
-            if (!props.layout && !props.layoutId) return
-            snapshotLayout()
+        /**
+         * After the DOM changes, before the layout animation measures it:
+         * take an exiting element out of the layout, or hand its layoutId
+         * over.
+         */
+        const beforeLayout = () => {
+            pop?.()
+            pop = undefined
+            relegateLayout?.()
+            relegateLayout = undefined
+        }
 
-            const projection = visualElementStore.get(node)?.projection
-            projection?.setOptions({
-                transition: getProps().transition as any,
-                animationType:
-                    typeof props.layout === "string" ? props.layout : "both",
+        handle.addEventListener("beforeUpdate", ({ node }) => {
+            const hasLayout = props.layout || props.layoutId
+            if (hasLayout) snapshotLayout()
+
+            /**
+             * Set the options once this render's props have arrived, after
+             * the snapshot has reset them, and before the layout animation
+             * starts.
+             */
+            queueMicrotask(() => {
+                beforeLayout()
+                if (!hasLayout) return
+                visualElementStore.get(node)?.projection?.setOptions({
+                    transition: getProps().transition as any,
+                    animationType:
+                        typeof props.layout === "string"
+                            ? props.layout
+                            : "both",
+                    layoutAnchor: props.layoutAnchor,
+                    crossfade: props.layoutCrossfade,
+                })
             })
         })
 
@@ -707,6 +931,35 @@ const motionMixin = createMixin<Element, [props: MotionProps]>(
             const { layout } = props
             const layoutId = getLayoutId()
 
+            const presenceChild = getPresenceChild()
+            if (presenceChild && visualElement && element) {
+                if (!presenceChild.isPresent) {
+                    if (!exitDone) {
+                        exitDone = startExit(layoutId)
+                        /**
+                         * The outermost motion element of the child leaves
+                         * the layout. Parents render before children.
+                         */
+                        if (presenceChild.popLayout && !presenceChild.popped) {
+                            presenceChild.popped = true
+                            const node = element
+                            pop = () => (restoreLayout = popLayout(node))
+                        }
+                    }
+                    presenceChild.exits.push(exitDone)
+                } else if (exitDone) {
+                    exitDone = undefined
+                    relegateLayout = pop = undefined
+                    restoreLayout?.()
+                    restoreLayout = undefined
+                    if (isExiting) {
+                        isExiting = false
+                        setPresence(true)
+                    }
+                    if (layoutId) visualElement.projection?.promote()
+                }
+            }
+
             /**
              * A layoutId element inserted during a layout pass animates
              * from the element it replaces, with its own transition.
@@ -717,12 +970,17 @@ const motionMixin = createMixin<Element, [props: MotionProps]>(
 
             if (visualElement) {
                 const current = visualElement
-                handle.queueTask(() => {
-                    if (visualElement !== current) return
-                    current.update(getProps() as any, presence)
-                    current.updateFeatures()
-                    current.animationState?.animateChanges()
-                })
+                handle.queueTask(() =>
+                    queueUpdate(
+                        () => {
+                            if (visualElement !== current) return
+                            current.update(getProps() as any, presence)
+                            acquireDragProjection(element!)
+                            current.updateFeatures()
+                        },
+                        () => visualElement === current && animateChanges(current)
+                    )
+                )
             }
 
             /**
@@ -750,6 +1008,29 @@ const motionMixin = createMixin<Element, [props: MotionProps]>(
             const { style: initialStyle, ...attrs } = initialValues
             const patch: Values = { ...motionAttrs, ...attrs }
             const style = { ...splitStyle(props.style, props), ...initialStyle }
+
+            /**
+             * As React: no ghost image, text selection or scrolling in the
+             * drag direction, and tap gestures are keyboard accessible.
+             */
+            if (!isSVG) {
+                const { drag } = props
+                if (drag && props.dragListener !== false) {
+                    patch.draggable = false
+                    style.userSelect =
+                        style.WebkitUserSelect =
+                        style.WebkitTouchCallout =
+                            "none"
+                    style.touchAction =
+                        drag === true ? "none" : `pan-${drag === "x" ? "y" : "x"}`
+                }
+                if (
+                    hostProps.tabIndex === undefined &&
+                    (props.onTap || props.onTapStart || props.whileTap)
+                ) {
+                    patch.tabIndex = 0
+                }
+            }
             if (Object.keys(style).length) patch.style = style
             if (layout) patch["data-layout"] = layout === true ? "" : layout
             if (layoutId) patch["data-layout-id"] = layoutId

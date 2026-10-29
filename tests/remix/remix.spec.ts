@@ -382,3 +382,114 @@ test.describe("server rendering", () => {
         expect(errors).toEqual([])
     })
 })
+
+test.describe("regressions", () => {
+    test("AnimatePresence keeps a removed plain element until the motion elements inside it exit", async ({
+        page,
+    }) => {
+        const errors = await open(page, "regressions")
+        await call(page, "hideNested")
+        await page.waitForTimeout(500)
+        expect(await page.$("#nested-wrapper")).not.toBeNull()
+        const mid = await opacity(page, "#nested-exit")
+        expect(mid).toBeGreaterThan(0.2)
+        expect(mid).toBeLessThan(0.8)
+        await page.waitForTimeout(800)
+        expect(await page.$("#nested-wrapper")).toBeNull()
+        expect(errors).toEqual([])
+    })
+
+    test("a parent's variant change uses the children's new transition", async ({
+        page,
+    }) => {
+        await open(page, "regressions")
+        expect(await opacity(page, "#variant-child")).toBe(0)
+        // Opening has a 0.5s delay, so the child hasn't started at 0.3s.
+        await call(page, "toggleVariant")
+        await page.waitForTimeout(300)
+        expect(await opacity(page, "#variant-child")).toBe(0)
+        await page.waitForTimeout(1500)
+        expect(await opacity(page, "#variant-child")).toBe(1)
+        // Closing has no delay.
+        await call(page, "toggleVariant")
+        await page.waitForTimeout(300)
+        expect(await opacity(page, "#variant-child")).toBeLessThan(0.9)
+    })
+
+    test("children added later stagger from the start of their group", async ({
+        page,
+    }) => {
+        await open(page, "regressions")
+        await page.waitForTimeout(1200)
+        await call(page, "addItems")
+        // The first new child has no delay; with the old entering set it
+        // waited 2 x 0.5s.
+        await page.waitForTimeout(350)
+        expect(await opacity(page, "#entering-2")).toBe(1)
+    })
+
+    test("a layout animation uses this render's transition", async ({
+        page,
+    }) => {
+        await open(page, "regressions")
+        const from = await left(page, "#layout-transition")
+        await call(page, "toggleLayout")
+        await page.waitForTimeout(500)
+        const mid = await left(page, "#layout-transition")
+        const p = progress(from, mid, from + 300)
+        expect(p).toBeGreaterThan(0.2)
+        expect(p).toBeLessThan(0.8)
+    })
+
+    test("an exiting layoutId element hands over to its replacement", async ({
+        page,
+    }) => {
+        const errors = await open(page, "regressions")
+        await call(page, "closeShared")
+        await page.waitForTimeout(500)
+        // The button grows from the menu's size, so it's visible and
+        // between 50 and 250px wide half way.
+        const width = await page.$eval(
+            "#shared-button",
+            (element) => element.getBoundingClientRect().width
+        )
+        expect(width).toBeGreaterThan(80)
+        expect(width).toBeLessThan(220)
+        expect(await opacity(page, "#shared-button")).toBeGreaterThan(0.2)
+        await page.waitForTimeout(800)
+        expect(await page.$("#shared-menu")).toBeNull()
+        expect(errors).toEqual([])
+    })
+
+    test("drag and tap set React's host styles", async ({ page }) => {
+        await open(page, "regressions")
+        expect(await css(page, "#drag-x", "touch-action")).toBe("pan-y")
+        expect(await css(page, "#drag-x", "user-select")).toBe("none")
+        expect(await page.getAttribute("#drag-x", "tabindex")).toBe("0")
+        expect(await page.getAttribute("#drag-x", "draggable")).toBe("false")
+    })
+})
+
+test("an inherited value that didn't change for one label animates on the next", async ({
+    page,
+}) => {
+    await open(page, "regressions")
+    await call(page, "startInherited")
+    await page.waitForTimeout(1200)
+    expect(await opacity(page, "#inherited")).toBe(1)
+})
+
+test("drag turned on after mount", async ({ page }) => {
+    const errors = await open(page, "regressions")
+    await call(page, "enableDrag")
+    await page.waitForTimeout(100)
+    const box = (await page.$("#drag-later"))!
+    await box.scrollIntoViewIfNeeded()
+    const { x, y, width, height } = (await box.boundingBox())!
+    await page.mouse.move(x + width / 2, y + height / 2)
+    await page.mouse.down()
+    await page.mouse.move(x + width / 2 + 50, y + height / 2, { steps: 10 })
+    await page.mouse.up()
+    expect((await matrix(page, "#drag-later")).x).toBeGreaterThan(30)
+    expect(errors).toEqual([])
+})
