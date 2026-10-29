@@ -2889,6 +2889,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@remix-run/component@npm:1.1.0":
+  version: 1.1.0
+  resolution: "@remix-run/component@npm:1.1.0"
+  dependencies:
+    "@types/dom-navigation": ^1.0.7
+  checksum: 1f5d875154dace5cf3d32e5685b3c88a3e7d59aece4e41e952d6d08fb3e937e8cee997cf91559823a17ac9f2048ff864f169e0639a4c0fe1d4ffc029ffc912b8
+  languageName: node
+  linkType: hard
+
 "@rolldown/pluginutils@npm:1.0.0-beta.11":
   version: 1.0.0-beta.11
   resolution: "@rolldown/pluginutils@npm:1.0.0-beta.11"
@@ -3717,6 +3726,13 @@ __metadata:
   dependencies:
     "@babel/types": ^7.20.7
   checksum: 2a2e5ad29c34a8b776162b0fe81c9ccb6459b2b46bf230f756ba0276a0258fcae1cbcfdccbb93a1e8b1df44f4939784ee8a1a269f95afe0c78b24b9cb6d50dd1
+  languageName: node
+  linkType: hard
+
+"@types/dom-navigation@npm:^1.0.7":
+  version: 1.0.7
+  resolution: "@types/dom-navigation@npm:1.0.7"
+  checksum: 96e630423a16143e50faf71a7a93f1d660fb743a30fbb093b567a1c2deafe54254c88f95b5498904fc2225c7ab625d1fedd2481d65f65212d6e8f0c6e620b24f
   languageName: node
   linkType: hard
 
@@ -10008,6 +10024,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "motion@workspace:packages/motion"
   dependencies:
+    "@remix-run/component": 1.1.0
     concurrently: ^7.3.0
     framer-motion: 14.7.1
     jest: ^29.7.0

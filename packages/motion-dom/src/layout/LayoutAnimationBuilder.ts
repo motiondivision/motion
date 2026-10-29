@@ -225,7 +225,8 @@ function dropNode(element: Element, node: IProjectionNode) {
 }
 
 function flushPendingBuilders() {
-    const builders = pendingBuilders!
+    const builders = pendingBuilders
+    if (!builders) return
     pendingBuilders = undefined
 
     flushPendingFrame()
@@ -299,6 +300,14 @@ function flushPendingBuilders() {
 
     updatePromises.length ? Promise.all(updatePromises).then(commit) : commit()
 }
+
+/**
+ * Snapshot every pending animateLayout() now, rather than on the next
+ * microtask. For renderers that tell us a DOM update is about to happen
+ * and then make it synchronously (e.g. a beforeUpdate/commit pair), with
+ * updateDom returning a promise that resolves on commit.
+ */
+export const flushLayoutSnapshots = flushPendingBuilders
 
 export class LayoutAnimationBuilder {
     private sharedTransitions = new Map<string, AnimationOptions>()

@@ -325,6 +325,7 @@ export { scrapeMotionValuesFromProps as scrapeSVGMotionValuesFromProps } from ".
  * Layout animations
  */
 export {
+    flushLayoutSnapshots,
     LayoutAnimationBuilder,
     parseAnimateLayoutArgs,
 } from "./layout/LayoutAnimationBuilder"
