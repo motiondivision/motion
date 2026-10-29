@@ -1509,9 +1509,10 @@ describe("Suspense boundary re-suspends and reveals memoized content", () => {
         const get = (testId: string) =>
             container.querySelector<HTMLElement>(`[data-testid="${testId}"]`)
 
-        const reSuspend = async () => {
+        const reSuspend = async (whileSuspended?: VoidFunction) => {
             await act(async () => suspend())
             expect(get("fallback")).not.toBeNull()
+            whileSuspended?.()
 
             await act(async () => {
                 isResolved = true
@@ -1539,6 +1540,87 @@ describe("Suspense boundary re-suspends and reveals memoized content", () => {
 
         await reSuspend()
         expect(get("box")!.style.opacity).toBe("1")
+    })
+
+    test("an overdue animation stopped by the remount doesn't complete", async () => {
+        const onAnimationComplete = jest.fn()
+        const { get, reSuspend } = renderInSuspense(
+            <motion.div
+                data-testid="box"
+                initial={{ opacity: 1 }}
+                animate={{ opacity: 0, transitionEnd: { display: "none" } }}
+                transition={{ duration: 0.3 }}
+                onAnimationComplete={onAnimationComplete}
+            />
+        )
+
+        await act(async () => {
+            await nextFrame()
+            await nextFrame()
+        })
+
+        // Hold up the main thread past the animation's end, then remount
+        await reSuspend(() => {
+            const start = performance.now()
+            while (performance.now() - start < 400) {}
+        })
+
+        // The replayed animation is still running, so its end isn't applied
+        expect(get("box")!.style.display).toBe("")
+        expect(onAnimationComplete).not.toHaveBeenCalled()
+    })
+
+    test("accelerated enter animation still running at the remount replays to its target", async () => {
+        /**
+         * WAAPI animations that only finish when told to, like a finish
+         * event held up by a busy main thread.
+         */
+        const animations: any[] = []
+        Element.prototype.animate = jest.fn().mockImplementation(() => {
+            const animation = {
+                cancel: () => (animation.playState = "idle"),
+                onfinish: null as null | VoidFunction,
+                playbackRate: 1,
+                currentTime: 0,
+                startTime: performance.now(),
+                playState: "running",
+                effect: { getComputedTiming: () => ({ duration: 50 }) },
+            }
+            animations.push(animation)
+            return animation
+        })
+        const finishAll = () =>
+            act(() => {
+                for (const animation of animations) {
+                    if (animation.playState === "running") {
+                        animation.playState = "finished"
+                        animation.onfinish?.()
+                    }
+                }
+            })
+
+        try {
+            const { get, reSuspend } = renderInSuspense(
+                <motion.div
+                    data-testid="box"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.05 }}
+                />
+            )
+
+            // Past the animation's duration, but it hasn't finished yet
+            await wait(100)
+            expect(animations.length).toBe(1)
+
+            await reSuspend()
+            await finishAll()
+            await wait(50)
+
+            expect(get("box")!.style.opacity).toBe("1")
+        } finally {
+            delete (Element.prototype as any).animate
+        }
     })
 
     test("children added after the reveal aren't staggered", async () => {
