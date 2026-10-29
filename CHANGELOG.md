@@ -4,11 +4,7 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
-## [14.8.0] 2026-10-29
-
-### Added
-
--   `motion/remix`: Experimental support for Remix 3, with `motion` components, `AnimatePresence`, `LayoutGroup`, `MotionConfig` and `Reorder`.
+## [14.7.2] 2026-10-29
 
 ### Fixed
 
