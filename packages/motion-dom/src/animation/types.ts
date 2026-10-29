@@ -7,6 +7,7 @@ import { MotionValue } from "../value"
 import { Driver } from "./drivers/types"
 import { KeyframeResolver } from "./keyframes/KeyframesResolver"
 import { WithRender } from "./keyframes/types"
+import type { Mixer } from "../utils/mix/types"
 
 export type AnyResolvedKeyframe = string | number
 
@@ -557,6 +558,33 @@ export interface ValueTransition
      * @public
      */
     path?: MotionPath
+
+    /**
+     * Replaces the function that blends between each pair of keyframes
+     * that aren't numbers. It receives the two keyframes and returns a
+     * function that maps progress (`0`-`1`, or beyond with springs and
+     * overshooting easing) to a value, or `undefined` to blend them as
+     * usual. For example, a mixer that morphs paths can animate `d`
+     * between paths of different shapes, and return `undefined` for values
+     * that aren't paths, like `fill`, so they blend as usual:
+     *
+     * ```jsx
+     * <motion.path animate={{ d, fill }} transition={{ mixer: morph }} />
+     * ```
+     *
+     * Animations between numbers (not strings with units, like `"100px"`),
+     * and those where the mixer returns `undefined` for every pair, run as
+     * they would without it. The rest run on the main thread, where the
+     * mixer can be called. Animations that only run in the browser, like
+     * those from `motion/mini`, don't use it. Values Motion can't animate,
+     * like text without numbers, still change at once.
+     *
+     * A mixer can be asked for the same pair more than once, so keep any
+     * costly setup for when its function is first called.
+     *
+     * @public
+     */
+    mixer?: (from: any, to: any) => Mixer<any> | undefined
 }
 
 /**

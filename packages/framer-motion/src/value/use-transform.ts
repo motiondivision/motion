@@ -226,7 +226,9 @@ export function useTransform<I, O, K extends string>(
         !inputAccelerate.isTransformed &&
         typeof inputRangeOrTransformer !== "function" &&
         Array.isArray(outputRangeOrMap) &&
-        options?.clamp !== false
+        options?.clamp !== false &&
+        // WAAPI can't call a mixer
+        !options?.mixer
     ) {
         const ease = options?.ease
 

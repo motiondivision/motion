@@ -30,6 +30,7 @@ import {
 import { cubicBezierAsString } from "../easing/cubic-bezier"
 import { supportedWaapiEasing } from "../easing/supported"
 import { supportsWaapi } from "../supports/waapi"
+import { needsMixer } from "../utils/needs-mixer"
 import { supportsLinearEasing } from "../../../utils/supports/linear-easing"
 import { TransformGroupHooks, transformGroups } from "./groups"
 
@@ -201,7 +202,12 @@ function canAccelerateTransform(options: ValueAnimationOptions<any>) {
         /**
          * Layout animations write transform every frame.
          */
-        !owner.projection?.isProjecting()
+        !owner.projection?.isProjecting() &&
+        /**
+         * A mixer that blends these values makes them every frame. It's
+         * asked last, as it's user code.
+         */
+        !needsMixer(options)
     )
 }
 

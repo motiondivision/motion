@@ -13,21 +13,26 @@ import { Mixer, MixerFactory } from "./mix/types"
 export interface InterpolateOptions<T> {
     clamp?: boolean
     ease?: EasingFunction | EasingFunction[]
-    mixer?: MixerFactory<T>
+    /**
+     * Returns a mixer for a pair of values, or `undefined` to mix them
+     * as usual.
+     */
+    mixer?: (from: T, to: T) => Mixer<T> | undefined
 }
 
 function createMixers<T>(
     output: T[],
     ease?: EasingFunction | EasingFunction[],
-    customMixer?: MixerFactory<T>
+    customMixer?: InterpolateOptions<T>["mixer"]
 ) {
     const mixers: Array<Mixer<T>> = []
-    const mixerFactory: MixerFactory<T> =
-        customMixer || MotionGlobalConfig.mix || mix
+    const mixerFactory: MixerFactory<T> = MotionGlobalConfig.mix || mix
     const numMixers = output.length - 1
 
     for (let i = 0; i < numMixers; i++) {
-        let mixer = mixerFactory(output[i], output[i + 1])
+        let mixer =
+            customMixer?.(output[i], output[i + 1]) ||
+            mixerFactory(output[i], output[i + 1])
 
         if (ease) {
             const easingFunction = Array.isArray(ease) ? ease[i] || noop : ease
