@@ -175,7 +175,7 @@ interface PresenceChildContext {
     isPresent: boolean
     custom?: any
     /**
-     * Exits started in this render. The child is removed when they finish.
+     * Exits registered while the child exits. It's removed when they finish.
      */
     exits: Promise<void>[]
     /**
@@ -206,24 +206,29 @@ function PresenceChild(
 ) {
     let exitId = 0
     let popped = false
+    let exits: Promise<void>[] = []
 
     return () => {
         const { isPresent, children } = handle.props
+        if (isPresent) exits = []
         const context: PresenceChildContext = {
             ...handle.props,
-            exits: [],
+            exits,
             popped,
         }
         handle.context.set(context)
 
+        /**
+         * Every exit registered since the child started exiting, checked
+         * by the latest render only.
+         */
+        const id = ++exitId
         if (isPresent) {
-            exitId++
             popped = false
         } else {
-            const id = exitId
             handle.queueTask(() => {
                 popped ||= !!context.popped
-                Promise.all(context.exits).then(() => {
+                Promise.all([...exits]).then(() => {
                     if (id === exitId) handle.props.onExitComplete()
                 })
             })
@@ -608,7 +613,7 @@ type AnyVisualElement = HTMLVisualElement | SVGVisualElement
  * Elements created and not yet mounted, so children inserted in the same
  * commit can find their parent.
  */
-const pendingElements = new WeakMap<Element, AnyVisualElement>()
+const pendingElements = /*@__PURE__*/ new WeakMap<Element, AnyVisualElement>()
 
 function findParent(element: Element) {
     for (let node = element.parentElement; node; node = node.parentElement) {
@@ -635,7 +640,7 @@ interface Presence {
  * the root starts the exits of the motion elements inside it, as
  * AnimatePresence does in React, and waits for all of them.
  */
-const presences = new WeakMap<Element, Presence>()
+const presences = /*@__PURE__*/ new WeakMap<Element, Presence>()
 
 /**
  * Take an exiting element out of the layout, where it is now, so the
@@ -689,7 +694,7 @@ const getLayoutNode = (node: Element) =>
  * their exit. A layout snapshot resets node options, so they're marked
  * again after each one.
  */
-const exitingLayouts = new Map<Element, VoidFunction>()
+const exitingLayouts = /*@__PURE__*/ new Map<Element, VoidFunction>()
 
 function markLayoutExit(node: Element) {
     const projection = getLayoutNode(node)
@@ -720,7 +725,8 @@ function snapshotLayout() {
     let commit!: VoidFunction
     const committed = new Promise<void>((resolve) => {
         commit = () => {
-            layoutPass = undefined
+            // A late fallback mustn't end a newer pass.
+            if (layoutPass?.commit === commit) layoutPass = undefined
             resolve()
         }
     })
@@ -751,7 +757,7 @@ function animateChanges(visualElement: AnyVisualElement | undefined) {
 
 let presenceId = 0
 
-const motionMixin = createMixin<Element, [props: MotionProps]>(
+const motionMixin = /*@__PURE__*/ createMixin<Element, [props: MotionProps]>(
     (handle, tag) => {
         const isSVG = isSVGElement(tag)
         let props: MotionProps = {}
@@ -779,6 +785,7 @@ const motionMixin = createMixin<Element, [props: MotionProps]>(
          * Inside AnimatePresence: the exit this element started.
          */
         let exitDone: Promise<void> | undefined
+        let exitResolvers: VoidFunction[] = []
         let pop: VoidFunction | undefined
         let popBox: PopBox | undefined
         let restoreLayout: VoidFunction | undefined
@@ -835,13 +842,14 @@ const motionMixin = createMixin<Element, [props: MotionProps]>(
             if (props.exit) {
                 isExiting = true
                 exits.push(
-                    new Promise<void>((resolve) =>
+                    new Promise<void>((resolve) => {
+                        exitResolvers.push(resolve)
                         handle.queueTask(() => {
                             if (visualElement === current && isExiting) {
                                 setPresence(false, resolve)
                             } else resolve()
                         })
-                    )
+                    })
                 )
             }
 
@@ -983,8 +991,11 @@ const motionMixin = createMixin<Element, [props: MotionProps]>(
         handle.addEventListener("remove", () => {
             if (element) {
                 presences.delete(element)
-                exitingLayouts.delete(element)
+                // Removed by its own component mid-exit: its exits are done.
+                exitingLayouts.get(element)?.()
             }
+            exitResolvers.forEach((resolve) => resolve())
+            exitResolvers = []
             releaseProjection?.()
             visualElement?.unmount()
             releaseProjection = visualElement = element = undefined
@@ -1011,6 +1022,7 @@ const motionMixin = createMixin<Element, [props: MotionProps]>(
 
             const hasLayout = props.layout || props.layoutId
             if (hasLayout) snapshotLayout()
+            else if (!getPresenceChild()?.popLayout) return
 
             /**
              * Set the options once this render's props have arrived, after
@@ -1088,6 +1100,7 @@ const motionMixin = createMixin<Element, [props: MotionProps]>(
                     presenceChild.exits.push(exitDone)
                 } else if (exitDone) {
                     exitDone = pop = undefined
+                    exitResolvers = []
                     restoreLayout?.()
                     restoreLayout = undefined
                     if (isExiting) {
@@ -1192,7 +1205,7 @@ export type MotionComponent = (
     handle: Handle<MotionComponentProps>
 ) => () => RemixNode
 
-const motionComponents = new WeakSet<MotionComponent>()
+const motionComponents = /*@__PURE__*/ new WeakSet<MotionComponent>()
 
 function createMotionComponent(tag: string): MotionComponent {
     const component: MotionComponent = (handle) => {
@@ -1245,7 +1258,7 @@ function createMotionComponent(tag: string): MotionComponent {
     return component
 }
 
-const components = new Map<string, MotionComponent>()
+const components = /*@__PURE__*/ new Map<string, MotionComponent>()
 
 type Motion = typeof motionMixin & {
     [Tag in
@@ -1276,7 +1289,7 @@ type Motion = typeof motionMixin & {
  *
  * @public
  */
-export const motion = new Proxy(motionMixin, {
+export const motion = /*@__PURE__*/ new Proxy(motionMixin, {
     get(target, key, receiver) {
         if (typeof key !== "string" || key in target) {
             return Reflect.get(target, key, receiver)
@@ -1290,7 +1303,7 @@ export const motion = new Proxy(motionMixin, {
     },
 }) as Motion
 
-const scopeMixin = createMixin<
+const scopeMixin = /*@__PURE__*/ createMixin<
     HTMLElement,
     [setup: ScopeSetup, options?: ScopeOptions]
 >(

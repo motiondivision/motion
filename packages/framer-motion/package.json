@@ -117,7 +117,7 @@
     "peerDependencies": {
         "react": "^18.0.0 || ^19.0.0",
         "react-dom": "^18.0.0 || ^19.0.0",
-        "remix": "^3.0.0"
+        "remix": "^3.1.0"
     },
     "peerDependenciesMeta": {
         "react": {
@@ -161,7 +161,7 @@
         },
         {
             "path": "./dist/size-rollup-remix.js",
-            "maxSize": "48.2 kB"
+            "maxSize": "48.25 kB"
         }
     ],
     "gitHead": "cddcc66430c5c96b2f560bb6a61160231f512c53"

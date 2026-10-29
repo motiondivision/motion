@@ -733,4 +733,32 @@ test.describe("shared layout in AnimatePresence", () => {
         expect(await page.$("#held")).not.toBeNull()
         expect(await page.evaluate(() => (window as any).heldExited)).toBeFalsy()
     })
+
+    test("an exiting child stays held when it renders again", async ({
+        page,
+    }) => {
+        await open(page, "shared-presence")
+        await call(page, "hideHeld")
+        await page.waitForTimeout(50)
+        await call(page, "renderHeld")
+        await page.waitForTimeout(100)
+        expect(await page.$("#held")).not.toBeNull()
+        await page.waitForTimeout(500)
+        expect(await page.$("#held")).toBeNull()
+        expect(await page.evaluate(() => (window as any).heldExited)).toBe(true)
+    })
+
+    test("an exiting element removed by its own component completes the exit", async ({
+        page,
+    }) => {
+        const errors = await open(page, "shared-presence")
+        await call(page, "hideDropped")
+        await page.waitForTimeout(100)
+        expect(await page.$("#inner")).not.toBeNull()
+        await call(page, "dropInner")
+        await page.waitForTimeout(300)
+        expect(await page.evaluate(() => (window as any).droppedExited)).toBe(true)
+        expect(await page.$("#inner-wrapper")).toBeNull()
+        expect(errors).toEqual([])
+    })
 })

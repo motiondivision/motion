@@ -137,8 +137,9 @@ function Dots(handle: Handle) {
 function Held(handle: Handle) {
     let exit: Promise<void> | undefined
     return () => {
-        if (!isPresent(handle)) {
-            exit ||= new Promise((resolve) => setTimeout(resolve, 300))
+        // Held once: later renders of the exiting child keep it.
+        if (!isPresent(handle) && !exit) {
+            exit = new Promise((resolve) => setTimeout(resolve, 300))
             holdPresence(handle, exit)
         }
         return <div id="held">held</div>
@@ -155,9 +156,47 @@ function Hold(handle: Handle) {
         visible = true
         handle.update()
     }
+    w.renderHeld = () => handle.update()
     return () => (
         <AnimatePresence onExitComplete={() => (w.heldExited = true)}>
             {visible && <Held key="held" />}
+        </AnimatePresence>
+    )
+}
+
+/**
+ * An exiting element that its own component removes mid-exit.
+ */
+function Inner(handle: Handle) {
+    let show = true
+    w.dropInner = () => {
+        show = false
+        handle.update()
+    }
+    return () => (
+        <div id="inner-wrapper">
+            {show && (
+                <motion.div
+                    id="inner"
+                    layoutId="inner"
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 2 }}
+                    style={{ width: "20px", height: "20px" }}
+                />
+            )}
+        </div>
+    )
+}
+
+function Dropped(handle: Handle) {
+    let visible = true
+    w.hideDropped = () => {
+        visible = false
+        handle.update()
+    }
+    return () => (
+        <AnimatePresence onExitComplete={() => (w.droppedExited = true)}>
+            {visible && <Inner key="inner" />}
         </AnimatePresence>
     )
 }
@@ -170,6 +209,7 @@ export function App() {
             <Overlay />
             <Dots />
             <Hold />
+            <Dropped />
         </main>
     )
 }
