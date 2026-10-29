@@ -1,7 +1,7 @@
 import { createElement, createRoot } from "remix/component"
 import type { Handle } from "remix/component"
 import { motionValue } from "framer-motion/dom"
-import { motion, motionScope } from "../remix"
+import { motion, scopeMotion } from "../remix"
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -140,7 +140,7 @@ describe("motion/remix", () => {
         expect(element.style.opacity).toBe("1")
     })
 
-    it("runs and cancels a motionScope with its element", async () => {
+    it("runs and cancels a scopeMotion with its element", async () => {
         let visible = true
         let cleanup = jest.fn()
         const scopeSetup = jest.fn(() => cleanup)
@@ -153,7 +153,7 @@ describe("motion/remix", () => {
                     visible &&
                         createElement("div", {
                             key: "box",
-                            mix: motionScope(scopeSetup),
+                            mix: scopeMotion(scopeSetup),
                         })
                 )
         )

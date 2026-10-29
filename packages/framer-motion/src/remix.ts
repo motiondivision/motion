@@ -10,7 +10,7 @@ import {
     isVariantNode,
     resolveMotionValue,
     resolveVariantFromProps,
-    scopeMotion,
+    scopeMotion as createScope,
     scrapeHTMLMotionValuesFromProps,
     visualElementStore,
     type LayoutAnimationBuilder,
@@ -566,7 +566,7 @@ const scopeMixin = createMixin<
         let scope: MotionScope | undefined
 
         handle.addEventListener("insert", ({ node }) => {
-            scope = scopeMotion(node, (s) => setup(s), scopeOptions)
+            scope = createScope(node, (s) => setup(s), scopeOptions)
         })
 
         handle.addEventListener("remove", () => {
@@ -584,16 +584,16 @@ const scopeMixin = createMixin<
 )
 
 /**
- * Run `setup` in a `scopeMotion()` scope rooted at this element, so
- * selectors resolve inside it. Everything it starts is cancelled, and
- * inline styles restored, when the element is removed.
+ * The `mix` form of vanilla `scopeMotion()`: run `setup` in a scope rooted
+ * at this element, so selectors resolve inside it. Everything it starts is
+ * cancelled, and inline styles restored, when the element is removed.
  *
  * ```tsx
- * <ul mix={motionScope(() => {
+ * <ul mix={scopeMotion(() => {
  *     animate("li", { opacity: [0, 1] }, { delay: stagger(0.05) })
  * })} />
  * ```
  *
  * @public
  */
-export const motionScope = scopeMixin
+export const scopeMotion = scopeMixin
