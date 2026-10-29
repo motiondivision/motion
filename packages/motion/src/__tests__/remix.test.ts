@@ -1,7 +1,7 @@
 import { createElement, createRoot } from "remix/component"
 import type { Handle } from "remix/component"
 import { motionValue } from "framer-motion/dom"
-import { motion, scopeMotion } from "../remix"
+import { AnimatePresence, motion, scopeMotion } from "../remix"
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -246,5 +246,130 @@ describe("motion/remix", () => {
         expect(
             (container.firstElementChild as HTMLElement).style.transform
         ).toBe("translateX(30px)")
+    })
+
+    it("doesn't mount an element removed before it mounts", async () => {
+        const container = document.createElement("div")
+        document.body.appendChild(container)
+        const root = createRoot(container)
+        const onAnimationStart = jest.fn()
+
+        root.render(
+            createElement(motion.div, {
+                animate: { opacity: 0.5 },
+                onAnimationStart,
+            })
+        )
+        root.flush()
+        expect(container.firstElementChild).not.toBeNull()
+        root.render(null)
+        root.flush()
+
+        await wait(50)
+        expect(container.firstElementChild).toBeNull()
+        expect(onAnimationStart).not.toHaveBeenCalled()
+    })
+
+    it("mounts other elements when one throws", async () => {
+        const errors: unknown[] = []
+        const onError = (event: ErrorEvent) => {
+            event.preventDefault()
+            errors.push(event.error)
+        }
+        window.addEventListener("error", onError)
+        const { container } = setup(
+            () => () =>
+                createElement(
+                    "div",
+                    {},
+                    createElement(motion.div, {
+                        id: "bad",
+                        animate: { opacity: 0.5 },
+                        onAnimationStart: () => {
+                            throw new Error("bad callback")
+                        },
+                    }),
+                    createElement(motion.div, {
+                        id: "good",
+                        initial: { opacity: 0 },
+                        animate: { opacity: 1 },
+                        transition,
+                    })
+                )
+        )
+        await wait(400)
+        window.removeEventListener("error", onError)
+
+        const good = container.querySelector("#good") as HTMLElement
+        expect(good.style.opacity).toBe("1")
+        expect(errors).toHaveLength(1)
+    })
+
+    it("skips initial animations with AnimatePresence initial={false}", async () => {
+        const { container } = setup(
+            () => () =>
+                createElement(
+                    AnimatePresence,
+                    { initial: false },
+                    createElement(motion.div, {
+                        initial: { opacity: 0 },
+                        animate: { opacity: 1 },
+                        transition,
+                    })
+                )
+        )
+        await wait(20)
+        expect((container.firstElementChild as HTMLElement).style.opacity).toBe(
+            "1"
+        )
+    })
+
+    it("calls AnimatePresence onExitComplete", async () => {
+        let visible = true
+        const onExitComplete = jest.fn()
+        const { container, update } = setup(
+            () => () =>
+                createElement(
+                    AnimatePresence,
+                    { onExitComplete },
+                    visible &&
+                        createElement(motion.div, {
+                            key: "a",
+                            style: { opacity: 1 },
+                            exit: { opacity: 0 },
+                            transition,
+                        })
+                )
+        )
+        await wait(20)
+        visible = false
+        await update()
+        await wait(80)
+        expect(container.firstElementChild).not.toBeNull()
+        expect(onExitComplete).not.toHaveBeenCalled()
+
+        await wait(300)
+        expect(container.firstElementChild).toBeNull()
+        expect(onExitComplete).toHaveBeenCalledTimes(1)
+    })
+
+    it("animates SVG attributes", async () => {
+        const { container } = setup(
+            () => () =>
+                createElement(
+                    "svg",
+                    {},
+                    createElement(motion.circle, {
+                        initial: { cx: 0 },
+                        animate: { cx: 100 },
+                        transition,
+                    })
+                )
+        )
+        await wait(20)
+        const circle = container.querySelector("circle")!
+
+        await wait(400)
+        expect(circle.getAttribute("cx")).toBe("100")
     })
 })

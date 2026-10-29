@@ -1,0 +1,18 @@
+{
+    "compilerOptions": {
+        "target": "ES2020",
+        "module": "ESNext",
+        "moduleResolution": "bundler",
+        "jsx": "react-jsx",
+        "jsxImportSource": "@remix-run/component",
+        "strict": true,
+        "noEmit": true,
+        "skipLibCheck": true,
+        "types": ["vite/client"],
+        "paths": {
+            "remix/component": ["../../node_modules/@remix-run/component"],
+            "remix/component/*": ["../../node_modules/@remix-run/component/*"]
+        }
+    },
+    "include": ["src", "vite.config.ts"]
+}

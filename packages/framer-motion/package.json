@@ -158,6 +158,10 @@
         {
             "path": "./dist/size-rollup-waapi-animate.js",
             "maxSize": "3.2 kB"
+        },
+        {
+            "path": "./dist/size-rollup-remix.js",
+            "maxSize": "44.85 kB"
         }
     ],
     "gitHead": "cddcc66430c5c96b2f560bb6a61160231f512c53"

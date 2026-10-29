@@ -2,16 +2,20 @@ import {
     acquireProjectionNode,
     animateLayout,
     buildHTMLStyles,
+    buildSVGAttrs,
     flushLayoutSnapshots,
     HTMLVisualElement,
     isControllingVariants,
     isForcedMotionValue,
     isMotionValue,
+    isSVGTag,
     isVariantNode,
     resolveMotionValue,
     resolveVariantFromProps,
     scopeMotion as createScope,
     scrapeHTMLMotionValuesFromProps,
+    scrapeSVGMotionValuesFromProps,
+    SVGVisualElement,
     visualElementStore,
     type LayoutAnimationBuilder,
     type MotionNodeOptions,
@@ -33,6 +37,7 @@ import { animations } from "./motion/features/animations"
 import { gestureAnimations } from "./motion/features/gestures"
 import { loadFeatures } from "./motion/features/load-features"
 import { isValidMotionProp } from "./motion/utils/valid-prop"
+import { lowercaseSVGElements } from "./render/svg/lowercase-elements"
 
 type Values = Record<string, any>
 
@@ -54,9 +59,53 @@ export interface MotionConfigProps {
     children?: RemixNode
 }
 
+export interface AnimatePresenceProps {
+    /**
+     * Set to `false` to skip the `initial` animation of the motion elements
+     * rendered with `AnimatePresence`'s first render.
+     */
+    initial?: boolean
+
+    /**
+     * - `"sync"`: Elements enter and exit at the same time.
+     * - `"wait"`: New elements render after the exiting elements are removed.
+     * - `"popLayout"`: Exiting elements are taken out of the layout with
+     *   `position: absolute`, so the elements around them can move at once.
+     */
+    mode?: "sync" | "wait" | "popLayout"
+
+    /**
+     * A value that replaces `custom` on exiting elements, to resolve
+     * dynamic `exit` variants with the latest data.
+     */
+    custom?: any
+
+    /**
+     * Called when every exiting element is removed.
+     */
+    onExitComplete?: VoidFunction
+
+    children?: RemixNode
+}
+
+export interface LayoutGroupProps {
+    /**
+     * Prefixes every `layoutId` inside, so separate groups can use the
+     * same `layoutId`s without animating between each other.
+     */
+    id?: string
+    children?: RemixNode
+}
+
 interface VariantContext {
     initial?: false | VariantLabels
     animate?: VariantLabels
+}
+
+interface PresenceGroup {
+    props: AnimatePresenceProps
+    isFirstRender: boolean
+    exit(done: Promise<void>): void
 }
 
 let featuresLoaded = false
@@ -83,6 +132,101 @@ export function MotionConfig(
 ) {
     return () => {
         handle.context.set(handle.props)
+        return handle.props.children
+    }
+}
+
+const flatten = (node: RemixNode): any[] =>
+    Array.isArray(node) ? (node as any[]).flat(Infinity) : [node]
+
+const getKeys = (node: RemixNode) =>
+    flatten(node)
+        .map((child) => child?.key)
+        .join()
+
+/**
+ * A motion component is a component, so Remix can't see the key of the
+ * element it renders, and can't reuse that element when it comes back
+ * during its exit. Pass each child's key to the element.
+ */
+const withPresenceKeys = (node: RemixNode) =>
+    flatten(node).map((child) =>
+        child?.key != null && motionComponents.has(child.type)
+            ? { ...child, props: { ...child.props, presenceKey: child.key } }
+            : child
+    )
+
+/**
+ * Motion elements animate `exit` when they're removed anywhere in the
+ * tree. Wrap them in `AnimatePresence` to choose how entering and exiting
+ * elements share the screen, skip their first `initial` animation, or
+ * know when exits finish.
+ *
+ * @public
+ */
+export function AnimatePresence(
+    handle: Handle<AnimatePresenceProps, PresenceGroup>
+) {
+    let exiting = 0
+    let shown: RemixNode
+    let hasShown = false
+    let isSwapping = false
+
+    const group: PresenceGroup = {
+        props: handle.props,
+        isFirstRender: true,
+        exit: (done) => {
+            exiting++
+            done.then(() => {
+                if (--exiting) return
+                handle.props.onExitComplete?.()
+                if (isSwapping) handle.update()
+            })
+        },
+    }
+
+    return () => {
+        handle.context.set(group)
+        if (group.isFirstRender) {
+            handle.queueTask(() => (group.isFirstRender = false))
+        }
+
+        const children = withPresenceKeys(handle.props.children)
+        if (handle.props.mode !== "wait") return children
+
+        /**
+         * When the children change, remove the old ones first, and render
+         * the new ones once their exits finish.
+         */
+        if (exiting) return null
+        if (hasShown && !isSwapping && getKeys(shown) !== getKeys(children)) {
+            isSwapping = true
+            handle.queueTask(() => {
+                if (!exiting) handle.update()
+            })
+            return null
+        }
+        isSwapping = false
+        hasShown = true
+        return (shown = children)
+    }
+}
+
+/**
+ * Give the `layoutId`s inside an `id`, so separate groups don't animate
+ * between each other.
+ *
+ * @public
+ */
+export function LayoutGroup(
+    handle: Handle<LayoutGroupProps, LayoutGroupProps>
+) {
+    return () => {
+        const parent = (handle.context.get(LayoutGroup) as LayoutGroupProps)?.id
+        const { id } = handle.props
+        handle.context.set({
+            id: parent && id ? parent + "-" + id : id || parent,
+        })
         return handle.props.children
     }
 }
@@ -122,14 +266,25 @@ function getVariantContext(
     }
 }
 
+const isSVGElement = (tag: string) =>
+    !tag.includes("-") &&
+    (lowercaseSVGElements.includes(tag) || /[A-Z]/u.test(tag))
+
 /**
  * The values a motion element renders before it animates, as React's
  * `makeLatestValues`.
  */
-function makeLatestValues(props: MotionProps, context?: VariantContext) {
+function makeLatestValues(
+    props: MotionProps,
+    context: VariantContext | undefined,
+    isSVG: boolean,
+    isInitialBlocked?: boolean
+) {
     const values: ResolvedValues = {}
 
-    const motionValues = scrapeHTMLMotionValuesFromProps(props as any, {})
+    const motionValues = (
+        isSVG ? scrapeSVGMotionValuesFromProps : scrapeHTMLMotionValuesFromProps
+    )(props as any, {}, undefined as any)
     for (const key in motionValues) {
         values[key] = resolveMotionValue(motionValues[key])
     }
@@ -145,7 +300,7 @@ function makeLatestValues(props: MotionProps, context?: VariantContext) {
         if (animate === undefined) animate = context.animate
     }
 
-    const isBlocked = initial === false
+    const isBlocked = isInitialBlocked || initial === false
     const toSet = isBlocked ? animate : initial
     if (!toSet || typeof toSet === "boolean") return values
 
@@ -182,10 +337,49 @@ function splitStyle(style: MotionStyle | undefined, props: MotionProps) {
     return css
 }
 
-function renderStyle(latestValues: ResolvedValues) {
-    const state = { style: {}, vars: {}, transform: {}, transformOrigin: {} }
-    buildHTMLStyles(state, latestValues)
-    return { ...state.vars, ...state.style } as Values
+const createRenderState = () => ({
+    style: {},
+    vars: {},
+    transform: {},
+    transformOrigin: {},
+    attrs: {},
+})
+
+/**
+ * The style, and attributes for SVG, that render `latestValues`.
+ */
+function renderValues(
+    latestValues: ResolvedValues,
+    props: MotionProps,
+    tag: string,
+    isSVG: boolean
+): Values {
+    const state = createRenderState()
+    if (isSVG) {
+        buildSVGAttrs(
+            state,
+            latestValues,
+            isSVGTag(tag),
+            props.transformTemplate,
+            props.style
+        )
+    } else {
+        buildHTMLStyles(state, latestValues, props.transformTemplate)
+    }
+    return { ...state.attrs, style: { ...state.vars, ...state.style } }
+}
+
+/**
+ * Run each callback even if an earlier one throws, and report the error.
+ */
+const run = (callback: VoidFunction) => {
+    try {
+        callback()
+    } catch (error) {
+        queueMicrotask(() => {
+            throw error
+        })
+    }
 }
 
 /**
@@ -209,25 +403,27 @@ function queueInsert(
             insertQueue = undefined
 
             // Parents first, so children join their variant tree...
-            for (let i = queue.length - 1; i >= 0; i--) queue[i][0]()
-            for (let i = queue.length - 1; i >= 0; i--) queue[i][1]()
+            for (let i = queue.length - 1; i >= 0; i--) run(queue[i][0])
+            for (let i = queue.length - 1; i >= 0; i--) run(queue[i][1])
             // ...and children animate first, as with React's effects.
-            for (const [, , animate] of queue) animate()
+            for (const [, , animate] of queue) run(animate)
         })
     }
     insertQueue.push([create, mount, animate])
 }
 
+type AnyVisualElement = HTMLVisualElement | SVGVisualElement
+
 /**
  * Elements created and not yet mounted, so children inserted in the same
  * commit can find their parent.
  */
-const pendingElements = new WeakMap<Element, HTMLVisualElement>()
+const pendingElements = new WeakMap<Element, AnyVisualElement>()
 
 function findParent(element: Element) {
     for (let node = element.parentElement; node; node = node.parentElement) {
         const parent = pendingElements.get(node) || visualElementStore.get(node)
-        if (parent) return parent as HTMLVisualElement
+        if (parent) return parent as AnyVisualElement
     }
     return undefined
 }
@@ -250,6 +446,26 @@ interface Presence {
  * AnimatePresence does in React, and waits for all of them.
  */
 const presences = new WeakMap<Element, Presence>()
+
+/**
+ * Take an exiting element out of the layout, where it is now, so the
+ * elements around it move at once. Returns a function that puts it back.
+ */
+function popLayout(node: Element) {
+    if (!(node instanceof HTMLElement)) return
+    const { style } = node
+    const popped: Values = {
+        position: "absolute",
+        top: node.offsetTop + "px",
+        left: node.offsetLeft + "px",
+        width: node.offsetWidth + "px",
+        height: node.offsetHeight + "px",
+    }
+    const previous: Values = {}
+    for (const key in popped) previous[key] = style[key as any]
+    Object.assign(style, popped)
+    return () => Object.assign(style, previous)
+}
 
 /**
  * Layout animations: every host with `layout` or `layoutId` that is about
@@ -286,194 +502,249 @@ function snapshotLayout() {
 
 let presenceId = 0
 
-const motionMixin = createMixin<HTMLElement, [props: MotionProps]>((handle) => {
-    let props: MotionProps = {}
-    let element: HTMLElement | undefined
-    let visualElement: HTMLVisualElement | undefined
-    let releaseProjection: VoidFunction | undefined
-    let initialStyle: Values | undefined
-    let presence: PresenceContextProps | null = null
-    const id = String(presenceId++)
+const motionMixin = createMixin<Element, [props: MotionProps]>(
+    (handle, tag) => {
+        const isSVG = isSVGElement(tag)
+        let props: MotionProps = {}
+        let element: Element | undefined
+        let visualElement: AnyVisualElement | undefined
+        let releaseProjection: VoidFunction | undefined
+        let initialValues: Values | undefined
+        let presence: PresenceContextProps | null = null
+        let isExiting = false
+        let isInitialBlocked: boolean | undefined
+        const id = String(presenceId++)
 
-    const getConfig = () =>
-        handle.context.get(MotionConfig) as MotionConfigProps | undefined
-    const getVariantParent = () =>
-        handle.context.get(VariantProvider) as VariantContext | undefined
+        const getConfig = () =>
+            handle.context.get(MotionConfig) as MotionConfigProps | undefined
+        const getVariantParent = () =>
+            handle.context.get(VariantProvider) as VariantContext | undefined
+        const getGroup = () =>
+            handle.context.get(AnimatePresence) as PresenceGroup | undefined
 
-    const getProps = (): MotionProps => {
-        const transition = props.transition ?? getConfig()?.transition
-        return transition ? { ...props, transition } : props
-    }
-
-    const setPresence = (isPresent: boolean, onExitComplete?: VoidFunction) => {
-        presence = {
-            id,
-            isPresent,
-            register: () => () => {},
-            onExitComplete,
-            custom: props.custom,
-        }
-        visualElement!.update(getProps() as any, presence)
-        visualElement!.updateFeatures()
-    }
-
-    handle.addEventListener("insert", ({ node }) => {
-        element = node
-        loadRemixFeatures()
-
-        presences.set(node, {
-            exit: () => {
-                if (!props.exit || !visualElement || isExiting) return
-                isExiting = true
-                return new Promise<void>((resolve) =>
-                    setPresence(false, resolve)
-                )
-            },
-            enter: () => {
-                if (!isExiting || !visualElement) return
-                isExiting = false
-                setPresence(true)
-            },
-        })
-
-        queueInsert(
-            () => {
-                const nodeProps = getProps()
-                visualElement = new HTMLVisualElement({
-                    parent: findParent(node),
-                    props: nodeProps as any,
-                    presenceContext: presence,
-                    reducedMotionConfig: getConfig()?.reducedMotion,
-                    visualState: {
-                        latestValues: makeLatestValues(
-                            nodeProps,
-                            getVariantParent()
-                        ),
-                        renderState: {
-                            transform: {},
-                            transformOrigin: {},
-                            style: {},
-                            vars: {},
-                        },
-                    },
-                })
-                pendingElements.set(node, visualElement)
-            },
-            () => {
-                pendingElements.delete(node)
-                if (element !== node || !visualElement) return
-
-                visualElement.mount(node)
-
-                /**
-                 * Drag measures layout, so it needs a projection node
-                 * before its feature mounts.
-                 */
-                if (props.drag) {
-                    const [projection, release] = acquireProjectionNode(node)
-                    projection.setOptions({ alwaysMeasureLayout: true })
-                    releaseProjection = release
-                }
-
-                visualElement.updateFeatures()
-            },
-            () => visualElement?.animationState?.animateChanges()
-        )
-    })
-
-    let isExiting = false
-
-    handle.addEventListener("beforeRemove", (event) => {
-        const node = element
-        if (!node || isExiting) return
-
-        const leaving = [node, ...node.querySelectorAll("*")]
-            .map((el) => presences.get(el))
-            .filter(Boolean) as Presence[]
-        const exited = leaving
-            .map((presence) => presence.exit())
-            .filter(Boolean)
-
-        if (!exited.length) return
-
-        event.persistNode(
-            (signal) =>
-                new Promise<void>((resolve) => {
-                    Promise.all(exited).then(() => resolve())
-                    signal.addEventListener("abort", () => {
-                        leaving.forEach((presence) => presence.enter())
-                        resolve()
-                    })
-                })
-        )
-    })
-
-    handle.addEventListener("remove", () => {
-        if (element) presences.delete(element)
-        releaseProjection?.()
-        visualElement?.unmount()
-        releaseProjection = visualElement = element = undefined
-        presence = null
-    })
-
-    handle.addEventListener("beforeUpdate", ({ node }) => {
-        if (!props.layout && !props.layoutId) return
-        snapshotLayout()
-
-        const projection = visualElementStore.get(node)?.projection
-        projection?.setOptions({
-            transition: getProps().transition as any,
-            animationType:
-                typeof props.layout === "string" ? props.layout : "both",
-        })
-    })
-
-    handle.addEventListener("commit", () => layoutPass?.commit())
-
-    return (nextProps, hostProps) => {
-        props = {
-            ...nextProps,
-            style: (hostProps.style as any) ?? nextProps.style,
+        const getProps = (): MotionProps => {
+            const transition = props.transition ?? getConfig()?.transition
+            return transition ? { ...props, transition } : props
         }
 
-        const { layout, layoutId } = props
-
-        /**
-         * A layoutId element inserted during a layout pass animates
-         * from the element it replaces, with its own transition.
-         */
-        if (layoutId && layoutPass && !element) {
-            layoutPass.builder.shared(layoutId, getProps().transition || {})
+        const getLayoutId = () => {
+            const group = (
+                handle.context.get(LayoutGroup) as LayoutGroupProps | undefined
+            )?.id
+            const { layoutId } = props
+            return group && layoutId ? group + "-" + layoutId : layoutId
         }
 
-        if (visualElement) {
-            const current = visualElement
-            handle.queueTask(() => {
-                if (visualElement !== current) return
-                current.update(getProps() as any, presence)
-                current.updateFeatures()
-                current.animationState?.animateChanges()
+        const setPresence = (
+            isPresent: boolean,
+            onExitComplete?: VoidFunction
+        ) => {
+            const custom = getGroup()?.props.custom
+            presence = {
+                id,
+                isPresent,
+                register: () => () => {},
+                onExitComplete,
+                custom: custom === undefined ? props.custom : custom,
+            }
+            visualElement!.update(getProps() as any, presence)
+            visualElement!.updateFeatures()
+        }
+
+        handle.addEventListener("insert", ({ node }) => {
+            element = node
+            loadRemixFeatures()
+
+            presences.set(node, {
+                exit: () => {
+                    if (!props.exit || !visualElement || isExiting) return
+                    isExiting = true
+                    return new Promise<void>((resolve) =>
+                        setPresence(false, resolve)
+                    )
+                },
+                enter: () => {
+                    if (!isExiting || !visualElement) return
+                    isExiting = false
+                    setPresence(true)
+                },
             })
+
+            queueInsert(
+                () => {
+                    /**
+                     * Removed before it mounted.
+                     */
+                    if (element !== node) return
+
+                    const nodeProps = getProps()
+                    const VisualElement = isSVG
+                        ? SVGVisualElement
+                        : HTMLVisualElement
+                    visualElement = new VisualElement({
+                        parent: findParent(node),
+                        props: nodeProps as any,
+                        presenceContext: presence,
+                        blockInitialAnimation: isInitialBlocked,
+                        reducedMotionConfig: getConfig()?.reducedMotion,
+                        visualState: {
+                            latestValues: makeLatestValues(
+                                nodeProps,
+                                getVariantParent(),
+                                isSVG,
+                                isInitialBlocked
+                            ),
+                            renderState: createRenderState(),
+                        },
+                    }) as AnyVisualElement
+                    pendingElements.set(node, visualElement)
+                },
+                () => {
+                    pendingElements.delete(node)
+                    if (element !== node || !visualElement) return
+
+                    visualElement.mount(node as any)
+
+                    /**
+                     * Drag measures layout, so it needs a projection node
+                     * before its feature mounts.
+                     */
+                    if (props.drag) {
+                        const [projection, release] = acquireProjectionNode(
+                            node as HTMLElement
+                        )
+                        projection.setOptions({ alwaysMeasureLayout: true })
+                        releaseProjection = release
+                    }
+
+                    visualElement.updateFeatures()
+                },
+                () => {
+                    if (element === node) {
+                        visualElement?.animationState?.animateChanges()
+                    }
+                }
+            )
+        })
+
+        handle.addEventListener("beforeRemove", (event) => {
+            const node = element
+            if (!node || isExiting) return
+
+            const leaving = [node, ...node.querySelectorAll("*")]
+                .map((el) => presences.get(el))
+                .filter(Boolean) as Presence[]
+            const exited = leaving
+                .map((presence) => presence.exit())
+                .filter(Boolean)
+
+            if (!exited.length) return
+
+            const group = getGroup()
+            const restore =
+                group?.props.mode === "popLayout" ? popLayout(node) : undefined
+
+            let cancel!: VoidFunction
+            const done = new Promise<void>((resolve) => {
+                cancel = resolve
+                Promise.all(exited).then(() => resolve())
+            })
+            group?.exit(done)
+
+            event.persistNode((signal) => {
+                const reclaim = () => {
+                    restore?.()
+                    leaving.forEach((presence) => presence.enter())
+                    cancel()
+                }
+                if (signal.aborted) reclaim()
+                signal.addEventListener("abort", reclaim)
+                return done
+            })
+        })
+
+        handle.addEventListener("remove", () => {
+            if (element) presences.delete(element)
+            releaseProjection?.()
+            visualElement?.unmount()
+            releaseProjection = visualElement = element = undefined
+            presence = null
+        })
+
+        handle.addEventListener("beforeUpdate", ({ node }) => {
+            if (!props.layout && !props.layoutId) return
+            snapshotLayout()
+
+            const projection = visualElementStore.get(node)?.projection
+            projection?.setOptions({
+                transition: getProps().transition as any,
+                animationType:
+                    typeof props.layout === "string" ? props.layout : "both",
+            })
+        })
+
+        handle.addEventListener("commit", () => layoutPass?.commit())
+
+        return (nextProps, hostProps) => {
+            props = {
+                ...nextProps,
+                style: (hostProps.style as any) ?? nextProps.style,
+            }
+
+            const { layout } = props
+            const layoutId = getLayoutId()
+
+            /**
+             * A layoutId element inserted during a layout pass animates
+             * from the element it replaces, with its own transition.
+             */
+            if (layoutId && layoutPass && !element) {
+                layoutPass.builder.shared(layoutId, getProps().transition || {})
+            }
+
+            if (visualElement) {
+                const current = visualElement
+                handle.queueTask(() => {
+                    if (visualElement !== current) return
+                    current.update(getProps() as any, presence)
+                    current.updateFeatures()
+                    current.animationState?.animateChanges()
+                })
+            }
+
+            /**
+             * Render the values Motion starts from, on the server too. Keep
+             * rendering the same values on later renders, so Remix's
+             * per-property diff never overwrites what Motion animated.
+             */
+            if (!initialValues) {
+                const group = getGroup()
+                isInitialBlocked =
+                    group?.isFirstRender && group.props.initial === false
+                initialValues = renderValues(
+                    makeLatestValues(
+                        getProps(),
+                        getVariantParent(),
+                        isSVG,
+                        isInitialBlocked
+                    ),
+                    props,
+                    tag,
+                    isSVG
+                )
+            }
+
+            const { style: initialStyle, ...attrs } = initialValues
+            const patch: Values = attrs
+            const style = { ...splitStyle(props.style, props), ...initialStyle }
+            if (Object.keys(style).length) patch.style = style
+            if (layout) patch["data-layout"] = layout === true ? "" : layout
+            if (layoutId) patch["data-layout-id"] = layoutId
+
+            return createElement(handle.element, { ...hostProps, ...patch })
         }
-
-        /**
-         * Render the values Motion starts from, on the server too. Keep
-         * rendering the same values on later renders, so Remix's
-         * per-property style diff never overwrites what Motion animated.
-         */
-        initialStyle ||= renderStyle(
-            makeLatestValues(getProps(), getVariantParent())
-        )
-
-        const patch: Values = {}
-        const style = { ...initialStyle, ...splitStyle(props.style, props) }
-        if (Object.keys(style).length) patch.style = style
-        if (layout) patch["data-layout"] = layout === true ? "" : layout
-        if (layoutId) patch["data-layout-id"] = layoutId
-
-        return createElement(handle.element, { ...hostProps, ...patch })
     }
-})
+)
 
 export type MotionComponentProps = MotionProps & {
     children?: RemixNode
@@ -484,9 +755,11 @@ export type MotionComponent = (
     handle: Handle<MotionComponentProps>
 ) => () => RemixNode
 
+const motionComponents = new WeakSet<MotionComponent>()
+
 function createMotionComponent(tag: string): MotionComponent {
-    return (handle) => () => {
-        const { children, mix, ...rest } = handle.props
+    const component: MotionComponent = (handle) => () => {
+        const { children, mix, presenceKey, ...rest } = handle.props
         const motionProps: Values = {}
         const hostProps: Values = {}
 
@@ -503,7 +776,11 @@ function createMotionComponent(tag: string): MotionComponent {
 
         return createElement(
             tag,
-            { ...hostProps, mix: [motionMixin(motionProps), mix] },
+            {
+                ...hostProps,
+                ...(presenceKey != null && { key: presenceKey }),
+                mix: [motionMixin(motionProps), mix],
+            },
             createElement(
                 VariantProvider,
                 { value: getVariantContext(motionProps, parent) },
@@ -511,17 +788,21 @@ function createMotionComponent(tag: string): MotionComponent {
             )
         )
     }
+    motionComponents.add(component)
+    return component
 }
 
 const components = new Map<string, MotionComponent>()
 
 type Motion = typeof motionMixin & {
-    [Tag in keyof HTMLElementTagNameMap]: MotionComponent
+    [Tag in
+        | keyof HTMLElementTagNameMap
+        | keyof SVGElementTagNameMap]: MotionComponent
 }
 
 /**
- * Animate elements with Motion in Remix 3, either as components with the
- * same props as React's `<motion.div>`:
+ * Animate elements with Motion in Remix 3, with the same props as React's
+ * `<motion.div>`:
  *
  * ```tsx
  * <motion.ul initial="hidden" animate="visible" variants={list}>
@@ -531,14 +812,14 @@ type Motion = typeof motionMixin & {
  * </motion.ul>
  * ```
  *
- * Or as a mixin on any element:
- *
- * ```tsx
- * <li mix={motion({ animate: { opacity: 1 }, whileHover: { scale: 1.1 } })} />
- * ```
- *
  * `initial` is rendered on the server. `exit` keeps an element, and
  * everything inside it, in the DOM until its exit animation finishes.
+ *
+ * `motion(props)` is the same as a mixin for any element, as used by the
+ * components.
+ *
+ * Experimental: Remix 3's component API is new, so this API can change
+ * in a minor release.
  *
  * @public
  */

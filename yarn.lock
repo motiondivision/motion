@@ -11833,6 +11833,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"remix-env@workspace:dev/remix":
+  version: 0.0.0-use.local
+  resolution: "remix-env@workspace:dev/remix"
+  dependencies:
+    "@remix-run/component": 1.1.0
+    motion: 14.7.1
+    vite: ^6.4.2
+  languageName: unknown
+  linkType: soft
+
 "request-progress@npm:^3.0.0":
   version: 3.0.0
   resolution: "request-progress@npm:3.0.0"
