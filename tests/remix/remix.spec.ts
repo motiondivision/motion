@@ -493,3 +493,232 @@ test("drag turned on after mount", async ({ page }) => {
     expect((await matrix(page, "#drag-later")).x).toBeGreaterThan(30)
     expect(errors).toEqual([])
 })
+
+test.describe("Reorder", () => {
+    const order = (page: Page, list: string) =>
+        page.$$eval(`#${list} > li`, (items) =>
+            items.map((item) => item.textContent).join("")
+        )
+
+    const reorders = (page: Page) =>
+        page.evaluate(() => (window as any).reorders)
+
+    async function drag(page: Page, selector: string, dx: number, dy: number) {
+        const box = (await page.locator(selector).boundingBox())!
+        const x = box.x + box.width / 2
+        const y = box.y + box.height / 2
+        await page.mouse.move(x, y)
+        await page.mouse.down()
+        for (let i = 1; i <= 20; i++) {
+            await page.mouse.move(x + (dx * i) / 20, y + (dy * i) / 20)
+            await page.waitForTimeout(16)
+        }
+        await page.waitForTimeout(100)
+        await page.mouse.up()
+        await page.waitForTimeout(100)
+    }
+
+    test("drags to reorder on y, detected from the layout", async ({
+        page,
+    }) => {
+        const errors = await open(page, "reorder")
+        await drag(page, "#y-a", 0, 120)
+        expect(await order(page, "y")).toBe("bcad")
+        expect(await reorders(page)).toEqual([
+            ["y", "bacd", "a"],
+            ["y", "bcad", "a"],
+        ])
+        // The release that ended a reordering drag isn't a click.
+        expect(await page.evaluate(() => (window as any).clicks)).toBe(0)
+        // The item snaps back to its new slot.
+        await page.waitForTimeout(500)
+        expect((await matrix(page, "#y-a")).y).toBe(0)
+        expect(errors).toEqual([])
+    })
+
+    test("drags to reorder on x, detected from the layout", async ({
+        page,
+    }) => {
+        const errors = await open(page, "reorder")
+        await drag(page, "#x-a", 180, 0)
+        expect(await order(page, "x")).toBe("bcad")
+        await drag(page, "#x-d", -300, 0)
+        expect(await order(page, "x")).toBe("dbca")
+        expect(errors).toEqual([])
+    })
+
+    test("drags to reorder a grid", async ({ page }) => {
+        const errors = await open(page, "reorder")
+        await drag(page, "#grid-a", 110, 60)
+        expect(await order(page, "grid")).toBe("bcda")
+        expect(errors).toEqual([])
+    })
+
+    test("a click without a drag still clicks", async ({ page }) => {
+        await open(page, "reorder")
+        await page.click("#y-b")
+        expect(await page.evaluate(() => (window as any).clicks)).toBe(1)
+    })
+
+    test("reorders with the keyboard", async ({ page }) => {
+        const errors = await open(page, "reorder")
+        expect(await page.$eval("#y-a", (el: HTMLElement) => el.tabIndex)).toBe(0)
+        await page.focus("#y-a")
+        // Arrows do nothing until the item is grabbed.
+        await page.keyboard.press("ArrowDown")
+        expect(await order(page, "y")).toBe("abcd")
+
+        await page.keyboard.press(" ")
+        expect(await opacity(page, "#y-a")).toBe(0.5)
+        await page.keyboard.press("ArrowDown")
+        await page.keyboard.press("ArrowDown")
+        expect(await order(page, "y")).toBe("bcad")
+        expect(await page.evaluate(() => document.activeElement?.id)).toBe(
+            "y-a"
+        )
+        // Arrows on the other axis are left alone.
+        await page.keyboard.press("ArrowRight")
+        expect(await order(page, "y")).toBe("bcad")
+
+        // Escape restores the order from the grab, and drops the item.
+        await page.keyboard.press("Escape")
+        expect(await order(page, "y")).toBe("abcd")
+        expect(await opacity(page, "#y-a")).toBe(1)
+
+        await page.keyboard.press(" ")
+        await page.keyboard.press("ArrowDown")
+        await page.keyboard.press(" ")
+        expect(await order(page, "y")).toBe("bacd")
+        await page.keyboard.press("ArrowDown")
+        expect(await order(page, "y")).toBe("bacd")
+        expect(await reorders(page)).toEqual([
+            ["y", "bacd", "a"],
+            ["y", "bcad", "a"],
+            ["y", "abcd", "a"],
+            ["y", "bacd", "a"],
+        ])
+        expect(errors).toEqual([])
+    })
+
+    test("blur drops a grabbed item", async ({ page }) => {
+        await open(page, "reorder")
+        await page.focus("#y-a")
+        await page.keyboard.press(" ")
+        await page.keyboard.press("ArrowDown")
+        expect(await opacity(page, "#y-a")).toBe(0.5)
+        await page.keyboard.press("Tab")
+        expect(await opacity(page, "#y-a")).toBe(1)
+        expect(await order(page, "y")).toBe("bacd")
+    })
+
+    test("Left and Right swap in RTL", async ({ page }) => {
+        await open(page, "reorder")
+        await page.focus("#rtl-a")
+        await page.keyboard.press(" ")
+        await page.keyboard.press("ArrowLeft")
+        expect(await order(page, "rtl")).toBe("bac")
+        await page.keyboard.press("ArrowRight")
+        expect(await order(page, "rtl")).toBe("abc")
+    })
+})
+
+test("a static style value that changes before mount renders the latest value", async ({
+    page,
+}) => {
+    await open(page, "regressions")
+    await page.waitForTimeout(100)
+    expect((await matrix(page, "#static-before-mount")).x).toBe(27)
+})
+
+test("popLayout with anchorX='right' pins the exiting element to the right", async ({
+    page,
+}) => {
+    await open(page, "regressions")
+    const parent = await page.$eval("#anchor-parent", (e) =>
+        e.getBoundingClientRect()
+    )
+    await call(page, "hideAnchor")
+    await page.waitForTimeout(200)
+    const box = await page.$eval("#anchor-right", (e) => {
+        const { right } = e.getBoundingClientRect()
+        return { right, css: (e as HTMLElement).style.right }
+    })
+    expect(box.css).toBe("0px")
+    expect(Math.round(box.right)).toBe(Math.round(parent.right))
+})
+
+test("a nested MotionConfig keeps the outer reducedMotion", async ({
+    page,
+}) => {
+    await open(page, "regressions")
+    await page.waitForTimeout(100)
+    // reducedMotion="always" makes the transform animation instant.
+    expect((await matrix(page, "#nested-config")).x).toBe(100)
+})
+
+test.describe("shared layout in AnimatePresence", () => {
+    test("present children read AnimatePresence's custom", async ({ page }) => {
+        await open(page, "shared-presence")
+        expect(await page.textContent("#presence-data")).toBe("7")
+    })
+
+    test("a replaced layoutId child with no exit crossfades out", async ({
+        page,
+    }) => {
+        const errors = await open(page, "shared-presence")
+        await call(page, "openSwap")
+        await page.waitForTimeout(500)
+        // The old element stays during the crossfade, as in React.
+        expect(await page.$("#swap-small")).not.toBeNull()
+        const width = await page.$eval(
+            "#swap-big",
+            (element) => element.getBoundingClientRect().width
+        )
+        expect(width).toBeGreaterThan(90)
+        expect(width).toBeLessThan(160)
+        await page.waitForTimeout(900)
+        expect(await page.$("#swap-small")).toBeNull()
+        expect(await opacity(page, "#swap-big")).toBe(1)
+        expect(errors).toEqual([])
+    })
+
+    test("a layoutId child with no exit is removed next to an exiting sibling", async ({
+        page,
+    }) => {
+        const errors = await open(page, "shared-presence")
+        await call(page, "closeOverlay")
+        await page.waitForTimeout(30)
+        // The thumbnail grows from the closing element, as in React.
+        expect((await matrix(page, "#overlay-thumb")).scale).toBeGreaterThan(1.2)
+        await page.waitForTimeout(1000)
+        expect(await page.$("#overlay-big")).toBeNull()
+        expect(await page.$("#overlay-backdrop")).toBeNull()
+        expect(await opacity(page, "#overlay-thumb")).toBe(1)
+        expect(errors).toEqual([])
+    })
+
+    test("layoutId elements keep their values after a second render", async ({
+        page,
+    }) => {
+        await open(page, "shared-presence")
+        await call(page, "addDots")
+        await page.waitForTimeout(300)
+        expect(await opacity(page, "#dot-1")).toBe(0.5)
+        expect((await matrix(page, "#dot-1")).scale).toBe(0.5)
+        expect(await opacity(page, "#dot-0")).toBe(1)
+    })
+
+    test("holdPresence keeps an exiting child until its exit finishes", async ({
+        page,
+    }) => {
+        const errors = await open(page, "shared-presence")
+        await call(page, "hideHeld")
+        await page.waitForTimeout(100)
+        expect(await page.$("#held")).not.toBeNull()
+        expect(await page.evaluate(() => (window as any).heldExited)).toBeFalsy()
+        await page.waitForTimeout(500)
+        expect(await page.$("#held")).toBeNull()
+        expect(await page.evaluate(() => (window as any).heldExited)).toBe(true)
+        expect(errors).toEqual([])
+    })
+})

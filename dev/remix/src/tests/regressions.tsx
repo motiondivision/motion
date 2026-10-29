@@ -1,6 +1,6 @@
-import { on, type Handle } from "remix/component"
+import { on, ref, type Handle } from "remix/component"
 import { stagger } from "motion"
-import { AnimatePresence, motion } from "motion/remix"
+import { AnimatePresence, MotionConfig, motion } from "motion/remix"
 
 const linear = { duration: 1, ease: "linear" } as const
 const w = window as any
@@ -180,6 +180,76 @@ function Inherited(handle: Handle) {
     )
 }
 
+/**
+ * A static style value that changes before the element mounts renders
+ * the latest value.
+ */
+function StaticBeforeMount(handle: Handle) {
+    let x = 160
+    return () => (
+        <div
+            mix={ref(() => {
+                x = 27
+                handle.update()
+            })}
+        >
+            <motion.div id="static-before-mount" class="box" style={{ x }} />
+        </div>
+    )
+}
+
+/**
+ * anchorX="right" keeps a popped exiting element pinned to the right.
+ */
+function AnchorRight(handle: Handle) {
+    let visible = true
+    w.hideAnchor = () => {
+        visible = false
+        handle.update()
+    }
+    return () => (
+        <div
+            id="anchor-parent"
+            style={{
+                position: "relative",
+                display: "flex",
+                justifyContent: "flex-end",
+                width: "300px",
+            }}
+        >
+            <AnimatePresence mode="popLayout" anchorX="right">
+                {visible && (
+                    <motion.span
+                        key="anchor"
+                        id="anchor-right"
+                        exit={{ opacity: 0 }}
+                        transition={linear}
+                        style={{ width: "50px", height: "20px" }}
+                    />
+                )}
+            </AnimatePresence>
+        </div>
+    )
+}
+
+/**
+ * A nested MotionConfig keeps the outer reducedMotion.
+ */
+function NestedConfig() {
+    return () => (
+        <MotionConfig reducedMotion="always">
+            <MotionConfig transition={{ duration: 1 }}>
+                <motion.div
+                    id="nested-config"
+                    class="box"
+                    initial={{ x: 0 }}
+                    animate={{ x: 100 }}
+                />
+            </MotionConfig>
+        </MotionConfig>
+    )
+}
+
 function Drag(handle: Handle) {
     let enabled = false
     w.enableDrag = () => {
@@ -212,6 +282,9 @@ export function App() {
             <LayoutTransition />
             <SharedExit />
             <Inherited />
+            <StaticBeforeMount />
+            <AnchorRight />
+            <NestedConfig />
             <Drag />
             <button mix={on("click", () => {})}>noop</button>
         </main>

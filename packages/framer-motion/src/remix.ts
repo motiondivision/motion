@@ -4,6 +4,7 @@ import {
     buildHTMLStyles,
     buildSVGAttrs,
     flushLayoutSnapshots,
+    frame,
     HTMLVisualElement,
     isControllingVariants,
     isForcedMotionValue,
@@ -38,6 +39,7 @@ import { gestureAnimations } from "./motion/features/gestures"
 import { loadFeatures } from "./motion/features/load-features"
 import { isValidMotionProp } from "./motion/utils/valid-prop"
 import { lowercaseSVGElements } from "./render/svg/lowercase-elements"
+import { createReorder } from "./remix-reorder"
 
 type Values = Record<string, any>
 
@@ -73,6 +75,20 @@ export interface AnimatePresenceProps {
      *   `position: absolute`, so the elements around them can move at once.
      */
     mode?: "sync" | "wait" | "popLayout"
+
+    /**
+     * In "popLayout" mode, the side exiting elements stay pinned to.
+     *
+     * @default "left"
+     */
+    anchorX?: "left" | "right"
+
+    /**
+     * In "popLayout" mode, the side exiting elements stay pinned to.
+     *
+     * @default "top"
+     */
+    anchorY?: "top" | "bottom"
 
     /**
      * A value that replaces `custom` on exiting elements, to resolve
@@ -130,8 +146,12 @@ export function MotionConfig(
     handle: Handle<MotionConfigProps, MotionConfigProps>
 ) {
     return () => {
-        handle.context.set(handle.props)
-        return handle.props.children
+        const { children, ...config } = handle.props
+        handle.context.set({
+            ...(handle.context.get(MotionConfig) as MotionConfigProps),
+            ...config,
+        })
+        return children
     }
 }
 
@@ -163,12 +183,16 @@ interface PresenceChildContext {
      */
     popLayout?: boolean
     popped?: boolean
+    anchorX?: "left" | "right"
+    anchorY?: "top" | "bottom"
 }
 
 interface PresenceChildProps {
     isPresent: boolean
     custom?: any
     popLayout?: boolean
+    anchorX?: "left" | "right"
+    anchorY?: "top" | "bottom"
     onExitComplete: VoidFunction
     children?: RemixNode
 }
@@ -184,12 +208,10 @@ function PresenceChild(
     let popped = false
 
     return () => {
-        const { isPresent, custom, popLayout, children } = handle.props
+        const { isPresent, children } = handle.props
         const context: PresenceChildContext = {
-            isPresent,
-            custom,
+            ...handle.props,
             exits: [],
-            popLayout,
             popped,
         }
         handle.context.set(context)
@@ -298,14 +320,30 @@ export function AnimatePresence(
                 {
                     key,
                     isPresent,
-                    custom: isPresent ? undefined : custom,
+                    custom,
                     popLayout: mode === "popLayout",
+                    anchorX: handle.props.anchorX,
+                    anchorY: handle.props.anchorY,
                     onExitComplete: () => remove(key),
                 },
                 withPresenceKey(child)
             )
         )
     }
+}
+
+/**
+ * Inside `AnimatePresence`: keep the exiting child until `exit` resolves,
+ * like React's `safeToRemove`. Call it in each render while `isPresent()`
+ * is `false`.
+ *
+ * @public
+ */
+export function holdPresence(handle: Handle<any, any>, exit: Promise<void>) {
+    const context = handle.context.get(PresenceChild) as
+        | PresenceChildContext
+        | undefined
+    context && !context.isPresent && context.exits.push(exit)
 }
 
 /**
@@ -518,18 +556,25 @@ function queueInsert(
 ) {
     if (!insertQueue) {
         insertQueue = []
-        queueMicrotask(() => {
-            const queue = insertQueue!
-            insertQueue = undefined
-
-            // Parents first, so children join their variant tree...
-            for (let i = queue.length - 1; i >= 0; i--) run(queue[i][0])
-            for (let i = queue.length - 1; i >= 0; i--) run(queue[i][1])
-            // ...and children animate first, as with React's effects.
-            for (const [, , animate] of queue) run(animate)
-        })
+        queueMicrotask(flushInserts)
     }
     insertQueue.push([create, mount, animate])
+}
+
+/**
+ * Mount the elements inserted in this commit. Also runs before a layout
+ * snapshot, in case they update again before the microtask.
+ */
+function flushInserts() {
+    const queue = insertQueue
+    if (!queue) return
+    insertQueue = undefined
+
+    // Parents first, so children join their variant tree...
+    for (let i = queue.length - 1; i >= 0; i--) run(queue[i][0])
+    for (let i = queue.length - 1; i >= 0; i--) run(queue[i][1])
+    // ...and children animate first, as with React's effects.
+    for (const [, , animate] of queue) run(animate)
 }
 
 /**
@@ -593,20 +638,66 @@ const presences = new WeakMap<Element, Presence>()
  * Take an exiting element out of the layout, where it is now, so the
  * elements around it move at once. Returns a function that puts it back.
  */
-function popLayout(node: Element) {
+function measurePop(node: Element) {
     if (!(node instanceof HTMLElement)) return
+    const parent = node.offsetParent as HTMLElement | null
+    const { offsetTop: top, offsetLeft: left } = node
+    const { width, height } = getComputedStyle(node)
+    const w = parseFloat(width)
+    const h = parseFloat(height)
+    return {
+        top,
+        left,
+        right: (parent?.offsetWidth || 0) - w - left,
+        bottom: (parent?.offsetHeight || 0) - h - top,
+        width,
+        height,
+    }
+}
+
+type PopBox = NonNullable<ReturnType<typeof measurePop>>
+
+function popLayout(
+    node: Element,
+    box = measurePop(node),
+    anchorX: "left" | "right" = "left",
+    anchorY: "top" | "bottom" = "top"
+) {
+    if (!(node instanceof HTMLElement) || !box) return
     const { style } = node
     const popped: Values = {
         position: "absolute",
-        top: node.offsetTop + "px",
-        left: node.offsetLeft + "px",
-        width: node.offsetWidth + "px",
-        height: node.offsetHeight + "px",
+        width: box.width,
+        height: box.height,
+        [anchorX]: box[anchorX] + "px",
+        [anchorY]: box[anchorY] + "px",
     }
     const previous: Values = {}
     for (const key in popped) previous[key] = style[key as any]
     Object.assign(style, popped)
     return () => Object.assign(style, previous)
+}
+
+const getLayoutNode = (node: Element) =>
+    acquireProjectionNode(node as HTMLElement)[0]
+
+/**
+ * layoutId elements exiting within AnimatePresence, and how to finish
+ * their exit. A layout snapshot resets node options, so they're marked
+ * again after each one.
+ */
+const exitingLayouts = new Map<Element, VoidFunction>()
+
+function markLayoutExit(node: Element) {
+    const projection = getLayoutNode(node)
+    projection.isPresent = false
+    /**
+     * Nodes created in this snapshot promote in document order, so an
+     * exiting node can resume from the one that takes over from it.
+     */
+    projection.resumeFrom = undefined
+    projection.setOptions({ onExitComplete: exitingLayouts.get(node) })
+    return projection
 }
 
 /**
@@ -621,6 +712,7 @@ let layoutPass:
 
 function snapshotLayout() {
     if (layoutPass) return
+    flushInserts()
 
     let commit!: VoidFunction
     const committed = new Promise<void>((resolve) => {
@@ -635,6 +727,7 @@ function snapshotLayout() {
         commit,
     }
     flushLayoutSnapshots()
+    exitingLayouts.forEach((_, node) => markLayoutExit(node))
 
     /**
      * If the update is abandoned, don't block the next one.
@@ -680,12 +773,11 @@ const motionMixin = createMixin<Element, [props: MotionProps]>(
                 | undefined
 
         /**
-         * Inside AnimatePresence: the exit this element started, and
-         * whether its layoutId node must hand over in this commit.
+         * Inside AnimatePresence: the exit this element started.
          */
         let exitDone: Promise<void> | undefined
-        let relegateLayout: VoidFunction | undefined
         let pop: VoidFunction | undefined
+        let popBox: PopBox | undefined
         let restoreLayout: VoidFunction | undefined
 
         const getProps = (): MotionProps => {
@@ -719,15 +811,14 @@ const motionMixin = createMixin<Element, [props: MotionProps]>(
 
         /**
          * Drag measures layout, so it needs a projection node before its
-         * feature mounts, including when drag is turned on later.
+         * feature mounts, including when drag is turned on later. A
+         * layoutId element joins its stack when it mounts, as in React.
          */
-        const acquireDragProjection = (node: Element) => {
-            if (!props.drag || releaseProjection) return
-            const [projection, release] = acquireProjectionNode(
-                node as HTMLElement
-            )
-            projection.setOptions({ alwaysMeasureLayout: true })
-            releaseProjection = release
+        const acquireProjection = (node: Element) => {
+            if (!props.drag && !getLayoutId()) return
+            releaseProjection ||= acquireProjectionNode(node as HTMLElement)[1]
+            props.drag &&
+                getLayoutNode(node).setOptions({ alwaysMeasureLayout: true })
         }
 
         /**
@@ -751,21 +842,38 @@ const motionMixin = createMixin<Element, [props: MotionProps]>(
                 )
             }
 
-            const { projection } = current
-            if (layoutId && projection) {
+            const node = element!
+            if (layoutId) {
                 exits.push(
                     new Promise<void>((resolve) => {
-                        relegateLayout = () => {
-                            projection.isPresent = false
-                            projection.setOptions({ onExitComplete: resolve })
-                            if (!projection.relegate()) resolve()
-                        }
+                        exitingLayouts.set(node, () => {
+                            exitingLayouts.delete(node)
+                            resolve()
+                        })
+                        /**
+                         * Measure the layout now, before the DOM changes,
+                         * and hand over as React does before its commit.
+                         */
+                        snapshotLayout()
+                        const projection = markLayoutExit(node)
+                        /**
+                         * If an element replaces this one, it crossfades
+                         * from it and calls onExitComplete.
+                         */
+                        projection.relegate() ||
+                            frame.postRender(() => {
+                                const stack = projection.getStack()
+                                if (!stack || stack.lead === projection) {
+                                    exitingLayouts.get(node)?.()
+                                }
+                            })
                     })
                 )
             }
 
             // In case this element didn't update in the commit.
             handle.queueTask(beforeLayout)
+            if (layoutId) handle.queueTask(() => layoutPass?.commit())
 
             return Promise.all(exits).then(() => {})
         }
@@ -824,7 +932,13 @@ const motionMixin = createMixin<Element, [props: MotionProps]>(
 
                     visualElement.mount(node as any)
 
-                    acquireDragProjection(node)
+                    /**
+                     * The element rendered its first values. Render the
+                     * latest, in case they changed before it mounted.
+                     */
+                    visualElement.scheduleRenderMicrotask()
+
+                    acquireProjection(node)
                     visualElement.updateFeatures()
                 },
                 () => {
@@ -864,7 +978,10 @@ const motionMixin = createMixin<Element, [props: MotionProps]>(
         })
 
         handle.addEventListener("remove", () => {
-            if (element) presences.delete(element)
+            if (element) {
+                presences.delete(element)
+                exitingLayouts.delete(element)
+            }
             releaseProjection?.()
             visualElement?.unmount()
             releaseProjection = visualElement = element = undefined
@@ -873,17 +990,22 @@ const motionMixin = createMixin<Element, [props: MotionProps]>(
 
         /**
          * After the DOM changes, before the layout animation measures it:
-         * take an exiting element out of the layout, or hand its layoutId
-         * over.
+         * take an exiting element out of the layout.
          */
         const beforeLayout = () => {
             pop?.()
             pop = undefined
-            relegateLayout?.()
-            relegateLayout = undefined
         }
 
         handle.addEventListener("beforeUpdate", ({ node }) => {
+            /**
+             * Where this element is before the DOM changes, in case it
+             * exits in this update and leaves the layout.
+             */
+            if (getPresenceChild()?.popLayout && !exitDone) {
+                popBox = measurePop(node)
+            }
+
             const hasLayout = props.layout || props.layoutId
             if (hasLayout) snapshotLayout()
 
@@ -894,8 +1016,14 @@ const motionMixin = createMixin<Element, [props: MotionProps]>(
              */
             queueMicrotask(() => {
                 beforeLayout()
-                if (!hasLayout) return
-                visualElementStore.get(node)?.projection?.setOptions({
+                // Removed in this update.
+                if (!hasLayout || element !== node) return
+                /**
+                 * The layout animation's node, which isn't always the
+                 * VisualElement's: animateLayout() can adopt the element
+                 * before it mounts.
+                 */
+                getLayoutNode(node).setOptions({
                     transition: getProps().transition as any,
                     animationType:
                         typeof props.layout === "string"
@@ -943,20 +1071,32 @@ const motionMixin = createMixin<Element, [props: MotionProps]>(
                         if (presenceChild.popLayout && !presenceChild.popped) {
                             presenceChild.popped = true
                             const node = element
-                            pop = () => (restoreLayout = popLayout(node))
+                            const { anchorX, anchorY } = presenceChild
+                            const box = popBox
+                            pop = () =>
+                                (restoreLayout = popLayout(
+                                    node,
+                                    box,
+                                    anchorX,
+                                    anchorY
+                                ))
                         }
                     }
                     presenceChild.exits.push(exitDone)
                 } else if (exitDone) {
-                    exitDone = undefined
-                    relegateLayout = pop = undefined
+                    exitDone = pop = undefined
                     restoreLayout?.()
                     restoreLayout = undefined
                     if (isExiting) {
                         isExiting = false
                         setPresence(true)
                     }
-                    if (layoutId) visualElement.projection?.promote()
+                    if (exitingLayouts.delete(element)) {
+                        const projection = getLayoutNode(element)
+                        projection.isPresent = true
+                        projection.setOptions({ onExitComplete: undefined })
+                        projection.promote()
+                    }
                 }
             }
 
@@ -975,7 +1115,7 @@ const motionMixin = createMixin<Element, [props: MotionProps]>(
                         () => {
                             if (visualElement !== current) return
                             current.update(getProps() as any, presence)
-                            acquireDragProjection(element!)
+                            acquireProjection(element!)
                             current.updateFeatures()
                         },
                         () => visualElement === current && animateChanges(current)
@@ -1188,3 +1328,22 @@ const scopeMixin = createMixin<
  * @public
  */
 export const scopeMotion = scopeMixin
+
+/**
+ * Drag, or grab with Space and move with the arrow keys, to reorder a
+ * list, with the same props as React's `Reorder`:
+ *
+ * ```tsx
+ * <Reorder.Group values={items} onReorder={(next) => {
+ *     items = next
+ *     handle.update()
+ * }}>
+ *     {items.map((item) => (
+ *         <Reorder.Item key={item} value={item}>{item}</Reorder.Item>
+ *     ))}
+ * </Reorder.Group>
+ * ```
+ *
+ * @public
+ */
+export const Reorder = /*@__PURE__*/ createReorder(motion)
