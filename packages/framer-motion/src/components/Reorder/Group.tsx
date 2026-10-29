@@ -1,6 +1,6 @@
 "use client"
 
-import { invariant, moveItem } from "motion-utils"
+import { invariant } from "motion-utils"
 import * as React from "react"
 import {
     forwardRef,
@@ -21,7 +21,7 @@ import {
     ReorderContextProps,
     ReorderElementTag,
 } from "./types"
-import { checkReorder } from "./utils/check-reorder"
+import { checkReorder, keyReorder } from "./utils/check-reorder"
 import { detectAxis } from "./utils/detect-axis"
 
 export interface Props<
@@ -156,9 +156,10 @@ export function ReorderGroupComponent<
         hasReordered,
         /**
          * Space grabs and drops the item, arrows along `axis` move
-         * the grabbed item one place (Left and Right swap in RTL) and Escape
-         * restores the order in `from`, the values when it was grabbed. Keys
-         * from children or with modifiers (Alt+Left etc.) are left alone.
+         * the grabbed item one place, or a row in a grid (see keyReorder),
+         * and Escape restores the order in `from`, the values when it was
+         * grabbed. Keys from children or with modifiers (Alt+Left etc.) are
+         * left alone.
          */
         onKeyDown: (event, item, from, grab) => {
             const { key, currentTarget } = event
@@ -204,12 +205,7 @@ export function ReorderGroupComponent<
             ) {
                 return
             } else {
-                const index = order.findIndex(({ value }) => value === item)
-                const target =
-                    index + (keyIndex > 1 !== !!(isX && isRTL()) ? 1 : -1)
-                index > -1 &&
-                    order[target] &&
-                    commit(moveItem(order, index, target), item)
+                commit(keyReorder(order, item, keyIndex, axis, isRTL()), item)
             }
             event.preventDefault()
         },

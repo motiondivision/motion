@@ -5,7 +5,7 @@ import {
     visualElementStore,
     type MotionValue,
 } from "motion-dom"
-import { moveItem, type Box, type Point } from "motion-utils"
+import type { Box, Point } from "motion-utils"
 import { createElement, on, ref } from "remix/component"
 import type { Handle, RemixNode } from "remix/component"
 import type { ItemData, ReorderAxis } from "./components/Reorder/types"
@@ -13,7 +13,10 @@ import {
     autoScrollIfNeeded,
     resetAutoScrollState,
 } from "./components/Reorder/utils/auto-scroll"
-import { checkReorder } from "./components/Reorder/utils/check-reorder"
+import {
+    checkReorder,
+    keyReorder,
+} from "./components/Reorder/utils/check-reorder"
 import { detectAxis } from "./components/Reorder/utils/detect-axis"
 import type { MotionComponentProps } from "./remix"
 
@@ -131,8 +134,9 @@ export function createReorder(motion: any): ReorderComponents {
             getElement: () => element,
             /**
              * Space grabs and drops the item, arrows along `axis` move the
-             * grabbed item one place (Left and Right swap in RTL) and Escape
-             * restores the order in `from`, the values when it was grabbed.
+             * grabbed item one place, or a row in a grid (see keyReorder),
+             * and Escape restores the order in `from`, the values when it was
+             * grabbed.
              */
             onKeyDown: (event, item, from, grab) => {
                 const { key, currentTarget } = event
@@ -175,12 +179,10 @@ export function createReorder(motion: any): ReorderComponents {
                 ) {
                     return
                 } else {
-                    const index = order.findIndex(({ value }) => value === item)
-                    const target =
-                        index + (keyIndex > 1 !== !!(isX && isRTL()) ? 1 : -1)
-                    index > -1 &&
-                        order[target] &&
-                        commit(moveItem(order, index, target), item)
+                    commit(
+                        keyReorder(order, item, keyIndex, axis, isRTL()),
+                        item
+                    )
                 }
                 event.preventDefault()
             },
@@ -394,9 +396,20 @@ export function createReorder(motion: any): ReorderComponents {
                                 grab
                             )
                         ),
-                        on<HTMLElement, "blur">("blur", (event) => {
-                            grabbedFrom && grab(event.currentTarget)
-                        }),
+                        /**
+                         * Remix blurs the item when it moves its node, and
+                         * focuses it again in the same flush. So only drop
+                         * it if focus is elsewhere once that's done.
+                         */
+                        on<HTMLElement, "blur">("blur", ({ currentTarget }) =>
+                            queueMicrotask(
+                                () =>
+                                    grabbedFrom &&
+                                    currentTarget.ownerDocument
+                                        .activeElement !== currentTarget &&
+                                    grab(currentTarget)
+                            )
+                        ),
                     ],
                 },
                 children
