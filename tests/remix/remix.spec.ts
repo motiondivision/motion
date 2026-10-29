@@ -721,4 +721,16 @@ test.describe("shared layout in AnimatePresence", () => {
         expect(await page.evaluate(() => (window as any).heldExited)).toBe(true)
         expect(errors).toEqual([])
     })
+
+    test("a child that comes back mid-exit doesn't complete the exit", async ({
+        page,
+    }) => {
+        await open(page, "shared-presence")
+        await call(page, "hideHeld")
+        await page.waitForTimeout(100)
+        await call(page, "showHeld")
+        await page.waitForTimeout(500)
+        expect(await page.$("#held")).not.toBeNull()
+        expect(await page.evaluate(() => (window as any).heldExited)).toBeFalsy()
+    })
 })

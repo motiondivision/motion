@@ -151,6 +151,10 @@ function Hold(handle: Handle) {
         visible = false
         handle.update()
     }
+    w.showHeld = () => {
+        visible = true
+        handle.update()
+    }
     return () => (
         <AnimatePresence onExitComplete={() => (w.heldExited = true)}>
             {visible && <Held key="held" />}

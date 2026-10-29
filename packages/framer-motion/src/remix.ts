@@ -296,12 +296,15 @@ export function AnimatePresence(
             })
         })
 
-        const hadExits = items.some((item) => !item.isPresent)
+        const hadExited = exited.size > 0
         exited.clear()
         items = next
 
+        /**
+         * Once every exit finishes. Not when an exiting child comes back.
+         */
         const isExiting = next.some((item) => !item.isPresent)
-        if (hadExits && !isExiting) {
+        if (hadExited && !isExiting) {
             handle.queueTask(() => handle.props.onExitComplete?.())
         }
 
