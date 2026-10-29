@@ -903,6 +903,26 @@ describe("independent transform acceleration", () => {
         }
     })
 
+    it("leaves out static transforms at their default when they have units", async () => {
+        const element = document.createElement("div")
+        styleEffect(element, {
+            y: motionValue("0px"),
+            rotate: motionValue("0deg"),
+            scaleY: motionValue("1"),
+            rotateX: motionValue("10deg"),
+        })
+
+        animateElement(element, { x: [0, 100] }, { duration: 1 })
+        await nextFrame()
+
+        const [{ keyframes }] = running(element)
+        for (const transform of keyframes.transform) {
+            expect(transform).toMatch(
+                /^translateX\([\d.]+px\) rotateX\(10deg\) $/
+            )
+        }
+    })
+
     it("returns to the compositor after a scroll-linked animation ends", async () => {
         const element = document.createElement("div")
 
