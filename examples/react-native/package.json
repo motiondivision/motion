@@ -14,7 +14,7 @@
         "@expo/metro-runtime": "~58.0.15",
         "expo": "~58.0.19",
         "react": "19.3.0",
-        "react-dom": "^19.3.0",
+        "react-dom": "19.3.0",
         "react-native": "0.88.0",
         "react-native-reanimated": "4.7.1",
         "react-native-web": "^0.21.4",
