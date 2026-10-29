@@ -57,10 +57,13 @@ test.describe("drag: interop with animate()", () => {
         await page.evaluate(() => {
             ;(window as any).animateBox({ x: 400 }, 4)
         })
-        await page.waitForTimeout(500)
+        // Wait for the animation to get under way. Poll, as frames can be
+        // slow to start under parallel load.
+        await expect
+            .poll(async () => (await rect(page, "#box")).left)
+            .toBeGreaterThan(110)
 
         const box = await rect(page, "#box")
-        expect(box.left).toBeGreaterThan(110)
         expect(box.left).toBeLessThan(500)
 
         // Grab the centre, so the moving box is still under the pointer
