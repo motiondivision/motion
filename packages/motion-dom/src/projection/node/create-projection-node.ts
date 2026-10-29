@@ -4,7 +4,6 @@ import {
     Box,
     clamp,
     Delta,
-    noop,
     Point,
     SubscriptionManager,
 } from "motion-utils"
@@ -53,6 +52,7 @@ import {
     isNear,
 } from "../geometry/delta-calc"
 import { removeBoxTransforms } from "../geometry/delta-remove"
+import { roundBox } from "../geometry/round"
 import { createBox, createDelta } from "../geometry/models"
 import {
     aspectRatio,
@@ -2613,32 +2613,6 @@ function hasOpacityCrossfade(node: IProjectionNode) {
 const defaultLayoutTransition = {
     duration: 0.45,
     ease: [0.4, 0, 0.1, 1],
-}
-
-const userAgentContains = (string: string) =>
-    typeof navigator !== "undefined" &&
-    navigator.userAgent &&
-    navigator.userAgent.toLowerCase().includes(string)
-
-/**
- * Measured bounding boxes must be rounded in Safari and
- * left untouched in Chrome, otherwise non-integer layouts within scaled-up elements
- * can appear to jump.
- */
-const roundPoint =
-    userAgentContains("applewebkit/") && !userAgentContains("chrome/")
-        ? Math.round
-        : noop
-
-function roundAxis(axis: Axis): void {
-    // Round to the nearest .5 pixels to support subpixel layouts
-    axis.min = roundPoint(axis.min)
-    axis.max = roundPoint(axis.max)
-}
-
-function roundBox(box: Box): void {
-    roundAxis(box.x)
-    roundAxis(box.y)
 }
 
 /**
