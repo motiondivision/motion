@@ -127,13 +127,20 @@ export function createNativeMotionComponent<P extends object>(
         const host = useConstant(() =>
             createNativeHost(store, tokens, visualState.latestValues as NativeValues)
         )
+        const updater = () => {
+            "worklet"
+            return buildNativeStyle(store.value)
+        }
         /**
-         * Pass dependencies, so this still works where Reanimated's Babel
-         * plugin hasn't been run on node_modules (Jest).
+         * Where Reanimated's Babel plugin hasn't run on node_modules (Jest),
+         * the updater isn't a worklet and needs dependencies. On a device
+         * they're ignored, and passing them logs a warning.
          */
         const animatedStyle = useAnimatedStyle(
-            () => buildNativeStyle(store.value),
-            [store]
+            updater,
+            (updater as { __workletHash?: number }).__workletHash
+                ? undefined
+                : [store]
         )
 
         const externalRefContainer = useRef(externalRef)
