@@ -111,10 +111,10 @@ export function useVisualElement<
     /**
      * Measure sizes animated to "auto" before React commits this render.
      */
-    const holdAutoSizes = visualElement?.animationState?.measureAutoSizes()
+    const autoSizeCommits = visualElement?.animationState?.measureAutoSizes()
 
     useInsertionEffect(() => {
-        holdAutoSizes?.()
+        autoSizeCommits?.forEach((commit) => commit?.())
 
         /**
          * Skip the update if the visual element was created with these props.

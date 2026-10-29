@@ -31,7 +31,9 @@ function expectSmooth(heights: number[], from: number, to: number) {
     }
     // Passes through the middle
     expect(
-        heights.some((h) => Math.abs(h - (from + to) / 2) < Math.abs(to - from) / 4)
+        heights.some(
+            (h) => Math.abs(h - (from + to) / 2) < Math.abs(to - from) / 4
+        )
     ).toBe(true)
     expect(heights[heights.length - 1]).toBeCloseTo(to, 0)
 }
@@ -73,7 +75,9 @@ test("retargets when content changes mid-animation", async ({ page }) => {
 test("the element below moves with it", async ({ page }) => {
     await load(page)
     const top = () =>
-        page.evaluate(() => document.getElementById("below")!.getBoundingClientRect().top)
+        page.evaluate(
+            () => document.getElementById("below")!.getBoundingClientRect().top
+        )
     const before = await top()
     await page.click("#h300")
     await page.waitForTimeout(500)
@@ -82,7 +86,7 @@ test("the element below moves with it", async ({ page }) => {
     expect(mid).toBeLessThan(150)
 })
 
-test("animates width: \"auto\" too", async ({ page }) => {
+test('animates width: "auto" too', async ({ page }) => {
     await load(page, "&axis=both")
     const start = await page.evaluate(() => window.widths.length)
     await page.click("#h300")
@@ -155,4 +159,56 @@ test("hands over to animate={{ height: 0 }} mid-animation", async ({
     expect(
         await page.evaluate(() => document.getElementById("box")!.style.height)
     ).toBe("0px")
+})
+
+const boxHeight = (page: Page) =>
+    page.evaluate(
+        () => document.getElementById("box")!.getBoundingClientRect().height
+    )
+const boxStyle = (page: Page) =>
+    page.evaluate(() => document.getElementById("box")!.style.height)
+
+test("finishes on time while re-rendering every 50ms", async ({ page }) => {
+    await page.goto("?test=auto-size&spam=true")
+    // Opening from 0 on mount, at most one retarget
+    await page.waitForTimeout(1400)
+    expect(await boxHeight(page)).toBeCloseTo(100, 0)
+    expect(await boxStyle(page)).toBe("auto")
+
+    await page.click("#h300")
+    await page.waitForTimeout(1300)
+    expect(await boxHeight(page)).toBeCloseTo(300, 0)
+    expect(await boxStyle(page)).toBe("auto")
+})
+
+test("a gesture doesn't restart the animation", async ({ page }) => {
+    await load(page)
+    await page.click("#h300")
+    await page.waitForTimeout(500)
+    await page.hover("#box")
+    await page.waitForTimeout(650)
+    expect(await boxHeight(page)).toBeCloseTo(300, 0)
+})
+
+test("a render that doesn't change the size doesn't animate", async ({
+    page,
+}) => {
+    await load(page)
+    const start = await page.evaluate(() => window.heights.length)
+    await page.click("#rerender")
+    await page.waitForTimeout(300)
+    const heights = await page.evaluate((s) => window.heights.slice(s), start)
+    expect(heights.every((h) => Math.abs(h - 100) < 0.5)).toBe(true)
+    expect(await boxStyle(page)).toBe("auto")
+})
+
+test("a render while hidden doesn't animate towards 0", async ({ page }) => {
+    await load(page)
+    await page.click("#hide")
+    await page.click("#h300")
+    await page.waitForTimeout(300)
+    await page.click("#hide")
+    await page.waitForTimeout(50)
+    expect(await boxHeight(page)).toBeCloseTo(300, 0)
+    expect(await boxStyle(page)).toBe("auto")
 })

@@ -7,7 +7,6 @@ import type { AnimationType } from "../types"
 import type { VisualElementAnimationOptions } from "../../animation/interfaces/types"
 import { animateVisualElement } from "../../animation/interfaces/visual-element"
 import { calcChildStagger } from "../../animation/utils/calc-child-stagger"
-import type { MotionValue } from "../../value"
 import { isMotionValue } from "../../value/utils/is-motion-value"
 import { isAnimationControls } from "./is-animation-controls"
 import { isVariantLabel } from "./is-variant-label"
@@ -27,7 +26,7 @@ export interface AnimationState {
     setAnimateFunction: (fn: any) => void
     getState: () => { [key: string]: AnimationTypeState }
     reset: () => void
-    measureAutoSizes: () => () => void
+    measureAutoSizes: () => Array<VoidFunction | undefined> | undefined
 }
 
 interface DefinitionAndOptions {
@@ -73,6 +72,13 @@ export function createAnimationState(visualElement: any): AnimationState {
             )
         )
     let state = createState()
+
+    /**
+     * The auto size of each width/height animated to "auto" when it was
+     * last measured, and the ones whose auto size a render has changed.
+     */
+    let autoChanged: { [key: string]: boolean } = {}
+    const autoSizes: { [key: string]: number } = {}
     let isInitialRender = true
 
     /**
@@ -230,13 +236,13 @@ export function createAnimationState(visualElement: any): AnimationState {
 
                 /**
                  * Keyframes compare by value, but replay whenever the
-                 * variant label changed. "auto" always replays, as the
-                 * size it resolves to can change on any render.
+                 * variant label changed. A width or height animated to
+                 * "auto" replays when a render changed its auto size.
                  */
                 const valueHasChanged =
                     Array.isArray(next) && Array.isArray(prev)
                         ? !shallowCompare(next, prev) || variantDidChange
-                        : next !== prev || next === "auto"
+                        : next !== prev || autoChanged[key]
 
                 let outTransition
 
@@ -377,6 +383,7 @@ export function createAnimationState(visualElement: any): AnimationState {
                 (props.initial === false || props.initial === props.animate))
 
         isInitialRender = wasReset = false
+        autoChanged = {}
 
         return !blockAnimation && animations.length
             ? animate(animations)
@@ -416,30 +423,56 @@ export function createAnimationState(visualElement: any): AnimationState {
         },
         getState: () => state,
         /**
-         * Width and height animated to "auto" replay on every render.
-         * Measure the ones resting at "auto" before React commits a
-         * render's DOM changes, and return a function that holds that
-         * size (until the animation starts) once it has.
+         * Called during render, before React commits the new content, for
+         * width and height animated to "auto". Returns functions to call
+         * once it has, which compare the new auto size with the previous
+         * one and, if it changed, hold the previous size and mark the value
+         * to animate.
          */
         measureAutoSizes: () => {
             const element = visualElement.current as HTMLElement | null
-            const sizes: Array<[MotionValue, "width" | "height", string]> = []
+            if (!element) return
 
-            if (element) {
-                for (const key of ["width", "height"] as const) {
-                    const value = visualElement.getValue(key)
-                    state.animate.prevResolvedValues[key] === "auto" &&
-                        value?.get() === "auto" &&
-                        sizes.push([value, key, getComputedStyle(element)[key]])
-                }
-            }
+            const computed = getComputedStyle(element)
+            const { style } = element
 
-            return () => {
-                for (const [value, key, size] of sizes) {
-                    value.jump(parseFloat(size))
-                    element!.style[key] = size
+            return (["width", "height"] as const).map((key) => {
+                const value = visualElement.getValue(key)
+                if (
+                    state.animate.prevResolvedValues[key] !== "auto" ||
+                    !value
+                ) {
+                    return
                 }
-            }
+
+                /**
+                 * At rest, compare with the size before this render. While
+                 * animating, with the last measured auto size.
+                 */
+                const isResting = value.get() === "auto"
+                const from = isResting
+                    ? parseFloat(computed[key])
+                    : autoSizes[key]
+
+                return () => {
+                    if (isResting !== (value.get() === "auto")) return
+
+                    const current = style[key]
+                    style[key] = "auto"
+                    const to = (autoSizes[key] = parseFloat(computed[key]))
+                    style[key] = current
+
+                    // Skips sizes that can't be measured, like display: none
+                    if (!(to >= 0) || to === from || from !== from) return
+
+                    autoChanged[key] = true
+
+                    if (isResting) {
+                        value.jump(from!)
+                        style[key] = from + "px"
+                    }
+                }
+            })
         },
         reset: () => {
             state = createState()

@@ -12,6 +12,10 @@ import { useEffect, useRef, useState } from "react"
  *
  * ?accordion=true opens and closes the box with
  * animate={{ height: open ? "auto" : 0 }}.
+ *
+ * ?spam=true re-renders every 50ms. #rerender re-renders without
+ * changing the content, #hide hides the parent, and the box has a
+ * whileHover.
  */
 declare global {
     interface Window {
@@ -27,6 +31,9 @@ export const App = () => {
     const [height, setHeight] = useState(100)
     const [more, setMore] = useState(false)
     const [open, setOpen] = useState(false)
+    const [hidden, setHidden] = useState(false)
+    const [, setCount] = useState(0)
+    const spam = Boolean(params.get("spam"))
     const ref = useRef<HTMLDivElement>(null)
     const transition = {
         duration: Number(params.get("duration") ?? 1),
@@ -44,7 +51,13 @@ export const App = () => {
             id = requestAnimationFrame(record)
         }
         id = requestAnimationFrame(record)
-        return () => cancelAnimationFrame(id)
+        const interval = spam
+            ? setInterval(() => setCount((c) => c + 1), 50)
+            : undefined
+        return () => {
+            cancelAnimationFrame(id)
+            clearInterval(interval)
+        }
     }, [])
 
     const animate = accordion
@@ -63,25 +76,34 @@ export const App = () => {
             <button id="more" onClick={() => setMore(true)}>
                 more
             </button>
+            <button id="rerender" onClick={() => setCount((c) => c + 1)}>
+                rerender
+            </button>
+            <button id="hide" onClick={() => setHidden(!hidden)}>
+                hide
+            </button>
             <button id="toggle" onClick={() => setOpen(!open)}>
                 toggle
             </button>
-            <motion.div
-                ref={ref}
-                id="box"
-                initial={accordion ? { height: 0 } : false}
-                animate={animate}
-                transition={transition}
-                style={{
-                    overflow: "hidden",
-                    background: "#09f",
-                    display: both ? "inline-block" : "block",
-                }}
-            >
-                <div style={{ height, width: both ? height : "auto" }} />
-                {more ? <div style={{ height: 200 }} /> : null}
-            </motion.div>
-            <div id="below">Below</div>
+            <div style={{ display: hidden ? "none" : "block" }}>
+                <motion.div
+                    ref={ref}
+                    id="box"
+                    initial={accordion || spam ? { height: 0 } : false}
+                    whileHover={{ scale: 1 }}
+                    animate={animate}
+                    transition={transition}
+                    style={{
+                        overflow: "hidden",
+                        background: "#09f",
+                        display: both ? "inline-block" : "block",
+                    }}
+                >
+                    <div style={{ height, width: both ? height : "auto" }} />
+                    {more ? <div style={{ height: 200 }} /> : null}
+                </motion.div>
+                <div id="below">Below</div>
+            </div>
         </div>
     )
 }

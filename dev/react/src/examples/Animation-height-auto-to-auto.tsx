@@ -6,7 +6,11 @@ import { useState } from "react"
  * render changes the content, the height animates from its previous size.
  */
 
-const transition = { type: "spring", visualDuration: 0.35, bounce: 0.15 } as const
+const transition = {
+    type: "spring",
+    visualDuration: 0.35,
+    bounce: 0.15,
+} as const
 
 const tabs = {
     Short: ["One line of content."],
@@ -133,7 +137,9 @@ function Comparison() {
 }
 
 export const App = () => (
-    <div style={{ maxWidth: 600, margin: "40px auto", fontFamily: "sans-serif" }}>
+    <div
+        style={{ maxWidth: 600, margin: "40px auto", fontFamily: "sans-serif" }}
+    >
         <Tabs />
         <Accordion />
         <Label />
