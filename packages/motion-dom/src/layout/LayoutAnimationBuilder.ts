@@ -1,6 +1,5 @@
 import { activeScope } from "../scope/active"
 import { clamp } from "motion-utils"
-import { handOffElementState } from "../animation/animate/element"
 import { GroupAnimation } from "../animation/GroupAnimation"
 import type { AnimationOptions, Transition } from "../animation/types"
 import { frameData, frameSteps } from "../frameloop"
@@ -8,13 +7,13 @@ import { microtask } from "../frameloop/microtask"
 import { time } from "../frameloop/sync-time"
 import { HTMLProjectionNode } from "../projection/node/HTMLProjectionNode"
 import type { IProjectionNode } from "../projection/node/types"
-import { HTMLVisualElement } from "../render/html/HTMLVisualElement"
 import { visualElementStore } from "../render/store"
-import { hasTransform } from "../projection/utils/has-transform"
+import { resolveVisualElement } from "./visual-element"
 import {
     resolveElements,
     type ElementOrSelector,
 } from "../utils/resolve-elements"
+import { layoutProjection } from "../gestures/drag/projection"
 
 type LayoutAnimationScope = Element | Document
 type LayoutBuilderResolve = (animation: GroupAnimation) => void
@@ -84,25 +83,6 @@ function getProjectionParent(element: Element): IProjectionNode | undefined {
     return undefined
 }
 
-function createVisualElement() {
-    return new HTMLVisualElement(
-        {
-            props: {},
-            presenceContext: null,
-            visualState: {
-                latestValues: {},
-                renderState: {
-                    transform: {},
-                    transformOrigin: {},
-                    style: {},
-                    vars: {},
-                },
-            },
-        },
-        { allowProjection: true }
-    )
-}
-
 function readNodeOptions(element: HTMLElement, transition?: Transition) {
     const layoutAttr = element.getAttribute("data-layout")
     const layoutId = element.getAttribute("data-layout-id") ?? undefined
@@ -124,34 +104,7 @@ function prepareNode(
     let node = layoutNodes.get(element)
 
     if (!node) {
-        let visualElement = visualElementStore.get(element) as
-            | HTMLVisualElement
-            | undefined
-
-        if (!visualElement) {
-            visualElement = createVisualElement()
-
-            /**
-             * Values animate() has been rendering on this element move to
-             * the VisualElement, so the layout animation composes with
-             * them instead of overwriting them.
-             */
-            handOffElementState(element, visualElement)
-        }
-
-        /**
-         * A first-time element may carry a projection transform in its
-         * inline style (e.g. it was cloned from an element mid-animation).
-         * That transform isn't tracked in latestValues so the engine can't
-         * reset it before measuring - clear it now so the first layout
-         * measurement isn't inflated.
-         */
-        if (
-            element.style.transform &&
-            !hasTransform(visualElement.latestValues)
-        ) {
-            element.style.transform = ""
-        }
+        const visualElement = resolveVisualElement(element)
 
         node = new HTMLProjectionNode(
             visualElement.latestValues,
@@ -178,10 +131,29 @@ function prepareNode(
 }
 
 /**
- * Get a projection node for an element, so imperative gestures like
- * drag() can measure its layout. Reuses a node owned by a `motion`
- * component or animateLayout(), otherwise creates one in the shared
- * imperative tree. Returns the node and a function that releases it.
+ * Create a node for an element in the shared imperative tree. Returns the
+ * node and a function that releases it.
+ */
+function createLayoutNode(element: HTMLElement): [IProjectionNode, VoidFunction] {
+    const node = prepareNode(element)
+
+    return [
+        node,
+        () => layoutNodes.get(element) === node && dropNode(element, node),
+    ]
+}
+
+/**
+ * Let drag() create its nodes in the shared imperative tree, so drag
+ * gestures and layout animations work together.
+ */
+layoutProjection.create = createLayoutNode
+
+/**
+ * Get a projection node for an element, so motion/remix can measure and
+ * animate its layout. Reuses a node owned by a `motion` component or
+ * animateLayout(), otherwise creates one in the shared imperative tree.
+ * Returns the node and a function that releases it.
  */
 export function acquireProjectionNode(
     element: HTMLElement
@@ -193,14 +165,7 @@ export function acquireProjectionNode(
      * A VisualElement can outlive a node we released (e.g. a stopped
      * drag()), so only reuse a node that's still mounted.
      */
-    if (owned?.instance) return [owned, () => {}]
-
-    const node = prepareNode(element)
-
-    return [
-        node,
-        () => layoutNodes.get(element) === node && dropNode(element, node),
-    ]
+    return owned?.instance ? [owned, () => {}] : createLayoutNode(element)
 }
 
 function sortDocumentOrder(elements: Iterable<HTMLElement>) {
@@ -225,7 +190,8 @@ function dropNode(element: Element, node: IProjectionNode) {
 }
 
 function flushPendingBuilders() {
-    const builders = pendingBuilders!
+    const builders = pendingBuilders
+    if (!builders) return
     pendingBuilders = undefined
 
     flushPendingFrame()
@@ -299,6 +265,14 @@ function flushPendingBuilders() {
 
     updatePromises.length ? Promise.all(updatePromises).then(commit) : commit()
 }
+
+/**
+ * Snapshot every pending animateLayout() now, rather than on the next
+ * microtask. For renderers that tell us a DOM update is about to happen
+ * and then make it synchronously (e.g. a beforeUpdate/commit pair), with
+ * updateDom returning a promise that resolves on commit.
+ */
+export const flushLayoutSnapshots = flushPendingBuilders
 
 export class LayoutAnimationBuilder {
     private sharedTransitions = new Map<string, AnimationOptions>()

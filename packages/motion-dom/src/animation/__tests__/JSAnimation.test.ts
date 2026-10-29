@@ -1599,4 +1599,18 @@ describe("JSAnimation", () => {
 
         expect(animation.sample(2000).value).toBe(target)
     })
+
+    test("Spring between strings flattened onto a timeline blends the strings", () => {
+        const animation = animateValue({
+            keyframes: ["0px", "100px"],
+            type: "spring",
+            allowFlatten: true,
+            autoplay: false,
+        })
+
+        animation.attachTimeline({ observe: () => noop } as any)
+
+        // Flattened to the default tween, linear
+        expect(animation.sample(150).value).toBe("50px")
+    })
 })

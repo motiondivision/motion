@@ -106,8 +106,7 @@ export function createScopedAnimate(options: ScopedAnimateOptions = {}) {
             | ValueAnimationTransition<string>
             | DynamicAnimationOptions
     ): Timeline {
-        const motionScope = activeScope.current
-        const scopeTransition = motionScope?.transition
+        const scopeTransition = activeScope.current?.transition
 
         const inherited: { reduceMotion?: boolean; skipAnimations?: boolean } =
             {}

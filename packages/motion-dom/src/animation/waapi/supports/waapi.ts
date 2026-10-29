@@ -5,6 +5,7 @@ import {
 } from "../../types"
 import { acceleratedValues } from "../utils/accelerated-values"
 import { hasBrowserOnlyColors } from "../utils/is-browser-color"
+import { needsMixer } from "../utils/needs-mixer"
 
 const colorProperties = new Set([
     "color",
@@ -88,6 +89,7 @@ export function supportsBrowserAnimation<T extends AnyResolvedKeyframe>(
         !repeatDelay &&
         repeatType !== "mirror" &&
         damping !== 0 &&
-        type !== "inertia"
+        type !== "inertia" &&
+        !needsMixer(options)
     )
 }

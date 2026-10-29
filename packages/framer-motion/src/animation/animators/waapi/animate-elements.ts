@@ -43,11 +43,13 @@ export function animateElements(
     >
     const numElements = elements.length
 
-    invariant(
-        Boolean(numElements),
-        "No valid elements provided.",
-        "no-valid-elements"
-    )
+    typeof process !== "undefined" &&
+        process.env.NODE_ENV !== "production" &&
+        invariant(
+            Boolean(numElements),
+            "No valid elements provided.",
+            "no-valid-elements"
+        )
 
     /**
      * WAAPI doesn't support interrupting animations.

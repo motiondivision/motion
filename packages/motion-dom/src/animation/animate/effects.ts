@@ -18,11 +18,13 @@ import {
 const effects: AnimateEffect<any>[] = []
 
 export function addEffect(effect: AnimateEffect<any>): void {
-    invariant(
-        typeof effect.test === "function" && typeof effect.read === "function",
-        "Effects passed to animate.addEffect() need test() and read().",
-        "effect-missing-test"
-    )
+    process.env.NODE_ENV !== "production" &&
+        invariant(
+            typeof effect.test === "function" &&
+                typeof effect.read === "function",
+            "Effects passed to animate.addEffect() need test() and read().",
+            "effect-missing-test"
+        )
 
     removeEffect(effect)
     effects.unshift(effect)
@@ -171,11 +173,12 @@ export function animateEffectSubject<Subject extends object>(
                         firstKeyframe(target) ??
                         effect.read(subject, key, target)
 
-                    invariant(
-                        initial !== undefined,
-                        `"${key}" can't be read from the animated subject. Provide [from, to] keyframes.`,
-                        "effect-unreadable-value"
-                    )
+                    process.env.NODE_ENV !== "production" &&
+                        invariant(
+                            initial !== undefined,
+                            `"${key}" can't be read from the animated subject. Provide [from, to] keyframes.`,
+                            "effect-unreadable-value"
+                        )
                 }
 
                 value = motionValue(initial, { owner: element })

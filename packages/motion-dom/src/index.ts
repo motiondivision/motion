@@ -79,6 +79,16 @@ export * from "./frameloop/process-frame"
 export * from "./frameloop/sync-time"
 export * from "./frameloop/types"
 
+/**
+ * Layout animations. Exported ahead of drag, which imported them until it
+ * got its own measurement node, so bundles keep their module order.
+ */
+export {
+    acquireProjectionNode,
+    flushLayoutSnapshots,
+    LayoutAnimationBuilder,
+    parseAnimateLayoutArgs,
+} from "./layout/LayoutAnimationBuilder"
 export * from "./gestures/drag"
 export * from "./gestures/drag/state/is-active"
 export * from "./gestures/drag/state/set-active"
@@ -321,13 +331,6 @@ export { buildSVGPath } from "./render/svg/utils/path"
 export { renderSVG } from "./render/svg/utils/render"
 export { scrapeMotionValuesFromProps as scrapeSVGMotionValuesFromProps } from "./render/svg/utils/scrape-motion-values"
 
-/**
- * Layout animations
- */
-export {
-    LayoutAnimationBuilder,
-    parseAnimateLayoutArgs,
-} from "./layout/LayoutAnimationBuilder"
 export { animateLayout } from "./layout/animate-layout"
 
 /**

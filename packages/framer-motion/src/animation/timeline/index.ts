@@ -149,7 +149,17 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
 
     private resolveFinished!: VoidFunction
 
+    /**
+     * The scopeMotion() scope this was created in. Rebuilds run in it, so
+     * selectors resolve in its root and cancel() restores what they
+     * animate.
+     */
     private motionScope = activeScope.current
+
+    /**
+     * Set when the scope stops, so later changes don't restart it.
+     */
+    private isKilled = false
 
     /**
      * True while this plays the animations it was created with, before
@@ -412,7 +422,7 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
      * reflect it.
      */
     private flush() {
-        this.isDirty && !this.parent && this.build()
+        this.isDirty && !this.parent && !this.isKilled && this.build()
     }
 
     private adopt(parent: Timeline) {
@@ -472,12 +482,19 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
         Object.assign(playback, options)
         const markers = new Map<string, Marker>()
         const info: SequenceInfo = {}
-        const animations = animateSequence(
-            this.toSequence(markers),
-            { defaultTransition, ...playback },
-            scope,
-            info
-        )
+        const prevScope = activeScope.current
+        activeScope.current = this.motionScope
+        let animations: AnimationPlaybackControlsWithThen[]
+        try {
+            animations = animateSequence(
+                this.toSequence(markers),
+                { defaultTransition, ...playback },
+                scope,
+                info
+            )
+        } finally {
+            activeScope.current = prevScope
+        }
 
         const labels = info.labels!
         let duration = playback.duration ?? info.duration!
@@ -677,12 +694,15 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
         })
 
         /**
-         * Register with the scopeMotion() scope this was created in and
-         * the useAnimate() scope until finished, so they stop it. Each
-         * replay registers again.
+         * Stay in the scopeMotion() scope this was created in, and the
+         * useAnimate() scope, while playing. Each replay, including a
+         * change that restarts a finished timeline, registers again.
          */
         const { scope } = this.options
-        const remove = this.motionScope?.add(this.stop)
+        const remove = this.motionScope?.add(() => {
+            this.isKilled = true
+            this.stop()
+        })
         scope?.animations.push(this)
         this.finished.then(() => {
             remove?.()

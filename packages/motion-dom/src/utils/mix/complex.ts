@@ -123,11 +123,12 @@ export const mixComplex = (
             buildTransformer(targetStats)
         )
     } else {
-        warning(
-            true,
-            `Complex values '${origin}' and '${target}' too different to mix. Ensure all colors are of the same type, and that each contains the same quantity of number and color values. Falling back to instant transition.`,
-            "complex-values-different"
-        )
+        process.env.NODE_ENV !== "production" &&
+            warning(
+                true,
+                `Complex values '${origin}' and '${target}' too different to mix. Ensure all colors are of the same type, and that each contains the same quantity of number and color values. Falling back to instant transition.`,
+                "complex-values-different"
+            )
 
         return mixImmediate(origin, target)
     }
