@@ -301,6 +301,16 @@ test.describe("svg", () => {
     })
 })
 
+test("motion values as SVG attributes and text", async ({ page }) => {
+    await open(page, "svg")
+    expect(await page.getAttribute("#mv-circle", "cx")).toBe("20")
+    expect(await page.textContent("#mv-text")).toBe("0")
+    await call(page, "setMotionValues", 60, 5)
+    await page.waitForTimeout(100)
+    expect(await page.getAttribute("#mv-circle", "cx")).toBe("60")
+    expect(await page.textContent("#mv-text")).toBe("5")
+})
+
 test.describe("AnimatePresence", () => {
     test("initial={false} skips the first initial", async ({ page }) => {
         await open(page, "presence")

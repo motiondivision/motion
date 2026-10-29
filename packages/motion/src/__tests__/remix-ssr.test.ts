@@ -1,4 +1,5 @@
 /** @jest-environment node */
+import { jsx } from "remix/component/jsx-runtime"
 import { createElement } from "remix/component"
 import { renderToString } from "remix/component/server"
 import { motionValue } from "framer-motion/dom"
@@ -124,5 +125,21 @@ describe("motion/remix on the server", () => {
         const html = await renderToString(createElement(App, {}))
 
         expect(html).toBe('<div style="opacity: 1;"></div>')
+    })
+
+    it("renders motion value attributes and children", async () => {
+        function App() {
+            return () =>
+                createElement(
+                    "svg",
+                    {},
+                    createElement(motion.circle, { cx: motionValue(10) }),
+                    jsx(motion.text, { children: motionValue(5) })
+                )
+        }
+        const html = await renderToString(createElement(App, {}))
+
+        expect(html).toContain('cx="10"')
+        expect(html).toContain(">5</text>")
     })
 })

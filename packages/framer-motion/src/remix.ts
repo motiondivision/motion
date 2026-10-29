@@ -691,6 +691,19 @@ const motionMixin = createMixin<Element, [props: MotionProps]>(
                 style: (hostProps.style as any) ?? nextProps.style,
             }
 
+            /**
+             * Motion renders motion values passed as attributes, like
+             * <motion.circle cx={cx} />, so Remix never sees them.
+             */
+            const motionAttrs: Values = {}
+            for (const key in hostProps) {
+                const value = (hostProps as Values)[key]
+                if (key !== "style" && isMotionValue(value)) {
+                    ;(props as Values)[key] = value
+                    motionAttrs[key] = undefined
+                }
+            }
+
             const { layout } = props
             const layoutId = getLayoutId()
 
@@ -735,7 +748,7 @@ const motionMixin = createMixin<Element, [props: MotionProps]>(
             }
 
             const { style: initialStyle, ...attrs } = initialValues
-            const patch: Values = attrs
+            const patch: Values = { ...motionAttrs, ...attrs }
             const style = { ...splitStyle(props.style, props), ...initialStyle }
             if (Object.keys(style).length) patch.style = style
             if (layout) patch["data-layout"] = layout === true ? "" : layout
@@ -747,7 +760,7 @@ const motionMixin = createMixin<Element, [props: MotionProps]>(
 )
 
 export type MotionComponentProps = MotionProps & {
-    children?: RemixNode
+    children?: RemixNode | MotionValue
     [key: string]: any
 }
 
@@ -758,35 +771,51 @@ export type MotionComponent = (
 const motionComponents = new WeakSet<MotionComponent>()
 
 function createMotionComponent(tag: string): MotionComponent {
-    const component: MotionComponent = (handle) => () => {
-        const { children, mix, presenceKey, ...rest } = handle.props
-        const motionProps: Values = {}
-        const hostProps: Values = {}
+    const component: MotionComponent = (handle) => {
+        let text: { value: MotionValue; initial: string } | undefined
 
-        for (const key in rest) {
-            if (key === "style" || !isValidMotionProp(key)) {
-                hostProps[key] = rest[key]
+        return () => {
+            let { children, mix, presenceKey, ...rest } = handle.props
+            const motionProps: Values = {}
+            const hostProps: Values = {}
+
+            for (const key in rest) {
+                if (key === "style" || !isValidMotionProp(key)) {
+                    hostProps[key] = rest[key]
+                }
+                if (isValidMotionProp(key)) motionProps[key] = rest[key]
             }
-            if (isValidMotionProp(key)) motionProps[key] = rest[key]
-        }
 
-        const parent = handle.context.get(VariantProvider) as
-            | VariantContext
-            | undefined
+            /**
+             * A motion value child renders its first value. Motion then
+             * updates the text, so keep rendering the same text.
+             */
+            if (isMotionValue(children)) {
+                motionProps.children = children
+                if (text?.value !== children) {
+                    text = { value: children, initial: String(children.get()) }
+                }
+                children = text.initial
+            }
 
-        return createElement(
-            tag,
-            {
-                ...hostProps,
-                ...(presenceKey != null && { key: presenceKey }),
-                mix: [motionMixin(motionProps), mix],
-            },
-            createElement(
-                VariantProvider,
-                { value: getVariantContext(motionProps, parent) },
-                children
+            const parent = handle.context.get(VariantProvider) as
+                | VariantContext
+                | undefined
+
+            return createElement(
+                tag,
+                {
+                    ...hostProps,
+                    ...(presenceKey != null && { key: presenceKey }),
+                    mix: [motionMixin(motionProps), mix],
+                },
+                createElement(
+                    VariantProvider,
+                    { value: getVariantContext(motionProps, parent) },
+                    children
+                )
             )
-        )
+        }
     }
     motionComponents.add(component)
     return component

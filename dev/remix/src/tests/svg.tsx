@@ -1,8 +1,15 @@
+import { motionValue } from "motion"
 import { motion } from "motion/remix"
 
 const linear = { duration: 1, ease: "linear" } as const
 
 export function App() {
+    const cx = motionValue(20)
+    const count = motionValue(0)
+    ;(window as any).setMotionValues = (x: number, n: number) => {
+        cx.set(x)
+        count.set(n)
+    }
     return () => (
         <motion.svg
             id="svg"
@@ -40,6 +47,10 @@ export function App() {
                 animate={{ rotate: 90 }}
                 transition={linear}
             />
+            <motion.circle id="mv-circle" cx={cx} cy={100} r={5} />
+            <motion.text id="mv-text" x={10} y={190}>
+                {count}
+            </motion.text>
         </motion.svg>
     )
 }

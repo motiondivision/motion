@@ -26,6 +26,9 @@
             "remix/component": [
                 "../../../node_modules/@remix-run/component/dist/index.d.ts"
             ],
+            "remix/component/jsx-runtime": [
+                "../../../node_modules/@remix-run/component/dist/jsx-runtime.d.ts"
+            ],
             "remix/component/server": [
                 "../../../node_modules/@remix-run/component/dist/server.d.ts"
             ]

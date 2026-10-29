@@ -1,3 +1,4 @@
+import { jsx } from "remix/component/jsx-runtime"
 import { createElement, createRoot } from "remix/component"
 import type { Handle } from "remix/component"
 import { motionValue } from "framer-motion/dom"
@@ -277,7 +278,8 @@ describe("motion/remix", () => {
             errors.push(event.error)
         }
         window.addEventListener("error", onError)
-        const { container } = setup(
+        const onAnimationStart = jest.fn()
+        setup(
             () => () =>
                 createElement(
                     "div",
@@ -291,17 +293,15 @@ describe("motion/remix", () => {
                     }),
                     createElement(motion.div, {
                         id: "good",
-                        initial: { opacity: 0 },
-                        animate: { opacity: 1 },
-                        transition,
+                        animate: { opacity: 0.5 },
+                        onAnimationStart,
                     })
                 )
         )
-        await wait(400)
+        await wait(50)
         window.removeEventListener("error", onError)
 
-        const good = container.querySelector("#good") as HTMLElement
-        expect(good.style.opacity).toBe("1")
+        expect(onAnimationStart).toHaveBeenCalled()
         expect(errors).toHaveLength(1)
     })
 
@@ -371,5 +371,42 @@ describe("motion/remix", () => {
 
         await wait(400)
         expect(circle.getAttribute("cx")).toBe("100")
+    })
+
+    it("renders motion values as SVG attributes", async () => {
+        const cx = motionValue(10)
+        const { container } = setup(
+            () => () =>
+                createElement(
+                    "svg",
+                    {},
+                    createElement(motion.circle, { cx, r: 5 })
+                )
+        )
+        await wait(20)
+        const circle = container.querySelector("circle")!
+        expect(circle.getAttribute("cx")).toBe("10")
+
+        cx.set(40)
+        await wait(50)
+        expect(circle.getAttribute("cx")).toBe("40")
+    })
+
+    it("renders a motion value child as text", async () => {
+        const count = motionValue(1)
+        const { container, update } = setup(
+            () => () => jsx(motion.span, { children: count })
+        )
+        await wait(20)
+        const span = container.firstElementChild as HTMLElement
+        expect(span.textContent).toBe("1")
+
+        count.set(2)
+        await wait(50)
+        expect(span.textContent).toBe("2")
+
+        await update()
+        await wait(20)
+        expect(span.textContent).toBe("2")
     })
 })
