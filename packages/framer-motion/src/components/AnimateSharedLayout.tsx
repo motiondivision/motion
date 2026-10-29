@@ -10,10 +10,11 @@ export const AnimateSharedLayout: React.FunctionComponent<
     React.PropsWithChildren<unknown>
 > = ({ children }: React.PropsWithChildren<{}>) => {
     React.useEffect(() => {
-        invariant(
-            false,
-            "AnimateSharedLayout is deprecated: https://www.framer.com/docs/guide-upgrade/##shared-layout-animations"
-        )
+        process.env.NODE_ENV !== "production" &&
+            invariant(
+                false,
+                "AnimateSharedLayout is deprecated: https://www.framer.com/docs/guide-upgrade/##shared-layout-animations"
+            )
     }, [])
 
     return (

@@ -1,0 +1,6 @@
+{
+    "private": true,
+    "types": "../dist/remix.d.ts",
+    "main": "../dist/cjs/remix.js",
+    "module": "../dist/es/remix.mjs"
+}

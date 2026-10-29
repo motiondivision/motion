@@ -7,6 +7,7 @@ import { microtask } from "../frameloop/microtask"
 import { time } from "../frameloop/sync-time"
 import { HTMLProjectionNode } from "../projection/node/HTMLProjectionNode"
 import type { IProjectionNode } from "../projection/node/types"
+import { visualElementStore } from "../render/store"
 import { resolveVisualElement } from "./visual-element"
 import {
     resolveElements,
@@ -130,17 +131,41 @@ function prepareNode(
 }
 
 /**
- * Let drag() create its nodes in the shared imperative tree, so drag
- * gestures and layout animations work together. Returns the node and a
- * function that releases it.
+ * Create a node for an element in the shared imperative tree. Returns the
+ * node and a function that releases it.
  */
-layoutProjection.create = (element) => {
+function createLayoutNode(element: HTMLElement): [IProjectionNode, VoidFunction] {
     const node = prepareNode(element)
 
     return [
         node,
         () => layoutNodes.get(element) === node && dropNode(element, node),
     ]
+}
+
+/**
+ * Let drag() create its nodes in the shared imperative tree, so drag
+ * gestures and layout animations work together.
+ */
+layoutProjection.create = createLayoutNode
+
+/**
+ * Get a projection node for an element, so motion/remix can measure and
+ * animate its layout. Reuses a node owned by a `motion` component or
+ * animateLayout(), otherwise creates one in the shared imperative tree.
+ * Returns the node and a function that releases it.
+ */
+export function acquireProjectionNode(
+    element: HTMLElement
+): [IProjectionNode, VoidFunction] {
+    const owned =
+        layoutNodes.get(element) || visualElementStore.get(element)?.projection
+
+    /**
+     * A VisualElement can outlive a node we released (e.g. a stopped
+     * drag()), so only reuse a node that's still mounted.
+     */
+    return owned?.instance ? [owned, () => {}] : createLayoutNode(element)
 }
 
 function sortDocumentOrder(elements: Iterable<HTMLElement>) {
@@ -165,7 +190,8 @@ function dropNode(element: Element, node: IProjectionNode) {
 }
 
 function flushPendingBuilders() {
-    const builders = pendingBuilders!
+    const builders = pendingBuilders
+    if (!builders) return
     pendingBuilders = undefined
 
     flushPendingFrame()
@@ -239,6 +265,14 @@ function flushPendingBuilders() {
 
     updatePromises.length ? Promise.all(updatePromises).then(commit) : commit()
 }
+
+/**
+ * Snapshot every pending animateLayout() now, rather than on the next
+ * microtask. For renderers that tell us a DOM update is about to happen
+ * and then make it synchronously (e.g. a beforeUpdate/commit pair), with
+ * updateDom returning a promise that resolves on commit.
+ */
+export const flushLayoutSnapshots = flushPendingBuilders
 
 export class LayoutAnimationBuilder {
     private sharedTransitions = new Map<string, AnimationOptions>()

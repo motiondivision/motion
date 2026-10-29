@@ -14,9 +14,10 @@ export interface TransformGroupHooks {
 
     /**
      * Hand every animation in the group back to the main thread, with
-     * up-to-date values, e.g. before layout is measured.
+     * up-to-date values, e.g. before layout is measured. Returns true if
+     * this wrote the element's transform.
      */
-    demote(): void
+    demote(): true | void
 }
 
 export const transformGroups = new WeakMap<object, TransformGroupHooks>()

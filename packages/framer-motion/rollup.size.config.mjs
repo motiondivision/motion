@@ -10,7 +10,7 @@ const sizePlugins = [
     terser({ output: { comments: false } }),
 ]
 
-const external = ["react", "react-dom", "react/jsx-runtime"]
+const external = ["react", "react-dom", "react/jsx-runtime", "remix/component"]
 
 function createSizeBundle(input, output) {
     return Object.assign({}, es, {
@@ -47,6 +47,7 @@ const sizeScroll = createSizeBundle(
     "lib/render/dom/scroll/index.js",
     "dist/size-rollup-scroll.js"
 )
+const sizeRemix = createSizeBundle("lib/remix.js", "dist/size-rollup-remix.js")
 const sizeAnimateMini = createSizeBundle(
     "lib/animation/animators/waapi/animate-style.js",
     "dist/size-rollup-waapi-animate.js"
@@ -94,4 +95,5 @@ export default [
     domAnimation,
     domMax,
     sizeAnimateMini,
+    sizeRemix,
 ]

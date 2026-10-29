@@ -68,6 +68,13 @@ test.describe("animate() timelines", () => {
                 defaultTransition: { ease: "linear" },
             })
             await new Promise((resolve) => setTimeout(resolve, 500))
+            /**
+             * WebKit only advances document.timeline on a rendering update,
+             * and compositor animations don't request any, so after a plain
+             * wait getComputedStyle reads them at a stale time. Read on a
+             * frame instead.
+             */
+            await new Promise(requestAnimationFrame)
             const before = read()
             tl.add(["#a", { x: 0 }, { duration: 2 }])
             // Force the rebuild now, and read before the next frame

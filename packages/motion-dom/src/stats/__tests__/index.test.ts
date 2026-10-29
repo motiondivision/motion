@@ -5,6 +5,7 @@ describe("recordStats", () => {
     beforeEach(() => {
         statsBuffer.value = null
         statsBuffer.addProjectionMetrics = null
+        statsBuffer.countProjection = undefined
     })
 
     it("throws if stats are already being measured", () => {
@@ -42,5 +43,31 @@ describe("recordStats", () => {
             calculatedTargetDeltas: [2, 0],
             calculatedProjections: [1, 2],
         })
+    })
+
+    it("countProjection records each frame's counts and starts the next", () => {
+        recordStats()
+
+        const { countProjection } = statsBuffer
+        countProjection!(0)
+        countProjection!(0)
+        countProjection!(1)
+        countProjection!()
+        countProjection!(2)
+        countProjection!()
+
+        expect(statsBuffer.value!.layoutProjection).toEqual({
+            nodes: [2, 0],
+            calculatedTargetDeltas: [1, 0],
+            calculatedProjections: [0, 1],
+        })
+    })
+
+    it("stops counting when recordStats() throws", () => {
+        recordStats()
+        expect(() => recordStats()).toThrow()
+
+        expect(statsBuffer.value).toBeNull()
+        expect(statsBuffer.countProjection).toBeUndefined()
     })
 })
