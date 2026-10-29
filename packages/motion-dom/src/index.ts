@@ -329,6 +329,8 @@ export {
     parseAnimateLayoutArgs,
 } from "./layout/LayoutAnimationBuilder"
 export { animateLayout } from "./layout/animate-layout"
+export { autoSize } from "./layout/auto-size"
+export type { AutoSizeOptions } from "./layout/auto-size"
 
 /**
  * Deprecated
