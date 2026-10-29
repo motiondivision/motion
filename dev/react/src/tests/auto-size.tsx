@@ -10,6 +10,9 @@ import { useEffect, useRef, useState } from "react"
  * height and, with ?aspect=true, a block whose height follows the
  * container width (to check width-driven reflow snaps).
  *
+ * ?duration sets the transition duration (default 1). #more adds a
+ * child element, which only the MutationObserver can notice.
+ *
  * ?accordion=true also opens and closes the box with
  * animate={{ height: open ? "auto" : 0 }}.
  */
@@ -27,7 +30,11 @@ export const App = () => {
     const [width, setWidth] = useState(400)
     const accordion = Boolean(params.get("accordion"))
     const [open, setOpen] = useState(false)
-    const transition = { duration: 1, ease: "linear" } as const
+    const [more, setMore] = useState(false)
+    const transition = {
+        duration: Number(params.get("duration") ?? 1),
+        ease: "linear",
+    } as const
     const ref = useRef<HTMLDivElement>(null)
 
     useAutoSize(ref, { axis, ...transition })
@@ -73,6 +80,9 @@ export const App = () => {
             <button id="narrow" onClick={() => setWidth(200)}>
                 narrow
             </button>
+            <button id="more" onClick={() => setMore(true)}>
+                more
+            </button>
             <button id="toggle" onClick={() => setOpen(!open)}>
                 toggle
             </button>
@@ -89,6 +99,7 @@ export const App = () => {
                 }}
             >
                 <div style={{ height, width: axis === "both" ? height : "auto" }} />
+                {more ? <div style={{ height: 200 }} /> : null}
                 {params.get("aspect") ? (
                     <div style={{ aspectRatio: "2", background: "#f09" }} />
                 ) : null}

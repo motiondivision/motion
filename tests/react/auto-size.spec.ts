@@ -23,7 +23,7 @@ async function record(page: Page, id: string, ms: number) {
 function expectSmooth(heights: number[], from: number, to: number) {
     // No frame shows the new size before animating (no flash)
     expect(Math.abs(heights[0] - from)).toBeLessThan(20)
-    // Never jumps more than ~5% of the distance in a frame (1s at 60fps
+    // Never jumps more than 10% of the distance in a frame (1s at 60fps
     // moves under 2% a frame, allow for dropped frames)
     const max = Math.abs(to - from) * 0.1
     for (let i = 1; i < heights.length; i++) {
@@ -65,9 +65,9 @@ test("retargets when content changes mid-animation", async ({ page }) => {
     expectSmooth(heights, 100, 500)
     // Finishes within a second of the retarget, rather than finishing the
     // first animation and then starting another
-    expect(heights.findIndex((h) => h > 499)).toBeLessThan(
-        heights.length - 5
-    )
+    const reached = heights.findIndex((h) => h > 499)
+    expect(reached).toBeGreaterThan(-1)
+    expect(reached).toBeLessThan(heights.length - 5)
 })
 
 test("the element below moves with it", async ({ page }) => {
@@ -110,6 +110,58 @@ test("works alongside animate={{ height: open ? 'auto' : 0 }}", async ({
     expectSmooth(await record(page, "toggle", 1300), 0, 100)
     expectSmooth(await record(page, "h300", 1300), 100, 300)
     expectSmooth(await record(page, "toggle", 1300), 300, 0)
+    expect(
+        await page.evaluate(() => document.getElementById("box")!.style.height)
+    ).toBe("0px")
+})
+
+test("retargets when a child is added mid-animation", async ({ page }) => {
+    await load(page)
+    const start = await page.evaluate(() => window.heights.length)
+    await page.click("#h300")
+    await page.waitForTimeout(500)
+    await page.click("#more")
+    await page.waitForTimeout(1400)
+    const heights = await page.evaluate((s) => window.heights.slice(s), start)
+    expectSmooth(heights, 100, 500)
+    const reached = heights.findIndex((h) => h > 499)
+    expect(reached).toBeGreaterThan(-1)
+    expect(reached).toBeLessThan(heights.length - 5)
+})
+
+test("an instant transition returns to auto", async ({ page }) => {
+    await load(page, "&duration=0")
+    await page.click("#h300")
+    await page.waitForTimeout(200)
+    const box = page.locator("#box")
+    expect(await box.evaluate((e) => e.style.height)).toBe("")
+    expect((await box.boundingBox())!.height).toBeCloseTo(300, 0)
+    // Still follows its content afterwards
+    await page.click("#h500")
+    await page.waitForTimeout(200)
+    expect((await box.boundingBox())!.height).toBeCloseTo(500, 0)
+})
+
+test("hands over to animate={{ height: 0 }} mid-animation", async ({
+    page,
+}) => {
+    await load(page, "&accordion=true")
+    await page.click("#toggle")
+    await page.waitForTimeout(1300)
+    const start = await page.evaluate(() => window.heights.length)
+    await page.click("#h300")
+    await page.waitForTimeout(500)
+    const closeAt = await page.evaluate(() => window.heights.length)
+    await page.click("#toggle")
+    await page.waitForTimeout(1500)
+    const heights = await page.evaluate((s) => window.heights.slice(s), start)
+    const closing = heights.slice(closeAt - start + 3)
+    // Once closing, it only ever shrinks: autoSize doesn't write over it,
+    // or restore "auto" when its own animation would have finished
+    for (let i = 1; i < closing.length; i++) {
+        expect(closing[i]).toBeLessThanOrEqual(closing[i - 1] + 0.5)
+    }
+    expect(closing[closing.length - 1]).toBe(0)
     expect(
         await page.evaluate(() => document.getElementById("box")!.style.height)
     ).toBe("0px")
