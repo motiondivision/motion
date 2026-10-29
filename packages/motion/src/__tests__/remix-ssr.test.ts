@@ -1,6 +1,7 @@
 /** @jest-environment node */
 import { createElement } from "remix/component"
 import { renderToString } from "remix/component/server"
+import { motionValue } from "framer-motion/dom"
 import { motion } from "../remix"
 
 const render = (options: Parameters<typeof motion>[0], props = {}) => {
@@ -31,10 +32,10 @@ describe("motion/remix on the server", () => {
         expect(html).toContain("opacity: 0.2")
     })
 
-    it("renders nothing extra with initial: false", async () => {
+    it("renders animate values with initial: false", async () => {
         const html = await render({ initial: false, animate: { opacity: 1 } })
 
-        expect(html).toBe("<div></div>")
+        expect(html).toBe('<div style="opacity: 1;"></div>')
     })
 
     it("renders layout attributes", async () => {
@@ -42,5 +43,43 @@ describe("motion/remix on the server", () => {
 
         expect(html).toContain('data-layout="position"')
         expect(html).toContain('data-layout-id="tab"')
+    })
+
+    it("renders motion components with inherited variants", async () => {
+        const item = { hidden: { opacity: 0, y: 10 }, visible: { opacity: 1 } }
+
+        function List() {
+            return () =>
+                createElement(
+                    motion.ul,
+                    {
+                        id: "list",
+                        initial: "hidden",
+                        animate: "visible",
+                        variants: {},
+                    },
+                    createElement(motion.li, { variants: item }, "a")
+                )
+        }
+
+        const html = await renderToString(createElement(List, {}))
+
+        expect(html).toBe(
+            '<ul id="list"><li style="opacity: 0; transform: translateY(10px);">a</li></ul>'
+        )
+    })
+
+    it("renders motion values and transforms in style", async () => {
+        function Box() {
+            return () =>
+                createElement(motion.div, {
+                    style: { x: motionValue(20), scale: 2, color: "red" },
+                })
+        }
+
+        const html = await renderToString(createElement(Box, {}))
+
+        expect(html).toContain("transform: translateX(20px) scale(2)")
+        expect(html).toContain("color: red")
     })
 })

@@ -1,5 +1,6 @@
 import { createElement, createRoot } from "remix/component"
 import type { Handle } from "remix/component"
+import { motionValue } from "framer-motion/dom"
 import { motion, motionScope } from "../remix"
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
@@ -164,5 +165,86 @@ describe("motion/remix", () => {
         await update()
         await wait(20)
         expect(cleanup).toHaveBeenCalledTimes(1)
+    })
+
+    it("keeps a parent in the DOM until exits inside it finish", async () => {
+        let visible = true
+        const { container, update } = setup(
+            () => () =>
+                createElement(
+                    "div",
+                    {},
+                    visible &&
+                        createElement(
+                            motion.section,
+                            {
+                                key: "outer",
+                                exit: { opacity: 0 },
+                                transition: { duration: 0.05 },
+                                style: { opacity: 1 },
+                            },
+                            createElement(motion.p, {
+                                exit: { opacity: 0 },
+                                transition: { duration: 0.3 },
+                                style: { opacity: 1 },
+                            })
+                        )
+                )
+        )
+        await wait(20)
+        const root = container.firstElementChild!
+
+        visible = false
+        await update()
+        await wait(150)
+        expect(root.children.length).toBe(1)
+
+        await wait(400)
+        expect(root.children.length).toBe(0)
+    })
+
+    it("animates variants through children and calls onAnimationComplete", async () => {
+        const onAnimationComplete = jest.fn()
+        const item = { hidden: { opacity: 0 }, visible: { opacity: 1 } }
+        const { container } = setup(
+            () => () =>
+                createElement(
+                    motion.ul,
+                    {
+                        initial: "hidden",
+                        animate: "visible",
+                        variants: {
+                            visible: { transition: { staggerChildren: 0.1 } },
+                        },
+                        transition: { duration: 0.05 },
+                        onAnimationComplete,
+                    },
+                    createElement(motion.li, { variants: item }),
+                    createElement(motion.li, { variants: item })
+                )
+        )
+        await wait(20)
+        const items = container.querySelectorAll("li")
+        // The second item is still waiting for its stagger delay.
+        expect((items[1] as HTMLElement).style.opacity).toBe("0")
+
+        await wait(400)
+        expect((items[0] as HTMLElement).style.opacity).toBe("1")
+        expect((items[1] as HTMLElement).style.opacity).toBe("1")
+        expect(onAnimationComplete.mock.calls[0][0]).toBe("visible")
+    })
+
+    it("renders motion values in style", async () => {
+        const x = motionValue(0)
+        const { container } = setup(
+            () => () => createElement(motion.div, { style: { x } })
+        )
+        await wait(20)
+
+        x.set(30)
+        await wait(50)
+        expect(
+            (container.firstElementChild as HTMLElement).style.transform
+        ).toBe("translateX(30px)")
     })
 })

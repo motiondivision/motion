@@ -43,6 +43,7 @@ const external = [
     "framer-motion/mini",
     "framer-motion/debug",
     "framer-motion/animate-view",
+    "framer-motion/remix",
     "remix/component",
 ]
 
