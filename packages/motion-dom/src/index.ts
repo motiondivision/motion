@@ -84,6 +84,8 @@ export * from "./frameloop/types"
  * got its own measurement node, so bundles keep their module order.
  */
 export {
+    acquireProjectionNode,
+    flushLayoutSnapshots,
     LayoutAnimationBuilder,
     parseAnimateLayoutArgs,
 } from "./layout/LayoutAnimationBuilder"

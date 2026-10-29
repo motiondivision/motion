@@ -5,6 +5,12 @@
             {
                 "tsconfig": "<rootDir>/../tsconfig.test.json"
             }
+        ],
+        "^.+\\.jsx?$": [
+            "ts-jest",
+            {
+                "tsconfig": "<rootDir>/../tsconfig.test.json"
+            }
         ]
     },
     "testEnvironment": "jsdom",
@@ -19,5 +25,12 @@
                 "outputName": "motion.xml"
             }
         ]
+    ],
+    "moduleNameMapper": {
+        "^remix/component$": "@remix-run/component",
+        "^remix/component/(.*)$": "@remix-run/component/$1"
+    },
+    "transformIgnorePatterns": [
+        "/node_modules/(?!@remix-run)"
     ]
 }

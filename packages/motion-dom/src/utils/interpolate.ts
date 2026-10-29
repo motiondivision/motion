@@ -66,11 +66,12 @@ export function interpolate<T>(
 ): (v: number) => T {
     const inputLength = input.length
 
-    invariant(
-        inputLength === output.length,
-        "Both input and output ranges must be the same length",
-        "range-length"
-    )
+    process.env.NODE_ENV !== "production" &&
+        invariant(
+            inputLength === output.length,
+            "Both input and output ranges must be the same length",
+            "range-length"
+        )
 
     /**
      * If we're only provided a single input, we can just make a function

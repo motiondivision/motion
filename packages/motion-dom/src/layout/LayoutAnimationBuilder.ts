@@ -12,7 +12,7 @@ import {
     resolveElements,
     type ElementOrSelector,
 } from "../utils/resolve-elements"
-import { layoutProjection } from "../gestures/drag/projection"
+import { acquireDragNode, layoutProjection } from "../gestures/drag/projection"
 
 type LayoutAnimationScope = Element | Document
 type LayoutBuilderResolve = (animation: GroupAnimation) => void
@@ -143,6 +143,13 @@ layoutProjection.create = (element) => {
     ]
 }
 
+/**
+ * Get a projection node for an element. Reuses a node owned by a `motion`
+ * component or animateLayout(), otherwise creates one in the shared
+ * imperative tree. Returns the node and a function that releases it.
+ */
+export const acquireProjectionNode = acquireDragNode
+
 function sortDocumentOrder(elements: Iterable<HTMLElement>) {
     return [...elements].sort((a, b) =>
         a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1
@@ -165,7 +172,8 @@ function dropNode(element: Element, node: IProjectionNode) {
 }
 
 function flushPendingBuilders() {
-    const builders = pendingBuilders!
+    const builders = pendingBuilders
+    if (!builders) return
     pendingBuilders = undefined
 
     flushPendingFrame()
@@ -239,6 +247,14 @@ function flushPendingBuilders() {
 
     updatePromises.length ? Promise.all(updatePromises).then(commit) : commit()
 }
+
+/**
+ * Snapshot every pending animateLayout() now, rather than on the next
+ * microtask. For renderers that tell us a DOM update is about to happen
+ * and then make it synchronously (e.g. a beforeUpdate/commit pair), with
+ * updateDom returning a promise that resolves on commit.
+ */
+export const flushLayoutSnapshots = flushPendingBuilders
 
 export class LayoutAnimationBuilder {
     private sharedTransitions = new Map<string, AnimationOptions>()

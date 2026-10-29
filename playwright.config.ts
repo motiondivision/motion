@@ -61,13 +61,13 @@ export default defineConfig({
                 ...devices["Desktop Chrome"],
                 launchOptions: chromiumLaunchOptions,
             },
-            testIgnore: /tests\/react\//,
+            testIgnore: /tests\/(react|remix)\//,
         },
 
         {
             name: "webkit",
             use: { ...devices["Desktop Safari"] },
-            testIgnore: /tests\/react\//,
+            testIgnore: /tests\/(react|remix)\//,
         },
 
         /**
@@ -81,6 +81,19 @@ export default defineConfig({
                 ...devices["Desktop Chrome"],
                 launchOptions: chromiumLaunchOptions,
                 baseURL: "http://localhost:9991/",
+            },
+        },
+
+        /**
+         * Remix 3 dev app, for motion/remix, including server rendering.
+         */
+        {
+            name: "remix",
+            testMatch: /tests\/remix\/.*\.spec\.ts/,
+            use: {
+                ...devices["Desktop Chrome"],
+                launchOptions: chromiumLaunchOptions,
+                baseURL: "http://localhost:9992/",
             },
         },
     ],
@@ -98,6 +111,12 @@ export default defineConfig({
             url: "http://localhost:9991",
             reuseExistingServer: !process.env.CI,
             cwd: "./dev/react-19",
+        },
+        {
+            command: "yarn dev",
+            url: "http://localhost:9992",
+            reuseExistingServer: !process.env.CI,
+            cwd: "./dev/remix",
         },
     ],
 })
