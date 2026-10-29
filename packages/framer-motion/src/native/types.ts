@@ -30,6 +30,11 @@ export interface NativeHost {
     write(values: NativeValues): void
 
     /**
+     * Remove a value that has left the view, stopping it if it's playing.
+     */
+    remove(key: string): void
+
+    /**
      * Play a table on the UI thread, starting `offset` ms in. `onEnd` is
      * called when it reaches the end. Returns a function that stops it.
      */

@@ -107,6 +107,23 @@ export function playTable(
     requestAnimationFrame(step)
 }
 
+/**
+ * Remove values that have left the view, stopping any table playing them.
+ */
+export function removeValues(
+    store: ValueStore,
+    tokens: TokenStore,
+    keys: string[]
+) {
+    "worklet"
+    for (const key of keys) tokens.value[key] = 0
+    store.modify((latest) => {
+        "worklet"
+        for (const key of keys) delete latest[key]
+        return latest
+    })
+}
+
 export function stopTable(tokens: TokenStore, key: string, token: number) {
     "worklet"
     if (tokens.value[key] === token) tokens.value[key] = 0

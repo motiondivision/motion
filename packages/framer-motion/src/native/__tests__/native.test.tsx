@@ -2,11 +2,19 @@ jest.mock("react-native", () => require("./mocks").reactNative)
 jest.mock("react-native-reanimated", () => require("./mocks").reanimated)
 
 import { act, fireEvent, render } from "@testing-library/react"
-import { JSAnimation, motionValue, spring } from "motion-dom"
+import {
+    frame,
+    JSAnimation,
+    motionValue,
+    prefersReducedMotion,
+    spring,
+} from "motion-dom"
 import { useContext } from "react"
 import { AnimatePresence } from "../../components/AnimatePresence"
+import { MotionConfig } from "../../components/MotionConfig"
 import { MotionContext } from "../../context/MotionContext"
 import { motion } from "../../native"
+import { NativeValueAnimation } from "../NativeValueAnimation"
 import { sampleTable } from "../player"
 import { buildNativeStyle } from "../style"
 import { createTable } from "../table"
@@ -315,5 +323,141 @@ describe("motion.View", () => {
         expect(getStyle("child").opacity).toBe(0)
         await act(() => wait(200))
         expect(getStyle("child").opacity).toBe(1)
+    })
+})
+
+describe("NativeValueAnimation", () => {
+    /**
+     * A UI thread that never gets back to JS, as when JS is busy.
+     */
+    const silentHost = () => ({
+        write() {},
+        remove() {},
+        play: () => () => {},
+    })
+
+    const createAnimation = (options: any) =>
+        NativeValueAnimation.create(
+            {
+                name: "x",
+                keyframes: [0, 100],
+                duration: 0.1,
+                ease: "linear",
+                ...options,
+            },
+            silentHost()
+        )!
+
+    test("stopping after the UI thread has finished completes the animation", async () => {
+        const onComplete = jest.fn()
+        const onStop = jest.fn()
+        const animation = createAnimation({ onComplete, onStop })
+
+        await wait(150)
+        animation.stop()
+
+        expect(onComplete).toHaveBeenCalledTimes(1)
+        expect(onStop).not.toHaveBeenCalled()
+        expect(animation.state).toBe("finished")
+    })
+
+    test("a value set in the frame the animation stops keeps that value", async () => {
+        const value = motionValue(0)
+        const animation = createAnimation({ motionValue: value, duration: 1 })
+
+        await wait(100)
+        frame.postRender(() => {})
+        value.set(500)
+        animation.stop()
+
+        expect(value.get()).toBe(500)
+    })
+})
+
+describe("motion.View lifecycle", () => {
+    test("a value removed from style is removed from the view", async () => {
+        const Component = ({ on }: { on: boolean }) => (
+            <motion.View testID="box" style={on ? { scale: 2 } : {}} />
+        )
+        const { rerender } = render(<Component on />)
+        await act(() => wait(50))
+        expect(getStyle("box").transform).toEqual([{ scale: 2 }])
+
+        rerender(<Component on={false} />)
+        await act(() => wait(50))
+        expect(getStyle("box").transform).toBe(undefined)
+    })
+
+    test("runs the cleanup a callback ref returns", () => {
+        const cleanup = jest.fn()
+        const ref = jest.fn(() => cleanup)
+        const { unmount } = render(<motion.View testID="box" ref={ref} />)
+
+        unmount()
+        expect(cleanup).toHaveBeenCalledTimes(1)
+        expect(ref).toHaveBeenCalledTimes(1)
+    })
+
+    test("a tap that ends outside the view is cancelled", async () => {
+        const onTap = jest.fn()
+        const onTapCancel = jest.fn()
+        const { getByTestId } = render(
+            <motion.View testID="box" onTap={onTap} onTapCancel={onTapCancel} />
+        )
+        const box = getByTestId("box")
+
+        fireEvent.touchStart(box)
+        fireEvent(
+            box,
+            Object.assign(new Event("touchend", { bubbles: true }), {
+                locationX: 150,
+            })
+        )
+
+        expect(onTap).not.toHaveBeenCalled()
+        expect(onTapCancel).toHaveBeenCalledTimes(1)
+    })
+
+    test("whileTap stays active until the last finger lifts", async () => {
+        const { getByTestId } = render(
+            <motion.View
+                testID="box"
+                whileTap={{ scale: 0.5 }}
+                transition={{ duration: 0.05 }}
+            />
+        )
+        const box = getByTestId("box")
+
+        fireEvent.touchStart(box)
+        fireEvent(
+            box,
+            Object.assign(new Event("touchend", { bubbles: true }), {
+                fingers: [{}],
+            })
+        )
+        await act(() => wait(150))
+        expect(getStyle("box").transform).toEqual([{ scale: 0.5 }])
+    })
+
+    test("follows the device's reduce motion setting once it's known", async () => {
+        prefersReducedMotion.current = null
+        const Component = ({ x }: { x: number }) => (
+            <MotionConfig reducedMotion="user">
+                <motion.View
+                    testID="box"
+                    animate={{ x }}
+                    transition={{ duration: 1, ease: "linear" }}
+                />
+            </MotionConfig>
+        )
+        const { rerender } = render(<Component x={0} />)
+        await act(() => wait(20))
+
+        prefersReducedMotion.current = true
+        rerender(<Component x={100} />)
+        await act(() => wait(50))
+        expect(translateX("box")).toBe(100)
+
+        prefersReducedMotion.current = false
     })
 })

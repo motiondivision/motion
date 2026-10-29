@@ -115,19 +115,42 @@ export class NativeValueAnimation<T extends AnyResolvedKeyframe>
         this.stopPlayer = undefined
 
         const { motionValue } = this.options
+
+        /**
+         * A value set this frame, for instance with `jump()`, which stops
+         * this animation, keeps what it was set to.
+         */
+        if (!motionValue || this.wasSetThisFrame()) return true
+
         const elapsed = this.elapsed()
         const delta = Math.min(SAMPLE_INTERVAL, Math.max(elapsed, 0))
         const current = this.sample(elapsed)
 
         delta
-            ? motionValue?.setWithVelocity(
+            ? motionValue.setWithVelocity(
                   this.sample(elapsed - delta),
                   current,
                   delta
               )
-            : motionValue?.set(current)
+            : motionValue.set(current)
 
         return true
+    }
+
+    private wasSetThisFrame() {
+        return this.options.motionValue?.updatedAt === time.now()
+    }
+
+    /**
+     * Whether the UI thread has played the whole table, even if JS hasn't
+     * heard yet because it was busy.
+     */
+    private hasEnded() {
+        return (
+            this.state === "running" &&
+            !this.table.loopLength &&
+            this.elapsed() >= this.table.duration
+        )
     }
 
     liveValue() {
@@ -190,6 +213,11 @@ export class NativeValueAnimation<T extends AnyResolvedKeyframe>
 
     stop() {
         if (this.state === "idle" || this.state === "finished") return
+
+        if (this.hasEnded() && !this.wasSetThisFrame()) {
+            this.stopPlayer?.()
+            return this.finish()
+        }
 
         this.halt()
         this.state = "idle"

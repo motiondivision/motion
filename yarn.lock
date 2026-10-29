@@ -7522,10 +7522,16 @@ __metadata:
   peerDependencies:
     react: ^18.0.0 || ^19.0.0
     react-dom: ^18.0.0 || ^19.0.0
+    react-native: "*"
+    react-native-reanimated: "*"
   peerDependenciesMeta:
     react:
       optional: true
     react-dom:
+      optional: true
+    react-native:
+      optional: true
+    react-native-reanimated:
       optional: true
   languageName: unknown
   linkType: soft
@@ -10927,10 +10933,16 @@ __metadata:
   peerDependencies:
     react: ^18.0.0 || ^19.0.0
     react-dom: ^18.0.0 || ^19.0.0
+    react-native: "*"
+    react-native-reanimated: "*"
   peerDependenciesMeta:
     react:
       optional: true
     react-dom:
+      optional: true
+    react-native:
+      optional: true
+    react-native-reanimated:
       optional: true
   languageName: unknown
   linkType: soft

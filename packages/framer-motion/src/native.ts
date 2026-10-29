@@ -24,6 +24,15 @@ import { initNativeReducedMotion } from "./native/reduced-motion"
 
 initNativeReducedMotion()
 
+/**
+ * `animate()` tells elements apart from other objects with `instanceof
+ * NodeList` and `instanceof Element`. React Native defines both from 0.82,
+ * but they're missing in Jest, so stand in for them there.
+ */
+const globals = globalThis as any
+globals.NodeList ??= class {}
+globals.Element ??= class {}
+
 export * from "motion-dom"
 export * from "motion-utils"
 
@@ -55,6 +64,7 @@ export { animate, createScopedAnimate } from "./animation/animate"
 export { animationControls } from "./animation/hooks/animation-controls"
 export { useAnimationControls } from "./animation/hooks/use-animation"
 export { AnimatePresence } from "./components/AnimatePresence"
+export { PresenceChild } from "./components/AnimatePresence/PresenceChild"
 export {
     useIsPresent,
     usePresence,
@@ -65,7 +75,7 @@ export { MotionConfigContext } from "./context/MotionConfigContext"
 export { useAnimationFrame } from "./utils/use-animation-frame"
 export { useCycle } from "./utils/use-cycle"
 export { useMotionValueEvent } from "./utils/use-motion-value-event"
-export { useReducedMotion } from "./utils/reduced-motion/use-reduced-motion"
+export { useReducedMotion } from "./native/reduced-motion"
 export { useMotionTemplate } from "./value/use-motion-template"
 export { useMotionValue } from "./value/use-motion-value"
 export { useSpring } from "./value/use-spring"

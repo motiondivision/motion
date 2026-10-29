@@ -119,8 +119,8 @@
     "peerDependencies": {
         "react": "^18.0.0 || ^19.0.0",
         "react-dom": "^18.0.0 || ^19.0.0",
-        "react-native": ">=0.81.0",
-        "react-native-reanimated": ">=4.0.0"
+        "react-native": "*",
+        "react-native-reanimated": "*"
     },
     "peerDependenciesMeta": {
         "react": {
@@ -139,7 +139,7 @@
     "bundlesize": [
         {
             "path": "./dist/size-rollup-motion.js",
-            "maxSize": "42.76 kB"
+            "maxSize": "42.78 kB"
         },
         {
             "path": "./dist/size-rollup-m.js",
@@ -147,11 +147,11 @@
         },
         {
             "path": "./dist/size-rollup-m-dom-animation.js",
-            "maxSize": "28.75 kB"
+            "maxSize": "28.76 kB"
         },
         {
             "path": "./dist/size-rollup-m-dom-max.js",
-            "maxSize": "42.9 kB"
+            "maxSize": "42.92 kB"
         },
         {
             "path": "./dist/size-rollup-animate.js",

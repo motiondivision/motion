@@ -1,11 +1,12 @@
 import { createReadStream, existsSync, statSync } from "node:fs"
 import { createServer } from "node:http"
 import { extname, join } from "node:path"
+import { fileURLToPath } from "node:url"
 
 /**
  * Serves the web export in dist/, falling back to index.html.
  */
-const root = new URL("../dist", import.meta.url).pathname
+const root = fileURLToPath(new URL("../dist", import.meta.url))
 const types = { ".html": "text/html", ".js": "text/javascript", ".json": "application/json" }
 
 createServer((req, res) => {

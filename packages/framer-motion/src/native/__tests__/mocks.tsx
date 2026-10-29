@@ -3,7 +3,7 @@
  * jsdom. "UI thread" functions run on the JS thread, with jsdom's
  * requestAnimationFrame as the UI thread's frame loop.
  */
-import { forwardRef, useRef } from "react"
+import { forwardRef, useLayoutEffect, useRef } from "react"
 
 const flatten = (style: any): any =>
     Array.isArray(style)
@@ -21,11 +21,33 @@ export const getStyle = (testID: string) => flatten(hosts.get(testID))
 
 const createHost = (name: string) =>
     forwardRef((props: any, ref: any) => {
-        const { style, testID, children, ...rest } = props
+        const { style, testID, children, onLayout, ...rest } = props
         hosts.set(testID, style)
+
+        /**
+         * Every view is laid out at 100x100.
+         */
+        useLayoutEffect(() => {
+            onLayout?.({ nativeEvent: { layout: { x: 0, y: 0, width: 100, height: 100 } } })
+        }, [])
+
+        /**
+         * Shape DOM touch events like React Native's: `touches` are the
+         * fingers still down, `locationX/Y` is relative to the view.
+         */
         const handlers: any = {}
         for (const key in rest) {
-            if (key.startsWith("onTouch")) handlers[key] = rest[key]
+            if (!key.startsWith("onTouch")) continue
+            handlers[key] = ({ nativeEvent }: any) =>
+                rest[key]({
+                    nativeEvent: {
+                        touches: nativeEvent.fingers ?? [],
+                        locationX: nativeEvent.locationX ?? 50,
+                        locationY: nativeEvent.locationY ?? 50,
+                        pageX: 0,
+                        pageY: 0,
+                    },
+                })
         }
         return (
             <div ref={ref} data-testid={testID} data-native={name} {...handlers}>
@@ -72,5 +94,12 @@ export const reanimated = {
         if (!ref.current) ref.current = makeMutable(initial)
         return ref.current
     },
-    useAnimatedStyle: (updater: () => any) => ({ evaluate: updater }),
+    useAnimatedStyle: (updater: () => any, dependencies?: unknown[]) => {
+        /**
+         * Without Reanimated's Babel plugin, the real hook throws when it
+         * isn't given dependencies.
+         */
+        if (!dependencies) throw new Error("useAnimatedStyle needs dependencies")
+        return { evaluate: updater }
+    },
 }

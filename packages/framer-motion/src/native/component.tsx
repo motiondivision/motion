@@ -14,7 +14,11 @@ import {
 } from "motion-dom"
 import * as React from "react"
 import { forwardRef, useCallback, useContext, useInsertionEffect, useRef } from "react"
-import type { GestureResponderEvent, StyleProp } from "react-native"
+import type {
+    GestureResponderEvent,
+    LayoutChangeEvent,
+    StyleProp,
+} from "react-native"
 import { StyleSheet } from "react-native"
 import Animated, {
     useAnimatedStyle,
@@ -123,12 +127,25 @@ export function createNativeMotionComponent<P extends object>(
         const host = useConstant(() =>
             createNativeHost(store, tokens, visualState.latestValues as NativeValues)
         )
-        const animatedStyle = useAnimatedStyle(() => buildNativeStyle(store.value))
+        /**
+         * Pass dependencies, so this still works where Reanimated's Babel
+         * plugin hasn't been run on node_modules (Jest).
+         */
+        const animatedStyle = useAnimatedStyle(
+            () => buildNativeStyle(store.value),
+            [store]
+        )
 
         const externalRefContainer = useRef(externalRef)
         useInsertionEffect(() => {
             externalRefContainer.current = externalRef
         })
+
+        /**
+         * A cleanup returned by a callback ref (React 19).
+         */
+        const refCleanup = useRef<VoidFunction | null>(null)
+        const size = useRef({ width: Infinity, height: Infinity })
 
         const ref = useCallback(
             (instance: unknown) => {
@@ -140,7 +157,17 @@ export function createNativeMotionComponent<P extends object>(
 
                 const forwarded = externalRefContainer.current
                 if (typeof forwarded === "function") {
-                    forwarded(instance)
+                    if (instance) {
+                        const cleanup = forwarded(instance)
+                        if (typeof cleanup === "function") {
+                            refCleanup.current = cleanup
+                        }
+                    } else if (refCleanup.current) {
+                        refCleanup.current()
+                        refCleanup.current = null
+                    } else {
+                        forwarded(instance)
+                    }
                 } else if (forwarded) {
                     ;(forwarded as React.MutableRefObject<unknown>).current =
                         instance
@@ -167,15 +194,32 @@ export function createNativeMotionComponent<P extends object>(
             const setTapActive = (isActive: boolean) =>
                 visualElement?.animationState?.setActive("whileTap", isActive)
 
+            forwardedProps.onLayout = (event: LayoutChangeEvent) => {
+                props.onLayout?.(event)
+                size.current = event.nativeEvent.layout
+            }
             forwardedProps.onTouchStart = (event: GestureResponderEvent) => {
                 props.onTouchStart?.(event)
+                if (event.nativeEvent.touches.length > 1) return
                 setTapActive(true)
                 props.onTapStart?.(event, getTapInfo(event))
             }
+            /**
+             * Like a press on the web, a tap only completes if the last
+             * finger lifts inside the view.
+             */
             forwardedProps.onTouchEnd = (event: GestureResponderEvent) => {
                 props.onTouchEnd?.(event)
+                const { touches, locationX, locationY } = event.nativeEvent
+                if (touches.length) return
                 setTapActive(false)
-                props.onTap?.(event, getTapInfo(event))
+                const { width, height } = size.current
+                locationX >= 0 &&
+                locationY >= 0 &&
+                locationX <= width &&
+                locationY <= height
+                    ? props.onTap?.(event, getTapInfo(event))
+                    : props.onTapCancel?.(event, getTapInfo(event))
             }
             forwardedProps.onTouchCancel = (event: GestureResponderEvent) => {
                 props.onTouchCancel?.(event)

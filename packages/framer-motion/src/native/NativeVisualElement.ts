@@ -1,11 +1,13 @@
 import {
     createBox,
     MotionNodeOptions,
+    prefersReducedMotion,
     ResolvedValues,
     scrapeHTMLMotionValuesFromProps,
     transformProps,
     ValueAnimationOptions,
     VisualElement,
+    VisualElementOptions,
 } from "motion-dom"
 import { NativeValueAnimation } from "./NativeValueAnimation"
 import type { NativeHost } from "./types"
@@ -21,6 +23,25 @@ export class NativeVisualElement extends VisualElement<
     NativeRenderState
 > {
     type = "native"
+
+    constructor(
+        options: VisualElementOptions<NativeHost, NativeRenderState>,
+        renderOptions?: {}
+    ) {
+        super(options, renderOptions)
+
+        /**
+         * React Native reads the device's reduce motion setting
+         * asynchronously, so it can still be unknown when the first screen
+         * mounts. Until it's set to a known value, read the device setting
+         * each time it's needed.
+         */
+        let shouldReduceMotion: boolean | null = null
+        Object.defineProperty(this, "shouldReduceMotion", {
+            get: () => shouldReduceMotion ?? prefersReducedMotion.current,
+            set: (value: boolean | null) => (shouldReduceMotion = value),
+        })
+    }
 
     /**
      * React Native can't read a view's style, so an animation without an
@@ -48,7 +69,9 @@ export class NativeVisualElement extends VisualElement<
         return scrapeHTMLMotionValuesFromProps(props, prevProps, visualElement)
     }
 
-    removeValueFromRenderState() {}
+    removeValueFromRenderState(key: string) {
+        this.current?.remove(key)
+    }
 
     measureInstanceViewportBox() {
         return createBox()

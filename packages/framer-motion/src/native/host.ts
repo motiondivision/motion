@@ -1,5 +1,12 @@
 import { runOnJS, runOnUI } from "react-native-reanimated"
-import { playTable, stopTable, TokenStore, ValueStore, writeValues } from "./player"
+import {
+    playTable,
+    removeValues,
+    stopTable,
+    TokenStore,
+    ValueStore,
+    writeValues,
+} from "./player"
 import type { NativeHost, NativeValues } from "./types"
 
 /**
@@ -29,6 +36,12 @@ export function createNativeHost(
             }
 
             changes && runOnUI(writeValues)(store, changes)
+        },
+
+        remove(key) {
+            delete written[key]
+            delete playing[key]
+            runOnUI(removeValues)(store, tokens, [key])
         },
 
         play(key, table, offset, onEnd) {

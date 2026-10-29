@@ -111,19 +111,24 @@ test("repeat: Infinity loops", async () => {
     const first = parseFloat(transform("box").rotate)
     expect(first).toBeCloseTo(90, -1)
 
-    await advance(1000)
-    expect(parseFloat(transform("box").rotate)).toBeCloseTo(first, -1)
+    // Part way into the next loop, so a frozen value can't pass
+    await advance(1500)
+    expect(parseFloat(transform("box").rotate)).toBeCloseTo(270, -1)
 })
 
 test("whileTap animates while touched", async () => {
     await render(
         <motion.View testID="box" whileTap={{ scale: 0.8 }} transition={{ duration: 0.2 }} />
     )
-    await fireEvent(screen.getByTestId("box"), "touchStart", { nativeEvent: {} })
+    await fireEvent(screen.getByTestId("box"), "touchStart", {
+        nativeEvent: { touches: [{}] },
+    })
     await advance(400)
     expect(transform("box").scale).toBe(0.8)
 
-    await fireEvent(screen.getByTestId("box"), "touchEnd", { nativeEvent: {} })
+    await fireEvent(screen.getByTestId("box"), "touchEnd", {
+        nativeEvent: { touches: [], locationX: 10, locationY: 10 },
+    })
     await advance(400)
     expect(transform("box").scale).toBe(1)
 })
