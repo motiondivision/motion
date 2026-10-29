@@ -92,7 +92,11 @@ export function keyReorder<T>(
     let target = index + step
 
     if (axis === "xy" && !(key % 2) && index > -1) {
-        const lines = getLines(order)
+        /**
+         * Rows top to bottom as drawn, which isn't their order with
+         * flex-wrap: wrap-reverse.
+         */
+        const lines = getLines(order).sort((a, b) => a.min - b.min)
         const line =
             lines[
                 lines.findIndex(({ items }) => items.includes(order[index])) +

@@ -205,7 +205,10 @@ export function ReorderGroupComponent<
             ) {
                 return
             } else {
-                commit(keyReorder(order, item, keyIndex, axis, isRTL()), item)
+                commit(
+                    keyReorder(order, item, keyIndex, axis, !!isX && isRTL()),
+                    item
+                )
             }
             event.preventDefault()
         },

@@ -180,7 +180,13 @@ export function createReorder(motion: any): ReorderComponents {
                     return
                 } else {
                     commit(
-                        keyReorder(order, item, keyIndex, axis, isRTL()),
+                        keyReorder(
+                            order,
+                            item,
+                            keyIndex,
+                            axis,
+                            !!isX && isRTL()
+                        ),
                         item
                     )
                 }
