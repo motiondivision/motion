@@ -1,4 +1,5 @@
 import { addDomEvent } from "../../events/add-dom-event"
+import { measureDocumentScroll } from "../utils/measure"
 import { createProjectionNode } from "./create-projection-node"
 
 export const DocumentProjectionNode =
@@ -7,15 +8,6 @@ export const DocumentProjectionNode =
             ref: Window | Element,
             notify: VoidFunction
         ): VoidFunction => addDomEvent(ref, "resize", notify),
-        measureScroll: () => ({
-            x:
-                document.documentElement.scrollLeft ||
-                document.body?.scrollLeft ||
-                0,
-            y:
-                document.documentElement.scrollTop ||
-                document.body?.scrollTop ||
-                0,
-        }),
+        measureScroll: measureDocumentScroll,
         checkIsScrollRoot: () => true,
     })

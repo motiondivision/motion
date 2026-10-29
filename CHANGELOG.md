@@ -4,6 +4,13 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [14.7.2] 2026-10-29
+
+### Fixed
+
+-   Only counts projection stats while `recordStats()` is running.
+-   Fix accelerated animations stuck at `initial` after remount.
+
 ## [14.7.1] 2026-10-27
 
 ### Fixed

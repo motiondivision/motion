@@ -32,6 +32,7 @@ const external = [
     ...Object.keys(pkg.peerDependencies || {}),
     ...Object.keys(pkg.optionalDependencies || {}),
     "react/jsx-runtime",
+    "remix/component",
 ]
 
 const pureClass = {
@@ -148,9 +149,10 @@ const cjsDebug = Object.assign({}, cjs, { input : "lib/debug.js" })
 const cjsDom = Object.assign({}, cjs, { input : "lib/dom.js" })
 const cjsMini = Object.assign({}, cjs, { input : "lib/mini.js" })
 const cjsDomMini = Object.assign({}, cjs, { input : "lib/dom-mini.js" })
+const cjsRemix = Object.assign({}, cjs, { input : "lib/remix.js" })
 
 export const es = Object.assign({}, config, {
-    input: ["lib/index.js", "lib/mini.js", "lib/debug.js", "lib/dom.js", "lib/dom-mini.js", "lib/client.js", "lib/m.js","lib/projection.js", "lib/animate-view.js"],
+    input: ["lib/index.js", "lib/mini.js", "lib/debug.js", "lib/dom.js", "lib/dom-mini.js", "lib/client.js", "lib/m.js","lib/projection.js", "lib/animate-view.js", "lib/remix.js"],
     output: {
         entryFileNames: "[name].mjs",
         format: "es",
@@ -191,6 +193,7 @@ const animateTypes = createTypes("types/dom.d.ts", "dist/dom.d.ts")
 const animateMiniTypes = createTypes("types/dom-mini.d.ts", "dist/dom-mini.d.ts")
 const mTypes = createTypes("types/m.d.ts", "dist/m.d.ts")
 const projectionTypes = createTypes("types/projection.d.ts", "dist/projection.d.ts")
+const remixTypes = createTypes("types/remix.d.ts", "dist/remix.d.ts")
 
 export default [
     umd,
@@ -204,6 +207,7 @@ export default [
     cjsMini,
     cjsDom,
     cjsDomMini,
+    cjsRemix,
     es,
     animateViewTypes,
     indexTypes,
@@ -214,4 +218,5 @@ export default [
     animateTypes,
     animateMiniTypes,
     projectionTypes,
+    remixTypes,
 ]
