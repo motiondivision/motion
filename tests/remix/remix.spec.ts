@@ -615,6 +615,24 @@ test.describe("Reorder", () => {
         expect(await order(page, "y")).toBe("bacd")
     })
 
+    test("Up and Down move between rows of a grid", async ({ page }) => {
+        await open(page, "reorder")
+        await page.focus("#grid-a")
+        await page.keyboard.press(" ")
+        await expect.poll(() => opacity(page, "#grid-a")).toBe(0.5)
+        // a takes c's slot below it, rather than b's beside it
+        await page.keyboard.press("ArrowDown")
+        expect(await order(page, "grid")).toBe("bcad")
+        await page.keyboard.press("ArrowDown")
+        expect(await order(page, "grid")).toBe("bcad")
+        // Moving the node up blurs it, which mustn't drop it
+        await page.keyboard.press("ArrowUp")
+        expect(await order(page, "grid")).toBe("abcd")
+        await page.keyboard.press("ArrowRight")
+        expect(await order(page, "grid")).toBe("bacd")
+        expect(await opacity(page, "#grid-a")).toBe(0.5)
+    })
+
     test("Left and Right swap in RTL", async ({ page }) => {
         await open(page, "reorder")
         await page.focus("#rtl-a")

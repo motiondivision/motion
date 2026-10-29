@@ -307,6 +307,72 @@ describe("Reorder keyboard", () => {
         expect(order(container)).toEqual(["a", "b", "c"])
     })
 
+    it("moves up and down by row in a grid", async () => {
+        /**
+         * Lay the items out three to a row, 100px squares, by their place
+         * in the DOM, as a CSS grid would.
+         */
+        const spy = jest
+            .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+            .mockImplementation(function (this: HTMLElement) {
+                const i = Array.from(
+                    this.parentElement?.children || []
+                ).indexOf(this)
+                const x = (i % 3) * 100
+                const y = Math.floor(i / 3) * 100
+                return {
+                    x,
+                    y,
+                    left: x,
+                    top: y,
+                    right: x + 100,
+                    bottom: y + 100,
+                    width: 100,
+                    height: 100,
+                } as DOMRect
+            })
+
+        try {
+            const { container, getByTestId } = render(
+                <List
+                    axis="xy"
+                    initial={["a", "b", "c", "d", "e", "f", "g", "h"]}
+                />
+            )
+            const e = getByTestId("e")
+            press(e, " ")
+
+            /**
+             * a b c
+             * d e f
+             * g h
+             */
+            const steps: [string, string][] = [
+                // Up takes b's slot above, not d's beside
+                ["ArrowUp", "aebcdfgh"],
+                // Nothing above the first row
+                ["ArrowUp", "aebcdfgh"],
+                ["ArrowDown", "abcdefgh"],
+                // Into the short last row, by the column it's nearest
+                ["ArrowDown", "abcdfghe"],
+                // Nothing below the last row
+                ["ArrowDown", "abcdfghe"],
+                // Left and Right still move one place
+                ["ArrowLeft", "abcdfgeh"],
+                ["ArrowUp", "abcedfgh"],
+            ]
+
+            for (const [key, expected] of steps) {
+                // Items are measured after each move, before the next key
+                await nextFrame()
+                press(e, key)
+                expect(order(container).join("")).toBe(expected)
+            }
+        } finally {
+            spy.mockRestore()
+        }
+    })
+
     it("ignores keys from inside the item", () => {
         const onReorder = jest.fn()
         const { getByTestId } = render(<List onReorder={onReorder} />)
