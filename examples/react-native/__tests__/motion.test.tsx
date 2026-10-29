@@ -18,8 +18,11 @@ afterEach(() => {
 
 const advance = (ms: number) => act(() => jest.advanceTimersByTime(ms))
 
-const style = (testID: string) =>
-    getAnimatedStyle(screen.getByTestId(testID)) as { [key: string]: any }
+/**
+ * Typed from Reanimated's web entry, which takes no arguments.
+ */
+const style = (testID: string): { [key: string]: any } =>
+    (getAnimatedStyle as Function)(screen.getByTestId(testID))
 
 const transform = (testID: string) =>
     Object.assign({}, ...(style(testID).transform ?? []))

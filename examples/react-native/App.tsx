@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native"
 import { AnimatePresence, motion, stagger } from "motion/react-native"
 
@@ -8,6 +8,66 @@ import { AnimatePresence, motion, stagger } from "motion/react-native"
  * moving, and the onUpdate box (which runs in JS) freezes.
  */
 export function App() {
+    return process.env.EXPO_PUBLIC_AUTO === "1" ? <AutoDemo /> : <Demos />
+}
+
+/**
+ * For checking off-thread playback without touching the screen: a UI-thread
+ * and a JS-driven box slide side to side, and every fourth tick blocks the
+ * JS thread for two seconds. Screenshots taken during a block should show
+ * the first box moving and the second frozen.
+ */
+function AutoDemo() {
+    const [on, setOn] = useState(false)
+
+    useEffect(() => {
+        let tick = 0
+        const id = setInterval(() => {
+            if (++tick % 4) return setOn((value) => !value)
+
+            console.log("[motion-auto] block start", Date.now())
+            const end = Date.now() + 2000
+            while (Date.now() < end) {}
+            console.log("[motion-auto] block end", Date.now())
+        }, 1500)
+        return () => clearInterval(id)
+    }, [])
+
+    const slide = {
+        animate: { x: 250 },
+        transition: {
+            duration: 2,
+            ease: "linear",
+            repeat: Infinity,
+            repeatType: "reverse",
+        },
+    } as const
+
+    return (
+        <View style={styles.page}>
+            <Demo label="UI thread">
+                <motion.View testID="ui" style={styles.dot} {...slide} />
+            </Demo>
+            <Demo label="JS thread (onUpdate)">
+                <motion.View
+                    testID="js"
+                    style={styles.dot}
+                    {...slide}
+                    onUpdate={() => {}}
+                />
+            </Demo>
+            <Demo label="Toggle every 1.5s (interrupts)">
+                <motion.View
+                    style={styles.box}
+                    animate={{ x: on ? 200 : 0, rotate: on ? 180 : 0 }}
+                    transition={{ type: "spring", visualDuration: 2, bounce: 0.3 }}
+                />
+            </Demo>
+        </View>
+    )
+}
+
+function Demos() {
     return (
         <ScrollView contentContainerStyle={styles.page}>
             <Text style={styles.title}>Motion for React Native</Text>
