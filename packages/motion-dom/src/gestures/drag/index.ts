@@ -4,6 +4,7 @@ import type { MotionNodeOptions } from "../../node/types"
 import { visualElementStore } from "../../render/store"
 import type { VisualElement } from "../../render/VisualElement"
 import { activeScope, addToScope } from "../../scope/active"
+import { motionValue, type MotionValue } from "../../value"
 import {
     resolveElements,
     type ElementOrSelector,
@@ -62,6 +63,20 @@ export interface DragOptions {
      */
     propagation?: boolean
 
+    /**
+     * Motion values to write the drag to, instead of the element's
+     * `x` and `y`. When either is set, the element itself doesn't move,
+     * so drag can drive other values, like a dial's rotation.
+     *
+     * ```javascript
+     * const x = motionValue(0)
+     * x.on("change", (v) => (dial.style.rotate = v + "deg"))
+     * drag(dial, { axis: "x", x })
+     * ```
+     */
+    x?: MotionValue<number>
+    y?: MotionValue<number>
+
     onStart?: DragHandler
     onMove?: DragHandler
     onEnd?: DragHandler
@@ -90,8 +105,14 @@ const toProps = ({
     onDirectionLock,
     onTransitionEnd,
     onMeasureConstraints,
+    x,
+    y,
 }: DragOptions): MotionNodeOptions => ({
     drag: axis || true,
+    ...((x || y) && {
+        _dragX: x || motionValue(0),
+        _dragY: y || motionValue(0),
+    }),
     dragConstraints: constraints,
     dragElastic: elastic,
     dragMomentum: momentum,
