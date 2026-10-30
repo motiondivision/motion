@@ -26,7 +26,7 @@ const scrollY = (page: Page) => page.evaluate(() => window.scrollY)
 const press = (page: Page, key: string) => page.keyboard.press(key)
 
 test.describe("Issue #2658: keyboard reordering", () => {
-    test("arrows scroll until Space grabs, then move until Space drops", async ({
+    test("arrows move focus until Space grabs, then move until Space drops", async ({
         page,
     }) => {
         await page.goto("?test=issue-2658")
@@ -34,11 +34,12 @@ test.describe("Issue #2658: keyboard reordering", () => {
         await press(page, "Tab")
         expect(await focused(page)).toBe("a")
 
-        // Not grabbed: the arrow is the page's
+        // Not grabbed: the arrows move focus
         await press(page, "ArrowDown")
+        expect(await focused(page)).toBe("b")
+        await press(page, "ArrowUp")
+        expect(await focused(page)).toBe("a")
         expect(await order(page)).toBe("a,b,c,d")
-        await expect.poll(() => scrollY(page)).toBeGreaterThan(0)
-        await page.evaluate(() => window.scrollTo(0, 0))
 
         await press(page, "Space")
         await expect.poll(() => grabbed(page)).toBe("a")
@@ -70,8 +71,9 @@ test.describe("Issue #2658: keyboard reordering", () => {
         await expect.poll(() => grabbed(page)).toBe("")
         await press(page, "ArrowUp")
         expect(await order(page)).toBe("b,c,a,d")
+        expect(await focused(page)).toBe("c")
 
-        // Neither Space nor the moving arrows scrolled the page
+        // Neither Space nor the arrows scrolled the page
         await page.waitForTimeout(200)
         expect(await scrollY(page)).toBe(0)
     })

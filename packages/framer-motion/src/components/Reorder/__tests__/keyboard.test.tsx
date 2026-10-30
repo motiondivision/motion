@@ -47,6 +47,8 @@ const List = ({
     )
 }
 
+const focused = () => document.activeElement?.getAttribute("data-testid")
+
 const order = (container: HTMLElement) =>
     Array.from(container.querySelectorAll("li")).map((li) =>
         li.getAttribute("data-testid")
@@ -72,9 +74,20 @@ const isGrabbed = (element: Element) =>
         .isActive
 
 describe("Reorder keyboard", () => {
-    it("makes items focusable", () => {
-        const { getByTestId } = render(<List />)
-        expect(getByTestId("a").tabIndex).toBe(0)
+    it("puts one item in the tab order, the first until one is focused", () => {
+        const { container, getByTestId } = render(<List />)
+        const tabIndexes = () =>
+            Array.from(container.querySelectorAll("li")).map(
+                (li) => li.tabIndex
+            )
+        expect(tabIndexes()).toEqual([0, -1, -1])
+
+        act(() => getByTestId("c").focus())
+        expect(tabIndexes()).toEqual([-1, -1, 0])
+
+        // Focus inside an item makes it the one in the tab order
+        act(() => getByTestId("b-input").focus())
+        expect(tabIndexes()).toEqual([-1, 0, -1])
     })
 
     it("lets items override tabIndex", () => {
@@ -86,12 +99,49 @@ describe("Reorder keyboard", () => {
         expect(container.querySelector("li")!.tabIndex).toBe(-1)
     })
 
-    it("leaves arrows to the browser until an item is grabbed", () => {
+    it("makes the first rendered item the tab stop", () => {
+        const Group = ({ values }: { values: string[] }) => (
+            <Reorder.Group values={values} onReorder={() => {}}>
+                <Reorder.Item value="b" data-testid="b" />
+                <Reorder.Item value="c" data-testid="c" />
+                <Reorder.Item value="new" data-testid="new" />
+            </Reorder.Group>
+        )
+        // "a" isn't rendered (e.g. virtualized), and "new" isn't in values
+        const { getByTestId, rerender } = render(
+            <Group values={["a", "b", "c"]} />
+        )
+        expect(getByTestId("b").tabIndex).toBe(0)
+        expect(getByTestId("c").tabIndex).toBe(-1)
+        expect(getByTestId("new").tabIndex).toBe(0)
+
+        // The focused item stays the tab stop until it's unrendered
+        act(() => getByTestId("c").focus())
+        rerender(<Group values={["a", "b", "c", "new"]} />)
+        expect(getByTestId("b").tabIndex).toBe(-1)
+        expect(getByTestId("c").tabIndex).toBe(0)
+        expect(getByTestId("new").tabIndex).toBe(-1)
+    })
+
+    it("moves focus with arrows until an item is grabbed", () => {
         const onReorder = jest.fn()
         const { getByTestId } = render(<List onReorder={onReorder} />)
+        act(() => getByTestId("a").focus())
 
-        expect(press(getByTestId("a"), "ArrowDown")).toBe(true)
-        expect(press(getByTestId("b"), "ArrowUp")).toBe(true)
+        expect(press(getByTestId("a"), "ArrowDown")).toBe(false)
+        expect(focused()).toBe("b")
+        expect(getByTestId("b").tabIndex).toBe(0)
+        expect(getByTestId("a").tabIndex).toBe(-1)
+
+        press(getByTestId("b"), "ArrowDown")
+        expect(focused()).toBe("c")
+        // Nothing past the end, and arrows across the axis are the browser's
+        expect(press(getByTestId("c"), "ArrowDown")).toBe(false)
+        expect(focused()).toBe("c")
+        expect(press(getByTestId("c"), "ArrowLeft")).toBe(true)
+
+        press(getByTestId("c"), "ArrowUp")
+        expect(focused()).toBe("b")
         expect(onReorder).not.toBeCalled()
     })
 
@@ -122,8 +172,10 @@ describe("Reorder keyboard", () => {
         expect(isGrabbed(a)).toBe(false)
         expect(order(container)).toEqual(["b", "a", "c"])
 
-        // Dropped: arrows are the browser's again
-        expect(press(a, "ArrowDown")).toBe(true)
+        // Dropped: arrows move focus again
+        act(() => a.focus())
+        press(a, "ArrowDown")
+        expect(focused()).toBe("c")
         expect(order(container)).toEqual(["b", "a", "c"])
         expect(onReorder).toBeCalledTimes(3)
     })
@@ -165,7 +217,8 @@ describe("Reorder keyboard", () => {
         expect(order(container)).toEqual(["a", "b", "c"])
         expect(isGrabbed(a)).toBe(false)
 
-        expect(press(a, "ArrowDown")).toBe(true)
+        // Dropped, so the arrow moves focus, not the item
+        press(a, "ArrowDown")
         expect(order(container)).toEqual(["a", "b", "c"])
     })
 
@@ -218,7 +271,7 @@ describe("Reorder keyboard", () => {
         expect(order(container)).toEqual(["b", "a", "c"])
 
         act(() => a.focus())
-        expect(press(a, "ArrowDown")).toBe(true)
+        press(a, "ArrowDown")
         expect(order(container)).toEqual(["b", "a", "c"])
         expect(onReorder).toBeCalledTimes(1)
     })
@@ -368,6 +421,20 @@ describe("Reorder keyboard", () => {
                 press(e, key)
                 expect(order(container).join("")).toBe(expected)
             }
+
+            // Dropped, the arrows move focus the same way
+            press(e, " ")
+            await nextFrame()
+            act(() => e.focus())
+            // a b c
+            // e d f
+            // g h
+            press(e, "ArrowUp")
+            expect(focused()).toBe("a")
+            press(getByTestId("a"), "ArrowDown")
+            expect(focused()).toBe("e")
+            press(e, "ArrowDown")
+            expect(focused()).toBe("g")
         } finally {
             spy.mockRestore()
         }

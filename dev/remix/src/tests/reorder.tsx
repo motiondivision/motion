@@ -56,6 +56,26 @@ function List(handle: Handle<ListProps>) {
     )
 }
 
+/**
+ * A list whose first value isn't rendered, as when it's virtualized.
+ */
+function Partial() {
+    return () => (
+        <Reorder.Group
+            id="partial"
+            values={["hidden", "a", "b"]}
+            onReorder={() => {}}
+            style={{ listStyle: "none", padding: 0 }}
+        >
+            {["a", "b"].map((item) => (
+                <Reorder.Item key={item} value={item} style={itemStyle}>
+                    {item}
+                </Reorder.Item>
+            ))}
+        </Reorder.Group>
+    )
+}
+
 export function App() {
     return () => (
         <main style={{ padding: "20px" }}>
@@ -80,6 +100,7 @@ export function App() {
                 initial={["a", "b", "c"]}
                 style={{ display: "flex", gap: "10px", direction: "rtl" }}
             />
+            <Partial />
         </main>
     )
 }

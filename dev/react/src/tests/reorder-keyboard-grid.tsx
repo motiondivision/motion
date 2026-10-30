@@ -12,6 +12,7 @@ export const App = () => {
 
     return (
         <>
+            <button id="before">before</button>
             <div id="order">{items.join(",")}</div>
             <Reorder.Group
                 as="div"
@@ -36,6 +37,7 @@ export const App = () => {
                     </Reorder.Item>
                 ))}
             </Reorder.Group>
+            <button id="after">after</button>
         </>
     )
 }
