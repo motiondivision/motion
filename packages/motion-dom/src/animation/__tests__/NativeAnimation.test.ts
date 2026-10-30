@@ -264,6 +264,28 @@ describe("NativeAnimation - releasing the finish handler", () => {
         expect(onComplete).toHaveBeenCalledTimes(1)
     })
 
+    test("restores the finish handler when completed after cancelling", () => {
+        const onComplete = jest.fn()
+        const animation = createAnimation({ onComplete })
+        mockAnimation.finish = () => mockAnimation.onfinish?.()
+
+        animation.cancel()
+        animation.complete()
+
+        expect(onComplete).toHaveBeenCalledTimes(1)
+    })
+
+    test("doesn't restore the finish handler when completed after stopping", () => {
+        const onComplete = jest.fn()
+        const animation = createAnimation({ onComplete })
+        mockAnimation.finish = () => mockAnimation.onfinish?.()
+
+        animation.stop()
+        animation.complete()
+
+        expect(onComplete).not.toHaveBeenCalled()
+    })
+
     test("doesn't restore the finish handler of an animation attached to a timeline", () => {
         const animation = createAnimation()
 

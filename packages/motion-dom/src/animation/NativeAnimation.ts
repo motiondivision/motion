@@ -153,6 +153,7 @@ export class NativeAnimation<T extends AnyResolvedKeyframe>
     }
 
     complete() {
+        if (!this.isStopped) this.animation.onfinish = this.onFinish
         this.animation.finish?.()
     }
 
@@ -181,10 +182,7 @@ export class NativeAnimation<T extends AnyResolvedKeyframe>
             this.commitStyles()
         }
 
-        if (!this.isPseudoElement) {
-            this.animation.onfinish = null
-            this.cancel()
-        }
+        if (!this.isPseudoElement) this.cancel()
     }
 
     /**
