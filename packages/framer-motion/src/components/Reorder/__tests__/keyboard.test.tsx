@@ -504,6 +504,41 @@ describe("Reorder keyboard", () => {
         }
     })
 
+    it("moves focus, or the grabbed item, to either end with Home and End", () => {
+        const onReorder = jest.fn()
+        const { container, getByTestId } = render(
+            <List initial={["a", "b", "c", "d"]} onReorder={onReorder} />
+        )
+        const b = getByTestId("b")
+        act(() => b.focus())
+
+        expect(press(b, "End")).toBe(false)
+        expect(focused()).toBe("d")
+        press(getByTestId("d"), "Home")
+        expect(focused()).toBe("a")
+        expect(onReorder).not.toBeCalled()
+
+        act(() => b.focus())
+        press(b, " ")
+        expect(press(b, "End")).toBe(false)
+        expect(order(container).join("")).toBe("acdb")
+        press(b, "Home")
+        expect(order(container).join("")).toBe("bacd")
+        // Already there
+        press(b, "Home")
+        expect(onReorder).toBeCalledTimes(2)
+        expect(focused()).toBe("b")
+    })
+
+    it("uses Home and End on every axis", () => {
+        const { container, getByTestId } = render(<List axis="x" />)
+        const a = getByTestId("a")
+        act(() => a.focus())
+        press(a, " ")
+        press(a, "End")
+        expect(order(container).join("")).toBe("bca")
+    })
+
     it("ignores keys from inside the item", () => {
         const onReorder = jest.fn()
         const { getByTestId } = render(<List onReorder={onReorder} />)
