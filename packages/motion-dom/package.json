@@ -1,6 +1,6 @@
 {
     "name": "motion-dom",
-    "version": "14.7.2",
+    "version": "14.8.0",
     "author": "Matt Perry",
     "license": "MIT",
     "repository": "https://github.com/motiondivision/motion",
@@ -38,7 +38,7 @@
             "maxSize": "1.9 kB"
         }
     ],
-    "gitHead": "0d3c11b5f54647ecc5d1ee93e827651291fe7ce3",
+    "gitHead": "1b27a832fbe0a30c011134d95cfa1fd2330f1203",
     "devDependencies": {
         "concurrently": "^7.3.0",
         "jest": "^29.7.0",
