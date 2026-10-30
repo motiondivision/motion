@@ -568,8 +568,12 @@ test.describe("Reorder", () => {
         const errors = await open(page, "reorder")
         expect(await page.$eval("#y-a", (el: HTMLElement) => el.tabIndex)).toBe(0)
         await page.focus("#y-a")
-        // Arrows do nothing until the item is grabbed.
+        // Arrows move focus until the item is grabbed.
         await page.keyboard.press("ArrowDown")
+        expect(await page.evaluate(() => document.activeElement?.id)).toBe(
+            "y-b"
+        )
+        await page.keyboard.press("ArrowUp")
         expect(await order(page, "y")).toBe("abcd")
 
         await page.keyboard.press(" ")
@@ -613,6 +617,71 @@ test.describe("Reorder", () => {
         await page.keyboard.press("Tab")
         await expect.poll(() => opacity(page, "#y-a")).toBe(1)
         expect(await order(page, "y")).toBe("bacd")
+    })
+
+    test("Up and Down move between rows of a grid", async ({ page }) => {
+        await open(page, "reorder")
+        await page.focus("#grid-a")
+        await page.keyboard.press(" ")
+        await expect.poll(() => opacity(page, "#grid-a")).toBe(0.5)
+        // a takes c's slot below it, rather than b's beside it
+        await page.keyboard.press("ArrowDown")
+        expect(await order(page, "grid")).toBe("bcad")
+        await page.keyboard.press("ArrowDown")
+        expect(await order(page, "grid")).toBe("bcad")
+        // Moving the node up blurs it, which mustn't drop it
+        await page.keyboard.press("ArrowUp")
+        expect(await order(page, "grid")).toBe("abcd")
+        await page.keyboard.press("ArrowRight")
+        expect(await order(page, "grid")).toBe("bacd")
+        expect(await opacity(page, "#grid-a")).toBe(0.5)
+    })
+
+    test("arrows move focus until an item is grabbed", async ({ page }) => {
+        await open(page, "reorder")
+        const focused = () => page.evaluate(() => document.activeElement?.id)
+        const tabIndexes = () =>
+            page.$$eval("#grid > li", (items) =>
+                items.map((item) => (item as HTMLElement).tabIndex).join("")
+            )
+        expect(await tabIndexes()).toBe("0-1-1-1")
+
+        await page.focus("#grid-a")
+        await page.keyboard.press("ArrowDown")
+        expect(await focused()).toBe("grid-c")
+        await page.keyboard.press("ArrowRight")
+        expect(await focused()).toBe("grid-d")
+        await page.keyboard.press("ArrowUp")
+        expect(await focused()).toBe("grid-b")
+        expect(await tabIndexes()).toBe("-10-1-1")
+        expect(await order(page, "grid")).toBe("abcd")
+    })
+
+    test("the first rendered item in values is the tab stop", async ({
+        page,
+    }) => {
+        await open(page, "reorder")
+        const tabIndexes = () =>
+            page.$$eval("#partial > li", (items) =>
+                items.map((item) => (item as HTMLElement).tabIndex).join()
+            )
+        // "hidden" isn't rendered, and "new" isn't in values
+        await expect.poll(tabIndexes).toBe("0,-1,0")
+
+        // Focusing "new" leaves the tab stop where it is
+        await page.focus("#partial-b")
+        await page.focus("#partial-new")
+        await expect.poll(tabIndexes).toBe("-1,0,0")
+        // Arrows from the tab stop skip what isn't rendered
+        await page.focus("#partial-b")
+        await page.keyboard.press("ArrowUp")
+        expect(await page.evaluate(() => document.activeElement?.id)).toBe(
+            "partial-a"
+        )
+
+        // Unrendering the tab stop from below the group moves it on
+        await page.evaluate(() => (window as any).hidePartialA())
+        await expect.poll(tabIndexes).toBe("0,0")
     })
 
     test("Left and Right swap in RTL", async ({ page }) => {

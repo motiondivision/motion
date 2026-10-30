@@ -3,7 +3,14 @@
 import { isMotionValue, visualElementStore } from "motion-dom"
 import { invariant } from "motion-utils"
 import * as React from "react"
-import { forwardRef, FunctionComponent, useContext, useState } from "react"
+import {
+    forwardRef,
+    FunctionComponent,
+    useContext,
+    useEffect,
+    useRef,
+    useState,
+} from "react"
 import { ReorderContext } from "../../context/ReorderContext"
 import type { MotionProxy } from "../../render/components/create-proxy"
 import { HTMLMotionProps } from "../../render/html/types"
@@ -64,6 +71,7 @@ export function ReorderItemComponent<
         onDrag,
         onDragEnd,
         onKeyDown,
+        onFocus,
         onBlur,
         layout = true,
         ...props
@@ -108,8 +116,28 @@ export function ReorderItemComponent<
         updateOrder,
         groupRef,
         hasReordered,
+        isTabStop,
+        setActive,
+        checkTabStop,
+        elements,
         onKeyDown: handleKeyDown,
     } = context!
+
+    /**
+     * Keep this item's element for the group to focus, forwarding it to
+     * the external ref.
+     */
+    const element = useRef<HTMLElement | null>(null)
+    elements.set(value, element)
+    const latestRef = useRef(externalRef)
+    latestRef.current = externalRef
+    const ref = useConstant(() => (instance: HTMLElement | null) => {
+        element.current = instance
+        const ref = latestRef.current
+        if (typeof ref === "function") return ref(instance)
+        if (ref) ref.current = instance
+    })
+    useEffect(() => checkTabStop)
     const dragAxis = axis === "xy" ? true : axis
 
     /**
@@ -126,7 +154,7 @@ export function ReorderItemComponent<
     return (
         <Component
             drag={dragAxis}
-            tabIndex={0}
+            tabIndex={isTabStop(value) ? 0 : -1}
             {...props}
             dragSnapToOrigin
             style={{ ...style, x: point.x, y: point.y, zIndex }}
@@ -163,6 +191,14 @@ export function ReorderItemComponent<
                 handleKeyDown(event, value, grabbedFrom, grab)
             }}
             /**
+             * The item focused last, or holding focus, is the group's tab
+             * stop.
+             */
+            onFocus={(event: React.FocusEvent<HTMLElement>) => {
+                onFocus?.(event as any)
+                setActive(value)
+            }}
+            /**
              * A move blurs the item, but that blur is never dispatched:
              * React DOM disables its events while it commits, and restores
              * focus to the item before re-enabling them. So any blur that
@@ -175,7 +211,7 @@ export function ReorderItemComponent<
             onLayoutMeasure={(measured) => {
                 registerItem(value, measured)
             }}
-            ref={externalRef}
+            ref={ref}
             ignoreStrict
         >
             {children}
