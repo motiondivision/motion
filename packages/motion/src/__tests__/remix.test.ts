@@ -205,8 +205,14 @@ describe("motion/remix", () => {
     })
 
     it("animates variants through children and calls onAnimationComplete", async () => {
-        const onAnimationComplete = jest.fn()
-        const item = { hidden: { opacity: 0 }, visible: { opacity: 1 } }
+        let onAnimationComplete!: (definition: unknown) => void
+        const animationComplete = new Promise(
+            (resolve) => (onAnimationComplete = resolve)
+        )
+        const item = {
+            hidden: { opacity: 0 },
+            visible: { opacity: 1, transition: { duration: 0.05 } },
+        }
         const { container } = setup(
             () => () =>
                 createElement(
@@ -215,9 +221,8 @@ describe("motion/remix", () => {
                         initial: "hidden",
                         animate: "visible",
                         variants: {
-                            visible: { transition: { staggerChildren: 0.1 } },
+                            visible: { transition: { staggerChildren: 0.3 } },
                         },
-                        transition: { duration: 0.05 },
                         onAnimationComplete,
                     },
                     createElement(motion.li, { variants: item }),
@@ -229,10 +234,13 @@ describe("motion/remix", () => {
         // The second item is still waiting for its stagger delay.
         expect((items[1] as HTMLElement).style.opacity).toBe("0")
 
-        await wait(400)
+        /**
+         * Wait for completion rather than a fixed timer, which races the
+         * second item's stagger delay plus transition under load.
+         */
+        expect(await animationComplete).toBe("visible")
         expect((items[0] as HTMLElement).style.opacity).toBe("1")
         expect((items[1] as HTMLElement).style.opacity).toBe("1")
-        expect(onAnimationComplete.mock.calls[0][0]).toBe("visible")
     })
 
     it("renders motion values in style", async () => {
