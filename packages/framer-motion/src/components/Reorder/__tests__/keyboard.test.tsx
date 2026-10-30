@@ -123,6 +123,70 @@ describe("Reorder keyboard", () => {
         expect(getByTestId("new").tabIndex).toBe(-1)
     })
 
+    it("moves the tab stop on when its item is unrendered below the group", () => {
+        let setShown: (shown: string[]) => void
+        const Items = () => {
+            const [shown, set] = useState(["a", "b", "c"])
+            setShown = set
+            return (
+                <>
+                    {shown.map((value) => (
+                        <Reorder.Item
+                            key={value}
+                            value={value}
+                            data-testid={value}
+                        />
+                    ))}
+                </>
+            )
+        }
+        const { getByTestId } = render(
+            <Reorder.Group values={["a", "b", "c"]} onReorder={() => {}}>
+                <Items />
+            </Reorder.Group>
+        )
+        expect(getByTestId("a").tabIndex).toBe(0)
+
+        act(() => setShown(["b", "c"]))
+        expect(getByTestId("b").tabIndex).toBe(0)
+    })
+
+    it("keeps the tab stop when an item outside values is focused", () => {
+        const { getByTestId } = render(
+            <Reorder.Group values={["a", "b"]} onReorder={() => {}}>
+                <Reorder.Item value="a" data-testid="a" />
+                <Reorder.Item value="b" data-testid="b" />
+                <Reorder.Item value="new" data-testid="new" />
+            </Reorder.Group>
+        )
+        act(() => getByTestId("b").focus())
+        act(() => getByTestId("new").focus())
+        expect(getByTestId("a").tabIndex).toBe(-1)
+        expect(getByTestId("b").tabIndex).toBe(0)
+    })
+
+    it("moves focus past values that aren't rendered", () => {
+        const Group = ({ shown }: { shown: string[] }) => (
+            <Reorder.Group values={["a", "b", "c"]} onReorder={() => {}}>
+                {shown.map((value) => (
+                    <Reorder.Item
+                        key={value}
+                        value={value}
+                        data-testid={value}
+                    />
+                ))}
+            </Reorder.Group>
+        )
+        const { getByTestId, rerender } = render(
+            <Group shown={["a", "b", "c"]} />
+        )
+        // b has been measured, then unrendered
+        rerender(<Group shown={["a", "c"]} />)
+        act(() => getByTestId("a").focus())
+        press(getByTestId("a"), "ArrowDown")
+        expect(focused()).toBe("c")
+    })
+
     it("moves focus with arrows until an item is grabbed", () => {
         const onReorder = jest.fn()
         const { getByTestId } = render(<List onReorder={onReorder} />)

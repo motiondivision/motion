@@ -657,15 +657,31 @@ test.describe("Reorder", () => {
         expect(await order(page, "grid")).toBe("abcd")
     })
 
-    test("the first rendered item is the tab stop", async ({ page }) => {
+    test("the first rendered item in values is the tab stop", async ({
+        page,
+    }) => {
         await open(page, "reorder")
-        await expect
-            .poll(() =>
-                page.$$eval("#partial > li", (items) =>
-                    items.map((item) => (item as HTMLElement).tabIndex).join()
-                )
+        const tabIndexes = () =>
+            page.$$eval("#partial > li", (items) =>
+                items.map((item) => (item as HTMLElement).tabIndex).join()
             )
-            .toBe("0,-1")
+        // "hidden" isn't rendered, and "new" isn't in values
+        await expect.poll(tabIndexes).toBe("0,-1,0")
+
+        // Focusing "new" leaves the tab stop where it is
+        await page.focus("#partial-b")
+        await page.focus("#partial-new")
+        await expect.poll(tabIndexes).toBe("-1,0,0")
+        // Arrows from the tab stop skip what isn't rendered
+        await page.focus("#partial-b")
+        await page.keyboard.press("ArrowUp")
+        expect(await page.evaluate(() => document.activeElement?.id)).toBe(
+            "partial-a"
+        )
+
+        // Unrendering the tab stop from below the group moves it on
+        await page.evaluate(() => (window as any).hidePartialA())
+        await expect.poll(tabIndexes).toBe("0,0")
     })
 
     test("Left and Right swap in RTL", async ({ page }) => {
