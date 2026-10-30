@@ -1,13 +1,14 @@
 import type { BoundingBox } from "motion-utils"
 import type { InertiaOptions } from "../../animation/types"
-import { acquireProjectionNode } from "../../layout/LayoutAnimationBuilder"
 import type { MotionNodeOptions } from "../../node/types"
+import { visualElementStore } from "../../render/store"
 import type { VisualElement } from "../../render/VisualElement"
 import { activeScope, addToScope } from "../../scope/active"
 import {
     resolveElements,
     type ElementOrSelector,
 } from "../../utils/resolve-elements"
+import { acquireDragNode } from "./projection"
 import type { DragConstraintsFunction, DragElastic, DragHandler } from "./types"
 import { VisualElementDragControls } from "./VisualElementDragControls"
 
@@ -172,7 +173,7 @@ export function drag(
 
     const cleanups = resolveElements(elementOrSelector).map((element) => {
         scope?.track(element)
-        const [node, release] = acquireProjectionNode(element as HTMLElement)
+        const [node, release] = acquireDragNode(element as HTMLElement)
 
         /**
          * Measure layout even when not animating it, as constraints and
@@ -181,7 +182,7 @@ export function drag(
         node.setOptions({ alwaysMeasureLayout: true })
 
         const controls = new VisualElementDragControls(
-            node.options.visualElement as VisualElement<HTMLElement>,
+            visualElementStore.get(element) as VisualElement<HTMLElement>,
             () => props
         )
         const removeListeners = controls.addListeners()

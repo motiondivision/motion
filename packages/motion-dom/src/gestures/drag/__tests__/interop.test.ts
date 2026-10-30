@@ -1,8 +1,8 @@
 import { drag } from ".."
 import { animateElement } from "../../../animation/animate/element"
 import { animateLayout } from "../../../layout/animate-layout"
-import { acquireProjectionNode } from "../../../layout/LayoutAnimationBuilder"
 import { visualElementStore } from "../../../render/store"
+import { acquireDragNode } from "../projection"
 import { createElement, gesture, getValue, nextFrame, values } from "./utils"
 
 let stops: VoidFunction[] = []
@@ -144,7 +144,7 @@ describe("drag() and animateLayout()", () => {
          * rather than creating its own.
          */
         expect(visualElementStore.get(element)).toBe(visualElement)
-        expect(acquireProjectionNode(element)[0]).toBe(node)
+        expect(acquireDragNode(element)[0]).toBe(node)
 
         const pointer = await gesture(element).to(30, 40)
         pointer.end()
@@ -159,7 +159,7 @@ describe("drag() and animateLayout()", () => {
          * Removing the gesture leaves animateLayout()'s node in place.
          */
         stop()
-        expect(acquireProjectionNode(element)[0]).toBe(node)
+        expect(acquireDragNode(element)[0]).toBe(node)
         expect(node.instance).toBe(element)
 
         await animateLayout(() => (element.style.width = "200px"), {

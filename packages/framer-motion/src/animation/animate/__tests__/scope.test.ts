@@ -371,6 +371,59 @@ describe("scopeMotion", () => {
         expect(builder.defaultOptions).toEqual({ duration: 3 })
     })
 
+    test("timeline segments added later resolve in the root and are restored", async () => {
+        document.body.innerHTML = `<div class="root"><div class="a"></div><div class="b"></div></div><div class="b" id="outside"></div>`
+        const inside = document.querySelector(".root .b") as HTMLElement
+        const outside = document.getElementById("outside") as HTMLElement
+        let timeline: any
+
+        const scope = scopeMotion(".root", () => {
+            timeline = animate([[".a", { opacity: 0.5 }, { duration: 0.05 }]])
+        })
+        timeline.add([".b", { opacity: 0.2 }, { duration: 0.05 }])
+        await timeline
+        await nextFrame()
+
+        expect(inside.style.opacity).toBe("0.2")
+        expect(outside.style.opacity).toBe("")
+
+        scope.cancel()
+        expect(inside.style.opacity).toBe("")
+    })
+
+    test("a timeline stopped with its scope doesn't restart when changed", async () => {
+        const x = motionValue(0)
+        const y = motionValue(0)
+        let timeline: any
+
+        const scope = scopeMotion(() => {
+            timeline = animate([[x, 100, { duration: 10 }]])
+        })
+        scope.stop()
+
+        timeline.add([y, 100, { duration: 10 }])
+        await flushMicrotasks()
+        expect(await isAnimating(x)).toBe(false)
+        expect(await isAnimating(y)).toBe(false)
+    })
+
+    test("a timeline that finished still stops with its scope when changed", async () => {
+        const x = motionValue(0)
+        let timeline: any
+
+        const scope = scopeMotion(() => {
+            timeline = animate([[x, 100, { duration: 0.05 }]])
+        })
+        await timeline
+
+        timeline.add([x, 200, { duration: 10 }])
+        await flushMicrotasks()
+        expect(await isAnimating(x)).toBe(true)
+
+        scope.stop()
+        expect(await isAnimating(x)).toBe(false)
+    })
+
     test("state reports active, stopped and cancelled", () => {
         const a = scopeMotion()
         expect(a.state).toBe("active")

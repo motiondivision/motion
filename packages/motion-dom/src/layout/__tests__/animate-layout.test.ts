@@ -1,4 +1,4 @@
-import { animateLayout } from "../.."
+import { animateLayout, flushLayoutSnapshots } from "../.."
 import { LayoutAnimationBuilder } from "../LayoutAnimationBuilder"
 
 describe("animateLayout", () => {
@@ -31,5 +31,17 @@ describe("animateLayout", () => {
         expect(updateDom).toHaveBeenCalledTimes(1)
 
         scope.remove()
+    })
+
+    test("flushLayoutSnapshots runs the DOM update synchronously", async () => {
+        const updateDom = jest.fn()
+        const builder = animateLayout(updateDom)
+
+        flushLayoutSnapshots()
+        expect(updateDom).toHaveBeenCalledTimes(1)
+
+        // The flush queued for the next microtask has nothing left to do.
+        await builder
+        expect(updateDom).toHaveBeenCalledTimes(1)
     })
 })

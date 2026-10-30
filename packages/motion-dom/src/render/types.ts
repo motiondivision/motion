@@ -26,6 +26,13 @@ export interface PresenceContextProps {
     onExitComplete?: (id: string | number) => void
     initial?: false | VariantLabels
     custom?: any
+    /**
+     * When React hides children (e.g. a re-suspended Suspense boundary)
+     * and shows them again, their motion values are reset to `initial`
+     * so the enter animation replays. Set this to keep the values they
+     * had instead.
+     */
+    keepValuesOnRemount?: boolean
 }
 
 /**

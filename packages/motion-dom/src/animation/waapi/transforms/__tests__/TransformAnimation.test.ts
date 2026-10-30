@@ -370,6 +370,56 @@ describe("independent transform acceleration", () => {
         expect(element.style.transform).toContain("translateY")
     })
 
+    it("stays on the main thread for values a mixer mixes", async () => {
+        const element = document.createElement("div")
+        let mixed = 0
+        const mixer = (a: string, b: string) => (p: number) => {
+            mixed++
+            return p < 0.5 ? a : b
+        }
+
+        animateElement(
+            element,
+            { x: ["0px", "100px"] },
+            { duration: 1, ease: "linear", mixer }
+        )
+        await nextFrame()
+        await nextFrame()
+
+        expect(running(element)).toHaveLength(0)
+        expect(mixed).toBeGreaterThan(0)
+    })
+
+    it("accelerates values a mixer declines", async () => {
+        const element = document.createElement("div")
+
+        animateElement(
+            element,
+            { x: ["0px", "100px"] },
+            { duration: 1, ease: "linear", mixer: () => undefined }
+        )
+        await nextFrame()
+        await nextFrame()
+
+        expect(running(element)).toHaveLength(1)
+    })
+
+    it("accelerates numbers with a mixer, as it leaves them to the usual blending", async () => {
+        const element = document.createElement("div")
+        const mixer = jest.fn()
+
+        animateElement(
+            element,
+            { x: [0, 100] },
+            { duration: 1, ease: "linear", mixer }
+        )
+        await nextFrame()
+        await nextFrame()
+
+        expect(running(element)).toHaveLength(1)
+        expect(mixer).not.toHaveBeenCalled()
+    })
+
     it("moves to the main thread when another source keeps writing a transform", async () => {
         /**
          * Frames are 1000/60ms apart however long this environment takes
@@ -850,6 +900,26 @@ describe("independent transform acceleration", () => {
         for (const transform of keyframes.transform) {
             expect(transform).not.toContain("rotate(")
             expect(transform).toContain("scale(2)")
+        }
+    })
+
+    it("leaves out static transforms at their default when they have units", async () => {
+        const element = document.createElement("div")
+        styleEffect(element, {
+            y: motionValue("0px"),
+            rotate: motionValue("0deg"),
+            scaleY: motionValue("1"),
+            rotateX: motionValue("10deg"),
+        })
+
+        animateElement(element, { x: [0, 100] }, { duration: 1 })
+        await nextFrame()
+
+        const [{ keyframes }] = running(element)
+        for (const transform of keyframes.transform) {
+            expect(transform).toMatch(
+                /^translateX\([\d.]+px\) rotateX\(10deg\) $/
+            )
         }
     })
 

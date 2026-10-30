@@ -30,6 +30,7 @@ import {
 import { cubicBezierAsString } from "../easing/cubic-bezier"
 import { supportedWaapiEasing } from "../easing/supported"
 import { supportsWaapi } from "../supports/waapi"
+import { needsMixer } from "../utils/needs-mixer"
 import { supportsLinearEasing } from "../../../utils/supports/linear-easing"
 import { TransformGroupHooks, transformGroups } from "./groups"
 
@@ -138,22 +139,30 @@ const churnWindow = 100
 const isNativeEasing = (ease: unknown): ease is "linear" =>
     /^(linear|ease(In|Out|InOut))$/.test(ease as string)
 
+/**
+ * Whether two eased progresses match. False if either is NaN.
+ */
+const isNear = (a: number, b: number) => Math.abs(a - b) <= easingTolerance
+
 const byTime = (a: number, b: number) => a - b
 
 /**
  * n + 1 evenly spaced timestamps, from one timestamp to another.
  */
-const spread = (from: number, to: number, n: number) => {
-    const result: number[] = []
-    for (let i = 0; i <= n; i++) result.push(mixNumber(from, to, i / n))
-    return result
-}
+const spread = (from: number, to: number, n: number) =>
+    defaultOffset(Array(n + 1)).map((p) => mixNumber(from, to, p))
 
 const getOwner = (options: ValueAnimationOptions<any>) =>
     options.motionValue!.owner as TransformOwner
 
 const getGroup = (element: Element) =>
     transformGroups.get(element) as TransformGroup | undefined
+
+/**
+ * Whether an animation has ended, so can leave its group.
+ */
+const hasEnded = ({ state }: TransformAnimation<any>) =>
+    state === "idle" || state === "finished"
 
 const read = (owner: TransformOwner, key: string) =>
     owner.latestValues ? owner.latestValues[key] : owner.getValue(key)?.get()
@@ -201,7 +210,12 @@ function canAccelerateTransform(options: ValueAnimationOptions<any>) {
         /**
          * Layout animations write transform every frame.
          */
-        !owner.projection?.isProjecting()
+        !owner.projection?.isProjecting() &&
+        /**
+         * A mixer that blends these values makes them every frame. It's
+         * asked last, as it's user code.
+         */
+        !needsMixer(options)
     )
 }
 
@@ -658,9 +672,8 @@ function createGroup(owner: TransformOwner): TransformGroup {
         let progressAt: (t: number) => number
 
         for (const track of moving) {
-            const values = at.map((t) => track.numberAt(t))
-            const [first] = values
-            const changes = values.map((value) => value - first)
+            const first = track.numberAt(from)
+            const changes = at.map((t) => track.numberAt(t) - first)
             const end = changes[changes.length - 1]
 
             /**
@@ -681,32 +694,22 @@ function createGroup(owner: TransformOwner): TransformGroup {
             )
 
             /**
-             * A value that doesn't change, like one still in its delay,
-             * fits any easing. One that changes but ends where it started
-             * fits none.
+             * The first value that moves sets the easing, and every other
+             * one must follow it. A value that doesn't change, like one
+             * still in its delay, fits any easing. One that changes but
+             * ends where it started fits none.
              */
-            if (!range) {
-                if (progress.some((p) => !(Math.abs(p) <= easingTolerance))) {
-                    return
-                }
-            } else if (!shared) {
+            if (range && !shared) {
                 shared = progress
                 progressAt = (t) => (track.numberAt(t) - first) / range
             } else if (
-                progress.some(
-                    (p, i) => !(Math.abs(p - shared![i]) <= easingTolerance)
-                )
+                progress.some((p, i) => !isNear(p, range && shared![i]))
             ) {
                 return
             }
         }
 
-        if (
-            !shared ||
-            shared.every(
-                (p, i) => Math.abs(p - position(at[i])) <= easingTolerance
-            )
-        ) {
+        if (!shared || shared.every((p, i) => isNear(p, position(at[i])))) {
             return "linear"
         }
 
@@ -824,9 +827,9 @@ function createGroup(owner: TransformOwner): TransformGroup {
         moving: TransformAnimation<any>[],
         from: number,
         to: number,
+        nativeEasing?: string,
         options: KeyframeAnimationOptions = { fill: "both" },
-        settled?: number,
-        nativeEasing?: string
+        settled?: number
     ) => {
         const bounds = moving.flatMap((track) => track.boundaries(from, to))
         const easing = nativeEasing || getEasing(moving, from, to, bounds)
@@ -923,11 +926,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
         keys = transformPropOrder.filter((key) => {
             if (byKey.has(key)) return true
             const value = (statics[key] = read(owner, key))
-            return (
-                value !== undefined &&
-                parseFloat(value as string) !==
-                    (key.startsWith("scale") ? 1 : 0)
-            )
+            return value !== undefined && !isDefaultTransform(key, value)
         })
 
         stop(false)
@@ -942,7 +941,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
             if (tween && tween[1] > now) {
                 const [from, to, easing] = tween
                 add(
-                    run(moving, from, to, undefined, undefined, easing),
+                    run(moving, from, to, easing),
                     from - now,
                     to - from
                 )
@@ -977,6 +976,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
                         looping,
                         from,
                         from + cycle,
+                        undefined,
                         {
                             iterations: Infinity,
                             iterationStart: (end - from) / cycle,
@@ -1139,9 +1139,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
 
         if (isEnded) return
 
-        tracks.forEach(({ state }, track) => {
-            if (state === "idle" || state === "finished") tracks.delete(track)
-        })
+        tracks.forEach((track) => hasEnded(track) && tracks.delete(track))
 
         if (end()) return
 
@@ -1206,8 +1204,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
              * Only drop the stopped animation. Others can be idle because
              * they're part way through play(), and are about to run.
              */
-            const { state } = track
-            if (state === "idle" || state === "finished") tracks.delete(track)
+            hasEnded(track) && tracks.delete(track)
             end() || group.schedule(true)
         },
 

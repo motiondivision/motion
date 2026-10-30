@@ -54,6 +54,19 @@ export const addSVGValue = (
         return addSVGPathValue(element, state, key, value)
     } else if (key.startsWith("attr")) {
         return addAttrValue(element, state, key, value, convertAttrKey(key))
+    } else if (key === "d") {
+        /**
+         * `d` is a CSS property in Chrome and Firefox, but only as
+         * `path(...)`, so path data goes to the attribute, taken out of
+         * `path(...)` if it's written that way. Path data itself has no
+         * quotes or brackets.
+         */
+        return state.set(key, value, () => {
+            const d = value.get()?.replace(/path\(|["')]/g, "")
+            d === undefined
+                ? element.removeAttribute(key)
+                : element.setAttribute(key, d)
+        })
     }
 
     /**

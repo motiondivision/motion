@@ -36,16 +36,24 @@ test("drag to reorder, y axis", async ({ page }) => {
     const tomatoMid = await box(page, "Tomato")
     expect(Math.abs(tomatoMid.top - (tomatoStart.top + 45))).toBeLessThan(25)
 
-    // Cucumber has swapped into Tomato's original slot
-    const cucumberMid = await box(page, "Cucumber")
-    expect(Math.abs(cucumberMid.top - tomatoStart.top)).toBeLessThan(5)
+    /**
+     * Cucumber has swapped into Tomato's original slot. The swap is a 0.1s
+     * layout animation, so poll for it: under parallel load its frames can
+     * land after a fixed wait.
+     */
+    const distanceToSlot = async (id: string, top: number) =>
+        Math.abs((await box(page, id)).top - top)
+    await expect
+        .poll(() => distanceToSlot("Cucumber", tomatoStart.top))
+        .toBeLessThan(5)
 
     await page.mouse.up()
-    await page.waitForTimeout(300)
 
     // Tomato settles into the second slot
-    const tomatoEnd = await box(page, "Tomato")
-    expect(Math.abs(tomatoEnd.top - cucumberStart.top)).toBeLessThan(6)
-    const cucumberEnd = await box(page, "Cucumber")
-    expect(Math.abs(cucumberEnd.top - tomatoStart.top)).toBeLessThan(5)
+    await expect
+        .poll(() => distanceToSlot("Tomato", cucumberStart.top))
+        .toBeLessThan(6)
+    await expect
+        .poll(() => distanceToSlot("Cucumber", tomatoStart.top))
+        .toBeLessThan(5)
 })
