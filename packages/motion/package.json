@@ -121,7 +121,7 @@
             "optional": true
         }
     },
-    "gitHead": "1b27a832fbe0a30c011134d95cfa1fd2330f1203",
+    "gitHead": "7b4a34f01709c5b172205844df9d9fabe8a20ab3",
     "devDependencies": {
         "@remix-run/component": "1.1.0",
         "concurrently": "^7.3.0",
