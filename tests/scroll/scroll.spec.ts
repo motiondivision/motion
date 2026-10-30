@@ -235,3 +235,29 @@ test.describe("scroll()", () => {
         })
     })
 })
+
+test.describe("scroll() with a spring between strings", () => {
+    test("scrolls x in pixels with its default spring", async ({ page }) => {
+        await page.goto("scroll/scroll-spring-px.html")
+        await settle(page)
+
+        const maxScroll = await page.evaluate(
+            () => document.documentElement.scrollHeight - window.innerHeight
+        )
+
+        for (const fraction of [0.5, 1]) {
+            await page.evaluate(
+                (y) => window.scrollTo(0, y),
+                Math.round(maxScroll * fraction)
+            )
+            await page.waitForTimeout(100)
+
+            const transform = await page
+                .locator("#box")
+                .evaluate((element) => element.style.transform)
+            expect(
+                parseFloat(transform.replace("translateX(", ""))
+            ).toBeCloseTo(100 * fraction, 0)
+        }
+    })
+})

@@ -1,14 +1,15 @@
 import type { BoundingBox } from "motion-utils"
 import type { InertiaOptions } from "../../animation/types"
-import { acquireProjectionNode } from "../../layout/LayoutAnimationBuilder"
 import type { MotionNodeOptions } from "../../node/types"
+import { visualElementStore } from "../../render/store"
 import type { VisualElement } from "../../render/VisualElement"
 import { activeScope, addToScope } from "../../scope/active"
 import {
     resolveElements,
     type ElementOrSelector,
 } from "../../utils/resolve-elements"
-import type { DragElastic, DragHandler } from "./types"
+import { acquireDragNode } from "./projection"
+import type { DragConstraintsFunction, DragElastic, DragHandler } from "./types"
 import { VisualElementDragControls } from "./VisualElementDragControls"
 
 /**
@@ -23,10 +24,11 @@ export interface DragOptions {
 
     /**
      * The permitted draggable area. Either `top`/`left`/`right`/`bottom`
-     * distances in pixels, relative to the element's origin, or an element
-     * the draggable element must stay within.
+     * distances in pixels, relative to the element's origin, an element
+     * the draggable element must stay within, or a function that returns
+     * a `DragPointConstraint` to move the element itself.
      */
-    constraints?: Partial<BoundingBox> | Element
+    constraints?: Partial<BoundingBox> | Element | DragConstraintsFunction
 
     /**
      * How far, from `0` to `1`, the element can move outside its
@@ -171,7 +173,7 @@ export function drag(
 
     const cleanups = resolveElements(elementOrSelector).map((element) => {
         scope?.track(element)
-        const [node, release] = acquireProjectionNode(element as HTMLElement)
+        const [node, release] = acquireDragNode(element as HTMLElement)
 
         /**
          * Measure layout even when not animating it, as constraints and
@@ -180,7 +182,7 @@ export function drag(
         node.setOptions({ alwaysMeasureLayout: true })
 
         const controls = new VisualElementDragControls(
-            node.options.visualElement as VisualElement<HTMLElement>,
+            visualElementStore.get(element) as VisualElement<HTMLElement>,
             () => props
         )
         const removeListeners = controls.addListeners()

@@ -5,7 +5,8 @@ import { motionValue } from "../../../../value"
 import { supportsFlags } from "../../../../utils/supports/flags"
 
 /**
- * JSDOM has no WAAPI, so record what would be sent to Element.animate().
+ * JSDOM has no WAAPI, so record the animations created with
+ * Element.animate() or the Animation and KeyframeEffect constructors.
  */
 interface MockAnimation {
     element: Element
@@ -23,6 +24,87 @@ interface MockAnimation {
 
 let animations: MockAnimation[] = []
 
+/**
+ * readyTime is when the animation's last play() or pause() became ready.
+ * WebKit keeps it even once setting startTime or currentTime has finished
+ * that play or pause, and uses it for the next updatePlaybackRate().
+ */
+const createAnimation = (
+    element: Element,
+    keyframes: MockAnimation["keyframes"],
+    options: any,
+    readyTime?: number
+) => {
+    let timer: ReturnType<typeof setTimeout> | undefined
+    let startTime: number | null = null
+    let heldTime: number | null = null
+
+    /**
+     * Finish at the end of the (finite) animation, like WAAPI.
+     */
+    const setStartTime = (value: number | null) => {
+        heldTime = value === null ? animation.currentTime : null
+        animation.playState = value === null ? "paused" : "running"
+        startTime = value
+        clearTimeout(timer)
+        const { duration, iterations = 1 } = options
+        const { playbackRate } = animation
+        if (value === null || iterations === Infinity) return
+        /**
+         * Played backwards, it finishes when it gets back to 0.
+         */
+        const end =
+            playbackRate < 0
+                ? value
+                : value + (duration * iterations) / playbackRate
+        timer = setTimeout(
+            () => animation.onfinish?.(),
+            Math.max(0, end - performance.now())
+        )
+    }
+
+    const animation: MockAnimation = {
+        element,
+        keyframes,
+        options,
+        playbackRate: 1,
+        playState: "running",
+        onfinish: null,
+        get currentTime() {
+            if (heldTime !== null || startTime === null) {
+                return heldTime
+            }
+            return (performance.now() - startTime) * animation.playbackRate
+        },
+        set currentTime(value) {
+            heldTime = value
+        },
+        get startTime() {
+            return startTime
+        },
+        set startTime(value) {
+            setStartTime(value)
+        },
+        cancel: jest.fn(() => clearTimeout(timer)),
+        pause: jest.fn(() => {
+            clearTimeout(timer)
+            animation.playState = "paused"
+            readyTime = performance.now()
+        }),
+        /**
+         * Keep the current time at the ready time, as the spec does.
+         */
+        updatePlaybackRate: jest.fn((rate: number) => {
+            const ready = readyTime ?? performance.now()
+            const time = (ready - startTime!) * animation.playbackRate
+            animation.playbackRate = rate
+            setStartTime(ready - time / rate)
+        }),
+    }
+    animations.push(animation)
+    return animation
+}
+
 beforeAll(() => {
     Object.defineProperty(Element.prototype, "animate", {
         configurable: true,
@@ -32,68 +114,33 @@ beforeAll(() => {
             keyframes: MockAnimation["keyframes"],
             options: any
         ) {
-            let timer: ReturnType<typeof setTimeout> | undefined
-            let startTime: number | null = null
-            let heldTime: number | null = null
-
-            /**
-             * Finish at the end of the (finite) animation, like WAAPI.
-             */
-            const animation: MockAnimation = {
-                element: this,
-                keyframes,
-                options,
-                playbackRate: 1,
-                playState: "running",
-                onfinish: null,
-                get currentTime() {
-                    if (heldTime !== null || startTime === null) {
-                        return heldTime
-                    }
-                    return (
-                        (performance.now() - startTime) *
-                        animation.playbackRate
-                    )
-                },
-                set currentTime(value) {
-                    heldTime = value
-                },
-                get startTime() {
-                    return startTime
-                },
-                set startTime(value) {
-                    startTime = value
-                    clearTimeout(timer)
-                    const { duration, iterations = 1 } = options
-                    if (value === null || iterations === Infinity) return
-                    timer = setTimeout(
-                        () => animation.onfinish?.(),
-                        Math.max(
-                            0,
-                            value +
-                                (duration * iterations) /
-                                    animation.playbackRate -
-                                performance.now()
-                        )
-                    )
-                },
-                cancel: jest.fn(() => clearTimeout(timer)),
-                pause: jest.fn(() => {
-                    clearTimeout(timer)
-                    animation.playState = "paused"
-                }),
-                updatePlaybackRate: jest.fn((rate: number) => {
-                    animation.playbackRate = rate
-                }),
-            }
-            animations.push(animation)
-            return animation
+            return createAnimation(this, keyframes, options, performance.now())
         },
     })
+
+    const global = globalThis as any
+    global.KeyframeEffect = class {
+        constructor(
+            public target: Element,
+            public keyframes: MockAnimation["keyframes"],
+            public options: any
+        ) {}
+    }
+    global.Animation = class {
+        constructor(effect: any) {
+            return createAnimation(
+                effect.target,
+                effect.keyframes,
+                effect.options
+            )
+        }
+    }
 })
 
 afterAll(() => {
     delete (Element.prototype as any).animate
+    delete (globalThis as any).KeyframeEffect
+    delete (globalThis as any).Animation
 })
 
 beforeEach(() => {
@@ -323,6 +370,56 @@ describe("independent transform acceleration", () => {
         expect(element.style.transform).toContain("translateY")
     })
 
+    it("stays on the main thread for values a mixer mixes", async () => {
+        const element = document.createElement("div")
+        let mixed = 0
+        const mixer = (a: string, b: string) => (p: number) => {
+            mixed++
+            return p < 0.5 ? a : b
+        }
+
+        animateElement(
+            element,
+            { x: ["0px", "100px"] },
+            { duration: 1, ease: "linear", mixer }
+        )
+        await nextFrame()
+        await nextFrame()
+
+        expect(running(element)).toHaveLength(0)
+        expect(mixed).toBeGreaterThan(0)
+    })
+
+    it("accelerates values a mixer declines", async () => {
+        const element = document.createElement("div")
+
+        animateElement(
+            element,
+            { x: ["0px", "100px"] },
+            { duration: 1, ease: "linear", mixer: () => undefined }
+        )
+        await nextFrame()
+        await nextFrame()
+
+        expect(running(element)).toHaveLength(1)
+    })
+
+    it("accelerates numbers with a mixer, as it leaves them to the usual blending", async () => {
+        const element = document.createElement("div")
+        const mixer = jest.fn()
+
+        animateElement(
+            element,
+            { x: [0, 100] },
+            { duration: 1, ease: "linear", mixer }
+        )
+        await nextFrame()
+        await nextFrame()
+
+        expect(running(element)).toHaveLength(1)
+        expect(mixer).not.toHaveBeenCalled()
+    })
+
     it("moves to the main thread when another source keeps writing a transform", async () => {
         /**
          * Frames are 1000/60ms apart however long this environment takes
@@ -428,7 +525,7 @@ describe("independent transform acceleration", () => {
 
         animation.forEach((a) => a.pause())
         await nextFrame()
-        expect(waapi.pause).toHaveBeenCalled()
+        expect(waapi.playState).toBe("paused")
 
         animation.forEach((a) => (a.time = 0.5))
         await nextFrame()
@@ -440,9 +537,13 @@ describe("independent transform acceleration", () => {
         await nextFrame()
         expect(waapi.playbackRate).toBe(1)
 
+        await wait(100)
         animation.forEach((a) => (a.speed = 2))
         await nextFrame()
         expect(waapi.playbackRate).toBe(2)
+        expect(
+            Math.abs(waapi.currentTime! - animation[0].time * 1000)
+        ).toBeLessThan(20)
 
         expect(created(element).length).toBe(count)
         expect(running(element)).toEqual([waapi])
@@ -457,8 +558,8 @@ describe("independent transform acceleration", () => {
         )
         await nextFrame()
         const [waapi] = running(element)
-        const startTime = waapi.startTime
         const setStartTime = jest.spyOn(waapi, "startTime", "set")
+        await wait(100)
 
         /**
          * Setting playbackRate and startTime restarts a running compositor
@@ -470,7 +571,27 @@ describe("independent transform acceleration", () => {
         expect(waapi.updatePlaybackRate).toHaveBeenCalledWith(-1)
         expect(waapi.playbackRate).toBe(-1)
         expect(setStartTime).not.toHaveBeenCalled()
-        expect(waapi.startTime).toBe(startTime)
+        expect(running(element)).toEqual([waapi])
+    })
+
+    it("keeps its place when the speed of a running animation changes", async () => {
+        const element = document.createElement("div")
+        const animation = animateElement(
+            element,
+            { x: [0, 100] },
+            { duration: 1, ease: "linear" }
+        )
+        await nextFrame()
+        const [waapi] = running(element)
+
+        await wait(200)
+        animation.forEach((a) => (a.speed = 2))
+        await nextFrame()
+
+        expect(waapi.updatePlaybackRate).toHaveBeenCalledWith(2)
+        expect(
+            Math.abs(waapi.currentTime! - animation[0].time * 1000)
+        ).toBeLessThan(20)
         expect(running(element)).toEqual([waapi])
     })
 
@@ -779,6 +900,26 @@ describe("independent transform acceleration", () => {
         for (const transform of keyframes.transform) {
             expect(transform).not.toContain("rotate(")
             expect(transform).toContain("scale(2)")
+        }
+    })
+
+    it("leaves out static transforms at their default when they have units", async () => {
+        const element = document.createElement("div")
+        styleEffect(element, {
+            y: motionValue("0px"),
+            rotate: motionValue("0deg"),
+            scaleY: motionValue("1"),
+            rotateX: motionValue("10deg"),
+        })
+
+        animateElement(element, { x: [0, 100] }, { duration: 1 })
+        await nextFrame()
+
+        const [{ keyframes }] = running(element)
+        for (const transform of keyframes.transform) {
+            expect(transform).toMatch(
+                /^translateX\([\d.]+px\) rotateX\(10deg\) $/
+            )
         }
     })
 

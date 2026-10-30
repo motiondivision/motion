@@ -116,11 +116,12 @@ function findSpring({
     let envelope: (num: number) => number
     let derivative: (num: number) => number
 
-    warning(
-        duration <= secondsToMilliseconds(maxDuration),
-        "Spring duration must be 10 seconds or less",
-        "spring-duration-limit"
-    )
+    process.env.NODE_ENV !== "production" &&
+        warning(
+            duration <= secondsToMilliseconds(maxDuration),
+            "Spring duration must be 10 seconds or less",
+            "spring-duration-limit"
+        )
 
     const dampingRatio = bounceToDampingRatio(bounce)
 

@@ -4,7 +4,6 @@ import {
     Box,
     clamp,
     Delta,
-    noop,
     Point,
     SubscriptionManager,
 } from "motion-utils"
@@ -24,11 +23,13 @@ import { microtask } from "../../frameloop/microtask"
 import { time } from "../../frameloop/sync-time"
 import type { Process } from "../../frameloop/types"
 import { HTMLVisualElement } from "../../render/html/HTMLVisualElement"
+import type { MotionNodeOptions } from "../../node/types"
 import type { ResolvedValues } from "../../render/types"
 import { scaleCorrectors } from "../../render/utils/is-forced-motion-value"
 import type { MotionStyle, VisualElement } from "../../render/VisualElement"
 import { statsBuffer } from "../../stats/buffer"
 import { delay } from "../../utils/delay"
+import { isRefObject } from "../../utils/is-ref-object"
 import { isSVGElement } from "../../utils/is-svg-element"
 import { isSVGSVGElement } from "../../utils/is-svg-svg-element"
 import { mixNumber } from "../../utils/mix/number"
@@ -51,6 +52,7 @@ import {
     isNear,
 } from "../geometry/delta-calc"
 import { removeBoxTransforms } from "../geometry/delta-remove"
+import { roundBox } from "../geometry/round"
 import { createBox, createDelta } from "../geometry/models"
 import {
     aspectRatio,
@@ -73,6 +75,7 @@ import {
 } from "../utils/has-transform"
 import { globalProjectionState } from "./state"
 import {
+    InitialPromotionConfig,
     IProjectionNode,
     LayoutEvents,
     LayoutUpdateData,
@@ -82,12 +85,6 @@ import {
     ProjectionNodeOptions,
     ScrollMeasurements,
 } from "./types"
-
-const metrics = {
-    nodes: 0,
-    calculatedTargetDeltas: 0,
-    calculatedProjections: 0,
-}
 
 /**
  * Transforms that distort an element's layout, so must be reset before measuring.
@@ -120,8 +117,16 @@ function resetDistortingTransform(
     }
 }
 
-const demoteTransforms = ({ instance }: IProjectionNode) =>
-    instance && transformGroups.get(instance)?.demote()
+/**
+ * Move accelerated transforms back to the main thread. The WAAPI animation
+ * hid startUpdate()'s reset of rotations, skews and z, and moving off it
+ * writes the whole transform back, so reset them again before this node
+ * is measured.
+ */
+const demoteTransforms = (node: IProjectionNode) =>
+    node.instance &&
+    transformGroups.get(node.instance)?.demote() &&
+    node.resetSkewAndRotation()
 
 function cancelTreeOptimisedTransformAnimations(
     projectionNode: IProjectionNode
@@ -151,6 +156,20 @@ function cancelTreeOptimisedTransformAnimations(
     }
 }
 
+function getClosestProjectingNode(
+    visualElement?: VisualElement<
+        unknown,
+        unknown,
+        { allowProjection?: boolean }
+    >
+): IProjectionNode | undefined {
+    if (!visualElement) return undefined
+
+    return visualElement.options.allowProjection !== false
+        ? visualElement.projection
+        : getClosestProjectingNode(visualElement.parent)
+}
+
 export function createProjectionNode<I>({
     attachResizeListener,
     defaultParent,
@@ -170,6 +189,78 @@ export function createProjectionNode<I>({
     })
 
     return class ProjectionNode implements IProjectionNode<I> {
+        /**
+         * Create the projection node of a `motion` component's VisualElement,
+         * from its props. This runs while the component renders, before its
+         * children. It's here rather than in the component so React
+         * bundles only include it with the features that supply a
+         * ProjectionNode. Vanilla bundles that use the projection node
+         * (drag(), animateLayout()) include it too, as a class static
+         * can't be tree-shaken.
+         */
+        static create(
+            visualElement: VisualElement<any>,
+            props: MotionNodeOptions,
+            initialPromotionConfig?: InitialPromotionConfig
+        ) {
+            const {
+                layoutId,
+                layout,
+                drag,
+                dragConstraints,
+                layoutScroll,
+                layoutRoot,
+                layoutAnchor,
+                layoutCrossfade,
+            } = props
+
+            const projection = (visualElement.projection = new this(
+                visualElement.latestValues,
+                props["data-framer-portal-id"]
+                    ? undefined
+                    : getClosestProjectingNode(visualElement.parent)
+            ) as IProjectionNode)
+
+            projection.setOptions({
+                layoutId,
+                layout,
+                alwaysMeasureLayout:
+                    Boolean(drag) ||
+                    (dragConstraints && isRefObject(dragConstraints)),
+                visualElement,
+                /**
+                 * TODO: Update options in an effect. This could be tricky as it'll be too late
+                 * to update by the time layout animations run.
+                 * We also need to fix this safeToRemove by linking it up to the one returned by usePresence,
+                 * ensuring it gets called if there's no potential layout animations.
+                 *
+                 */
+                animationType: typeof layout === "string" ? layout : "both",
+                initialPromotionConfig,
+                crossfade: layoutCrossfade,
+                layoutScroll,
+                layoutRoot,
+                layoutAnchor,
+            })
+
+            /**
+             * This node will take over from its layoutId's current lead, so snapshot
+             * the lead now, while rendering. By the time the lead unmounts (or this
+             * node mounts) React may already have committed DOM changes that come
+             * before it in the tree, like a sibling changing height, and a snapshot
+             * taken then starts the animation from a position never seen on screen.
+             *
+             * If React discards this render (e.g. it suspends), nothing else
+             * completes the update, so check it after the next frame as an
+             * unmounting node does.
+             */
+            const lead = projection.getStack()?.lead
+            if (lead && !projection.root!.isUpdateBlocked()) {
+                lead.willUpdate()
+                lead.scheduleCheckAfterUnmount()
+            }
+        }
+
         /**
          * A unique ID generated for every projection node.
          */
@@ -932,25 +1023,15 @@ export function createProjectionNode<I>({
         updateProjection = () => {
             this.projectionUpdateScheduled = false
 
-            /**
-             * Reset debug counts. Manually resetting rather than creating a new
-             * object each frame.
-             */
-            if (statsBuffer.value) {
-                metrics.nodes =
-                    metrics.calculatedTargetDeltas =
-                    metrics.calculatedProjections =
-                        0
-            }
-
             this.nodes!.forEach(propagateDirtyNodes)
             this.nodes!.forEach(resolveTargetDelta)
             this.nodes!.forEach(calcProjection)
             this.nodes!.forEach(cleanDirtyNodes)
 
-            if (statsBuffer.addProjectionMetrics) {
-                statsBuffer.addProjectionMetrics(metrics)
-            }
+            /**
+             * Record this frame's debug counts, if recordStats() is running.
+             */
+            statsBuffer.countProjection?.()
         }
 
         /**
@@ -1419,9 +1500,7 @@ export function createProjectionNode<I>({
             /**
              * Increase debug counter for resolved target deltas
              */
-            if (statsBuffer.value) {
-                metrics.calculatedTargetDeltas++
-            }
+            statsBuffer.countProjection?.(1) // calculatedTargetDeltas
         }
 
         getClosestProjectingParent() {
@@ -1635,9 +1714,7 @@ export function createProjectionNode<I>({
             /**
              * Increase debug counter for recalculated projections
              */
-            if (statsBuffer.value) {
-                metrics.calculatedProjections++
-            }
+            statsBuffer.countProjection?.(2) // calculatedProjections
         }
 
         isVisible = true
@@ -2378,9 +2455,7 @@ export function propagateDirtyNodes(node: IProjectionNode) {
     /**
      * Increase debug counter for nodes encountered this frame
      */
-    if (statsBuffer.value) {
-        metrics.nodes++
-    }
+    statsBuffer.countProjection?.(0) // nodes
 
     if (!node.parent) return
 
@@ -2538,32 +2613,6 @@ function hasOpacityCrossfade(node: IProjectionNode) {
 const defaultLayoutTransition = {
     duration: 0.45,
     ease: [0.4, 0, 0.1, 1],
-}
-
-const userAgentContains = (string: string) =>
-    typeof navigator !== "undefined" &&
-    navigator.userAgent &&
-    navigator.userAgent.toLowerCase().includes(string)
-
-/**
- * Measured bounding boxes must be rounded in Safari and
- * left untouched in Chrome, otherwise non-integer layouts within scaled-up elements
- * can appear to jump.
- */
-const roundPoint =
-    userAgentContains("applewebkit/") && !userAgentContains("chrome/")
-        ? Math.round
-        : noop
-
-function roundAxis(axis: Axis): void {
-    // Round to the nearest .5 pixels to support subpixel layouts
-    axis.min = roundPoint(axis.min)
-    axis.max = roundPoint(axis.max)
-}
-
-function roundBox(box: Box): void {
-    roundAxis(box.x)
-    roundAxis(box.y)
 }
 
 /**

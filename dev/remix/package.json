@@ -1,0 +1,17 @@
+{
+    "name": "remix-env",
+    "private": true,
+    "version": "14.8.0",
+    "type": "module",
+    "scripts": {
+        "dev": "vite",
+        "dev-server": "yarn dev"
+    },
+    "dependencies": {
+        "@remix-run/component": "1.1.0",
+        "motion": "14.8.0"
+    },
+    "devDependencies": {
+        "vite": "^6.4.2"
+    }
+}

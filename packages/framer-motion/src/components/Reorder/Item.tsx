@@ -3,7 +3,13 @@
 import { isMotionValue, visualElementStore } from "motion-dom"
 import { invariant } from "motion-utils"
 import * as React from "react"
-import { forwardRef, FunctionComponent, useContext, useRef } from "react"
+import {
+    forwardRef,
+    FunctionComponent,
+    useContext,
+    useEffect,
+    useRef,
+} from "react"
 import { ReorderBoardContext } from "../../context/ReorderBoardContext"
 import { ReorderContext } from "../../context/ReorderContext"
 import type { MotionProxy } from "../../render/components/create-proxy"
@@ -68,6 +74,7 @@ export function ReorderItemComponent<
         onDrag,
         onDragEnd,
         onKeyDown,
+        onFocus,
         onBlur,
         layout = true,
         ...props
@@ -76,13 +83,14 @@ export function ReorderItemComponent<
 ): React.JSX.Element {
     const context = useContext(ReorderContext)
     const board = useContext(ReorderBoardContext)
-    const ref = useRef<Element | null>(null)
+    const ref = useRef<HTMLElement | null>(null)
 
-    invariant(
-        Boolean(context),
-        "Reorder.Item must be a child of Reorder.Group",
-        "reorder-item-child"
-    )
+    process.env.NODE_ENV !== "production" &&
+        invariant(
+            Boolean(context),
+            "Reorder.Item must be a child of Reorder.Group",
+            "reorder-item-child"
+        )
 
     /**
      * Render the group's kind of component, `motion` or `m`.
@@ -115,12 +123,23 @@ export function ReorderItemComponent<
         updateOrder,
         groupRef,
         hasReordered,
+        isTabStop,
+        setActive,
+        checkTabStop,
+        elements,
         onKeyDown: handleKeyDown,
     } = context!
+
     /**
      * In a Reorder.Board, items can be dragged out of their group.
      */
     const dragAxis = axis === "xy" || board ? true : axis
+
+    /**
+     * Keep this item's element for the group to focus.
+     */
+    elements.set(value, ref)
+    useEffect(() => checkTabStop)
 
     /**
      * A keyboard grab is a drag without a pointer, so it shares whileDrag
@@ -148,7 +167,7 @@ export function ReorderItemComponent<
     return (
         <Component
             drag={dragAxis}
-            tabIndex={0}
+            tabIndex={isTabStop(value) ? 0 : -1}
             {...props}
             dragSnapToOrigin
             style={{ ...style, x: point.x, y: point.y, zIndex }}
@@ -203,6 +222,14 @@ export function ReorderItemComponent<
             onKeyDown={(event: React.KeyboardEvent<HTMLElement>) => {
                 onKeyDown?.(event as any)
                 handleKeyDown(event, value, grabbedFrom.current, grab)
+            }}
+            /**
+             * The item focused last, or holding focus, is the group's tab
+             * stop.
+             */
+            onFocus={(event: React.FocusEvent<HTMLElement>) => {
+                onFocus?.(event as any)
+                setActive(value)
             }}
             /**
              * A move blurs the item, but that blur is never dispatched:

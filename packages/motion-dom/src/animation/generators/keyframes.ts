@@ -29,7 +29,16 @@ export function keyframes<T extends AnyResolvedKeyframe>({
     keyframes: keyframeValues,
     times,
     ease = "easeInOut",
+    mixer: transitionMixer,
 }: ValueAnimationOptions<T>): KeyframeGenerator<T> {
+    /**
+     * A mixer only blends values that aren't numbers. Numbers blend as
+     * usual, as they do in springs, and so do the progress animations
+     * behind layout and path animations, which take the same transition.
+     */
+    const customMixer =
+        typeof keyframeValues[0] === "number" ? undefined : transitionMixer
+
     /**
      * Easing functions can be externally defined as strings. Here we convert them
      * into actual functions.
@@ -48,9 +57,11 @@ export function keyframes<T extends AnyResolvedKeyframe>({
     }
 
     /**
-     * Fast setup path for two keyframes one easing.
+     * Fast setup path for two keyframes one easing. interpolate() handles
+     * a custom mixer, and falls back to the usual one where it declines.
      */
     if (
+        !customMixer &&
         keyframeValues.length === 2 &&
         !Array.isArray(easingFunctions) &&
         (!times ||
@@ -95,6 +106,7 @@ export function keyframes<T extends AnyResolvedKeyframe>({
         ease: Array.isArray(easingFunctions)
             ? easingFunctions
             : defaultEasing(keyframeValues, easingFunctions),
+        mixer: customMixer,
     })
 
     return {

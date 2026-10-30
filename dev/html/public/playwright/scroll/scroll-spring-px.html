@@ -1,0 +1,33 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+                height: 400vh;
+            }
+
+            .box {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100px;
+                height: 100px;
+                background-color: #0077ff;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="box" id="box"></div>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            const { animate, scroll } = window.Motion
+
+            // x springs by default, here between strings
+            scroll(
+                animate(document.getElementById("box"), {
+                    x: ["0px", "100px"],
+                })
+            )
+        </script>
+    </body>
+</html>

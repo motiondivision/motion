@@ -24,7 +24,7 @@ import {
     ReorderContextProps,
     ReorderElementTag,
 } from "./types"
-import { checkReorder } from "./utils/check-reorder"
+import { checkReorder, keyTarget } from "./utils/check-reorder"
 import { detectAxis } from "./utils/detect-axis"
 import { mergeRefs } from "./utils/merge-refs"
 
@@ -112,22 +112,43 @@ export function ReorderGroupComponent<
 
     const board = useContext(ReorderBoardContext)
     const items = useRef(new Map<V, ItemData<V>>())
+    const elements = useRef(new Map<V, { current: HTMLElement | null }>())
+    const [active, setActive] = useState<V>()
     const [detectedAxis, setDetectedAxis] = useState<ReorderAxis>("y")
     const isReordering = useRef(false)
     const hasReordered = useRef(false)
     const groupRef = useRef<Element>(null)
     const axis = axisOverride || detectedAxis
 
-    invariant(
-        Boolean(values),
-        "Reorder.Group must be provided a values prop",
-        "reorder-values"
-    )
+    process.env.NODE_ENV !== "production" &&
+        invariant(
+            Boolean(values),
+            "Reorder.Group must be provided a values prop",
+            "reorder-values"
+        )
 
     const valuesSet = new Set(values)
-    items.current.forEach((_, value) => {
-        if (!valuesSet.has(value)) items.current.delete(value)
-    })
+    for (const map of [items.current, elements.current]) {
+        map.forEach((_, value) => valuesSet.has(value) || map.delete(value))
+    }
+
+    const tabStop = valuesSet.has(active!) ? active : values[0]
+    const isRendered = (value?: V) =>
+        elements.current.get(value!)?.current?.isConnected
+
+    /**
+     * Only values in `values` can be the tab stop.
+     */
+    const activate = (value: V) => valuesSet.has(value) && setActive(value)
+
+    /**
+     * If the tab stop isn't rendered (e.g. it's virtualized), the first
+     * rendered item takes its place. Items check again when they unmount.
+     */
+    const checkTabStop = () => {
+        isRendered(tabStop) || activate(values.find(isRendered)!)
+    }
+    useEffect(checkTabStop)
 
     const getOrder = () =>
         values.flatMap((value) => items.current.get(value) || [])
@@ -158,15 +179,20 @@ export function ReorderGroupComponent<
         values,
         onReorder,
         getOrder,
+        isTabStop: (value) => value === tabStop || !valuesSet.has(value),
+        setActive: activate,
+        checkTabStop,
+        elements: elements.current,
         /**
          * Space grabs and drops the item, arrows along `axis` move
-         * the grabbed item one place (Left and Right swap in RTL) and Escape
-         * restores the order in `from`, the values when it was grabbed. Keys
-         * from children or with modifiers (Alt+Left etc.) are left alone.
+         * the grabbed item one place, or a row in a grid (see keyTarget),
+         * or move focus that way if it isn't grabbed, and Escape restores
+         * the order in `from`, the values when it was grabbed. Keys from
+         * children or with modifiers (Alt+Left etc.) are left alone.
          *
          * In a Reorder.Board, arrows across `axis`, or along it from either
-         * end, move the item to the nearest group that way, and Escape
-         * returns it to the group it was grabbed in.
+         * end, move a grabbed item to the nearest group that way, and
+         * Escape returns it to the group it was grabbed in.
          */
         onKeyDown: (event, item, from, grab) => {
             const { key, currentTarget } = event
@@ -190,7 +216,7 @@ export function ReorderGroupComponent<
             const isX = keyIndex % 2
             if (key === " ") {
                 event.repeat || grab(currentTarget, from ? undefined : values)
-            } else if (!from || (keyIndex < 0 && key !== "Escape")) {
+            } else if (keyIndex < 0 && !(key === "Escape" && from)) {
                 return
             } else if (board?.isMoving(currentTarget)) {
                 /**
@@ -198,7 +224,7 @@ export function ReorderGroupComponent<
                  * and its group's values are out of date: moving it again,
                  * or back, would leave it in both groups.
                  */
-            } else if (key === "Escape") {
+            } else if (key === "Escape" && from) {
                 /**
                  * Drop it first: a move back to the group it was grabbed in
                  * hands it on to the item that mounts there.
@@ -220,14 +246,27 @@ export function ReorderGroupComponent<
                 }
             } else {
                 const isAlongAxis = axis === "xy" || axis === (isX ? "x" : "y")
-                const index = order.findIndex(({ value }) => value === item)
-                const target =
-                    index + (keyIndex > 1 !== !!(isX && isRTL()) ? 1 : -1)
-
-                if (isAlongAxis && index > -1 && order[target]) {
-                    commit(moveItem(order, index, target), item)
+                /**
+                 * Focus only moves between rendered items.
+                 */
+                const list = from
+                    ? order
+                    : order.filter(({ value }) => isRendered(value))
+                const index = list.findIndex(({ value }) => value === item)
+                const target = isAlongAxis
+                    ? keyTarget(list, index, keyIndex, axis, !!isX && isRTL())
+                    : -1
+                if (target > -1) {
+                    from
+                        ? commit(moveItem(order, index, target), item)
+                        : elements.current
+                              .get(list[target].value)
+                              ?.current?.focus()
                 } else if (
-                    !board?.key(context, item, keyIndex, currentTarget, from) &&
+                    !(
+                        from &&
+                        board?.key(context, item, keyIndex, currentTarget, from)
+                    ) &&
                     !isAlongAxis
                 ) {
                     return

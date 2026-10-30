@@ -2,13 +2,19 @@ import { useState } from "react"
 import {
     AnimatePresence,
     BoundingBox,
+    DragConstraintsFunction,
     motion,
     MotionConfig,
     motionValue,
     MotionValue,
     useWillChange,
 } from "../../../"
-import { pointerDown, pointerMove, pointerUp, render } from "../../../jest.setup"
+import {
+    pointerDown,
+    pointerMove,
+    pointerUp,
+    render,
+} from "../../../jest.setup"
 import { WillChangeMotionValue } from "../../../value/use-will-change/WillChangeMotionValue"
 import { nextFrame } from "../../__tests__/utils"
 import { deferred, drag, dragFrame, MockDrag, Point, sleep } from "./utils"
@@ -782,6 +788,51 @@ describe("dragging", () => {
             x: -100,
             y: 50,
         })
+    })
+
+    test("a dragConstraints function moves the element itself, across re-renders", async () => {
+        const x = motionValue(0)
+        const y = motionValue(0)
+        const started = jest.fn()
+
+        // Holds the element on the line y = x. A new function each render
+        const Component = () => {
+            const diagonal: DragConstraintsFunction = (context) => {
+                started()
+                const point = {
+                    ...context.originPoint,
+                    move() {
+                        const along = (point.x + point.y) / 2
+                        context.getAxisMotionValue("x").set(along)
+                        context.getAxisMotionValue("y").set(along)
+                    },
+                    release: () => Promise.resolve(),
+                }
+                return point
+            }
+
+            return (
+                <MockDrag>
+                    <motion.div
+                        drag
+                        dragConstraints={diagonal}
+                        dragMomentum={false}
+                        style={{ x, y }}
+                    />
+                </MockDrag>
+            )
+        }
+
+        const { container, rerender } = render(<Component />)
+        rerender(<Component />)
+
+        const pointer = await drag(container.firstChild).to(10, 0)
+        rerender(<Component />)
+        await pointer.to(30, 10)
+        pointer.end()
+
+        expect(started).toHaveBeenCalledTimes(1)
+        expect({ x: x.get(), y: y.get() }).toEqual({ x: 20, y: 20 })
     })
 
     test("impose right drag constraint", async () => {
