@@ -40,6 +40,13 @@ export class NativeAnimation<T extends AnyResolvedKeyframe>
 
     protected options: NativeAnimationOptions
 
+    /**
+     * The WAAPI animation's finish handler. It's only attached while the
+     * animation can finish, because WebKit never collects an animation
+     * once it has run, nor anything its handlers reference (#4034).
+     */
+    protected onFinish: VoidFunction | null
+
     private allowFlatten: boolean
 
     private isStopped = false
@@ -95,7 +102,8 @@ export class NativeAnimation<T extends AnyResolvedKeyframe>
             this.animation.pause()
         }
 
-        this.animation.onfinish = () => {
+        this.animation.onfinish = this.onFinish = () => {
+            this.animation.onfinish = null
             this.finishedTime = this.time
 
             if (!pseudoElement) {
@@ -132,6 +140,7 @@ export class NativeAnimation<T extends AnyResolvedKeyframe>
         if (this.isStopped) return
 
         this.manualStartTime = null
+        this.animation.onfinish = this.onFinish
         this.animation.play()
 
         if (this.state === "finished") {
@@ -148,6 +157,7 @@ export class NativeAnimation<T extends AnyResolvedKeyframe>
     }
 
     cancel() {
+        this.animation.onfinish = null
         try {
             this.animation.cancel()
         } catch (e) {}
@@ -264,7 +274,7 @@ export class NativeAnimation<T extends AnyResolvedKeyframe>
             this.animation.effect?.updateTiming({ easing: "linear" })
         }
 
-        this.animation.onfinish = null
+        this.animation.onfinish = this.onFinish = null
 
         if (timeline && supportsScrollTimeline()) {
             this.animation.timeline = timeline as any

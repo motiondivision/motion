@@ -580,12 +580,22 @@ function createGroup(owner: TransformOwner): TransformGroup {
     }
 
     /**
+     * Cancel a WAAPI animation and remove its handlers, as WebKit never
+     * collects an animation once it has run, nor anything its handlers
+     * reference (#4034).
+     */
+    const cancel = (animation: Animation) => {
+        animation.onfinish = animation.oncancel = null
+        animation.cancel()
+    }
+
+    /**
      * Cancel the WAAPI animations, by default first committing the
      * transform. The renderer writes its own version on its next render.
      */
     const stop = (shouldCommit = true) => {
         shouldCommit && commit()
-        segments.forEach(({ animation }) => animation.cancel())
+        segments.forEach(({ animation }) => cancel(animation))
         segments = []
     }
 
@@ -615,7 +625,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
             animation.onfinish = () => {
                 segment.isDone = true
                 if (segments.some((s) => s.end === Infinity)) {
-                    animation.cancel()
+                    cancel(animation)
                     segments = segments.filter((s) => s !== segment)
                 }
                 group.schedule(false)
