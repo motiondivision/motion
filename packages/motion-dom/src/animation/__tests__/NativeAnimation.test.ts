@@ -176,3 +176,125 @@ describe("NativeAnimation - attachTimeline", () => {
         expect(observe).not.toHaveBeenCalled()
     })
 })
+
+/**
+ * WebKit never collects a WAAPI animation once it has run, nor what its
+ * event handlers reference (#4034). The finish handler references the
+ * element, motion value and onComplete, so the animation must let go of
+ * it whenever it can't finish.
+ */
+describe("NativeAnimation - releasing the finish handler", () => {
+    let mockAnimation: any
+
+    beforeEach(() => {
+        mockAnimation = {
+            cancel: jest.fn(),
+            play: jest.fn(),
+            onfinish: null,
+            playbackRate: 1,
+            currentTime: 300,
+            playState: "running",
+            effect: {
+                getComputedTiming: () => ({ duration: 300 }),
+                updateTiming: jest.fn(),
+            },
+        }
+
+        Element.prototype.animate = jest
+            .fn()
+            .mockImplementation(() => mockAnimation)
+    })
+
+    afterEach(() => {
+        ;(Element.prototype as any).animate = undefined
+        jest.restoreAllMocks()
+    })
+
+    const createAnimation = (options: object = {}) =>
+        new NativeAnimation({
+            element: document.createElement("div"),
+            name: "opacity",
+            keyframes: [0, 1],
+            duration: 300,
+            ...options,
+        } as any)
+
+    test("removes the finish handler once the animation finishes", () => {
+        createAnimation()
+
+        mockAnimation.onfinish()
+
+        expect(mockAnimation.onfinish).toBeNull()
+    })
+
+    test("removes the finish handler of a pseudo-element animation once it finishes", () => {
+        createAnimation({ pseudoElement: "::after" })
+
+        mockAnimation.onfinish()
+
+        expect(mockAnimation.onfinish).toBeNull()
+    })
+
+    test("removes the finish handler when cancelled", () => {
+        createAnimation().cancel()
+
+        expect(mockAnimation.onfinish).toBeNull()
+    })
+
+    test("restores the finish handler when played again after finishing", async () => {
+        const onComplete = jest.fn()
+        const animation = createAnimation({ onComplete })
+
+        mockAnimation.onfinish()
+        animation.play()
+        mockAnimation.onfinish()
+
+        expect(onComplete).toHaveBeenCalledTimes(2)
+        await expect(animation.finished).resolves.toBeUndefined()
+    })
+
+    test("restores the finish handler when played again after cancelling", () => {
+        const onComplete = jest.fn()
+        const animation = createAnimation({ onComplete })
+
+        animation.cancel()
+        animation.play()
+        mockAnimation.onfinish()
+
+        expect(onComplete).toHaveBeenCalledTimes(1)
+    })
+
+    test("restores the finish handler when completed after cancelling", () => {
+        const onComplete = jest.fn()
+        const animation = createAnimation({ onComplete })
+        mockAnimation.finish = () => mockAnimation.onfinish?.()
+
+        animation.cancel()
+        animation.complete()
+
+        expect(onComplete).toHaveBeenCalledTimes(1)
+    })
+
+    test("doesn't restore the finish handler when completed after stopping", () => {
+        const onComplete = jest.fn()
+        const animation = createAnimation({ onComplete })
+        mockAnimation.finish = () => mockAnimation.onfinish?.()
+
+        animation.stop()
+        animation.complete()
+
+        expect(onComplete).not.toHaveBeenCalled()
+    })
+
+    test("doesn't restore the finish handler of an animation attached to a timeline", () => {
+        const animation = createAnimation()
+
+        animation.attachTimeline({
+            timeline: undefined,
+            observe: () => () => {},
+        } as any)
+        animation.play()
+
+        expect(mockAnimation.onfinish).toBeNull()
+    })
+})

@@ -327,6 +327,28 @@ describe("independent transform acceleration", () => {
         expect(element.style.transform).toBe("translateX(100px)")
     })
 
+    /**
+     * WebKit never collects a WAAPI animation once it has run, nor what its
+     * event handlers reference, here the group and its element (#4034).
+     */
+    it("removes the handlers of the WAAPI animations it cancels", async () => {
+        const element = document.createElement("div")
+
+        animateElement(element, { x: [0, 100] }, { duration: 0.1 })
+        await Promise.all(
+            animateElement(element, { scale: [1, 2] }, { duration: 0.05 })
+        )
+        await wait(100)
+        await nextFrame()
+
+        expect(running(element)).toHaveLength(0)
+        expect(created(element).length).toBeGreaterThan(1)
+        for (const animation of created(element) as any[]) {
+            expect(animation.onfinish).toBeNull()
+            expect(animation.oncancel).toBeNull()
+        }
+    })
+
     it("hands velocity to an interrupting animation", async () => {
         const element = document.createElement("div")
 
