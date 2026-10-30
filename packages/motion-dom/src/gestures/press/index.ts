@@ -9,7 +9,7 @@ import { EventOptions } from "../types"
 import { isNodeOrChild } from "../utils/is-node-or-child"
 import { isPrimaryPointer } from "../utils/is-primary-pointer"
 import { setupGesture } from "../utils/setup"
-import { OnPressEndEvent, OnPressStartEvent, PressOptions } from "./types"
+import { OnPressStartEvent, PressHandlers, PressOptions } from "./types"
 import { isElementKeyboardAccessible } from "./utils/is-keyboard-accessible"
 import { enableKeyboardPress } from "./utils/keyboard"
 import { isPressing } from "./utils/state"
@@ -50,12 +50,6 @@ interface PressSequence {
 export interface PointerEventOptions extends EventOptions, PressOptions {
     useGlobalTarget?: boolean
     stopPropagation?: boolean
-
-    /**
-     * Called every `repeat` seconds while a started press is held,
-     * with the number of repeats so far.
-     */
-    onRepeat?: (element: Element, event: PointerEvent, count: number) => void
 }
 
 /**
@@ -74,6 +68,16 @@ export interface PointerEventOptions extends EventOptions, PressOptions {
  * than the press start and end/cancel. The element also needs
  * to be focusable for this to work, whereas a press gesture will
  * make an element focusable by default.
+ *
+ * `onPressStart` can return a function to call when the press ends,
+ * or an object of handlers for this press:
+ *
+ * ```js
+ * press(button, () => ({
+ *   onComplete: (event, { success }) => {},
+ *   onRepeat: (count) => {},
+ * }), { repeat: 0.1 })
+ * ```
  *
  * @public
  */
@@ -119,12 +123,16 @@ export function press(
 
         let isStarted = false
         let repeats = 0
-        let onPressEnd: OnPressEndEvent | void
+        let handlers: PressHandlers = {}
 
         const begin = () => {
             isStarted = true
             isPressing.add(target)
-            onPressEnd = onPressStart(target, startEvent)
+            const result = onPressStart(target, startEvent)
+            handlers =
+                typeof result === "function"
+                    ? { onComplete: result }
+                    : result || {}
         }
 
         const tick = () => {
@@ -145,7 +153,7 @@ export function press(
                 elapsed - afterTime >=
                 (repeats + 1) * secondsToMilliseconds(repeat)
             ) {
-                options.onRepeat?.(target, startEvent, ++repeats)
+                handlers.onRepeat?.(++repeats)
             }
         }
 
@@ -196,11 +204,7 @@ export function press(
                   })
                 : sequences.delete(target)
 
-            if (!isValid) return
-
-            if (typeof onPressEnd === "function") {
-                onPressEnd(endEvent, { success })
-            }
+            isValid && handlers.onComplete?.(endEvent, { success })
         }
 
         const onPointerUp = (upEvent: PointerEvent) => {

@@ -1,5 +1,6 @@
 import { frame } from "../../../frameloop"
 import { press } from "../index"
+import type { OnPressEndEvent, PressHandlers } from "../types"
 import { isPressing } from "../utils/state"
 
 if (typeof (globalThis as any).PointerEvent === "undefined") {
@@ -54,7 +55,11 @@ const pointer = (
 const key = (element: Element, type: "keydown" | "keyup") =>
     element.dispatchEvent(new KeyboardEvent(type, { key: "Enter" }))
 
-function setup(options = {}, count = 1) {
+/**
+ * `handlers` makes the start callback return an object of handlers,
+ * with `onComplete` as the end callback, instead of a function.
+ */
+function setup(options = {}, count = 1, handlers?: PressHandlers) {
     const elements: HTMLElement[] = []
     const events: string[] = []
 
@@ -69,8 +74,10 @@ function setup(options = {}, count = 1) {
         elements,
         (element) => {
             events.push("start:" + element.id)
-            return (_, { success }) =>
+            const onEnd: OnPressEndEvent = (_, { success }) => {
                 events.push((success ? "end:" : "cancel:") + element.id)
+            }
+            return handlers ? { ...handlers, onComplete: onEnd } : onEnd
         },
         options
     )
@@ -454,7 +461,7 @@ describe("press after", () => {
 describe("press repeat", () => {
     test("repeats while held, drift-free", async () => {
         const onRepeat = jest.fn()
-        const { element, events } = setup({ repeat: 0.1, onRepeat })
+        const { element, events } = setup({ repeat: 0.1 }, 1, { onRepeat })
 
         pointer(element, "down")
         expect(events).toEqual(["start:el0"])
@@ -466,20 +473,12 @@ describe("press repeat", () => {
         await wait(60)
         await nextFrame()
         expect(onRepeat).toHaveBeenCalledTimes(1)
-        expect(onRepeat).toHaveBeenLastCalledWith(
-            element,
-            expect.anything(),
-            1
-        )
+        expect(onRepeat).toHaveBeenLastCalledWith(1)
 
         await wait(100)
         await nextFrame()
         expect(onRepeat).toHaveBeenCalledTimes(2)
-        expect(onRepeat).toHaveBeenLastCalledWith(
-            element,
-            expect.anything(),
-            2
-        )
+        expect(onRepeat).toHaveBeenLastCalledWith(2)
 
         pointer(element, "up")
         await wait(500)
@@ -491,9 +490,7 @@ describe("press repeat", () => {
 
     test("after delays the press and so the first repeat", async () => {
         const onRepeat = jest.fn()
-        const { element, events } = setup({
-            after: 0.5,
-            repeat: 0.1,
+        const { element, events } = setup({ after: 0.5, repeat: 0.1 }, 1, {
             onRepeat,
         })
 
@@ -511,7 +508,7 @@ describe("press repeat", () => {
 
     test("movement past the tolerance cancels a repeating press", async () => {
         const onRepeat = jest.fn()
-        const { element, events } = setup({ repeat: 0.1, onRepeat })
+        const { element, events } = setup({ repeat: 0.1 }, 1, { onRepeat })
 
         pointer(element, "down", 0, 0)
         await wait(110)
@@ -523,5 +520,167 @@ describe("press repeat", () => {
         await wait(300)
         await nextFrame()
         expect(onRepeat).toHaveBeenCalledTimes(1)
+    })
+})
+
+describe("press start return value", () => {
+    /**
+     * Record every end call, with its arguments, for each return form.
+     */
+    function setupForms(options = {}) {
+        const element = document.createElement("div")
+        document.body.appendChild(element)
+        const calls: { fn: any[][]; object: any[][] } = { fn: [], object: [] }
+
+        press(
+            element,
+            () =>
+                (...args) => {
+                    calls.fn.push(args)
+                },
+            options
+        )
+        press(
+            element,
+            () => ({
+                onComplete: (...args) => {
+                    calls.object.push(args)
+                },
+            }),
+            options
+        )
+
+        return { element, calls }
+    }
+
+    const expectEquivalent = (
+        calls: { fn: any[][]; object: any[][] },
+        success: boolean[]
+    ) => {
+        const infos = success.map((s) => ({ success: s }))
+        expect(calls.fn.map(([, info]) => info)).toEqual(infos)
+        expect(calls.object.map(([, info]) => info)).toEqual(infos)
+        // Compared by identity, as printing a DOM event diff crashes Jest
+        const sameEvents = calls.object.every(
+            ([event], i) => event === calls.fn[i][0]
+        )
+        expect(sameEvents).toBe(true)
+    }
+
+    test("onComplete is equivalent to returning a function: success", async () => {
+        const { element, calls } = setupForms()
+
+        await tap(element)
+
+        expectEquivalent(calls, [true])
+    })
+
+    test("onComplete is equivalent to returning a function: cancel", async () => {
+        const { element, calls } = setupForms()
+
+        pointer(element, "down")
+        pointer(element, "cancel")
+        pointer(element, "down")
+        pointer(document.body, "up")
+
+        expectEquivalent(calls, [false, false])
+    })
+
+    test("onComplete is equivalent to returning a function: keyboard", async () => {
+        const { element, calls } = setupForms()
+        element.dispatchEvent(new FocusEvent("focus"))
+
+        key(element, "keydown")
+        key(element, "keyup")
+        key(element, "keydown")
+        element.dispatchEvent(new FocusEvent("blur"))
+
+        expectEquivalent(calls, [true, false])
+    })
+
+    test("onComplete is equivalent to returning a function: times and after", async () => {
+        const { element, calls } = setupForms({ times: 2, after: 0.5 })
+
+        await tap(element)
+        expect(calls.fn).toEqual([])
+        await wait(50)
+        pointer(element, "down")
+        await wait(600)
+        await nextFrame()
+        pointer(element, "up")
+
+        expectEquivalent(calls, [true])
+    })
+
+    test("returning nothing still works", async () => {
+        const element = document.createElement("div")
+        document.body.appendChild(element)
+        const onPressStart = jest.fn()
+        press(element, onPressStart, { repeat: 0.1 })
+
+        pointer(element, "down")
+        expect(isPressing.has(element)).toBe(true)
+        await wait(250)
+        await nextFrame()
+        pointer(element, "up")
+        expect(isPressing.has(element)).toBe(false)
+
+        pointer(element, "down")
+        pointer(element, "cancel")
+        expect(onPressStart).toHaveBeenCalledTimes(2)
+    })
+
+    test("returning an empty object still works", async () => {
+        const element = document.createElement("div")
+        document.body.appendChild(element)
+        press(element, () => ({}), { repeat: 0.1 })
+
+        pointer(element, "down")
+        await wait(250)
+        await nextFrame()
+        pointer(element, "up")
+        expect(isPressing.has(element)).toBe(false)
+    })
+
+    test("onRepeat fires for a keyboard press", async () => {
+        const onRepeat = jest.fn()
+        const { element, events } = setup({ repeat: 0.1 }, 1, { onRepeat })
+        element.dispatchEvent(new FocusEvent("focus"))
+
+        key(element, "keydown")
+        await wait(110)
+        await nextFrame()
+        key(element, "keydown") // auto-repeat
+        await wait(100)
+        await nextFrame()
+        expect(onRepeat).toHaveBeenCalledTimes(2)
+        key(element, "keyup")
+        expect(events).toEqual(["start:el0", "end:el0"])
+    })
+
+    test("each press gets its own handlers", async () => {
+        const element = document.createElement("div")
+        document.body.appendChild(element)
+        const repeats: string[] = []
+        let presses = 0
+        press(
+            element,
+            () => {
+                const id = ++presses
+                return { onRepeat: (count) => repeats.push(id + ":" + count) }
+            },
+            { repeat: 0.1 }
+        )
+
+        pointer(element, "down")
+        await wait(110)
+        await nextFrame()
+        pointer(element, "up")
+        pointer(element, "down")
+        await wait(110)
+        await nextFrame()
+        pointer(element, "up")
+
+        expect(repeats).toEqual(["1:1", "2:1"])
     })
 })
