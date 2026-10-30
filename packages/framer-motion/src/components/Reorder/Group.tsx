@@ -181,9 +181,10 @@ export function ReorderGroupComponent<
         /**
          * Space grabs and drops the item, arrows along `axis` move
          * the grabbed item one place, or a row in a grid (see keyTarget),
-         * or move focus that way if it isn't grabbed, and Escape restores
-         * the order in `from`, the values when it was grabbed. Keys from
-         * children or with modifiers (Alt+Left etc.) are left alone.
+         * or move focus that way if it isn't grabbed. Home and End go to
+         * either end. Escape restores the order in `from`, the values when
+         * it was grabbed. Keys from children or with modifiers (Alt+Left
+         * etc.) are left alone.
          */
         onKeyDown: (event, item, from, grab) => {
             const { key, currentTarget } = event
@@ -203,6 +204,8 @@ export function ReorderGroupComponent<
                 "ArrowLeft",
                 "ArrowDown",
                 "ArrowRight",
+                "Home",
+                "End",
             ].indexOf(key)
             const isX = keyIndex % 2
             if (key === " ") {
@@ -223,7 +226,7 @@ export function ReorderGroupComponent<
                 grab(currentTarget)
             } else if (
                 keyIndex < 0 ||
-                (axis !== "xy" && axis !== (isX ? "x" : "y"))
+                (keyIndex < 4 && axis !== "xy" && axis !== (isX ? "x" : "y"))
             ) {
                 return
             } else {

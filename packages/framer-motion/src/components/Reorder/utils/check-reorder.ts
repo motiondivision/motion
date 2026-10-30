@@ -75,10 +75,11 @@ export function checkReorder<T>(
 }
 
 /**
- * The index an arrow key takes `order[index]` to, or -1 if there's nowhere
- * to go, `key` being its index in Up, Left, Down, Right. Left and Right go
- * along the order (swapped in RTL). On the "xy" axis, Up and Down go to
- * the row above or below, to the item there nearest across.
+ * The index a key takes `order[index]` to, or -1 if there's nowhere to go,
+ * `key` being its index in Up, Left, Down, Right, Home, End. Left and Right
+ * go along the order (swapped in RTL). On the "xy" axis, Up and Down go to
+ * the row above or below, to the item there nearest across. Home and End
+ * go to either end.
  */
 export function keyTarget<T>(
     order: ItemData<T>[],
@@ -88,9 +89,9 @@ export function keyTarget<T>(
     isRTL: boolean
 ) {
     const step = key > 1 !== !!(key % 2 && isRTL) ? 1 : -1
-    let target = index + step
+    let target = key > 3 ? (key - 4) * (order.length - 1) : index + step
 
-    if (axis === "xy" && !(key % 2) && index > -1) {
+    if (axis === "xy" && key < 4 && !(key % 2) && index > -1) {
         /**
          * Rows top to bottom as drawn, which isn't their order with
          * flex-wrap: wrap-reverse.
@@ -113,7 +114,7 @@ export function keyTarget<T>(
             : -1
     }
 
-    return index > -1 && order[target] ? target : -1
+    return index > -1 && target !== index && order[target] ? target : -1
 }
 
 const center = ({ min, max }: Axis) => mixNumber(min, max, 0.5)
