@@ -41,10 +41,14 @@ const exceeds = (a: PointerEvent, b: PointerEvent, max: number) =>
 
 const preventDefault = (event: Event) => event.preventDefault()
 
+/**
+ * A `times` sequence waiting for its next press.
+ */
 interface PressSequence {
     count: number
-    end: number
     event: PointerEvent
+    handlers: PressHandlers
+    expire: (force?: unknown) => true | void
 }
 
 export interface PointerEventOptions extends EventOptions, PressOptions {
@@ -69,14 +73,15 @@ export interface PointerEventOptions extends EventOptions, PressOptions {
  * to be focusable for this to work, whereas a press gesture will
  * make an element focusable by default.
  *
- * `onPressStart` can return a function to call when the press ends,
- * or an object of handlers for this press:
+ * `onPressStart` fires on the first pointer or key down, and can return
+ * a function to call when the press ends, or an object of handlers for
+ * this press:
  *
  * ```js
  * press(button, () => ({
+ *   onProgress: (progress) => {},
  *   onComplete: (event, { success }) => {},
- *   onRepeat: (count) => {},
- * }), { repeat: 0.1 })
+ * }), { after: 0.5 })
  * ```
  *
  * @public
@@ -111,23 +116,35 @@ export function press(
         const { times = 1, timesInterval = 0.3, after = 0, repeat } = options
         const downTime = time.now()
         const afterTime = secondsToMilliseconds(after)
-        const previous = sequences.get(target)
-        const count =
-            previous &&
-            downTime - previous.end <= secondsToMilliseconds(timesInterval) &&
-            !exceeds(previous.event, startEvent, sequenceSlop)
-                ? previous.count + 1
-                : 1
+        const interval = secondsToMilliseconds(timesInterval)
+        let previous = sequences.get(target)
+
+        /**
+         * A press during a `times` sequence continues it. If it's too late
+         * or too far away, the sequence is cancelled and this press starts
+         * a new one.
+         */
+        if (
+            previous?.expire(exceeds(previous.event, startEvent, sequenceSlop))
+        ) {
+            previous = undefined
+        } else if (previous) {
+            cancelFrame(previous.expire)
+            sequences.delete(target)
+        }
+
+        const count = previous ? previous.count + 1 : 1
         const isFinal = count >= times
         const isHeld = isFinal && (after || repeat)
-
-        let isStarted = false
+        let isActive = !after
         let repeats = 0
-        let handlers: PressHandlers = {}
+        let handlers: PressHandlers
 
-        const begin = () => {
-            isStarted = true
-            isPressing.add(target)
+        isPressing.add(target)
+
+        if (previous) {
+            handlers = previous.handlers
+        } else {
             const result = onPressStart(target, startEvent)
             handlers =
                 typeof result === "function"
@@ -140,11 +157,11 @@ export function press(
 
             const elapsed = time.now() - downTime
 
-            if (!isStarted) {
+            if (!isActive) {
                 const progress = Math.min(elapsed / afterTime, 1)
-                options.onProgress?.(progress)
+                handlers.onProgress?.(progress)
                 if (progress < 1) return
-                begin()
+                isActive = true
             }
 
             if (!repeat) {
@@ -183,28 +200,51 @@ export function press(
             )
             target.removeEventListener("contextmenu", preventDefault)
             cancelFrame(tick)
+            isPressing.delete(target)
 
-            if (isStarted) {
-                isPressing.delete(target)
-            } else if (isHeld) {
-                options.onProgress?.(0)
+            if (!isValidPressEvent(endEvent)) return
+
+            if (success && !isFinal) {
+                /**
+                 * Wait for the next press of the sequence, and cancel the
+                 * gesture if it doesn't arrive in time.
+                 */
+                const end = time.now()
+
+                /**
+                 * Cancels the sequence if it's `force`d, or the interval
+                 * has passed. Runs every frame, where `force` is frame
+                 * data, so it's checked with `=== true`.
+                 */
+                const expire = (force?: unknown) => {
+                    const isAborted = eventOptions.signal!.aborted
+                    if (
+                        isAborted ||
+                        force === true ||
+                        time.now() - end > interval
+                    ) {
+                        cancelFrame(expire)
+                        sequences.delete(target)
+                        isAborted ||
+                            handlers.onComplete?.(endEvent, { success: false })
+                        return true
+                    }
+                }
+                sequences.set(target, {
+                    count,
+                    event: startEvent,
+                    handlers,
+                    expire,
+                })
+                frame.update(expire, true)
+            } else {
+                /**
+                 * Releasing before `after` is reached is a cancel.
+                 */
+                handlers.onComplete?.(endEvent, {
+                    success: success && isActive,
+                })
             }
-
-            const isValid = isValidPressEvent(endEvent)
-
-            /**
-             * Only successful presses before the final one continue a
-             * sequence. Anything else starts a new one.
-             */
-            success && isValid && !isFinal
-                ? sequences.set(target, {
-                      count,
-                      end: time.now(),
-                      event: startEvent,
-                  })
-                : sequences.delete(target)
-
-            isValid && handlers.onComplete?.(endEvent, { success })
         }
 
         const onPointerUp = (upEvent: PointerEvent) => {
@@ -227,7 +267,7 @@ export function press(
          */
         const onPointerMove = (moveEvent: PointerEvent) => {
             if (
-                (repeat || !isStarted) &&
+                (repeat || !isActive) &&
                 isPrimaryPointer(moveEvent) &&
                 exceeds(startEvent, moveEvent, holdSlop)
             ) {
@@ -241,8 +281,6 @@ export function press(
             onPointerCancel,
             endEventOptions
         )
-
-        if (isFinal && !after) begin()
 
         if (isHeld) {
             frame.update(tick, true)
