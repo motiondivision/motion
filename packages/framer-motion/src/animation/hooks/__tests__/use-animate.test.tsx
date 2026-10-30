@@ -1,5 +1,6 @@
 import "@testing-library/jest-dom"
 import { render } from "@testing-library/react"
+import { motionValue, scopeMotion } from "motion-dom"
 import { useEffect } from "react"
 import { MotionConfig } from "../../../components/MotionConfig"
 import { useAnimate } from "../use-animate"
@@ -117,17 +118,98 @@ describe("useAnimate", () => {
         expect(frameCount).toEqual(3)
     })
 
+    test("Stops an animation played again after finishing on unmount", async () => {
+        const x = motionValue(0)
+        let animation: any
+
+        const Component = () => {
+            const [scope, animate] = useAnimate()
+
+            useEffect(() => {
+                animation = animate(x, 100, { duration: 0.1 })
+            }, [])
+
+            return <div ref={scope} />
+        }
+
+        const { unmount } = render(<Component />)
+        await animation
+        animation.time = 0
+        animation.play()
+        await new Promise((resolve) => setTimeout(resolve, 20))
+
+        unmount()
+        const stopped = x.get()
+        await new Promise((resolve) => setTimeout(resolve, 50))
+        expect(x.get()).toBe(stopped)
+        expect(stopped).toBeLessThan(100)
+    })
+
+    test("Sequences follow a scopeMotion() reduceMotion over useAnimate's, like single values", async () => {
+        let single: HTMLDivElement | null = null
+        let sequence: HTMLDivElement | null = null
+
+        const Component = () => {
+            const [scope, animate] = useAnimate()
+
+            useEffect(() => {
+                single = scope.current.children[0] as HTMLDivElement
+                sequence = scope.current.children[1] as HTMLDivElement
+                scopeMotion(
+                    () => {
+                        animate(single!, { x: 100 }, { duration: 10 })
+                        animate([[sequence!, { x: 100 }, { duration: 10 }]])
+                    },
+                    { transition: { reduceMotion: true } }
+                )
+            }, [])
+
+            return (
+                <div ref={scope}>
+                    <div />
+                    <div />
+                </div>
+            )
+        }
+
+        render(<Component />)
+        await new Promise((resolve) => setTimeout(resolve, 50))
+
+        expect(single!.style.transform).toBe("translateX(100px)")
+        expect(sequence!.style.transform).toBe("translateX(100px)")
+    })
+
+    test("Sequences follow MotionConfig reducedMotion", async () => {
+        let element: HTMLDivElement | null = null
+
+        const Component = () => {
+            const [scope, animate] = useAnimate()
+
+            useEffect(() => {
+                element = scope.current
+                animate([[scope.current, { x: 100 }, { duration: 10 }]])
+            })
+
+            return <div ref={scope} />
+        }
+
+        render(
+            <MotionConfig reducedMotion="always">
+                <Component />
+            </MotionConfig>
+        )
+        await new Promise((resolve) => setTimeout(resolve, 50))
+
+        expect(element!.style.transform).toBe("translateX(100px)")
+    })
+
     test("Applies final value instantly when MotionConfig skipAnimations is true", () => {
         return new Promise<void>((resolve) => {
             const Component = () => {
                 const [scope, animate] = useAnimate()
 
                 useEffect(() => {
-                    animate(
-                        scope.current,
-                        { opacity: 0.5 },
-                        { duration: 10 }
-                    )
+                    animate(scope.current, { opacity: 0.5 }, { duration: 10 })
 
                     setTimeout(() => {
                         expect(scope.current).toHaveStyle("opacity: 0.5;")

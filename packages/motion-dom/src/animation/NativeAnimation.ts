@@ -218,8 +218,13 @@ export class NativeAnimation<T extends AnyResolvedKeyframe>
         this.finishedTime = null
         this.animation.currentTime = secondsToMilliseconds(newTime)
 
+        /**
+         * Seeking out of "finished" leaves the animation paused, so play()
+         * won't renew finished. Renew it here.
+         */
         if (wasFinished) {
             this.animation.pause()
+            this.updateFinished()
         }
     }
 

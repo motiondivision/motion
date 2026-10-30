@@ -1,4 +1,5 @@
 import {
+    activeScope,
     addBuilderToScope,
     animateLayout,
     delayInSeconds as delay,
@@ -87,6 +88,118 @@ describe("scopeMotion", () => {
         expect(await isAnimating(x)).toBe(true)
         scope.stop()
         expect(await isAnimating(x)).toBe(false)
+    })
+
+    test("stop() stops a sequence that's changed and played after finishing", async () => {
+        const x = motionValue(0)
+        let animation: ReturnType<typeof animate>
+        const scope = scopeMotion(() => {
+            animation = animate([[x, 100, { duration: 0.01 }]])
+        })
+
+        await animation!
+        animation!.add([x, 0, { duration: 10 }])
+        animation!.play()
+
+        expect(await isAnimating(x)).toBe(true)
+        scope.stop()
+        expect(await isAnimating(x)).toBe(false)
+    })
+
+    test("stop() stops an animation played again after finishing", async () => {
+        const x = motionValue(0)
+        let animation: ReturnType<typeof animate>
+        const scope = scopeMotion(() => {
+            animation = animate(x, 100, { duration: 0.05 })
+        })
+
+        await animation!
+        animation!.time = 0
+        animation!.play()
+
+        expect(await isAnimating(x)).toBe(true)
+        scope.stop()
+        expect(await isAnimating(x)).toBe(false)
+    })
+
+    test("finished animations don't stay registered", async () => {
+        const x = motionValue(0)
+        const scope = scopeMotion()
+
+        /**
+         * Count the cleanups registered with the scope that haven't been
+         * removed.
+         */
+        let registered = 0
+        scope.run(() => {
+            const active = activeScope.current!
+            const add = active.add
+            active.add = (cleanup) => {
+                registered++
+                const remove = add(cleanup)
+                return () => {
+                    registered--
+                    remove()
+                }
+            }
+        })
+
+        for (let i = 0; i < 50; i++) {
+            await scope.run(() => animate(x, i, { duration: 0.001 }))
+            await scope.run(() => animate([[x, i, { duration: 0.001 }]]))
+        }
+
+        expect(registered).toBeLessThanOrEqual(1)
+        scope.stop()
+    })
+
+    test("an animation played again from onComplete resolves each run and stays registered only while it runs", async () => {
+        const x = motionValue(0)
+        const scope = scopeMotion()
+
+        let registered = 0
+        scope.run(() => {
+            const active = activeScope.current!
+            const add = active.add
+            active.add = (cleanup) => {
+                registered++
+                const remove = add(cleanup)
+                return () => {
+                    registered--
+                    remove()
+                }
+            }
+        })
+
+        const order: string[] = []
+        let runs = 1
+        let animation: ReturnType<typeof animate>
+        scope.run(() => {
+            animation = animate(x, 100, {
+                duration: 0.01,
+                onComplete: () => {
+                    order.push("complete" + runs)
+                    if (runs === 3) return
+                    animation.play()
+                    const run = ++runs
+                    animation.finished.then(() => order.push("resolved" + run))
+                },
+            })
+        })
+        animation!.finished.then(() => order.push("resolved1"))
+
+        await new Promise((resolve) => setTimeout(resolve, 300))
+
+        expect(order).toEqual([
+            "complete1",
+            "resolved1",
+            "complete2",
+            "resolved2",
+            "complete3",
+            "resolved3",
+        ])
+        expect(registered).toBe(0)
+        scope.stop()
     })
 
     test("doesn't collect animations started outside the scope", async () => {

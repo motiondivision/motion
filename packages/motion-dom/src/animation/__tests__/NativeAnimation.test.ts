@@ -176,3 +176,58 @@ describe("NativeAnimation - attachTimeline", () => {
         expect(observe).not.toHaveBeenCalled()
     })
 })
+
+describe("NativeAnimation - replay after finishing", () => {
+    let mockAnimation: any
+
+    beforeEach(() => {
+        mockAnimation = {
+            cancel: jest.fn(),
+            pause: jest.fn(() => (mockAnimation.playState = "paused")),
+            play: jest.fn(() => (mockAnimation.playState = "running")),
+            onfinish: null,
+            playbackRate: 1,
+            currentTime: 0,
+            playState: "running",
+            effect: {
+                getComputedTiming: () => ({ duration: 300 }),
+                updateTiming: jest.fn(),
+            },
+        }
+
+        Element.prototype.animate = jest
+            .fn()
+            .mockImplementation(() => mockAnimation)
+    })
+
+    afterEach(() => {
+        ;(Element.prototype as any).animate = undefined
+        jest.restoreAllMocks()
+    })
+
+    test("seeking a finished animation and playing it renews finished", async () => {
+        const animation = new NativeAnimation({
+            element: document.createElement("div"),
+            name: "opacity",
+            keyframes: [0, 1],
+            duration: 300,
+            ease: "linear",
+        } as any)
+
+        mockAnimation.onfinish()
+        await animation.finished
+
+        animation.time = 0
+        animation.play()
+
+        let isResolved = false
+        animation.finished.then(() => (isResolved = true))
+        await Promise.resolve()
+        await Promise.resolve()
+        expect(isResolved).toBe(false)
+
+        mockAnimation.onfinish()
+        await animation.finished
+        expect(isResolved).toBe(true)
+    })
+})
