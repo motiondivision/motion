@@ -37,12 +37,16 @@ export class PressGesture extends Feature<Element> {
             (_element, startEvent) => {
                 handlePressEvent(this.node, startEvent, "Start")
 
-                return (endEvent, { success }) =>
-                    handlePressEvent(
-                        this.node,
-                        endEvent,
-                        success ? "" : "Cancel"
-                    )
+                return {
+                    onComplete: (endEvent, { success }) =>
+                        handlePressEvent(
+                            this.node,
+                            endEvent,
+                            success ? "" : "Cancel"
+                        ),
+                    onRepeat: () =>
+                        handlePressEvent(this.node, startEvent, "", true),
+                }
             },
             this.options
         )
@@ -57,8 +61,6 @@ export class PressGesture extends Feature<Element> {
         Object.assign(options, tap, {
             useGlobalTarget: globalTapTarget,
             stopPropagation: propagate?.tap === false,
-            onRepeat: (_element: Element, event: PointerEvent) =>
-                handlePressEvent(node, event, "", true),
         })
     }
 
