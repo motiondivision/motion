@@ -6,22 +6,34 @@ import { nextFrame, stepFrames, withManualFrames } from "./utils"
 describe("tap prop", () => {
     withManualFrames()
 
-    test("times: onTapStart and onTap only fire on the second press", async () => {
+    test("times: onTapStart fires on the first press, onTap on the second", async () => {
         const onTapStart = jest.fn()
         const onTap = jest.fn()
+        const onTapCancel = jest.fn()
+        const opacity = motionValue(0.5)
+        const history: number[] = []
+        opacity.on("change", (v) => history.push(v))
+
         const { container } = render(
             <motion.div
                 tap={{ times: 2 }}
+                initial={{ opacity: 0.5 }}
+                transition={{ type: false }}
+                whileTap={{ opacity: 1 }}
+                style={{ opacity }}
                 onTapStart={onTapStart}
                 onTap={onTap}
+                onTapCancel={onTapCancel}
             />
         )
         const element = container.firstChild as Element
 
         pointerDown(element)
+        await stepFrames(50)
+        expect(onTapStart).toHaveBeenCalledTimes(1)
+        expect(opacity.get()).toBe(1)
         pointerUp(element)
         await stepFrames(50)
-        expect(onTapStart).not.toHaveBeenCalled()
         expect(onTap).not.toHaveBeenCalled()
 
         pointerDown(element)
@@ -29,40 +41,96 @@ describe("tap prop", () => {
         await stepFrames(50)
         expect(onTapStart).toHaveBeenCalledTimes(1)
         expect(onTap).toHaveBeenCalledTimes(1)
+        expect(onTapCancel).not.toHaveBeenCalled()
+        // No flicker: whileTap stays on across the sequence
+        expect(history).toEqual([1, 0.5])
     })
 
-    test("after: whileTap and onTapStart wait for the hold", async () => {
-        const onTapStart = jest.fn()
+    test("times: an unfinished sequence fires onTapCancel", async () => {
         const onTap = jest.fn()
+        const onTapCancel = jest.fn()
         const opacity = motionValue(0.5)
-        const progress: number[] = []
         const { container } = render(
             <motion.div
-                tap={{ after: 0.5, onProgress: (p) => progress.push(p) }}
+                tap={{ times: 2 }}
+                initial={{ opacity: 0.5 }}
+                transition={{ type: false }}
+                whileTap={{ opacity: 1 }}
+                style={{ opacity }}
+                onTap={onTap}
+                onTapCancel={onTapCancel}
+            />
+        )
+        const element = container.firstChild as Element
+
+        pointerDown(element)
+        pointerUp(element)
+        await stepFrames(50)
+        expect(opacity.get()).toBe(1)
+
+        await stepFrames(400)
+        expect(onTapCancel).toHaveBeenCalledTimes(1)
+        expect(onTap).not.toHaveBeenCalled()
+        expect(opacity.get()).toBe(0.5)
+    })
+
+    test("after: whileTap and onTapStart fire on press, onTap after the hold", async () => {
+        const onTapStart = jest.fn()
+        const onTap = jest.fn()
+        const onTapCancel = jest.fn()
+        const opacity = motionValue(0.5)
+        const { container } = render(
+            <motion.div
+                tap={{ after: 0.5 }}
                 initial={{ opacity: 0.5 }}
                 transition={{ type: false }}
                 whileTap={{ opacity: 1 }}
                 style={{ opacity }}
                 onTapStart={onTapStart}
                 onTap={onTap}
+                onTapCancel={onTapCancel}
+            />
+        )
+        const element = container.firstChild as Element
+
+        pointerDown(element)
+        await stepFrames(50)
+        expect(opacity.get()).toBe(1)
+        expect(onTapStart).toHaveBeenCalledTimes(1)
+
+        await stepFrames(550)
+        pointerUp(element)
+        await stepFrames(50)
+        expect(opacity.get()).toBe(0.5)
+        expect(onTap).toHaveBeenCalledTimes(1)
+        expect(onTapCancel).not.toHaveBeenCalled()
+    })
+
+    test("after: early release fires onTapCancel", async () => {
+        const onTap = jest.fn()
+        const onTapCancel = jest.fn()
+        const opacity = motionValue(0.5)
+        const { container } = render(
+            <motion.div
+                tap={{ after: 0.5 }}
+                initial={{ opacity: 0.5 }}
+                transition={{ type: false }}
+                whileTap={{ opacity: 1 }}
+                style={{ opacity }}
+                onTap={onTap}
+                onTapCancel={onTapCancel}
             />
         )
         const element = container.firstChild as Element
 
         pointerDown(element)
         await stepFrames(250)
-        expect(opacity.get()).toBe(0.5)
-        expect(onTapStart).not.toHaveBeenCalled()
-
-        await stepFrames(300)
         expect(opacity.get()).toBe(1)
-        expect(onTapStart).toHaveBeenCalledTimes(1)
-        expect(progress[progress.length - 1]).toBe(1)
-
         pointerUp(element)
         await stepFrames(50)
         expect(opacity.get()).toBe(0.5)
-        expect(onTap).toHaveBeenCalledTimes(1)
+        expect(onTap).not.toHaveBeenCalled()
+        expect(onTapCancel).toHaveBeenCalledTimes(1)
     })
 
     test("repeat: onTap fires per repeat while whileTap stays active", async () => {

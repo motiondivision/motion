@@ -545,26 +545,26 @@ export interface MotionNodeTapHandlers {
 
     /**
      * Options for the tap gesture, applied to `onTapStart`, `onTap`,
-     * `onTapCancel` and `whileTap`.
+     * `onTapCancel` and `whileTap`. `onTapStart` and `whileTap` start on
+     * the first press. `onTap` fires only when the gesture completes,
+     * otherwise `onTapCancel` fires.
      *
      * ```jsx
      * // Double tap
      * <motion.div tap={{ times: 2 }} onTap={onDoubleTap} />
      *
-     * // Long press, with progress
-     * <motion.div tap={{ after: 0.5, onProgress }} whileTap={{ scale: 0.9 }} />
+     * // Long press
+     * <motion.div tap={{ after: 0.5 }} whileTap={{ scale: 0.9 }} onTap={onLongPress} />
      *
      * // Stepper: `onTap` fires every 0.1 seconds while held
      * <motion.button tap={{ repeat: 0.1 }} onTap={increment} />
      * ```
      *
-     * - `times`: Quick, consecutive presses needed to start. Default `1`.
+     * - `times`: Quick, consecutive presses needed for `onTap`. Default `1`.
      * - `timesInterval`: Max seconds between presses. Default `0.3`.
-     * - `after`: Seconds a press must be held to start. Default `0`.
+     * - `after`: Seconds a press must be held for `onTap`. Default `0`.
      * - `repeat`: While held, `onTap` fires every `repeat` seconds,
      *   and `whileTap` stays active.
-     * - `onProgress`: Called every frame during an `after` hold with
-     *   progress from `0` to `1`.
      */
     tap?: PressOptions
 }
