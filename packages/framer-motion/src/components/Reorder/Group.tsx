@@ -1,6 +1,6 @@
 "use client"
 
-import { invariant } from "motion-utils"
+import { invariant, moveItem } from "motion-utils"
 import * as React from "react"
 import {
     forwardRef,
@@ -21,7 +21,7 @@ import {
     ReorderContextProps,
     ReorderElementTag,
 } from "./types"
-import { checkReorder, keyReorder } from "./utils/check-reorder"
+import { checkReorder, keyTarget } from "./utils/check-reorder"
 import { detectAxis } from "./utils/detect-axis"
 
 export interface Props<
@@ -107,6 +107,8 @@ export function ReorderGroupComponent<
     >
 
     const itemLayouts = useRef(new Map<V, ItemData<V>["layout"]>())
+    const elements = useRef(new Map<V, { current: HTMLElement | null }>())
+    const [active, setActive] = useState<V>()
     const [detectedAxis, setDetectedAxis] = useState<ReorderAxis>("y")
     const isReordering = useRef(false)
     const hasReordered = useRef(false)
@@ -121,8 +123,23 @@ export function ReorderGroupComponent<
         )
 
     const valuesSet = new Set(values)
-    itemLayouts.current.forEach((_, value) => {
-        if (!valuesSet.has(value)) itemLayouts.current.delete(value)
+    for (const map of [itemLayouts.current, elements.current]) {
+        map.forEach((_, value) => valuesSet.has(value) || map.delete(value))
+    }
+
+    const tabStop = valuesSet.has(active!) ? active : values[0]
+    const isRendered = (value?: V) =>
+        elements.current.get(value!)?.current?.isConnected
+
+    /**
+     * If the tab stop isn't rendered (e.g. it's virtualized), the first
+     * rendered item takes its place.
+     */
+    useEffect(() => {
+        if (!isRendered(tabStop)) {
+            const first = values.find(isRendered)
+            first !== undefined && setActive(first)
+        }
     })
 
     const getOrder = () =>
@@ -154,12 +171,15 @@ export function ReorderGroupComponent<
         proxy,
         groupRef,
         hasReordered,
+        isTabStop: (value) => value === tabStop || !valuesSet.has(value),
+        setActive,
+        elements: elements.current,
         /**
          * Space grabs and drops the item, arrows along `axis` move
-         * the grabbed item one place, or a row in a grid (see keyReorder),
-         * and Escape restores the order in `from`, the values when it was
-         * grabbed. Keys from children or with modifiers (Alt+Left etc.) are
-         * left alone.
+         * the grabbed item one place, or a row in a grid (see keyTarget),
+         * or move focus that way if it isn't grabbed, and Escape restores
+         * the order in `from`, the values when it was grabbed. Keys from
+         * children or with modifiers (Alt+Left etc.) are left alone.
          */
         onKeyDown: (event, item, from, grab) => {
             const { key, currentTarget } = event
@@ -183,9 +203,7 @@ export function ReorderGroupComponent<
             const isX = keyIndex % 2
             if (key === " ") {
                 event.repeat || grab(currentTarget, from ? undefined : values)
-            } else if (!from) {
-                return
-            } else if (key === "Escape") {
+            } else if (key === "Escape" && from) {
                 /**
                  * Values added since the grab keep their slots.
                  */
@@ -205,10 +223,21 @@ export function ReorderGroupComponent<
             ) {
                 return
             } else {
-                commit(
-                    keyReorder(order, item, keyIndex, axis, !!isX && isRTL()),
-                    item
+                const index = order.findIndex(({ value }) => value === item)
+                const target = keyTarget(
+                    order,
+                    index,
+                    keyIndex,
+                    axis,
+                    !!isX && isRTL()
                 )
+                if (target > -1) {
+                    from
+                        ? commit(moveItem(order, index, target), item)
+                        : elements.current
+                              .get(order[target].value)
+                              ?.current?.focus()
+                }
             }
             event.preventDefault()
         },

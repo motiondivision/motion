@@ -5,7 +5,7 @@ import {
     visualElementStore,
     type MotionValue,
 } from "motion-dom"
-import type { Box, Point } from "motion-utils"
+import { moveItem, type Box, type Point } from "motion-utils"
 import { createElement, on, ref } from "remix/component"
 import type { Handle, RemixNode } from "remix/component"
 import type { ItemData, ReorderAxis } from "./components/Reorder/types"
@@ -15,7 +15,7 @@ import {
 } from "./components/Reorder/utils/auto-scroll"
 import {
     checkReorder,
-    keyReorder,
+    keyTarget,
 } from "./components/Reorder/utils/check-reorder"
 import { detectAxis } from "./components/Reorder/utils/detect-axis"
 import type { MotionComponentProps } from "./remix"
@@ -66,11 +66,26 @@ export type ReorderItemProps<V> = Omit<MotionComponentProps, "layout"> & {
 
 type Grab = (element: Element, from?: any[]) => void
 
+interface ItemHandle {
+    element?: HTMLElement
+    update: () => void
+}
+
 export interface ReorderContext {
     axis: ReorderAxis
     hasReordered: boolean
     getElement: () => Element | undefined
     registerItem: (value: any, layout: Box) => void
+    /**
+     * Each rendered item, for arrow keys to focus.
+     */
+    items: Map<any, ItemHandle>
+    /**
+     * Whether an item is in the tab order. Only one in `values` is: the
+     * last focused, or the first rendered.
+     */
+    isTabStop: (value: any) => boolean
+    setActive: (value: any) => void
     updateOrder: (value: any, offset: Point, velocity: Point) => void
     onKeyDown: (
         event: KeyboardEvent,
@@ -100,6 +115,8 @@ export function createReorder(motion: any): ReorderComponents {
      */
     function Group(handle: Handle<ReorderGroupProps<any>, ReorderContext>) {
         const itemLayouts = new Map<any, Box>()
+        const items = new Map<any, ItemHandle>()
+        let active: any
         let detectedAxis: ReorderAxis = "y"
         let isReordering = false
         let element: Element | undefined
@@ -128,15 +145,31 @@ export function createReorder(motion: any): ReorderComponents {
                 onReorder(newValues, moved)
         }
 
+        const getTabStop = () => {
+            const { values } = handle.props
+            return values.includes(active) ? active : values[0]
+        }
+
         const context: ReorderContext = {
             axis: "y",
             hasReordered: false,
             getElement: () => element,
+            items,
+            isTabStop: (value) =>
+                value === getTabStop() || !handle.props.values.includes(value),
+            setActive: (value) => {
+                const tabStop = getTabStop()
+                active = value
+                if (value !== tabStop) {
+                    items.get(tabStop)?.update()
+                    items.get(value)?.update()
+                }
+            },
             /**
              * Space grabs and drops the item, arrows along `axis` move the
-             * grabbed item one place, or a row in a grid (see keyReorder),
-             * and Escape restores the order in `from`, the values when it was
-             * grabbed.
+             * grabbed item one place, or a row in a grid (see keyTarget), or
+             * move focus that way if it isn't grabbed, and Escape restores
+             * the order in `from`, the values when it was grabbed.
              */
             onKeyDown: (event, item, from, grab) => {
                 const { key, currentTarget } = event
@@ -160,9 +193,7 @@ export function createReorder(motion: any): ReorderComponents {
                             currentTarget as Element,
                             from ? undefined : handle.props.values
                         )
-                } else if (!from) {
-                    return
-                } else if (key === "Escape") {
+                } else if (key === "Escape" && from) {
                     const kept = from.flatMap((value) =>
                         order.filter((data) => data.value === value)
                     )
@@ -179,16 +210,19 @@ export function createReorder(motion: any): ReorderComponents {
                 ) {
                     return
                 } else {
-                    commit(
-                        keyReorder(
-                            order,
-                            item,
-                            keyIndex,
-                            axis,
-                            !!isX && isRTL()
-                        ),
-                        item
+                    const index = order.findIndex(({ value }) => value === item)
+                    const target = keyTarget(
+                        order,
+                        index,
+                        keyIndex,
+                        axis,
+                        !!isX && isRTL()
                     )
+                    if (target > -1) {
+                        from
+                            ? commit(moveItem(order, index, target), item)
+                            : items.get(order[target].value)?.element?.focus()
+                    }
                 }
                 event.preventDefault()
             },
@@ -242,9 +276,11 @@ export function createReorder(motion: any): ReorderComponents {
             } = handle.props
 
             const valuesSet = new Set(values)
-            itemLayouts.forEach((_, value) => {
-                if (!valuesSet.has(value)) itemLayouts.delete(value)
-            })
+            for (const map of [itemLayouts, items]) {
+                map.forEach(
+                    (_, value) => valuesSet.has(value) || map.delete(value)
+                )
+            }
 
             /**
              * Only allow the next reorder once the new order has rendered.
@@ -253,6 +289,19 @@ export function createReorder(motion: any): ReorderComponents {
                 renderedValues = values
                 handle.queueTask(() => (isReordering = false))
             }
+
+            /**
+             * If the tab stop isn't rendered (e.g. it's virtualized), the
+             * first rendered item takes its place.
+             */
+            handle.queueTask(() => {
+                const isRendered = (value: any) =>
+                    items.get(value)?.element?.isConnected
+                if (!isRendered(getTabStop())) {
+                    const first = handle.props.values.find(isRendered)
+                    first !== undefined && context.setActive(first)
+                }
+            })
 
             context.axis = axis || detectedAxis
             handle.context.set(context)
@@ -312,6 +361,7 @@ export function createReorder(motion: any): ReorderComponents {
         const defaultX = motionValue(0)
         const defaultY = motionValue(0)
         let zIndex: { x: MotionValue; y: MotionValue; value: MotionValue }
+        const self: ItemHandle = { update: () => handle.update() }
 
         const getGroup = () => handle.context.get(Group) as ReorderContext
 
@@ -339,6 +389,7 @@ export function createReorder(motion: any): ReorderComponents {
             } = handle.props
             const group = getGroup()
             const { axis } = group
+            group.items.set(value, self)
 
             const x = isMotionValue(style.x) ? style.x : defaultX
             const y = isMotionValue(style.y) ? style.y : defaultY
@@ -356,7 +407,7 @@ export function createReorder(motion: any): ReorderComponents {
                 motion[as],
                 {
                     drag: axis === "xy" ? true : axis,
-                    tabIndex: 0,
+                    tabIndex: group.isTabStop(value) ? 0 : -1,
                     ...props,
                     dragSnapToOrigin: true,
                     style: { ...style, x, y, zIndex: zIndex.value },
@@ -394,6 +445,14 @@ export function createReorder(motion: any): ReorderComponents {
                         group.registerItem(handle.props.value, measured),
                     mix: [
                         mix,
+                        ref<HTMLElement>((node) => (self.element = node)),
+                        /**
+                         * The item focused last, or holding focus, is the
+                         * group's tab stop.
+                         */
+                        on<HTMLElement, "focusin">("focusin", () =>
+                            group.setActive(handle.props.value)
+                        ),
                         on<HTMLElement, "keydown">("keydown", (event) =>
                             group.onKeyDown(
                                 event,

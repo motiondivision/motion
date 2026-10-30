@@ -75,19 +75,18 @@ export function checkReorder<T>(
 }
 
 /**
- * Moves `value` one place for an arrow key, `key` being its index in
- * Up, Left, Down, Right. Left and Right move along the order (swapped in
- * RTL). On the "xy" axis, Up and Down move to the row above or below, into
- * the slot of the item there nearest across.
+ * The index an arrow key takes `order[index]` to, or -1 if there's nowhere
+ * to go, `key` being its index in Up, Left, Down, Right. Left and Right go
+ * along the order (swapped in RTL). On the "xy" axis, Up and Down go to
+ * the row above or below, to the item there nearest across.
  */
-export function keyReorder<T>(
+export function keyTarget<T>(
     order: ItemData<T>[],
-    value: T,
+    index: number,
     key: number,
     axis: ReorderAxis,
     isRTL: boolean
-): ItemData<T>[] {
-    const index = order.findIndex((item) => item.value === value)
+) {
     const step = key > 1 !== !!(key % 2 && isRTL) ? 1 : -1
     let target = index + step
 
@@ -114,7 +113,7 @@ export function keyReorder<T>(
             : -1
     }
 
-    return index > -1 && order[target] ? moveItem(order, index, target) : order
+    return index > -1 && order[target] ? target : -1
 }
 
 const center = ({ min, max }: Axis) => mixNumber(min, max, 0.5)

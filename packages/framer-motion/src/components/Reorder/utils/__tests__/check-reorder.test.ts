@@ -1,5 +1,6 @@
 import { ItemData } from "../../types"
-import { checkReorder, keyReorder } from "../check-reorder"
+import { moveItem } from "motion-utils"
+import { checkReorder, keyTarget } from "../check-reorder"
 import { detectAxis } from "../detect-axis"
 
 const wrapped: ItemData<string>[] = [
@@ -172,10 +173,13 @@ describe("Reorder layout utils", () => {
             { value: "b", layout: box(100, 100) },
             { value: "c", layout: box(0, 0) },
         ]
-        const move = (value: string, key: number) =>
-            keyReorder(reversed, value, key, "xy", false)
-                .map(({ value }) => value)
+        const move = (value: string, key: number) => {
+            const index = reversed.findIndex((item) => item.value === value)
+            const target = keyTarget(reversed, index, key, "xy", false)
+            return (target < 0 ? reversed : moveItem(reversed, index, target))
+                .map((item) => item.value)
                 .join("")
+        }
 
         // Up from a goes to c's row, Down from c to a's
         expect(move("a", 0)).toBe("bca")
