@@ -4,6 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [14.9.0] Unreleased
+
+### Added
+
+-   `PresenceContext`: `keepValuesOnRemount` keeps motion values when hidden children are shown again, instead of replaying from `initial`.
+
 ## [14.8.0] 2026-10-29
 
 ### Added
