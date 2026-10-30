@@ -11,6 +11,7 @@ import type {
     DragElastic,
 } from "../gestures/drag/types"
 import { PanInfo } from "../gestures/pan/types"
+import type { PressOptions } from "../gestures/press/types"
 import type { MotionValue } from "../value"
 
 export interface EventInfo {
@@ -542,6 +543,30 @@ export interface MotionNodeTapHandlers {
      */
     globalTapTarget?: boolean
 
+    /**
+     * Options for the tap gesture, applied to `onTapStart`, `onTap`,
+     * `onTapCancel` and `whileTap`.
+     *
+     * ```jsx
+     * // Double tap
+     * <motion.div tap={{ times: 2 }} onTap={onDoubleTap} />
+     *
+     * // Long press, with progress
+     * <motion.div tap={{ after: 0.5, onProgress }} whileTap={{ scale: 0.9 }} />
+     *
+     * // Stepper: `onTap` fires every 0.1 seconds while held
+     * <motion.button tap={{ repeat: 0.1 }} onTap={increment} />
+     * ```
+     *
+     * - `times`: Quick, consecutive presses needed to start. Default `1`.
+     * - `timesInterval`: Max seconds between presses. Default `0.3`.
+     * - `after`: Seconds a press must be held to start. Default `0`.
+     * - `repeat`: While held, `onTap` fires every `repeat` seconds,
+     *   and `whileTap` stays active.
+     * - `onProgress`: Called every frame during an `after` hold with
+     *   progress from `0` to `1`.
+     */
+    tap?: PressOptions
 }
 
 /**

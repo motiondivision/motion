@@ -1,3 +1,6 @@
+import { secondsToMilliseconds } from "motion-utils"
+import { cancelFrame, frame } from "../../frameloop/frame"
+import { time } from "../../frameloop/sync-time"
 import { bindToScope } from "../../scope/active"
 import { isHTMLElement } from "../../utils/is-html-element"
 import { ElementOrSelector } from "../../utils/resolve-elements"
@@ -6,7 +9,7 @@ import { EventOptions } from "../types"
 import { isNodeOrChild } from "../utils/is-node-or-child"
 import { isPrimaryPointer } from "../utils/is-primary-pointer"
 import { setupGesture } from "../utils/setup"
-import { OnPressStartEvent } from "./types"
+import { OnPressEndEvent, OnPressStartEvent, PressOptions } from "./types"
 import { isElementKeyboardAccessible } from "./utils/is-keyboard-accessible"
 import { enableKeyboardPress } from "./utils/keyboard"
 import { isPressing } from "./utils/state"
@@ -21,9 +24,38 @@ function isValidPressEvent(event: PointerEvent) {
 
 const claimedPointerDownEvents = new WeakSet<Event>()
 
-export interface PointerEventOptions extends EventOptions {
+/**
+ * Max distance in px between consecutive presses of a `times` sequence.
+ * Android's `ViewConfiguration` double tap slop is 100dp.
+ */
+const sequenceSlop = 100
+
+/**
+ * Max distance in px a pointer can move during a held press (`after`
+ * pending, or `repeat`). Android's `ViewConfiguration` touch slop is 8dp.
+ */
+const holdSlop = 8
+
+const exceeds = (a: PointerEvent, b: PointerEvent, max: number) =>
+    Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) > max
+
+const preventDefault = (event: Event) => event.preventDefault()
+
+interface PressSequence {
+    count: number
+    end: number
+    event: PointerEvent
+}
+
+export interface PointerEventOptions extends EventOptions, PressOptions {
     useGlobalTarget?: boolean
     stopPropagation?: boolean
+
+    /**
+     * Called every `repeat` seconds while a started press is held,
+     * with the number of repeats so far.
+     */
+    onRepeat?: (element: Element, event: PointerEvent, count: number) => void
 }
 
 /**
@@ -57,19 +89,65 @@ export function press(
         options
     )
 
+    const sequences = new WeakMap<Element, PressSequence>()
+
     const startPress = (startEvent: PointerEvent) => {
         const target = startEvent.currentTarget as Element
 
         if (!isValidPressEvent(startEvent)) return
         if (claimedPointerDownEvents.has(startEvent)) return
 
-        isPressing.add(target)
-
         if (options.stopPropagation) {
             claimedPointerDownEvents.add(startEvent)
         }
 
-        const onPressEnd = onPressStart(target, startEvent)
+        /**
+         * Options are read per press so they can be updated between presses.
+         */
+        const { times = 1, timesInterval = 0.3, after = 0, repeat } = options
+        const downTime = time.now()
+        const afterTime = secondsToMilliseconds(after)
+        const previous = sequences.get(target)
+        const count =
+            previous &&
+            downTime - previous.end <= secondsToMilliseconds(timesInterval) &&
+            !exceeds(previous.event, startEvent, sequenceSlop)
+                ? previous.count + 1
+                : 1
+        const isFinal = count >= times
+        const isHeld = isFinal && (after || repeat)
+
+        let isStarted = false
+        let repeats = 0
+        let onPressEnd: OnPressEndEvent | void
+
+        const begin = () => {
+            isStarted = true
+            isPressing.add(target)
+            onPressEnd = onPressStart(target, startEvent)
+        }
+
+        const tick = () => {
+            if (eventOptions.signal!.aborted) return cancelFrame(tick)
+
+            const elapsed = time.now() - downTime
+
+            if (!isStarted) {
+                const progress = Math.min(elapsed / afterTime, 1)
+                options.onProgress?.(progress)
+                if (progress < 1) return
+                begin()
+            }
+
+            if (!repeat) {
+                cancelFrame(tick)
+            } else if (
+                elapsed - afterTime >=
+                (repeats + 1) * secondsToMilliseconds(repeat)
+            ) {
+                options.onRepeat?.(target, startEvent, ++repeats)
+            }
+        }
 
         /**
          * End listeners run in the capture phase so a descendant calling
@@ -90,14 +168,35 @@ export function press(
                 onPointerCancel,
                 endEventOptions
             )
+            window.removeEventListener(
+                "pointermove",
+                onPointerMove,
+                endEventOptions
+            )
+            target.removeEventListener("contextmenu", preventDefault)
+            cancelFrame(tick)
 
-            if (isPressing.has(target)) {
+            if (isStarted) {
                 isPressing.delete(target)
+            } else if (isHeld) {
+                options.onProgress?.(0)
             }
 
-            if (!isValidPressEvent(endEvent)) {
-                return
-            }
+            const isValid = isValidPressEvent(endEvent)
+
+            /**
+             * Only successful presses before the final one continue a
+             * sequence. Anything else starts a new one.
+             */
+            success && isValid && !isFinal
+                ? sequences.set(target, {
+                      count,
+                      end: time.now(),
+                      event: startEvent,
+                  })
+                : sequences.delete(target)
+
+            if (!isValid) return
 
             if (typeof onPressEnd === "function") {
                 onPressEnd(endEvent, { success })
@@ -118,12 +217,45 @@ export function press(
             onPointerEnd(cancelEvent, false)
         }
 
+        /**
+         * Moving during a pending long press, or a repeating press, cancels
+         * it, so scrolling on touch devices doesn't trigger it.
+         */
+        const onPointerMove = (moveEvent: PointerEvent) => {
+            if (
+                (repeat || !isStarted) &&
+                isPrimaryPointer(moveEvent) &&
+                exceeds(startEvent, moveEvent, holdSlop)
+            ) {
+                onPointerCancel(moveEvent)
+            }
+        }
+
         window.addEventListener("pointerup", onPointerUp, endEventOptions)
         window.addEventListener(
             "pointercancel",
             onPointerCancel,
             endEventOptions
         )
+
+        if (isFinal && !after) begin()
+
+        if (isHeld) {
+            frame.update(tick, true)
+            window.addEventListener(
+                "pointermove",
+                onPointerMove,
+                endEventOptions
+            )
+            /**
+             * Touch devices open a context menu or callout on long press,
+             * which would cancel the gesture.
+             */
+            target.addEventListener("contextmenu", preventDefault, {
+                ...eventOptions,
+                passive: false,
+            })
+        }
     }
 
     targets.forEach((target: EventTarget) => {
