@@ -684,6 +684,23 @@ test.describe("Reorder", () => {
         await expect.poll(tabIndexes).toBe("0,0")
     })
 
+    test("Home and End go to either end", async ({ page }) => {
+        await open(page, "reorder")
+        const focused = () => page.evaluate(() => document.activeElement?.id)
+        await page.focus("#grid-b")
+        await page.keyboard.press("End")
+        expect(await focused()).toBe("grid-d")
+        await page.keyboard.press("Home")
+        expect(await focused()).toBe("grid-a")
+
+        await page.keyboard.press(" ")
+        await page.keyboard.press("End")
+        expect(await order(page, "grid")).toBe("bcda")
+        await page.keyboard.press("Home")
+        expect(await order(page, "grid")).toBe("abcd")
+        expect(await focused()).toBe("grid-a")
+    })
+
     test("Left and Right swap in RTL", async ({ page }) => {
         await open(page, "reorder")
         await page.focus("#rtl-a")
