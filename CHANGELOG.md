@@ -4,6 +4,13 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [Unreleased]
+
+### Added
+
+-   `press`: `times` and `timesInterval` options for double and multi-press gestures, `after` for long press, `onProgress` for hold progress, and `repeat` with `onRepeat` for repeating while held.
+-   `tap` prop for `motion` components, which passes these options to `onTapStart`, `onTap`, `onTapCancel` and `whileTap`. With `repeat`, `onTap` fires on each repeat while `whileTap` stays active.
+
 ## [14.9.0] 2026-10-30
 
 ### Added
