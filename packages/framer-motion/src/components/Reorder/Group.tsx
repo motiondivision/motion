@@ -132,15 +132,18 @@ export function ReorderGroupComponent<
         elements.current.get(value!)?.current?.isConnected
 
     /**
-     * If the tab stop isn't rendered (e.g. it's virtualized), the first
-     * rendered item takes its place.
+     * Only values in `values` can be the tab stop.
      */
-    useEffect(() => {
-        if (!isRendered(tabStop)) {
-            const first = values.find(isRendered)
-            first !== undefined && setActive(first)
-        }
-    })
+    const activate = (value: V) => valuesSet.has(value) && setActive(value)
+
+    /**
+     * If the tab stop isn't rendered (e.g. it's virtualized), the first
+     * rendered item takes its place. Items check again when they unmount.
+     */
+    const checkTabStop = () => {
+        isRendered(tabStop) || activate(values.find(isRendered)!)
+    }
+    useEffect(checkTabStop)
 
     const getOrder = () =>
         values.flatMap((value) => {
@@ -172,7 +175,8 @@ export function ReorderGroupComponent<
         groupRef,
         hasReordered,
         isTabStop: (value) => value === tabStop || !valuesSet.has(value),
-        setActive,
+        setActive: activate,
+        checkTabStop,
         elements: elements.current,
         /**
          * Space grabs and drops the item, arrows along `axis` move
@@ -223,9 +227,15 @@ export function ReorderGroupComponent<
             ) {
                 return
             } else {
-                const index = order.findIndex(({ value }) => value === item)
+                /**
+                 * Focus only moves between rendered items.
+                 */
+                const list = from
+                    ? order
+                    : order.filter(({ value }) => isRendered(value))
+                const index = list.findIndex(({ value }) => value === item)
                 const target = keyTarget(
-                    order,
+                    list,
                     index,
                     keyIndex,
                     axis,
@@ -235,7 +245,7 @@ export function ReorderGroupComponent<
                     from
                         ? commit(moveItem(order, index, target), item)
                         : elements.current
-                              .get(order[target].value)
+                              .get(list[target].value)
                               ?.current?.focus()
                 }
             }

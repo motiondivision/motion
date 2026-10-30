@@ -7,6 +7,7 @@ import {
     forwardRef,
     FunctionComponent,
     useContext,
+    useEffect,
     useRef,
     useState,
 } from "react"
@@ -117,6 +118,7 @@ export function ReorderItemComponent<
         hasReordered,
         isTabStop,
         setActive,
+        checkTabStop,
         elements,
         onKeyDown: handleKeyDown,
     } = context!
@@ -135,6 +137,7 @@ export function ReorderItemComponent<
         if (typeof ref === "function") return ref(instance)
         if (ref) ref.current = instance
     })
+    useEffect(() => checkTabStop)
     const dragAxis = axis === "xy" ? true : axis
 
     /**

@@ -21,6 +21,7 @@ export interface ReorderContextProps<T> {
      */
     isTabStop: (item: T) => boolean
     setActive: (item: T) => void
+    checkTabStop: () => void
     /**
      * Each item's element, for arrow keys to focus.
      */

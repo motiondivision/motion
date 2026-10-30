@@ -86,6 +86,7 @@ export interface ReorderContext {
      */
     isTabStop: (value: any) => boolean
     setActive: (value: any) => void
+    checkTabStop: () => void
     updateOrder: (value: any, offset: Point, velocity: Point) => void
     onKeyDown: (
         event: KeyboardEvent,
@@ -150,6 +151,18 @@ export function createReorder(motion: any): ReorderComponents {
             return values.includes(active) ? active : values[0]
         }
 
+        const isRendered = (value: any) =>
+            items.get(value)?.element?.isConnected
+
+        /**
+         * If the tab stop isn't rendered (e.g. it's virtualized), the first
+         * rendered item takes its place. Items check again when removed.
+         */
+        const checkTabStop = () => {
+            isRendered(getTabStop()) ||
+                context.setActive(handle.props.values.find(isRendered))
+        }
+
         const context: ReorderContext = {
             axis: "y",
             hasReordered: false,
@@ -157,8 +170,13 @@ export function createReorder(motion: any): ReorderComponents {
             items,
             isTabStop: (value) =>
                 value === getTabStop() || !handle.props.values.includes(value),
+            checkTabStop,
+            /**
+             * Only values in `values` can be the tab stop.
+             */
             setActive: (value) => {
                 const tabStop = getTabStop()
+                if (!handle.props.values.includes(value)) return
                 active = value
                 if (value !== tabStop) {
                     items.get(tabStop)?.update()
@@ -210,9 +228,15 @@ export function createReorder(motion: any): ReorderComponents {
                 ) {
                     return
                 } else {
-                    const index = order.findIndex(({ value }) => value === item)
+                    /**
+                     * Focus only moves between rendered items.
+                     */
+                    const list = from
+                        ? order
+                        : order.filter(({ value }) => isRendered(value))
+                    const index = list.findIndex(({ value }) => value === item)
                     const target = keyTarget(
-                        order,
+                        list,
                         index,
                         keyIndex,
                         axis,
@@ -221,7 +245,7 @@ export function createReorder(motion: any): ReorderComponents {
                     if (target > -1) {
                         from
                             ? commit(moveItem(order, index, target), item)
-                            : items.get(order[target].value)?.element?.focus()
+                            : items.get(list[target].value)?.element?.focus()
                     }
                 }
                 event.preventDefault()
@@ -290,18 +314,7 @@ export function createReorder(motion: any): ReorderComponents {
                 handle.queueTask(() => (isReordering = false))
             }
 
-            /**
-             * If the tab stop isn't rendered (e.g. it's virtualized), the
-             * first rendered item takes its place.
-             */
-            handle.queueTask(() => {
-                const isRendered = (value: any) =>
-                    items.get(value)?.element?.isConnected
-                if (!isRendered(getTabStop())) {
-                    const first = handle.props.values.find(isRendered)
-                    first !== undefined && context.setActive(first)
-                }
-            })
+            handle.queueTask(checkTabStop)
 
             context.axis = axis || detectedAxis
             handle.context.set(context)
@@ -445,7 +458,12 @@ export function createReorder(motion: any): ReorderComponents {
                         group.registerItem(handle.props.value, measured),
                     mix: [
                         mix,
-                        ref<HTMLElement>((node) => (self.element = node)),
+                        ref<HTMLElement>((node, signal) => {
+                            self.element = node
+                            signal.addEventListener("abort", () =>
+                                queueMicrotask(group.checkTabStop)
+                            )
+                        }),
                         /**
                          * The item focused last, or holding focus, is the
                          * group's tab stop.
