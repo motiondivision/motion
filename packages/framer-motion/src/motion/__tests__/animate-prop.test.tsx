@@ -10,6 +10,7 @@ import {
 } from "../../"
 import { nextFrame, stepFrames } from "../../gestures/__tests__/utils"
 import { render } from "../../jest.setup"
+import { PresenceContext } from "../../context/PresenceContext"
 import { act } from "react"
 
 /**
@@ -1470,6 +1471,72 @@ describe("animate prop as object", () => {
         // intermediate animation values)
         expect(opacityChanges[0]).toBe(0)
         expect(scaleChanges[0]).toBe(0)
+    })
+
+    test("Keeps motion values after Suspense remount with keepValuesOnRemount", async () => {
+        const opacity = motionValue(1)
+
+        let triggerSuspense: () => void
+        let resolveSuspense: () => void
+
+        const SuspendingChild = () => {
+            const [suspended, setSuspended] = useState(false)
+            triggerSuspense = () => setSuspended(true)
+
+            if (suspended) {
+                throw new Promise<void>((resolve) => {
+                    resolveSuspense = () => {
+                        setSuspended(false)
+                        resolve()
+                    }
+                })
+            }
+
+            return (
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.05 }}
+                    style={{ opacity }}
+                />
+            )
+        }
+
+        const presence = {
+            id: "keep",
+            isPresent: true,
+            register: () => () => {},
+            keepValuesOnRemount: true,
+        }
+
+        const Component = () => (
+            <PresenceContext.Provider value={presence}>
+                <Suspense fallback={<div>Loading...</div>}>
+                    <SuspendingChild />
+                </Suspense>
+            </PresenceContext.Provider>
+        )
+
+        const { rerender } = render(<Component />)
+        rerender(<Component />)
+
+        await act(async () => {
+            await new Promise((resolve) => setTimeout(resolve, 150))
+        })
+        expect(opacity.get()).toBe(1)
+
+        await act(async () => {
+            triggerSuspense!()
+        })
+
+        const opacityChanges: number[] = []
+        await act(async () => {
+            opacity.on("change", (v) => opacityChanges.push(v))
+            resolveSuspense!()
+        })
+
+        expect(opacityChanges).not.toContain(0)
+        expect(opacity.get()).toBe(1)
     })
 })
 

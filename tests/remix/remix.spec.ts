@@ -560,6 +560,10 @@ test.describe("Reorder", () => {
         expect(await page.evaluate(() => (window as any).clicks)).toBe(1)
     })
 
+    /**
+     * A keyboard grab or drop sets whileDrag, which applies on the next
+     * frame, so opacity is polled.
+     */
     test("reorders with the keyboard", async ({ page }) => {
         const errors = await open(page, "reorder")
         expect(await page.$eval("#y-a", (el: HTMLElement) => el.tabIndex)).toBe(0)
@@ -569,7 +573,7 @@ test.describe("Reorder", () => {
         expect(await order(page, "y")).toBe("abcd")
 
         await page.keyboard.press(" ")
-        expect(await opacity(page, "#y-a")).toBe(0.5)
+        await expect.poll(() => opacity(page, "#y-a")).toBe(0.5)
         await page.keyboard.press("ArrowDown")
         await page.keyboard.press("ArrowDown")
         expect(await order(page, "y")).toBe("bcad")
@@ -583,7 +587,7 @@ test.describe("Reorder", () => {
         // Escape restores the order from the grab, and drops the item.
         await page.keyboard.press("Escape")
         expect(await order(page, "y")).toBe("abcd")
-        expect(await opacity(page, "#y-a")).toBe(1)
+        await expect.poll(() => opacity(page, "#y-a")).toBe(1)
 
         await page.keyboard.press(" ")
         await page.keyboard.press("ArrowDown")
@@ -605,9 +609,9 @@ test.describe("Reorder", () => {
         await page.focus("#y-a")
         await page.keyboard.press(" ")
         await page.keyboard.press("ArrowDown")
-        expect(await opacity(page, "#y-a")).toBe(0.5)
+        await expect.poll(() => opacity(page, "#y-a")).toBe(0.5)
         await page.keyboard.press("Tab")
-        expect(await opacity(page, "#y-a")).toBe(1)
+        await expect.poll(() => opacity(page, "#y-a")).toBe(1)
         expect(await order(page, "y")).toBe("bacd")
     })
 
