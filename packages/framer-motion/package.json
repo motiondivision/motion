@@ -161,7 +161,7 @@
         },
         {
             "path": "./dist/size-rollup-remix.js",
-            "maxSize": "48.91 kB"
+            "maxSize": "49.1 kB"
         }
     ],
     "gitHead": "1b27a832fbe0a30c011134d95cfa1fd2330f1203"

@@ -9,17 +9,19 @@ import {
     useContext,
     useEffect,
     useRef,
-    useState,
 } from "react"
+import { ReorderBoardContext } from "../../context/ReorderBoardContext"
 import { ReorderContext } from "../../context/ReorderContext"
 import type { MotionProxy } from "../../render/components/create-proxy"
 import { HTMLMotionProps } from "../../render/html/types"
 import { useConstant } from "../../utils/use-constant"
+import { useIsomorphicLayoutEffect } from "../../utils/use-isomorphic-effect"
 import { useMotionValue } from "../../value/use-motion-value"
 import { useTransform } from "../../value/use-transform"
 
-import { DefaultItemElement, ReorderElementTag } from "./types"
+import { DefaultItemElement, Grab, ReorderElementTag } from "./types"
 import { autoScrollIfNeeded, resetAutoScrollState } from "./utils/auto-scroll"
+import { mergeRefs } from "./utils/merge-refs"
 
 export interface Props<
     V,
@@ -68,6 +70,7 @@ export function ReorderItemComponent<
         style = {},
         value,
         as = "li" as TagName,
+        onDragStart,
         onDrag,
         onDragEnd,
         onKeyDown,
@@ -79,6 +82,8 @@ export function ReorderItemComponent<
     externalRef?: React.ForwardedRef<any>
 ): React.JSX.Element {
     const context = useContext(ReorderContext)
+    const board = useContext(ReorderBoardContext)
+    const ref = useRef<HTMLElement | null>(null)
 
     process.env.NODE_ENV !== "production" &&
         invariant(
@@ -98,9 +103,11 @@ export function ReorderItemComponent<
 
     /**
      * The group's values when this item was grabbed with the keyboard, for
-     * Escape to restore. Set only while grabbed.
+     * Escape to restore. Set only while grabbed. Only key and focus events
+     * read it, so it's a ref: a key sent before React renders, as test
+     * runners can, still sees the grab.
      */
-    const [grabbedFrom, setGrabbedFrom] = useState<V[]>()
+    const grabbedFrom = useRef<V[]>()
     const point = {
         x: useDefaultMotionValue(style.x),
         y: useDefaultMotionValue(style.y),
@@ -124,32 +131,38 @@ export function ReorderItemComponent<
     } = context!
 
     /**
-     * Keep this item's element for the group to focus, forwarding it to
-     * the external ref.
+     * In a Reorder.Board, items can be dragged out of their group.
      */
-    const element = useRef<HTMLElement | null>(null)
-    elements.set(value, element)
-    const latestRef = useRef(externalRef)
-    latestRef.current = externalRef
-    const ref = useConstant(() => (instance: HTMLElement | null) => {
-        element.current = instance
-        const ref = latestRef.current
-        if (typeof ref === "function") return ref(instance)
-        if (ref) ref.current = instance
-    })
+    const dragAxis = axis === "xy" || board ? true : axis
+
+    /**
+     * Keep this item's element for the group to focus.
+     */
+    elements.set(value, ref)
     useEffect(() => checkTabStop)
-    const dragAxis = axis === "xy" ? true : axis
 
     /**
      * A keyboard grab is a drag without a pointer, so it shares whileDrag
      * (but not the drag callbacks, which need a pointer and PanInfo).
      */
-    const grab = (element: Element, from?: V[]) => {
-        setGrabbedFrom(from)
+    const grab: Grab<V> = (element, from) => {
+        grabbedFrom.current = from
+        from || board?.end(value)
         visualElementStore
             .get(element)
             ?.animationState?.setActive("whileDrag", !!from)
     }
+
+    /**
+     * If this item was just moved here from another group, carry on its
+     * drag or keyboard grab. A drag carried on is the same gesture, so it
+     * doesn't call onDragStart again.
+     */
+    const isContinued = useRef(false)
+    useIsomorphicLayoutEffect(() => {
+        board?.receive(context!, value, ref.current!, grab) &&
+            (isContinued.current = true)
+    }, [])
 
     return (
         <Component
@@ -159,24 +172,43 @@ export function ReorderItemComponent<
             dragSnapToOrigin
             style={{ ...style, x: point.x, y: point.y, zIndex }}
             layout={layout}
+            onDragStart={(event, gesturePoint) => {
+                isContinued.current
+                    ? (isContinued.current = false)
+                    : onDragStart?.(event, gesturePoint)
+            }}
             onDrag={(event, gesturePoint) => {
                 const { velocity, point: pointerPoint } = gesturePoint
                 const offset = { x: point.x.get(), y: point.y.get() }
 
-                updateOrder(value, offset, velocity)
+                board?.drag(context!, value, ref.current!, event) ||
+                    updateOrder(value, offset, velocity)
 
-                const scrollAxis =
-                    axis === "xy"
-                        ? Math.abs(velocity.x) > Math.abs(velocity.y)
-                            ? "x"
-                            : "y"
-                        : axis
-                autoScrollIfNeeded(
-                    groupRef.current,
-                    pointerPoint[scrollAxis],
-                    scrollAxis,
-                    velocity[scrollAxis]
-                )
+                /**
+                 * In a Reorder.Board, scroll on both axes, e.g. across
+                 * columns as well as down them. Across them, scroll what's
+                 * around the columns: an item dragged out of its column
+                 * overflows it, so the column could scroll across too.
+                 */
+                const scrollAxes: Array<"x" | "y"> = board
+                    ? ["x", "y"]
+                    : [
+                          axis === "xy"
+                              ? Math.abs(velocity.x) > Math.abs(velocity.y)
+                                  ? "x"
+                                  : "y"
+                              : axis,
+                      ]
+                for (const scrollAxis of scrollAxes) {
+                    autoScrollIfNeeded(
+                        board && !axis.includes(scrollAxis)
+                            ? board.column(context!)
+                            : groupRef.current,
+                        pointerPoint[scrollAxis],
+                        scrollAxis,
+                        velocity[scrollAxis]
+                    )
+                }
 
                 onDrag && onDrag(event, gesturePoint)
             }}
@@ -184,11 +216,12 @@ export function ReorderItemComponent<
                 // Runs a frame after release, so after the release's click
                 hasReordered.current = false
                 resetAutoScrollState()
+                board?.end(value)
                 onDragEnd && onDragEnd(event, gesturePoint)
             }}
             onKeyDown={(event: React.KeyboardEvent<HTMLElement>) => {
                 onKeyDown?.(event as any)
-                handleKeyDown(event, value, grabbedFrom, grab)
+                handleKeyDown(event, value, grabbedFrom.current, grab)
             }}
             /**
              * The item focused last, or holding focus, is the group's tab
@@ -206,12 +239,12 @@ export function ReorderItemComponent<
              */
             onBlur={(event: React.FocusEvent<HTMLElement>) => {
                 onBlur?.(event as any)
-                grabbedFrom && grab(event.currentTarget)
+                grabbedFrom.current && grab(event.currentTarget)
             }}
             onLayoutMeasure={(measured) => {
-                registerItem(value, measured)
+                registerItem(value, measured, ref)
             }}
-            ref={ref}
+            ref={mergeRefs(ref, externalRef)}
             ignoreStrict
         >
             {children}

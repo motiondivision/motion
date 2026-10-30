@@ -81,6 +81,15 @@ export interface DragControlOptions {
      * @public
      */
     snapToCursor?: boolean
+
+    /**
+     * Start dragging straight away, rather than once the pointer has moved
+     * past `distanceThreshold`. For instance, to carry on a drag from
+     * another element.
+     *
+     * @public
+     */
+    immediate?: boolean
 }
 
 type DragDirection = "x" | "y"
@@ -146,17 +155,14 @@ export class VisualElementDragControls {
         this.readProps = readProps
     }
 
-    start(
-        originEvent: PointerEvent,
-        { snapToCursor = false, distanceThreshold }: DragControlOptions = {}
-    ) {
+    start(originEvent: PointerEvent, options: DragControlOptions = {}) {
         /**
          * Don't start dragging if this component is exiting
          */
         if (this.visualElement.presenceContext?.isPresent === false) return
 
         const onSessionStart = (event: PointerEvent) => {
-            if (snapToCursor) this.snapToCursor(event)
+            if (options.snapToCursor) this.snapToCursor(event)
             this.stopAnimation()
         }
 
@@ -316,9 +322,9 @@ export class VisualElementDragControls {
                 resumeAnimation,
             },
             {
+                ...options,
                 transformPagePoint: this.visualElement.getTransformPagePoint(),
                 dragSnapToOrigin,
-                distanceThreshold,
                 contextWindow:
                     this.visualElement.current?.ownerDocument.defaultView,
                 element: this.visualElement.current,

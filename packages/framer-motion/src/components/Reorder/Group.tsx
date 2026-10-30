@@ -6,14 +6,17 @@ import {
     forwardRef,
     FunctionComponent,
     JSX,
+    useContext,
     useEffect,
     useRef,
     useState,
 } from "react"
+import { ReorderBoardContext } from "../../context/ReorderBoardContext"
 import { ReorderContext } from "../../context/ReorderContext"
 import type { MotionProxy } from "../../render/components/create-proxy"
 import { HTMLMotionProps } from "../../render/html/types"
 import { useConstant } from "../../utils/use-constant"
+import { useIsomorphicLayoutEffect } from "../../utils/use-isomorphic-effect"
 import {
     DefaultGroupElement,
     ItemData,
@@ -23,6 +26,7 @@ import {
 } from "./types"
 import { checkReorder, keyTarget } from "./utils/check-reorder"
 import { detectAxis } from "./utils/detect-axis"
+import { mergeRefs } from "./utils/merge-refs"
 
 export interface Props<
     V,
@@ -106,7 +110,8 @@ export function ReorderGroupComponent<
         React.PropsWithChildren<HTMLMotionProps<any> & { ref?: React.Ref<any> }>
     >
 
-    const itemLayouts = useRef(new Map<V, ItemData<V>["layout"]>())
+    const board = useContext(ReorderBoardContext)
+    const items = useRef(new Map<V, ItemData<V>>())
     const elements = useRef(new Map<V, { current: HTMLElement | null }>())
     const [active, setActive] = useState<V>()
     const [detectedAxis, setDetectedAxis] = useState<ReorderAxis>("y")
@@ -123,7 +128,7 @@ export function ReorderGroupComponent<
         )
 
     const valuesSet = new Set(values)
-    for (const map of [itemLayouts.current, elements.current]) {
+    for (const map of [items.current, elements.current]) {
         map.forEach((_, value) => valuesSet.has(value) || map.delete(value))
     }
 
@@ -146,10 +151,7 @@ export function ReorderGroupComponent<
     useEffect(checkTabStop)
 
     const getOrder = () =>
-        values.flatMap((value) => {
-            const layout = itemLayouts.current.get(value)
-            return layout ? [{ value, layout }] : []
-        })
+        values.flatMap((value) => items.current.get(value) || [])
 
     const isRTL = () =>
         groupRef.current?.ownerDocument.defaultView?.getComputedStyle(
@@ -163,7 +165,7 @@ export function ReorderGroupComponent<
     const commit = (newOrder: ItemData<V>[], moved: V) => {
         let i = 0
         const newValues = values.map((value) =>
-            itemLayouts.current.has(value) ? newOrder[i++].value : value
+            items.current.has(value) ? newOrder[i++].value : value
         )
         newValues.some((value, j) => value !== values[j]) &&
             onReorder(newValues, moved)
@@ -174,6 +176,9 @@ export function ReorderGroupComponent<
         proxy,
         groupRef,
         hasReordered,
+        values,
+        onReorder,
+        getOrder,
         isTabStop: (value) => value === tabStop || !valuesSet.has(value),
         setActive: activate,
         checkTabStop,
@@ -184,6 +189,10 @@ export function ReorderGroupComponent<
          * or move focus that way if it isn't grabbed, and Escape restores
          * the order in `from`, the values when it was grabbed. Keys from
          * children or with modifiers (Alt+Left etc.) are left alone.
+         *
+         * In a Reorder.Board, arrows across `axis`, or along it from either
+         * end, move a grabbed item to the nearest group that way, and
+         * Escape returns it to the group it was grabbed in.
          */
         onKeyDown: (event, item, from, grab) => {
             const { key, currentTarget } = event
@@ -207,26 +216,36 @@ export function ReorderGroupComponent<
             const isX = keyIndex % 2
             if (key === " ") {
                 event.repeat || grab(currentTarget, from ? undefined : values)
+            } else if (keyIndex < 0 && !(key === "Escape" && from)) {
+                return
+            } else if (board?.isMoving(currentTarget)) {
+                /**
+                 * Until React renders its move to another group, this item
+                 * and its group's values are out of date: moving it again,
+                 * or back, would leave it in both groups.
+                 */
             } else if (key === "Escape" && from) {
                 /**
-                 * Values added since the grab keep their slots.
+                 * Drop it first: a move back to the group it was grabbed in
+                 * hands it on to the item that mounts there.
                  */
-                const kept = from.flatMap((value) =>
-                    order.filter((data) => data.value === value)
-                )
-                commit(
-                    order.map((data) =>
-                        from.includes(data.value) ? kept.shift()! : data
-                    ),
-                    item
-                )
                 grab(currentTarget)
-            } else if (
-                keyIndex < 0 ||
-                (axis !== "xy" && axis !== (isX ? "x" : "y"))
-            ) {
-                return
+                if (!board?.restore(context, item, currentTarget, from)) {
+                    /**
+                     * Values added since the grab keep their slots.
+                     */
+                    const kept = from.flatMap((value) =>
+                        order.filter((data) => data.value === value)
+                    )
+                    commit(
+                        order.map((data) =>
+                            from.includes(data.value) ? kept.shift()! : data
+                        ),
+                        item
+                    )
+                }
             } else {
+                const isAlongAxis = axis === "xy" || axis === (isX ? "x" : "y")
                 /**
                  * Focus only moves between rendered items.
                  */
@@ -234,32 +253,33 @@ export function ReorderGroupComponent<
                     ? order
                     : order.filter(({ value }) => isRendered(value))
                 const index = list.findIndex(({ value }) => value === item)
-                const target = keyTarget(
-                    list,
-                    index,
-                    keyIndex,
-                    axis,
-                    !!isX && isRTL()
-                )
+                const target = isAlongAxis
+                    ? keyTarget(list, index, keyIndex, axis, !!isX && isRTL())
+                    : -1
                 if (target > -1) {
                     from
                         ? commit(moveItem(order, index, target), item)
                         : elements.current
                               .get(list[target].value)
                               ?.current?.focus()
+                } else if (
+                    !(
+                        from &&
+                        board?.key(context, item, keyIndex, currentTarget, from)
+                    ) &&
+                    !isAlongAxis
+                ) {
+                    return
                 }
             }
             event.preventDefault()
         },
-        registerItem: (value, layout) => {
-            itemLayouts.current.set(value, layout)
+        registerItem: (value, layout, ref) => {
+            items.current.set(value, { value, layout, ref })
 
             if (!axisOverride) {
                 const nextAxis = detectAxis(
-                    values.flatMap((itemValue) => {
-                        const itemLayout = itemLayouts.current.get(itemValue)
-                        return itemLayout ? [itemLayout] : []
-                    })
+                    getOrder().map((data) => data.layout)
                 )
 
                 if (nextAxis !== detectedAxis) setDetectedAxis(nextAxis)
@@ -296,16 +316,10 @@ export function ReorderGroupComponent<
         isReordering.current = false
     }, [values])
 
-    // Combine refs if external ref is provided
-    const setRef = (element: Element | null) => {
-        ;(groupRef as React.MutableRefObject<Element | null>).current = element
-        if (typeof externalRef === "function") {
-            externalRef(element)
-        } else if (externalRef) {
-            ;(externalRef as React.MutableRefObject<Element | null>).current =
-                element
-        }
-    }
+    /**
+     * Keep a Reorder.Board up to date with the committed values.
+     */
+    useIsomorphicLayoutEffect(() => board?.add(context))
 
     /**
      * Disable browser scroll anchoring on the group container.
@@ -321,7 +335,7 @@ export function ReorderGroupComponent<
         <Component
             {...props}
             style={groupStyle}
-            ref={setRef}
+            ref={mergeRefs(groupRef, externalRef)}
             /**
              * A release that ends a reordering drag isn't a click. Browsers
              * only click an element holding both the press and release
