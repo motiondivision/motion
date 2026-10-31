@@ -23,6 +23,14 @@ export interface PressHandlers {
     onComplete?: OnPressEndEvent
 
     /**
+     * Called once per press gesture, when the press becomes active while
+     * still held: the final press of `times` is down, and held for `after`
+     * seconds if set. Without `after`, this is on the final press down.
+     * Not called if the gesture is cancelled before then.
+     */
+    onActive?: VoidFunction
+
+    /**
      * Called every frame while the final press is held, with progress
      * from `0` to `1`: first over `after`, then over each `repeat`.
      * Each cycle starts at exactly `0` and ends at exactly `1`, before the

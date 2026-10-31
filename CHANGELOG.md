@@ -9,7 +9,7 @@ Undocumented APIs should be considered internal and may change without warning.
 ### Added
 
 -   `press`: `times` and `timesInterval` options for double and multi-press gestures, `after` for long press, and `repeat` for repeating while held. The press start callback fires on the first press. The gesture succeeds once all `times` presses are made and the final one is held for `after`. Otherwise it ends as a cancel.
--   `press`: The press start callback can return an object of handlers, `{ onComplete, onHold, onRepeat }`, as well as an end function. Returning `{ onComplete }` is equivalent to returning the function. `onHold` reports progress from 0 to 1 while the final press is held: over `after`, then over each `repeat`. `onRepeat` is called with the repeat count on each `repeat`.
+-   `press`: The press start callback can return an object of handlers, `{ onComplete, onActive, onHold, onRepeat }`, as well as an end function. Returning `{ onComplete }` is equivalent to returning the function. `onHold` reports progress from 0 to 1 while the final press is held: over `after`, then over each `repeat`. `onActive` is called once the final press is down and held for `after`. `onRepeat` is called with the repeat count on each `repeat`.
 -   `tap` prop for `motion` components, which passes the `times`, `timesInterval`, `after` and `repeat` options to `onTapStart`, `onTap`, `onTapCancel` and `whileTap`. `onTapStart` and `whileTap` start on the first press, and `onTap` fires only when the gesture succeeds. With `repeat`, `onTap` fires on each repeat while `whileTap` stays active.
 
 ## [14.9.0] 2026-10-30
