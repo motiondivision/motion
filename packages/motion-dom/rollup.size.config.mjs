@@ -40,4 +40,9 @@ const styleEffect = createSizeBundle(
     "dist/size-rollup-style-effect.js"
 )
 
-export default [motionValue, styleEffect]
+const pinch = createSizeBundle(
+    "lib/gestures/pinch/index.js",
+    "dist/size-rollup-pinch.js"
+)
+
+export default [motionValue, styleEffect, pinch]
