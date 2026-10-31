@@ -92,6 +92,12 @@ interface DragGesture extends Gesture {
     axis?: MotionNodeOptions["drag"]
 }
 
+/**
+ * How long in ms a drag takes to catch up with the pointer after it
+ * passes its distance threshold.
+ */
+const catchUpDuration = 100
+
 export class VisualElementDragControls {
     visualElement: VisualElement<HTMLElement>
 
@@ -109,6 +115,28 @@ export class VisualElementDragControls {
      * Whether a `dragAfter` hold has passed, so touch moves mustn't scroll.
      */
     private blockTouch = false
+
+    /**
+     * How far the pointer had moved when the drag started, and when.
+     * The element closes this gap over `catchUpDuration` instead of
+     * jumping to the pointer in one frame.
+     */
+    private catchUp?: Point & { start: number }
+
+    private catchUpFrame = () => {
+        const { catchUp } = this
+        if (!this.isDragging || !catchUp) return cancelFrame(this.catchUpFrame)
+
+        const offset = this.latestPanInfo?.offset
+        this.updateAxis("x", offset)
+        this.updateAxis("y", offset)
+        this.point && this.point.move()
+
+        if (time.now() - catchUp.start >= catchUpDuration) {
+            this.catchUp = undefined
+            cancelFrame(this.catchUpFrame)
+        }
+    }
 
     isDragging = false
     private currentDirection: DragDirection | null = null
@@ -318,6 +346,26 @@ export class VisualElementDragControls {
                 frame.update(() => onDragStart(event, info), false, true)
             }
 
+            /**
+             * The drag starts once the pointer has moved past its distance
+             * threshold. Rather than jump that far in one frame, the
+             * element catches up with the pointer over a few frames.
+             */
+            this.catchUp = undefined
+            const { x, y } = info.offset
+            const gap = Math.hypot(x, y)
+            if (!snapToCursor && gap) {
+                /**
+                 * Only the distance the element held still for is eased:
+                 * the threshold, or the slop of a `dragAfter` hold.
+                 */
+                const scale =
+                    Math.min(gap, dragAfter ? 8 : distanceThreshold ?? 3) /
+                    gap
+                this.catchUp = { x: x * scale, y: y * scale, start: time.now() }
+                frame.update(this.catchUpFrame, true)
+            }
+
             addValueToWillChange(this.visualElement, "transform")
 
             this.visualElement.animationState?.setActive("whileDrag", true)
@@ -423,6 +471,17 @@ export class VisualElementDragControls {
         const finalPanInfo = panInfo || this.latestPanInfo
 
         const isDragging = this.isDragging
+
+        /**
+         * Releasing while the element catches up with the pointer moves
+         * it the rest of the way.
+         */
+        if (this.catchUp) {
+            this.catchUp = undefined
+            this.updateAxis("x", finalPanInfo?.offset)
+            this.updateAxis("y", finalPanInfo?.offset)
+        }
+
         this.cancel()
         if (!isDragging || !finalPanInfo || !finalEvent) return
 
@@ -479,6 +538,15 @@ export class VisualElementDragControls {
 
         const axisValue = this.getAxisMotionValue(axis)
         let next = this.originPoint[axis] + offset[axis]
+
+        const { catchUp } = this
+        if (catchUp) {
+            const progress = Math.min(
+                (time.now() - catchUp.start) / catchUpDuration,
+                1
+            )
+            next -= catchUp[axis] * (1 - progress) ** 2
+        }
 
         // Apply constraints
         const constraints = this.constraints && this.constraints[axis]

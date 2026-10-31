@@ -696,6 +696,8 @@ describe("pinch with drag", () => {
         await nextFrame()
         pointer(window, "pointermove", 1, 20, 0)
         await nextFrame()
+        // Wait for the drag to catch up with the pointer
+        await sleep(120)
 
         // ...then a second pinches: 20 -> 30 and 120 -> 230 is 2x.
         pointer(element, "pointerdown", 2, 120, 0)
@@ -755,6 +757,8 @@ describe("pinch with drag", () => {
         await nextFrame()
         pointer(window, "pointermove", 1, 520, 0)
         await nextFrame()
+        // Wait for the drag to catch up with the pointer
+        await sleep(120)
         expect(visualElementStore.get(other)!.getValue("x")!.get()).toBe(20)
 
         const gesture = await twoFinger(element, [0, 0, 100, 0], [2, 3])

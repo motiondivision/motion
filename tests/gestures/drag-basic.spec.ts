@@ -247,6 +247,8 @@ test.describe("drag: release before the next frame", () => {
             ["pointerdown", 5, 5],
             ["pointermove", 15, 15],
         ])
+        // Wait for the drag to catch up with the pointer
+        await page.waitForTimeout(150)
         await frames(page, 2)
         expect(await rect(page, "#box")).toMatchObject({ left: 10, top: 10 })
     }

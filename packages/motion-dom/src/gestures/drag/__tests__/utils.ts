@@ -48,6 +48,7 @@ export function deferred<T = void>(): Deferred<T> {
 export function gesture(element: Element, trigger: Element = element) {
     const last: Point = { x: 0, y: 0 }
     pointer(trigger, "pointerdown", 0, 0)
+    let started = false
 
     const controls = {
         to: async (x: number, y: number) => {
@@ -55,6 +56,14 @@ export function gesture(element: Element, trigger: Element = element) {
             last.y = y
             pointer(document.body, "pointermove", x, y)
             await nextFrame()
+            /**
+             * Wait for the drag to catch up with the pointer after it
+             * passes its threshold.
+             */
+            if (!started && Math.hypot(x, y) >= 3) {
+                started = true
+                await sleep(120)
+            }
             return controls
         },
         end: (target: Element = element) => {

@@ -338,6 +338,8 @@ describe("drag after a hold", () => {
 
         touch(document.body, "pointermove", 1, 40, 0)
         await nextFrame()
+        // Wait for the drag to catch up with the pointer
+        await sleep(120)
         touch(document.body, "pointermove", 1, 60, 0)
         await nextFrame()
         expect(values(element).x).toBe(60)
@@ -375,6 +377,8 @@ describe("drag after a hold", () => {
         await nextFrame()
         touch(document.body, "pointermove", 1, 30, 4)
         await nextFrame()
+        // Wait for the drag to catch up with the pointer
+        await sleep(120)
         expect(values(element).x).toBe(30)
         touch(element, "pointerup", 1, 30, 4)
     })

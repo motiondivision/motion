@@ -34,6 +34,7 @@ export const drag = (element: any, triggerElement?: any) => {
     pos.x = 0
     pos.y = 0
     pointerDown(triggerElement || element)
+    let started = false
 
     const controls = {
         to: async (x: number, y: number) => {
@@ -43,6 +44,14 @@ export const drag = (element: any, triggerElement?: any) => {
             await React.act(async () => {
                 pointerMove(document.body)
                 await dragFrame.postRender()
+                /**
+                 * Wait for the drag to catch up with the pointer after it
+                 * passes its threshold.
+                 */
+                if (!started && Math.hypot(x, y) >= 3) {
+                    started = true
+                    await sleep(120)
+                }
             })
 
             return controls

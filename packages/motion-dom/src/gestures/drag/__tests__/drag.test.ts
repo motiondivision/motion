@@ -24,6 +24,8 @@ async function dragTo(element: Element, x: number, y: number) {
     await nextFrame()
     pointer(window, "pointermove", x, y)
     await nextFrame()
+    // Wait for the drag to catch up with the pointer
+    await sleep(120)
 }
 
 async function release(element: Element, x = 0, y = 0) {
@@ -251,6 +253,8 @@ describe("dragging", () => {
         pointer(element, "pointerdown", 0, 0)
         pointer(document.body, "pointermove", 10, 0)
         await nextFrame()
+        // Wait for the drag to catch up with the pointer
+        await sleep(120)
         expect(values(element).x).toBe(10)
 
         pointer(document.body, "pointermove", 100, 0)
@@ -326,11 +330,38 @@ describe("dragging", () => {
         await expect(onTransitionEnd.promise).resolves.toBe(true)
     })
 
+    test("eases the threshold distance instead of jumping it", async () => {
+        makeDraggable(element, { axis: "x", momentum: false })
+
+        pointer(element, "pointerdown", 0, 0)
+        pointer(document.body, "pointermove", 3, 0)
+        await nextFrame()
+        expect(values(element).x).toBeLessThan(3)
+
+        await sleep(120)
+        await nextFrame()
+        expect(values(element).x).toBe(3)
+        pointer(element, "pointerup", 3, 0)
+    })
+
+    test("releasing while catching up moves to the pointer", async () => {
+        makeDraggable(element, { axis: "x", momentum: false })
+
+        pointer(element, "pointerdown", 0, 0)
+        pointer(document.body, "pointermove", 10, 0)
+        await nextFrame()
+        pointer(element, "pointerup", 10, 0)
+        await nextFrame()
+        expect(values(element).x).toBe(10)
+    })
+
     test("momentum is applied", async () => {
         makeDraggable(element, { axis: "x" })
 
         const pointer = await gesture(element).to(1, 1)
         await pointer.to(50, 50)
+        // Move again after the catch-up wait, so there's velocity to release
+        await pointer.to(60, 60)
         pointer.end()
 
         /**
@@ -341,7 +372,7 @@ describe("dragging", () => {
         await nextFrame()
         await nextFrame()
 
-        expect(values(element).x).toBeGreaterThan(50)
+        expect(values(element).x).toBeGreaterThan(60)
     })
 
     test("momentum: false stops at the release point", async () => {

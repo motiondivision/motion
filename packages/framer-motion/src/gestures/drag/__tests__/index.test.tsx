@@ -247,6 +247,8 @@ describe("dragging", () => {
         pos.x = 10
         pointerMove(document.body)
         await nextFrame()
+        // Wait for the drag to catch up with the pointer
+        await sleep(120)
         expect(x.get()).toBe(10)
 
         pos.x = 100
@@ -445,6 +447,8 @@ describe("dragging", () => {
 
         const pointer = await drag(container.firstChild).to(1, 1)
         await pointer.to(50, 50)
+        // Move again after the catch-up wait, so there's velocity to release
+        await pointer.to(60, 60)
         pointer.end()
 
         /**
@@ -455,7 +459,7 @@ describe("dragging", () => {
         await nextFrame()
         await nextFrame()
 
-        expect(x.get()).toBeGreaterThan(50)
+        expect(x.get()).toBeGreaterThan(60)
     })
 
     test.skip("outputs to external values if provided", async () => {
