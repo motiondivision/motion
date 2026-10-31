@@ -8,18 +8,20 @@ import {
 
 /**
  * Toggle `while{gesture}` and fire `on{gesture}{lifecycle}`, e.g.
- * `onHoverStart` or, with an empty lifecycle, `onTap`.
+ * `onHoverStart` or, with an empty lifecycle, `onTap`. A repeat fires the
+ * callback but leaves `while{gesture}` active.
  */
 export function handleGestureEvent(
     node: VisualElement<Element>,
     event: PointerEvent,
     gesture: "Hover" | "Tap",
-    lifecycle: "Start" | "End" | "Cancel" | ""
+    lifecycle: "Start" | "End" | "Cancel" | "",
+    isRepeat?: boolean
 ) {
     const { props } = node
     const whileKey = ("while" + gesture) as "whileHover" | "whileTap"
 
-    if (node.animationState && props[whileKey]) {
+    if (!isRepeat && node.animationState && props[whileKey]) {
         node.animationState.setActive(whileKey, lifecycle === "Start")
     }
 
