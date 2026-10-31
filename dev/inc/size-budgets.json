@@ -6,7 +6,7 @@
     "scroll+animate": 27000,
     "inView": 470,
     "resize": 700,
-    "hover+press": 2366,
+    "hover+press": 2393,
     "drag": 28043,
     "motionValue": 1850,
     "styleEffect": 4250,
@@ -48,8 +48,8 @@
     "motion-div+animate": 49916,
     "motion-div+useInView": 44057,
     "motion-div+useScroll": 46415,
-    "motion-div+useTransform+useMotionTemplate": 44339,
-    "motion-div+useScroll+useTransform+useSpring": 47827,
+    "motion-div+useTransform+useMotionTemplate": 44462,
+    "motion-div+useScroll+useTransform+useSpring": 47937,
     "motion-div+Reorder": 47254,
     "domMax+useScroll": 44442
 }

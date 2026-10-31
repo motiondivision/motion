@@ -23,11 +23,13 @@ export interface PressHandlers {
     onComplete?: OnPressEndEvent
 
     /**
-     * Called every frame while the final press is held, with the progress
-     * (`0`-`1`) towards `after`. Progress reaching `1` means the press can
-     * now complete successfully.
+     * Called every frame while the final press is held, with progress
+     * from `0` to `1`: first over `after`, then over each `repeat`.
+     * Each cycle starts at exactly `0` and ends at exactly `1`, before the
+     * press becomes active or `onRepeat` fires. Not called if neither
+     * `after` nor `repeat` is set.
      */
-    onProgress?: (progress: number) => void
+    onHold?: (progress: number) => void
 
     /**
      * Called every `repeat` seconds while the press is held, with the
