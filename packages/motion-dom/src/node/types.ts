@@ -648,6 +648,17 @@ export interface MotionNodeDraggableOptions {
     dragPropagation?: boolean
 
     /**
+     * Seconds the pointer must be held still before a drag can start, like
+     * a long press to pick up a list item. Moving further than a few pixels
+     * first cancels the drag, so touch devices can still scroll.
+     *
+     * ```jsx
+     * <motion.li drag="y" dragAfter={0.3} />
+     * ```
+     */
+    dragAfter?: number
+
+    /**
      * Applies constraints on the permitted draggable area.
      *
      * It can accept an object of optional `top`, `left`, `right`, and `bottom` values, measured in pixels.

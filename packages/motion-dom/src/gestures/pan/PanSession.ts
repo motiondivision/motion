@@ -80,9 +80,10 @@ export class PanSession {
     private dragSnapToOrigin: boolean | "x" | "y"
 
     /**
-     * The distance after which panning should start.
+     * The distance after which panning should start. Drag sets it to
+     * Infinity while a `dragAfter` hold is pending.
      */
-    private distanceThreshold: number
+    distanceThreshold: number
 
     private contextWindow: PanSessionOptions["contextWindow"] = window
 

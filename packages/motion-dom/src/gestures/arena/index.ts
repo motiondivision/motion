@@ -66,11 +66,14 @@ export function joinGesture(
 }
 
 /**
- * Try to make a gesture active. Fails if an active gesture on the same
+ * Try to make a gesture active. Fails if it has left, or an active gesture on the same
  * pointer can't run alongside it. Otherwise every other member of the
  * arena that can't run alongside it is cancelled.
  */
 export function claimGesture(gesture: Gesture): boolean {
+    // A gesture that was cancelled or has ended can't claim
+    if (!registry.has(gesture)) return false
+
     const arena: Gesture[] = []
     const rivals: Gesture[] = []
 

@@ -64,4 +64,11 @@ describe("gesture arena", () => {
         expect(onTap).not.toBeCalled()
         expect(onTapCancel).toBeCalledTimes(1)
     })
+
+    test("dragAfter lets touches scroll until the hold passes", () => {
+        const { container } = render(<motion.div drag="y" dragAfter={0.3} />)
+        expect((container.firstChild as HTMLElement).style.touchAction).toBe(
+            "manipulation"
+        )
+    })
 })

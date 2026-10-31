@@ -63,6 +63,13 @@ export interface DragOptions {
      */
     propagation?: boolean
 
+    /**
+     * Seconds the pointer must be held still before the drag can start,
+     * like a long press to pick up a list item. Moving further than a few
+     * pixels first cancels the drag, so touch devices can still scroll.
+     */
+    after?: number
+
     onStart?: DragHandler
     onMove?: DragHandler
     onEnd?: DragHandler
@@ -85,6 +92,7 @@ const toProps = ({
     snapToOrigin,
     directionLock,
     propagation,
+    after,
     onStart,
     onMove,
     onEnd,
@@ -100,6 +108,7 @@ const toProps = ({
     dragSnapToOrigin: snapToOrigin,
     dragDirectionLock: directionLock,
     dragPropagation: propagation,
+    dragAfter: after,
     onDragStart: onStart,
     onDrag: onMove,
     onDragEnd: onEnd,
@@ -121,11 +130,20 @@ const dragStyles = [
  * image) don't interrupt the gesture. Returns a function that restores
  * the element's previous values.
  */
-function applyDragStyles(element: HTMLElement, axis?: "x" | "y") {
+function applyDragStyles(element: HTMLElement, { axis, after }: DragOptions) {
     const { style } = element
     const draggable = element.getAttribute("draggable")
     const prev = dragStyles.map((key) => style.getPropertyValue(key))
-    const touchAction = axis ? "pan-" + (axis === "x" ? "y" : "x") : "none"
+
+    /**
+     * With `after`, touches can scroll the page until the hold passes.
+     * Then the drag cancels the touch moves instead.
+     */
+    const touchAction = after
+        ? "manipulation"
+        : axis
+        ? "pan-" + (axis === "x" ? "y" : "x")
+        : "none"
 
     dragStyles.forEach((key, i) =>
         style.setProperty(key, i < 3 ? "none" : touchAction)
@@ -186,10 +204,7 @@ export function drag(
             () => props
         )
         const removeListeners = controls.addListeners()
-        const removeStyles = applyDragStyles(
-            element as HTMLElement,
-            options.axis
-        )
+        const removeStyles = applyDragStyles(element as HTMLElement, options)
 
         return () => {
             removeStyles()

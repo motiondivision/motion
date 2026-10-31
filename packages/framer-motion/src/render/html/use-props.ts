@@ -1,6 +1,12 @@
 "use client"
 
-import { AnyResolvedKeyframe, buildHTMLStyles, isForcedMotionValue, isMotionValue, MotionValue } from "motion-dom"
+import {
+    AnyResolvedKeyframe,
+    buildHTMLStyles,
+    isForcedMotionValue,
+    isMotionValue,
+    MotionValue,
+} from "motion-dom"
 import { HTMLProps, useMemo } from "react"
 import { MotionProps } from "../../motion/types"
 import { ResolvedValues } from "../types"
@@ -67,10 +73,12 @@ export function useHTMLProps(
                 "none"
 
         // Disable scrolling on the draggable direction
-        style.touchAction =
-            props.drag === true
-                ? "none"
-                : `pan-${props.drag === "x" ? "y" : "x"}`
+        // With dragAfter, touches can scroll until the hold passes
+        style.touchAction = props.dragAfter
+            ? "manipulation"
+            : props.drag === true
+            ? "none"
+            : `pan-${props.drag === "x" ? "y" : "x"}`
     }
 
     if (

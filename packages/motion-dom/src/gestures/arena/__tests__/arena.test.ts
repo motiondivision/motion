@@ -7,6 +7,7 @@ import {
     values,
 } from "../../drag/__tests__/utils"
 import { hover } from "../../hover"
+import { pinch } from "../../pinch"
 import { press } from "../../press"
 import {
     claimGesture,
@@ -284,5 +285,225 @@ describe("hover", () => {
         }
 
         expect(getGestures("hover")).toHaveLength(2)
+    })
+})
+
+/**
+ * A fake pointer event with an id and a client and page point.
+ */
+function touch(
+    target: EventTarget,
+    type: string,
+    pointerId: number,
+    x = 0,
+    y = 0
+) {
+    const event = new Event(type, { bubbles: true, cancelable: true })
+    Object.assign(event, {
+        pointerId,
+        isPrimary: pointerId === 1,
+        button: 0,
+        pointerType: "touch",
+        clientX: x,
+        clientY: y,
+        pageX: x,
+        pageY: y,
+    })
+    target.dispatchEvent(event)
+}
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+describe("drag after a hold", () => {
+    test("drags once the pointer is held for `after`", async () => {
+        const element = createElement()
+        stops.push(drag(element, { after: 0.1, momentum: false }))
+
+        touch(element, "pointerdown", 1)
+        await sleep(150)
+        await nextFrame()
+        expect(isGestureActive("drag", element)).toBe(true)
+
+        touch(document.body, "pointermove", 1, 40, 0)
+        await nextFrame()
+        touch(document.body, "pointermove", 1, 60, 0)
+        await nextFrame()
+        expect(values(element).x).toBe(60)
+
+        touch(element, "pointerup", 1, 60, 0)
+        await nextFrame()
+        expect(getGestures()).toEqual([])
+    })
+
+    test("moving before `after` cancels the drag", async () => {
+        const element = createElement()
+        stops.push(drag(element, { after: 0.1, momentum: false }))
+
+        touch(element, "pointerdown", 1)
+        touch(document.body, "pointermove", 1, 0, 20)
+        await nextFrame()
+        expect(getGestures("drag")).toEqual([])
+
+        await sleep(150)
+        touch(document.body, "pointermove", 1, 0, 60)
+        await nextFrame()
+        expect(values(element)).toEqual({ x: 0, y: 0 })
+    })
+
+    test("small moves before `after` don't cancel the drag", async () => {
+        const element = createElement()
+        stops.push(drag(element, { after: 0.1, momentum: false }))
+
+        touch(element, "pointerdown", 1)
+        touch(document.body, "pointermove", 1, 4, 4)
+        await nextFrame()
+        expect(values(element)).toEqual({ x: 0, y: 0 })
+
+        await sleep(150)
+        await nextFrame()
+        touch(document.body, "pointermove", 1, 30, 4)
+        await nextFrame()
+        expect(values(element).x).toBe(30)
+        touch(element, "pointerup", 1, 30, 4)
+    })
+
+    test("releasing before `after` taps a child and doesn't drag", async () => {
+        const parent = createElement()
+        const child = createElement("button", parent)
+        stops.push(drag(parent, { after: 0.1, momentum: false }))
+        const log = track(child)
+
+        touch(child, "pointerdown", 1)
+        await nextFrame()
+        touch(child, "pointerup", 1)
+        await nextFrame()
+
+        expect(log).toEqual(["start", "tap"])
+        expect(getGestures()).toEqual([])
+    })
+
+    test("the hold cancels a child's press", async () => {
+        const parent = createElement()
+        const child = createElement("button", parent)
+        stops.push(drag(parent, { after: 0.1, momentum: false }))
+        const log = track(child)
+
+        touch(child, "pointerdown", 1)
+        await sleep(150)
+        await nextFrame()
+
+        expect(log).toEqual(["start", "cancel"])
+        touch(child, "pointerup", 1)
+    })
+
+    test("the hold stops touch moves scrolling the page", async () => {
+        const element = createElement()
+        stops.push(drag(element, { after: 0.1 }))
+
+        const move = () => {
+            const event = new Event("touchmove", { cancelable: true })
+            window.dispatchEvent(event)
+            return event.defaultPrevented
+        }
+
+        touch(element, "pointerdown", 1)
+        expect(move()).toBe(false)
+        await sleep(150)
+        await nextFrame()
+        expect(move()).toBe(true)
+
+        touch(element, "pointerup", 1)
+        await nextFrame()
+        expect(move()).toBe(false)
+    })
+})
+
+describe("long press", () => {
+    test("a long press that passes its hold stops a parent drag", async () => {
+        const parent = createElement()
+        const child = createElement("button", parent)
+        stops.push(drag(parent, { momentum: false }))
+        const log: string[] = []
+        stops.push(
+            press(
+                child,
+                () =>
+                    (_event, { success }) =>
+                        log.push(success ? "tap" : "cancel"),
+                { after: 0.05 }
+            )
+        )
+
+        touch(child, "pointerdown", 1)
+        await sleep(100)
+        await nextFrame()
+        await nextFrame()
+        expect(isGestureActive("press", child)).toBe(true)
+
+        touch(document.body, "pointermove", 1, 6, 0)
+        await nextFrame()
+        expect(isGestureActive("drag")).toBe(false)
+        expect(values(parent)).toEqual({ x: 0, y: 0 })
+
+        touch(child, "pointerup", 1, 6, 0)
+        expect(log).toEqual(["tap"])
+    })
+})
+
+describe("pinch", () => {
+    test("a pinch cancels a child's press and claims both touches", async () => {
+        const parent = createElement()
+        const child = createElement("button", parent)
+        stops.push(pinch(parent, () => {}))
+        const log = track(child)
+
+        touch(child, "pointerdown", 1, 0, 0)
+        touch(parent, "pointerdown", 2, 100, 0)
+        await nextFrame()
+
+        expect(log).toEqual(["start", "cancel"])
+        expect(getGestures("pinch").map((g) => g.pointerId)).toEqual([1, 2])
+        expect(isGestureActive("pinch", parent)).toBe(true)
+
+        touch(document.body, "pointerup", 2, 100, 0)
+        touch(document.body, "pointerup", 1, 0, 0)
+        expect(getGestures()).toEqual([])
+    })
+
+    test("a pinch runs alongside a drag of the same element", async () => {
+        const element = createElement()
+        stops.push(drag(element, { momentum: false }))
+        stops.push(pinch(element, () => {}))
+
+        touch(element, "pointerdown", 1, 0, 0)
+        touch(document.body, "pointermove", 1, 10, 0)
+        await nextFrame()
+        expect(isGestureActive("drag", element)).toBe(true)
+
+        touch(element, "pointerdown", 2, 100, 0)
+        await nextFrame()
+        expect(isGestureActive("pinch", element)).toBe(true)
+        expect(isGestureActive("drag", element)).toBe(true)
+
+        touch(document.body, "pointerup", 2, 100, 0)
+        touch(element, "pointerup", 1, 10, 0)
+    })
+
+    test("a pinch doesn't start while a parent drag owns a touch", async () => {
+        const parent = createElement()
+        const child = createElement("div", parent)
+        stops.push(drag(parent, { momentum: false }))
+        stops.push(pinch(child, () => {}))
+
+        touch(child, "pointerdown", 1, 0, 0)
+        touch(document.body, "pointermove", 1, 10, 0)
+        await nextFrame()
+        touch(child, "pointerdown", 2, 100, 0)
+        await nextFrame()
+
+        expect(getGestures("pinch")).toEqual([])
+        expect(isGestureActive("drag", parent)).toBe(true)
+        touch(document.body, "pointerup", 2, 100, 0)
+        touch(parent, "pointerup", 1, 10, 0)
     })
 })

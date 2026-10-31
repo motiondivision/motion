@@ -100,3 +100,96 @@ test.describe("gesture arena", () => {
         expect(await active(page)).toEqual([])
     })
 })
+
+test.describe("drag after a hold", () => {
+    const touchSession = async (page: Page) => {
+        const client = await page.context().newCDPSession(page)
+        return (type: string, x: number, y: number) =>
+            client.send("Input.dispatchTouchEvent", {
+                type,
+                touchPoints: type === "touchEnd" ? [] : [{ x, y }],
+            })
+    }
+
+    const itemTop = (page: Page) =>
+        page.evaluate(
+            () => document.getElementById("item")!.getBoundingClientRect().top
+        )
+
+    test("a quick touch swipe scrolls the page, not the item", async ({
+        page,
+        browserName,
+    }) => {
+        test.skip(browserName !== "chromium", "Touch input needs CDP")
+        await page.goto("gestures/arena-after.html")
+        await frames(page, 2)
+        const touch = await touchSession(page)
+
+        await touch("touchStart", 200, 300)
+        for (let i = 1; i <= 10; i++) {
+            await touch("touchMove", 200, 300 - i * 15)
+            await frames(page, 1)
+        }
+        await touch("touchEnd", 200, 150)
+        await frames(page, 4)
+
+        const scrollY = await page.evaluate(() => window.scrollY)
+        expect(scrollY).toBeGreaterThan(50)
+        // The item only moved with the page
+        expect(await itemTop(page)).toBeCloseTo(100 - scrollY, 0)
+    })
+
+    test("a touch held for `after` drags the item without scrolling", async ({
+        page,
+        browserName,
+    }) => {
+        test.skip(browserName !== "chromium", "Touch input needs CDP")
+        await page.goto("gestures/arena-after.html")
+        await frames(page, 2)
+        const touch = await touchSession(page)
+
+        await touch("touchStart", 200, 150)
+        await page.waitForTimeout(400)
+        await frames(page, 2)
+        for (let i = 1; i <= 10; i++) {
+            await touch("touchMove", 200, 150 + i * 10)
+            await frames(page, 1)
+        }
+
+        expect(await page.evaluate(() => window.scrollY)).toBe(0)
+        expect(await itemTop(page)).toBeGreaterThan(180)
+
+        await touch("touchEnd", 200, 250)
+        await frames(page, 2)
+    })
+
+    test("a mouse held for `after` drags the item", async ({ page }) => {
+        await page.goto("gestures/arena-after.html")
+        await frames(page, 2)
+
+        await page.mouse.move(200, 150)
+        await page.mouse.down()
+        await page.waitForTimeout(400)
+        await frames(page, 2)
+        await page.mouse.move(200, 230, { steps: 5 })
+        await frames(page, 2)
+
+        expect(await itemTop(page)).toBeCloseTo(180, 0)
+        await page.mouse.up()
+    })
+
+    test("a mouse moved before `after` doesn't drag", async ({ page }) => {
+        await page.goto("gestures/arena-after.html")
+        await frames(page, 2)
+
+        await page.mouse.move(200, 150)
+        await page.mouse.down()
+        await page.mouse.move(200, 230, { steps: 5 })
+        await page.waitForTimeout(400)
+        await page.mouse.move(200, 260, { steps: 3 })
+        await frames(page, 2)
+
+        expect(await itemTop(page)).toBe(100)
+        await page.mouse.up()
+    })
+})

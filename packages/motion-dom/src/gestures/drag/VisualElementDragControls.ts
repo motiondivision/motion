@@ -5,7 +5,8 @@ import { getVariableValue } from "../../animation/utils/css-variables-conversion
 import { isCSSVariableToken } from "../../animation/utils/is-css-variable"
 import { addDomEvent } from "../../events/add-dom-event"
 import { addPointerEvent } from "../../events/add-pointer-event"
-import { frame } from "../../frameloop/frame"
+import { cancelFrame, frame } from "../../frameloop/frame"
+import { time } from "../../frameloop/sync-time"
 import type { MotionNodeOptions } from "../../node/types"
 import {
     convertBoundingBoxToBox,
@@ -28,7 +29,6 @@ import { claimGesture, Gesture, joinGesture, leaveGesture } from "../arena"
 import type { PanInfo } from "../pan/types"
 import { PanSession } from "../pan/PanSession"
 import { isElementTextInput } from "../press/utils/is-keyboard-accessible"
-import { setDragLock } from "./state/set-active"
 import type { DragPointConstraint, ResolvedConstraints } from "./types"
 import {
     applyConstraints,
@@ -86,6 +86,8 @@ export interface DragControlOptions {
 
 type DragDirection = "x" | "y"
 
+const preventDefault = (event: Event) => event.preventDefault()
+
 interface DragGesture extends Gesture {
     axis?: MotionNodeOptions["drag"]
 }
@@ -95,9 +97,13 @@ export class VisualElementDragControls {
 
     panSession?: PanSession
 
-    private openDragLock: VoidFunction | null = null
-
     private gesture?: Gesture
+
+    /**
+     * Ends a pending `dragAfter` hold.
+     */
+    private endHold?: VoidFunction
+    private removeTouchMove?: VoidFunction
 
     isDragging = false
     private currentDirection: DragDirection | null = null
@@ -187,27 +193,76 @@ export class VisualElementDragControls {
               } as Omit<DragGesture, "phase">)
             : undefined
 
+        /**
+         * With `dragAfter`, the drag can't start until the pointer has been
+         * held still that long. Moving first cancels it, so the page can
+         * scroll. Once held, the drag claims the pointer straight away,
+         * so a press of a parent or child is cancelled.
+         */
+        const { dragAfter } = this.getProps()
+        if (dragAfter && element) {
+            const holdEnd = time.now() + dragAfter * 1000
+            const onMove = (event: PointerEvent) =>
+                event.pointerId === originEvent.pointerId &&
+                Math.hypot(
+                    event.clientX - originEvent.clientX,
+                    event.clientY - originEvent.clientY
+                ) > 8 &&
+                this.cancel()
+
+            /**
+             * Once held, stop touch moves scrolling the page. A touchmove
+             * can only be cancelled before the page starts scrolling,
+             * which it hasn't if the pointer was held still.
+             */
+            const onTouchMove = (event: TouchEvent) =>
+                !this.endHold && event.cancelable && event.preventDefault()
+
+            const tick = () => {
+                if (time.now() < holdEnd) return
+                this.endHold!()
+                this.panSession && claimGesture(this.gesture!)
+                    ? (this.panSession.distanceThreshold = 0)
+                    : this.cancel()
+            }
+
+            frame.update(tick, true)
+            /**
+             * Touch devices open a context menu on long press, which would
+             * cancel the gesture.
+             */
+            element.addEventListener("contextmenu", preventDefault)
+            window.addEventListener("pointermove", onMove)
+            window.addEventListener("touchmove", onTouchMove, {
+                passive: false,
+            })
+
+            this.endHold = () => {
+                cancelFrame(tick)
+                window.removeEventListener("pointermove", onMove)
+                this.endHold = undefined
+            }
+            this.removeTouchMove = () => {
+                this.endHold?.()
+                element.removeEventListener("contextmenu", preventDefault)
+                window.removeEventListener("touchmove", onTouchMove)
+            }
+        }
+
         const onSessionStart = (event: PointerEvent) => {
             if (snapToCursor) this.snapToCursor(event)
             this.stopAnimation()
         }
 
         const onStart = (event: PointerEvent, info: PanInfo) => {
-            // Attempt to grab the global drag gesture lock - maybe make this part of PanSession
-            const { drag, dragConstraints, dragPropagation, onDragStart } =
-                this.getProps()
+            const { dragConstraints, onDragStart } = this.getProps()
 
-            if (this.gesture && !claimGesture(this.gesture)) {
+            /**
+             * Claim the pointer. This fails if another gesture already
+             * owns it, like a drag of a child on the same axis.
+             */
+            if (!this.gesture || !claimGesture(this.gesture)) {
                 return this.leaveGesture()
-            }
-
-            if (drag && !dragPropagation) {
-                this.openDragLock?.()
-
-                this.openDragLock = setDragLock(drag)
-
-                // If we don 't have the lock, don't start dragging
-                if (!this.openDragLock) return this.leaveGesture()
             }
 
             this.latestPointerEvent = event
@@ -277,16 +332,11 @@ export class VisualElementDragControls {
             this.latestPointerEvent = event
             this.latestPanInfo = info
 
-            const {
-                dragPropagation,
-                dragDirectionLock,
-                onDirectionLock,
-                onDrag,
-            } = this.getProps()
+            const { dragDirectionLock, onDirectionLock, onDrag } =
+                this.getProps()
 
-            // If we didn't successfully receive the gesture lock, early return.
+            // If this drag didn't claim its pointer, early return.
             if (!this.isDragging) return
-            if (!dragPropagation && !this.openDragLock) return
 
             const { offset } = info
             // Attempt to detect drag direction if directionLock is true
@@ -357,7 +407,7 @@ export class VisualElementDragControls {
             {
                 transformPagePoint: this.visualElement.getTransformPagePoint(),
                 dragSnapToOrigin,
-                distanceThreshold,
+                distanceThreshold: dragAfter ? Infinity : distanceThreshold,
                 contextWindow:
                     this.visualElement.current?.ownerDocument.defaultView,
                 element: this.visualElement.current,
@@ -401,11 +451,6 @@ export class VisualElementDragControls {
 
         this.endPanSession()
 
-        if (!this.getProps().dragPropagation && this.openDragLock) {
-            this.openDragLock()
-            this.openDragLock = null
-        }
-
         animationState?.setActive("whileDrag", false)
     }
 
@@ -415,6 +460,8 @@ export class VisualElementDragControls {
      * without affecting projection animations or drag locks.
      */
     private leaveGesture() {
+        this.removeTouchMove?.()
+        this.removeTouchMove = undefined
         this.gesture && leaveGesture(this.gesture)
         this.gesture = undefined
     }

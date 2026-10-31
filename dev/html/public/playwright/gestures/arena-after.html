@@ -1,0 +1,35 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+                height: 3000px;
+            }
+
+            #item {
+                position: absolute;
+                top: 100px;
+                left: 100px;
+                width: 200px;
+                height: 100px;
+                background: #ff0055;
+            }
+        </style>
+    </head>
+    <body>
+        <!--
+            A list item in a tall, scrollable page that only drags after
+            it's held for 0.3s, so a quick swipe scrolls the page instead.
+        -->
+        <div id="item"></div>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            const { drag } = window.MotionDOM
+            drag(document.getElementById("item"), {
+                axis: "y",
+                after: 0.3,
+                momentum: false,
+            })
+        </script>
+    </body>
+</html>
