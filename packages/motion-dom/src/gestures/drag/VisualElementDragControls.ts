@@ -93,7 +93,7 @@ interface DragGesture extends Gesture {
 export class VisualElementDragControls {
     visualElement: VisualElement<HTMLElement>
 
-    private panSession?: PanSession
+    panSession?: PanSession
 
     private openDragLock: VoidFunction | null = null
 
@@ -102,6 +102,10 @@ export class VisualElementDragControls {
     isDragging = false
     private currentDirection: DragDirection | null = null
 
+    /**
+     * Where the drag started, which pointer offsets are added to. Public
+     * so pinch() can restart a drag from where it leaves the element.
+     */
     originPoint: Point = { x: 0, y: 0 }
 
     /**

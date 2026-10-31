@@ -1,0 +1,73 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+
+            #box {
+                position: absolute;
+                left: 100px;
+                top: 100px;
+                width: 100px;
+                height: 100px;
+                background-color: red;
+            }
+        </style>
+    </head>
+    <body>
+        <!--
+            The 100x100 box starts at (100, 100). Params: rotate, pan=false,
+            min, max, drag (also attach drag()), returns (what the start
+            callback returns: "object" by default, "function" or "none").
+        -->
+        <div id="box"></div>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            const { pinch, drag } = window.MotionDOM
+
+            const params = new URLSearchParams(window.location.search)
+            const num = (name) =>
+                params.has(name) ? parseFloat(params.get(name)) : undefined
+            const returns = params.get("returns") || "object"
+
+            const box = document.getElementById("box")
+
+            window.events = []
+            window.lastInfo = null
+            window.startArgs = []
+
+            if (params.has("drag")) drag(box, { momentum: false })
+
+            window.stopPinch = pinch(
+                box,
+                (element, startEvent) => {
+                    window.events.push("start")
+                    window.startArgs.push({
+                        isBox: element === box,
+                        type: startEvent.type,
+                    })
+
+                    const onComplete = (event, info) => {
+                        window.events.push("end:" + event.type)
+                        window.lastInfo = info
+                    }
+
+                    if (returns === "function") return onComplete
+                    if (returns === "object") {
+                        return {
+                            onPinch: (_, info) => (window.lastInfo = info),
+                            onComplete,
+                        }
+                    }
+                },
+                {
+                    rotate: params.has("rotate"),
+                    pan: params.get("pan") !== "false",
+                    min: num("min"),
+                    max: num("max"),
+                }
+            )
+        </script>
+    </body>
+</html>

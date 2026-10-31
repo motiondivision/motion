@@ -12,6 +12,7 @@ import type {
 } from "../gestures/drag/types"
 import { PanInfo } from "../gestures/pan/types"
 import type { PressOptions } from "../gestures/press/types"
+import type { PinchProps } from "../gestures/pinch"
 import type { MotionValue } from "../value"
 
 export interface EventInfo {
@@ -1128,4 +1129,19 @@ export interface MotionNodeOptions
      * ```
      */
     propagate?: PropagateOptions
+
+    /**
+     * Scale (and optionally rotate and move) the element with pinch
+     * gestures: two touches, a trackpad pinch or Safari's gesture events.
+     * Pass options to configure it.
+     *
+     * Requires `pinchFeatures` to be loaded via `LazyMotion`.
+     *
+     * ```jsx
+     * <LazyMotion features={{ ...domMax, ...pinchFeatures }}>
+     *   <motion.img pinch={{ min: 1, max: 4 }} />
+     * </LazyMotion>
+     * ```
+     */
+    pinch?: boolean | PinchProps
 }
