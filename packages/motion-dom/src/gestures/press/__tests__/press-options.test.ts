@@ -711,6 +711,153 @@ describe("press onHold", () => {
     })
 })
 
+describe("press onActive", () => {
+    /**
+     * Log every handler call in order.
+     */
+    const setupLog = (options: object) => {
+        const element = document.createElement("div")
+        document.body.appendChild(element)
+        const log: string[] = []
+        const cancel = press(
+            element,
+            () => {
+                log.push("start")
+                return {
+                    onActive: () => log.push("active"),
+                    onHold: (p) => log.push("hold:" + p),
+                    onRepeat: (count) => log.push("repeat:" + count),
+                    onComplete: (_, { success }) => {
+                        log.push(success ? "end" : "cancel")
+                    },
+                }
+            },
+            options
+        )
+        return { element, log, cancel }
+    }
+
+    test("without after, fires on press down after start", async () => {
+        const { element, log } = setupLog({})
+
+        pointer(element, "down")
+        expect(log).toEqual(["start", "active"])
+        pointer(element, "up")
+        expect(log).toEqual(["start", "active", "end"])
+    })
+
+    test("times: fires on the final press down", async () => {
+        const { element, log } = setupLog({ times: 2 })
+
+        await tap(element)
+        expect(log).toEqual(["start"])
+        await wait(50)
+        pointer(element, "down")
+        expect(log).toEqual(["start", "active"])
+        pointer(element, "up")
+        expect(log).toEqual(["start", "active", "end"])
+    })
+
+    test("after: fires after onHold(1) and before repeats", async () => {
+        const { element, log } = setupLog({ after: 0.5, repeat: 0.2 })
+
+        pointer(element, "down")
+        await wait(250)
+        await nextFrame()
+        await wait(250)
+        await nextFrame()
+        await wait(100)
+        await nextFrame()
+        await wait(100)
+        await nextFrame()
+        pointer(element, "up")
+
+        expect(log).toEqual([
+            "start",
+            "hold:0",
+            "hold:1",
+            "active",
+            "hold:0",
+            "hold:1",
+            "repeat:1",
+            "end",
+        ])
+    })
+
+    test("repeat: fires once per gesture", async () => {
+        const { element, log } = setupLog({ repeat: 0.1 })
+
+        pointer(element, "down")
+        await wait(110)
+        await nextFrame()
+        await wait(100)
+        await nextFrame()
+        pointer(element, "up")
+
+        expect(log.filter((entry) => entry === "active")).toEqual(["active"])
+        expect(log[1]).toBe("active")
+    })
+
+    test("doesn't fire if released before after", async () => {
+        const { element, log } = setupLog({ after: 0.5 })
+
+        pointer(element, "down")
+        await wait(300)
+        await nextFrame()
+        pointer(element, "up")
+        await wait(300)
+        await nextFrame()
+
+        expect(log).toEqual(["start", "hold:0", "cancel"])
+    })
+
+    test("doesn't fire for an unfinished times sequence", async () => {
+        const { element, log } = setupLog({ times: 2 })
+
+        await tap(element)
+        await wait(400)
+        await nextFrame()
+
+        expect(log).toEqual(["start", "cancel"])
+    })
+
+    test("doesn't fire if the gesture is cancelled during a hold", async () => {
+        const { element, log, cancel } = setupLog({ after: 0.5 })
+
+        pointer(element, "down")
+        cancel()
+        await wait(600)
+        await nextFrame()
+
+        expect(log).toEqual(["start"])
+    })
+
+    test("keyboard: fires on keydown without after", async () => {
+        const { element, log } = setupLog({})
+        element.dispatchEvent(new FocusEvent("focus"))
+
+        key(element, "keydown")
+        expect(log).toEqual(["start", "active"])
+        key(element, "keyup")
+        expect(log).toEqual(["start", "active", "end"])
+    })
+
+    test("keyboard: fires once after is reached", async () => {
+        const { element, log } = setupLog({ after: 0.5 })
+        element.dispatchEvent(new FocusEvent("focus"))
+
+        key(element, "keydown")
+        await wait(300)
+        await nextFrame()
+        key(element, "keydown") // auto-repeat
+        await wait(300)
+        await nextFrame()
+        key(element, "keyup")
+
+        expect(log).toEqual(["start", "hold:0", "hold:1", "active", "end"])
+    })
+})
+
 describe("press start return value", () => {
     /**
      * Record every end call, with its arguments, for each return form.

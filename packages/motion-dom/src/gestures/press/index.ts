@@ -152,6 +152,8 @@ export function press(
                     : result || {}
         }
 
+        isFinal && isActive && handlers.onActive?.()
+
         /**
          * While held, `onHold` reports progress from 0 to 1 over `after`,
          * then over each `repeat`. Each cycle reports exactly 1 at its end,
@@ -179,7 +181,12 @@ export function press(
 
             if (progress < 1) return
 
-            isActive ? handlers.onRepeat?.(++repeats) : (isActive = true)
+            if (isActive) {
+                handlers.onRepeat?.(++repeats)
+            } else {
+                isActive = true
+                handlers.onActive?.()
+            }
 
             if (repeat) {
                 isCycleStart = true
