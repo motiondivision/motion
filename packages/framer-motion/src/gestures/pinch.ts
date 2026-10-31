@@ -1,4 +1,10 @@
-import { addPinchListeners, Feature, type PinchValues } from "motion-dom"
+import {
+    addPinchListeners,
+    Feature,
+    type OnPinchEvent,
+    type PinchProps,
+    type PinchValues,
+} from "motion-dom"
 
 const valueKeys = ["scale", "rotate", "x", "y"]
 
@@ -12,6 +18,22 @@ export class PinchGesture extends Feature<Element> {
         this.touchAction = (current as HTMLElement).style.touchAction
         this.update()
 
+        /**
+         * The latest enabled options. addPinchListeners reads them before
+         * each step of a gesture, so they're current when a callback runs,
+         * and a pinch disabled mid-way still calls its `onEnd`.
+         */
+        let options: PinchProps = {}
+
+        /**
+         * Call the prop's `onStart`, `onMove` or `onEnd`, so each can
+         * change mid-gesture.
+         */
+        const call =
+            (key: "onStart" | "onMove" | "onEnd"): OnPinchEvent =>
+            (event, info) =>
+                options[key]?.(event, info)
+
         this.unmount = addPinchListeners(
             current,
             () =>
@@ -20,8 +42,12 @@ export class PinchGesture extends Feature<Element> {
                 ) as PinchValues,
             () => {
                 const { pinch } = this.node.getProps()
-                return pinch && (pinch === true ? {} : pinch)
-            }
+                return pinch && (options = pinch === true ? {} : pinch)
+            },
+            (_element, event, info) => (
+                call("onStart")(event, info),
+                { onPinch: call("onMove"), onComplete: call("onEnd") }
+            )
         )
     }
 

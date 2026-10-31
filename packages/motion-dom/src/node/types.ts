@@ -11,7 +11,7 @@ import type {
     DragElastic,
 } from "../gestures/drag/types"
 import { PanInfo } from "../gestures/pan/types"
-import type { PinchOptions } from "../gestures/pinch"
+import type { PinchProps } from "../gestures/pinch"
 import type { MotionValue } from "../value"
 
 export interface EventInfo {
@@ -1118,5 +1118,5 @@ export interface MotionNodeOptions
      * </LazyMotion>
      * ```
      */
-    pinch?: boolean | PinchOptions
+    pinch?: boolean | PinchProps
 }
