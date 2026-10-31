@@ -215,11 +215,11 @@ export function addPinchListeners(
     let hasMoved = false
     let wheelTime = 0
     let handlers: PinchHandlers = {}
-    let gestures: Gesture[] = []
+    let gesture: Gesture | undefined
 
     const leave = () => {
-        gestures.forEach(leaveGesture)
-        gestures = []
+        gesture && leaveGesture(gesture)
+        gesture = undefined
     }
 
     /**
@@ -372,32 +372,28 @@ export function addPinchListeners(
         if (!getEnabledOptions()) return
 
         /**
-         * A touch pinch claims both its pointers, so it cancels presses
+         * A touch pinch is one gesture that claims both its pointers, so it cancels presses
          * and drags that can't run alongside it, and doesn't start if one
          * of them is already active. It runs alongside a drag of the same
          * element. Trackpad pinches have no pointer to claim.
          */
         if (from === "pointer") {
-            gestures = [...pointers.keys()].map((pointerId) =>
-                joinGesture({
-                    kind: "pinch",
-                    element,
-                    pointerId,
-                    with: (other) =>
-                        other.kind === "drag" && other.element === element,
-                    cancel: () => end(lastEvent),
-                })
-            )
-            if (!gestures.every(claimGesture)) return leave()
+            gesture = joinGesture({
+                kind: "pinch",
+                element,
+                pointers: [...pointers.keys()],
+                with: (other) =>
+                    other.kind === "drag" && other.element === element,
+                cancel: () => end(lastEvent),
+            })
+            if (!claimGesture(gesture)) return leave()
         } else {
-            gestures = [
-                joinGesture({
-                    kind: "pinch",
-                    element,
-                    phase: "active",
-                    passive: true,
-                }),
-            ]
+            gesture = joinGesture({
+                kind: "pinch",
+                element,
+                phase: "active",
+                passive: true,
+            })
         }
 
         source = from

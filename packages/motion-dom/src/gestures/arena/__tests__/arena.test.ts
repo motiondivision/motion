@@ -98,6 +98,18 @@ describe("arena", () => {
         expect(claimGesture(b)).toBe(true)
     })
 
+    test("a gesture with several pointers joins each pointer's arena", () => {
+        const element = createElement()
+        const a = joinGesture({ kind: "a", element, pointerId: 2 })
+        const b = joinGesture({ kind: "b", element, pointerId: 3 })
+        const both = joinGesture({ kind: "both", element, pointers: [1, 2] })
+
+        expect(claimGesture(both)).toBe(true)
+        expect(a.phase).toBe("ended")
+        expect(b.phase).toBe("possible")
+        expect(getGestures("both")).toHaveLength(1)
+    })
+
     test("gestures that don't compete never block a claim", () => {
         const element = createElement()
         joinGesture({
@@ -495,7 +507,7 @@ describe("pinch", () => {
         await nextFrame()
 
         expect(log).toEqual(["start", "cancel"])
-        expect(getGestures("pinch").map((g) => g.pointerId)).toEqual([1, 2])
+        expect(getGestures("pinch").map((g) => g.pointers)).toEqual([[1, 2]])
         expect(isGestureActive("pinch", parent)).toBe(true)
 
         touch(document.body, "pointerup", 2, 100, 0)

@@ -16,6 +16,12 @@ export interface Gesture {
     kind: GestureKind
     element: Element
     pointerId?: number
+
+    /**
+     * For a gesture that uses several pointers, like a pinch, every
+     * pointer it uses. It joins the arena of each one.
+     */
+    pointers?: number[]
     phase: GesturePhase
 
     /**
@@ -49,6 +55,11 @@ export type GestureListener = (gesture: Gesture) => void
 const registry = new Set<Gesture>()
 const listeners = new Set<GestureListener>()
 
+const pointersOf = (g: Gesture) => g.pointers || [g.pointerId]
+
+const sharesPointer = (a: Gesture, b: Gesture) =>
+    pointersOf(a).some((id) => pointersOf(b).includes(id))
+
 const notify = (gesture: Gesture) => listeners.forEach((l) => l(gesture))
 
 /**
@@ -81,7 +92,7 @@ export function claimGesture(gesture: Gesture): boolean {
         if (
             other === gesture ||
             other.passive ||
-            other.pointerId !== gesture.pointerId
+            !sharesPointer(other, gesture)
         )
             continue
         arena.push(other)

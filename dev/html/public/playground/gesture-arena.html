@@ -221,7 +221,8 @@
         }
         gestures.forEach((g) => {
             const li = document.createElement("li")
-            const pointer = g.pointerId === undefined ? "" : " · pointer " + g.pointerId
+            const ids = g.pointers || (g.pointerId === undefined ? [] : [g.pointerId])
+            const pointer = ids.length ? " · pointer" + (ids.length > 1 ? "s " : " ") + ids.join(", ") : ""
             li.innerHTML = `<span class="kind"></span><span class="el"></span><span class="chip ${g.phase}">${g.phase}</span>`
             li.children[0].textContent = g.kind
             li.children[1].textContent = nameOf(g.element) + pointer
