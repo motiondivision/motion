@@ -90,6 +90,66 @@ describe("pinch prop", () => {
         expect(onEnd.mock.calls[0][1].scale).toBeCloseTo(2)
     })
 
+    test("calls onStart, onMove and onEnd once per gesture, with info", async () => {
+        const onStart = jest.fn()
+        const onMove = jest.fn()
+        const onEnd = jest.fn()
+        const { container } = render(
+            <LazyMotion features={features}>
+                <m.div pinch={{ onStart, onMove, onEnd }} />
+            </LazyMotion>
+        )
+        const element = container.firstChild as Element
+
+        await act(() => spread(element))
+
+        expect(onStart).toHaveBeenCalledTimes(1)
+        expect(onStart.mock.calls[0][0].type).toBe("pointerdown")
+        expect(onStart.mock.calls[0][1]).toEqual({
+            point: { x: 0, y: 0 },
+            offset: { x: 0, y: 0 },
+            scale: 1,
+            rotate: 0,
+        })
+        expect(onMove).toHaveBeenCalledTimes(1)
+        expect(onMove.mock.calls[0][1].scale).toBeCloseTo(2)
+        expect(onEnd).toHaveBeenCalledTimes(1)
+        expect(onEnd.mock.calls[0][0].type).toBe("pointerup")
+
+        // A new gesture starts again.
+        await act(() => spread(element))
+
+        expect(onStart).toHaveBeenCalledTimes(2)
+        expect(onMove).toHaveBeenCalledTimes(2)
+        expect(onEnd).toHaveBeenCalledTimes(2)
+    })
+
+    test("uses the latest callbacks mid-gesture", async () => {
+        const first = jest.fn()
+        const second = jest.fn()
+        let setOnEnd: (onEnd: () => jest.Mock) => void = () => {}
+        const Component = () => {
+            const [onEnd, set] = useState(() => first)
+            setOnEnd = set
+            return <m.div pinch={{ onEnd }} />
+        }
+        const { container } = render(
+            <LazyMotion features={features}>
+                <Component />
+            </LazyMotion>
+        )
+        const element = container.firstChild as Element
+
+        pointer(element, "pointerdown", 1, -50)
+        pointer(element, "pointerdown", 2, 50)
+        act(() => setOnEnd(() => second))
+        pointer(window, "pointerup", 1, -50)
+        pointer(window, "pointerup", 2, 50)
+
+        expect(first).not.toHaveBeenCalled()
+        expect(second).toHaveBeenCalledTimes(1)
+    })
+
     test("uses the latest options", async () => {
         const scale = motionValue(1)
         let setMax: (max: number) => void = () => {}

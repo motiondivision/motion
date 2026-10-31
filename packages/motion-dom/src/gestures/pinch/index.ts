@@ -39,7 +39,48 @@ export interface PinchInfo {
     rotate: number
 }
 
-export type PinchHandler = (event: Event, info: PinchInfo) => void
+/**
+ * Called with the latest event and the gesture's info.
+ *
+ * @public
+ */
+export type OnPinchEvent = (event: Event, info: PinchInfo) => void
+
+/**
+ * Handlers for a single pinch gesture, returned from the pinch start
+ * callback.
+ *
+ * @public
+ */
+export interface PinchHandlers {
+    /**
+     * Called each frame the gesture changes, after the element's values
+     * are updated.
+     */
+    onPinch?: OnPinchEvent
+
+    /**
+     * Called once when the gesture ends: a touch lifts or is cancelled, a
+     * trackpad pinch stops, or the gesture is disabled or removed.
+     *
+     * Returning this function directly from the pinch start callback is
+     * equivalent.
+     */
+    onComplete?: OnPinchEvent
+}
+
+/**
+ * Called once when a pinch gesture starts: when a second touch lands, on
+ * the first trackpad pinch event, or on Safari's `gesturestart`. Can
+ * return a function to call when the pinch ends, or an object of
+ * `PinchHandlers`.
+ *
+ * @public
+ */
+export type OnPinchStartEvent = (
+    element: Element,
+    event: Event
+) => OnPinchEvent | PinchHandlers | void
 
 /**
  * @public
@@ -75,10 +116,28 @@ export interface PinchOptions {
      * The maximum scale.
      */
     max?: number
+}
 
-    onStart?: PinchHandler
-    onMove?: PinchHandler
-    onEnd?: PinchHandler
+/**
+ * Options for the `pinch` prop.
+ *
+ * @public
+ */
+export interface PinchProps extends PinchOptions {
+    /**
+     * Called when the pinch starts.
+     */
+    onStart?: OnPinchEvent
+
+    /**
+     * Called each frame the pinch changes.
+     */
+    onMove?: OnPinchEvent
+
+    /**
+     * Called when the pinch ends.
+     */
+    onEnd?: OnPinchEvent
 }
 
 export type PinchValues = [
@@ -118,11 +177,20 @@ const toPixels = (value: MotionValue<number>, size: number) => {
  * `getOptions` is read whenever it's needed, so options can change while
  * listening. Return `false` to disable the gesture, which also ends one in
  * progress.
+ *
+ * `onPinchStart` is called once as each gesture starts, with the gesture's
+ * info as a third argument. It can return the gesture's handlers, as for
+ * `pinch()`.
  */
 export function addPinchListeners(
     element: Element,
     getValues: () => PinchValues,
-    getEnabledOptions: () => PinchOptions | false | undefined
+    getEnabledOptions: () => PinchOptions | false | undefined,
+    onPinchStart: (
+        element: Element,
+        event: Event,
+        info: PinchInfo
+    ) => ReturnType<OnPinchStartEvent>
 ): VoidFunction {
     const pointers = new Map<number, Point>()
 
@@ -145,6 +213,7 @@ export function addPinchListeners(
     let lastY = 0
     let hasMoved = false
     let wheelTime = 0
+    let handlers: PinchHandlers = {}
 
     /**
      * The latest enabled options, so a gesture disabled mid-way can still
@@ -205,7 +274,6 @@ export function addPinchListeners(
             pan,
             min,
             max,
-            onMove,
         } = getOptions()
         const [scale, rotate, x, y] = values
         const theta = canRotate ? current.a - prev.a : 0
@@ -276,7 +344,7 @@ export function addPinchListeners(
         }
 
         Object.assign(prev, current)
-        onMove?.(lastEvent, info())
+        handlers.onPinch?.(lastEvent, info())
     }
 
     /**
@@ -300,11 +368,15 @@ export function addPinchListeners(
         lastEvent = event
         hasMoved = false
         values = undefined
+        handlers = {}
         Object.assign(start, current)
         Object.assign(prev, current)
         frame.read(measure)
         frame.preRender(update, true)
-        getOptions().onStart?.(event, info())
+
+        const result = onPinchStart(element, event, info())
+        handlers =
+            typeof result === "function" ? { onComplete: result } : result || {}
     }
 
     const end = (event: Event) => {
@@ -313,7 +385,7 @@ export function addPinchListeners(
         cancelFrame(update)
         getEnabledOptions() && apply()
         source = undefined
-        getOptions().onEnd?.(event, info())
+        handlers.onComplete?.(event, info())
     }
 
     const moved = (event: Event) => {
@@ -496,32 +568,53 @@ const getElementValues = (element: HTMLElement | SVGElement) => {
  * Make elements pinchable. Returns a function that removes the gesture.
  *
  * ```javascript
- * const stop = pinch("#photo", { min: 1, max: 4 })
+ * const stop = pinch("#photo", (element, startEvent) => {
+ *   return (endEvent, info) => {}
+ * }, { min: 1, max: 4 })
+ * ```
+ *
+ * `onPinchStart` is called once as each pinch starts. It can return a
+ * function to call when the pinch ends, or an object of handlers:
+ *
+ * ```javascript
+ * pinch("#photo", () => ({
+ *   onPinch: (event, { scale }) => {},
+ *   onComplete: (event, info) => {},
+ * }))
  * ```
  *
  * Touches, trackpad pinches and Safari's gesture events scale the element
  * around the focal point and move it with the touches. Its `scale`,
  * `rotate`, `x` and `y` are motion values shared with `animate()`, so an
- * `onEnd` callback can animate the element after a pinch.
+ * `onComplete` handler can animate the element after a pinch.
  *
  * @public
  */
 export function pinch(
     elementOrSelector: ElementOrSelector,
+    onPinchStart: OnPinchStartEvent,
     options: PinchOptions = {}
 ): VoidFunction {
     const scope = activeScope.current
 
     /**
-     * Run callbacks in the active scope, so work they start is collected.
+     * Run the start callback and the handlers it returns in the active
+     * scope, so work they start is collected. A returned function is
+     * bound by `scope.bind` itself.
      */
     if (scope) {
-        options = { ...options }
-        for (const key in options) {
-            const value = options[key as keyof PinchOptions]
-            if (typeof value === "function") {
-                ;(options as any)[key] = scope.bind(value)
+        const start = scope.bind(onPinchStart)
+        onPinchStart = (element, event) => {
+            const result = start(element, event)
+            if (typeof result !== "object") return result
+
+            const handlers: PinchHandlers = {}
+            for (const key in result) {
+                const name = key as keyof PinchHandlers
+                const handler = result[name]
+                handlers[name] = handler && scope.bind(handler)
             }
+            return handlers
         }
     }
 
@@ -535,7 +628,8 @@ export function pinch(
         const remove = addPinchListeners(
             element,
             () => getElementValues(element as HTMLElement),
-            () => options
+            () => options,
+            onPinchStart
         )
 
         return () => {

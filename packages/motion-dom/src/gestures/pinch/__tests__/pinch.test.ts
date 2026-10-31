@@ -3,9 +3,10 @@ import { styleSubjectEffect } from "../../../effects/style"
 import { frame } from "../../../frameloop"
 import { visualElementStore } from "../../../render/store"
 import { scopeMotion } from "../../../scope"
+import { activeScope } from "../../../scope/active"
 import { motionValue } from "../../../value"
 import { drag } from "../../drag"
-import { pinch, PinchInfo, PinchOptions } from ".."
+import { OnPinchStartEvent, pinch, PinchInfo, PinchOptions } from ".."
 
 const nextFrame = () =>
     new Promise<void>((resolve) => frame.postRender(() => resolve()))
@@ -138,8 +139,14 @@ const value = (element: Element, key: string) =>
 
 let stops: VoidFunction[] = []
 
-function makePinchable(element: Element | string, options?: PinchOptions) {
-    const stop = pinch(element, options)
+const noop = () => {}
+
+function makePinchable(
+    element: Element | string,
+    onPinchStart: OnPinchStartEvent = noop,
+    options?: PinchOptions
+) {
+    const stop = pinch(element, onPinchStart, options)
     stops.push(stop)
     return stop
 }
@@ -205,7 +212,7 @@ describe("pinch", () => {
 
     test("pan: false keeps the element in place", async () => {
         layout(element, 0, 0)
-        makePinchable(element, { pan: false })
+        makePinchable(element, noop, { pan: false })
 
         const gesture = await twoFinger(element, [50, 0, 150, 0])
         await gesture.to([0, 30, 200, 30])
@@ -229,7 +236,7 @@ describe("pinch", () => {
     })
 
     test("rotates with the touches when rotate is set", async () => {
-        makePinchable(element, { rotate: true })
+        makePinchable(element, noop, { rotate: true })
 
         const gesture = await twoFinger(element, [0, 0, 100, 0])
         await gesture.to([50, -50, 50, 50])
@@ -243,7 +250,7 @@ describe("pinch", () => {
     })
 
     test("rotation keeps counting past 180deg", async () => {
-        makePinchable(element, { rotate: true })
+        makePinchable(element, noop, { rotate: true })
 
         const gesture = await twoFinger(element, [0, 0, 100, 0])
         await gesture.to([50, -50, 50, 50]) // 90
@@ -256,7 +263,7 @@ describe("pinch", () => {
     })
 
     test("clamps scale to min and max", async () => {
-        makePinchable(element, { min: 0.5, max: 1.5 })
+        makePinchable(element, noop, { min: 0.5, max: 1.5 })
 
         const gesture = await twoFinger(element, [0, 0, 100, 0])
         await gesture.to([-50, 0, 150, 0])
@@ -283,7 +290,7 @@ describe("pinch", () => {
 
     test("a single touch doesn't pinch", async () => {
         const onStart = jest.fn()
-        makePinchable(element, { onStart })
+        makePinchable(element, onStart)
 
         pointer(element, "pointerdown", 1, 0, 0)
         pointer(window, "pointermove", 1, 100, 0)
@@ -296,7 +303,7 @@ describe("pinch", () => {
 
     test("ends when either touch lifts", async () => {
         const onEnd = jest.fn()
-        makePinchable(element, { onEnd })
+        makePinchable(element, () => onEnd)
 
         const gesture = await twoFinger(element, [0, 0, 100, 0])
         await gesture.to([-50, 0, 150, 0])
@@ -312,44 +319,160 @@ describe("pinch", () => {
         expect(onEnd).toHaveBeenCalledTimes(1)
     })
 
-    test("calls onStart, onMove and onEnd with gesture info", async () => {
+    test("calls the start callback with the element and the starting event", async () => {
         const onStart = jest.fn()
-        const onMove = jest.fn()
-        const onEnd = jest.fn()
-        makePinchable(element, { rotate: true, onStart, onMove, onEnd })
+        makePinchable(element, onStart)
 
-        const gesture = await twoFinger(element, [0, 0, 100, 0])
+        pointer(element, "pointerdown", 1, 0, 0)
+        expect(onStart).not.toHaveBeenCalled()
+        const second = pointer(element, "pointerdown", 2, 100, 0)
+
         expect(onStart).toHaveBeenCalledTimes(1)
-        expect(onStart.mock.calls[0][1]).toEqual({
-            point: { x: 50, y: 0 },
-            offset: { x: 0, y: 0 },
-            scale: 1,
-            rotate: 0,
+        expect(onStart.mock.calls[0][0]).toBe(element)
+        expect(onStart.mock.calls[0][1]).toBe(second)
+
+        pointer(window, "pointerup", 1, 0, 0)
+        pointer(window, "pointerup", 2, 0, 0)
+    })
+
+    test("calls the returned onPinch and onComplete with gesture info", async () => {
+        const onPinch = jest.fn()
+        const onComplete = jest.fn()
+        makePinchable(element, () => ({ onPinch, onComplete }), {
+            rotate: true,
         })
 
+        const gesture = await twoFinger(element, [0, 0, 100, 0])
+        expect(onPinch).not.toHaveBeenCalled()
+
         await gesture.to([0, 20, 200, 20])
-        expect(onMove).toHaveBeenCalledTimes(1)
-        const info: PinchInfo = onMove.mock.calls[0][1]
+        expect(onPinch).toHaveBeenCalledTimes(1)
+        const [event, info] = onPinch.mock.calls[0] as [Event, PinchInfo]
+        expect(event.type).toBe("pointermove")
         expect(info.point).toEqual({ x: 100, y: 20 })
         expect(info.offset).toEqual({ x: 50, y: 20 })
         expect(info.scale).toBeCloseTo(2)
         expect(info.rotate).toBeCloseTo(0)
 
-        // No movement, no onMove.
+        // No movement, no onPinch.
         await nextFrame()
-        expect(onMove).toHaveBeenCalledTimes(1)
+        expect(onPinch).toHaveBeenCalledTimes(1)
+        expect(onComplete).not.toHaveBeenCalled()
+
+        await gesture.end()
+        expect(onPinch).toHaveBeenCalledTimes(1)
+        expect(onComplete).toHaveBeenCalledTimes(1)
+        const [endEvent, endInfo] = onComplete.mock.calls[0]
+        expect(endEvent.type).toBe("pointerup")
+        expect(endInfo.scale).toBeCloseTo(2)
+        expect(endInfo.offset).toEqual({ x: 50, y: 20 })
+    })
+
+    test("a returned function is called once when the gesture ends", async () => {
+        const onEnd = jest.fn()
+        makePinchable(element, () => onEnd)
+
+        const gesture = await twoFinger(element, [0, 0, 100, 0])
+        await gesture.to([-50, 0, 150, 0])
+        expect(onEnd).not.toHaveBeenCalled()
 
         await gesture.end()
         expect(onEnd).toHaveBeenCalledTimes(1)
-        expect(onEnd.mock.calls[0][1].scale).toBeCloseTo(2)
+        const [event, info] = onEnd.mock.calls[0] as [Event, PinchInfo]
+        expect(event.type).toBe("pointerup")
+        expect(info.scale).toBeCloseTo(2)
+        expect(info.point).toEqual({ x: 50, y: 0 })
     })
 
-    test("onEnd can animate the values", async () => {
-        makePinchable(element, {
-            onEnd: () => {
+    test("a returned object can have only onPinch", async () => {
+        const onPinch = jest.fn()
+        makePinchable(element, () => ({ onPinch }))
+
+        const gesture = await twoFinger(element, [0, 0, 100, 0])
+        await gesture.to([-50, 0, 150, 0])
+        await gesture.end()
+
+        expect(onPinch).toHaveBeenCalledTimes(1)
+        expect(value(element, "scale")).toBeCloseTo(2)
+    })
+
+    test("a returned object can have only onComplete", async () => {
+        const onComplete = jest.fn()
+        makePinchable(element, () => ({ onComplete }))
+
+        const gesture = await twoFinger(element, [0, 0, 100, 0])
+        await gesture.to([-50, 0, 150, 0])
+        await gesture.end()
+
+        expect(onComplete).toHaveBeenCalledTimes(1)
+        expect(onComplete.mock.calls[0][1].scale).toBeCloseTo(2)
+    })
+
+    test("pinches when the start callback returns nothing", async () => {
+        const onStart = jest.fn(() => undefined)
+        makePinchable(element, onStart)
+
+        const gesture = await twoFinger(element, [0, 0, 100, 0])
+        await gesture.to([-50, 0, 150, 0])
+        expect(value(element, "scale")).toBeCloseTo(2)
+        await gesture.end()
+
+        expect(onStart).toHaveBeenCalledTimes(1)
+    })
+
+    test("calls the start callback once per gesture", async () => {
+        const onComplete = jest.fn()
+        const onStart = jest.fn(() => ({ onComplete }))
+        makePinchable(element, onStart)
+
+        const gesture = await twoFinger(element, [0, 0, 100, 0])
+        await gesture.to([-50, 0, 150, 0])
+        await gesture.to([-60, 0, 160, 0])
+
+        // A third touch doesn't start another gesture.
+        pointer(element, "pointerdown", 3, 50, 50)
+        await nextFrame()
+        pointer(window, "pointerup", 3, 50, 50)
+        await gesture.end()
+
+        expect(onStart).toHaveBeenCalledTimes(1)
+        expect(onComplete).toHaveBeenCalledTimes(1)
+    })
+
+    test("a new gesture calls the start callback again, with its own handlers", async () => {
+        const ends: jest.Mock[] = []
+        const onStart = jest.fn(() => {
+            const onEnd = jest.fn()
+            ends.push(onEnd)
+            return onEnd
+        })
+        makePinchable(element, onStart)
+
+        let gesture = await twoFinger(element, [0, 0, 100, 0])
+        await gesture.to([-50, 0, 150, 0])
+        await gesture.end()
+
+        gesture = await twoFinger(element, [0, 0, 100, 0])
+        await gesture.to([-50, 0, 150, 0])
+        await gesture.end()
+
+        wheel(element, -10, 50, 0)
+        await sleep(250)
+
+        expect(onStart).toHaveBeenCalledTimes(3)
+        expect(ends).toHaveLength(3)
+        ends.forEach((onEnd) => expect(onEnd).toHaveBeenCalledTimes(1))
+        expect(ends[0].mock.calls[0][1].scale).toBeCloseTo(2)
+        expect(ends[1].mock.calls[0][1].scale).toBeCloseTo(2)
+        expect(ends[2].mock.calls[0][0].type).toBe("wheel")
+    })
+
+    test("onComplete can animate the values", async () => {
+        makePinchable(element, () => ({
+            onComplete: () => {
                 animateElement(element, { scale: 1 }, { duration: 0.05 })
             },
-        })
+        }))
 
         const gesture = await twoFinger(element, [0, 0, 100, 0])
         await gesture.to([-50, 0, 150, 0])
@@ -395,7 +518,7 @@ describe("pinch", () => {
 
     test("stop removes the gesture", async () => {
         const onStart = jest.fn()
-        const stop = makePinchable(element, { onStart })
+        const stop = makePinchable(element, onStart)
         stop()
 
         await twoFinger(element, [0, 0, 100, 0])
@@ -417,12 +540,72 @@ describe("pinch", () => {
     test("is collected by scopeMotion", async () => {
         const onStart = jest.fn()
         const scope = scopeMotion(() => {
-            pinch(element, { onStart })
+            pinch(element, onStart)
         })
         scope.stop()
 
         await twoFinger(element, [0, 0, 100, 0])
         expect(onStart).not.toHaveBeenCalled()
+    })
+
+    test("runs the start callback and its handlers in the active scope", async () => {
+        const scopes: Record<string, unknown> = {}
+        const record = (name: string) => () => {
+            scopes[name] = activeScope.current
+        }
+        const other = document.createElement("div")
+        document.body.appendChild(other)
+        layout(other, 50, 0)
+
+        const scope = scopeMotion(() => {
+            pinch(element, () => {
+                record("start")()
+                return {
+                    onPinch: record("onPinch"),
+                    onComplete: record("onComplete"),
+                }
+            })
+            pinch(other, () => {
+                record("startFn")()
+                return record("returnedFn")
+            })
+        })
+
+        expect(activeScope.current).toBe(undefined)
+
+        let gesture = await twoFinger(element, [0, 0, 100, 0])
+        await gesture.to([-50, 0, 150, 0])
+        await gesture.end()
+
+        gesture = await twoFinger(other, [0, 0, 100, 0])
+        await gesture.end()
+
+        expect(Object.keys(scopes).sort()).toEqual([
+            "onComplete",
+            "onPinch",
+            "returnedFn",
+            "start",
+            "startFn",
+        ])
+        for (const name in scopes) expect(scopes[name]).toBeDefined()
+
+        scope.stop()
+    })
+
+    test("handlers left undefined are skipped in a scope", async () => {
+        const scope = scopeMotion(() => {
+            pinch(element, () => ({
+                onPinch: undefined,
+                onComplete: undefined,
+            }))
+        })
+
+        const gesture = await twoFinger(element, [0, 0, 100, 0])
+        await gesture.to([-50, 0, 150, 0])
+        await gesture.end()
+        expect(value(element, "scale")).toBeCloseTo(2)
+
+        scope.stop()
     })
 })
 
@@ -442,9 +625,9 @@ describe("pinch with a trackpad", () => {
     })
 
     test("accumulates wheel events into one gesture that ends when they stop", async () => {
-        const onStart = jest.fn()
         const onEnd = jest.fn()
-        makePinchable(element, { onStart, onEnd })
+        const onStart = jest.fn(() => onEnd)
+        makePinchable(element, onStart)
 
         wheel(element, -50 * Math.log(2), 50, 0)
         await nextFrame()
@@ -463,7 +646,7 @@ describe("pinch with a trackpad", () => {
 
     test("ignores wheel without ctrl so the page still scrolls", async () => {
         const onStart = jest.fn()
-        makePinchable(element, { onStart })
+        makePinchable(element, onStart)
 
         const event = wheel(element, -100, 0, 0, false)
         expect(event.defaultPrevented).toBe(false)
@@ -473,7 +656,7 @@ describe("pinch with a trackpad", () => {
 
     test("Safari gesture events scale and rotate", async () => {
         const onEnd = jest.fn()
-        makePinchable(element, { rotate: true, onEnd })
+        makePinchable(element, () => onEnd, { rotate: true })
 
         const start = gestureEvent(element, "gesturestart", 1, 0, 50, 0)
         expect(start.defaultPrevented).toBe(true)
@@ -587,14 +770,14 @@ describe("pinch with drag", () => {
 describe("pinch edge cases", () => {
     test("x/y set during the gesture are kept", async () => {
         let nudged = false
-        makePinchable(element, {
-            onMove: () => {
+        makePinchable(element, () => ({
+            onPinch: () => {
                 if (nudged) return
                 nudged = true
                 const x = styleSubjectEffect.get(element, "x")!
                 x.set((x.get() as number) + 100)
             },
-        })
+        }))
 
         const gesture = await twoFinger(element, [0, 0, 100, 0])
         await gesture.to([50, 0, 150, 0])
@@ -621,7 +804,7 @@ describe("pinch edge cases", () => {
 
     test("zooms and rotates around an off-centre point", async () => {
         layout(element, 0, 0)
-        makePinchable(element, { rotate: true })
+        makePinchable(element, noop, { rotate: true })
 
         const gesture = await twoFinger(element, [50, 0, 150, 0])
         await gesture.to([100, -50, 100, 50])
@@ -668,7 +851,7 @@ describe("pinch edge cases", () => {
     test("disabling mid-gesture ends it", async () => {
         const onEnd = jest.fn()
         let enabled = true
-        const options = { max: 1.2, onEnd }
+        const options = { max: 1.2 }
         const { addPinchListeners } = require("..")
         const remove = addPinchListeners(
             element,
@@ -681,7 +864,8 @@ describe("pinch edge cases", () => {
                     }
                     return v
                 }),
-            () => enabled && options
+            () => enabled && options,
+            () => onEnd
         )
         stops.push(remove)
 
@@ -714,7 +898,7 @@ describe("pinch edge cases", () => {
 
     test("ignores mouse pointers", async () => {
         const onStart = jest.fn()
-        makePinchable(element, { onStart })
+        makePinchable(element, onStart)
 
         // A mouse press whose pointerup is swallowed (e.g. by a context menu)...
         const event = new Event("pointerdown", { bubbles: true })
@@ -748,7 +932,7 @@ describe("pinch edge cases", () => {
 
     test("stopping mid-gesture calls onEnd", async () => {
         const onEnd = jest.fn()
-        const stop = makePinchable(element, { onEnd })
+        const stop = makePinchable(element, () => onEnd)
 
         await twoFinger(element, [0, 0, 100, 0])
         stop()
@@ -758,7 +942,7 @@ describe("pinch edge cases", () => {
 
     test("a gesture that ends before measuring doesn't leave a pending move", async () => {
         const onMove = jest.fn()
-        makePinchable(element, { onMove })
+        makePinchable(element, () => ({ onPinch: onMove }))
 
         pointer(element, "pointerdown", 1, 0, 0)
         pointer(element, "pointerdown", 2, 100, 0)
@@ -808,7 +992,7 @@ describe("pinch with a trackpad: wheel deltas", () => {
     })
 
     test("pinching past max doesn't build up", async () => {
-        makePinchable(element, { max: 2 })
+        makePinchable(element, noop, { max: 2 })
 
         for (let i = 0; i < 2000; i++) wheelWithMode(-1e6, 0)
         await nextFrame()

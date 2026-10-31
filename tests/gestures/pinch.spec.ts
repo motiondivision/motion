@@ -93,7 +93,7 @@ test.describe("pinch", () => {
             width: 200,
             height: 200,
         })
-        expect(await events(page)).toEqual(["start", "end"])
+        expect(await events(page)).toEqual(["start", "end:pointerup"])
     })
 
     test("two touches move and rotate the box", async ({ page }) => {
@@ -232,6 +232,62 @@ test.describe("pinch", () => {
         expect((await rect(page, "#box")).left).toBeCloseTo(box.left + 10, 0)
         await touch(cdp, "touchEnd", [])
     })
+
+    const spread2x = (page: Page) =>
+        twoFinger(
+            page,
+            [
+                { x: 160, y: 150 },
+                { x: 190, y: 150 },
+            ],
+            [
+                { x: 145, y: 150 },
+                { x: 205, y: 150 },
+            ]
+        )
+
+    test("calls the start callback once per gesture, with the element and event", async ({
+        page,
+    }) => {
+        await open(page)
+        await spread2x(page)
+
+        expect(await events(page)).toEqual(["start", "end:pointerup"])
+        expect(await page.evaluate(() => (window as any).startArgs)).toEqual([
+            { isBox: true, type: "pointerdown" },
+        ])
+
+        // A new gesture calls it again.
+        await spread2x(page)
+        expect(await events(page)).toEqual([
+            "start",
+            "end:pointerup",
+            "start",
+            "end:pointerup",
+        ])
+        expect((await rect(page, "#box")).width).toBeCloseTo(400, 0)
+    })
+
+    test("a returned function is called when the gesture ends", async ({
+        page,
+    }) => {
+        await open(page, "?returns=function")
+        await spread2x(page)
+
+        expect(await events(page)).toEqual(["start", "end:pointerup"])
+        const info = await page.evaluate(() => (window as any).lastInfo)
+        expect(info.scale).toBeCloseTo(2, 1)
+    })
+
+    test("pinches when the start callback returns nothing", async ({
+        page,
+    }) => {
+        await open(page, "?returns=none")
+        await spread2x(page)
+
+        expect(await events(page)).toEqual(["start"])
+        expect((await rect(page, "#box")).width).toBeCloseTo(200, 0)
+    })
 })
 
 test.describe("pinch with a trackpad", () => {
@@ -252,6 +308,6 @@ test.describe("pinch with a trackpad", () => {
         expect(box.top).toBeCloseTo(100, 0)
         expect(box.width).toBeCloseTo(200, 0)
 
-        await expect.poll(() => events(page)).toEqual(["start", "end"])
+        await expect.poll(() => events(page)).toEqual(["start", "end:wheel"])
     })
 })
