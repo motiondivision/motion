@@ -291,7 +291,7 @@
             ],
             mount(stops) {
                 const card = el(`<div class="thing card-a" data-name="card" style="left:calc(50% - 130px);top:110px;width:260px;height:200px;align-content:start;padding-top:26px">Draggable card<small>drag me anywhere</small></div>`)
-                const button = el(`<button class="btn-a" data-name="button" style="position:absolute;left:50%;bottom:28px;transform:translateX(-50%)">Buy now</button>`)
+                const button = el(`<button class="btn-a" data-name="button" style="position:absolute;left:0;right:0;margin:0 auto;width:max-content;bottom:28px">Buy now</button>`)
                 card.append(button)
                 stage.append(card, el(`<span class="hint">Mouse, touch or pen. Watch the button's press end as soon as the card moves.</span>`))
                 stops.push(drag(card, { after: opt.dragAfter || undefined, constraints: stage, elastic: 0.2 }))
