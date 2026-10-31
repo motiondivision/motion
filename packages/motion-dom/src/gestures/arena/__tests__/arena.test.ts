@@ -401,8 +401,11 @@ describe("drag after a hold", () => {
         stops.push(drag(element, { after: 0.1 }))
 
         const move = () => {
-            const event = new Event("touchmove", { cancelable: true })
-            window.dispatchEvent(event)
+            const event = new Event("touchmove", {
+                bubbles: true,
+                cancelable: true,
+            })
+            element.dispatchEvent(event)
             return event.defaultPrevented
         }
 
@@ -415,6 +418,36 @@ describe("drag after a hold", () => {
         touch(element, "pointerup", 1)
         await nextFrame()
         expect(move()).toBe(false)
+    })
+})
+
+describe("drag after a hold in Safari", () => {
+    /**
+     * Safari ignores preventDefault() from a touchmove listener that was
+     * added after the touch started, so the page scrolls anyway.
+     */
+    test("the touchmove listener is there before the touch starts", () => {
+        const element = createElement()
+        const add = jest.spyOn(element, "addEventListener")
+        stops.push(drag(element, { after: 0.1 }))
+
+        expect(
+            add.mock.calls.some(
+                ([type, , options]) =>
+                    type === "touchmove" &&
+                    (options as AddEventListenerOptions)?.passive === false
+            )
+        ).toBe(true)
+    })
+
+    test("a drag without a hold adds no touchmove listener", () => {
+        const element = createElement()
+        const add = jest.spyOn(element, "addEventListener")
+        stops.push(drag(element))
+
+        expect(add.mock.calls.some(([type]) => type === "touchmove")).toBe(
+            false
+        )
     })
 })
 

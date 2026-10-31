@@ -105,6 +105,11 @@ export class VisualElementDragControls {
     private endHold?: VoidFunction
     private removeTouchMove?: VoidFunction
 
+    /**
+     * Whether a `dragAfter` hold has passed, so touch moves mustn't scroll.
+     */
+    private blockTouch = false
+
     isDragging = false
     private currentDirection: DragDirection | null = null
 
@@ -210,20 +215,14 @@ export class VisualElementDragControls {
                 ) > 8 &&
                 this.cancel()
 
-            /**
-             * Once held, stop touch moves scrolling the page. A touchmove
-             * can only be cancelled before the page starts scrolling,
-             * which it hasn't if the pointer was held still.
-             */
-            const onTouchMove = (event: TouchEvent) =>
-                !this.endHold && event.cancelable && event.preventDefault()
-
             const tick = () => {
                 if (time.now() < holdEnd) return
                 this.endHold!()
-                this.panSession && claimGesture(this.gesture!)
-                    ? (this.panSession.distanceThreshold = 0)
-                    : this.cancel()
+                if (!this.panSession || !claimGesture(this.gesture!)) {
+                    return this.cancel()
+                }
+                this.panSession.distanceThreshold = 0
+                this.blockTouch = true
             }
 
             frame.update(tick, true)
@@ -233,10 +232,6 @@ export class VisualElementDragControls {
              */
             element.addEventListener("contextmenu", preventDefault)
             window.addEventListener("pointermove", onMove)
-            window.addEventListener("touchmove", onTouchMove, {
-                passive: false,
-            })
-
             this.endHold = () => {
                 cancelFrame(tick)
                 window.removeEventListener("pointermove", onMove)
@@ -245,7 +240,7 @@ export class VisualElementDragControls {
             this.removeTouchMove = () => {
                 this.endHold?.()
                 element.removeEventListener("contextmenu", preventDefault)
-                window.removeEventListener("touchmove", onTouchMove)
+                this.blockTouch = false
             }
         }
 
@@ -884,6 +879,27 @@ export class VisualElementDragControls {
         )
 
         /**
+         * Once a `dragAfter` hold passes, stop touch moves scrolling the
+         * page. A touchmove can only be cancelled before the page starts
+         * scrolling, which it hasn't if the pointer was held still.
+         *
+         * Safari only lets a touchmove listener cancel scrolling if one was
+         * already there when the touch started, so it's added here rather
+         * than when the drag starts.
+         */
+        const stopTouchListener = this.getProps().dragAfter
+            ? addDomEvent(
+                  element,
+                  "touchmove",
+                  (event: Event) =>
+                      this.blockTouch &&
+                      event.cancelable &&
+                      event.preventDefault(),
+                  { passive: false }
+              )
+            : undefined
+
+        /**
          * If using ref-based constraints, observe both the draggable element
          * and the constraint container for size changes via ResizeObserver.
          * Setup is deferred because dragConstraints.current is null when
@@ -971,6 +987,7 @@ export class VisualElementDragControls {
         return () => {
             stopResizeListener()
             stopPointerListener()
+            stopTouchListener?.()
             stopMeasureLayoutListener()
             stopLayoutUpdateListener()
             stopResizeObservers?.()
