@@ -1,9 +1,9 @@
 import { expect, Page, test } from "@playwright/test"
 
 /**
- * Reorder items are tab stops with keyboard grab-and-move (#2658). Controls
- * inside an item must behave as they do without Reorder: their keys and
- * clicks are theirs, and they stay in the tab order.
+ * Reorder items have keyboard grab-and-move (#2658), with one item as the
+ * group's tab stop. Controls inside an item must behave as they do without
+ * Reorder: their keys and clicks are theirs, and they stay in the tab order.
  */
 const text = (page: Page, id: string) => page.locator(id).textContent()
 const focused = (page: Page) => page.evaluate(() => document.activeElement?.id)
@@ -28,14 +28,17 @@ test.describe("Reorder items with nested controls", () => {
         await page.waitForSelector("#a")
     })
 
-    test("tab order visits each item, then its controls", async ({ page }) => {
+    test("tab order visits one item, then every item's controls", async ({
+        page,
+    }) => {
         await page.focus("#a")
         const ids: (string | undefined)[] = []
         for (let i = 0; i < 4; i++) {
             await page.keyboard.press("Tab")
             ids.push(await focused(page))
         }
-        expect(ids).toEqual(["a-checkbox", "a-button", "a-link", "b"])
+        // Only one item is a tab stop, so b is reached with the arrows
+        expect(ids).toEqual(["a-checkbox", "a-button", "a-link", "b-checkbox"])
     })
 
     test("Space toggles a nested checkbox without grabbing", async ({

@@ -29,3 +29,8 @@ export function measurePageBox(
 
     return viewportBox
 }
+
+export const measureDocumentScroll = () => ({
+    x: document.documentElement.scrollLeft || document.body?.scrollLeft || 0,
+    y: document.documentElement.scrollTop || document.body?.scrollTop || 0,
+})

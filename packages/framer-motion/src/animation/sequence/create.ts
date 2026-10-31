@@ -147,6 +147,12 @@ export function createAnimationsFromSequence(
                     valueTransition
 
                 /**
+                 * The value animates as one, so it takes the first mixer
+                 * given for it, or else the default transition's.
+                 */
+                valueSequence.mixer ||= valueTransition.mixer
+
+                /**
                  * Resolve stagger() if defined.
                  */
                 const calculatedDelay =
@@ -229,10 +235,12 @@ export function createAnimationsFromSequence(
                  * explode the keyframe array. Ignore with a warning.
                  */
                 if (repeat) {
-                    warning(
-                        repeat < MAX_REPEAT,
-                        `Sequence segments can't repeat ${repeat} times — ignoring repeat option. Use a value below ${MAX_REPEAT} or apply repeat at the sequence level instead.`
-                    )
+                    typeof process !== "undefined" &&
+                        process.env.NODE_ENV !== "production" &&
+                        warning(
+                            repeat < MAX_REPEAT,
+                            `Sequence segments can't repeat ${repeat} times — ignoring repeat option. Use a value below ${MAX_REPEAT} or apply repeat at the sequence level instead.`
+                        )
                 }
 
                 if (repeat && repeat < MAX_REPEAT) {
@@ -489,6 +497,7 @@ export function createAnimationsFromSequence(
                 duration: totalDuration,
                 ease: valueEasing,
                 times: valueOffset,
+                mixer: valueSequence.mixer || defaultTransition.mixer,
                 ...sequenceTransition,
             }
         }

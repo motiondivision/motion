@@ -166,16 +166,18 @@ export function useScroll({
         const tryStart = () => {
             const containerPending = isRefPending(container)
             const targetPending = isRefPending(target)
-            invariant(
-                !containerPending,
-                "Container ref is defined but not hydrated",
-                "use-scroll-ref"
-            )
-            invariant(
-                !targetPending,
-                "Target ref is defined but not hydrated",
-                "use-scroll-ref"
-            )
+            process.env.NODE_ENV !== "production" &&
+                invariant(
+                    !containerPending,
+                    "Container ref is defined but not hydrated",
+                    "use-scroll-ref"
+                )
+            process.env.NODE_ENV !== "production" &&
+                invariant(
+                    !targetPending,
+                    "Target ref is defined but not hydrated",
+                    "use-scroll-ref"
+                )
             if (!containerPending && !targetPending) cleanup = start()
         }
         microtask.read(tryStart)

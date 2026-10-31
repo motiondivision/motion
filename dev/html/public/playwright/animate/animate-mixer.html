@@ -1,0 +1,77 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+                padding: 50px;
+            }
+
+            .box {
+                width: 100px;
+                height: 100px;
+                background-color: #0077ff;
+            }
+        </style>
+    </head>
+    <body>
+        <svg width="100" height="100" viewBox="0 0 100 100">
+            <path id="single" d="M10 10L90 10L90 90Z" fill="#0077ff" />
+            <path id="sequence" d="M10 10L90 10L90 90Z" fill="#0077ff" />
+        </svg>
+        <div id="filter" class="box"></div>
+        <div id="opacity" class="box"></div>
+        <div id="oklch" class="box"></div>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            const { animate } = window.Motion
+
+            const single = document.getElementById("single")
+            const sequence = document.getElementById("sequence")
+            const filter = document.getElementById("filter")
+            const opacity = document.getElementById("opacity")
+            const oklch = document.getElementById("oklch")
+
+            // Long, linear animations so the mid-point can be sampled
+            const options = { duration: 10, ease: "linear" }
+
+            /**
+             * The default mixer can't blend a triangle into a square, as
+             * they have different numbers of points. This mixer slides the
+             * square's last corner out of the triangle's.
+             */
+            const square = "M10 10L90 10L90 90L10 90Z"
+            const corner = () => (p) =>
+                p >= 1 ? square : `M10 10L90 10L90 90L${90 - 80 * p} 90Z`
+
+            animate(single, { d: square }, { ...options, mixer: corner })
+            animate([[sequence, { d: square }, { ...options, mixer: corner }]])
+
+            // Holds filter at one value, so the page can tell the mixer drives it
+            animate(
+                filter,
+                { filter: ["blur(0px)", "blur(10px)"] },
+                { ...options, mixer: () => () => "blur(5px)" }
+            )
+
+            // Numbers blend as usual, so opacity can still run on WAAPI
+            window.opacityMixed = false
+            animate(
+                opacity,
+                { opacity: [0, 1] },
+                {
+                    ...options,
+                    mixer: () => {
+                        window.opacityMixed = true
+                    },
+                }
+            )
+
+            // Only the browser can blend oklch, so a mixer that declines it leaves it to WAAPI
+            animate(
+                oklch,
+                { backgroundColor: ["#ff0000", "oklch(0.7 0.1 200)"] },
+                { ...options, mixer: () => undefined }
+            )
+        </script>
+    </body>
+</html>

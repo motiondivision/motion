@@ -1,6 +1,6 @@
 {
     "name": "framer-motion",
-    "version": "14.6.0",
+    "version": "14.9.0",
     "description": "A simple and powerful JavaScript animation library",
     "main": "dist/cjs/index.js",
     "module": "dist/es/index.mjs",
@@ -52,6 +52,12 @@
             "import": "./dist/es/projection.mjs",
             "default": "./dist/es/projection.mjs"
         },
+        "./remix": {
+            "types": "./dist/remix.d.ts",
+            "require": "./dist/cjs/remix.js",
+            "import": "./dist/es/remix.mjs",
+            "default": "./dist/cjs/remix.js"
+        },
         "./animate-view": {
             "types": "./dist/animate-view.d.ts",
             "require": "./dist/cjs/animate-view.js",
@@ -93,12 +99,13 @@
         "measure": "rollup -c ./rollup.size.config.mjs"
     },
     "dependencies": {
-        "motion-dom": "14.6.0",
-        "motion-utils": "14.6.0",
+        "motion-dom": "14.9.0",
+        "motion-utils": "14.7.0",
         "tslib": "^2.4.0"
     },
     "devDependencies": {
         "@radix-ui/react-dialog": "^1.1.15",
+        "@remix-run/component": "1.1.0",
         "@thednp/dommatrix": "^2.0.11",
         "@types/three": "0.137.0",
         "concurrently": "^7.3.0",
@@ -109,13 +116,17 @@
     },
     "peerDependencies": {
         "react": "^18.0.0 || ^19.0.0",
-        "react-dom": "^18.0.0 || ^19.0.0"
+        "react-dom": "^18.0.0 || ^19.0.0",
+        "remix": "^3.1.0"
     },
     "peerDependenciesMeta": {
         "react": {
             "optional": true
         },
         "react-dom": {
+            "optional": true
+        },
+        "remix": {
             "optional": true
         }
     },
@@ -151,7 +162,11 @@
         {
             "path": "./dist/size-rollup-waapi-animate.js",
             "maxSize": "3.2 kB"
+        },
+        {
+            "path": "./dist/size-rollup-remix.js",
+            "maxSize": "48.91 kB"
         }
     ],
-    "gitHead": "cddcc66430c5c96b2f560bb6a61160231f512c53"
+    "gitHead": "1b27a832fbe0a30c011134d95cfa1fd2330f1203"
 }

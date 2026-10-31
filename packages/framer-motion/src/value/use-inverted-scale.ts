@@ -47,15 +47,17 @@ export function useInvertedScale(
     let parentScaleY = useMotionValue(1)
     const { visualElement } = useContext(MotionContext)
 
-    invariant(
-        !!(scale || visualElement),
-        "If no scale values are provided, useInvertedScale must be used within a child of another motion component."
-    )
+    process.env.NODE_ENV !== "production" &&
+        invariant(
+            !!(scale || visualElement),
+            "If no scale values are provided, useInvertedScale must be used within a child of another motion component."
+        )
 
-    warning(
-        hasWarned,
-        "useInvertedScale is deprecated and will be removed in 3.0. Use the layout prop instead."
-    )
+    process.env.NODE_ENV !== "production" &&
+        warning(
+            hasWarned,
+            "useInvertedScale is deprecated and will be removed in 3.0. Use the layout prop instead."
+        )
 
     hasWarned = true
 

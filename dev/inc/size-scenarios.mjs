@@ -115,6 +115,10 @@ export const scenarios = {
  * without failing --check. Once no listed scenario contains the string any
  * more, --check fails until the PR that fixed the leak deletes that line, so
  * the canary then guards against regressions.
+ *
+ * `esbuild: true` checks the esbuild bundle instead of the Rollup one. Rollup
+ * and terser drop some code that esbuild (and webpack/SWC) keep, such as
+ * calls to the no-op production `invariant` and `warning`.
  */
 export const canaries = [
     {
@@ -151,6 +155,18 @@ export const canaries = [
         scenarios: "*",
         forbid: "typeof console",
         why: "The dev-only warning body survives production dead-code elimination (plan 036)",
+    },
+    {
+        scenarios: ["animate", "motion-div", "mini-animate"],
+        forbid: "Invalid easing type",
+        why: "An invariant/warning call isn't wrapped in a NODE_ENV check, so esbuild/webpack keep its message",
+        esbuild: true,
+    },
+    {
+        scenarios: ["animate", "mini-animate"],
+        forbid: "No valid elements provided",
+        why: "An invariant/warning call isn't wrapped in a NODE_ENV check, so esbuild/webpack keep its message",
+        esbuild: true,
     },
 ]
 
@@ -243,7 +259,11 @@ async function bundleEsbuild(code, withMeta = false) {
         target: "es2020",
     })
     const buf = Buffer.from(res.outputFiles[0].contents)
-    const result = { min: buf.length, gz: await gzip(buf) }
+    const result = {
+        min: buf.length,
+        gz: await gzip(buf),
+        code: buf.toString(),
+    }
     if (withMeta) {
         const out = Object.values(res.metafile.outputs)[0]
         result.modules = Object.entries(out.inputs).map(([id, m]) => [
@@ -352,15 +372,23 @@ function check(results, codes, budgets) {
     }
 
     console.log("\nLeak canaries:")
-    for (const { scenarios: names, forbid, why, knownLeak } of canaries) {
+    for (const {
+        scenarios: names,
+        forbid,
+        why,
+        knownLeak,
+        esbuild,
+    } of canaries) {
         const listed = names === "*" ? Object.keys(scenarios) : names
         const measured = listed.filter((name) => codes[name] !== undefined)
         if (!measured.length) continue
 
-        const leaking = measured.filter((name) => codes[name].includes(forbid))
+        const leaking = measured.filter((name) =>
+            codes[name][esbuild ? "esbuild" : "rollup"].includes(forbid)
+        )
         const label = `"${forbid}" in ${
             names === "*" ? "any scenario" : names.join(", ")
-        }`
+        }${esbuild ? " (esbuild)" : ""}`
         const found =
             leaking.length > 5
                 ? `${leaking.length} scenarios`
@@ -417,7 +445,7 @@ async function main() {
     )
     names.forEach((name, i) => {
         const [r, e] = measured[i]
-        codes[name] = r.code
+        codes[name] = { rollup: r.code, esbuild: e.code }
         results[name] = {
             min: r.min,
             gz: r.gz,
