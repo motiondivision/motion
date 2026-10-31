@@ -362,10 +362,10 @@ describe("press after", () => {
         expect(menu()).toBe(false)
     })
 
-    test("onProgress reports hold progress", async () => {
+    test("onHold reports hold progress, starting at 0", async () => {
         const progress: number[] = []
         const { element, events } = setup({ after: 0.5 }, 1, {
-            onProgress: (p) => progress.push(p),
+            onHold: (p) => progress.push(p),
         })
 
         pointer(element, "down")
@@ -376,6 +376,7 @@ describe("press after", () => {
         pointer(element, "up")
 
         expect(events).toEqual(["start:el0", "cancel:el0"])
+        expect(progress[0]).toBe(0)
         expect(progress.length).toBeGreaterThan(2)
         for (let i = 1; i < progress.length; i++) {
             expect(progress[i]).toBeGreaterThanOrEqual(progress[i - 1])
@@ -412,22 +413,22 @@ describe("press after", () => {
         ])
     })
 
-    test("no frames are scheduled without after", async () => {
-        const onProgress = jest.fn()
-        const { element } = setup({}, 1, { onProgress })
+    test("onHold is never called without after or repeat", async () => {
+        const onHold = jest.fn()
+        const { element } = setup({}, 1, { onHold })
 
         pointer(element, "down")
         await wait(100)
         await nextFrame()
         pointer(element, "up")
 
-        expect(onProgress).not.toHaveBeenCalled()
+        expect(onHold).not.toHaveBeenCalled()
     })
 
     test("times and after: tap then hold", async () => {
         const progress: number[] = []
         const { element, events } = setup({ times: 2, after: 0.5 }, 1, {
-            onProgress: (p) => progress.push(p),
+            onHold: (p) => progress.push(p),
         })
 
         await tap(element)
@@ -491,9 +492,9 @@ describe("press after", () => {
     })
 
     test("cancelling the gesture during a hold stops it", async () => {
-        const onProgress = jest.fn()
+        const onHold = jest.fn()
         const { element, events, cancel } = setup({ after: 0.5 }, 1, {
-            onProgress,
+            onHold,
         })
 
         pointer(element, "down")
@@ -503,7 +504,7 @@ describe("press after", () => {
         await nextFrame()
 
         expect(events).toEqual(["start:el0"])
-        expect(onProgress).not.toHaveBeenCalled()
+        expect(onHold).not.toHaveBeenCalled()
     })
 })
 
@@ -591,6 +592,122 @@ describe("press repeat", () => {
         await wait(300)
         await nextFrame()
         expect(onRepeat).toHaveBeenCalledTimes(1)
+    })
+})
+
+describe("press onHold", () => {
+    /**
+     * Log onHold and onRepeat calls in order.
+     */
+    const setupLog = (options: object) => {
+        const log: string[] = []
+        const result = setup(options, 1, {
+            onHold: (p) => log.push("hold:" + p),
+            onRepeat: (count) => log.push("repeat:" + count),
+        })
+        return { ...result, log }
+    }
+
+    test("after then repeat: 0 to 1 over after, then over each repeat", async () => {
+        const { element, log } = setupLog({ after: 0.5, repeat: 0.2 })
+
+        pointer(element, "down")
+        await wait(250)
+        await nextFrame()
+        expect(log).toEqual(["hold:0"])
+
+        await wait(250)
+        await nextFrame()
+        expect(log).toEqual(["hold:0", "hold:1"])
+
+        // The frame after a boundary restarts at 0
+        await wait(100)
+        await nextFrame()
+        await wait(50)
+        await nextFrame()
+        expect(log).toEqual(["hold:0", "hold:1", "hold:0", "hold:0.75"])
+
+        // 1 at the boundary, before onRepeat
+        await wait(50)
+        await nextFrame()
+        await wait(50)
+        await nextFrame()
+        await wait(100)
+        await nextFrame()
+        expect(log).toEqual([
+            "hold:0",
+            "hold:1",
+            "hold:0",
+            "hold:0.75",
+            "hold:1",
+            "repeat:1",
+            "hold:0",
+            "hold:0.75",
+        ])
+
+        pointer(element, "up")
+        const count = log.length
+        await wait(300)
+        await nextFrame()
+        expect(log.length).toBe(count)
+    })
+
+    test("repeat: loops from the start of the final press", async () => {
+        const { element, log } = setupLog({ repeat: 0.1 })
+
+        pointer(element, "down")
+        await wait(10)
+        await nextFrame()
+        await wait(40)
+        await nextFrame()
+        await wait(50)
+        await nextFrame()
+        await wait(25)
+        await nextFrame()
+        await wait(25)
+        await nextFrame()
+
+        expect(log).toEqual([
+            "hold:0",
+            "hold:0.5",
+            "hold:1",
+            "repeat:1",
+            "hold:0",
+            "hold:0.5",
+        ])
+        pointer(element, "up")
+    })
+
+    test("times: only the final press reports", async () => {
+        const { element, log } = setupLog({ times: 2, repeat: 0.1 })
+
+        pointer(element, "down")
+        await wait(150)
+        await nextFrame()
+        pointer(element, "up")
+        expect(log).toEqual([])
+
+        await wait(50)
+        pointer(element, "down")
+        await wait(50)
+        await nextFrame()
+        expect(log).toEqual(["hold:0"])
+        pointer(element, "up")
+    })
+
+    test("after only: stays at 1 once reached", async () => {
+        const { element, log } = setupLog({ after: 0.2 })
+
+        pointer(element, "down")
+        await wait(50)
+        await nextFrame()
+        await wait(200)
+        await nextFrame()
+        await wait(200)
+        await nextFrame()
+
+        expect(log).toEqual(["hold:0", "hold:1"])
+        pointer(element, "up")
     })
 })
 

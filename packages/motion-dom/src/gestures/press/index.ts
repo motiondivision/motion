@@ -79,7 +79,7 @@ export interface PointerEventOptions extends EventOptions, PressOptions {
  *
  * ```js
  * press(button, () => ({
- *   onProgress: (progress) => {},
+ *   onHold: (progress) => {},
  *   onComplete: (event, { success }) => {},
  * }), { after: 0.5 })
  * ```
@@ -152,25 +152,40 @@ export function press(
                     : result || {}
         }
 
+        /**
+         * While held, `onHold` reports progress from 0 to 1 over `after`,
+         * then over each `repeat`. Each cycle reports exactly 1 at its end,
+         * then 0 on the next frame.
+         */
+        const repeatTime = secondsToMilliseconds(repeat!)
+        let length = afterTime || repeatTime
+        let cycleEnd = downTime + length
+        let isCycleStart = true
+
         const tick = () => {
             if (eventOptions.signal!.aborted) return cancelFrame(tick)
 
-            const elapsed = time.now() - downTime
+            let progress = Math.min(1 - (cycleEnd - time.now()) / length, 1)
 
-            if (!isActive) {
-                const progress = Math.min(elapsed / afterTime, 1)
-                handlers.onProgress?.(progress)
-                if (progress < 1) return
-                isActive = true
-            }
+            /**
+             * The frame after a boundary reports 0, so each cycle visibly
+             * restarts. Boundaries are timed from `downTime`, so this
+             * doesn't delay the next one. If a long frame has already
+             * passed the next boundary, it reports 1 instead.
+             */
+            if (isCycleStart && progress < 1) progress = 0
+            isCycleStart = false
+            handlers.onHold?.(progress)
 
-            if (!repeat) {
+            if (progress < 1) return
+
+            isActive ? handlers.onRepeat?.(++repeats) : (isActive = true)
+
+            if (repeat) {
+                isCycleStart = true
+                cycleEnd += length = repeatTime
+            } else {
                 cancelFrame(tick)
-            } else if (
-                elapsed - afterTime >=
-                (repeats + 1) * secondsToMilliseconds(repeat)
-            ) {
-                handlers.onRepeat?.(++repeats)
             }
         }
 
