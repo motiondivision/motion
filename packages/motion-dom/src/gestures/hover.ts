@@ -1,5 +1,6 @@
 import { bindToScope } from "../scope/active"
 import { ElementOrSelector } from "../utils/resolve-elements"
+import { Gesture, joinGesture, leaveGesture } from "./arena"
 import { isDragActive } from "./drag/state/is-active"
 import { EventOptions } from "./types"
 import { setupGesture } from "./utils/setup"
@@ -51,6 +52,7 @@ export function hover(
         let isPressed = false
         let deferredHoverEnd = false
         let hoverEndCallback: OnHoverEndEvent | undefined
+        let gesture: Gesture | undefined
 
         const removePointerLeave = () => {
             element.removeEventListener(
@@ -60,6 +62,8 @@ export function hover(
         }
 
         const endHover = (event: PointerEvent) => {
+            gesture && leaveGesture(gesture)
+            gesture = undefined
             if (hoverEndCallback) {
                 hoverEndCallback(event)
                 hoverEndCallback = undefined
@@ -114,14 +118,23 @@ export function hover(
 
             deferredHoverEnd = false
 
-            const onHoverEnd = onHoverStart(
-                element as Element,
-                enterEvent
-            )
+            /**
+             * Hover doesn't compete for its pointer, so it only joins the
+             * registry, where other gestures and app code can read it.
+             */
+            gesture && leaveGesture(gesture)
+            gesture = joinGesture({
+                kind: "hover",
+                element,
+                pointerId: enterEvent.pointerId,
+                phase: "active",
+                passive: true,
+            })
 
-            if (typeof onHoverEnd !== "function") return
+            const onHoverEnd = onHoverStart(element as Element, enterEvent)
 
-            hoverEndCallback = onHoverEnd
+            hoverEndCallback =
+                typeof onHoverEnd === "function" ? onHoverEnd : undefined
 
             element.addEventListener(
                 "pointerleave",
@@ -129,6 +142,10 @@ export function hover(
                 eventOptions
             )
         }
+
+        eventOptions.signal.addEventListener("abort", () => {
+            gesture && leaveGesture(gesture)
+        })
 
         element.addEventListener(
             "pointerenter",

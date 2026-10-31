@@ -8,7 +8,11 @@ import { EventOptions } from "../types"
 export function setupGesture(
     elementOrSelector: ElementOrSelector,
     options: EventOptions
-): [Element[], AddEventListenerOptions, VoidFunction] {
+): [
+    Element[],
+    AddEventListenerOptions & { signal: AbortSignal },
+    VoidFunction
+] {
     const elements = resolveElements(elementOrSelector)
 
     const gestureAbortController = new AbortController()

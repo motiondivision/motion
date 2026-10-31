@@ -24,6 +24,7 @@ import { resize } from "../../resize"
 import { mixNumber } from "../../utils/mix/number"
 import { percent, px } from "../../value/types/numbers/units"
 import { addValueToWillChange } from "../../value/will-change/add-will-change"
+import { claimGesture, Gesture, joinGesture, leaveGesture } from "../arena"
 import type { PanInfo } from "../pan/types"
 import { PanSession } from "../pan/PanSession"
 import { isElementTextInput } from "../press/utils/is-keyboard-accessible"
@@ -85,12 +86,18 @@ export interface DragControlOptions {
 
 type DragDirection = "x" | "y"
 
+interface DragGesture extends Gesture {
+    axis?: MotionNodeOptions["drag"]
+}
+
 export class VisualElementDragControls {
     visualElement: VisualElement<HTMLElement>
 
     private panSession?: PanSession
 
     private openDragLock: VoidFunction | null = null
+
+    private gesture?: Gesture
 
     isDragging = false
     private currentDirection: DragDirection | null = null
@@ -155,6 +162,27 @@ export class VisualElementDragControls {
          */
         if (this.visualElement.presenceContext?.isPresent === false) return
 
+        const element = this.visualElement.current
+        this.leaveGesture()
+        const { drag } = this.getProps()
+        this.gesture = element
+            ? joinGesture({
+                  kind: "drag",
+                  element,
+                  pointerId: originEvent.pointerId,
+                  axis: drag,
+                  /**
+                   * Drags on different axes can run together, like an
+                   * x-axis carousel inside a y-axis sheet.
+                   */
+                  with: (other: DragGesture) =>
+                      other.kind === "drag" &&
+                      (!!this.getProps().dragPropagation ||
+                          /^(xy|yx)$/.test("" + drag + other.axis)),
+                  cancel: () => this.cancel(),
+              } as Omit<DragGesture, "phase">)
+            : undefined
+
         const onSessionStart = (event: PointerEvent) => {
             if (snapToCursor) this.snapToCursor(event)
             this.stopAnimation()
@@ -165,13 +193,17 @@ export class VisualElementDragControls {
             const { drag, dragConstraints, dragPropagation, onDragStart } =
                 this.getProps()
 
+            if (this.gesture && !claimGesture(this.gesture)) {
+                return this.leaveGesture()
+            }
+
             if (drag && !dragPropagation) {
                 this.openDragLock?.()
 
                 this.openDragLock = setDragLock(drag)
 
                 // If we don 't have the lock, don't start dragging
-                if (!this.openDragLock) return
+                if (!this.openDragLock) return this.leaveGesture()
             }
 
             this.latestPointerEvent = event
@@ -249,6 +281,7 @@ export class VisualElementDragControls {
             } = this.getProps()
 
             // If we didn't successfully receive the gesture lock, early return.
+            if (!this.isDragging) return
             if (!dragPropagation && !this.openDragLock) return
 
             const { offset } = info
@@ -299,6 +332,8 @@ export class VisualElementDragControls {
         }
 
         const resumeAnimation = () => {
+            // The pointer was released, so this drag's arena entry is done.
+            if (!this.isDragging) this.leaveGesture()
             const { dragSnapToOrigin: snap } = this.getProps()
             if (snap || this.constraints || this.point) {
                 this.startAnimation({ x: 0, y: 0 })
@@ -375,9 +410,15 @@ export class VisualElementDragControls {
      * This is used during unmount to ensure event listeners are removed
      * without affecting projection animations or drag locks.
      */
+    private leaveGesture() {
+        this.gesture && leaveGesture(this.gesture)
+        this.gesture = undefined
+    }
+
     endPanSession() {
         this.panSession?.end()
         this.panSession = undefined
+        this.leaveGesture()
     }
 
     private updateAxis(axis: DragDirection, offset?: Point) {

@@ -55,6 +55,8 @@ export { useVelocity } from "./value/use-velocity"
 export { useWillChange } from "./value/use-will-change"
 export { WillChangeMotionValue } from "./value/use-will-change/WillChangeMotionValue"
 export { resolveMotionValue } from "motion-dom"
+export { getGestures, isGestureActive, onGestureChange } from "motion-dom"
+export type { Gesture, GestureKind, GesturePhase } from "motion-dom"
 
 /**
  * Accessibility

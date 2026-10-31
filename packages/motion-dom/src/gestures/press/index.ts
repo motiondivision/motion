@@ -1,6 +1,7 @@
 import { bindToScope } from "../../scope/active"
 import { isHTMLElement } from "../../utils/is-html-element"
 import { ElementOrSelector } from "../../utils/resolve-elements"
+import { Gesture, joinGesture, leaveGesture } from "../arena"
 import { isDragActive } from "../drag/state/is-active"
 import { EventOptions } from "../types"
 import { isNodeOrChild } from "../utils/is-node-or-child"
@@ -57,6 +58,11 @@ export function press(
         options
     )
 
+    const presses = new Set<Gesture>()
+    eventOptions.signal.addEventListener("abort", () =>
+        presses.forEach(leaveGesture)
+    )
+
     const startPress = (startEvent: PointerEvent) => {
         const target = startEvent.currentTarget as Element
 
@@ -68,6 +74,24 @@ export function press(
         if (options.stopPropagation) {
             claimedPointerDownEvents.add(startEvent)
         }
+
+        /**
+         * A press stays possible until release. A drag of the same element
+         * runs alongside it (so whileTap holds) but the press then ends
+         * without success. Any other gesture that claims the pointer, like
+         * a drag of a parent or child, cancels the press straight away.
+         */
+        const gesture = joinGesture({
+            kind: "press",
+            element: target,
+            pointerId: startEvent.pointerId,
+            with: (other) =>
+                other.kind === "press" ||
+                (other.kind === "drag" && other.element === target),
+            cancel: () => onPointerEnd(startEvent, false),
+        })
+
+        presses.add(gesture)
 
         const onPressEnd = onPressStart(target, startEvent)
 
@@ -95,9 +119,12 @@ export function press(
                 isPressing.delete(target)
             }
 
-            if (!isValidPressEvent(endEvent)) {
-                return
-            }
+            presses.delete(gesture)
+            if (gesture.phase === "ended") return
+            success &&= !gesture.claimedBy
+            leaveGesture(gesture)
+
+            if (!isPrimaryPointer(endEvent)) return
 
             if (typeof onPressEnd === "function") {
                 onPressEnd(endEvent, { success })
