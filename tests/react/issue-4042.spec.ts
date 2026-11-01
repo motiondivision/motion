@@ -30,9 +30,14 @@ for (const switchItem of [true, false]) {
 
         if (switchItem) {
             await page.click("#blue", { force: true })
-            await page.waitForTimeout(1500)
 
-            // The red item's dot is back home
+            // The red item's dot animates home from the card's dot
+            await page.waitForTimeout(300)
+            const midway = await box(page, "#dot-red")
+            expect(midway.x).toBeGreaterThan(redDot.x + 20)
+            expect(midway.y).toBeGreaterThan(redDot.y + 20)
+
+            await page.waitForTimeout(1200)
             expect(await box(page, "#dot-red")).toEqual(redDot)
         }
 

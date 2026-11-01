@@ -2367,7 +2367,8 @@ function notifyLayoutUpdate(node: IProjectionNode) {
          * A snapshot from another element is only relative to this node's
          * relativeParent if it's a layoutRoot that contains both. A node can
          * hold one without resumeFrom, when the element it came from changed
-         * layoutId but stayed mounted (see switchLayoutId).
+         * layoutId but stayed mounted (see switchLayoutId), or a remix
+         * layout exit cleared it (see markLayoutExit).
          */
         if (
             !isShared ||
