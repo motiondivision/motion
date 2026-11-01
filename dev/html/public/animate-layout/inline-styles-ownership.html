@@ -1,0 +1,258 @@
+<html>
+    <head>
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+            }
+
+            .box {
+                width: 100px;
+                height: 100px;
+                margin-bottom: 20px;
+                background-color: #00cc88;
+            }
+
+            .box.wide {
+                width: 400px;
+            }
+
+            #a,
+            #b {
+                position: absolute;
+                top: 0;
+                right: 0;
+                width: 100px;
+                height: 100px;
+                background-color: #0088cc;
+            }
+
+            #b {
+                top: 300px;
+                width: 300px;
+            }
+
+            .rounded {
+                border-radius: 8px;
+            }
+
+            [data-layout-correct="false"] {
+                background: #dd1144 !important;
+                opacity: 0.5;
+            }
+        </style>
+    </head>
+    <!--
+        Flagged until the test has run, so the check can't pass before it
+        has finished.
+    -->
+    <body data-layout-correct="false">
+        <!-- Async updateDom while an earlier animation is still running -->
+        <div
+            id="async"
+            class="box"
+            data-layout
+            style="border-radius: 10px"
+        ></div>
+        <!-- Inline changes made after an animation, then another render -->
+        <div
+            id="later"
+            class="box"
+            data-layout
+            style="border-radius: 10px"
+        ></div>
+        <div
+            id="cleared"
+            class="box"
+            data-layout
+            style="border-radius: 10px"
+        ></div>
+        <!-- Inline change made after the animation was stopped -->
+        <div
+            id="stopped"
+            class="box"
+            data-layout
+            style="border-radius: 10px"
+        ></div>
+        <!-- animate() a radius after animateLayout() or drag() -->
+        <div id="animate-none" class="box" data-layout></div>
+        <div
+            id="animate-inline"
+            class="box"
+            data-layout
+            style="border-radius: 10px"
+        ></div>
+        <div id="animate-class" class="box rounded" data-layout></div>
+        <div id="animate-drag" class="box"></div>
+        <!-- Crossfade from an element without a radius to one with one -->
+        <div id="a" data-layout-id="shared"></div>
+
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module" src="/src/imports/script-assert.js"></script>
+        <script type="module">
+            const { animateLayout, animate, frame } = window.AnimateLayout
+            const $ = (id) => document.getElementById(id)
+            const errors = []
+
+            const nextFrame = () =>
+                new Promise((resolve) => frame.postRender(resolve))
+            const wait = (ms) =>
+                new Promise((resolve) => setTimeout(resolve, ms))
+
+            function check(element, expected, label) {
+                const { borderTopLeftRadius } = getComputedStyle(element)
+                if (borderTopLeftRadius !== expected) {
+                    errors.push([
+                        element,
+                        `${element.id} ${label}: expected border-top-left-radius ${expected}, got ${borderTopLeftRadius}`,
+                    ])
+                }
+            }
+
+            const toggle = (element) => () => element.classList.toggle("wide")
+
+            async function asyncUpdate() {
+                const element = $("async")
+                const first = await animateLayout(element, toggle(element), {
+                    duration: 0.3,
+                })
+                await wait(100)
+
+                /**
+                 * Frames render corrected values while updateDom is
+                 * pending. They mustn't be read as the user's.
+                 */
+                const second = await animateLayout(
+                    element,
+                    async () => {
+                        await wait(100)
+                        toggle(element)()
+                    },
+                    { duration: 0.1 }
+                )
+                await second.finished
+                await nextFrame()
+                check(element, "10px", "after async updateDom")
+            }
+
+            async function laterChanges() {
+                const later = $("later")
+                const cleared = $("cleared")
+                const controls = await Promise.all([
+                    animateLayout(later, toggle(later), { duration: 0.05 }),
+                    animateLayout(cleared, toggle(cleared), { duration: 0.05 }),
+                ])
+                await Promise.all(controls.map((c) => c.finished))
+                await nextFrame()
+
+                later.style.borderRadius = "30px"
+                cleared.style.borderRadius = ""
+
+                // animate() renders through the same VisualElement
+                await Promise.all([
+                    animate(later, { opacity: 0.5 }, { duration: 0.05 }),
+                    animate(cleared, { opacity: 0.5 }, { duration: 0.05 }),
+                ])
+                await nextFrame()
+
+                check(later, "30px", "after a later render")
+                check(cleared, "0px", "after a later render")
+            }
+
+            async function stoppedChange() {
+                const element = $("stopped")
+                const first = await animateLayout(element, toggle(element), {
+                    duration: 1,
+                })
+                await wait(100)
+                first.stop()
+                await nextFrame()
+
+                element.style.borderRadius = "30px"
+                const second = await animateLayout(element, toggle(element), {
+                    duration: 0.05,
+                })
+                await second.finished
+                await nextFrame()
+                check(element, "30px", "after a stopped animation")
+            }
+
+            async function animateRadius() {
+                const elements = ["none", "inline", "class"].map((id) =>
+                    $("animate-" + id)
+                )
+                const controls = await Promise.all(
+                    elements.map((element) =>
+                        animateLayout(element, toggle(element), {
+                            duration: 0.05,
+                        })
+                    )
+                )
+                await Promise.all(controls.map((c) => c.finished))
+
+                const dragged = $("animate-drag")
+                window.Motion.drag(dragged)
+                elements.push(dragged)
+                await nextFrame()
+
+                await Promise.all(
+                    elements.map((element) =>
+                        animate(
+                            element,
+                            { borderRadius: "20px" },
+                            { duration: 0.05 }
+                        )
+                    )
+                )
+                await nextFrame()
+                elements.forEach((element) =>
+                    check(element, "20px", "after animate()")
+                )
+            }
+
+            async function crossfade() {
+                const a = $("a")
+                const b = document.createElement("div")
+                b.id = "b"
+                b.dataset.layoutId = "shared"
+                b.style.borderRadius = "20px"
+
+                const open = await animateLayout(
+                    () => document.body.appendChild(b),
+                    { duration: 0.05, crossfade: true }
+                )
+                await open.finished
+                await nextFrame()
+
+                const close = await animateLayout(() => b.remove(), {
+                    duration: 0.05,
+                })
+                await close.finished
+                await nextFrame()
+                await nextFrame()
+                check(a, "0px", "after crossfading to and from a radius")
+            }
+
+            async function runTest() {
+                await Promise.all([
+                    asyncUpdate(),
+                    laterChanges(),
+                    stoppedChange(),
+                    animateRadius(),
+                ])
+                await crossfade()
+
+                errors.forEach(([element, message]) =>
+                    window.showError(element, message)
+                )
+
+                if (!errors.length) delete document.body.dataset.layoutCorrect
+            }
+
+            runTest().catch((error) =>
+                window.showError(document.body, error.message)
+            )
+        </script>
+    </body>
+</html>

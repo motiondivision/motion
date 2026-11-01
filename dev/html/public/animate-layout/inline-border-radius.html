@@ -1,0 +1,204 @@
+<html>
+    <head>
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+            }
+
+            .box {
+                width: 100px;
+                height: 100px;
+                margin-bottom: 20px;
+                background-color: #00cc88;
+            }
+
+            .box.wide {
+                width: 400px;
+            }
+
+            [data-layout-correct="false"] {
+                background: #dd1144 !important;
+                opacity: 0.5;
+            }
+        </style>
+    </head>
+    <!--
+        Flagged until the test has run, so the check can't pass before it
+        has finished.
+    -->
+    <body data-layout-correct="false">
+        <!-- Inline border-radius, layout change only -->
+        <div
+            id="static"
+            class="box"
+            data-layout
+            style="border-radius: 20px"
+        ></div>
+        <!-- updateDom changes the inline border-radius with the layout -->
+        <div
+            id="changed"
+            class="box"
+            data-layout
+            style="border-radius: 20px"
+        ></div>
+        <!-- border-radius set between two animateLayout() calls -->
+        <div id="between" class="box" data-layout></div>
+        <!-- updateDom removes the inline border-radius -->
+        <div
+            id="removed"
+            class="box"
+            data-layout
+            style="border-radius: 20px"
+        ></div>
+        <!-- Per-corner inline radius -->
+        <div
+            id="corner"
+            class="box"
+            data-layout
+            style="border-top-left-radius: 20px"
+        ></div>
+
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module" src="/src/imports/script-assert.js"></script>
+        <script type="module">
+            const { animateLayout, frame } = window.AnimateLayout
+            const $ = (id) => document.getElementById(id)
+            const errors = []
+
+            const nextFrame = () =>
+                new Promise((resolve) => frame.postRender(resolve))
+
+            /**
+             * The 400x100 box is scaled to 250x100 halfway through. A
+             * corrected radius renders as the same number of visual
+             * pixels on both axes, which in its 400x100 layout box is
+             * (r / 250)% horizontally and (r / 100)% vertically.
+             */
+            function checkRadius(element, radius, label) {
+                const style = getComputedStyle(element)
+                const expected = `${(radius / 250) * 100}% ${radius}%`
+                if (style.borderTopLeftRadius !== expected) {
+                    errors.push([
+                        element,
+                        `${label}: expected border-top-left-radius ${expected}, got ${style.borderTopLeftRadius}`,
+                    ])
+                }
+            }
+
+            function checkHalfway(element) {
+                const { width } = element.getBoundingClientRect()
+                if (Math.abs(width - 250) > 1) {
+                    errors.push([
+                        element,
+                        `${element.id}: expected to be halfway (250px wide), got ${width}`,
+                    ])
+                }
+            }
+
+            async function animateWide(element, update) {
+                const controls = await animateLayout(
+                    element,
+                    () => {
+                        element.classList.toggle("wide")
+                        update?.()
+                    },
+                    { duration: 10, ease: "linear" }
+                )
+                controls.pause()
+                controls.time = controls.duration * 0.5
+                await nextFrame()
+                return controls
+            }
+
+            async function runTest() {
+                const between = $("between")
+                const narrow = await animateLayout(
+                    between,
+                    () => between.classList.toggle("wide"),
+                    { duration: 0.05 }
+                )
+                await narrow.finished
+                await nextFrame()
+                await nextFrame()
+                between.classList.remove("wide")
+                between.style.borderRadius = "20px"
+
+                const results = await Promise.all([
+                    animateWide($("static")),
+                    animateWide($("changed"), () => {
+                        $("changed").style.borderRadius = "40px"
+                    }),
+                    animateWide(between),
+                    animateWide($("corner")),
+                    animateWide($("removed"), () => {
+                        $("removed").style.borderRadius = ""
+                    }),
+                ])
+
+                for (const id of [
+                    "static",
+                    "changed",
+                    "between",
+                    "corner",
+                    "removed",
+                ]) {
+                    checkHalfway($(id))
+                }
+
+                checkRadius($("static"), 20, "static")
+                checkRadius($("changed"), 40, "changed")
+                checkRadius(between, 20, "between")
+                checkRadius($("corner"), 20, "corner")
+
+                const removed = getComputedStyle($("removed"))
+                if (removed.borderTopLeftRadius !== "0px") {
+                    errors.push([
+                        $("removed"),
+                        `removed: expected border-top-left-radius 0px, got ${removed.borderTopLeftRadius}`,
+                    ])
+                }
+
+                const corner = getComputedStyle($("corner"))
+                if (corner.borderTopRightRadius !== "0px") {
+                    errors.push([
+                        $("corner"),
+                        `corner: expected border-top-right-radius 0px, got ${corner.borderTopRightRadius}`,
+                    ])
+                }
+
+                // Once finished, each element is left with its own radius
+                results.forEach((controls) => controls.complete())
+                await nextFrame()
+                await nextFrame()
+
+                const finalRadius = {
+                    static: "20px",
+                    changed: "40px",
+                    between: "20px",
+                    corner: "20px",
+                    removed: "0px",
+                }
+                for (const id in finalRadius) {
+                    const { borderTopLeftRadius } = getComputedStyle($(id))
+                    if (borderTopLeftRadius !== finalRadius[id]) {
+                        errors.push([
+                            $(id),
+                            `${id}: expected final border-top-left-radius ${finalRadius[id]}, got ${borderTopLeftRadius}`,
+                        ])
+                    }
+                }
+
+                errors.forEach(([element, message]) =>
+                    window.showError(element, message)
+                )
+
+                if (!errors.length) delete document.body.dataset.layoutCorrect
+            }
+
+            runTest().catch((error) =>
+                window.showError(document.body, error.message)
+            )
+        </script>
+    </body>
+</html>

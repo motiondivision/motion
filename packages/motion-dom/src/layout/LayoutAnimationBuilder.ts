@@ -8,7 +8,11 @@ import { time } from "../frameloop/sync-time"
 import { HTMLProjectionNode } from "../projection/node/HTMLProjectionNode"
 import type { IProjectionNode } from "../projection/node/types"
 import { visualElementStore } from "../render/store"
-import { resolveVisualElement } from "./visual-element"
+import {
+    inlineStyles,
+    resolveVisualElement,
+    trackInlineStyles,
+} from "./visual-element"
 import {
     resolveElements,
     type ElementOrSelector,
@@ -148,6 +152,12 @@ function createLayoutNode(element: HTMLElement): [IProjectionNode, VoidFunction]
  * gestures and layout animations work together.
  */
 layoutProjection.create = createLayoutNode
+
+/**
+ * Let elements' inline styles be scale-corrected, as a motion component's
+ * style prop is.
+ */
+inlineStyles.track = trackInlineStyles
 
 /**
  * Get a projection node for an element, so motion/remix can measure and

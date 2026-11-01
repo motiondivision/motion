@@ -1,7 +1,18 @@
 import { handOffElementState } from "../animation/animate/element"
 import { hasTransform } from "../projection/utils/has-transform"
+import { scaleCorrectors } from "../projection/styles/scale-correction"
 import { HTMLVisualElement } from "../render/html/HTMLVisualElement"
+import type { ResolvedValues } from "../render/types"
+import { cornerRadiusProps } from "../utils/border-radius"
 import { visualElementStore } from "../render/store"
+
+/**
+ * Set by animateLayout(), so the inline style tracking it needs isn't
+ * bundled with drag() alone, which doesn't scale elements.
+ */
+export const inlineStyles: {
+    track?: (element: HTMLElement, visualElement: HTMLVisualElement) => void
+} = {}
 
 /**
  * Get the VisualElement that imperative APIs like animateLayout() and
@@ -37,6 +48,8 @@ export function resolveVisualElement(element: HTMLElement): HTMLVisualElement {
          * them instead of overwriting them.
          */
         handOffElementState(element, visualElement)
+
+        inlineStyles.track?.(element, visualElement)
     }
 
     /**
@@ -51,4 +64,64 @@ export function resolveVisualElement(element: HTMLElement): HTMLVisualElement {
     }
 
     return visualElement
+}
+
+/**
+ * Layout animations scale-correct styles like borderRadius and boxShadow
+ * from latestValues, which a motion component fills from its style prop.
+ * Here, the element's inline style is the style prop: before each render,
+ * adopt any inline value that differs from what the last render wrote, as
+ * only the user can have changed it. What each render writes, including
+ * the projection's corrected values, is recorded after it, so it's never
+ * read back as the user's.
+ */
+export function trackInlineStyles(
+    element: HTMLElement,
+    visualElement: HTMLVisualElement
+) {
+    const written: ResolvedValues = {}
+    const { render, latestValues } = visualElement
+
+    /**
+     * A shared element can be rendered with another's radius during a
+     * crossfade. Give it a radius of its own, so that's cleared after.
+     */
+    if (element.dataset.layoutId !== undefined) latestValues.borderRadius = ""
+
+    const sync = (adopt?: boolean) => {
+        const style = element.style as any
+
+        for (const key in scaleCorrectors) {
+            const value = style[key]
+
+            if (value === undefined) continue
+
+            if (!adopt) {
+                written[key] = value
+            } else if (
+                style.borderRadius &&
+                (cornerRadiusProps as readonly string[]).includes(key)
+            ) {
+                /**
+                 * A uniform radius is adopted as the shorthand alone, as
+                 * corners would render over an animated shorthand.
+                 */
+                visualElement.hasValue(key) || delete latestValues[key]
+            } else if (
+                value !== (written[key] ?? "") &&
+                !visualElement.hasValue(key)
+            ) {
+                latestValues[key] = value
+            }
+        }
+    }
+
+    visualElement.render = () => {
+        sync(true)
+        render()
+        sync()
+    }
+
+    sync(true)
+    sync()
 }

@@ -1,0 +1,38 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+
+            #box {
+                width: 100px;
+                height: 100px;
+                background-color: red;
+            }
+        </style>
+    </head>
+    <body>
+        <!--
+            Inline styles the layout projection scale-corrects (border-radius,
+            box-shadow) stay the user's while drag() renders the element.
+            onStart lifts the box with a shadow.
+        -->
+        <div
+            id="box"
+            style="border-radius: 10px; box-shadow: 0 1px 2px black"
+        ></div>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            const { drag } = window.Motion
+            const box = document.getElementById("box")
+
+            drag(box, {
+                momentum: false,
+                onStart: () => {
+                    box.style.boxShadow = "0 10px 20px black"
+                },
+            })
+        </script>
+    </body>
+</html>
