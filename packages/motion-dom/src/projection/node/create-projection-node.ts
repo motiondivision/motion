@@ -2364,13 +2364,15 @@ function notifyLayoutUpdate(node: IProjectionNode) {
         const relativeParent = node.getClosestProjectingParent()
 
         /**
-         * A snapshot resumed from another element is only relative to this
-         * node's relativeParent if it's a layoutRoot that contains both.
+         * A snapshot from another element is only relative to this node's
+         * relativeParent if it's a layoutRoot that contains both. A node can
+         * hold one without resumeFrom, when the element it came from changed
+         * layoutId but stayed mounted (see switchLayoutId).
          */
         if (
-            !node.resumeFrom ||
+            !isShared ||
             (relativeParent?.options.layoutRoot &&
-                node.resumeFrom.path.includes(relativeParent))
+                node.resumeFrom?.path.includes(relativeParent))
         ) {
             /**
              * If the relativeParent is itself resuming from a different element then
