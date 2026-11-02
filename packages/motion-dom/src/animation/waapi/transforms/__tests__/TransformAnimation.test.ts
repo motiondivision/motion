@@ -397,6 +397,22 @@ describe("independent transform acceleration", () => {
         expect(element.style.transform).toBe("scale(0.5)")
     })
 
+    it("finishes a value that can't be accelerated when completed before the group builds", async () => {
+        const element = document.createElement("div")
+        const onComplete = jest.fn()
+
+        const [animation] = animateElement(
+            element,
+            { scale: [1, 0.5] },
+            { duration: 1, onUpdate: () => {}, onComplete }
+        )
+        animation.complete()
+        await nextFrame()
+
+        expect(onComplete).toHaveBeenCalledTimes(1)
+        expect(element.style.transform).toBe("scale(0.5)")
+    })
+
     it("stays on the main thread for values a mixer mixes", async () => {
         const element = document.createElement("div")
         let mixed = 0

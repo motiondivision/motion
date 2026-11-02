@@ -1,3 +1,4 @@
+import { waitFor } from "@testing-library/dom"
 import { supportsFlags } from "motion-dom"
 import { act, createRef, useEffect, useRef, useState } from "react"
 import { motion, useMotionValue } from "../../"
@@ -1033,23 +1034,25 @@ describe("WAAPI animations", () => {
         }
 
         render(<Component />)
-        const wait = () =>
-            act(() => new Promise((resolve) => setTimeout(resolve, 500)))
+        try {
+            act(() => setVisible(true))
+            await waitFor(() => expect(completed).toEqual(["visible"]))
 
-        act(() => setVisible(true))
-        await wait()
-        expect(completed).toEqual(["visible"])
+            act(() => setVisible(false))
+            await waitFor(() =>
+                expect(completed).toEqual(["visible", "hidden"])
+            )
+            expect(ref.current!.style.visibility).toBe("hidden")
+            expect(ref.current!.style.transform).toBe("scale(0.5)")
 
-        act(() => setVisible(false))
-        await wait()
-        expect(completed).toEqual(["visible", "hidden"])
-        expect(ref.current!.style.visibility).toBe("hidden")
-        expect(ref.current!.style.transform).toBe("scale(0.5)")
-
-        act(() => setVisible(true))
-        await wait()
-        expect(ref.current!.style.visibility).toBe("visible")
-        expect(ref.current!.style.opacity).toBe("1")
-        supportsFlags.linearEasing = undefined
+            act(() => setVisible(true))
+            await waitFor(() =>
+                expect(completed).toEqual(["visible", "hidden", "visible"])
+            )
+            expect(ref.current!.style.visibility).toBe("visible")
+            expect(ref.current!.style.opacity).toBe("1")
+        } finally {
+            supportsFlags.linearEasing = undefined
+        }
     })
 })
