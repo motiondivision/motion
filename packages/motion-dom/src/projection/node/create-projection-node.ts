@@ -9,7 +9,6 @@ import {
     SubscriptionManager,
 } from "motion-utils"
 import { animateSingleValue } from "../../animation/animate/single-value"
-import { GroupAnimation } from "../../animation/GroupAnimation"
 import { notifyLayoutAnimationStart } from "../../animation/utils/notify-inspector"
 import { getOptimisedAppearId } from "../../animation/optimized-appear/get-appear-id"
 import {
@@ -2072,14 +2071,20 @@ export function createProjectionNode<I>({
                         })
                     }
 
-                    this.currentAnimation = new GroupAnimation([
-                        main,
-                        animateAxis("x"),
-                        animateAxis("y"),
-                    ])
-                } else {
-                    this.currentAnimation = main
+                    /**
+                     * The main progress stays the controls. Stopping it
+                     * stops x and y too. Other controls (pause, time) only
+                     * reach the main progress in this prototype.
+                     */
+                    const axes = [animateAxis("x"), animateAxis("y")]
+                    const stopMain = main.stop.bind(main)
+                    main.stop = () => {
+                        stopMain()
+                        axes.forEach((axis) => axis.stop())
+                    }
                 }
+
+                this.currentAnimation = main
 
                 notifyLayoutAnimationStart(this.currentAnimation, this)
 
