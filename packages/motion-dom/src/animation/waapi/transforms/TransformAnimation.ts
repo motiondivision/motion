@@ -450,13 +450,15 @@ export class TransformAnimation<
     }
 
     /**
-     * JSAnimation finishes on its next tick, which only happens on the
-     * main thread, so finish now.
+     * JSAnimation finishes on its next tick, which only happens once the
+     * group is on the main thread, so finish now. That includes an
+     * animation that can't be accelerated but reached its end before the
+     * group could move there.
      */
     complete() {
         super.complete()
         const { group } = this
-        group && !group.isJS && this.canAccelerate && this.tick(time.now())
+        group && !group.isJS && this.tick(time.now())
     }
 
     /**
