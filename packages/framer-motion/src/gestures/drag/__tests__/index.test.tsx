@@ -3,7 +3,6 @@ import {
     AnimatePresence,
     BoundingBox,
     DragConstraintsFunction,
-    magnetic,
     motion,
     MotionConfig,
     motionValue,
@@ -834,54 +833,6 @@ describe("dragging", () => {
 
         expect(started).toHaveBeenCalledTimes(1)
         expect({ x: x.get(), y: y.get() }).toEqual({ x: 20, y: 20 })
-    })
-
-    test("dragConstraints accepts magnetic() with a ref target", async () => {
-        const x = motionValue(0)
-        const y = motionValue(0)
-        const onChange = jest.fn()
-        const target = { current: null as HTMLDivElement | null }
-
-        const Component = () => (
-            <MockDrag>
-                <motion.div
-                    drag="x"
-                    dragConstraints={magnetic(target, {
-                        snap: 20,
-                        transition: { duration: 0 },
-                        onChange,
-                    })}
-                    dragMomentum={false}
-                    style={{ x, y }}
-                />
-                <div
-                    ref={(element) => {
-                        target.current = element
-                        if (element) {
-                            // JSDOM has no layout: centre this 40px right, 30px down
-                            element.getBoundingClientRect = () =>
-                                ({
-                                    left: 40,
-                                    top: 30,
-                                    width: 0,
-                                    height: 0,
-                                } as DOMRect)
-                        }
-                    }}
-                />
-            </MockDrag>
-        )
-
-        const { container, rerender } = render(<Component />)
-        rerender(<Component />)
-
-        const pointer = await drag(container.firstChild).to(10, 0)
-        await pointer.to(30, 0)
-        await nextFrame()
-
-        expect(onChange).toHaveBeenLastCalledWith(target.current)
-        expect({ x: x.get(), y: y.get() }).toEqual({ x: 40, y: 0 })
-        pointer.end()
     })
 
     test("impose right drag constraint", async () => {

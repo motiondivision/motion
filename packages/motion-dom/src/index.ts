@@ -90,7 +90,6 @@ export {
     parseAnimateLayoutArgs,
 } from "./layout/LayoutAnimationBuilder"
 export * from "./gestures/drag"
-export * from "./gestures/drag/magnetic"
 export * from "./gestures/drag/state/is-active"
 export * from "./gestures/drag/state/set-active"
 export * from "./gestures/drag/types"
