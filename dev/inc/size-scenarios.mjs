@@ -49,6 +49,7 @@ export const scenarios = {
     resize: `export { resize } from "motion"`,
     "hover+press": `export { hover, press } from "motion"`,
     drag: `export { drag } from "motion"`,
+    "drag+magnetic": `export { drag, magnetic } from "motion"`,
     motionValue: `export { motionValue } from "motion"`,
     styleEffect: `export { styleEffect } from "motion"`,
     animateView: `export { animateView } from "motion"`,
