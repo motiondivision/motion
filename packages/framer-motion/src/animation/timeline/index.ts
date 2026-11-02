@@ -69,45 +69,30 @@ interface Entry {
 let markerId = 0
 
 /**
- * Split a time across repeats into the repeat it's in and the playhead
- * position within the sequence. Mirrored and reversed repeats play the
- * sequence backwards on every other repeat.
+ * Split a time across repeats into its repeat and the playhead position in
+ * the sequence. With `index`, join a position in that repeat back into a
+ * time. Mirrored and reversed repeats play every other repeat backwards.
  */
-function split(
-    time: number,
-    duration: number,
+function inRepeat(
     {
         repeat = 0,
         repeatDelay = 0,
         repeatType = "loop",
         delay = 0,
-    }: TimelineOptions
-) {
-    const t = Math.max(0, time - delay)
-    const cycle = duration + repeatDelay
-    const index = cycle ? Math.min(repeat, Math.floor(t / cycle)) : 0
-    const position = Math.min(t - index * cycle, duration)
-    return [
-        index,
-        repeatType !== "loop" && index % 2 ? duration - position : position,
-    ]
-}
-
-/**
- * The time of a playhead position within a repeat. The opposite of
- * split().
- */
-function join(
-    index: number,
-    position: number,
+    }: TimelineOptions,
     duration: number,
-    { repeatDelay = 0, repeatType = "loop", delay = 0 }: TimelineOptions
+    time: number,
+    index?: number
 ) {
-    return (
-        delay +
-        index * (duration + repeatDelay) +
-        (repeatType !== "loop" && index % 2 ? duration - position : position)
-    )
+    const cycle = duration + repeatDelay
+    const isSplit = index === undefined
+    if (isSplit) {
+        const t = Math.max(0, time - delay)
+        index = cycle ? Math.min(repeat, Math.floor(t / cycle)) : 0
+        time = Math.min(t - index * cycle, duration)
+    }
+    if (repeatType !== "loop" && index! % 2) time = duration - time
+    return [index!, isSplit ? time : delay + index! * cycle + time]
 }
 
 /**
@@ -335,8 +320,8 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
          * already in, rather than all the way back to the first.
          */
         const time = this.time
-        const [index] = split(time, duration, this.options)
-        const target = join(index, stopAt, duration, this.options)
+        const [index] = inRepeat(this.options, duration, time)
+        const target = inRepeat(this.options, duration, stopAt, index)[1]
         const speed = Math.abs(this.speed)
         this.speed = target < time ? -speed : speed
         this.stopAt = stopAt
@@ -617,19 +602,22 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
          * Keep the playhead in the same repeat and at the same position,
          * so changing a repeating timeline doesn't jump it.
          */
-        const { repeat = 0, repeatDelay = 0, delay = 0 } = this.options
+        const { delay = 0, repeat = 0, repeatDelay = 0 } = this.options
+        const [index, position] = inRepeat(this.options, prevDuration, time)
         if (time > delay) {
-            const [index, position] = split(time, prevDuration, this.options)
-            time = join(
-                index,
-                Math.min(position, duration),
+            time = inRepeat(
+                this.options,
                 duration,
-                this.options
-            )
+                Math.min(position, duration),
+                index
+            )[1]
         }
-        const end =
-            delay + (repeat + 1) * (duration + repeatDelay) - repeatDelay
-        if (this.isDone && time < end) this.newFinished()
+        if (
+            this.isDone &&
+            time < delay + (repeat + 1) * (duration + repeatDelay) - repeatDelay
+        ) {
+            this.newFinished()
+        }
 
         if (this.scrollTimeline) {
             this.detachScroll = group.attachTimeline(this.scrollTimeline)
@@ -744,12 +732,12 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
      */
     private pauseAt(position: number) {
         this.pause()
-        this.time = join(
-            this.repeatIndex,
-            position,
+        this.time = inRepeat(
+            this.options,
             this.totalDuration,
-            this.options
-        )
+            position,
+            this.repeatIndex
+        )[1]
         return true
     }
 
