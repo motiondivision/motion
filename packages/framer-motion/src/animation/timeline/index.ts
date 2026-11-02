@@ -69,6 +69,48 @@ interface Entry {
 let markerId = 0
 
 /**
+ * Split a time across repeats into the repeat it's in and the playhead
+ * position within the sequence. Mirrored and reversed repeats play the
+ * sequence backwards on every other repeat.
+ */
+function split(
+    time: number,
+    duration: number,
+    {
+        repeat = 0,
+        repeatDelay = 0,
+        repeatType = "loop",
+        delay = 0,
+    }: TimelineOptions
+) {
+    const t = Math.max(0, time - delay)
+    const cycle = duration + repeatDelay
+    const index = cycle ? Math.min(repeat, Math.floor(t / cycle)) : 0
+    const position = Math.min(t - index * cycle, duration)
+    return [
+        index,
+        repeatType !== "loop" && index % 2 ? duration - position : position,
+    ]
+}
+
+/**
+ * The time of a playhead position within a repeat. The opposite of
+ * split().
+ */
+function join(
+    index: number,
+    position: number,
+    duration: number,
+    { repeatDelay = 0, repeatType = "loop", delay = 0 }: TimelineOptions
+) {
+    return (
+        delay +
+        index * (duration + repeatDelay) +
+        (repeatType !== "loop" && index % 2 ? duration - position : position)
+    )
+}
+
+/**
  * Copy a segment with a new `at`, adding a transition if it has none.
  */
 function withAt(segment: any[], at: SequenceTime) {
@@ -285,10 +327,19 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
      * Play forwards or backwards to a time or label, then pause there.
      */
     playTo(position: SequenceTime) {
-        const target = this.resolve(position)
+        const stopAt = this.resolve(position)
+        const duration = this.iterationDuration
+
+        /**
+         * A repeating timeline plays to the position in the repeat it's
+         * already in, rather than all the way back to the first.
+         */
+        const time = this.time
+        const [index] = split(time, duration, this.options)
+        const target = join(index, stopAt, duration, this.options)
         const speed = Math.abs(this.speed)
-        this.speed = target < this.time ? -speed : speed
-        this.stopAt = target
+        this.speed = target < time ? -speed : speed
+        this.stopAt = stopAt
         this.clock || this.invalidate()
         this.play()
         return this
@@ -445,6 +496,9 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
     }
 
     private build() {
+        const prevDuration = this.isWrapped
+            ? this.group!.iterationDuration
+            : this.totalDuration
         this.isDirty = false
         this.isWrapped = false
 
@@ -559,8 +613,23 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
 
         const group = (this.group = new GroupAnimationWithThen(animations))
 
-        time = Math.min(time, duration)
-        if (this.isDone && time < duration) this.newFinished()
+        /**
+         * Keep the playhead in the same repeat and at the same position,
+         * so changing a repeating timeline doesn't jump it.
+         */
+        const { repeat = 0, repeatDelay = 0, delay = 0 } = this.options
+        if (time > delay) {
+            const [index, position] = split(time, prevDuration, this.options)
+            time = join(
+                index,
+                Math.min(position, duration),
+                duration,
+                this.options
+            )
+        }
+        const end =
+            delay + (repeat + 1) * (duration + repeatDelay) - repeatDelay
+        if (this.isDone && time < end) this.newFinished()
 
         if (this.scrollTimeline) {
             this.detachScroll = group.attachTimeline(this.scrollTimeline)
@@ -670,9 +739,17 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
         }
     }
 
-    private pauseAt(time: number) {
+    /**
+     * Pause at a playhead position in the current repeat.
+     */
+    private pauseAt(position: number) {
         this.pause()
-        this.time = time
+        this.time = join(
+            this.repeatIndex,
+            position,
+            this.totalDuration,
+            this.options
+        )
         return true
     }
 
@@ -686,8 +763,7 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
              * Without onReverseComplete, onComplete fires in either
              * direction, as it does for a single animation.
              */
-            const callback =
-                (this.speed < 0 && onReverseComplete) || onComplete
+            const callback = (this.speed < 0 && onReverseComplete) || onComplete
             callback?.()
             this.resolveFinished()
         })
