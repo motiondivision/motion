@@ -38,38 +38,37 @@ export const pointToProgressVelocity = (
  * visual duration. Other tweens keep their curve and lose the velocity.
  */
 export function toVelocityTransition(
-    options: ValueAnimationOptions<number>,
+    options: any,
     defaultEase: unknown
 ): ValueAnimationOptions<number> {
-    let { type, duration, bounce, visualDuration, ...rest } = options as any
-
-    if (options.ease === defaultEase) {
-        type = "spring"
-        duration = undefined
-        bounce = 0
-        visualDuration = 0.45
-        delete rest.ease
-    }
+    const t =
+        options.ease === defaultEase
+            ? {
+                  ...options,
+                  type: "spring",
+                  duration: undefined,
+                  bounce: 0,
+                  visualDuration: 0.45,
+              }
+            : options
 
     if (
-        type !== "spring" &&
-        (type ||
-            (bounce === undefined &&
-                visualDuration === undefined &&
-                rest.stiffness === undefined))
+        t.type === "spring" ||
+        (!t.type && (t.bounce ?? t.visualDuration ?? t.stiffness) !== undefined)
     ) {
-        return options
+        const { stiffness, damping, mass } = getSpringOptions({
+            ...t,
+            duration: t.duration && secondsToMilliseconds(t.duration),
+        })
+        return {
+            ...t,
+            type: "spring",
+            duration: undefined,
+            stiffness,
+            damping,
+            mass,
+        }
     }
 
-    const { stiffness, damping, mass } = getSpringOptions({
-        ...rest,
-        duration:
-            duration === undefined
-                ? undefined
-                : secondsToMilliseconds(duration),
-        bounce,
-        visualDuration,
-    })
-
-    return { ...rest, type: "spring", stiffness, damping, mass }
+    return options
 }

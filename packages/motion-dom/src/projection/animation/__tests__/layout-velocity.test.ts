@@ -1,3 +1,4 @@
+import { getSpringOptions } from "../../../animation/generators/spring"
 import {
     pixelToProgressVelocity,
     pointToProgressVelocity,
@@ -40,7 +41,7 @@ describe("toVelocityTransition", () => {
         expect(transition.stiffness).toBeGreaterThan(0)
         expect(transition.damping).toBeGreaterThan(0)
         expect(transition.duration).toBeUndefined()
-        expect(transition.ease).toBeUndefined()
+        expect(getSpringOptions(transition).isTimeDefined).toBe(false)
         expect(transition.onComplete).toBe(onComplete)
     })
 
@@ -49,9 +50,8 @@ describe("toVelocityTransition", () => {
             { type: "spring", visualDuration: 0.5, bounce: 0.2 } as any,
             defaultEase
         ) as any
-        expect(fromVisual.visualDuration).toBeUndefined()
-        expect(fromVisual.bounce).toBeUndefined()
         expect(fromVisual.stiffness).toBeGreaterThan(0)
+        expect(getSpringOptions(fromVisual).isTimeDefined).toBe(false)
 
         const fromDuration = toVelocityTransition(
             { type: "spring", duration: 0.5, bounce: 0.2 } as any,
@@ -59,6 +59,7 @@ describe("toVelocityTransition", () => {
         ) as any
         expect(fromDuration.duration).toBeUndefined()
         expect(fromDuration.stiffness).toBeGreaterThan(0)
+        expect(getSpringOptions(fromDuration).isTimeDefined).toBe(false)
     })
 
     test("physics springs keep their physics", () => {

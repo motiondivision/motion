@@ -17,11 +17,10 @@ export interface Measurements {
     latestValues: ResolvedValues
     source: number
     /**
-     * Experimental: page velocity (px/s) of the node's layout animation,
-     * and of its x/y values, when measured.
+     * Experimental: per axis, [layout animation, x/y value] page velocity
+     * (px/s) when measured.
      */
-    velocity?: Point
-    valueVelocity?: Point
+    velocity?: number[][]
 }
 
 export type Phase = "snapshot" | "measure"
