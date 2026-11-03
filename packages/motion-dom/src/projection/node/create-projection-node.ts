@@ -1996,7 +1996,14 @@ export function createProjectionNode<I>({
                         defaultLayoutTransition.ease,
                         box && Math.sqrt(calcLength(box.x) * calcLength(box.y))
                     )
-                    if (velocity !== undefined) {
+                    /**
+                     * Only springs take a velocity. A tween keeps one
+                     * driver, so its controls (pause, time) reach it all.
+                     */
+                    if (
+                        velocity !== undefined &&
+                        transition.type === "spring"
+                    ) {
                         typeof velocity === "number"
                             ? (mainVelocity = velocity)
                             : (pending = 3)
