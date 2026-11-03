@@ -20,7 +20,7 @@ async function waitForRemoval(query: () => Element | null) {
  * detaches the hidden tree's refs while it's suspended and attaches them
  * again on reveal, so the exiting child mounts again already exiting.
  */
-function renderItems(isStrict: boolean) {
+function renderItems(isStrict: boolean, duration = 0.05) {
     const cache = new Map<string, Item>([
         ["A", { name: "A", hasAction: true }],
         ["B", { name: "B", hasAction: false }],
@@ -55,7 +55,7 @@ function renderItems(isStrict: boolean) {
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            transition={{ duration: 0.05 }}
+                            transition={{ duration }}
                             onAnimationStart={onAnimationStart}
                         >
                             Action for {item.name}
@@ -124,6 +124,34 @@ describe.each([true, false])(
             await waitForRemoval(action)
 
             expect(exitStarted()).toBe(true)
+            expect(action()).toBeNull()
+        })
+
+        test("exits from the values it showed before the boundary suspended", async () => {
+            const { action, select, resolve } = renderItems(isStrict, 1)
+
+            // Wait for the enter animation to finish
+            for (let i = 0; i < 80 && action()?.style.opacity !== "1"; i++) {
+                await act(nextFrame)
+            }
+            expect(action()!.style.opacity).toBe("1")
+
+            await select("C")
+            await resolve()
+
+            /**
+             * The action is only shown again to animate out, so it mustn't
+             * be reset to initial={{ opacity: 0 }} first, which would hide
+             * it without a visible exit.
+             */
+            let maxOpacity = 0
+            for (let i = 0; i < 120 && action(); i++) {
+                await act(nextFrame)
+                const opacity = action()?.style.opacity
+                if (opacity) maxOpacity = Math.max(maxOpacity, +opacity)
+            }
+
+            expect(maxOpacity).toBeGreaterThan(0.5)
             expect(action()).toBeNull()
         })
 

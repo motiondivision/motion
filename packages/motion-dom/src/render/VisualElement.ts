@@ -451,9 +451,15 @@ export abstract class VisualElement<
          * If this element has been mounted before (e.g. after a Suspense
          * unmount/remount), reset motion values to their initial state
          * so animations replay correctly from initial → animate, unless
-         * the presence asks to keep them.
+         * the presence asks to keep them or the element is only shown
+         * again to exit (#4049).
          */
-        if (this.hasBeenMounted && !this.presenceContext?.keepValuesOnRemount) {
+        const presence = this.presenceContext
+        if (
+            this.hasBeenMounted &&
+            presence?.isPresent !== false &&
+            !presence?.keepValuesOnRemount
+        ) {
             for (const key in this.initialValues) {
                 this.values.get(key)?.jump(this.initialValues[key])
                 this.latestValues[key] = this.initialValues[key]
