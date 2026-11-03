@@ -1061,7 +1061,7 @@ export function createProjectionNode<I>({
              * Record how fast the element is moving when it's measured, so
              * the next layout animation can start at the same speed.
              */
-            if (this.snapshot && MotionGlobalConfig.layoutVelocity) {
+            if (this.snapshot && MotionGlobalConfig.layoutVelocity !== false) {
                 const { visualElement } = this.options
                 const delta = this.currentAnimation && this.animationDelta
                 const values = this.axisValues
@@ -1982,14 +1982,25 @@ export function createProjectionNode<I>({
                 let mainVelocity = 0
                 let pending = 1
 
-                if (velocity !== undefined && (options as any).type !== false) {
+                /**
+                 * With the flag on, layout animations default to a soft
+                 * physics spring, so they can start with a velocity.
+                 */
+                if (
+                    MotionGlobalConfig.layoutVelocity !== false &&
+                    (options as any).type !== false
+                ) {
+                    const box = this.layout?.layoutBox
                     transition = toVelocityTransition(
                         options,
-                        defaultLayoutTransition.ease
+                        defaultLayoutTransition.ease,
+                        box && Math.sqrt(calcLength(box.x) * calcLength(box.y))
                     )
-                    typeof velocity === "number"
-                        ? (mainVelocity = velocity)
-                        : (pending = 3)
+                    if (velocity !== undefined) {
+                        typeof velocity === "number"
+                            ? (mainVelocity = velocity)
+                            : (pending = 3)
+                    }
                 }
 
                 const onComplete = () => {

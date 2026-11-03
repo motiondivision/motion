@@ -81,4 +81,34 @@ describe("toVelocityTransition", () => {
         const inertia = { type: "inertia" } as any
         expect(toVelocityTransition(inertia, defaultEase)).toBe(inertia)
     })
+
+    test("the default spring's mass follows element size", () => {
+        const resolve = (size: number) =>
+            toVelocityTransition(
+                { duration: 0.45, ease: defaultEase } as any,
+                defaultEase,
+                size
+            ) as any
+        const small = resolve(50)
+        const card = resolve(300)
+        const hero = resolve(2000)
+        expect(small.mass).toBe(0.5)
+        expect(card.mass).toBe(1)
+        expect(hero.mass).toBe(2)
+
+        // Same stiffness, and every size stays critically damped
+        expect(small.stiffness).toBe(hero.stiffness)
+        for (const { stiffness, damping, mass } of [small, card, hero]) {
+            expect(damping / (2 * Math.sqrt(stiffness * mass))).toBeCloseTo(1)
+        }
+    })
+
+    test("user springs keep their mass", () => {
+        const transition = toVelocityTransition(
+            { type: "spring", visualDuration: 0.5, bounce: 0.2 } as any,
+            defaultEase,
+            2000
+        ) as any
+        expect(transition.mass).toBe(1)
+    })
 })

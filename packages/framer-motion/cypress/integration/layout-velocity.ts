@@ -154,4 +154,27 @@ describe("Layout velocity", () => {
             expect(Math.max(...samples)).to.be.lessThan(atSwap + 1)
         })
     })
+
+    it("The default layout transition is a physics spring", () => {
+        cy.visit("?test=layout-velocity-default-spring")
+            .wait(200)
+            .get("#box")
+            .click()
+            .wait(1500)
+            .should(([$el]: any) => {
+                // The 0.45s default tween would finish in about 450ms.
+                expect(Number($el.dataset.duration)).to.be.greaterThan(600)
+            })
+    })
+
+    it("Without the flag, the default layout transition is the tween", () => {
+        cy.visit("?test=layout-velocity-default-spring&velocity=false")
+            .wait(200)
+            .get("#box")
+            .click()
+            .wait(1500)
+            .should(([$el]: any) => {
+                expect(Number($el.dataset.duration)).to.be.lessThan(600)
+            })
+    })
 })

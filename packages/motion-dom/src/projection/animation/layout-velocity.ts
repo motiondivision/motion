@@ -1,4 +1,4 @@
-import { Point, secondsToMilliseconds } from "motion-utils"
+import { clamp, Point, secondsToMilliseconds } from "motion-utils"
 import { getSpringOptions } from "../../animation/generators/spring"
 import type { ValueAnimationOptions } from "../../animation/types"
 
@@ -34,32 +34,40 @@ export const pointToProgressVelocity = (
 /**
  * Only physics springs start with a velocity: time-defined springs ignore
  * it. So resolve duration, visualDuration and bounce to the same physics.
- * The default layout tween becomes a critically damped spring of the same
- * visual duration. Other tweens keep their curve and lose the velocity.
+ * The default layout tween becomes a soft (critically damped) spring of the
+ * same visual duration, with mass from the element's size: a 300px square
+ * has mass 1, bigger elements are heavier and slower (mass 0.5 to 2), and
+ * damping scales with mass so every size stays critically damped. Other
+ * tweens keep their curve and lose the velocity.
  */
 export function toVelocityTransition(
     options: any,
-    defaultEase: unknown
+    defaultEase: unknown,
+    size = 300
 ): ValueAnimationOptions<number> {
-    const t =
-        options.ease === defaultEase
-            ? {
-                  ...options,
-                  type: "spring",
-                  duration: undefined,
-                  bounce: 0,
-                  visualDuration: 0.45,
-              }
-            : options
+    const isDefault = options.ease === defaultEase
+    const t = isDefault
+        ? {
+              ...options,
+              type: "spring",
+              duration: undefined,
+              bounce: 0,
+              visualDuration: 0.45,
+          }
+        : options
 
     if (
         t.type === "spring" ||
         (!t.type && (t.bounce ?? t.visualDuration ?? t.stiffness) !== undefined)
     ) {
-        const { stiffness, damping, mass } = getSpringOptions({
+        let { stiffness, damping, mass } = getSpringOptions({
             ...t,
             duration: t.duration && secondsToMilliseconds(t.duration),
         })
+        if (isDefault) {
+            mass = clamp(0.5, 2, size / 300)
+            damping *= Math.sqrt(mass)
+        }
         return {
             ...t,
             type: "spring",
