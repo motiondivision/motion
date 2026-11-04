@@ -1,5 +1,5 @@
-import type { JSAnimation } from "../../animation/JSAnimation"
 import type {
+    AnimationPlaybackControls,
     MotionPath,
     Transition,
     ValueTransition,
@@ -16,6 +16,11 @@ export interface Measurements {
     layoutBox: Box
     latestValues: ResolvedValues
     source: number
+    /**
+     * Experimental: per axis, [layout animation, x/y value] page velocity
+     * (px/s) when measured.
+     */
+    velocity?: number[][]
 }
 
 export type Phase = "snapshot" | "measure"
@@ -125,7 +130,7 @@ export interface IProjectionNode<I = unknown> {
 
     isProjecting(): boolean
     animationValues?: ResolvedValues
-    currentAnimation?: JSAnimation<number>
+    currentAnimation?: AnimationPlaybackControls
     isTreeAnimating?: boolean
     isAnimationBlocked?: boolean
     setAnimationOrigin(

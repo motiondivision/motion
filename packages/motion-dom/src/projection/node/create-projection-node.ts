@@ -8,10 +8,11 @@ import {
     SubscriptionManager,
 } from "motion-utils"
 import { animateSingleValue } from "../../animation/animate/single-value"
+import { spring } from "../../animation/generators/spring"
 import { notifyLayoutAnimationStart } from "../../animation/utils/notify-inspector"
-import { JSAnimation } from "../../animation/JSAnimation"
 import { getOptimisedAppearId } from "../../animation/optimized-appear/get-appear-id"
 import {
+    AnimationPlaybackControls,
     MotionPath,
     PathInterpolator,
     Transition,
@@ -36,6 +37,12 @@ import { mixNumber } from "../../utils/mix/number"
 import { MotionValue, motionValue } from "../../value"
 import { resolveMotionValue } from "../../value/utils/resolve-motion-value"
 import { mixValues } from "../animation/mix-values"
+import {
+    pixelToProgressVelocity,
+    pointToProgressVelocity,
+    progressToPixelVelocity,
+    toVelocityTransition,
+} from "../animation/layout-velocity"
 import { transformGroups } from "../../animation/waapi/transforms/groups"
 import { copyAxisDeltaInto, copyAxisInto, copyBoxInto } from "../geometry/copy"
 import {
@@ -1049,6 +1056,28 @@ export function createProjectionNode<I>({
             ) {
                 this.snapshot = undefined
             }
+
+            /**
+             * Record how fast the element is moving when it's measured, so
+             * the next layout animation can start at the same speed.
+             */
+            if (this.snapshot) {
+                const { visualElement } = this.options
+                const delta = this.currentAnimation && this.animationDelta
+                const values = this.axisValues
+                this.snapshot.velocity = eachAxis((axis) => [
+                    delta
+                        ? progressToPixelVelocity(
+                              delta[axis].translate,
+                              (values
+                                  ? values[axis]
+                                  : this.motionValue
+                              )?.getVelocity() || 0
+                          )
+                        : 0,
+                    visualElement?.getValue(axis)?.getVelocity() || 0,
+                ])
+            }
         }
 
         updateLayout() {
@@ -1748,9 +1777,20 @@ export function createProjectionNode<I>({
          */
         animationValues?: ResolvedValues
         pendingAnimation?: Process
-        currentAnimation?: JSAnimation<number>
+        currentAnimation?: AnimationPlaybackControls
         mixTargetDelta: (progress: number) => void
         animationProgress = 0
+
+        /**
+         * Layout velocity.
+         * startVelocity is progress velocity for the next animation: one
+         * number for a curved path, or x and y for separate springs.
+         * axisValues hold x and y translate progress (0-1000) while they
+         * run on their own springs.
+         */
+        animationDelta?: Delta
+        startVelocity?: number | Point
+        axisValues?: { x: MotionValue<number>; y: MotionValue<number> }
 
         setAnimationOrigin(
             delta: Delta,
@@ -1792,12 +1832,41 @@ export function createProjectionNode<I>({
             const interpolate: PathInterpolator | undefined =
                 pathFn?.interpolateProjection(delta)
 
+            this.animationDelta = delta
+            this.axisValues = this.startVelocity = undefined
+
+            /**
+             * A shared snapshot is measured with the old element's own
+             * transforms (like x/y from drag), so it hands their velocity on
+             * too. Otherwise those values keep animating themselves.
+             */
+            const velocity = snapshot?.velocity
+            if (velocity) {
+                const [x, y] = velocity.map(
+                    ([layout, value]) =>
+                        layout + (isSharedLayoutAnimation ? value : 0)
+                )
+                if (x || y) {
+                    const tx = delta.x.translate
+                    const ty = delta.y.translate
+                    this.startVelocity = interpolate
+                        ? pointToProgressVelocity(tx, ty, { x, y })
+                        : {
+                              x: pixelToProgressVelocity(tx, x),
+                              y: pixelToProgressVelocity(ty, y),
+                          }
+                }
+            }
+
             this.mixTargetDelta = (latest: number) => {
                 const progress = latest / 1000
                 const point = interpolate?.(progress)
+                const axes = this.axisValues
+                const px = axes ? axes.x.get() / 1000 : progress
+                const py = axes ? axes.y.get() / 1000 : progress
 
-                mixAxisDeltaLinear(targetDelta.x, delta.x, progress)
-                mixAxisDeltaLinear(targetDelta.y, delta.y, progress)
+                mixAxisDeltaLinear(targetDelta.x, delta.x, progress, px)
+                mixAxisDeltaLinear(targetDelta.y, delta.y, progress, py)
 
                 if (point) {
                     targetDelta.x.translate = point.x
@@ -1819,11 +1888,19 @@ export function createProjectionNode<I>({
                         this.relativeParent.layout.layoutBox,
                         this.options.layoutAnchor || undefined
                     )
-                    mixBox(
-                        this.relativeTarget,
-                        this.relativeTargetOrigin,
-                        relativeLayout,
-                        progress
+                    mixAxisSplit(
+                        this.relativeTarget.x,
+                        this.relativeTargetOrigin.x,
+                        relativeLayout.x,
+                        progress,
+                        px
+                    )
+                    mixAxisSplit(
+                        this.relativeTarget.y,
+                        this.relativeTargetOrigin.y,
+                        relativeLayout.y,
+                        progress,
+                        py
                     )
 
                     /**
@@ -1865,7 +1942,11 @@ export function createProjectionNode<I>({
                 this.root.scheduleUpdateProjection()
                 this.scheduleRender()
 
-                this.animationProgress = progress
+                /**
+                 * Only complete when x and y translate have finished too.
+                 */
+                this.animationProgress =
+                    px === 1 && py === 1 ? progress : Math.min(progress, 0.999)
             }
 
             this.mixTargetDelta(this.options.layoutRoot ? 1000 : 0)
@@ -1894,23 +1975,93 @@ export function createProjectionNode<I>({
                 this.motionValue ||= motionValue(0)
                 this.motionValue.jump(0, false)
 
-                this.currentAnimation = animateSingleValue(
-                    this.motionValue,
-                    [0, 1000],
-                    {
-                        ...(options as any),
-                        velocity: 0,
-                        isSync: true,
-                        onUpdate: (latest: number) => {
-                            this.mixTargetDelta(latest)
-                            options.onUpdate && options.onUpdate(latest)
-                        },
-                        onComplete: () => {
-                            options.onComplete && options.onComplete()
-                            this.completeAnimation()
-                        },
+                const velocity = this.startVelocity
+                this.startVelocity = undefined
+
+                let transition: any = options
+                let mainVelocity = 0
+                let onAxes: VoidFunction | undefined
+
+                /**
+                 * Layout animations default to a soft physics spring, so
+                 * they can start with a velocity.
+                 */
+                if ((options as any).type !== false) {
+                    const box = this.layout?.layoutBox
+                    transition = toVelocityTransition(
+                        options,
+                        defaultLayoutTransition.ease,
+                        box && Math.sqrt(calcLength(box.x) * calcLength(box.y))
+                    )
+                    /**
+                     * Only springs take a velocity. A tween keeps one
+                     * driver, so its controls (pause, time) reach it all.
+                     */
+                    if (
+                        velocity !== undefined &&
+                        transition.type === "spring"
+                    ) {
+                        if (typeof velocity === "number") {
+                            mainVelocity = velocity
+                        } else {
+                            /**
+                             * x and y translate get their own springs, each
+                             * with its own start velocity. One generator
+                             * steps all three, so one animation drives them
+                             * and its controls reach them all.
+                             */
+                            const values = (this.axisValues = {
+                                x: motionValue(0),
+                                y: motionValue(0),
+                            })
+                            let axes: number[] = []
+                            transition = {
+                                ...transition,
+                                type: (o: any) => {
+                                    const springs = [
+                                        o.velocity,
+                                        velocity.x,
+                                        velocity.y,
+                                    ].map((v) => spring({ ...o, velocity: v }))
+                                    return {
+                                        calculatedDuration: null,
+                                        next: (t: number) => {
+                                            const states = springs.map((g) =>
+                                                g.next(t)
+                                            )
+                                            axes = states.map((s) => s.value)
+                                            states[0].done = states.every(
+                                                (s) => s.done
+                                            )
+                                            return states[0]
+                                        },
+                                    }
+                                },
+                            }
+                            onAxes = () => {
+                                values.x.set(axes[1])
+                                values.y.set(axes[2])
+                            }
+                        }
                     }
-                ) as JSAnimation<number>
+                }
+
+                const main = animateSingleValue(this.motionValue, [0, 1000], {
+                    ...transition,
+                    velocity: mainVelocity,
+                    isSync: true,
+                    onUpdate: (latest: number) => {
+                        onAxes && onAxes()
+                        this.mixTargetDelta(latest)
+                        options.onUpdate && options.onUpdate(latest)
+                    },
+                    onComplete: () => {
+                        options.onComplete && options.onComplete()
+                        this.completeAnimation()
+                    },
+                })
+
+                this.currentAnimation = main
 
                 notifyLayoutAnimationStart(this.currentAnimation, this)
 
@@ -1933,6 +2084,7 @@ export function createProjectionNode<I>({
             this.resumingFrom =
                 this.currentAnimation =
                 this.animationValues =
+                this.axisValues =
                     undefined
 
             this.notifyListeners("animationComplete")
@@ -1940,6 +2092,7 @@ export function createProjectionNode<I>({
 
         finishAnimation() {
             if (this.currentAnimation) {
+                this.axisValues = undefined
                 this.mixTargetDelta?.(animationTarget)
                 this.currentAnimation.stop()
             }
@@ -2592,8 +2745,13 @@ function resetSkewAndRotation(node: IProjectionNode) {
     node.resetSkewAndRotation()
 }
 
-function mixAxisDeltaLinear(output: AxisDelta, delta: AxisDelta, p: number) {
-    output.translate = mixNumber(delta.translate, 0, p)
+function mixAxisDeltaLinear(
+    output: AxisDelta,
+    delta: AxisDelta,
+    p: number,
+    pTranslate: number
+) {
+    output.translate = mixNumber(delta.translate, 0, pTranslate)
     output.scale = mixNumber(delta.scale, 1, p)
     output.origin = delta.origin
     output.originPoint = delta.originPoint
@@ -2602,6 +2760,22 @@ function mixAxisDeltaLinear(output: AxisDelta, delta: AxisDelta, p: number) {
 export function mixAxis(output: Axis, from: Axis, to: Axis, p: number) {
     output.min = mixNumber(from.min, to.min, p)
     output.max = mixNumber(from.max, to.max, p)
+}
+
+/**
+ * Mix an axis, then move its centre to pCenter progress.
+ */
+function mixAxisSplit(
+    output: Axis,
+    from: Axis,
+    to: Axis,
+    p: number,
+    pCenter: number
+) {
+    mixAxis(output, from, to, p)
+    const shift = ((to.min + to.max - from.min - from.max) / 2) * (pCenter - p)
+    output.min += shift
+    output.max += shift
 }
 
 export function mixBox(output: Box, from: Box, to: Box, p: number) {

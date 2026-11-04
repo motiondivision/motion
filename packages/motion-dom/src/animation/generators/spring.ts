@@ -214,7 +214,7 @@ function resolvePhysics(value: number | undefined, canBeZero?: boolean) {
     return undefined
 }
 
-function getSpringOptions(options: SpringOptions) {
+export function getSpringOptions(options: SpringOptions) {
     /**
      * Resolve physics before choosing between physics- and duration-based
      * resolution, so an invalid stiffness doesn't also silently discard a
