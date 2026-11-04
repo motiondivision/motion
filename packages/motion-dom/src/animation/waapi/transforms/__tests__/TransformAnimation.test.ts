@@ -370,6 +370,49 @@ describe("independent transform acceleration", () => {
         expect(element.style.transform).toContain("translateY")
     })
 
+    it("finishes a value that can't be accelerated if it ends before the group builds", async () => {
+        const element = document.createElement("div")
+        const onComplete = jest.fn()
+
+        const [animation] = animateElement(
+            element,
+            { scale: [1, 0.5] },
+            { duration: 0.1, onUpdate: () => {}, onComplete }
+        )
+
+        /**
+         * The main thread is busy past the end, before the group builds,
+         * as when the same click starts a long render.
+         */
+        const start = performance.now()
+        while (performance.now() - start < 150) {}
+
+        const finished = await Promise.race([
+            animation.finished.then(() => true),
+            wait(300).then(() => false),
+        ])
+
+        expect(finished).toBe(true)
+        expect(onComplete).toHaveBeenCalledTimes(1)
+        expect(element.style.transform).toBe("scale(0.5)")
+    })
+
+    it("finishes a value that can't be accelerated when completed before the group builds", async () => {
+        const element = document.createElement("div")
+        const onComplete = jest.fn()
+
+        const [animation] = animateElement(
+            element,
+            { scale: [1, 0.5] },
+            { duration: 1, onUpdate: () => {}, onComplete }
+        )
+        animation.complete()
+        await nextFrame()
+
+        expect(onComplete).toHaveBeenCalledTimes(1)
+        expect(element.style.transform).toBe("scale(0.5)")
+    })
+
     it("stays on the main thread for values a mixer mixes", async () => {
         const element = document.createElement("div")
         let mixed = 0

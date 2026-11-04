@@ -1,5 +1,6 @@
+import { waitFor } from "@testing-library/dom"
 import { supportsFlags } from "motion-dom"
-import { act, createRef, useState } from "react"
+import { act, createRef, useEffect, useRef, useState } from "react"
 import { motion, useMotionValue } from "../../"
 import "../../animation/animators/waapi/__tests__/setup"
 import { nextFrame } from "../../gestures/__tests__/utils"
@@ -978,5 +979,80 @@ describe("WAAPI animations", () => {
             }
         )
         supportsFlags.linearEasing = undefined
+    })
+
+    test("Finishes a transform that can't be accelerated when the main thread is blocked past its end", async () => {
+        supportsFlags.linearEasing = true
+        const ref = createRef<HTMLDivElement>()
+        const completed: string[] = []
+        let setVisible: (isVisible: boolean) => void
+
+        const variants = {
+            visible: {
+                visibility: "visible",
+                opacity: 1,
+                scale: 1,
+                transition: { duration: 0.1 },
+            },
+            hidden: {
+                opacity: 0,
+                scale: 0.5,
+                transition: { duration: 0.1 },
+                transitionEnd: { visibility: "hidden" },
+            },
+        }
+
+        const Component = () => {
+            const [isVisible, set] = useState(false)
+            const isMounted = useRef(false)
+            setVisible = set
+
+            useEffect(() => {
+                /**
+                 * Block the main thread for longer than the transition,
+                 * before the animation's first frame.
+                 */
+                if (isMounted.current && !isVisible) {
+                    const start = performance.now()
+                    while (performance.now() - start < 300) {}
+                }
+                isMounted.current = true
+            }, [isVisible])
+
+            return (
+                <motion.div
+                    ref={ref}
+                    initial={false}
+                    variants={variants}
+                    animate={isVisible ? "visible" : "hidden"}
+                    onUpdate={() => {}}
+                    onAnimationComplete={(definition) =>
+                        completed.push(definition as string)
+                    }
+                />
+            )
+        }
+
+        render(<Component />)
+        try {
+            act(() => setVisible(true))
+            await waitFor(() => expect(completed).toEqual(["visible"]))
+
+            act(() => setVisible(false))
+            await waitFor(() =>
+                expect(completed).toEqual(["visible", "hidden"])
+            )
+            expect(ref.current!.style.visibility).toBe("hidden")
+            expect(ref.current!.style.transform).toBe("scale(0.5)")
+
+            act(() => setVisible(true))
+            await waitFor(() =>
+                expect(completed).toEqual(["visible", "hidden", "visible"])
+            )
+            expect(ref.current!.style.visibility).toBe("visible")
+            expect(ref.current!.style.opacity).toBe("1")
+        } finally {
+            supportsFlags.linearEasing = undefined
+        }
     })
 })
