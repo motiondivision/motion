@@ -110,10 +110,8 @@ const toProps = ({
     y,
 }: DragOptions): MotionNodeOptions => ({
     drag: axis || true,
-    ...((x || y) && {
-        _dragX: x || motionValue(0),
-        _dragY: y || motionValue(0),
-    }),
+    _dragX: x || (y && motionValue(0)),
+    _dragY: y || (x && motionValue(0)),
     dragConstraints: constraints,
     dragElastic: elastic,
     dragMomentum: momentum,
