@@ -8,6 +8,7 @@ import {
     SubscriptionManager,
 } from "motion-utils"
 import { animateSingleValue } from "../../animation/animate/single-value"
+import { spring } from "../../animation/generators/spring"
 import { notifyLayoutAnimationStart } from "../../animation/utils/notify-inspector"
 import { getOptimisedAppearId } from "../../animation/optimized-appear/get-appear-id"
 import {
@@ -1979,7 +1980,7 @@ export function createProjectionNode<I>({
 
                 let transition: any = options
                 let mainVelocity = 0
-                let pending = 1
+                let onAxes: VoidFunction | undefined
 
                 /**
                  * Layout animations default to a soft physics spring, so
@@ -2000,60 +2001,65 @@ export function createProjectionNode<I>({
                         velocity !== undefined &&
                         transition.type === "spring"
                     ) {
-                        typeof velocity === "number"
-                            ? (mainVelocity = velocity)
-                            : (pending = 3)
+                        if (typeof velocity === "number") {
+                            mainVelocity = velocity
+                        } else {
+                            /**
+                             * x and y translate get their own springs, each
+                             * with its own start velocity. One generator
+                             * steps all three, so one animation drives them
+                             * and its controls reach them all.
+                             */
+                            const values = (this.axisValues = {
+                                x: motionValue(0),
+                                y: motionValue(0),
+                            })
+                            let axes: number[] = []
+                            transition = {
+                                ...transition,
+                                type: (o: any) => {
+                                    const springs = [
+                                        o.velocity,
+                                        velocity.x,
+                                        velocity.y,
+                                    ].map((v) => spring({ ...o, velocity: v }))
+                                    return {
+                                        calculatedDuration: null,
+                                        next: (t: number) => {
+                                            const states = springs.map((g) =>
+                                                g.next(t)
+                                            )
+                                            axes = states.map((s) => s.value)
+                                            states[0].done = states.every(
+                                                (s) => s.done
+                                            )
+                                            return states[0]
+                                        },
+                                    }
+                                },
+                            }
+                            onAxes = () => {
+                                values.x.set(axes[1])
+                                values.y.set(axes[2])
+                            }
+                        }
                     }
                 }
 
-                const onComplete = () => {
-                    if (--pending) return
-                    options.onComplete && options.onComplete()
-                    this.completeAnimation()
-                }
-
-                const animate = (
-                    value: MotionValue<number>,
-                    velocity: number,
-                    onUpdate: (latest: number) => void,
-                    onPlay?: VoidFunction
-                ) =>
-                    animateSingleValue(value, [0, 1000], {
-                        ...transition,
-                        onPlay,
-                        velocity,
-                        isSync: true,
-                        onUpdate,
-                        onComplete,
-                    })
-
-                const main = animate(
-                    this.motionValue,
-                    mainVelocity,
-                    (latest: number) => {
+                const main = animateSingleValue(this.motionValue, [0, 1000], {
+                    ...transition,
+                    velocity: mainVelocity,
+                    isSync: true,
+                    onUpdate: (latest: number) => {
+                        onAxes && onAxes()
                         this.mixTargetDelta(latest)
                         options.onUpdate && options.onUpdate(latest)
                     },
-                    options.onPlay
-                )
-
-                if (pending > 1) {
-                    const values = (this.axisValues = {
-                        x: motionValue(0),
-                        y: motionValue(0),
-                    })
-                    eachAxis((axis) =>
-                        animate(values[axis], (velocity as Point)[axis], () =>
-                            this.mixTargetDelta(this.motionValue!.get())
-                        )
-                    )
-                    // Stopping the main progress stops x and y too.
-                    const { stop } = main
-                    main.stop = () => {
-                        stop.call(main)
-                        eachAxis((axis) => values[axis].stop())
-                    }
-                }
+                    onComplete: () => {
+                        options.onComplete && options.onComplete()
+                        this.completeAnimation()
+                    },
+                })
 
                 this.currentAnimation = main
 
