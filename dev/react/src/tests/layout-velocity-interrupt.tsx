@@ -1,24 +1,25 @@
-import { motion, MotionGlobalConfig } from "framer-motion"
+import { motion } from "framer-motion"
 import { useState } from "react"
 
 /**
- * A layout animation interrupted mid-flight. With layoutVelocity on, the
- * new animation starts with the box's current velocity, so the box keeps
- * moving right for a few frames before it turns back.
+ * A layout animation interrupted mid-flight. A spring starts with the box's
+ * current velocity, so the box keeps moving right for a few frames before it
+ * turns back.
  *
- * ?velocity=false turns the flag off. The flag is set while rendering, as
- * the React 18 app imports every test page up front.
+ * ?tween uses a tween, which takes no velocity and starts from rest.
  */
 export const App = () => {
-    MotionGlobalConfig.layoutVelocity =
-        new URLSearchParams(window.location.search).get("velocity") !== "false"
     const [isRight, setIsRight] = useState(false)
 
     return (
         <motion.div
             id="box"
             layout
-            transition={{ type: "spring", visualDuration: 0.8, bounce: 0 }}
+            transition={
+                new URLSearchParams(window.location.search).has("tween")
+                    ? { duration: 0.8 }
+                    : { type: "spring", visualDuration: 0.8, bounce: 0 }
+            }
             onClick={() => setIsRight(!isRight)}
             style={{
                 position: "absolute",

@@ -1,6 +1,6 @@
 /**
- * MotionGlobalConfig.layoutVelocity: layout animations start with the
- * element's current velocity instead of from rest.
+ * Layout animations with a spring start with the element's current velocity
+ * instead of from rest. Tweens take no velocity.
  *
  * Positions are sampled once per animation frame inside the page, so the
  * test measures the first frames after a hand-off and not the settled state.
@@ -133,8 +133,8 @@ describe("Layout velocity", () => {
         })
     })
 
-    it("Without the flag, an interrupted layout animation starts from rest", () => {
-        interrupt("&velocity=false").then(({ atInterrupt, samples }: any) => {
+    it("An interrupted layout tween starts from rest", () => {
+        interrupt("&tween").then(({ atInterrupt, samples }: any) => {
             expect(Math.max(...samples)).to.be.lessThan(atInterrupt + 1)
         })
     })
@@ -149,8 +149,8 @@ describe("Layout velocity", () => {
         })
     })
 
-    it("Without the flag, a layoutId element starts from rest", () => {
-        throwCard("&velocity=false").then(({ atSwap, samples }: any) => {
+    it("A layoutId tween starts from rest", () => {
+        throwCard("&tween").then(({ atSwap, samples }: any) => {
             expect(Math.max(...samples)).to.be.lessThan(atSwap + 1)
         })
     })
@@ -167,8 +167,8 @@ describe("Layout velocity", () => {
             })
     })
 
-    it("Without the flag, the default layout transition is the tween", () => {
-        cy.visit("?test=layout-velocity-default-spring&velocity=false")
+    it("An explicit layout tween stays a tween", () => {
+        cy.visit("?test=layout-velocity-default-spring&tween")
             .wait(200)
             .get("#box")
             .click()

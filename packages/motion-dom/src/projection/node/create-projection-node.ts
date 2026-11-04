@@ -4,7 +4,6 @@ import {
     Box,
     clamp,
     Delta,
-    MotionGlobalConfig,
     Point,
     SubscriptionManager,
 } from "motion-utils"
@@ -1061,7 +1060,7 @@ export function createProjectionNode<I>({
              * Record how fast the element is moving when it's measured, so
              * the next layout animation can start at the same speed.
              */
-            if (this.snapshot && MotionGlobalConfig.layoutVelocity !== false) {
+            if (this.snapshot) {
                 const { visualElement } = this.options
                 const delta = this.currentAnimation && this.animationDelta
                 const values = this.axisValues
@@ -1782,7 +1781,7 @@ export function createProjectionNode<I>({
         animationProgress = 0
 
         /**
-         * Experimental layout velocity (MotionGlobalConfig.layoutVelocity).
+         * Layout velocity.
          * startVelocity is progress velocity for the next animation: one
          * number for a curved path, or x and y for separate springs.
          * axisValues hold x and y translate progress (0-1000) while they
@@ -1983,13 +1982,10 @@ export function createProjectionNode<I>({
                 let pending = 1
 
                 /**
-                 * With the flag on, layout animations default to a soft
-                 * physics spring, so they can start with a velocity.
+                 * Layout animations default to a soft physics spring, so
+                 * they can start with a velocity.
                  */
-                if (
-                    MotionGlobalConfig.layoutVelocity !== false &&
-                    (options as any).type !== false
-                ) {
+                if ((options as any).type !== false) {
                     const box = this.layout?.layoutBox
                     transition = toVelocityTransition(
                         options,

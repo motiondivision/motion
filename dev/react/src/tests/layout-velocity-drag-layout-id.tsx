@@ -1,21 +1,19 @@
-import { motion, MotionGlobalConfig } from "framer-motion"
+import { motion } from "framer-motion"
 import { useState } from "react"
 
 /**
  * A card thrown with drag becomes a detail view with the same layoutId.
- * The detail view sits down and to the left of the card. With
- * layoutVelocity on, the detail view starts with the throw velocity, so it
- * keeps moving right for a few frames before it travels to its own layout.
+ * The detail view sits down and to the left of the card. With a spring, the
+ * detail view starts with the throw velocity, so it keeps moving right for a
+ * few frames before it travels to its own layout.
  *
- * ?velocity=false turns the flag off. The flag is set while rendering, as
- * the React 18 app imports every test page up front.
+ * ?tween uses a tween, which takes no velocity and starts from rest.
  */
 
-const transition = { type: "spring", visualDuration: 0.8, bounce: 0 } as const
-
 export const App = () => {
-    MotionGlobalConfig.layoutVelocity =
-        new URLSearchParams(window.location.search).get("velocity") !== "false"
+    const transition = new URLSearchParams(window.location.search).has("tween")
+        ? { duration: 0.8 }
+        : ({ type: "spring", visualDuration: 0.8, bounce: 0 } as const)
     const [isOpen, setIsOpen] = useState(false)
 
     return isOpen ? (
