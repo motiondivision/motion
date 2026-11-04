@@ -4,11 +4,22 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
-## [14.9.0] Unreleased
+## [14.9.1] 2026-11-04
 
 ### Added
 
--   `PresenceContext`: `keepValuesOnRemount` keeps motion values when hidden children are shown again, instead of replaying from `initial`.
+-   Ensure accelerated transform animations finish correctly.
+-   `AnimatePresence`: Fix `exit` never starting when a child mounts already exiting.
+-   `AnimatePresence`: Fix `exit` stuck after an open `layoutId` card switches to another item.
+-   Ensure accelerated animations are cleaned up in WebKit.
+
+## [14.9.0] 2026-10-30
+
+### Added
+
+-   `PresenceContext`: Added internal `keepValuesOnRemount` option for internal use.
+-   `dragConstraints`: Accepts function for internal use.
+-   `Reorder`: Keyboard accessibility now focuses just the first item, arrows move focus, arrow keys work in relation to how items are presented on-screen.
 
 ## [14.8.0] 2026-10-29
 
@@ -23,6 +34,7 @@ Undocumented APIs should be considered internal and may change without warning.
 -   `drag`: 20% smaller.
 -   `m` component: 6% smaller.
 -   Keep timeline adjustments within timeline scope.
+-   `Reorder`
 
 ## [14.7.1] 2026-10-27
 

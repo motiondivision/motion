@@ -56,6 +56,43 @@ function List(handle: Handle<ListProps>) {
     )
 }
 
+/**
+ * A list whose first value isn't rendered, as when it's virtualized, and
+ * an item outside its values. `hidePartialA()` unrenders "a" from a
+ * component below the group.
+ */
+function PartialItems(handle: Handle) {
+    let shown = ["a", "b", "new"]
+    w.hidePartialA = () => {
+        shown = ["b", "new"]
+        handle.update()
+    }
+    return () =>
+        shown.map((item) => (
+            <Reorder.Item
+                key={item}
+                value={item}
+                id={"partial-" + item}
+                style={itemStyle}
+            >
+                {item}
+            </Reorder.Item>
+        ))
+}
+
+function Partial() {
+    return () => (
+        <Reorder.Group
+            id="partial"
+            values={["hidden", "a", "b"]}
+            onReorder={() => {}}
+            style={{ listStyle: "none", padding: 0 }}
+        >
+            <PartialItems />
+        </Reorder.Group>
+    )
+}
+
 export function App() {
     return () => (
         <main style={{ padding: "20px" }}>
@@ -80,6 +117,7 @@ export function App() {
                 initial={["a", "b", "c"]}
                 style={{ display: "flex", gap: "10px", direction: "rtl" }}
             />
+            <Partial />
         </main>
     )
 }

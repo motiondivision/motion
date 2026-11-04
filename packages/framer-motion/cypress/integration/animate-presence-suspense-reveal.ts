@@ -1,0 +1,16 @@
+describe("AnimatePresence child removed as Suspense reveals it", () => {
+    it("exits and unmounts", () => {
+        cy.visit("?test=animate-presence-suspense-reveal")
+            .wait(300)
+            .get("#action")
+            .should("exist")
+            .get("#select-c")
+            .click()
+            .get("#loading")
+            .should("exist")
+            .get("#item-c")
+            .should("exist")
+            .get("#action")
+            .should("not.exist")
+    })
+})

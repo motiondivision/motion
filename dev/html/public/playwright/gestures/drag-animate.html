@@ -39,6 +39,13 @@
 
             window.events = []
 
+            // Headless WebKit stops the document timeline while nothing
+            // requests a frame, which freezes WAAPI animations like x/y.
+            // A browser with a display keeps it running, so keep it running
+            // here too.
+            const tick = () => requestAnimationFrame(tick)
+            tick()
+
             // Where the box was when the pointer went down, before drag's
             // own pointerdown listener runs
             window.addEventListener(

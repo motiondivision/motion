@@ -1,5 +1,6 @@
 import { ItemData } from "../../types"
-import { checkReorder } from "../check-reorder"
+import { moveItem } from "motion-utils"
+import { checkReorder, keyTarget } from "../check-reorder"
 import { detectAxis } from "../detect-axis"
 
 const wrapped: ItemData<string>[] = [
@@ -155,5 +156,36 @@ describe("Reorder layout utils", () => {
                 "x"
             ).map(({ value }) => value)
         ).toEqual(["b", "a"])
+    })
+
+    test("moves by the row drawn above or below, not the next in order", () => {
+        /**
+         * flex-wrap: wrap-reverse draws the first row at the bottom:
+         * c
+         * a b
+         */
+        const box = (x: number, y: number) => ({
+            x: { min: x, max: x + 100 },
+            y: { min: y, max: y + 100 },
+        })
+        const reversed: ItemData<string>[] = [
+            { value: "a", layout: box(0, 100) },
+            { value: "b", layout: box(100, 100) },
+            { value: "c", layout: box(0, 0) },
+        ]
+        const move = (value: string, key: number) => {
+            const index = reversed.findIndex((item) => item.value === value)
+            const target = keyTarget(reversed, index, key, "xy", false)
+            return (target < 0 ? reversed : moveItem(reversed, index, target))
+                .map((item) => item.value)
+                .join("")
+        }
+
+        // Up from a goes to c's row, Down from c to a's
+        expect(move("a", 0)).toBe("bca")
+        expect(move("c", 2)).toBe("cab")
+        // Nothing below a or above c
+        expect(move("a", 2)).toBe("abc")
+        expect(move("c", 0)).toBe("abc")
     })
 })

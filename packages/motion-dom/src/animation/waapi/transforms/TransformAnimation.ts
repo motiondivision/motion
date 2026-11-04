@@ -450,13 +450,15 @@ export class TransformAnimation<
     }
 
     /**
-     * JSAnimation finishes on its next tick, which only happens on the
-     * main thread, so finish now.
+     * JSAnimation finishes on its next tick, which only happens once the
+     * group is on the main thread, so finish now. That includes an
+     * animation that can't be accelerated but reached its end before the
+     * group could move there.
      */
     complete() {
         super.complete()
         const { group } = this
-        group && !group.isJS && this.canAccelerate && this.tick(time.now())
+        group && !group.isJS && this.tick(time.now())
     }
 
     /**
@@ -580,12 +582,22 @@ function createGroup(owner: TransformOwner): TransformGroup {
     }
 
     /**
+     * Cancel a WAAPI animation and remove its handlers, as WebKit never
+     * collects an animation once it has run, nor anything its handlers
+     * reference (#4034).
+     */
+    const cancel = (animation: Animation) => {
+        animation.onfinish = animation.oncancel = null
+        animation.cancel()
+    }
+
+    /**
      * Cancel the WAAPI animations, by default first committing the
      * transform. The renderer writes its own version on its next render.
      */
     const stop = (shouldCommit = true) => {
         shouldCommit && commit()
-        segments.forEach(({ animation }) => animation.cancel())
+        segments.forEach(({ animation }) => cancel(animation))
         segments = []
     }
 
@@ -615,7 +627,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
             animation.onfinish = () => {
                 segment.isDone = true
                 if (segments.some((s) => s.end === Infinity)) {
-                    animation.cancel()
+                    cancel(animation)
                     segments = segments.filter((s) => s !== segment)
                 }
                 group.schedule(false)

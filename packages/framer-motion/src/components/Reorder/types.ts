@@ -15,6 +15,17 @@ export interface ReorderContextProps<T> {
     updateOrder: (item: T, offset: Point, velocity: Point) => void
     groupRef: RefObject<Element | null>
     hasReordered: { current: boolean }
+    /**
+     * Whether an item is in the tab order. Only one in `values` is: the
+     * last focused, or the first rendered.
+     */
+    isTabStop: (item: T) => boolean
+    setActive: (item: T) => void
+    checkTabStop: () => void
+    /**
+     * Each item's element, for arrow keys to focus.
+     */
+    elements: Map<T, { current: HTMLElement | null }>
     onKeyDown: (
         event: KeyboardEvent<Element>,
         item: T,

@@ -327,6 +327,28 @@ describe("independent transform acceleration", () => {
         expect(element.style.transform).toBe("translateX(100px)")
     })
 
+    /**
+     * WebKit never collects a WAAPI animation once it has run, nor what its
+     * event handlers reference, here the group and its element (#4034).
+     */
+    it("removes the handlers of the WAAPI animations it cancels", async () => {
+        const element = document.createElement("div")
+
+        animateElement(element, { x: [0, 100] }, { duration: 0.1 })
+        await Promise.all(
+            animateElement(element, { scale: [1, 2] }, { duration: 0.05 })
+        )
+        await wait(100)
+        await nextFrame()
+
+        expect(running(element)).toHaveLength(0)
+        expect(created(element).length).toBeGreaterThan(1)
+        for (const animation of created(element) as any[]) {
+            expect(animation.onfinish).toBeNull()
+            expect(animation.oncancel).toBeNull()
+        }
+    })
+
     it("hands velocity to an interrupting animation", async () => {
         const element = document.createElement("div")
 
@@ -368,6 +390,49 @@ describe("independent transform acceleration", () => {
         expect(element.style.transform).not.toBe(style)
         expect(element.style.transform).toContain("translateX")
         expect(element.style.transform).toContain("translateY")
+    })
+
+    it("finishes a value that can't be accelerated if it ends before the group builds", async () => {
+        const element = document.createElement("div")
+        const onComplete = jest.fn()
+
+        const [animation] = animateElement(
+            element,
+            { scale: [1, 0.5] },
+            { duration: 0.1, onUpdate: () => {}, onComplete }
+        )
+
+        /**
+         * The main thread is busy past the end, before the group builds,
+         * as when the same click starts a long render.
+         */
+        const start = performance.now()
+        while (performance.now() - start < 150) {}
+
+        const finished = await Promise.race([
+            animation.finished.then(() => true),
+            wait(300).then(() => false),
+        ])
+
+        expect(finished).toBe(true)
+        expect(onComplete).toHaveBeenCalledTimes(1)
+        expect(element.style.transform).toBe("scale(0.5)")
+    })
+
+    it("finishes a value that can't be accelerated when completed before the group builds", async () => {
+        const element = document.createElement("div")
+        const onComplete = jest.fn()
+
+        const [animation] = animateElement(
+            element,
+            { scale: [1, 0.5] },
+            { duration: 1, onUpdate: () => {}, onComplete }
+        )
+        animation.complete()
+        await nextFrame()
+
+        expect(onComplete).toHaveBeenCalledTimes(1)
+        expect(element.style.transform).toBe("scale(0.5)")
     })
 
     it("stays on the main thread for values a mixer mixes", async () => {
