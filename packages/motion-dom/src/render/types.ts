@@ -182,4 +182,5 @@ export type FeatureDefinitions = {
     pan?: FeatureDefinition
     inView?: FeatureDefinition
     layout?: FeatureDefinition
+    pinch?: FeatureDefinition
 }

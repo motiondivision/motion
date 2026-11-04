@@ -36,6 +36,10 @@
         {
             "path": "./dist/size-rollup-motion-value.js",
             "maxSize": "1.9 kB"
+        },
+        {
+            "path": "./dist/size-rollup-pinch.js",
+            "maxSize": "6.15 kB"
         }
     ],
     "gitHead": "7b4a34f01709c5b172205844df9d9fabe8a20ab3",

@@ -35,6 +35,7 @@ export { useUnmountEffect } from "./utils/use-unmount-effect"
 export { domAnimation } from "./render/dom/features-animation"
 export { domMax } from "./render/dom/features-max"
 export { domMin } from "./render/dom/features-min"
+export { pinchFeatures } from "./render/dom/features-pinch"
 
 /**
  * Motion values

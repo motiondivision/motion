@@ -24,6 +24,7 @@ export interface HydratedFeatureDefinitions {
     pan?: HydratedFeatureDefinition
     inView?: HydratedFeatureDefinition
     layout?: HydratedFeatureDefinition
+    pinch?: HydratedFeatureDefinition
 }
 
 export interface FeatureDefinition {
@@ -38,6 +39,11 @@ export type FeatureDefinitions = {
 }
 
 export interface FeaturePackage {
+    /**
+     * Features outside the default set (like pinch) say when they're
+     * enabled themselves.
+     */
+    isEnabled?: HydratedFeatureDefinition["isEnabled"]
     Feature?: HydratedFeatureDefinition["Feature"]
     ProjectionNode?: HydratedFeatureDefinition["ProjectionNode"]
     MeasureLayout?: HydratedFeatureDefinition["MeasureLayout"]
