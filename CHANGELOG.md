@@ -4,6 +4,15 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [14.9.1] 2026-11-04
+
+### Added
+
+-   Ensure accelerated transform animations finish correctly.
+-   `AnimatePresence`: Fix `exit` never starting when a child mounts already exiting.
+-   `AnimatePresence`: Fix `exit` stuck after an open `layoutId` card switches to another item.
+-   Ensure accelerated animations are cleaned up in WebKit.
+
 ## [14.9.0] 2026-10-30
 
 ### Added
