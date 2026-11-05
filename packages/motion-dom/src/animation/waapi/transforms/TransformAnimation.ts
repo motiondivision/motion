@@ -150,20 +150,26 @@ const isNativeEasing = (ease: unknown): ease is "linear" =>
     /^(linear|ease(In|Out|InOut))$/.test(ease as string)
 
 /**
- * Easings WAAPI can't run, traced into linear() for each number of
- * samples, so the elements of a sequence that share one trace it once.
+ * The last trace of each easing WAAPI can't run into linear(), with its
+ * number of samples, so the elements of a sequence that share an easing
+ * and duration trace it once.
  */
-const traced = new WeakMap<EasingFunction, Record<number, string>>()
+const traced = new WeakMap<EasingFunction, [number, string]>()
 
 const trace = (ease: EasingFunction, samples: number) => {
-    let bySamples = traced.get(ease)
-    bySamples || traced.set(ease, (bySamples = {}))
-    return (bySamples[samples] ||=
-        "linear(" +
-        defaultOffset(Array(samples + 1)).map(
-            (p) => round(ease(p)) + " " + round(p * 100) + "%"
-        ) +
-        ")")
+    let last = traced.get(ease)
+    if (last?.[0] !== samples) {
+        last = [
+            samples,
+            "linear(" +
+                defaultOffset(Array(samples + 1)).map(
+                    (p) => round(ease(p)) + " " + round(p * 100) + "%"
+                ) +
+                ")",
+        ]
+        traced.set(ease, last)
+    }
+    return last[1]
 }
 
 /**
