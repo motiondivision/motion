@@ -258,6 +258,9 @@ function canAccelerateTransform(options: ValueAnimationOptions<any>) {
     )
 }
 
+const setTime = Object.getOwnPropertyDescriptor(JSAnimation.prototype, "time")!
+    .set!
+
 export class TransformAnimation<
     T extends number | string
 > extends JSAnimation<T> {
@@ -551,8 +554,12 @@ export class TransformAnimation<
         return super.time
     }
 
+    /**
+     * Calls JSAnimation's setter directly, as `super.time =` is a slow
+     * path in V8 and this runs for every animation of a seeked sequence.
+     */
     set time(newTime: number) {
-        super.time = newTime
+        setTime.call(this, newTime)
     }
 
     /**
@@ -978,7 +985,19 @@ function createGroup(owner: TransformOwner): TransformGroup {
         settled?: number
     ) => {
         const bounds = moving.flatMap((track) => track.boundaries(from, to))
-        const easing = nativeEasing || getEasing(moving, from, to, bounds)
+
+        /**
+         * Tweens that end before this starts, or start after it ends, as
+         * the finished segments of a seeked sequence do, hold still, so
+         * there's no easing to sample.
+         */
+        const isStill = moving.every((track) => {
+            const tween = track.tween()
+            return tween && (tween[1] <= from || tween[0] >= to)
+        })
+        const easing =
+            nativeEasing ||
+            (isStill ? "linear" : getEasing(moving, from, to, bounds))
         const times = easing ? [from, to] : sample(moving, from, to, bounds)
         const transform = times.map((t) => compose(t, settled))
         let keyframes: PropertyIndexedKeyframes | null = { transform }

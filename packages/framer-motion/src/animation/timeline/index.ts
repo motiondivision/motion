@@ -4,9 +4,12 @@ import {
     AnimationPlaybackControls,
     AnimationPlaybackControlsWithThen,
     AnimationScope,
+    frameData,
+    GroupAnimation,
     GroupAnimationWithThen,
     MotionValue,
     motionValue,
+    time,
     TimelineWithFallback,
 } from "motion-dom"
 import { removeItem } from "motion-utils"
@@ -67,6 +70,43 @@ interface Entry {
 }
 
 let markerId = 0
+
+/**
+ * A playback call on every animation.
+ */
+type Call = "pause" | "play" | "speed" | "seek"
+
+type Calls = [Call, number][]
+
+interface Queue {
+    /**
+     * The time of the task the calls were made in.
+     */
+    now: number
+    /**
+     * The last seek, and the combined result of the calls before it.
+     * `seeked` is set if an earlier seek was combined.
+     */
+    time?: number
+    seeked?: boolean
+    paused?: boolean
+    playing?: boolean
+    speed?: number
+    /**
+     * The calls since the last seek, in order.
+     */
+    calls: Calls
+}
+
+function apply(group: GroupAnimation, call: Call, value: number) {
+    call === "pause"
+        ? group.pause()
+        : call === "play"
+        ? group.play()
+        : call === "speed"
+        ? (group.speed = value)
+        : (group.time = value)
+}
 
 /**
  * Split a time across repeats into its repeat and the playhead position in
@@ -180,6 +220,12 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
     private detachScroll?: VoidFunction
 
     private resolveFinished!: VoidFunction
+
+    /**
+     * Playback calls made after the first in a task, waiting to be
+     * applied to the animations.
+     */
+    private queue?: Queue
 
     /**
      * The scopeMotion() scope this was created in. Rebuilds run in it, so
@@ -346,7 +392,7 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
     set time(time: number) {
         this.flush()
         this.prevTime = time
-        this.group && (this.group.time = time)
+        this.control("seek", time)
         this.repeatIndex = this.currentRepeat()
     }
 
@@ -356,7 +402,7 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
 
     set speed(speed: number) {
         this.playbackSpeed = speed
-        this.group && (this.group.speed = speed)
+        this.control("speed", speed)
     }
 
     get duration() {
@@ -382,41 +428,44 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
     play() {
         this.flush()
         this.isPaused = false
-        this.group?.play()
 
         /**
          * Watch after playing, so it waits for the restarted animations
          * rather than the ones that already finished.
          */
         if (this.isDone) {
+            this.applyQueue()
+            this.group?.play()
             this.newFinished()
             this.watch()
+        } else {
+            this.control("play")
         }
     }
 
     pause() {
         this.flush()
         this.isPaused = true
-        this.group?.pause()
+        this.control("pause")
     }
 
     stop = () => {
-        this.flush()
+        this.sync()
         this.group?.stop()
     }
 
     cancel() {
-        this.flush()
+        this.sync()
         this.group?.cancel()
     }
 
     complete() {
-        this.flush()
+        this.sync()
         this.group?.complete()
     }
 
     attachTimeline(timeline: TimelineWithFallback) {
-        this.flush()
+        this.sync()
         this.scrollTimeline = timeline
         this.detachScroll = this.group?.attachTimeline(timeline)
 
@@ -435,8 +484,95 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
      * (skipAnimations, reduced motion) can leave the group empty.
      */
     private active() {
-        this.flush()
+        this.sync()
         return this.group?.animations.length ? this.group : undefined
+    }
+
+    /**
+     * Apply queued playback calls and pending changes, before reading or
+     * changing the animations.
+     */
+    private sync() {
+        this.applyQueue()
+        this.flush()
+    }
+
+    /**
+     * Pause, play, seek or set the speed of the animations.
+     *
+     * The first call in a task is made straight away. Later calls in the
+     * same task are queued, and applied at the end of the task, or before
+     * anything reads or changes the animations. The calls before the last
+     * seek are combined, as it sets the playhead they'd have moved, so a
+     * loop of pause, seek, reverse and play makes a few calls on each
+     * animation rather than four every time round.
+     */
+    private control(call: Call, value = 0) {
+        const { group, queue } = this
+        if (!group) return
+
+        /**
+         * Calls are made straight away where their order matters: while
+         * a clock fires callbacks, inside a frame, attached to scroll, or
+         * at speed 0, which holds animations whatever plays them.
+         */
+        if (
+            this.clock ||
+            this.scrollTimeline ||
+            frameData.isProcessing ||
+            !this.playbackSpeed
+        ) {
+            this.applyQueue()
+        } else if (queue) {
+            const { calls } = queue
+            if (call === "seek") {
+                for (const [prev, v] of calls) {
+                    if (prev === "speed") {
+                        queue.speed = v
+                    } else {
+                        queue.playing = prev === "play"
+                        queue.paused ||= !queue.playing
+                    }
+                }
+                queue.seeked = queue.time !== undefined
+                queue.time = value
+                queue.calls = []
+            } else {
+                calls.push([call, value])
+                calls.length > 8 && this.applyQueue()
+            }
+            return
+        } else {
+            this.queue = { now: time.now(), calls: [] }
+            queueMicrotask(() => this.applyQueue())
+        }
+
+        apply(group, call, value)
+    }
+
+    /**
+     * Apply the queued calls, at the time they were made.
+     */
+    private applyQueue() {
+        const { queue, group } = this
+        if (!queue) return
+        this.queue = undefined
+        if (!group) return
+
+        time.set(queue.now)
+        const { time: seekTo, speed } = queue
+        if (seekTo !== undefined) {
+            /**
+             * An earlier seek ended any finished state before the calls
+             * that followed it, so seek before replaying their result.
+             */
+            queue.seeked && (group.time = seekTo)
+            queue.paused && group.pause()
+            speed !== undefined && (group.speed = speed)
+            queue.playing && group.play()
+            group.time = seekTo
+        }
+        for (const [call, value] of queue.calls) apply(group, call, value)
     }
 
     private push(entry: Entry) {
@@ -467,6 +603,7 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
     }
 
     private adopt(parent: Timeline) {
+        this.applyQueue()
         if (this.group) {
             rewind(this.group)
             this.group = undefined
@@ -476,6 +613,7 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
     }
 
     private build() {
+        this.applyQueue()
         const prevDuration = this.isWrapped
             ? this.group!.iterationDuration
             : this.totalDuration
@@ -683,7 +821,7 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
         const step = repeatIndex > this.repeatIndex ? 1 : -1
         while (repeatIndex !== this.repeatIndex) {
             const isForward =
-                (this.speed > 0) ===
+                this.speed > 0 ===
                 (repeatType === "loop" || !(this.repeatIndex % 2))
             const edge = isForward ? this.totalDuration : 0
             if (this.cross(prevTime, edge)) return
