@@ -21,12 +21,11 @@ import { animateSubject } from "./subject"
  * A sequence has at least one segment or nested sequence. Labels alone
  * are never a sequence, as an array of strings isn't a subject either.
  */
-const isSequenceItem = (item: unknown) =>
-    Array.isArray(item) ||
-    (typeof item === "object" && item !== null && "sequence" in item)
-
 function isSequence(value: unknown): value is AnimationSequence {
-    return Array.isArray(value) && value.some(isSequenceItem)
+    return (
+        Array.isArray(value) &&
+        value.some((item) => Array.isArray(item) || (item as any)?.sequence)
+    )
 }
 
 interface ScopedAnimateOptions {
