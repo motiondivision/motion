@@ -38,6 +38,25 @@ describe("animate", () => {
         expect(b.get()).toBe(100)
     })
 
+    test("animates a sequence made only of nested sequences", async () => {
+        const a = motionValue(0)
+        const b = motionValue(0)
+        const animation = animate(
+            [
+                { sequence: [[a, 100, { duration: 0.05 }]] },
+                { sequence: [[b, 100, { duration: 0.05 }]], at: 0.1 },
+            ],
+            { autoplay: false }
+        )
+
+        expect(animation).toBeInstanceOf(Timeline)
+        expect(animation.duration).toBeCloseTo(0.15)
+        animation.play()
+        await animation
+        expect(a.get()).toBe(100)
+        expect(b.get()).toBe(100)
+    })
+
     test("returns a timeline that plays its animations directly", async () => {
         const v = motionValue(0)
         const animation = animate(v, 100, { duration: 0.05 })
