@@ -3,6 +3,8 @@ import {
     animateLayout,
     frame,
     animate,
+    motionValue,
+    styleEffect,
 } from "framer-motion/dom"
 
 window.AnimateLayout = {
@@ -10,4 +12,6 @@ window.AnimateLayout = {
     LayoutAnimationBuilder,
     frame,
     animate,
+    motionValue,
+    styleEffect,
 }

@@ -89,6 +89,17 @@ describe("drag: a constraints function", () => {
         pointer.end()
     })
 
+    test("can read the drag's options, e.g. the axes it moves", async () => {
+        const { constraints, calls } = diagonal()
+        makeDraggable(element, { constraints, axis: "x" })
+
+        const pointer = gesture(element)
+        await pointer.to(20, 0)
+
+        expect(calls.contexts[0].getProps().drag).toBe("x")
+        pointer.end()
+    })
+
     test("moves the element itself, from the pointer's position", async () => {
         const { constraints, calls } = diagonal()
         makeDraggable(element, { constraints, momentum: false })

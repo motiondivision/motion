@@ -128,6 +128,18 @@ export function createScopedAnimate(options: ScopedAnimateOptions = {}) {
                     ...sequenceOptions.defaultTransition,
                 } as SequenceOptions["defaultTransition"]
             }
+
+            /**
+             * Resolve reduceMotion in the same order as a single
+             * animation: options, then the default transition (which
+             * includes the scope's), then useAnimate()'s.
+             */
+            sequenceOptions.reduceMotion =
+                (optionsOrKeyframes as SequenceOptions)?.reduceMotion ??
+                (sequenceOptions.defaultTransition as SequenceOptions)
+                    ?.reduceMotion ??
+                reduceMotion
+
             timeline = new Timeline(subjectOrSequence, sequenceOptions)
         } else {
             // Extract top-level onComplete so it doesn't get applied per-value

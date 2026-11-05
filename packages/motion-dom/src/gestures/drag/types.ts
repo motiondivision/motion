@@ -51,6 +51,11 @@ export interface DragConstraintsContext {
     elastic: VisualElementDragControls["elastic"]
 
     getAxisMotionValue: VisualElementDragControls["getAxisMotionValue"]
+
+    /**
+     * The drag's options, e.g. `drag` for the axes it moves.
+     */
+    getProps: VisualElementDragControls["getProps"]
 }
 
 /**
