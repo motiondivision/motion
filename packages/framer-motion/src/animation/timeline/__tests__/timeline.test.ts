@@ -389,6 +389,88 @@ describe("timeline", () => {
         expect(tl.time).toBeCloseTo(0.05)
     })
 
+    test("adding to a repeating timeline keeps the playhead in its repeat", async () => {
+        const v = motionValue(0)
+        const w = motionValue(0)
+        const tl = timeline([[v, 100, { duration: 1 }]], {
+            ...paused,
+            repeat: Infinity,
+        })
+
+        tl.time = 2.25
+        await nextFrame()
+        expect(v.get()).toBe(25)
+
+        tl.add([w, 100, { duration: 1 }])
+        expect(tl.time).toBeCloseTo(4.25)
+        await nextFrame()
+        expect(v.get()).toBe(25)
+        expect(w.get()).toBe(0)
+    })
+
+    test("adding to a mirrored repeat keeps the playhead where it is", async () => {
+        const v = motionValue(0)
+        const w = motionValue(0)
+        const tl = timeline([[v, 100, { duration: 1 }]], {
+            ...paused,
+            repeat: Infinity,
+            repeatType: "mirror",
+        })
+
+        // Second repeat plays backwards, so 1.25 is 0.75 through the sequence.
+        tl.time = 1.25
+        await nextFrame()
+        expect(v.get()).toBe(75)
+
+        tl.add([w, 100, { duration: 1 }])
+        await nextFrame()
+        expect(v.get()).toBe(75)
+        expect(w.get()).toBe(0)
+    })
+
+    test("playTo() on a repeating timeline plays to the label in the current repeat", async () => {
+        const v = motionValue(0)
+        const tl = timeline(
+            [[v, 100, { duration: 1 }], { name: "middle", at: 0.5 }],
+            {
+                ...paused,
+                repeat: Infinity,
+            }
+        )
+
+        tl.time = 2.2
+        tl.playTo("middle")
+        expect(tl.speed).toBe(1)
+        await wait(450)
+
+        expect(tl.state).toBe("paused")
+        expect(tl.time).toBeCloseTo(2.5)
+        expect(v.get()).toBeCloseTo(50)
+    })
+
+    test("playTo() on a repeating timeline plays backwards within the repeat", async () => {
+        const v = motionValue(0)
+        const tl = timeline(
+            [[v, 100, { duration: 1 }], { name: "middle", at: 0.5 }],
+            {
+                ...paused,
+                repeat: Infinity,
+            }
+        )
+
+        tl.time = 2.8
+        tl.playTo("middle")
+        expect(tl.speed).toBe(-1)
+        await wait(100)
+        expect(v.get()).toBeGreaterThan(50)
+        expect(v.get()).toBeLessThan(80)
+        await wait(350)
+
+        expect(tl.state).toBe("paused")
+        expect(tl.time).toBeCloseTo(2.5)
+        expect(v.get()).toBeCloseTo(50)
+    })
+
     test("playTo() plays backwards to an earlier label", async () => {
         const v = motionValue(0)
         const tl = timeline(
@@ -479,5 +561,16 @@ describe("timeline", () => {
          */
         scope.current = null
         expect(tl.duration).toBe(1)
+    })
+
+    test("reduceMotion in the default transition makes positional values instant", async () => {
+        const element = document.createElement("div")
+        timeline([[element, { x: 100 }, { duration: 10 }]], {
+            defaultTransition: { reduceMotion: true } as any,
+        })
+
+        await nextFrame()
+        await nextFrame()
+        expect(element.style.transform).toBe("translateX(100px)")
     })
 })

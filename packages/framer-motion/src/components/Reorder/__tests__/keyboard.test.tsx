@@ -244,6 +244,33 @@ describe("Reorder keyboard", () => {
         expect(onReorder).toBeCalledTimes(3)
     })
 
+    it("moves on an arrow sent before React renders the grab", () => {
+        const { container, getByTestId } = render(<List />)
+        const a = getByTestId("a")
+
+        // A test runner can send keys faster than React renders
+        act(() => {
+            fireEvent.keyDown(a, { key: " " })
+            fireEvent.keyDown(a, { key: "ArrowDown" })
+        })
+        expect(order(container)).toEqual(["b", "a", "c"])
+        expect(isGrabbed(a)).toBe(true)
+    })
+
+    it("drops when focus leaves before React renders the grab", () => {
+        const { container, getByTestId } = render(<List />)
+        const a = getByTestId("a")
+
+        act(() => a.focus())
+        act(() => {
+            fireEvent.keyDown(a, { key: " " })
+            getByTestId("c").focus()
+        })
+        expect(isGrabbed(a)).toBe(false)
+        press(a, "ArrowDown")
+        expect(order(container)).toEqual(["a", "b", "c"])
+    })
+
     it("leaves Enter alone so it keeps its tap meaning", () => {
         const onReorder = jest.fn()
         const { getByTestId } = render(<List onReorder={onReorder} />)
@@ -502,6 +529,41 @@ describe("Reorder keyboard", () => {
         } finally {
             spy.mockRestore()
         }
+    })
+
+    it("moves focus, or the grabbed item, to either end with Home and End", () => {
+        const onReorder = jest.fn()
+        const { container, getByTestId } = render(
+            <List initial={["a", "b", "c", "d"]} onReorder={onReorder} />
+        )
+        const b = getByTestId("b")
+        act(() => b.focus())
+
+        expect(press(b, "End")).toBe(false)
+        expect(focused()).toBe("d")
+        press(getByTestId("d"), "Home")
+        expect(focused()).toBe("a")
+        expect(onReorder).not.toBeCalled()
+
+        act(() => b.focus())
+        press(b, " ")
+        expect(press(b, "End")).toBe(false)
+        expect(order(container).join("")).toBe("acdb")
+        press(b, "Home")
+        expect(order(container).join("")).toBe("bacd")
+        // Already there
+        press(b, "Home")
+        expect(onReorder).toBeCalledTimes(2)
+        expect(focused()).toBe("b")
+    })
+
+    it("uses Home and End on every axis", () => {
+        const { container, getByTestId } = render(<List axis="x" />)
+        const a = getByTestId("a")
+        act(() => a.focus())
+        press(a, " ")
+        press(a, "End")
+        expect(order(container).join("")).toBe("bca")
     })
 
     it("ignores keys from inside the item", () => {

@@ -69,6 +69,38 @@ interface Entry {
 let markerId = 0
 
 /**
+ * Split a time across repeats into its repeat and the playhead position in
+ * the sequence. A time on a repeat boundary is the end of the repeat
+ * before it, as it is for the clock's value. With `index`, join a position
+ * in that repeat back into a time. Mirrored and reversed repeats play
+ * every other repeat backwards.
+ */
+function inRepeat(
+    {
+        repeat = 0,
+        repeatDelay = 0,
+        repeatType = "loop",
+        delay = 0,
+    }: TimelineOptions,
+    duration: number,
+    time: number,
+    index?: number
+) {
+    const cycle = duration + repeatDelay
+    const isSplit = index === undefined
+    if (isSplit) {
+        const t = Math.max(0, time - delay)
+        index =
+            cycle && t > 0
+                ? Math.min(repeat, Math.ceil(t / cycle - 1e-9) - 1)
+                : 0
+        time = Math.min(t - index * cycle, duration)
+    }
+    if (repeatType !== "loop" && index! % 2) time = duration - time
+    return [index!, isSplit ? time : delay + index! * cycle + time]
+}
+
+/**
  * Copy a segment with a new `at`, adding a transition if it has none.
  */
 function withAt(segment: any[], at: SequenceTime) {
@@ -195,16 +227,6 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
             this.invalidate()
             this.flush()
         }
-
-        /**
-         * Register with the scope (for instance from useAnimate()) so it
-         * stops when the scope is torn down.
-         */
-        const { scope } = options
-        if (scope) {
-            scope.animations.push(this)
-            this.finished.then(() => removeItem(scope.animations, this))
-        }
     }
 
     /**
@@ -285,10 +307,19 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
      * Play forwards or backwards to a time or label, then pause there.
      */
     playTo(position: SequenceTime) {
-        const target = this.resolve(position)
+        const stopAt = this.resolve(position)
+        const duration = this.iterationDuration
+
+        /**
+         * A repeating timeline plays to the position in the repeat it's
+         * already in, rather than all the way back to the first.
+         */
+        const time = this.time
+        const [index] = inRepeat(this.options, duration, time)
+        const target = inRepeat(this.options, duration, stopAt, index)[1]
         const speed = Math.abs(this.speed)
-        this.speed = target < this.time ? -speed : speed
-        this.stopAt = target
+        this.speed = target < time ? -speed : speed
+        this.stopAt = stopAt
         this.clock || this.invalidate()
         this.play()
         return this
@@ -445,6 +476,9 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
     }
 
     private build() {
+        const prevDuration = this.isWrapped
+            ? this.group!.iterationDuration
+            : this.totalDuration
         this.isDirty = false
         this.isWrapped = false
 
@@ -559,8 +593,26 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
 
         const group = (this.group = new GroupAnimationWithThen(animations))
 
-        time = Math.min(time, duration)
-        if (this.isDone && time < duration) this.newFinished()
+        /**
+         * Keep the playhead in the same repeat and at the same position,
+         * so changing a repeating timeline doesn't jump it.
+         */
+        const { delay = 0, repeat = 0, repeatDelay = 0 } = this.options
+        const [index, position] = inRepeat(this.options, prevDuration, time)
+        if (time > delay) {
+            time = inRepeat(
+                this.options,
+                duration,
+                Math.min(position, duration),
+                index
+            )[1]
+        }
+        if (
+            this.isDone &&
+            time < delay + (repeat + 1) * (duration + repeatDelay) - repeatDelay
+        ) {
+            this.newFinished()
+        }
 
         if (this.scrollTimeline) {
             this.detachScroll = group.attachTimeline(this.scrollTimeline)
@@ -607,12 +659,11 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
      * The repeat the clock is in, from its time across all repeats.
      */
     private currentRepeat() {
-        const { repeat = 0, repeatDelay = 0, delay = 0 } = this.options
-        const cycle = this.totalDuration + repeatDelay
-        const time = (this.clockAnimation?.time ?? 0) - delay
-        return cycle && time > 0
-            ? Math.min(repeat, Math.floor(time / cycle))
-            : 0
+        return inRepeat(
+            this.options,
+            this.totalDuration,
+            this.clockAnimation?.time ?? 0
+        )[0]
     }
 
     private onClock(time: number) {
@@ -623,23 +674,23 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
         const { onUpdate, onRepeat, repeatType = "loop" } = this.options
         onUpdate?.(time)
 
+        /**
+         * A frame can cross any number of repeats. Finish crossing each
+         * repeat it leaves, then cross the next from its edge. A loop
+         * starts each repeat from the same edge. The others turn around.
+         */
         const repeatIndex = this.currentRepeat()
-        if (repeatIndex !== this.repeatIndex) {
-            this.repeatIndex = repeatIndex
+        const step = repeatIndex > this.repeatIndex ? 1 : -1
+        while (repeatIndex !== this.repeatIndex) {
+            const isForward =
+                (this.speed > 0) ===
+                (repeatType === "loop" || !(this.repeatIndex % 2))
+            const edge = isForward ? this.totalDuration : 0
+            if (this.cross(prevTime, edge)) return
+            this.repeatIndex += step
             onRepeat?.()
-
-            /**
-             * A loop jumps the playhead back to the start, or to the
-             * end when playing backwards. Finish crossing the repeat
-             * that ended, then cross the new one from its edge.
-             */
-            if (repeatType === "loop") {
-                const isForward = this.speed > 0
-                if (this.cross(prevTime, isForward ? this.totalDuration : 0)) {
-                    return
-                }
-                prevTime = isForward ? -1 : Infinity
-            }
+            prevTime =
+                repeatType === "loop" ? (isForward ? -1 : Infinity) : edge
         }
 
         this.cross(prevTime, time)
@@ -670,9 +721,17 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
         }
     }
 
-    private pauseAt(time: number) {
+    /**
+     * Pause at a playhead position in the current repeat.
+     */
+    private pauseAt(position: number) {
         this.pause()
-        this.time = time
+        this.time = inRepeat(
+            this.options,
+            this.totalDuration,
+            position,
+            this.repeatIndex
+        )[1]
         return true
     }
 
@@ -686,10 +745,14 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
              * Without onReverseComplete, onComplete fires in either
              * direction, as it does for a single animation.
              */
-            const callback =
-                (this.speed < 0 && onReverseComplete) || onComplete
+            const callback = (this.speed < 0 && onReverseComplete) || onComplete
+            /**
+             * Resolve this run's promise, even if the callback plays the
+             * timeline again and so makes a new one.
+             */
+            const resolve = this.resolveFinished
             callback?.()
-            this.resolveFinished()
+            resolve()
         })
     }
 
@@ -700,13 +763,19 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
         })
 
         /**
-         * Stay in the scope while playing, including after a change
-         * restarts a finished timeline.
+         * Stay in the scopeMotion() scope this was created in, and the
+         * useAnimate() scope, while playing. Each replay, including a
+         * change that restarts a finished timeline, registers again.
          */
+        const { scope } = this.options
         const remove = this.motionScope?.add(() => {
             this.isKilled = true
             this.stop()
         })
-        remove && this.finished.then(remove)
+        scope?.animations.push(this)
+        this.finished.then(() => {
+            remove?.()
+            scope && removeItem(scope.animations, this)
+        })
     }
 }

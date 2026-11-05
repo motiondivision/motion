@@ -35,6 +35,11 @@ interface PanSessionOptions {
      * smoothly during scroll.
      */
     element?: HTMLElement | null
+    /**
+     * Start panning from `event` straight away, as if the pointer had moved
+     * there, rather than waiting for it to move past `distanceThreshold`.
+     */
+    immediate?: boolean
 }
 
 interface TimestampedPoint extends Point {
@@ -100,6 +105,7 @@ export class PanSession {
             dragSnapToOrigin = false,
             distanceThreshold = 3,
             element,
+            immediate,
         }: PanSessionOptions = {}
     ) {
         // If we have more than one touch, don't start detecting this gesture
@@ -108,7 +114,7 @@ export class PanSession {
         this.dragSnapToOrigin = dragSnapToOrigin
         this.handlers = handlers
         this.transformPagePoint = transformPagePoint
-        this.distanceThreshold = distanceThreshold
+        this.distanceThreshold = immediate ? 0 : distanceThreshold
         this.contextWindow = contextWindow || window
 
         const info = extractEventInfo(event)
@@ -155,6 +161,11 @@ export class PanSession {
         // Start scroll tracking if element provided
         if (element) {
             this.startScrollTracking(element)
+        }
+
+        if (immediate) {
+            this.handlePointerMove(event, info)
+            this.updatePoint()
         }
     }
 

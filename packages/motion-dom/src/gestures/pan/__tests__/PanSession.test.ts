@@ -176,3 +176,60 @@ describe("PanSession release velocity", () => {
         expect(velocity.y).toBeCloseTo(-5000)
     })
 })
+
+describe("PanSession immediate", () => {
+    let session: PanSession | undefined
+
+    afterEach(() => {
+        session?.end()
+        session = undefined
+    })
+
+    const press = () => {
+        const down = new Event("pointerdown") as PointerEvent
+        Object.assign(down, {
+            isPrimary: true,
+            button: 0,
+            pageX: 100,
+            pageY: 100,
+        })
+        return down
+    }
+
+    test("starts panning from the event, without waiting for a move", () => {
+        const onStart = jest.fn()
+        session = new PanSession(press(), { onStart }, { immediate: true })
+
+        expect(onStart).toBeCalledTimes(1)
+        expect(onStart.mock.calls[0][1].point).toEqual({ x: 100, y: 100 })
+        expect(onStart.mock.calls[0][1].offset).toEqual({ x: 0, y: 0 })
+    })
+
+    test("ends on release, even if the pointer never moved", () => {
+        const onEnd = jest.fn()
+        const onSessionEnd = jest.fn()
+        session = new PanSession(
+            press(),
+            { onEnd, onSessionEnd },
+            { immediate: true }
+        )
+
+        pointer(window, "pointerup", 100, 100)
+
+        expect(onEnd).toBeCalledTimes(1)
+        expect(onSessionEnd).toBeCalledTimes(1)
+    })
+
+    test("measures moves from the event", async () => {
+        const onMove = jest.fn()
+        session = new PanSession(press(), { onMove }, { immediate: true })
+
+        pointer(window, "pointermove", 101, 110)
+        await nextFrame()
+
+        expect(onMove).toHaveBeenLastCalledWith(
+            expect.anything(),
+            expect.objectContaining({ offset: { x: 1, y: 10 } })
+        )
+    })
+})
