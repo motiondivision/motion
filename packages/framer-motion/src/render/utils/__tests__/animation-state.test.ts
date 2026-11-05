@@ -682,3 +682,46 @@ describe("Animation state - Set active", () => {
         expect(animate).not.toBeCalled()
     })
 })
+
+describe("Animation state - Protected keys", () => {
+    test("Each type's protected keys are its own", () => {
+        const { state } = createTest()
+        const props = {
+            animate: { opacity: 1, x: 10 },
+            whileHover: { opacity: 0.5 },
+        }
+
+        state.update(props)
+        mockAnimate(state)
+        state.setActive("whileHover", true)
+        state.update({ ...props })
+
+        const types = state.getState()
+        expect(types["animate"].protectedKeys).toEqual({
+            opacity: 0.5,
+            x: true,
+        })
+        expect(types["whileFocus"].protectedKeys).toEqual({ opacity: 0.5 })
+        expect(types["whileInView"].protectedKeys).toEqual({ opacity: 0.5 })
+        expect(types["whileTap"].protectedKeys).toEqual({})
+    })
+
+    test("Protected keys don't leak between elements", () => {
+        const a = createTest()
+        a.state.update({ animate: { x: 10 } })
+        mockAnimate(a.state)
+        a.state.update({ animate: { x: 10 } })
+        a.state.setActive("whileHover", true)
+        a.state.update({ animate: { x: 10 } })
+        expect(a.state.getState()["animate"].protectedKeys).toEqual({
+            x: true,
+        })
+
+        const b = createTest()
+        const types = b.state.getState()
+        for (const type in types) {
+            expect(types[type].protectedKeys).toEqual({})
+            expect(types[type].prevResolvedValues).toEqual({})
+        }
+    })
+})

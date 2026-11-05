@@ -8,7 +8,7 @@ import { DOMVisualElement } from "../dom/DOMVisualElement"
 import { defaultTransformValue } from "../dom/parse-transform"
 import type { DOMVisualElementOptions } from "../dom/types"
 import { camelToDash } from "../dom/utils/camel-to-dash"
-import type { ResolvedValues } from "../types"
+import type { ResolvedValues, VisualElementOptions } from "../types"
 import type { VisualElement, MotionStyle } from "../VisualElement"
 import { SVGRenderState } from "./types"
 import { buildSVGAttrs, cssStyleProperties } from "./utils/build-attrs"
@@ -24,6 +24,17 @@ export class SVGVisualElement extends DOMVisualElement<
     type = "svg"
 
     isSVGTag = false
+
+    /**
+     * Declared rather than implicit, as the implicit constructor compiles
+     * to super(...arguments), which is slow to run per element.
+     */
+    constructor(
+        options: VisualElementOptions<SVGElement, SVGRenderState>,
+        renderOptions?: DOMVisualElementOptions
+    ) {
+        super(options, renderOptions)
+    }
 
     getBaseTargetFromProps(
         props: MotionNodeOptions,

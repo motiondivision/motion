@@ -10,7 +10,11 @@ import {
 import { measureViewportBox } from "../../projection/utils/measure"
 import { DOMVisualElement } from "../dom/DOMVisualElement"
 import type { DOMVisualElementOptions } from "../dom/types"
-import type { ResolvedValues, MotionConfigContextProps } from "../types"
+import type {
+    ResolvedValues,
+    MotionConfigContextProps,
+    VisualElementOptions,
+} from "../types"
 import type { VisualElement } from "../VisualElement"
 import { HTMLRenderState } from "./types"
 import { buildHTMLStyles } from "./utils/build-styles"
@@ -27,6 +31,17 @@ export class HTMLVisualElement extends DOMVisualElement<
     DOMVisualElementOptions
 > {
     type = "html"
+
+    /**
+     * Declared rather than implicit, as the implicit constructor compiles
+     * to super(...arguments), which is slow to run per element.
+     */
+    constructor(
+        options: VisualElementOptions<HTMLElement, HTMLRenderState>,
+        renderOptions?: DOMVisualElementOptions
+    ) {
+        super(options, renderOptions)
+    }
 
     mount(instance: HTMLElement) {
         /**

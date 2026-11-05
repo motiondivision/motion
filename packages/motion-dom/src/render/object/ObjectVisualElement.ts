@@ -1,5 +1,5 @@
 import { createBox } from "../../projection/geometry/models"
-import { ResolvedValues } from "../types"
+import { ResolvedValues, VisualElementOptions } from "../types"
 import { VisualElement } from "../VisualElement"
 
 interface ObjectRenderState {
@@ -15,6 +15,17 @@ export class ObjectVisualElement extends VisualElement<
     ObjectRenderState
 > {
     type = "object"
+
+    /**
+     * Declared rather than implicit, as the implicit constructor compiles
+     * to super(...arguments), which is slow to run per element.
+     */
+    constructor(
+        options: VisualElementOptions<Object, ObjectRenderState>,
+        renderOptions?: {}
+    ) {
+        super(options, renderOptions)
+    }
 
     readValueFromInstance(instance: Object, key: string) {
         if (isObjectKey(key, instance)) {
