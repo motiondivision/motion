@@ -91,6 +91,52 @@ export function keyframes<T extends AnyResolvedKeyframe>({
     }
 
     /**
+     * Keyframes that hold, move once, then hold, as each value of a
+     * sequence does, ease and mix only the pair that moves.
+     */
+    let span = -1
+    if (!customMixer) {
+        for (let i = 1; i < keyframeValues.length; i++) {
+            if (keyframeValues[i] !== keyframeValues[i - 1]) {
+                if (span >= 0) {
+                    span = -2
+                    break
+                }
+                span = i - 1
+            }
+        }
+    }
+
+    if (span >= 0) {
+        const offsets =
+            times && times.length === keyframeValues.length
+                ? times
+                : defaultOffset(keyframeValues)
+        const from = offsets[span] * duration
+        const to = offsets[span + 1] * duration
+        const origin = keyframeValues[span]
+        const target = keyframeValues[span + 1]
+        const ease = Array.isArray(easingFunctions)
+            ? easingFunctions[span]
+            : easingFunctions
+        const mixer = (MotionGlobalConfig.mix || mix)(origin, target)
+
+        return {
+            calculatedDuration: duration,
+            next: (t: number) => {
+                state.value =
+                    t >= to
+                        ? target
+                        : t <= from
+                        ? origin
+                        : mixer(ease((t - from) / (to - from)))
+                state.done = t >= duration
+                return state
+            },
+        }
+    }
+
+    /**
      * Create a times array based on the provided 0-1 offsets
      */
     const absoluteTimes = convertOffsetToTimes(

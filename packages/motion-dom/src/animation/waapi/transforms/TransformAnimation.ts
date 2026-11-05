@@ -258,6 +258,58 @@ function canAccelerateTransform(options: ValueAnimationOptions<any>) {
     )
 }
 
+/**
+ * Starting or stopping tells the group to update its WAAPI animation.
+ * The frame loop driver is only made when the group is on the main
+ * thread, as most accelerated animations never tick.
+ */
+class TransformDriver implements TransformDriverControls {
+    private driver?: DriverControls
+
+    constructor(
+        private element: Element,
+        private update: (timestamp: number) => void,
+        private makeDriver: typeof frameloopDriver,
+        public animation?: TransformAnimation<any>
+    ) {}
+
+    get js() {
+        return (this.driver ||= this.makeDriver(this.update))
+    }
+
+    now() {
+        return this.driver
+            ? this.driver.now()
+            : this.makeDriver === frameloopDriver
+            ? frameData.isProcessing
+                ? frameData.timestamp
+                : time.now()
+            : this.js.now()
+    }
+
+    /**
+     * keepAlive is false when seeking. Seeking the WAAPI animation is
+     * free, but if a seek needs a rebuild and keeps happening, the group
+     * moves to the main thread.
+     */
+    start(keepAlive = true) {
+        const group = getGroup(this.element)
+        !group || group.isJS
+            ? this.js.start(keepAlive)
+            : group.schedule(false, !keepAlive)
+    }
+
+    stopJS() {
+        this.driver?.stop()
+    }
+
+    stop() {
+        this.stopJS()
+        const group = getGroup(this.element)
+        group && !group.isFinishing && group.release(this.animation!)
+    }
+}
+
 export class TransformAnimation<
     T extends number | string
 > extends JSAnimation<T> {
@@ -275,39 +327,19 @@ export class TransformAnimation<
 
         /**
          * The driver ticks on the main thread only once the group has
-         * moved there. Until then, starting or stopping tells the group to
-         * update its WAAPI animation.
+         * moved there, so its frame loop driver is made then.
          */
-        options.driver = (update) => {
-            const js = driver(update)
-
-            return {
-                js,
-                now: js.now,
-                start: (keepAlive = true) => {
-                    const group = getGroup(element)
-                    const isJS = !group || group.isJS
-
-                    /**
-                     * keepAlive is false when seeking. Seeking the WAAPI
-                     * animation is free, but if a seek needs a rebuild and
-                     * keeps happening, the group moves to the main thread.
-                     */
-                    isJS
-                        ? js.start(keepAlive)
-                        : group.schedule(false, !keepAlive)
-                },
-                stop: () => {
-                    js.stop()
-                    const group = getGroup(element)
-                    group && !group.isFinishing && group.release(animation)
-                },
-            } as TransformDriverControls
-        }
+        options.driver = (update) =>
+            new TransformDriver(element, update, driver, animation)
 
         super(options)
 
         animation = this
+        /**
+         * The first driver is made in super(), before this was assigned.
+         */
+        const firstDriver = this.driver as TransformDriver | undefined
+        firstDriver && (firstDriver.animation = this)
         this.canAccelerate = canAccelerate
 
         /**
@@ -323,12 +355,33 @@ export class TransformAnimation<
         }
     }
 
+    private offsetsOf?: unknown[]
+    private cachedOffsets?: number[]
+
+    /**
+     * Each keyframe's offset, made once for the keyframes rather than on
+     * every build.
+     */
+    offsets() {
+        const { keyframes, times } = this.options
+        if (times) return times
+        if (this.offsetsOf !== keyframes) {
+            this.offsetsOf = keyframes
+            this.cachedOffsets = defaultOffset(keyframes)
+        }
+        return this.cachedOffsets!
+    }
+
     get group() {
         return getGroup(getOwner(this.options).current)
     }
 
     get js() {
         return (this.driver as TransformDriverControls | undefined)?.js
+    }
+
+    stopJS() {
+        ;(this.driver as TransformDriver | undefined)?.stopJS()
     }
 
     get name() {
@@ -383,7 +436,7 @@ export class TransformAnimation<
      * exactly, otherwise its function, to trace.
      */
     tween(): [number, number, (string | EasingFunction)?] | undefined {
-        const { keyframes, type, times, repeat, delay = 0 } = this.options
+        const { keyframes, type, repeat, delay = 0 } = this.options
         let span = -1
 
         if (repeat || type !== keyframesGenerator || this.holdTime !== null) {
@@ -400,7 +453,7 @@ export class TransformAnimation<
         let { ease } = this.options
         if (isEasingArray(ease)) ease = ease[span]
 
-        const offsets = times || defaultOffset(keyframes)
+        const offsets = this.offsets()
         const at = (i: number) =>
             this.startTime! +
             (delay + offsets[i] * this.totalDuration) / this.speed
@@ -438,13 +491,11 @@ export class TransformAnimation<
             repeat = 0,
             repeatDelay = 0,
             repeatType,
-            times,
-            keyframes,
             type,
         } = options
         const offsets =
             (type || keyframesGenerator) === keyframesGenerator
-                ? times || defaultOffset(keyframes)
+                ? this.offsets()
                 : [0, 1]
         const start = startTime! + delay / speed
         const result: number[] = []
@@ -977,7 +1028,12 @@ function createGroup(owner: TransformOwner): TransformGroup {
         options: KeyframeAnimationOptions = { fill: "both" },
         settled?: number
     ) => {
-        const bounds = moving.flatMap((track) => track.boundaries(from, to))
+        /**
+         * A native easing needs no samples, so no keyframe boundaries.
+         */
+        const bounds = nativeEasing
+            ? []
+            : moving.flatMap((track) => track.boundaries(from, to))
         const easing = nativeEasing || getEasing(moving, from, to, bounds)
         const times = easing ? [from, to] : sample(moving, from, to, bounds)
         const transform = times.map((t) => compose(t, settled))
@@ -1331,7 +1387,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
         if (group.isJS) {
             group.isJS = false
             needsBuild = true
-            tracks.forEach((track) => track.js?.stop())
+            tracks.forEach((track) => track.stopJS())
         }
 
         const shouldBuild = needsBuild
