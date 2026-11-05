@@ -977,7 +977,13 @@ function createGroup(owner: TransformOwner): TransformGroup {
         options: KeyframeAnimationOptions = { fill: "both" },
         settled?: number
     ) => {
-        const bounds = moving.flatMap((track) => track.boundaries(from, to))
+        /**
+         * With an easing given, there's nothing to sample, so no need
+         * for the boundaries.
+         */
+        const bounds = nativeEasing
+            ? []
+            : moving.flatMap((track) => track.boundaries(from, to))
         const easing = nativeEasing || getEasing(moving, from, to, bounds)
         const times = easing ? [from, to] : sample(moving, from, to, bounds)
         const transform = times.map((t) => compose(t, settled))
