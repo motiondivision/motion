@@ -1097,6 +1097,32 @@ describe("Reorder.Board keyboard", () => {
         expect(lists(container)).toEqual({ A: ["a", "b"], B: ["c"] })
     })
 
+    it("keeps Home and End within the item's group", async () => {
+        const { container, getByTestId } = render(
+            <Board
+                initial={{ A: ["a", "b"], B: ["c", "d"] }}
+                stacked
+                whileDrag={{ opacity: 0.5 }}
+            />
+        )
+
+        const b = getByTestId("b")
+        act(() => b.focus())
+        press(b, " ")
+        expect(press(b, "End")).toBe(false)
+        await nextFrame()
+        expect(lists(container)).toEqual({ A: ["a", "b"], B: ["c", "d"] })
+
+        press(getByTestId("b"), "Home")
+        await nextFrame()
+        expect(lists(container)).toEqual({ A: ["b", "a"], B: ["c", "d"] })
+
+        press(getByTestId("b"), "Home")
+        await nextFrame()
+        expect(lists(container)).toEqual({ A: ["b", "a"], B: ["c", "d"] })
+        expect(document.activeElement).toBe(getByTestId("b"))
+    })
+
     it("waits for a move to another group to render before moving the item again", async () => {
         const { container, getByTestId } = setup()
 

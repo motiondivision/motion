@@ -96,7 +96,7 @@ export interface ReorderContext {
     ) => void
 }
 
-const keys = ["ArrowUp", "ArrowLeft", "ArrowDown", "ArrowRight"]
+const keys = ["ArrowUp", "ArrowLeft", "ArrowDown", "ArrowRight", "Home", "End"]
 
 /**
  * Creates `Reorder.Group` and `Reorder.Item`, rendering the components of
@@ -186,8 +186,9 @@ export function createReorder(motion: any): ReorderComponents {
             /**
              * Space grabs and drops the item, arrows along `axis` move the
              * grabbed item one place, or a row in a grid (see keyTarget), or
-             * move focus that way if it isn't grabbed, and Escape restores
-             * the order in `from`, the values when it was grabbed.
+             * move focus that way if it isn't grabbed. Home and End go to
+             * either end. Escape restores the order in `from`, the values
+             * when it was grabbed.
              */
             onKeyDown: (event, item, from, grab) => {
                 const { key, currentTarget } = event
@@ -224,7 +225,9 @@ export function createReorder(motion: any): ReorderComponents {
                     grab(currentTarget as Element)
                 } else if (
                     keyIndex < 0 ||
-                    (axis !== "xy" && axis !== (isX ? "x" : "y"))
+                    (keyIndex < 4 &&
+                        axis !== "xy" &&
+                        axis !== (isX ? "x" : "y"))
                 ) {
                     return
                 } else {
