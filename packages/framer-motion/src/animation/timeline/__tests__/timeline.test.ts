@@ -480,4 +480,15 @@ describe("timeline", () => {
         scope.current = null
         expect(tl.duration).toBe(1)
     })
+
+    test("reduceMotion in the default transition makes positional values instant", async () => {
+        const element = document.createElement("div")
+        timeline([[element, { x: 100 }, { duration: 10 }]], {
+            defaultTransition: { reduceMotion: true } as any,
+        })
+
+        await nextFrame()
+        await nextFrame()
+        expect(element.style.transform).toBe("translateX(100px)")
+    })
 })

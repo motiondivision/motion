@@ -186,9 +186,10 @@ export function ReorderGroupComponent<
         /**
          * Space grabs and drops the item, arrows along `axis` move
          * the grabbed item one place, or a row in a grid (see keyTarget),
-         * or move focus that way if it isn't grabbed, and Escape restores
-         * the order in `from`, the values when it was grabbed. Keys from
-         * children or with modifiers (Alt+Left etc.) are left alone.
+         * or move focus that way if it isn't grabbed. Home and End go to
+         * either end. Escape restores the order in `from`, the values when
+         * it was grabbed. Keys from children or with modifiers (Alt+Left
+         * etc.) are left alone.
          *
          * In a Reorder.Board, arrows across `axis`, or along it from either
          * end, move a grabbed item to the nearest group that way, and
@@ -212,6 +213,8 @@ export function ReorderGroupComponent<
                 "ArrowLeft",
                 "ArrowDown",
                 "ArrowRight",
+                "Home",
+                "End",
             ].indexOf(key)
             const isX = keyIndex % 2
             if (key === " ") {
@@ -245,7 +248,8 @@ export function ReorderGroupComponent<
                     )
                 }
             } else {
-                const isAlongAxis = axis === "xy" || axis === (isX ? "x" : "y")
+                const isAlongAxis =
+                    keyIndex > 3 || axis === "xy" || axis === (isX ? "x" : "y")
                 /**
                  * Focus only moves between rendered items.
                  */
@@ -265,6 +269,7 @@ export function ReorderGroupComponent<
                 } else if (
                     !(
                         from &&
+                        keyIndex < 4 &&
                         board?.key(context, item, keyIndex, currentTarget, from)
                     ) &&
                     !isAlongAxis
