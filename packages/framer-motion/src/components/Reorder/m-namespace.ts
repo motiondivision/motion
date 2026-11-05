@@ -9,3 +9,4 @@ import { createReorderGroup } from "./Group"
  */
 export const Group = /*@__PURE__*/ createReorderGroup(m)
 export { ReorderItem as Item } from "./Item"
+export { ReorderBoard as Board } from "./Board"

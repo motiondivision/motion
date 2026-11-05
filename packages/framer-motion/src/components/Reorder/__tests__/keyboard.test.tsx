@@ -244,6 +244,33 @@ describe("Reorder keyboard", () => {
         expect(onReorder).toBeCalledTimes(3)
     })
 
+    it("moves on an arrow sent before React renders the grab", () => {
+        const { container, getByTestId } = render(<List />)
+        const a = getByTestId("a")
+
+        // A test runner can send keys faster than React renders
+        act(() => {
+            fireEvent.keyDown(a, { key: " " })
+            fireEvent.keyDown(a, { key: "ArrowDown" })
+        })
+        expect(order(container)).toEqual(["b", "a", "c"])
+        expect(isGrabbed(a)).toBe(true)
+    })
+
+    it("drops when focus leaves before React renders the grab", () => {
+        const { container, getByTestId } = render(<List />)
+        const a = getByTestId("a")
+
+        act(() => a.focus())
+        act(() => {
+            fireEvent.keyDown(a, { key: " " })
+            getByTestId("c").focus()
+        })
+        expect(isGrabbed(a)).toBe(false)
+        press(a, "ArrowDown")
+        expect(order(container)).toEqual(["a", "b", "c"])
+    })
+
     it("leaves Enter alone so it keeps its tap meaning", () => {
         const onReorder = jest.fn()
         const { getByTestId } = render(<List onReorder={onReorder} />)
