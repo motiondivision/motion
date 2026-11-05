@@ -1,6 +1,8 @@
 import {
     BezierDefinition,
     clamp,
+    EasingFunction,
+    easingDefinitionToFunction,
     isBezierDefinition,
     isEasingArray,
     millisecondsToSeconds,
@@ -146,6 +148,29 @@ const buildAhead = 100
  */
 const isNativeEasing = (ease: unknown): ease is "linear" =>
     /^(linear|ease(In|Out|InOut))$/.test(ease as string)
+
+/**
+ * Easings WAAPI can't run, traced into linear() for each number of
+ * samples, so the elements of a sequence that share one trace it once.
+ */
+const traced = new WeakMap<EasingFunction, Record<number, string>>()
+
+const trace = (ease: EasingFunction, samples: number) => {
+    let bySamples = traced.get(ease)
+    bySamples || traced.set(ease, (bySamples = {}))
+    return (bySamples[samples] ||=
+        "linear(" +
+        defaultOffset(Array(samples + 1)).map(
+            (p) => round(ease(p)) + " " + round(p * 100) + "%"
+        ) +
+        ")")
+}
+
+/**
+ * How many samples trace an easing between two timestamps.
+ */
+const countSamples = (from: number, to: number) =>
+    Math.min(maxSamples, Math.max(2, Math.ceil((to - from) / sampleDelta)))
 
 /**
  * Whether two eased progresses match. False if either is NaN.
@@ -347,11 +372,11 @@ export class TransformAnimation<
 
     /**
      * If this moves between two keyframes only, holding still either side
-     * of them, as each value of a sequence segment does, and with an
-     * easing WAAPI runs exactly, when it starts and stops moving, and that
-     * easing.
+     * of them, as each value of a sequence segment does, when it starts
+     * and stops moving, and its easing: as a string if WAAPI runs it
+     * exactly, otherwise its function, to trace.
      */
-    tween(): [number, number, string] | undefined {
+    tween(): [number, number, string | EasingFunction] | undefined {
         const { keyframes, type, times, repeat, delay = 0 } = this.options
         let span = -1
 
@@ -369,15 +394,22 @@ export class TransformAnimation<
         let { ease } = this.options
         if (isEasingArray(ease)) ease = ease[span]
 
-        const easing = isBezierDefinition(ease!)
-            ? cubicBezierAsString(ease as BezierDefinition)
-            : isNativeEasing(ease) && supportedWaapiEasing[ease]
         const offsets = times || defaultOffset(keyframes)
         const at = (i: number) =>
             this.startTime! +
             (delay + offsets[i] * this.totalDuration) / this.speed
 
-        if (easing && span >= 0) return [at(span), at(span + 1), easing]
+        if (span >= 0) {
+            return [
+                at(span),
+                at(span + 1),
+                isBezierDefinition(ease!)
+                    ? cubicBezierAsString(ease as BezierDefinition)
+                    : isNativeEasing(ease)
+                    ? supportedWaapiEasing[ease]
+                    : easingDefinitionToFunction(ease!),
+            ]
+        }
     }
 
     /**
@@ -680,10 +712,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
         to: number,
         bounds: number[]
     ) => {
-        const samples = Math.min(
-            maxSamples,
-            Math.max(2, Math.ceil((to - from) / sampleDelta))
-        )
+        const samples = countSamples(from, to)
 
         /**
          * Too many keyframes or repeats to follow with this many samples.
@@ -869,21 +898,27 @@ function createGroup(owner: TransformOwner): TransformGroup {
      * they move and their native easing.
      */
     const getTween = (moving: TransformAnimation<any>[]) => {
-        let shared: [number, number, string] | undefined
+        let shared: [number, number, (string | EasingFunction)?] | undefined
 
         for (const track of moving) {
             const tween = track.tween()
             if (
                 !tween ||
-                shared?.some((v: any, i) =>
-                    i < 2
-                        ? Math.abs((tween[i] as number) - v) > 1
-                        : tween[i] !== v
-                )
+                (shared &&
+                    (Math.abs(tween[0] - shared[0]) > 1 ||
+                        Math.abs(tween[1] - shared[1]) > 1))
             ) {
                 return
             }
-            shared = tween
+            /**
+             * Easings that differ, like the springs a sequence makes for
+             * each value, can still be the same curve.
+             */
+            shared = [
+                tween[0],
+                tween[1],
+                !shared || tween[2] === shared[2] ? tween[2] : undefined,
+            ]
         }
 
         return shared
@@ -1001,8 +1036,10 @@ function createGroup(owner: TransformOwner): TransformGroup {
 
         try {
             if (end > now) {
+                let easing: string | undefined
+
                 if (tween && tween[1] > now) {
-                    const [from, to, easing] = tween
+                    const [from, to, ease] = tween
 
                     /**
                      * Until it's built, the motion values hold where it
@@ -1017,20 +1054,28 @@ function createGroup(owner: TransformOwner): TransformGroup {
                         return true
                     }
 
+                    easing =
+                        typeof ease === "string"
+                            ? ease
+                            : ease
+                            ? trace(ease, countSamples(from, to))
+                            : getEasing(moving, from, to, [])
+
                     /**
                      * It holds its last keyframe until the animations end.
                      */
-                    add(
-                        run(moving, from, to, easing, {
-                            fill: "both",
-                            endDelay: end - to,
-                        }),
-                        from - now,
-                        end - from
-                    )
-                } else {
-                    add(run(moving, now, end), 0, end - now)
+                    easing &&
+                        add(
+                            run(moving, from, to, easing, {
+                                fill: "both",
+                                endDelay: end - to,
+                            }),
+                            from - now,
+                            end - from
+                        )
                 }
+
+                easing || add(run(moving, now, end), 0, end - now)
 
                 /**
                  * Animations that end sooner finish on the events of

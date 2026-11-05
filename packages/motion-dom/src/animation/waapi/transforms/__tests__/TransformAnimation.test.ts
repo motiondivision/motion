@@ -1256,9 +1256,9 @@ describe("independent transform acceleration", () => {
             const [waapi] = running(element)
             expect(xAt(waapi, 0)).toBeCloseTo(0, 0)
             expect(xAt(waapi, 500)).toBeCloseTo(100, 0)
-            expect(Math.abs(waapi.startTime! - performance.now() + 100)).toBeLessThan(
-                30
-            )
+            expect(
+                Math.abs(waapi.startTime! - performance.now() + 100)
+            ).toBeLessThan(30)
         })
 
         it("stop waiting to start when stopped", async () => {
@@ -1277,13 +1277,88 @@ describe("independent transform acceleration", () => {
             expect(created(element)).toHaveLength(0)
         })
 
+        it("use two keyframes and a traced easing WAAPI can't run", async () => {
+            const element = document.createElement("div")
+
+            animateElement(
+                element,
+                { x: [0, 0, 100, 100], y: [0, 0, 50, 50] },
+                { duration: 1, times: [0, 0.05, 0.55, 1], ease: "backOut" }
+            )
+            await nextFrame()
+
+            const [{ keyframes, options }] = running(element)
+            expect(running(element)).toHaveLength(1)
+            expect(keyframes.transform).toEqual([
+                "translateX(0px) translateY(0px) ",
+                "translateX(100px) translateY(50px) ",
+            ])
+            const easing = options.easing as string
+            expect(easing).toMatch(/^linear\(/)
+            // backOut overshoots its target.
+            expect(linearAt(easing, 0.5)).toBeGreaterThan(1)
+            expect(linearAt(easing, 1)).toBeCloseTo(1, 3)
+            expect(options.endDelay).toBeCloseTo(450, 0)
+        })
+
+        it("share an easing that's the same curve as different functions", async () => {
+            const element = document.createElement("div")
+
+            /**
+             * As a sequence makes a spring's easing for each value.
+             */
+            for (const keyframes of [
+                { x: [0, 0, 100, 100] },
+                { rotate: [0, 0, 90, 90] },
+            ]) {
+                animateElement(element, keyframes, {
+                    duration: 1,
+                    times: [0, 0.3, 0.8, 1],
+                    ease: [(p) => p, (p) => p * p, (p) => p],
+                })
+            }
+            await nextFrame()
+            // Built shortly before it starts.
+            expect(running(element)).toHaveLength(0)
+            await wait(250)
+            await nextFrame()
+
+            const [{ keyframes, options }] = running(element)
+            expect(keyframes.transform).toHaveLength(2)
+            expect(options.duration).toBeCloseTo(500, 0)
+            expect(linearAt(options.easing as string, 0.5)).toBeCloseTo(0.25, 2)
+        })
+
+        it("trace an easing once for every element that shares it", async () => {
+            const ease = jest.fn((p: number) => p * p)
+
+            for (let i = 0; i < 20; i++) {
+                animateElement(
+                    document.createElement("div"),
+                    { x: [0, 0, 100], rotate: [0, 0, 90] },
+                    { duration: 1, times: [0, 0.05, 1], ease }
+                )
+            }
+            await nextFrame()
+
+            /**
+             * Once at every 10ms of the first element's tween, then only
+             * where each element's keyframes are sampled.
+             */
+            expect(ease.mock.calls.length).toBeLessThan(300)
+        })
+
         it("trace an easing WAAPI can't run", async () => {
             const element = document.createElement("div")
 
             animateElement(
                 element,
                 { x: [0, 0, 100] },
-                { duration: 1, times: [0, 0.5, 1], ease: [(p) => p, (p) => p * p] }
+                {
+                    duration: 1,
+                    times: [0, 0.05, 1],
+                    ease: [(p) => p, (p) => p * p],
+                }
             )
             await nextFrame()
 

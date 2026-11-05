@@ -651,6 +651,46 @@ test.describe("animate() independent transforms", () => {
         expect(result.style).toBe("translateX(100px) translateY(20px)")
     })
 
+    test("a sequence segment follows an easing WAAPI can't run", async ({
+        page,
+    }) => {
+        const result = await page.evaluate(async () => {
+            const a = document.getElementById("a")!
+            const b = document.getElementById("b")!
+            const { animate, backOut } = window.Motion
+            const start = document.timeline.currentTime as number
+            animate([
+                [a, { x: 100 }, { duration: 0.2, ease: "linear" }],
+                [b, { x: 100, rotate: 90 }, { duration: 0.6, ease: "backOut", at: 0.3 }],
+            ])
+            const frames: any[] = await (window as any).recordFrames(b, 1000)
+            /**
+             * Where JS puts it, within a frame either side.
+             */
+            const at = (t: number) =>
+                backOut(Math.min(1, Math.max(0, (t - start - 300) / 600))) *
+                100
+            return frames.map((frame) => {
+                const range = [-17, -8, 0, 8, 17].map((ms) => at(frame.t + ms))
+                return {
+                    ...frame,
+                    low: Math.min(...range) - 1,
+                    high: Math.max(...range) + 1,
+                }
+            })
+        })
+
+        for (const { x, rotate, low, high, count } of result) {
+            expect(x).toBeGreaterThan(low)
+            expect(x).toBeLessThan(high)
+            expect(rotate).toBeGreaterThan(low * 0.9 - 1)
+            expect(rotate).toBeLessThan(high * 0.9 + 1)
+            expect(count).toBeLessThan(2)
+        }
+        // It overshoots, as backOut does.
+        expect(Math.max(...result.map(({ x }) => x))).toBeGreaterThan(105)
+    })
+
     test("a sequence renders where it's seeked to, forwards and backwards", async ({
         page,
     }) => {
