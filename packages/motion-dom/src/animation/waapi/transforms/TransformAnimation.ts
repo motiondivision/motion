@@ -376,7 +376,7 @@ export class TransformAnimation<
      * and stops moving, and its easing: as a string if WAAPI runs it
      * exactly, otherwise its function, to trace.
      */
-    tween(): [number, number, string | EasingFunction] | undefined {
+    tween(): [number, number, (string | EasingFunction)?] | undefined {
         const { keyframes, type, times, repeat, delay = 0 } = this.options
         let span = -1
 
@@ -400,14 +400,23 @@ export class TransformAnimation<
             (delay + offsets[i] * this.totalDuration) / this.speed
 
         if (span >= 0) {
+            const easing = isBezierDefinition(ease!)
+                ? cubicBezierAsString(ease as BezierDefinition)
+                : isNativeEasing(ease)
+                ? supportedWaapiEasing[ease]
+                : easingDefinitionToFunction(ease!)
+
+            /**
+             * An easing that doesn't run from 0 to 1 doesn't move between
+             * the keyframes, so is traced from the values it gives instead.
+             */
             return [
                 at(span),
                 at(span + 1),
-                isBezierDefinition(ease!)
-                    ? cubicBezierAsString(ease as BezierDefinition)
-                    : isNativeEasing(ease)
-                    ? supportedWaapiEasing[ease]
-                    : easingDefinitionToFunction(ease!),
+                typeof easing === "string" ||
+                (isNear(easing(0), 0) && isNear(easing(1), 1))
+                    ? easing
+                    : undefined,
             ]
         }
     }
@@ -720,19 +729,22 @@ function createGroup(owner: TransformOwner): TransformGroup {
         if (bounds.length * 4 > samples) return
 
         /**
-         * First check a few timestamps, as values with different easings
-         * usually differ there, before sampling every value many times.
+         * First check half way, where values with different easings
+         * usually differ, before sampling every value many times.
          */
-        let quick: number[] | undefined
+        let quick: number | undefined
         for (const track of moving) {
-            const a = track.numberAt(from)
-            const range = track.numberAt(to) - a
-            const progresses = [0.25, 0.5, 0.75].map(
-                (p) => (track.numberAt(mixNumber(from, to, p)) - a) / range
-            )
-            if (!range) continue
-            if (!quick) quick = progresses
-            else if (progresses.some((p, i) => !isNear(p, quick![i]))) return
+            const first = track.numberAt(from)
+            const p =
+                (track.numberAt((from + to) / 2) - first) /
+                (track.numberAt(to) - first)
+
+            /**
+             * NaN if it doesn't move.
+             */
+            if (p !== p) continue
+            if (quick === undefined) quick = p
+            else if (!isNear(p, quick)) return
         }
 
         const at = spread(from, to, samples).concat(bounds).sort(byTime)

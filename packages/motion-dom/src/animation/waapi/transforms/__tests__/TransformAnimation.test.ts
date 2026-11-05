@@ -1329,6 +1329,22 @@ describe("independent transform acceleration", () => {
             expect(linearAt(options.easing as string, 0.5)).toBeCloseTo(0.25, 2)
         })
 
+        it("follow an easing that doesn't start at 0 or end at 1", async () => {
+            const element = document.createElement("div")
+
+            animateElement(
+                element,
+                { x: [0, 100] },
+                { duration: 1, ease: () => 0.5 }
+            )
+            await nextFrame()
+
+            const [waapi] = running(element)
+            for (const ms of [0, 300, 700, 990]) {
+                expect(xAt(waapi, ms)).toBeCloseTo(50, 0)
+            }
+        })
+
         it("trace an easing once for every element that shares it", async () => {
             const ease = jest.fn((p: number) => p * p)
 
