@@ -1,7 +1,10 @@
 import {
     BezierDefinition,
     clamp,
+    EasingFunction,
+    easingDefinitionToFunction,
     isBezierDefinition,
+    isEasingArray,
     millisecondsToSeconds,
     progress,
 } from "motion-utils"
@@ -134,10 +137,46 @@ const scaleTolerance = 0.001
 const churnWindow = 100
 
 /**
+ * A WAAPI animation that starts moving later than this, as most segments
+ * of a long sequence do, is built this long before it starts, rather than
+ * all at once at the start.
+ */
+const buildAhead = 100
+
+/**
  * Named easings that are the same cubic-bezier in JS and CSS.
  */
 const isNativeEasing = (ease: unknown): ease is "linear" =>
     /^(linear|ease(In|Out|InOut))$/.test(ease as string)
+
+/**
+ * The last trace of each easing WAAPI can't run into linear(), with its
+ * number of samples, so the elements of a sequence that share an easing
+ * and duration trace it once.
+ */
+const traced = new WeakMap<EasingFunction, [number, string]>()
+
+const trace = (ease: EasingFunction, samples: number) => {
+    let last = traced.get(ease)
+    if (last?.[0] !== samples) {
+        last = [
+            samples,
+            "linear(" +
+                defaultOffset(Array(samples + 1)).map(
+                    (p) => round(ease(p)) + " " + round(p * 100) + "%"
+                ) +
+                ")",
+        ]
+        traced.set(ease, last)
+    }
+    return last[1]
+}
+
+/**
+ * How many samples trace an easing between two timestamps.
+ */
+const countSamples = (from: number, to: number) =>
+    Math.min(maxSamples, Math.max(2, Math.ceil((to - from) / sampleDelta)))
 
 /**
  * Whether two eased progresses match. False if either is NaN.
@@ -338,25 +377,53 @@ export class TransformAnimation<
     }
 
     /**
-     * If this is a two-keyframe tween whose easing WAAPI runs exactly,
-     * when it starts and stops moving, and that easing.
+     * If this moves between two keyframes only, holding still either side
+     * of them, as each value of a sequence segment does, when it starts
+     * and stops moving, and its easing: as a string if WAAPI runs it
+     * exactly, otherwise its function, to trace.
      */
-    tween(): [number, number, string] | undefined {
-        const { keyframes, type, ease, times, repeat, delay = 0 } = this.options
-        const easing = isBezierDefinition(ease!)
-            ? cubicBezierAsString(ease as BezierDefinition)
-            : isNativeEasing(ease) && supportedWaapiEasing[ease]
+    tween(): [number, number, (string | EasingFunction)?] | undefined {
+        const { keyframes, type, times, repeat, delay = 0 } = this.options
+        let span = -1
 
-        if (
-            easing &&
-            !repeat &&
-            !times &&
-            keyframes.length === 2 &&
-            type === keyframesGenerator &&
-            this.holdTime === null
-        ) {
-            const start = this.startTime! + delay / this.speed
-            return [start, start + this.resolvedDuration / this.speed, easing]
+        if (repeat || type !== keyframesGenerator || this.holdTime !== null) {
+            return
+        }
+
+        for (let i = 1; i < keyframes.length; i++) {
+            if (keyframes[i] !== keyframes[i - 1]) {
+                if (span >= 0) return
+                span = i - 1
+            }
+        }
+
+        let { ease } = this.options
+        if (isEasingArray(ease)) ease = ease[span]
+
+        const offsets = times || defaultOffset(keyframes)
+        const at = (i: number) =>
+            this.startTime! +
+            (delay + offsets[i] * this.totalDuration) / this.speed
+
+        if (span >= 0) {
+            const easing = isBezierDefinition(ease!)
+                ? cubicBezierAsString(ease as BezierDefinition)
+                : isNativeEasing(ease)
+                ? supportedWaapiEasing[ease]
+                : easingDefinitionToFunction(ease!)
+
+            /**
+             * An easing that doesn't run from 0 to 1 doesn't move between
+             * the keyframes, so is traced from the values it gives instead.
+             */
+            return [
+                at(span),
+                at(span + 1),
+                typeof easing === "string" ||
+                (isNear(easing(0), 0) && isNear(easing(1), 1))
+                    ? easing
+                    : undefined,
+            ]
         }
     }
 
@@ -422,9 +489,17 @@ export class TransformAnimation<
      */
     sync() {
         const now = time.now()
+        const value = this.sampleAt(now, true)
+
+        /**
+         * A held value doesn't move, so there's no need to sample it
+         * twice.
+         */
         this.options.motionValue!.setWithVelocity(
-            this.sampleAt(now - sampleDelta, true),
-            this.sampleAt(now, true),
+            this.holdTime === null
+                ? this.sampleAt(now - sampleDelta, true)
+                : value,
+            value,
             sampleDelta
         )
     }
@@ -443,10 +518,7 @@ export class TransformAnimation<
     pause() {
         super.pause()
 
-        if (this.isAccelerated()) {
-            this.sync()
-            this.group!.schedule(false)
-        }
+        this.isAccelerated() && this.group!.schedule(false)
     }
 
     /**
@@ -479,14 +551,8 @@ export class TransformAnimation<
         return super.time
     }
 
-    /**
-     * A JS animation sets its motion value from a seek on its next tick.
-     * This doesn't tick, so set it now, rather than leave it to be set
-     * when this next stops.
-     */
     set time(newTime: number) {
         super.time = newTime
-        this.isAccelerated() && this.sync()
     }
 
     /**
@@ -498,6 +564,22 @@ export class TransformAnimation<
         this.group?.demote(true)
         return super.attachTimeline(timeline)
     }
+}
+
+/**
+ * Groups that build straight after the current task build in one
+ * microtask, rather than one each.
+ */
+let builds: VoidFunction[] | undefined
+
+const buildSoon = (build: VoidFunction) => {
+    builds ||
+        queueMicrotask(() => {
+            const queue = builds!
+            builds = undefined
+            queue.forEach((build) => build())
+        })
+    ;(builds ||= []).push(build)
 }
 
 function createGroup(owner: TransformOwner): TransformGroup {
@@ -520,6 +602,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
     let isEnded = false
     let hasChurned = false
     let lastChurn = -Infinity
+    let wake: ReturnType<typeof setTimeout> | undefined
 
     const has = (key: string) => {
         for (const track of tracks) if (track.name === key) return true
@@ -596,6 +679,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
      * transform. The renderer writes its own version on its next render.
      */
     const stop = (shouldCommit = true) => {
+        clearTimeout(wake)
         shouldCommit && commit()
         segments.forEach(({ animation }) => cancel(animation))
         segments = []
@@ -667,15 +751,31 @@ function createGroup(owner: TransformOwner): TransformGroup {
         to: number,
         bounds: number[]
     ) => {
-        const samples = Math.min(
-            maxSamples,
-            Math.max(2, Math.ceil((to - from) / sampleDelta))
-        )
+        const samples = countSamples(from, to)
 
         /**
          * Too many keyframes or repeats to follow with this many samples.
          */
         if (bounds.length * 4 > samples) return
+
+        /**
+         * First check half way, where values with different easings
+         * usually differ, before sampling every value many times.
+         */
+        let quick: number | undefined
+        for (const track of moving) {
+            const first = track.numberAt(from)
+            const p =
+                (track.numberAt((from + to) / 2) - first) /
+                (track.numberAt(to) - first)
+
+            /**
+             * NaN if it doesn't move.
+             */
+            if (p !== p) continue
+            if (quick === undefined) quick = p
+            else if (!isNear(p, quick)) return
+        }
 
         const at = spread(from, to, samples).concat(bounds).sort(byTime)
 
@@ -755,11 +855,31 @@ function createGroup(owner: TransformOwner): TransformGroup {
         const times = [from]
 
         /**
+         * A linear tween is straight between its keyframes, so only the
+         * other values can curve, and a tween only while it moves.
+         */
+        const curved: TransformAnimation<any>[] = []
+        let curveFrom = to
+        let curveTo = from
+        for (const track of moving) {
+            const tween = track.tween()
+            if (tween?.[2] !== "linear") {
+                const [trackEnd, cycle] = track.timing()
+                const [a, b] = tween || [from, cycle ? to : trackEnd]
+                curveFrom = Math.min(curveFrom, a)
+                curveTo = Math.max(curveTo, b)
+                curved.push(track)
+            }
+        }
+        curveFrom = Math.max(from, curveFrom)
+        curveTo = Math.min(to, curveTo)
+
+        /**
          * Values that aren't numbers, like calc(), are left to the
          * browser to interpolate.
          */
         const isStraight = (a: number, b: number) =>
-            moving.every(
+            curved.every(
                 (track) =>
                     !(
                         Math.abs(
@@ -791,10 +911,18 @@ function createGroup(owner: TransformOwner): TransformGroup {
         }
 
         /**
-         * Split at least every 100ms, and at every keyframe and repeat,
-         * either side of where a value can jump.
+         * Split at least every 100ms where a value can curve, and at every
+         * keyframe and repeat, either side of where a value can jump.
          */
-        const ends = spread(from, to, Math.ceil((to - from) / 100))
+        const ends =
+            curveTo > curveFrom
+                ? spread(
+                      curveFrom,
+                      curveTo,
+                      Math.ceil((curveTo - curveFrom) / 100)
+                  )
+                : []
+        ends.push(to)
         for (const t of bounds) ends.push(t, Math.min(t + 0.01, to))
 
         let start = from
@@ -812,21 +940,27 @@ function createGroup(owner: TransformOwner): TransformGroup {
      * they move and their native easing.
      */
     const getTween = (moving: TransformAnimation<any>[]) => {
-        let shared: [number, number, string] | undefined
+        let shared: [number, number, (string | EasingFunction)?] | undefined
 
         for (const track of moving) {
             const tween = track.tween()
             if (
                 !tween ||
-                shared?.some((v: any, i) =>
-                    i < 2
-                        ? Math.abs((tween[i] as number) - v) > 1
-                        : tween[i] !== v
-                )
+                (shared &&
+                    (Math.abs(tween[0] - shared[0]) > 1 ||
+                        Math.abs(tween[1] - shared[1]) > 1))
             ) {
                 return
             }
-            shared = tween
+            /**
+             * Easings that differ, like the springs a sequence makes for
+             * each value, can still be the same curve.
+             */
+            shared = [
+                tween[0],
+                tween[1],
+                !shared || tween[2] === shared[2] ? tween[2] : undefined,
+            ]
         }
 
         return shared
@@ -898,14 +1032,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
 
             built.set(track, [track.at(now), track.speed, isHeld])
 
-            /**
-             * Held animations don't move, so keep their motion values up
-             * to date, as a JSAnimation would on a seek.
-             */
-            if (isHeld) {
-                track.sync()
-                continue
-            }
+            if (isHeld) continue
 
             if (track.speed < 0) return
 
@@ -950,15 +1077,47 @@ function createGroup(owner: TransformOwner): TransformGroup {
         const tween = !cycle && getTween(moving)
 
         try {
-            if (tween && tween[1] > now) {
-                const [from, to, easing] = tween
-                add(
-                    run(moving, from, to, easing),
-                    from - now,
-                    to - from
-                )
-            } else if (end > now) {
-                add(run(moving, now, end), 0, end - now)
+            if (end > now) {
+                let easing: string | undefined
+
+                if (tween && tween[1] > now) {
+                    const [from, to, ease] = tween
+
+                    /**
+                     * Until it's built, the motion values hold where it
+                     * starts, for the renderer to write.
+                     */
+                    if (from - now > buildAhead) {
+                        moving.forEach((track) => track.sync())
+                        wake = setTimeout(
+                            () => group.schedule(true),
+                            from - now - buildAhead
+                        )
+                        return true
+                    }
+
+                    easing =
+                        typeof ease === "string"
+                            ? ease
+                            : ease
+                            ? trace(ease, countSamples(from, to))
+                            : getEasing(moving, from, to, [])
+
+                    /**
+                     * It holds its last keyframe until the animations end.
+                     */
+                    easing &&
+                        add(
+                            run(moving, from, to, easing, {
+                                fill: "both",
+                                endDelay: end - to,
+                            }),
+                            from - now,
+                            end - from
+                        )
+                }
+
+                easing || add(run(moving, now, end), 0, end - now)
 
                 /**
                  * Animations that end sooner finish on the events of
@@ -1032,8 +1191,14 @@ function createGroup(owner: TransformOwner): TransformGroup {
             const trackTime = track.at(now)
             const isHeld = track.timing()[0] === Infinity
 
+            /**
+             * With nothing on the compositor, a held animation is set
+             * where it's held, so it can be seeked as often as needed.
+             */
             if (wasHeld) {
-                if (isHeld && trackTime === builtTime) continue
+                if (isHeld && (trackTime === builtTime || !segments.length)) {
+                    continue
+                }
                 return false
             }
 
@@ -1180,6 +1345,15 @@ function createGroup(owner: TransformOwner): TransformGroup {
             }
             if (!animate(now)) return group.demote()
         }
+
+        /**
+         * Held animations don't move, so set their motion values to where
+         * they're held, as a JSAnimation would on its next tick. Pausing
+         * and seeking schedule this, so it's once however many there are.
+         */
+        tracks.forEach(
+            (track) => track.timing()[0] === Infinity && track.sync()
+        )
     }
 
     const group: TransformGroup = {
@@ -1202,7 +1376,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
                 isScheduled = true
                 frameData.isProcessing
                     ? frame.render(build, false, true)
-                    : queueMicrotask(build)
+                    : buildSoon(build)
             }
         },
 
