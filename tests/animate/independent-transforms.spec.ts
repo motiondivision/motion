@@ -566,4 +566,91 @@ test.describe("animate() independent transforms", () => {
         expect(color[0]).toBeLessThan(50)
         expect(color[2]).toBeGreaterThan(200)
     })
+
+    test("a sequence builds later segments before they start, and starts them on time", async ({
+        page,
+    }) => {
+        const result = await page.evaluate(async () => {
+            const a = document.getElementById("a")!
+            const b = document.getElementById("b")!
+            const start = document.timeline.currentTime as number
+            window.Motion.animate([
+                [a, { x: 100 }, { duration: 0.3, ease: "linear" }],
+                [b, { x: 100, y: 20 }, { duration: 0.4, ease: "linear", at: 0.5 }],
+            ])
+            await window.nextFrames(2)
+            const early = window.transformAnimations(b).length
+            await window.waitFrame(440)
+            const before = {
+                count: window.transformAnimations(b).length,
+                ...window.readTransform(b),
+            }
+            const frames: any[] = await (window as any).recordFrames(b, 500)
+            return {
+                early,
+                before,
+                frames: frames.map((frame) => ({
+                    ...frame,
+                    t: frame.t - start,
+                })),
+                style: b.style.transform,
+            }
+        })
+
+        // Not built at first, but built before it starts.
+        expect(result.early).toBe(0)
+        expect(result.before.count).toBe(1)
+        expect(result.before.x).toBe(0)
+
+        for (const { t, x, y } of result.frames) {
+            /**
+             * Linear from 500ms to 900ms, give or take when the sequence
+             * started, within a frame of the call.
+             */
+            const expected = Math.min(100, Math.max(0, (t - 500) / 4))
+            expect(Math.abs(x - expected)).toBeLessThan(6)
+            expect(Math.abs(y - expected / 5)).toBeLessThan(1.5)
+        }
+        expect(result.frames.some(({ x }) => x > 20 && x < 80)).toBe(true)
+        expect(result.style).toBe("translateX(100px) translateY(20px)")
+    })
+
+    test("a sequence renders where it's seeked to, forwards and backwards", async ({
+        page,
+    }) => {
+        const result = await page.evaluate(async () => {
+            const a = document.getElementById("a")!
+            const b = document.getElementById("b")!
+            const animation = window.Motion.animate([
+                [a, { x: 100 }, { duration: 0.3, ease: "linear" }],
+                [b, { x: 100 }, { duration: 0.4, ease: "linear", at: 0.5 }],
+            ])
+            await window.waitFrame(50)
+            animation.pause()
+            animation.time = 0.7
+            await window.waitFrame(50)
+            const seeked = [window.readTransform(a).x, window.readTransform(b).x]
+            animation.time = 0.15
+            await window.waitFrame(50)
+            const early = [window.readTransform(a).x, window.readTransform(b).x]
+            animation.time = 0.8
+            animation.speed = -1
+            animation.play()
+            await window.waitFrame(200)
+            const reversed = [
+                window.readTransform(a).x,
+                window.readTransform(b).x,
+            ]
+            return { seeked, early, reversed }
+        })
+
+        expect(result.seeked[0]).toBeCloseTo(100, 0)
+        expect(result.seeked[1]).toBeCloseTo(50, 0)
+        expect(result.early[0]).toBeCloseTo(50, 0)
+        expect(result.early[1]).toBeCloseTo(0, 0)
+        // Back from 0.8s to ~0.6s, give or take a frame or two.
+        expect(result.reversed[0]).toBeCloseTo(100, 0)
+        expect(result.reversed[1]).toBeGreaterThan(15)
+        expect(result.reversed[1]).toBeLessThan(42)
+    })
 })

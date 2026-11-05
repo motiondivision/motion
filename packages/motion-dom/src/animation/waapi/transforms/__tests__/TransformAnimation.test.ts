@@ -56,7 +56,9 @@ const createAnimation = (
         const end =
             playbackRate < 0
                 ? value
-                : value + (duration * iterations) / playbackRate
+                : value +
+                  (duration * iterations + (options.endDelay || 0)) /
+                      playbackRate
         timer = setTimeout(
             () => animation.onfinish?.(),
             Math.max(0, end - performance.now())
@@ -1070,5 +1072,147 @@ describe("independent transform acceleration", () => {
         const transform = running(element)[0].keyframes.transform
         expect(transform[transform.length - 1]).toContain("translateY(100px)")
         await y.finished
+    })
+
+    describe("keyframes that move in one span, as a sequence makes", () => {
+        it("use two keyframes and that span's easing", async () => {
+            const element = document.createElement("div")
+            const start = performance.now()
+
+            animateElement(
+                element,
+                { x: [0, 0, 100, 100], rotate: [0, 0, 45, 45] },
+                {
+                    duration: 1,
+                    times: [0, 0.05, 0.55, 1],
+                    ease: ["linear", "easeOut", "linear"],
+                }
+            )
+            await nextFrame()
+
+            const [{ keyframes, options, startTime }] = running(element)
+            expect(running(element)).toHaveLength(1)
+            expect(keyframes.transform).toEqual([
+                "translateX(0px) rotate(0deg) ",
+                "translateX(100px) rotate(45deg) ",
+            ])
+            expect(options.easing).toBe("ease-out")
+            expect(options.fill).toBe("both")
+            expect(options.duration).toBeCloseTo(500, 0)
+            // It holds its last keyframe until the animation ends.
+            expect(options.endDelay).toBeCloseTo(450, 0)
+            expect(Math.abs(startTime! - start - 50)).toBeLessThan(20)
+        })
+
+        it("finish when the whole animation ends", async () => {
+            const element = document.createElement("div")
+            const start = performance.now()
+
+            await Promise.all(
+                animateElement(
+                    element,
+                    { x: [0, 100, 100] },
+                    { duration: 0.2, times: [0, 0.25, 1] }
+                )
+            )
+
+            expect(performance.now() - start).toBeGreaterThan(180)
+            expect(element.style.transform).toBe("translateX(100px)")
+        })
+
+        it("aren't built until shortly before they start moving", async () => {
+            const element = document.createElement("div")
+            const start = performance.now()
+
+            const animation = animateElement(
+                element,
+                { x: [0, 0, 100, 100], y: [20, 20, 50, 50] },
+                { duration: 1, times: [0, 0.5, 0.75, 1], ease: "linear" }
+            )
+            await nextFrame()
+
+            /**
+             * Until then, it holds where it starts as an inline style.
+             */
+            expect(running(element)).toHaveLength(0)
+            expect(element.style.transform).toBe("translateY(20px)")
+
+            await wait(450 - (performance.now() - start))
+            await nextFrame()
+
+            expect(running(element)).toHaveLength(1)
+            const [{ keyframes, options, startTime }] = running(element)
+            expect(keyframes.transform).toEqual([
+                "translateX(0px) translateY(20px) ",
+                "translateX(100px) translateY(50px) ",
+            ])
+            expect(options.duration).toBeCloseTo(250, 0)
+            // It starts when the animation reaches its keyframe.
+            expect(Math.abs(startTime! - start - 500)).toBeLessThan(20)
+
+            await Promise.all(animation)
+            expect(element.style.transform).toBe(
+                "translateX(100px) translateY(50px)"
+            )
+        })
+
+        it("are built when played after a pause while waiting to start", async () => {
+            const element = document.createElement("div")
+
+            const animation = animateElement(
+                element,
+                { x: [0, 0, 100] },
+                { duration: 1, times: [0, 0.5, 1], ease: "linear" }
+            )
+            await nextFrame()
+            expect(running(element)).toHaveLength(0)
+
+            animation.forEach((a) => a.pause())
+            await nextFrame()
+            animation.forEach((a) => (a.time = 0.6))
+            await nextFrame()
+            expect(running(element)).toHaveLength(0)
+            expect(readX(element.style.transform)).toBeCloseTo(20, 0)
+
+            animation.forEach((a) => a.play())
+            await nextFrame()
+
+            const [waapi] = running(element)
+            expect(xAt(waapi, 0)).toBeCloseTo(0, 0)
+            expect(xAt(waapi, 500)).toBeCloseTo(100, 0)
+            expect(Math.abs(waapi.startTime! - performance.now() + 100)).toBeLessThan(
+                30
+            )
+        })
+
+        it("stop waiting to start when stopped", async () => {
+            const element = document.createElement("div")
+
+            const animation = animateElement(
+                element,
+                { x: [0, 0, 100] },
+                { duration: 0.4, times: [0, 0.5, 1], ease: "linear" }
+            )
+            await nextFrame()
+            animation.forEach((a) => a.stop())
+            await wait(300)
+            await nextFrame()
+
+            expect(created(element)).toHaveLength(0)
+        })
+
+        it("trace an easing WAAPI can't run", async () => {
+            const element = document.createElement("div")
+
+            animateElement(
+                element,
+                { x: [0, 0, 100] },
+                { duration: 1, times: [0, 0.5, 1], ease: [(p) => p, (p) => p * p] }
+            )
+            await nextFrame()
+
+            const [{ options }] = running(element)
+            expect(options.easing).toMatch(/^linear\(/)
+        })
     })
 })
