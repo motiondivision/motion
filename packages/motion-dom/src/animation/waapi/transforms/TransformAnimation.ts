@@ -463,10 +463,7 @@ export class TransformAnimation<
     pause() {
         super.pause()
 
-        if (this.isAccelerated()) {
-            this.sync()
-            this.group!.schedule(false)
-        }
+        this.isAccelerated() && this.group!.schedule(false)
     }
 
     /**
@@ -499,14 +496,8 @@ export class TransformAnimation<
         return super.time
     }
 
-    /**
-     * A JS animation sets its motion value from a seek on its next tick.
-     * This doesn't tick, so set it now, rather than leave it to be set
-     * when this next stops.
-     */
     set time(newTime: number) {
         super.time = newTime
-        this.isAccelerated() && this.sync()
     }
 
     /**
@@ -964,14 +955,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
 
             built.set(track, [track.at(now), track.speed, isHeld])
 
-            /**
-             * Held animations don't move, so keep their motion values up
-             * to date, as a JSAnimation would on a seek.
-             */
-            if (isHeld) {
-                track.sync()
-                continue
-            }
+            if (isHeld) continue
 
             if (track.speed < 0) return
 
@@ -1268,6 +1252,15 @@ function createGroup(owner: TransformOwner): TransformGroup {
             }
             if (!animate(now)) return group.demote()
         }
+
+        /**
+         * Held animations don't move, so set their motion values to where
+         * they're held, as a JSAnimation would on its next tick. Pausing
+         * and seeking schedule this, so it's once however many there are.
+         */
+        tracks.forEach(
+            (track) => track.timing()[0] === Infinity && track.sync()
+        )
     }
 
     const group: TransformGroup = {

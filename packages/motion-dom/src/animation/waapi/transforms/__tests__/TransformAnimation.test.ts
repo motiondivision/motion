@@ -1,5 +1,6 @@
 import { animateElement } from "../../../animate/element"
 import { JSAnimation } from "../../../JSAnimation"
+import { TransformAnimation } from "../TransformAnimation"
 import { frame } from "../../../../frameloop"
 import { styleEffect } from "../../../../effects/style"
 import { motionValue } from "../../../../value"
@@ -660,6 +661,35 @@ describe("independent transform acceleration", () => {
 
         expect(created(element).length).toBe(count)
         expect(running(element)).toEqual([waapi])
+    })
+
+    it("writes a held value once however often it's paused and seeked", async () => {
+        const element = document.createElement("div")
+
+        const animation = animateElement(
+            element,
+            { x: [0, 100], y: [0, 100] },
+            { duration: 1, ease: "linear" }
+        )
+        await nextFrame()
+        const sync = jest.spyOn(TransformAnimation.prototype, "sync")
+
+        for (let i = 0; i <= 10; i++) {
+            animation.forEach((a) => {
+                a.pause()
+                a.time = i / 20
+                a.speed = i % 2 ? 1 : 2
+                a.play()
+                a.pause()
+            })
+        }
+        await nextFrame()
+
+        // Once per value, when the group builds.
+        expect(sync).toHaveBeenCalledTimes(2)
+        const { motionValue } = (animation[0] as any).animation.options
+        expect(motionValue.getCurrent()).toBeCloseTo(50, 0)
+        expect(motionValue.get()).toBeCloseTo(50, 0)
     })
 
     it("changes the speed of a running animation without restarting it", async () => {
