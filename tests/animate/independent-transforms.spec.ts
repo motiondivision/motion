@@ -166,6 +166,42 @@ test.describe("animate() independent transforms", () => {
         expect(result.style).toBe("translateY(100px)")
     })
 
+    test("a linear value keeps its pace when another value interrupts", async ({
+        page,
+    }) => {
+        const result = await page.evaluate(async () => {
+            const element = document.getElementById("a")!
+            const { animate } = window.Motion
+            const start = document.timeline.currentTime as number
+            animate(element, { y: 200 }, { duration: 1.5, ease: "linear" })
+            await window.waitFrame(300)
+            animate(element, { x: 100 }, { duration: 0.4, ease: "easeOut" })
+            const frames: any[] = await (window as any).recordFrames(
+                element,
+                1300
+            )
+            await window.nextFrames(2)
+            return {
+                frames: frames.map((frame) => ({
+                    ...frame,
+                    t: frame.t - start,
+                })),
+                style: element.style.transform,
+            }
+        })
+
+        let x = 0
+        for (const frame of result.frames) {
+            // Within a frame of where it'd be, when it started.
+            const y = Math.min(200, (frame.t / 1500) * 200)
+            expect(Math.abs(frame.y - y)).toBeLessThan(4)
+            expect(frame.x).toBeGreaterThanOrEqual(x - 0.01)
+            x = frame.x
+        }
+        expect(x).toBeCloseTo(100)
+        expect(result.style).toBe("translateX(100px) translateY(200px)")
+    })
+
     test("an interrupting spring inherits velocity", async ({ page }) => {
         const result = await page.evaluate(async () => {
             const element = document.getElementById("a")!

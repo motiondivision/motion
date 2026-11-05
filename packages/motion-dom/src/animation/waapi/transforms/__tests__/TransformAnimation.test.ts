@@ -1,4 +1,5 @@
 import { animateElement } from "../../../animate/element"
+import { JSAnimation } from "../../../JSAnimation"
 import { frame } from "../../../../frameloop"
 import { styleEffect } from "../../../../effects/style"
 import { motionValue } from "../../../../value"
@@ -576,6 +577,51 @@ describe("independent transform acceleration", () => {
         expect(transform.length).toBeGreaterThan(2)
         // Far fewer than one per 10ms.
         expect(transform.length).toBeLessThan(40)
+    })
+
+    it("samples few keyframes where only linear values move", async () => {
+        const element = document.createElement("div")
+
+        animateElement(
+            element,
+            { y: [0, 200] },
+            { duration: 10, ease: "linear" }
+        )
+        await nextFrame()
+        animateElement(element, { x: [0, 100] }, { duration: 1 })
+        await nextFrame()
+
+        const [waapi] = running(element)
+        const { transform, offset } = waapi.keyframes as any
+        const { duration } = waapi.options as { duration: number }
+        // Sampled while x moves, then one keyframe for the rest of y.
+        expect(transform.length).toBeLessThan(40)
+        expect(transform[transform.length - 1]).toBe(
+            "translateX(100px) translateY(200px) "
+        )
+        const ended = offset.findIndex((o: number) => o * duration >= 980)
+        expect(transform.length - ended).toBeLessThan(4)
+        expect(readX(transform[ended])).toBeCloseTo(100, 0)
+    })
+
+    it("samples each value few times to rebuild after an interrupt", async () => {
+        const element = document.createElement("div")
+
+        animateElement(
+            element,
+            { y: [0, 200] },
+            { duration: 10, ease: "linear" }
+        )
+        await nextFrame()
+        animateElement(element, { x: [0, 100] }, { duration: 1 })
+        const sampleAt = jest.spyOn(JSAnimation.prototype, "sampleAt")
+        await nextFrame()
+
+        /**
+         * x and y have different easings, which a few samples show,
+         * without sampling both every 10ms to compare them.
+         */
+        expect(sampleAt.mock.calls.length).toBeLessThan(400)
     })
 
     it("pauses, seeks and plays the WAAPI animation without rebuilding it", async () => {

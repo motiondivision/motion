@@ -699,6 +699,22 @@ function createGroup(owner: TransformOwner): TransformGroup {
          */
         if (bounds.length * 4 > samples) return
 
+        /**
+         * First check a few timestamps, as values with different easings
+         * usually differ there, before sampling every value many times.
+         */
+        let quick: number[] | undefined
+        for (const track of moving) {
+            const a = track.numberAt(from)
+            const range = track.numberAt(to) - a
+            const progresses = [0.25, 0.5, 0.75].map(
+                (p) => (track.numberAt(mixNumber(from, to, p)) - a) / range
+            )
+            if (!range) continue
+            if (!quick) quick = progresses
+            else if (progresses.some((p, i) => !isNear(p, quick![i]))) return
+        }
+
         const at = spread(from, to, samples).concat(bounds).sort(byTime)
 
         const position = (t: number) => progress(from, to, t)
@@ -777,11 +793,31 @@ function createGroup(owner: TransformOwner): TransformGroup {
         const times = [from]
 
         /**
+         * A linear tween is straight between its keyframes, so only the
+         * other values can curve, and a tween only while it moves.
+         */
+        const curved: TransformAnimation<any>[] = []
+        let curveFrom = to
+        let curveTo = from
+        for (const track of moving) {
+            const tween = track.tween()
+            if (tween?.[2] !== "linear") {
+                const [trackEnd, cycle] = track.timing()
+                const [a, b] = tween || [from, cycle ? to : trackEnd]
+                curveFrom = Math.min(curveFrom, a)
+                curveTo = Math.max(curveTo, b)
+                curved.push(track)
+            }
+        }
+        curveFrom = Math.max(from, curveFrom)
+        curveTo = Math.min(to, curveTo)
+
+        /**
          * Values that aren't numbers, like calc(), are left to the
          * browser to interpolate.
          */
         const isStraight = (a: number, b: number) =>
-            moving.every(
+            curved.every(
                 (track) =>
                     !(
                         Math.abs(
@@ -813,10 +849,18 @@ function createGroup(owner: TransformOwner): TransformGroup {
         }
 
         /**
-         * Split at least every 100ms, and at every keyframe and repeat,
-         * either side of where a value can jump.
+         * Split at least every 100ms where a value can curve, and at every
+         * keyframe and repeat, either side of where a value can jump.
          */
-        const ends = spread(from, to, Math.ceil((to - from) / 100))
+        const ends =
+            curveTo > curveFrom
+                ? spread(
+                      curveFrom,
+                      curveTo,
+                      Math.ceil((curveTo - curveFrom) / 100)
+                  )
+                : []
+        ends.push(to)
         for (const t of bounds) ends.push(t, Math.min(t + 0.01, to))
 
         let start = from
