@@ -4,7 +4,7 @@ import { delay } from "../../../utils/delay"
 import { drag, DragOptions } from ".."
 import { animateElement } from "../../../animation/animate/element"
 import { visualElementStore } from "../../../render/store"
-import { MotionValue } from "../../../value"
+import { motionValue, MotionValue } from "../../../value"
 import { transformProps } from "../../../render/utils/keys-transform"
 import { acceleratedValues } from "../../../animation/waapi/utils/accelerated-values"
 import {
@@ -678,6 +678,97 @@ describe("dragging", () => {
 
         expect(values(a)).toEqual({ x: 10, y: 0 })
         expect(values(b)).toEqual({ x: 0, y: 20 })
+    })
+})
+
+describe("drag with x/y motion values", () => {
+    let element: HTMLElement
+
+    beforeEach(() => {
+        element = createElement()
+    })
+
+    test("writes to the motion values instead of moving the element", async () => {
+        const x = motionValue(0)
+        const y = motionValue(0)
+        makeDraggable(element, { x, y, momentum: false })
+
+        await dragTo(element, 100, 50)
+
+        expect(x.get()).toBe(100)
+        expect(y.get()).toBe(50)
+        expect(element.style.transform).toBe("")
+        expect(values(element)).toEqual({ x: 0, y: 0 })
+
+        await release(element)
+    })
+
+    test("doesn't move the element on an axis without a motion value", async () => {
+        const x = motionValue(0)
+        makeDraggable(element, { x, momentum: false })
+
+        await dragTo(element, 100, 50)
+
+        expect(x.get()).toBe(100)
+        expect(element.style.transform).toBe("")
+
+        await release(element)
+    })
+
+    test("starts from the motion value's current value", async () => {
+        const x = motionValue(30)
+        makeDraggable(element, { axis: "x", x, momentum: false })
+
+        await dragTo(element, 20, 0)
+
+        expect(x.get()).toBe(50)
+
+        await release(element)
+    })
+
+    test("constrains the motion values", async () => {
+        const x = motionValue(0)
+        makeDraggable(element, {
+            axis: "x",
+            x,
+            constraints: { left: 0, right: 50 },
+            elastic: 0,
+            momentum: false,
+        })
+
+        await dragTo(element, 100, 0)
+
+        expect(x.get()).toBe(50)
+
+        await release(element)
+    })
+
+    test("applies momentum to the motion values", async () => {
+        const x = motionValue(0)
+        makeDraggable(element, { axis: "x", x })
+
+        const pointer = await gesture(element).to(1, 1)
+        await pointer.to(50, 50)
+        pointer.end()
+
+        await nextFrame()
+        await nextFrame()
+
+        expect(x.get()).toBeGreaterThan(50)
+        expect(element.style.transform).toBe("")
+    })
+
+    test("stop() stops the momentum animation", async () => {
+        const x = motionValue(0)
+        const stop = drag(element, { axis: "x", x })
+
+        const pointer = await gesture(element).to(1, 1)
+        await pointer.to(50, 50)
+        pointer.end()
+        await nextFrame()
+
+        stop()
+        expect(x.isAnimating()).toBe(false)
     })
 })
 

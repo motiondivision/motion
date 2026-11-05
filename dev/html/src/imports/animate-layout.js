@@ -5,6 +5,8 @@ import {
     animate,
     quadLayout,
     setLayoutEngine,
+    motionValue,
+    styleEffect,
 } from "framer-motion/dom"
 
 window.AnimateLayout = {
@@ -14,4 +16,6 @@ window.AnimateLayout = {
     animate,
     quadLayout,
     setLayoutEngine,
+    motionValue,
+    styleEffect,
 }
