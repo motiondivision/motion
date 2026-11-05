@@ -692,6 +692,50 @@ describe("independent transform acceleration", () => {
         expect(motionValue.get()).toBeCloseTo(50, 0)
     })
 
+    it("builds the groups of many elements in one microtask", async () => {
+        const elements = Array.from({ length: 10 }, () =>
+            document.createElement("div")
+        )
+        const queue = jest.spyOn(globalThis, "queueMicrotask")
+
+        elements.forEach((element) =>
+            animateElement(element, { x: [0, 100] }, { duration: 1 })
+        )
+        expect(queue.mock.calls.length).toBeLessThan(5)
+        await nextFrame()
+
+        elements.forEach((element) => expect(running(element)).toHaveLength(1))
+    })
+
+    it("seeks a paused animation every frame without moving to the main thread", async () => {
+        const element = document.createElement("div")
+
+        const animation = animateElement(
+            element,
+            { x: [0, 100] },
+            { duration: 1, ease: "linear" }
+        )
+        animation.forEach((a) => a.pause())
+        await nextFrame()
+
+        for (let i = 1; i <= 5; i++) {
+            animation.forEach((a) => (a.time = i * 0.1))
+            await nextFrame()
+        }
+        await nextFrame()
+
+        // Nothing moves, so there's nothing to build.
+        expect(created(element)).toHaveLength(0)
+        expect(element.style.transform).toBe("translateX(50px)")
+        expect((animation[0] as any).animation.isAccelerated()).toBe(true)
+
+        animation.forEach((a) => a.play())
+        await nextFrame()
+        const [waapi] = running(element)
+        expect(xAt(waapi, 0)).toBeCloseTo(0, 0)
+        expect(xAt(waapi, 1000)).toBeCloseTo(100, 0)
+    })
+
     it("changes the speed of a running animation without restarting it", async () => {
         const element = document.createElement("div")
         const animation = animateElement(

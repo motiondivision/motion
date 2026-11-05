@@ -405,6 +405,40 @@ test.describe("animate() independent transforms", () => {
         expect(result.x).toBeCloseTo(50)
     })
 
+    test("a paused animation seeked every frame plays on the compositor", async ({
+        page,
+    }) => {
+        const result = await page.evaluate(async () => {
+            const element = document.getElementById("a")!
+            const animation = window.Motion.animate(
+                element,
+                { x: 100, y: 50 },
+                { duration: 1, ease: "linear" }
+            )
+            animation.pause()
+            const seeked: number[] = []
+            for (let i = 1; i <= 5; i++) {
+                animation.time = i * 0.1
+                // Read once Motion has rendered the frame.
+                await new Promise((resolve) =>
+                    window.Motion.frame.postRender(resolve)
+                )
+                seeked.push(window.readTransform(element).x)
+            }
+            animation.play()
+            await window.nextFrames(2)
+            const count = window.transformAnimations(element).length
+            await window.waitFrame(200)
+            return { seeked, count, ...window.readTransform(element) }
+        })
+
+        expect(result.seeked.map(Math.round)).toEqual([10, 20, 30, 40, 50])
+        expect(result.count).toBe(1)
+        expect(result.x).toBeGreaterThan(62)
+        expect(result.x).toBeLessThan(85)
+        expect(result.y).toBeCloseTo(result.x / 2, 0)
+    })
+
     test("shows a value set instantly while others run on the compositor", async ({
         page,
     }) => {
@@ -612,7 +646,11 @@ test.describe("animate() independent transforms", () => {
             const start = document.timeline.currentTime as number
             window.Motion.animate([
                 [a, { x: 100 }, { duration: 0.3, ease: "linear" }],
-                [b, { x: 100, y: 20 }, { duration: 0.4, ease: "linear", at: 0.5 }],
+                [
+                    b,
+                    { x: 100, y: 20 },
+                    { duration: 0.4, ease: "linear", at: 0.5 },
+                ],
             ])
             await window.nextFrames(2)
             const early = window.transformAnimations(b).length
@@ -661,15 +699,18 @@ test.describe("animate() independent transforms", () => {
             const start = document.timeline.currentTime as number
             animate([
                 [a, { x: 100 }, { duration: 0.2, ease: "linear" }],
-                [b, { x: 100, rotate: 90 }, { duration: 0.6, ease: "backOut", at: 0.3 }],
+                [
+                    b,
+                    { x: 100, rotate: 90 },
+                    { duration: 0.6, ease: "backOut", at: 0.3 },
+                ],
             ])
             const frames: any[] = await (window as any).recordFrames(b, 1000)
             /**
              * Where JS puts it, within a frame either side.
              */
             const at = (t: number) =>
-                backOut(Math.min(1, Math.max(0, (t - start - 300) / 600))) *
-                100
+                backOut(Math.min(1, Math.max(0, (t - start - 300) / 600))) * 100
             return frames.map((frame) => {
                 const range = [-17, -8, 0, 8, 17].map((ms) => at(frame.t + ms))
                 return {
@@ -705,7 +746,10 @@ test.describe("animate() independent transforms", () => {
             animation.pause()
             animation.time = 0.7
             await window.waitFrame(50)
-            const seeked = [window.readTransform(a).x, window.readTransform(b).x]
+            const seeked = [
+                window.readTransform(a).x,
+                window.readTransform(b).x,
+            ]
             animation.time = 0.15
             await window.waitFrame(50)
             const early = [window.readTransform(a).x, window.readTransform(b).x]

@@ -483,9 +483,17 @@ export class TransformAnimation<
      */
     sync() {
         const now = time.now()
+        const value = this.sampleAt(now, true)
+
+        /**
+         * A held value doesn't move, so there's no need to sample it
+         * twice.
+         */
         this.options.motionValue!.setWithVelocity(
-            this.sampleAt(now - sampleDelta, true),
-            this.sampleAt(now, true),
+            this.holdTime === null
+                ? this.sampleAt(now - sampleDelta, true)
+                : value,
+            value,
             sampleDelta
         )
     }
@@ -550,6 +558,22 @@ export class TransformAnimation<
         this.group?.demote(true)
         return super.attachTimeline(timeline)
     }
+}
+
+/**
+ * Groups that build straight after the current task build in one
+ * microtask, rather than one each.
+ */
+let builds: VoidFunction[] | undefined
+
+const buildSoon = (build: VoidFunction) => {
+    builds ||
+        queueMicrotask(() => {
+            const queue = builds!
+            builds = undefined
+            queue.forEach((build) => build())
+        })
+    ;(builds ||= []).push(build)
 }
 
 function createGroup(owner: TransformOwner): TransformGroup {
@@ -1161,8 +1185,14 @@ function createGroup(owner: TransformOwner): TransformGroup {
             const trackTime = track.at(now)
             const isHeld = track.timing()[0] === Infinity
 
+            /**
+             * With nothing on the compositor, a held animation is set
+             * where it's held, so it can be seeked as often as needed.
+             */
             if (wasHeld) {
-                if (isHeld && trackTime === builtTime) continue
+                if (isHeld && (trackTime === builtTime || !segments.length)) {
+                    continue
+                }
                 return false
             }
 
@@ -1340,7 +1370,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
                 isScheduled = true
                 frameData.isProcessing
                     ? frame.render(build, false, true)
-                    : queueMicrotask(build)
+                    : buildSoon(build)
             }
         },
 
