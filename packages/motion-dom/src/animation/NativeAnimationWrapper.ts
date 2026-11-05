@@ -9,7 +9,8 @@ export class NativeAnimationWrapper<
         super()
 
         this.animation = animation
-        animation.onfinish = () => {
+        animation.onfinish = this.onFinish = () => {
+            animation.onfinish = null
             this.finishedTime = this.time
             this.notifyFinished()
         }

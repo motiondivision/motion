@@ -11,17 +11,21 @@ export class ExitAnimationFeature extends Feature<unknown> {
     private exit?: Promise<unknown> | true
 
     update() {
-        const { presenceContext, prevPresenceContext, animationState } =
-            this.node
+        const { presenceContext, animationState } = this.node
 
         if (!presenceContext || !animationState) return
 
         const { isPresent, onExitComplete } = presenceContext
-        const prevIsPresent = prevPresenceContext?.isPresent
 
-        if (isPresent === prevIsPresent) return
+        /**
+         * Compare presence with our own exit, not the previous presence
+         * context. An element can mount already exiting, for instance when
+         * Suspense reveals it in the render that removed it, and then both
+         * contexts have isPresent: false (#4049).
+         */
+        if (isPresent === !this.exit) return
 
-        if (isPresent && prevIsPresent === false) {
+        if (isPresent) {
             /**
              * When re-entering after the exit completed (element is at
              * rest), replay the enter animation from initial.
@@ -55,9 +59,9 @@ export class ExitAnimationFeature extends Feature<unknown> {
             return
         }
 
-        const exit = (this.exit = animationState.setActive("exit", !isPresent))
+        const exit = (this.exit = animationState.setActive("exit", true))
 
-        if (onExitComplete && !isPresent) {
+        if (onExitComplete) {
             exit.then(() => {
                 /**
                  * An exit can resolve after the element has re-entered, e.g.
@@ -71,15 +75,14 @@ export class ExitAnimationFeature extends Feature<unknown> {
     }
 
     mount() {
-        const { register, onExitComplete } = this.node.presenceContext || {}
-
-        if (onExitComplete) {
-            onExitComplete(this.id)
-        }
+        const { register } = this.node.presenceContext || {}
 
         if (register) {
             this.unmount = register(this.id, this.node)
         }
+
+        // Start the exit of an element that mounts already exiting
+        this.update()
     }
 
     unmount() {}
