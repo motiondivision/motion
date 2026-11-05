@@ -604,14 +604,16 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
     }
 
     /**
-     * The repeat the clock is in, from its time across all repeats.
+     * The repeat the clock is in, from its time across all repeats. A time
+     * on a repeat boundary is the end of the repeat before it, as it is
+     * for the clock's value.
      */
     private currentRepeat() {
         const { repeat = 0, repeatDelay = 0, delay = 0 } = this.options
         const cycle = this.totalDuration + repeatDelay
         const time = (this.clockAnimation?.time ?? 0) - delay
         return cycle && time > 0
-            ? Math.min(repeat, Math.floor(time / cycle))
+            ? Math.min(repeat, Math.ceil(time / cycle - 1e-9) - 1)
             : 0
     }
 
@@ -623,23 +625,23 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
         const { onUpdate, onRepeat, repeatType = "loop" } = this.options
         onUpdate?.(time)
 
+        /**
+         * A frame can cross any number of repeats. Finish crossing each
+         * repeat it leaves, then cross the next from its edge. A loop
+         * starts each repeat from the same edge. The others turn around.
+         */
         const repeatIndex = this.currentRepeat()
-        if (repeatIndex !== this.repeatIndex) {
-            this.repeatIndex = repeatIndex
+        const step = repeatIndex > this.repeatIndex ? 1 : -1
+        while (repeatIndex !== this.repeatIndex) {
+            const isForward =
+                (this.speed > 0) ===
+                (repeatType === "loop" || !(this.repeatIndex % 2))
+            const edge = isForward ? this.totalDuration : 0
+            if (this.cross(prevTime, edge)) return
+            this.repeatIndex += step
             onRepeat?.()
-
-            /**
-             * A loop jumps the playhead back to the start, or to the
-             * end when playing backwards. Finish crossing the repeat
-             * that ended, then cross the new one from its edge.
-             */
-            if (repeatType === "loop") {
-                const isForward = this.speed > 0
-                if (this.cross(prevTime, isForward ? this.totalDuration : 0)) {
-                    return
-                }
-                prevTime = isForward ? -1 : Infinity
-            }
+            prevTime =
+                repeatType === "loop" ? (isForward ? -1 : Infinity) : edge
         }
 
         this.cross(prevTime, time)
