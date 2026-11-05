@@ -88,14 +88,22 @@ export interface LayoutPlane {
     /**
      * Show the plane. Inside an animateLayout() update, it animates from
      * the element or plane it takes over from.
+     *
+     * With `animate`, a plane shown outside an update starts one, so it
+     * also animates from a React `layoutId` element that unmounts in the
+     * same commit.
      */
-    show(): void
+    show(animate?: boolean): void
 
     /**
      * Hide the plane. Inside an animateLayout() update, the element or plane
      * that takes over animates from it.
+     *
+     * With `animate`, a plane hidden outside an update starts one, so a
+     * React `layoutId` element that mounts in the same commit animates
+     * from it.
      */
-    hide(): void
+    hide(animate?: boolean): void
 }
 
 const measured = /* @__PURE__ */ createQuad()
@@ -214,6 +222,17 @@ function createPlaneNode(latestValues: ResolvedValues): PlaneNode {
                 source: this.id,
                 quad,
             }
+        }
+
+        /**
+         * A leaving plane can lead again for a moment, as when React's
+         * Strict Mode remounts the element that took over from it, and
+         * take that element's snapshot. Whatever takes over next animates
+         * from where the plane is drawn, not from that.
+         */
+        updateSnapshot() {
+            if (this.snapshot?.source !== this.id) this.snapshot = undefined
+            super.updateSnapshot()
         }
 
         measureTransform(rect: Box, out: Mat3) {
@@ -350,10 +369,21 @@ export function createLayoutPlane(
         stack?.lead?.resumeFrom === target && forget(stack.lead)
     }
 
+    /**
+     * Start an update that ends once the current task (a React commit) has
+     * finished, so elements mounting or unmounting in it take part.
+     */
+    const startUpdate = (root: IProjectionNode, target?: PlaneNode) => {
+        if (root.isUpdating) return
+        target ? target.willUpdate() : root.startUpdate()
+        root.didUpdate()
+    }
+
     const plane: LayoutPlane = {
-        show() {
+        show(animate) {
             leaving && remove(leaving)
             if (node) return
+            animate && startUpdate(documentRoot())
 
             const visualElement = new PlaneVisualElement({
                 props: { transition },
@@ -369,11 +399,21 @@ export function createLayoutPlane(
             visualElement.scheduleRender()
         },
 
-        hide() {
+        hide(animate) {
             if (!node) return
             const target = node
+            animate && startUpdate(target.root!, target)
             node = undefined
             target.isPresent = false
+
+            /**
+             * An element that took over before the update started still
+             * needs measuring in it.
+             */
+            const lead = target.getStack()?.lead
+            if (animate && lead !== target && lead?.resumeFrom === target) {
+                lead.isLayoutDirty = true
+            }
 
             /**
              * During an update, stay until whatever takes over has
