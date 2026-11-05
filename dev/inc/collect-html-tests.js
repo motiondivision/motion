@@ -27,5 +27,6 @@ function collect(sourceDir, outputFile) {
 collect("optimized-appear", "appear-tests")
 collect("projection", "projection-tests")
 collect("animate-layout", "animate-layout-tests")
+collect("quad-projection", "quad-projection-tests")
 
 console.log("HTML tests collected!")

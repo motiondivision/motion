@@ -1,0 +1,99 @@
+<html>
+    <head>
+        <link rel="icon" href="data:," />
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+            }
+
+            /* Rotated by CSS, not by Motion */
+            .container {
+                position: absolute;
+                left: 250px;
+                top: 150px;
+                width: 400px;
+                height: 300px;
+                background: #eee;
+            }
+
+            .container.turned {
+                transform: rotate(40deg);
+            }
+
+            .box {
+                position: absolute;
+                left: 20px;
+                top: 20px;
+                width: 100px;
+                height: 80px;
+                background-color: #00cc88;
+            }
+
+            .box.moved {
+                left: 240px;
+                top: 180px;
+            }
+
+            .ghost {
+                visibility: hidden;
+            }
+
+            [data-layout-correct="false"] {
+                background: #dd1144 !important;
+                opacity: 0.5;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container turned ghost">
+            <div class="box moved ghost" id="end"></div>
+        </div>
+        <div class="container" id="container">
+            <div class="box" id="box" data-layout></div>
+        </div>
+
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module" src="/src/imports/script-quad.js"></script>
+        <script type="module">
+            const { animateLayout } = window.AnimateLayout
+            const { corners, matchCorners, mixRects, seek, done, fail } =
+                window.Quad
+
+            /**
+             * The container turns, with CSS, in the same update the box
+             * moves within it. The box can't be animated in either space
+             * alone, so it moves between them: from where it was to where
+             * the turned container now shows it.
+             */
+            async function runTest() {
+                const box = document.getElementById("box")
+                const container = document.getElementById("container")
+                const start = corners(box)
+                const end = corners(document.getElementById("end"))
+
+                const controls = await animateLayout(
+                    () => {
+                        container.classList.add("turned")
+                        box.classList.add("moved")
+                    },
+                    { duration: 10, ease: "linear" }
+                )
+                controls.pause()
+
+                for (const progress of [0, 0.5, 1]) {
+                    await seek(controls, progress * 10)
+                    matchCorners(
+                        box,
+                        mixRects(start, end, progress),
+                        `${progress * 100}%`
+                    )
+                }
+
+                done()
+            }
+
+            runTest().catch(fail)
+        </script>
+    </body>
+</html>

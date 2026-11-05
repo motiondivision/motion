@@ -1,0 +1,132 @@
+<html>
+    <head>
+        <link rel="icon" href="data:," />
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+            }
+
+            /* Rotated by CSS, not by Motion */
+            .container {
+                position: absolute;
+                left: 250px;
+                top: 150px;
+                width: 400px;
+                height: 300px;
+                background: #eee;
+            }
+
+            .container.turned {
+                transform: rotate(40deg);
+            }
+
+            .box {
+                position: absolute;
+                left: 20px;
+                top: 20px;
+                width: 100px;
+                height: 80px;
+                background-color: #00cc88;
+            }
+
+            .box.moved {
+                left: 240px;
+                top: 180px;
+            }
+
+            .ghost {
+                visibility: hidden;
+            }
+
+            [data-layout-correct="false"] {
+                background: #dd1144 !important;
+                opacity: 0.5;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container turned ghost">
+            <div class="box moved ghost" id="end"></div>
+        </div>
+        <div class="container" id="container">
+            <div class="box" id="box" data-layout></div>
+        </div>
+
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module" src="/src/imports/script-quad.js"></script>
+        <script type="module">
+            const { animateLayout, animate } = window.AnimateLayout
+            const {
+                corners,
+                describe,
+                matchCorners,
+                rectCorners,
+                nextFrame,
+                done,
+                fail,
+            } = window.Quad
+
+            const mix = (a, b, p) => a + (b - a) * p
+
+            /**
+             * As container-turns.html, but the box also animates its own
+             * x and rotate while the layout animation plays. Those apply in
+             * full on top of the layout animation, as they would in a flat
+             * page, so x moves the box along the turned container's axis.
+             */
+            async function runTest() {
+                const box = document.getElementById("box")
+                const container = document.getElementById("container")
+
+                const start = describe(corners(box))
+                const end = describe(corners(document.getElementById("end")))
+
+                const controls = await animateLayout(
+                    () => {
+                        container.classList.add("turned")
+                        box.classList.add("moved")
+                    },
+                    { duration: 10, ease: "linear" }
+                )
+                controls.pause()
+
+                const transforms = animate(
+                    box,
+                    { x: [0, 100], rotate: [0, 60] },
+                    { duration: 10, ease: "linear" }
+                )
+                transforms.pause()
+
+                const turn = (40 * Math.PI) / 180
+                let turnBy = end.rotate - start.rotate
+                turnBy -= Math.round(turnBy / 360) * 360
+
+                for (const p of [0, 0.5, 1]) {
+                    controls.time = transforms.time = p * 10
+                    await nextFrame()
+
+                    matchCorners(
+                        box,
+                        rectCorners({
+                            cx:
+                                mix(start.cx, end.cx, p) +
+                                100 * p * Math.cos(turn),
+                            cy:
+                                mix(start.cy, end.cy, p) +
+                                100 * p * Math.sin(turn),
+                            width: start.width,
+                            height: start.height,
+                            rotate: start.rotate + turnBy * p + 60 * p,
+                        }),
+                        `${p * 100}%`
+                    )
+                }
+
+                done()
+            }
+
+            runTest().catch(fail)
+        </script>
+    </body>
+</html>

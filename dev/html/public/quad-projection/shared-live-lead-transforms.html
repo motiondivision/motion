@@ -1,0 +1,135 @@
+<html>
+    <head>
+        <link rel="icon" href="data:," />
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+            }
+
+            #card {
+                position: absolute;
+                left: 80px;
+                top: 120px;
+                width: 300px;
+                height: 220px;
+                background: #eee;
+            }
+
+            #modal {
+                position: absolute;
+                left: 450px;
+                top: 250px;
+                width: 400px;
+                height: 300px;
+                background: #ddd;
+            }
+
+            .small {
+                position: absolute;
+                left: 30px;
+                top: 40px;
+                width: 120px;
+                height: 80px;
+                background-color: #00cc88;
+            }
+
+            .large {
+                position: absolute;
+                left: 60px;
+                top: 50px;
+                width: 240px;
+                height: 160px;
+                background-color: #00cc88;
+            }
+
+            .ghost {
+                visibility: hidden;
+            }
+
+            [data-layout-correct="false"] {
+                background: #dd1144 !important;
+                opacity: 0.5;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="card">
+            <div class="small" id="a" data-layout-id="hero"></div>
+        </div>
+        <div id="modal">
+            <div class="large ghost" id="end"></div>
+        </div>
+
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module" src="/src/imports/script-quad.js"></script>
+        <script type="module">
+            const { animateLayout, animate } = window.AnimateLayout
+            const {
+                corners,
+                describe,
+                matchCorners,
+                rectCorners,
+                nextFrame,
+                done,
+                fail,
+            } = window.Quad
+
+            const mix = (a, b, p) => a + (b - a) * p
+
+            /**
+             * The new element animates its own x, y and rotate while the
+             * shared layout animation plays. The layout animation ends
+             * exactly on those live transforms: position changes apply as
+             * they happen and rotation mixes towards its live value, as
+             * the box engine does for a flat page.
+             */
+            async function runTest() {
+                const start = describe(corners(document.getElementById("a")))
+                const layout = describe(corners(document.getElementById("end")))
+
+                const controls = await animateLayout(
+                    () => {
+                        document.getElementById("a").remove()
+                        const b = document.createElement("div")
+                        b.id = "b"
+                        b.className = "large"
+                        b.dataset.layoutId = "hero"
+                        document.getElementById("modal").appendChild(b)
+                    },
+                    { duration: 10, ease: "linear" }
+                )
+                controls.pause()
+
+                const b = document.getElementById("b")
+                const transforms = animate(
+                    b,
+                    { x: [0, 150], y: [0, -40], rotate: [0, 30] },
+                    { duration: 10, ease: "linear" }
+                )
+                transforms.pause()
+
+                for (const p of [0, 0.25, 0.5, 0.75, 1]) {
+                    controls.time = transforms.time = p * 10
+                    await nextFrame()
+
+                    matchCorners(
+                        b,
+                        rectCorners({
+                            cx: mix(start.cx, layout.cx, p) + 150 * p,
+                            cy: mix(start.cy, layout.cy, p) - 40 * p,
+                            width: mix(start.width, layout.width, p),
+                            height: mix(start.height, layout.height, p),
+                            rotate: mix(start.rotate, 30 * p, p),
+                        }),
+                        `${p * 100}%`
+                    )
+                }
+
+                done()
+            }
+
+            runTest().catch(fail)
+        </script>
+    </body>
+</html>

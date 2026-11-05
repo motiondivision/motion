@@ -1,0 +1,105 @@
+<html>
+    <head>
+        <link rel="icon" href="data:," />
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+            }
+
+            #stage {
+                position: absolute;
+                left: 100px;
+                top: 50px;
+                width: 600px;
+                height: 450px;
+                perspective: 800px;
+            }
+
+            /* Tilted in 3D by CSS, not by Motion */
+            #plane {
+                position: absolute;
+                left: 50px;
+                top: 50px;
+                width: 500px;
+                height: 350px;
+                transform: rotateY(35deg) rotateX(15deg);
+                background: #eee;
+            }
+
+            .box {
+                position: absolute;
+                left: 20px;
+                top: 30px;
+                width: 120px;
+                height: 90px;
+                background-color: #00cc88;
+            }
+
+            .box.moved {
+                left: 330px;
+                top: 220px;
+                width: 150px;
+                height: 110px;
+            }
+
+            .ghost {
+                visibility: hidden;
+            }
+
+            [data-layout-correct="false"] {
+                background: #dd1144 !important;
+                opacity: 0.5;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="stage">
+            <div id="plane">
+                <div class="box ghost" id="start"></div>
+                <div
+                    class="box ghost"
+                    id="mid"
+                    style="left: 175px; top: 125px; width: 135px; height: 100px"
+                ></div>
+                <div class="box ghost moved" id="end"></div>
+                <div class="box" id="box" data-layout></div>
+            </div>
+        </div>
+
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module" src="/src/imports/script-quad.js"></script>
+        <script type="module">
+            const { animateLayout } = window.AnimateLayout
+            const { corners, matchCorners, seek, done, fail } = window.Quad
+
+            /**
+             * A box moving across a plane tilted in perspective should slide
+             * within the plane, foreshortened like it.
+             */
+            async function runTest() {
+                const box = document.getElementById("box")
+                const expected = {
+                    0: corners(document.getElementById("start")),
+                    5: corners(document.getElementById("mid")),
+                    10: corners(document.getElementById("end")),
+                }
+
+                const controls = await animateLayout(
+                    () => box.classList.add("moved"),
+                    { duration: 10, ease: "linear" }
+                )
+                controls.pause()
+
+                for (const time of [0, 5, 10]) {
+                    await seek(controls, time)
+                    matchCorners(box, expected[time], `${time * 10}%`)
+                }
+
+                done()
+            }
+
+            runTest().catch(fail)
+        </script>
+    </body>
+</html>

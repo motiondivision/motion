@@ -34,6 +34,7 @@ export { useUnmountEffect } from "./utils/use-unmount-effect"
  */
 export { domAnimation } from "./render/dom/features-animation"
 export { domMax } from "./render/dom/features-max"
+export { domMax3D } from "./render/dom/features-max-3d"
 export { domMin } from "./render/dom/features-min"
 
 /**
@@ -90,6 +91,8 @@ export { isMotionComponent } from "./motion/utils/is-motion-component"
 export { unwrapMotionComponent } from "./motion/utils/unwrap-motion-component"
 export { isValidMotionProp } from "./motion/utils/valid-prop"
 export { addScaleCorrector } from "motion-dom"
+export { quadLayout, setLayoutEngine } from "motion-dom"
+export type { LayoutEngine } from "motion-dom"
 export { useInstantLayoutTransition } from "./projection/use-instant-layout-transition"
 export { useResetProjection } from "./projection/use-reset-projection"
 export { buildTransform, visualElementStore, VisualElement } from "motion-dom"

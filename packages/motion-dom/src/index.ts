@@ -332,6 +332,9 @@ export { renderSVG } from "./render/svg/utils/render"
 export { scrapeMotionValuesFromProps as scrapeSVGMotionValuesFromProps } from "./render/svg/utils/scrape-motion-values"
 
 export { animateLayout } from "./layout/animate-layout"
+export { setLayoutEngine } from "./projection/node/layout-engine"
+export type { LayoutEngine } from "./projection/node/layout-engine"
+export { quadLayout } from "./projection/node/quad-projection"
 
 /**
  * Deprecated

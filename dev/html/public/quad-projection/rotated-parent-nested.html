@@ -1,0 +1,129 @@
+<html>
+    <head>
+        <link rel="icon" href="data:," />
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+            }
+
+            /* Rotated by CSS, not by Motion */
+            #container {
+                position: absolute;
+                left: 200px;
+                top: 150px;
+                width: 500px;
+                height: 400px;
+                transform: rotate(30deg);
+                background: #eee;
+            }
+
+            .card {
+                position: absolute;
+                left: 20px;
+                top: 20px;
+                width: 100px;
+                height: 100px;
+                background: #0077ff;
+            }
+
+            .card.open {
+                left: 50px;
+                top: 60px;
+                width: 300px;
+                height: 200px;
+            }
+
+            #child {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 40px;
+                height: 40px;
+                background: #00cc88;
+            }
+
+            .ghost {
+                visibility: hidden;
+            }
+
+            [data-layout-correct="false"] {
+                background: #dd1144 !important;
+                opacity: 0.5;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="container">
+            <div class="card ghost" id="card-start"></div>
+            <div class="card open ghost" id="card-end"></div>
+            <div class="card" id="card" data-layout>
+                <div id="child" data-layout></div>
+            </div>
+        </div>
+
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module" src="/src/imports/script-quad.js"></script>
+        <script type="module">
+            const { animateLayout } = window.AnimateLayout
+            const {
+                corners,
+                matchCorners,
+                mixRects,
+                rectCorners,
+                seek,
+                done,
+                fail,
+            } = window.Quad
+
+            /**
+             * The corners of a size x size square whose top-left corner is
+             * at (x, y), rotated with the container.
+             */
+            function squareAt([x, y], size) {
+                const angle = (30 * Math.PI) / 180
+                const h = size / 2
+                return rectCorners({
+                    cx: x + h * Math.cos(angle) - h * Math.sin(angle),
+                    cy: y + h * Math.sin(angle) + h * Math.cos(angle),
+                    width: size,
+                    height: size,
+                    rotate: 30,
+                })
+            }
+
+            /**
+             * A card growing inside a rotated container. Its child keeps
+             * its size and stays pinned to the card's top-left corner, as
+             * it would in an unrotated page.
+             */
+            async function runTest() {
+                const card = document.getElementById("card")
+                const child = document.getElementById("child")
+                const start = corners(document.getElementById("card-start"))
+                const end = corners(document.getElementById("card-end"))
+
+                const controls = await animateLayout(
+                    () => card.classList.add("open"),
+                    { duration: 10, ease: "linear" }
+                )
+                controls.pause()
+
+                for (const progress of [0, 0.25, 0.5, 1]) {
+                    await seek(controls, progress * 10)
+                    const expected = mixRects(start, end, progress)
+                    matchCorners(card, expected, `card ${progress * 100}%`)
+                    matchCorners(
+                        child,
+                        squareAt(expected, 40),
+                        `child ${progress * 100}%`
+                    )
+                }
+
+                done()
+            }
+
+            runTest().catch(fail)
+        </script>
+    </body>
+</html>

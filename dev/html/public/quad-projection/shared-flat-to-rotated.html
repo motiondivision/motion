@@ -1,0 +1,111 @@
+<html>
+    <head>
+        <link rel="icon" href="data:," />
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+            }
+
+            /* Rotated by CSS, not by Motion */
+            #card {
+                position: absolute;
+                left: 80px;
+                top: 120px;
+                width: 300px;
+                height: 220px;
+                transform: rotate(-20deg);
+                background: #eee;
+            }
+
+            #modal {
+                position: absolute;
+                left: 450px;
+                top: 250px;
+                width: 400px;
+                height: 300px;
+                background: #ddd;
+            }
+
+            .small {
+                position: absolute;
+                left: 30px;
+                top: 40px;
+                width: 120px;
+                height: 80px;
+                background-color: #00cc88;
+            }
+
+            .large {
+                position: absolute;
+                left: 60px;
+                top: 50px;
+                width: 240px;
+                height: 160px;
+                background-color: #00cc88;
+            }
+
+            .ghost {
+                visibility: hidden;
+            }
+
+            [data-layout-correct="false"] {
+                background: #dd1144 !important;
+                opacity: 0.5;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="card">
+            <div class="small ghost" id="end"></div>
+        </div>
+        <div id="modal">
+            <div class="large" id="a" data-layout-id="hero"></div>
+        </div>
+
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module" src="/src/imports/script-quad.js"></script>
+        <script type="module">
+            const { animateLayout } = window.AnimateLayout
+            const { corners, matchCorners, mixRects, seek, done, fail } =
+                window.Quad
+
+            /**
+             * A shared element moves out of a flat modal into a rotated
+             * card. It starts flat, then turns to the angle the card
+             * shows it at as it moves and shrinks, landing exactly on it.
+             */
+            async function runTest() {
+                const start = corners(document.getElementById("a"))
+                const end = corners(document.getElementById("end"))
+
+                const controls = await animateLayout(
+                    () => {
+                        document.getElementById("a").remove()
+                        const b = document.createElement("div")
+                        b.id = "b"
+                        b.className = "small"
+                        b.dataset.layoutId = "hero"
+                        document.getElementById("card").appendChild(b)
+                    },
+                    { duration: 10, ease: "linear" }
+                )
+                controls.pause()
+
+                const b = document.getElementById("b")
+                for (const progress of [0, 0.25, 0.5, 1]) {
+                    await seek(controls, progress * 10)
+                    matchCorners(
+                        b,
+                        mixRects(start, end, progress),
+                        `${progress * 100}%`
+                    )
+                }
+
+                done()
+            }
+
+            runTest().catch(fail)
+        </script>
+    </body>
+</html>

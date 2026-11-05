@@ -1,0 +1,152 @@
+<html>
+    <head>
+        <link rel="icon" href="data:," />
+        <style>
+            body {
+                margin: 0;
+                font: 12px/1.4 system-ui, sans-serif;
+            }
+            /* Rotated by CSS, so every item moves between spaces */
+            .space {
+                position: absolute;
+                top: 60px;
+                width: 520px;
+                display: flex;
+                flex-wrap: wrap;
+                align-content: flex-start;
+                gap: 2px;
+            }
+            #a {
+                left: 40px;
+                transform: rotate(12deg);
+            }
+            #b {
+                left: 640px;
+                transform: perspective(900px) rotateY(25deg) rotate(-8deg);
+            }
+            .item {
+                width: 8px;
+                height: 8px;
+                background: #0088ff;
+            }
+            #b .item {
+                width: 6px;
+                height: 10px;
+                background: #00cc88;
+            }
+            /* Nested items sit inside their parent, offset by a pixel */
+            .item .item {
+                position: absolute;
+                left: 1px;
+                top: 1px;
+            }
+            .item {
+                position: relative;
+            }
+            #results {
+                position: fixed;
+                left: 8px;
+                top: 8px;
+                margin: 0;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="space" id="a"></div>
+        <div class="space" id="b"></div>
+        <pre id="results">Running…</pre>
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module">
+            /**
+             * Measures the quad engine on n elements each moving between
+             * two transformed spaces, which every frame needs quad
+             * projection for.
+             *
+             *   ?n=1000              1000 elements
+             *   ?n=1000&depth=10     the same number of elements, nested
+             *                        in chains 10 deep
+             *
+             * Reports main-thread time per frame, from the start of the
+             * update step to the end of postRender, which includes the
+             * animation and writing styles.
+             */
+            const { animateLayout, frame } = window.AnimateLayout
+            const params = new URLSearchParams(location.search)
+            const n = Number(params.get("n") || 500)
+            const duration = Number(params.get("duration") || 3)
+            const depth = Math.max(1, Number(params.get("depth") || 1))
+
+            const a = document.getElementById("a")
+            const b = document.getElementById("b")
+            let parent = a
+            for (let i = 0; i < n; i++) {
+                const item = document.createElement("div")
+                item.className = "item"
+                item.dataset.layout = ""
+                if (i % depth === 0) parent = a
+                parent.appendChild(item)
+                parent = item
+            }
+
+            const frames = []
+            let frameStart = 0
+            let isMeasuring = false
+            const start = () => (frameStart = performance.now())
+            const end = () =>
+                isMeasuring && frames.push(performance.now() - frameStart)
+
+            function summarise(samples) {
+                const sorted = [...samples].sort((x, y) => x - y)
+                const at = (p) =>
+                    sorted[
+                        Math.min(
+                            sorted.length - 1,
+                            Math.floor(p * sorted.length)
+                        )
+                    ]
+                return {
+                    samples: sorted.length,
+                    median: +at(0.5)?.toFixed(3),
+                    p95: +at(0.95)?.toFixed(3),
+                }
+            }
+
+            async function run() {
+                frame.update(start, true)
+                frame.postRender(end, true)
+
+                await animateLayout(
+                    () => {
+                        for (const item of [...a.children]) b.appendChild(item)
+                    },
+                    { duration, ease: "linear" }
+                )
+
+                /**
+                 * Measure the middle of the animation, skipping the frames
+                 * that start and finish it.
+                 */
+                const wait = (ms) =>
+                    new Promise((resolve) => setTimeout(resolve, ms))
+                await wait(200)
+                isMeasuring = true
+                await wait(duration * 1000 - 400)
+                isMeasuring = false
+
+                const results = {
+                    n,
+                    depth,
+                    frame: summarise(frames),
+                }
+                document.getElementById("results").textContent = JSON.stringify(
+                    results,
+                    null,
+                    2
+                )
+                document.body.dataset.done = "true"
+            }
+
+            run()
+        </script>
+    </body>
+</html>

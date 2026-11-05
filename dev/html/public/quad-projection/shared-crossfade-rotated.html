@@ -1,0 +1,104 @@
+<html>
+    <head>
+        <link rel="icon" href="data:," />
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+            }
+
+            /* Rotated by CSS, not by Motion */
+            #card {
+                position: absolute;
+                left: 100px;
+                top: 100px;
+                width: 300px;
+                height: 220px;
+                transform: rotate(25deg);
+                background: #eee;
+            }
+
+            #modal {
+                position: absolute;
+                left: 450px;
+                top: 300px;
+                width: 400px;
+                height: 300px;
+                background: #ddd;
+            }
+
+            .small {
+                position: absolute;
+                left: 30px;
+                top: 40px;
+                width: 120px;
+                height: 80px;
+                background-color: #00cc88;
+            }
+
+            .large {
+                position: absolute;
+                left: 60px;
+                top: 50px;
+                width: 240px;
+                height: 160px;
+                background-color: #0077ff;
+            }
+
+            [data-layout-correct="false"] {
+                background: #dd1144 !important;
+                opacity: 0.5;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="card">
+            <div class="small" id="a" data-layout-id="hero"></div>
+        </div>
+        <div id="modal"></div>
+
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module" src="/src/imports/script-quad.js"></script>
+        <script type="module">
+            const { animateLayout } = window.AnimateLayout
+            const { corners, matchCorners, seek, done, fail } = window.Quad
+
+            /**
+             * Both elements stay mounted, so they crossfade. The element
+             * left in the rotated card follows the new one, covering
+             * exactly the same corners as it moves.
+             */
+            async function runTest() {
+                const a = document.getElementById("a")
+                const start = corners(a)
+
+                const controls = await animateLayout(
+                    () => {
+                        const b = document.createElement("div")
+                        b.id = "b"
+                        b.className = "large"
+                        b.dataset.layoutId = "hero"
+                        document.getElementById("modal").appendChild(b)
+                    },
+                    { duration: 10, ease: "linear" }
+                )
+                controls.pause()
+
+                const b = document.getElementById("b")
+
+                await seek(controls, 0)
+                matchCorners(b, start, "lead 0%")
+                matchCorners(a, start, "follower 0%")
+
+                for (const time of [3, 5, 8]) {
+                    await seek(controls, time)
+                    matchCorners(a, corners(b), `follower ${time * 10}%`)
+                }
+
+                done()
+            }
+
+            runTest().catch(fail)
+        </script>
+    </body>
+</html>

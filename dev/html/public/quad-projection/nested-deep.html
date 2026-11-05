@@ -1,0 +1,160 @@
+<html>
+    <head>
+        <link rel="icon" href="data:," />
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+            }
+
+            /* Rotated by CSS, not by Motion */
+            .container {
+                position: absolute;
+                left: 250px;
+                top: 150px;
+                width: 400px;
+                height: 300px;
+                background: #eee;
+            }
+
+            /* Rotated from the start, so the chain starts in a turned space */
+            .container {
+                transform: rotate(-20deg);
+            }
+
+            .container.turned {
+                transform: rotate(40deg);
+            }
+
+            .box {
+                position: absolute;
+                left: 20px;
+                top: 20px;
+                width: 100px;
+                height: 80px;
+                background-color: #00cc88;
+            }
+
+            .box.moved {
+                left: 240px;
+                top: 180px;
+            }
+
+            /* Each one nested in the last */
+            .nested {
+                position: absolute;
+                left: 2px;
+                top: 2px;
+                width: 20px;
+                height: 16px;
+                background-color: #0077ff;
+            }
+
+            .ghost {
+                visibility: hidden;
+            }
+
+            [data-layout-correct="false"] {
+                background: #dd1144 !important;
+                opacity: 0.5;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container turned ghost">
+            <div class="box moved ghost" id="end"></div>
+        </div>
+        <div class="container" id="container">
+            <div class="box" id="box" data-layout></div>
+        </div>
+
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module" src="/src/imports/script-quad.js"></script>
+        <script type="module">
+            const { animateLayout } = window.AnimateLayout
+            const {
+                corners,
+                matchCorners,
+                mixRects,
+                rectCorners,
+                seek,
+                done,
+                fail,
+            } = window.Quad
+
+            const depth = 40
+
+            const box = document.getElementById("box")
+            const chain = []
+            let parent = box
+            for (let i = 0; i < depth; i++) {
+                const nested = document.createElement("div")
+                nested.className = "nested"
+                nested.dataset.layout = ""
+                parent.appendChild(nested)
+                chain.push(nested)
+                parent = nested
+            }
+
+            /**
+             * Where the nested element at this depth sits on a box with
+             * these corners: 2px further in, for each level, along the
+             * box's own axes.
+             */
+            function nestedAt(boxCorners, level) {
+                const [x0, y0, x1, y1] = boxCorners
+                const angle = Math.atan2(y1 - y0, x1 - x0)
+                const cos = Math.cos(angle)
+                const sin = Math.sin(angle)
+                const offset = 2 * level
+                const x = x0 + offset * cos - offset * sin
+                const y = y0 + offset * sin + offset * cos
+                return rectCorners({
+                    cx: x + 10 * cos - 8 * sin,
+                    cy: y + 10 * sin + 8 * cos,
+                    width: 20,
+                    height: 16,
+                    rotate: (angle * 180) / Math.PI,
+                })
+            }
+
+            /**
+             * The box from container-turns, with a deep chain of nested
+             * elements inside it, and a container that's already turned.
+             * Every one of them moves between spaces with the box, and
+             * stays where it sits on it.
+             */
+            async function runTest() {
+                const container = document.getElementById("container")
+                const start = corners(box)
+                const end = corners(document.getElementById("end"))
+
+                const controls = await animateLayout(
+                    () => {
+                        container.classList.add("turned")
+                        box.classList.add("moved")
+                    },
+                    { duration: 10, ease: "linear" }
+                )
+                controls.pause()
+
+                for (const progress of [0, 0.5, 1]) {
+                    await seek(controls, progress * 10)
+                    const expected = mixRects(start, end, progress)
+                    matchCorners(box, expected, `box ${progress * 100}%`)
+                    for (const level of [1, 20, 31, 32, 33, depth]) {
+                        matchCorners(
+                            chain[level - 1],
+                            nestedAt(expected, level),
+                            `level ${level} ${progress * 100}%`
+                        )
+                    }
+                }
+
+                done()
+            }
+
+            runTest().catch(fail)
+        </script>
+    </body>
+</html>

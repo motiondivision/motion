@@ -1,0 +1,92 @@
+<html>
+    <head>
+        <link rel="icon" href="data:," />
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+            }
+
+            /* Scaled by CSS, not by Motion */
+            #container {
+                position: absolute;
+                left: 100px;
+                top: 100px;
+                width: 400px;
+                height: 300px;
+                transform: scale(1.5);
+                transform-origin: 0 0;
+                background: #eee;
+            }
+
+            .box {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100px;
+                height: 80px;
+                background-color: #00cc88;
+            }
+
+            .box.moved {
+                left: 200px;
+                top: 120px;
+                width: 150px;
+                height: 120px;
+            }
+
+            .ghost {
+                visibility: hidden;
+            }
+
+            [data-layout-correct="false"] {
+                background: #dd1144 !important;
+                opacity: 0.5;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="container">
+            <div class="box ghost" id="start"></div>
+            <div class="box ghost moved" id="end"></div>
+            <div class="box" id="box" data-layout></div>
+        </div>
+
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module" src="/src/imports/script-quad.js"></script>
+        <script type="module">
+            const { animateLayout } = window.AnimateLayout
+            const { corners, matchCorners, mix, seek, done, fail } = window.Quad
+
+            /**
+             * Inside a scaled container, layout distances render scaled. A
+             * box animating its layout should still land exactly on its
+             * start, midpoint and end.
+             */
+            async function runTest() {
+                const box = document.getElementById("box")
+                const start = corners(document.getElementById("start"))
+                const end = corners(document.getElementById("end"))
+
+                const controls = await animateLayout(
+                    () => box.classList.add("moved"),
+                    { duration: 10, ease: "linear" }
+                )
+                controls.pause()
+
+                for (const progress of [0, 0.5, 1]) {
+                    await seek(controls, progress * 10)
+                    matchCorners(
+                        box,
+                        mix(start, end, progress),
+                        `${progress * 100}%`
+                    )
+                }
+
+                done()
+            }
+
+            runTest().catch(fail)
+        </script>
+    </body>
+</html>
