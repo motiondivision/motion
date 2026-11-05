@@ -664,12 +664,11 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
      * The repeat the clock is in, from its time across all repeats.
      */
     private currentRepeat() {
-        const { repeat = 0, repeatDelay = 0, delay = 0 } = this.options
-        const cycle = this.totalDuration + repeatDelay
-        const time = (this.clockAnimation?.time ?? 0) - delay
-        return cycle && time > 0
-            ? Math.min(repeat, Math.floor(time / cycle))
-            : 0
+        return inRepeat(
+            this.options,
+            this.totalDuration,
+            this.clockAnimation?.time ?? 0
+        )[0]
     }
 
     private onClock(time: number) {
