@@ -28,7 +28,7 @@ describe("buildProjectionTransform", () => {
         )
 
         expect(buildProjectionTransform(delta, { x: 2, y: 0.5 })).toEqual(
-            "translate3d(50px, 600px, 0px) scale(0.5, 2) scale(4, 2)"
+            "translate3d(50px, 600px, 0px) scale(2, 4)"
         )
 
         expect(
@@ -111,5 +111,39 @@ describe("buildProjectionTransform", () => {
         expect(
             buildProjectionTransform(delta, { x: 1, y: 1 }, { rotate: 10 })
         ).toEqual("translate3d(100px, 100px, 0px) rotate(10deg) scale(2, 4)")
+    })
+
+    it("Combines tree scale correction and element scale when there's no rotation", () => {
+        const delta = {
+            x: {
+                translate: 100,
+                scale: 2,
+                origin: 0.5,
+                originPoint: 100,
+            },
+            y: {
+                translate: 100,
+                scale: 4,
+                origin: 0.5,
+                originPoint: 100,
+            },
+        }
+
+        expect(buildProjectionTransform(delta, { x: 2, y: 4 }, {})).toEqual(
+            "translate3d(50px, 25px, 0px) scale(2, 4)"
+        )
+
+        expect(
+            buildProjectionTransform(delta, { x: 2, y: 4 }, { scale: 3 })
+        ).toEqual("translate3d(50px, 25px, 0px) scale(2, 4)")
+    })
+
+    it("Doesn't apply a scale when the tree scale is all there is to correct", () => {
+        const delta = createDelta()
+        delta.x.translate = 100
+
+        expect(buildProjectionTransform(delta, { x: 2, y: 4 })).toEqual(
+            "translate3d(50px, 0px, 0px) "
+        )
     })
 })

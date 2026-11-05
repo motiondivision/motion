@@ -22,14 +22,7 @@ export function buildProjectionTransform(
         transform = `translate3d(${xTranslate}px, ${yTranslate}px, ${zTranslate}px) `
     }
 
-    /**
-     * Apply scale correction for the tree transform.
-     * This will apply scale to the screen-orientated axes.
-     */
-    if (treeScale.x !== 1 || treeScale.y !== 1) {
-        transform += `scale(${1 / treeScale.x}, ${1 / treeScale.y}) `
-    }
-
+    let angles = ""
     if (latestTransform) {
         const { transformPerspective } = latestTransform
         if (transformPerspective)
@@ -38,21 +31,41 @@ export function buildProjectionTransform(
         for (let i = 0; i < angleTransforms.length; i++) {
             const key = angleTransforms[i]
             const value = latestTransform[key]
-            if (value) transform += `${key}(${value}deg) `
+            if (value) angles += `${key}(${value}deg) `
             // Additive `rotate()` so user `rotate` isn't clobbered.
             if (!i && latestTransform.pathRotation)
-                transform += `rotate(${latestTransform.pathRotation}deg) `
+                angles += `rotate(${latestTransform.pathRotation}deg) `
         }
     }
 
-    /**
-     * Apply scale to match the size of the element to the size we want it.
-     * This will apply scale to the element-orientated axes.
-     */
-    const elementScaleX = delta.x.scale * treeScale.x
-    const elementScaleY = delta.y.scale * treeScale.y
-    if (elementScaleX !== 1 || elementScaleY !== 1) {
-        transform += `scale(${elementScaleX}, ${elementScaleY})`
+    if (angles) {
+        /**
+         * Apply scale correction for the tree transform.
+         * This will apply scale to the screen-orientated axes.
+         */
+        if (treeScale.x !== 1 || treeScale.y !== 1) {
+            transform += `scale(${1 / treeScale.x}, ${1 / treeScale.y}) `
+        }
+
+        transform += angles
+
+        /**
+         * Apply scale to match the size of the element to the size we want it.
+         * This will apply scale to the element-orientated axes.
+         */
+        const elementScaleX = delta.x.scale * treeScale.x
+        const elementScaleY = delta.y.scale * treeScale.y
+        if (elementScaleX !== 1 || elementScaleY !== 1) {
+            transform += `scale(${elementScaleX}, ${elementScaleY})`
+        }
+    } else if (delta.x.scale !== 1 || delta.y.scale !== 1) {
+        /**
+         * With no rotation or skew between them, the tree scale correction
+         * (1 / treeScale) and the element scale (delta.scale * treeScale)
+         * combine into a single scale. A shorter transform is quicker for
+         * the browser to parse, which matters when it's set every frame.
+         */
+        transform += `scale(${delta.x.scale}, ${delta.y.scale})`
     }
 
     return transform || "none"
