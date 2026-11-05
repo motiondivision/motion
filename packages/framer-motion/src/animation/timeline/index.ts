@@ -195,16 +195,6 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
             this.invalidate()
             this.flush()
         }
-
-        /**
-         * Register with the scope (for instance from useAnimate()) so it
-         * stops when the scope is torn down.
-         */
-        const { scope } = options
-        if (scope) {
-            scope.animations.push(this)
-            this.finished.then(() => removeItem(scope.animations, this))
-        }
     }
 
     /**
@@ -686,10 +676,14 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
              * Without onReverseComplete, onComplete fires in either
              * direction, as it does for a single animation.
              */
-            const callback =
-                (this.speed < 0 && onReverseComplete) || onComplete
+            const callback = (this.speed < 0 && onReverseComplete) || onComplete
+            /**
+             * Resolve this run's promise, even if the callback plays the
+             * timeline again and so makes a new one.
+             */
+            const resolve = this.resolveFinished
             callback?.()
-            this.resolveFinished()
+            resolve()
         })
     }
 
@@ -700,13 +694,19 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
         })
 
         /**
-         * Stay in the scope while playing, including after a change
-         * restarts a finished timeline.
+         * Stay in the scopeMotion() scope this was created in, and the
+         * useAnimate() scope, while playing. Each replay, including a
+         * change that restarts a finished timeline, registers again.
          */
+        const { scope } = this.options
         const remove = this.motionScope?.add(() => {
             this.isKilled = true
             this.stop()
         })
-        remove && this.finished.then(remove)
+        scope?.animations.push(this)
+        this.finished.then(() => {
+            remove?.()
+            scope && removeItem(scope.animations, this)
+        })
     }
 }
