@@ -1,0 +1,85 @@
+<html>
+    <head>
+        <link rel="icon" href="data:," />
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+            }
+
+            canvas {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 800px;
+                height: 600px;
+            }
+
+            .card {
+                position: absolute;
+                left: 60px;
+                top: 80px;
+                width: 160px;
+                height: 100px;
+                background-color: #00cc88;
+            }
+        </style>
+    </head>
+    <body>
+        <canvas id="canvas"></canvas>
+
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module" src="/src/imports/layout-plane.js"></script>
+        <script type="module" src="/src/imports/script-quad.js"></script>
+        <script type="module">
+            const { animateLayout } = window.AnimateLayout
+            const { createScene, layoutPlane, drawnCorners, naturalCorners } =
+                window.LayoutPlane
+            const { centre, mix, matchQuad, seek, nextFrame, done, fail } =
+                window.Quad
+
+            /**
+             * A plane laid out somewhere else in the scene, in the same
+             * update, animates there like an element would.
+             */
+            async function runTest() {
+                const canvas = document.getElementById("canvas")
+                const { camera, mesh } = createScene(canvas)
+                mesh.position.set(1, 0.3, 0)
+                mesh.rotation.set(-0.3, 0.5, 0.1)
+
+                layoutPlane(mesh, { layoutId: "card", camera, canvas })
+
+                await nextFrame()
+                const start = naturalCorners(mesh, camera, canvas)
+
+                const controls = await animateLayout(
+                    () => {
+                        mesh.position.set(-1.2, -0.4, -1)
+                        mesh.rotation.set(0.2, -0.6, -0.2)
+                    },
+                    { duration: 10, ease: "linear" }
+                )
+                controls.pause()
+                const end = naturalCorners(mesh, camera, canvas)
+
+                await seek(controls, 0)
+                matchQuad(drawnCorners(mesh, camera, canvas), start, "0%")
+
+                await seek(controls, 5)
+                matchQuad(
+                    centre(drawnCorners(mesh, camera, canvas)),
+                    mix(centre(start), centre(end), 0.5),
+                    "50% centre"
+                )
+
+                await seek(controls, 10)
+                matchQuad(drawnCorners(mesh, camera, canvas), end, "100%")
+
+                done()
+            }
+
+            runTest().catch(fail)
+        </script>
+    </body>
+</html>

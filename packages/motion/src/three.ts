@@ -1,6 +1,10 @@
 import {
     createEffect,
+    createLayoutPlane,
     frame,
+    type LayoutPlane,
+    type LayoutPlaneOptions,
+    type LayoutPlaneSource,
     type MotionValue,
     type MotionValueState,
 } from "framer-motion/dom"
@@ -256,4 +260,255 @@ function setUniformComponent(
     return isUniform(uniform)
         ? setVectorComponent(uniform, `value${key.slice(-1)}`, value)
         : false
+}
+
+export interface ThreeLayoutPlaneOptions extends LayoutPlaneOptions {
+    /**
+     * The camera the scene is rendered with.
+     */
+    camera: ThreeObject
+
+    /**
+     * The canvas the scene is rendered to.
+     */
+    canvas: Element
+
+    /**
+     * Called after Motion changes how the plane is drawn, for scenes that
+     * only render on demand.
+     */
+    onRender?: VoidFunction
+}
+
+/**
+ * Let a flat mesh, like a `PlaneGeometry`, take part in layout animations
+ * with DOM elements. Elements and planes with the same `layoutId` animate
+ * between each other, in and out of the 3D scene, with `animateLayout()`:
+ *
+ * ```ts
+ * const plane = layoutPlane(mesh, {
+ *     layoutId: "card",
+ *     camera,
+ *     canvas: renderer.domElement,
+ *     visible: false,
+ * })
+ *
+ * animateLayout(() => {
+ *     card.remove()
+ *     plane.show()
+ * })
+ * ```
+ *
+ * While it animates, the mesh is drawn with a world matrix that projects
+ * it exactly where Motion places it, so render the scene in
+ * `frame.render`. Lighting and fog are approximate until it lands.
+ */
+export function layoutPlane(
+    mesh: ThreeObject,
+    {
+        camera,
+        canvas,
+        onRender,
+        visible = mesh.visible,
+        ...options
+    }: ThreeLayoutPlaneOptions
+): LayoutPlane {
+    const Matrix4 = mesh.matrixWorld.constructor
+    const viewProjection = new Matrix4()
+    const local = new Matrix4()
+    const clip = new Matrix4()
+    const inverse = new Matrix4()
+
+    const { geometry } = mesh
+    geometry.boundingBox || geometry.computeBoundingBox()
+    const { min, max } = geometry.boundingBox
+
+    let left = 0
+    let top = 0
+    let width = 1
+    let height = 1
+
+    const { matrixWorldAutoUpdate, frustumCulled } = mesh
+    let isProjected = false
+
+    /**
+     * The materials' own opacity and transparency, while Motion fades them.
+     */
+    let fading: Array<[ThreeObject, number, boolean]> | undefined
+
+    /**
+     * `clip`: from the mesh's local space, where it's laid out, to clip
+     * space.
+     */
+    function updateClip() {
+        mesh.matrixAutoUpdate
+            ? local.compose(mesh.position, mesh.quaternion, mesh.scale)
+            : local.copy(mesh.matrix)
+
+        if (mesh.parent) {
+            mesh.parent.updateWorldMatrix(true, false)
+            local.premultiply(mesh.parent.matrixWorld)
+        }
+
+        camera.updateWorldMatrix(true, false)
+        viewProjection.multiplyMatrices(
+            camera.projectionMatrix,
+            camera.matrixWorldInverse
+        )
+        return clip.multiplyMatrices(viewProjection, local).elements
+    }
+
+    function project(out: Float64Array) {
+        const e = updateClip()
+        let isInFront = true
+
+        for (let i = 0; i < 4; i++) {
+            const x = i === 0 || i === 3 ? min.x : max.x
+            const y = i < 2 ? max.y : min.y
+            const w = e[3] * x + e[7] * y + e[15]
+            if (w <= 0) isInFront = false
+            out[i * 2] =
+                left + (((e[0] * x + e[4] * y + e[12]) / w + 1) * width) / 2
+            out[i * 2 + 1] =
+                top + ((1 - (e[1] * x + e[5] * y + e[13]) / w) * height) / 2
+        }
+
+        return isInFront
+    }
+
+    function fade(opacity: number) {
+        if (opacity < 1 && !fading) {
+            const { material } = mesh
+            fading = (Array.isArray(material) ? material : [material]).map(
+                (m: ThreeObject) => [m, m.opacity, m.transparent]
+            )
+        }
+
+        if (!fading) return
+
+        for (let i = 0; i < fading.length; i++) {
+            const [material, base, transparent] = fading[i]
+            material.opacity = base * opacity
+            material.transparent = transparent || opacity < 1
+        }
+
+        if (opacity >= 1) fading = undefined
+    }
+
+    const source: LayoutPlaneSource = {
+        measure(out) {
+            const rect = canvas.getBoundingClientRect()
+            left = rect.left
+            top = rect.top
+            width = rect.width || 1
+            height = rect.height || 1
+            return project(out)
+        },
+
+        track: project,
+
+        render(transform, opacity, isVisible) {
+            mesh.visible = isVisible
+            fade(isVisible ? opacity : 1)
+
+            if (transform && isVisible) {
+                const e = updateClip()
+
+                /**
+                 * Where the mesh would be drawn, so it keeps its depth
+                 * among the rest of the scene.
+                 */
+                const cx = (min.x + max.x) / 2
+                const cy = (min.y + max.y) / 2
+                const cw = e[3] * cx + e[7] * cy + e[15]
+                const depth =
+                    cw > 0
+                        ? Math.min(
+                              0.999,
+                              Math.max(
+                                  -0.999,
+                                  (e[2] * cx + e[6] * cy + e[14]) / cw
+                              )
+                          )
+                        : 0
+
+                /**
+                 * From the viewport to normalised device coordinates, then
+                 * through `transform`, from the mesh's local rect to the
+                 * unit square.
+                 */
+                const sx = 2 / width
+                const tx = -1 - left * sx
+                const sy = -2 / height
+                const ty = 1 - top * sy
+                const t = transform
+
+                const a0 = sx * t[0] + tx * t[6]
+                const a1 = sx * t[1] + tx * t[7]
+                const a2 = sx * t[2] + tx * t[8]
+                const b0 = sy * t[3] + ty * t[6]
+                const b1 = sy * t[4] + ty * t[7]
+                const b2 = sy * t[5] + ty * t[8]
+                const c0 = t[6]
+                const c1 = t[7]
+                const c2 = t[8]
+
+                const w = max.x - min.x
+                const h = max.y - min.y
+                const u = -min.x / w
+                const v = max.y / h
+
+                const n00 = a0 / w
+                const n01 = -a1 / h
+                const n02 = a0 * u + a1 * v + a2
+                const n10 = b0 / w
+                const n11 = -b1 / h
+                const n12 = b0 * u + b1 * v + b2
+                const n20 = c0 / w
+                const n21 = -c1 / h
+                const n22 = c0 * u + c1 * v + c2
+
+                /**
+                 * Clip coordinates at a constant depth. The z column, which
+                 * a flat mesh's vertices don't use, keeps the mesh's own
+                 * axis so normals stay usable.
+                 */
+                clip.set(
+                    n00,
+                    n01,
+                    e[8],
+                    n02,
+                    n10,
+                    n11,
+                    e[9],
+                    n12,
+                    depth * n20,
+                    depth * n21,
+                    e[10],
+                    depth * n22,
+                    n20,
+                    n21,
+                    e[11],
+                    n22
+                )
+
+                mesh.matrixWorld.multiplyMatrices(
+                    inverse.copy(viewProjection).invert(),
+                    clip
+                )
+                mesh.matrixWorldAutoUpdate = false
+                mesh.frustumCulled = false
+                isProjected = true
+            } else if (isProjected) {
+                isProjected = false
+                mesh.matrixWorldAutoUpdate = matrixWorldAutoUpdate
+                mesh.frustumCulled = frustumCulled
+                mesh.matrixWorldNeedsUpdate = true
+            }
+
+            onRender?.()
+        },
+    }
+
+    return createLayoutPlane(source, { ...options, visible })
 }

@@ -1,0 +1,121 @@
+<html>
+    <head>
+        <link rel="icon" href="data:," />
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+            }
+
+            canvas {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 800px;
+                height: 600px;
+            }
+
+            .card {
+                position: absolute;
+                left: 60px;
+                top: 80px;
+                width: 160px;
+                height: 100px;
+                background-color: #00cc88;
+            }
+        </style>
+    </head>
+    <body>
+        <canvas id="canvas"></canvas>
+        <div class="card" id="card" data-layout-id="card"></div>
+
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module" src="/src/imports/layout-plane.js"></script>
+        <script type="module" src="/src/imports/script-quad.js"></script>
+        <script type="module">
+            const { animateLayout } = window.AnimateLayout
+            const {
+                createScene,
+                layoutPlane,
+                drawnCorners,
+                naturalCorners,
+                pixel,
+            } = window.LayoutPlane
+            const {
+                corners,
+                centre,
+                mix,
+                matchQuad,
+                check,
+                seek,
+                nextFrame,
+                done,
+                fail,
+            } = window.Quad
+
+            /**
+             * A DOM card hands over to a plane turned in a 3D scene. The
+             * plane starts exactly over the card, ends exactly where the
+             * scene lays it out, and its centre moves in a straight line.
+             */
+            async function runTest() {
+                const canvas = document.getElementById("canvas")
+                const card = document.getElementById("card")
+                const { renderer, camera, mesh } = createScene(canvas)
+                mesh.position.set(1, 0.3, 0)
+                mesh.rotation.set(-0.3, 0.5, 0.1)
+
+                const plane = layoutPlane(mesh, {
+                    layoutId: "card",
+                    camera,
+                    canvas,
+                    visible: false,
+                })
+                check(!mesh.visible, "Hidden plane is drawn")
+
+                const start = corners(card)
+                const end = naturalCorners(mesh, camera, canvas)
+
+                const controls = await animateLayout(
+                    () => {
+                        card.remove()
+                        plane.show()
+                    },
+                    { duration: 10, ease: "linear" }
+                )
+                controls.pause()
+
+                await seek(controls, 0)
+                check(mesh.visible, "Shown plane isn't drawn")
+                matchQuad(drawnCorners(mesh, camera, canvas), start, "0%")
+
+                await seek(controls, 5)
+                const middle = mix(centre(start), centre(end), 0.5)
+                const drawn = drawnCorners(mesh, camera, canvas)
+                matchQuad(centre(drawn), middle, "50% centre")
+
+                const [r, g, b] = pixel(renderer, canvas, middle[0], middle[1])
+                check(
+                    r < 20 && Math.abs(g - 136) < 20 && b > 235,
+                    `50% centre is drawn rgb(${r}, ${g}, ${b})`
+                )
+
+                await seek(controls, 10)
+                matchQuad(drawnCorners(mesh, camera, canvas), end, "100%")
+
+                controls.complete()
+                await nextFrame()
+                await nextFrame()
+                check(
+                    mesh.matrixWorldAutoUpdate && mesh.frustumCulled,
+                    "Plane isn't restored once it lands"
+                )
+                matchQuad(drawnCorners(mesh, camera, canvas), end, "Landed")
+
+                done()
+            }
+
+            runTest().catch(fail)
+        </script>
+    </body>
+</html>

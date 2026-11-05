@@ -9,6 +9,7 @@ import { HTMLProjectionNode } from "../projection/node/HTMLProjectionNode"
 import type { IProjectionNode } from "../projection/node/types"
 import { visualElementStore } from "../render/store"
 import { resolveVisualElement } from "./visual-element"
+import { layoutPlanes } from "./layout-planes"
 import {
     resolveElements,
     type ElementOrSelector,
@@ -174,6 +175,11 @@ function sortDocumentOrder(elements: Iterable<HTMLElement>) {
     )
 }
 
+const snapshot = (node: IProjectionNode) => {
+    node.isLayoutDirty = false
+    node.willUpdate()
+}
+
 function dropNode(element: Element, node: IProjectionNode) {
     node.setOptions({ onExitComplete: undefined })
 
@@ -216,16 +222,16 @@ function flushPendingBuilders() {
         const owners = targets.get(element)!
         const node = prepareNode(
             element,
-            owners[owners.length - 1].transitionFor(element)
+            owners[owners.length - 1].transitionFor(
+                element.getAttribute("data-layout-id")
+            )
         )
         for (const owner of owners) owner.adopt(element, node)
         union.set(element, node)
     }
 
-    union.forEach((node) => {
-        node.isLayoutDirty = false
-        node.willUpdate()
-    })
+    union.forEach(snapshot)
+    layoutPlanes.forEach(snapshot)
 
     const updatePromises: Promise<void>[] = []
     for (const builder of builders) {
@@ -250,6 +256,18 @@ function flushPendingBuilders() {
         let root: IProjectionNode | undefined
         union.forEach((node) => (root ||= node.root))
         for (const builder of builders) root ||= builder.getRoot()
+
+        /**
+         * Planes outside the DOM animate with this commit's transitions.
+         */
+        const last = builders[builders.length - 1]
+        layoutPlanes.forEach((node) => {
+            root ||= node.root
+            node.setOptions({
+                crossfade: node.options.crossfade,
+                transition: last.transitionFor(node.options.layoutId),
+            })
+        })
 
         root?.didUpdate()
 
@@ -311,8 +329,7 @@ export class LayoutAnimationBuilder {
         return this.readyPromise.then(resolve, reject)
     }
 
-    transitionFor(element: HTMLElement): Transition | undefined {
-        const layoutId = element.getAttribute("data-layout-id")
+    transitionFor(layoutId?: string | null): Transition | undefined {
         return ((layoutId && this.sharedTransitions.get(layoutId)) ||
             this.defaultOptions) as Transition | undefined
     }
@@ -346,7 +363,10 @@ export class LayoutAnimationBuilder {
     reconcileAdditions(newMemberIds: Set<string>) {
         for (const element of collectLayoutElements(this.scope)) {
             if (this.tracked.has(element)) continue
-            const node = prepareNode(element, this.transitionFor(element))
+            const node = prepareNode(
+                element,
+                this.transitionFor(element.getAttribute("data-layout-id"))
+            )
             this.adopt(element, node)
             node.options.layoutId && newMemberIds.add(node.options.layoutId)
         }
@@ -421,11 +441,13 @@ export class LayoutAnimationBuilder {
         }
 
         const animations = new Set<GroupAnimation["animations"][number]>()
-        this.tracked.forEach((node) => {
+        const collect = (node: IProjectionNode) => {
             if (node.instance && node.currentAnimation) {
                 animations.add(node.currentAnimation)
             }
-        })
+        }
+        this.tracked.forEach(collect)
+        layoutPlanes.forEach(collect)
 
         this.notifyReady(new GroupAnimation([...animations]))
     }

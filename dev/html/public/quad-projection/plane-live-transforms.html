@@ -1,0 +1,100 @@
+<html>
+    <head>
+        <link rel="icon" href="data:," />
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+            }
+
+            canvas {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 800px;
+                height: 600px;
+            }
+
+            .card {
+                position: absolute;
+                left: 60px;
+                top: 80px;
+                width: 160px;
+                height: 100px;
+                background-color: #00cc88;
+            }
+        </style>
+    </head>
+    <body>
+        <canvas id="canvas"></canvas>
+        <div class="card" id="card" data-layout-id="card"></div>
+
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module" src="/src/imports/layout-plane.js"></script>
+        <script type="module" src="/src/imports/script-quad.js"></script>
+        <script type="module">
+            const { animateLayout } = window.AnimateLayout
+            const { createScene, layoutPlane, drawnCorners, naturalCorners } =
+                window.LayoutPlane
+            const { corners, matchQuad, check, seek, done, fail } = window.Quad
+
+            /**
+             * The plane keeps moving and turning in the scene while a card
+             * hands over to it. It still starts over the card, and lands
+             * wherever the scene has moved it to.
+             */
+            async function runTest() {
+                const canvas = document.getElementById("canvas")
+                const card = document.getElementById("card")
+                const { camera, mesh } = createScene(canvas)
+                mesh.position.set(1, 0.3, 0)
+                mesh.rotation.set(-0.3, 0.5, 0.1)
+
+                const plane = layoutPlane(mesh, {
+                    layoutId: "card",
+                    camera,
+                    canvas,
+                    visible: false,
+                })
+
+                const start = corners(card)
+
+                const controls = await animateLayout(
+                    () => {
+                        card.remove()
+                        plane.show()
+                    },
+                    { duration: 10, ease: "linear" }
+                )
+                controls.pause()
+
+                await seek(controls, 0)
+                matchQuad(drawnCorners(mesh, camera, canvas), start, "0%")
+
+                await seek(controls, 5)
+                mesh.position.x -= 0.6
+                mesh.position.y += 0.4
+                mesh.rotation.y -= 0.9
+                mesh.rotation.z += 0.3
+
+                await seek(controls, 7.5)
+                const drawn = drawnCorners(mesh, camera, canvas)
+                check(
+                    drawn.every(Number.isFinite),
+                    "Plane isn't drawn after it moves"
+                )
+
+                await seek(controls, 10)
+                matchQuad(
+                    drawnCorners(mesh, camera, canvas),
+                    naturalCorners(mesh, camera, canvas),
+                    "100%"
+                )
+
+                done()
+            }
+
+            runTest().catch(fail)
+        </script>
+    </body>
+</html>

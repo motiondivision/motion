@@ -1,0 +1,152 @@
+<html>
+    <head>
+        <link rel="icon" href="data:," />
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+            }
+
+            canvas {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 800px;
+                height: 600px;
+            }
+
+            .card {
+                position: absolute;
+                left: 60px;
+                top: 80px;
+                width: 160px;
+                height: 100px;
+                background-color: #00cc88;
+            }
+
+            .ghost {
+                visibility: hidden;
+            }
+        </style>
+    </head>
+    <body>
+        <canvas id="canvas"></canvas>
+        <div class="card ghost" id="end"></div>
+
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module" src="/src/imports/layout-plane.js"></script>
+        <script type="module" src="/src/imports/script-quad.js"></script>
+        <script type="module">
+            const { animateLayout } = window.AnimateLayout
+            const { createScene, layoutPlane, drawnCorners, naturalCorners } =
+                window.LayoutPlane
+            const {
+                corners,
+                centre,
+                mix,
+                matchQuad,
+                check,
+                seek,
+                nextFrame,
+                done,
+                fail,
+            } = window.Quad
+
+            const near = (a, b) => Math.abs(a - b) < 0.01
+
+            /**
+             * A plane turned in a 3D scene hands over to a DOM card. The
+             * card starts exactly over the plane and the plane follows it,
+             * crossfading out, until it's hidden.
+             */
+            async function runTest() {
+                const canvas = document.getElementById("canvas")
+                const { camera, mesh } = createScene(canvas)
+                mesh.position.set(1, 0.3, 0)
+                mesh.rotation.set(-0.3, 0.5, 0.1)
+
+                const plane = layoutPlane(mesh, {
+                    layoutId: "card",
+                    camera,
+                    canvas,
+                })
+
+                const card = document.createElement("div")
+                card.className = "card"
+                card.dataset.layoutId = "card"
+
+                await nextFrame()
+                check(mesh.visible, "Plane isn't drawn")
+                const start = naturalCorners(mesh, camera, canvas)
+                const end = corners(document.getElementById("end"))
+
+                const controls = await animateLayout(
+                    () => {
+                        document.body.appendChild(card)
+                        plane.hide()
+                    },
+                    { duration: 10, ease: "linear" }
+                )
+                controls.pause()
+
+                await seek(controls, 0)
+                matchQuad(corners(card), start, "Card at 0%")
+                matchQuad(
+                    drawnCorners(mesh, camera, canvas),
+                    corners(card),
+                    "Plane at 0%"
+                )
+
+                await seek(controls, 2.5)
+                const quarter = corners(card)
+                matchQuad(
+                    centre(quarter),
+                    mix(centre(start), centre(end), 0.25),
+                    "Card centre at 25%"
+                )
+                matchQuad(
+                    drawnCorners(mesh, camera, canvas),
+                    quarter,
+                    "Plane at 25%"
+                )
+                check(
+                    mesh.visible && near(mesh.material.opacity, 1),
+                    `Plane opacity at 25% is ${mesh.material.opacity}`
+                )
+                check(
+                    near(Number(getComputedStyle(card).opacity), 0.866),
+                    `Card opacity at 25% is ${getComputedStyle(card).opacity}`
+                )
+
+                await seek(controls, 7.5)
+                matchQuad(
+                    drawnCorners(mesh, camera, canvas),
+                    corners(card),
+                    "Plane at 75%"
+                )
+                check(
+                    mesh.visible &&
+                        mesh.material.transparent &&
+                        near(mesh.material.opacity, 1 - 0.25 / 0.45),
+                    `Plane opacity at 75% is ${mesh.material.opacity}`
+                )
+
+                await seek(controls, 10)
+                matchQuad(corners(card), end, "Card at 100%")
+
+                controls.complete()
+                await nextFrame()
+                await nextFrame()
+                check(!mesh.visible, "Plane is still drawn once hidden")
+                check(
+                    mesh.material.opacity === 1 && !mesh.material.transparent,
+                    "Plane material isn't restored"
+                )
+
+                done()
+            }
+
+            runTest().catch(fail)
+        </script>
+    </body>
+</html>
