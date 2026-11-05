@@ -605,6 +605,33 @@ describe("independent transform acceleration", () => {
         expect(readX(transform[ended])).toBeCloseTo(100, 0)
     })
 
+    it("cancels the WAAPI animation it replaces when another value interrupts", async () => {
+        const element = document.createElement("div")
+
+        animateElement(
+            element,
+            { y: [0, 200] },
+            { duration: 10, ease: "linear" }
+        )
+        await nextFrame()
+        const [first] = created(element)
+
+        animateElement(element, { x: [0, 100] }, { duration: 1 })
+        await nextFrame()
+
+        expect(first.cancel).toHaveBeenCalled()
+        const live = created(element).filter(
+            (animation) => !animation.cancel.mock.calls.length
+        )
+        /**
+         * One animation of the transform, and one with no keyframes that
+         * finishes x when it ends, before y.
+         */
+        expect(live).toHaveLength(2)
+        const [timer] = live.filter((animation) => !animation.keyframes)
+        expect(timer.options.duration).toBeLessThanOrEqual(1000)
+    })
+
     it("samples each value few times to rebuild after an interrupt", async () => {
         const element = document.createElement("div")
 
