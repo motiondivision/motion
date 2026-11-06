@@ -129,17 +129,15 @@ export function animateSubject<O extends Object>(
 
         for (let i = 0; i < numSubjects; i++) {
             const thisSubject = subjects[i]
-            const transition = { ...options }
 
             /**
-             * Resolve stagger function if provided.
+             * Resolve stagger function if provided. Otherwise every
+             * subject shares the options, which nothing below changes.
              */
-            if (
-                "delay" in transition &&
-                typeof transition.delay === "function"
-            ) {
-                transition.delay = transition.delay(i, numSubjects)
-            }
+            const transition =
+                typeof options?.delay === "function"
+                    ? { ...options, delay: options.delay(i, numSubjects) }
+                    : options
 
             if (thisSubject instanceof Element) {
                 /**

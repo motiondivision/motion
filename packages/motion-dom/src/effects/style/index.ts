@@ -38,12 +38,14 @@ export const addStyleValue = (
             ;(state.transformValues ??= {})[key] = value
 
             if (!keys.includes(key)) {
-                keys.push(key)
-                keys.sort(
-                    (a, b) =>
-                        transformPropOrder.indexOf(a) -
-                        transformPropOrder.indexOf(b)
-                )
+                /**
+                 * Insert in transformPropOrder, rather than push and
+                 * sort, as animate() binds values one at a time.
+                 */
+                const order = transformPropOrder.indexOf(key)
+                let i = keys.length
+                while (i && transformPropOrder.indexOf(keys[i - 1]) > order) i--
+                keys.splice(i, 0, key)
             }
         }
 

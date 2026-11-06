@@ -1,6 +1,7 @@
 import { isNumericalString, isZeroValueString } from "motion-utils"
 import { frame } from "../../frameloop"
 import { MotionValue } from "../../value"
+import { batchTransformReads } from "../../render/dom/parse-transform"
 import { complex } from "../../value/types/complex"
 import { getAnimatableNone } from "../../value/types/utils/animatable-none"
 import { AnyResolvedKeyframe } from "../types"
@@ -93,13 +94,15 @@ function measureAllKeyframes() {
 }
 
 function readAllKeyframes() {
-    toResolve.forEach((resolver) => {
-        resolver.readKeyframes()
+    batchTransformReads(() =>
+        toResolve.forEach((resolver) => {
+            resolver.readKeyframes()
 
-        if (resolver.needsMeasurement) {
-            anyNeedsMeasurement = true
-        }
-    })
+            if (resolver.needsMeasurement) {
+                anyNeedsMeasurement = true
+            }
+        })
+    )
 }
 
 export function flushKeyframeResolvers() {

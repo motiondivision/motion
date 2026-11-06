@@ -269,13 +269,14 @@ class TransformDriver implements TransformDriverControls {
 
     constructor(
         private element: Element,
-        private update: (timestamp: number) => void,
         private makeDriver: Driver,
-        public animation?: TransformAnimation<any>
+        private animation: TransformAnimation<any>
     ) {}
 
     get js() {
-        return (this.driver ||= this.makeDriver(this.update))
+        return (this.driver ||= this.makeDriver((timestamp) =>
+            this.animation.tick(timestamp)
+        ))
     }
 
     now() {
@@ -305,7 +306,7 @@ class TransformDriver implements TransformDriverControls {
     stop() {
         this.stopJS()
         const group = getGroup(this.element)
-        group && !group.isFinishing && group.release(this.animation!)
+        group && !group.isFinishing && group.release(this.animation)
     }
 }
 
@@ -322,30 +323,13 @@ export class TransformAnimation<
     canAccelerate: boolean
 
     constructor(options: ValueAnimationOptions<T>) {
-        const element = getOwner(options).current
-        const { driver = frameloopDriver } = options
-        let animation: TransformAnimation<T> | undefined
-
         /**
          * Before JSAnimation replaces the type with its generator.
          */
         const canAccelerate = canAccelerateTransform(options)
 
-        /**
-         * The driver ticks on the main thread only once the group has
-         * moved there, so its frame loop driver is made then.
-         */
-        options.driver = (update) =>
-            new TransformDriver(element, update, driver, animation)
-
         super(options)
 
-        animation = this
-        /**
-         * The first driver is made in super(), before this was assigned.
-         */
-        const firstDriver = this.driver as TransformDriver | undefined
-        firstDriver && (firstDriver.animation = this)
         this.canAccelerate = canAccelerate
 
         /**
@@ -567,7 +551,20 @@ export class TransformAnimation<
          * so it mustn't join the group.
          */
         if (this.isStopped) return
-        ;(this.group || createGroup(getOwner(this.options))).tracks.add(this)
+        const owner = getOwner(this.options)
+        ;(getGroup(owner.current) || createGroup(owner)).tracks.add(this)
+
+        /**
+         * The frame loop driver is only made once the group is on the
+         * main thread, as accelerated animations never tick. The driver
+         * is made here rather than through options, as JSAnimation would
+         * make a closure for each.
+         */
+        this.driver ||= new TransformDriver(
+            owner.current,
+            this.options.driver || frameloopDriver,
+            this
+        )
 
         super.play()
     }
@@ -749,7 +746,10 @@ function createGroup(owner: TransformOwner): TransformGroup {
      * transform. The renderer writes its own version on its next render.
      */
     const stop = (shouldCommit = true) => {
-        clearTimeout(wake)
+        /**
+         * Only a pending wake has a timer to clear.
+         */
+        wakeAt < Infinity && clearTimeout(wake)
         wakeAt = Infinity
         buildAt = undefined
         shouldCommit && commit()
