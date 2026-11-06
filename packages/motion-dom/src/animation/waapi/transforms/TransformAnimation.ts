@@ -22,6 +22,8 @@ import type { MotionValue, Owner } from "../../../value"
 import { frameloopDriver } from "../../drivers/frame"
 import { Driver, DriverControls } from "../../drivers/types"
 import { keyframes as keyframesGenerator } from "../../generators/keyframes"
+import { spring } from "../../generators/spring"
+import { calcGeneratorDuration } from "../../generators/utils/calc-duration"
 import { defaultOffset } from "../../keyframes/offsets/default"
 import { JSAnimation, round } from "../../JSAnimation"
 import { sampleDelta } from "../../NativeAnimationExtended"
@@ -103,6 +105,12 @@ interface TransformGroup extends TransformGroupHooks {
  */
 type BuiltState = [number, number, boolean]
 
+/**
+ * When an animation starts and stops moving, its easing and, for a
+ * spring, the key of its curve.
+ */
+type Tween = [number, number, (string | EasingFunction)?, string?]
+
 interface Segment {
     animation: Animation
     /**
@@ -171,6 +179,65 @@ const trace = (ease: EasingFunction, samples: number) => {
         traced.set(ease, last)
     }
     return last[1]
+}
+
+/**
+ * The eased progress of each spring, by its options, change and velocity.
+ * The elements that start the same spring over the same distance, as
+ * one animate() call on many elements does, share one easing, and so
+ * one trace of it. Velocities from interruptions are rarely the same
+ * twice, so the cache is emptied rather than left to grow.
+ */
+const springEasings = new Map<string, EasingFunction>()
+const maxSpringEasings = 100
+
+/**
+ * A spring's eased progress between two numbers, and the key of its
+ * curve. Without velocity, or with velocity in proportion to the change,
+ * a spring follows the same curve whatever the change, and only where it
+ * comes to rest differs.
+ */
+const springEasing = (
+    options: ValueAnimationOptions<any>,
+    delta: number
+): [EasingFunction, string] => {
+    const {
+        stiffness,
+        damping,
+        mass,
+        duration,
+        bounce,
+        visualDuration,
+        restSpeed,
+        restDelta,
+        velocity = 0,
+    } = options
+    const curve =
+        [
+            stiffness,
+            damping,
+            mass,
+            duration,
+            bounce,
+            visualDuration,
+            restSpeed,
+            restDelta,
+        ] +
+        "," +
+        velocity / delta
+    const key = curve + "," + delta
+    let easing = springEasings.get(key)
+
+    if (!easing) {
+        springEasings.size >= maxSpringEasings && springEasings.clear()
+
+        const generator = spring({ ...options, keyframes: [0, delta] })
+        const total = calcGeneratorDuration(generator)
+        easing = (p: number) => generator.next(p * total).value / delta
+        springEasings.set(key, easing)
+    }
+
+    return [easing, curve]
 }
 
 /**
@@ -439,15 +506,34 @@ export class TransformAnimation<
      * If this moves between two keyframes only, holding still either side
      * of them, as each value of a sequence segment does, when it starts
      * and stops moving, and its easing: as a string if WAAPI runs it
-     * exactly, otherwise its function, to trace.
+     * exactly, otherwise its function, to trace. A spring also gives the
+     * key of its curve, which values that move different distances share.
      */
-    tween(): [number, number, (string | EasingFunction)?] | undefined {
+    tween(): Tween | undefined {
         const { keyframes, type, repeat, delay = 0 } = this.options
         let span = -1
 
-        if (repeat || type !== keyframesGenerator || this.holdTime !== null) {
-            return
+        if (repeat || this.holdTime !== null) return
+
+        if (type === spring) {
+            const delta = (keyframes[1] as number) - (keyframes[0] as number)
+            const { totalDuration } = this
+
+            /**
+             * NaN for keyframes that aren't numbers, which the spring
+             * mixes.
+             */
+            if (!delta || !isFinite(totalDuration)) return
+
+            const start = this.startTime! + delay / this.speed
+            return [
+                start,
+                start + totalDuration / this.speed,
+                ...springEasing(this.options, delta),
+            ]
         }
+
+        if (type !== keyframesGenerator) return
 
         for (let i = 1; i < keyframes.length; i++) {
             if (keyframes[i] !== keyframes[i - 1]) {
@@ -1012,27 +1098,31 @@ function createGroup(owner: TransformOwner): TransformGroup {
      * they move and their native easing.
      */
     const getTween = (moving: TransformAnimation<any>[]) => {
-        let shared: [number, number, (string | EasingFunction)?] | undefined
+        let shared: Tween | undefined
 
         for (const track of moving) {
             const tween = track.tween()
-            if (
-                !tween ||
-                (shared &&
-                    (Math.abs(tween[0] - shared[0]) > 1 ||
-                        Math.abs(tween[1] - shared[1]) > 1))
-            ) {
+            if (!tween || (shared && Math.abs(tween[0] - shared[0]) > 1)) {
                 return
             }
-            /**
-             * Easings that differ, like the springs a sequence makes for
-             * each value, can still be the same curve.
-             */
-            shared = [
-                tween[0],
-                tween[1],
-                !shared || tween[2] === shared[2] ? tween[2] : undefined,
-            ]
+
+            if (!shared || (tween[3] && tween[3] === shared[3])) {
+                /**
+                 * The same spring over another distance follows the same
+                 * curve, and comes to rest within its rest distance of
+                 * where the curve is then. So they share the curve that
+                 * comes to rest last.
+                 */
+                if (!shared || tween[1] > shared[1]) shared = tween
+            } else if (Math.abs(tween[1] - shared[1]) > 1) {
+                return
+            } else if (tween[2] !== shared[2]) {
+                /**
+                 * Easings that differ, like the springs a sequence makes
+                 * for each value, can still be the same curve.
+                 */
+                shared = [shared[0], shared[1]]
+            }
         }
 
         return shared

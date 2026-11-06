@@ -5,6 +5,7 @@ import { frame } from "../../../../frameloop"
 import { styleEffect } from "../../../../effects/style"
 import { motionValue } from "../../../../value"
 import { supportsFlags } from "../../../../utils/supports/flags"
+import { spring } from "../../../generators/spring"
 
 /**
  * JSDOM has no WAAPI, so record the animations created with
@@ -566,6 +567,109 @@ describe("independent transform acceleration", () => {
         const [{ keyframes, options }] = running(element)
         expect(keyframes.transform).toHaveLength(2)
         expect(options.easing).toMatch(/^linear\(/)
+    })
+
+    it("uses two keyframes for a spring over different distances", async () => {
+        const element = document.createElement("div")
+        const transition = {
+            type: "spring" as const,
+            stiffness: 200,
+            damping: 20,
+        }
+
+        animateElement(element, { x: [0, 100], y: [0, 50] }, transition)
+        await nextFrame()
+
+        const [waapi] = running(element)
+        const { keyframes, options } = waapi
+        expect(keyframes.transform).toEqual([
+            "translateX(0px) translateY(0px) ",
+            "translateX(100px) translateY(50px) ",
+        ])
+        expect(options.easing).toMatch(/^linear\(/)
+
+        /**
+         * Each value is where its own spring is, to within its rest
+         * distance.
+         */
+        const readY = (transform: string) =>
+            parseFloat(transform.match(/translateY\(([\d.-]+)px\)/)![1])
+        const xSpring = spring({ ...transition, keyframes: [0, 100] } as any)
+        const ySpring = spring({ ...transition, keyframes: [0, 50] } as any)
+        const duration = options.duration as number
+        for (const ms of [50, 150, 300, 500, duration - 50]) {
+            const p = linearAt(options.easing as string, ms / duration)
+            expect(Math.abs(p * 100 - xSpring.next(ms).value)).toBeLessThan(0.5)
+            expect(
+                Math.abs(
+                    readY(keyframes.transform[0]) +
+                        p * 50 -
+                        ySpring.next(ms).value
+                )
+            ).toBeLessThan(0.5)
+        }
+        expect(xAt(waapi, duration)).toBe(100)
+    })
+
+    it("shares one easing between the elements that share a spring", async () => {
+        const elements = Array.from({ length: 5 }, () =>
+            document.createElement("div")
+        )
+
+        for (const element of elements) {
+            animateElement(
+                element,
+                { x: [0, 100], y: [0, 50], rotate: [0, 45] },
+                { type: "spring", stiffness: 200, damping: 20 }
+            )
+        }
+        await nextFrame()
+
+        const easings = elements.map((element) => {
+            const [{ keyframes, options }] = running(element)
+            expect(keyframes.transform).toHaveLength(2)
+            return options.easing
+        })
+        expect(new Set(easings).size).toBe(1)
+    })
+
+    it("samples keyframes for different springs", async () => {
+        const element = document.createElement("div")
+
+        animateElement(
+            element,
+            { x: [0, 100] },
+            { type: "spring", stiffness: 200, damping: 20 }
+        )
+        animateElement(
+            element,
+            { y: [0, 100] },
+            { type: "spring", stiffness: 500, damping: 10 }
+        )
+        await nextFrame()
+
+        const [{ keyframes, options }] = running(element)
+        expect(keyframes.transform.length).toBeGreaterThan(2)
+        expect(options.easing).toBe("linear")
+    })
+
+    it("samples keyframes for springs with velocities out of proportion", async () => {
+        const element = document.createElement("div")
+
+        animateElement(
+            element,
+            { x: [0, 100] },
+            { type: "spring", stiffness: 200, damping: 20, velocity: 1000 }
+        )
+        animateElement(
+            element,
+            { y: [0, 100] },
+            { type: "spring", stiffness: 200, damping: 20 }
+        )
+        await nextFrame()
+
+        const [{ keyframes }] = running(element)
+        expect(keyframes.transform.length).toBeGreaterThan(2)
     })
 
     it("samples few keyframes when values have different transitions", async () => {
