@@ -9,7 +9,7 @@ import { HTMLProjectionNode } from "../projection/node/HTMLProjectionNode"
 import type { IProjectionNode } from "../projection/node/types"
 import { visualElementStore } from "../render/store"
 import { resolveVisualElement } from "./visual-element"
-import { layoutPlanes } from "./layout-planes"
+import { exitingElements, layoutPlanes } from "./layout-planes"
 import {
     resolveElements,
     type ElementOrSelector,
@@ -98,6 +98,13 @@ function readNodeOptions(element: HTMLElement, transition?: Transition) {
     }
 }
 
+function revive(node: IProjectionNode) {
+    node.isPresent = true
+    if (node.options.onExitComplete) {
+        node.setOptions({ onExitComplete: undefined })
+    }
+}
+
 function prepareNode(
     element: HTMLElement,
     transition?: Transition
@@ -123,10 +130,7 @@ function prepareNode(
         node.setOptions(readNodeOptions(element, transition))
     }
 
-    node.isPresent = true
-    if (node.options.onExitComplete) {
-        node.setOptions({ onExitComplete: undefined })
-    }
+    exitingElements.has(element) || revive(node)
 
     return node
 }
@@ -135,7 +139,9 @@ function prepareNode(
  * Create a node for an element in the shared imperative tree. Returns the
  * node and a function that releases it.
  */
-function createLayoutNode(element: HTMLElement): [IProjectionNode, VoidFunction] {
+function createLayoutNode(
+    element: HTMLElement
+): [IProjectionNode, VoidFunction] {
     const node = prepareNode(element)
 
     return [
@@ -167,6 +173,10 @@ export function acquireProjectionNode(
      * drag()), so only reuse a node that's still mounted.
      */
     return owned?.instance ? [owned, () => {}] : createLayoutNode(element)
+}
+
+function restoreElement(element: Element, { parent, next }: RestorePoint) {
+    parent.insertBefore(element, next?.parentNode === parent ? next : null)
 }
 
 function sortDocumentOrder(elements: Iterable<HTMLElement>) {
@@ -230,14 +240,43 @@ function flushPendingBuilders() {
         union.set(element, node)
     }
 
+    /**
+     * Animations already running, which this commit's controls leave out
+     * unless the commit restarts them.
+     */
+    const running = new Map<IProjectionNode, unknown>()
+    const record = (node: IProjectionNode) =>
+        running.set(node, node.currentAnimation)
+    union.forEach(record)
+    layoutPlanes.forEach(record)
+
     union.forEach(snapshot)
     layoutPlanes.forEach(snapshot)
+
+    exitingElements.forEach((restore, element) => {
+        restore.next = element.nextSibling
+        element.remove()
+    })
 
     const updatePromises: Promise<void>[] = []
     for (const builder of builders) {
         const result = builder.runUpdate()
         if (result) updatePromises.push(result)
     }
+
+    /**
+     * An exiting element the update put back takes part again. Otherwise
+     * it goes back where it was to finish its exit.
+     */
+    exitingElements.forEach((restore, element) => {
+        if (element.isConnected) {
+            exitingElements.delete(element)
+            const node = layoutNodes.get(element)
+            node && revive(node)
+        } else {
+            restoreElement(element, restore)
+        }
+    })
 
     const commit = () => {
         /**
@@ -277,7 +316,7 @@ function flushPendingBuilders() {
          * them in a later microtask step of the same pass.
          */
         microtask.render(() => {
-            for (const builder of builders) builder.finalize()
+            for (const builder of builders) builder.finalize(running)
         })
     }
 
@@ -396,29 +435,37 @@ export class LayoutAnimationBuilder {
              * crossfade: restore the element to its old position in the
              * DOM, relegate it and let the survivor take over. It's
              * removed again once the animation completes.
+             *
+             * It does the same when a plane took over from it in this
+             * update, so it crossfades with the plane.
              */
+            const lead = stack?.lead
+            const toPlane =
+                lead !== node &&
+                lead?.resumeFrom === node &&
+                layoutPlanes.has(lead)
+
             if (
                 layoutId &&
-                node.isLead() &&
-                hasSurvivor &&
-                !newMemberIds.has(layoutId)
+                ((node.isLead() &&
+                    hasSurvivor &&
+                    !newMemberIds.has(layoutId)) ||
+                    toPlane)
             ) {
                 if (restore && restore.parent.isConnected) {
-                    restore.parent.insertBefore(
-                        element,
-                        restore.next?.parentNode === restore.parent
-                            ? restore.next
-                            : null
-                    )
+                    restoreElement(element, restore)
+                    exitingElements.set(element, restore)
                     node.isPresent = false
                     node.setOptions({
                         onExitComplete: () => {
+                            exitingElements.delete(element)
                             element.remove()
                             dropNode(element, node)
                         },
                     })
-                    if (node.relegate()) return
+                    if (toPlane || node.relegate()) return
 
+                    exitingElements.delete(element)
                     element.remove()
                 }
             }
@@ -434,7 +481,7 @@ export class LayoutAnimationBuilder {
         return root
     }
 
-    finalize() {
+    finalize(running: Map<IProjectionNode, unknown>) {
         if (this.updateError) {
             this.rejectReady(this.updateError)
             return
@@ -442,7 +489,11 @@ export class LayoutAnimationBuilder {
 
         const animations = new Set<GroupAnimation["animations"][number]>()
         const collect = (node: IProjectionNode) => {
-            if (node.instance && node.currentAnimation) {
+            if (
+                node.instance &&
+                node.currentAnimation &&
+                node.currentAnimation !== running.get(node)
+            ) {
                 animations.add(node.currentAnimation)
             }
         }

@@ -26,8 +26,12 @@ export function mixValues(
     isOnlyMember: boolean
 ) {
     if (shouldCrossfadeOpacity) {
+        /**
+         * Interrupting a crossfade, the new lead was shown at the old
+         * lead's exit opacity, so it fades in from there.
+         */
         target.opacity = mixNumber(
-            0,
+            (follow.opacityExit as number) || 0,
             (lead.opacity as number) ?? 1,
             easeCrossfadeIn(progress)
         )

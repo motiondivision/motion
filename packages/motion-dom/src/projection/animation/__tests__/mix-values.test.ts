@@ -125,4 +125,39 @@ describe("mixValues", () => {
         mixValues(output, {}, {}, 0.5, false, false)
         expect(output).toEqual({})
     })
+    test("an interrupted crossfade fades the new lead in from where it was shown", () => {
+        const output: Record<string, number> = {}
+
+        /**
+         * The previous lead was fading in at 0.4, while this node, its
+         * follower, was fading out at 0.7.
+         */
+        mixValues(
+            output,
+            { opacity: 0.4, opacityExit: 0.7 },
+            {},
+            0,
+            true,
+            false
+        )
+        expect(output.opacity).toBe(0.7)
+        expect(output.opacityExit).toBe(0.4)
+
+        mixValues(
+            output,
+            { opacity: 0.4, opacityExit: 0.7 },
+            {},
+            1,
+            true,
+            false
+        )
+        expect(output.opacity).toBe(1)
+        expect(output.opacityExit).toBe(0)
+    })
+
+    test("a crossfade fades the lead in from 0 when the follower wasn't fading", () => {
+        const output: Record<string, number> = {}
+        mixValues(output, { opacity: 1 }, {}, 0, true, false)
+        expect(output.opacity).toBe(0)
+    })
 })

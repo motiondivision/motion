@@ -29,7 +29,7 @@ import {
 } from "../projection/quad/quad"
 import type { ResolvedValues } from "../render/types"
 import { VisualElement } from "../render/VisualElement"
-import { layoutPlanes } from "./layout-planes"
+import { exitingElements, layoutPlanes } from "./layout-planes"
 
 /**
  * A flat rectangle drawn outside the DOM, like a plane in a WebGL scene,
@@ -247,9 +247,19 @@ function createPlaneNode(latestValues: ResolvedValues): PlaneNode {
          * mustn't start an update that nothing will finish.
          */
         willUpdate(shouldNotifyListeners?: boolean) {
-            if (this.isPresent !== false || this.root.isUpdating) {
-                super.willUpdate(shouldNotifyListeners)
+            if (this.isPresent === false && !this.root.isUpdating) return
+
+            /**
+             * Mid-animation, a plane already follows where it's laid out
+             * every frame, so other updates leave its animation and
+             * crossfade alone. Handing over still snapshots it.
+             */
+            if (this.currentAnimation || this.pendingAnimation) {
+                this.root.isUpdating || this.root.startUpdate()
+                return
             }
+
+            super.willUpdate(shouldNotifyListeners)
         }
     }
 
@@ -381,9 +391,29 @@ export function createLayoutPlane(
 
     const plane: LayoutPlane = {
         show(animate) {
-            leaving && remove(leaving)
             if (node) return
             animate && startUpdate(documentRoot())
+
+            /**
+             * Shown again during an update before it's gone, the plane
+             * leads again from where it's drawn.
+             */
+            if (leaving) {
+                const target = leaving
+                if (!target.root!.isUpdating) {
+                    remove(target)
+                } else {
+                    leaving = undefined
+                    node = target
+                    target.isPresent = true
+                    target.setOptions({
+                        crossfade: target.options.crossfade,
+                        onExitComplete: undefined,
+                    })
+                    target.promote()
+                    return
+                }
+            }
 
             const visualElement = new PlaneVisualElement({
                 props: { transition },
@@ -421,6 +451,30 @@ export function createLayoutPlane(
              */
             if (target.root!.isUpdating) {
                 leaving = target
+
+                /**
+                 * An element still shown with the same layoutId, like a
+                 * card still fading out as the plane flew in and put back
+                 * by this update, takes over from where the plane is
+                 * drawn now.
+                 */
+                const stack = target.getStack()
+                if (stack && target.isLead()) {
+                    for (let i = stack.members.length - 1; i >= 0; i--) {
+                        const member = stack.members[i]
+                        const instance = member.instance as Element
+                        if (
+                            member !== target &&
+                            (exitingElements.has(instance)
+                                ? instance.isConnected
+                                : member.isPresent !== false &&
+                                  instance.isConnected !== false)
+                        ) {
+                            stack.promote(member)
+                            break
+                        }
+                    }
+                }
                 target.setOptions({
                     crossfade: target.options.crossfade,
                     onExitComplete: () => remove(target),

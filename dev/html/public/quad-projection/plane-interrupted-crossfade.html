@@ -1,0 +1,161 @@
+<html>
+    <head>
+        <link rel="icon" href="data:," />
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+            }
+
+            canvas {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 800px;
+                height: 600px;
+            }
+
+            #tray {
+                position: absolute;
+                left: 60px;
+                top: 80px;
+                width: 160px;
+                height: 100px;
+            }
+
+            .card {
+                width: 160px;
+                height: 100px;
+                background-color: #00cc88;
+            }
+
+            #other {
+                position: absolute;
+                left: 600px;
+                top: 500px;
+                width: 40px;
+                height: 40px;
+                background-color: #ff0088;
+            }
+        </style>
+    </head>
+    <body>
+        <canvas id="canvas"></canvas>
+        <div id="tray">
+            <div class="card" id="card" data-layout-id="card"></div>
+        </div>
+        <div id="other" data-layout></div>
+
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module" src="/src/imports/layout-plane.js"></script>
+        <script type="module" src="/src/imports/script-quad.js"></script>
+        <script type="module">
+            const { animateLayout } = window.AnimateLayout
+            const { createScene, layoutPlane } = window.LayoutPlane
+            const { check, seek, nextFrame, done, fail } = window.Quad
+
+            const transition = { duration: 10, ease: "linear" }
+
+            /**
+             * A card that crossfades with a plane keeps crossfading through
+             * other updates, and fades back from where it's shown when the
+             * hand-over is reversed, rather than jumping.
+             */
+            async function runTest() {
+                const canvas = document.getElementById("canvas")
+                const tray = document.getElementById("tray")
+                const card = document.getElementById("card")
+                const other = document.getElementById("other")
+                const { camera, mesh } = createScene(canvas)
+                mesh.position.set(1, 0.3, 0)
+                mesh.rotation.set(-0.3, 0.5, 0.1)
+
+                const plane = layoutPlane(mesh, {
+                    layoutId: "card",
+                    camera,
+                    canvas,
+                    visible: false,
+                })
+
+                const cardOpacity = () =>
+                    card.isConnected
+                        ? Number(getComputedStyle(card).opacity)
+                        : 0
+                const planeOpacity = () =>
+                    mesh.visible ? mesh.material.opacity : 0
+                const near = (a, b) => Math.abs(a - b) < 0.05
+
+                /**
+                 * Into the scene. The removed card stays while it fades.
+                 */
+                const into = await animateLayout(() => {
+                    card.remove()
+                    plane.show()
+                }, transition)
+                into.pause()
+                await seek(into, 6)
+                check(card.isConnected, "Card is removed before it fades")
+                const card6 = cardOpacity()
+                check(
+                    card6 > 0.2 && card6 < 0.95,
+                    `Card isn't fading at 60%: ${card6}`
+                )
+
+                /**
+                 * Another update, while the camera moves, leaves the
+                 * crossfade alone.
+                 */
+                camera.position.x += 0.1
+                const elsewhere = await animateLayout(() => {
+                    other.style.left = "640px"
+                }, transition)
+                elsewhere.complete()
+                await nextFrame()
+                check(card.isConnected, "Another update removes the card")
+                await seek(into, 7)
+                const card7 = cardOpacity()
+                check(
+                    card7 > 0.05 && card7 < card6 - 0.05,
+                    `Card stops fading after another update: ${card6} then ${card7}`
+                )
+                check(
+                    near(planeOpacity(), 1),
+                    `Plane stops fading after another update: ${planeOpacity()}`
+                )
+
+                /**
+                 * Back out, before the card has gone. Both fade on from
+                 * where they're shown.
+                 */
+                const shownCard = cardOpacity()
+                const shownPlane = planeOpacity()
+                const back = await animateLayout(() => {
+                    tray.appendChild(card)
+                    plane.hide()
+                }, transition)
+                back.pause()
+                await seek(back, 0)
+                check(
+                    near(cardOpacity(), shownCard),
+                    `Card jumps from ${shownCard} to ${cardOpacity()}`
+                )
+                check(
+                    near(planeOpacity(), shownPlane),
+                    `Plane jumps from ${shownPlane} to ${planeOpacity()}`
+                )
+
+                await seek(back, 10)
+                back.complete()
+                await nextFrame()
+                await nextFrame()
+                check(card.isConnected, "Card isn't in the page")
+                check(near(cardOpacity(), 1), `Card ends at ${cardOpacity()}`)
+                check(!mesh.visible, "Plane is still drawn")
+
+                done()
+            }
+
+            runTest().catch(fail)
+        </script>
+    </body>
+</html>

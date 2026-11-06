@@ -183,12 +183,16 @@ describe("createLayoutPlane", () => {
         )
         controls.pause()
 
+        /**
+         * The removed card stays while the plane fades in over it.
+         */
         await seek(controls, 0)
-        expect(last().visible).toBe(true)
-        expect(last().opacity).toBe(1)
-        expectCorners(last().corners, cardCorners)
+        expect(card.isConnected).toBe(true)
+        expect(last().opacity).toBe(0)
 
         await seek(controls, 5)
+        expect(last().visible).toBe(true)
+        expect(last().opacity).toBe(1)
         const [cx, cy] = centre(last().corners!)
         const [fromX, fromY] = centre(cardCorners)
         const [toX, toY] = centre(planeCorners)
@@ -201,6 +205,7 @@ describe("createLayoutPlane", () => {
         controls.complete()
         await nextFrame()
         await nextFrame()
+        expect(card.isConnected).toBe(false)
         expect(last()).toEqual({
             corners: undefined,
             opacity: 1,
@@ -244,6 +249,75 @@ describe("createLayoutPlane", () => {
         await nextFrame()
         expect(last().visible).toBe(false)
         expect(layoutPlanes.size).toBe(0)
+    })
+
+    test("hands back to an element that hasn't faded out yet", async () => {
+        const card = createCard(40, 60, 160, 100)
+        document.body.appendChild(card)
+
+        const { source, last } = createSource(planeCorners)
+        const created = plane(source, false)
+
+        const into = await animateLayout(
+            () => {
+                card.remove()
+                created.show()
+            },
+            { duration: 10, ease: "linear" }
+        )
+        into.pause()
+        await seek(into, 7)
+        const shown = Number(card.style.opacity)
+        expect(shown).toBeGreaterThan(0)
+        expect(shown).toBeLessThan(1)
+
+        /**
+         * Put back before it's gone, the card fades back in from where it
+         * is, and the plane fades out from where it is.
+         */
+        const back = await animateLayout(
+            () => {
+                document.body.appendChild(card)
+                created.hide()
+            },
+            { duration: 10, ease: "linear" }
+        )
+        back.pause()
+        await seek(back, 0)
+        expect(Number(card.style.opacity)).toBeCloseTo(shown, 3)
+        expect(last().visible).toBe(true)
+        expect(last().opacity).toBeCloseTo(1, 3)
+
+        back.complete()
+        await nextFrame()
+        await nextFrame()
+        expect(card.isConnected).toBe(true)
+        expect(Number(card.style.opacity || 1)).toBe(1)
+        expect(last().visible).toBe(false)
+    })
+
+    test("controls leave out animations an update doesn't start", async () => {
+        const card = createCard(40, 60, 160, 100)
+        document.body.appendChild(card)
+
+        const { source } = createSource(planeCorners)
+        const created = plane(source, false)
+
+        const into = await animateLayout(
+            () => {
+                card.remove()
+                created.show()
+            },
+            { duration: 10, ease: "linear" }
+        )
+        into.pause()
+        await seek(into, 3)
+
+        const other = await animateLayout(() => {})
+        expect(other.animations.length).toBe(0)
+        other.complete()
+        await nextFrame()
+        expect(card.isConnected).toBe(true)
     })
 
     test("animates a plane laid out somewhere else", async () => {
