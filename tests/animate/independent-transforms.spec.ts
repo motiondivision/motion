@@ -689,6 +689,87 @@ test.describe("animate() independent transforms", () => {
         expect(result.style).toBe("translateX(100px) translateY(20px)")
     })
 
+    test("a sequence paused and played before its segments start keeps them on time", async ({
+        page,
+    }) => {
+        const result = await page.evaluate(async () => {
+            const a = document.getElementById("a")!
+            const b = document.getElementById("b")!
+            const c = document.getElementById("c")!
+            const start = document.timeline.currentTime as number
+            const animation = window.Motion.animate([
+                [a, { x: 100 }, { duration: 0.3, ease: "linear" }],
+                [b, { x: 100 }, { duration: 0.4, ease: "linear", at: 0.5 }],
+                [c, { x: 100 }, { duration: 0.4, ease: "linear", at: 0.8 }],
+            ])
+            /**
+             * b is built shortly before it starts. c is still waiting to
+             * be built.
+             */
+            await window.waitFrame(440)
+            const [built] = window.transformAnimations(b)
+            const waiting = window.transformAnimations(c).length
+            animation.pause()
+            const pausedAt = document.timeline.currentTime as number
+            await window.waitFrame(200)
+            const held = [window.readTransform(b).x, window.readTransform(c).x]
+            animation.play()
+            const paused = (document.timeline.currentTime as number) - pausedAt
+            await window.nextFrames(1)
+            const isSame = window.transformAnimations(b)[0] === built
+            const frames: any[] = await new Promise((resolve) => {
+                const recorded: any[] = []
+                const record = () => {
+                    const t = document.timeline.currentTime as number
+                    recorded.push({
+                        t: t - start - paused,
+                        b: window.readTransform(b).x,
+                        c: window.readTransform(c).x,
+                    })
+                    if (t - pausedAt - paused >= 800) {
+                        window.Motion.cancelFrame(record)
+                        resolve(recorded)
+                    }
+                }
+                window.Motion.frame.postRender(record, true)
+            })
+            return {
+                isBuilt: !!built,
+                waiting,
+                held,
+                isSame,
+                frames,
+            }
+        })
+
+        expect(result.isBuilt).toBe(true)
+        expect(result.waiting).toBe(0)
+        expect(result.held).toEqual([0, 0])
+        // b's WAAPI animation was held and played, not rebuilt.
+        expect(result.isSame).toBe(true)
+
+        /**
+         * Linear from 500ms (b) and 800ms (c) for 400ms, later by the
+         * pause, give or take a frame.
+         */
+        const check = (key: "b" | "c", from: number) => {
+            for (const frame of result.frames) {
+                const expected = Math.min(
+                    100,
+                    Math.max(0, (frame.t - from) / 4)
+                )
+                expect(Math.abs(frame[key] - expected)).toBeLessThan(6)
+            }
+            expect(
+                result.frames.some(
+                    (frame: any) => frame[key] > 20 && frame[key] < 80
+                )
+            ).toBe(true)
+        }
+        check("b", 500)
+        check("c", 800)
+    })
+
     test("a sequence segment follows an easing WAAPI can't run", async ({
         page,
     }) => {
