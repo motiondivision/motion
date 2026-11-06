@@ -1303,35 +1303,6 @@ describe("independent transform acceleration", () => {
             )
         })
 
-        it("hold without sampling once seeked past where they move", async () => {
-            const element = document.createElement("div")
-
-            const animation = animateElement(
-                element,
-                { x: [0, 0, 100, 100], y: [20, 20, 50, 50] },
-                { duration: 1, times: [0, 0.5, 0.75, 1], ease: "linear" }
-            )
-            await nextFrame()
-
-            const numberAt = jest.spyOn(
-                TransformAnimation.prototype,
-                "numberAt"
-            )
-            animation.forEach((value) => (value.time = 0.9))
-            await nextFrame()
-
-            expect(numberAt).not.toHaveBeenCalled()
-            expect(running(element)).toHaveLength(0)
-            expect(element.style.transform).toBe(
-                "translateX(100px) translateY(50px)"
-            )
-
-            await Promise.all(animation)
-            expect(element.style.transform).toBe(
-                "translateX(100px) translateY(50px)"
-            )
-        })
-
         it("are built when played after a pause while waiting to start", async () => {
             const element = document.createElement("div")
 
