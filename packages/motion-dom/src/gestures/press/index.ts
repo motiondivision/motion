@@ -229,7 +229,12 @@ export function press(
             cancelFrame(tick)
             isPressing.delete(target)
 
-            if (!isValidPressEvent(endEvent)) return
+            if (!isPrimaryPointer(endEvent)) return
+
+            /**
+             * A press that ends while a drag is active is a cancel.
+             */
+            if (isDragActive()) success = false
 
             if (success && !isFinal) {
                 /**
@@ -290,13 +295,15 @@ export function press(
 
         /**
          * Moving during a pending long press, or a repeating press, cancels
-         * it, so scrolling on touch devices doesn't trigger it.
+         * it, so scrolling on touch devices doesn't trigger it. A drag
+         * starting during a `count` sequence cancels it.
          */
         const onPointerMove = (moveEvent: PointerEvent) => {
             if (
-                (repeat || !isActive) &&
                 isPrimaryPointer(moveEvent) &&
-                exceeds(startEvent, moveEvent, holdSlop)
+                (((repeat || !isActive) &&
+                    exceeds(startEvent, moveEvent, holdSlop)) ||
+                    (presses > 1 && isDragActive()))
             ) {
                 onPointerCancel(moveEvent)
             }
@@ -309,13 +316,16 @@ export function press(
             endEventOptions
         )
 
-        if (isHeld) {
-            frame.update(tick, true)
+        if (isHeld || presses > 1) {
             window.addEventListener(
                 "pointermove",
                 onPointerMove,
                 endEventOptions
             )
+        }
+
+        if (isHeld) {
+            frame.update(tick, true)
             /**
              * Touch devices open a context menu or callout on long press,
              * which would cancel the gesture.
