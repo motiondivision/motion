@@ -17,8 +17,15 @@ import {
 import { Timeline, TimelineOptions } from "../timeline"
 import { animateSubject } from "./subject"
 
+/**
+ * A sequence has at least one segment or nested sequence. Labels alone
+ * are never a sequence, as an array of strings isn't a subject either.
+ */
 function isSequence(value: unknown): value is AnimationSequence {
-    return Array.isArray(value) && value.some(Array.isArray)
+    return (
+        Array.isArray(value) &&
+        value.some((item) => Array.isArray(item) || (item as any)?.sequence)
+    )
 }
 
 interface ScopedAnimateOptions {
