@@ -5,7 +5,11 @@ import { MotionValue } from "../value"
 interface Entry {
     value: MotionValue
     render?: VoidFunction
-    onRemove: VoidFunction
+    /**
+     * Schedules the render. Values bound to the same computed render
+     * share one, so each bound value holds no function of its own.
+     */
+    onChange: VoidFunction
 }
 
 export class MotionValueState {
@@ -50,15 +54,28 @@ export class MotionValueState {
         render?: VoidFunction,
         computed?: MotionValue
     ): VoidFunction {
-        this.values.get(name)?.onRemove()
+        this.remove(name)
+
+        let onChange: VoidFunction | undefined
+        let isBound = false
 
         if (computed) {
             for (const entry of this.values.values()) {
-                if (entry.value === computed) render = entry.render
+                if (entry.value === computed) {
+                    render = entry.render
+                    onChange = entry.onChange
+                }
+                if (entry.value === value) isBound = true
             }
         }
 
-        const onChange = () => render && this.schedule(render)
+        /**
+         * A value bound under two names subscribes once for each, so it
+         * can't share its computed value's subscriber.
+         */
+        if (!onChange || isBound) {
+            onChange = () => render && this.schedule(render)
+        }
 
         /**
          * Values created ahead of a DOM read start out undefined and
@@ -66,26 +83,27 @@ export class MotionValueState {
          */
         value.get() !== undefined && onChange()
 
-        const cancelOnChange = value.on("change", onChange)
-
-        const onRemove = () => {
-            cancelOnChange()
-            render && !computed && this.cancel(render)
-            /**
-             * A later set() of the same name has already removed this
-             * entry, so leave the one that replaced it.
-             */
-            this.values.get(name)?.onRemove === onRemove &&
-                this.values.delete(name)
-        }
+        value.addChangeSubscriber(onChange)
 
         this.values.set(name, {
             value,
             render: computed ? undefined : render,
-            onRemove,
+            onChange,
         })
 
-        return onRemove
+        return () => this.remove(name, value)
+    }
+
+    /**
+     * Unbind a value, if it's the one bound to this name.
+     */
+    remove(name: string, value?: MotionValue) {
+        const entry = this.values.get(name)
+        if (!entry || (value && entry.value !== value)) return
+
+        entry.value.removeChangeSubscriber(entry.onChange)
+        entry.render && this.cancel(entry.render)
+        this.values.delete(name)
     }
 
     get(name: string): MotionValue | undefined {
@@ -102,7 +120,7 @@ export class MotionValueState {
         const values = new Map<string, MotionValue>()
         this.values.forEach((entry, name) => {
             values.set(name, entry.value)
-            entry.onRemove()
+            this.remove(name)
         })
         this.transformKeys = this.transformValues = undefined
         return values

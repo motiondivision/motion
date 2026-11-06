@@ -51,7 +51,7 @@ describe("MotionValue change subscribers", () => {
         const callback = jest.fn()
 
         value.on("change", callback)
-        expect(value["events"].change).toBeUndefined()
+        expect(value["events"]?.change).toBeUndefined()
 
         value.set(1)
         expect(callback).toHaveBeenCalledTimes(1)
@@ -64,7 +64,7 @@ describe("MotionValue change subscribers", () => {
 
         const cancelA = value.on("change", (v) => calls.push(`a:${v}`))
         const cancelB = value.on("change", (v) => calls.push(`b:${v}`))
-        expect(value["events"].change.getSize()).toBe(2)
+        expect(value["events"]?.change.getSize()).toBe(2)
 
         value.set(1)
         expect(calls).toEqual(["a:1", "b:1"])
@@ -90,7 +90,7 @@ describe("MotionValue change subscribers", () => {
 
         value.on("change", a)()
         value.on("change", b)
-        expect(value["events"].change).toBeUndefined()
+        expect(value["events"]?.change).toBeUndefined()
 
         value.set(1)
         expect(a).not.toHaveBeenCalled()
