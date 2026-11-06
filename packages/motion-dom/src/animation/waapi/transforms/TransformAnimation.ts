@@ -16,12 +16,20 @@ import {
     transformFunction,
 } from "../../../render/html/utils/build-transform"
 import type { ResolvedValues } from "../../../render/types"
-import { transformPropOrder } from "../../../render/utils/keys-transform"
+import {
+    transformPropOrder,
+    transformProps,
+} from "../../../render/utils/keys-transform"
 import { mixNumber } from "../../../utils/mix/number"
 import type { MotionValue, Owner } from "../../../value"
 import { frameloopDriver } from "../../drivers/frame"
 import { Driver, DriverControls } from "../../drivers/types"
 import { keyframes as keyframesGenerator } from "../../generators/keyframes"
+import {
+    flushKeyframeResolvers,
+    KeyframeResolver,
+    ResolvedKeyframes,
+} from "../../keyframes/KeyframesResolver"
 import { defaultOffset } from "../../keyframes/offsets/default"
 import { JSAnimation, round } from "../../JSAnimation"
 import { sampleDelta } from "../../NativeAnimationExtended"
@@ -30,6 +38,11 @@ import {
     TimelineWithFallback,
     ValueAnimationOptions,
 } from "../../types"
+import { resolveStartTime } from "../../utils/resolve-start-time"
+import {
+    applyResolvedKeyframes,
+    fillAnimationDefaults,
+} from "../../utils/resolved-options"
 import { cubicBezierAsString } from "../easing/cubic-bezier"
 import { supportedWaapiEasing } from "../easing/supported"
 import { supportsWaapi } from "../supports/waapi"
@@ -218,7 +231,8 @@ export const canGroupTransform = ({
     motionValue,
 }: ValueAnimationOptions<any>) =>
     name &&
-    transformPropOrder.includes(name) &&
+    name !== "pathRotation" &&
+    transformProps.has(name) &&
     motionValue?.owner?.current instanceof HTMLElement &&
     supportsWaapi() &&
     supportsLinearEasing()
@@ -317,32 +331,120 @@ class TransformDriver implements TransformDriverControls {
  */
 let setTime: ((this: JSAnimation<any>, time: number) => void) | undefined
 
+/**
+ * A transform value's animation. It resolves its own keyframes, as
+ * AsyncMotionValueAnimation does for other values, so each value is one
+ * object rather than a wrapper, a resolver callback and an animation.
+ * Until its keyframes resolve, anything that needs them resolves them
+ * now, as AsyncMotionValueAnimation does.
+ */
 export class TransformAnimation<
     T extends number | string
 > extends JSAnimation<T> {
-    canAccelerate: boolean
+    canAccelerate = false
+
+    private createdAt: number
+
+    private resolver?: KeyframeResolver
+
+    private pendingTimeline?: TimelineWithFallback
+
+    private stopTimeline?: VoidFunction
 
     constructor(options: ValueAnimationOptions<T>) {
+        super(options, true)
+
+        this.createdAt = time.now()
+
+        fillAnimationDefaults(options)
+
+        /**
+         * What it will be once resolved, without resolving to find out.
+         */
+        this.state = options.autoplay ? "running" : "paused"
+
+        const { keyframes, name, motionValue, element } = options
+        const Resolver = element?.KeyframeResolver || KeyframeResolver
+
+        const resolver = (this.resolver = new Resolver(
+            keyframes,
+            (
+                resolved: ResolvedKeyframes<T>,
+                finalKeyframe: T,
+                forced: boolean
+            ) => this.onKeyframesResolved(resolved, finalKeyframe, !forced),
+            name,
+            motionValue,
+            element
+        ))
+        resolver.scheduleResolve()
+    }
+
+    private onKeyframesResolved(
+        keyframes: ResolvedKeyframes<T>,
+        finalKeyframe: T,
+        sync: boolean
+    ) {
+        this.resolver = undefined
+
+        const { options } = this
+        applyResolvedKeyframes(options, keyframes, finalKeyframe)
+
+        /**
+         * Start from when this was made, if the keyframes resolved soon
+         * enough after, as every value of a group must share a clock.
+         */
+        if (sync) {
+            options.startTime ??= resolveStartTime(this.createdAt, time.now())
+        }
+
         /**
          * Before JSAnimation replaces the type with its generator.
          */
-        const canAccelerate = canAccelerateTransform(options)
+        this.canAccelerate = canAccelerateTransform(options)
 
-        super(options)
+        this.begin()
 
-        this.canAccelerate = canAccelerate
-
-        /**
-         * stop is bound in JSAnimation, so wrap it rather than override.
-         * Before stopping, set the motion value to where the WAAPI
-         * animation is now, with velocity, for the next animation to
-         * start from.
-         */
-        const { stop } = this
-        this.stop = () => {
-            this.isAccelerated() && this.sync()
-            stop()
+        if (this.pendingTimeline) {
+            this.stopTimeline = this.attach(this.pendingTimeline)
+            this.pendingTimeline = undefined
         }
+    }
+
+    /**
+     * Resolve the keyframes now, for anything that needs them.
+     */
+    private flush() {
+        if (this.resolver) {
+            this.resolver.resume()
+            flushKeyframeResolvers()
+        }
+    }
+
+    get duration() {
+        this.flush()
+        return super.duration
+    }
+
+    sample(sampleTime: number) {
+        this.flush()
+        return super.sample(sampleTime)
+    }
+
+    cancel() {
+        this.resolver ? this.resolver.cancel() : super.cancel()
+    }
+
+    /**
+     * Before stopping, set the motion value to where the WAAPI animation
+     * is now, with velocity, for the next animation to start from.
+     */
+    protected stopAnimation() {
+        if (this.resolver) return this.resolver.cancel()
+
+        this.isAccelerated() && this.sync()
+        super.stopAnimation()
+        this.stopTimeline?.()
     }
 
     private offsetsOf?: unknown[]
@@ -546,6 +648,8 @@ export class TransformAnimation<
     }
 
     play() {
+        this.flush()
+
         /**
          * A stopped animation (one that was interrupted) can't play again,
          * so it mustn't join the group.
@@ -570,6 +674,7 @@ export class TransformAnimation<
     }
 
     pause() {
+        this.flush()
         super.pause()
 
         this.isAccelerated() && this.group!.schedule(false)
@@ -582,6 +687,7 @@ export class TransformAnimation<
      * group could move there.
      */
     complete() {
+        this.flush()
         super.complete()
         const { group } = this
         group && !group.isJS && this.tick(time.now())
@@ -610,6 +716,7 @@ export class TransformAnimation<
      * path in V8 and this runs for every animation of a seeked sequence.
      */
     set time(newTime: number) {
+        this.flush()
         ;(setTime ??= Object.getOwnPropertyDescriptor(
             JSAnimation.prototype,
             "time"
@@ -621,6 +728,16 @@ export class TransformAnimation<
      * thread.
      */
     attachTimeline(timeline: TimelineWithFallback) {
+        if (this.resolver) {
+            this.pendingTimeline = timeline
+        } else {
+            this.stopTimeline = this.attach(timeline)
+        }
+
+        return () => this.stop()
+    }
+
+    private attach(timeline: TimelineWithFallback) {
         this.canAccelerate = false
         this.group?.demote(true)
         return super.attachTimeline(timeline)

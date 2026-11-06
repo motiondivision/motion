@@ -1,6 +1,10 @@
 import { MotionGlobalConfig, secondsToMilliseconds } from "motion-utils"
 import { AsyncMotionValueAnimation } from "../AsyncMotionValueAnimation"
 import { JSAnimation } from "../JSAnimation"
+import {
+    canGroupTransform,
+    TransformAnimation,
+} from "../waapi/transforms/TransformAnimation"
 import type {
     AnyResolvedKeyframe,
     ValueAnimationOptions,
@@ -136,7 +140,14 @@ export const animateMotionValue =
             }
         }
 
+        /**
+         * Independent transforms on an HTML element never run as their own
+         * WAAPI animation, so they're known to join a transform group before
+         * their keyframes resolve, and resolve them themselves.
+         */
         return valueTransition.isSync
             ? new JSAnimation(options)
+            : canGroupTransform(options)
+            ? new TransformAnimation(options)
             : new AsyncMotionValueAnimation(options)
     }

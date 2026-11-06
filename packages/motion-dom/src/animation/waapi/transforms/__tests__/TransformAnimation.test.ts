@@ -726,7 +726,7 @@ describe("independent transform acceleration", () => {
 
         // Once per value, when the group builds.
         expect(sync).toHaveBeenCalledTimes(2)
-        const { motionValue } = (animation[0] as any).animation.options
+        const { motionValue } = (animation[0] as any).options
         expect(motionValue.getCurrent()).toBeCloseTo(50, 0)
         expect(motionValue.get()).toBeCloseTo(50, 0)
     })
@@ -766,7 +766,7 @@ describe("independent transform acceleration", () => {
         // Nothing moves, so there's nothing to build.
         expect(created(element)).toHaveLength(0)
         expect(element.style.transform).toBe("translateX(50px)")
-        expect((animation[0] as any).animation.isAccelerated()).toBe(true)
+        expect((animation[0] as any).isAccelerated()).toBe(true)
 
         animation.forEach((a) => a.play())
         await nextFrame()
@@ -1584,6 +1584,61 @@ describe("independent transform acceleration", () => {
 
             const [{ options }] = running(element)
             expect(options.easing).toMatch(/^linear\(/)
+        })
+    })
+
+    describe("before keyframes resolve", () => {
+        it("are one animation for each value, with no wrapper", () => {
+            const element = document.createElement("div")
+
+            const [x] = animateElement(element, { x: 100 }, { duration: 1 })
+
+            expect(x).toBeInstanceOf(TransformAnimation)
+            x.stop()
+        })
+
+        it("resolve their keyframes when their duration is read", async () => {
+            const element = document.createElement("div")
+
+            const [x] = animateElement(
+                element,
+                { x: 100 },
+                { duration: 0.5, ease: "linear" }
+            )
+
+            expect(x.state).toBe("running")
+            expect(x.duration).toBe(0.5)
+            expect(x.time).toBe(0)
+
+            const [animation] = await untilRunning(element, 500)
+            expect(animation.keyframes.transform.at(-1)).toBe(
+                "translateX(100px) "
+            )
+        })
+
+        it("can be seeked", async () => {
+            const element = document.createElement("div")
+
+            const [x] = animateElement(
+                element,
+                { x: 100 },
+                { duration: 1, ease: "linear" }
+            )
+
+            x.time = 0.25
+            expect(x.time).toBeCloseTo(0.25)
+            x.stop()
+        })
+
+        it("start nothing if stopped", async () => {
+            const element = document.createElement("div")
+            const [x] = animateElement(element, { x: 100 }, { duration: 1 })
+
+            x.stop()
+            await nextFrame()
+            await nextFrame()
+
+            expect(created(element)).toHaveLength(0)
         })
     })
 })

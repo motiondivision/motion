@@ -1,7 +1,5 @@
-import { MotionGlobalConfig } from "motion-utils"
 import { time } from "../frameloop/sync-time"
 import { JSAnimation } from "./JSAnimation"
-import { getFinalKeyframe } from "./keyframes/get-final"
 import {
     KeyframeResolver as DefaultKeyframeResolver,
     flushKeyframeResolvers,
@@ -14,15 +12,13 @@ import {
     TimelineWithFallback,
     ValueAnimationOptions,
 } from "./types"
-import { canAnimate } from "./utils/can-animate"
-import { makeAnimationInstant } from "./utils/make-animation-instant"
 import { resolveStartTime } from "./utils/resolve-start-time"
+import {
+    applyResolvedKeyframes,
+    fillAnimationDefaults,
+} from "./utils/resolved-options"
 import { WithPromise } from "./utils/WithPromise"
 import { supportsBrowserAnimation } from "./waapi/supports/waapi"
-import {
-    canGroupTransform,
-    TransformAnimation,
-} from "./waapi/transforms/TransformAnimation"
 
 type ResolvedOptions<T extends AnyResolvedKeyframe> =
     ValueAnimationOptions<T> & {
@@ -53,17 +49,8 @@ export class AsyncMotionValueAnimation<T extends AnyResolvedKeyframe>
 
         const { keyframes, name, motionValue, element } = options
 
-        /**
-         * animateMotionValue builds a fresh options object per value, so
-         * it's completed in place as keyframes resolve rather than copied.
-         */
         const optionsWithDefaults = options as ResolvedOptions<T>
-        optionsWithDefaults.autoplay ??= true
-        optionsWithDefaults.delay ??= 0
-        optionsWithDefaults.type ??= "keyframes"
-        optionsWithDefaults.repeat ??= 0
-        optionsWithDefaults.repeatDelay ??= 0
-        optionsWithDefaults.repeatType ??= "loop"
+        fillAnimationDefaults(options)
 
         const KeyframeResolver =
             element?.KeyframeResolver || DefaultKeyframeResolver
@@ -96,28 +83,20 @@ export class AsyncMotionValueAnimation<T extends AnyResolvedKeyframe>
     ) {
         this.keyframeResolver = undefined
 
-        const { name, type, velocity, delay, isHandoff, onUpdate } = options
+        const { isHandoff } = options
         this.resolvedAt = time.now()
 
         /**
          * If we can't animate this value with the resolved keyframes
          * then we should complete it immediately.
          */
-        const canAnimateValue = canAnimate(keyframes, name, type, velocity)
-        if (!canAnimateValue) {
-            if (MotionGlobalConfig.instantAnimations || !delay) {
-                onUpdate?.(getFinalKeyframe(keyframes, options, finalKeyframe))
-            }
-
-            keyframes[0] = keyframes[keyframes.length - 1]
-
-            makeAnimationInstant(options)
-            options.repeat = 0
-        }
+        const canAnimateValue = applyResolvedKeyframes(
+            options,
+            keyframes,
+            finalKeyframe
+        )
 
         const { onComplete } = options
-        options.finalKeyframe = finalKeyframe
-        options.keyframes = keyframes
         /**
          * JSAnimation and NativeAnimation call onComplete exactly when
          * their own `finished` resolves, so this replaces a promise chain
@@ -140,12 +119,6 @@ export class AsyncMotionValueAnimation<T extends AnyResolvedKeyframe>
             canAnimateValue && !isHandoff && supportsBrowserAnimation(options)
 
         /**
-         * Independent transforms (x, scale etc) on an HTML element are
-         * composed into one WAAPI transform animation per element.
-         */
-        const isGroupedTransform = !useWaapi && canGroupTransform(options)
-
-        /**
          * Resolve startTime for the animation. A startTime passed in options
          * (an optimised appear handoff syncing to its WAAPI animation) takes
          * precedence.
@@ -160,12 +133,7 @@ export class AsyncMotionValueAnimation<T extends AnyResolvedKeyframe>
          * animation started in that moment stays in sync. WAAPI has no frame
          * of ours to do that on.
          */
-        if (
-            sync &&
-            (useWaapi ||
-                isGroupedTransform ||
-                this.resolvedAt !== this.createdAt)
-        ) {
+        if (sync && (useWaapi || this.resolvedAt !== this.createdAt)) {
             options.startTime ??= resolveStartTime(
                 this.createdAt,
                 this.resolvedAt!
@@ -185,8 +153,6 @@ export class AsyncMotionValueAnimation<T extends AnyResolvedKeyframe>
             } catch {
                 animation = new JSAnimation(options)
             }
-        } else if (isGroupedTransform) {
-            animation = new TransformAnimation(options)
         } else {
             animation = new JSAnimation(options)
         }

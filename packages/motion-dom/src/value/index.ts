@@ -331,7 +331,11 @@ export class MotionValue<V = any> {
      */
     set(v: V) {
         this.passiveEffect
-            ? this.passiveEffect(v, this.updateAndNotify)
+            ? this.passiveEffect(
+                  v,
+                  (this.boundUpdateAndNotify ||= (v: V) =>
+                      this.updateAndNotify(v))
+              )
             : this.updateAndNotify(v)
     }
 
@@ -385,7 +389,13 @@ export class MotionValue<V = any> {
         this.dependents?.delete(dependent)
     }
 
-    updateAndNotify = (v: V) => {
+    /**
+     * updateAndNotify bound to this value, made only for a passive effect,
+     * rather than one function per value.
+     */
+    private boundUpdateAndNotify?: (v: V) => void
+
+    updateAndNotify(v: V) {
         const currentTime = time.now()
 
         /**

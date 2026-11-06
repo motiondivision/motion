@@ -92,19 +92,24 @@ export class JSAnimation<T extends number | string>
      * Reusable state object for the delay phase to avoid
      * allocating a new object every frame.
      */
-    private delayState: AnimationState<T> = {
-        done: false,
-        value: undefined as unknown as T,
-    }
+    private delayState?: AnimationState<T>
 
-    constructor(options: ValueAnimationOptions<T>) {
+    /**
+     * @param isDeferred - Don't start until begin() is called, for a
+     * subclass that resolves its own keyframes first.
+     */
+    constructor(options: ValueAnimationOptions<T>, isDeferred?: boolean) {
         super()
 
         this.options = options
+        isDeferred || this.begin()
+    }
+
+    protected begin() {
         this.initAnimation()
         this.play()
 
-        if (options.autoplay === false) this.pause()
+        if (this.options.autoplay === false) this.pause()
 
         notifyAnimationStart(this, this.options)
     }
@@ -405,8 +410,11 @@ export class JSAnimation<T extends number | string>
          */
         let state: AnimationState<T>
         if (isInDelayPhase) {
-            this.delayState.value = keyframes[0]
-            state = this.delayState
+            state = this.delayState ||= {
+                done: false,
+                value: undefined as unknown as T,
+            }
+            state.value = keyframes[0]
         } else {
             state = frameGenerator.next(elapsed)
         }
@@ -538,7 +546,9 @@ export class JSAnimation<T extends number | string>
      * This method is bound to the instance to fix a pattern where
      * animation.stop is returned as a reference from a useEffect.
      */
-    stop = () => {
+    stop = () => this.stopAnimation()
+
+    protected stopAnimation() {
         const { motionValue } = this.options
         if (motionValue && motionValue.updatedAt !== time.now()) {
             this.tick(time.now())
