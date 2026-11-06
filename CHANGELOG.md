@@ -4,6 +4,13 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [14.10.1] 2026-11-05
+
+### Fixed
+
+-   `animate`: Fix not recognising timeline of only nested sequences as timeline.
+-   Various performance-related improvements.
+
 ## [14.10.0] 2026-11-05
 
 ### Added
