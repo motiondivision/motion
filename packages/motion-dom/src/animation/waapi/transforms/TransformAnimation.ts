@@ -667,6 +667,12 @@ function createGroup(owner: TransformOwner): TransformGroup {
     let hasChurned = false
     let lastChurn = -Infinity
     let wake: ReturnType<typeof setTimeout> | undefined
+    let wakeAt = Infinity
+    /**
+     * While waiting to build a tween that starts later, how long after
+     * the last build to build it.
+     */
+    let buildAt: number | undefined
 
     const has = (key: string) => {
         for (const track of tracks) if (track.name === key) return true
@@ -744,6 +750,8 @@ function createGroup(owner: TransformOwner): TransformGroup {
      */
     const stop = (shouldCommit = true) => {
         clearTimeout(wake)
+        wakeAt = Infinity
+        buildAt = undefined
         shouldCommit && commit()
         segments.forEach(({ animation }) => cancel(animation))
         segments = []
@@ -1074,6 +1082,24 @@ function createGroup(owner: TransformOwner): TransformGroup {
     }
 
     /**
+     * Check whether it's time to build in this long. A check that's due
+     * sooner is kept, and checks again if it's early, so pausing and
+     * playing don't each replace a timer. One due later, after a seek or
+     * speed change while held, is replaced.
+     */
+    const wakeIn = (delay: number) => {
+        const at = time.now() + delay
+        if (at < wakeAt) {
+            clearTimeout(wake)
+            wakeAt = at
+            wake = setTimeout(() => {
+                wakeAt = Infinity
+                group.schedule(false)
+            }, delay)
+        }
+    }
+
+    /**
      * Replace the WAAPI animations with ones built from now. Returns
      * undefined if the animations can't be composed.
      */
@@ -1159,10 +1185,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
                      */
                     if (from - now > buildAhead) {
                         moving.forEach((track) => track.sync())
-                        wake = setTimeout(
-                            () => group.schedule(true),
-                            from - now - buildAhead
-                        )
+                        wakeIn((buildAt = from - now - buildAhead))
                         return true
                     }
 
@@ -1247,9 +1270,11 @@ function createGroup(owner: TransformOwner): TransformGroup {
     /**
      * If every animation has been paused, played, seeked or sped up
      * together since the WAAPI animation was built, do the same to it.
-     * Returns false if it needs rebuilding instead.
+     * Returns false if it needs rebuilding instead. Seeking to before a
+     * tween starts rebuilds, so a running group seeked every frame still
+     * moves to the main thread.
      */
-    const retime = (now: number) => {
+    const retime = (now: number, isSeek: boolean) => {
         let elapsed: number | undefined
         let rate = 0
 
@@ -1287,13 +1312,35 @@ function createGroup(owner: TransformOwner): TransformGroup {
         }
 
         if (elapsed === undefined) return true
-        if (!segments.length) return false
 
+        /**
+         * Waiting to build a tween that starts later. Until then the
+         * values hold where they start, so only when to build changes.
+         * Held, it has nothing on the compositor, so it can be seeked.
+         */
+        if (!segments.length) {
+            if (buildAt === undefined || (isSeek && rate)) return false
+
+            if (rate) {
+                const delay = (buildAt - elapsed) / rate
+                if (delay < 1) return false
+                wakeIn(delay)
+            }
+            return true
+        }
+
+        /**
+         * Only a tween is built to start later, and it holds its first
+         * keyframe until then, so it can be paused and played before it
+         * starts.
+         */
         for (const { offset, end, isDone } of segments) {
             const local = elapsed - offset
             if (
                 end < Infinity &&
-                (isDone ? local < end - 1 : local < 0 || local >= end)
+                (isDone
+                    ? local < end - 1
+                    : (local < 0 && (isSeek || offset <= 0)) || local >= end)
             ) {
                 return false
             }
@@ -1317,7 +1364,8 @@ function createGroup(owner: TransformOwner): TransformGroup {
                 animation.playbackRate !== rate &&
                     animation.updatePlaybackRate(rate)
             } else if (rate) {
-                animation.playbackRate = rate
+                animation.playbackRate !== rate &&
+                    (animation.playbackRate = rate)
                 animation.startTime = now - local / rate
             } else {
                 /**
@@ -1408,12 +1456,18 @@ function createGroup(owner: TransformOwner): TransformGroup {
         const churned = hasChurned
         needsBuild = hasChurned = false
 
-        if (shouldBuild || !retime(now)) {
+        if (shouldBuild || !retime(now, churned)) {
             if (churned) {
                 if (now - lastChurn < churnWindow) return group.demote()
                 lastChurn = now
             }
             if (!animate(now)) return group.demote()
+        } else if (buildAt !== undefined && !churned) {
+            /**
+             * Still waiting to build, so the values still hold where
+             * they start.
+             */
+            return
         }
 
         /**

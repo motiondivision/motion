@@ -162,6 +162,18 @@ const wait = (ms: number) =>
     new Promise<void>((resolve) => setTimeout(resolve, ms))
 
 /**
+ * Wait frames until an element has a WAAPI transform animation, as a
+ * group builds on a timer that a busy machine can run late.
+ */
+const untilRunning = async (element: Element, timeout: number) => {
+    const end = performance.now() + timeout
+    while (!running(element).length && performance.now() < end) {
+        await nextFrame()
+    }
+    return running(element)
+}
+
+/**
  * WAAPI animations ever created on an element. Earlier tests' animations
  * are still running and can rebuild during a later test, so count per
  * element rather than reading the shared animations list.
@@ -1334,6 +1346,123 @@ describe("independent transform acceleration", () => {
              * longer on a busy machine.
              */
             expect(Math.abs(waapi.startTime! - playedAt + 100)).toBeLessThan(20)
+        })
+
+        it("pause and play while waiting to start without rebuilding", async () => {
+            const element = document.createElement("div")
+
+            const animation = animateElement(
+                element,
+                { x: [0, 0, 100], y: [0, 0, 50] },
+                { duration: 1, times: [0, 0.5, 1], ease: "linear" }
+            )
+            await nextFrame()
+            const sync = jest.spyOn(TransformAnimation.prototype, "sync")
+
+            animation.forEach((a) => a.pause())
+            await nextFrame()
+            const pausedAt = animation[0].time
+            await wait(100)
+            animation.forEach((a) => a.play())
+            const playedAt = performance.now()
+            await nextFrame()
+
+            // Nothing moves until the tween starts, so there's nothing to
+            // rebuild or write.
+            expect(sync).not.toHaveBeenCalled()
+            expect(created(element)).toHaveLength(0)
+            expect(element.style.transform).toBe("none")
+
+            // It's built shortly before it starts, later by the pause.
+            await wait(350 - pausedAt * 1000 - (performance.now() - playedAt))
+            const [waapi] = await untilRunning(element, 400)
+            expect(xAt(waapi, 0)).toBeCloseTo(0, 0)
+            expect(xAt(waapi, 500)).toBeCloseTo(100, 0)
+            expect(
+                Math.abs(waapi.startTime! - playedAt - (500 - pausedAt * 1000))
+            ).toBeLessThan(20)
+        })
+
+        it("pause and play once built, before they start, without rebuilding", async () => {
+            const element = document.createElement("div")
+            const start = performance.now()
+
+            const animation = animateElement(
+                element,
+                { x: [0, 0, 100], y: [0, 0, 50] },
+                { duration: 1, times: [0, 0.5, 1], ease: "linear" }
+            )
+            await wait(350 - (performance.now() - start))
+            const [waapi] = await untilRunning(element, 140)
+            const startTime = waapi.startTime!
+            // Built, but not started.
+            expect(startTime).toBeGreaterThan(performance.now())
+
+            animation.forEach((a) => a.pause())
+            const pausedAt = performance.now()
+            await nextFrame()
+            expect(waapi.playState).toBe("paused")
+            expect(waapi.currentTime).toBeLessThan(0)
+
+            await wait(100)
+            animation.forEach((a) => a.play())
+            const paused = performance.now() - pausedAt
+            await nextFrame()
+
+            expect(created(element)).toEqual([waapi])
+            expect(waapi.playState).toBe("running")
+            // It starts later by as long as it was paused.
+            expect(
+                Math.abs(waapi.startTime! - startTime - paused)
+            ).toBeLessThan(20)
+        })
+
+        it("build on time when seeked while paused waiting to start", async () => {
+            const element = document.createElement("div")
+
+            const animation = animateElement(
+                element,
+                { x: [0, 0, 100], y: [0, 0, 50] },
+                { duration: 1, times: [0, 0.5, 1], ease: "linear" }
+            )
+            await nextFrame()
+            animation.forEach((a) => a.pause())
+            await nextFrame()
+            animation.forEach((a) => (a.time = 0.35))
+            await nextFrame()
+            animation.forEach((a) => a.play())
+            const playedAt = performance.now()
+
+            // The tween now starts 150ms after play, so it's built well
+            // before the wait it was first built to wake after.
+            const [waapi] = await untilRunning(element, 200)
+            expect(waapi).toBeDefined()
+            expect(Math.abs(waapi.startTime! - playedAt - 150)).toBeLessThan(20)
+        })
+
+        it("build on time when sped up while paused waiting to start", async () => {
+            const element = document.createElement("div")
+
+            const animation = animateElement(
+                element,
+                { x: [0, 0, 100], y: [0, 0, 50] },
+                { duration: 1, times: [0, 0.5, 1], ease: "linear" }
+            )
+            await nextFrame()
+            animation.forEach((a) => a.pause())
+            await nextFrame()
+            animation.forEach((a) => (a.speed = 4))
+            await nextFrame()
+            const pausedAt = animation[0].time
+            animation.forEach((a) => a.play())
+            const playedAt = performance.now()
+            const startIn = (500 - pausedAt * 1000) / 4
+
+            const [waapi] = await untilRunning(element, startIn + 30)
+            expect(waapi).toBeDefined()
+            expect(
+                Math.abs(waapi.startTime! - playedAt - startIn)
+            ).toBeLessThan(20)
         })
 
         it("stop waiting to start when stopped", async () => {
