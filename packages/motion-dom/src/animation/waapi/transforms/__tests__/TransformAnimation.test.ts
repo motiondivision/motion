@@ -162,6 +162,18 @@ const wait = (ms: number) =>
     new Promise<void>((resolve) => setTimeout(resolve, ms))
 
 /**
+ * Wait frames until an element has a WAAPI transform animation, as a
+ * group builds on a timer that a busy machine can run late.
+ */
+const untilRunning = async (element: Element, timeout: number) => {
+    const end = performance.now() + timeout
+    while (!running(element).length && performance.now() < end) {
+        await nextFrame()
+    }
+    return running(element)
+}
+
+/**
  * WAAPI animations ever created on an element. Earlier tests' animations
  * are still running and can rebuild during a later test, so count per
  * element rather than reading the shared animations list.
@@ -1358,9 +1370,8 @@ describe("independent transform acceleration", () => {
             expect(element.style.transform).toBe("none")
 
             // It's built shortly before it starts, later by the pause.
-            await wait(450 - pausedAt * 1000 - (performance.now() - playedAt))
-            await nextFrame()
-            const [waapi] = running(element)
+            await wait(350 - pausedAt * 1000 - (performance.now() - playedAt))
+            const [waapi] = await untilRunning(element, 400)
             expect(xAt(waapi, 0)).toBeCloseTo(0, 0)
             expect(xAt(waapi, 500)).toBeCloseTo(100, 0)
             expect(
@@ -1377,9 +1388,8 @@ describe("independent transform acceleration", () => {
                 { x: [0, 0, 100], y: [0, 0, 50] },
                 { duration: 1, times: [0, 0.5, 1], ease: "linear" }
             )
-            await wait(430 - (performance.now() - start))
-            await nextFrame()
-            const [waapi] = running(element)
+            await wait(350 - (performance.now() - start))
+            const [waapi] = await untilRunning(element, 140)
             const startTime = waapi.startTime!
             // Built, but not started.
             expect(startTime).toBeGreaterThan(performance.now())
