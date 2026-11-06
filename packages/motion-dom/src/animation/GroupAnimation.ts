@@ -32,12 +32,6 @@ export class GroupAnimation implements AnimationPlaybackControls {
         return this.animations[0][propName] as any
     }
 
-    private setAll(propName: PropNames, newValue: any) {
-        for (let i = 0; i < this.animations.length; i++) {
-            ;(this.animations[i][propName] as any) = newValue
-        }
-    }
-
     attachTimeline(timeline: TimelineWithFallback) {
         const subscriptions = this.animations.map((animation) =>
             animation.attachTimeline(timeline)
@@ -55,8 +49,13 @@ export class GroupAnimation implements AnimationPlaybackControls {
         return this.getAll("time")
     }
 
+    /**
+     * Setters and methods name the property directly, rather than through
+     * a shared helper, so each call site stays monomorphic. Sequences
+     * call these on every animation, many times a second.
+     */
     set time(time: number) {
-        this.setAll("time", time)
+        for (const animation of this.animations) animation.time = time
     }
 
     get speed() {
@@ -64,7 +63,7 @@ export class GroupAnimation implements AnimationPlaybackControls {
     }
 
     set speed(speed: number) {
-        this.setAll("speed", speed)
+        for (const animation of this.animations) animation.speed = speed
     }
 
     get state() {
@@ -83,32 +82,25 @@ export class GroupAnimation implements AnimationPlaybackControls {
         return getMax(this.animations, "iterationDuration")
     }
 
-    private runAll(
-        methodName: keyof Omit<
-            AnimationPlaybackControls,
-            PropNames | "then" | "finished" | "iterationDuration"
-        >
-    ) {
-        this.animations.forEach((controls) => controls[methodName]())
-    }
-
     play() {
-        this.runAll("play")
+        for (const animation of this.animations) animation.play()
     }
 
     pause() {
-        this.runAll("pause")
+        for (const animation of this.animations) animation.pause()
     }
 
     // Bound to accommodate common `return animation.stop` pattern
-    stop = () => this.runAll("stop")
+    stop = () => {
+        for (const animation of this.animations) animation.stop()
+    }
 
     cancel() {
-        this.runAll("cancel")
+        for (const animation of this.animations) animation.cancel()
     }
 
     complete() {
-        this.runAll("complete")
+        for (const animation of this.animations) animation.complete()
     }
 }
 
