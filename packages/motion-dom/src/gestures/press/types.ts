@@ -14,8 +14,8 @@ export type OnPressEndEvent = (
 export interface PressHandlers {
     /**
      * Called when the press gesture ends. `success` is `true` if it
-     * completed: released on the element, after `times` presses and once
-     * held for `after` seconds. Otherwise it's `false`.
+     * completed: released on the element, after `count` presses and once
+     * held for `hold` seconds. Otherwise it's `false`.
      *
      * Returning this function directly from the press start callback is
      * equivalent.
@@ -24,18 +24,18 @@ export interface PressHandlers {
 
     /**
      * Called once per press gesture, when the press becomes active while
-     * still held: the final press of `times` is down, and held for `after`
-     * seconds if set. Without `after`, this is on the final press down.
+     * still held: the final press of `count` is down, and held for `hold`
+     * seconds if set. Without `hold`, this is on the final press down.
      * Not called if the gesture is cancelled before then.
      */
     onActive?: VoidFunction
 
     /**
      * Called every frame while the final press is held, with progress
-     * from `0` to `1`: first over `after`, then over each `repeat`.
+     * from `0` to `1`: first over `hold`, then over each `repeat`.
      * Each cycle starts at exactly `0` and ends at exactly `1`, before the
      * press becomes active or `onRepeat` fires. Not called if neither
-     * `after` nor `repeat` is set.
+     * `hold` nor `repeat` is set.
      */
     onHold?: (progress: number) => void
 
@@ -65,15 +65,15 @@ export interface PressOptions {
      *
      * @default 1
      */
-    times?: number
+    count?: number
 
     /**
      * The maximum time, in seconds, between the end of one press and the
-     * start of the next for both to count towards `times`.
+     * start of the next for both to be counted.
      *
      * @default 0.3
      */
-    timesInterval?: number
+    countTimeout?: number
 
     /**
      * The time, in seconds, the final press must be held for the press
@@ -81,10 +81,10 @@ export interface PressOptions {
      *
      * @default 0
      */
-    after?: number
+    hold?: number
 
     /**
-     * While the final press is held, and once `after` is reached, repeat
+     * While the final press is held, and once `hold` is reached, repeat
      * it every `repeat` seconds. Each repeat calls the `onRepeat` handler
      * returned from the press start callback.
      */

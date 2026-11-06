@@ -25,13 +25,13 @@ function isValidPressEvent(event: PointerEvent) {
 const claimedPointerDownEvents = new WeakSet<Event>()
 
 /**
- * Max distance in px between consecutive presses of a `times` sequence.
+ * Max distance in px between consecutive presses of a `count` sequence.
  * Android's `ViewConfiguration` double tap slop is 100dp.
  */
 const sequenceSlop = 100
 
 /**
- * Max distance in px a pointer can move during a held press (`after`
+ * Max distance in px a pointer can move during a held press (`hold`
  * pending, or `repeat`). Android's `ViewConfiguration` touch slop is 8dp.
  */
 const holdSlop = 8
@@ -42,7 +42,7 @@ const exceeds = (a: PointerEvent, b: PointerEvent, max: number) =>
 const preventDefault = (event: Event) => event.preventDefault()
 
 /**
- * A `times` sequence waiting for its next press.
+ * A `count` sequence waiting for its next press.
  */
 interface PressSequence {
     count: number
@@ -81,7 +81,7 @@ export interface PointerEventOptions extends EventOptions, PressOptions {
  * press(button, () => ({
  *   onHold: (progress) => {},
  *   onComplete: (event, { success }) => {},
- * }), { after: 0.5 })
+ * }), { hold: 0.5 })
  * ```
  *
  * @public
@@ -113,14 +113,19 @@ export function press(
         /**
          * Options are read per press so they can be updated between presses.
          */
-        const { times = 1, timesInterval = 0.3, after = 0, repeat } = options
+        const {
+            count: presses = 1,
+            countTimeout = 0.3,
+            hold = 0,
+            repeat,
+        } = options
         const downTime = time.now()
-        const afterTime = secondsToMilliseconds(after)
-        const interval = secondsToMilliseconds(timesInterval)
+        const holdTime = secondsToMilliseconds(hold)
+        const timeout = secondsToMilliseconds(countTimeout)
         let previous = sequences.get(target)
 
         /**
-         * A press during a `times` sequence continues it. If it's too late
+         * A press during a `count` sequence continues it. If it's too late
          * or too far away, the sequence is cancelled and this press starts
          * a new one.
          */
@@ -134,9 +139,9 @@ export function press(
         }
 
         const count = previous ? previous.count + 1 : 1
-        const isFinal = count >= times
-        const isHeld = isFinal && (after || repeat)
-        let isActive = !after
+        const isFinal = count >= presses
+        const isHeld = isFinal && (hold || repeat)
+        let isActive = !hold
         let repeats = 0
         let handlers: PressHandlers
 
@@ -155,12 +160,12 @@ export function press(
         isFinal && isActive && handlers.onActive?.()
 
         /**
-         * While held, `onHold` reports progress from 0 to 1 over `after`,
+         * While held, `onHold` reports progress from 0 to 1 over `hold`,
          * then over each `repeat`. Each cycle reports exactly 1 at its end,
          * then 0 on the next frame.
          */
         const repeatTime = secondsToMilliseconds(repeat!)
-        let length = afterTime || repeatTime
+        let length = holdTime || repeatTime
         let cycleEnd = downTime + length
         let isCycleStart = true
 
@@ -243,7 +248,7 @@ export function press(
                     if (
                         isAborted ||
                         force === true ||
-                        time.now() - end > interval
+                        time.now() - end > timeout
                     ) {
                         cancelFrame(expire)
                         sequences.delete(target)
@@ -261,7 +266,7 @@ export function press(
                 frame.update(expire, true)
             } else {
                 /**
-                 * Releasing before `after` is reached is a cancel.
+                 * Releasing before `hold` is reached is a cancel.
                  */
                 handlers.onComplete?.(endEvent, {
                     success: success && isActive,

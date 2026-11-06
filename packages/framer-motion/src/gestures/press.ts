@@ -56,7 +56,7 @@ export class PressGesture extends Feature<Element> {
         const { options, node } = this
         const { globalTapTarget, propagate, tap } = node.props
 
-        for (const key in options) delete options[key as "times"]
+        for (const key in options) delete options[key as "count"]
 
         Object.assign(options, tap, {
             useGlobalTarget: globalTapTarget,

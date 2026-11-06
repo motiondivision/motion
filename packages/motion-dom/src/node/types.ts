@@ -551,18 +551,18 @@ export interface MotionNodeTapHandlers {
      *
      * ```jsx
      * // Double tap
-     * <motion.div tap={{ times: 2 }} onTap={onDoubleTap} />
+     * <motion.div tap={{ count: 2 }} onTap={onDoubleTap} />
      *
      * // Long press
-     * <motion.div tap={{ after: 0.5 }} whileTap={{ scale: 0.9 }} onTap={onLongPress} />
+     * <motion.div tap={{ hold: 0.5 }} whileTap={{ scale: 0.9 }} onTap={onLongPress} />
      *
      * // Stepper: `onTap` fires every 0.1 seconds while held
      * <motion.button tap={{ repeat: 0.1 }} onTap={increment} />
      * ```
      *
-     * - `times`: Quick, consecutive presses needed for `onTap`. Default `1`.
-     * - `timesInterval`: Max seconds between presses. Default `0.3`.
-     * - `after`: Seconds a press must be held for `onTap`. Default `0`.
+     * - `count`: Quick, consecutive presses needed for `onTap`. Default `1`.
+     * - `countTimeout`: Max seconds between presses. Default `0.3`.
+     * - `hold`: Seconds a press must be held for `onTap`. Default `0`.
      * - `repeat`: While held, `onTap` fires every `repeat` seconds,
      *   and `whileTap` stays active.
      */

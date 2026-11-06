@@ -94,7 +94,7 @@ const tap = async (element: Element, x = 0, y = 0) => {
     pointer(element, "up", x, y)
 }
 
-describe("press times", () => {
+describe("press count", () => {
     test("default fires on every press", async () => {
         const { element, events } = setup()
 
@@ -104,8 +104,8 @@ describe("press times", () => {
         expect(events).toEqual(["start:el0", "end:el0", "start:el0", "end:el0"])
     })
 
-    test("times: 1 fires on every press", async () => {
-        const { element, events } = setup({ times: 1 })
+    test("count: 1 fires on every press", async () => {
+        const { element, events } = setup({ count: 1 })
 
         await tap(element)
         await wait(50)
@@ -114,8 +114,8 @@ describe("press times", () => {
         expect(events).toEqual(["start:el0", "end:el0", "start:el0", "end:el0"])
     })
 
-    test("times: 2 starts on the first press and ends on the second", async () => {
-        const { element, events } = setup({ times: 2 })
+    test("count: 2 starts on the first press and ends on the second", async () => {
+        const { element, events } = setup({ count: 2 })
 
         pointer(element, "down")
         expect(events).toEqual(["start:el0"])
@@ -135,8 +135,8 @@ describe("press times", () => {
         expect(isPressing.has(element)).toBe(false)
     })
 
-    test("times: 2 cancels if the second press is too slow", async () => {
-        const { element, events } = setup({ times: 2 })
+    test("count: 2 cancels if the second press is too slow", async () => {
+        const { element, events } = setup({ count: 2 })
 
         await tap(element)
         await wait(400)
@@ -155,8 +155,8 @@ describe("press times", () => {
         ])
     })
 
-    test("times: 2 cancels once the interval expires", async () => {
-        const { element, events } = setup({ times: 2 })
+    test("count: 2 cancels once the interval expires", async () => {
+        const { element, events } = setup({ count: 2 })
 
         await tap(element)
         await wait(200)
@@ -168,8 +168,8 @@ describe("press times", () => {
         expect(events).toEqual(["start:el0", "cancel:el0"])
     })
 
-    test("timesInterval sets the max gap between presses", async () => {
-        const { element, events } = setup({ times: 2, timesInterval: 1 })
+    test("countTimeout sets the max gap between presses", async () => {
+        const { element, events } = setup({ count: 2, countTimeout: 1 })
 
         await tap(element)
         await wait(800)
@@ -179,8 +179,8 @@ describe("press times", () => {
         expect(events).toEqual(["start:el0", "end:el0"])
     })
 
-    test("times: 2 cancels if the second press is far away", async () => {
-        const { element, events } = setup({ times: 2 })
+    test("count: 2 cancels if the second press is far away", async () => {
+        const { element, events } = setup({ count: 2 })
 
         await tap(element, 0, 0)
         await wait(50)
@@ -190,7 +190,7 @@ describe("press times", () => {
     })
 
     test("a cancelled press cancels the sequence", async () => {
-        const { element, events } = setup({ times: 3 })
+        const { element, events } = setup({ count: 3 })
 
         await tap(element)
         await wait(50)
@@ -217,7 +217,7 @@ describe("press times", () => {
     })
 
     test("a press released outside cancels the sequence", async () => {
-        const { element, events } = setup({ times: 3 })
+        const { element, events } = setup({ count: 3 })
 
         await tap(element)
         await wait(50)
@@ -233,8 +233,8 @@ describe("press times", () => {
         expect(events).toEqual(["start:el0", "cancel:el0", "start:el0"])
     })
 
-    test("times: 2 resets after the second press", async () => {
-        const { element, events } = setup({ times: 2 })
+    test("count: 2 resets after the second press", async () => {
+        const { element, events } = setup({ count: 2 })
 
         for (let i = 0; i < 4; i++) {
             await tap(element)
@@ -244,8 +244,8 @@ describe("press times", () => {
         expect(events).toEqual(["start:el0", "end:el0", "start:el0", "end:el0"])
     })
 
-    test("times: 3 succeeds on the third press only", async () => {
-        const { element, events } = setup({ times: 3 })
+    test("count: 3 succeeds on the third press only", async () => {
+        const { element, events } = setup({ count: 3 })
 
         await tap(element)
         await wait(50)
@@ -260,7 +260,7 @@ describe("press times", () => {
     })
 
     test("keyboard double press", async () => {
-        const { element, events } = setup({ times: 2 })
+        const { element, events } = setup({ count: 2 })
         element.dispatchEvent(new FocusEvent("focus"))
 
         key(element, "keydown")
@@ -277,7 +277,7 @@ describe("press times", () => {
     })
 
     test("counts presses per element", async () => {
-        const { elements, events } = setup({ times: 2 }, 2)
+        const { elements, events } = setup({ count: 2 }, 2)
         const [a, b] = elements
 
         await tap(a)
@@ -294,9 +294,9 @@ describe("press times", () => {
     })
 })
 
-describe("press after", () => {
+describe("press hold", () => {
     test("long press starts on press and succeeds after the hold time", async () => {
-        const { element, events } = setup({ after: 0.5 })
+        const { element, events } = setup({ hold: 0.5 })
 
         pointer(element, "down")
         expect(events).toEqual(["start:el0"])
@@ -312,7 +312,7 @@ describe("press after", () => {
     })
 
     test("early release cancels", async () => {
-        const { element, events } = setup({ after: 0.5 })
+        const { element, events } = setup({ hold: 0.5 })
 
         pointer(element, "down")
         await wait(300)
@@ -326,7 +326,7 @@ describe("press after", () => {
     })
 
     test("moving past the tolerance cancels a long press", async () => {
-        const { element, events } = setup({ after: 0.5 })
+        const { element, events } = setup({ hold: 0.5 })
 
         pointer(element, "down", 0, 0)
         await wait(100)
@@ -344,7 +344,7 @@ describe("press after", () => {
     })
 
     test("prevents the context menu during a long press", async () => {
-        const { element } = setup({ after: 0.5 })
+        const { element } = setup({ hold: 0.5 })
 
         const menu = () => {
             const event = new MouseEvent("contextmenu", {
@@ -364,7 +364,7 @@ describe("press after", () => {
 
     test("onHold reports hold progress, starting at 0", async () => {
         const progress: number[] = []
-        const { element, events } = setup({ after: 0.5 }, 1, {
+        const { element, events } = setup({ hold: 0.5 }, 1, {
             onHold: (p) => progress.push(p),
         })
 
@@ -413,7 +413,7 @@ describe("press after", () => {
         ])
     })
 
-    test("onHold is never called without after or repeat", async () => {
+    test("onHold is never called without hold or repeat", async () => {
         const onHold = jest.fn()
         const { element } = setup({}, 1, { onHold })
 
@@ -425,9 +425,9 @@ describe("press after", () => {
         expect(onHold).not.toHaveBeenCalled()
     })
 
-    test("times and after: tap then hold", async () => {
+    test("count and hold: tap then hold", async () => {
         const progress: number[] = []
-        const { element, events } = setup({ times: 2, after: 0.5 }, 1, {
+        const { element, events } = setup({ count: 2, hold: 0.5 }, 1, {
             onHold: (p) => progress.push(p),
         })
 
@@ -447,8 +447,8 @@ describe("press after", () => {
         expect(events).toEqual(["start:el0", "end:el0"])
     })
 
-    test("times and after: early release of the final press cancels", async () => {
-        const { element, events } = setup({ times: 2, after: 0.5 })
+    test("count and hold: early release of the final press cancels", async () => {
+        const { element, events } = setup({ count: 2, hold: 0.5 })
 
         await tap(element)
         await wait(50)
@@ -465,7 +465,7 @@ describe("press after", () => {
     })
 
     test("keyboard hold counts and repeats don't restart it", async () => {
-        const { element, events } = setup({ after: 0.5 })
+        const { element, events } = setup({ hold: 0.5 })
         element.dispatchEvent(new FocusEvent("focus"))
 
         key(element, "keydown")
@@ -481,7 +481,7 @@ describe("press after", () => {
     })
 
     test("keyboard early release cancels", async () => {
-        const { element, events } = setup({ after: 0.5 })
+        const { element, events } = setup({ hold: 0.5 })
         element.dispatchEvent(new FocusEvent("focus"))
 
         key(element, "keydown")
@@ -493,7 +493,7 @@ describe("press after", () => {
 
     test("cancelling the gesture during a hold stops it", async () => {
         const onHold = jest.fn()
-        const { element, events, cancel } = setup({ after: 0.5 }, 1, {
+        const { element, events, cancel } = setup({ hold: 0.5 }, 1, {
             onHold,
         })
 
@@ -538,9 +538,9 @@ describe("press repeat", () => {
         expect(events).toEqual(["start:el0", "end:el0"])
     })
 
-    test("after delays the first repeat", async () => {
+    test("hold delays the first repeat", async () => {
         const onRepeat = jest.fn()
-        const { element, events } = setup({ after: 0.5, repeat: 0.1 }, 1, {
+        const { element, events } = setup({ hold: 0.5, repeat: 0.1 }, 1, {
             onRepeat,
         })
 
@@ -557,9 +557,9 @@ describe("press repeat", () => {
         expect(events).toEqual(["start:el0", "end:el0"])
     })
 
-    test("times: repeats only on the final press", async () => {
+    test("count: repeats only on the final press", async () => {
         const onRepeat = jest.fn()
-        const { element, events } = setup({ times: 2, repeat: 0.1 }, 1, {
+        const { element, events } = setup({ count: 2, repeat: 0.1 }, 1, {
             onRepeat,
         })
 
@@ -608,8 +608,8 @@ describe("press onHold", () => {
         return { ...result, log }
     }
 
-    test("after then repeat: 0 to 1 over after, then over each repeat", async () => {
-        const { element, log } = setupLog({ after: 0.5, repeat: 0.2 })
+    test("hold then repeat: 0 to 1 over hold, then over each repeat", async () => {
+        const { element, log } = setupLog({ hold: 0.5, repeat: 0.2 })
 
         pointer(element, "down")
         await wait(250)
@@ -678,8 +678,8 @@ describe("press onHold", () => {
         pointer(element, "up")
     })
 
-    test("times: only the final press reports", async () => {
-        const { element, log } = setupLog({ times: 2, repeat: 0.1 })
+    test("count: only the final press reports", async () => {
+        const { element, log } = setupLog({ count: 2, repeat: 0.1 })
 
         pointer(element, "down")
         await wait(150)
@@ -695,8 +695,8 @@ describe("press onHold", () => {
         pointer(element, "up")
     })
 
-    test("after only: stays at 1 once reached", async () => {
-        const { element, log } = setupLog({ after: 0.2 })
+    test("hold only: stays at 1 once reached", async () => {
+        const { element, log } = setupLog({ hold: 0.2 })
 
         pointer(element, "down")
         await wait(50)
@@ -737,7 +737,7 @@ describe("press onActive", () => {
         return { element, log, cancel }
     }
 
-    test("without after, fires on press down after start", async () => {
+    test("without hold, fires on press down after start", async () => {
         const { element, log } = setupLog({})
 
         pointer(element, "down")
@@ -746,8 +746,8 @@ describe("press onActive", () => {
         expect(log).toEqual(["start", "active", "end"])
     })
 
-    test("times: fires on the final press down", async () => {
-        const { element, log } = setupLog({ times: 2 })
+    test("count: fires on the final press down", async () => {
+        const { element, log } = setupLog({ count: 2 })
 
         await tap(element)
         expect(log).toEqual(["start"])
@@ -758,8 +758,8 @@ describe("press onActive", () => {
         expect(log).toEqual(["start", "active", "end"])
     })
 
-    test("after: fires after onHold(1) and before repeats", async () => {
-        const { element, log } = setupLog({ after: 0.5, repeat: 0.2 })
+    test("hold: fires after onHold(1) and before repeats", async () => {
+        const { element, log } = setupLog({ hold: 0.5, repeat: 0.2 })
 
         pointer(element, "down")
         await wait(250)
@@ -798,8 +798,8 @@ describe("press onActive", () => {
         expect(log[1]).toBe("active")
     })
 
-    test("doesn't fire if released before after", async () => {
-        const { element, log } = setupLog({ after: 0.5 })
+    test("doesn't fire if released before hold", async () => {
+        const { element, log } = setupLog({ hold: 0.5 })
 
         pointer(element, "down")
         await wait(300)
@@ -811,8 +811,8 @@ describe("press onActive", () => {
         expect(log).toEqual(["start", "hold:0", "cancel"])
     })
 
-    test("doesn't fire for an unfinished times sequence", async () => {
-        const { element, log } = setupLog({ times: 2 })
+    test("doesn't fire for an unfinished count sequence", async () => {
+        const { element, log } = setupLog({ count: 2 })
 
         await tap(element)
         await wait(400)
@@ -822,7 +822,7 @@ describe("press onActive", () => {
     })
 
     test("doesn't fire if the gesture is cancelled during a hold", async () => {
-        const { element, log, cancel } = setupLog({ after: 0.5 })
+        const { element, log, cancel } = setupLog({ hold: 0.5 })
 
         pointer(element, "down")
         cancel()
@@ -832,7 +832,7 @@ describe("press onActive", () => {
         expect(log).toEqual(["start"])
     })
 
-    test("keyboard: fires on keydown without after", async () => {
+    test("keyboard: fires on keydown without hold", async () => {
         const { element, log } = setupLog({})
         element.dispatchEvent(new FocusEvent("focus"))
 
@@ -842,8 +842,8 @@ describe("press onActive", () => {
         expect(log).toEqual(["start", "active", "end"])
     })
 
-    test("keyboard: fires once after is reached", async () => {
-        const { element, log } = setupLog({ after: 0.5 })
+    test("keyboard: fires once hold is reached", async () => {
+        const { element, log } = setupLog({ hold: 0.5 })
         element.dispatchEvent(new FocusEvent("focus"))
 
         key(element, "keydown")
@@ -933,8 +933,8 @@ describe("press start return value", () => {
         expectEquivalent(calls, [true, false])
     })
 
-    test("onComplete is equivalent to returning a function: times and after", async () => {
-        const { element, calls } = setupForms({ times: 2, after: 0.5 })
+    test("onComplete is equivalent to returning a function: count and hold", async () => {
+        const { element, calls } = setupForms({ count: 2, hold: 0.5 })
 
         await tap(element)
         expect(calls.fn).toEqual([])
