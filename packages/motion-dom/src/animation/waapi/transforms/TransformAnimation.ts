@@ -20,7 +20,7 @@ import { transformPropOrder } from "../../../render/utils/keys-transform"
 import { mixNumber } from "../../../utils/mix/number"
 import type { MotionValue, Owner } from "../../../value"
 import { frameloopDriver } from "../../drivers/frame"
-import { DriverControls } from "../../drivers/types"
+import { Driver, DriverControls } from "../../drivers/types"
 import { keyframes as keyframesGenerator } from "../../generators/keyframes"
 import { defaultOffset } from "../../keyframes/offsets/default"
 import { JSAnimation, round } from "../../JSAnimation"
@@ -259,6 +259,56 @@ function canAccelerateTransform(options: ValueAnimationOptions<any>) {
     )
 }
 
+/**
+ * Starting or stopping tells the group to update its WAAPI animation.
+ * The frame loop driver is only made once the group is on the main
+ * thread, as accelerated animations never tick.
+ */
+class TransformDriver implements TransformDriverControls {
+    private driver?: DriverControls
+
+    constructor(
+        private element: Element,
+        private update: (timestamp: number) => void,
+        private makeDriver: Driver,
+        public animation?: TransformAnimation<any>
+    ) {}
+
+    get js() {
+        return (this.driver ||= this.makeDriver(this.update))
+    }
+
+    now() {
+        return this.driver || this.makeDriver !== frameloopDriver
+            ? this.js.now()
+            : frameData.isProcessing
+            ? frameData.timestamp
+            : time.now()
+    }
+
+    /**
+     * keepAlive is false when seeking. Seeking the WAAPI animation is
+     * free, but if a seek needs a rebuild and keeps happening, the group
+     * moves to the main thread.
+     */
+    start(keepAlive = true) {
+        const group = getGroup(this.element)
+        !group || group.isJS
+            ? this.js.start(keepAlive)
+            : group.schedule(false, !keepAlive)
+    }
+
+    stopJS() {
+        this.driver?.stop()
+    }
+
+    stop() {
+        this.stopJS()
+        const group = getGroup(this.element)
+        group && !group.isFinishing && group.release(this.animation!)
+    }
+}
+
 export class TransformAnimation<
     T extends number | string
 > extends JSAnimation<T> {
@@ -267,7 +317,7 @@ export class TransformAnimation<
     constructor(options: ValueAnimationOptions<T>) {
         const element = getOwner(options).current
         const { driver = frameloopDriver } = options
-        let animation: TransformAnimation<T>
+        let animation: TransformAnimation<T> | undefined
 
         /**
          * Before JSAnimation replaces the type with its generator.
@@ -276,39 +326,19 @@ export class TransformAnimation<
 
         /**
          * The driver ticks on the main thread only once the group has
-         * moved there. Until then, starting or stopping tells the group to
-         * update its WAAPI animation.
+         * moved there, so its frame loop driver is made then.
          */
-        options.driver = (update) => {
-            const js = driver(update)
-
-            return {
-                js,
-                now: js.now,
-                start: (keepAlive = true) => {
-                    const group = getGroup(element)
-                    const isJS = !group || group.isJS
-
-                    /**
-                     * keepAlive is false when seeking. Seeking the WAAPI
-                     * animation is free, but if a seek needs a rebuild and
-                     * keeps happening, the group moves to the main thread.
-                     */
-                    isJS
-                        ? js.start(keepAlive)
-                        : group.schedule(false, !keepAlive)
-                },
-                stop: () => {
-                    js.stop()
-                    const group = getGroup(element)
-                    group && !group.isFinishing && group.release(animation)
-                },
-            } as TransformDriverControls
-        }
+        options.driver = (update) =>
+            new TransformDriver(element, update, driver, animation)
 
         super(options)
 
         animation = this
+        /**
+         * The first driver is made in super(), before this was assigned.
+         */
+        const firstDriver = this.driver as TransformDriver | undefined
+        firstDriver && (firstDriver.animation = this)
         this.canAccelerate = canAccelerate
 
         /**
@@ -347,6 +377,10 @@ export class TransformAnimation<
 
     get js() {
         return (this.driver as TransformDriverControls | undefined)?.js
+    }
+
+    stopJS() {
+        ;(this.driver as TransformDriver | undefined)?.stopJS()
     }
 
     get name() {
@@ -1352,7 +1386,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
         if (group.isJS) {
             group.isJS = false
             needsBuild = true
-            tracks.forEach((track) => track.js?.stop())
+            tracks.forEach((track) => track.stopJS())
         }
 
         const shouldBuild = needsBuild
