@@ -258,8 +258,12 @@ function canAccelerateTransform(options: ValueAnimationOptions<any>) {
     )
 }
 
-const setTime = Object.getOwnPropertyDescriptor(JSAnimation.prototype, "time")!
-    .set!
+/**
+ * JSAnimation's time setter, looked up on first use rather than at module
+ * load, so the module has no top-level side effects and stays
+ * tree-shakeable in flattened bundles.
+ */
+let setTime: ((this: JSAnimation<any>, time: number) => void) | undefined
 
 export class TransformAnimation<
     T extends number | string
@@ -559,7 +563,10 @@ export class TransformAnimation<
      * path in V8 and this runs for every animation of a seeked sequence.
      */
     set time(newTime: number) {
-        setTime.call(this, newTime)
+        ;(setTime ??= Object.getOwnPropertyDescriptor(
+            JSAnimation.prototype,
+            "time"
+        )!.set!).call(this, newTime)
     }
 
     /**
