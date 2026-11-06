@@ -35,11 +35,7 @@ type ThreeObject = Record<string, any>
  */
 export const threeEffect = createEffect<ThreeObject>(
     (subject, state: MotionValueState, key, value) =>
-        state.set(
-            key,
-            value,
-            () => setObjectValue(subject, key, value.get())
-        ),
+        state.set(key, value, createRender(subject, key, value)),
     {
         test: isThreeSubject,
         read: getObjectValue,
@@ -161,6 +157,29 @@ function getAnimatableValue(value: unknown) {
 
 function isUniform(value: unknown): value is ThreeUniform {
     return Boolean(value && typeof value === "object" && "value" in value)
+}
+
+/**
+ * The render for a bound value. A transform writes straight to its
+ * vector or Euler, found once here rather than on every frame.
+ */
+function createRender(
+    object: ThreeObject,
+    key: string,
+    value: MotionValue
+): VoidFunction {
+    const transform = transformMap[key as keyof typeof transformMap]
+    const target = transform && object[transform[0]]
+
+    if (target && !isUniform(object[key])) {
+        const axis = transform[1]
+
+        return transform[0] === "rotation"
+            ? () => (target[axis] = value.get() * (Math.PI / 180))
+            : () => (target[axis] = value.get())
+    }
+
+    return () => setObjectValue(object, key, value.get())
 }
 
 function setObjectValue(object: ThreeObject, key: string, value: unknown) {

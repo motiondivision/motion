@@ -12,6 +12,39 @@ interface Entry {
     onChange: VoidFunction
 }
 
+/**
+ * States with renders pending in a frame step, flushed by one callback
+ * for the step rather than one for each state.
+ */
+interface Batch {
+    states: MotionValueState[]
+    flush: VoidFunction
+}
+
+const batches = new Map<Schedule, Batch>()
+
+function getBatch(step: Schedule) {
+    let batch = batches.get(step)
+
+    if (!batch) {
+        const created: Batch = {
+            states: [],
+            flush: () => {
+                /**
+                 * States scheduled while flushing join the next batch,
+                 * which runs in the next frame.
+                 */
+                const { states } = created
+                created.states = []
+                for (let i = 0; i < states.length; i++) states[i].flush()
+            },
+        }
+        batches.set(step, (batch = created))
+    }
+
+    return batch
+}
+
 export class MotionValueState {
     /**
      * Transform keys bound to this state, in `transformPropOrder`, and
@@ -39,7 +72,11 @@ export class MotionValueState {
      * to `frame.render`. Effects that feed a render loop running in
      * `frame.render` (GPU scenes) should write in `frame.preRender`.
      */
-    constructor(private step: Schedule = frame.render) {}
+    private batch: Batch
+
+    constructor(private step: Schedule = frame.render) {
+        this.batch = getBatch(step)
+    }
 
     /**
      * @param render - Writes the value to the subject. Renders read the
@@ -133,7 +170,11 @@ export class MotionValueState {
             if (pending[i] === render) return
         }
 
-        numPending || this.step(this.flush)
+        if (!numPending) {
+            const { batch } = this
+            batch.states.length || this.step(batch.flush)
+            batch.states.push(this)
+        }
 
         pending[this.numPending++] = render
     }
@@ -154,7 +195,7 @@ export class MotionValueState {
      * scheduled while flushing lands in the next frame, as with the
      * frameloop itself.
      */
-    flush = () => {
+    flush() {
         const { pending, numPending } = this
         this.numPending = 0
         for (let i = 0; i < numPending; i++) pending[i]()
