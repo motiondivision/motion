@@ -8,9 +8,13 @@ Undocumented APIs should be considered internal and may change without warning.
 
 ### Added
 
--   `drag`: Expose getProps on the dragConstraints function context.
+-   `press`: `count`, `hold` and `repeat`, for double/triple press, long press and multipress gestures.
+-   `drag`: Expose `getProps` on the dragConstraints function context.
 -   `drag`: `x`/`y` props for headless gesture tracking.
 -   `Reorder`: Home and End buttons move selected item to beginning and end of list, respectively.
+
+### Fixed
+
 -   `animate`: Minor fixes.
 -   `motion`: New `tap` prop for configuring press gesture.
 
