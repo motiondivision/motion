@@ -478,16 +478,6 @@ export function createProjectionNode<I>({
         shouldResetTransform = false
 
         /**
-         * The visibility, transformOrigin and opacity this node last wrote
-         * to its element. During an animation they rarely change, and
-         * writing a style, even with the same value, costs about as much as
-         * a change, so applyProjectionStyles skips writing them again.
-         * Cleared when anything else might have written these styles.
-         */
-        projectedStyles: ResolvedValues = {}
-        prevStyleProp?: MotionStyle
-
-        /**
          * Store whether this node has been checked for optimised appear animations. As
          * effects fire bottom-up, and we want to look up the tree for appear animations,
          * this makes sure we only check each path once, stopping at nodes that
@@ -588,11 +578,6 @@ export function createProjectionNode<I>({
             this.isSVG = isSVGElement(instance) && !isSVGSVGElement(instance)
 
             this.instance = instance
-
-            /**
-             * A new element hasn't had any projection styles written to it.
-             */
-            this.projectedStyles = {}
 
             const { layoutId, layout, visualElement } = this.options
             if (visualElement && !visualElement.current) {
@@ -805,7 +790,6 @@ export function createProjectionNode<I>({
 
         willUpdate(shouldNotifyListeners = true) {
             this.root.hasTreeAnimated = true
-            this.projectedStyles = {}
 
             if (this.root.isUpdateBlocked()) {
                 this.options.onExitComplete?.()
@@ -2135,14 +2119,6 @@ export function createProjectionNode<I>({
         ) {
             if (!this.instance || this.isSVG) return
 
-            /**
-             * A new style prop might have been written to the element.
-             */
-            if (styleProp !== this.prevStyleProp) {
-                this.prevStyleProp = styleProp
-                this.projectedStyles = {}
-            }
-
             const lead = this.getLead()
 
             /**
@@ -2151,7 +2127,7 @@ export function createProjectionNode<I>({
              * rendering, so only hide nodes that follow another.
              */
             if (!this.isVisible && lead !== this) {
-                this.setProjectedStyle(targetStyle, "visibility", "hidden")
+                targetStyle.visibility = "hidden"
                 return
             }
 
@@ -2159,7 +2135,6 @@ export function createProjectionNode<I>({
 
             if (this.needsReset) {
                 this.needsReset = false
-                this.projectedStyles = {}
 
                 targetStyle.visibility = ""
                 targetStyle.opacity = ""
@@ -2174,14 +2149,11 @@ export function createProjectionNode<I>({
             if (!this.projectionDelta || !this.layout || !lead.target) {
                 if (this.options.layoutId || this.needsShow) {
                     this.needsShow = false
-                    this.setProjectedStyle(targetStyle, "visibility", "")
-                    this.setProjectedStyle(
-                        targetStyle,
-                        "opacity",
+                    targetStyle.visibility = ""
+                    targetStyle.opacity =
                         this.latestValues.opacity !== undefined
                             ? this.latestValues.opacity
                             : 1
-                    )
                     targetStyle.pointerEvents =
                         resolveMotionValue(styleProp?.pointerEvents) || ""
                 }
@@ -2195,7 +2167,7 @@ export function createProjectionNode<I>({
                 return
             }
 
-            this.setProjectedStyle(targetStyle, "visibility", "")
+            targetStyle.visibility = ""
 
             const valuesToRender = lead.animationValues || lead.latestValues
             this.applyTransformsToTarget()
@@ -2213,36 +2185,29 @@ export function createProjectionNode<I>({
             targetStyle.transform = transform
 
             const { x, y } = this.projectionDelta
-            this.setProjectedStyle(
-                targetStyle,
-                "transformOrigin",
-                `${x.origin * 100}% ${y.origin * 100}% 0`
-            )
+            targetStyle.transformOrigin = `${x.origin * 100}% ${
+                y.origin * 100
+            }% 0`
 
             if (lead.animationValues) {
                 /**
                  * If the lead component is animating, assign this either the entering/leaving
                  * opacity
                  */
-                this.setProjectedStyle(
-                    targetStyle,
-                    "opacity",
+                targetStyle.opacity =
                     lead === this
                         ? valuesToRender.opacity ??
-                              this.latestValues.opacity ??
-                              1
+                          this.latestValues.opacity ??
+                          1
                         : this.preserveOpacity
                         ? this.latestValues.opacity
                         : valuesToRender.opacityExit
-                )
             } else {
                 /**
                  * Or we're not animating at all, set the lead component to its layout
                  * opacity and other components to hidden.
                  */
-                this.setProjectedStyle(
-                    targetStyle,
-                    "opacity",
+                targetStyle.opacity =
                     lead === this
                         ? valuesToRender.opacity !== undefined
                             ? valuesToRender.opacity
@@ -2250,7 +2215,6 @@ export function createProjectionNode<I>({
                         : valuesToRender.opacityExit !== undefined
                         ? valuesToRender.opacityExit
                         : 0
-                )
             }
 
             /**
@@ -2301,23 +2265,6 @@ export function createProjectionNode<I>({
                     lead === this
                         ? resolveMotionValue(styleProp?.pointerEvents) || ""
                         : "none"
-            }
-        }
-
-        /**
-         * Write a style unless it's the value this node last wrote, and the
-         * element's own render, which runs just before, hasn't written it.
-         */
-        setProjectedStyle(targetStyle: any, key: string, value: any) {
-            const renderedStyle = (
-                this.options.visualElement as HTMLVisualElement | undefined
-            )?.renderState.style
-
-            if (
-                this.projectedStyles[key] !== value ||
-                (renderedStyle && renderedStyle[key] !== undefined)
-            ) {
-                targetStyle[key] = this.projectedStyles[key] = value
             }
         }
 
