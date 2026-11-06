@@ -21,6 +21,8 @@ interface MockAnimation {
     onfinish: (() => void) | null
     cancel: jest.Mock
     pause: jest.Mock
+    play: jest.Mock
+    timeline?: unknown
     updatePlaybackRate: jest.Mock
 }
 
@@ -90,6 +92,7 @@ const createAnimation = (
             setStartTime(value)
         },
         cancel: jest.fn(() => clearTimeout(timer)),
+        play: jest.fn(),
         pause: jest.fn(() => {
             clearTimeout(timer)
             animation.playState = "paused"
@@ -1584,6 +1587,64 @@ describe("independent transform acceleration", () => {
 
             const [{ options }] = running(element)
             expect(options.easing).toMatch(/^linear\(/)
+        })
+    })
+
+    describe("on a native scroll timeline", () => {
+        beforeAll(() => {
+            supportsFlags.scrollTimeline = true
+        })
+
+        afterAll(() => {
+            supportsFlags.scrollTimeline = undefined
+        })
+
+        it("composes every transform into one WAAPI animation on the timeline", async () => {
+            const element = document.createElement("div")
+            const scrollTimeline = {}
+            const timeline = { timeline: scrollTimeline, observe: jest.fn() }
+
+            const animation = animateElement(
+                element,
+                { x: [0, 100], rotate: [0, 90] },
+                { ease: "linear", duration: 1 }
+            )
+            animation.forEach((a) => a.attachTimeline(timeline as any))
+            await nextFrame()
+
+            const native = created(element).filter(
+                (a) => a.timeline === scrollTimeline
+            )
+            expect(native).toHaveLength(1)
+            expect(native[0].keyframes!.transform).toEqual([
+                "translateX(0px) rotate(0deg) ",
+                "translateX(100px) rotate(90deg) ",
+            ])
+            expect(native[0].play).toHaveBeenCalled()
+            expect(timeline.observe).not.toHaveBeenCalled()
+            animation.forEach((a) => a.stop())
+        })
+
+        it("follows the timeline from JS if other values don't follow it", async () => {
+            const element = document.createElement("div")
+            const timeline = { timeline: {}, observe: jest.fn(() => () => {}) }
+
+            const [x] = animateElement(
+                element,
+                { x: [0, 100] },
+                { ease: "linear", duration: 1 }
+            )
+            const [y] = animateElement(
+                element,
+                { y: [0, 100] },
+                { ease: "linear", duration: 1 }
+            )
+            x.attachTimeline(timeline as any)
+            await nextFrame()
+
+            expect(timeline.observe).toHaveBeenCalledTimes(1)
+            x.stop()
+            y.stop()
         })
     })
 

@@ -325,8 +325,15 @@ export class JSAnimation<T extends number | string>
      * same unit as the others, rather than at finalKeyframe.
      */
     sampleAt(timestamp: number, resolved?: boolean): T {
+        return this.sampleTime(this.at(timestamp), resolved)
+    }
+
+    /**
+     * The value at a time in ms, delay included, as sampleAt().
+     */
+    sampleTime(time: number, resolved?: boolean): T {
         const { options, totalDuration } = this
-        const t = this.at(timestamp) - (options.delay || 0)
+        const t = time - (options.delay || 0)
 
         return t >= totalDuration && options.type !== inertia
             ? getFinalKeyframe(

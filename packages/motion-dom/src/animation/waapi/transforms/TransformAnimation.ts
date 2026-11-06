@@ -48,6 +48,7 @@ import { supportedWaapiEasing } from "../easing/supported"
 import { supportsWaapi } from "../supports/waapi"
 import { needsMixer } from "../utils/needs-mixer"
 import { supportsLinearEasing } from "../../../utils/supports/linear-easing"
+import { supportsScrollTimeline } from "../../../utils/supports/scroll-timeline"
 import { TransformGroupHooks, transformGroups } from "./groups"
 
 /**
@@ -108,6 +109,12 @@ interface TransformGroup extends TransformGroupHooks {
      */
     release(track: TransformAnimation<any>): void
     demote(canReturn?: boolean): true | void
+
+    /**
+     * A track's time, from the WAAPI animation's progress while the group
+     * runs on a scroll timeline.
+     */
+    scrollTime(track: TransformAnimation<any>): number | undefined
 }
 
 /**
@@ -357,6 +364,12 @@ export class TransformAnimation<
     private pendingTimeline?: TimelineWithFallback
 
     private stopTimeline?: VoidFunction
+
+    /**
+     * A native scroll timeline this follows. While every animation in
+     * the group follows the same one, the group runs on it.
+     */
+    scrollTimeline?: TimelineWithFallback
 
     constructor(options: ValueAnimationOptions<T>) {
         super(options, true)
@@ -770,9 +783,66 @@ export class TransformAnimation<
     }
 
     private attach(timeline: TimelineWithFallback) {
+        if (
+            this.canAccelerate &&
+            timeline.timeline &&
+            supportsScrollTimeline()
+        ) {
+            /**
+             * As JSAnimation does, a scroll-linked animation without its
+             * own easing runs linearly.
+             */
+            if (this.options.allowFlatten) {
+                this.options.type = "keyframes"
+                this.options.ease = "linear"
+                this.initAnimation()
+            }
+
+            this.scrollTimeline = timeline
+            this.group?.schedule(true)
+
+            return () => {
+                this.scrollTimeline = undefined
+            }
+        }
+
+        return this.observe(timeline)
+    }
+
+    /**
+     * Follow the timeline from JS, on the main thread, as values that
+     * can't run on it natively do.
+     */
+    observe(timeline = this.scrollTimeline!) {
+        this.scrollTimeline = undefined
         this.canAccelerate = false
         this.group?.demote(true)
-        return super.attachTimeline(timeline)
+        return (this.stopTimeline = super.attachTimeline(timeline))
+    }
+
+    /**
+     * Whether this moves linearly between two keyframes, from start to
+     * end of a scroll timeline.
+     */
+    isLinearTween() {
+        const { keyframes, delay, repeat, type, ease } = this.options
+        return (
+            keyframes.length === 2 &&
+            !delay &&
+            !repeat &&
+            type === keyframesGenerator &&
+            ease === "linear"
+        )
+    }
+
+    /**
+     * On a scroll timeline, its time is where the timeline has it.
+     */
+    at(timestamp: number) {
+        return (
+            (this.scrollTimeline && this.group?.scrollTime(this)) ??
+            super.at(timestamp)
+        )
     }
 }
 
@@ -904,6 +974,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
         shouldCommit && commit()
         segments.forEach(({ animation }) => cancel(animation))
         segments = []
+        scrollAnimation = undefined
     }
 
     /**
@@ -1303,15 +1374,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
             end = Math.max(end, trackEnd)
         }
 
-        statics = {}
-        /**
-         * Transforms that aren't animating are left out at their default.
-         */
-        keys = transformPropOrder.filter((key) => {
-            if (byKey.has(key)) return true
-            const value = (statics[key] = read(owner, key))
-            return value !== undefined && !isDefaultTransform(key, value)
-        })
+        readStatics()
 
         stop(false)
 
@@ -1414,6 +1477,70 @@ function createGroup(owner: TransformOwner): TransformGroup {
         segments.length || stop()
 
         return true
+    }
+
+    /**
+     * The WAAPI animation on a scroll timeline, while the group runs on
+     * one.
+     */
+    let scrollAnimation: Animation | undefined
+
+    /**
+     * The transforms that aren't animating. Those at their default are
+     * left out.
+     */
+    const readStatics = () => {
+        statics = {}
+        keys = transformPropOrder.filter((key) => {
+            if (byKey.has(key)) return true
+            const value = (statics[key] = read(owner, key))
+            return value !== undefined && !isDefaultTransform(key, value)
+        })
+    }
+
+    /**
+     * Build one WAAPI animation on a native scroll timeline every
+     * animation follows. Each animation runs from its start to its end
+     * over the timeline, as one followed from JS does.
+     */
+    const buildScroll = (timeline: TimelineWithFallback) => {
+        stop(false)
+        byKey.clear()
+        built = new Map()
+        tracks.forEach((track) => byKey.set(track.name, track))
+        readStatics()
+
+        /**
+         * Linear tweens are two keyframes. Anything else is sampled, so
+         * the timeline's progress is each animation's progress.
+         */
+        let isLinear = true
+        for (const track of tracks) {
+            isLinear &&= track.isLinearTween()
+        }
+
+        const transform = spread(0, 1, isLinear ? 1 : 100).map((p) => {
+            const values: ResolvedValues = {}
+            for (const key of keys) {
+                const track = byKey.get(key)
+                values[key] = track
+                    ? track.sampleTime(p * track.iterationDuration * 1000)
+                    : statics[key]
+            }
+            return toTransform(values)
+        })
+
+        const animation = create(
+            { transform },
+            { duration: 1000, fill: "both", easing: "linear" }
+        )
+        animation.timeline = timeline.timeline as AnimationTimeline
+        timeline.onAttach ? timeline.onAttach(animation) : animation.play()
+
+        const segment = { animation, offset: 0, end: Infinity }
+        animation.oncancel = () => segments.includes(segment) && group.demote()
+        segments.push(segment)
+        scrollAnimation = animation
     }
 
     /**
@@ -1577,7 +1704,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
             tracks.forEach((track) => {
                 const [trackEnd, trackCycle] = track.timing()
 
-                if (track.state !== "running") return
+                if (track.state !== "running" || track.scrollTimeline) return
 
                 const { speed } = track
 
@@ -1611,8 +1738,20 @@ function createGroup(owner: TransformOwner): TransformGroup {
 
         if (end()) return
 
+        let timeline: TimelineWithFallback | undefined | false = false
         for (const track of tracks) {
             if (!track.canAccelerate) return group.demote(true)
+
+            /**
+             * Animations that follow different timelines, or none, can't
+             * share a WAAPI animation.
+             */
+            const { scrollTimeline } = track
+            if (timeline === false) {
+                timeline = scrollTimeline
+            } else if (scrollTimeline !== timeline) {
+                return group.demote(true)
+            }
         }
 
         /**
@@ -1628,6 +1767,8 @@ function createGroup(owner: TransformOwner): TransformGroup {
         const shouldBuild = needsBuild
         const churned = hasChurned
         needsBuild = hasChurned = false
+
+        if (timeline) return buildScroll(timeline)
 
         if (shouldBuild || !retime(now, churned)) {
             if (churned) {
@@ -1657,6 +1798,16 @@ function createGroup(owner: TransformOwner): TransformGroup {
         tracks,
         isJS: false,
         isFinishing: false,
+
+        scrollTime(track) {
+            const progress =
+                !group.isJS &&
+                scrollAnimation?.effect?.getComputedTiming().progress
+
+            return typeof progress === "number"
+                ? progress * track.iterationDuration * 1000
+                : undefined
+        },
 
         schedule(build_: boolean, isChurn?: boolean) {
             if (isEnded) return
@@ -1725,6 +1876,11 @@ function createGroup(owner: TransformOwner): TransformGroup {
             tracks.forEach(
                 (track) => track.state === "running" && track.js?.start()
             )
+
+            /**
+             * Values on a native scroll timeline follow it from JS instead.
+             */
+            tracks.forEach((track) => track.scrollTimeline && track.observe())
 
             return true
         },
