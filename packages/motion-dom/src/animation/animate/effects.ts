@@ -158,9 +158,16 @@ export function animateEffectSubject<Subject extends object>(
     transition?: EffectTransition,
     element?: AnimationElement
 ): AnimationPlaybackControlsWithThen[] {
-    return animateValues(
+    /**
+     * Values made for this call are bound with one effect call, after the
+     * loop, rather than one each.
+     */
+    let created: Record<string, MotionValue> | undefined
+    let isBound = false
+
+    const animations = animateValues(
         (key) => {
-            let value = effect.get(subject, key)
+            let value = created?.[key] ?? effect.get(subject, key)
 
             if (!value) {
                 let initial: AnyResolvedKeyframe | undefined
@@ -182,7 +189,9 @@ export function animateEffectSubject<Subject extends object>(
                 }
 
                 value = motionValue(initial, { owner: element })
-                effect(subject, { [key]: value })
+                isBound
+                    ? effect(subject, { [key]: value })
+                    : ((created ||= {})[key] = value)
             }
 
             return value
@@ -191,6 +200,11 @@ export function animateEffectSubject<Subject extends object>(
         transition,
         element
     )
+
+    isBound = true
+    created && effect(subject, created)
+
+    return animations
 }
 
 function firstKeyframe(
