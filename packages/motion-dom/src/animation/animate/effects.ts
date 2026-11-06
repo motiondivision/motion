@@ -106,7 +106,7 @@ export function animateValues(
             continue
         }
 
-        value.start(
+        value.run(
             animateMotionValue(
                 key,
                 value,
