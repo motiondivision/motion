@@ -1321,15 +1321,19 @@ describe("independent transform acceleration", () => {
             expect(running(element)).toHaveLength(0)
             expect(readX(element.style.transform)).toBeCloseTo(20, 0)
 
+            const playedAt = performance.now()
             animation.forEach((a) => a.play())
             await nextFrame()
 
             const [waapi] = running(element)
             expect(xAt(waapi, 0)).toBeCloseTo(0, 0)
             expect(xAt(waapi, 500)).toBeCloseTo(100, 0)
-            expect(
-                Math.abs(waapi.startTime! - performance.now() + 100)
-            ).toBeLessThan(30)
+            /**
+             * It started moving 100ms before it was played. Compare with
+             * the time of play(), not after the frame wait, which is
+             * longer on a busy machine.
+             */
+            expect(Math.abs(waapi.startTime! - playedAt + 100)).toBeLessThan(20)
         })
 
         it("stop waiting to start when stopped", async () => {
