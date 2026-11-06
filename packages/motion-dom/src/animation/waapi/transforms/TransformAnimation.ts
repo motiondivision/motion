@@ -146,8 +146,9 @@ const buildAhead = 100
 /**
  * Named easings that are the same cubic-bezier in JS and CSS.
  */
+const nativeEasings = new Set(["linear", "easeIn", "easeOut", "easeInOut"])
 const isNativeEasing = (ease: unknown): ease is "linear" =>
-    /^(linear|ease(In|Out|InOut))$/.test(ease as string)
+    nativeEasings.has(ease as string)
 
 /**
  * The last trace of each easing WAAPI can't run into linear(), with its
@@ -323,6 +324,23 @@ export class TransformAnimation<
         }
     }
 
+    private offsetsOf?: unknown[]
+    private cachedOffsets?: number[]
+
+    /**
+     * Each keyframe's offset, made once for the keyframes rather than on
+     * every build.
+     */
+    offsets() {
+        const { keyframes, times } = this.options
+        if (times) return times
+        if (this.offsetsOf !== keyframes) {
+            this.offsetsOf = keyframes
+            this.cachedOffsets = defaultOffset(keyframes)
+        }
+        return this.cachedOffsets!
+    }
+
     get group() {
         return getGroup(getOwner(this.options).current)
     }
@@ -383,7 +401,7 @@ export class TransformAnimation<
      * exactly, otherwise its function, to trace.
      */
     tween(): [number, number, (string | EasingFunction)?] | undefined {
-        const { keyframes, type, times, repeat, delay = 0 } = this.options
+        const { keyframes, type, repeat, delay = 0 } = this.options
         let span = -1
 
         if (repeat || type !== keyframesGenerator || this.holdTime !== null) {
@@ -400,7 +418,7 @@ export class TransformAnimation<
         let { ease } = this.options
         if (isEasingArray(ease)) ease = ease[span]
 
-        const offsets = times || defaultOffset(keyframes)
+        const offsets = this.offsets()
         const at = (i: number) =>
             this.startTime! +
             (delay + offsets[i] * this.totalDuration) / this.speed
@@ -438,13 +456,11 @@ export class TransformAnimation<
             repeat = 0,
             repeatDelay = 0,
             repeatType,
-            times,
-            keyframes,
             type,
         } = options
         const offsets =
             (type || keyframesGenerator) === keyframesGenerator
-                ? times || defaultOffset(keyframes)
+                ? this.offsets()
                 : [0, 1]
         const start = startTime! + delay / speed
         const result: number[] = []
@@ -977,7 +993,12 @@ function createGroup(owner: TransformOwner): TransformGroup {
         options: KeyframeAnimationOptions = { fill: "both" },
         settled?: number
     ) => {
-        const bounds = moving.flatMap((track) => track.boundaries(from, to))
+        /**
+         * A native easing needs no samples, so no keyframe boundaries.
+         */
+        const bounds = nativeEasing
+            ? []
+            : moving.flatMap((track) => track.boundaries(from, to))
         const easing = nativeEasing || getEasing(moving, from, to, bounds)
         const times = easing ? [from, to] : sample(moving, from, to, bounds)
         const transform = times.map((t) => compose(t, settled))
