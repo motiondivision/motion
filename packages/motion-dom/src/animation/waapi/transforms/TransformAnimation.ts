@@ -603,6 +603,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
     let hasChurned = false
     let lastChurn = -Infinity
     let wake: ReturnType<typeof setTimeout> | undefined
+    let wakeAt = Infinity
     /**
      * While waiting to build a tween that starts later, how long after
      * the last build to build it.
@@ -685,7 +686,8 @@ function createGroup(owner: TransformOwner): TransformGroup {
      */
     const stop = (shouldCommit = true) => {
         clearTimeout(wake)
-        wake = buildAt = undefined
+        wakeAt = Infinity
+        buildAt = undefined
         shouldCommit && commit()
         segments.forEach(({ animation }) => cancel(animation))
         segments = []
@@ -1010,15 +1012,21 @@ function createGroup(owner: TransformOwner): TransformGroup {
     }
 
     /**
-     * Check whether it's time to build in this long. Pausing and playing
-     * only make that later, so a check that's already waiting is kept,
-     * and checks again if it's early.
+     * Check whether it's time to build in this long. A check that's due
+     * sooner is kept, and checks again if it's early, so pausing and
+     * playing don't each replace a timer. One due later, after a seek or
+     * speed change while held, is replaced.
      */
     const wakeIn = (delay: number) => {
-        wake ||= setTimeout(() => {
-            wake = undefined
-            group.schedule(false)
-        }, delay)
+        const at = time.now() + delay
+        if (at < wakeAt) {
+            clearTimeout(wake)
+            wakeAt = at
+            wake = setTimeout(() => {
+                wakeAt = Infinity
+                group.schedule(false)
+            }, delay)
+        }
     }
 
     /**

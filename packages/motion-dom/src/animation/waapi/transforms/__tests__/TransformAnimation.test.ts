@@ -1413,6 +1413,54 @@ describe("independent transform acceleration", () => {
             ).toBeLessThan(20)
         })
 
+        it("build on time when seeked while paused waiting to start", async () => {
+            const element = document.createElement("div")
+
+            const animation = animateElement(
+                element,
+                { x: [0, 0, 100], y: [0, 0, 50] },
+                { duration: 1, times: [0, 0.5, 1], ease: "linear" }
+            )
+            await nextFrame()
+            animation.forEach((a) => a.pause())
+            await nextFrame()
+            animation.forEach((a) => (a.time = 0.35))
+            await nextFrame()
+            animation.forEach((a) => a.play())
+            const playedAt = performance.now()
+
+            // The tween now starts 150ms after play, so it's built well
+            // before the wait it was first built to wake after.
+            const [waapi] = await untilRunning(element, 200)
+            expect(waapi).toBeDefined()
+            expect(Math.abs(waapi.startTime! - playedAt - 150)).toBeLessThan(20)
+        })
+
+        it("build on time when sped up while paused waiting to start", async () => {
+            const element = document.createElement("div")
+
+            const animation = animateElement(
+                element,
+                { x: [0, 0, 100], y: [0, 0, 50] },
+                { duration: 1, times: [0, 0.5, 1], ease: "linear" }
+            )
+            await nextFrame()
+            animation.forEach((a) => a.pause())
+            await nextFrame()
+            animation.forEach((a) => (a.speed = 4))
+            await nextFrame()
+            const pausedAt = animation[0].time
+            animation.forEach((a) => a.play())
+            const playedAt = performance.now()
+            const startIn = (500 - pausedAt * 1000) / 4
+
+            const [waapi] = await untilRunning(element, startIn + 30)
+            expect(waapi).toBeDefined()
+            expect(
+                Math.abs(waapi.startTime! - playedAt - startIn)
+            ).toBeLessThan(20)
+        })
+
         it("stop waiting to start when stopped", async () => {
             const element = document.createElement("div")
 
