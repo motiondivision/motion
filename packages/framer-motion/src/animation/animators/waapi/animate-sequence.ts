@@ -1,19 +1,35 @@
-import { AnimationPlaybackControls, GroupAnimationWithThen } from "motion-dom"
+import { GroupAnimationWithThen } from "motion-dom"
 import { createAnimationsFromSequence } from "../../sequence/create"
 import { AnimationSequence, SequenceOptions } from "../../sequence/types"
-import { animateElements } from "./animate-elements"
+import {
+    addAnimationDefinitions,
+    AnimationDefinition,
+    startAnimationDefinitions,
+} from "./animate-elements"
 
 export function animateSequence(
     definition: AnimationSequence,
     options?: SequenceOptions
 ) {
-    const animations: AnimationPlaybackControls[] = []
+    /**
+     * Build every element's animations before starting any, so all
+     * elements' keyframes are read in one pass rather than one read
+     * after each element's write.
+     */
+    const animationDefinitions: AnimationDefinition[] = []
 
     createAnimationsFromSequence(definition, options).forEach(
         ({ keyframes, transition }, element: Element) => {
-            animations.push(...animateElements(element, keyframes, transition))
+            addAnimationDefinitions(
+                animationDefinitions,
+                element,
+                keyframes,
+                transition
+            )
         }
     )
 
-    return new GroupAnimationWithThen(animations)
+    return new GroupAnimationWithThen(
+        startAnimationDefinitions(animationDefinitions)
+    )
 }
