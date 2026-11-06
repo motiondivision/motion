@@ -1,5 +1,4 @@
 import {
-    clamp,
     easeInOut,
     easingDefinitionToFunction,
     EasingFunction,
@@ -57,33 +56,60 @@ export function keyframes<T extends AnyResolvedKeyframe>({
     }
 
     /**
-     * Fast setup path for two keyframes one easing. interpolate() handles
-     * a custom mixer, and falls back to the usual one where it declines.
+     * Two keyframes, or keyframes that hold, move once, then hold, as each
+     * value of a sequence does, ease and mix only the pair that moves.
      */
-    if (
-        !customMixer &&
-        keyframeValues.length === 2 &&
-        !Array.isArray(easingFunctions) &&
-        (!times ||
-            times.length !== 2 ||
-            (times[0] === 0 && times[1] === 1))
-    ) {
-        const [origin, target] = keyframeValues
-        const mixer =
-            origin === target
-                ? undefined
-                : (MotionGlobalConfig.mix || mix)(origin, target)
+    let span = -1
+    if (!customMixer) {
+        for (let i = 1; i < keyframeValues.length; i++) {
+            if (keyframeValues[i] !== keyframeValues[i - 1]) {
+                if (span >= 0) {
+                    span = -2
+                    break
+                }
+                span = i - 1
+            }
+        }
+    }
+
+    if (span >= 0) {
+        const offsets =
+            times && times.length === keyframeValues.length
+                ? times
+                : defaultOffset(keyframeValues)
+        const from = offsets[span] * duration
+        const to = offsets[span + 1] * duration
+        const origin = keyframeValues[span]
+        const target = keyframeValues[span + 1]
+        const ease = Array.isArray(easingFunctions)
+            ? easingFunctions[span]
+            : easingFunctions
+        const mixer = (MotionGlobalConfig.mix || mix)(origin, target)
+        const last = keyframeValues.length - 2
 
         return {
             calculatedDuration: duration,
             next: (t: number) => {
-                state.value = mixer
-                    ? mixer(
-                          easingFunctions(
-                              duration > 0 ? clamp(0, 1, t / duration) : 1
+                /**
+                 * Held keyframes either side of the move are mixed as
+                 * interpolate() mixes them, so colours keep its format.
+                 */
+                state.value =
+                    span && t < from
+                        ? mixer(0)
+                        : span < last && (t >= to || !duration)
+                        ? typeof target === "number"
+                            ? target
+                            : mixer(1)
+                        : mixer(
+                              ease(
+                                  t >= to || !duration
+                                      ? 1
+                                      : t <= from
+                                      ? 0
+                                      : (t - from) / (to - from)
+                              )
                           )
-                      )
-                    : target
                 state.done = t >= duration
                 return state
             },
