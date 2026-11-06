@@ -32,6 +32,12 @@ const percentToProgress = (percent: number) => percent / 100
 
 export const round = (value: number) => Math.round(value * 10000) / 10000
 
+/**
+ * Stop a driver updating every frame, after one more update.
+ */
+export const holdDriver = (driver: DriverControls) =>
+    driver.hold ? driver.hold() : (driver.stop(), driver.start(false))
+
 export class JSAnimation<T extends number | string>
     extends WithPromise
     implements AnimationPlaybackControlsWithThen
@@ -540,6 +546,16 @@ export class JSAnimation<T extends number | string>
         this.state = "paused"
         this.updateTime(time.now())
         this.holdTime = this.currentTime
+        this.hold()
+    }
+
+    /**
+     * A held animation doesn't move, so rather than tick every frame, it
+     * ticks once more to show where it's held. play() or a seek starts it
+     * again.
+     */
+    protected hold() {
+        this.driver && holdDriver(this.driver)
     }
 
     /**

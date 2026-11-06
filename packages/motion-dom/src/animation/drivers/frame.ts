@@ -1,4 +1,4 @@
-import { cancelFrame, frame, frameData } from "../../frameloop"
+import { frame, frameData, frameSteps } from "../../frameloop"
 import { time } from "../../frameloop/sync-time"
 import { FrameData } from "../../frameloop/types"
 import { Driver, DriverControls } from "./types"
@@ -16,22 +16,40 @@ const tick = ({ timestamp }: FrameData) => {
     isTicking = true
 
     for (const driver of running) {
-        /**
-         * Drivers started during this tick run from the next frame, as
-         * they would if each were scheduled on its own.
-         */
-        driver.isNew ? (driver.isNew = false) : driver.update(timestamp)
+        if (driver.isNew) {
+            /**
+             * Drivers started during this tick run from the next frame,
+             * as they would if each were scheduled on its own.
+             */
+            driver.isNew = false
+        } else if (!driver.isHeld) {
+            driver.update(timestamp)
+        } else if (driver.needsUpdate) {
+            driver.needsUpdate = false
+            driver.update(timestamp)
+        } else {
+            /**
+             * Held and up to date, so it leaves until it's started again.
+             */
+            running.delete(driver)
+        }
     }
 
     isTicking = false
 
-    running.size || cancelFrame(tick)
+    running.size || frameSteps.update.cancel(tick)
 }
 
 class FrameDriver implements DriverControls {
     isNew = false
 
+    isHeld = false
+
+    needsUpdate = false
+
     private once?: (frameData: FrameData) => void
+
+    private isOnceScheduled = false
 
     constructor(public update: (timestamp: number) => void) {}
 
@@ -39,25 +57,41 @@ class FrameDriver implements DriverControls {
      * Without keepAlive, as when seeking, update once on the next frame.
      */
     start(keepAlive = true) {
-        if (running.has(this)) return
-
-        if (keepAlive) {
-            this.once && cancelFrame(this.once)
-            running.size || frame.update(tick, true)
-            this.isNew = isTicking
-            running.add(this)
-        } else {
+        if (running.has(this)) {
+            keepAlive ? (this.isHeld = false) : (this.needsUpdate = true)
+        } else if (keepAlive) {
+            this.cancelOnce()
+            this.isHeld = false
+            this.add()
+        } else if (!this.isOnceScheduled) {
+            this.isOnceScheduled = true
             frame.update(
-                (this.once ||= ({ timestamp }) => this.update(timestamp))
+                (this.once ||= ({ timestamp }) => {
+                    this.isOnceScheduled = false
+                    this.update(timestamp)
+                })
             )
         }
     }
 
+    /**
+     * Stop updating every frame, after one more update. Holding and
+     * playing again in the same frame, as playback controls do, doesn't
+     * reschedule anything.
+     */
+    hold() {
+        if (running.has(this)) {
+            this.isHeld = this.needsUpdate = true
+        } else {
+            this.start(false)
+        }
+    }
+
     stop() {
-        this.once && cancelFrame(this.once)
+        this.cancelOnce()
 
         if (running.delete(this) && !running.size && !isTicking) {
-            cancelFrame(tick)
+            frameSteps.update.cancel(tick)
         }
     }
 
@@ -67,6 +101,23 @@ class FrameDriver implements DriverControls {
      */
     now() {
         return frameData.isProcessing ? frameData.timestamp : time.now()
+    }
+
+    private add() {
+        running.size || frame.update(tick, true)
+        this.isNew = isTicking
+        running.add(this)
+    }
+
+    /**
+     * The one-off update is only ever scheduled in the update step, so
+     * it's only cancelled from there.
+     */
+    private cancelOnce() {
+        if (this.isOnceScheduled) {
+            this.isOnceScheduled = false
+            frameSteps.update.cancel(this.once!)
+        }
     }
 }
 

@@ -1587,6 +1587,52 @@ describe("independent transform acceleration", () => {
         })
     })
 
+    describe("played backwards", () => {
+        it("stays on WAAPI and finishes at its start", async () => {
+            const element = document.createElement("div")
+            const [x] = animateElement(
+                element,
+                { x: [0, 100] },
+                { duration: 0.4, ease: "linear" }
+            )
+            await nextFrame()
+            await wait(150)
+
+            x.speed = -1
+            await nextFrame()
+            expect(running(element)).toHaveLength(1)
+
+            await Promise.race([x.finished, wait(1000)])
+            expect(x.state).toBe("finished")
+            expect(x.time).toBe(0)
+        })
+
+        it("holds a value waiting to start, on no thread, until it finishes", async () => {
+            const element = document.createElement("div")
+            /**
+             * Holds, then moves, as each value of a sequence does.
+             */
+            const [x] = animateElement(
+                element,
+                { x: [0, 0, 100] },
+                { duration: 1, times: [0, 0.5, 1], ease: "linear" }
+            )
+            await nextFrame()
+            await wait(30)
+
+            x.speed = -1
+            await nextFrame()
+            const style = element.style.transform
+            await nextFrame()
+            await nextFrame()
+            expect(running(element)).toHaveLength(0)
+            expect(element.style.transform).toBe(style)
+
+            await Promise.race([x.finished, wait(1000)])
+            expect(x.state).toBe("finished")
+        })
+    })
+
     describe("before keyframes resolve", () => {
         it("are one animation for each value, with no wrapper", () => {
             const element = document.createElement("div")

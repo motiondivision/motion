@@ -31,7 +31,7 @@ import {
     ResolvedKeyframes,
 } from "../../keyframes/KeyframesResolver"
 import { defaultOffset } from "../../keyframes/offsets/default"
-import { JSAnimation, round } from "../../JSAnimation"
+import { holdDriver, JSAnimation, round } from "../../JSAnimation"
 import { sampleDelta } from "../../NativeAnimationExtended"
 import {
     AnyResolvedKeyframe,
@@ -310,7 +310,7 @@ class TransformDriver implements TransformDriverControls {
         const group = getGroup(this.element)
         !group || group.isJS
             ? this.js.start(keepAlive)
-            : group.schedule(false, !keepAlive)
+            : group.schedule(false, !keepAlive && !this.animation.isRetiming)
     }
 
     stopJS() {
@@ -330,6 +330,7 @@ class TransformDriver implements TransformDriverControls {
  * tree-shakeable in flattened bundles.
  */
 let setTime: ((this: JSAnimation<any>, time: number) => void) | undefined
+let setSpeed: ((this: JSAnimation<any>, speed: number) => void) | undefined
 
 /**
  * A transform value's animation. It resolves its own keyframes, as
@@ -342,6 +343,12 @@ export class TransformAnimation<
     T extends number | string
 > extends JSAnimation<T> {
     canAccelerate = false
+
+    /**
+     * Whether a speed change is rebasing the time, which, unlike a seek,
+     * the WAAPI animation can follow by changing its playback rate.
+     */
+    isRetiming = false
 
     private createdAt: number
 
@@ -478,6 +485,10 @@ export class TransformAnimation<
 
     get name() {
         return this.options.name!
+    }
+
+    get hasDelay() {
+        return Boolean(this.options.delay)
     }
 
     /**
@@ -673,6 +684,14 @@ export class TransformAnimation<
         super.play()
     }
 
+    /**
+     * The driver's own stop() leaves the group, so only the frame loop
+     * driver of a group on the main thread is held.
+     */
+    protected hold() {
+        this.group?.isJS && holdDriver(this.js!)
+    }
+
     pause() {
         this.flush()
         super.pause()
@@ -721,6 +740,19 @@ export class TransformAnimation<
             JSAnimation.prototype,
             "time"
         )!.set!).call(this, newTime)
+    }
+
+    get speed() {
+        return super.speed
+    }
+
+    set speed(newSpeed: number) {
+        this.isRetiming = true
+        ;(setSpeed ??= Object.getOwnPropertyDescriptor(
+            JSAnimation.prototype,
+            "speed"
+        )!.set!).call(this, newSpeed)
+        this.isRetiming = false
     }
 
     /**
@@ -1438,6 +1470,24 @@ function createGroup(owner: TransformOwner): TransformGroup {
         if (!segments.length) {
             if (buildAt === undefined || (isSeek && rate)) return false
 
+            /**
+             * Played backwards, it never reaches the tween, so it holds
+             * where it starts until it finishes there.
+             */
+            if (rate < 0) {
+                let soonest = Infinity
+                for (const track of tracks) {
+                    /**
+                     * A JS animation played backwards mirrors its delay,
+                     * so one with a delay is left to rebuild.
+                     */
+                    if (track.hasDelay) return false
+                    soonest = Math.min(soonest, track.at(now) / -track.speed)
+                }
+                wakeIn(Math.max(1, soonest))
+                return true
+            }
+
             if (rate) {
                 const delay = (buildAt - elapsed) / rate
                 if (delay < 1) return false
@@ -1527,22 +1577,28 @@ function createGroup(owner: TransformOwner): TransformGroup {
             tracks.forEach((track) => {
                 const [trackEnd, trackCycle] = track.timing()
 
-                if (
-                    track.state === "running" &&
-                    track.speed > 0 &&
-                    !trackCycle &&
-                    trackEnd <= now + 1
-                ) {
-                    track.complete()
+                if (track.state !== "running") return
 
+                const { speed } = track
+
+                if (speed > 0 && !trackCycle && trackEnd <= now + 1) {
+                    track.complete()
+                } else if (speed < 0 && track.at(now) <= 1) {
                     /**
-                     * From now it's checked for outside writes like any
-                     * other static transform. If the WAAPI animation never
-                     * rendered it (it was instant), rebuild with its value.
+                     * Played backwards, it finishes at its start.
                      */
-                    statics[track.name] = read(owner, track.name)
-                    built.has(track) || (needsBuild = true)
+                    track.tick(now - track.at(now) / speed)
+                } else {
+                    return
                 }
+
+                /**
+                 * From now it's checked for outside writes like any other
+                 * static transform. If the WAAPI animation never rendered
+                 * it (it was instant), rebuild with its value.
+                 */
+                statics[track.name] = read(owner, track.name)
+                built.has(track) || (needsBuild = true)
             })
             group.isFinishing = false
         }

@@ -1125,6 +1125,32 @@ describe("JSAnimation", () => {
         expect(output).toEqual([0, 20, 20, 20, 20, 20, 70, 90])
     })
 
+    test("Doesn't tick while paused", async () => {
+        const onUpdate = jest.fn()
+        const animation = new JSAnimation({
+            keyframes: [0, 100],
+            duration: 1000,
+            ease: linear,
+            onUpdate,
+        })
+        await nextFrame()
+        await nextFrame()
+
+        animation.pause()
+        const calls = onUpdate.mock.calls.length
+        await nextFrame()
+        await nextFrame()
+        await nextFrame()
+
+        expect(onUpdate.mock.calls.length).toBeLessThanOrEqual(calls + 1)
+
+        animation.play()
+        await nextFrame()
+        await nextFrame()
+        expect(onUpdate.mock.calls.length).toBeGreaterThan(calls + 1)
+        animation.stop()
+    })
+
     test("Correctly sets time during pause", async () => {
         const driver = syncDriver(20)
         const output: number[] = []

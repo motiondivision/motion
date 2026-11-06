@@ -11,6 +11,11 @@ export interface DriverControls {
     start: (keepAlive?: boolean) => void
     stop: () => void
     now: () => number
+    /**
+     * Stop updating every frame, after one more update, until started
+     * again. Without it, a driver is stopped and updated once.
+     */
+    hold?: () => void
 }
 
 export type Driver = (update: Update) => DriverControls
