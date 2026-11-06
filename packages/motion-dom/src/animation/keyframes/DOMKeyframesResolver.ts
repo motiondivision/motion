@@ -6,7 +6,12 @@ import {
     containsCSSVariable,
     isCSSVariableToken,
 } from "../utils/is-css-variable"
-import { KeyframeResolver } from "./KeyframesResolver"
+import type { MotionValue } from "../../value"
+import {
+    KeyframeResolver,
+    OnKeyframesResolved,
+    UnresolvedKeyframes,
+} from "./KeyframesResolver"
 import { WithRender } from "./types"
 import { isNone } from "./utils/is-none"
 import { makeNoneKeyframesAnimatable } from "./utils/make-none-animatable"
@@ -20,7 +25,21 @@ export class DOMKeyframesResolver<
 
     private measuredOrigin?: AnyResolvedKeyframe
 
-    protected isAsync = true
+    /**
+     * Passes isAsync to the base constructor rather than setting it as a
+     * class field, which would compile to a constructor that spreads
+     * `arguments` into super(). That spread is slow in the interpreter,
+     * and animate() constructs one resolver per value.
+     */
+    constructor(
+        unresolvedKeyframes: UnresolvedKeyframes<AnyResolvedKeyframe>,
+        onComplete: OnKeyframesResolved<T>,
+        name?: string,
+        motionValue?: MotionValue<T>,
+        element?: WithRender
+    ) {
+        super(unresolvedKeyframes, onComplete, name, motionValue, element, true)
+    }
 
     /**
      * Keyframes that don't need reading from the DOM, or measuring,
