@@ -100,6 +100,11 @@ export function cubicBezier(
 
                 t -= newtonStep(t, x, mX1, mX2)
             }
+
+            // The last Newton step isn't checked against the bracket, so
+            // keep t inside [0, 1] if every iteration ran.
+            if (!(t >= 0)) t = 0
+            else if (t > 1) t = 1
         }
 
         return calcBezier(t, mY1, mY2)
