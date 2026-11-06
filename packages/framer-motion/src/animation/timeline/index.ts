@@ -85,10 +85,8 @@ interface Queue {
     now: number
     /**
      * The last seek, and the combined result of the calls before it.
-     * `seeked` is set if an earlier seek was combined.
      */
     time?: number
-    seeked?: boolean
     paused?: boolean
     playing?: boolean
     speed?: number
@@ -534,7 +532,6 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
                         queue.paused ||= !queue.playing
                     }
                 }
-                queue.seeked = queue.time !== undefined
                 queue.time = value
                 queue.calls = []
             } else {
@@ -542,7 +539,15 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
                 calls.length > 8 && this.applyQueue()
             }
             return
-        } else {
+        } else if (group.animations.every(({ state }) => state === "running")) {
+            /**
+             * Only queue while every animation is running. One that has
+             * finished, or was paused after finishing, has side effects
+             * the combined calls would skip: playing it restarts it and
+             * gives it a driver, and seeking it renders it at once.
+             * Running animations stay running or paused, with the same
+             * driver, whatever these calls do to them in this task.
+             */
             this.queue = { now: time.now(), calls: [] }
             queueMicrotask(() => this.applyQueue())
         }
@@ -561,18 +566,29 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
 
         time.set(queue.now)
         const { time: seekTo, speed } = queue
+        const calls: Calls = []
         if (seekTo !== undefined) {
-            /**
-             * An earlier seek ended any finished state before the calls
-             * that followed it, so seek before replaying their result.
-             */
-            queue.seeked && (group.time = seekTo)
-            queue.paused && group.pause()
-            speed !== undefined && (group.speed = speed)
-            queue.playing && group.play()
-            group.time = seekTo
+            queue.paused && calls.push(["pause", 0])
+            speed !== undefined && calls.push(["speed", speed])
+            queue.playing && calls.push(["play", 0])
+            calls.push(["seek", seekTo])
         }
-        for (const [call, value] of queue.calls) apply(group, call, value)
+        calls.push(...queue.calls)
+
+        /**
+         * If a call throws, as it would have where it was made, still
+         * make the rest, then throw the first error.
+         */
+        let error: unknown
+        let hasError = false
+        for (const [call, value] of calls) {
+            try {
+                apply(group, call, value)
+            } catch (e) {
+                hasError || ((hasError = true), (error = e))
+            }
+        }
+        if (hasError) throw error
     }
 
     private push(entry: Entry) {

@@ -7,7 +7,7 @@
 ;(window as any).requestAnimationFrame = jest.fn(() => 0)
 
 const { MotionGlobalConfig } = require("motion-utils")
-const { motionValue, processFrame } = require("motion-dom")
+const { animateSingleValue, motionValue, processFrame } = require("motion-dom")
 const { Timeline } = require("..")
 
 const linear = { defaultTransition: { ease: "linear" as const } }
@@ -26,15 +26,39 @@ afterEach(() => {
 
 /**
  * A sequence of three values, so the playhead can sit in, before or
- * after each of them.
+ * after each of them. Or, mixed, animations of different durations, as
+ * animate() makes for values with their own transitions, so one can
+ * finish while the others run.
  */
-function create() {
+function create(isMixed = false) {
     const values = [motionValue(0), motionValue(0), motionValue(0)]
-    const tl = new Timeline(
-        values.map((v, i) => [v, 100, { duration: 1, at: i * 0.5 }]),
-        linear
-    )
+    const tl = isMixed
+        ? new Timeline(
+              [],
+              {},
+              values.map((v, i) =>
+                  animateSingleValue(v, [0, 100], {
+                      duration: [0.2, 2, 0.6][i],
+                      ease: "linear",
+                  })
+              )
+          )
+        : new Timeline(
+              values.map((v, i) => [v, 100, { duration: 1, at: i * 0.5 }]),
+              linear
+          )
     return { tl, values }
+}
+
+/**
+ * Run frames up to `ms` after the start.
+ */
+async function advance(ms: number) {
+    await Promise.resolve()
+    processFrame(start + 16)
+    processFrame(start + ms)
+    await Promise.resolve()
+    await Promise.resolve()
 }
 
 type Call = ["pause"] | ["play"] | ["reverse"] | ["time" | "speed", number]
@@ -75,11 +99,14 @@ const read = (tl: any) => ({
     state: tl.state,
 })
 
-async function settle(tl: any, values: any[]) {
+async function settle(tl: any, values: any[], from = 0) {
     await Promise.resolve()
-    processFrame(start + 16)
-    processFrame(start + 250)
-    return { ...read(tl), values: values.map((v) => v.get()) }
+    processFrame(start + from + 16)
+    processFrame(start + from + 250)
+    return {
+        ...read(tl),
+        values: values.map((v) => Math.round(v.get() * 100) / 100),
+    }
 }
 
 describe("timeline playback calls", () => {
@@ -119,27 +146,93 @@ describe("timeline playback calls", () => {
         expect(tl.state).toBe("paused")
     })
 
-    test("end where the same calls made one at a time do", async () => {
-        for (let seed = 1; seed <= 40; seed++) {
-            const calls = randomCalls(seed, 30)
+    /**
+     * Before the calls, frames run for `from` ms, so some animations can
+     * have finished, and `setup` is called in an earlier task.
+     */
+    test.each([
+        ["a sequence", false, 0, undefined],
+        ["a finished sequence", false, 3000, undefined],
+        ["mixed durations, one finished", true, 1000, undefined],
+        ["mixed durations, paused after one finished", true, 1000, "pause"],
+        ["mixed durations, reversed after one finished", true, 1000, "reverse"],
+    ])(
+        "%s: calls end where the same calls made one at a time do",
+        async (_, isMixed, from, setup) => {
+            for (let seed = 1; seed <= 300; seed++) {
+                const calls = randomCalls(seed, 12)
+                const queued = create(isMixed)
+                const expected = create(isMixed)
+                await advance(from)
+                if (setup) {
+                    queued.tl[setup]()
+                    expected.tl[setup]()
+                    await Promise.resolve()
+                }
 
-            const queued = create()
-            await Promise.resolve()
-            calls.forEach((c) => call(queued.tl, c))
-            const expected = create()
-            await Promise.resolve()
-            for (const c of calls) {
-                call(expected.tl, c)
-                await Promise.resolve()
+                calls.forEach((c) => call(queued.tl, c))
+                for (const c of calls) {
+                    call(expected.tl, c)
+                    await Promise.resolve()
+                }
+
+                expect(read(queued.tl)).toEqual(read(expected.tl))
+                expect(await settle(queued.tl, queued.values, from)).toEqual(
+                    await settle(expected.tl, expected.values, from)
+                )
+                queued.tl.stop()
+                expected.tl.stop()
             }
-
-            expect(read(queued.tl)).toEqual(read(expected.tl))
-            expect(await settle(queued.tl, queued.values)).toEqual(
-                await settle(expected.tl, expected.values)
-            )
-            queued.tl.stop()
-            expected.tl.stop()
         }
+    )
+
+    test.each([
+        ["reverse, pause", (tl: any) => (tl.reverse(), tl.pause())],
+        [
+            "pause, reverse, pause",
+            (tl: any) => (tl.pause(), tl.reverse(), tl.pause()),
+        ],
+    ])(
+        "%s, seek and speed up an animation that finished before the others",
+        async (_, before) => {
+            const { tl, values } = create(true)
+            await advance(1000)
+            expect(values[0].get()).toBe(100)
+
+            before(tl)
+            tl.time = 0.5
+            tl.speed = 1
+            await advance(1100)
+
+            expect(values[0].get()).toBe(100)
+            expect(values[1].get()).toBeCloseTo(25)
+        }
+    )
+
+    test("seeking a finished timeline sets its values straight away", async () => {
+        const v = motionValue(0)
+        const tl = new Timeline([[v, 100, { duration: 0.1 }]], linear)
+        await advance(200)
+        expect(v.get()).toBe(100)
+
+        tl.pause()
+        tl.time = 0.05
+        expect(v.get()).toBe(50)
+    })
+
+    test("a call that throws doesn't stop the calls after it", async () => {
+        const { tl } = create()
+        await Promise.resolve()
+        const error = new Error("play")
+        jest.spyOn(tl.group, "play").mockImplementationOnce(() => {
+            throw error
+        })
+
+        tl.pause()
+        tl.play()
+        tl.speed = 2
+        expect(() => tl.state).toThrow(error)
+        expect(tl.group.animations[0].speed).toBe(2)
     })
 
     test("play a finished timeline again after queued calls", async () => {
