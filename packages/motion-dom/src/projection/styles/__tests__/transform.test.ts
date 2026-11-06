@@ -146,4 +146,15 @@ describe("buildProjectionTransform", () => {
             "translate3d(50px, 0px, 0px) "
         )
     })
+
+    test("Keeps a scale inside a scaled tree when the delta is the identity", () => {
+        const delta = {
+            x: { translate: 0, scale: 1, origin: 0.5, originPoint: 0 },
+            y: { translate: 0, scale: 1, origin: 0.5, originPoint: 0 },
+        }
+        expect(buildProjectionTransform(delta, { x: 0.25, y: 0.5 })).toBe(
+            "scale(1, 1)"
+        )
+        expect(buildProjectionTransform(delta, { x: 1, y: 1 })).toBe("none")
+    })
 })

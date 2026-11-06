@@ -589,6 +589,11 @@ export function createProjectionNode<I>({
 
             this.instance = instance
 
+            /**
+             * A new element hasn't had any projection styles written to it.
+             */
+            this.projectedStyles = {}
+
             const { layoutId, layout, visualElement } = this.options
             if (visualElement && !visualElement.current) {
                 visualElement.mount(instance)

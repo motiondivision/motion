@@ -66,6 +66,14 @@ export function buildProjectionTransform(
          * the browser to parse, which matters when it's set every frame.
          */
         transform += `scale(${delta.x.scale}, ${delta.y.scale})`
+    } else if (!transform && (treeScale.x !== 1 || treeScale.y !== 1)) {
+        /**
+         * Inside a scaled tree the transform must never be "none", even when
+         * this element's own delta is the identity: scale correction for
+         * borderRadius and boxShadow is skipped for "none", and the element
+         * would gain and lose its stacking context as the delta snaps.
+         */
+        transform = "scale(1, 1)"
     }
 
     return transform || "none"
