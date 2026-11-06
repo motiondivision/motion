@@ -1042,7 +1042,13 @@ describe("WAAPI animations", () => {
             await waitFor(() =>
                 expect(completed).toEqual(["visible", "hidden"])
             )
-            expect(ref.current!.style.visibility).toBe("hidden")
+            /**
+             * transitionEnd is set on the frame after the animations
+             * finish, which can come after onAnimationComplete.
+             */
+            await waitFor(() =>
+                expect(ref.current!.style.visibility).toBe("hidden")
+            )
             expect(ref.current!.style.transform).toBe("scale(0.5)")
 
             act(() => setVisible(true))
