@@ -1,13 +1,11 @@
 import { expect, test } from "@playwright/test"
 
 /**
- * Springs defined by duration or visualDuration inherit the velocity of the
+ * Springs defined by visualDuration inherit the velocity of the
  * animation they interrupt, as physics springs do.
  */
 const transitions = [
     { type: "spring", stiffness: 200, damping: 20 },
-    { type: "spring", duration: 0.8, bounce: 0.2 },
-    { type: "spring", duration: 0.8, bounce: 0 },
     { type: "spring", visualDuration: 0.5, bounce: 0.2 },
     { type: "spring", visualDuration: 0.5, bounce: 0 },
 ]

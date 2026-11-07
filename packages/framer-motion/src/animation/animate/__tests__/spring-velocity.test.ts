@@ -14,8 +14,6 @@ async function frames(count: number) {
 describe("Interrupted springs inherit velocity", () => {
     test.each([
         { stiffness: 200, damping: 20 },
-        { duration: 0.8, bounce: 0.2 },
-        { duration: 0.8, bounce: 0 },
         { visualDuration: 0.5, bounce: 0.2 },
         { visualDuration: 0.5, bounce: 0 },
         { visualDuration: 0.5, bounce: -0.5 },
@@ -43,5 +41,18 @@ describe("Interrupted springs inherit velocity", () => {
 
         await animation
         expect(x.get()).toBe(0)
+    })
+
+    test("duration springs start from rest to keep their duration", async () => {
+        const transition = { type: "spring" as const, duration: 0.8 }
+        const x = motionValue(0)
+
+        animate(x, 1000, transition)
+        await frames(6)
+        const before = x.get()
+
+        animate(x, 0, transition)
+        await frames(1)
+        expect(x.get()).toBeLessThan(before)
     })
 })

@@ -214,13 +214,10 @@ describe("spring", () => {
     })
 
     describe.each([
-        { duration: 1000, bounce: 0.2 },
-        { duration: 1000, bounce: 0 },
-        { duration: 1000, bounce: -0.5 },
         { visualDuration: 0.5, bounce: 0.2 },
         { visualDuration: 0.5, bounce: 0 },
         { visualDuration: 0.5, bounce: -0.5 },
-    ])("Time-defined spring %o", (options) => {
+    ])("visualDuration spring %o", (options) => {
         test("starts with the inherited velocity", () => {
             const generator = spring({
                 ...options,
@@ -258,11 +255,6 @@ describe("spring", () => {
         })
 
         test("settles at its target with inherited velocity", () => {
-            /**
-             * Velocity can leave a spring still moving at its duration,
-             * so it must finish when it comes to rest rather than jump
-             * to the target.
-             */
             const generator = spring({
                 ...options,
                 keyframes: [0, 100],
@@ -276,11 +268,61 @@ describe("spring", () => {
         })
     })
 
-    test("Duration spring without velocity keeps its exact duration", () => {
+    test("Duration spring ignores velocity", () => {
+        const settings = {
+            keyframes: [500, 10],
+            bounce: 0.2,
+            duration: 1000,
+        }
+        const withVelocity = spring({ ...settings, velocity: 1000 })
+        const withoutVelocity = spring(settings)
+
+        // Duration springs start from rest so they end at their duration
+        expect(withVelocity.next(0).value).toBe(withoutVelocity.next(0).value)
+        expect(withVelocity.next(100).value).toBe(
+            withoutVelocity.next(100).value
+        )
+    })
+
+    test("Duration spring with velocity does not wildly oscillate", () => {
+        /**
+         * Duration springs (duration/bounce) must ignore inherited
+         * velocity. When an animation is interrupted, the motionValue
+         * carries velocity from the in-progress animation. If this leaks
+         * into findSpring(), it changes the computed spring parameters
+         * and causes massive oscillation on small-range animations.
+         */
+        const settings = {
+            keyframes: [0, 100],
+            bounce: 0.2,
+            duration: 400,
+        }
+
+        const noVelocity = spring(settings)
+        const withVelocity = spring({ ...settings, velocity: 5000 })
+
+        let maxNoVelocity = 0
+        let maxWithVelocity = 0
+
+        for (let t = 0; t <= 400; t += 5) {
+            const noVel = noVelocity.next(t).value
+            const withVel = withVelocity.next(t).value
+
+            if (noVel > maxNoVelocity) maxNoVelocity = noVel
+            if (withVel > maxWithVelocity) maxWithVelocity = withVel
+        }
+
+        // Both should have identical mild overshoot (velocity is ignored)
+        expect(maxNoVelocity - 100).toBeLessThan(5)
+        expect(maxWithVelocity - 100).toBeLessThan(5)
+    })
+
+    test("Duration spring keeps its exact duration with velocity", () => {
         const generator = spring({
             keyframes: [0, 100],
             duration: 800,
             bounce: 0.3,
+            velocity: 2000,
         })
         expect(generator.calculatedDuration).toBe(800)
         expect(generator.next(799).done).toBe(false)
