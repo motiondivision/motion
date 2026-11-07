@@ -65,18 +65,33 @@ export interface ClipRef {
 }
 
 /**
- * Value transitions differ between subjects only by a stagger's delay,
- * so a plan is reused for a transition with the same options otherwise.
+ * Value transitions differ between subjects by a stagger's delay, or a
+ * sequence's times, so a plan is reused for a transition with the same
+ * options otherwise.
  */
 function isSameTransition(a: any, b: any) {
     if (a === b) return true
     let n = 0
     for (const key in a) {
-        if (key !== "delay" && a[key] !== b[key]) return false
+        if (key !== "delay" && key !== "times" && !isSame(a[key], b[key])) {
+            return false
+        }
         n++
     }
     for (const _ in b) n--
     return n === 0
+}
+
+/**
+ * Sequences make new easing arrays for each value.
+ */
+function isSame(a: any, b: any) {
+    if (a === b) return true
+    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) {
+        return false
+    }
+    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false
+    return true
 }
 
 function makePlan(
@@ -92,9 +107,7 @@ function makePlan(
         element,
         hasOnUpdate: !!transition.onUpdate,
     }
-    delete base.onUpdate
-    delete base.onComplete
-    delete base.velocity
+    base.onUpdate = base.onComplete = base.velocity = undefined
 
     /**
      * Without a transition for this value, it's given one for its kind.
@@ -123,15 +136,11 @@ function makePlan(
     base.allowFlatten = !transition.type && !transition.ease
     fillAnimationDefaults(base)
 
-    const { onPlay, onStop, onCancel, ease } = base
+    const { onPlay, onStop, onCancel } = base
 
     return {
         transition,
         base,
-        ease:
-            typeof ease === "function" || isEasingArray(ease)
-                ? ease
-                : easingDefinitionToFunction(ease),
         isInstant,
         isSkipped,
         isLong: keyframes.length > 2,
@@ -146,6 +155,20 @@ function makePlan(
             !onCancel &&
             !(element && acceleratedValues.has(name) && supportsWaapi()),
     }
+}
+
+/**
+ * The plan's easing as a function, made once for its values on the clip.
+ */
+function clipEase(plan: ClipPlan) {
+    if (!("ease" in plan)) {
+        const { ease } = plan.base
+        plan.ease =
+            typeof ease === "function" || isEasingArray(ease)
+                ? ease
+                : easingDefinitionToFunction(ease as any)
+    }
+    return plan.ease
 }
 
 function getPlan(
@@ -335,6 +358,7 @@ export const startValue =
             return createAnimation({
                 ...base,
                 keyframes,
+                times: valueTransition.times,
                 delay,
                 velocity,
                 motionValue: value,
@@ -355,8 +379,9 @@ export const startValue =
         const track = clip.add(
             {
                 ...base,
-                ease: plan.ease as any,
+                ease: clipEase(plan) as any,
                 keyframes,
+                times: valueTransition.times,
                 delay,
                 velocity,
                 motionValue: value,
