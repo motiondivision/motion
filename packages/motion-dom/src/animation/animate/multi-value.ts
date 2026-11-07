@@ -378,7 +378,8 @@ export const startValue =
         value: MotionValue<V>,
         target: any,
         transition: any,
-        element?: AnimationElement
+        element?: AnimationElement,
+        repaints?: boolean
     ): StartAnimation =>
     (onComplete) => {
         const valueTransition = getValueTransition(transition, name) || {}
@@ -456,7 +457,15 @@ export const startValue =
                 },
             }
 
-            if (isTransform) return new TransformAnimation(options)
+            if (isTransform) {
+                /**
+                 * Its element repaints every frame for another value of
+                 * this call, so, as with onUpdate, the transforms stay on
+                 * the main thread.
+                 */
+                if (repaints) options.hasOnUpdate = true
+                return new TransformAnimation(options)
+            }
 
             applyResolvedKeyframes(
                 options,

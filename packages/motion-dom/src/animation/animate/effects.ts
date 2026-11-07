@@ -2,6 +2,8 @@ import { invariant, removeItem } from "motion-utils"
 import { AnimateEffect } from "../../effects/utils/create-effect"
 import { frame } from "../../frameloop"
 import { positionalKeys } from "../../render/utils/keys-position"
+import { transformProps } from "../../render/utils/keys-transform"
+import { acceleratedValues } from "../waapi/utils/accelerated-values"
 import { MotionValue, motionValue } from "../../value"
 import { MultiValueRef, startValue } from "./multi-value"
 export type { MultiValueRef }
@@ -89,6 +91,23 @@ export function animateValues(
         path.animateValues(getValue, keyframes, transition, 0, animations)
     }
 
+    /**
+     * A style animating on the main thread repaints an element every
+     * frame, so a compositor layer for its transforms would only add work
+     * and they animate there too.
+     */
+    let repaints = false
+    if (element?.current instanceof HTMLElement) {
+        for (const key in keyframes) {
+            repaints ||= !(
+                transformProps.has(key) ||
+                acceleratedValues.has(key) ||
+                key.startsWith("origin") ||
+                key.startsWith("transition")
+            )
+        }
+    }
+
     for (const key in keyframes) {
         if (key === "transition" || key === "transitionEnd") continue
 
@@ -123,7 +142,8 @@ export function animateValues(
                 reduceMotion && positionalKeys.has(key)
                     ? { type: false }
                     : transition,
-                element
+                element,
+                repaints
             )
         )
 

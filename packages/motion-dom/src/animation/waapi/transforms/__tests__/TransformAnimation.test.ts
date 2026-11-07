@@ -1733,6 +1733,38 @@ describe("independent transform acceleration", () => {
             )
         })
 
+        it("never build a compositor transform when the same call repaints", async () => {
+            const element = document.createElement("div")
+
+            animateElement(
+                element,
+                { x: [0, 100], opacity: [0, 1], borderRadius: ["0px", "10px"] },
+                { duration: 1 }
+            )
+            await wait(150)
+            await nextFrame()
+
+            /**
+             * Building it only to tear it down on the first paint costs
+             * a frame for each element at startup.
+             */
+            expect(
+                created(element).filter(({ keyframes }) => keyframes?.transform)
+            ).toHaveLength(0)
+        })
+
+        it("stay on the compositor with other composited values", async () => {
+            const element = document.createElement("div")
+
+            animateElement(
+                element,
+                { x: [0, 100], opacity: [0, 1] },
+                { duration: 1 }
+            )
+
+            expect(await untilRunning(element, 500)).not.toHaveLength(0)
+        })
+
         it("stay on the compositor after a single write of another style", async () => {
             const element = document.createElement("div")
             const color = motionValue("#f00")
