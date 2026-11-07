@@ -1,4 +1,5 @@
 import { frame } from "../frameloop/frame"
+import { frameData } from "../frameloop/frame-data"
 import { Schedule } from "../frameloop/types"
 import { MotionValue } from "../value"
 
@@ -74,7 +75,16 @@ export class MotionValueState {
      */
     private batch: Batch
 
-    constructor(private step: Schedule = frame.render) {
+    /**
+     * @param isSync - During a frame, write each change as it's made
+     * rather than in `step`, for subjects a write can't make the browser
+     * lay out, like plain objects and 3D scenes. Outside a frame, changes
+     * still wait for `step`.
+     */
+    constructor(
+        private step: Schedule = frame.render,
+        private isSync?: boolean
+    ) {
         this.batch = getBatch(step)
     }
 
@@ -111,7 +121,11 @@ export class MotionValueState {
          * can't share its computed value's subscriber.
          */
         if (!onChange || isBound) {
-            onChange = () => render && this.schedule(render)
+            onChange = () =>
+                render &&
+                (this.isSync && frameData.isProcessing
+                    ? render()
+                    : this.schedule(render))
         }
 
         /**

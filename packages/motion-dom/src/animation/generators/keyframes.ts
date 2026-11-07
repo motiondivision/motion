@@ -89,6 +89,19 @@ export function keyframes<T extends AnyResolvedKeyframe>({
 
         return {
             calculatedDuration: duration,
+            lane:
+                typeof origin === "number" &&
+                typeof target === "number" &&
+                !MotionGlobalConfig.mix &&
+                to > from
+                    ? {
+                          from: origin,
+                          delta: target - origin,
+                          ease,
+                          start: from,
+                          end: to,
+                      }
+                    : undefined,
             next: (t: number) => {
                 /**
                  * Held keyframes either side of the move are mixed as

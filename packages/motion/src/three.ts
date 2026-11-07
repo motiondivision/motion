@@ -30,8 +30,9 @@ type ThreeObject = Record<string, any>
  * threeEffect(uniforms, { progress })
  * ```
  *
- * Writes happen once per frame in `frame.preRender`, ahead of render loops
- * scheduled with `frame.render`.
+ * Changes made during a frame, as animations make them, are written
+ * straight away. Others are written in `frame.preRender`. Either way the
+ * scene is up to date ahead of render loops scheduled with `frame.render`.
  */
 export const threeEffect = createEffect<ThreeObject>(
     (subject, state: MotionValueState, key, value) =>
@@ -40,6 +41,7 @@ export const threeEffect = createEffect<ThreeObject>(
         test: isThreeSubject,
         read: getObjectValue,
         step: frame.preRender,
+        sync: true,
     }
 )
 

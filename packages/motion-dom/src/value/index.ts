@@ -413,16 +413,22 @@ export class MotionValue<V = any> {
          * than the previous frame, then the we set the previous frame value
          * to current.
          */
+        const prev = (this.prev = this.current)
+
         if (this.updatedAt !== currentTime) {
-            this.setPrevFrameValue()
+            this.prevFrameValue = prev
+            this.prevUpdatedAt = this.updatedAt
         }
 
-        this.prev = this.current
+        this.current = v
+        this.updatedAt = currentTime
 
-        this.setCurrent(v)
+        if (this.canTrackVelocity === null && v !== undefined) {
+            this.canTrackVelocity = isFloat(v)
+        }
 
         // Update update subscribers
-        if (this.current !== this.prev) {
+        if (v !== prev) {
             this.dirty()
 
             if (this.dependents) {

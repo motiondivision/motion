@@ -20,6 +20,7 @@ import {
     AnimationState,
     GeneratorFactory,
     KeyframeGenerator,
+    Lane,
     TimelineWithFallback,
     ValueAnimationOptions,
 } from "./types"
@@ -99,6 +100,12 @@ export class JSAnimation<T extends number | string>
      * allocating a new object every frame.
      */
     private delayState?: AnimationState<T>
+
+    /**
+     * The generator's two-number blend, when nothing else (repeats or a
+     * keyframe mixer) changes its output.
+     */
+    private lane?: Lane
 
     /**
      * @param isDeferred - Don't start until begin() is called, for a
@@ -202,6 +209,7 @@ export class JSAnimation<T extends number | string>
         this.resolvedDuration = calculatedDuration + repeatDelay
         this.totalDuration = this.resolvedDuration * (repeat + 1) - repeatDelay
         this.generator = generator
+        this.lane = repeat || this.mixKeyframes ? undefined : generator.lane
     }
 
     updateTime(timestamp: number) {
@@ -211,6 +219,42 @@ export class JSAnimation<T extends number | string>
         this.currentTime =
             this.holdTime ??
             Math.round(timestamp - this.startTime!) * this.playbackSpeed
+    }
+
+    /**
+     * The frame loop's update. While running at normal speed between the
+     * lane's two times, the value is the lane's blend and nothing else
+     * changes, so it's written without the rest of tick().
+     */
+    step(timestamp: number) {
+        const { lane, startTime } = this
+
+        if (
+            lane &&
+            startTime !== null &&
+            startTime <= timestamp &&
+            startTime !== this.pendingStartTime &&
+            this.state === "running" &&
+            this.holdTime === null &&
+            this.playbackSpeed === 1
+        ) {
+            const t =
+                Math.round(timestamp - startTime) - (this.options.delay || 0)
+
+            if (t > lane.start && t < lane.end) {
+                this.currentTime = t
+                const { onUpdate } = this.options
+                onUpdate &&
+                    onUpdate((lane.from +
+                        lane.delta *
+                            lane.ease(
+                                (t - lane.start) / (lane.end - lane.start)
+                            )) as T)
+                return
+            }
+        }
+
+        this.tick(timestamp)
     }
 
     tick(timestamp: number, sample = false) {
@@ -518,7 +562,7 @@ export class JSAnimation<T extends number | string>
         const { driver = frameloopDriver, startTime } = this.options
 
         if (!this.driver) {
-            this.driver = driver((timestamp) => this.tick(timestamp))
+            this.driver = driver((timestamp) => this.step(timestamp))
         }
 
         this.options.onPlay?.()
