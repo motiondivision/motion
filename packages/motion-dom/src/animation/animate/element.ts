@@ -10,6 +10,7 @@ import { DOMKeyframesResolver } from "../keyframes/DOMKeyframesResolver"
 import { AnimationElement } from "../keyframes/types"
 import { AnimationPlaybackControlsWithThen } from "../types"
 import {
+    ClipRef,
     animateEffectSubject,
     animateValues,
     EffectKeyframes,
@@ -71,7 +72,8 @@ export function animateElement(
     element: StyleSubject,
     keyframes: EffectKeyframes,
     transition?: EffectTransition,
-    visualElement?: VisualElement
+    visualElement?: VisualElement,
+    clipRef?: ClipRef
 ): AnimationPlaybackControlsWithThen[] {
     activeScope.current?.track(element)
 
@@ -80,7 +82,8 @@ export function animateElement(
             (key) => visualElement.getValue(key, null),
             keyframes,
             transition,
-            visualElement
+            visualElement,
+            clipRef
         )
     }
 
@@ -91,7 +94,8 @@ export function animateElement(
         element,
         keyframes,
         transition,
-        new EffectSubject(effect, element)
+        new EffectSubject(effect, element),
+        clipRef
     )
 }
 

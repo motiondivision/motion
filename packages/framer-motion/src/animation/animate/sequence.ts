@@ -1,6 +1,7 @@
 import {
     AnimationPlaybackControlsWithThen,
     AnimationScope,
+    ClipRef,
     motionValue,
     spring,
 } from "motion-dom"
@@ -58,14 +59,25 @@ export function animateSequence(
         options?.reduceMotion ??
         (options?.defaultTransition as SequenceOptions)?.reduceMotion
 
+    /**
+     * The whole sequence plays on one clip.
+     */
+    const ref: ClipRef = {}
     animationDefinitions.forEach(({ keyframes, transition }, subject) => {
         animations.push(
-            ...animateSubject(subject, keyframes, {
-                ...transition,
-                reduceMotion,
-            })
+            ...animateSubject(
+                subject,
+                keyframes,
+                {
+                    ...transition,
+                    reduceMotion,
+                },
+                undefined,
+                ref
+            )
         )
     })
+    ref.clip?.start()
 
     return animations
 }

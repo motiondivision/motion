@@ -5,10 +5,7 @@ import type {
     UnresolvedValueKeyframe,
     ValueAnimationTransition,
 } from "../types"
-import {
-    motionValue as createMotionValue,
-    MotionValue,
-} from "../../value"
+import { motionValue as createMotionValue, MotionValue } from "../../value"
 import { isMotionValue } from "../../value/utils/is-motion-value"
 
 export function animateSingleValue<V extends AnyResolvedKeyframe>(

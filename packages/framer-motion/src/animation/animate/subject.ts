@@ -1,4 +1,5 @@
 import {
+    ClipRef,
     animateEffectSubject,
     animateElement,
     AnimationPlaybackControlsWithThen,
@@ -59,7 +60,8 @@ export function animateSubject(
     element: ElementOrSelector,
     keyframes: DOMKeyframesDefinition,
     options?: DynamicAnimationOptions,
-    scope?: AnimationScope
+    scope?: AnimationScope,
+    clipRef?: ClipRef
 ): AnimationPlaybackControlsWithThen[]
 /**
  * Animate a object
@@ -67,7 +69,9 @@ export function animateSubject(
 export function animateSubject<O extends Object>(
     object: O | O[],
     keyframes: ObjectTarget<O>,
-    options?: DynamicAnimationOptions
+    options?: DynamicAnimationOptions,
+    scope?: AnimationScope,
+    clipRef?: ClipRef
 ): AnimationPlaybackControlsWithThen[]
 /**
  * Implementation
@@ -92,7 +96,8 @@ export function animateSubject<O extends Object>(
         | ValueAnimationTransition<number>
         | ValueAnimationTransition<string>
         | DynamicAnimationOptions,
-    scope?: AnimationScope
+    scope?: AnimationScope,
+    clipRef?: ClipRef
 ): AnimationPlaybackControlsWithThen[] {
     const animations: AnimationPlaybackControlsWithThen[] = []
 
@@ -119,6 +124,12 @@ export function animateSubject<O extends Object>(
         )
 
         const numSubjects = subjects.length
+
+        /**
+         * Every subject's values play on one clip, started once they're
+         * all added.
+         */
+        const ref: ClipRef = clipRef || {}
 
         process.env.NODE_ENV !== "production" &&
             invariant(
@@ -152,7 +163,8 @@ export function animateSubject<O extends Object>(
                         thisSubject as HTMLElement | SVGElement,
                         keyframes as EffectKeyframes,
                         transition as EffectTransition,
-                        visualElementStore.get(thisSubject)
+                        visualElementStore.get(thisSubject),
+                        ref
                     )
                 )
             } else {
@@ -165,11 +177,15 @@ export function animateSubject<O extends Object>(
                         findEffect(thisSubject) ?? propEffect,
                         thisSubject as object,
                         keyframes as EffectKeyframes,
-                        transition as EffectTransition
+                        transition as EffectTransition,
+                        undefined,
+                        ref
                     )
                 )
             }
         }
+
+        clipRef || ref.clip?.start()
     }
 
     return animations

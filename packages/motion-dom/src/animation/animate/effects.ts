@@ -4,6 +4,7 @@ import { frame } from "../../frameloop"
 import { positionalKeys } from "../../render/utils/keys-position"
 import { MotionValue, motionValue } from "../../value"
 import { ClipRef, startValue } from "./clip-value"
+export type { ClipRef }
 import { AnimationElement } from "../keyframes/types"
 import {
     AnimationPlaybackControlsWithThen,
@@ -66,11 +67,17 @@ export function animateValues(
     getValue: (key: string) => MotionValue,
     keyframes: EffectKeyframes,
     transition: EffectTransition = {},
-    element?: AnimationElement
+    element?: AnimationElement,
+    /**
+     * The clip values share. Passed by a caller animating many subjects
+     * in one call, which then starts it. Otherwise one is made and
+     * started for these values.
+     */
+    clipRef?: ClipRef
 ): AnimationPlaybackControlsWithThen[] {
     const animations: AnimationPlaybackControlsWithThen[] = []
     const { velocity, path } = transition
-    const ref: ClipRef = {}
+    const ref: ClipRef = clipRef || {}
     const reduceMotion = transition.reduceMotion ?? element?.shouldReduceMotion
 
     /**
@@ -126,7 +133,7 @@ export function animateValues(
             )
     }
 
-    ref.clip?.start()
+    clipRef || ref.clip?.start()
 
     const { transitionEnd } = keyframes
     if (transitionEnd) {
@@ -160,7 +167,8 @@ export function animateEffectSubject<Subject extends object>(
     subject: Subject,
     keyframes: EffectKeyframes,
     transition?: EffectTransition,
-    element?: AnimationElement
+    element?: AnimationElement,
+    clipRef?: ClipRef
 ): AnimationPlaybackControlsWithThen[] {
     /**
      * Values made for this call are bound with one effect call, after the
@@ -202,7 +210,8 @@ export function animateEffectSubject<Subject extends object>(
         },
         keyframes,
         transition,
-        element
+        element,
+        clipRef
     )
 
     isBound = true
