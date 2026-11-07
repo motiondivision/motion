@@ -25,6 +25,12 @@ import { WithPromise } from "./utils/WithPromise"
 import { Mixer } from "../utils/mix/types"
 import type { MotionValue } from "../value"
 import type { ValuePlan } from "./animate/multi-value"
+import {
+    canAccelerateTransform,
+    joinGroup,
+    TransformGroup,
+    TransformMember,
+} from "./waapi/transforms/TransformAnimation"
 
 /**
  * One value of a MultiValueAnimation. It's the value's animation (what the motion value
@@ -34,7 +40,7 @@ import type { ValuePlan } from "./animate/multi-value"
  */
 export class ValueTrack<T extends AnyResolvedKeyframe = any>
     extends WithPromise
-    implements Track<T>, AnimationPlaybackControlsWithThen
+    implements Track<T>, AnimationPlaybackControlsWithThen, TransformMember
 {
     generator!: KeyframeGenerator<T>
     mirroredGenerator: KeyframeGenerator<T> | undefined
@@ -70,6 +76,15 @@ export class ValueTrack<T extends AnyResolvedKeyframe = any>
      */
     isScrolling?: boolean
 
+    /**
+     * A transform, composed with its element's other transforms into one
+     * WAAPI animation by its group while it can be.
+     */
+    isTransform?: boolean
+    group?: TransformGroup
+    canAccelerate = false
+    scrollTimeline?: TimelineWithFallback
+
     constructor(
         public parent: MultiValueAnimation,
         public options: ValueAnimationOptions<T>,
@@ -100,9 +115,124 @@ export class ValueTrack<T extends AnyResolvedKeyframe = any>
         this.resolver = undefined
         if (this.isStopped) return
         this.isReady = true
+
+        /**
+         * Before its type is replaced with its generator.
+         */
+        if (this.isTransform) {
+            this.canAccelerate = canAccelerateTransform(this.options)
+        }
         initTrack(this)
         notifyAnimationStart(this, this.options)
         this.parent.onTrackReady(this)
+        this.isTransform && this.parent.state === "running" && this.join()
+    }
+
+    /**
+     * Join its element's transform group, which composes it from now.
+     */
+    join() {
+        const group = (this.group = joinGroup(this))
+        group.isJS || group.schedule(false)
+    }
+
+    get name() {
+        return this.options.name!
+    }
+
+    /**
+     * Its time in ms, delay included: the shared clock's, or where a
+     * native scroll timeline has it.
+     */
+    at(timestamp: number): number {
+        return (
+            (this.scrollTimeline && this.group!.scrollTime(this)) ??
+            this.parent.at(timestamp)
+        )
+    }
+
+    sampleAt(timestamp: number, resolved?: boolean) {
+        return this.sampleTime(this.at(timestamp), resolved)
+    }
+
+    sampleTime(time: number, resolved?: boolean) {
+        this.generator || initTrack(this)
+        const { options, totalDuration } = this
+        const t = time - (options.delay || 0)
+        return t >= totalDuration && options.type !== inertia
+            ? getFinalKeyframe(
+                  options.keyframes,
+                  options,
+                  resolved ? undefined : (options as any).finalKeyframe
+              )
+            : generateTrack(this, Math.max(t, 0), t < 0).value
+    }
+
+    /**
+     * When it stops moving, or, if it repeats forever, when it starts
+     * repeating, and how long each repeat takes. Held, it never stops.
+     */
+    timing() {
+        const { startTime, speed, totalDuration } = this
+        const { delay = 0, repeatType } = this.options
+        return this.parent.isHeld()
+            ? [Infinity, 0]
+            : totalDuration === Infinity
+            ? [
+                  startTime! + delay / speed,
+                  (this.resolvedDuration * (repeatType === "loop" ? 1 : 2)) /
+                      speed || 1,
+              ]
+            : [startTime! + (delay + totalDuration) / speed, 0]
+    }
+
+    /**
+     * Whether its group runs it on the compositor.
+     */
+    isAccelerated(): boolean | undefined {
+        const { group } = this
+        return (
+            group &&
+            !group.isJS &&
+            this.canAccelerate &&
+            !this.isDone &&
+            group.tracks.has(this)
+        )
+    }
+
+    /**
+     * Write where the compositor has it, and its velocity, to the value.
+     */
+    sync() {
+        const now = time.now()
+        const value = this.sampleAt(now, true)
+        this.value.setWithVelocity(
+            this.parent.isHeld()
+                ? value
+                : this.sampleAt(now - sampleDelta, true),
+            value,
+            sampleDelta
+        )
+    }
+
+    /**
+     * Its group finishes it where the compositor ended it, at its end, or
+     * played backwards, its start.
+     */
+    tick() {
+        this.complete()
+    }
+
+    stopJS() {}
+
+    /**
+     * Follow a timeline on the shared clock, from JS.
+     */
+    observe() {
+        const timeline = this.scrollTimeline
+        this.scrollTimeline = undefined
+        this.canAccelerate = false
+        timeline && this.parent.follow(timeline)
     }
 
     /**
@@ -118,15 +248,17 @@ export class ValueTrack<T extends AnyResolvedKeyframe = any>
         this.notifyFinished()
         this.onDone()
         this.plan.transition.onComplete?.()
-        ;(this.detached || this.native) && this.parent.check()
+        const { group } = this
+        group && !group.isFinishing && group.release(this)
+        ;(this.detached || this.native || group) && this.parent.check()
     }
 
     /**
      * The value now, while WAAPI plays it and doesn't set it.
      */
     liveValue() {
-        return this.native && !this.isDone
-            ? this.parent.valueAt(this, time.now())
+        return (this.native && !this.isDone) || this.isAccelerated()
+            ? this.sampleAt(time.now())
             : undefined
     }
 
@@ -174,6 +306,8 @@ export class ValueTrack<T extends AnyResolvedKeyframe = any>
             ? this.detached.state
             : this.isDone
             ? "finished"
+            : this.isStopped
+            ? "idle"
             : this.parent.state
     }
 
@@ -205,8 +339,22 @@ export class ValueTrack<T extends AnyResolvedKeyframe = any>
         this.own.pause()
     }
 
+    /**
+     * Finish this value now, at its end, or played backwards, its start.
+     */
     complete() {
-        this.own.complete()
+        if (this.detached) return this.detached.complete()
+        if (this.isDone) return
+        const { options } = this
+        this.update(
+            getFinalKeyframe(
+                options.keyframes,
+                options,
+                (options as any).finalKeyframe,
+                this.parent.speed
+            )
+        )
+        this.finish()
     }
 
     cancel() {
@@ -298,7 +446,9 @@ export class MultiValueAnimation extends JSAnimation<any> {
     protected begin() {
         if (this.lead) return
         super.play()
-        this.options.autoplay === false && super.pause()
+        this.options.autoplay === false
+            ? super.pause()
+            : this.regroup(false, true)
         this.natives((native) => this.syncNative(native))
     }
 
@@ -341,6 +491,7 @@ export class MultiValueAnimation extends JSAnimation<any> {
      */
     private syncNative(native: Animation) {
         const { startTime, state } = this
+        if (this.isCancelled) return native.cancel()
         if (startTime === null) return
         if (state === "paused") {
             native.pause()
@@ -434,6 +585,7 @@ export class MultiValueAnimation extends JSAnimation<any> {
         const track = tracks.length === 1 && tracks[0]
         ;(track &&
             track.isReady &&
+            !track.group &&
             !track.isDone &&
             this.numLive() &&
             this.handLane(timestamp, track, (v) => track.update(v))) ||
@@ -496,7 +648,10 @@ export class MultiValueAnimation extends JSAnimation<any> {
             /**
              * WAAPI plays it, and finishes it.
              */
-            if (track.native) {
+            if (
+                track.native ||
+                (!isFinished && !this.isCancelling && track.isAccelerated())
+            ) {
                 numActive++
                 continue
             }
@@ -577,6 +732,7 @@ export class MultiValueAnimation extends JSAnimation<any> {
          * WAAPI finished its last values before the animation's next frame.
          */
         if (this.state === "running") {
+            this.currentTime = this.playbackSpeed < 0 ? 0 : this.totalDuration
             this.teardown()
             this.state = "finished"
         }
@@ -603,12 +759,14 @@ export class MultiValueAnimation extends JSAnimation<any> {
     play() {
         if (this.isStopped) return
         if (this.state === "finished") this.revive()
+        this.isCancelled = false
         this.lead || super.play()
         this.each((a) => a.play())
         this.natives((native) => {
             native.onfinish = onNativeFinish
             native.play()
         })
+        this.regroup(false, true)
     }
 
     pause() {
@@ -618,6 +776,7 @@ export class MultiValueAnimation extends JSAnimation<any> {
             native.pause()
             native.currentTime = this.holdTime ?? native.currentTime
         })
+        this.regroup()
     }
 
     complete() {
@@ -626,13 +785,23 @@ export class MultiValueAnimation extends JSAnimation<any> {
         this.natives((native) => native.finish())
     }
 
+    /**
+     * Cancelled, every value is set back to its start, the composed
+     * transforms included.
+     */
+    private isCancelling = false
+    private isCancelled = false
+
     cancel() {
+        this.isCancelling = this.isCancelled = true
         this.lead || super.cancel()
+        this.isCancelling = false
         this.each((a) => a.cancel())
         this.natives((native) => {
             native.onfinish = null
             native.cancel()
         }, true)
+        this.leaveGroups()
     }
 
     get time() {
@@ -650,6 +819,7 @@ export class MultiValueAnimation extends JSAnimation<any> {
             native.currentTime = secondsToMilliseconds(newTime)
             this.holdTime === null && native.play()
         })
+        this.regroup(true)
     }
 
     get speed() {
@@ -660,6 +830,38 @@ export class MultiValueAnimation extends JSAnimation<any> {
         this.lead || setSpeed.call(this, newSpeed)
         this.each((a) => (a.speed = newSpeed))
         this.natives((native) => (native.playbackRate = newSpeed))
+        this.regroup()
+    }
+
+    isHeld() {
+        return this.holdTime !== null
+    }
+
+    /**
+     * The transform groups of its values follow a change to its playback,
+     * which a seek may need them to rebuild for. Played, values that left
+     * their group join it again.
+     */
+    private regroup(isSeek?: boolean, isPlay?: boolean) {
+        for (const track of this.tracks) {
+            const { group } = track
+            if (
+                !track.isTransform ||
+                !track.isReady ||
+                track.isStopped ||
+                track.isDone ||
+                track.scrollTimeline
+            ) {
+                continue
+            }
+            isPlay
+                ? track.join()
+                : group && !group.isJS && group.schedule(false, isSeek)
+        }
+    }
+
+    private leaveGroups() {
+        for (const track of this.tracks) track.group?.release(track)
     }
 
     protected stopAnimation() {
@@ -668,15 +870,25 @@ export class MultiValueAnimation extends JSAnimation<any> {
          * JSAnimation is when stopped.
          */
         for (const track of this.tracks) {
-            track.isStopped ||
-                track.detached ||
-                (track.native ? this.release(track) : this.catchUp(track))
+            track.isStopped || track.detached || this.leave(track)
         }
 
         this.isStopped = true
         for (const track of this.tracks) track.detached?.stop()
-        if (this.state === "idle") return
-        this.teardown()
+        this.state === "idle" || this.teardown()
+        this.leaveGroups()
+    }
+
+    /**
+     * Take a track off WAAPI, or the compositor, or catch it up, so its
+     * value is where it was stopped.
+     */
+    private leave(track: ValueTrack) {
+        track.native
+            ? this.release(track)
+            : track.isAccelerated()
+            ? track.sync()
+            : this.catchUp(track)
     }
 
     attachTimeline(timeline: TimelineWithFallback): VoidFunction {
@@ -709,10 +921,41 @@ export class MultiValueAnimation extends JSAnimation<any> {
                 track.isScrolling = true
                 timeline.onAttach?.(native)
             }
+
+            /**
+             * Transforms follow a native timeline on the compositor too.
+             */
+            if (track.isTransform) {
+                isNative && track.canAccelerate
+                    ? (track.scrollTimeline = timeline)
+                    : track.observe()
+                track.group?.schedule(true)
+            }
         }
-        const cancels = [super.attachTimeline(timeline)]
+        /**
+         * Only values off the native timeline follow it from JS.
+         */
+        for (const track of this.tracks) {
+            track.isStopped ||
+                track.isScrolling ||
+                track.scrollTimeline ||
+                this.follow(timeline)
+        }
+        const cancels = [() => this.unfollow?.()]
         this.each((a) => cancels.push(a.attachTimeline(timeline)))
         return () => cancels.forEach((cancel) => cancel())
+    }
+
+    private unfollow?: VoidFunction
+
+    /**
+     * Follow a timeline on the shared clock, from JS.
+     */
+    follow(timeline: TimelineWithFallback) {
+        this.unfollow ||= JSAnimation.prototype.attachTimeline.call(
+            this,
+            timeline
+        )
     }
 
     /**
@@ -721,7 +964,8 @@ export class MultiValueAnimation extends JSAnimation<any> {
      * velocity are current.
      */
     removeTrack(track: ValueTrack) {
-        track.native ? this.release(track) : this.catchUp(track)
+        this.leave(track)
+        track.group?.release(track)
 
         if (!track.isReady) this.numPending--
 

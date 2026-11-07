@@ -42,10 +42,7 @@ import { replaceStringEasing } from "../waapi/utils/unsupported-easing"
 import { mapEasingToNativeEasing } from "../waapi/easing/map-easing"
 import { keyframes as keyframesType } from "../generators/keyframes"
 import { spring } from "../generators/spring"
-import {
-    canGroupTransform,
-    TransformAnimation,
-} from "../waapi/transforms/TransformAnimation"
+import { canGroupTransform } from "../waapi/transforms/TransformAnimation"
 
 /**
  * What every value of one key in a call animates with, worked out once
@@ -443,7 +440,7 @@ export const startValue =
             name,
             motionValue: value,
         } as any)
-        if (isTransform || ref.isOne) {
+        if (ref.isOne && !isTransform) {
             const options: ValueAnimationOptions<any> = {
                 ...base,
                 element,
@@ -462,55 +459,6 @@ export const startValue =
                 },
             }
 
-            if (isTransform) {
-                /**
-                 * Its element repaints every frame for another value of
-                 * this call, so, as with onUpdate, the transforms stay on
-                 * the main thread.
-                 */
-                if (repaints) options.hasOnUpdate = true
-
-                /**
-                 * A spring from rest has the same curve for every value
-                 * with its options. As one easing, an element's
-                 * transforms compose into two keyframes rather than
-                 * many sampled ones, which the browser parses slowly.
-                 */
-                const { type } = options as any
-                if ((type === "spring" || type === spring) && !velocity) {
-                    const {
-                        stiffness,
-                        damping,
-                        mass,
-                        duration,
-                        bounce,
-                        visualDuration,
-                        restDelta,
-                        restSpeed,
-                    } = options as any
-                    const id =
-                        [
-                            stiffness,
-                            damping,
-                            mass,
-                            duration,
-                            bounce,
-                            visualDuration,
-                            restDelta,
-                            restSpeed,
-                        ] + ""
-                    const springs = (ref.springs ||= {})
-                    if (!springs[id]) {
-                        const { ease, duration } = spring.applyToOptions({
-                            ...options,
-                        })
-                        springs[id] = { ease, duration, type: keyframesType }
-                    }
-                    Object.assign(options, springs[id])
-                }
-                return new TransformAnimation(options)
-            }
-
             applyResolvedKeyframes(
                 options,
                 resolveNow(keyframes, value),
@@ -522,21 +470,67 @@ export const startValue =
         const parent = (ref.animation ||= new MultiValueAnimation(base.driver))
         if (base.autoplay === false) parent.options.autoplay = false
 
-        const track = parent.add(
-            {
-                ...base,
-                element,
-                ease: planEase(plan) as any,
-                keyframes,
-                times: valueTransition.times,
-                delay,
-                velocity,
-                motionValue: value,
-            },
-            value,
-            plan,
-            onComplete
-        )
+        const options: ValueAnimationOptions<any> = {
+            ...base,
+            element,
+            ease: isTransform ? base.ease : (planEase(plan) as any),
+            keyframes,
+            times: valueTransition.times,
+            delay,
+            velocity,
+            motionValue: value,
+        }
+
+        if (isTransform) {
+            /**
+             * Its element repaints every frame for another value of this
+             * call, so, as with onUpdate, the transforms stay on the main
+             * thread.
+             */
+            if (repaints) options.hasOnUpdate = true
+
+            /**
+             * A spring from rest has the same curve for every value with
+             * its options. As one easing, an element's transforms compose
+             * into two keyframes rather than many sampled ones, which the
+             * browser parses slowly.
+             */
+            const { type } = options as any
+            if ((type === "spring" || type === spring) && !velocity) {
+                const {
+                    stiffness,
+                    damping,
+                    mass,
+                    duration,
+                    bounce,
+                    visualDuration,
+                    restDelta,
+                    restSpeed,
+                } = options as any
+                const id =
+                    [
+                        stiffness,
+                        damping,
+                        mass,
+                        duration,
+                        bounce,
+                        visualDuration,
+                        restDelta,
+                        restSpeed,
+                    ] + ""
+                const springs = (ref.springs ||= {})
+                if (!springs[id]) {
+                    const { ease, duration } = spring.applyToOptions({
+                        ...options,
+                    })
+                    springs[id] = { ease, duration, type: keyframesType }
+                }
+                Object.assign(options, springs[id])
+            }
+        }
+
+        const track = parent.add(options, value, plan, onComplete)
+        track.isTransform = isTransform
 
         resolve(track, parent, value, element)
 

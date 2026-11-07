@@ -81,8 +81,37 @@ interface TransformDriverControls extends DriverControls {
     js: DriverControls
 }
 
-interface TransformGroup extends TransformGroupHooks {
-    tracks: Set<TransformAnimation<any>>
+/**
+ * A transform value's animation, as its group composes it: a
+ * TransformAnimation, or a value on the shared clock of an animate() call.
+ */
+export interface TransformMember {
+    readonly name: string
+    readonly state: AnimationPlayState
+    readonly speed: number
+    readonly startTime: number | null
+    readonly iterationDuration: number
+    readonly resolvedDuration: number
+    readonly totalDuration: number
+    readonly calculatedDuration: number
+    readonly options: ValueAnimationOptions<any>
+    canAccelerate: boolean
+    scrollTimeline?: TimelineWithFallback
+    readonly js?: DriverControls
+    at(timestamp: number): number
+    timing(): number[]
+    sampleAt(timestamp: number, resolved?: boolean): AnyResolvedKeyframe
+    sampleTime(time: number, resolved?: boolean): AnyResolvedKeyframe
+    sync(): void
+    isAccelerated(): boolean | undefined
+    complete(): void
+    tick(timestamp: number): unknown
+    stopJS(): void
+    observe(): unknown
+}
+
+export interface TransformGroup extends TransformGroupHooks {
+    tracks: Set<TransformMember>
 
     /**
      * Whether the group's animations are running on the main thread.
@@ -105,14 +134,14 @@ interface TransformGroup extends TransformGroupHooks {
      * An animation was stopped. Rebuild without it or, if it was the last,
      * end the group.
      */
-    release(track: TransformAnimation<any>): void
+    release(track: TransformMember): void
     demote(canReturn?: boolean): true | void
 
     /**
      * A track's time, from the WAAPI animation's progress while the group
      * runs on a scroll timeline.
      */
-    scrollTime(track: TransformAnimation<any>): number | undefined
+    scrollTime(track: TransformMember): number | undefined
 }
 
 /**
@@ -209,13 +238,13 @@ const byTime = (a: number, b: number) => a - b
 const getOwner = (options: ValueAnimationOptions<any>) =>
     options.motionValue!.owner as TransformOwner
 
-const getGroup = (element: Element) =>
+export const getGroup = (element: Element) =>
     transformGroups.get(element) as TransformGroup | undefined
 
 /**
  * Whether an animation has ended, so can leave its group.
  */
-const hasEnded = ({ state }: TransformAnimation<any>) =>
+const hasEnded = ({ state }: TransformMember) =>
     state === "idle" || state === "finished"
 
 const read = (owner: TransformOwner, key: string) =>
@@ -238,7 +267,7 @@ export const canGroupTransform = ({
     supportsWaapi() &&
     supportsLinearEasing()
 
-function canAccelerateTransform(options: ValueAnimationOptions<any>) {
+export function canAccelerateTransform(options: ValueAnimationOptions<any>) {
     const owner = getOwner(options)
     const { onUpdate, transformTemplate } = owner.getProps()
 
@@ -500,7 +529,7 @@ export class TransformAnimation<
     /**
      * Whether this is running, or paused, on the compositor.
      */
-    isAccelerated() {
+    isAccelerated(): boolean | undefined {
         const { group, state } = this
         return (
             group?.tracks.has(this) &&
@@ -516,107 +545,6 @@ export class TransformAnimation<
      */
     liveValue() {
         return this.isAccelerated() ? this.sampleAt(time.now()) : undefined
-    }
-
-    /**
-     * This animation as WAAPI keyframes, if WAAPI can run it: keyframes
-     * with easings it has or can trace, that repeat as it does. Over a
-     * scroll timeline, the keyframes span the timeline, delay included.
-     * Undefined if it can't, so the group runs on the main thread.
-     */
-    native(isScroll?: boolean): NativeKeyframes | undefined {
-        const { startTime, speed, resolvedDuration, totalDuration, options } =
-            this
-        const { keyframes, repeat, repeatType, repeatDelay, type, delay } =
-            options
-        const samples = countSamples(resolvedDuration)
-        let { ease, times } = options
-        let offsets = times || defaultOffset(keyframes)
-        let easings: string[]
-
-        if (
-            !(resolvedDuration < Infinity) ||
-            speed <= 0 ||
-            repeatType === "mirror" ||
-            (isScroll && repeat) ||
-            offsets.length !== keyframes.length ||
-            offsets[0] ||
-            offsets[offsets.length - 1] !== 1 ||
-            offsets.some((o, i) => i && o <= offsets[i - 1])
-        ) {
-            return
-        }
-
-        if (type === keyframesGenerator) {
-            ease ??= "easeInOut"
-            easings = offsets
-                .slice(1)
-                .map((_, i) =>
-                    easingAsString(
-                        isEasingArray(ease!) ? ease[i] || "linear" : ease!,
-                        samples
-                    )
-                )
-        } else {
-            /**
-             * A spring moves between two keyframes along its own curve,
-             * which is traced from its values. One that starts and ends
-             * at the same value, which only its velocity moves, or that
-             * moves between values that aren't numbers, is sampled.
-             */
-            const from = parseFloat(keyframes[0] as string)
-            const range = parseFloat(keyframes[1] as string) - from
-            if (!(Math.abs(range) > 0)) return
-
-            offsets = [0, 1]
-            easings = [
-                toLinear(
-                    (p) =>
-                        (parseFloat(
-                            this.sampleTime(
-                                delay! + p * resolvedDuration,
-                                true
-                            ) as string
-                        ) -
-                            from) /
-                        range,
-                    samples
-                ),
-            ]
-        }
-
-        /**
-         * A repeat delay holds the last keyframe for its share of each
-         * iteration. Over a scroll timeline, the delay holds the first
-         * keyframe for its share of the timeline.
-         */
-        let values = keyframes as AnyResolvedKeyframe[]
-        if (repeatDelay) {
-            const share = this.calculatedDuration / resolvedDuration
-            offsets = [...offsets.map((o) => o * share), 1]
-            values = [...values, values[values.length - 1]]
-            easings.push("linear")
-        }
-        if (isScroll && delay) {
-            const share = totalDuration / (delay + totalDuration)
-            offsets = [0, ...offsets.map((o) => 1 - share + o * share)]
-            values = [values[0], ...values]
-            easings = ["linear", ...easings]
-        }
-
-        return {
-            start: isScroll ? 0 : startTime! + delay! / speed,
-            duration: isScroll ? 0 : resolvedDuration,
-            iterations: isScroll ? 1 : repeat! + 1,
-            direction:
-                !isScroll && repeat && repeatType === "reverse"
-                    ? "alternate"
-                    : "normal",
-            speed: isScroll ? 1 : speed,
-            offsets,
-            values,
-            easings,
-        }
     }
 
     /**
@@ -647,8 +575,8 @@ export class TransformAnimation<
          * so it mustn't join the group.
          */
         if (this.isStopped) return
+        joinGroup(this)
         const owner = getOwner(this.options)
-        ;(getGroup(owner.current) || createGroup(owner)).tracks.add(this)
 
         /**
          * The frame loop driver is only made once the group is on the
@@ -791,11 +719,113 @@ export class TransformAnimation<
     /**
      * On a scroll timeline, its time is where the timeline has it.
      */
-    at(timestamp: number) {
+    at(timestamp: number): number {
         return (
             (this.scrollTimeline && this.group?.scrollTime(this)) ??
             super.at(timestamp)
         )
+    }
+}
+
+/**
+ * This animation as WAAPI keyframes, if WAAPI can run it: keyframes
+ * with easings it has or can trace, that repeat as it does. Over a
+ * scroll timeline, the keyframes span the timeline, delay included.
+ * Undefined if it can't, so the group runs on the main thread.
+ */
+export function nativeOf(
+    track: TransformMember,
+    isScroll?: boolean
+): NativeKeyframes | undefined {
+    const { startTime, speed, resolvedDuration, totalDuration, options } = track
+    const { keyframes, repeat, repeatType, repeatDelay, type, delay } = options
+    const samples = countSamples(resolvedDuration)
+    let { ease, times } = options
+    let offsets = times || defaultOffset(keyframes)
+    let easings: string[]
+
+    if (
+        !(resolvedDuration < Infinity) ||
+        speed <= 0 ||
+        repeatType === "mirror" ||
+        (isScroll && repeat) ||
+        offsets.length !== keyframes.length ||
+        offsets[0] ||
+        offsets[offsets.length - 1] !== 1 ||
+        offsets.some((o, i) => i && o <= offsets[i - 1])
+    ) {
+        return
+    }
+
+    if (type === keyframesGenerator) {
+        ease ??= "easeInOut"
+        easings = offsets
+            .slice(1)
+            .map((_, i) =>
+                easingAsString(
+                    isEasingArray(ease!) ? ease[i] || "linear" : ease!,
+                    samples
+                )
+            )
+    } else {
+        /**
+         * A spring moves between two keyframes along its own curve,
+         * which is traced from its values. One that starts and ends
+         * at the same value, which only its velocity moves, or that
+         * moves between values that aren't numbers, is sampled.
+         */
+        const from = parseFloat(keyframes[0] as string)
+        const range = parseFloat(keyframes[1] as string) - from
+        if (!(Math.abs(range) > 0)) return
+
+        offsets = [0, 1]
+        easings = [
+            toLinear(
+                (p) =>
+                    (parseFloat(
+                        track.sampleTime(
+                            delay! + p * resolvedDuration,
+                            true
+                        ) as string
+                    ) -
+                        from) /
+                    range,
+                samples
+            ),
+        ]
+    }
+
+    /**
+     * A repeat delay holds the last keyframe for its share of each
+     * iteration. Over a scroll timeline, the delay holds the first
+     * keyframe for its share of the timeline.
+     */
+    let values = keyframes as AnyResolvedKeyframe[]
+    if (repeatDelay) {
+        const share = track.calculatedDuration / resolvedDuration
+        offsets = [...offsets.map((o) => o * share), 1]
+        values = [...values, values[values.length - 1]]
+        easings.push("linear")
+    }
+    if (isScroll && delay) {
+        const share = totalDuration / (delay + totalDuration)
+        offsets = [0, ...offsets.map((o) => 1 - share + o * share)]
+        values = [values[0], ...values]
+        easings = ["linear", ...easings]
+    }
+
+    return {
+        start: isScroll ? 0 : startTime! + delay! / speed,
+        duration: isScroll ? 0 : resolvedDuration,
+        iterations: isScroll ? 1 : repeat! + 1,
+        direction:
+            !isScroll && repeat && repeatType === "reverse"
+                ? "alternate"
+                : "normal",
+        speed: isScroll ? 1 : speed,
+        offsets,
+        values,
+        easings,
     }
 }
 
@@ -820,9 +850,19 @@ const buildSoon = (build: VoidFunction) => {
     ;(builds ||= []).push(build)
 }
 
+/**
+ * Add an animation to its element's group, made if there isn't one.
+ */
+export function joinGroup(track: TransformMember) {
+    const owner = getOwner(track.options)
+    const group = getGroup(owner.current) || createGroup(owner)
+    group.tracks.add(track)
+    return group
+}
+
 function createGroup(owner: TransformOwner): TransformGroup {
     const element = owner.current
-    const tracks = new Set<TransformAnimation<any>>()
+    const tracks = new Set<TransformMember>()
 
     /**
      * Transforms that aren't animating, as built into the WAAPI animation.
@@ -832,7 +872,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
      * The transforms in the WAAPI animation, in order.
      */
     let keys: string[] = []
-    let built = new Map<TransformAnimation<any>, BuiltState>()
+    let built = new Map<TransformMember, BuiltState>()
     /**
      * Builds the WAAPI animation shortly before it starts.
      */
@@ -910,7 +950,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
      * Those at their default are left out. Returns the animating ones.
      */
     const readStatics = (now: number) => {
-        const byKey = new Map<string, TransformAnimation<any>>()
+        const byKey = new Map<string, TransformMember>()
         statics = {}
         for (const track of tracks) byKey.set(track.name, track)
         keys = transformPropOrder.filter((key) => {
@@ -953,7 +993,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
      * if they can't be composed.
      */
     const compose = (
-        byKey: Map<string, TransformAnimation<any>>,
+        byKey: Map<string, TransformMember>,
         isScroll?: boolean
     ): Composed | null | undefined => {
         const natives = new Map<string, NativeKeyframes>()
@@ -964,7 +1004,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
             const track = byKey.get(key)
             if (!track || track.timing()[0] === Infinity) continue
 
-            const keyframes = track.native(isScroll)
+            const keyframes = nativeOf(track, isScroll)
             if (
                 !keyframes ||
                 (shared &&
@@ -1054,12 +1094,12 @@ function createGroup(owner: TransformOwner): TransformGroup {
      * moves.
      */
     const sample = (
-        byKey: Map<string, TransformAnimation<any>>,
+        byKey: Map<string, TransformMember>,
         now: number
     ): Composed | undefined => {
         let end = Infinity
         const times: number[] = []
-        const moving: TransformAnimation<any>[] = []
+        const moving: TransformMember[] = []
 
         for (const track of tracks) {
             if (track.speed < 0) return

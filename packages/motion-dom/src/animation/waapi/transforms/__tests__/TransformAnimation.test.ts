@@ -1,4 +1,5 @@
 import { animateElement } from "../../../animate/element"
+import { ValueTrack } from "../../../MultiValueAnimation"
 import { JSAnimation } from "../../../JSAnimation"
 import { TransformAnimation } from "../TransformAnimation"
 import { frame } from "../../../../frameloop"
@@ -729,7 +730,7 @@ describe("independent transform acceleration", () => {
             { duration: 1, ease: "linear" }
         )
         await nextFrame()
-        const sync = jest.spyOn(TransformAnimation.prototype, "sync")
+        const sync = jest.spyOn(ValueTrack.prototype, "sync")
 
         for (let i = 0; i <= 10; i++) {
             animation.forEach((a) => {
@@ -1286,9 +1287,9 @@ describe("independent transform acceleration", () => {
         )
         await nextFrame()
 
-        const transform = running(element)[0].keyframes.transform
-        expect(transform[transform.length - 1]).toContain("translateY(100px)")
         await y.finished
+        await nextFrame()
+        expect(element.style.transform).toContain("translateY(100px)")
     })
 
     describe("keyframes that move in one span, as a sequence makes", () => {
@@ -1902,7 +1903,7 @@ describe("independent transform acceleration", () => {
 
             const [x] = animateElement(element, { x: 100 }, { duration: 1 })
 
-            expect(x).toBeInstanceOf(TransformAnimation)
+            expect(x).toBeInstanceOf(ValueTrack)
             x.stop()
         })
 
