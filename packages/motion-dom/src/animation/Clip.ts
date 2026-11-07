@@ -451,18 +451,8 @@ export class Clip extends JSAnimation<any> {
          * Values not yet set this frame are caught up to now, as a
          * JSAnimation is when stopped.
          */
-        if (this.state === "running" && this.startTime !== null) {
-            const now = time.now()
-            for (const track of this.tracks) {
-                const value = track.options.motionValue
-                track.isReady &&
-                    !track.isDone &&
-                    !track.isStopped &&
-                    !track.detached &&
-                    value &&
-                    value.updatedAt !== now &&
-                    this.sampleTrack(track, now)
-            }
+        for (const track of this.tracks) {
+            track.isStopped || track.detached || this.catchUp(track)
         }
 
         this.isStopped = true
@@ -485,14 +475,7 @@ export class Clip extends JSAnimation<any> {
      * velocity are current.
      */
     removeTrack(track: ClipTrack) {
-        const value = track.options.motionValue
-        track.isReady &&
-            !track.isDone &&
-            this.state === "running" &&
-            this.startTime !== null &&
-            value &&
-            value.updatedAt !== time.now() &&
-            this.sampleTrack(track, time.now())
+        this.catchUp(track)
 
         if (!track.isReady) this.numPending--
 
@@ -501,11 +484,22 @@ export class Clip extends JSAnimation<any> {
         if (!this.numLive() && this.numPending <= 0) this.teardown()
     }
 
-    private sampleTrack(track: ClipTrack, timestamp: number) {
-        const delay = track.options.delay || 0
-        const t = this.at(timestamp) - delay
-        const state = generateTrack(track, Math.max(t, 0), t < 0)
-        track.update(state.value)
+    /**
+     * Set a running track's value to now, unless it's already been set
+     * this frame.
+     */
+    private catchUp(track: ClipTrack) {
+        const now = time.now()
+        if (
+            track.isReady &&
+            !track.isDone &&
+            this.state === "running" &&
+            this.startTime !== null &&
+            track.value.updatedAt !== now
+        ) {
+            const t = this.at(now) - (track.options.delay || 0)
+            track.update(generateTrack(track, Math.max(t, 0), t < 0).value)
+        }
     }
 
     /**
