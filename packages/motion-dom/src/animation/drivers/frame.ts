@@ -26,10 +26,13 @@ const tick = ({ timestamp }: FrameData) => {
             driver.update(timestamp)
         } else if (driver.needsUpdate) {
             driver.needsUpdate = false
+            driver.idleTicks = 0
             driver.update(timestamp)
-        } else {
+        } else if (++driver.idleTicks > 1) {
             /**
-             * Held and up to date, so it leaves until it's started again.
+             * Held and up to date for a while, so it leaves until it's
+             * started again. One seeked every frame, as by a scroll
+             * timeline followed from JS, stays.
              */
             running.delete(driver)
         }
@@ -47,6 +50,8 @@ class FrameDriver implements DriverControls {
 
     needsUpdate = false
 
+    idleTicks = 0
+
     private once?: (frameData: FrameData) => void
 
     private isOnceScheduled = false
@@ -62,6 +67,9 @@ class FrameDriver implements DriverControls {
         } else if (keepAlive) {
             this.cancelOnce()
             this.isHeld = false
+            this.add()
+        } else if (this.isHeld) {
+            this.needsUpdate = true
             this.add()
         } else if (!this.isOnceScheduled) {
             this.isOnceScheduled = true
@@ -80,11 +88,8 @@ class FrameDriver implements DriverControls {
      * reschedule anything.
      */
     hold() {
-        if (running.has(this)) {
-            this.isHeld = this.needsUpdate = true
-        } else {
-            this.start(false)
-        }
+        this.isHeld = this.needsUpdate = true
+        running.has(this) || this.add()
     }
 
     stop() {
@@ -104,6 +109,7 @@ class FrameDriver implements DriverControls {
     }
 
     private add() {
+        this.idleTicks = 0
         running.size || frame.update(tick, true)
         this.isNew = isTicking
         running.add(this)
