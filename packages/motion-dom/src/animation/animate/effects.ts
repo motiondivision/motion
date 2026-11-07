@@ -3,7 +3,7 @@ import { AnimateEffect } from "../../effects/utils/create-effect"
 import { frame } from "../../frameloop"
 import { positionalKeys } from "../../render/utils/keys-position"
 import { MotionValue, motionValue } from "../../value"
-import { animateMotionValue } from "../interfaces/motion-value"
+import { ClipRef, startValue } from "./clip-value"
 import { AnimationElement } from "../keyframes/types"
 import {
     AnimationPlaybackControlsWithThen,
@@ -70,6 +70,7 @@ export function animateValues(
 ): AnimationPlaybackControlsWithThen[] {
     const animations: AnimationPlaybackControlsWithThen[] = []
     const { velocity, path } = transition
+    const ref: ClipRef = {}
     const reduceMotion = transition.reduceMotion ?? element?.shouldReduceMotion
 
     /**
@@ -107,10 +108,11 @@ export function animateValues(
         }
 
         value.run(
-            animateMotionValue(
+            startValue(
+                ref,
                 key,
                 value,
-                target as any,
+                target,
                 reduceMotion && positionalKeys.has(key)
                     ? { type: false }
                     : transition,
@@ -123,6 +125,8 @@ export function animateValues(
                 value.animation as AnimationPlaybackControlsWithThen
             )
     }
+
+    ref.clip?.start()
 
     const { transitionEnd } = keyframes
     if (transitionEnd) {

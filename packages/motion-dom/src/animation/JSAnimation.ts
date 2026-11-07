@@ -1,35 +1,23 @@
-import {
-    clamp,
-    invariant,
-    millisecondsToSeconds,
-    pipe,
-    secondsToMilliseconds,
-} from "motion-utils"
+import { millisecondsToSeconds, secondsToMilliseconds } from "motion-utils"
 import { time } from "../frameloop/sync-time"
-import { mix } from "../utils/mix"
 import { Mixer } from "../utils/mix/types"
 import { frameloopDriver } from "./drivers/frame"
 import { DriverControls } from "./drivers/types"
 import { inertia } from "./generators/inertia"
-import { keyframes as keyframesGenerator } from "./generators/keyframes"
-import { calcGeneratorDuration } from "./generators/utils/calc-duration"
 import { calcGeneratorVelocity } from "./generators/utils/velocity"
 import { getFinalKeyframe } from "./keyframes/get-final"
 import {
     AnimationPlaybackControlsWithThen,
     AnimationState,
-    GeneratorFactory,
     KeyframeGenerator,
     Lane,
     TimelineWithFallback,
     ValueAnimationOptions,
 } from "./types"
-import { replaceTransitionType } from "./utils/replace-transition-type"
+import { generateTrack, initTrack, Track } from "./track"
 import { resolveStartTime } from "./utils/resolve-start-time"
 import { notifyAnimationStart } from "./utils/notify-inspector"
 import { WithPromise } from "./utils/WithPromise"
-
-const percentToProgress = (percent: number) => percent / 100
 
 export const round = (value: number) => Math.round(value * 10000) / 10000
 
@@ -41,7 +29,7 @@ export const holdDriver = (driver: DriverControls) =>
 
 export class JSAnimation<T extends number | string>
     extends WithPromise
-    implements AnimationPlaybackControlsWithThen
+    implements AnimationPlaybackControlsWithThen, Track<T>
 {
     state: AnimationPlayState = "idle"
 
@@ -58,22 +46,27 @@ export class JSAnimation<T extends number | string>
     /**
      * The start time this animation picked for itself, until its first tick.
      */
-    private pendingStartTime?: number
+    protected pendingStartTime?: number
 
-    private generator: KeyframeGenerator<T>
+    /** @internal */
+    generator: KeyframeGenerator<T>
 
-    private calculatedDuration: number
+    /** @internal */
+    calculatedDuration: number
 
-    protected resolvedDuration: number
+    /** @internal */
+    resolvedDuration: number
 
-    protected totalDuration: number
+    /** @internal */
+    totalDuration: number
 
-    protected options: ValueAnimationOptions<T>
+    /** @internal */
+    options: ValueAnimationOptions<T>
 
     /**
      * The current time of the animation.
      */
-    private currentTime: number = 0
+    protected currentTime: number = 0
 
     /**
      * The time at which the animation was paused.
@@ -83,7 +76,7 @@ export class JSAnimation<T extends number | string>
     /**
      * Playback speed as a factor. 0 would be stopped, -1 reverse and 2 double speed.
      */
-    private playbackSpeed = 1
+    protected playbackSpeed = 1
 
     /*
      * If our generator doesn't support mixing numbers, we need to replace keyframes with
@@ -91,21 +84,25 @@ export class JSAnimation<T extends number | string>
      *
      * 100 is chosen instead of 1 as it works nicer with spring animations.
      */
-    private mixKeyframes: Mixer<T> | undefined
+    /** @internal */
+    mixKeyframes: Mixer<T> | undefined
 
-    private mirroredGenerator: KeyframeGenerator<T> | undefined
+    /** @internal */
+    mirroredGenerator: KeyframeGenerator<T> | undefined
 
     /**
      * Reusable state object for the delay phase to avoid
      * allocating a new object every frame.
      */
-    private delayState?: AnimationState<T>
+    /** @internal */
+    delayState?: AnimationState<T>
 
     /**
      * The generator's two-number blend, when nothing else (repeats or a
      * keyframe mixer) changes its output.
      */
-    private lane?: Lane
+    /** @internal */
+    lane?: Lane
 
     /**
      * @param isDeferred - Don't start until begin() is called, for a
@@ -128,88 +125,7 @@ export class JSAnimation<T extends number | string>
     }
 
     initAnimation() {
-        const { options } = this
-
-        replaceTransitionType(options)
-
-        const {
-            type = keyframesGenerator,
-            repeat = 0,
-            repeatDelay = 0,
-            repeatType,
-            velocity = 0,
-        } = options
-        let { keyframes } = options
-
-        const generatorFactory =
-            (type as GeneratorFactory) || keyframesGenerator
-
-        if (
-            process.env.NODE_ENV !== "production" &&
-            generatorFactory !== keyframesGenerator
-        ) {
-            invariant(
-                keyframes.length <= 2,
-                `Only two keyframes currently supported with spring and inertia animations. Trying to animate ${keyframes}`,
-                "spring-two-frames"
-            )
-        }
-
-        /**
-         * This runs again when a spring is flattened to attach it to a
-         * timeline, and the keyframes generator blends values itself.
-         */
-        this.mixKeyframes = undefined
-
-        if (
-            generatorFactory !== keyframesGenerator &&
-            typeof keyframes[0] !== "number"
-        ) {
-            this.mixKeyframes = pipe(
-                percentToProgress,
-                options.mixer?.(keyframes[0], keyframes[1]) ||
-                    mix(keyframes[0], keyframes[1])
-            ) as (t: number) => T
-
-            keyframes = [0 as T, 100 as T]
-        }
-
-        const generator = generatorFactory(
-            keyframes === options.keyframes
-                ? options
-                : { ...options, keyframes }
-        )
-
-        /**
-         * If we have a mirror repeat type we need to create a second generator that outputs the
-         * mirrored (not reversed) animation and later ping pong between the two generators.
-         */
-        if (repeatType === "mirror") {
-            this.mirroredGenerator = generatorFactory({
-                ...options,
-                keyframes: [...keyframes].reverse(),
-                velocity: -velocity,
-            })
-        }
-
-        /**
-         * If duration is undefined and we have repeat options,
-         * we need to calculate a duration from the generator.
-         *
-         * We set it to the generator itself to cache the duration.
-         * Any timeline resolver will need to have already precalculated
-         * the duration by this step.
-         */
-        if (generator.calculatedDuration === null) {
-            generator.calculatedDuration = calcGeneratorDuration(generator)
-        }
-
-        const { calculatedDuration } = generator
-        this.calculatedDuration = calculatedDuration
-        this.resolvedDuration = calculatedDuration + repeatDelay
-        this.totalDuration = this.resolvedDuration * (repeat + 1) - repeatDelay
-        this.generator = generator
-        this.lane = repeat || this.mixKeyframes ? undefined : generator.lane
+        initTrack(this)
     }
 
     updateTime(timestamp: number) {
@@ -419,91 +335,7 @@ export class JSAnimation<T extends number | string>
         currentTime: number,
         isInDelayPhase: boolean
     ): AnimationState<T> {
-        const {
-            generator,
-            totalDuration,
-            mixKeyframes,
-            mirroredGenerator,
-            resolvedDuration,
-        } = this
-        const { keyframes, repeat, repeatType, repeatDelay } = this.options
-
-        let elapsed = currentTime
-        let frameGenerator = generator
-
-        if (repeat) {
-            /**
-             * Get the current progress (0-1) of the animation. If t is >
-             * than duration we'll get values like 2.5 (midway through the
-             * third iteration)
-             */
-            const progress =
-                Math.min(currentTime, totalDuration) / resolvedDuration
-
-            /**
-             * Get the current iteration (0 indexed). For instance the floor of
-             * 2.5 is 2.
-             */
-            let currentIteration = Math.floor(progress)
-
-            /**
-             * Get the current progress of the iteration by taking the remainder
-             * so 2.5 is 0.5 through iteration 2
-             */
-            let iterationProgress = progress % 1.0
-
-            /**
-             * If iteration progress is 1 we count that as the end
-             * of the previous iteration.
-             */
-            if (!iterationProgress && progress >= 1) {
-                iterationProgress = 1
-            }
-
-            iterationProgress === 1 && currentIteration--
-
-            currentIteration = Math.min(currentIteration, repeat + 1)
-
-            /**
-             * Reverse progress if we're not running in "normal" direction
-             */
-
-            const isOddIteration = Boolean(currentIteration % 2)
-            if (isOddIteration) {
-                if (repeatType === "reverse") {
-                    iterationProgress = 1 - iterationProgress
-                    if (repeatDelay) {
-                        iterationProgress -= repeatDelay / resolvedDuration
-                    }
-                } else if (repeatType === "mirror") {
-                    frameGenerator = mirroredGenerator!
-                }
-            }
-
-            elapsed = clamp(0, 1, iterationProgress) * resolvedDuration
-        }
-
-        /**
-         * If we're in negative time, set state as the initial keyframe.
-         * This prevents delay: x, duration: 0 animations from finishing
-         * instantly.
-         */
-        let state: AnimationState<T>
-        if (isInDelayPhase) {
-            state = this.delayState ||= {
-                done: false,
-                value: undefined as unknown as T,
-            }
-            state.value = keyframes[0]
-        } else {
-            state = frameGenerator.next(elapsed)
-        }
-
-        if (mixKeyframes && !isInDelayPhase) {
-            state.value = mixKeyframes(state.value as number)
-        }
-
-        return state
+        return generateTrack(this, currentTime, isInDelayPhase)
     }
 
     get duration() {
@@ -676,7 +508,7 @@ export class JSAnimation<T extends number | string>
         this.options.onCancel?.()
     }
 
-    private teardown() {
+    protected teardown() {
         this.state = "idle"
         this.driver?.stop()
         this.driver = undefined

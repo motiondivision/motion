@@ -16,7 +16,19 @@ export class GroupAnimation implements AnimationPlaybackControls {
     animations: GroupedAnimations
 
     constructor(animations: Array<AcceptedAnimations | undefined>) {
-        this.animations = animations.filter(Boolean) as GroupedAnimations
+        /**
+         * Values animated on one clip are grouped as the clip, so the
+         * group controls it once rather than once per value.
+         */
+        const grouped = new Set<AcceptedAnimations>()
+        for (const animation of animations) {
+            animation &&
+                grouped.add(
+                    (animation as { grouped?: AcceptedAnimations }).grouped ||
+                        animation
+                )
+        }
+        this.animations = [...grouped]
     }
 
     get finished() {
