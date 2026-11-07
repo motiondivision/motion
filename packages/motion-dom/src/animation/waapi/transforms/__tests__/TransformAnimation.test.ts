@@ -1590,6 +1590,17 @@ describe("independent transform acceleration", () => {
         })
     })
 
+    it("doesn't write the element's style when it starts", async () => {
+        const element = document.createElement("div")
+
+        animateElement(element, { x: 100, y: 50 }, { duration: 1 })
+        await nextFrame()
+        await nextFrame()
+
+        expect(running(element)).toHaveLength(1)
+        expect(element.getAttribute("style")).toBe(null)
+    })
+
     describe("on a native scroll timeline", () => {
         beforeAll(() => {
             supportsFlags.scrollTimeline = true

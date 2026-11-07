@@ -228,8 +228,15 @@ export class KeyframeResolver<T extends AnyResolvedKeyframe = any> {
                 unresolvedKeyframes[0] = finalKeyframe
             }
 
+            /**
+             * A value made ahead of this read starts where the subject
+             * already is, so it isn't written back to it. Writing a style
+             * changes the style attribute, which on a page with rules
+             * that match on it makes the browser restyle the element and
+             * everything inside it.
+             */
             if (motionValue && currentValue === undefined) {
-                motionValue.set(unresolvedKeyframes[0] as T)
+                motionValue.setCurrent(unresolvedKeyframes[0] as T)
             }
         }
 

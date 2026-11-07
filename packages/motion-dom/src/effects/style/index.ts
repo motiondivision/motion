@@ -61,7 +61,12 @@ export const addStyleValue = (
                 )
             }
 
-            state.set("transform", new MotionValue("none"), () => {
+            /**
+             * The transform is built from the values bound to it, which
+             * render it as they change. This holds the render, so has no
+             * value of its own to write when it's bound.
+             */
+            state.set("transform", new MotionValue(undefined), () => {
                 transformGroups.get(element)?.check()
                 element.style.transform = buildTransform(state)
             })
@@ -70,7 +75,7 @@ export const addStyleValue = (
         computed = state.get("transform")
     } else if (originProps.has(key)) {
         if (!state.get("transformOrigin")) {
-            state.set("transformOrigin", new MotionValue(""), () => {
+            state.set("transformOrigin", new MotionValue(undefined), () => {
                 const originX = styleValue(state, "originX") ?? "50%"
                 const originY = styleValue(state, "originY") ?? "50%"
                 const originZ = styleValue(state, "originZ") ?? 0
