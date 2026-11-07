@@ -2,15 +2,17 @@ import { animate, motion, useMotionValue } from "framer-motion"
 import { useEffect, useRef } from "react"
 
 /**
- * Reproduces the bug where a time-defined spring receives velocity from
- * an interrupted animation, causing wild oscillation.
+ * A time-defined spring that interrupts an animation inherits its velocity.
  *
  * The Framer scenario:
  * - Appear effect animates opacity 0.001 → 1 with time-defined spring
  * - On hover, opacity → 0.49 with same spring
  * - WAAPI appear animation sets velocity on motionValue when stopped
- * - Hover animation reads velocity, passes it to findSpring()
- * - findSpring() computes wrong spring parameters → wild oscillation
+ * - Hover animation reads velocity from the motionValue
+ *
+ * Velocity once leaked into findSpring() and corrupted the resolved
+ * stiffness and damping. Now it's only the spring's initial condition: the
+ * value carries on upwards briefly, as a physics spring would, then settles.
  *
  * This test uses external motionValues (no WAAPI owner → JS animation)
  * with explicit velocity injection to simulate the WAAPI handoff.
@@ -50,11 +52,14 @@ function ExternalMotionValueMode() {
         let maxOpacity = 0.5
         let minScale = 1
         let maxScale = 1
+        let latestOpacity = 0.5
 
         const unsubOpacity = opacity.on("change", (v) => {
             if (v < minOpacity) minOpacity = v
             if (v > maxOpacity) maxOpacity = v
+            latestOpacity = v
             if (trackerRef.current) {
+                trackerRef.current.dataset.opacity = latestOpacity.toFixed(4)
                 trackerRef.current.dataset.minOpacity = minOpacity.toFixed(4)
                 trackerRef.current.dataset.maxOpacity = maxOpacity.toFixed(4)
             }
