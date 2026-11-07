@@ -530,3 +530,67 @@ describe("animateElement", () => {
         })
     })
 })
+
+describe("values of one call", () => {
+    const timeline = () => {
+        let seek: (progress: number) => void = () => {}
+        return {
+            seek: (progress: number) => seek(progress),
+            observe: (animation: any) => {
+                animation.pause()
+                seek = (progress) =>
+                    (animation.time = animation.iterationDuration * progress)
+                return () => {}
+            },
+        }
+    }
+
+    test("follow a scroll timeline together, with a default easing made linear", async () => {
+        const element = document.createElement("div")
+        const [opacity] = animateElement(
+            element,
+            { opacity: [0, 1], width: ["0px", "100px"] },
+            { duration: 1 }
+        )
+        const scroll = timeline()
+        opacity.attachTimeline(scroll)
+
+        scroll.seek(0.5)
+        await nextFrame()
+
+        expect(element.style.opacity).toBe("0.5")
+        expect(element.style.width).toBe("50px")
+    })
+
+    test("keep a given easing on a scroll timeline", async () => {
+        const element = document.createElement("div")
+        const [opacity] = animateElement(
+            element,
+            { opacity: [0, 1], width: ["0px", "100px"] },
+            { duration: 1, ease: "easeIn" }
+        )
+        const scroll = timeline()
+        opacity.attachTimeline(scroll)
+
+        scroll.seek(0.5)
+        await nextFrame()
+
+        expect(parseFloat(element.style.opacity)).toBeLessThan(0.5)
+    })
+
+    test("are controlled together through any of them", async () => {
+        const element = document.createElement("div")
+        const [opacity, width] = animateElement(
+            element,
+            { opacity: [0, 1], width: ["0px", "100px"] },
+            { duration: 1, ease: "linear" }
+        )
+
+        opacity.pause()
+        opacity.time = 0.25
+        await nextFrame()
+
+        expect(width.state).toBe("paused")
+        expect(element.style.width).toBe("25px")
+    })
+})

@@ -153,14 +153,11 @@ export class ValueTrack<T extends AnyResolvedKeyframe = any>
     }
 
     /**
-     * Control this value alone: in a shared animation of its own, that's it.
-     * Otherwise it moves to a JSAnimation at the animation's time.
+     * What controls this value: its own animation, or the shared one,
+     * which a control of one value controls for all of them.
      */
-    private get own(): AnimationPlaybackControls {
-        const { parent } = this
-        return parent.tracks.length > 1 || this.detached
-            ? parent.detach(this)
-            : parent
+    private get own(): AnimationPlaybackControlsWithThen {
+        return this.detached || this.parent
     }
 
     get duration() {
@@ -181,11 +178,11 @@ export class ValueTrack<T extends AnyResolvedKeyframe = any>
     }
 
     get startTime() {
-        return (this.detached || this.parent).startTime
+        return this.own.startTime
     }
 
     get time() {
-        return (this.detached || this.parent).time
+        return this.own.time
     }
 
     set time(newTime: number) {
@@ -193,7 +190,7 @@ export class ValueTrack<T extends AnyResolvedKeyframe = any>
     }
 
     get speed() {
-        return (this.detached || this.parent).speed
+        return this.own.speed
     }
 
     set speed(newSpeed: number) {
@@ -354,11 +351,12 @@ export class MultiValueAnimation extends JSAnimation<any> {
     }
 
     /**
-     * Apply a control to the tracks on WAAPI.
+     * Apply a control to the tracks on WAAPI. Those on a scroll timeline
+     * follow it, so only a cancel reaches them.
      */
-    private natives(control: (native: Animation) => void) {
-        for (const { native, isStopped } of this.tracks) {
-            native && !isStopped && control(native)
+    private natives(control: (native: Animation) => void, all?: boolean) {
+        for (const { native, isStopped, isScrolling } of this.tracks) {
+            native && !isStopped && (all || !isScrolling) && control(native)
         }
     }
 
@@ -634,7 +632,7 @@ export class MultiValueAnimation extends JSAnimation<any> {
         this.natives((native) => {
             native.onfinish = null
             native.cancel()
-        })
+        }, true)
     }
 
     get time() {
@@ -659,25 +657,9 @@ export class MultiValueAnimation extends JSAnimation<any> {
     }
 
     set speed(newSpeed: number) {
-        /**
-         * Played backwards, values reverse from the end of their own
-         * animation. With one end for every value, that's the animation's.
-         */
-        newSpeed < 0 && !this.hasOneEnd() && this.detachLive()
         this.lead || setSpeed.call(this, newSpeed)
         this.each((a) => (a.speed = newSpeed))
         this.natives((native) => (native.playbackRate = newSpeed))
-    }
-
-    private hasOneEnd() {
-        let end: number | undefined
-        for (const track of this.tracks) {
-            if (track.isStopped || track.detached) continue
-            if (!track.isReady) flushKeyframeResolvers()
-            end ??= track.totalDuration
-            if (track.totalDuration !== end) return false
-        }
-        return true
     }
 
     protected stopAnimation() {
@@ -698,23 +680,37 @@ export class MultiValueAnimation extends JSAnimation<any> {
     }
 
     attachTimeline(timeline: TimelineWithFallback): VoidFunction {
+        this.numPending && flushKeyframeResolvers()
+
         /**
          * WAAPI values follow a native scroll timeline. Without one, they
          * follow it from JS, like the rest.
          */
-        if (timeline.timeline && supportsScrollTimeline()) {
-            this.natives((native) => {
-                const { track } = native as any
-                track.plan.base.allowFlatten &&
-                    native.effect?.updateTiming({ easing: "linear" })
+        const isNative = timeline.timeline && supportsScrollTimeline()
+
+        /**
+         * WAAPI values follow a native scroll timeline. Without one, they,
+         * and the rest, follow it on the shared clock. An easing that was
+         * only a default is made linear, as a JSAnimation's is.
+         */
+        for (const track of this.tracks) {
+            const { native, options } = track
+            if (track.isStopped) continue
+            if (track.plan.base.allowFlatten) {
+                native
+                    ? native.effect?.updateTiming({ easing: "linear" })
+                    : ((options.type = "keyframes" as any),
+                      (options.ease = "linear"),
+                      track.isReady && initTrack(track))
+            }
+            if (native && isNative) {
                 native.onfinish = null
                 native.timeline = timeline.timeline as any
                 track.isScrolling = true
                 timeline.onAttach?.(native)
-            })
+            }
         }
-        this.detachLive()
-        const cancels: VoidFunction[] = []
+        const cancels = [super.attachTimeline(timeline)]
         this.each((a) => cancels.push(a.attachTimeline(timeline)))
         return () => cancels.forEach((cancel) => cancel())
     }
@@ -753,51 +749,14 @@ export class MultiValueAnimation extends JSAnimation<any> {
     }
 
     /**
-     * Move a track to an animation of its own: the one given, or a
-     * JSAnimation at the animation's time and playback state.
+     * Move a track to an animation of its own.
      */
-    detach(
-        track: ValueTrack,
-        animation?: AnimationPlaybackControlsWithThen
-    ): AnimationPlaybackControlsWithThen {
-        if (track.detached) return track.detached
-
-        track.native && this.release(track)
-
-        if (animation) {
-            track.resolver = undefined
-            this.numPending--
-        } else {
-            track.isReady || flushKeyframeResolvers()
-
-            const js = (animation = new JSAnimation(
-                {
-                    ...track.options,
-                    onUpdate: (latest: any) => track.update(latest),
-                    onComplete: () => track.finish(),
-                },
-                true
-            ))
-            js.initAnimation()
-
-            const { state, startTime, holdTime, playbackSpeed } = this
-            js.speed = playbackSpeed
-
-            if (track.isDone) {
-                js.state = "finished"
-            } else if (state === "running" && startTime !== null) {
-                js.startTime = startTime
-                js.play()
-            } else if (state === "paused" || state === "running") {
-                js.time = millisecondsToSeconds(holdTime ?? this.currentTime)
-            }
-        }
-
+    detach(track: ValueTrack, animation: AnimationPlaybackControlsWithThen) {
+        track.resolver = undefined
+        this.numPending--
         track.detached = animation
         this.numOut++
         this.hasStarted && this.settle()
-
-        return animation
     }
 
     /**
@@ -813,13 +772,6 @@ export class MultiValueAnimation extends JSAnimation<any> {
             state: { get: () => lead.state, set() {} },
             startTime: { get: () => lead.startTime, set() {} },
         })
-    }
-
-    private detachLive() {
-        this.numPending && flushKeyframeResolvers()
-        for (const track of this.tracks) {
-            track.isStopped || track.isScrolling || this.detach(track)
-        }
     }
 
     /**
