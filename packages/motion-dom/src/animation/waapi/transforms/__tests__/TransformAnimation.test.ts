@@ -61,7 +61,9 @@ const createAnimation = (
             playbackRate < 0
                 ? value
                 : value +
-                  (duration * iterations + (options.endDelay || 0)) /
+                  ((options.delay || 0) +
+                      duration * iterations +
+                      (options.endDelay || 0)) /
                       playbackRate
         timer = setTimeout(
             () => animation.onfinish?.(),
@@ -223,8 +225,11 @@ const readX = (transform: string) =>
  */
 const xAt = ({ keyframes, options }: MockAnimation, ms: number) => {
     const { transform, offset } = keyframes as any
-    const easing = options.easing as string
-    let p = Math.min(1, Math.max(0, ms / (options.duration as number)))
+    const { easing, iterations = 1, direction } = options as any
+    let p = Math.min(iterations, Math.max(0, ms / (options.duration as number)))
+    const iteration = p && p === Math.floor(p) ? p - 1 : Math.floor(p)
+    p -= iteration
+    if (direction === "alternate" && iteration % 2) p = 1 - p
     if (easing.startsWith("linear(")) p = linearAt(easing, p)
     const offsets: number[] =
         offset ||
@@ -233,7 +238,10 @@ const xAt = ({ keyframes, options }: MockAnimation, ms: number) => {
         if (p <= offsets[i]) {
             const span = offsets[i] - offsets[i - 1]
             const [a, b] = [readX(transform[i - 1]), readX(transform[i])]
-            return span ? a + ((b - a) * (p - offsets[i - 1])) / span : b
+            let q = span ? (p - offsets[i - 1]) / span : 1
+            const segment = (keyframes as any).easing?.[i - 1]
+            if (segment?.startsWith("linear(")) q = linearAt(segment, q)
+            return a + (b - a) * q
         }
     }
     return readX(transform[transform.length - 1])
@@ -591,11 +599,12 @@ describe("independent transform acceleration", () => {
         expect(options.easing).toBe("linear")
         expect(offset).toHaveLength(transform.length)
         expect(transform.length).toBeGreaterThan(2)
-        // Far fewer than one per 10ms.
+        // Sampled every frame until scale ends.
         expect(transform.length).toBeLessThan(40)
+        expect(options.duration).toBeLessThanOrEqual(500)
     })
 
-    it("samples few keyframes where only linear values move", async () => {
+    it("samples until the first value ends, then rebuilds the rest", async () => {
         const element = document.createElement("div")
 
         animateElement(
@@ -608,16 +617,24 @@ describe("independent transform acceleration", () => {
         await nextFrame()
 
         const [waapi] = running(element)
-        const { transform, offset } = waapi.keyframes as any
+        const { transform } = waapi.keyframes as any
         const { duration } = waapi.options as { duration: number }
-        // Sampled while x moves, then one keyframe for the rest of y.
-        expect(transform.length).toBeLessThan(40)
-        expect(transform[transform.length - 1]).toBe(
-            "translateX(100px) translateY(200px) "
-        )
-        const ended = offset.findIndex((o: number) => o * duration >= 980)
-        expect(transform.length - ended).toBeLessThan(4)
-        expect(readX(transform[ended])).toBeCloseTo(100, 0)
+        // Sampled every frame while x moves, and no further.
+        expect(transform.length).toBeLessThan(70)
+        expect(duration).toBeLessThanOrEqual(1000)
+        expect(readX(transform[transform.length - 1])).toBeCloseTo(100, 0)
+
+        await wait(1100)
+        await nextFrame()
+
+        // y carries on alone, as two keyframes from when it started.
+        const [rest] = running(element)
+        expect(rest).not.toBe(waapi)
+        expect(rest.keyframes.transform).toEqual([
+            "translateX(100px) translateY(0px) ",
+            "translateX(100px) translateY(200px) ",
+        ])
+        expect(rest.startTime).toBeLessThan(performance.now() - 1000)
     })
 
     it("cancels the WAAPI animation it replaces when another value interrupts", async () => {
@@ -639,12 +656,10 @@ describe("independent transform acceleration", () => {
             (animation) => !animation.cancel.mock.calls.length
         )
         /**
-         * One animation of the transform, and one with no keyframes that
-         * finishes x when it ends, before y.
+         * One animation of the transform, sampled until x ends.
          */
-        expect(live).toHaveLength(2)
-        const [timer] = live.filter((animation) => !animation.keyframes)
-        expect(timer.options.duration).toBeLessThanOrEqual(1000)
+        expect(live).toHaveLength(1)
+        expect(live[0].options.duration).toBeLessThanOrEqual(1000)
     })
 
     it("samples each value few times to rebuild after an interrupt", async () => {
@@ -928,7 +943,7 @@ describe("independent transform acceleration", () => {
         expect(element.style.transform).toBe("translateX(50px)")
     })
 
-    it("jumps back to the start when a shared easing repeats", async () => {
+    it("repeats a shared easing as iterations", async () => {
         const element = document.createElement("div")
 
         animateElement(
@@ -938,15 +953,55 @@ describe("independent transform acceleration", () => {
         )
         await nextFrame()
 
-        const [{ options }] = running(element)
-        const easing = options.easing as string
-        const duration = options.duration as number
-        expect(easing).toMatch(/^linear\(/)
+        const [{ keyframes, options }] = running(element)
+        expect(keyframes.transform).toHaveLength(2)
+        expect(options.easing).toBe("ease-in-out")
+        expect(options.duration).toBeCloseTo(1000, 0)
+        expect(options.iterations).toBe(3)
+        expect(options.direction).toBe("normal")
+    })
 
-        // Each repeat restarts at the same point in its progress.
-        const restart = (duration % 1000) / duration
-        expect(linearAt(easing, restart - 0.001)).toBeGreaterThan(0.99)
-        expect(linearAt(easing, restart + 0.001)).toBeLessThan(0.01)
+    it("reverses repeats as alternate iterations", async () => {
+        const element = document.createElement("div")
+
+        animateElement(
+            element,
+            { x: [0, 100], y: [0, 30] },
+            {
+                duration: 1,
+                ease: "easeOut",
+                repeat: Infinity,
+                repeatType: "reverse",
+            }
+        )
+        await nextFrame()
+
+        const [waapi] = running(element)
+        expect(waapi.options.iterations).toBe(Infinity)
+        expect(waapi.options.direction).toBe("alternate")
+        expect(xAt(waapi, 1500)).toBeCloseTo(xAt(waapi, 500), 0)
+    })
+
+    it("holds the last keyframe for a repeat delay", async () => {
+        const element = document.createElement("div")
+
+        animateElement(
+            element,
+            { x: [0, 100] },
+            { duration: 1, ease: "linear", repeat: 1, repeatDelay: 1 }
+        )
+        await nextFrame()
+
+        const [waapi] = running(element)
+        const { transform, offset } = waapi.keyframes as any
+        expect(transform).toEqual([
+            "translateX(0px) ",
+            "translateX(100px) ",
+            "translateX(100px) ",
+        ])
+        expect(offset).toEqual([0, 0.5, 1])
+        expect(waapi.options.duration).toBeCloseTo(2000, 0)
+        expect(waapi.options.iterations).toBe(2)
     })
 
     it("jumps back to the start when sampled keyframes repeat", async () => {
@@ -1237,7 +1292,7 @@ describe("independent transform acceleration", () => {
     })
 
     describe("keyframes that move in one span, as a sequence makes", () => {
-        it("use two keyframes and that span's easing", async () => {
+        it("hold either side of the span, with that span's easing", async () => {
             const element = document.createElement("div")
             const start = performance.now()
 
@@ -1256,14 +1311,15 @@ describe("independent transform acceleration", () => {
             expect(running(element)).toHaveLength(1)
             expect(keyframes.transform).toEqual([
                 "translateX(0px) rotate(0deg) ",
+                "translateX(0px) rotate(0deg) ",
+                "translateX(100px) rotate(45deg) ",
                 "translateX(100px) rotate(45deg) ",
             ])
-            expect(options.easing).toBe("ease-out")
+            expect(keyframes.offset).toEqual([0, 0.05, 0.55, 1])
+            expect(keyframes.easing).toEqual(["linear", "ease-out", "linear"])
             expect(options.fill).toBe("both")
-            expect(options.duration).toBeCloseTo(500, 0)
-            // It holds its last keyframe until the animation ends.
-            expect(options.endDelay).toBeCloseTo(450, 0)
-            expect(Math.abs(startTime! - start - 50)).toBeLessThan(20)
+            expect(options.duration).toBeCloseTo(1000, 0)
+            expect(Math.abs(startTime! - start)).toBeLessThan(20)
         })
 
         it("finish when the whole animation ends", async () => {
@@ -1282,7 +1338,7 @@ describe("independent transform acceleration", () => {
             expect(element.style.transform).toBe("translateX(100px)")
         })
 
-        it("aren't built until shortly before they start moving", async () => {
+        it("are built at once, holding until they start moving", async () => {
             const element = document.createElement("div")
             const start = performance.now()
 
@@ -1293,24 +1349,22 @@ describe("independent transform acceleration", () => {
             )
             await nextFrame()
 
-            /**
-             * Until then, it holds where it starts as an inline style.
-             */
-            expect(running(element)).toHaveLength(0)
-            expect(element.style.transform).toBe("translateY(20px)")
-
-            await wait(450 - (performance.now() - start))
-            await nextFrame()
-
             expect(running(element)).toHaveLength(1)
-            const [{ keyframes, options, startTime }] = running(element)
+            const [waapi] = running(element)
+            const { keyframes, options, startTime } = waapi
             expect(keyframes.transform).toEqual([
                 "translateX(0px) translateY(20px) ",
+                "translateX(0px) translateY(20px) ",
+                "translateX(100px) translateY(50px) ",
                 "translateX(100px) translateY(50px) ",
             ])
-            expect(options.duration).toBeCloseTo(250, 0)
-            // It starts when the animation reaches its keyframe.
-            expect(Math.abs(startTime! - start - 500)).toBeLessThan(20)
+            expect(keyframes.offset).toEqual([0, 0.5, 0.75, 1])
+            expect(keyframes.easing).toBeUndefined()
+            expect(options.duration).toBeCloseTo(1000, 0)
+            expect(options.fill).toBe("both")
+            expect(Math.abs(startTime! - start)).toBeLessThan(20)
+            expect(xAt(waapi, 400)).toBe(0)
+            expect(xAt(waapi, 625)).toBeCloseTo(50, 0)
 
             await Promise.all(animation)
             expect(element.style.transform).toBe(
@@ -1318,7 +1372,7 @@ describe("independent transform acceleration", () => {
             )
         })
 
-        it("are built when played after a pause while waiting to start", async () => {
+        it("seek and play while paused before they start moving, without rebuilding", async () => {
             const element = document.createElement("div")
 
             const animation = animateElement(
@@ -1327,63 +1381,30 @@ describe("independent transform acceleration", () => {
                 { duration: 1, times: [0, 0.5, 1], ease: "linear" }
             )
             await nextFrame()
-            expect(running(element)).toHaveLength(0)
+            const [waapi] = running(element)
 
             animation.forEach((a) => a.pause())
             await nextFrame()
             animation.forEach((a) => (a.time = 0.6))
             await nextFrame()
-            expect(running(element)).toHaveLength(0)
-            expect(readX(element.style.transform)).toBeCloseTo(20, 0)
+            expect(waapi.playState).toBe("paused")
+            expect(waapi.currentTime).toBeCloseTo(600, -1)
+            expect(animation[0].time).toBeCloseTo(0.6, 2)
 
             const playedAt = performance.now()
             animation.forEach((a) => a.play())
             await nextFrame()
 
-            const [waapi] = running(element)
-            expect(xAt(waapi, 0)).toBeCloseTo(0, 0)
-            expect(xAt(waapi, 500)).toBeCloseTo(100, 0)
+            expect(created(element)).toEqual([waapi])
+            expect(waapi.playState).toBe("running")
+            expect(xAt(waapi, 500)).toBeCloseTo(0, 0)
+            expect(xAt(waapi, 1000)).toBeCloseTo(100, 0)
             /**
-             * It started moving 100ms before it was played. Compare with
-             * the time of play(), not after the frame wait, which is
-             * longer on a busy machine.
+             * It's 600ms in, so started moving 100ms before it was
+             * played. Compare with the time of play(), not after the
+             * frame wait, which is longer on a busy machine.
              */
-            expect(Math.abs(waapi.startTime! - playedAt + 100)).toBeLessThan(20)
-        })
-
-        it("pause and play while waiting to start without rebuilding", async () => {
-            const element = document.createElement("div")
-
-            const animation = animateElement(
-                element,
-                { x: [0, 0, 100], y: [0, 0, 50] },
-                { duration: 1, times: [0, 0.5, 1], ease: "linear" }
-            )
-            await nextFrame()
-            const sync = jest.spyOn(TransformAnimation.prototype, "sync")
-
-            animation.forEach((a) => a.pause())
-            await nextFrame()
-            const pausedAt = animation[0].time
-            await wait(100)
-            animation.forEach((a) => a.play())
-            const playedAt = performance.now()
-            await nextFrame()
-
-            // Nothing moves until the tween starts, so there's nothing to
-            // rebuild or write.
-            expect(sync).not.toHaveBeenCalled()
-            expect(created(element)).toHaveLength(0)
-            expect(element.style.transform).toBe("none")
-
-            // It's built shortly before it starts, later by the pause.
-            await wait(350 - pausedAt * 1000 - (performance.now() - playedAt))
-            const [waapi] = await untilRunning(element, 400)
-            expect(xAt(waapi, 0)).toBeCloseTo(0, 0)
-            expect(xAt(waapi, 500)).toBeCloseTo(100, 0)
-            expect(
-                Math.abs(waapi.startTime! - playedAt - (500 - pausedAt * 1000))
-            ).toBeLessThan(20)
+            expect(Math.abs(waapi.startTime! - playedAt + 600)).toBeLessThan(20)
         })
 
         it("pause and play once built, before they start, without rebuilding", async () => {
@@ -1398,14 +1419,14 @@ describe("independent transform acceleration", () => {
             await wait(350 - (performance.now() - start))
             const [waapi] = await untilRunning(element, 140)
             const startTime = waapi.startTime!
-            // Built, but not started.
-            expect(startTime).toBeGreaterThan(performance.now())
+            // Built, but not moving yet.
+            expect(xAt(waapi, performance.now() - startTime)).toBe(0)
 
             animation.forEach((a) => a.pause())
             const pausedAt = performance.now()
             await nextFrame()
             expect(waapi.playState).toBe("paused")
-            expect(waapi.currentTime).toBeLessThan(0)
+            expect(waapi.currentTime).toBeLessThan(500)
 
             await wait(100)
             animation.forEach((a) => a.play())
@@ -1420,7 +1441,7 @@ describe("independent transform acceleration", () => {
             ).toBeLessThan(20)
         })
 
-        it("build on time when seeked while paused waiting to start", async () => {
+        it("start on time when seeked while paused before they start moving", async () => {
             const element = document.createElement("div")
 
             const animation = animateElement(
@@ -1429,21 +1450,21 @@ describe("independent transform acceleration", () => {
                 { duration: 1, times: [0, 0.5, 1], ease: "linear" }
             )
             await nextFrame()
+            const [waapi] = running(element)
             animation.forEach((a) => a.pause())
             await nextFrame()
             animation.forEach((a) => (a.time = 0.35))
             await nextFrame()
             animation.forEach((a) => a.play())
             const playedAt = performance.now()
+            await nextFrame()
 
-            // The tween now starts 150ms after play, so it's built well
-            // before the wait it was first built to wake after.
-            const [waapi] = await untilRunning(element, 200)
-            expect(waapi).toBeDefined()
-            expect(Math.abs(waapi.startTime! - playedAt - 150)).toBeLessThan(20)
+            // The tween now starts 150ms after play.
+            expect(created(element)).toEqual([waapi])
+            expect(Math.abs(waapi.startTime! - playedAt + 350)).toBeLessThan(20)
         })
 
-        it("build on time when sped up while paused waiting to start", async () => {
+        it("start on time when sped up while paused before they start moving", async () => {
             const element = document.createElement("div")
 
             const animation = animateElement(
@@ -1452,6 +1473,7 @@ describe("independent transform acceleration", () => {
                 { duration: 1, times: [0, 0.5, 1], ease: "linear" }
             )
             await nextFrame()
+            const [waapi] = running(element)
             animation.forEach((a) => a.pause())
             await nextFrame()
             animation.forEach((a) => (a.speed = 4))
@@ -1459,16 +1481,16 @@ describe("independent transform acceleration", () => {
             const pausedAt = animation[0].time
             animation.forEach((a) => a.play())
             const playedAt = performance.now()
-            const startIn = (500 - pausedAt * 1000) / 4
+            await nextFrame()
 
-            const [waapi] = await untilRunning(element, startIn + 30)
-            expect(waapi).toBeDefined()
+            expect(created(element)).toEqual([waapi])
+            expect(waapi.playbackRate).toBe(4)
             expect(
-                Math.abs(waapi.startTime! - playedAt - startIn)
+                Math.abs(waapi.startTime! - playedAt + (pausedAt * 1000) / 4)
             ).toBeLessThan(20)
         })
 
-        it("stop waiting to start when stopped", async () => {
+        it("are cancelled when stopped before they start moving", async () => {
             const element = document.createElement("div")
 
             const animation = animateElement(
@@ -1481,10 +1503,12 @@ describe("independent transform acceleration", () => {
             await wait(300)
             await nextFrame()
 
-            expect(created(element)).toHaveLength(0)
+            expect(created(element)).toHaveLength(1)
+            expect(running(element)).toHaveLength(0)
+            expect(element.style.transform).toBe("none")
         })
 
-        it("use two keyframes and a traced easing WAAPI can't run", async () => {
+        it("trace an easing WAAPI can't run over the span", async () => {
             const element = document.createElement("div")
 
             animateElement(
@@ -1494,18 +1518,19 @@ describe("independent transform acceleration", () => {
             )
             await nextFrame()
 
-            const [{ keyframes, options }] = running(element)
+            const [{ keyframes }] = running(element)
             expect(running(element)).toHaveLength(1)
             expect(keyframes.transform).toEqual([
                 "translateX(0px) translateY(0px) ",
+                "translateX(0px) translateY(0px) ",
+                "translateX(100px) translateY(50px) ",
                 "translateX(100px) translateY(50px) ",
             ])
-            const easing = options.easing as string
+            const easing = (keyframes as any).easing[1] as string
             expect(easing).toMatch(/^linear\(/)
             // backOut overshoots its target.
             expect(linearAt(easing, 0.5)).toBeGreaterThan(1)
             expect(linearAt(easing, 1)).toBeCloseTo(1, 3)
-            expect(options.endDelay).toBeCloseTo(450, 0)
         })
 
         it("share an easing that's the same curve as different functions", async () => {
@@ -1525,15 +1550,13 @@ describe("independent transform acceleration", () => {
                 })
             }
             await nextFrame()
-            // Built shortly before it starts.
-            expect(running(element)).toHaveLength(0)
-            await wait(250)
-            await nextFrame()
 
             const [{ keyframes, options }] = running(element)
-            expect(keyframes.transform).toHaveLength(2)
-            expect(options.duration).toBeCloseTo(500, 0)
-            expect(linearAt(options.easing as string, 0.5)).toBeCloseTo(0.25, 2)
+            expect(keyframes.transform).toHaveLength(4)
+            expect(keyframes.offset).toEqual([0, 0.3, 0.8, 1])
+            expect(options.duration).toBeCloseTo(1000, 0)
+            const [, easing] = (keyframes as any).easing
+            expect(linearAt(easing, 0.5)).toBeCloseTo(0.25, 2)
         })
 
         it("follow an easing that doesn't start at 0 or end at 1", async () => {
@@ -1585,8 +1608,8 @@ describe("independent transform acceleration", () => {
             )
             await nextFrame()
 
-            const [{ options }] = running(element)
-            expect(options.easing).toMatch(/^linear\(/)
+            const [{ keyframes }] = running(element)
+            expect((keyframes as any).easing[1]).toMatch(/^linear\(/)
         })
     })
 

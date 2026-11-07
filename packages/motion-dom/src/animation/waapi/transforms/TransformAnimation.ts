@@ -1,12 +1,11 @@
 import {
-    BezierDefinition,
     clamp,
+    Easing,
     EasingFunction,
     easingDefinitionToFunction,
     isBezierDefinition,
     isEasingArray,
     millisecondsToSeconds,
-    progress,
 } from "motion-utils"
 import { frame } from "../../../frameloop/frame"
 import { frameData } from "../../../frameloop/frame-data"
@@ -20,7 +19,6 @@ import {
     transformPropOrder,
     transformProps,
 } from "../../../render/utils/keys-transform"
-import { mixNumber } from "../../../utils/mix/number"
 import type { MotionValue, Owner } from "../../../value"
 import { frameloopDriver } from "../../drivers/frame"
 import { Driver, DriverControls } from "../../drivers/types"
@@ -55,21 +53,21 @@ import { TransformGroupHooks, transformGroups } from "./groups"
  * Independent transforms (x, y, scale, rotate etc) all write to the one
  * `transform` style, so they can't each run as their own WAAPI animation.
  * Instead, every transform animation on an element joins a group. While
- * every animation in the group can be accelerated, the group composes them
- * into a single `transform` WAAPI animation. The animations stay
- * JSAnimations, but their driver doesn't tick, so they do no work per
- * frame.
+ * every animation in the group follows the same timing, the group composes
+ * them into a single `transform` WAAPI animation of their keyframes, with
+ * their easing. The animations stay JSAnimations, but their driver doesn't
+ * tick, so they do no work per frame.
  *
- * When every animation follows the same eased progress, which is the case
- * for values that share a transition, the WAAPI animation has just two
- * keyframes and that easing. Otherwise it has as few sampled keyframes
- * as keep it accurate. It's only rebuilt when an animation starts or
- * stops. Pausing, seeking and speed changes that apply to every animation
- * in the group are made to the WAAPI animation, and animations complete
- * on its finish events.
+ * Values that share a transition, as the values of one animate() call or
+ * variant do, share their timing. So do the values of a sequence, which
+ * hold while another moves. Values with different timing, like a hover
+ * tween joining a loop, run on the main thread until the timing is shared
+ * again, as does a value that can't be accelerated or a transform
+ * something else keeps writing.
  *
- * If one of them can't be accelerated, or something else keeps writing
- * the element's transform, the whole group moves to the main thread.
+ * Pausing, seeking and speed changes that apply to every animation in the
+ * group are made to the WAAPI animation, and animations complete on its
+ * finish event.
  */
 
 interface TransformOwner extends Owner {
@@ -123,30 +121,35 @@ interface TransformGroup extends TransformGroupHooks {
  */
 type BuiltState = [number, number, boolean]
 
-interface Segment {
-    animation: Animation
-    /**
-     * When this starts and ends, relative to when the group was built.
-     */
-    offset: number
-    end: number
-    isDone?: boolean
+/**
+ * How an animation runs as WAAPI keyframes: when it starts, in document
+ * time, how long one iteration takes at speed 1, how many times it
+ * repeats, each keyframe's offset and value, and the easing of each span
+ * between them.
+ */
+interface NativeKeyframes {
+    start: number
+    duration: number
+    iterations: number
+    direction: PlaybackDirection
+    speed: number
+    offsets: number[]
+    values: AnyResolvedKeyframe[]
+    easings: string[]
 }
 
 /**
  * Sample at the interruption sampling rate, up to a cap for long
  * animations.
  */
-const maxSamples = 200
+const maxSamples = 50
 
 /**
- * How far values may stray from the WAAPI animation: as a fraction of
- * each value's change when they share an easing, otherwise in px or deg,
- * or for scale.
+ * The gap between samples: a frame, so no two are needed in one.
  */
-const easingTolerance = 0.001
-const sampleTolerance = 0.1
-const scaleTolerance = 0.001
+const sampleStep = 16
+
+type Composed = NativeKeyframes & { transform: string[]; easing: string[] }
 
 /**
  * If an outside write, or a seek the WAAPI animation can't follow,
@@ -157,60 +160,51 @@ const scaleTolerance = 0.001
 const churnWindow = 100
 
 /**
- * A WAAPI animation that starts moving later than this, as most segments
- * of a long sequence do, is built this long before it starts, rather than
- * all at once at the start.
- */
-const buildAhead = 100
-
-/**
  * Named easings that are the same cubic-bezier in JS and CSS.
  */
 const nativeEasings = new Set(["linear", "easeIn", "easeOut", "easeInOut"])
-const isNativeEasing = (ease: unknown): ease is "linear" =>
-    nativeEasings.has(ease as string)
 
 /**
  * The last trace of each easing WAAPI can't run into linear(), with its
- * number of samples, so the elements of a sequence that share an easing
- * and duration trace it once.
+ * number of samples, so the elements that share an easing and duration
+ * trace it once.
  */
 const traced = new WeakMap<EasingFunction, [number, string]>()
+
+const toLinear = (progressAt: (p: number) => number, samples: number) =>
+    "linear(" +
+    defaultOffset(Array(samples + 1)).map(
+        (p) => round(progressAt(p)) + " " + round(p * 100) + "%"
+    ) +
+    ")"
 
 const trace = (ease: EasingFunction, samples: number) => {
     let last = traced.get(ease)
     if (last?.[0] !== samples) {
-        last = [
-            samples,
-            "linear(" +
-                defaultOffset(Array(samples + 1)).map(
-                    (p) => round(ease(p)) + " " + round(p * 100) + "%"
-                ) +
-                ")",
-        ]
+        last = [samples, toLinear(ease, samples)]
         traced.set(ease, last)
     }
     return last[1]
 }
 
 /**
- * How many samples trace an easing between two timestamps.
+ * How many samples trace an easing over a duration.
  */
-const countSamples = (from: number, to: number) =>
-    Math.min(maxSamples, Math.max(2, Math.ceil((to - from) / sampleDelta)))
+const countSamples = (duration: number) =>
+    Math.min(maxSamples, Math.max(2, Math.ceil(duration / sampleDelta)))
 
 /**
- * Whether two eased progresses match. False if either is NaN.
+ * An easing as WAAPI runs it: a native one by name, a bezier by its
+ * values, and anything else traced into linear().
  */
-const isNear = (a: number, b: number) => Math.abs(a - b) <= easingTolerance
+const easingAsString = (ease: Easing, samples: number) =>
+    isBezierDefinition(ease)
+        ? cubicBezierAsString(ease)
+        : nativeEasings.has(ease as string)
+        ? supportedWaapiEasing[ease as "linear"]
+        : trace(easingDefinitionToFunction(ease), samples)
 
 const byTime = (a: number, b: number) => a - b
-
-/**
- * n + 1 evenly spaced timestamps, from one timestamp to another.
- */
-const spread = (from: number, to: number, n: number) =>
-    defaultOffset(Array(n + 1)).map((p) => mixNumber(from, to, p))
 
 const getOwner = (options: ValueAnimationOptions<any>) =>
     options.motionValue!.owner as TransformOwner
@@ -467,23 +461,6 @@ export class TransformAnimation<
         this.stopTimeline?.()
     }
 
-    private offsetsOf?: unknown[]
-    private cachedOffsets?: number[]
-
-    /**
-     * Each keyframe's offset, made once for the keyframes rather than on
-     * every build.
-     */
-    offsets() {
-        const { keyframes, times } = this.options
-        if (times) return times
-        if (this.offsetsOf !== keyframes) {
-            this.offsetsOf = keyframes
-            this.cachedOffsets = defaultOffset(keyframes)
-        }
-        return this.cachedOffsets!
-    }
-
     get group() {
         return getGroup(getOwner(this.options).current)
     }
@@ -498,10 +475,6 @@ export class TransformAnimation<
 
     get name() {
         return this.options.name!
-    }
-
-    get hasDelay() {
-        return Boolean(this.options.delay)
     }
 
     /**
@@ -546,109 +519,104 @@ export class TransformAnimation<
     }
 
     /**
-     * If this moves between two keyframes only, holding still either side
-     * of them, as each value of a sequence segment does, when it starts
-     * and stops moving, and its easing: as a string if WAAPI runs it
-     * exactly, otherwise its function, to trace.
+     * This animation as WAAPI keyframes, if WAAPI can run it: keyframes
+     * with easings it has or can trace, that repeat as it does. Over a
+     * scroll timeline, the keyframes span the timeline, delay included.
+     * Undefined if it can't, so the group runs on the main thread.
      */
-    tween(): [number, number, (string | EasingFunction)?] | undefined {
-        const { keyframes, type, repeat, delay = 0 } = this.options
-        let span = -1
+    native(isScroll?: boolean): NativeKeyframes | undefined {
+        const { startTime, speed, resolvedDuration, totalDuration, options } =
+            this
+        const { keyframes, repeat, repeatType, repeatDelay, type, delay } =
+            options
+        const samples = countSamples(resolvedDuration)
+        let { ease, times } = options
+        let offsets = times || defaultOffset(keyframes)
+        let easings: string[]
 
-        if (repeat || type !== keyframesGenerator || this.holdTime !== null) {
+        if (
+            !(resolvedDuration < Infinity) ||
+            speed <= 0 ||
+            repeatType === "mirror" ||
+            (isScroll && repeat) ||
+            offsets.length !== keyframes.length ||
+            offsets[0] ||
+            offsets[offsets.length - 1] !== 1 ||
+            offsets.some((o, i) => i && o <= offsets[i - 1])
+        ) {
             return
         }
 
-        for (let i = 1; i < keyframes.length; i++) {
-            if (keyframes[i] !== keyframes[i - 1]) {
-                if (span >= 0) return
-                span = i - 1
-            }
-        }
-
-        let { ease } = this.options
-        if (isEasingArray(ease)) ease = ease[span]
-
-        const offsets = this.offsets()
-        const at = (i: number) =>
-            this.startTime! +
-            (delay + offsets[i] * this.totalDuration) / this.speed
-
-        if (span >= 0) {
-            const easing = isBezierDefinition(ease!)
-                ? cubicBezierAsString(ease as BezierDefinition)
-                : isNativeEasing(ease)
-                ? supportedWaapiEasing[ease]
-                : easingDefinitionToFunction(ease!)
-
+        if (type === keyframesGenerator) {
+            ease ??= "easeInOut"
+            easings = offsets
+                .slice(1)
+                .map((_, i) =>
+                    easingAsString(
+                        isEasingArray(ease!) ? ease[i] || "linear" : ease!,
+                        samples
+                    )
+                )
+        } else {
             /**
-             * An easing that doesn't run from 0 to 1 doesn't move between
-             * the keyframes, so is traced from the values it gives instead.
+             * A spring moves between two keyframes along its own curve,
+             * which is traced from its values. One that doesn't move,
+             * or that moves between values that aren't numbers, is left
+             * to the main thread.
              */
-            return [
-                at(span),
-                at(span + 1),
-                typeof easing === "string" ||
-                (isNear(easing(0), 0) && isNear(easing(1), 1))
-                    ? easing
-                    : undefined,
+            const from = parseFloat(keyframes[0] as string)
+            const range = parseFloat(keyframes[1] as string) - from
+            if (!(Math.abs(range) >= 0)) return
+
+            offsets = [0, 1]
+            easings = [
+                toLinear(
+                    (p) =>
+                        (parseFloat(
+                            this.sampleTime(
+                                delay! + p * resolvedDuration,
+                                true
+                            ) as string
+                        ) -
+                            from) /
+                        range,
+                    samples
+                ),
             ]
         }
-    }
 
-    /**
-     * The timestamps between two timestamps where this reaches a
-     * keyframe or starts a repeat, where it can turn or jump.
-     */
-    boundaries(from: number, to: number) {
-        const { startTime, speed, resolvedDuration, options } = this
-        const {
-            delay = 0,
-            repeat = 0,
-            repeatDelay = 0,
-            repeatType,
-            type,
-        } = options
-        const offsets =
-            (type || keyframesGenerator) === keyframesGenerator
-                ? this.offsets()
-                : [0, 1]
-        const start = startTime! + delay / speed
-        const result: number[] = []
-
-        if (this.holdTime !== null || !(resolvedDuration > 0)) return result
-
-        for (
-            let i = Math.max(
-                0,
-                Math.floor(((from - start) * speed) / resolvedDuration)
-            );
-            i <= repeat;
-            i++
-        ) {
-            const iterationStart = start + (i * resolvedDuration) / speed
-            if (iterationStart > to) break
-
-            for (const offset of offsets) {
-                const t =
-                    iterationStart +
-                    ((i % 2 && repeatType && repeatType !== "loop"
-                        ? 1 - offset
-                        : offset) *
-                        (resolvedDuration - repeatDelay)) /
-                        speed
-                t > from && t < to && result.push(t)
-            }
+        /**
+         * A repeat delay holds the last keyframe for its share of each
+         * iteration. Over a scroll timeline, the delay holds the first
+         * keyframe for its share of the timeline.
+         */
+        let values = keyframes as AnyResolvedKeyframe[]
+        if (repeatDelay) {
+            const share = this.calculatedDuration / resolvedDuration
+            offsets = [...offsets.map((o) => o * share), 1]
+            values = [...values, values[values.length - 1]]
+            easings.push("linear")
+        }
+        if (isScroll && delay) {
+            const share = totalDuration / (delay + totalDuration)
+            offsets = [0, ...offsets.map((o) => 1 - share + o * share)]
+            values = [values[0], ...values]
+            easings = ["linear", ...easings]
         }
 
-        return result
-    }
-
-    /**
-     * The value at a timestamp, as a number.
-     */
-    numberAt(timestamp: number) {
-        return parseFloat(this.sampleAt(timestamp, true) as string)
+        return {
+            start: isScroll ? 0 : startTime! + delay! / speed,
+            duration: isScroll ? 0 : resolvedDuration,
+            iterations: isScroll ? 1 : repeat! + 1,
+            direction:
+                !isScroll && repeat && repeatType === "reverse"
+                    ? "alternate"
+                    : "normal",
+            speed: isScroll ? 1 : speed,
+            offsets,
+            values,
+            easings,
+        }
     }
 
     /**
@@ -821,21 +789,6 @@ export class TransformAnimation<
     }
 
     /**
-     * Whether this moves linearly between two keyframes, from start to
-     * end of a scroll timeline.
-     */
-    isLinearTween() {
-        const { keyframes, delay, repeat, type, ease } = this.options
-        return (
-            keyframes.length === 2 &&
-            !delay &&
-            !repeat &&
-            type === keyframesGenerator &&
-            ease === "linear"
-        )
-    }
-
-    /**
      * On a scroll timeline, its time is where the timeline has it.
      */
     at(timestamp: number) {
@@ -865,7 +818,6 @@ const buildSoon = (build: VoidFunction) => {
 function createGroup(owner: TransformOwner): TransformGroup {
     const element = owner.current
     const tracks = new Set<TransformAnimation<any>>()
-    const byKey = new Map<string, TransformAnimation<any>>()
 
     /**
      * Transforms that aren't animating, as built into the WAAPI animation.
@@ -876,48 +828,21 @@ function createGroup(owner: TransformOwner): TransformGroup {
      */
     let keys: string[] = []
     let built = new Map<TransformAnimation<any>, BuiltState>()
-    let segments: Segment[] = []
+    /**
+     * The WAAPI animation, when it starts relative to when the group was
+     * built and how long it runs.
+     */
+    let native: Animation | undefined
+    let nativeStart = 0
+    let nativeLength = 0
     let needsBuild = false
     let isScheduled = false
     let isEnded = false
     let hasChurned = false
     let lastChurn = -Infinity
-    let wake: ReturnType<typeof setTimeout> | undefined
-    let wakeAt = Infinity
-    /**
-     * While waiting to build a tween that starts later, how long after
-     * the last build to build it.
-     */
-    let buildAt: number | undefined
 
     const has = (key: string) => {
         for (const track of tracks) if (track.name === key) return true
-    }
-
-    /**
-     * The transform values at a timestamp or, without one, from the
-     * motion values. Animations that don't repeat forever are sampled no
-     * earlier than settled, so a loop that starts from an earlier cycle
-     * boundary holds them at their end.
-     */
-    const valuesAt = (timestamp?: number, settled?: number) => {
-        const values: ResolvedValues = {}
-        for (const key of timestamp === undefined ? transformPropOrder : keys) {
-            const track = byKey.get(key)
-            const value =
-                timestamp === undefined
-                    ? read(owner, key)
-                    : track
-                    ? track.sampleAt(
-                          settled! > timestamp && !track.timing()[1]
-                              ? settled!
-                              : timestamp
-                      )
-                    : statics[key]
-
-            if (value !== undefined) values[key] = value
-        }
-        return values
     }
 
     /**
@@ -938,350 +863,278 @@ function createGroup(owner: TransformOwner): TransformGroup {
     }
 
     /**
-     * Build the transform at a timestamp.
+     * Write the transform as an inline style, from the motion values, as
+     * the renderer would.
      */
-    const compose = (timestamp: number, settled?: number) =>
-        toTransform(valuesAt(timestamp, settled))
-
-    /**
-     * Write the transform as an inline style, as the renderer would.
-     */
-    const commit = (values = valuesAt()) => {
+    const commit = () => {
+        const values: ResolvedValues = {}
+        for (const key of transformPropOrder) {
+            const value = read(owner, key)
+            if (value !== undefined) values[key] = value
+        }
         element.style.transform = toTransform(values, true)
     }
 
     /**
-     * Cancel a WAAPI animation and remove its handlers, as WebKit never
+     * Cancel the WAAPI animation and remove its handlers, as WebKit never
      * collects an animation once it has run, nor anything its handlers
-     * reference (#4034).
-     */
-    const cancel = (animation: Animation) => {
-        animation.onfinish = animation.oncancel = null
-        animation.cancel()
-    }
-
-    /**
-     * Cancel the WAAPI animations, by default first committing the
-     * transform. The renderer writes its own version on its next render.
+     * reference (#4034). By default the transform is committed first. The
+     * renderer writes its own version on its next render.
      */
     const stop = (shouldCommit = true) => {
-        /**
-         * Only a pending wake has a timer to clear.
-         */
-        wakeAt < Infinity && clearTimeout(wake)
-        wakeAt = Infinity
-        buildAt = undefined
         shouldCommit && commit()
-        segments.forEach(({ animation }) => cancel(animation))
-        segments = []
-        scrollAnimation = undefined
+        if (native) {
+            native.onfinish = native.oncancel = null
+            native.cancel()
+            native = scrollAnimation = undefined
+        }
     }
 
     /**
-     * A WAAPI animation that add() starts by setting its startTime. Playing
-     * it first, as element.animate() does, would leave WebKit holding that
+     * The transforms that aren't animating, and those held, as statics.
+     * Those at their default are left out. Returns the animating ones.
+     */
+    const readStatics = (now: number) => {
+        const byKey = new Map<string, TransformAnimation<any>>()
+        statics = {}
+        for (const track of tracks) byKey.set(track.name, track)
+        keys = transformPropOrder.filter((key) => {
+            const track = byKey.get(key)
+            if (track && track.timing()[0] < Infinity) return true
+            const value = (statics[key] = track
+                ? track.sampleAt(now)
+                : read(owner, key))
+            return value !== undefined && !isDefaultTransform(key, value)
+        })
+        return byKey
+    }
+
+    /**
+     * A WAAPI animation that starts by setting its startTime. Playing it
+     * first, as element.animate() does, would leave WebKit holding that
      * play's ready time once startTime ends the play, and it uses that for
      * the next updatePlaybackRate(), so the animation would jump.
      */
     const create = (
         keyframes: PropertyIndexedKeyframes | null,
         options: KeyframeAnimationOptions
-    ) =>
-        new Animation(
+    ) => {
+        const animation = new Animation(
             new KeyframeEffect(element, keyframes, options) as AnimationEffect
         )
-
-    const add = (animation: Animation, offset: number, end = Infinity) => {
-        const segment: Segment = { animation, offset, end }
-        animation.startTime = time.now() + offset
-
-        /**
-         * Animations finish when the WAAPI animation reaches their end.
-         * Once a loop has taken over, the finished animation isn't needed.
-         */
-        if (end < Infinity) {
-            animation.onfinish = () => {
-                segment.isDone = true
-                if (segments.some((s) => s.end === Infinity)) {
-                    cancel(animation)
-                    segments = segments.filter((s) => s !== segment)
-                }
-                group.schedule(false)
-            }
-        }
-
         /**
          * Something else cancelled it, so carry on on the main thread.
          */
-        animation.oncancel = () => segments.includes(segment) && group.demote()
-
-        segments.push(segment)
+        animation.oncancel = () => native === animation && group.demote()
+        return (native = animation)
     }
 
     /**
-     * Where a value jumps between two timestamps, as when a repeat starts
-     * again: the timestamps either side of the jump, or none if it moves
-     * there continuously.
+     * The keyframes of the composed transform, if every moving animation
+     * shares its timing: when it starts, its duration, speed and repeats.
+     * Each keyframe is at an offset one of them has, where the others
+     * either have one too, or hold, and each span between keyframes has
+     * the easing of the animations that move over it. Returns undefined
+     * if they can't be composed.
      */
-    const jumpAt = (value: (t: number) => number, a: number, b: number) => {
-        const change = (x: number, y: number) => Math.abs(value(y) - value(x))
-        const size = change(a, b)
-        while (b - a > 0.01) {
-            const mid = (a + b) / 2
-            change(a, mid) > change(mid, b) ? (b = mid) : (a = mid)
-        }
-        return change(a, b) > size / 2 ? [a, b] : []
-    }
+    const compose = (
+        byKey: Map<string, TransformAnimation<any>>,
+        isScroll?: boolean
+    ): Composed | null | undefined => {
+        const natives = new Map<string, NativeKeyframes>()
+        let shared: NativeKeyframes | undefined
+        let offsets: number[] = []
 
-    /**
-     * If every moving animation follows the same eased progress between
-     * two timestamps, the easing that describes it.
-     */
-    const getEasing = (
-        moving: TransformAnimation<any>[],
-        from: number,
-        to: number,
-        bounds: number[]
-    ) => {
-        const samples = countSamples(from, to)
+        for (const key of keys) {
+            const track = byKey.get(key)
+            if (!track || track.timing()[0] === Infinity) continue
 
-        /**
-         * Too many keyframes or repeats to follow with this many samples.
-         */
-        if (bounds.length * 4 > samples) return
-
-        /**
-         * First check half way, where values with different easings
-         * usually differ, before sampling every value many times.
-         */
-        let quick: number | undefined
-        for (const track of moving) {
-            const first = track.numberAt(from)
-            const p =
-                (track.numberAt((from + to) / 2) - first) /
-                (track.numberAt(to) - first)
-
-            /**
-             * NaN if it doesn't move.
-             */
-            if (p !== p) continue
-            if (quick === undefined) quick = p
-            else if (!isNear(p, quick)) return
-        }
-
-        const at = spread(from, to, samples).concat(bounds).sort(byTime)
-
-        const position = (t: number) => progress(from, to, t)
-        let shared: number[] | undefined
-        let progressAt: (t: number) => number
-
-        for (const track of moving) {
-            const first = track.numberAt(from)
-            const changes = at.map((t) => track.numberAt(t) - first)
-            const end = changes[changes.length - 1]
-
-            /**
-             * A value that ends only a tiny way from where it started, as
-             * a round trip does if it's built just after it starts, or
-             * from a float residue, ends where it started. Dividing by
-             * that tiny range would stretch the easing to values the
-             * compositor can't render.
-             */
-            const range = changes.some(
-                (change) => Math.abs(change) * easingTolerance > Math.abs(end)
-            )
-                ? 0
-                : end
-
-            const progress = changes.map((change) =>
-                range ? change / range : change
-            )
-
-            /**
-             * The first value that moves sets the easing, and every other
-             * one must follow it. A value that doesn't change, like one
-             * still in its delay, fits any easing. One that changes but
-             * ends where it started fits none.
-             */
-            if (range && !shared) {
-                shared = progress
-                progressAt = (t) => (track.numberAt(t) - first) / range
-            } else if (
-                progress.some((p, i) => !isNear(p, range && shared![i]))
+            const keyframes = track.native(isScroll)
+            if (
+                !keyframes ||
+                (shared &&
+                    (Math.abs(keyframes.start - shared.start) > 1 ||
+                        Math.abs(keyframes.duration - shared.duration) > 1 ||
+                        keyframes.iterations !== shared.iterations ||
+                        keyframes.direction !== shared.direction ||
+                        keyframes.speed !== shared.speed))
             ) {
                 return
             }
-        }
 
-        if (!shared || shared.every((p, i) => isNear(p, position(at[i])))) {
-            return "linear"
+            shared ||= keyframes
+            natives.set(key, keyframes)
+            for (const offset of keyframes.offsets) {
+                offsets.includes(offset) || offsets.push(offset)
+            }
         }
 
         /**
-         * A repeat that starts again jumps back, which takes two points at
-         * the same position.
+         * Nothing moves.
          */
-        const points: string[] = []
-        const point = (t: number, p = progressAt(t)) =>
-            points.push(round(p) + " " + round(position(t) * 100) + "%")
-        shared.forEach((p, i) => {
-            i &&
-                Math.abs(p - shared![i - 1]) > 0.2 &&
-                jumpAt(progressAt, at[i - 1], at[i]).forEach((t) => point(t))
-            point(at[i], p)
-        })
+        if (!shared) return null
 
-        return "linear(" + points + ")"
+        offsets.sort(byTime)
+
+        const transform: string[] = []
+        const easing: string[] = []
+
+        for (let i = 0; i < offsets.length; i++) {
+            const values: ResolvedValues = {}
+            let spanEasing: string | undefined
+
+            for (const key of keys) {
+                const keyframes = natives.get(key)
+                if (!keyframes) {
+                    values[key] = statics[key]!
+                    continue
+                }
+
+                /**
+                 * Its keyframe at this offset or, if it has none, the
+                 * value it holds across it.
+                 */
+                let index = keyframes.offsets.indexOf(offsets[i])
+                const isOwn = index >= 0
+                if (!isOwn) {
+                    index = keyframes.offsets.findIndex((o) => o > offsets[i]) - 1
+                }
+                const value = keyframes.values[index]
+                const isMoving = value !== keyframes.values[index + 1]
+                if (!isOwn && isMoving) return
+                values[key] = value
+
+                /**
+                 * The span from this keyframe to the next has the easing
+                 * of every animation that moves over it, which must agree.
+                 */
+                if (
+                    isOwn &&
+                    isMoving &&
+                    i < offsets.length - 1 &&
+                    keyframes.offsets[index + 1] === offsets[i + 1]
+                ) {
+                    const ease = keyframes.easings[index]
+                    if (spanEasing && spanEasing !== ease) return
+                    spanEasing = ease
+                }
+            }
+
+            transform.push(toTransform(values))
+            i < offsets.length - 1 && easing.push(spanEasing || "linear")
+        }
+
+        return { ...shared, offsets, transform, easing }
     }
 
     /**
-     * Sample timestamps between two timestamps, closer together where the
-     * moving animations curve.
+     * Animations whose timing isn't shared, as when one interrupts
+     * another part way through, are sampled together from now until the
+     * first of them ends, as keyframes the browser runs linearly between.
+     * The rest are rebuilt then, from where they are. A loop that starts
+     * again in that time is sampled either side of the jump (an iteration
+     * ends at, not before, its boundary), so it doesn't play as a quick
+     * sweep. Returns undefined if nothing finite
+     * moves.
      */
     const sample = (
-        moving: TransformAnimation<any>[],
-        from: number,
-        to: number,
-        bounds: number[]
-    ) => {
-        const times = [from]
+        byKey: Map<string, TransformAnimation<any>>,
+        now: number
+    ): Composed | undefined => {
+        let end = Infinity
+        const times: number[] = []
+        const moving: TransformAnimation<any>[] = []
 
-        /**
-         * A linear tween is straight between its keyframes, so only the
-         * other values can curve, and a tween only while it moves.
-         */
-        const curved: TransformAnimation<any>[] = []
-        let curveFrom = to
-        let curveTo = from
-        for (const track of moving) {
-            const tween = track.tween()
-            if (tween?.[2] !== "linear") {
-                const [trackEnd, cycle] = track.timing()
-                const [a, b] = tween || [from, cycle ? to : trackEnd]
-                curveFrom = Math.min(curveFrom, a)
-                curveTo = Math.max(curveTo, b)
-                curved.push(track)
-            }
+        for (const track of tracks) {
+            if (track.speed < 0) return
+            const [trackEnd, cycle] = track.timing()
+            if (trackEnd === Infinity) continue
+            moving.push(track)
+            cycle || (end = Math.min(end, trackEnd))
         }
-        curveFrom = Math.max(from, curveFrom)
-        curveTo = Math.min(to, curveTo)
+        if (!(end < Infinity)) return
 
-        /**
-         * Values that aren't numbers, like calc(), are left to the
-         * browser to interpolate.
-         */
-        const isStraight = (a: number, b: number) =>
-            curved.every(
-                (track) =>
-                    !(
-                        Math.abs(
-                            track.numberAt((a + b) / 2) -
-                                (track.numberAt(a) + track.numberAt(b)) / 2
-                        ) >
-                        (track.name.startsWith("scale")
-                            ? scaleTolerance
-                            : sampleTolerance)
-                    )
-            )
-
-        const split = (a: number, b: number, depth: number) => {
-            if (b - a < 1 || isStraight(a, b)) {
-                times.push(b)
-            } else if (depth < 4) {
-                split(a, (a + b) / 2, depth + 1)
-                split((a + b) / 2, b, depth + 1)
-            } else {
-                /**
-                 * Keyframes either side of a jump, like a repeat starting
-                 * again, so it doesn't play as a quick sweep.
-                 */
-                for (const track of moving) {
-                    times.push(...jumpAt((t) => track.numberAt(t), a, b))
-                }
-                times.push(b)
-            }
-        }
-
-        /**
-         * Split at least every 100ms where a value can curve, and at every
-         * keyframe and repeat, either side of where a value can jump.
-         */
-        const ends =
-            curveTo > curveFrom
-                ? spread(
-                      curveFrom,
-                      curveTo,
-                      Math.ceil((curveTo - curveFrom) / 100)
-                  )
-                : []
-        ends.push(to)
-        for (const t of bounds) ends.push(t, Math.min(t + 0.01, to))
-
-        let start = from
-        for (const end of ends.sort(byTime)) {
-            end > start && split(start, end, 0)
-            start = end
-        }
-
-        return times.sort(byTime)
-    }
-
-    /**
-     * If every moving animation is the same tween, started together, as
-     * happens for the values of one animate() call or transition, when
-     * they move and their native easing.
-     */
-    const getTween = (moving: TransformAnimation<any>[]) => {
-        let shared: [number, number, (string | EasingFunction)?] | undefined
+        const step = Math.max(sampleStep, (end - now) / maxSamples)
+        for (let t = now; t < end; t += step) times.push(t)
+        times.push(end)
 
         for (const track of moving) {
-            const tween = track.tween()
-            if (
-                !tween ||
-                (shared &&
-                    (Math.abs(tween[0] - shared[0]) > 1 ||
-                        Math.abs(tween[1] - shared[1]) > 1))
+            const { startTime, speed, resolvedDuration, options } = track
+            const { delay, repeat, repeatType } = options
+            if (!repeat || repeatType !== "loop") continue
+            const start = startTime! + delay! / speed
+            const cycle = resolvedDuration / speed
+            for (
+                let t = start + cycle * Math.ceil((now - start) / cycle);
+                t < end;
+                t += cycle
             ) {
-                return
+                t > now && times.push(t, t + 0.01)
             }
-            /**
-             * Easings that differ, like the springs a sequence makes for
-             * each value, can still be the same curve.
-             */
-            shared = [
-                tween[0],
-                tween[1],
-                !shared || tween[2] === shared[2] ? tween[2] : undefined,
-            ]
         }
+        times.sort(byTime)
 
-        return shared
+        const transform = times.map((t) => {
+            const values: ResolvedValues = {}
+            for (const key of keys) {
+                const track = byKey.get(key)
+                values[key] =
+                    track && track.timing()[0] < Infinity
+                        ? track.sampleAt(t)
+                        : statics[key]!
+            }
+            return toTransform(values)
+        })
+
+        return {
+            start: now,
+            duration: end - now,
+            iterations: 1,
+            direction: "normal",
+            speed: 1,
+            offsets: times.map((t) => (t - now) / (end - now)),
+            values: [],
+            easings: [],
+            transform,
+            easing: times.map(() => "linear").slice(1),
+        }
     }
 
     /**
-     * A WAAPI animation of the composed transform between two timestamps.
+     * Replace the WAAPI animation with one built from now. Returns
+     * undefined if the animations can't be composed.
      */
-    const run = (
-        moving: TransformAnimation<any>[],
-        from: number,
-        to: number,
-        nativeEasing?: string,
-        options: KeyframeAnimationOptions = { fill: "both" },
-        settled?: number
-    ) => {
+    const animate = (now: number) => {
+        built = new Map()
+        for (const track of tracks) {
+            built.set(track, [
+                track.at(now),
+                track.speed,
+                track.timing()[0] === Infinity,
+            ])
+        }
+
+        const byKey = readStatics(now)
+        let composed = compose(byKey)
+        composed === undefined && (composed = sample(byKey, now))
+        stop(false)
+
         /**
-         * With an easing given, there's nothing to sample, so no need
-         * for the boundaries.
+         * Everything is held, so hold it with an inline style instead.
          */
-        const bounds = nativeEasing
-            ? []
-            : moving.flatMap((track) => track.boundaries(from, to))
-        const easing = nativeEasing || getEasing(moving, from, to, bounds)
-        const times = easing ? [from, to] : sample(moving, from, to, bounds)
-        const transform = times.map((t) => compose(t, settled))
+        if (composed === null) {
+            commit()
+            return true
+        }
+        if (!composed) return
+
+        const { start, duration, iterations, direction, speed, offsets } =
+            composed
+        const { transform, easing } = composed
         let keyframes: PropertyIndexedKeyframes | null = { transform }
-        if (!easing) {
-            keyframes.offset = times.map((t) => progress(from, to, t))
+        if (transform.length > 2) {
+            keyframes.offset = offsets
+            easing.some((e) => e !== "linear") && (keyframes.easing = easing)
         }
 
         /**
@@ -1290,191 +1143,28 @@ function createGroup(owner: TransformOwner): TransformGroup {
          * animation still finishes the animations.
          */
         if (transform.every((t) => t === transform[0])) {
-            commit(valuesAt(from, settled))
             keyframes = null
+            commit()
         }
 
-        return create(keyframes, {
-            ...options,
-            duration: to - from,
-            easing: easing || "linear",
+        nativeStart = start - now
+        nativeLength = duration * iterations
+        const animation = create(keyframes, {
+            duration,
+            iterations,
+            direction,
+            easing: transform.length > 2 ? "linear" : easing[0],
+            fill: "both",
         })
-    }
-
-    /**
-     * Check whether it's time to build in this long. A check that's due
-     * sooner is kept, and checks again if it's early, so pausing and
-     * playing don't each replace a timer. One due later, after a seek or
-     * speed change while held, is replaced.
-     */
-    const wakeIn = (delay: number) => {
-        const at = time.now() + delay
-        if (at < wakeAt) {
-            clearTimeout(wake)
-            wakeAt = at
-            wake = setTimeout(() => {
-                wakeAt = Infinity
-                group.schedule(false)
-            }, delay)
-        }
-    }
-
-    /**
-     * Replace the WAAPI animations with ones built from now. Returns
-     * undefined if the animations can't be composed.
-     */
-    const animate = (now: number) => {
-        /**
-         * The finite part runs until the last finite animation (or the
-         * last delay) ends. Infinitely repeating animations then continue
-         * as one looping WAAPI animation, which needs them to share a
-         * cycle.
-         */
-        let end = now
-        let cycle = 0
-        let cycleStart = 0
-        const moving: TransformAnimation<any>[] = []
-        const looping: TransformAnimation<any>[] = []
-        const ends = new Set<number>()
-
-        byKey.clear()
-        built = new Map()
-
-        for (const track of tracks) {
-            byKey.set(track.name, track)
-
-            const [trackEnd, trackCycle] = track.timing()
-            const isHeld = trackEnd === Infinity
-
-            built.set(track, [track.at(now), track.speed, isHeld])
-
-            if (isHeld) continue
-
-            if (track.speed < 0) return
-
-            if (trackCycle) {
-                if (cycle) {
-                    const phase = (trackEnd - cycleStart) / trackCycle
-                    if (
-                        Math.abs(trackCycle - cycle) > 1 ||
-                        Math.abs(phase - Math.round(phase)) * cycle > 1
-                    ) {
-                        return
-                    }
-                } else {
-                    cycle = trackCycle
-                    cycleStart = trackEnd
-                }
-                looping.push(track)
-            } else {
-                ends.add(trackEnd)
-            }
-
-            moving.push(track)
-            end = Math.max(end, trackEnd)
-        }
-
-        readStatics()
-
-        stop(false)
+        animation.playbackRate = speed
+        animation.startTime = time.now() + nativeStart
 
         /**
-         * Values that share one tween are one WAAPI animation of it, with
-         * two keyframes and its own easing, from when they started.
+         * Rebuild anything that carries on past its end.
          */
-        const tween = !cycle && getTween(moving)
-
-        try {
-            if (end > now) {
-                let easing: string | undefined
-
-                if (tween && tween[1] > now) {
-                    const [from, to, ease] = tween
-
-                    /**
-                     * Until it's built, the motion values hold where it
-                     * starts, for the renderer to write.
-                     */
-                    if (from - now > buildAhead) {
-                        moving.forEach((track) => track.sync())
-                        wakeIn((buildAt = from - now - buildAhead))
-                        return true
-                    }
-
-                    easing =
-                        typeof ease === "string"
-                            ? ease
-                            : ease
-                            ? trace(ease, countSamples(from, to))
-                            : getEasing(moving, from, to, [])
-
-                    /**
-                     * It holds its last keyframe until the animations end.
-                     */
-                    easing &&
-                        add(
-                            run(moving, from, to, easing, {
-                                fill: "both",
-                                endDelay: end - to,
-                            }),
-                            from - now,
-                            end - from
-                        )
-                }
-
-                easing || add(run(moving, now, end), 0, end - now)
-
-                /**
-                 * Animations that end sooner finish on the events of
-                 * empty animations that end with them.
-                 */
-                ends.forEach(
-                    (trackEnd) =>
-                        trackEnd < end - 1 &&
-                        add(
-                            create(null, { duration: trackEnd - now }),
-                            0,
-                            trackEnd - now
-                        )
-                )
-            }
-
-            if (cycle) {
-                /**
-                 * Build one cycle from a cycle boundary, so it repeats
-                 * seamlessly, and start it part way through.
-                 */
-                const from =
-                    cycleStart + Math.floor((end - cycleStart) / cycle) * cycle
-
-                add(
-                    run(
-                        looping,
-                        from,
-                        from + cycle,
-                        undefined,
-                        {
-                            iterations: Infinity,
-                            iterationStart: (end - from) / cycle,
-                            /**
-                             * It must not fill backwards over the finite part
-                             * that runs before it.
-                             */
-                            fill: "forwards",
-                        },
-                        end
-                    ),
-                    end - now
-                )
-            }
-        } catch {
-            return
+        if (iterations < Infinity) {
+            animation.onfinish = () => group.schedule(true)
         }
-
-        /**
-         * Everything is held, so hold it with an inline style instead.
-         */
-        segments.length || stop()
 
         return true
     }
@@ -1486,69 +1176,30 @@ function createGroup(owner: TransformOwner): TransformGroup {
     let scrollAnimation: Animation | undefined
 
     /**
-     * The transforms that aren't animating. Those at their default are
-     * left out.
-     */
-    const readStatics = () => {
-        statics = {}
-        keys = transformPropOrder.filter((key) => {
-            if (byKey.has(key)) return true
-            const value = (statics[key] = read(owner, key))
-            return value !== undefined && !isDefaultTransform(key, value)
-        })
-    }
-
-    /**
      * Build one WAAPI animation on a native scroll timeline every
      * animation follows. Each animation runs from its start to its end
      * over the timeline, as one followed from JS does.
      */
     const buildScroll = (timeline: TimelineWithFallback) => {
-        stop(false)
-        byKey.clear()
         built = new Map()
-        tracks.forEach((track) => byKey.set(track.name, track))
-        readStatics()
+        const composed = compose(readStatics(time.now()), true)
+        stop(false)
+        if (!composed) return composed === null ? commit() : group.demote(true)
 
-        /**
-         * Linear tweens are two keyframes. Anything else is sampled, so
-         * the timeline's progress is each animation's progress.
-         */
-        let isLinear = true
-        for (const track of tracks) {
-            isLinear &&= track.isLinearTween()
-        }
-
-        const transform = spread(0, 1, isLinear ? 1 : 100).map((p) => {
-            const values: ResolvedValues = {}
-            for (const key of keys) {
-                const track = byKey.get(key)
-                values[key] = track
-                    ? track.sampleTime(p * track.iterationDuration * 1000)
-                    : statics[key]
-            }
-            return toTransform(values)
-        })
-
+        const { offsets, transform, easing } = composed
         const animation = create(
-            { transform },
-            { duration: 1000, fill: "both", easing: "linear" }
+            { transform, offset: offsets, easing },
+            { duration: 1000, fill: "both" }
         )
         animation.timeline = timeline.timeline as AnimationTimeline
         timeline.onAttach ? timeline.onAttach(animation) : animation.play()
-
-        const segment = { animation, offset: 0, end: Infinity }
-        animation.oncancel = () => segments.includes(segment) && group.demote()
-        segments.push(segment)
         scrollAnimation = animation
     }
 
     /**
      * If every animation has been paused, played, seeked or sped up
      * together since the WAAPI animation was built, do the same to it.
-     * Returns false if it needs rebuilding instead. Seeking to before a
-     * tween starts rebuilds, so a running group seeked every frame still
-     * moves to the main thread.
+     * Returns false if it needs rebuilding instead.
      */
     const retime = (now: number, isSeek: boolean) => {
         let elapsed: number | undefined
@@ -1567,9 +1218,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
              * where it's held, so it can be seeked as often as needed.
              */
             if (wasHeld) {
-                if (isHeld && (trackTime === builtTime || !segments.length)) {
-                    continue
-                }
+                if (isHeld && (trackTime === builtTime || !native)) continue
                 return false
             }
 
@@ -1587,89 +1236,43 @@ function createGroup(owner: TransformOwner): TransformGroup {
             }
         }
 
-        if (elapsed === undefined) return true
+        if (elapsed === undefined || !native) return true
 
         /**
-         * Waiting to build a tween that starts later. Until then the
-         * values hold where they start, so only when to build changes.
-         * Held, it has nothing on the compositor, so it can be seeked.
+         * Seeking to before it starts, or past its end, rebuilds. A seek
+         * every frame then moves the group to the main thread.
          */
-        if (!segments.length) {
-            if (buildAt === undefined || (isSeek && rate)) return false
+        const local = elapsed - nativeStart
+        if (
+            (local < 0 && (isSeek || nativeStart <= 0)) ||
+            local >= nativeLength
+        ) {
+            return false
+        }
 
+        if (
+            rate &&
+            native.updatePlaybackRate &&
+            native.playState === "running" &&
+            Math.abs(Number(native.currentTime) - local) < 20
+        ) {
             /**
-             * Played backwards, it never reaches the tween, so it holds
-             * where it starts until it finishes there.
+             * Only the speed changed. Setting playbackRate and
+             * startTime restarts a running compositor animation, which
+             * can render the underlying value for a frame.
              */
-            if (rate < 0) {
-                let soonest = Infinity
-                for (const track of tracks) {
-                    /**
-                     * A JS animation played backwards mirrors its delay,
-                     * so one with a delay is left to rebuild.
-                     */
-                    if (track.hasDelay) return false
-                    soonest = Math.min(soonest, track.at(now) / -track.speed)
-                }
-                wakeIn(Math.max(1, soonest))
-                return true
-            }
-
-            if (rate) {
-                const delay = (buildAt - elapsed) / rate
-                if (delay < 1) return false
-                wakeIn(delay)
-            }
-            return true
-        }
-
-        /**
-         * Only a tween is built to start later, and it holds its first
-         * keyframe until then, so it can be paused and played before it
-         * starts.
-         */
-        for (const { offset, end, isDone } of segments) {
-            const local = elapsed - offset
-            if (
-                end < Infinity &&
-                (isDone
-                    ? local < end - 1
-                    : (local < 0 && (isSeek || offset <= 0)) || local >= end)
-            ) {
-                return false
-            }
-        }
-
-        for (const { animation, offset, isDone } of segments) {
-            if (isDone) continue
-
-            const local = elapsed - offset
-            if (
-                rate &&
-                animation.updatePlaybackRate &&
-                animation.playState === "running" &&
-                Math.abs(Number(animation.currentTime) - local) < 20
-            ) {
-                /**
-                 * Only the speed changed. Setting playbackRate and
-                 * startTime restarts a running compositor animation, which
-                 * can render the underlying value for a frame.
-                 */
-                animation.playbackRate !== rate &&
-                    animation.updatePlaybackRate(rate)
-            } else if (rate) {
-                animation.playbackRate !== rate &&
-                    (animation.playbackRate = rate)
-                animation.startTime = now - local / rate
-            } else {
-                /**
-                 * Hold it without pause(), whose pending pause setting
-                 * currentTime would end at once, leaving WebKit holding its
-                 * ready time (see create()).
-                 */
-                animation.startTime = null
-                animation.currentTime = local
-            }
+            native.playbackRate !== rate && native.updatePlaybackRate(rate)
+        } else if (rate) {
+            native.playbackRate !== rate && (native.playbackRate = rate)
+            native.startTime = now - local / rate
+        } else {
+            /**
+             * Hold it without pause(), whose pending pause setting
+             * currentTime would end at once, leaving WebKit holding its
+             * ready time (see create()).
+             */
+            native.startTime = null
+            native.currentTime = local
         }
 
         return true
@@ -1677,7 +1280,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
 
     /**
      * If no animations are left, write where they got to and cancel the
-     * WAAPI animations. Returns whether the group ended.
+     * WAAPI animation. Returns whether the group ended.
      */
     const end = () => {
         if (tracks.size) return false
@@ -1775,13 +1378,11 @@ function createGroup(owner: TransformOwner): TransformGroup {
                 if (now - lastChurn < churnWindow) return group.demote()
                 lastChurn = now
             }
-            if (!animate(now)) return group.demote()
-        } else if (buildAt !== undefined && !churned) {
             /**
-             * Still waiting to build, so the values still hold where
-             * they start.
+             * Timing that isn't shared runs on the main thread until it
+             * is again, as when a value joining a loop ends.
              */
-            return
+            if (!animate(now)) return group.demote(true)
         }
 
         /**
@@ -1872,6 +1473,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
             built = new Map()
 
             stop()
+            scrollAnimation = undefined
 
             tracks.forEach(
                 (track) => track.state === "running" && track.js?.start()
