@@ -5,7 +5,6 @@ import {
     secondsToMilliseconds,
 } from "motion-utils"
 import { frame } from "../../frameloop"
-import { time } from "../../frameloop/sync-time"
 import {
     motionValue as createMotionValue,
     type MotionValue,
@@ -34,7 +33,6 @@ import {
     applyResolvedKeyframes,
     fillAnimationDefaults,
 } from "../utils/resolved-options"
-import { resolveStartTime } from "../utils/resolve-start-time"
 import { supportsBrowserAnimation } from "../waapi/supports/waapi"
 import { isGenerator } from "../generators/utils/is-generator"
 import { replaceTransitionType } from "../utils/replace-transition-type"
@@ -66,11 +64,6 @@ export interface ValuePlan {
     isSkipped: boolean
     isLong: boolean
     target?: unknown
-    /**
-     * Its values play on an animation of their own, as the shared animation does not
-     * call onPlay, onStop or onCancel.
-     */
-    isOwn: boolean
     /**
      * The WAAPI timing and keyframe easing its values pool on WAAPI with,
      * or false if they can't.
@@ -174,7 +167,6 @@ function makePlan(
         isSkipped,
         isLong: keyframes.length > 2,
         target: keyframes[1],
-        isOwn: !!(base.onPlay || base.onStop || base.onCancel),
     }
 }
 
@@ -215,31 +207,6 @@ function getPlan(
     }
 
     return plan
-}
-
-/**
- * Play a value on an animation of its own, at the animation's clock: WAAPI for
- * one the browser can run, once its origin is read, otherwise JS.
- */
-function startOwn(
-    track: ValueTrack,
-    parent: MultiValueAnimation,
-    Animation: new (options: any) => AnimationPlaybackControlsWithThen
-) {
-    const { options } = track
-    const animation = new Animation({
-        ...options,
-        ease: track.plan.base.ease,
-        onUpdate: (v: any) => track.update(v),
-        onComplete: () => track.finish(),
-        element: options.motionValue?.owner?.current,
-        startTime:
-            parent.startTime === null
-                ? undefined
-                : resolveStartTime(parent.startTime, time.now()),
-    })
-    parent.state === "paused" && animation.pause()
-    parent.detach(track, animation)
 }
 
 /**
@@ -346,9 +313,7 @@ function resolve(
             }
         }
 
-        track.plan.isOwn || options.driver !== parent.options.driver
-            ? startOwn(track, parent, JSAnimation)
-            : track.init()
+        track.init()
     }
 
     const KeyframeResolver =

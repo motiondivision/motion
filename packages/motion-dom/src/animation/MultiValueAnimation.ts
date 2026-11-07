@@ -55,11 +55,6 @@ export class ValueTrack<T extends AnyResolvedKeyframe = any>
     isStopped = false
 
     /**
-     * The animation this value moved to when controlled on its own.
-     */
-    detached?: AnimationPlaybackControlsWithThen
-
-    /**
      * Reads this value's keyframes from its subject, until they're read.
      */
     resolver?: { cancel(): void }
@@ -255,7 +250,7 @@ export class ValueTrack<T extends AnyResolvedKeyframe = any>
         this.plan.transition.onComplete?.()
         const { group } = this
         group && !group.isFinishing && group.release(this)
-        ;(this.detached || this.native || group) && this.parent.check()
+        ;(this.native || group) && this.parent.check()
     }
 
     /**
@@ -280,22 +275,18 @@ export class ValueTrack<T extends AnyResolvedKeyframe = any>
      */
     stop = () => {
         if (this.isStopped) return
+        this.parent.state === "idle" || this.options.onStop?.()
         this.isStopped = true
-        if (this.detached) {
-            this.detached.stop()
-            this.parent.interrupt()
-        } else {
-            this.resolver?.cancel()
-            this.parent.removeTrack(this)
-        }
+        this.resolver?.cancel()
+        this.parent.removeTrack(this)
     }
 
     /**
-     * What controls this value: its own animation, or the shared one,
-     * which a control of one value controls for all of them.
+     * What controls this value: the shared animation, which a control of
+     * one value controls for all of them.
      */
     private get own(): AnimationPlaybackControlsWithThen {
-        return this.detached || this.parent
+        return this.parent
     }
 
     get duration() {
@@ -308,9 +299,7 @@ export class ValueTrack<T extends AnyResolvedKeyframe = any>
     }
 
     get state() {
-        return this.detached
-            ? this.detached.state
-            : this.isDone
+        return this.isDone
             ? "finished"
             : this.isStopped
             ? "idle"
@@ -349,7 +338,6 @@ export class ValueTrack<T extends AnyResolvedKeyframe = any>
      * Finish this value now, at its end, or played backwards, its start.
      */
     complete() {
-        if (this.detached) return this.detached.complete()
         if (this.isDone) return
         const { options } = this
         this.update(
@@ -406,17 +394,20 @@ export class MultiValueAnimation extends JSAnimation<any> {
 
     private hasStoppedTracks = false
 
-    /**
-     * Once every value has moved to an animation of its own, the shared animation
-     * reads its state from the first.
-     */
-    private lead?: AnimationPlaybackControlsWithThen
-
-    private hasStarted = false
-
     constructor(driver?: Driver) {
         super({ keyframes: [0, 1], driver } as any, true)
         this.calculatedDuration = this.totalDuration = 0
+        this.options.onPlay = () => this.fire("onPlay")
+        this.options.onCancel = () => this.fire("onCancel")
+    }
+
+    /**
+     * Call a lifecycle callback of each value still in the animation.
+     */
+    private fire(key: "onPlay" | "onStop" | "onCancel") {
+        for (const track of this.tracks) {
+            track.isStopped || track.options[key]?.()
+        }
     }
 
     /**
@@ -452,24 +443,14 @@ export class MultiValueAnimation extends JSAnimation<any> {
      * Start the clock, once every value is added.
      */
     start() {
-        this.hasStarted = true
-        this.settle()
-        this.begin()
-    }
-
-    initAnimation() {}
-
-    /**
-     * Values on animations of their own started them already.
-     */
-    protected begin() {
-        if (this.lead) return
         super.play()
         this.options.autoplay === false
             ? super.pause()
             : this.regroup(false, true)
         this.natives((native) => this.syncNative(native))
     }
+
+    initAnimation() {}
 
     /**
      * Play a track on WAAPI, pooled with the animation's other WAAPI values:
@@ -584,12 +565,10 @@ export class MultiValueAnimation extends JSAnimation<any> {
     get iterationDuration() {
         this.numPending && flushKeyframeResolvers()
         let max = 0
-        for (const { detached, calculatedDuration, options } of this.tracks) {
-            const d = detached
-                ? detached.iterationDuration
-                : millisecondsToSeconds(
-                      calculatedDuration + (options.delay || 0)
-                  )
+        for (const { calculatedDuration, options } of this.tracks) {
+            const d = millisecondsToSeconds(
+                calculatedDuration + (options.delay || 0)
+            )
             if (d > max) max = d
         }
         return max
@@ -651,7 +630,7 @@ export class MultiValueAnimation extends JSAnimation<any> {
 
         for (let i = 0; i < tracks.length; i++) {
             const track = tracks[i]
-            if (track.isDone || track.isStopped || track.detached) continue
+            if (track.isDone || track.isStopped) continue
             if (!track.isReady) continue
 
             const { options } = track
@@ -769,15 +748,6 @@ export class MultiValueAnimation extends JSAnimation<any> {
     }
 
     /**
-     * Apply a control to the values on animations of their own.
-     */
-    private each(control: (a: AnimationPlaybackControlsWithThen) => void) {
-        for (const { detached, isStopped } of this.tracks) {
-            detached && !isStopped && control(detached)
-        }
-    }
-
-    /**
      * Revive values that finished, as a group of animations does when
      * it's played or seeked again.
      */
@@ -789,8 +759,7 @@ export class MultiValueAnimation extends JSAnimation<any> {
         if (this.isStopped) return
         if (this.state === "finished") this.revive()
         this.isCancelled = false
-        this.lead || super.play()
-        this.each((a) => a.play())
+        super.play()
         this.natives((native) => {
             native.onfinish = onNativeFinish
             native.play()
@@ -799,8 +768,7 @@ export class MultiValueAnimation extends JSAnimation<any> {
     }
 
     pause() {
-        this.lead || super.pause()
-        this.each((a) => a.pause())
+        super.pause()
         this.natives((native) => {
             native.pause()
             native.currentTime = this.holdTime ?? native.currentTime
@@ -809,9 +777,8 @@ export class MultiValueAnimation extends JSAnimation<any> {
     }
 
     complete() {
-        this.lead || super.complete()
+        super.complete()
         this.js?.start()
-        this.each((a) => a.complete())
         this.natives((native) => native.finish())
     }
 
@@ -824,9 +791,8 @@ export class MultiValueAnimation extends JSAnimation<any> {
 
     cancel() {
         this.isCancelling = this.isCancelled = true
-        this.lead || super.cancel()
+        super.cancel()
         this.isCancelling = false
-        this.each((a) => a.cancel())
         this.natives((native) => {
             native.onfinish = null
             native.cancel()
@@ -836,15 +802,12 @@ export class MultiValueAnimation extends JSAnimation<any> {
 
     get time() {
         this.isOffloaded && this.tick(time.now())
-        return this.lead
-            ? this.lead.time
-            : millisecondsToSeconds(this.currentTime)
+        return millisecondsToSeconds(this.currentTime)
     }
 
     set time(newTime: number) {
         this.revive()
-        this.lead || setTime.call(this, newTime)
-        this.each((a) => (a.time = newTime))
+        setTime.call(this, newTime)
         this.natives((native) => {
             native.onfinish = onNativeFinish
             native.currentTime = secondsToMilliseconds(newTime)
@@ -854,12 +817,11 @@ export class MultiValueAnimation extends JSAnimation<any> {
     }
 
     get speed() {
-        return this.lead ? this.lead.speed : this.playbackSpeed
+        return this.playbackSpeed
     }
 
     set speed(newSpeed: number) {
-        this.lead || setSpeed.call(this, newSpeed)
-        this.each((a) => (a.speed = newSpeed))
+        setSpeed.call(this, newSpeed)
         this.natives((native) => (native.playbackRate = newSpeed))
         this.regroup()
     }
@@ -901,12 +863,15 @@ export class MultiValueAnimation extends JSAnimation<any> {
          * JSAnimation is when stopped.
          */
         for (const track of this.tracks) {
-            track.isStopped || track.detached || this.leave(track)
+            track.isStopped || this.leave(track)
         }
 
         this.isStopped = true
-        for (const track of this.tracks) track.detached?.stop()
-        this.state === "idle" || this.teardown()
+        if (this.state !== "idle") {
+            this.teardown()
+            this.fire("onStop")
+        }
+        this.leaveGroups()
         this.leaveGroups()
     }
 
@@ -972,9 +937,7 @@ export class MultiValueAnimation extends JSAnimation<any> {
                 track.scrollTimeline ||
                 this.follow(timeline)
         }
-        const cancels = [() => this.unfollow?.()]
-        this.each((a) => cancels.push(a.attachTimeline(timeline)))
-        return () => cancels.forEach((cancel) => cancel())
+        return () => this.unfollow?.()
     }
 
     private unfollow?: VoidFunction
@@ -1021,39 +984,6 @@ export class MultiValueAnimation extends JSAnimation<any> {
             const t = this.at(now) - (track.options.delay || 0)
             track.update(generateTrack(track, Math.max(t, 0), t < 0).value)
         }
-    }
-
-    /**
-     * Move a track to an animation of its own.
-     */
-    detach(track: ValueTrack, animation: AnimationPlaybackControlsWithThen) {
-        track.resolver = undefined
-        this.numPending--
-        track.detached = animation
-        this.numOut++
-        this.hasStarted && this.settle()
-    }
-
-    /**
-     * With every value on its own animation, the shared animation stops its clock
-     * and reports the first one's.
-     */
-    private settle() {
-        if (this.lead || this.numLive() || this.numPending > 0) return
-        const lead = (this.lead = this.tracks.find((t) => t.detached)?.detached)
-        if (!lead) return
-        this.teardown()
-        Object.defineProperties(this, {
-            state: { get: () => lead.state, set() {} },
-            startTime: { get: () => lead.startTime, set() {} },
-        })
-    }
-
-    /**
-     * A detached value was stopped by another animation of its value.
-     */
-    interrupt() {
-        this.isInterrupted = true
     }
 }
 

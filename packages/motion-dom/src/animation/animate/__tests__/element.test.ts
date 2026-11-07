@@ -593,4 +593,42 @@ describe("values of one call", () => {
         expect(width.state).toBe("paused")
         expect(element.style.width).toBe("25px")
     })
+
+    test("call each value's onPlay, onStop and onCancel", async () => {
+        const element = document.createElement("div")
+        const calls: string[] = []
+        const log = (name: string) => ({
+            onPlay: () => calls.push(name + " play"),
+            onStop: () => calls.push(name + " stop"),
+            onCancel: () => calls.push(name + " cancel"),
+        })
+        const [animation] = animateElement(
+            element,
+            { opacity: [0, 1], width: ["0px", "100px"] },
+            { duration: 1, opacity: log("opacity"), width: log("width") }
+        )
+        await nextFrame()
+        expect(calls).toEqual(["opacity play", "width play"])
+
+        animation.pause()
+        animation.play()
+        expect(calls.slice(2)).toEqual(["opacity play", "width play"])
+
+        animation.cancel()
+        expect(calls.slice(4)).toEqual(["opacity cancel", "width cancel"])
+
+        calls.length = 0
+        const [, width] = animateElement(
+            element,
+            { opacity: [0, 1], width: ["0px", "100px"] },
+            { duration: 1, opacity: log("opacity"), width: log("width") }
+        )
+        await nextFrame()
+        animateElement(element, { opacity: 0.5 }, { duration: 1 })
+        await nextFrame()
+        expect(calls.slice(2)).toEqual(["opacity stop"])
+
+        width.stop()
+        expect(calls.slice(3)).toEqual(["width stop"])
+    })
 })
