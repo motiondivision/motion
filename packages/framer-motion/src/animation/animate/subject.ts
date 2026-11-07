@@ -22,7 +22,7 @@ import { invariant } from "motion-utils"
 import { ObjectTarget } from "../sequence/types"
 import { isDOMKeyframes } from "../utils/is-dom-keyframes"
 import { resolveSubjects } from "./resolve-subjects"
-import { animateSingleValue } from "motion-dom"
+import { animateOneValue } from "motion-dom"
 
 export type AnimationSubject = Element | MotionValue<any> | any
 
@@ -103,7 +103,7 @@ export function animateSubject<O extends Object>(
 
     if (isSingleValue(subject, keyframes)) {
         animations.push(
-            animateSingleValue(
+            animateOneValue(
                 subject,
                 isDOMKeyframes(keyframes)
                     ? (keyframes as any).default || keyframes

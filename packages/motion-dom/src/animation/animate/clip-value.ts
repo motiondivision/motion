@@ -6,7 +6,12 @@ import {
 } from "motion-utils"
 import { frame } from "../../frameloop"
 import { time } from "../../frameloop/sync-time"
-import type { MotionValue, StartAnimation } from "../../value"
+import {
+    motionValue as createMotionValue,
+    type MotionValue,
+    type StartAnimation,
+} from "../../value"
+import { isMotionValue } from "../../value/utils/is-motion-value"
 import { Clip, ClipTrack } from "../Clip"
 import { JSAnimation } from "../JSAnimation"
 import { getFinalKeyframe } from "../keyframes/get-final"
@@ -17,7 +22,9 @@ import { NativeAnimationExtended } from "../NativeAnimationExtended"
 import {
     AnimationPlaybackControlsWithThen,
     AnyResolvedKeyframe,
+    UnresolvedValueKeyframe,
     ValueAnimationOptions,
+    ValueAnimationTransition,
 } from "../types"
 import { canAnimate } from "../utils/can-animate"
 import { getDefaultTransition } from "../utils/default-transitions"
@@ -367,8 +374,7 @@ export const startValue =
         value: MotionValue<V>,
         target: any,
         transition: any,
-        element?: AnimationElement,
-        isHandoff?: boolean
+        element?: AnimationElement
     ): StartAnimation =>
     (onComplete) => {
         const valueTransition = getValueTransition(transition, name) || {}
@@ -398,7 +404,6 @@ export const startValue =
          * Set straight to the target, without an animation.
          */
         if (
-            !isHandoff &&
             (plan.isSkipped || (plan.isInstant && !delay)) &&
             value.get() !== undefined
         ) {
@@ -421,15 +426,14 @@ export const startValue =
                 : value.getVelocity()
 
         /**
-         * Transforms on an HTML element join its transform group. A lone
-         * value has no clip to share, and one handed off from an optimised
-         * appear animation runs in JS beneath it, from its start time.
+         * Transforms on an HTML element join its transform group, and a
+         * lone value has no clip to share.
          */
         const isTransform = canGroupTransform({ name, motionValue: value } as any)
-        if (isTransform || ref.isOne || isHandoff) {
+        if (isTransform || ref.isOne) {
             const options: ValueAnimationOptions<any> = {
                 ...base,
-                element: isHandoff ? undefined : element,
+                element,
                 keyframes,
                 times: valueTransition.times,
                 delay,
@@ -474,3 +478,18 @@ export const startValue =
 
         return track
     }
+
+/**
+ * Animate one value, or a number, from a plan like any other value.
+ */
+export function animateOneValue<V extends AnyResolvedKeyframe>(
+    value: MotionValue<V> | V,
+    keyframes: V | UnresolvedValueKeyframe<V>[],
+    options: ValueAnimationTransition = {}
+): AnimationPlaybackControlsWithThen {
+    const motionValue = isMotionValue(value) ? value : createMotionValue(value)
+    motionValue.run(
+        startValue({ isOne: true }, "", motionValue, keyframes, options)
+    )
+    return motionValue.animation as AnimationPlaybackControlsWithThen
+}
