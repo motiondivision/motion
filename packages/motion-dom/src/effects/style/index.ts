@@ -1,5 +1,6 @@
 import { transformGroups } from "../../animation/waapi/transforms/groups"
 import { isCSSVar } from "../../render/dom/is-css-var"
+import { acceleratedValues } from "../../animation/waapi/utils/accelerated-values"
 import { readTransformValue } from "../../render/dom/parse-transform"
 import {
     transformPropOrder,
@@ -14,6 +15,14 @@ import { MotionValueState } from "../MotionValueState"
 import { createSelectorEffect } from "../utils/create-dom-effect"
 import { createEffect } from "../utils/create-effect"
 import { buildTransform } from "./transform"
+
+/**
+ * A style animating on the main thread repaints the element every frame,
+ * so a compositor layer for its transforms would only add work. They move
+ * to the main thread too.
+ */
+const demoteTransforms = (element: Element, value: MotionValue) =>
+    value.isAnimating() && transformGroups.get(element)?.demote()
 
 export const originProps = new Set(["originX", "originY", "originZ"])
 
@@ -86,10 +95,13 @@ export const addStyleValue = (
         computed = state.get("transformOrigin")
     } else if (isCSSVar(key)) {
         render = () => {
+            demoteTransforms(element, value)
             element.style.setProperty(key, value.getCurrent() as string)
         }
     } else {
+        const isComposited = acceleratedValues.has(key)
         render = () => {
+            isComposited || demoteTransforms(element, value)
             element.style[key as any] = getValueAsType(
                 value.getCurrent(),
                 numberValueTypes[key]

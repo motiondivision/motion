@@ -1705,6 +1705,51 @@ describe("independent transform acceleration", () => {
         })
     })
 
+    describe("alongside styles that repaint every frame", () => {
+        const transforms = (element: Element) =>
+            running(element).filter(({ keyframes }) => keyframes.transform)
+
+        it("run on the main thread with them", async () => {
+            const element = document.createElement("div")
+
+            animateElement(
+                element,
+                { x: [0, 100], borderRadius: ["0px", "10px"] },
+                { duration: 1, ease: "linear" }
+            )
+            await nextFrame()
+            await nextFrame()
+            const first = element.style.transform
+            await wait(50)
+            await nextFrame()
+
+            /**
+             * The element repaints every frame anyway, so a compositor
+             * layer for its transform would only add work.
+             */
+            expect(transforms(element)).toHaveLength(0)
+            expect(readX(element.style.transform)).toBeGreaterThan(
+                readX(first)
+            )
+        })
+
+        it("stay on the compositor after a single write of another style", async () => {
+            const element = document.createElement("div")
+            const color = motionValue("#f00")
+            styleEffect(element, { color })
+
+            animateElement(element, { x: [0, 100] }, { duration: 1 })
+            await untilRunning(element, 500)
+            await wait(150)
+
+            color.set("#00f")
+            await nextFrame()
+            await nextFrame()
+
+            expect(transforms(element)).toHaveLength(1)
+        })
+    })
+
     describe("before keyframes resolve", () => {
         it("are one animation for each value, with no wrapper", () => {
             const element = document.createElement("div")
