@@ -560,13 +560,13 @@ export class TransformAnimation<
         } else {
             /**
              * A spring moves between two keyframes along its own curve,
-             * which is traced from its values. One that doesn't move,
-             * or that moves between values that aren't numbers, is left
-             * to the main thread.
+             * which is traced from its values. One that starts and ends
+             * at the same value, which only its velocity moves, or that
+             * moves between values that aren't numbers, is sampled.
              */
             const from = parseFloat(keyframes[0] as string)
             const range = parseFloat(keyframes[1] as string) - from
-            if (!(Math.abs(range) >= 0)) return
+            if (!(Math.abs(range) > 0)) return
 
             offsets = [0, 1]
             easings = [
@@ -805,6 +805,11 @@ export class TransformAnimation<
  */
 let builds: VoidFunction[] | undefined
 
+/**
+ * How long before it starts a WAAPI animation is built.
+ */
+const buildAhead = 100
+
 const buildSoon = (build: VoidFunction) => {
     builds ||
         queueMicrotask(() => {
@@ -828,6 +833,14 @@ function createGroup(owner: TransformOwner): TransformGroup {
      */
     let keys: string[] = []
     let built = new Map<TransformAnimation<any>, BuiltState>()
+    /**
+     * Builds the WAAPI animation shortly before it starts.
+     */
+    let wake: ReturnType<typeof setTimeout> | undefined
+    /**
+     * How long after it was last built to build it, while waiting.
+     */
+    let buildAt: number | undefined
     /**
      * The WAAPI animation, when it starts relative to when the group was
      * built and how long it runs.
@@ -883,6 +896,8 @@ function createGroup(owner: TransformOwner): TransformGroup {
      */
     const stop = (shouldCommit = true) => {
         shouldCommit && commit()
+        clearTimeout(wake)
+        buildAt = undefined
         if (native) {
             native.onfinish = native.oncancel = null
             native.cancel()
@@ -997,7 +1012,8 @@ function createGroup(owner: TransformOwner): TransformGroup {
                 let index = keyframes.offsets.indexOf(offsets[i])
                 const isOwn = index >= 0
                 if (!isOwn) {
-                    index = keyframes.offsets.findIndex((o) => o > offsets[i]) - 1
+                    index =
+                        keyframes.offsets.findIndex((o) => o > offsets[i]) - 1
                 }
                 const value = keyframes.values[index]
                 const isMoving = value !== keyframes.values[index + 1]
@@ -1128,9 +1144,46 @@ function createGroup(owner: TransformOwner): TransformGroup {
         }
         if (!composed) return
 
-        const { start, duration, iterations, direction, speed, offsets } =
-            composed
-        const { transform, easing } = composed
+        const { iterations, direction, speed } = composed
+        let { start, duration, offsets, transform, easing } = composed
+        let endDelay = 0
+
+        /**
+         * Played once, it's built from when it starts to move until it
+         * stops, as a sequence segment, holding its last keyframe until
+         * the animations end.
+         */
+        let first = 0
+        let last = transform.length - 1
+        while (transform[first + 1] === transform[first]) first++
+        while (last > first && transform[last - 1] === transform[last]) last--
+
+        if (iterations === 1 && speed > 0 && first < last) {
+            const from = offsets[first]
+            const span = offsets[last] - from
+            start += (from * duration) / speed
+            endDelay = (1 - offsets[last]) * duration
+            duration *= span
+            offsets = offsets
+                .slice(first, last + 1)
+                .map((offset) => (offset - from) / span)
+            transform = transform.slice(first, last + 1)
+            easing = easing.slice(first, last)
+
+            /**
+             * Until shortly before then, it isn't built, so a stagger or
+             * sequence doesn't make every element a compositor layer at
+             * once. Its motion values hold where it starts, for the
+             * renderer to write.
+             */
+            const wait = start - now - buildAhead
+            if (wait > 0) {
+                tracks.forEach((track) => track.sync())
+                wake = setTimeout(() => group.schedule(true), (buildAt = wait))
+                return true
+            }
+        }
+
         let keyframes: PropertyIndexedKeyframes | null = { transform }
         if (transform.length > 2) {
             keyframes.offset = offsets
@@ -1148,11 +1201,12 @@ function createGroup(owner: TransformOwner): TransformGroup {
         }
 
         nativeStart = start - now
-        nativeLength = duration * iterations
+        nativeLength = duration * iterations + endDelay
         const animation = create(keyframes, {
             duration,
             iterations,
             direction,
+            endDelay,
             easing: transform.length > 2 ? "linear" : easing[0],
             fill: "both",
         })
@@ -1234,6 +1288,23 @@ function createGroup(owner: TransformOwner): TransformGroup {
             ) {
                 return false
             }
+        }
+
+        /**
+         * Waiting to build, the values hold where they start, so only
+         * when to build changes. Held, there's nothing to build yet.
+         */
+        if (buildAt !== undefined) {
+            if (elapsed === undefined || (isSeek && rate) || rate < 0) {
+                return false
+            }
+            clearTimeout(wake)
+            if (rate) {
+                const delay = (buildAt - elapsed) / rate
+                if (delay < 1) return false
+                wake = setTimeout(() => group.schedule(true), delay)
+            }
+            return true
         }
 
         if (elapsed === undefined || !native) return true
@@ -1383,6 +1454,12 @@ function createGroup(owner: TransformOwner): TransformGroup {
              * is again, as when a value joining a loop ends.
              */
             if (!animate(now)) return group.demote(true)
+        } else if (buildAt !== undefined && !churned) {
+            /**
+             * Still waiting to build, so the values still hold where
+             * they start.
+             */
+            return
         }
 
         /**
