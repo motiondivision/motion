@@ -105,9 +105,10 @@ function approximateRoot(
 const safeMin = 0.001
 
 /**
- * Assumes zero initial velocity and the default mass: time-defined springs
- * ignore inherited velocity and only resolve without valid physics. Returns
- * NaN physics when the root search doesn't converge.
+ * Assumes zero initial velocity and the default mass. Inherited velocity is
+ * only the spring's initial condition, so it doesn't change the resolved
+ * physics. Only resolves without valid physics. Returns NaN physics when the
+ * root search doesn't converge.
  */
 function findSpring({
     duration = defaultDuration,
@@ -302,14 +303,6 @@ function springGenerator(
         isTimeDefined,
     } = getSpringOptions({ ...options })
 
-    /**
-     * Time-defined springs ignore inherited velocity. Velocity from
-     * interrupted animations causes massive oscillation on small-range
-     * animations.
-     */
-    const inheritVelocity = (velocity: number) =>
-        isTimeDefined ? 0 : -millisecondsToSeconds(velocity)
-
     const dampingRatio = damping / (2 * Math.sqrt(stiffness * mass))
     const undampedAngularFreq = millisecondsToSeconds(
         Math.sqrt(stiffness / mass)
@@ -326,7 +319,7 @@ function springGenerator(
     const s = {
         target,
         delta: target - origin,
-        velocity: inheritVelocity(options.velocity || 0) || 0,
+        velocity: -millisecondsToSeconds(options.velocity || 0) || 0,
         restSpeed: 0,
         restDelta: 0,
     }
@@ -455,10 +448,17 @@ function springGenerator(
 
     update()
 
-    const calculatedDuration = isResolvedFromDuration ? duration || null : null
+    /**
+     * A duration-resolved spring ends exactly at its duration, by which time
+     * it's settled from rest. Inherited velocity can leave it still moving
+     * then, so with velocity it ends when it comes to rest, like a physics
+     * spring, rather than jumping to its target.
+     */
+    const fixedDuration = () =>
+        isResolvedFromDuration && !s.velocity ? duration! : null
 
     const generator = {
-        calculatedDuration,
+        calculatedDuration: fixedDuration(),
         /**
          * Aim the spring at a new target from its current position and
          * velocity, reusing the resolved physics and closures.
@@ -466,19 +466,20 @@ function springGenerator(
         retarget: (keyframes: number[], newVelocity: number) => {
             s.target = keyframes[keyframes.length - 1]
             s.delta = s.target - keyframes[0]
-            s.velocity = inheritVelocity(newVelocity)
+            s.velocity = -millisecondsToSeconds(newVelocity)
             // Default thresholds depend on the scale of the new delta
             if (!(options.restSpeed && options.restDelta)) setRestThresholds()
             // Invalidate any duration lazily cached by JSAnimation
-            generator.calculatedDuration = calculatedDuration
+            generator.calculatedDuration = fixedDuration()
             state.done = false
             update()
         },
         velocity: (t: number) => secondsToMilliseconds(resolveVelocity(t)),
         next: (t: number) => {
             const current = resolveSpring(t)
+            const end = fixedDuration()
 
-            if (!isResolvedFromDuration) {
+            if (end === null) {
                 const currentVelocity = secondsToMilliseconds(
                     resolveVelocity(t)
                 )
@@ -486,7 +487,7 @@ function springGenerator(
                     Math.abs(currentVelocity) <= s.restSpeed &&
                     Math.abs(s.target - current) <= s.restDelta
             } else {
-                state.done = t >= duration!
+                state.done = t >= end
             }
 
             state.value = state.done ? s.target : current

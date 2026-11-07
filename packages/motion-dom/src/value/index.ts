@@ -101,8 +101,10 @@ export class MotionValue<V = any> {
 
     /**
      * The previous state of the `MotionValue` at the end of the previous frame.
+     *
+     * @internal
      */
-    private prevFrameValue: V | undefined
+    prevFrameValue: V | undefined
 
     /**
      * The last time the `MotionValue` was updated.
