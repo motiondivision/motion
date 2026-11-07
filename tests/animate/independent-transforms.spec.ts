@@ -84,6 +84,26 @@ test.describe("animate() independent transforms", () => {
         expect(result.xAfter).toBeGreaterThan(result.xBefore)
     })
 
+    test("doesn't run the frame loop while the compositor plays every value", async ({
+        page,
+    }) => {
+        const result = await page.evaluate(async () => {
+            const { frameData } = (window as any).MotionDOM
+            const element = document.getElementById("a")!
+            window.Motion.animate(
+                element,
+                { x: 100, y: 50, rotate: 45 },
+                { type: "spring", stiffness: 100, damping: 5 }
+            )
+            await window.waitFrame(200)
+            const before = frameData.timestamp
+            await window.waitFrame(300)
+            return { before, after: frameData.timestamp }
+        })
+
+        expect(result.after).toBe(result.before)
+    })
+
     test("writes the final value as an inline style", async ({ page }) => {
         const result = await page.evaluate(async () => {
             const element = document.getElementById("a")!

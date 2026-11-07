@@ -225,6 +225,10 @@ export class ValueTrack<T extends AnyResolvedKeyframe = any>
 
     stopJS() {}
 
+    get js() {
+        return this.parent.js
+    }
+
     /**
      * Follow a timeline on the shared clock, from JS.
      */
@@ -244,6 +248,7 @@ export class ValueTrack<T extends AnyResolvedKeyframe = any>
     }
 
     finish() {
+        this.isDone || this.parent.numDone++
         this.isDone = true
         this.notifyFinished()
         this.onDone()
@@ -265,6 +270,7 @@ export class ValueTrack<T extends AnyResolvedKeyframe = any>
     revive() {
         if (this.isDone) {
             this.isDone = false
+            this.parent.numDone--
             this.updateFinished()
         }
     }
@@ -386,6 +392,18 @@ export class MultiValueAnimation extends JSAnimation<any> {
      */
     private isInterrupted = false
 
+    /**
+     * Values that have finished.
+     */
+    numDone = 0
+
+    /**
+     * Every value is on WAAPI, which plays and finishes it, so the clock
+     * doesn't run each frame. A frame with no work lets the browser skip
+     * the main thread.
+     */
+    private isOffloaded = false
+
     private hasStoppedTracks = false
 
     /**
@@ -419,6 +437,7 @@ export class MultiValueAnimation extends JSAnimation<any> {
 
     onTrackReady(track: ValueTrack) {
         this.numPending--
+        this.js?.start()
         const { calculatedDuration, totalDuration, options } = track
 
         if (calculatedDuration > this.calculatedDuration) {
@@ -590,6 +609,14 @@ export class MultiValueAnimation extends JSAnimation<any> {
             this.numLive() &&
             this.handLane(timestamp, track, (v) => track.update(v))) ||
             this.tick(timestamp)
+        this.isOffloaded && this.driver?.stop()
+    }
+
+    /**
+     * Run the clock again, for values that move to the main thread.
+     */
+    get js() {
+        return this.isOffloaded ? this.driver : undefined
     }
 
     tick(timestamp: number, sample = false): AnimationState<any> {
@@ -619,6 +646,7 @@ export class MultiValueAnimation extends JSAnimation<any> {
         const isFinished = this.state === "finished" && holdTime === null
         const isRunning = this.state === "running" && holdTime === null
         let numActive = this.numPending
+        let numOff = 0
         let hasTime = false
 
         for (let i = 0; i < tracks.length; i++) {
@@ -653,6 +681,7 @@ export class MultiValueAnimation extends JSAnimation<any> {
                 (!isFinished && !this.isCancelling && track.isAccelerated())
             ) {
                 numActive++
+                numOff++
                 continue
             }
 
@@ -710,6 +739,7 @@ export class MultiValueAnimation extends JSAnimation<any> {
             this.numOut -= tracks.length - this.tracks.length
         }
 
+        this.isOffloaded = numActive > 0 && numActive === numOff
         if (!numActive && (isRunning || isFinished)) this.finish()
 
         return undefined as any
@@ -726,12 +756,11 @@ export class MultiValueAnimation extends JSAnimation<any> {
      * was stopped, as with a group of animations.
      */
     check() {
-        if (this.isInterrupted || this.tracks.some((track) => !track.isDone))
-            return
+        if (this.isInterrupted || this.numDone < this.tracks.length) return
         /**
          * WAAPI finished its last values before the animation's next frame.
          */
-        if (this.state === "running") {
+        if (this.startTime !== null) {
             this.currentTime = this.playbackSpeed < 0 ? 0 : this.totalDuration
             this.teardown()
             this.state = "finished"
@@ -781,6 +810,7 @@ export class MultiValueAnimation extends JSAnimation<any> {
 
     complete() {
         this.lead || super.complete()
+        this.js?.start()
         this.each((a) => a.complete())
         this.natives((native) => native.finish())
     }
@@ -805,6 +835,7 @@ export class MultiValueAnimation extends JSAnimation<any> {
     }
 
     get time() {
+        this.isOffloaded && this.tick(time.now())
         return this.lead
             ? this.lead.time
             : millisecondsToSeconds(this.currentTime)
