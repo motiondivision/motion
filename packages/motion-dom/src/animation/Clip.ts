@@ -278,12 +278,14 @@ export class Clip extends JSAnimation<any> {
         this.options.autoplay === false && super.pause()
     }
 
+    /**
+     * Tracks that left the clock: stopped, or on an animation of their
+     * own.
+     */
+    private numOut = 0
+
     numLive() {
-        let n = 0
-        for (const track of this.tracks) {
-            if (!track.isStopped && !track.detached) n++
-        }
-        return n
+        return this.tracks.length - this.numOut
     }
 
     get duration() {
@@ -303,8 +305,19 @@ export class Clip extends JSAnimation<any> {
         return max
     }
 
+    /**
+     * A clip of one value hands its blend to the driver, as a
+     * JSAnimation does.
+     */
     step(timestamp: number) {
-        this.tick(timestamp)
+        const { tracks } = this
+        const track = tracks.length === 1 && tracks[0]
+        ;(track &&
+            track.isReady &&
+            !track.isDone &&
+            this.numLive() &&
+            this.handLane(timestamp, track, (v) => track.update(v))) ||
+            this.tick(timestamp)
     }
 
     tick(timestamp: number, sample = false): AnimationState<any> {
@@ -411,6 +424,7 @@ export class Clip extends JSAnimation<any> {
         if (this.hasStoppedTracks) {
             this.hasStoppedTracks = false
             this.tracks = tracks.filter((track) => !track.isStopped)
+            this.numOut -= tracks.length - this.tracks.length
         }
 
         if (!numActive && (isRunning || isFinished)) this.finish()
@@ -541,6 +555,7 @@ export class Clip extends JSAnimation<any> {
         if (!track.isReady) this.numPending--
 
         this.isInterrupted = this.hasStoppedTracks = true
+        this.numOut++
 
         if (!this.numLive() && this.numPending <= 0) this.teardown()
     }
@@ -602,6 +617,7 @@ export class Clip extends JSAnimation<any> {
         }
 
         track.detached = animation
+        this.numOut++
         this.hasStarted && this.settle()
 
         return animation

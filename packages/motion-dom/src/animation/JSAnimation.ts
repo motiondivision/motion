@@ -138,12 +138,24 @@ export class JSAnimation<T extends number | string>
     }
 
     /**
-     * The frame loop's update. While running at normal speed between the
-     * lane's two times, the value is the lane's blend and nothing else
-     * changes, so it's written without the rest of tick().
+     * The frame loop's update.
      */
     step(timestamp: number) {
-        const { lane, startTime, driver } = this
+        this.handLane(timestamp, this) || this.tick(timestamp)
+    }
+
+    /**
+     * While running at normal speed between the lane's two times, a
+     * track's value is the lane's blend and nothing else changes, so the
+     * driver runs it each frame, without the rest of tick(), until the
+     * time leaves it or playback changes. Returns true if it does.
+     */
+    protected handLane(
+        timestamp: number,
+        { lane, options }: Track<any>,
+        set?: (latest: T) => void
+    ) {
+        const { startTime, driver } = this
 
         if (
             lane &&
@@ -155,19 +167,17 @@ export class JSAnimation<T extends number | string>
             this.holdTime === null &&
             this.playbackSpeed === 1
         ) {
-            const delay = this.options.delay || 0
+            const delay = options.delay || 0
             const t = Math.round(timestamp - startTime) - delay
 
             if (t > lane.start && t < lane.end) {
-                /**
-                 * Hand the blend to the driver, which runs it each frame
-                 * until the time leaves it or playback changes.
-                 */
-                const { onUpdate, motionValue, hasOnUpdate } = this.options
-                const set =
-                    hasOnUpdate === false && motionValue
-                        ? (latest: T) => motionValue.set(latest)
-                        : onUpdate
+                if (!set) {
+                    const { onUpdate, motionValue, hasOnUpdate } = options
+                    set =
+                        hasOnUpdate === false && motionValue
+                            ? (latest: T) => motionValue.set(latest)
+                            : onUpdate
+                }
                 driver.lane = {
                     startTime,
                     from: lane.start + delay,
@@ -189,11 +199,9 @@ export class JSAnimation<T extends number | string>
                             ),
                     t
                 )
-                return
+                return true
             }
         }
-
-        this.tick(timestamp)
     }
 
     tick(timestamp: number, sample = false) {

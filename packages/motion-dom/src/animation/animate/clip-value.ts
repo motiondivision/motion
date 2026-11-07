@@ -31,7 +31,10 @@ import { getDefaultTransition } from "../utils/default-transitions"
 import { getValueTransition } from "../utils/get-value-transition"
 import { isTransitionDefined } from "../utils/is-transition-defined"
 import { makeAnimationInstant } from "../utils/make-animation-instant"
-import { fillAnimationDefaults } from "../utils/resolved-options"
+import {
+    applyResolvedKeyframes,
+    fillAnimationDefaults,
+} from "../utils/resolved-options"
 import { resolveStartTime } from "../utils/resolve-start-time"
 import { supportsBrowserAnimation } from "../waapi/supports/waapi"
 import {
@@ -75,6 +78,10 @@ export interface ClipPlan {
 export interface ClipRef {
     clip?: Clip
     plans?: Record<string, ClipPlan>
+    /**
+     * A lone value, which plays on a JSAnimation rather than a clip.
+     */
+    isOne?: boolean
 }
 
 /**
@@ -224,6 +231,23 @@ function startOwn(
     clip.detach(track, animation)
 }
 
+/**
+ * Without a subject to read, the origin is the value's own, as the
+ * default keyframe resolver reads it, without making one.
+ */
+function resolveNow(target: any[], value: MotionValue) {
+    const keyframes = [...target]
+
+    if (keyframes[0] === null) {
+        const current = value.get()
+        keyframes[0] = current ?? keyframes[keyframes.length - 1]
+        current === undefined && value.setCurrent(keyframes[0])
+    }
+
+    fillWildcards(keyframes)
+    return keyframes
+}
+
 function resolve(
     track: ClipTrack,
     clip: Clip,
@@ -283,20 +307,7 @@ function resolve(
         track.resolver = resolver
         resolver.scheduleResolve()
     } else {
-        /**
-         * Without a subject to read, the origin is the value's own, as the
-         * default keyframe resolver reads it, without making one.
-         */
-        const keyframes = [...options.keyframes]
-
-        if (keyframes[0] === null) {
-            const current = value.get()
-            keyframes[0] = current ?? keyframes[keyframes.length - 1]
-            current === undefined && value.setCurrent(keyframes[0])
-        }
-
-        fillWildcards(keyframes)
-        onResolved(keyframes)
+        onResolved(resolveNow(options.keyframes, value))
     }
 }
 
@@ -363,10 +374,12 @@ export const startValue =
                 : value.getVelocity()
 
         /**
-         * Transforms on an HTML element join its transform group.
+         * Transforms on an HTML element join its transform group, and a
+         * lone value has no clip to share.
          */
-        if (canGroupTransform({ name, motionValue: value } as any)) {
-            return new TransformAnimation({
+        const isTransform = canGroupTransform({ name, motionValue: value } as any)
+        if (isTransform || ref.isOne) {
+            const options: ValueAnimationOptions<any> = {
                 ...base,
                 keyframes,
                 times: valueTransition.times,
@@ -381,7 +394,12 @@ export const startValue =
                     onComplete()
                     valueTransition.onComplete?.()
                 },
-            })
+            }
+
+            if (isTransform) return new TransformAnimation(options)
+
+            applyResolvedKeyframes(options, resolveNow(keyframes, value), undefined)
+            return new JSAnimation(options)
         }
 
         const clip = (ref.clip ||= new Clip(base.driver))
@@ -408,16 +426,16 @@ export const startValue =
     }
 
 /**
- * Animate one value, or a number, on a clip of its own.
+ * Animate one value, or a number, from a plan like any other value.
  */
-export function animateClipValue<V extends AnyResolvedKeyframe>(
+export function animateOneValue<V extends AnyResolvedKeyframe>(
     value: MotionValue<V> | V,
     keyframes: V | UnresolvedValueKeyframe<V>[],
     options: ValueAnimationTransition = {}
 ): AnimationPlaybackControlsWithThen {
     const motionValue = isMotionValue(value) ? value : createMotionValue(value)
-    const ref: ClipRef = {}
-    motionValue.run(startValue(ref, "", motionValue, keyframes, options))
-    ref.clip?.start()
+    motionValue.run(
+        startValue({ isOne: true }, "", motionValue, keyframes, options)
+    )
     return motionValue.animation as AnimationPlaybackControlsWithThen
 }
