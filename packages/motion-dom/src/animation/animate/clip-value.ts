@@ -8,10 +8,7 @@ import { frame } from "../../frameloop"
 import { time } from "../../frameloop/sync-time"
 import type { MotionValue, StartAnimation } from "../../value"
 import { Clip, ClipTrack } from "../Clip"
-import {
-    createAnimation,
-    valueAnimationOptions,
-} from "../interfaces/motion-value"
+import { createAnimation } from "../interfaces/motion-value"
 import { getFinalKeyframe } from "../keyframes/get-final"
 import { KeyframeResolver as DefaultKeyframeResolver } from "../keyframes/KeyframesResolver"
 import { AnimationElement } from "../keyframes/types"
@@ -287,32 +284,17 @@ export const startValue =
         const plan = getPlan(ref, name, valueTransition, keyframes, element)
         const { base } = plan
 
-        if (
-            !plan.canClip ||
-            (ref.clip && ref.clip.options.driver !== base.driver) ||
-            canGroupTransform({ name, motionValue: value } as any)
-        ) {
-            const options = valueAnimationOptions(
-                name,
-                value,
-                target,
-                transition,
-                element,
-                false,
-                onComplete,
-                valueTransition
-            )
-            return options && createAnimation(options)
-        }
-
         /**
          * Delay inherits from the root transition, unlike the rest.
          */
         const delay = plan.isSkipped
             ? 0
-            : secondsToMilliseconds(
-                  valueTransition.delay || transition.delay || 0
-              ) - (transition.elapsed || 0)
+            : -(
+                  (transition.elapsed || 0) -
+                  secondsToMilliseconds(
+                      valueTransition.delay || transition.delay || 0
+                  )
+              )
 
         /**
          * Support deprecated way to set initial value. Prefer keyframe
@@ -340,6 +322,33 @@ export const startValue =
             }
         }
 
+        const velocity =
+            "velocity" in valueTransition
+                ? valueTransition.velocity
+                : value.getVelocity()
+
+        if (
+            !plan.canClip ||
+            (ref.clip && ref.clip.options.driver !== base.driver) ||
+            canGroupTransform({ name, motionValue: value } as any)
+        ) {
+            return createAnimation({
+                ...base,
+                keyframes,
+                delay,
+                velocity,
+                motionValue: value,
+                onUpdate: (latest: any) => {
+                    value.set(latest)
+                    valueTransition.onUpdate?.(latest)
+                },
+                onComplete: () => {
+                    onComplete()
+                    valueTransition.onComplete?.()
+                },
+            })
+        }
+
         const clip = (ref.clip ||= new Clip(base.driver))
         if (base.autoplay === false) clip.options.autoplay = false
 
@@ -349,10 +358,7 @@ export const startValue =
                 ease: plan.ease as any,
                 keyframes,
                 delay,
-                velocity:
-                    "velocity" in valueTransition
-                        ? valueTransition.velocity
-                        : value.getVelocity(),
+                velocity,
                 motionValue: value,
             },
             value,
