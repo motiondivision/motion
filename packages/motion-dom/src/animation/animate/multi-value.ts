@@ -41,6 +41,7 @@ import { replaceTransitionType } from "../utils/replace-transition-type"
 import { replaceStringEasing } from "../waapi/utils/unsupported-easing"
 import { mapEasingToNativeEasing } from "../waapi/easing/map-easing"
 import { keyframes as keyframesType } from "../generators/keyframes"
+import { spring } from "../generators/spring"
 import {
     canGroupTransform,
     TransformAnimation,
@@ -91,6 +92,10 @@ export interface MultiValueRef {
      * A lone value, which plays on a JSAnimation rather than a shared animation.
      */
     isOne?: boolean
+    /**
+     * Each spring's easing, shared by the values with its options.
+     */
+    springs?: Record<string, object>
 }
 
 /**
@@ -464,6 +469,45 @@ export const startValue =
                  * the main thread.
                  */
                 if (repaints) options.hasOnUpdate = true
+
+                /**
+                 * A spring from rest has the same curve for every value
+                 * with its options. As one easing, an element's
+                 * transforms compose into two keyframes rather than
+                 * many sampled ones, which the browser parses slowly.
+                 */
+                const { type } = options as any
+                if ((type === "spring" || type === spring) && !velocity) {
+                    const {
+                        stiffness,
+                        damping,
+                        mass,
+                        duration,
+                        bounce,
+                        visualDuration,
+                        restDelta,
+                        restSpeed,
+                    } = options as any
+                    const id =
+                        [
+                            stiffness,
+                            damping,
+                            mass,
+                            duration,
+                            bounce,
+                            visualDuration,
+                            restDelta,
+                            restSpeed,
+                        ] + ""
+                    const springs = (ref.springs ||= {})
+                    if (!springs[id]) {
+                        const { ease, duration } = spring.applyToOptions({
+                            ...options,
+                        })
+                        springs[id] = { ease, duration, type: keyframesType }
+                    }
+                    Object.assign(options, springs[id])
+                }
                 return new TransformAnimation(options)
             }
 

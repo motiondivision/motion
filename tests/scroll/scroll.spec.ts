@@ -252,12 +252,12 @@ test.describe("scroll() with a spring between strings", () => {
             )
             await page.waitForTimeout(100)
 
-            const transform = await page
-                .locator("#box")
-                .evaluate((element) => element.style.transform)
-            expect(
-                parseFloat(transform.replace("translateX(", ""))
-            ).toBeCloseTo(100 * fraction, 0)
+            /**
+             * Where it shows, as it can run on the compositor, which
+             * doesn't write its style.
+             */
+            const box = await page.locator("#box").boundingBox()
+            expect(box?.x).toBeCloseTo(100 * fraction, 0)
         }
     })
 })

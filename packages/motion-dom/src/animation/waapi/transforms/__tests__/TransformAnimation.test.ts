@@ -1705,6 +1705,46 @@ describe("independent transform acceleration", () => {
         })
     })
 
+    describe("with one spring", () => {
+        it("compose into two keyframes and one easing", async () => {
+            const element = document.createElement("div")
+
+            animateElement(
+                element,
+                { x: [0, 100], y: [0, 50], rotate: [0, 45] },
+                { type: "spring", stiffness: 200, damping: 10 }
+            )
+            const [animation] = await untilRunning(element, 500)
+
+            /**
+             * Many sampled keyframes are slow for the browser to parse
+             * on the first frame, for each element.
+             */
+            expect(animation.keyframes.transform).toHaveLength(2)
+            expect(animation.options.easing).toMatch(/^linear\(/)
+            expect(animation.keyframes.transform[1].trim()).toBe(
+                "translateX(100px) translateY(50px) rotate(45deg)"
+            )
+        })
+
+        it("keep the velocity they start with", async () => {
+            const element = document.createElement("div")
+
+            animateElement(
+                element,
+                { x: [0, 100] },
+                { type: "spring", velocity: 2000 }
+            )
+            const [animation] = await untilRunning(element, 500)
+
+            /**
+             * At 2px a ms. A spring from rest moves well under 1px in
+             * its first 10ms.
+             */
+            expect(xAt(animation, 10)).toBeGreaterThan(10)
+        })
+    })
+
     describe("alongside styles that repaint every frame", () => {
         const transforms = (element: Element) =>
             running(element).filter(({ keyframes }) => keyframes.transform)
