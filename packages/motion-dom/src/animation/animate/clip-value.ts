@@ -30,6 +30,10 @@ import {
 } from "../utils/resolved-options"
 import { resolveStartTime } from "../utils/resolve-start-time"
 import { supportsBrowserAnimation } from "../waapi/supports/waapi"
+import { acceleratedValues } from "../waapi/utils/accelerated-values"
+import { replaceStringEasing } from "../waapi/utils/unsupported-easing"
+import { mapEasingToNativeEasing } from "../waapi/easing/map-easing"
+import { keyframes as keyframesType } from "../generators/keyframes"
 import {
     canGroupTransform,
     TransformAnimation,
@@ -62,6 +66,11 @@ export interface ClipPlan {
      * call onPlay, onStop or onCancel.
      */
     isOwn: boolean
+    /**
+     * The WAAPI timing and keyframe easing its values pool on WAAPI with,
+     * or false if they can't.
+     */
+    waapi?: [KeyframeAnimationOptions, string[] | undefined] | false
 }
 
 /**
@@ -228,6 +237,34 @@ function startOwn(
  * Without a subject to read, the origin is the value's own, as the
  * default keyframe resolver reads it, without making one.
  */
+/**
+ * WAAPI timing for a plan's values, made once for them all. Tweens only,
+ * as a spring's timing depends on each value's keyframes and velocity.
+ */
+function waapiTiming({ base }: { base: any }) {
+    const { type, duration = 300, repeat = 0, repeatType, pseudoElement } =
+        base
+    if (type !== "keyframes" && type !== "tween" && type !== keyframesType) {
+        return false
+    }
+    const transition = { ease: base.ease }
+    replaceStringEasing(transition)
+    const easing = mapEasingToNativeEasing(transition.ease as any, duration)
+    const isArray = Array.isArray(easing)
+    return pseudoElement
+        ? false
+        : ([
+              {
+                  duration,
+                  easing: isArray ? "linear" : easing,
+                  fill: "both",
+                  iterations: repeat + 1,
+                  direction: repeatType === "reverse" ? "alternate" : "normal",
+              },
+              isArray ? easing : undefined,
+          ] as [KeyframeAnimationOptions, string[] | undefined])
+}
+
 function resolveNow(target: any[], value: MotionValue) {
     const keyframes = [...target]
 
@@ -276,6 +313,21 @@ function resolve(
             canAnimateValue &&
             supportsBrowserAnimation(options as any)
         ) {
+            const { plan } = track
+            if (acceleratedValues.has(name!)) {
+                plan.waapi ??= waapiTiming(plan)
+                if (plan.waapi) {
+                    track.init()
+                    return (
+                        track.isStopped ||
+                        clip.pool(
+                            track,
+                            options.motionValue!.owner!.current as Element,
+                            plan.waapi
+                        )
+                    )
+                }
+            }
             try {
                 return startOwn(track, clip, NativeAnimationExtended)
             } catch {}

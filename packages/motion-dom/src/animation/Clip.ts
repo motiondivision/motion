@@ -1,5 +1,8 @@
-import { millisecondsToSeconds } from "motion-utils"
+import { millisecondsToSeconds, secondsToMilliseconds } from "motion-utils"
 import { time } from "../frameloop/sync-time"
+import { setStyle } from "../render/dom/style-set"
+import { supportsScrollTimeline } from "../utils/supports/scroll-timeline"
+import { sampleDelta } from "./NativeAnimationExtended"
 import { flushKeyframeResolvers } from "./keyframes/KeyframesResolver"
 import { getFinalKeyframe } from "./keyframes/get-final"
 import { inertia } from "./generators/inertia"
@@ -55,6 +58,18 @@ export class ClipTrack<T extends AnyResolvedKeyframe = any>
      */
     resolver?: { cancel(): void }
 
+    /**
+     * The WAAPI animation playing this value, controlled by the clip with
+     * the others it pools. The track still samples the value when it's
+     * read or interrupted.
+     */
+    native?: Animation
+
+    /**
+     * On WAAPI, following a native scroll timeline.
+     */
+    isScrolling?: boolean
+
     constructor(
         public clip: Clip,
         public options: ValueAnimationOptions<T>,
@@ -101,7 +116,16 @@ export class ClipTrack<T extends AnyResolvedKeyframe = any>
         this.notifyFinished()
         this.onDone()
         this.plan.transition.onComplete?.()
-        this.detached && this.clip.check()
+        ;(this.detached || this.native) && this.clip.check()
+    }
+
+    /**
+     * The value now, while WAAPI plays it and doesn't set it.
+     */
+    liveValue() {
+        return this.native && !this.isDone
+            ? this.clip.valueAt(this, time.now())
+            : undefined
     }
 
     revive() {
@@ -276,6 +300,88 @@ export class Clip extends JSAnimation<any> {
         if (this.lead) return
         super.play()
         this.options.autoplay === false && super.pause()
+        this.natives((native) => this.syncNative(native))
+    }
+
+    /**
+     * Play a track on WAAPI, pooled with the clip's other WAAPI values:
+     * the clip controls each one directly, with timing worked out once
+     * for the plan.
+     */
+    pool(
+        track: ClipTrack,
+        element: Element,
+        [timing, easing]: [KeyframeAnimationOptions, string[] | undefined]
+    ) {
+        const { name, keyframes, times, delay } = track.options
+        const frames: PropertyIndexedKeyframes = { [name!]: keyframes as any }
+        if (times) frames.offset = times
+        if (easing) frames.easing = easing
+
+        const native = (track.native = element.animate(frames, {
+            ...timing,
+            delay,
+        }))
+        ;(native as any).track = track
+        ;(native as any).el = element
+        native.onfinish = onNativeFinish
+        this.syncNative(native)
+    }
+
+    /**
+     * Start a WAAPI animation from the clip's start time and state.
+     */
+    private syncNative(native: Animation) {
+        const { startTime, state } = this
+        if (startTime === null) return
+        if (state === "paused") {
+            native.pause()
+            native.currentTime = this.holdTime ?? 0
+        } else {
+            native.startTime = resolveStartTime(startTime, time.now())
+        }
+    }
+
+    /**
+     * Apply a control to the tracks on WAAPI.
+     */
+    private natives(control: (native: Animation) => void) {
+        for (const { native, isStopped } of this.tracks) {
+            native && !isStopped && control(native)
+        }
+    }
+
+    /**
+     * A track's value at a timestamp, from the clip's time.
+     */
+    valueAt(track: ClipTrack, timestamp: number) {
+        const t = this.at(timestamp) - (track.options.delay || 0)
+        return generateTrack(track, Math.max(t, 0), t < 0).value
+    }
+
+    /**
+     * Take a track off WAAPI, leaving its value, with velocity, and the
+     * style where it was.
+     */
+    private release(track: ClipTrack) {
+        const native = track.native!
+        track.native = undefined
+        native.onfinish = null
+
+        if (!track.isDone && this.startTime !== null) {
+            const now = time.now()
+            const speed = this.playbackSpeed
+            const delta = this.state === "running" && speed ? sampleDelta : 0
+            const current = this.valueAt(track, now)
+            setStyle((native as any).el, track.options.name!, current)
+            track.value.setWithVelocity(
+                this.valueAt(track, now - delta * Math.sign(speed)),
+                current,
+                delta / Math.abs(speed || 1)
+            )
+        }
+
+        native.cancel()
     }
 
     /**
@@ -371,6 +477,14 @@ export class Clip extends JSAnimation<any> {
             if (!hasTime) {
                 hasTime = true
                 this.currentTime = t
+            }
+
+            /**
+             * WAAPI plays it, and finishes it.
+             */
+            if (track.native) {
+                numActive++
+                continue
             }
 
             let value: any
@@ -470,21 +584,34 @@ export class Clip extends JSAnimation<any> {
         if (this.state === "finished") this.revive()
         this.lead || super.play()
         this.each((a) => a.play())
+        this.natives((native) => {
+            native.onfinish = onNativeFinish
+            native.play()
+        })
     }
 
     pause() {
         this.lead || super.pause()
         this.each((a) => a.pause())
+        this.natives((native) => {
+            native.pause()
+            native.currentTime = this.holdTime ?? native.currentTime
+        })
     }
 
     complete() {
         this.lead || super.complete()
         this.each((a) => a.complete())
+        this.natives((native) => native.finish())
     }
 
     cancel() {
         this.lead || super.cancel()
         this.each((a) => a.cancel())
+        this.natives((native) => {
+            native.onfinish = null
+            native.cancel()
+        })
     }
 
     get time() {
@@ -495,6 +622,11 @@ export class Clip extends JSAnimation<any> {
         this.revive()
         this.lead || setTime.call(this, newTime)
         this.each((a) => (a.time = newTime))
+        this.natives((native) => {
+            native.onfinish = onNativeFinish
+            native.currentTime = secondsToMilliseconds(newTime)
+            this.holdTime === null && native.play()
+        })
     }
 
     get speed() {
@@ -509,6 +641,7 @@ export class Clip extends JSAnimation<any> {
         newSpeed < 0 && !this.hasOneEnd() && this.detachLive()
         this.lead || setSpeed.call(this, newSpeed)
         this.each((a) => (a.speed = newSpeed))
+        this.natives((native) => (native.playbackRate = newSpeed))
     }
 
     private hasOneEnd() {
@@ -528,7 +661,9 @@ export class Clip extends JSAnimation<any> {
          * JSAnimation is when stopped.
          */
         for (const track of this.tracks) {
-            track.isStopped || track.detached || this.catchUp(track)
+            track.isStopped ||
+                track.detached ||
+                (track.native ? this.release(track) : this.catchUp(track))
         }
 
         this.isStopped = true
@@ -538,6 +673,21 @@ export class Clip extends JSAnimation<any> {
     }
 
     attachTimeline(timeline: TimelineWithFallback): VoidFunction {
+        /**
+         * WAAPI values follow a native scroll timeline. Without one, they
+         * follow it from JS, like the rest.
+         */
+        if (timeline.timeline && supportsScrollTimeline()) {
+            this.natives((native) => {
+                const { track } = native as any
+                track.plan.base.allowFlatten &&
+                    native.effect?.updateTiming({ easing: "linear" })
+                native.onfinish = null
+                native.timeline = timeline.timeline as any
+                track.isScrolling = true
+                timeline.onAttach?.(native)
+            })
+        }
         this.detachLive()
         const cancels: VoidFunction[] = []
         this.each((a) => cancels.push(a.attachTimeline(timeline)))
@@ -550,7 +700,7 @@ export class Clip extends JSAnimation<any> {
      * velocity are current.
      */
     removeTrack(track: ClipTrack) {
-        this.catchUp(track)
+        track.native ? this.release(track) : this.catchUp(track)
 
         if (!track.isReady) this.numPending--
 
@@ -586,6 +736,8 @@ export class Clip extends JSAnimation<any> {
         animation?: AnimationPlaybackControlsWithThen
     ): AnimationPlaybackControlsWithThen {
         if (track.detached) return track.detached
+
+        track.native && this.release(track)
 
         if (animation) {
             track.resolver = undefined
@@ -640,7 +792,9 @@ export class Clip extends JSAnimation<any> {
 
     private detachLive() {
         this.numPending && flushKeyframeResolvers()
-        for (const track of this.tracks) track.isStopped || this.detach(track)
+        for (const track of this.tracks) {
+            track.isStopped || track.isScrolling || this.detach(track)
+        }
     }
 
     /**
@@ -649,6 +803,26 @@ export class Clip extends JSAnimation<any> {
     interrupt() {
         this.isInterrupted = true
     }
+}
+
+/**
+ * A pooled WAAPI animation's finish: set its value and style to the end,
+ * as the animation's fill is removed.
+ */
+function onNativeFinish(this: Animation) {
+    const track: ClipTrack = (this as any).track
+    const { options, clip } = track
+    const keyframe = getFinalKeyframe(
+        options.keyframes,
+        options,
+        (options as any).finalKeyframe,
+        clip.speed
+    )
+    track.update(keyframe)
+    setStyle((this as any).el, options.name!, keyframe)
+    this.onfinish = null
+    this.cancel()
+    track.finish()
 }
 
 const jsAnimationProto = JSAnimation.prototype
