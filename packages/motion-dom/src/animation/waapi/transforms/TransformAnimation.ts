@@ -845,12 +845,13 @@ const buildAhead = 100
  * wakes for every group due within a frame of the first.
  */
 const wakes = new Map<VoidFunction, number>()
+const wakeEarly = 16
 let wakeTimer: ReturnType<typeof setTimeout> | undefined
 let wakeAt = Infinity
 
 const runWakes = () => {
     wakeAt = Infinity
-    const due = time.now() + 16
+    const due = time.now() + wakeEarly
     let next = Infinity
     wakes.forEach((at, wake) => {
         if (at <= due) {
@@ -1249,7 +1250,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
              * renderer to write.
              */
             const wait = start - now - buildAhead
-            if (wait > 0) {
+            if (wait > wakeEarly) {
                 tracks.forEach((track) => track.sync())
                 sleep((buildAt = wait))
                 return true
