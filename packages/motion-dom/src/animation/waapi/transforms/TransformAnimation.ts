@@ -746,7 +746,7 @@ export function nativeOf(
 
     if (
         !(resolvedDuration < Infinity) ||
-        speed <= 0 ||
+        !speed ||
         repeatType === "mirror" ||
         (isScroll && repeat) ||
         offsets.length !== keyframes.length ||
@@ -840,6 +840,37 @@ let builds: VoidFunction[] | undefined
  */
 const buildAhead = 100
 
+/**
+ * Groups waiting to build, and when, on one timer for all of them. It
+ * wakes for every group due within a frame of the first.
+ */
+const wakes = new Map<VoidFunction, number>()
+let wakeTimer: ReturnType<typeof setTimeout> | undefined
+let wakeAt = Infinity
+
+const runWakes = () => {
+    wakeAt = Infinity
+    const due = time.now() + 16
+    let next = Infinity
+    wakes.forEach((at, wake) => {
+        if (at <= due) {
+            wakes.delete(wake)
+            wake()
+        } else if (at < next) next = at
+    })
+    next < Infinity && wakeIn(next - time.now())
+}
+
+const wakeIn = (delay: number) => {
+    const at = time.now() + delay
+    if (at < wakeAt) {
+        clearTimeout(wakeTimer)
+        wakeAt = at
+        wakeTimer = setTimeout(runWakes, delay)
+    }
+    return at
+}
+
 const buildSoon = (build: VoidFunction) => {
     builds ||
         queueMicrotask(() => {
@@ -876,7 +907,8 @@ function createGroup(owner: TransformOwner): TransformGroup {
     /**
      * Builds the WAAPI animation shortly before it starts.
      */
-    let wake: ReturnType<typeof setTimeout> | undefined
+    const wake = () => group.schedule(true)
+    const sleep = (delay: number) => wakes.set(wake, wakeIn(delay))
     /**
      * How long after it was last built to build it, while waiting.
      */
@@ -936,7 +968,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
      */
     const stop = (shouldCommit = true) => {
         shouldCommit && commit()
-        clearTimeout(wake)
+        wakes.delete(wake)
         buildAt = undefined
         if (native) {
             native.onfinish = native.oncancel = null
@@ -1219,7 +1251,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
             const wait = start - now - buildAhead
             if (wait > 0) {
                 tracks.forEach((track) => track.sync())
-                wake = setTimeout(() => group.schedule(true), (buildAt = wait))
+                sleep((buildAt = wait))
                 return true
             }
         }
@@ -1298,8 +1330,10 @@ function createGroup(owner: TransformOwner): TransformGroup {
     const retime = (now: number, isSeek: boolean) => {
         let elapsed: number | undefined
         let rate = 0
+        let last: TransformMember | undefined
 
         for (const track of tracks) {
+            last = track
             const state = built.get(track)
             if (!state) return false
 
@@ -1335,14 +1369,18 @@ function createGroup(owner: TransformOwner): TransformGroup {
          * when to build changes. Held, there's nothing to build yet.
          */
         if (buildAt !== undefined) {
-            if (elapsed === undefined || (isSeek && rate) || rate < 0) {
-                return false
-            }
-            clearTimeout(wake)
-            if (rate) {
+            if (elapsed === undefined || (isSeek && rate)) return false
+            wakes.delete(wake)
+            if (rate < 0) {
+                /**
+                 * Played backwards from before it moves, it never does,
+                 * so it only finishes, once back at its start.
+                 */
+                sleep(last!.at(now) / -last!.speed + 16)
+            } else if (rate) {
                 const delay = (buildAt - elapsed) / rate
                 if (delay < 1) return false
-                wake = setTimeout(() => group.schedule(true), delay)
+                sleep(delay)
             }
             return true
         }

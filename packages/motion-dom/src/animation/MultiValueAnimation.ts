@@ -813,15 +813,22 @@ export class MultiValueAnimation extends JSAnimation<any> {
             native.currentTime = secondsToMilliseconds(newTime)
             this.holdTime === null && native.play()
         })
-        this.regroup(true)
+        this.isRetiming || this.regroup(true)
     }
 
     get speed() {
         return this.playbackSpeed
     }
 
+    /**
+     * A change of speed keeps the time, which isn't a seek.
+     */
+    private isRetiming = false
+
     set speed(newSpeed: number) {
+        this.isRetiming = true
         setSpeed.call(this, newSpeed)
+        this.isRetiming = false
         this.natives((native) => (native.playbackRate = newSpeed))
         this.regroup()
     }
