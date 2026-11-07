@@ -20,6 +20,8 @@ import { resolveStartTime } from "./utils/resolve-start-time"
 import { notifyAnimationStart } from "./utils/notify-inspector"
 import { WithPromise } from "./utils/WithPromise"
 import { Mixer } from "../utils/mix/types"
+import type { MotionValue } from "../value"
+import type { ClipPlan } from "./animate/clip-value"
 
 /**
  * One value of a Clip. It's the value's animation (what the motion value
@@ -46,15 +48,29 @@ export class ClipTrack<T extends AnyResolvedKeyframe = any>
     /**
      * The animation this value moved to when controlled on its own.
      */
-    detached?: JSAnimation<any>
+    detached?: AnimationPlaybackControlsWithThen
 
     /**
      * Reads this value's keyframes from its subject, until they're read.
      */
     resolver?: { cancel(): void }
 
-    constructor(public clip: Clip, public options: ValueAnimationOptions<T>) {
+    constructor(
+        public clip: Clip,
+        public options: ValueAnimationOptions<T>,
+        public value: MotionValue<T>,
+        public plan: ClipPlan,
+        private onDone: VoidFunction
+    ) {
         super()
+    }
+
+    /**
+     * Set the value, and call the transition's onUpdate.
+     */
+    update(latest: T) {
+        this.value.set(latest)
+        this.plan.transition.onUpdate?.(latest)
     }
 
     get isReady() {
@@ -80,10 +96,11 @@ export class ClipTrack<T extends AnyResolvedKeyframe = any>
         return this.detached || this.clip
     }
 
-    finish(onComplete = this.options.onComplete) {
+    finish() {
         this.isDone = true
         this.notifyFinished()
-        onComplete?.()
+        this.onDone()
+        this.plan.transition.onComplete?.()
     }
 
     revive() {
@@ -203,8 +220,13 @@ export class Clip extends JSAnimation<any> {
      * Add a value. Its track joins the clock once init() is called with
      * its keyframes resolved.
      */
-    add<T extends AnyResolvedKeyframe>(options: ValueAnimationOptions<T>) {
-        const track = new ClipTrack<T>(this, options)
+    add<T extends AnyResolvedKeyframe>(
+        options: ValueAnimationOptions<T>,
+        value: MotionValue<T>,
+        plan: ClipPlan,
+        onComplete: VoidFunction
+    ) {
+        const track = new ClipTrack<T>(this, options, value, plan, onComplete)
         this.tracks.push(track)
         this.numPending++
         return track
@@ -348,7 +370,7 @@ export class Clip extends JSAnimation<any> {
                 )
             }
 
-            options.onUpdate?.(value)
+            track.update(value)
 
             if (isTrackFinished) {
                 track.finish()
@@ -483,23 +505,33 @@ export class Clip extends JSAnimation<any> {
         const delay = track.options.delay || 0
         const t = this.at(timestamp) - delay
         const state = generateTrack(track, Math.max(t, 0), t < 0)
-        track.options.onUpdate?.(state.value)
+        track.update(state.value)
     }
 
     /**
      * Move a track to a JSAnimation of its own, at the clip's time and
      * playback state.
      */
-    detach(track: ClipTrack): JSAnimation<any> {
+    detach(
+        track: ClipTrack,
+        native?: AnimationPlaybackControlsWithThen
+    ): AnimationPlaybackControlsWithThen {
         if (track.detached) return track.detached
+
+        if (native) {
+            track.resolver = undefined
+            this.numPending--
+            this.isInterrupted = true
+            return (track.detached = native)
+        }
 
         track.isReady || flushKeyframeResolvers()
 
-        const { onComplete } = track.options
         const animation = new JSAnimation(
             {
                 ...track.options,
-                onComplete: () => track.finish(onComplete),
+                onUpdate: (latest: any) => track.update(latest),
+                onComplete: () => track.finish(),
             },
             true
         )
@@ -527,7 +559,7 @@ export class Clip extends JSAnimation<any> {
 
     private detachAll() {
         this.numPending && flushKeyframeResolvers()
-        const animations: JSAnimation<any>[] = []
+        const animations: AnimationPlaybackControlsWithThen[] = []
         for (const track of this.tracks) {
             if (!track.isStopped) animations.push(this.detach(track))
         }
