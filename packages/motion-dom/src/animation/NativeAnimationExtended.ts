@@ -10,12 +10,9 @@ import { replaceStringEasing } from "./waapi/utils/unsupported-easing"
 export type NativeAnimationOptionsExtended<T extends AnyResolvedKeyframe> =
     NativeAnimationOptions & ValueAnimationOptions<T> & NativeAnimationOptions
 
-/**
- * 10ms is chosen here as it strikes a balance between smooth
- * results (more than one keyframe per frame at 60fps) and
- * keyframe quantity.
- */
-export const sampleDelta = 10 //ms
+import { sampleDelta } from "./utils/sample-delta"
+
+export { sampleDelta }
 
 export class NativeAnimationExtended<
     T extends AnyResolvedKeyframe

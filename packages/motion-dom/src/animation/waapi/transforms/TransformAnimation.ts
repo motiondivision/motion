@@ -32,7 +32,7 @@ import {
 } from "../../keyframes/KeyframesResolver"
 import { defaultOffset } from "../../keyframes/offsets/default"
 import { holdDriver, JSAnimation, round } from "../../JSAnimation"
-import { sampleDelta } from "../../NativeAnimationExtended"
+import { sampleDelta } from "../../utils/sample-delta"
 import {
     AnyResolvedKeyframe,
     TimelineWithFallback,

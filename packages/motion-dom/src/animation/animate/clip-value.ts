@@ -18,7 +18,6 @@ import { getFinalKeyframe } from "../keyframes/get-final"
 import { KeyframeResolver as DefaultKeyframeResolver } from "../keyframes/KeyframesResolver"
 import { AnimationElement } from "../keyframes/types"
 import { fillWildcards } from "../keyframes/utils/fill-wildcards"
-import { NativeAnimationExtended } from "../NativeAnimationExtended"
 import {
     AnimationPlaybackControlsWithThen,
     AnyResolvedKeyframe,
@@ -37,7 +36,8 @@ import {
 } from "../utils/resolved-options"
 import { resolveStartTime } from "../utils/resolve-start-time"
 import { supportsBrowserAnimation } from "../waapi/supports/waapi"
-import { acceleratedValues } from "../waapi/utils/accelerated-values"
+import { isGenerator } from "../generators/utils/is-generator"
+import { replaceTransitionType } from "../utils/replace-transition-type"
 import { replaceStringEasing } from "../waapi/utils/unsupported-easing"
 import { mapEasingToNativeEasing } from "../waapi/easing/map-easing"
 import { keyframes as keyframesType } from "../generators/keyframes"
@@ -245,31 +245,36 @@ function startOwn(
  * default keyframe resolver reads it, without making one.
  */
 /**
- * WAAPI timing for a plan's values, made once for them all. Tweens only,
- * as a spring's timing depends on each value's keyframes and velocity.
+ * WAAPI timing and keyframe easing for a value. A tween's is made once
+ * for its plan. A generator's depends on the value's own keyframes and
+ * velocity.
  */
-function waapiTiming({ base }: { base: any }) {
-    const { type, duration = 300, repeat = 0, repeatType, pseudoElement } =
-        base
-    if (type !== "keyframes" && type !== "tween" && type !== keyframesType) {
+function waapiTiming(options: any, ease: any) {
+    const { type, repeat = 0, repeatType, pseudoElement } = options
+    let { duration = 300 } = options
+
+    if (isGenerator(type)) {
+        ;({ duration, ease } = type.applyToOptions!({ ...options }))
+    } else if (type !== keyframesType) {
         return false
     }
-    const transition = { ease: base.ease }
+
+    const transition = { ease }
     replaceStringEasing(transition)
     const easing = mapEasingToNativeEasing(transition.ease as any, duration)
     const isArray = Array.isArray(easing)
-    return pseudoElement
-        ? false
-        : ([
-              {
-                  duration,
-                  easing: isArray ? "linear" : easing,
-                  fill: "both",
-                  iterations: repeat + 1,
-                  direction: repeatType === "reverse" ? "alternate" : "normal",
-              },
-              isArray ? easing : undefined,
-          ] as [KeyframeAnimationOptions, string[] | undefined])
+
+    return [
+        {
+            duration,
+            easing: isArray ? "linear" : easing,
+            fill: "both",
+            iterations: repeat + 1,
+            direction: repeatType === "reverse" ? "alternate" : "normal",
+            pseudoElement,
+        },
+        isArray ? easing : undefined,
+    ] as [KeyframeAnimationOptions, string[] | undefined]
 }
 
 function resolveNow(target: any[], value: MotionValue) {
@@ -320,24 +325,23 @@ function resolve(
             canAnimateValue &&
             supportsBrowserAnimation(options as any)
         ) {
+            replaceTransitionType(options)
             const { plan } = track
-            if (acceleratedValues.has(name!)) {
-                plan.waapi ??= waapiTiming(plan)
-                if (plan.waapi) {
-                    track.init()
-                    return (
-                        track.isStopped ||
-                        clip.pool(
-                            track,
-                            options.motionValue!.owner!.current as Element,
-                            plan.waapi
-                        )
+            const timing =
+                options.type === keyframesType
+                    ? (plan.waapi ??= waapiTiming(options, plan.base.ease))
+                    : waapiTiming(options, undefined)
+
+            if (track.isStopped || (clip as any).isStopped) return
+            if (timing) {
+                try {
+                    return clip.pool(
+                        track,
+                        options.motionValue!.owner!.current as Element,
+                        timing
                     )
-                }
+                } catch {}
             }
-            try {
-                return startOwn(track, clip, NativeAnimationExtended)
-            } catch {}
         }
 
         track.plan.isOwn || options.driver !== clip.options.driver

@@ -2,7 +2,7 @@ import { millisecondsToSeconds, secondsToMilliseconds } from "motion-utils"
 import { time } from "../frameloop/sync-time"
 import { setStyle } from "../render/dom/style-set"
 import { supportsScrollTimeline } from "../utils/supports/scroll-timeline"
-import { sampleDelta } from "./NativeAnimationExtended"
+import { sampleDelta } from "./utils/sample-delta"
 import { flushKeyframeResolvers } from "./keyframes/KeyframesResolver"
 import { getFinalKeyframe } from "./keyframes/get-final"
 import { inertia } from "./generators/inertia"
@@ -88,9 +88,10 @@ export class ClipTrack<T extends AnyResolvedKeyframe = any>
         this.plan.transition.onUpdate?.(latest)
     }
 
-    get isReady() {
-        return !!this.generator
-    }
+    /**
+     * Its keyframes are read and its durations known.
+     */
+    isReady = false
 
     /**
      * Keyframes are resolved: work out the generator and durations.
@@ -98,6 +99,7 @@ export class ClipTrack<T extends AnyResolvedKeyframe = any>
     init() {
         this.resolver = undefined
         if (this.isStopped) return
+        this.isReady = true
         initTrack(this)
         notifyAnimationStart(this, this.options)
         this.clip.onTrackReady(this)
@@ -318,13 +320,22 @@ export class Clip extends JSAnimation<any> {
         if (times) frames.offset = times
         if (easing) frames.easing = easing
 
-        const native = (track.native = element.animate(frames, {
-            ...timing,
-            delay,
-        }))
+        const native = element.animate(frames, { ...timing, delay })
+
+        /**
+         * Its generator is only made if it's read or interrupted.
+         */
+        const { duration, iterations } = timing as any
+        track.calculatedDuration = track.resolvedDuration = duration
+        track.totalDuration = duration * iterations
+        track.native = native
+        track.isReady = true
+        track.resolver = undefined
         ;(native as any).track = track
         ;(native as any).el = element
         native.onfinish = onNativeFinish
+        notifyAnimationStart(track, track.options)
+        this.onTrackReady(track)
         this.syncNative(native)
     }
 
@@ -355,6 +366,7 @@ export class Clip extends JSAnimation<any> {
      * A track's value at a timestamp, from the clip's time.
      */
     valueAt(track: ClipTrack, timestamp: number) {
+        track.generator || initTrack(track)
         const t = this.at(timestamp) - (track.options.delay || 0)
         return generateTrack(track, Math.max(t, 0), t < 0).value
     }
@@ -365,6 +377,7 @@ export class Clip extends JSAnimation<any> {
      */
     private release(track: ClipTrack) {
         const native = track.native!
+        const isPseudo = (track.options as any).pseudoElement
         track.native = undefined
         native.onfinish = null
 
@@ -373,7 +386,7 @@ export class Clip extends JSAnimation<any> {
             const speed = this.playbackSpeed
             const delta = this.state === "running" && speed ? sampleDelta : 0
             const current = this.valueAt(track, now)
-            setStyle((native as any).el, track.options.name!, current)
+            isPseudo || setStyle((native as any).el, track.options.name!, current)
             track.value.setWithVelocity(
                 this.valueAt(track, now - delta * Math.sign(speed)),
                 current,
@@ -381,7 +394,7 @@ export class Clip extends JSAnimation<any> {
             )
         }
 
-        native.cancel()
+        isPseudo || native.cancel()
     }
 
     /**
@@ -458,7 +471,7 @@ export class Clip extends JSAnimation<any> {
         for (let i = 0; i < tracks.length; i++) {
             const track = tracks[i]
             if (track.isDone || track.isStopped || track.detached) continue
-            if (!track.generator) continue
+            if (!track.isReady) continue
 
             const { options } = track
             const delay = options.delay || 0
@@ -557,9 +570,16 @@ export class Clip extends JSAnimation<any> {
      * was stopped, as with a group of animations.
      */
     check() {
-        this.isInterrupted ||
-            this.tracks.some((track) => !track.isDone) ||
-            this.notifyFinished()
+        if (this.isInterrupted || this.tracks.some((track) => !track.isDone))
+            return
+        /**
+         * WAAPI finished its last values before the clip's next frame.
+         */
+        if (this.state === "running") {
+            this.teardown()
+            this.state = "finished"
+        }
+        this.notifyFinished()
     }
 
     /**
@@ -818,10 +838,12 @@ function onNativeFinish(this: Animation) {
         (options as any).finalKeyframe,
         clip.speed
     )
-    track.update(keyframe)
-    setStyle((this as any).el, options.name!, keyframe)
     this.onfinish = null
-    this.cancel()
+    if (!(options as any).pseudoElement) {
+        track.update(keyframe)
+        setStyle((this as any).el, options.name!, keyframe)
+        this.cancel()
+    }
     track.finish()
 }
 
