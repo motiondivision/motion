@@ -121,10 +121,14 @@ export class MotionValueState {
          * can't share its computed value's subscriber.
          */
         if (!onChange || isBound) {
-            onChange = () =>
+            /**
+             * A sync render is passed the latest value, so it needn't
+             * read it back from the motion value.
+             */
+            onChange = (latest?: unknown) =>
                 render &&
                 (this.isSync && frameData.isProcessing
-                    ? render()
+                    ? (render as (latest?: unknown) => void)(latest)
                     : this.schedule(render))
         }
 

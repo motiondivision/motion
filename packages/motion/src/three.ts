@@ -176,12 +176,19 @@ function createRender(
     if (target && !isUniform(object[key])) {
         const axis = transform[1]
 
-        return transform[0] === "rotation"
-            ? () => (target[axis] = value.get() * (Math.PI / 180))
-            : () => (target[axis] = value.get())
+        /**
+         * Renders are passed the latest value when written during a frame.
+         */
+        return (
+            transform[0] === "rotation"
+                ? (latest = value.get()) =>
+                      (target[axis] = latest * (Math.PI / 180))
+                : (latest = value.get()) => (target[axis] = latest)
+        ) as VoidFunction
     }
 
-    return () => setObjectValue(object, key, value.get())
+    return ((latest = value.get()) =>
+        setObjectValue(object, key, latest)) as VoidFunction
 }
 
 function setObjectValue(object: ThreeObject, key: string, value: unknown) {

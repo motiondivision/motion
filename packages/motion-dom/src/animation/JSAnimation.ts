@@ -227,10 +227,11 @@ export class JSAnimation<T extends number | string>
      * changes, so it's written without the rest of tick().
      */
     step(timestamp: number) {
-        const { lane, startTime } = this
+        const { lane, startTime, driver } = this
 
         if (
             lane &&
+            driver &&
             startTime !== null &&
             startTime <= timestamp &&
             startTime !== this.pendingStartTime &&
@@ -238,18 +239,40 @@ export class JSAnimation<T extends number | string>
             this.holdTime === null &&
             this.playbackSpeed === 1
         ) {
-            const t =
-                Math.round(timestamp - startTime) - (this.options.delay || 0)
+            const delay = this.options.delay || 0
+            const t = Math.round(timestamp - startTime) - delay
 
             if (t > lane.start && t < lane.end) {
-                this.currentTime = t
-                const { onUpdate } = this.options
-                onUpdate &&
-                    onUpdate((lane.from +
+                /**
+                 * Hand the blend to the driver, which runs it each frame
+                 * until the time leaves it or playback changes.
+                 */
+                const { onUpdate, motionValue, hasOnUpdate } = this.options
+                const set =
+                    hasOnUpdate === false && motionValue
+                        ? (latest: T) => motionValue.set(latest)
+                        : onUpdate
+                driver.lane = {
+                    startTime,
+                    from: lane.start + delay,
+                    to: lane.end + delay,
+                    origin: lane.from,
+                    delta: lane.delta,
+                    ease: lane.ease,
+                    delay,
+                    write: (latest, currentTime) => {
+                        this.currentTime = currentTime
+                        set && set(latest as unknown as T)
+                    },
+                }
+                driver.lane.write(
+                    lane.from +
                         lane.delta *
                             lane.ease(
                                 (t - lane.start) / (lane.end - lane.start)
-                            )) as T)
+                            ),
+                    t
+                )
                 return
             }
         }
@@ -628,6 +651,7 @@ export class JSAnimation<T extends number | string>
     }
 
     complete() {
+        this.driver && (this.driver.lane = undefined)
         if (this.state !== "running") {
             this.play()
         }

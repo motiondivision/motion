@@ -18,13 +18,9 @@ export const propEffect = /*@__PURE__*/ createEffect(
         key: string,
         value: MotionValue
     ) => {
-        return state.set(
-            key,
-            value,
-            () => {
-                subject[key] = value.get()
-            }
-        )
+        return state.set(key, value, ((latest = value.get()) => {
+            subject[key] = latest
+        }) as VoidFunction)
     },
     {
         test: (subject: unknown): subject is PropSubject => isObject(subject),
