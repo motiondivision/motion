@@ -213,7 +213,62 @@ describe("spring", () => {
         expect(withoutDuration.length).toBeGreaterThan(4)
     })
 
-    test("Time-defined spring ignores velocity", () => {
+    describe.each([
+        { visualDuration: 0.5, bounce: 0.2 },
+        { visualDuration: 0.5, bounce: 0 },
+        { visualDuration: 0.5, bounce: -0.5 },
+    ])("visualDuration spring %o", (options) => {
+        test("starts with the inherited velocity", () => {
+            const generator = spring({
+                ...options,
+                keyframes: [0, 100],
+                velocity: 1000,
+            })
+            expect(generator.velocity!(0)).toBeCloseTo(1000, 6)
+        })
+
+        test("resolves the same physics with or without velocity", () => {
+            /**
+             * Velocity is only an initial condition. A spring is linear,
+             * so a spring with velocity is the spring without it plus a
+             * spring with only that velocity. Velocity that leaked into
+             * the resolved stiffness or damping would break this, and
+             * wildly overshoot small-range animations.
+             */
+            const withVelocity = spring({
+                ...options,
+                keyframes: [0, 100],
+                velocity: 5000,
+            })
+            const withoutVelocity = spring({ ...options, keyframes: [0, 100] })
+            const onlyVelocity = spring({
+                ...options,
+                keyframes: [0, 0],
+                velocity: 5000,
+            })
+            for (const t of [16, 50, 100, 200, 400]) {
+                expect(withVelocity.next(t).value).toBeCloseTo(
+                    withoutVelocity.next(t).value + onlyVelocity.next(t).value,
+                    6
+                )
+            }
+        })
+
+        test("settles at its target with inherited velocity", () => {
+            const generator = spring({
+                ...options,
+                keyframes: [0, 100],
+                velocity: -3000,
+            })
+            const duration = calcGeneratorDuration(generator)
+            expect(duration).toBeLessThan(maxGeneratorDuration)
+            const lastFrame = generator.next(duration - 10).value
+            expect(Math.abs(lastFrame - 100)).toBeLessThan(1)
+            expect(generator.next(duration).value).toBe(100)
+        })
+    })
+
+    test("Duration spring ignores velocity", () => {
         const settings = {
             keyframes: [500, 10],
             bounce: 0.2,
@@ -222,17 +277,16 @@ describe("spring", () => {
         const withVelocity = spring({ ...settings, velocity: 1000 })
         const withoutVelocity = spring(settings)
 
-        // Time-defined springs ignore velocity to prevent wild oscillation
-        // from interrupted animations
+        // Duration springs start from rest so they end at their duration
         expect(withVelocity.next(0).value).toBe(withoutVelocity.next(0).value)
         expect(withVelocity.next(100).value).toBe(
             withoutVelocity.next(100).value
         )
     })
 
-    test("Time-defined spring with velocity does not wildly oscillate", () => {
+    test("Duration spring with velocity does not wildly oscillate", () => {
         /**
-         * Time-defined springs (duration/bounce) must ignore inherited
+         * Duration springs (duration/bounce) must ignore inherited
          * velocity. When an animation is interrupted, the motionValue
          * carries velocity from the in-progress animation. If this leaks
          * into findSpring(), it changes the computed spring parameters
@@ -261,6 +315,18 @@ describe("spring", () => {
         // Both should have identical mild overshoot (velocity is ignored)
         expect(maxNoVelocity - 100).toBeLessThan(5)
         expect(maxWithVelocity - 100).toBeLessThan(5)
+    })
+
+    test("Duration spring keeps its exact duration with velocity", () => {
+        const generator = spring({
+            keyframes: [0, 100],
+            duration: 800,
+            bounce: 0.3,
+            velocity: 2000,
+        })
+        expect(generator.calculatedDuration).toBe(800)
+        expect(generator.next(799).done).toBe(false)
+        expect(generator.next(800).done).toBe(true)
     })
 
     test("Overdamped spring with velocity and zero delta is not immediately done", () => {
@@ -615,8 +681,8 @@ describe("spring NaN guards", () => {
     })
 
     test("retargeting treats invalid physics as absent", () => {
-        // Initial resolution treats this as a time-defined spring, which
-        // ignores inherited velocity, so retargeting must too
+        // Initial resolution treats this as a time-defined spring, so
+        // retargeting must too
         const generator = spring({
             keyframes: [0, 100],
             duration: 600,

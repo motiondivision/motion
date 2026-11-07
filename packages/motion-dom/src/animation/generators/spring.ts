@@ -105,9 +105,9 @@ function approximateRoot(
 const safeMin = 0.001
 
 /**
- * Assumes zero initial velocity and the default mass: time-defined springs
- * ignore inherited velocity and only resolve without valid physics. Returns
- * NaN physics when the root search doesn't converge.
+ * Assumes zero initial velocity and the default mass: duration springs start
+ * from rest so they end exactly at their duration. Only resolves without
+ * valid physics. Returns NaN physics when the root search doesn't converge.
  */
 function findSpring({
     duration = defaultDuration,
@@ -303,12 +303,13 @@ function springGenerator(
     } = getSpringOptions({ ...options })
 
     /**
-     * Time-defined springs ignore inherited velocity. Velocity from
-     * interrupted animations causes massive oscillation on small-range
-     * animations.
+     * A duration spring must end exactly at its duration, and it's settled
+     * from rest by then. Inherited velocity could leave it still moving, so
+     * it starts from rest. Every other spring, visualDuration included, ends
+     * when it comes to rest, so inherits velocity as its initial condition.
      */
     const inheritVelocity = (velocity: number) =>
-        isTimeDefined ? 0 : -millisecondsToSeconds(velocity)
+        isResolvedFromDuration ? 0 : -millisecondsToSeconds(velocity)
 
     const dampingRatio = damping / (2 * Math.sqrt(stiffness * mass))
     const undampedAngularFreq = millisecondsToSeconds(
