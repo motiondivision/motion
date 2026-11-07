@@ -1,5 +1,5 @@
 import {
-    ClipRef,
+    MultiValueRef,
     animateEffectSubject,
     animateElement,
     AnimationPlaybackControlsWithThen,
@@ -61,7 +61,7 @@ export function animateSubject(
     keyframes: DOMKeyframesDefinition,
     options?: DynamicAnimationOptions,
     scope?: AnimationScope,
-    clipRef?: ClipRef
+    animationRef?: MultiValueRef
 ): AnimationPlaybackControlsWithThen[]
 /**
  * Animate a object
@@ -71,7 +71,7 @@ export function animateSubject<O extends Object>(
     keyframes: ObjectTarget<O>,
     options?: DynamicAnimationOptions,
     scope?: AnimationScope,
-    clipRef?: ClipRef
+    animationRef?: MultiValueRef
 ): AnimationPlaybackControlsWithThen[]
 /**
  * Implementation
@@ -97,7 +97,7 @@ export function animateSubject<O extends Object>(
         | ValueAnimationTransition<string>
         | DynamicAnimationOptions,
     scope?: AnimationScope,
-    clipRef?: ClipRef
+    animationRef?: MultiValueRef
 ): AnimationPlaybackControlsWithThen[] {
     const animations: AnimationPlaybackControlsWithThen[] = []
 
@@ -126,10 +126,10 @@ export function animateSubject<O extends Object>(
         const numSubjects = subjects.length
 
         /**
-         * Every subject's values play on one clip, started once they're
+         * Every subject's values play on one shared animation, started once they're
          * all added.
          */
-        const ref: ClipRef = clipRef || {}
+        const ref: MultiValueRef = animationRef || {}
 
         process.env.NODE_ENV !== "production" &&
             invariant(
@@ -185,7 +185,7 @@ export function animateSubject<O extends Object>(
             }
         }
 
-        clipRef || ref.clip?.start()
+        animationRef || ref.animation?.start()
     }
 
     return animations

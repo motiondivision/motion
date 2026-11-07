@@ -12,7 +12,7 @@ import {
     type StartAnimation,
 } from "../../value"
 import { isMotionValue } from "../../value/utils/is-motion-value"
-import { Clip, ClipTrack } from "../Clip"
+import { MultiValueAnimation, ValueTrack } from "../MultiValueAnimation"
 import { JSAnimation } from "../JSAnimation"
 import { getFinalKeyframe } from "../keyframes/get-final"
 import { KeyframeResolver as DefaultKeyframeResolver } from "../keyframes/KeyframesResolver"
@@ -51,7 +51,7 @@ import {
  * for the call rather than once per value. Only the keyframes, delay and
  * velocity differ between them.
  */
-export interface ClipPlan {
+export interface ValuePlan {
     /**
      * The value transition this plan was made from.
      */
@@ -61,7 +61,7 @@ export interface ClipPlan {
      */
     base: ValueAnimationOptions<any>
     /**
-     * The easing as a function, for values that play on the clip.
+     * The easing as a function, for values that play on the shared animation.
      */
     ease?: unknown
     isInstant: boolean
@@ -69,7 +69,7 @@ export interface ClipPlan {
     isLong: boolean
     target?: unknown
     /**
-     * Its values play on an animation of their own, as the clip doesn't
+     * Its values play on an animation of their own, as the shared animation does not
      * call onPlay, onStop or onCancel.
      */
     isOwn: boolean
@@ -81,14 +81,14 @@ export interface ClipPlan {
 }
 
 /**
- * The clip one animate() call's values share, made by its first value,
+ * The shared animation one animate() call's values share, made by its first value,
  * and the plans its keys animate with.
  */
-export interface ClipRef {
-    clip?: Clip
-    plans?: Record<string, ClipPlan>
+export interface MultiValueRef {
+    animation?: MultiValueAnimation
+    plans?: Record<string, ValuePlan>
     /**
-     * A lone value, which plays on a JSAnimation rather than a clip.
+     * A lone value, which plays on a JSAnimation rather than a shared animation.
      */
     isOne?: boolean
 }
@@ -128,7 +128,7 @@ function makePlan(
     transition: any,
     keyframes: any[],
     element: AnimationElement | undefined
-): ClipPlan {
+): ValuePlan {
     const base: any = {
         ease: "easeOut",
         ...transition,
@@ -177,9 +177,9 @@ function makePlan(
 }
 
 /**
- * The plan's easing as a function, made once for its values on the clip.
+ * The plan's easing as a function, made once for its values on the shared animation.
  */
-function clipEase(plan: ClipPlan) {
+function planEase(plan: ValuePlan) {
     if (!("ease" in plan)) {
         const { ease } = plan.base
         plan.ease =
@@ -191,7 +191,7 @@ function clipEase(plan: ClipPlan) {
 }
 
 function getPlan(
-    ref: ClipRef,
+    ref: MultiValueRef,
     name: string,
     transition: any,
     keyframes: any[],
@@ -216,12 +216,12 @@ function getPlan(
 }
 
 /**
- * Play a value on an animation of its own, at the clip's clock: WAAPI for
+ * Play a value on an animation of its own, at the animation's clock: WAAPI for
  * one the browser can run, once its origin is read, otherwise JS.
  */
 function startOwn(
-    track: ClipTrack,
-    clip: Clip,
+    track: ValueTrack,
+    parent: MultiValueAnimation,
     Animation: new (options: any) => AnimationPlaybackControlsWithThen
 ) {
     const { options } = track
@@ -232,12 +232,12 @@ function startOwn(
         onComplete: () => track.finish(),
         element: options.motionValue?.owner?.current,
         startTime:
-            clip.startTime === null
+            parent.startTime === null
                 ? undefined
-                : resolveStartTime(clip.startTime, time.now()),
+                : resolveStartTime(parent.startTime, time.now()),
     })
-    clip.state === "paused" && animation.pause()
-    clip.detach(track, animation)
+    parent.state === "paused" && animation.pause()
+    parent.detach(track, animation)
 }
 
 /**
@@ -291,8 +291,8 @@ function resolveNow(target: any[], value: MotionValue) {
 }
 
 function resolve(
-    track: ClipTrack,
-    clip: Clip,
+    track: ValueTrack,
+    parent: MultiValueAnimation,
     value: MotionValue,
     element: AnimationElement | undefined
 ) {
@@ -332,10 +332,10 @@ function resolve(
                     ? (plan.waapi ??= waapiTiming(options, plan.base.ease))
                     : waapiTiming(options, undefined)
 
-            if (track.isStopped || (clip as any).isStopped) return
+            if (track.isStopped || (parent as any).isStopped) return
             if (timing) {
                 try {
-                    return clip.pool(
+                    return parent.pool(
                         track,
                         options.motionValue!.owner!.current as Element,
                         timing
@@ -344,8 +344,8 @@ function resolve(
             }
         }
 
-        track.plan.isOwn || options.driver !== clip.options.driver
-            ? startOwn(track, clip, JSAnimation)
+        track.plan.isOwn || options.driver !== parent.options.driver
+            ? startOwn(track, parent, JSAnimation)
             : track.init()
     }
 
@@ -368,12 +368,12 @@ function resolve(
 }
 
 /**
- * Start a value's animation on the call's clip, or on an animation of its
- * own when it can't share the clip.
+ * Start a value's animation on the call's shared animation, or on an animation of its
+ * own when it can't share it.
  */
 export const startValue =
     <V extends AnyResolvedKeyframe>(
-        ref: ClipRef,
+        ref: MultiValueRef,
         name: string,
         value: MotionValue<V>,
         target: any,
@@ -431,9 +431,12 @@ export const startValue =
 
         /**
          * Transforms on an HTML element join its transform group, and a
-         * lone value has no clip to share.
+         * lone value has nothing to share.
          */
-        const isTransform = canGroupTransform({ name, motionValue: value } as any)
+        const isTransform = canGroupTransform({
+            name,
+            motionValue: value,
+        } as any)
         if (isTransform || ref.isOne) {
             const options: ValueAnimationOptions<any> = {
                 ...base,
@@ -455,18 +458,22 @@ export const startValue =
 
             if (isTransform) return new TransformAnimation(options)
 
-            applyResolvedKeyframes(options, resolveNow(keyframes, value), undefined)
+            applyResolvedKeyframes(
+                options,
+                resolveNow(keyframes, value),
+                undefined
+            )
             return new JSAnimation(options)
         }
 
-        const clip = (ref.clip ||= new Clip(base.driver))
-        if (base.autoplay === false) clip.options.autoplay = false
+        const parent = (ref.animation ||= new MultiValueAnimation(base.driver))
+        if (base.autoplay === false) parent.options.autoplay = false
 
-        const track = clip.add(
+        const track = parent.add(
             {
                 ...base,
                 element,
-                ease: clipEase(plan) as any,
+                ease: planEase(plan) as any,
                 keyframes,
                 times: valueTransition.times,
                 delay,
@@ -478,7 +485,7 @@ export const startValue =
             onComplete
         )
 
-        resolve(track, clip, value, element)
+        resolve(track, parent, value, element)
 
         return track
     }

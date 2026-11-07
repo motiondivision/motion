@@ -16,7 +16,7 @@ import { replaceTransitionType } from "./utils/replace-transition-type"
 /**
  * What it takes to sample one value's animation at a time: its options,
  * its generator and the durations worked out from them. A JSAnimation is
- * one track with its own clock. A Clip is many tracks sharing a clock.
+ * one track with its own clock. A MultiValueAnimation is many tracks sharing a clock.
  */
 export interface Track<T extends AnyResolvedKeyframe = any> {
     options: ValueAnimationOptions<T>

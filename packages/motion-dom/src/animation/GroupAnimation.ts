@@ -17,7 +17,7 @@ export class GroupAnimation implements AnimationPlaybackControls {
 
     constructor(animations: Array<AcceptedAnimations | undefined>) {
         /**
-         * Values animated on one clip are grouped as the clip, so the
+         * Values animated on one shared animation are grouped as the shared animation, so the
          * group controls it once rather than once per value.
          */
         const grouped = new Set<AcceptedAnimations>()

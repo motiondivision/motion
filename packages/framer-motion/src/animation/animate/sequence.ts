@@ -1,7 +1,7 @@
 import {
     AnimationPlaybackControlsWithThen,
     AnimationScope,
-    ClipRef,
+    MultiValueRef,
     motionValue,
     spring,
 } from "motion-dom"
@@ -60,9 +60,9 @@ export function animateSequence(
         (options?.defaultTransition as SequenceOptions)?.reduceMotion
 
     /**
-     * The whole sequence plays on one clip.
+     * The whole sequence plays on one shared animation.
      */
-    const ref: ClipRef = {}
+    const ref: MultiValueRef = {}
     animationDefinitions.forEach(({ keyframes, transition }, subject) => {
         animations.push(
             ...animateSubject(
@@ -77,7 +77,7 @@ export function animateSequence(
             )
         )
     })
-    ref.clip?.start()
+    ref.animation?.start()
 
     return animations
 }

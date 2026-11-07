@@ -24,15 +24,15 @@ import { notifyAnimationStart } from "./utils/notify-inspector"
 import { WithPromise } from "./utils/WithPromise"
 import { Mixer } from "../utils/mix/types"
 import type { MotionValue } from "../value"
-import type { ClipPlan } from "./animate/clip-value"
+import type { ValuePlan } from "./animate/multi-value"
 
 /**
- * One value of a Clip. It's the value's animation (what the motion value
+ * One value of a MultiValueAnimation. It's the value's animation (what the motion value
  * holds and stops) and keeps what it takes to sample the value at the
- * clip's time. It has no clock of its own. Controlled on its own, it hands
- * itself to a JSAnimation that takes the clip's time with it.
+ * animation's time. It has no clock of its own. Controlled on its own, it hands
+ * itself to a JSAnimation that takes the animation's time with it.
  */
-export class ClipTrack<T extends AnyResolvedKeyframe = any>
+export class ValueTrack<T extends AnyResolvedKeyframe = any>
     extends WithPromise
     implements Track<T>, AnimationPlaybackControlsWithThen
 {
@@ -59,7 +59,7 @@ export class ClipTrack<T extends AnyResolvedKeyframe = any>
     resolver?: { cancel(): void }
 
     /**
-     * The WAAPI animation playing this value, controlled by the clip with
+     * The WAAPI animation playing this value, controlled by the shared animation with
      * the others it pools. The track still samples the value when it's
      * read or interrupted.
      */
@@ -71,10 +71,10 @@ export class ClipTrack<T extends AnyResolvedKeyframe = any>
     isScrolling?: boolean
 
     constructor(
-        public clip: Clip,
+        public parent: MultiValueAnimation,
         public options: ValueAnimationOptions<T>,
         public value: MotionValue<T>,
-        public plan: ClipPlan,
+        public plan: ValuePlan,
         private onDone: VoidFunction
     ) {
         super()
@@ -102,15 +102,15 @@ export class ClipTrack<T extends AnyResolvedKeyframe = any>
         this.isReady = true
         initTrack(this)
         notifyAnimationStart(this, this.options)
-        this.clip.onTrackReady(this)
+        this.parent.onTrackReady(this)
     }
 
     /**
-     * What a group of animations holds for this value: the clip, while
+     * What a group of animations holds for this value: the shared animation, while
      * the value plays in it.
      */
     get grouped(): AnimationPlaybackControls {
-        return this.clip
+        return this.parent
     }
 
     finish() {
@@ -118,7 +118,7 @@ export class ClipTrack<T extends AnyResolvedKeyframe = any>
         this.notifyFinished()
         this.onDone()
         this.plan.transition.onComplete?.()
-        ;(this.detached || this.native) && this.clip.check()
+        ;(this.detached || this.native) && this.parent.check()
     }
 
     /**
@@ -126,7 +126,7 @@ export class ClipTrack<T extends AnyResolvedKeyframe = any>
      */
     liveValue() {
         return this.native && !this.isDone
-            ? this.clip.valueAt(this, time.now())
+            ? this.parent.valueAt(this, time.now())
             : undefined
     }
 
@@ -145,22 +145,22 @@ export class ClipTrack<T extends AnyResolvedKeyframe = any>
         this.isStopped = true
         if (this.detached) {
             this.detached.stop()
-            this.clip.interrupt()
+            this.parent.interrupt()
         } else {
             this.resolver?.cancel()
-            this.clip.removeTrack(this)
+            this.parent.removeTrack(this)
         }
     }
 
     /**
-     * Control this value alone: in a clip of its own, that's the clip.
-     * Otherwise it moves to a JSAnimation at the clip's time.
+     * Control this value alone: in a shared animation of its own, that's it.
+     * Otherwise it moves to a JSAnimation at the animation's time.
      */
     private get own(): AnimationPlaybackControls {
-        const { clip } = this
-        return clip.tracks.length > 1 || this.detached
-            ? clip.detach(this)
-            : clip
+        const { parent } = this
+        return parent.tracks.length > 1 || this.detached
+            ? parent.detach(this)
+            : parent
     }
 
     get duration() {
@@ -177,15 +177,15 @@ export class ClipTrack<T extends AnyResolvedKeyframe = any>
             ? this.detached.state
             : this.isDone
             ? "finished"
-            : this.clip.state
+            : this.parent.state
     }
 
     get startTime() {
-        return (this.detached || this.clip).startTime
+        return (this.detached || this.parent).startTime
     }
 
     get time() {
-        return (this.detached || this.clip).time
+        return (this.detached || this.parent).time
     }
 
     set time(newTime: number) {
@@ -193,7 +193,7 @@ export class ClipTrack<T extends AnyResolvedKeyframe = any>
     }
 
     get speed() {
-        return (this.detached || this.clip).speed
+        return (this.detached || this.parent).speed
     }
 
     set speed(newSpeed: number) {
@@ -227,8 +227,8 @@ export class ClipTrack<T extends AnyResolvedKeyframe = any>
  * the values rather than one animation each. Each value is sampled as a
  * JSAnimation of its own would be.
  */
-export class Clip extends JSAnimation<any> {
-    tracks: ClipTrack[] = []
+export class MultiValueAnimation extends JSAnimation<any> {
+    tracks: ValueTrack[] = []
 
     /**
      * Tracks still waiting on their keyframes.
@@ -237,14 +237,14 @@ export class Clip extends JSAnimation<any> {
 
     /**
      * A stopped track's animation never finishes, so neither does the
-     * clip's, as with a group of animations.
+     * animation's, as with a group of animations.
      */
     private isInterrupted = false
 
     private hasStoppedTracks = false
 
     /**
-     * Once every value has moved to an animation of its own, the clip
+     * Once every value has moved to an animation of its own, the shared animation
      * reads its state from the first.
      */
     private lead?: AnimationPlaybackControlsWithThen
@@ -263,16 +263,16 @@ export class Clip extends JSAnimation<any> {
     add<T extends AnyResolvedKeyframe>(
         options: ValueAnimationOptions<T>,
         value: MotionValue<T>,
-        plan: ClipPlan,
+        plan: ValuePlan,
         onComplete: VoidFunction
     ) {
-        const track = new ClipTrack<T>(this, options, value, plan, onComplete)
+        const track = new ValueTrack<T>(this, options, value, plan, onComplete)
         this.tracks.push(track)
         this.numPending++
         return track
     }
 
-    onTrackReady(track: ClipTrack) {
+    onTrackReady(track: ValueTrack) {
         this.numPending--
         const { calculatedDuration, totalDuration, options } = track
 
@@ -306,12 +306,12 @@ export class Clip extends JSAnimation<any> {
     }
 
     /**
-     * Play a track on WAAPI, pooled with the clip's other WAAPI values:
-     * the clip controls each one directly, with timing worked out once
+     * Play a track on WAAPI, pooled with the animation's other WAAPI values:
+     * the shared animation controls each one directly, with timing worked out once
      * for the plan.
      */
     pool(
-        track: ClipTrack,
+        track: ValueTrack,
         element: Element,
         [timing, easing]: [KeyframeAnimationOptions, string[] | undefined]
     ) {
@@ -340,7 +340,7 @@ export class Clip extends JSAnimation<any> {
     }
 
     /**
-     * Start a WAAPI animation from the clip's start time and state.
+     * Start a WAAPI animation from the animation's start time and state.
      */
     private syncNative(native: Animation) {
         const { startTime, state } = this
@@ -363,9 +363,9 @@ export class Clip extends JSAnimation<any> {
     }
 
     /**
-     * A track's value at a timestamp, from the clip's time.
+     * A track's value at a timestamp, from the animation's time.
      */
-    valueAt(track: ClipTrack, timestamp: number) {
+    valueAt(track: ValueTrack, timestamp: number) {
         track.generator || initTrack(track)
         const t = this.at(timestamp) - (track.options.delay || 0)
         return generateTrack(track, Math.max(t, 0), t < 0).value
@@ -375,7 +375,7 @@ export class Clip extends JSAnimation<any> {
      * Take a track off WAAPI, leaving its value, with velocity, and the
      * style where it was.
      */
-    private release(track: ClipTrack) {
+    private release(track: ValueTrack) {
         const native = track.native!
         const isPseudo = (track.options as any).pseudoElement
         track.native = undefined
@@ -386,7 +386,8 @@ export class Clip extends JSAnimation<any> {
             const speed = this.playbackSpeed
             const delta = this.state === "running" && speed ? sampleDelta : 0
             const current = this.valueAt(track, now)
-            isPseudo || setStyle((native as any).el, track.options.name!, current)
+            isPseudo ||
+                setStyle((native as any).el, track.options.name!, current)
             track.value.setWithVelocity(
                 this.valueAt(track, now - delta * Math.sign(speed)),
                 current,
@@ -418,14 +419,16 @@ export class Clip extends JSAnimation<any> {
         for (const { detached, calculatedDuration, options } of this.tracks) {
             const d = detached
                 ? detached.iterationDuration
-                : millisecondsToSeconds(calculatedDuration + (options.delay || 0))
+                : millisecondsToSeconds(
+                      calculatedDuration + (options.delay || 0)
+                  )
             if (d > max) max = d
         }
         return max
     }
 
     /**
-     * A clip of one value hands its blend to the driver, as a
+     * A shared animation of one value hands its blend to the driver, as a
      * JSAnimation does.
      */
     step(timestamp: number) {
@@ -484,7 +487,7 @@ export class Clip extends JSAnimation<any> {
             const t = isFinished ? trackDuration : Math.max(timeWithoutDelay, 0)
 
             /**
-             * The clip reports its first value's time. It's set before
+             * The shared animation reports its first value's time. It's set before
              * any value updates, so a seek from an update stands.
              */
             if (!hasTime) {
@@ -566,14 +569,14 @@ export class Clip extends JSAnimation<any> {
     }
 
     /**
-     * The clip's animation finishes once every value's has, unless one
+     * The shared animation finishes once every value's has, unless one
      * was stopped, as with a group of animations.
      */
     check() {
         if (this.isInterrupted || this.tracks.some((track) => !track.isDone))
             return
         /**
-         * WAAPI finished its last values before the clip's next frame.
+         * WAAPI finished its last values before the animation's next frame.
          */
         if (this.state === "running") {
             this.teardown()
@@ -635,7 +638,9 @@ export class Clip extends JSAnimation<any> {
     }
 
     get time() {
-        return this.lead ? this.lead.time : millisecondsToSeconds(this.currentTime)
+        return this.lead
+            ? this.lead.time
+            : millisecondsToSeconds(this.currentTime)
     }
 
     set time(newTime: number) {
@@ -656,7 +661,7 @@ export class Clip extends JSAnimation<any> {
     set speed(newSpeed: number) {
         /**
          * Played backwards, values reverse from the end of their own
-         * animation. With one end for every value, that's the clip's.
+         * animation. With one end for every value, that's the animation's.
          */
         newSpeed < 0 && !this.hasOneEnd() && this.detachLive()
         this.lead || setSpeed.call(this, newSpeed)
@@ -719,7 +724,7 @@ export class Clip extends JSAnimation<any> {
      * now, as a JSAnimation is when stopped, so the value and its
      * velocity are current.
      */
-    removeTrack(track: ClipTrack) {
+    removeTrack(track: ValueTrack) {
         track.native ? this.release(track) : this.catchUp(track)
 
         if (!track.isReady) this.numPending--
@@ -734,7 +739,7 @@ export class Clip extends JSAnimation<any> {
      * Set a track's value to now, or to where it's held, unless it's
      * already been set this frame, as a JSAnimation is when stopped.
      */
-    private catchUp(track: ClipTrack) {
+    private catchUp(track: ValueTrack) {
         const now = time.now()
         if (
             track.isReady &&
@@ -749,10 +754,10 @@ export class Clip extends JSAnimation<any> {
 
     /**
      * Move a track to an animation of its own: the one given, or a
-     * JSAnimation at the clip's time and playback state.
+     * JSAnimation at the animation's time and playback state.
      */
     detach(
-        track: ClipTrack,
+        track: ValueTrack,
         animation?: AnimationPlaybackControlsWithThen
     ): AnimationPlaybackControlsWithThen {
         if (track.detached) return track.detached
@@ -796,7 +801,7 @@ export class Clip extends JSAnimation<any> {
     }
 
     /**
-     * With every value on its own animation, the clip stops its clock
+     * With every value on its own animation, the shared animation stops its clock
      * and reports the first one's.
      */
     private settle() {
@@ -830,13 +835,13 @@ export class Clip extends JSAnimation<any> {
  * as the animation's fill is removed.
  */
 function onNativeFinish(this: Animation) {
-    const track: ClipTrack = (this as any).track
-    const { options, clip } = track
+    const track: ValueTrack = (this as any).track
+    const { options, parent } = track
     const keyframe = getFinalKeyframe(
         options.keyframes,
         options,
         (options as any).finalKeyframe,
-        clip.speed
+        parent.speed
     )
     this.onfinish = null
     if (!(options as any).pseudoElement) {

@@ -3,8 +3,8 @@ import { AnimateEffect } from "../../effects/utils/create-effect"
 import { frame } from "../../frameloop"
 import { positionalKeys } from "../../render/utils/keys-position"
 import { MotionValue, motionValue } from "../../value"
-import { ClipRef, startValue } from "./clip-value"
-export type { ClipRef }
+import { MultiValueRef, startValue } from "./multi-value"
+export type { MultiValueRef }
 import { AnimationElement } from "../keyframes/types"
 import {
     AnimationPlaybackControlsWithThen,
@@ -69,15 +69,15 @@ export function animateValues(
     transition: EffectTransition = {},
     element?: AnimationElement,
     /**
-     * The clip values share. Passed by a caller animating many subjects
+     * The animation values share. Passed by a caller animating many subjects
      * in one call, which then starts it. Otherwise one is made and
      * started for these values.
      */
-    clipRef?: ClipRef
+    animationRef?: MultiValueRef
 ): AnimationPlaybackControlsWithThen[] {
     const animations: AnimationPlaybackControlsWithThen[] = []
     const { velocity, path } = transition
-    const ref: ClipRef = clipRef || {}
+    const ref: MultiValueRef = animationRef || {}
     const reduceMotion = transition.reduceMotion ?? element?.shouldReduceMotion
 
     /**
@@ -133,7 +133,7 @@ export function animateValues(
             )
     }
 
-    clipRef || ref.clip?.start()
+    animationRef || ref.animation?.start()
 
     const { transitionEnd } = keyframes
     if (transitionEnd) {
@@ -168,7 +168,7 @@ export function animateEffectSubject<Subject extends object>(
     keyframes: EffectKeyframes,
     transition?: EffectTransition,
     element?: AnimationElement,
-    clipRef?: ClipRef
+    animationRef?: MultiValueRef
 ): AnimationPlaybackControlsWithThen[] {
     /**
      * Values made for this call are bound with one effect call, after the
@@ -211,7 +211,7 @@ export function animateEffectSubject<Subject extends object>(
         keyframes,
         transition,
         element,
-        clipRef
+        animationRef
     )
 
     isBound = true
