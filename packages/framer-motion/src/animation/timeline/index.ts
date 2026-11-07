@@ -1,6 +1,6 @@
 import {
     activeScope,
-    animateSingleValue,
+    animateClipValue,
     AnimationPlaybackControls,
     AnimationPlaybackControlsWithThen,
     AnimationScope,
@@ -579,7 +579,7 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
             const clock = (this.clock = motionValue(0))
             clock.on("change", (t) => clock === this.clock && this.onClock(t))
             animations.unshift(
-                (this.clockAnimation = animateSingleValue(
+                (this.clockAnimation = animateClipValue(
                     clock,
                     [0, duration],
                     {

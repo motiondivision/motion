@@ -6,15 +6,26 @@ import {
 } from "motion-utils"
 import { frame } from "../../frameloop"
 import { time } from "../../frameloop/sync-time"
-import type { MotionValue, StartAnimation } from "../../value"
+import {
+    motionValue as createMotionValue,
+    type MotionValue,
+    type StartAnimation,
+} from "../../value"
+import { isMotionValue } from "../../value/utils/is-motion-value"
 import { Clip, ClipTrack } from "../Clip"
-import { createAnimation } from "../interfaces/motion-value"
+import { JSAnimation } from "../JSAnimation"
 import { getFinalKeyframe } from "../keyframes/get-final"
 import { KeyframeResolver as DefaultKeyframeResolver } from "../keyframes/KeyframesResolver"
 import { AnimationElement } from "../keyframes/types"
 import { fillWildcards } from "../keyframes/utils/fill-wildcards"
 import { NativeAnimationExtended } from "../NativeAnimationExtended"
-import { AnyResolvedKeyframe, ValueAnimationOptions } from "../types"
+import {
+    AnimationPlaybackControlsWithThen,
+    AnyResolvedKeyframe,
+    UnresolvedValueKeyframe,
+    ValueAnimationOptions,
+    ValueAnimationTransition,
+} from "../types"
 import { canAnimate } from "../utils/can-animate"
 import { getDefaultTransition } from "../utils/default-transitions"
 import { getValueTransition } from "../utils/get-value-transition"
@@ -22,13 +33,11 @@ import { isTransitionDefined } from "../utils/is-transition-defined"
 import { makeAnimationInstant } from "../utils/make-animation-instant"
 import { fillAnimationDefaults } from "../utils/resolved-options"
 import { resolveStartTime } from "../utils/resolve-start-time"
+import { supportsBrowserAnimation } from "../waapi/supports/waapi"
 import {
-    colorProperties,
-    supportsBrowserAnimation,
-    supportsWaapi,
-} from "../waapi/supports/waapi"
-import { canGroupTransform } from "../waapi/transforms/TransformAnimation"
-import { acceleratedValues } from "../waapi/utils/accelerated-values"
+    canGroupTransform,
+    TransformAnimation,
+} from "../waapi/transforms/TransformAnimation"
 
 /**
  * What every value of one key in a call animates with, worked out once
@@ -52,7 +61,11 @@ export interface ClipPlan {
     isSkipped: boolean
     isLong: boolean
     target?: unknown
-    canClip: boolean
+    /**
+     * Its values play on an animation of their own, as the clip doesn't
+     * call onPlay, onStop or onCancel.
+     */
+    isOwn: boolean
 }
 
 /**
@@ -136,8 +149,6 @@ function makePlan(
     base.allowFlatten = !transition.type && !transition.ease
     fillAnimationDefaults(base)
 
-    const { onPlay, onStop, onCancel } = base
-
     return {
         transition,
         base,
@@ -145,15 +156,7 @@ function makePlan(
         isSkipped,
         isLong: keyframes.length > 2,
         target: keyframes[1],
-        /**
-         * A DOM value WAAPI might run is left to the animation that
-         * decides once its keyframes are read.
-         */
-        canClip:
-            !onPlay &&
-            !onStop &&
-            !onCancel &&
-            !(element && acceleratedValues.has(name) && supportsWaapi()),
+        isOwn: !!(base.onPlay || base.onStop || base.onCancel),
     }
 }
 
@@ -197,13 +200,17 @@ function getPlan(
 }
 
 /**
- * A color with a keyframe only the browser can blend is played by WAAPI,
- * once the origin has been read.
+ * Play a value on an animation of its own, at the clip's clock: WAAPI for
+ * one the browser can run, once its origin is read, otherwise JS.
  */
-function startNative(track: ClipTrack, clip: Clip) {
+function startOwn(
+    track: ClipTrack,
+    clip: Clip,
+    Animation: new (options: any) => AnimationPlaybackControlsWithThen
+) {
     const { options } = track
-    const native = new NativeAnimationExtended({
-        ...(options as any),
+    const animation = new Animation({
+        ...options,
         ease: track.plan.base.ease,
         onUpdate: (v: any) => track.update(v),
         onComplete: () => track.finish(),
@@ -213,8 +220,8 @@ function startNative(track: ClipTrack, clip: Clip) {
                 ? undefined
                 : resolveStartTime(clip.startTime, time.now()),
     })
-    clip.state === "paused" && native.pause()
-    return native
+    clip.state === "paused" && animation.pause()
+    clip.detach(track, animation)
 }
 
 function resolve(
@@ -232,7 +239,8 @@ function resolve(
          * A value that can't animate between these keyframes is set to
          * its target.
          */
-        if (!canAnimate(keyframes, name, type, velocity)) {
+        const canAnimateValue = canAnimate(keyframes, name, type, velocity)
+        if (!canAnimateValue) {
             if (MotionGlobalConfig.instantAnimations || !delay) {
                 track.update(
                     getFinalKeyframe(keyframes, options, finalKeyframe)
@@ -248,13 +256,17 @@ function resolve(
 
         if (
             element &&
-            colorProperties.has(name!) &&
+            canAnimateValue &&
             supportsBrowserAnimation(options as any)
         ) {
-            clip.detach(track, startNative(track, clip))
-        } else {
-            track.init()
+            try {
+                return startOwn(track, clip, NativeAnimationExtended)
+            } catch {}
         }
+
+        track.plan.isOwn || options.driver !== clip.options.driver
+            ? startOwn(track, clip, JSAnimation)
+            : track.init()
     }
 
     const KeyframeResolver =
@@ -350,12 +362,11 @@ export const startValue =
                 ? valueTransition.velocity
                 : value.getVelocity()
 
-        if (
-            !plan.canClip ||
-            (ref.clip && ref.clip.options.driver !== base.driver) ||
-            canGroupTransform({ name, motionValue: value } as any)
-        ) {
-            return createAnimation({
+        /**
+         * Transforms on an HTML element join its transform group.
+         */
+        if (canGroupTransform({ name, motionValue: value } as any)) {
+            return new TransformAnimation({
                 ...base,
                 keyframes,
                 times: valueTransition.times,
@@ -395,3 +406,18 @@ export const startValue =
 
         return track
     }
+
+/**
+ * Animate one value, or a number, on a clip of its own.
+ */
+export function animateClipValue<V extends AnyResolvedKeyframe>(
+    value: MotionValue<V> | V,
+    keyframes: V | UnresolvedValueKeyframe<V>[],
+    options: ValueAnimationTransition = {}
+): AnimationPlaybackControlsWithThen {
+    const motionValue = isMotionValue(value) ? value : createMotionValue(value)
+    const ref: ClipRef = {}
+    motionValue.run(startValue(ref, "", motionValue, keyframes, options))
+    ref.clip?.start()
+    return motionValue.animation as AnimationPlaybackControlsWithThen
+}

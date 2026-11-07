@@ -93,7 +93,7 @@ export class ClipTrack<T extends AnyResolvedKeyframe = any>
      * the value plays in it.
      */
     get grouped(): AnimationPlaybackControls {
-        return this.detached || this.clip
+        return this.clip
     }
 
     finish() {
@@ -101,6 +101,7 @@ export class ClipTrack<T extends AnyResolvedKeyframe = any>
         this.notifyFinished()
         this.onDone()
         this.plan.transition.onComplete?.()
+        this.detached && this.clip.check()
     }
 
     revive() {
@@ -114,11 +115,15 @@ export class ClipTrack<T extends AnyResolvedKeyframe = any>
      * Interrupted by another animation of the same value.
      */
     stop = () => {
-        if (this.detached) return this.detached.stop()
         if (this.isStopped) return
         this.isStopped = true
-        this.resolver?.cancel()
-        this.clip.removeTrack(this)
+        if (this.detached) {
+            this.detached.stop()
+            this.clip.interrupt()
+        } else {
+            this.resolver?.cancel()
+            this.clip.removeTrack(this)
+        }
     }
 
     /**
@@ -126,9 +131,10 @@ export class ClipTrack<T extends AnyResolvedKeyframe = any>
      * Otherwise it moves to a JSAnimation at the clip's time.
      */
     private get own(): AnimationPlaybackControls {
-        if (this.detached) return this.detached
-        if (this.clip.numLive() <= 1) return this.clip
-        return this.clip.detach(this)
+        const { clip } = this
+        return clip.tracks.length > 1 || this.detached
+            ? clip.detach(this)
+            : clip
     }
 
     get duration() {
@@ -211,6 +217,14 @@ export class Clip extends JSAnimation<any> {
 
     private hasStoppedTracks = false
 
+    /**
+     * Once every value has moved to an animation of its own, the clip
+     * reads its state from the first.
+     */
+    private lead?: AnimationPlaybackControlsWithThen
+
+    private hasStarted = false
+
     constructor(driver?: Driver) {
         super({ keyframes: [0, 1], driver } as any, true)
         this.calculatedDuration = this.totalDuration = 0
@@ -248,14 +262,20 @@ export class Clip extends JSAnimation<any> {
      * Start the clock, once every value is added.
      */
     start() {
+        this.hasStarted = true
+        this.settle()
         this.begin()
     }
 
     initAnimation() {}
 
+    /**
+     * Values on animations of their own started them already.
+     */
     protected begin() {
-        this.play()
-        if (this.options.autoplay === false) this.pause()
+        if (this.lead) return
+        super.play()
+        this.options.autoplay === false && super.pause()
     }
 
     numLive() {
@@ -274,11 +294,13 @@ export class Clip extends JSAnimation<any> {
     get iterationDuration() {
         this.numPending && flushKeyframeResolvers()
         let max = 0
-        for (const track of this.tracks) {
-            const d = track.calculatedDuration + (track.options.delay || 0)
+        for (const { detached, calculatedDuration, options } of this.tracks) {
+            const d = detached
+                ? detached.iterationDuration
+                : millisecondsToSeconds(calculatedDuration + (options.delay || 0))
             if (d > max) max = d
         }
-        return millisecondsToSeconds(max)
+        return max
     }
 
     step(timestamp: number) {
@@ -312,7 +334,7 @@ export class Clip extends JSAnimation<any> {
         const isFinished = this.state === "finished" && holdTime === null
         const isRunning = this.state === "running" && holdTime === null
         let numActive = this.numPending
-        let reportedTime: number | undefined
+        let hasTime = false
 
         for (let i = 0; i < tracks.length; i++) {
             const track = tracks[i]
@@ -329,7 +351,14 @@ export class Clip extends JSAnimation<any> {
                 : timeWithoutDelay > trackDuration
             const t = isFinished ? trackDuration : Math.max(timeWithoutDelay, 0)
 
-            reportedTime ??= t
+            /**
+             * The clip reports its first value's time. It's set before
+             * any value updates, so a seek from an update stands.
+             */
+            if (!hasTime) {
+                hasTime = true
+                this.currentTime = t
+            }
 
             let value: any
             let done: boolean
@@ -379,8 +408,6 @@ export class Clip extends JSAnimation<any> {
             }
         }
 
-        if (reportedTime !== undefined) this.currentTime = reportedTime
-
         if (this.hasStoppedTracks) {
             this.hasStoppedTracks = false
             this.tracks = tracks.filter((track) => !track.isStopped)
@@ -392,9 +419,28 @@ export class Clip extends JSAnimation<any> {
     }
 
     finish() {
-        this.isInterrupted || this.notifyFinished()
         this.teardown()
         this.state = "finished"
+        this.check()
+    }
+
+    /**
+     * The clip's animation finishes once every value's has, unless one
+     * was stopped, as with a group of animations.
+     */
+    check() {
+        this.isInterrupted ||
+            this.tracks.some((track) => !track.isDone) ||
+            this.notifyFinished()
+    }
+
+    /**
+     * Apply a control to the values on animations of their own.
+     */
+    private each(control: (a: AnimationPlaybackControlsWithThen) => void) {
+        for (const { detached, isStopped } of this.tracks) {
+            detached && !isStopped && control(detached)
+        }
     }
 
     /**
@@ -408,20 +454,37 @@ export class Clip extends JSAnimation<any> {
     play() {
         if (this.isStopped) return
         if (this.state === "finished") this.revive()
-        super.play()
+        this.lead || super.play()
+        this.each((a) => a.play())
+    }
+
+    pause() {
+        this.lead || super.pause()
+        this.each((a) => a.pause())
+    }
+
+    complete() {
+        this.lead || super.complete()
+        this.each((a) => a.complete())
+    }
+
+    cancel() {
+        this.lead || super.cancel()
+        this.each((a) => a.cancel())
     }
 
     get time() {
-        return millisecondsToSeconds(this.currentTime)
+        return this.lead ? this.lead.time : millisecondsToSeconds(this.currentTime)
     }
 
     set time(newTime: number) {
         this.revive()
-        setTime.call(this, newTime)
+        this.lead || setTime.call(this, newTime)
+        this.each((a) => (a.time = newTime))
     }
 
     get speed() {
-        return this.playbackSpeed
+        return this.lead ? this.lead.speed : this.playbackSpeed
     }
 
     set speed(newSpeed: number) {
@@ -429,10 +492,9 @@ export class Clip extends JSAnimation<any> {
          * Played backwards, values reverse from the end of their own
          * animation. With one end for every value, that's the clip's.
          */
-        if (newSpeed < 0 && !this.hasOneEnd()) {
-            this.detachAll()
-        }
-        setSpeed.call(this, newSpeed)
+        newSpeed < 0 && !this.hasOneEnd() && this.detachLive()
+        this.lead || setSpeed.call(this, newSpeed)
+        this.each((a) => (a.speed = newSpeed))
     }
 
     private hasOneEnd() {
@@ -462,10 +524,9 @@ export class Clip extends JSAnimation<any> {
     }
 
     attachTimeline(timeline: TimelineWithFallback): VoidFunction {
-        const animations = this.detachAll()
-        const cancels = animations.map((animation) =>
-            animation.attachTimeline(timeline)
-        )
+        this.detachLive()
+        const cancels: VoidFunction[] = []
+        this.each((a) => cancels.push(a.attachTimeline(timeline)))
         return () => cancels.forEach((cancel) => cancel())
     }
 
@@ -485,15 +546,14 @@ export class Clip extends JSAnimation<any> {
     }
 
     /**
-     * Set a running track's value to now, unless it's already been set
-     * this frame.
+     * Set a track's value to now, or to where it's held, unless it's
+     * already been set this frame, as a JSAnimation is when stopped.
      */
     private catchUp(track: ClipTrack) {
         const now = time.now()
         if (
             track.isReady &&
             !track.isDone &&
-            this.state === "running" &&
             this.startTime !== null &&
             track.value.updatedAt !== now
         ) {
@@ -503,98 +563,75 @@ export class Clip extends JSAnimation<any> {
     }
 
     /**
-     * Move a track to a JSAnimation of its own, at the clip's time and
-     * playback state.
+     * Move a track to an animation of its own: the one given, or a
+     * JSAnimation at the clip's time and playback state.
      */
     detach(
         track: ClipTrack,
-        native?: AnimationPlaybackControlsWithThen
+        animation?: AnimationPlaybackControlsWithThen
     ): AnimationPlaybackControlsWithThen {
         if (track.detached) return track.detached
 
-        if (native) {
+        if (animation) {
             track.resolver = undefined
             this.numPending--
-            this.isInterrupted = true
-            return (track.detached = native)
-        }
+        } else {
+            track.isReady || flushKeyframeResolvers()
 
-        track.isReady || flushKeyframeResolvers()
+            const js = (animation = new JSAnimation(
+                {
+                    ...track.options,
+                    onUpdate: (latest: any) => track.update(latest),
+                    onComplete: () => track.finish(),
+                },
+                true
+            ))
+            js.initAnimation()
 
-        const animation = new JSAnimation(
-            {
-                ...track.options,
-                onUpdate: (latest: any) => track.update(latest),
-                onComplete: () => track.finish(),
-            },
-            true
-        )
-        animation.initAnimation()
+            const { state, startTime, holdTime, playbackSpeed } = this
+            js.speed = playbackSpeed
 
-        const { state, startTime, holdTime, playbackSpeed } = this
-        animation.speed = playbackSpeed
-
-        if (track.isDone) {
-            animation.state = "finished"
-        } else if (state === "running" && startTime !== null) {
-            animation.startTime = startTime
-            animation.play()
-        } else if (state === "paused" || state === "running") {
-            animation.time = millisecondsToSeconds(holdTime ?? this.currentTime)
+            if (track.isDone) {
+                js.state = "finished"
+            } else if (state === "running" && startTime !== null) {
+                js.startTime = startTime
+                js.play()
+            } else if (state === "paused" || state === "running") {
+                js.time = millisecondsToSeconds(holdTime ?? this.currentTime)
+            }
         }
 
         track.detached = animation
-        this.isInterrupted = true
-
-        if (!this.numLive() && this.numPending <= 0) this.teardown()
+        this.hasStarted && this.settle()
 
         return animation
     }
 
-    private detachAll() {
-        this.numPending && flushKeyframeResolvers()
-        const animations: AnimationPlaybackControlsWithThen[] = []
-        for (const track of this.tracks) {
-            if (!track.isStopped) animations.push(this.detach(track))
-        }
-
-        /**
-         * Anything waiting on the clip's promise now waits on the
-         * animations that took its values.
-         */
-        Promise.all(animations.map((a) => a.finished)).then(() =>
-            this.notifyFinished()
-        )
-        this.isInterrupted = true
-
-        const clip = this
+    /**
+     * With every value on its own animation, the clip stops its clock
+     * and reports the first one's.
+     */
+    private settle() {
+        if (this.lead || this.numLive() || this.numPending > 0) return
+        const lead = (this.lead = this.tracks.find((t) => t.detached)?.detached)
+        if (!lead) return
+        this.teardown()
         Object.defineProperties(this, {
-            state: {
-                get: () => animations[0]?.state ?? "finished",
-                set() {},
-            },
-            startTime: {
-                get: () => animations[0]?.startTime ?? null,
-                set() {},
-            },
+            state: { get: () => lead.state, set() {} },
+            startTime: { get: () => lead.startTime, set() {} },
         })
-        Object.assign(this, {
-            play: () => animations.forEach((a) => a.play()),
-            pause: () => animations.forEach((a) => a.pause()),
-            complete: () => animations.forEach((a) => a.complete()),
-            cancel: () => animations.forEach((a) => a.cancel()),
-            stop: () => animations.forEach((a) => a.stop()),
-        })
-        Object.defineProperty(this, "time", {
-            get: () => animations[0]?.time ?? 0,
-            set: (t: number) => animations.forEach((a) => (a.time = t)),
-        })
-        Object.defineProperty(this, "speed", {
-            get: () => animations[0]?.speed ?? clip.playbackSpeed,
-            set: (s: number) => animations.forEach((a) => (a.speed = s)),
-        })
+    }
 
-        return animations
+    private detachLive() {
+        this.numPending && flushKeyframeResolvers()
+        for (const track of this.tracks) track.isStopped || this.detach(track)
+    }
+
+    /**
+     * A detached value was stopped by another animation of its value.
+     */
+    interrupt() {
+        this.isInterrupted = true
     }
 }
 
