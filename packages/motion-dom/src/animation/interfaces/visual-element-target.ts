@@ -5,7 +5,7 @@ import { positionalKeys } from "../../render/utils/keys-position"
 import { setTarget } from "../../render/utils/setters"
 import { addValueToWillChange } from "../../value/will-change/add-will-change"
 import { getOptimisedAppearId } from "../optimized-appear/get-appear-id"
-import { animateMotionValue } from "./motion-value"
+import { ClipRef, startValue } from "../animate/clip-value"
 import type { MotionPath } from "../types"
 import type { VisualElementAnimationOptions } from "./types"
 import type { AnimationPlaybackControlsWithThen } from "../types"
@@ -53,6 +53,10 @@ export function animateTarget(
     if (transitionOverride) transition = transitionOverride
 
     const animations: AnimationPlaybackControlsWithThen[] = []
+    /**
+     * Every value of the target plays on one clip.
+     */
+    const ref: ClipRef = {}
 
     const animationTypeState =
         type && visualElement.animationState?.getState()[type]
@@ -150,15 +154,18 @@ export function animateTarget(
         const shouldReduceMotion =
             reduceMotion ?? visualElement.shouldReduceMotion
 
+        const t: any =
+            shouldReduceMotion && positionalKeys.has(key)
+                ? { type: false }
+                : valueTransition
         value.run(
-            animateMotionValue(
+            startValue(
+                ref,
                 key,
                 value,
                 valueTarget,
-                shouldReduceMotion && positionalKeys.has(key)
-                    ? { type: false }
-                    : valueTransition,
-                visualElement,
+                t,
+                visualElement as any,
                 isHandoff
             )
         )
@@ -171,6 +178,8 @@ export function animateTarget(
             animations.push(animation)
         }
     }
+
+    ref.clip?.start()
 
     if (transitionEnd) {
         const applyTransitionEnd = () =>
