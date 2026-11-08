@@ -1144,4 +1144,14 @@ export interface MotionNodeOptions
      * ```
      */
     pinch?: boolean | PinchProps
+
+    /**
+     * Properties or variant label to animate to while the pinch gesture
+     * is recognised. Like `pinch`, requires `pinchFeatures`.
+     *
+     * ```jsx
+     * <motion.img pinch whilePinch={{ boxShadow: "0 8px 32px #0004" }} />
+     * ```
+     */
+    whilePinch?: VariantLabels | TargetAndTransition
 }

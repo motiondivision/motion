@@ -44,10 +44,21 @@ export class PinchGesture extends Feature<Element> {
                 const { pinch } = this.node.getProps()
                 return pinch && (options = pinch === true ? {} : pinch)
             },
-            (_element, event, info) => (
-                call("onStart")(event, info),
-                { onPinch: call("onMove"), onComplete: call("onEnd") }
-            )
+            (_element, event, info) => {
+                const setActive = (isActive: boolean) =>
+                    this.node.animationState?.setActive("whilePinch", isActive)
+
+                setActive(true)
+                call("onStart")(event, info)
+
+                return {
+                    onPinch: call("onMove"),
+                    onComplete: (event, info) => {
+                        setActive(false)
+                        call("onEnd")(event, info)
+                    },
+                }
+            }
         )
     }
 

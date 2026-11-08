@@ -6,6 +6,7 @@ import { scopeMotion } from "../../../scope"
 import { activeScope } from "../../../scope/active"
 import { motionValue } from "../../../value"
 import { drag } from "../../drag"
+import { press } from "../../press"
 import { OnPinchStartEvent, pinch, PinchInfo, PinchOptions } from ".."
 
 const nextFrame = () =>
@@ -1079,5 +1080,78 @@ describe("pinch with a trackpad: wheel deltas", () => {
         await nextFrame()
         await nextFrame()
         expect(value(element, "scale")).toBeCloseTo(2 * Math.exp(-0.5))
+    })
+})
+
+describe("pinch with press", () => {
+    function pressable(target: Element) {
+        const events: string[] = []
+        stops.push(
+            press(target, () => {
+                events.push("start")
+                return (_, { success }) =>
+                    events.push(success ? "end" : "cancel")
+            })
+        )
+        return events
+    }
+
+    test("a pinch cancels a press, when the first touch lifts last", async () => {
+        const events = pressable(element)
+        makePinchable(element)
+
+        const gesture = await twoFinger(element, [40, 0, 60, 0])
+        await gesture.to([20, 0, 80, 0])
+        pointer(element, "pointerup", 2, 80, 0)
+        await nextFrame()
+        pointer(element, "pointerup", 1, 20, 0)
+        await nextFrame()
+
+        expect(events).toEqual(["start", "cancel"])
+    })
+
+    test("a pinch cancels a press, when the first touch lifts first", async () => {
+        const events = pressable(element)
+        makePinchable(element)
+
+        const gesture = await twoFinger(element, [40, 0, 60, 0])
+        await gesture.to([20, 0, 80, 0])
+        pointer(element, "pointerup", 1, 20, 0)
+        await nextFrame()
+        pointer(element, "pointerup", 2, 80, 0)
+        await nextFrame()
+
+        expect(events).toEqual(["start", "cancel"])
+    })
+
+    test("a press still ends after a pinch on another element", async () => {
+        const other = document.createElement("div")
+        document.body.appendChild(other)
+        const events = pressable(other)
+        makePinchable(element)
+
+        pointer(other, "pointerdown", 1, 500, 0)
+        const gesture = await twoFinger(element, [0, 0, 100, 0], [2, 3])
+        await gesture.to([0, 0, 150, 0])
+        await gesture.end()
+        pointer(other, "pointerup", 1, 500, 0)
+        await nextFrame()
+
+        expect(events).toEqual(["start", "end"])
+    })
+
+    test("a parent doesn't start dragging while a child pinches", async () => {
+        const parent = document.createElement("div")
+        document.body.appendChild(parent)
+        parent.appendChild(element)
+        stops.push(drag(parent, { momentum: false }))
+        makePinchable(element, noop, { pan: false })
+
+        const gesture = await twoFinger(element, [40, 0, 60, 0])
+        await gesture.to([30, 0, 90, 0])
+        await gesture.to([20, 0, 120, 0])
+        await gesture.end()
+
+        expect(visualElementStore.get(parent)!.getValue("x")!.get()).toBe(0)
     })
 })

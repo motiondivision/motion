@@ -294,3 +294,105 @@ describe("pinch prop", () => {
         error.mockRestore()
     })
 })
+
+describe("whilePinch", () => {
+    async function pinchOpen(element: Element) {
+        pointer(element, "pointerdown", 1, -50)
+        pointer(element, "pointerdown", 2, 50)
+        await nextFrame()
+        pointer(window, "pointermove", 1, -100)
+        pointer(window, "pointermove", 2, 100)
+        await nextFrame()
+        await nextFrame()
+    }
+
+    async function release() {
+        pointer(window, "pointerup", 1, -100)
+        pointer(window, "pointerup", 2, 100)
+        await nextFrame()
+        await nextFrame()
+    }
+
+    test("animates while pinching and back on release", async () => {
+        const opacity = motionValue(1)
+        const { container } = render(
+            <LazyMotion features={features}>
+                <m.div
+                    pinch
+                    whilePinch={{ opacity: 0.5 }}
+                    transition={{ duration: 0 }}
+                    style={{ opacity }}
+                />
+            </LazyMotion>
+        )
+        const element = container.firstChild as Element
+
+        await act(() => pinchOpen(element))
+        expect(opacity.get()).toBe(0.5)
+
+        await act(() => release())
+        expect(opacity.get()).toBe(1)
+    })
+
+    test("variant labels propagate to children", async () => {
+        const opacity = motionValue(1)
+        const variants = { pinching: { opacity: 0.5 } }
+        const { container } = render(
+            <LazyMotion features={features}>
+                <m.div pinch whilePinch="pinching">
+                    <m.div
+                        variants={variants}
+                        transition={{ duration: 0 }}
+                        style={{ opacity }}
+                    />
+                </m.div>
+            </LazyMotion>
+        )
+        const element = container.firstChild as Element
+
+        await act(() => pinchOpen(element))
+        expect(opacity.get()).toBe(0.5)
+
+        await act(() => release())
+        expect(opacity.get()).toBe(1)
+    })
+
+    test("pinch={false} mid-gesture ends whilePinch", async () => {
+        const opacity = motionValue(1)
+        const Component = ({ pinch }: { pinch: boolean }) => (
+            <LazyMotion features={features}>
+                <m.div
+                    pinch={pinch}
+                    whilePinch={{ opacity: 0.5 }}
+                    transition={{ duration: 0 }}
+                    style={{ opacity }}
+                />
+            </LazyMotion>
+        )
+        const { container, rerender } = render(<Component pinch />)
+        const element = container.firstChild as Element
+
+        await act(() => pinchOpen(element))
+        expect(opacity.get()).toBe(0.5)
+
+        rerender(<Component pinch={false} />)
+        await act(async () => {
+            await nextFrame()
+            await nextFrame()
+        })
+        expect(opacity.get()).toBe(1)
+
+        await act(() => release())
+    })
+
+    test("isn't forwarded to the DOM", () => {
+        const { container } = render(
+            <LazyMotion features={features}>
+                <m.div pinch whilePinch={{ opacity: 0.5 }} />
+            </LazyMotion>
+        )
+        expect(
+            (container.firstChild as Element).hasAttribute("whilePinch")
+        ).toBe(false)
+    })
+})

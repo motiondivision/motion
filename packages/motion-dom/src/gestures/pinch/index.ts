@@ -11,6 +11,7 @@ import {
     type ElementOrSelector,
 } from "../../utils/resolve-elements"
 import { motionValue, type MotionValue } from "../../value"
+import { setDragLock } from "../drag/state/set-active"
 import { elementDragControls } from "../drag/VisualElementDragControls"
 
 /**
@@ -214,6 +215,7 @@ export function addPinchListeners(
     let hasMoved = false
     let wheelTime = 0
     let handlers: PinchHandlers = {}
+    let unlock: VoidFunction | null | undefined
 
     /**
      * The latest enabled options, so a gesture disabled mid-way can still
@@ -432,8 +434,12 @@ export function addPinchListeners(
     const onPointerUp = (event: PointerEvent) => {
         if (!pointers.delete(event.pointerId)) return
 
-        if (!pointers.size) toggleWindowListeners()
         if (source === "pointer") end(event)
+
+        if (!pointers.size) {
+            toggleWindowListeners()
+            release()
+        }
     }
 
     /**
@@ -456,7 +462,30 @@ export function addPinchListeners(
         if (pointers.size === 2) {
             readPointers()
             begin(event, "pointer")
+
+            /**
+             * Unless this element drags, hold the drag lock until every
+             * touch lifts. A press on it then ends as a cancel, rather than
+             * a tap, and a draggable parent doesn't drag.
+             */
+            if (
+                source &&
+                !unlock &&
+                !elementDragControls.get(visualElementStore.get(element)!)
+            ) {
+                unlock = setDragLock(true)
+            }
         }
+    }
+
+    /**
+     * Release the drag lock a frame later, so a press ending on this same
+     * pointerup still sees it.
+     */
+    const release = () => {
+        const done = unlock
+        unlock = undefined
+        done && frame.postRender(done)
     }
 
     const toggleWindowListeners = (add?: boolean) => {
@@ -540,6 +569,7 @@ export function addPinchListeners(
         toggleWindowListeners()
         end(lastEvent)
         pointers.clear()
+        release()
     }
 }
 

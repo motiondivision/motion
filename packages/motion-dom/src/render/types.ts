@@ -157,6 +157,7 @@ export type AnimationType =
     | "whileHover"
     | "whileTap"
     | "whileDrag"
+    | "whilePinch"
     | "whileFocus"
     | "whileInView"
     | "exit"

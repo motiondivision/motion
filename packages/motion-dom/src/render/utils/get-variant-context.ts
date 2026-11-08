@@ -9,6 +9,7 @@ type VariantStateContext = {
     exit?: string | string[]
     whileHover?: string | string[]
     whileDrag?: string | string[]
+    whilePinch?: string | string[]
     whileFocus?: string | string[]
     whileTap?: string | string[]
 }
