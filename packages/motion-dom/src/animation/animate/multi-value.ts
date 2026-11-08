@@ -12,7 +12,6 @@ import {
 } from "../../value"
 import { isMotionValue } from "../../value/utils/is-motion-value"
 import { MultiValueAnimation, ValueTrack } from "../MultiValueAnimation"
-import { JSAnimation } from "../JSAnimation"
 import { getFinalKeyframe } from "../keyframes/get-final"
 import { KeyframeResolver as DefaultKeyframeResolver } from "../keyframes/KeyframesResolver"
 import { AnimationElement } from "../keyframes/types"
@@ -29,10 +28,7 @@ import { getDefaultTransition } from "../utils/default-transitions"
 import { getValueTransition } from "../utils/get-value-transition"
 import { isTransitionDefined } from "../utils/is-transition-defined"
 import { makeAnimationInstant } from "../utils/make-animation-instant"
-import {
-    applyResolvedKeyframes,
-    fillAnimationDefaults,
-} from "../utils/resolved-options"
+import { fillAnimationDefaults } from "../utils/resolved-options"
 import { supportsBrowserAnimation } from "../waapi/supports/waapi"
 import { isGenerator } from "../generators/utils/is-generator"
 import { replaceTransitionType } from "../utils/replace-transition-type"
@@ -78,10 +74,6 @@ export interface ValuePlan {
 export interface MultiValueRef {
     animation?: MultiValueAnimation
     plans?: Record<string, ValuePlan>
-    /**
-     * A lone value, which plays on a JSAnimation rather than a shared animation.
-     */
-    isOne?: boolean
     /**
      * Each spring's easing, shared by the values with its options.
      */
@@ -398,40 +390,12 @@ export const startValue =
                 : value.getVelocity()
 
         /**
-         * Transforms on an HTML element join its transform group, and a
-         * lone value has nothing to share.
+         * Transforms on an HTML element join its transform group.
          */
         const isTransform = canGroupTransform({
             name,
             motionValue: value,
         } as any)
-        if (ref.isOne && !isTransform) {
-            const options: ValueAnimationOptions<any> = {
-                ...base,
-                element,
-                keyframes,
-                times: valueTransition.times,
-                delay,
-                velocity,
-                motionValue: value,
-                onUpdate: (latest: any) => {
-                    value.set(latest)
-                    valueTransition.onUpdate?.(latest)
-                },
-                onComplete: () => {
-                    onComplete()
-                    valueTransition.onComplete?.()
-                },
-            }
-
-            applyResolvedKeyframes(
-                options,
-                resolveNow(keyframes, value),
-                undefined
-            )
-            return new JSAnimation(options)
-        }
-
         const parent = (ref.animation ||= new MultiValueAnimation(base.driver))
         if (base.autoplay === false) parent.options.autoplay = false
 
@@ -511,8 +475,8 @@ export function animateOneValue<V extends AnyResolvedKeyframe>(
     options: ValueAnimationTransition = {}
 ): AnimationPlaybackControlsWithThen {
     const motionValue = isMotionValue(value) ? value : createMotionValue(value)
-    motionValue.run(
-        startValue({ isOne: true }, "", motionValue, keyframes, options)
-    )
+    const ref: MultiValueRef = {}
+    motionValue.run(startValue(ref, "", motionValue, keyframes, options))
+    ref.animation?.start()
     return motionValue.animation as AnimationPlaybackControlsWithThen
 }
