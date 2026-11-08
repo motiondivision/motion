@@ -327,7 +327,7 @@ function springGenerator(
     const s = {
         target,
         delta: target - origin,
-        velocity: inheritVelocity(options.velocity || 0) || 0,
+        velocity: inheritVelocity(options.velocity!) || 0,
         restSpeed: 0,
         restDelta: 0,
     }
@@ -509,7 +509,6 @@ function springGenerator(
 
             return easingDuration + "ms " + easing
         },
-        toTransition: () => {},
     }
 
     return generator
