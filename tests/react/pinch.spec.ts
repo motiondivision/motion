@@ -12,12 +12,17 @@ const frames = (page: Page, count = 2) =>
         (n) =>
             new Promise<void>((resolve) => {
                 const tick = (i: number) =>
-                    i <= 0 ? resolve() : requestAnimationFrame(() => tick(i - 1))
+                    i <= 0
+                        ? resolve()
+                        : requestAnimationFrame(() => tick(i - 1))
                 tick(n)
             }),
         count
     )
 
+/**
+ * For touchEnd, `points` are the touches that lift.
+ */
 const touch = (
     cdp: CDPSession,
     type: "touchStart" | "touchMove" | "touchEnd",
@@ -81,9 +86,7 @@ test.describe("pinch prop", () => {
         expect(await style(page, "#child", "opacity")).toBe("1")
     })
 
-    test("a pinch isn't a tap, and whileTap ends with it", async ({
-        page,
-    }) => {
+    test("a pinch isn't a tap, and whileTap ends with it", async ({ page }) => {
         await open(page)
         const cdp = await page.context().newCDPSession(page)
 
@@ -92,7 +95,7 @@ test.describe("pinch prop", () => {
             "rgb(0, 0, 255)"
         )
 
-        // The second touch lifts first, then the first.
+        // The first touch lifts first, then the second.
         await touch(cdp, "touchEnd", [{ x: 110, y: 150, id: 0 }])
         await frames(page, 2)
         await touch(cdp, "touchEnd", [])
@@ -104,7 +107,7 @@ test.describe("pinch prop", () => {
         )
     })
 
-    test("a pinch isn't a tap when the first touch lifts first", async ({
+    test("a pinch isn't a tap when the second touch lifts first", async ({
         page,
     }) => {
         await open(page)
