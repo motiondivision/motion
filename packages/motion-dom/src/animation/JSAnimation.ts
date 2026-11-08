@@ -8,6 +8,7 @@ import {
     AnimationState,
     KeyframeGenerator,
     Lane,
+    TimelineWithFallback,
     ValueAnimationOptions,
 } from "./types"
 import { generateTrack, initTrack, Track } from "./track"
@@ -258,6 +259,17 @@ export class JSAnimation<T extends number | string>
     sample(sampleTime: number): AnimationState<T> {
         this.startTime = 0
         return this.tick(sampleTime, true)
+    }
+
+    attachTimeline(timeline: TimelineWithFallback): VoidFunction {
+        if (this.options.allowFlatten) {
+            this.options.type = "keyframes"
+            this.options.ease = "linear"
+            this.initAnimation()
+        }
+
+        this.driver?.stop()
+        return timeline.observe(this)
     }
 }
 

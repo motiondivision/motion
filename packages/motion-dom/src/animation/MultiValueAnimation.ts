@@ -595,7 +595,7 @@ export class MultiValueAnimation extends AnimationClock<any> {
         return this.isOffloaded ? this.driver : undefined
     }
 
-    tick(timestamp: number, sample = false): AnimationState<any> {
+    tick(timestamp: number): AnimationState<any> {
         if (this.startTime === null) return undefined as any
 
         if (this.startTime === this.pendingStartTime) {
@@ -615,7 +615,7 @@ export class MultiValueAnimation extends AnimationClock<any> {
             )
         }
 
-        sample ? (this.currentTime = timestamp) : this.updateTime(timestamp)
+        this.updateTime(timestamp)
 
         const clockTime = this.currentTime
         const isForwards = speed >= 0
@@ -944,10 +944,7 @@ export class MultiValueAnimation extends AnimationClock<any> {
      * Follow a timeline on the shared clock, from JS.
      */
     follow(timeline: TimelineWithFallback) {
-        this.unfollow ||= AnimationClock.prototype.attachTimeline.call(
-            this,
-            timeline
-        )
+        this.unfollow ||= (this.driver?.stop(), timeline.observe(this))
     }
 
     /**
@@ -1003,5 +1000,4 @@ function onNativeFinish(this: Animation) {
 
 const clockProto = AnimationClock.prototype
 const setTime = Object.getOwnPropertyDescriptor(clockProto, "time")!.set!
-const setSpeed = Object.getOwnPropertyDescriptor(clockProto, "speed")!
-    .set!
+const setSpeed = Object.getOwnPropertyDescriptor(clockProto, "speed")!.set!
