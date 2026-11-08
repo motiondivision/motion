@@ -745,6 +745,81 @@ describe("pinch with drag", () => {
         expect(ve.getValue("x")!.get()).toBeCloseTo(x)
     })
 
+    test("drag's release velocity doesn't spike after a pinch", async () => {
+        layout(element, 0, 0)
+        let velocity = { x: NaN, y: NaN }
+        stops.push(
+            drag(element, {
+                momentum: false,
+                onEnd: (_, info) => (velocity = info.velocity),
+            })
+        )
+        makePinchable(element)
+
+        // The first touch starts a drag...
+        pointer(element, "pointerdown", 1, 0, 0)
+        await nextFrame()
+        pointer(window, "pointermove", 1, 10, 0)
+        await nextFrame()
+
+        // ...then a zoom: both touches move fast, the focal point stays.
+        pointer(element, "pointerdown", 2, 100, 0)
+        await nextFrame()
+        for (let i = 1; i <= 4; i++) {
+            pointer(window, "pointermove", 1, 10 - i * 20, 0)
+            pointer(window, "pointermove", 2, 100 + i * 20, 0)
+            await nextFrame()
+        }
+
+        /**
+         * The dragging touch moves on and lifts before a frame processes
+         * the move. Touches send their events to the element they started
+         * on, and they reach the window from there.
+         */
+        await sleep(8)
+        pointer(element, "pointermove", 1, -100, 0)
+        pointer(element, "pointerup", 1, -100, 0)
+        await nextFrame()
+        pointer(window, "pointerup", 2, 180, 0)
+        await nextFrame()
+
+        expect(Math.abs(velocity.x)).toBeLessThan(1000)
+    })
+
+    test("drag measures release velocity from moves after the pinch", async () => {
+        layout(element, 0, 0)
+        let velocity = { x: NaN, y: NaN }
+        stops.push(
+            drag(element, {
+                momentum: false,
+                onEnd: (_, info) => (velocity = info.velocity),
+            })
+        )
+        makePinchable(element)
+
+        pointer(element, "pointerdown", 1, 0, 0)
+        await nextFrame()
+        pointer(window, "pointermove", 1, 10, 0)
+        await nextFrame()
+        pointer(element, "pointerdown", 2, 100, 0)
+        await nextFrame()
+        pointer(window, "pointermove", 2, 150, 0)
+        await nextFrame()
+        pointer(window, "pointerup", 2, 150, 0)
+        await nextFrame()
+
+        // The drag carries on and flicks to the right.
+        for (let i = 1; i <= 4; i++) {
+            await sleep(16)
+            pointer(window, "pointermove", 1, 10 + i * 20, 0)
+            await nextFrame()
+        }
+        pointer(window, "pointerup", 1, 90, 0)
+        await nextFrame()
+
+        expect(velocity.x).toBeGreaterThan(500)
+    })
+
     test("pinching one element while another drags still moves it", async () => {
         const other = document.createElement("div")
         document.body.appendChild(other)

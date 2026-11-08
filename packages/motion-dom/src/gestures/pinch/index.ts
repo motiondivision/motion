@@ -333,8 +333,15 @@ export function addPinchListeners(
             lastY += dy + current.y - prev.y - (sin * dx + cos * dy)
 
             if (isDragging) {
-                const history = drag!.panSession?.history
-                history?.splice(0, history.length - 1)
+                const history = drag!.panSession!.history
+                history.splice(0, history.length - 1)
+
+                /**
+                 * Date the point long ago, so drag only measures release
+                 * velocity from moves after the pinch. A move that drag
+                 * processes as the touch lifts is part of the pinch.
+                 */
+                history[0].timestamp = -Infinity
                 drag!.originPoint.x = lastX
                 drag!.originPoint.y = lastY
             }
