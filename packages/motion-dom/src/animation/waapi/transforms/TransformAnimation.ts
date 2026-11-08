@@ -869,16 +869,17 @@ const buildAhead = 100
 
 /**
  * Groups waiting to build, and when, on one timer for all of them. It
- * wakes for every group due within a frame of the first.
+ * wakes each group when it's due, not earlier: building groups that are
+ * due within the next frame together, ahead of time, makes the browser
+ * recalculate style in more frames while they play.
  */
 const wakes = new Map<VoidFunction, number>()
-const wakeEarly = 16
 let wakeTimer: ReturnType<typeof setTimeout> | undefined
 let wakeAt = Infinity
 
 const runWakes = () => {
     wakeAt = Infinity
-    const due = time.now() + wakeEarly
+    const due = time.now()
     let next = Infinity
     wakes.forEach((at, wake) => {
         if (at <= due) {
@@ -1326,7 +1327,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
              * renderer to write.
              */
             const wait = start - now - buildAhead
-            if (wait > wakeEarly) {
+            if (wait > 0) {
                 tracks.forEach((track) => track.sync())
                 sleep((buildAt = wait))
                 return true
