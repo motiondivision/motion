@@ -91,6 +91,8 @@ export abstract class AnimationClock<T extends number | string>
 
     abstract finish(): void
 
+    abstract attachTimeline(timeline: TimelineWithFallback): VoidFunction
+
     updateTime(timestamp: number) {
         // Rounding the time because floating point arithmetic is not always accurate, e.g. 3000.367 - 1000.367 =
         // 2000.0000000000002. This is a problem when we are comparing the currentTime with the duration, for
@@ -304,16 +306,5 @@ export abstract class AnimationClock<T extends number | string>
         this.driver?.stop()
         this.driver = undefined
         this.startTime = this.holdTime = null
-    }
-
-    attachTimeline(timeline: TimelineWithFallback): VoidFunction {
-        if (this.options.allowFlatten) {
-            this.options.type = "keyframes"
-            this.options.ease = "linear"
-            this.initAnimation()
-        }
-
-        this.driver?.stop()
-        return timeline.observe(this)
     }
 }
