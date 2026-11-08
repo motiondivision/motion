@@ -426,6 +426,14 @@ export function createAnimationsFromSequence(
     }
 
     /**
+     * Exclude `type` from defaultTransition since springs have been
+     * converted to duration-based easing functions in resolveValueSequence.
+     * Including `type: "spring"` would cause JSAnimation to error when
+     * the merged keyframes array has more than 2 keyframes.
+     */
+    const { type: _type, ...remainingDefaultTransition } = defaultTransition
+
+    /**
      * For every element and value combination create a new animation.
      */
     sequences.forEach((valueSequences, element) => {
@@ -484,14 +492,6 @@ export function createAnimationsFromSequence(
 
             definition.keyframes[key] = keyframes
 
-            /**
-             * Exclude `type` from defaultTransition since springs have been
-             * converted to duration-based easing functions in resolveValueSequence.
-             * Including `type: "spring"` would cause JSAnimation to error when
-             * the merged keyframes array has more than 2 keyframes.
-             */
-            const { type: _type, ...remainingDefaultTransition } =
-                defaultTransition
             definition.transition[key] = {
                 ...remainingDefaultTransition,
                 duration: totalDuration,

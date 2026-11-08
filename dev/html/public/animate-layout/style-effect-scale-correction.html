@@ -1,0 +1,161 @@
+<html>
+    <head>
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+            }
+
+            #box {
+                width: 100px;
+                height: 100px;
+                background-color: #00cc88;
+            }
+
+            #box.resized {
+                width: 400px;
+            }
+
+            [data-layout-correct="false"] {
+                background: #dd1144 !important;
+                opacity: 0.5;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="box" data-layout></div>
+
+        <script type="module" src="/src/imports/animate-layout.js"></script>
+        <script type="module" src="/src/imports/script-assert.js"></script>
+        <script type="module">
+            const { animateLayout, frame, motionValue, styleEffect } =
+                window.AnimateLayout
+            const box = document.getElementById("box")
+
+            const nextFrame = () =>
+                new Promise((resolve) => frame.postRender(resolve))
+
+            const close = (a, b, threshold = 0.5) =>
+                Math.abs(a - b) <= threshold
+
+            /**
+             * Radius and shadow are bound with styleEffect, so
+             * animateLayout() scale-corrects them from their motion values.
+             */
+            const radius = motionValue("20px")
+            const shadow = motionValue("10px 10px 0px rgb(0, 0, 0)")
+            styleEffect(box, { borderRadius: radius, boxShadow: shadow })
+
+            const results = []
+            const check = (pass, msg) => {
+                results.push({ pass, msg })
+                if (!pass) window.showError(box, msg)
+            }
+
+            async function runTest() {
+                // 1. Values apply
+                await nextFrame()
+                check(
+                    box.style.borderRadius === "20px",
+                    `borderRadius should apply, got "${box.style.borderRadius}"`
+                )
+                check(
+                    box.style.boxShadow.includes("10px 10px 0px"),
+                    `boxShadow should apply, got "${box.style.boxShadow}"`
+                )
+
+                // 2. Values update from their motion values
+                radius.set("30px")
+                shadow.set("20px 20px 0px rgb(0, 0, 0)")
+                await nextFrame()
+                check(
+                    box.style.borderRadius === "30px",
+                    `borderRadius should update, got "${box.style.borderRadius}"`
+                )
+                check(
+                    box.style.boxShadow.includes("20px 20px 0px"),
+                    `boxShadow should update, got "${box.style.boxShadow}"`
+                )
+
+                // 3. Layout animation 100x100 -> 400x100, paused halfway
+                // (250px wide, scaleX 0.625)
+                const controls = await animateLayout(
+                    () => box.classList.add("resized"),
+                    { duration: 10, ease: "linear" }
+                )
+                controls.pause()
+                controls.time = controls.duration * 0.5
+                await nextFrame()
+
+                const width = box.getBoundingClientRect().width
+                check(close(width, 250, 1), `box should be 250px, got ${width}`)
+
+                const checkCorrected = (radiusPx, shadowPx, label) => {
+                    // Radius corrected to % of the 250x100 box,
+                    // serialised as "x% / y%"
+                    const [rx, ry] = box.style.borderRadius
+                        .split("/")
+                        .map(parseFloat)
+                    check(
+                        box.style.borderRadius.includes("%") &&
+                            close(rx, (radiusPx / 250) * 100, 0.1) &&
+                            close(ry, (radiusPx / 100) * 100, 0.1),
+                        `${label}: borderRadius should be corrected to ${
+                            (radiusPx / 250) * 100
+                        }% / ${radiusPx}%, got "${box.style.borderRadius}"`
+                    )
+
+                    // Shadow x offset divided by scaleX 0.625, y unchanged
+                    const [sx, sy] = box.style.boxShadow
+                        .replace(/rgba?\([^)]*\)/, "")
+                        .trim()
+                        .split(/\s+/)
+                        .map(parseFloat)
+                    check(
+                        close(sx, shadowPx / 0.625) && close(sy, shadowPx),
+                        `${label}: boxShadow should be corrected to ${
+                            shadowPx / 0.625
+                        }px ${shadowPx}px, got "${box.style.boxShadow}"`
+                    )
+                }
+
+                checkCorrected(30, 20, "mid-animation")
+
+                // 4. Motion value updates mid-animation stay corrected
+                radius.set("40px")
+                shadow.set("5px 5px 0px rgb(0, 0, 0)")
+                await nextFrame()
+                checkCorrected(40, 5, "updated mid-animation")
+
+                // 5. After the animation, the raw values are restored
+                controls.time = controls.duration
+                controls.play()
+                await controls
+                await nextFrame()
+                check(
+                    box.style.borderRadius === "40px",
+                    `borderRadius should be 40px after animation, got "${box.style.borderRadius}"`
+                )
+                check(
+                    box.style.boxShadow.includes("5px 5px 0px"),
+                    `boxShadow should be 5px 5px after animation, got "${box.style.boxShadow}"`
+                )
+
+                // 6. And still update from their motion values
+                radius.set("10px")
+                await nextFrame()
+                check(
+                    box.style.borderRadius === "10px",
+                    `borderRadius should update after animation, got "${box.style.borderRadius}"`
+                )
+
+                window.results = results
+            }
+
+            runTest().catch((e) => {
+                window.showError(box, String(e))
+                window.results = results
+            })
+        </script>
+    </body>
+</html>

@@ -17,8 +17,15 @@ import {
 import { Timeline, TimelineOptions } from "../timeline"
 import { animateSubject } from "./subject"
 
+/**
+ * A sequence has at least one segment or nested sequence. Labels alone
+ * are never a sequence, as an array of strings isn't a subject either.
+ */
 function isSequence(value: unknown): value is AnimationSequence {
-    return Array.isArray(value) && value.some(Array.isArray)
+    return (
+        Array.isArray(value) &&
+        value.some((item) => Array.isArray(item) || (item as any)?.sequence)
+    )
 }
 
 interface ScopedAnimateOptions {
@@ -128,6 +135,18 @@ export function createScopedAnimate(options: ScopedAnimateOptions = {}) {
                     ...sequenceOptions.defaultTransition,
                 } as SequenceOptions["defaultTransition"]
             }
+
+            /**
+             * Resolve reduceMotion in the same order as a single
+             * animation: options, then the default transition (which
+             * includes the scope's), then useAnimate()'s.
+             */
+            sequenceOptions.reduceMotion =
+                (optionsOrKeyframes as SequenceOptions)?.reduceMotion ??
+                (sequenceOptions.defaultTransition as SequenceOptions)
+                    ?.reduceMotion ??
+                reduceMotion
+
             timeline = new Timeline(subjectOrSequence, sequenceOptions)
         } else {
             // Extract top-level onComplete so it doesn't get applied per-value

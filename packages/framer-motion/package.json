@@ -1,6 +1,6 @@
 {
     "name": "framer-motion",
-    "version": "14.9.1",
+    "version": "14.10.1",
     "description": "A simple and powerful JavaScript animation library",
     "main": "dist/cjs/index.js",
     "module": "dist/es/index.mjs",
@@ -99,7 +99,7 @@
         "measure": "rollup -c ./rollup.size.config.mjs"
     },
     "dependencies": {
-        "motion-dom": "14.9.1",
+        "motion-dom": "14.10.1",
         "motion-utils": "14.7.0",
         "tslib": "^2.4.0"
     },
@@ -133,7 +133,7 @@
     "bundlesize": [
         {
             "path": "./dist/size-rollup-motion.js",
-            "maxSize": "42.77 kB"
+            "maxSize": "43.4 kB"
         },
         {
             "path": "./dist/size-rollup-m.js",
@@ -141,19 +141,19 @@
         },
         {
             "path": "./dist/size-rollup-m-dom-animation.js",
-            "maxSize": "28.75 kB"
+            "maxSize": "29.5 kB"
         },
         {
             "path": "./dist/size-rollup-m-dom-max.js",
-            "maxSize": "42.91 kB"
+            "maxSize": "43.7 kB"
         },
         {
             "path": "./dist/size-rollup-m-dom-max-pinch.js",
-            "maxSize": "44.24 kB"
+            "maxSize": "45 kB"
         },
         {
             "path": "./dist/size-rollup-animate.js",
-            "maxSize": "23.85 kB"
+            "maxSize": "24.5 kB"
         },
         {
             "path": "./dist/size-rollup-scroll.js",
@@ -165,8 +165,8 @@
         },
         {
             "path": "./dist/size-rollup-remix.js",
-            "maxSize": "49.2 kB"
+            "maxSize": "50.35 kB"
         }
     ],
-    "gitHead": "7b4a34f01709c5b172205844df9d9fabe8a20ab3"
+    "gitHead": "64d483c96c1b2e37efeef351818903dae8ebb778"
 }

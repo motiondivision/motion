@@ -150,7 +150,7 @@ export function animateTarget(
         const shouldReduceMotion =
             reduceMotion ?? visualElement.shouldReduceMotion
 
-        value.start(
+        value.run(
             animateMotionValue(
                 key,
                 value,

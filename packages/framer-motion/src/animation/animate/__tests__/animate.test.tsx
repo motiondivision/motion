@@ -1,4 +1,10 @@
-import { frame, motionValue, MotionValue, visualElementStore } from "motion-dom"
+import {
+    frame,
+    motionValue,
+    MotionValue,
+    scopeMotion,
+    visualElementStore,
+} from "motion-dom"
 import { useEffect } from "react"
 import * as THREE from "three"
 import { animate } from ".."
@@ -27,6 +33,25 @@ describe("animate", () => {
 
         expect(animation).toBeInstanceOf(Timeline)
         expect(animation.duration).toBeCloseTo(0.1)
+        await animation
+        expect(a.get()).toBe(100)
+        expect(b.get()).toBe(100)
+    })
+
+    test("animates a sequence made only of nested sequences", async () => {
+        const a = motionValue(0)
+        const b = motionValue(0)
+        const animation = animate(
+            [
+                { sequence: [[a, 100, { duration: 0.05 }]] },
+                { sequence: [[b, 100, { duration: 0.05 }]], at: 0.1 },
+            ],
+            { autoplay: false }
+        )
+
+        expect(animation).toBeInstanceOf(Timeline)
+        expect(animation.duration).toBeCloseTo(0.15)
+        animation.play()
         await animation
         expect(a.get()).toBe(100)
         expect(b.get()).toBe(100)
@@ -547,6 +572,34 @@ describe("animate", () => {
 
         expect(path.getAttribute("pathLength")).toBe("1")
         expect(path.getAttribute("stroke-dasharray")).toBe("1 0")
+    })
+})
+
+describe("Sequences: reduceMotion", () => {
+    test("makes positional values instant on elements", async () => {
+        const element = document.createElement("div")
+        animate([[element, { x: 100, opacity: [1, 0] }, { duration: 10 }]], {
+            reduceMotion: true,
+        })
+
+        await nextFrame()
+        await nextFrame()
+        expect(element.style.transform).toBe("translateX(100px)")
+        expect(Number(element.style.opacity)).toBeGreaterThan(0)
+    })
+
+    test("is inherited from a scopeMotion() transition", async () => {
+        const element = document.createElement("div")
+        scopeMotion(
+            () => {
+                animate([[element, { x: 100 }, { duration: 10 }]])
+            },
+            { transition: { reduceMotion: true } }
+        )
+
+        await nextFrame()
+        await nextFrame()
+        expect(element.style.transform).toBe("translateX(100px)")
     })
 })
 
