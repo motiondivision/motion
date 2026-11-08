@@ -3,7 +3,6 @@ import { isCSSVar } from "../../render/dom/is-css-var"
 import { camelToDash } from "../../render/dom/utils/camel-to-dash"
 import { cssStyleProperties } from "../../render/svg/utils/build-attrs"
 import { transformProps } from "../../render/utils/keys-transform"
-import { isSVGElement } from "../../utils/is-svg-element"
 import { MotionValue } from "../../value"
 import { numberValueTypes } from "../../value/types/maps/number"
 import { addAttrValue } from "../attr"
@@ -116,12 +115,10 @@ export const readSVGValue = (element: SVGElement, key: string) => {
 
 /**
  * The per-element effect `animate()` binds through, so SVG values share
- * state with a direct `svgEffect()` call.
+ * state with a direct `svgEffect()` call. `animate()` attaches the `test`
+ * and `read` hooks, as for the style effect.
  */
-export const svgSubjectEffect = /*@__PURE__*/ createEffect(addSVGValue, {
-    test: isSVGElement,
-    read: readSVGValue,
-})
+export const svgSubjectEffect = /*@__PURE__*/ createEffect(addSVGValue)
 
 export const svgEffect = /*@__PURE__*/ createSelectorEffect(svgSubjectEffect)
 

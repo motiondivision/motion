@@ -1,3 +1,4 @@
+import path from "path"
 import resolve from "@rollup/plugin-node-resolve"
 import terser from "@rollup/plugin-terser"
 import { visualizer } from "rollup-plugin-visualizer"
@@ -35,9 +36,28 @@ const motionValue = createSizeBundle(
     "dist/size-rollup-motion-value.js"
 )
 
+/**
+ * Measures the public import, `styleEffect` alone. Taking the module as
+ * the entry would also keep its other exports, such as the readers
+ * animate() attaches.
+ */
+const styleEffectEntry = "\0size-entry-style-effect"
 const styleEffect = createSizeBundle(
-    "lib/effects/style/index.js",
+    styleEffectEntry,
     "dist/size-rollup-style-effect.js"
 )
+styleEffect.plugins = [
+    {
+        name: "size-entry",
+        resolveId: (id) => (id === styleEffectEntry ? id : null),
+        load: (id) =>
+            id === styleEffectEntry
+                ? `export { styleEffect } from ${JSON.stringify(
+                      path.resolve("lib/effects/style/index.js")
+                  )}`
+                : null,
+    },
+    ...styleEffect.plugins,
+]
 
 export default [motionValue, styleEffect]

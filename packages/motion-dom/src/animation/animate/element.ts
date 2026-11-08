@@ -1,5 +1,11 @@
-import { styleSubjectEffect, StyleSubject } from "../../effects/style"
-import { svgSubjectEffect } from "../../effects/svg"
+import {
+    isStyleSubject,
+    readStyleValue,
+    styleSubjectEffect,
+    StyleSubject,
+} from "../../effects/style"
+import { readSVGValue, svgSubjectEffect } from "../../effects/svg"
+import type { AnimateEffect } from "../../effects/utils/create-effect"
 import { measureViewportBox } from "../../projection/utils/measure"
 import type { VisualElement } from "../../render/VisualElement"
 import { isSVGElement } from "../../utils/is-svg-element"
@@ -19,7 +25,21 @@ import {
 
 const noProps = {}
 
-type ElementEffect = typeof styleSubjectEffect
+/**
+ * The hooks `animate()` resolves elements through: whether an effect
+ * claims a subject, and the subject's current value as an animation's
+ * origin. They're attached here, which only `animate()` loads, so a
+ * `styleEffect()` or `svgEffect()` import alone doesn't bundle the
+ * computed-style and transform-matrix readers. The selector effects'
+ * `test` and `read` forward to these.
+ */
+Object.assign(styleSubjectEffect, {
+    test: isStyleSubject,
+    read: readStyleValue,
+})
+Object.assign(svgSubjectEffect, { test: isSVGElement, read: readSVGValue })
+
+type ElementEffect = AnimateEffect<StyleSubject>
 
 const getElementEffect = (element: Element) =>
     (isSVGElement(element)

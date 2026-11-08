@@ -114,7 +114,7 @@ export const addStyleValue = (
 
 export type StyleSubject = HTMLElement | SVGElement
 
-const isStyleSubject = (subject: unknown): subject is StyleSubject =>
+export const isStyleSubject = (subject: unknown): subject is StyleSubject =>
     isHTMLElement(subject) || isSVGElement(subject)
 
 /**
@@ -140,12 +140,11 @@ export const readStyleValue = (element: StyleSubject, key: string) => {
 /**
  * The per-element effect `animate()` binds through, so HTML values share
  * state with a direct `styleEffect()` call. The exported `styleEffect`
- * is this wrapped to also accept selectors.
+ * is this wrapped to also accept selectors. `animate()` attaches the
+ * `test` and `read` hooks (see animation/animate/element.ts), so a
+ * `styleEffect()` import alone doesn't bundle the computed-style readers.
  */
-export const styleSubjectEffect = /*@__PURE__*/ createEffect(addStyleValue, {
-    test: isStyleSubject,
-    read: readStyleValue,
-})
+export const styleSubjectEffect = /*@__PURE__*/ createEffect(addStyleValue)
 
 export const styleEffect =
     /*@__PURE__*/ createSelectorEffect(styleSubjectEffect)
