@@ -1,3 +1,4 @@
+import { animateStyle } from "../../effects/style/output"
 import { ValueKeyframesDefinition, ValueTransition } from "../types"
 import { mapEasingToNativeEasing } from "./easing/map-easing"
 
@@ -38,5 +39,5 @@ export function startWaapiAnimation(
 
     if (pseudoElement) options.pseudoElement = pseudoElement
 
-    return element.animate(keyframeOptions, options)
+    return animateStyle(element, keyframeOptions, options)
 }

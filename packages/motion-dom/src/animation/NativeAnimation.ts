@@ -4,7 +4,7 @@ import {
     noop,
     secondsToMilliseconds,
 } from "motion-utils"
-import { setStyle } from "../render/dom/style-set"
+import { setStyle } from "../effects/style/output"
 import { supportsScrollTimeline } from "../utils/supports/scroll-timeline"
 import { getFinalKeyframe } from "./keyframes/get-final"
 import {

@@ -1,6 +1,6 @@
 import { millisecondsToSeconds, secondsToMilliseconds } from "motion-utils"
 import { time } from "../frameloop/sync-time"
-import { setStyle } from "../render/dom/style-set"
+import { animateStyle, setStyle } from "../effects/style/output"
 import { supportsScrollTimeline } from "../utils/supports/scroll-timeline"
 import { sampleDelta } from "./utils/sample-delta"
 import { flushKeyframeResolvers } from "./keyframes/KeyframesResolver"
@@ -464,7 +464,7 @@ export class MultiValueAnimation extends AnimationClock<any> {
         if (times) frames.offset = times
         if (easing) frames.easing = easing
 
-        const native = element.animate(frames, { ...timing, delay })
+        const native = animateStyle(element, frames, { ...timing, delay })
 
         /**
          * Its generator is only made if it's read or interrupted.

@@ -1,6 +1,6 @@
 import { clamp } from "motion-utils"
 import { time } from "../frameloop/sync-time"
-import { setStyle } from "../render/dom/style-set"
+import { setStyle } from "../effects/style/output"
 import { JSAnimation } from "./JSAnimation"
 import { NativeAnimation, NativeAnimationOptions } from "./NativeAnimation"
 import { AnyResolvedKeyframe, ValueAnimationOptions } from "./types"

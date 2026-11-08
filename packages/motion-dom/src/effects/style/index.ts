@@ -14,6 +14,7 @@ import { getValueAsType } from "../../value/types/utils/get-as-type"
 import { MotionValueState } from "../MotionValueState"
 import { createSelectorEffect } from "../utils/create-dom-effect"
 import { createEffect } from "../utils/create-effect"
+import { setStyle } from "./output"
 import { buildTransform } from "./transform"
 
 /**
@@ -93,19 +94,18 @@ export const addStyleValue = (
         }
 
         computed = state.get("transformOrigin")
-    } else if (isCSSVar(key)) {
-        render = () => {
-            demoteTransforms(element, value)
-            element.style.setProperty(key, value.getCurrent() as string)
-        }
     } else {
+        /**
+         * A CSS variable is never composited.
+         */
         const isComposited = acceleratedValues.has(key)
         render = () => {
             isComposited || demoteTransforms(element, value)
-            element.style[key as any] = getValueAsType(
-                value.getCurrent(),
-                numberValueTypes[key]
-            ) as string
+            setStyle(
+                element,
+                key,
+                getValueAsType(value.getCurrent(), numberValueTypes[key])
+            )
         }
     }
 

@@ -44,6 +44,7 @@ import {
 import { cubicBezierAsString } from "../easing/cubic-bezier"
 import { supportedWaapiEasing } from "../easing/supported"
 import { supportsWaapi } from "../supports/waapi"
+import { createStyleAnimation, setStyle } from "../../../effects/style/output"
 import { acceleratedValues } from "../utils/accelerated-values"
 import { needsMixer } from "../utils/needs-mixer"
 import { supportsLinearEasing } from "../../../utils/supports/linear-easing"
@@ -999,14 +1000,14 @@ function createGroup(owner: TransformOwner): TransformGroup {
         }
         committed.forEach((key) => {
             const value = read(owner, key)
-            if (value !== undefined) (element.style as any)[key] = value
+            if (value !== undefined) setStyle(element, key, value)
         })
         /**
          * Without transform motion values, the element's own transform,
          * as from a stylesheet, is left alone.
          */
         hasTransform !== undefined &&
-            (element.style.transform = toTransform(values, true))
+            setStyle(element, "transform", toTransform(values, true))
     }
 
     /**
@@ -1066,18 +1067,13 @@ function createGroup(owner: TransformOwner): TransformGroup {
     }
 
     /**
-     * A WAAPI animation that starts by setting its startTime. Playing it
-     * first, as element.animate() does, would leave WebKit holding that
-     * play's ready time once startTime ends the play, and it uses that for
-     * the next updatePlaybackRate(), so the animation would jump.
+     * A WAAPI animation that starts by setting its startTime.
      */
     const create = (
         keyframes: PropertyIndexedKeyframes | null,
         options: KeyframeAnimationOptions
     ) => {
-        const animation = new Animation(
-            new KeyframeEffect(element, keyframes, options) as AnimationEffect
-        )
+        const animation = createStyleAnimation(element, keyframes, options)
         /**
          * Something else cancelled it, so carry on on the main thread.
          */
