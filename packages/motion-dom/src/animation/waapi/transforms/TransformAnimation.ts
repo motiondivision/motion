@@ -180,10 +180,10 @@ const maxSamples = 50
 const sampleStep = 16
 
 type Composed = NativeKeyframes & {
-    transform: string[]
     easing: string[]
     /**
-     * The keyframes of its other compositor values, like opacity.
+     * The keyframes of each value: the composed transform, if it has
+     * transforms, and its other compositor values, like opacity.
      */
     props: Record<string, AnyResolvedKeyframe[]>
 }
@@ -914,15 +914,12 @@ const buildSoon = (build: VoidFunction) => {
  */
 export function joinGroup(track: TransformMember) {
     const owner = getOwner(track.options)
-    const group = getGroup(owner.current) || createGroup(owner, track)
+    const group = getGroup(owner.current) || createGroup(owner)
     group.tracks.add(track)
     return group
 }
 
-function createGroup(
-    owner: TransformOwner,
-    first: TransformMember
-): TransformGroup {
+function createGroup(owner: TransformOwner): TransformGroup {
     const element = owner.current
     const tracks = new Set<TransformMember>()
 
@@ -944,7 +941,6 @@ function createGroup(
      * when the WAAPI animation stops.
      */
     const committed = new Set<string>()
-    let hasTransform = transformProps.has(first.name)
     let built = new Map<TransformMember, BuiltState>()
     /**
      * Builds the WAAPI animation shortly before it starts.
@@ -995,16 +991,21 @@ function createGroup(
      */
     const commit = () => {
         const values: ResolvedValues = {}
+        let hasTransform
         for (const key of transformPropOrder) {
             const value = read(owner, key)
-            if (value !== undefined) values[key] = value
+            if (value !== undefined) hasTransform = values[key] = value
         }
-        for (const key of extras) committed.add(key)
         committed.forEach((key) => {
             const value = read(owner, key)
             if (value !== undefined) (element.style as any)[key] = value
         })
-        hasTransform && (element.style.transform = toTransform(values, true))
+        /**
+         * Without transform motion values, the element's own transform,
+         * as from a stylesheet, is left alone.
+         */
+        hasTransform !== undefined &&
+            (element.style.transform = toTransform(values, true))
     }
 
     /**
@@ -1035,10 +1036,9 @@ function createGroup(
         for (const track of tracks) {
             const { name } = track
             byKey.set(name, track)
-            if (transformProps.has(name)) {
-                hasTransform = true
-            } else {
+            if (!transformProps.has(name)) {
                 extras.push(name)
+                committed.add(name)
                 track.timing()[0] < Infinity ||
                     (statics[name] = track.sampleAt(now))
             }
@@ -1052,6 +1052,16 @@ function createGroup(
             return value !== undefined && !isDefaultTransform(key, value)
         })
         return byKey
+    }
+
+    /**
+     * Empty keyframe lists for the transform, if there are transforms,
+     * and each other value.
+     */
+    const listsFor = () => {
+        const props: Composed["props"] = keys.length ? { transform: [] } : {}
+        for (const key of extras) props[key] = []
+        return props
     }
 
     /**
@@ -1122,10 +1132,8 @@ function createGroup(
 
         offsets.sort(byTime)
 
-        const transform: string[] = []
         const easing: string[] = []
-        const props: Composed["props"] = {}
-        for (const key of extras) props[key] = []
+        const props = listsFor()
 
         for (let i = 0; i < offsets.length; i++) {
             const values: ResolvedValues = {}
@@ -1171,11 +1179,11 @@ function createGroup(
                 }
             }
 
-            transform.push(toTransform(values))
+            props.transform?.push(toTransform(values))
             i < offsets.length - 1 && easing.push(spanEasing || "linear")
         }
 
-        return { ...shared, offsets, transform, easing, props }
+        return { ...shared, offsets, easing, props }
     }
 
     /**
@@ -1231,13 +1239,13 @@ function createGroup(
                 ? track.sampleAt(t)
                 : statics[key]!
         }
-        const transform = times.map((t) => {
+        const props = listsFor()
+        for (const t of times) {
             const values: ResolvedValues = {}
             for (const key of keys) values[key] = at(key, t)
-            return toTransform(values)
-        })
-        const props: Composed["props"] = {}
-        for (const key of extras) props[key] = times.map((t) => at(key, t))
+            props.transform?.push(toTransform(values))
+            for (const key of extras) props[key].push(at(key, t))
+        }
 
         return {
             start: now,
@@ -1248,7 +1256,6 @@ function createGroup(
             offsets: times.map((t) => (t - now) / (end - now)),
             values: [],
             easings: [],
-            transform,
             easing: times.map(() => "linear").slice(1),
             props,
         }
@@ -1283,9 +1290,10 @@ function createGroup(
         if (!composed) return
 
         const { iterations, direction, speed, props } = composed
-        let { start, duration, offsets, transform, easing } = composed
+        let { start, duration, offsets, easing } = composed
         let endDelay = 0
-        const row = (i: number) => transform[i] + extras.map((k) => props[k][i])
+        const lists = Object.values(props)
+        const row = (i: number) => lists.map((list) => list[i]) + ""
 
         /**
          * Played once, it's built from when it starts to move until it
@@ -1293,7 +1301,7 @@ function createGroup(
          * the animations end.
          */
         let first = 0
-        let last = transform.length - 1
+        let last = offsets.length - 1
         while (first < last && row(first + 1) === row(first)) first++
         while (last > first && row(last - 1) === row(last)) last--
 
@@ -1306,7 +1314,6 @@ function createGroup(
             offsets = offsets
                 .slice(first, last + 1)
                 .map((offset) => (offset - from) / span)
-            transform = transform.slice(first, last + 1)
             for (const key in props) {
                 props[key] = props[key].slice(first, last + 1)
             }
@@ -1338,7 +1345,6 @@ function createGroup(
             values.some((v) => v !== values[0])
                 ? ((keyframes ||= {})[key] = values as string[])
                 : (isHeld = true)
-        keys.length && add("transform", transform)
         for (const key in props) add(key, props[key])
         isHeld && commit()
         if (keyframes && offsets.length > 2) {
@@ -1357,7 +1363,7 @@ function createGroup(
             easing: offsets.length > 2 ? "linear" : easing[0],
             fill: "both",
         })
-        animation.playbackRate = speed
+        speed !== 1 && (animation.playbackRate = speed)
         animation.startTime = time.now() + nativeStart
 
         /**
@@ -1387,14 +1393,9 @@ function createGroup(
         stop(false)
         if (!composed) return composed === null ? commit() : group.demote(true)
 
-        const { offsets, transform, easing, props } = composed
+        const { offsets, easing, props } = composed
         const animation = create(
-            {
-                ...(keys.length ? { transform } : {}),
-                ...(props as PropertyIndexedKeyframes),
-                offset: offsets,
-                easing,
-            },
+            { ...(props as PropertyIndexedKeyframes), offset: offsets, easing },
             { duration: 1000, fill: "both" }
         )
         animation.timeline = timeline.timeline as AnimationTimeline
