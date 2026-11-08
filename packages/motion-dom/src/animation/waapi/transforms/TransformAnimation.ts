@@ -868,39 +868,6 @@ let builds: VoidFunction[] | undefined
  */
 const buildAhead = 100
 
-/**
- * Groups waiting to build, and when, on one timer for all of them. It
- * wakes each group when it's due, not earlier: building groups that are
- * due within the next frame together, ahead of time, makes the browser
- * recalculate style in more frames while they play.
- */
-const wakes = new Map<VoidFunction, number>()
-let wakeTimer: ReturnType<typeof setTimeout> | undefined
-let wakeAt = Infinity
-
-const runWakes = () => {
-    wakeAt = Infinity
-    const due = time.now()
-    let next = Infinity
-    wakes.forEach((at, wake) => {
-        if (at <= due) {
-            wakes.delete(wake)
-            wake()
-        } else if (at < next) next = at
-    })
-    next < Infinity && wakeIn(next - time.now())
-}
-
-const wakeIn = (delay: number) => {
-    const at = time.now() + delay
-    if (at < wakeAt) {
-        clearTimeout(wakeTimer)
-        wakeAt = at
-        wakeTimer = setTimeout(runWakes, delay)
-    }
-    return at
-}
-
 const buildSoon = (build: VoidFunction) => {
     builds ||
         queueMicrotask(() => {
@@ -947,8 +914,16 @@ function createGroup(owner: TransformOwner): TransformGroup {
     /**
      * Builds the WAAPI animation shortly before it starts.
      */
+    let wakeTimer: ReturnType<typeof setTimeout> | undefined
     const wake = () => group.schedule(true)
-    const sleep = (delay: number) => wakes.set(wake, wakeIn(delay))
+    /**
+     * Each group waiting to build has a timer of its own. Waking several
+     * at once, or from one queue of them all, costs more per frame.
+     */
+    const sleep = (delay: number) => {
+        clearTimeout(wakeTimer)
+        wakeTimer = setTimeout(wake, delay)
+    }
     /**
      * How long after it was last built to build it, while waiting.
      */
@@ -1018,7 +993,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
      */
     const stop = (shouldCommit = true) => {
         shouldCommit && commit()
-        wakes.delete(wake)
+        clearTimeout(wakeTimer)
         buildAt = undefined
         if (native) {
             native.onfinish = native.oncancel = null
@@ -1448,7 +1423,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
          */
         if (buildAt !== undefined) {
             if (elapsed === undefined || (isSeek && rate)) return false
-            wakes.delete(wake)
+            clearTimeout(wakeTimer)
             if (rate < 0) {
                 /**
                  * Played backwards from before it moves, it never does,
