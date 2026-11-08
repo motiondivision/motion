@@ -603,6 +603,11 @@ const getElementValues = (element: HTMLElement | SVGElement) => {
 
 /**
  * Make elements pinchable. Returns a function that removes the gesture.
+ * The start callback is optional:
+ *
+ * ```javascript
+ * pinch("img")
+ * ```
  *
  * ```javascript
  * const stop = pinch("#photo", (element, startEvent) => {
@@ -629,7 +634,7 @@ const getElementValues = (element: HTMLElement | SVGElement) => {
  */
 export function pinch(
     elementOrSelector: ElementOrSelector,
-    onPinchStart: OnPinchStartEvent,
+    onPinchStart: OnPinchStartEvent = () => {},
     options: PinchOptions = {}
 ): VoidFunction {
     const scope = activeScope.current

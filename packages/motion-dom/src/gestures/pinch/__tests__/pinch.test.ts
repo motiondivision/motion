@@ -421,6 +421,17 @@ describe("pinch", () => {
         expect(onStart).toHaveBeenCalledTimes(1)
     })
 
+    test("pinches without a start callback", async () => {
+        stops.push(pinch(element, undefined, { max: 1.5 }))
+        stops.push(pinch(document.createElement("div")))
+
+        const gesture = await twoFinger(element, [0, 0, 100, 0])
+        await gesture.to([0, 0, 200, 0])
+        await gesture.end()
+
+        expect(value(element, "scale")).toBeCloseTo(1.5)
+    })
+
     test("calls the start callback once per gesture", async () => {
         const onComplete = jest.fn()
         const onStart = jest.fn(() => ({ onComplete }))
