@@ -6,7 +6,7 @@ import { sampleDelta } from "./utils/sample-delta"
 import { flushKeyframeResolvers } from "./keyframes/KeyframesResolver"
 import { getFinalKeyframe } from "./keyframes/get-final"
 import { inertia } from "./generators/inertia"
-import { JSAnimation } from "./JSAnimation"
+import { AnimationClock } from "./AnimationClock"
 import { generateTrack, initTrack, Track } from "./track"
 import {
     AnimationPlaybackControls,
@@ -35,8 +35,8 @@ import {
 /**
  * One value of a MultiValueAnimation. It's the value's animation (what the motion value
  * holds and stops) and keeps what it takes to sample the value at the
- * animation's time. It has no clock of its own. Controlled on its own, it hands
- * itself to a JSAnimation that takes the animation's time with it.
+ * animation's time. It has no clock of its own: a control of one value
+ * controls the shared animation.
  */
 export class ValueTrack<T extends AnyResolvedKeyframe = any>
     extends WithPromise
@@ -366,7 +366,7 @@ export class ValueTrack<T extends AnyResolvedKeyframe = any>
  * the values rather than one animation each. Each value is sampled as a
  * JSAnimation of its own would be.
  */
-export class MultiValueAnimation extends JSAnimation<any> {
+export class MultiValueAnimation extends AnimationClock<any> {
     tracks: ValueTrack[] = []
 
     /**
@@ -395,7 +395,7 @@ export class MultiValueAnimation extends JSAnimation<any> {
     private hasStoppedTracks = false
 
     constructor(driver?: Driver) {
-        super({ keyframes: [0, 1], driver } as any, true)
+        super({ driver } as any)
         this.calculatedDuration = this.totalDuration = 0
         this.options.onPlay = () => this.fire("onPlay")
         this.options.onCancel = () => this.fire("onCancel")
@@ -953,7 +953,7 @@ export class MultiValueAnimation extends JSAnimation<any> {
      * Follow a timeline on the shared clock, from JS.
      */
     follow(timeline: TimelineWithFallback) {
-        this.unfollow ||= JSAnimation.prototype.attachTimeline.call(
+        this.unfollow ||= AnimationClock.prototype.attachTimeline.call(
             this,
             timeline
         )
@@ -1016,7 +1016,7 @@ function onNativeFinish(this: Animation) {
     track.finish()
 }
 
-const jsAnimationProto = JSAnimation.prototype
-const setTime = Object.getOwnPropertyDescriptor(jsAnimationProto, "time")!.set!
-const setSpeed = Object.getOwnPropertyDescriptor(jsAnimationProto, "speed")!
+const clockProto = AnimationClock.prototype
+const setTime = Object.getOwnPropertyDescriptor(clockProto, "time")!.set!
+const setSpeed = Object.getOwnPropertyDescriptor(clockProto, "speed")!
     .set!
