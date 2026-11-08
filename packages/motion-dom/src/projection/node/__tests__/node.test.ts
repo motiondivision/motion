@@ -337,31 +337,4 @@ describe("node", () => {
         expect(node.projectionDeltaWithTransform!.y.scale).toBeCloseTo(1.5)
         expect(node.target).toEqual(box())
     })
-
-    test("Only writes a projection style again if it changed or the render replaced it", () => {
-        const renderStyle: Record<string, unknown> = {}
-        const node = createTestNode(undefined, {
-            visualElement: { renderState: { style: renderStyle } } as any,
-        })
-
-        const writes: string[] = []
-        const style = new Proxy({} as Record<string, unknown>, {
-            set: (target, key: string, value) => {
-                writes.push(`${key}:${value}`)
-                target[key] = value
-                return true
-            },
-        })
-
-        node.setStyle(style, "opacity", 0.5)
-        node.setStyle(style, "opacity", 0.5)
-        expect(writes).toEqual(["opacity:0.5"])
-
-        node.setStyle(style, "opacity", 1)
-        expect(writes).toEqual(["opacity:0.5", "opacity:1"])
-
-        renderStyle.opacity = 0.2
-        node.setStyle(style, "opacity", 1)
-        expect(writes).toEqual(["opacity:0.5", "opacity:1", "opacity:1"])
-    })
 })
