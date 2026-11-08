@@ -281,14 +281,6 @@ export class ValueTrack<T extends AnyResolvedKeyframe = any>
         this.parent.removeTrack(this)
     }
 
-    /**
-     * What controls this value: the shared animation, which a control of
-     * one value controls for all of them.
-     */
-    private get own(): AnimationPlaybackControlsWithThen {
-        return this.parent
-    }
-
     get duration() {
         this.isReady || flushKeyframeResolvers()
         return millisecondsToSeconds(this.calculatedDuration)
@@ -307,31 +299,44 @@ export class ValueTrack<T extends AnyResolvedKeyframe = any>
     }
 
     get startTime() {
-        return this.own.startTime
+        return this.parent.startTime
     }
 
     get time() {
-        return this.own.time
+        return this.parent.time
     }
 
     set time(newTime: number) {
-        this.own.time = newTime
+        this.parent.time = newTime
     }
 
     get speed() {
-        return this.own.speed
+        return this.parent.speed
     }
 
     set speed(newSpeed: number) {
-        this.own.speed = newSpeed
+        this.parent.speed = newSpeed
     }
 
     play() {
-        this.own.play()
+        this.parent.play()
     }
 
     pause() {
-        this.own.pause()
+        this.parent.pause()
+    }
+
+    /**
+     * Its last keyframe, or played backwards, its first.
+     */
+    end() {
+        const { options } = this
+        return getFinalKeyframe(
+            options.keyframes,
+            options,
+            (options as any).finalKeyframe,
+            this.parent.speed
+        )
     }
 
     /**
@@ -339,24 +344,16 @@ export class ValueTrack<T extends AnyResolvedKeyframe = any>
      */
     complete() {
         if (this.isDone) return
-        const { options } = this
-        this.update(
-            getFinalKeyframe(
-                options.keyframes,
-                options,
-                (options as any).finalKeyframe,
-                this.parent.speed
-            )
-        )
+        this.update(this.end())
         this.finish()
     }
 
     cancel() {
-        this.own.cancel()
+        this.parent.cancel()
     }
 
     attachTimeline(timeline: TimelineWithFallback) {
-        return this.own.attachTimeline(timeline)
+        return this.parent.attachTimeline(timeline)
     }
 }
 
@@ -695,12 +692,7 @@ export class MultiValueAnimation extends AnimationClock<any> {
             const isTrackFinished = isFinished || (isRunning && done)
 
             if (isTrackFinished && options.type !== inertia) {
-                value = getFinalKeyframe(
-                    options.keyframes,
-                    options,
-                    (options as any).finalKeyframe,
-                    speed
-                )
+                value = track.end()
             }
 
             track.update(value)
@@ -879,7 +871,6 @@ export class MultiValueAnimation extends AnimationClock<any> {
             this.fire("onStop")
         }
         this.leaveGroups()
-        this.leaveGroups()
     }
 
     /**
@@ -988,8 +979,7 @@ export class MultiValueAnimation extends AnimationClock<any> {
             this.startTime !== null &&
             track.value.updatedAt !== now
         ) {
-            const t = this.at(now) - (track.options.delay || 0)
-            track.update(generateTrack(track, Math.max(t, 0), t < 0).value)
+            track.update(this.valueAt(track, now))
         }
     }
 }
@@ -1000,13 +990,8 @@ export class MultiValueAnimation extends AnimationClock<any> {
  */
 function onNativeFinish(this: Animation) {
     const track: ValueTrack = (this as any).track
-    const { options, parent } = track
-    const keyframe = getFinalKeyframe(
-        options.keyframes,
-        options,
-        (options as any).finalKeyframe,
-        parent.speed
-    )
+    const { options } = track
+    const keyframe = track.end()
     this.onfinish = null
     if (!(options as any).pseudoElement) {
         track.update(keyframe)
