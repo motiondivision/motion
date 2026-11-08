@@ -44,6 +44,7 @@ import {
 import { cubicBezierAsString } from "../easing/cubic-bezier"
 import { supportedWaapiEasing } from "../easing/supported"
 import { supportsWaapi } from "../supports/waapi"
+import { acceleratedValues } from "../utils/accelerated-values"
 import { needsMixer } from "../utils/needs-mixer"
 import { supportsLinearEasing } from "../../../utils/supports/linear-easing"
 import { supportsScrollTimeline } from "../../../utils/supports/scroll-timeline"
@@ -178,7 +179,14 @@ const maxSamples = 50
  */
 const sampleStep = 16
 
-type Composed = NativeKeyframes & { transform: string[]; easing: string[] }
+type Composed = NativeKeyframes & {
+    transform: string[]
+    easing: string[]
+    /**
+     * The keyframes of its other compositor values, like opacity.
+     */
+    props: Record<string, AnyResolvedKeyframe[]>
+}
 
 /**
  * If an outside write, or a seek the WAAPI animation can't follow,
@@ -263,9 +271,28 @@ export const canGroupTransform = ({
     name &&
     name !== "pathRotation" &&
     transformProps.has(name) &&
+    canGroup(motionValue)
+
+const canGroup = (motionValue?: MotionValue) =>
     motionValue?.owner?.current instanceof HTMLElement &&
     supportsWaapi() &&
     supportsLinearEasing()
+
+/**
+ * Whether a value of an animate() call joins its element's group: its
+ * transforms, and, if the call animates one of those, its other
+ * compositor values, like opacity, which then share one WAAPI animation.
+ * Alone, opacity is quicker to start on an animation of its own.
+ */
+export const canGroupValue = (
+    options: ValueAnimationOptions<any>,
+    composes?: boolean
+) =>
+    canGroupTransform(options) ||
+    (composes &&
+        options.name !== "transform" &&
+        acceleratedValues.has(options.name!) &&
+        canGroup(options.motionValue))
 
 export function canAccelerateTransform(options: ValueAnimationOptions<any>) {
     const owner = getOwner(options)
@@ -887,12 +914,15 @@ const buildSoon = (build: VoidFunction) => {
  */
 export function joinGroup(track: TransformMember) {
     const owner = getOwner(track.options)
-    const group = getGroup(owner.current) || createGroup(owner)
+    const group = getGroup(owner.current) || createGroup(owner, track)
     group.tracks.add(track)
     return group
 }
 
-function createGroup(owner: TransformOwner): TransformGroup {
+function createGroup(
+    owner: TransformOwner,
+    first: TransformMember
+): TransformGroup {
     const element = owner.current
     const tracks = new Set<TransformMember>()
 
@@ -904,6 +934,17 @@ function createGroup(owner: TransformOwner): TransformGroup {
      * The transforms in the WAAPI animation, in order.
      */
     let keys: string[] = []
+    /**
+     * Its other compositor values, like opacity, which share its WAAPI
+     * animation rather than having one each.
+     */
+    let extras: string[] = []
+    /**
+     * Every value it has composed, which it writes back as inline styles
+     * when the WAAPI animation stops.
+     */
+    const committed = new Set<string>()
+    let hasTransform = transformProps.has(first.name)
     let built = new Map<TransformMember, BuiltState>()
     /**
      * Builds the WAAPI animation shortly before it starts.
@@ -958,7 +999,12 @@ function createGroup(owner: TransformOwner): TransformGroup {
             const value = read(owner, key)
             if (value !== undefined) values[key] = value
         }
-        element.style.transform = toTransform(values, true)
+        for (const key of extras) committed.add(key)
+        committed.forEach((key) => {
+            const value = read(owner, key)
+            if (value !== undefined) (element.style as any)[key] = value
+        })
+        hasTransform && (element.style.transform = toTransform(values, true))
     }
 
     /**
@@ -985,7 +1031,18 @@ function createGroup(owner: TransformOwner): TransformGroup {
     const readStatics = (now: number) => {
         const byKey = new Map<string, TransformMember>()
         statics = {}
-        for (const track of tracks) byKey.set(track.name, track)
+        extras = []
+        for (const track of tracks) {
+            const { name } = track
+            byKey.set(name, track)
+            if (transformProps.has(name)) {
+                hasTransform = true
+            } else {
+                extras.push(name)
+                track.timing()[0] < Infinity ||
+                    (statics[name] = track.sampleAt(now))
+            }
+        }
         keys = transformPropOrder.filter((key) => {
             const track = byKey.get(key)
             if (track && track.timing()[0] < Infinity) return true
@@ -1032,8 +1089,9 @@ function createGroup(owner: TransformOwner): TransformGroup {
         const natives = new Map<string, NativeKeyframes>()
         let shared: NativeKeyframes | undefined
         let offsets: number[] = []
+        const all = keys.concat(extras)
 
-        for (const key of keys) {
+        for (const key of all) {
             const track = byKey.get(key)
             if (!track || track.timing()[0] === Infinity) continue
 
@@ -1066,15 +1124,19 @@ function createGroup(owner: TransformOwner): TransformGroup {
 
         const transform: string[] = []
         const easing: string[] = []
+        const props: Composed["props"] = {}
+        for (const key of extras) props[key] = []
 
         for (let i = 0; i < offsets.length; i++) {
             const values: ResolvedValues = {}
             let spanEasing: string | undefined
 
-            for (const key of keys) {
+            for (const key of all) {
                 const keyframes = natives.get(key)
                 if (!keyframes) {
-                    values[key] = statics[key]!
+                    props[key]
+                        ? props[key].push(statics[key]!)
+                        : (values[key] = statics[key]!)
                     continue
                 }
 
@@ -1091,7 +1153,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
                 const value = keyframes.values[index]
                 const isMoving = value !== keyframes.values[index + 1]
                 if (!isOwn && isMoving) return
-                values[key] = value
+                props[key] ? props[key].push(value) : (values[key] = value)
 
                 /**
                  * The span from this keyframe to the next has the easing
@@ -1113,7 +1175,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
             i < offsets.length - 1 && easing.push(spanEasing || "linear")
         }
 
-        return { ...shared, offsets, transform, easing }
+        return { ...shared, offsets, transform, easing, props }
     }
 
     /**
@@ -1163,17 +1225,19 @@ function createGroup(owner: TransformOwner): TransformGroup {
         }
         times.sort(byTime)
 
+        const at = (key: string, t: number) => {
+            const track = byKey.get(key)
+            return track && track.timing()[0] < Infinity
+                ? track.sampleAt(t)
+                : statics[key]!
+        }
         const transform = times.map((t) => {
             const values: ResolvedValues = {}
-            for (const key of keys) {
-                const track = byKey.get(key)
-                values[key] =
-                    track && track.timing()[0] < Infinity
-                        ? track.sampleAt(t)
-                        : statics[key]!
-            }
+            for (const key of keys) values[key] = at(key, t)
             return toTransform(values)
         })
+        const props: Composed["props"] = {}
+        for (const key of extras) props[key] = times.map((t) => at(key, t))
 
         return {
             start: now,
@@ -1186,6 +1250,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
             easings: [],
             transform,
             easing: times.map(() => "linear").slice(1),
+            props,
         }
     }
 
@@ -1217,9 +1282,10 @@ function createGroup(owner: TransformOwner): TransformGroup {
         }
         if (!composed) return
 
-        const { iterations, direction, speed } = composed
+        const { iterations, direction, speed, props } = composed
         let { start, duration, offsets, transform, easing } = composed
         let endDelay = 0
+        const row = (i: number) => transform[i] + extras.map((k) => props[k][i])
 
         /**
          * Played once, it's built from when it starts to move until it
@@ -1228,8 +1294,8 @@ function createGroup(owner: TransformOwner): TransformGroup {
          */
         let first = 0
         let last = transform.length - 1
-        while (transform[first + 1] === transform[first]) first++
-        while (last > first && transform[last - 1] === transform[last]) last--
+        while (first < last && row(first + 1) === row(first)) first++
+        while (last > first && row(last - 1) === row(last)) last--
 
         if (iterations === 1 && speed > 0 && first < last) {
             const from = offsets[first]
@@ -1241,6 +1307,9 @@ function createGroup(owner: TransformOwner): TransformGroup {
                 .slice(first, last + 1)
                 .map((offset) => (offset - from) / span)
             transform = transform.slice(first, last + 1)
+            for (const key in props) {
+                props[key] = props[key].slice(first, last + 1)
+            }
             easing = easing.slice(first, last)
 
             /**
@@ -1257,20 +1326,25 @@ function createGroup(owner: TransformOwner): TransformGroup {
             }
         }
 
-        let keyframes: PropertyIndexedKeyframes | null = { transform }
-        if (transform.length > 2) {
-            keyframes.offset = offsets
-            easing.some((e) => e !== "linear") && (keyframes.easing = easing)
-        }
-
         /**
-         * If nothing moves, don't hold a transform, which, even at its
-         * default, would make the element a containing block. The empty
-         * animation still finishes the animations.
+         * Only what moves is animated, and what doesn't is held with an
+         * inline style. A transform that doesn't move, even at its
+         * default, would make the element a containing block. If nothing
+         * moves, the empty animation still finishes the animations.
          */
-        if (transform.every((t) => t === transform[0])) {
-            keyframes = null
-            commit()
+        let keyframes: PropertyIndexedKeyframes | null = null
+        let isHeld = false
+        const add = (key: string, values: AnyResolvedKeyframe[]) =>
+            values.some((v) => v !== values[0])
+                ? ((keyframes ||= {})[key] = values as string[])
+                : (isHeld = true)
+        keys.length && add("transform", transform)
+        for (const key in props) add(key, props[key])
+        isHeld && commit()
+        if (keyframes && offsets.length > 2) {
+            ;(keyframes as PropertyIndexedKeyframes).offset = offsets
+            easing.some((e) => e !== "linear") &&
+                ((keyframes as PropertyIndexedKeyframes).easing = easing)
         }
 
         nativeStart = start - now
@@ -1280,7 +1354,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
             iterations,
             direction,
             endDelay,
-            easing: transform.length > 2 ? "linear" : easing[0],
+            easing: offsets.length > 2 ? "linear" : easing[0],
             fill: "both",
         })
         animation.playbackRate = speed
@@ -1313,9 +1387,14 @@ function createGroup(owner: TransformOwner): TransformGroup {
         stop(false)
         if (!composed) return composed === null ? commit() : group.demote(true)
 
-        const { offsets, transform, easing } = composed
+        const { offsets, transform, easing, props } = composed
         const animation = create(
-            { transform, offset: offsets, easing },
+            {
+                ...(keys.length ? { transform } : {}),
+                ...(props as PropertyIndexedKeyframes),
+                offset: offsets,
+                easing,
+            },
             { duration: 1000, fill: "both" }
         )
         animation.timeline = timeline.timeline as AnimationTimeline

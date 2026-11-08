@@ -36,7 +36,7 @@ import { replaceStringEasing } from "../waapi/utils/unsupported-easing"
 import { mapEasingToNativeEasing } from "../waapi/easing/map-easing"
 import { keyframes as keyframesType } from "../generators/keyframes"
 import { spring } from "../generators/spring"
-import { canGroupTransform } from "../waapi/transforms/TransformAnimation"
+import { canGroupValue } from "../waapi/transforms/TransformAnimation"
 
 /**
  * What every value of one key in a call animates with, worked out once
@@ -284,6 +284,7 @@ function resolve(
         if (
             element &&
             canAnimateValue &&
+            !track.isTransform &&
             supportsBrowserAnimation(options as any)
         ) {
             replaceTransitionType(options)
@@ -338,7 +339,8 @@ export const startValue =
         target: any,
         transition: any,
         element?: AnimationElement,
-        repaints?: boolean
+        repaints?: boolean,
+        composes?: boolean
     ): StartAnimation =>
     (onComplete) => {
         const valueTransition = getValueTransition(transition, name) || {}
@@ -390,12 +392,13 @@ export const startValue =
                 : value.getVelocity()
 
         /**
-         * Transforms on an HTML element join its transform group.
+         * Transforms and other compositor values on an HTML element join
+         * its group, which plays them in one WAAPI animation.
          */
-        const isTransform = canGroupTransform({
-            name,
-            motionValue: value,
-        } as any)
+        const isTransform = canGroupValue(
+            { name, motionValue: value } as any,
+            composes
+        )
         const parent = (ref.animation ||= new MultiValueAnimation(base.driver))
         if (base.autoplay === false) parent.options.autoplay = false
 

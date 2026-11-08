@@ -97,8 +97,14 @@ export function animateValues(
      * and they animate there too.
      */
     let repaints = false
+    /**
+     * Whether it moves a transform, which its other compositor values
+     * then share a WAAPI animation with.
+     */
+    let composes = false
     if (element?.current instanceof HTMLElement) {
         for (const key in keyframes) {
+            composes ||= transformProps.has(key)
             repaints ||= !(
                 transformProps.has(key) ||
                 acceleratedValues.has(key) ||
@@ -143,7 +149,8 @@ export function animateValues(
                     ? { type: false }
                     : transition,
                 element,
-                repaints
+                repaints,
+                composes
             )
         )
 

@@ -284,6 +284,58 @@ describe("independent transform acceleration", () => {
         expect(startTime).not.toBe(null)
     })
 
+    it("composes opacity into the WAAPI animation of the transforms it moves with", async () => {
+        const element = document.createElement("div")
+
+        const animation = animateElement(
+            element,
+            { x: [0, 100], opacity: [0, 1] },
+            { duration: 0.1, ease: "linear" }
+        )
+        await nextFrame()
+
+        expect(running(element)).toHaveLength(1)
+        const { keyframes } = running(element)[0] as any
+        expect(keyframes.transform.at(-1)).toBe("translateX(100px) ")
+        expect(keyframes.opacity.at(-1)).toBe(1)
+        expect(keyframes.opacity).toHaveLength(keyframes.transform.length)
+
+        await Promise.all(animation)
+        expect(element.style.opacity).toBe("1")
+        expect(element.style.transform).toBe("translateX(100px)")
+    })
+
+    it("holds opacity with an inline style while only the transforms move", async () => {
+        const element = document.createElement("div")
+
+        const animation = animateElement(
+            element,
+            { x: [0, 100], opacity: [0, 0.5] },
+            { duration: 0.3, ease: "linear", opacity: { duration: 0.1 } }
+        )
+        await wait(150)
+        await nextFrame()
+
+        const { keyframes } = running(element).at(-1) as any
+        expect(keyframes.opacity).toBe(undefined)
+        expect(element.style.opacity).toBe("0.5")
+
+        await Promise.all(animation)
+        expect(element.style.opacity).toBe("0.5")
+        expect(element.style.transform).toBe("translateX(100px)")
+    })
+
+    it("gives opacity animated without a transform a WAAPI animation of its own", async () => {
+        const element = document.createElement("div")
+
+        animateElement(element, { opacity: [0, 1] }, { duration: 0.1 })
+        await nextFrame()
+
+        const [{ keyframes }] = running(element) as any
+        expect(keyframes.opacity).toEqual([0, 1])
+        expect(keyframes.transform).toBe(undefined)
+    })
+
     it("includes transforms that aren't animating", async () => {
         const element = document.createElement("div")
         const rotate = motionValue(45)
