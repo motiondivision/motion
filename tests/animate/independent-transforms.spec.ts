@@ -790,6 +790,32 @@ test.describe("animate() independent transforms", () => {
         check("c", 800)
     })
 
+    test("plays once when its first frame is late", async ({ page }) => {
+        const frames = await page.evaluate(async () => {
+            const a = document.getElementById("a")!
+            const start = performance.now()
+            window.Motion.animate(
+                a,
+                { x: [0, 100] },
+                { duration: 0.5, ease: "linear" }
+            )
+            /**
+             * The main thread is busy for longer than an animation's start
+             * may be late by.
+             */
+            while (performance.now() - start < 150) {}
+            return (window as any).recordFrames(a, 800)
+        })
+
+        for (let i = 1; i < frames.length; i++) {
+            expect(frames[i].x, `frame ${i}`).toBeGreaterThanOrEqual(
+                frames[i - 1].x - 0.5
+            )
+            expect(frames[i].count).toBeLessThan(2)
+        }
+        expect(frames[frames.length - 1].x).toBe(100)
+    })
+
     test("a sequence segment follows an easing WAAPI can't run", async ({
         page,
     }) => {
