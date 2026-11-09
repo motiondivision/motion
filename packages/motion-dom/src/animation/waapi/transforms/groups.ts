@@ -1,4 +1,5 @@
 import { frame } from "../../../frameloop"
+import type { MotionValue } from "../../../value"
 
 /**
  * The independent transform (x, scale, rotate etc) animations running on
@@ -42,12 +43,14 @@ export const transformGroups = new WeakMap<object, TransformGroupHooks>()
 export const repaintLimit = 6
 
 /**
- * Elements that repainted in the last frame, and so far in this one.
+ * Elements that repainted in the last frame, and so far in this one, each
+ * with the value that repainted it, if that's known.
  */
-let repainted = new Set<object>()
-let repainting = new Set<object>()
+type Repaints = Map<object, MotionValue | undefined>
+let repainted: Repaints = new Map()
+let repainting: Repaints = new Map()
 
-const isOver = (elements: Set<object>, element: object) =>
+const isOver = (elements: Repaints, element: object) =>
     elements.size >= repaintLimit && elements.has(element)
 
 /**
@@ -60,7 +63,19 @@ export const isRepainting = (element: object) =>
 const nextFrame = () => {
     const previous = repainted
     repainted = repainting
-    repainting = new Set()
+    repainting = new Map()
+
+    /**
+     * A value that's still animating repaints its element again, if not
+     * on this frame: a colour near its target is a new value only every
+     * few frames. So its element still counts, rather than its transforms
+     * moving to the compositor and back between changes.
+     */
+    repainted.forEach(
+        (value, element) =>
+            value?.animation?.state === "running" &&
+            repainting.set(element, value)
+    )
 
     /**
      * Elements held on the main thread that no longer repaint, or are no
@@ -68,7 +83,7 @@ const nextFrame = () => {
      */
     previous.size >= repaintLimit &&
         previous.forEach(
-            (element) =>
+            (_, element) =>
                 isRepainting(element) ||
                 transformGroups.get(element)?.schedule(true)
         )
@@ -77,17 +92,20 @@ const nextFrame = () => {
 }
 
 /**
- * Note that an element repaints this frame.
+ * Note that an element repaints this frame, for a value if it's given.
  */
-export const markRepaint = (element: object) => {
-    if (repainting.has(element)) return
+export const markRepaint = (element: object, value?: MotionValue) => {
+    if (repainting.has(element)) {
+        value && repainting.set(element, value)
+        return
+    }
 
     repainting.size || frame.postRender(nextFrame)
-    repainting.add(element)
+    repainting.set(element, value)
 
     const { size } = repainting
     if (size === repaintLimit) {
-        repainting.forEach((e) => transformGroups.get(e)?.demote(true))
+        repainting.forEach((_, e) => transformGroups.get(e)?.demote(true))
     } else if (size > repaintLimit) {
         transformGroups.get(element)?.demote(true)
     }

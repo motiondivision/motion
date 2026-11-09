@@ -1938,11 +1938,28 @@ describe("independent transform acceleration", () => {
         const elements = (count: number) =>
             Array.from({ length: count }, () => document.createElement("div"))
 
+        /**
+         * Elements that repaint are counted across the page, so each
+         * test's animations are stopped before the next.
+         */
+        const started: Array<{ stop: VoidFunction }> = []
+        const animateBox = (...args: Parameters<typeof animateElement>) => {
+            const animations = animateElement(...args)
+            started.push(...animations)
+            return animations
+        }
+
+        afterEach(async () => {
+            started.forEach((animation) => animation.stop())
+            started.length = 0
+            for (let i = 0; i < 3; i++) await nextFrame()
+        })
+
         it("stay on the compositor for a few elements", async () => {
             const boxes = elements(repaintLimit - 1)
 
             for (const element of boxes) {
-                animateElement(
+                animateBox(
                     element,
                     { x: [0, 100], borderRadius: ["0px", "10px"] },
                     { duration: 1, ease: "linear" }
@@ -1966,7 +1983,7 @@ describe("independent transform acceleration", () => {
             const boxes = elements(repaintLimit - 1)
 
             for (const element of boxes) {
-                animateElement(
+                animateBox(
                     element,
                     { x: [0, 100], borderRadius: ["0px", "10px"] },
                     { duration: 1, ease: "linear" }
@@ -1991,7 +2008,7 @@ describe("independent transform acceleration", () => {
             const boxes = elements(repaintLimit)
 
             for (const element of boxes) {
-                animateElement(
+                animateBox(
                     element,
                     { x: [0, 100], borderRadius: ["0px", "10px"] },
                     { duration: 1, ease: "linear" }
@@ -2019,7 +2036,7 @@ describe("independent transform acceleration", () => {
             const boxes = elements(repaintLimit)
 
             for (const element of boxes) {
-                animateElement(
+                animateBox(
                     element,
                     {
                         x: [0, 100],
@@ -2049,12 +2066,12 @@ describe("independent transform acceleration", () => {
             const boxes = elements(repaintLimit)
 
             for (const element of boxes) {
-                animateElement(element, { x: [0, 100] }, { duration: 2 })
+                animateBox(element, { x: [0, 100] }, { duration: 2 })
             }
             await untilRunning(boxes[0], 500)
 
             for (const element of boxes) {
-                animateElement(
+                animateBox(
                     element,
                     { borderRadius: ["0px", "10px"] },
                     { duration: 0.1 }
@@ -2079,10 +2096,76 @@ describe("independent transform acceleration", () => {
             }
         })
 
+        it("stay on the main thread while a style that changes on few frames animates", async () => {
+            const boxes = elements(repaintLimit)
+
+            for (const element of boxes) {
+                animateBox(element, { x: [0, 100] }, { duration: 2 })
+            }
+            await untilRunning(boxes[0], 500)
+
+            /**
+             * A colour this close to its target is a new value only every
+             * 100ms or so.
+             */
+            for (const element of boxes) {
+                animateBox(
+                    element,
+                    { backgroundColor: ["#ff0000", "#f80000"] },
+                    { duration: 0.8, ease: "linear" }
+                )
+            }
+            await wait(600)
+            await nextFrame()
+
+            /**
+             * Moving back to the compositor between its changes would
+             * rebuild the WAAPI animation every few frames.
+             */
+            for (const element of boxes) {
+                expect(transforms(element)).toHaveLength(0)
+                expect(
+                    created(element).filter(
+                        ({ keyframes }) => keyframes?.transform
+                    )
+                ).toHaveLength(1)
+            }
+
+            await wait(400)
+            await nextFrame()
+            await nextFrame()
+
+            for (const element of boxes) {
+                expect(transforms(element)).toHaveLength(1)
+            }
+        })
+
+        it("never build a compositor transform when the same call changes a style on few frames", async () => {
+            const boxes = elements(repaintLimit)
+
+            for (const element of boxes) {
+                animateBox(
+                    element,
+                    { x: [0, 100], backgroundColor: ["#ff0000", "#f80000"] },
+                    { duration: 0.8, ease: "linear" }
+                )
+            }
+            await wait(600)
+            await nextFrame()
+
+            for (const element of boxes) {
+                expect(
+                    created(element).filter(
+                        ({ keyframes }) => keyframes?.transform
+                    )
+                ).toHaveLength(0)
+            }
+        })
+
         it("stay on the compositor with other composited values", async () => {
             const element = document.createElement("div")
 
-            animateElement(
+            animateBox(
                 element,
                 { x: [0, 100], opacity: [0, 1] },
                 { duration: 1 }
@@ -2096,7 +2179,7 @@ describe("independent transform acceleration", () => {
             const color = motionValue("#f00")
             styleEffect(element, { color })
 
-            animateElement(element, { x: [0, 100] }, { duration: 1 })
+            animateBox(element, { x: [0, 100] }, { duration: 1 })
             await untilRunning(element, 500)
             await wait(150)
 

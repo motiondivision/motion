@@ -26,7 +26,9 @@ import { buildTransform } from "./transform"
  * elements cost more than animating their transforms on the main thread.
  */
 const noteRepaint = (element: Element, value: MotionValue) =>
-    value.isAnimating() && transformGroups.has(element) && markRepaint(element)
+    value.isAnimating() &&
+    transformGroups.has(element) &&
+    markRepaint(element, value)
 
 export const originProps = new Set(["originX", "originY", "originZ"])
 

@@ -93,29 +93,13 @@ export function animateValues(
     }
 
     /**
-     * Whether a style animating on the main thread repaints the element
-     * every frame. Counted before its transforms first build, so if too
-     * many elements repaint, they start on the main thread.
-     */
-    let repaints = false
-    /**
      * Whether it moves a transform, which its other compositor values
      * then share a WAAPI animation with.
      */
     let composes = false
     if (element?.current instanceof HTMLElement) {
-        for (const key in keyframes) {
-            composes ||= transformProps.has(key)
-            repaints ||= !(
-                transformProps.has(key) ||
-                acceleratedValues.has(key) ||
-                key.startsWith("origin") ||
-                key.startsWith("transition")
-            )
-        }
+        for (const key in keyframes) composes ||= transformProps.has(key)
     }
-
-    repaints && composes && markRepaint(element!.current!)
 
     for (const key in keyframes) {
         if (key === "transition" || key === "transitionEnd") continue
@@ -160,6 +144,20 @@ export function animateValues(
             animations.push(
                 value.animation as AnimationPlaybackControlsWithThen
             )
+
+        /**
+         * A style animating on the main thread repaints the element. It's
+         * counted before its transforms first build, so if too many
+         * elements repaint, they start on the main thread.
+         */
+        composes &&
+            !(
+                transformProps.has(key) ||
+                acceleratedValues.has(key) ||
+                key.startsWith("origin") ||
+                key.startsWith("transition")
+            ) &&
+            markRepaint(element!.current!, value)
     }
 
     animationRef || ref.animation?.start()
