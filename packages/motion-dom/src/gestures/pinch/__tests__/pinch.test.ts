@@ -1349,62 +1349,6 @@ describe("pinch limits", () => {
         expect(value(element, "rotate")).toBeCloseTo(0, 2)
     })
 
-    describe("pan: { cover: true }", () => {
-        // The parent is the element's own layout box: 0 to 100, -50 to 50
-        beforeEach(() => {
-            document.body.getBoundingClientRect = () =>
-                ({ left: 0, top: -50, right: 100, bottom: 50 }) as DOMRect
-        })
-
-        test("springs back to cover its parent after zooming out off-centre", async () => {
-            makePinchable(element, noop, {
-                scale: { min: 1 },
-                pan: { cover: true },
-            })
-
-            const gesture = await twoFinger(element, [0, 0, 100, 0])
-            await gesture.to([40, 10, 80, 10]) // close, around (60, 10)
-            expect(value(element, "scale")).toBeLessThan(1)
-
-            await gesture.end()
-            await sleep(1500)
-            expect(value(element, "scale")).toBeCloseTo(1, 3)
-            expect(value(element, "x")).toBeCloseTo(0, 1)
-            expect(value(element, "y")).toBeCloseTo(0, 1)
-        })
-
-        test("moves a zoomed element back over its parent's edge", async () => {
-            makePinchable(element, noop, {
-                scale: { min: 1, max: 4 },
-                pan: { cover: true },
-            })
-
-            const gesture = await twoFinger(element, [0, 0, 100, 0])
-            await gesture.to([-50, 0, 150, 0]) // 2x
-            await gesture.to([30, 0, 230, 0]) // moved 80px right
-            expect(value(element, "x")).toBeCloseTo(80, 1)
-
-            await gesture.end()
-            await sleep(1500)
-            // At 2x it can move 50px either way and still cover
-            expect(value(element, "scale")).toBeCloseTo(2, 3)
-            expect(value(element, "x")).toBeCloseTo(50, 1)
-            expect(value(element, "y")).toBeCloseTo(0, 1)
-        })
-
-        test("without cover, a zoomed element stays where it's left", async () => {
-            makePinchable(element, noop, { scale: { min: 1, max: 4 } })
-
-            const gesture = await twoFinger(element, [0, 0, 100, 0])
-            await gesture.to([-50, 0, 150, 0])
-            await gesture.to([30, 0, 230, 0])
-
-            await gesture.end()
-            await sleep(500)
-            expect(value(element, "x")).toBeCloseTo(80, 1)
-        })
-    })
-
     test("snapToOrigin animates everything back on release", async () => {
         makePinchable(element, noop, { snapToOrigin: true })
 

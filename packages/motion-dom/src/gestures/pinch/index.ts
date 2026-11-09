@@ -119,17 +119,6 @@ export interface PinchRotateOptions extends PinchLimits {
 /**
  * @public
  */
-export interface PinchPanOptions {
-    /**
-     * On release, move the element so it covers its parent, like a photo
-     * zoomed inside its frame. If it's smaller than its parent, centre it.
-     */
-    cover?: boolean
-}
-
-/**
- * @public
- */
 export interface PinchOptions {
     /**
      * Scale the element. Defaults to `true`. Pass `{ min, max }` to limit
@@ -152,11 +141,8 @@ export interface PinchOptions {
      * restarts there). Drag constraints aren't applied while pinching.
      *
      * Assumes the default `transform-origin` (the element's centre).
-     *
-     * Pass `{ cover: true }` to keep the element covering its parent when
-     * the touches lift.
      */
-    pan?: boolean | PinchPanOptions
+    pan?: boolean
 
     /**
      * The point that scale and rotation pivot around. `"pointer"` (the
@@ -424,7 +410,6 @@ export function addPinchListeners(
         const {
             scale: scaleOption,
             rotate: rotateOption,
-            pan,
             snapToOrigin,
             transition,
         } = options
@@ -480,48 +465,9 @@ export function addPinchListeners(
             ]
         }
 
-        /**
-         * With `pan: { cover: true }`, how far x/y must move from where the
-         * focal point leaves them to cover the parent at the final scale
-         * and rotation. Centred if the element is smaller.
-         */
-        let dx = 0
-        let dy = 0
-
-        if (moves && !snapToOrigin && (pan as PinchPanOptions)?.cover) {
-            const box = element.parentElement!.getBoundingClientRect()
-            const { offsetWidth: w, offsetHeight: h } = element as HTMLElement
-            const a = (r1 * Math.PI) / 180
-            const cos = Math.abs(Math.cos(a)) * s1
-            const sin = Math.abs(Math.sin(a)) * s1
-            const [, , x1, y1] = at(1)
-            const fit = (
-                to: number,
-                origin: number,
-                size: number,
-                start: number,
-                end: number
-            ) => {
-                const low = end - size / 2 - origin
-                const high = start + size / 2 - origin
-                return (
-                    (low > high
-                        ? (start + end) / 2 - origin
-                        : clamp(low, high, to)) - to
-                )
-            }
-
-            dx = fit(x1, originX, cos * w + sin * h, box.left, box.right)
-            dy = fit(y1, originY, sin * w + cos * h, box.top, box.bottom)
-        }
-
         if (
             !s0 ||
-            (s1 === s0 &&
-                r1 === r0 &&
-                !dx &&
-                !dy &&
-                !(snapToOrigin && moves && (x0 || y0)))
+            (s1 === s0 && r1 === r0 && !(snapToOrigin && moves && (x0 || y0)))
         ) {
             return
         }
@@ -550,8 +496,8 @@ export function addPinchListeners(
             rotateOption !== false && rotate.set(r)
 
             if (moves) {
-                x.set(snapToOrigin ? mixNumber(x0, 0, p) : fx + dx * p)
-                y.set(snapToOrigin ? mixNumber(y0, 0, p) : fy + dy * p)
+                x.set(snapToOrigin ? mixNumber(x0, 0, p) : fx)
+                y.set(snapToOrigin ? mixNumber(y0, 0, p) : fy)
             }
         }
 
