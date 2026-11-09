@@ -377,11 +377,12 @@ export function addPinchListeners(
         let s1 = clampTo(s0, limitsOf(scaleOption))
         /**
          * Snap to the step nearest where the release velocity would carry
-         * the rotation, found as inertia finds its target.
+         * the rotation, found as inertia finds its target (with a lower power
+         * than inertia's 0.8).
          */
         let r1 = clampTo(
             step
-                ? Math.round((r0 + 0.8 * rotate.getVelocity()) / step) * step
+                ? Math.round((r0 + 0.2 * rotate.getVelocity()) / step) * step
                 : r0,
             limitsOf(rotateOption)
         )
