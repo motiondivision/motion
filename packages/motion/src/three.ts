@@ -18,6 +18,9 @@ export type ThreeEffectValues = Record<string, MotionValue>
 type Uniforms = Record<string, ThreeUniform>
 type ThreeObject = Record<string, any>
 
+export { htmlPlane } from "./html-plane"
+export type { HTMLPlane, HTMLPlaneOptions, HTMLPlaneThree } from "./html-plane"
+
 /**
  * Binds motion values to Three.js objects, materials and uniforms.
  *

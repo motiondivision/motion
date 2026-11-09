@@ -106,6 +106,11 @@ export const scenarios = {
     ),
     "motion-div+Reorder": combo("Reorder"),
     "domMax+useScroll": `export { domMax, useScroll } from "motion/react"`,
+
+    // motion/three
+    threeEffect: `export { threeEffect } from "motion/three"`,
+    htmlPlane: `export { htmlPlane } from "motion/three"`,
+    "three-all": `export * from "motion/three"`,
 }
 
 /**

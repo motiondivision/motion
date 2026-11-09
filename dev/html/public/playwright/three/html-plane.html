@@ -1,0 +1,111 @@
+<html>
+    <head>
+        <link rel="icon" href="data:," />
+        <style>
+            body {
+                margin: 0;
+                font-family: sans-serif;
+            }
+
+            canvas {
+                position: absolute;
+                left: 20px;
+                top: 10px;
+                width: 800px;
+                height: 600px;
+            }
+
+            .card {
+                box-sizing: border-box;
+                width: 300px;
+                height: 200px;
+                padding: 16px;
+                background: #ffffff;
+                color: #000000;
+            }
+
+            #label {
+                height: 48px;
+                font: 700 40px/48px sans-serif;
+                white-space: nowrap;
+            }
+
+            #swatch {
+                width: 80px;
+                height: 40px;
+                margin-bottom: 12px;
+                background: rgb(128, 128, 128);
+            }
+
+            #button {
+                display: block;
+                width: 120px;
+                height: 44px;
+                border: 0;
+                background: rgb(0, 0, 255);
+                color: white;
+            }
+
+            #input {
+                display: block;
+                width: 260px;
+                height: 40px;
+                margin-top: 60px;
+                font-size: 18px;
+            }
+        </style>
+    </head>
+    <body>
+        <canvas id="scene"></canvas>
+        <main>
+            <div class="card" id="card">
+                <div id="label">Hello</div>
+                <div id="swatch"></div>
+                <button id="button">Press</button>
+            </div>
+            <div class="card" id="form">
+                <input id="input" placeholder="Type" spellcheck="false" />
+            </div>
+        </main>
+
+        <script type="module" src="/src/imports/html-plane.js"></script>
+        <script type="module">
+            const { htmlPlane, THREE, support, createScene } =
+                window.HTMLPlaneTest
+
+            const errors = []
+            window.addEventListener("error", (event) =>
+                errors.push(event.message)
+            )
+
+            const canvas = document.getElementById("scene")
+            const { renderer, camera, scene } = createScene(canvas)
+
+            const presses = []
+            document
+                .getElementById("button")
+                .addEventListener("click", () => presses.push(Date.now()))
+
+            const options = { three: THREE, renderer, camera }
+            const card = htmlPlane(document.getElementById("card"), options)
+            const form = htmlPlane(document.getElementById("form"), options)
+            card.userData.canvas = form.userData.canvas = canvas
+            card.position.x = -180
+            form.position.x = 190
+            scene.add(card, form)
+
+            window.test = {
+                support,
+                canvas,
+                renderer,
+                camera,
+                scene,
+                card,
+                form,
+                presses,
+                errors,
+            }
+            window.ready = true
+        </script>
+    </body>
+</html>
