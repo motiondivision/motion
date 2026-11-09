@@ -80,7 +80,9 @@ export interface HTMLPlane extends ThreeObject {
     readonly element: HTMLElement
 
     /**
-     * The live texture, for custom materials.
+     * The live texture, for custom materials. Like other three.js image
+     * textures it's sRGB, not premultiplied, and the right way up with a
+     * `PlaneGeometry`'s UVs.
      */
     readonly texture: ThreeObject
 
@@ -211,7 +213,8 @@ export function rectToQuad(width: number, height: number, q: Float64Array) {
  *
  * The element moves into the renderer's canvas and stays a real element.
  * The plane's texture updates when it repaints, and pointer events, focus
- * and the accessibility tree follow the plane through the camera.
+ * and the accessibility tree follow the plane through the camera. Inside
+ * the canvas it's laid out as a block, so give it a width and height.
  *
  * Render the scene however you like. Placing the element runs in
  * `frame.postRender`, after render loops scheduled with `frame.render`.
