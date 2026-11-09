@@ -255,8 +255,7 @@ const resolveElastic = (
  * Whether the gesture writes `x`/`y`: to follow the focal point, or to
  * keep an `origin` on the element in place.
  */
-const writesXY = ({ pan, origin }: PinchOptions) =>
-    pan !== false || !!origin
+const writesXY = ({ pan, origin }: PinchOptions) => pan !== false || !!origin
 
 const clampTo = (value: number, { min = -Infinity, max = Infinity }) =>
     clamp(min, max, value)
