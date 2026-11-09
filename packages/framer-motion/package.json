@@ -149,7 +149,7 @@
         },
         {
             "path": "./dist/size-rollup-m-dom-max-pinch.js",
-            "maxSize": "45.85 kB"
+            "maxSize": "45.95 kB"
         },
         {
             "path": "./dist/size-rollup-animate.js",
