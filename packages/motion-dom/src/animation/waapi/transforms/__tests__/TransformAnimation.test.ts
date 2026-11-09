@@ -473,6 +473,27 @@ describe("independent transform acceleration", () => {
         expect(element.style.transform).toContain("translateY")
     })
 
+    it("leaves an inertia animation with no velocity where it started", async () => {
+        const element = document.createElement("div")
+        const onComplete = jest.fn()
+
+        /**
+         * As a drag is released without momentum. Inertia has no target:
+         * it ends where its velocity takes it.
+         */
+        animateElement(
+            element,
+            { x: [120, 0] },
+            { type: "inertia", velocity: 0, onComplete }
+        )
+        await nextFrame()
+        await nextFrame()
+        await nextFrame()
+
+        expect(onComplete).toBeCalledTimes(1)
+        expect(element.style.transform).toBe("translateX(120px)")
+    })
+
     it("finishes a value that can't be accelerated if it ends before the group builds", async () => {
         const element = document.createElement("div")
         const onComplete = jest.fn()

@@ -30,6 +30,7 @@ import { isTransitionDefined } from "../utils/is-transition-defined"
 import { makeAnimationInstant } from "../utils/make-animation-instant"
 import { fillAnimationDefaults } from "../utils/resolved-options"
 import { supportsBrowserAnimation } from "../waapi/supports/waapi"
+import { supportsLinearEasing } from "../../utils/supports/linear-easing"
 import { isGenerator } from "../generators/utils/is-generator"
 import { replaceTransitionType } from "../utils/replace-transition-type"
 import { replaceStringEasing } from "../waapi/utils/unsupported-easing"
@@ -212,7 +213,12 @@ function waapiTiming(options: any, ease: any) {
     let { duration = 300 } = options
 
     if (isGenerator(type)) {
-        ;({ duration, ease } = type.applyToOptions!({ ...options }))
+        /**
+         * Without linear() to trace it with, WAAPI runs it as a tween.
+         */
+        if (supportsLinearEasing()) {
+            ;({ duration, ease } = type.applyToOptions!({ ...options }))
+        }
     } else if (type !== keyframesType) {
         return false
     }
@@ -335,7 +341,6 @@ function resolve(
         springs && canAnimateValue && shareSpring(options, springs)
 
         if (
-            element &&
             canAnimateValue &&
             !track.isTransform &&
             supportsBrowserAnimation(options as any)
@@ -345,7 +350,7 @@ function resolve(
             const timing =
                 options.type === keyframesType
                     ? (plan.waapi ??= waapiTiming(options, plan.base.ease))
-                    : waapiTiming(options, undefined)
+                    : waapiTiming(options, plan.base.ease)
 
             if (track.isStopped || (parent as any).isStopped) return
             if (timing) {
@@ -392,7 +397,13 @@ export const startValue =
         target: any,
         transition: any,
         element?: AnimationElement,
-        composes?: boolean
+        composes?: boolean,
+        /**
+         * It carries on from an optimised appear animation, so it's never
+         * set straight to its target, and reads its origin from its value
+         * rather than the element.
+         */
+        isHandoff?: boolean
     ): StartAnimation =>
     (onComplete) => {
         const valueTransition = getValueTransition(transition, name) || {}
@@ -423,6 +434,7 @@ export const startValue =
          */
         if (
             (plan.isSkipped || (plan.isInstant && !delay)) &&
+            !isHandoff &&
             value.get() !== undefined
         ) {
             const finalKeyframe = getFinalKeyframe(keyframes, valueTransition)
@@ -454,6 +466,8 @@ export const startValue =
         const parent = (ref.animation ||= new MultiValueAnimation(base.driver))
         if (base.autoplay === false) parent.options.autoplay = false
         parent.options.startTime ??= base.startTime
+
+        if (isHandoff) element = undefined
 
         const options: ValueAnimationOptions<any> = {
             ...base,

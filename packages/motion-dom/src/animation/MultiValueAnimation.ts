@@ -343,10 +343,15 @@ export class ValueTrack<T extends AnyResolvedKeyframe = any>
 
     /**
      * Finish this value now, at its end, or played backwards, its start.
+     * Inertia has no target to end at, only where it is by now.
      */
     complete() {
         if (this.isDone) return
-        this.update(this.end())
+        this.update(
+            this.options.type === inertia
+                ? this.sampleAt(time.now())
+                : this.end()
+        )
         this.finish()
     }
 
@@ -569,7 +574,7 @@ export class MultiValueAnimation extends AnimationClock<any> {
             const speed = this.playbackSpeed
             const delta = this.state === "running" && speed ? sampleDelta : 0
             const current = this.valueAt(track, now)
-            isPseudo || setStyle(elementOf(track), track.options.name!, current)
+            isPseudo || commit(track, current)
             track.value.setWithVelocity(
                 this.valueAt(track, now - delta * Math.sign(speed)),
                 current,
@@ -1040,14 +1045,20 @@ function onNativeFinish(this: Animation) {
     watch(this)
     if (!(options as any).pseudoElement) {
         track.update(keyframe)
-        setStyle(elementOf(track), options.name!, keyframe)
+        commit(track, keyframe)
         this.cancel()
     }
     track.finish()
 }
 
-const elementOf = (track: ValueTrack) =>
-    track.value.owner!.current as HTMLElement
+/**
+ * Write a value as its element's inline style, unless the element has
+ * unmounted since.
+ */
+const commit = (track: ValueTrack, value: AnyResolvedKeyframe) => {
+    const element = track.value.owner!.current as HTMLElement | null
+    element && setStyle(element, track.options.name!, value)
+}
 
 /**
  * A pooled WAAPI animation points at its track only while it can finish.
