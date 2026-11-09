@@ -11,6 +11,7 @@ import type {
     DragElastic,
 } from "../gestures/drag/types"
 import { PanInfo } from "../gestures/pan/types"
+import type { PinchProps } from "../gestures/pinch"
 import type { PressOptions } from "../gestures/press/types"
 import type { MotionValue } from "../value"
 
@@ -1128,4 +1129,29 @@ export interface MotionNodeOptions
      * ```
      */
     propagate?: PropagateOptions
+
+    /**
+     * Scale (and optionally rotate and move) the element with pinch
+     * gestures: two touches, a trackpad pinch or Safari's gesture events.
+     * Pass options to configure it.
+     *
+     * Requires `pinchFeatures` to be loaded via `LazyMotion`.
+     *
+     * ```jsx
+     * <LazyMotion features={{ ...domMax, ...pinchFeatures }}>
+     *   <motion.img pinch={{ min: 1, max: 4 }} />
+     * </LazyMotion>
+     * ```
+     */
+    pinch?: boolean | PinchProps
+
+    /**
+     * Properties or variant label to animate to while the pinch gesture
+     * is recognised. Like `pinch`, requires `pinchFeatures`.
+     *
+     * ```jsx
+     * <motion.img pinch whilePinch={{ boxShadow: "0 8px 32px #0004" }} />
+     * ```
+     */
+    whilePinch?: VariantLabels | TargetAndTransition
 }

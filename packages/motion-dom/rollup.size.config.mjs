@@ -60,4 +60,9 @@ styleEffect.plugins = [
     ...styleEffect.plugins,
 ]
 
-export default [motionValue, styleEffect]
+const pinch = createSizeBundle(
+    "lib/gestures/pinch/index.js",
+    "dist/size-rollup-pinch.js"
+)
+
+export default [motionValue, styleEffect, pinch]
