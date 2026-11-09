@@ -74,6 +74,32 @@ describe("pinch prop", () => {
         expect(scale.get()).toBeCloseTo(2)
     })
 
+    test("motion component scales with only pinchFeatures loaded", async () => {
+        const scale = motionValue(1)
+        const { container } = render(
+            <LazyMotion features={pinchFeatures}>
+                <motion.div pinch style={{ scale }} />
+            </LazyMotion>
+        )
+
+        await act(() => spread(container.firstChild as Element))
+
+        expect(scale.get()).toBeCloseTo(2)
+    })
+
+    test("m component scales with only pinchFeatures loaded", async () => {
+        const scale = motionValue(1)
+        const { container } = render(
+            <LazyMotion features={pinchFeatures} strict>
+                <m.div pinch style={{ scale }} />
+            </LazyMotion>
+        )
+
+        await act(() => spread(container.firstChild as Element))
+
+        expect(scale.get()).toBeCloseTo(2)
+    })
+
     test("passes options and callbacks", async () => {
         const scale = motionValue(1)
         const onEnd = jest.fn()
