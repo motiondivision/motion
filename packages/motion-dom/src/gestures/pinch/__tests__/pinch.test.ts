@@ -448,6 +448,16 @@ describe("pinch", () => {
         expect(value(element, "scale")).toBeCloseTo(1.5)
     })
 
+    test("takes options as the second argument", async () => {
+        stops.push(pinch(element, { scale: { max: 1.5 }, elastic: 0 }))
+
+        const gesture = await twoFinger(element, [0, 0, 100, 0])
+        await gesture.to([0, 0, 200, 0])
+        await gesture.end()
+
+        expect(value(element, "scale")).toBeCloseTo(1.5)
+    })
+
     test("calls the start callback once per gesture", async () => {
         const onComplete = jest.fn()
         const onStart = jest.fn(() => ({ onComplete }))

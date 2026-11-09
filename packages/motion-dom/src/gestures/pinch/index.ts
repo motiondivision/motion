@@ -818,12 +818,13 @@ const getElementValues = (element: HTMLElement | SVGElement) => {
  *
  * ```javascript
  * pinch("img")
+ * pinch("img", { scale: { min: 1, max: 4 } })
  * ```
  *
  * ```javascript
  * const stop = pinch("#photo", (element, startEvent) => {
  *   return (endEvent, info) => {}
- * }, { min: 1, max: 4 })
+ * }, { scale: { min: 1, max: 4 } })
  * ```
  *
  * `onPinchStart` is called once as each pinch starts. It can return a
@@ -845,9 +846,26 @@ const getElementValues = (element: HTMLElement | SVGElement) => {
  */
 export function pinch(
     elementOrSelector: ElementOrSelector,
-    onPinchStart: OnPinchStartEvent = () => {},
+    options?: PinchOptions
+): VoidFunction
+export function pinch(
+    elementOrSelector: ElementOrSelector,
+    onPinchStart?: OnPinchStartEvent,
+    options?: PinchOptions
+): VoidFunction
+export function pinch(
+    elementOrSelector: ElementOrSelector,
+    startOrOptions?: OnPinchStartEvent | PinchOptions,
     options: PinchOptions = {}
 ): VoidFunction {
+    let onPinchStart: OnPinchStartEvent = () => {}
+
+    if (typeof startOrOptions === "function") {
+        onPinchStart = startOrOptions
+    } else if (startOrOptions) {
+        options = startOrOptions
+    }
+
     const scope = activeScope.current
 
     /**
