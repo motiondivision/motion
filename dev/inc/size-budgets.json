@@ -16,6 +16,8 @@
     "frame": 750,
     "mix": 2350,
     "vanilla-all": 61246,
+    "canvas": 17637,
+    "canvas+animate": 33271,
     "motion-div": 44456,
     "motion-create": 44460,
     "m-div": 4827,
