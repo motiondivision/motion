@@ -1309,6 +1309,8 @@ describe("pinch limits", () => {
         const gesture = await twoFinger(element, [0, 0, 100, 0])
         await gesture.to([50, -50, 50, 50]) // 90deg
         await gesture.to([100, -30, 0, 30]) // about 149deg
+        // Hold still, so there's no release velocity
+        await sleep(50)
 
         const before = local({ x: 50, y: 0 })
         await gesture.end()
@@ -1318,6 +1320,33 @@ describe("pinch limits", () => {
         const after = local({ x: 50, y: 0 })
         expect(after.x).toBeCloseTo(before.x, 1)
         expect(after.y).toBeCloseTo(before.y, 1)
+    })
+
+    test("rotation snaps to the step its release velocity carries it to", async () => {
+        makePinchable(element, noop, { rotate: { snap: 90 } })
+
+        const gesture = await twoFinger(element, [0, 0, 100, 0])
+        await gesture.to([9.55, -29.39, 90.45, 29.39]) // 36deg
+        await gesture.to([10.33, -30.44, 89.67, 30.44]) // 37.5deg
+        await gesture.to([11.14, -31.47, 88.86, 31.47]) // 39deg, still turning
+
+        // Without the turn's velocity this would snap back to 0
+        await gesture.end()
+        await sleep(1500)
+        expect(value(element, "rotate")).toBeCloseTo(90, 2)
+    })
+
+    test("rotation released still snaps to the nearest step", async () => {
+        makePinchable(element, noop, { rotate: { snap: 90 } })
+
+        const gesture = await twoFinger(element, [0, 0, 100, 0])
+        await gesture.to([7, -20, 93, 20]) // about 25deg
+        await gesture.to([14, -29, 86, 29]) // about 39deg
+        await sleep(50)
+
+        await gesture.end()
+        await sleep(1500)
+        expect(value(element, "rotate")).toBeCloseTo(0, 2)
     })
 
     test("snapToOrigin animates everything back on release", async () => {
