@@ -30,6 +30,17 @@ const chromiumLaunchOptions =
         : {}
 
 /**
+ * HTML-in-canvas tests run in Chromium's origin trial build, through the
+ * dev shim in dev/html/src/imports/html-in-canvas-trial.js. Software WebGL
+ * so they run without a GPU.
+ */
+const webglArgs = [
+    "--use-angle=swiftshader",
+    "--enable-unsafe-swiftshader",
+    "--ignore-gpu-blocklist",
+]
+
+/**
  * See https://playwright.dev/docs/test-configuration.
  */
 export default defineConfig({
@@ -61,13 +72,37 @@ export default defineConfig({
                 ...devices["Desktop Chrome"],
                 launchOptions: chromiumLaunchOptions,
             },
-            testIgnore: /tests\/(react|remix)\//,
+            testIgnore: /tests\/(react|remix|html-in-canvas)\//,
         },
 
         {
             name: "webkit",
             use: { ...devices["Desktop Safari"] },
-            testIgnore: /tests\/(react|remix)\//,
+            testIgnore: /tests\/(react|remix|html-in-canvas)\//,
+        },
+
+        {
+            name: "html-in-canvas",
+            testMatch: /tests\/html-in-canvas\/.*\.trial\.spec\.ts/,
+            use: {
+                ...devices["Desktop Chrome"],
+                launchOptions: {
+                    ...chromiumLaunchOptions,
+                    args: [
+                        ...webglArgs,
+                        "--enable-blink-features=CanvasDrawElement",
+                    ],
+                },
+            },
+        },
+
+        {
+            name: "html-in-canvas-off",
+            testMatch: /tests\/html-in-canvas\/.*\.off\.spec\.ts/,
+            use: {
+                ...devices["Desktop Chrome"],
+                launchOptions: { ...chromiumLaunchOptions, args: webglArgs },
+            },
         },
 
         /**
