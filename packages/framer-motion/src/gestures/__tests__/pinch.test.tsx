@@ -239,6 +239,23 @@ describe("pinch prop", () => {
         expect(element.style.touchAction).toBe("none")
     })
 
+    test("keeps a touch-action set in style, so a pinchable list can scroll", () => {
+        const { container, rerender } = render(
+            <LazyMotion features={features}>
+                <m.div pinch style={{ touchAction: "pan-y" }} />
+            </LazyMotion>
+        )
+        const element = container.firstChild as HTMLElement
+
+        expect(element.style.touchAction).toBe("pan-y")
+        rerender(
+            <LazyMotion features={features}>
+                <m.div pinch style={{ touchAction: "pan-y", opacity: 0.5 }} />
+            </LazyMotion>
+        )
+        expect(element.style.touchAction).toBe("pan-y")
+    })
+
     test("pinch={false} mid-gesture ends it", async () => {
         const scale = motionValue(1)
         const onEnd = jest.fn()

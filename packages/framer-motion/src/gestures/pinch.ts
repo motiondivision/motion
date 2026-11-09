@@ -5,6 +5,7 @@ import {
     type PinchProps,
     type PinchValues,
 } from "motion-dom"
+import type { MotionProps } from "../motion/types"
 
 const valueKeys = ["scale", "rotate", "x", "y"]
 
@@ -63,15 +64,18 @@ export class PinchGesture extends Feature<Element> {
     }
 
     /**
-     * Stop touches panning or zooming the page while pinch is on. Set here
-     * rather than when rendering, so the default bundle doesn't pay for it,
-     * and on every update, as React rewrites it when drag's axis changes.
+     * Stop touches panning or zooming the page while pinch is on, unless
+     * `style` sets a `touchAction` (like "pan-y" for a list that scrolls
+     * with one finger). Set here rather than when rendering, so the default
+     * bundle doesn't pay for it, and on every update, as React rewrites it
+     * when drag's axis changes.
      */
     update() {
         const style = (this.node.current as HTMLElement | null)?.style
         if (style) {
-            style.touchAction = this.node.getProps().pinch
-                ? "none"
+            const { pinch, style: props } = this.node.getProps() as MotionProps
+            style.touchAction = pinch
+                ? (props?.touchAction as string) || "none"
                 : this.touchAction
         }
     }
