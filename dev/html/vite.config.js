@@ -10,6 +10,7 @@ export default defineConfig({
         rollupOptions: {
             input: [
                 "index.html",
+                "canvas.html",
                 "three-animate.html",
                 "three-effects.html",
                 "three-tsl.html",

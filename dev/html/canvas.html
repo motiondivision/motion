@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Motion canvas layer</title>
+        <style>
+            body {
+                margin: 0;
+                padding: 24px;
+                background: #09090b;
+                color: #fafafa;
+                font: 14px/1.4 system-ui, sans-serif;
+            }
+
+            canvas {
+                display: block;
+                width: 720px;
+                height: 420px;
+                background: #18181b;
+                border-radius: 8px;
+            }
+
+            .tile {
+                width: 200px;
+                height: 160px;
+                padding: 16px;
+                box-sizing: border-box;
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+                background: #27272a;
+                border-radius: 12px;
+                color: #fafafa;
+                font: 600 24px/1 system-ui, sans-serif;
+            }
+
+            .tile.on {
+                background: #facc15;
+                color: #09090b;
+            }
+
+            .tile button {
+                align-self: flex-start;
+                font: inherit;
+                font-size: 13px;
+                padding: 6px 10px;
+                border-radius: 6px;
+                border: 1px solid currentColor;
+                background: none;
+                color: inherit;
+                cursor: pointer;
+            }
+
+            .controls {
+                display: flex;
+                gap: 16px;
+                align-items: center;
+                margin: 16px 0;
+            }
+
+            .unsupported {
+                display: none;
+            }
+
+            .unsupported.on {
+                display: block;
+            }
+        </style>
+    </head>
+    <body>
+        <p class="unsupported">
+            This page needs HTML-in-canvas: Chrome 157+, or Chromium 138-156
+            with --enable-blink-features=CanvasDrawElement.
+        </p>
+        <div class="controls">
+            <button id="shuffle">Shuffle</button>
+            <label>
+                Motion blur
+                <input
+                    id="blur"
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value="0.6"
+                />
+            </label>
+            <button id="wipe">Shader wipe</button>
+            <button id="export">Export 3s video</button>
+            <output id="status"></output>
+        </div>
+        <canvas></canvas>
+        <script type="module" src="/src/canvas-demo.js"></script>
+    </body>
+</html>
