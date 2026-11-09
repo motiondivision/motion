@@ -119,6 +119,17 @@ export interface PinchRotateOptions extends PinchLimits {
 /**
  * @public
  */
+export interface PinchPanOptions {
+    /**
+     * On release, move the element so it covers its parent, like a photo
+     * zoomed inside its frame. If it's smaller than its parent, centre it.
+     */
+    cover?: boolean
+}
+
+/**
+ * @public
+ */
 export interface PinchOptions {
     /**
      * Scale the element. Defaults to `true`. Pass `{ min, max }` to limit
@@ -141,8 +152,11 @@ export interface PinchOptions {
      * restarts there). Drag constraints aren't applied while pinching.
      *
      * Assumes the default `transform-origin` (the element's centre).
+     *
+     * Pass `{ cover: true }` to keep the element covering its parent when
+     * the touches lift.
      */
-    pan?: boolean
+    pan?: boolean | PinchPanOptions
 
     /**
      * How far scale and rotation can go past their limits, as for
@@ -401,9 +415,52 @@ export function addPinchListeners(
         const vx = originX + x0 - current.x
         const vy = originY + y0 - current.y
 
+        /**
+         * With `pan: { cover: true }`, find where the focal point would
+         * leave the element, and how far it must move from there to cover
+         * its parent at the final scale and rotation.
+         */
+        let dx = 0
+        let dy = 0
+
+        if (moves && !snapToOrigin && (pan as PinchPanOptions)?.cover) {
+            const { left, top, right, bottom } =
+                element.parentElement!.getBoundingClientRect()
+            const { offsetWidth: w, offsetHeight: h } = element as HTMLElement
+            const turn = ((r1 - r0) * Math.PI) / 180
+            const k = s1 / s0
+            const a = (r1 * Math.PI) / 180
+            const cos = Math.abs(Math.cos(a))
+            const sin = Math.abs(Math.sin(a))
+            const fit = (
+                to: number,
+                origin: number,
+                half: number,
+                start: number,
+                end: number
+            ) => {
+                const low = end - half - origin
+                const high = start + half - origin
+                return (
+                    (low > high
+                        ? (start + end) / 2 - origin
+                        : Math.min(high, Math.max(low, to))) - to
+                )
+            }
+            const x1 = x0 + k * (Math.cos(turn) * vx - Math.sin(turn) * vy) - vx
+            const y1 = y0 + k * (Math.sin(turn) * vx + Math.cos(turn) * vy) - vy
+
+            dx = fit(x1, originX, (s1 * (cos * w + sin * h)) / 2, left, right)
+            dy = fit(y1, originY, (s1 * (sin * w + cos * h)) / 2, top, bottom)
+        }
+
         if (
             !s0 ||
-            (s1 === s0 && r1 === r0 && !(snapToOrigin && moves && (x0 || y0)))
+            (s1 === s0 &&
+                r1 === r0 &&
+                !dx &&
+                !dy &&
+                !(snapToOrigin && moves && (x0 || y0)))
         ) {
             return
         }
@@ -439,12 +496,12 @@ export function addPinchListeners(
                 x.set(
                     snapToOrigin
                         ? mixNumber(x0, 0, p)
-                        : x0 + cos * vx - sin * vy - vx
+                        : x0 + cos * vx - sin * vy - vx + dx * p
                 )
                 y.set(
                     snapToOrigin
                         ? mixNumber(y0, 0, p)
-                        : y0 + sin * vx + cos * vy - vy
+                        : y0 + sin * vx + cos * vy - vy + dy * p
                 )
             }
         }
