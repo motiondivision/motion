@@ -339,7 +339,6 @@ export const startValue =
         target: any,
         transition: any,
         element?: AnimationElement,
-        repaints?: boolean,
         composes?: boolean
     ): StartAnimation =>
     (onComplete) => {
@@ -414,13 +413,6 @@ export const startValue =
         }
 
         if (isTransform) {
-            /**
-             * Its element repaints every frame for another value of this
-             * call, so, as with onUpdate, the transforms stay on the main
-             * thread.
-             */
-            if (repaints) options.hasOnUpdate = true
-
             /**
              * A spring from rest has the same curve for every value with
              * its options. As one easing, an element's transforms compose

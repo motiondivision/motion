@@ -1,4 +1,7 @@
-import { transformGroups } from "../../animation/waapi/transforms/groups"
+import {
+    markRepaint,
+    transformGroups,
+} from "../../animation/waapi/transforms/groups"
 import { isCSSVar } from "../../render/dom/is-css-var"
 import { acceleratedValues } from "../../animation/waapi/utils/accelerated-values"
 import { readTransformValue } from "../../render/dom/parse-transform"
@@ -18,12 +21,12 @@ import { setStyle } from "./output"
 import { buildTransform } from "./transform"
 
 /**
- * A style animating on the main thread repaints the element every frame,
- * so a compositor layer for its transforms would only add work. They move
- * to the main thread too.
+ * A style animating on the main thread repaints the element every frame.
+ * If it also has compositor transforms, count it, as too many such
+ * elements cost more than animating their transforms on the main thread.
  */
-const demoteTransforms = (element: Element, value: MotionValue) =>
-    value.isAnimating() && transformGroups.get(element)?.demote()
+const noteRepaint = (element: Element, value: MotionValue) =>
+    value.isAnimating() && transformGroups.has(element) && markRepaint(element)
 
 export const originProps = new Set(["originX", "originY", "originZ"])
 
@@ -100,7 +103,7 @@ export const addStyleValue = (
          */
         const isComposited = acceleratedValues.has(key)
         render = () => {
-            isComposited || demoteTransforms(element, value)
+            isComposited || noteRepaint(element, value)
             setStyle(
                 element,
                 key,

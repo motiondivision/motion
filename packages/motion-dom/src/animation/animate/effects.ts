@@ -3,6 +3,7 @@ import { AnimateEffect } from "../../effects/utils/create-effect"
 import { frame } from "../../frameloop"
 import { positionalKeys } from "../../render/utils/keys-position"
 import { transformProps } from "../../render/utils/keys-transform"
+import { markRepaint } from "../waapi/transforms/groups"
 import { acceleratedValues } from "../waapi/utils/accelerated-values"
 import { MotionValue, motionValue } from "../../value"
 import { MultiValueRef, startValue } from "./multi-value"
@@ -92,9 +93,9 @@ export function animateValues(
     }
 
     /**
-     * A style animating on the main thread repaints an element every
-     * frame, so a compositor layer for its transforms would only add work
-     * and they animate there too.
+     * Whether a style animating on the main thread repaints the element
+     * every frame. Counted before its transforms first build, so if too
+     * many elements repaint, they start on the main thread.
      */
     let repaints = false
     /**
@@ -113,6 +114,8 @@ export function animateValues(
             )
         }
     }
+
+    repaints && composes && markRepaint(element!.current!)
 
     for (const key in keyframes) {
         if (key === "transition" || key === "transitionEnd") continue
@@ -149,7 +152,6 @@ export function animateValues(
                     ? { type: false }
                     : transition,
                 element,
-                repaints,
                 composes
             )
         )
