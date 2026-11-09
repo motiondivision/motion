@@ -159,6 +159,15 @@ export interface PinchOptions {
     pan?: boolean | PinchPanOptions
 
     /**
+     * The point that scale and rotation pivot around. `"pointer"` (the
+     * default) is the focal point between the touches, or the cursor.
+     * `{ x, y }` is a point on the element, as a fraction of its width
+     * and height: `{ x: 0.5, y: 0.5 }` is its centre. With `pan: false`,
+     * the default is the centre.
+     */
+    origin?: "pointer" | Point
+
+    /**
      * How far scale and rotation can go past their limits, as for
      * `dragElastic`: `0` stops at the limit, `1` doesn't resist. Pass
      * `{ min, max }` to set each side. Defaults to `0.35`.
@@ -242,6 +251,13 @@ const resolveElastic = (
         : { min: side(elastic), max: side(elastic) }
 }
 
+/**
+ * Whether the gesture writes `x`/`y`: to follow the focal point, or to
+ * keep an `origin` on the element in place.
+ */
+const writesXY = ({ pan, origin }: PinchOptions) =>
+    pan !== false || !!origin
+
 const clampTo = (value: number, { min = -Infinity, max = Infinity }) =>
     clamp(min, max, value)
 
@@ -305,6 +321,8 @@ export function addPinchListeners(
     let values: PinchValues | undefined
     let originX = 0
     let originY = 0
+    let width = 0
+    let height = 0
     let lastX = 0
     let lastY = 0
     let hasMoved = false
@@ -339,8 +357,9 @@ export function addPinchListeners(
      * centre (the default transform origin), so they don't move it.
      */
     const measure = () => {
-        const { left, top, width, height } = element.getBoundingClientRect()
-        const { scale, rotate, pan, elastic } = getOptions()
+        const box = element.getBoundingClientRect()
+        const { left, top } = box
+        const { scale, rotate, elastic } = getOptions()
         const [s, r, x, y] = (values = getValues())
         const resistance = resolveElastic(elastic)
 
@@ -353,17 +372,45 @@ export function addPinchListeners(
         rawScale = unconstrain(s.get(), scale, resistance)
         rawRotate = unconstrain(r.get(), rotate, resistance)
 
-        if (pan !== false) {
+        width = (element as HTMLElement).offsetWidth ?? box.width
+        height = (element as HTMLElement).offsetHeight ?? box.height
+
+        if (writesXY(options)) {
             x.stop()
             y.stop()
-            toPixels(x, (element as HTMLElement).offsetWidth ?? width)
-            toPixels(y, (element as HTMLElement).offsetHeight ?? height)
+            toPixels(x, width)
+            toPixels(y, height)
         }
 
         lastX = x.get()
         lastY = y.get()
-        originX = left + width / 2 - lastX
-        originY = top + height / 2 - lastY
+        originX = left + box.width / 2 - lastX
+        originY = top + box.height / 2 - lastY
+    }
+
+    /**
+     * The point scale and rotation pivot around, in client coordinates:
+     * the focal point, or `origin` on the element at scale `s`, rotation
+     * `r` and offset `x`/`y`.
+     */
+    const pivot = (
+        focal: Point,
+        s: number,
+        r: number,
+        x: number,
+        y: number
+    ): Point => {
+        const { origin } = options
+        if (typeof origin !== "object") return focal
+
+        const a = (r * Math.PI) / 180
+        const u = (origin.x - 0.5) * width * s
+        const v = (origin.y - 0.5) * height * s
+
+        return {
+            x: originX + x + Math.cos(a) * u - Math.sin(a) * v,
+            y: originY + y + Math.sin(a) * u + Math.cos(a) * v,
+        }
     }
 
     const dragControls = () =>
@@ -411,9 +458,10 @@ export function addPinchListeners(
          * Keep the focal point in place, unless the element doesn't move
          * with it, or a drag carries on and owns x/y.
          */
-        const moves = pan !== false && !dragControls()?.isDragging
-        const vx = originX + x0 - current.x
-        const vy = originY + y0 - current.y
+        const moves = writesXY(options) && !dragControls()?.isDragging
+        const p0 = pivot(current, s0, r0, x0, y0)
+        const vx = originX + x0 - p0.x
+        const vy = originY + y0 - p0.y
 
         /**
          * Scale, rotation and x/y at progress `p` of the snap, keeping the
@@ -530,6 +578,15 @@ export function addPinchListeners(
         const [scale, rotate, x, y] = values
         const resistance = resolveElastic(elastic)
         const latest = scale.get()
+        const drag = dragControls()
+        const isDragging = drag?.isDragging
+
+        if (!isDragging) {
+            lastX = x.get()
+            lastY = y.get()
+        }
+
+        const p = pivot(prev, latest, rotate.get(), lastX, lastY)
         let theta = 0
         let k = 1
 
@@ -567,7 +624,7 @@ export function addPinchListeners(
             if (theta) rotate.set(next)
         }
 
-        if (pan !== false) {
+        if (writesXY(options)) {
             /**
              * Pinch owns x/y while it runs, so stop any animation started
              * on them since (like a drag's snap back) taking over after.
@@ -584,26 +641,20 @@ export function addPinchListeners(
              * element, and its release velocity only counts movement after
              * the pinch, so a zoom doesn't end in a fling.
              */
-            const drag = dragControls()
-            const isDragging = drag?.isDragging
-
-            if (!isDragging) {
-                lastX = x.get()
-                lastY = y.get()
-            }
-
             const angle = (theta * Math.PI) / 180
             const cos = Math.cos(angle) * k
             const sin = Math.sin(angle) * k
-            const dx = prev.x - originX - lastX
-            const dy = prev.y - originY - lastY
+            const dx = p.x - originX - lastX
+            const dy = p.y - originY - lastY
+            const panX = pan !== false ? current.x - prev.x : 0
+            const panY = pan !== false ? current.y - prev.y : 0
 
             /**
-             * Move the centre so the previous focal point, scaled and
-             * rotated around the centre, lands on the current focal point.
+             * Move the centre so the pivot, scaled and rotated around the
+             * centre, stays in place, plus the focal point's movement.
              */
-            lastX += dx + current.x - prev.x - (cos * dx - sin * dy)
-            lastY += dy + current.y - prev.y - (sin * dx + cos * dy)
+            lastX += dx + panX - (cos * dx - sin * dy)
+            lastY += dy + panY - (sin * dx + cos * dy)
 
             if (isDragging) {
                 const history = drag!.panSession!.history

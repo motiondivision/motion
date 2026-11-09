@@ -1475,3 +1475,94 @@ describe("pinch limits", () => {
         expect(value(element, "scale")).toBe(scale)
     })
 })
+
+describe("pinch origin", () => {
+    // The element is 100px square, centred on (50, 0)
+
+    test("by default, scales around the focal point", async () => {
+        makePinchable(element, noop, { rotate: false })
+
+        const gesture = await twoFinger(element, [0, 0, 20, 0])
+        await gesture.to([-10, 0, 30, 0]) // 2x around (10, 0)
+
+        expect(value(element, "scale")).toBeCloseTo(2, 3)
+        expect(value(element, "x")).toBeCloseTo(40, 1)
+        await gesture.end()
+    })
+
+    test("origin at the centre keeps the element centred", async () => {
+        makePinchable(element, noop, {
+            rotate: false,
+            origin: { x: 0.5, y: 0.5 },
+        })
+
+        const gesture = await twoFinger(element, [0, 0, 20, 0])
+        await gesture.to([-10, 0, 30, 0])
+        expect(value(element, "scale")).toBeCloseTo(2, 3)
+        expect(value(element, "x")).toBeCloseTo(0, 1)
+
+        // The focal point's movement still pans it
+        await gesture.to([0, 10, 40, 10])
+        expect(value(element, "x")).toBeCloseTo(10, 1)
+        expect(value(element, "y")).toBeCloseTo(10, 1)
+        await gesture.end()
+    })
+
+    test("rotates around the origin", async () => {
+        makePinchable(element, noop, { origin: { x: 0.5, y: 0.5 } })
+
+        const gesture = await twoFinger(element, [0, 0, 20, 0])
+        await gesture.to([10, -10, 10, 10]) // 90deg around (10, 0)
+
+        expect(value(element, "rotate")).toBeCloseTo(90, 1)
+        expect(value(element, "x")).toBeCloseTo(0, 1)
+        expect(value(element, "y")).toBeCloseTo(0, 1)
+        await gesture.end()
+    })
+
+    test("a point on the element stays in place, without pan", async () => {
+        makePinchable(element, noop, {
+            rotate: false,
+            pan: false,
+            origin: { x: 0, y: 0.5 },
+        })
+
+        const gesture = await twoFinger(element, [40, 0, 60, 0])
+        await gesture.to([30, 0, 70, 0]) // 2x
+        // The left edge stays at 0, so the centre moves to 100
+        expect(value(element, "x")).toBeCloseTo(50, 1)
+
+        await gesture.to([50, 20, 90, 20]) // moves, doesn't pan
+        expect(value(element, "x")).toBeCloseTo(50, 1)
+        expect(value(element, "y")).toBeCloseTo(0, 1)
+        await gesture.end()
+    })
+
+    test("pan: false scales around the centre by default", async () => {
+        makePinchable(element, noop, { rotate: false, pan: false })
+
+        const gesture = await twoFinger(element, [0, 0, 20, 0])
+        await gesture.to([-10, 20, 30, 20])
+        expect(value(element, "scale")).toBeCloseTo(2, 3)
+        expect(value(element, "x") || 0).toBeCloseTo(0, 1)
+        await gesture.end()
+    })
+
+    test("snaps back around the origin", async () => {
+        makePinchable(element, noop, {
+            rotate: false,
+            scale: { max: 1 },
+            elastic: 1,
+            origin: { x: 0, y: 0.5 },
+        })
+
+        const gesture = await twoFinger(element, [40, 0, 60, 0])
+        await gesture.to([30, 0, 70, 0])
+        expect(value(element, "x")).toBeCloseTo(50, 1)
+
+        await gesture.end()
+        await sleep(1500)
+        expect(value(element, "scale")).toBeCloseTo(1, 3)
+        expect(value(element, "x")).toBeCloseTo(0, 1)
+    })
+})
