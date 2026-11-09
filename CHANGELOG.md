@@ -4,6 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [14.11.0] 2026-11-05
+
+### Added
+
+-   `pinch`: Multitouch pinch and rotate gestures.
+
 ## [14.10.1] 2026-11-05
 
 ### Fixed
