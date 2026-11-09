@@ -32,19 +32,26 @@ const noProps = {}
  * `styleEffect()` or `svgEffect()` import alone doesn't bundle the
  * computed-style and transform-matrix readers. The selector effects'
  * `test` and `read` forward to these.
+ *
+ * Attached from a pure call whose result `getElementEffect` reads, so a
+ * bundle that keeps this module but never calls `animate()` (like a
+ * library that flattens Motion into one file) can still drop it.
  */
-Object.assign(styleSubjectEffect, {
-    test: isStyleSubject,
-    read: readStyleValue,
-})
-Object.assign(svgSubjectEffect, { test: isSVGElement, read: readSVGValue })
+const attachHooks = () => {
+    Object.assign(styleSubjectEffect, {
+        test: isStyleSubject,
+        read: readStyleValue,
+    })
+    Object.assign(svgSubjectEffect, { test: isSVGElement, read: readSVGValue })
+    return [styleSubjectEffect, svgSubjectEffect] as ElementEffect[]
+}
 
 type ElementEffect = AnimateEffect<StyleSubject>
 
+const elementEffects = /*@__PURE__*/ attachHooks()
+
 const getElementEffect = (element: Element) =>
-    (isSVGElement(element)
-        ? svgSubjectEffect
-        : styleSubjectEffect) as ElementEffect
+    elementEffects[isSVGElement(element) ? 1 : 0]
 
 /**
  * Presents an effect bound to a DOM element in the shape the DOM keyframe

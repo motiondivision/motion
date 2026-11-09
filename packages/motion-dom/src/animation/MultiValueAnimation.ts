@@ -799,7 +799,7 @@ export class MultiValueAnimation extends AnimationClock<any> {
 
     set time(newTime: number) {
         this.revive()
-        setTime.call(this, newTime)
+        ;(setTime ??= clockSetter("time")).call(this, newTime)
         this.natives((native) => {
             native.onfinish = onNativeFinish
             native.currentTime = secondsToMilliseconds(newTime)
@@ -819,7 +819,7 @@ export class MultiValueAnimation extends AnimationClock<any> {
 
     set speed(newSpeed: number) {
         this.isRetiming = true
-        setSpeed.call(this, newSpeed)
+        ;(setSpeed ??= clockSetter("speed")).call(this, newSpeed)
         this.isRetiming = false
         this.natives((native) => (native.playbackRate = newSpeed))
         this.regroup()
@@ -998,6 +998,12 @@ function onNativeFinish(this: Animation) {
     track.finish()
 }
 
-const clockProto = AnimationClock.prototype
-const setTime = Object.getOwnPropertyDescriptor(clockProto, "time")!.set!
-const setSpeed = Object.getOwnPropertyDescriptor(clockProto, "speed")!.set!
+/**
+ * AnimationClock's setters, read on first use rather than when the module
+ * loads, so a bundle that never plays a MultiValueAnimation can drop it.
+ */
+type Setter = (this: AnimationClock<any>, value: number) => void
+let setTime: Setter | undefined
+let setSpeed: Setter | undefined
+const clockSetter = (name: "time" | "speed") =>
+    Object.getOwnPropertyDescriptor(AnimationClock.prototype, name)!.set!

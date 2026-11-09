@@ -11,17 +11,19 @@ import {
     TimelineWithFallback,
     ValueAnimationOptions,
 } from "./types"
-import { generateTrack, initTrack, Track } from "./track"
+import { generateTrack, initTrack } from "./track"
 import { resolveStartTime } from "./utils/resolve-start-time"
 import { notifyAnimationStart } from "./utils/notify-inspector"
 import { AnimationClock } from "./AnimationClock"
 
 export { holdDriver, round } from "./AnimationClock"
 
-export class JSAnimation<T extends number | string>
-    extends AnimationClock<T>
-    implements Track<T>
-{
+/**
+ * A JSAnimation is a Track with its own clock. It doesn't declare
+ * `implements Track`, as its track fields are left out of the published
+ * declarations, which would then fail to implement the interface.
+ */
+export class JSAnimation<T extends number | string> extends AnimationClock<T> {
     /** @internal */
     generator: KeyframeGenerator<T>
 
