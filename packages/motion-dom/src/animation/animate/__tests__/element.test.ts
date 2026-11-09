@@ -632,3 +632,38 @@ describe("values of one call", () => {
         expect(calls.slice(3)).toEqual(["width stop"])
     })
 })
+
+describe("a value that's read from the DOM at its target", () => {
+    test("is still written to the element", async () => {
+        const element = document.createElement("div")
+        document.body.appendChild(element)
+
+        const animations = animateElement(
+            element,
+            { originX: 0, opacity: 1 },
+            { duration: 0.05 }
+        )
+
+        await Promise.all(animations.map((animation) => animation.finished))
+        await nextFrame()
+
+        expect(element.style.transformOrigin).toBe("0% 50% 0")
+        expect(element.style.opacity).toBe("1")
+
+        element.remove()
+    })
+
+    test("is written when it's set without an animation", async () => {
+        const element = document.createElement("div")
+        document.body.appendChild(element)
+
+        animateElement(element, { originX: 0 }, { duration: 0 })
+
+        await nextFrame()
+        await nextFrame()
+
+        expect(element.style.transformOrigin).toBe("0% 50% 0")
+
+        element.remove()
+    })
+})

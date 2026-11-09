@@ -234,9 +234,19 @@ export class KeyframeResolver<T extends AnyResolvedKeyframe = any> {
              * changes the style attribute, which on a page with rules
              * that match on it makes the browser restyle the element and
              * everything inside it.
+             *
+             * A value that never leaves its origin is written now, as no
+             * later change would write it, and what was read isn't always
+             * what the subject shows (originX reads as 0 with no
+             * transform-origin set).
              */
             if (motionValue && currentValue === undefined) {
-                motionValue.setCurrent(unresolvedKeyframes[0] as T)
+                const origin = unresolvedKeyframes[0] as T
+                unresolvedKeyframes.some(
+                    (keyframe) => keyframe !== null && keyframe !== origin
+                )
+                    ? motionValue.setCurrent(origin)
+                    : motionValue.set(origin)
             }
         }
 

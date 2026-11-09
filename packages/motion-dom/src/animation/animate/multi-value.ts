@@ -202,10 +202,6 @@ function getPlan(
 }
 
 /**
- * Without a subject to read, the origin is the value's own, as the
- * default keyframe resolver reads it, without making one.
- */
-/**
  * WAAPI timing and keyframe easing for a value. A tween's is made once
  * for its plan. A generator's depends on the value's own keyframes and
  * velocity.
@@ -238,13 +234,18 @@ function waapiTiming(options: any, ease: any) {
     ] as [KeyframeAnimationOptions, string[] | undefined]
 }
 
+/**
+ * Without a subject to read, the origin is the value's own, as the
+ * default keyframe resolver reads it, without making one. A value without
+ * one is set to its target, which its subscribers are told of.
+ */
 function resolveNow(target: any[], value: MotionValue) {
     const keyframes = [...target]
 
     if (keyframes[0] === null) {
         const current = value.get()
         keyframes[0] = current ?? keyframes[keyframes.length - 1]
-        current === undefined && value.setCurrent(keyframes[0])
+        current === undefined && value.set(keyframes[0])
     }
 
     fillWildcards(keyframes)
