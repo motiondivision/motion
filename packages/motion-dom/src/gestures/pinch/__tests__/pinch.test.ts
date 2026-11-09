@@ -1234,6 +1234,32 @@ describe("pinch limits", () => {
         expect(value(element, "scale")).toBeCloseTo(1, 3)
     })
 
+    test("a pinch during the spring back carries on from the current scale", async () => {
+        makePinchable(element, noop, { scale: { max: 1.5 }, rotate: false })
+
+        const first = await twoFinger(element, [0, 0, 100, 0])
+        await first.to([-50, 0, 150, 0])
+        expect(value(element, "scale")).toBeCloseTo(1.5 + 0.5 * 0.35)
+
+        await first.end()
+        await sleep(30)
+
+        const second = await twoFinger(element, [0, 0, 100, 0])
+        const latest = value(element, "scale")
+        expect(latest).toBeGreaterThan(1.5)
+
+        // No change in distance, so the scale stays where it was
+        await second.to([0, 0, 100, 0])
+        expect(value(element, "scale")).toBeCloseTo(latest)
+
+        // And keeps resisting as the fingers spread
+        await second.to([-50, 0, 150, 0])
+        const spread = value(element, "scale")
+        expect(spread).toBeGreaterThan(latest)
+        expect(spread).toBeLessThan(latest * 2)
+        await second.end()
+    })
+
     test("elastic sets the resistance, per side", async () => {
         makePinchable(element, noop, {
             scale: { min: 1, max: 1.5 },

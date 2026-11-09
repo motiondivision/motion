@@ -232,6 +232,22 @@ const clampTo = (value: number, { min = -Infinity, max = Infinity }) =>
     clamp(min, max, value)
 
 /**
+ * The raw gesture value that elastic shows as `value`. A pinch that starts
+ * while a value is still past its limit (like during a spring back) carries
+ * on from it, rather than jumping.
+ */
+const unconstrain = (
+    value: number,
+    option: boolean | PinchRotateOptions | undefined,
+    resistance: { min: number; max: number }
+) => {
+    const limit = clampTo(value, limitsOf(option))
+    const elastic = resistance[value < limit ? "min" : "max"]
+
+    return elastic ? limit + (value - limit) / elastic : value
+}
+
+/**
  * Listen for pinch gestures on `element`: two touches (or pens), a trackpad
  * pinch (`wheel` with `ctrlKey`, as Chrome, Edge and Firefox report it),
  * and Safari's `gesture*` events.
@@ -310,8 +326,9 @@ export function addPinchListeners(
      */
     const measure = () => {
         const { left, top, width, height } = element.getBoundingClientRect()
-        const { scale, rotate, pan } = getOptions()
+        const { scale, rotate, pan, elastic } = getOptions()
         const [s, r, x, y] = (values = getValues())
+        const resistance = resolveElastic(elastic)
 
         /**
          * Stop animations on values this gesture writes, and leave the
@@ -319,8 +336,8 @@ export function addPinchListeners(
          */
         scale !== false && s.stop()
         rotate !== false && r.stop()
-        rawScale = s.get()
-        rawRotate = r.get()
+        rawScale = unconstrain(s.get(), scale, resistance)
+        rawRotate = unconstrain(r.get(), rotate, resistance)
 
         if (pan !== false) {
             x.stop()
