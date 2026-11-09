@@ -255,10 +255,11 @@ function resolveNow(target: any[], value: MotionValue) {
 
 /**
  * A spring from rest follows the same curve over any distance. Only when
- * it's near and slow enough to stop depends on how far it moves. So the
- * values of a call that move as far, with the same spring, share one
- * easing, and an element's transforms compose into two keyframes rather
- * than many sampled ones, which the browser parses slowly.
+ * it's near and slow enough to stop depends on how far it moves. So it's
+ * made into an easing over the distance the value moves, which the values
+ * of a call that move as far, with the same spring, share. An element's
+ * transforms then compose into two keyframes rather than many sampled
+ * ones, which the browser parses slowly.
  */
 function shareSpring(options: any, springs: Record<string, object>) {
     const {
@@ -274,7 +275,7 @@ function shareSpring(options: any, springs: Record<string, object>) {
     } = options
     const distance =
         Math.abs(parseFloat(keyframes[1]) - parseFloat(keyframes[0])) || 100
-    const id =
+    const curve =
         [
             stiffness,
             damping,
@@ -284,8 +285,8 @@ function shareSpring(options: any, springs: Record<string, object>) {
             visualDuration,
             restDelta,
             restSpeed,
-            distance,
         ] + ""
+    const id = curve + distance
 
     if (!springs[id]) {
         const easing = createGeneratorEasing(options, distance, spring)
@@ -293,6 +294,7 @@ function shareSpring(options: any, springs: Record<string, object>) {
             ease: easing.ease,
             duration: secondsToMilliseconds(easing.duration),
             type: keyframesType,
+            curve,
         }
     }
 
@@ -451,6 +453,7 @@ export const startValue =
         )
         const parent = (ref.animation ||= new MultiValueAnimation(base.driver))
         if (base.autoplay === false) parent.options.autoplay = false
+        parent.options.startTime ??= base.startTime
 
         const options: ValueAnimationOptions<any> = {
             ...base,

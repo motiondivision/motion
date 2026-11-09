@@ -477,9 +477,7 @@ export class MultiValueAnimation extends AnimationClock<any> {
         track.native = native
         track.isReady = true
         track.resolver = undefined
-        ;(native as any).track = track
-        ;(native as any).el = element
-        native.onfinish = onNativeFinish
+        watch(native, track)
         notifyAnimationStart(track, track.options)
         this.onTrackReady(track)
         this.syncNative(native)
@@ -496,7 +494,14 @@ export class MultiValueAnimation extends AnimationClock<any> {
             native.pause()
             native.currentTime = this.holdTime ?? 0
         } else {
-            native.startTime = resolveStartTime(startTime, time.now())
+            /**
+             * A start time that was given is kept. One the animation
+             * picked may have been long ago by now.
+             */
+            native.startTime =
+                startTime === this.options.startTime
+                    ? startTime
+                    : resolveStartTime(startTime, time.now())
         }
     }
 
@@ -504,9 +509,16 @@ export class MultiValueAnimation extends AnimationClock<any> {
      * Apply a control to the tracks on WAAPI. Those on a scroll timeline
      * follow it, so only a cancel reaches them.
      */
-    private natives(control: (native: Animation) => void, all?: boolean) {
-        for (const { native, isStopped, isScrolling } of this.tracks) {
-            native && !isStopped && (all || !isScrolling) && control(native)
+    private natives(
+        control: (native: Animation, track: ValueTrack) => void,
+        all?: boolean
+    ) {
+        for (const track of this.tracks) {
+            const { native } = track
+            native &&
+                !track.isStopped &&
+                (all || !track.isScrolling) &&
+                control(native, track)
         }
     }
 
@@ -550,15 +562,14 @@ export class MultiValueAnimation extends AnimationClock<any> {
         const native = track.native!
         const isPseudo = (track.options as any).pseudoElement
         track.native = undefined
-        native.onfinish = null
+        watch(native)
 
         if (!track.isDone && this.startTime !== null) {
             const now = time.now()
             const speed = this.playbackSpeed
             const delta = this.state === "running" && speed ? sampleDelta : 0
             const current = this.valueAt(track, now)
-            isPseudo ||
-                setStyle((native as any).el, track.options.name!, current)
+            isPseudo || setStyle(elementOf(track), track.options.name!, current)
             track.value.setWithVelocity(
                 this.valueAt(track, now - delta * Math.sign(speed)),
                 current,
@@ -751,11 +762,12 @@ export class MultiValueAnimation extends AnimationClock<any> {
     }
 
     /**
-     * The shared animation finishes once every value's has, unless one
-     * was stopped, as with a group of animations.
+     * The shared animation is finished once every value still in it is.
+     * Its promise resolves then, unless a value was stopped, as with a
+     * group of animations.
      */
     check() {
-        if (this.isInterrupted || this.numDone < this.tracks.length) return
+        if (this.numDone < this.numLive()) return
         /**
          * WAAPI finished its last values before the animation's next frame.
          */
@@ -764,7 +776,7 @@ export class MultiValueAnimation extends AnimationClock<any> {
             this.teardown()
             this.state = "finished"
         }
-        this.notifyFinished()
+        this.isInterrupted || this.notifyFinished()
     }
 
     /**
@@ -780,8 +792,8 @@ export class MultiValueAnimation extends AnimationClock<any> {
         if (this.state === "finished") this.revive()
         this.isCancelled = false
         super.play()
-        this.natives((native) => {
-            native.onfinish = onNativeFinish
+        this.natives((native, track) => {
+            watch(native, track)
             native.play()
         })
         this.regroup(false, true)
@@ -814,7 +826,7 @@ export class MultiValueAnimation extends AnimationClock<any> {
         super.cancel()
         this.isCancelling = false
         this.natives((native) => {
-            native.onfinish = null
+            watch(native)
             native.cancel()
         }, true)
         this.leaveGroups()
@@ -828,8 +840,8 @@ export class MultiValueAnimation extends AnimationClock<any> {
     set time(newTime: number) {
         this.revive()
         ;(setTime ??= clockSetter("time")).call(this, newTime)
-        this.natives((native) => {
-            native.onfinish = onNativeFinish
+        this.natives((native, track) => {
+            watch(native, track)
             native.currentTime = secondsToMilliseconds(newTime)
             this.holdTime === null && native.play()
         })
@@ -942,7 +954,7 @@ export class MultiValueAnimation extends AnimationClock<any> {
                       track.isReady && initTrack(track))
             }
             if (native && isNative) {
-                native.onfinish = null
+                watch(native)
                 native.timeline = timeline.timeline as any
                 track.isScrolling = true
                 timeline.onAttach?.(native)
@@ -989,6 +1001,10 @@ export class MultiValueAnimation extends AnimationClock<any> {
         track.group?.release(track)
 
         if (!track.isReady) this.numPending--
+        if (track.isDone) {
+            track.isDone = false
+            this.numDone--
+        }
 
         this.isInterrupted = this.hasStoppedTracks = true
         this.numOut++
@@ -1021,13 +1037,26 @@ function onNativeFinish(this: Animation) {
     const track: ValueTrack = (this as any).track
     const { options } = track
     const keyframe = track.end()
-    this.onfinish = null
+    watch(this)
     if (!(options as any).pseudoElement) {
         track.update(keyframe)
-        setStyle((this as any).el, options.name!, keyframe)
+        setStyle(elementOf(track), options.name!, keyframe)
         this.cancel()
     }
     track.finish()
+}
+
+const elementOf = (track: ValueTrack) =>
+    track.value.owner!.current as HTMLElement
+
+/**
+ * A pooled WAAPI animation points at its track only while it can finish.
+ * WebKit never collects an animation once it has run, nor anything it
+ * references (#4034), so it's left pointing at nothing.
+ */
+function watch(native: Animation, track?: ValueTrack) {
+    ;(native as any).track = track
+    native.onfinish = track ? onNativeFinish : null
 }
 
 /**

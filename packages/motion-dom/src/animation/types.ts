@@ -186,6 +186,12 @@ export interface ValueAnimationOptions<V extends AnyResolvedKeyframe = number>
      * every frame.
      */
     hasOnUpdate?: boolean
+
+    /**
+     * The spring this value's easing was made from. Values with the same
+     * one follow the same curve, however far each moves.
+     */
+    curve?: string
 }
 
 export type GeneratorFactoryFunction = (
