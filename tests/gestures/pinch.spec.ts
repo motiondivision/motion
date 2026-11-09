@@ -293,20 +293,27 @@ test.describe("pinch", () => {
 test.describe("pinch with a trackpad", () => {
     test("ctrl + wheel zooms around the cursor", async ({ page }) => {
         await open(page)
-        await page.mouse.move(100, 100) // the box's top-left corner
+        /**
+         * Inside the box's top-left corner: WebKit hit-tests each wheel
+         * event, so a cursor on the edge leaves the box once it scales.
+         */
+        await page.mouse.move(110, 110)
 
+        // Whole-pixel deltas, as WebKit rounds them.
         await page.keyboard.down("Control")
         for (let i = 0; i < 10; i++) {
-            await page.mouse.wheel(0, (-100 * Math.log(2)) / 10)
+            await page.mouse.wheel(0, -7)
             await frames(page, 1)
         }
         await page.keyboard.up("Control")
         await frames(page, 2)
 
+        // Scaled by e^0.7 around the cursor, 10px from the corner.
+        const scale = Math.exp(0.7)
         const box = await rect(page, "#box")
-        expect(box.left).toBeCloseTo(100, 0)
-        expect(box.top).toBeCloseTo(100, 0)
-        expect(box.width).toBeCloseTo(200, 0)
+        expect(box.left).toBeCloseTo(110 - 10 * scale, 0)
+        expect(box.top).toBeCloseTo(110 - 10 * scale, 0)
+        expect(box.width).toBeCloseTo(100 * scale, 0)
 
         await expect.poll(() => events(page)).toEqual(["start", "end:wheel"])
     })
