@@ -22,7 +22,6 @@
     "m-div(via motion/react)": 4927,
     "m+LazyMotion+domAnimation": 30304,
     "m+LazyMotion+domMax": 44594,
-    "m+LazyMotion+domMax+pinch": 47400,
     "LazyMotion-only": 650,
     "domAnimation-only": 27701,
     "domMax-only": 42261,

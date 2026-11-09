@@ -65,7 +65,6 @@ export const scenarios = {
     "m-div(via motion/react)": `import { m } from "motion/react"; export const D = m.div`,
     "m+LazyMotion+domAnimation": `export { m, LazyMotion, domAnimation } from "motion/react"`,
     "m+LazyMotion+domMax": `export { m, LazyMotion, domMax } from "motion/react"`,
-    "m+LazyMotion+domMax+pinch": `export { m, LazyMotion, domMax, pinchFeatures } from "motion/react"`,
     "LazyMotion-only": `export { LazyMotion } from "motion/react"`,
     "domAnimation-only": `export { domAnimation } from "motion/react"`,
     "domMax-only": `export { domMax } from "motion/react"`,
