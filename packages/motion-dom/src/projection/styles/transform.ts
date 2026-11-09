@@ -18,8 +18,15 @@ export function buildProjectionTransform(
     const xTranslate = delta.x.translate / treeScale.x
     const yTranslate = delta.y.translate / treeScale.y
     const zTranslate = latestTransform?.z || 0
-    if (xTranslate || yTranslate || zTranslate) {
+    /**
+     * Only use translate3d when there's a z. A 3D transform promotes every
+     * projecting element to its own compositor layer, which is far more
+     * expensive across large or nested layout trees than repainting.
+     */
+    if (zTranslate) {
         transform = `translate3d(${xTranslate}px, ${yTranslate}px, ${zTranslate}px) `
+    } else if (xTranslate || yTranslate) {
+        transform = `translate(${xTranslate}px, ${yTranslate}px) `
     }
 
     let angles = ""

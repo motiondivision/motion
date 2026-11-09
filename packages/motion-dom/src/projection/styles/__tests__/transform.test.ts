@@ -24,17 +24,17 @@ describe("buildProjectionTransform", () => {
             },
         }
         expect(buildProjectionTransform(delta, { x: 1, y: 1 })).toEqual(
-            "translate3d(100px, 300px, 0px) scale(2, 4)"
+            "translate(100px, 300px) scale(2, 4)"
         )
 
         expect(buildProjectionTransform(delta, { x: 2, y: 0.5 })).toEqual(
-            "translate3d(50px, 600px, 0px) scale(2, 4)"
+            "translate(50px, 600px) scale(2, 4)"
         )
 
         expect(
             buildProjectionTransform(delta, { x: 2, y: 0.5 }, { rotate: 45 })
         ).toEqual(
-            "translate3d(50px, 600px, 0px) scale(0.5, 2) rotate(45deg) scale(4, 2)"
+            "translate(50px, 600px) scale(0.5, 2) rotate(45deg) scale(4, 2)"
         )
 
         expect(
@@ -57,7 +57,7 @@ describe("buildProjectionTransform", () => {
                 { rotate: 90 }
             )
         ).toEqual(
-            "translate3d(50px, 150px, 0px) scale(0.5, 0.5) rotate(90deg) "
+            "translate(50px, 150px) scale(0.5, 0.5) rotate(90deg) "
         )
     })
 
@@ -110,7 +110,7 @@ describe("buildProjectionTransform", () => {
 
         expect(
             buildProjectionTransform(delta, { x: 1, y: 1 }, { rotate: 10 })
-        ).toEqual("translate3d(100px, 100px, 0px) rotate(10deg) scale(2, 4)")
+        ).toEqual("translate(100px, 100px) rotate(10deg) scale(2, 4)")
     })
 
     it("Combines tree scale correction and element scale when there's no rotation", () => {
@@ -130,12 +130,12 @@ describe("buildProjectionTransform", () => {
         }
 
         expect(buildProjectionTransform(delta, { x: 2, y: 4 }, {})).toEqual(
-            "translate3d(50px, 25px, 0px) scale(2, 4)"
+            "translate(50px, 25px) scale(2, 4)"
         )
 
         expect(
             buildProjectionTransform(delta, { x: 2, y: 4 }, { scale: 3 })
-        ).toEqual("translate3d(50px, 25px, 0px) scale(2, 4)")
+        ).toEqual("translate(50px, 25px) scale(2, 4)")
     })
 
     it("Doesn't apply a scale when the tree scale is all there is to correct", () => {
@@ -143,7 +143,7 @@ describe("buildProjectionTransform", () => {
         delta.x.translate = 100
 
         expect(buildProjectionTransform(delta, { x: 2, y: 4 })).toEqual(
-            "translate3d(50px, 0px, 0px) "
+            "translate(50px, 0px) "
         )
     })
 
@@ -156,5 +156,30 @@ describe("buildProjectionTransform", () => {
             "scale(1, 1)"
         )
         expect(buildProjectionTransform(delta, { x: 1, y: 1 })).toBe("none")
+    })
+
+    test("Writes a 2D translate when there's no z, so elements aren't promoted to their own layers", () => {
+        const delta = createDelta()
+        delta.x.translate = 100
+        delta.y.translate = 50
+
+        expect(buildProjectionTransform(delta, { x: 1, y: 1 })).toBe(
+            "translate(100px, 50px) "
+        )
+        expect(buildProjectionTransform(delta, { x: 1, y: 1 }, {})).toBe(
+            "translate(100px, 50px) "
+        )
+    })
+
+    test("Keeps translate3d when z is set", () => {
+        const delta = createDelta()
+        delta.x.translate = 100
+
+        expect(buildProjectionTransform(delta, { x: 1, y: 1 }, { z: 20 })).toBe(
+            "translate3d(100px, 0px, 20px) "
+        )
+        expect(
+            buildProjectionTransform(createDelta(), { x: 1, y: 1 }, { z: 20 })
+        ).toBe("translate3d(0px, 0px, 20px) ")
     })
 })
