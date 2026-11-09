@@ -281,7 +281,6 @@ export { mixValues } from "./projection/animation/mix-values"
 
 // Utilities (used by projection system)
 export { animateSingleValue } from "./animation/animate/single-value"
-export { animateOneValue } from "./animation/animate/multi-value"
 export { addDomEvent } from "./events/add-dom-event"
 export { addPointerEvent } from "./events/add-pointer-event"
 export * from "./events/event-info"

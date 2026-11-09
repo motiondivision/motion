@@ -8,16 +8,9 @@ import {
     TimelineWithFallback,
     ValueAnimationOptions,
 } from "./types"
-import type { Track } from "./track"
 import { WithPromise } from "./utils/WithPromise"
 
 export const round = (value: number) => Math.round(value * 10000) / 10000
-
-/**
- * Stop a driver updating every frame, after one more update.
- */
-export const holdDriver = (driver: DriverControls) =>
-    driver.hold ? driver.hold() : (driver.stop(), driver.start(false))
 
 /**
  * The clock and playback a JSAnimation and a MultiValueAnimation share:
@@ -103,66 +96,6 @@ export abstract class AnimationClock<T extends number | string>
     }
 
     /**
-     * While running at normal speed between the lane's two times, a
-     * track's value is the lane's blend and nothing else changes, so the
-     * driver runs it each frame, without the rest of tick(), until the
-     * time leaves it or playback changes. Returns true if it does.
-     */
-    protected handLane(
-        timestamp: number,
-        { lane, options }: Track<any>,
-        set?: (latest: T) => void
-    ) {
-        const { startTime, driver } = this
-
-        if (
-            lane &&
-            driver &&
-            startTime !== null &&
-            startTime <= timestamp &&
-            startTime !== this.pendingStartTime &&
-            this.state === "running" &&
-            this.holdTime === null &&
-            this.playbackSpeed === 1
-        ) {
-            const delay = options.delay || 0
-            const t = Math.round(timestamp - startTime) - delay
-
-            if (t > lane.start && t < lane.end) {
-                if (!set) {
-                    const { onUpdate, motionValue, hasOnUpdate } = options
-                    set =
-                        hasOnUpdate === false && motionValue
-                            ? (latest: T) => motionValue.set(latest)
-                            : onUpdate
-                }
-                driver.lane = {
-                    startTime,
-                    from: lane.start + delay,
-                    to: lane.end + delay,
-                    origin: lane.from,
-                    delta: lane.delta,
-                    ease: lane.ease,
-                    delay,
-                    write: (latest, currentTime) => {
-                        this.currentTime = currentTime
-                        set && set(latest as unknown as T)
-                    },
-                }
-                driver.lane.write(
-                    lane.from +
-                        lane.delta *
-                            lane.ease(
-                                (t - lane.start) / (lane.end - lane.start)
-                            ),
-                    t
-                )
-                return true
-            }
-        }
-    }
-
-    /**
      * This animation's time, including delay, at a timestamp.
      */
     at(timestamp: number) {
@@ -177,6 +110,15 @@ export abstract class AnimationClock<T extends number | string>
     }
 
     set time(newTime: number) {
+        this.setTime(newTime)
+    }
+
+    /**
+     * The time setter, as a method, so a subclass can add to it with a
+     * plain super call. `super.time =` is a slow path in V8, and this runs
+     * for every animation of a seeked sequence.
+     */
+    protected setTime(newTime: number) {
         /**
          * Seeking out of "finished" leaves the animation paused, so play()
          * won't renew finished. Renew it here.
@@ -211,6 +153,10 @@ export abstract class AnimationClock<T extends number | string>
     }
 
     set speed(newSpeed: number) {
+        this.setSpeed(newSpeed)
+    }
+
+    protected setSpeed(newSpeed: number) {
         const hasChanged = this.playbackSpeed !== newSpeed
 
         if (hasChanged && this.driver) {
@@ -265,16 +211,13 @@ export abstract class AnimationClock<T extends number | string>
         this.state = "paused"
         this.updateTime(time.now())
         this.holdTime = this.currentTime
-        this.hold()
-    }
-
-    /**
-     * A held animation doesn't move, so rather than tick every frame, it
-     * ticks once more to show where it's held. play() or a seek starts it
-     * again.
-     */
-    protected hold() {
-        this.driver && holdDriver(this.driver)
+        /**
+         * A held animation doesn't move, so rather than tick every frame,
+         * it ticks once more to show where it's held. play() or a seek
+         * starts it again.
+         */
+        const { driver } = this
+        driver && (driver.stop(), driver.start(false))
     }
 
     /**
@@ -284,7 +227,6 @@ export abstract class AnimationClock<T extends number | string>
     stop = () => this.stopAnimation()
 
     complete() {
-        this.driver && (this.driver.lane = undefined)
         if (this.state !== "running") {
             this.play()
         }

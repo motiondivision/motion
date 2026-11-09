@@ -14,7 +14,6 @@ import {
     AnimationState,
     AnyResolvedKeyframe,
     KeyframeGenerator,
-    Lane,
     TimelineWithFallback,
     ValueAnimationOptions,
 } from "./types"
@@ -29,7 +28,6 @@ import {
     canAccelerateTransform,
     joinGroup,
     TransformGroup,
-    TransformMember,
 } from "./waapi/transforms/TransformAnimation"
 
 /**
@@ -40,7 +38,7 @@ import {
  */
 export class ValueTrack<T extends AnyResolvedKeyframe = any>
     extends WithPromise
-    implements Track<T>, AnimationPlaybackControlsWithThen, TransformMember
+    implements Track<T>, AnimationPlaybackControlsWithThen
 {
     generator!: KeyframeGenerator<T>
     mirroredGenerator: KeyframeGenerator<T> | undefined
@@ -49,7 +47,6 @@ export class ValueTrack<T extends AnyResolvedKeyframe = any>
     resolvedDuration = 0
     totalDuration = 0
     delayState?: AnimationState<T>
-    lane?: Lane
 
     isDone = false
     isStopped = false
@@ -211,16 +208,6 @@ export class ValueTrack<T extends AnyResolvedKeyframe = any>
             sampleDelta
         )
     }
-
-    /**
-     * Its group finishes it where the compositor ended it, at its end, or
-     * played backwards, its start.
-     */
-    tick() {
-        this.complete()
-    }
-
-    stopJS() {}
 
     get js() {
         return this.parent.js
@@ -612,20 +599,8 @@ export class MultiValueAnimation extends AnimationClock<any> {
         return max
     }
 
-    /**
-     * A shared animation of one value hands its blend to the driver, as a
-     * JSAnimation does.
-     */
     step(timestamp: number) {
-        const { tracks } = this
-        const track = tracks.length === 1 && tracks[0]
-        ;(track &&
-            track.isReady &&
-            !track.group &&
-            !track.isDone &&
-            this.numLive() &&
-            this.handLane(timestamp, track, (v) => track.update(v))) ||
-            this.tick(timestamp)
+        this.tick(timestamp)
         this.isOffloaded && this.driver?.stop()
     }
 
@@ -705,33 +680,15 @@ export class MultiValueAnimation extends AnimationClock<any> {
                 continue
             }
 
-            let value: any
-            let done: boolean
-            const { lane } = track
-
-            if (
-                lane &&
-                !isInDelayPhase &&
-                !isFinished &&
-                t > lane.start &&
-                t < lane.end
-            ) {
-                value =
-                    lane.from +
-                    lane.delta *
-                        lane.ease((t - lane.start) / (lane.end - lane.start))
-                done = false
-            } else {
-                const state = generateTrack(track, t, isInDelayPhase)
-                value = state.value
-                done = isInDelayPhase
-                    ? false
-                    : isForwards
-                    ? track.calculatedDuration < Infinity
-                        ? t >= trackDuration
-                        : state.done
-                    : t <= 0
-            }
+            const state = generateTrack(track, t, isInDelayPhase)
+            let { value } = state
+            const done = isInDelayPhase
+                ? false
+                : isForwards
+                ? track.calculatedDuration < Infinity
+                    ? t >= trackDuration
+                    : state.done
+                : t <= 0
 
             const isTrackFinished = isFinished || (isRunning && done)
 
@@ -842,9 +799,16 @@ export class MultiValueAnimation extends AnimationClock<any> {
         return millisecondsToSeconds(this.currentTime)
     }
 
+    /**
+     * Overriding the getter needs the setter with it.
+     */
     set time(newTime: number) {
+        this.setTime(newTime)
+    }
+
+    protected setTime(newTime: number) {
         this.revive()
-        ;(setTime ??= clockSetter("time")).call(this, newTime)
+        super.setTime(newTime)
         this.natives((native, track) => {
             watch(native, track)
             native.currentTime = secondsToMilliseconds(newTime)
@@ -853,18 +817,14 @@ export class MultiValueAnimation extends AnimationClock<any> {
         this.isRetiming || this.regroup(true)
     }
 
-    get speed() {
-        return this.playbackSpeed
-    }
-
     /**
      * A change of speed keeps the time, which isn't a seek.
      */
     private isRetiming = false
 
-    set speed(newSpeed: number) {
+    protected setSpeed(newSpeed: number) {
         this.isRetiming = true
-        ;(setSpeed ??= clockSetter("speed")).call(this, newSpeed)
+        super.setSpeed(newSpeed)
         this.isRetiming = false
         this.natives((native) => (native.playbackRate = newSpeed))
         this.regroup()
@@ -1069,13 +1029,3 @@ function watch(native: Animation, track?: ValueTrack) {
     ;(native as any).track = track
     native.onfinish = track ? onNativeFinish : null
 }
-
-/**
- * AnimationClock's setters, read on first use rather than when the module
- * loads, so a bundle that never plays a MultiValueAnimation can drop it.
- */
-type Setter = (this: AnimationClock<any>, value: number) => void
-let setTime: Setter | undefined
-let setSpeed: Setter | undefined
-const clockSetter = (name: "time" | "speed") =>
-    Object.getOwnPropertyDescriptor(AnimationClock.prototype, name)!.set!

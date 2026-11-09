@@ -2,7 +2,6 @@ import { frame } from "../../../frameloop"
 import { time } from "../../../frameloop/sync-time"
 import { motionValue } from "../../../value"
 import { JSAnimation } from "../../JSAnimation"
-import { animateOneValue } from "../multi-value"
 import { animateSingleValue } from "../single-value"
 
 async function nextFrame() {
@@ -57,13 +56,13 @@ describe("JSAnimation", () => {
     })
 })
 
-describe("animateOneValue", () => {
+describe("animateSingleValue", () => {
     test("notifies of a value that starts without one", async () => {
         const value = motionValue<number>(undefined as any)
         const onChange = jest.fn()
         value.on("change", onChange)
 
-        await animateOneValue(value, 5, { duration: 0.05 }).finished
+        await animateSingleValue(value, 5, { duration: 0.05 }).finished
 
         expect(value.get()).toBe(5)
         expect(onChange).toHaveBeenCalledWith(5)

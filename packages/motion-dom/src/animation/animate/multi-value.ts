@@ -5,24 +5,13 @@ import {
     secondsToMilliseconds,
 } from "motion-utils"
 import { frame } from "../../frameloop"
-import {
-    motionValue as createMotionValue,
-    type MotionValue,
-    type StartAnimation,
-} from "../../value"
-import { isMotionValue } from "../../value/utils/is-motion-value"
+import type { MotionValue, StartAnimation } from "../../value"
 import { MultiValueAnimation, ValueTrack } from "../MultiValueAnimation"
 import { getFinalKeyframe } from "../keyframes/get-final"
 import { KeyframeResolver as DefaultKeyframeResolver } from "../keyframes/KeyframesResolver"
 import { AnimationElement } from "../keyframes/types"
 import { fillWildcards } from "../keyframes/utils/fill-wildcards"
-import {
-    AnimationPlaybackControlsWithThen,
-    AnyResolvedKeyframe,
-    UnresolvedValueKeyframe,
-    ValueAnimationOptions,
-    ValueAnimationTransition,
-} from "../types"
+import { AnyResolvedKeyframe, ValueAnimationOptions } from "../types"
 import { canAnimate } from "../utils/can-animate"
 import { getDefaultTransition } from "../utils/default-transitions"
 import { getValueTransition } from "../utils/get-value-transition"
@@ -467,7 +456,10 @@ export const startValue =
         if (base.autoplay === false) parent.options.autoplay = false
         parent.options.startTime ??= base.startTime
 
-        if (isHandoff) element = undefined
+        /**
+         * Then, or if it must start now, its origin is its value's.
+         */
+        if (isHandoff || base.isSync) element = undefined
 
         const options: ValueAnimationOptions<any> = {
             ...base,
@@ -498,18 +490,3 @@ export const startValue =
 
         return track
     }
-
-/**
- * Animate one value, or a number, from a plan like any other value.
- */
-export function animateOneValue<V extends AnyResolvedKeyframe>(
-    value: MotionValue<V> | V,
-    keyframes: V | UnresolvedValueKeyframe<V>[],
-    options: ValueAnimationTransition = {}
-): AnimationPlaybackControlsWithThen {
-    const motionValue = isMotionValue(value) ? value : createMotionValue(value)
-    const ref: MultiValueRef = {}
-    motionValue.run(startValue(ref, "", motionValue, keyframes, options))
-    ref.animation?.start()
-    return motionValue.animation as AnimationPlaybackControlsWithThen
-}

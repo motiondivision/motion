@@ -1,5 +1,5 @@
 import { Easing } from "motion-utils"
-import type { Delta, EasingFunction } from "motion-utils"
+import type { Delta } from "motion-utils"
 import type { TargetAndTransition } from "../node/types"
 import { SVGAttributes } from "../render/svg/types"
 import type { VisualElement } from "../render/VisualElement"
@@ -142,19 +142,6 @@ export interface KeyframeGenerator<V> {
     velocity?: (t: number) => number
     retarget?: (keyframes: V[], velocity: number) => void
     toString: () => string
-    /**
-     * Set when the generator blends two numbers between two times (in ms),
-     * so a running animation can ease and blend them itself.
-     */
-    lane?: Lane
-}
-
-export interface Lane {
-    from: number
-    delta: number
-    ease: EasingFunction
-    start: number
-    end: number
 }
 
 export interface DOMValueAnimationOptions<

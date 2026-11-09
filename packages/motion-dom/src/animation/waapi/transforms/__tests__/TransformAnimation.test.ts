@@ -1,7 +1,5 @@
 import { animateElement } from "../../../animate/element"
 import { ValueTrack } from "../../../MultiValueAnimation"
-import { JSAnimation } from "../../../JSAnimation"
-import { TransformAnimation } from "../TransformAnimation"
 import { repaintLimit } from "../groups"
 import { frame } from "../../../../frameloop"
 import { styleEffect } from "../../../../effects/style"
@@ -747,7 +745,7 @@ describe("independent transform acceleration", () => {
         )
         await nextFrame()
         animateElement(element, { x: [0, 100] }, { duration: 1 })
-        const sampleAt = jest.spyOn(JSAnimation.prototype, "sampleAt")
+        const sampleAt = jest.spyOn(ValueTrack.prototype, "sampleAt")
         await nextFrame()
 
         /**
@@ -1546,7 +1544,7 @@ describe("independent transform acceleration", () => {
                 { duration: 1, times: [0, 0.5, 1], ease: "linear" }
             )
             await nextFrame()
-            const sync = jest.spyOn(TransformAnimation.prototype, "sync")
+            const sync = jest.spyOn(ValueTrack.prototype, "sync")
 
             animation.forEach((a) => a.pause())
             await nextFrame()

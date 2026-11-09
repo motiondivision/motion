@@ -8,7 +8,6 @@ import {
     AnyResolvedKeyframe,
     GeneratorFactory,
     KeyframeGenerator,
-    Lane,
     ValueAnimationOptions,
 } from "./types"
 import { replaceTransitionType } from "./utils/replace-transition-type"
@@ -35,11 +34,6 @@ export interface Track<T extends AnyResolvedKeyframe = any> {
      * Reusable state for the delay phase, so it isn't made every frame.
      */
     delayState?: AnimationState<T>
-    /**
-     * The generator's two-number blend, when nothing else (repeats or a
-     * keyframe mixer) changes its output.
-     */
-    lane?: Lane
 }
 
 const percentToProgress = (percent: number) => percent / 100
@@ -119,7 +113,6 @@ export function initTrack<T extends AnyResolvedKeyframe>(track: Track<T>) {
     track.resolvedDuration = calculatedDuration + repeatDelay
     track.totalDuration = track.resolvedDuration * (repeat + 1) - repeatDelay
     track.generator = generator
-    track.lane = repeat || track.mixKeyframes ? undefined : generator.lane
 }
 
 /**

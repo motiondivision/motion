@@ -13,7 +13,6 @@ import {
     AnimationState,
     AnyResolvedKeyframe,
     KeyframeGenerator,
-    Lane,
     ValueAnimationOptions,
 } from "../types"
 
@@ -46,26 +45,6 @@ export function keyframes<T extends AnyResolvedKeyframe>({
     const easingFunctions = isEasingArray(ease)
         ? ease.map(easingDefinitionToFunction)
         : easingDefinitionToFunction(ease) || easeInOut
-
-    /**
-     * Two numbers, the most common animation, blend without a mixer,
-     * offsets or closures.
-     */
-    if (
-        keyframeValues.length === 2 &&
-        !times &&
-        typeof keyframeValues[0] === "number" &&
-        typeof keyframeValues[1] === "number" &&
-        typeof easingFunctions === "function" &&
-        !MotionGlobalConfig.mix
-    ) {
-        return new NumberTween(
-            keyframeValues[0],
-            keyframeValues[1],
-            duration,
-            easingFunctions
-        ) as unknown as KeyframeGenerator<T>
-    }
 
     /**
      * This is the Iterator-spec return value. We ensure it's mutable rather than using a generator
@@ -110,19 +89,6 @@ export function keyframes<T extends AnyResolvedKeyframe>({
 
         return {
             calculatedDuration: duration,
-            lane:
-                typeof origin === "number" &&
-                typeof target === "number" &&
-                !MotionGlobalConfig.mix &&
-                to > from
-                    ? {
-                          from: origin,
-                          delta: target - origin,
-                          ease,
-                          start: from,
-                          end: to,
-                      }
-                    : undefined,
             next: (t: number) => {
                 /**
                  * Held keyframes either side of the move are mixed as
@@ -176,47 +142,5 @@ export function keyframes<T extends AnyResolvedKeyframe>({
             state.done = t >= duration
             return state
         },
-    }
-}
-
-/**
- * A tween between two numbers. It's its own lane: the blend from `from`
- * by `delta`, eased between `start` and `end`.
- */
-class NumberTween implements KeyframeGenerator<number>, Lane {
-    state: AnimationState<number>
-    delta: number
-    start = 0
-    lane?: Lane
-
-    constructor(
-        public from: number,
-        target: number,
-        public calculatedDuration: number,
-        public ease: EasingFunction
-    ) {
-        this.delta = target - from
-        this.state = { done: false, value: from }
-        if (calculatedDuration > 0) this.lane = this
-    }
-
-    get end() {
-        return this.calculatedDuration
-    }
-
-    next(t: number) {
-        const { calculatedDuration: duration, state } = this
-        state.value =
-            this.from +
-            this.delta *
-                this.ease(
-                    t >= duration || !duration ? 1 : t <= 0 ? 0 : t / duration
-                )
-        state.done = t >= duration
-        return state
-    }
-
-    toString() {
-        return ""
     }
 }

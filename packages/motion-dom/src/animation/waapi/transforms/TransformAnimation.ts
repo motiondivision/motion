@@ -1,11 +1,9 @@
 import {
-    clamp,
     Easing,
     EasingFunction,
     easingDefinitionToFunction,
     isBezierDefinition,
     isEasingArray,
-    millisecondsToSeconds,
 } from "motion-utils"
 import { frame } from "../../../frameloop/frame"
 import { frameData } from "../../../frameloop/frame-data"
@@ -20,28 +18,16 @@ import {
     transformProps,
 } from "../../../render/utils/keys-transform"
 import type { MotionValue, Owner } from "../../../value"
-import { frameloopDriver } from "../../drivers/frame"
-import { Driver, DriverControls } from "../../drivers/types"
 import { keyframes as keyframesGenerator } from "../../generators/keyframes"
-import {
-    flushKeyframeResolvers,
-    KeyframeResolver,
-    ResolvedKeyframes,
-} from "../../keyframes/KeyframesResolver"
 import { defaultOffset } from "../../keyframes/offsets/default"
-import { AnimationClock } from "../../AnimationClock"
-import { holdDriver, JSAnimation, round } from "../../JSAnimation"
+import { round } from "../../AnimationClock"
+import type { ValueTrack } from "../../MultiValueAnimation"
 import { sampleDelta } from "../../utils/sample-delta"
 import {
     AnyResolvedKeyframe,
     TimelineWithFallback,
     ValueAnimationOptions,
 } from "../../types"
-import { resolveStartTime } from "../../utils/resolve-start-time"
-import {
-    applyResolvedKeyframes,
-    fillAnimationDefaults,
-} from "../../utils/resolved-options"
 import { cubicBezierAsString } from "../easing/cubic-bezier"
 import { supportedWaapiEasing } from "../easing/supported"
 import { supportsWaapi } from "../supports/waapi"
@@ -49,7 +35,6 @@ import { createStyleAnimation, setStyle } from "../../../effects/style/output"
 import { acceleratedValues } from "../utils/accelerated-values"
 import { needsMixer } from "../utils/needs-mixer"
 import { supportsLinearEasing } from "../../../utils/supports/linear-easing"
-import { supportsScrollTimeline } from "../../../utils/supports/scroll-timeline"
 import { isRepainting, TransformGroupHooks, transformGroups } from "./groups"
 
 /**
@@ -58,8 +43,8 @@ import { isRepainting, TransformGroupHooks, transformGroups } from "./groups"
  * Instead, every transform animation on an element joins a group. While
  * every animation in the group follows the same timing, the group composes
  * them into a single `transform` WAAPI animation of their keyframes, with
- * their easing. The animations stay JSAnimations, but their driver doesn't
- * tick, so they do no work per frame.
+ * their easing. Each is still a value of its call's shared animation, which
+ * skips it on each frame while the compositor runs it.
  *
  * Values that share a transition, as the values of one animate() call or
  * variant do, share their timing. So do the values of a sequence, which
@@ -80,38 +65,7 @@ interface TransformOwner extends Owner {
     projection?: { isProjecting(): boolean }
 }
 
-interface TransformDriverControls extends DriverControls {
-    js: DriverControls
-}
-
-/**
- * A transform value's animation, as its group composes it: a
- * TransformAnimation, or a value on the shared clock of an animate() call.
- */
-export interface TransformMember {
-    readonly name: string
-    readonly state: AnimationPlayState
-    readonly speed: number
-    readonly startTime: number | null
-    readonly iterationDuration: number
-    readonly resolvedDuration: number
-    readonly totalDuration: number
-    readonly calculatedDuration: number
-    readonly options: ValueAnimationOptions<any>
-    canAccelerate: boolean
-    scrollTimeline?: TimelineWithFallback
-    readonly js?: DriverControls
-    at(timestamp: number): number
-    timing(): number[]
-    sampleAt(timestamp: number, resolved?: boolean): AnyResolvedKeyframe
-    sampleTime(time: number, resolved?: boolean): AnyResolvedKeyframe
-    sync(): void
-    isAccelerated(): boolean | undefined
-    complete(): void
-    tick(timestamp: number): unknown
-    stopJS(): void
-    observe(): unknown
-}
+type TransformMember = ValueTrack
 
 export interface TransformGroup extends TransformGroupHooks {
     tracks: Set<TransformMember>
@@ -266,7 +220,7 @@ const read = (owner: TransformOwner, key: string) =>
  * to stay on the main thread while they run. Browsers without linear()
  * easing stay on the main thread.
  */
-export const canGroupTransform = ({
+const canGroupTransform = ({
     name,
     motionValue,
 }: ValueAnimationOptions<any>) =>
@@ -302,11 +256,8 @@ export function canAccelerateTransform(options: ValueAnimationOptions<any>) {
 
     return (
         /**
-         * A handoff from an optimised appear animation is already running
-         * on its own WAAPI animation. onUpdate needs every value, every
-         * frame.
+         * onUpdate needs every value, every frame.
          */
-        !options.isHandoff &&
         !onUpdate &&
         !options.hasOnUpdate &&
         /**
@@ -330,430 +281,6 @@ export function canAccelerateTransform(options: ValueAnimationOptions<any>) {
          */
         !needsMixer(options)
     )
-}
-
-/**
- * Starting or stopping tells the group to update its WAAPI animation.
- * The frame loop driver is only made once the group is on the main
- * thread, as accelerated animations never tick.
- */
-class TransformDriver implements TransformDriverControls {
-    private driver?: DriverControls
-
-    constructor(
-        private element: Element,
-        private makeDriver: Driver,
-        private animation: TransformAnimation<any>
-    ) {}
-
-    get js() {
-        return (this.driver ||= this.makeDriver((timestamp) =>
-            this.animation.tick(timestamp)
-        ))
-    }
-
-    now() {
-        return this.driver || this.makeDriver !== frameloopDriver
-            ? this.js.now()
-            : frameData.isProcessing
-            ? frameData.timestamp
-            : time.now()
-    }
-
-    /**
-     * keepAlive is false when seeking. Seeking the WAAPI animation is
-     * free, but if a seek needs a rebuild and keeps happening, the group
-     * moves to the main thread.
-     */
-    start(keepAlive = true) {
-        const group = getGroup(this.element)
-        !group || group.isJS
-            ? this.js.start(keepAlive)
-            : group.schedule(false, !keepAlive && !this.animation.isRetiming)
-    }
-
-    stopJS() {
-        this.driver?.stop()
-    }
-
-    stop() {
-        this.stopJS()
-        const group = getGroup(this.element)
-        group && !group.isFinishing && group.release(this.animation)
-    }
-}
-
-/**
- * JSAnimation's time setter, looked up on first use rather than at module
- * load, so the module has no top-level side effects and stays
- * tree-shakeable in flattened bundles.
- */
-let setTime: ((this: JSAnimation<any>, time: number) => void) | undefined
-let setSpeed: ((this: JSAnimation<any>, speed: number) => void) | undefined
-
-/**
- * The accessors are AnimationClock's own. JSAnimation only inherits them.
- */
-const clockSetter = (name: "time" | "speed") =>
-    Object.getOwnPropertyDescriptor(AnimationClock.prototype, name)!.set!
-
-/**
- * A transform value's animation. It resolves its own keyframes, as
- * AsyncMotionValueAnimation does for other values, so each value is one
- * object rather than a wrapper, a resolver callback and an animation.
- * Until its keyframes resolve, anything that needs them resolves them
- * now, as AsyncMotionValueAnimation does.
- */
-export class TransformAnimation<
-    T extends number | string
-> extends JSAnimation<T> {
-    canAccelerate = false
-
-    /**
-     * Whether a speed change is rebasing the time, which, unlike a seek,
-     * the WAAPI animation can follow by changing its playback rate.
-     */
-    isRetiming = false
-
-    private createdAt: number
-
-    private resolver?: KeyframeResolver
-
-    private pendingTimeline?: TimelineWithFallback
-
-    private stopTimeline?: VoidFunction
-
-    /**
-     * A native scroll timeline this follows. While every animation in
-     * the group follows the same one, the group runs on it.
-     */
-    scrollTimeline?: TimelineWithFallback
-
-    constructor(options: ValueAnimationOptions<T>) {
-        super(options, true)
-
-        this.createdAt = time.now()
-
-        fillAnimationDefaults(options)
-
-        /**
-         * What it will be once resolved, without resolving to find out.
-         */
-        this.state = options.autoplay ? "running" : "paused"
-
-        const { keyframes, name, motionValue, element } = options
-        const Resolver = element?.KeyframeResolver || KeyframeResolver
-
-        const resolver = (this.resolver = new Resolver(
-            keyframes,
-            (
-                resolved: ResolvedKeyframes<T>,
-                finalKeyframe: T,
-                forced: boolean
-            ) => this.onKeyframesResolved(resolved, finalKeyframe, !forced),
-            name,
-            motionValue,
-            element
-        ))
-        resolver.scheduleResolve()
-    }
-
-    private onKeyframesResolved(
-        keyframes: ResolvedKeyframes<T>,
-        finalKeyframe: T,
-        sync: boolean
-    ) {
-        this.resolver = undefined
-
-        const { options } = this
-        applyResolvedKeyframes(options, keyframes, finalKeyframe)
-
-        /**
-         * Start from when this was made, if the keyframes resolved soon
-         * enough after, as every value of a group must share a clock.
-         */
-        if (sync) {
-            options.startTime ??= resolveStartTime(this.createdAt, time.now())
-        }
-
-        /**
-         * Before JSAnimation replaces the type with its generator.
-         */
-        this.canAccelerate = canAccelerateTransform(options)
-
-        this.begin()
-
-        if (this.pendingTimeline) {
-            this.stopTimeline = this.attach(this.pendingTimeline)
-            this.pendingTimeline = undefined
-        }
-    }
-
-    /**
-     * Resolve the keyframes now, for anything that needs them.
-     */
-    private flush() {
-        if (this.resolver) {
-            this.resolver.resume()
-            flushKeyframeResolvers()
-        }
-    }
-
-    get duration() {
-        this.flush()
-        return super.duration
-    }
-
-    sample(sampleTime: number) {
-        this.flush()
-        return super.sample(sampleTime)
-    }
-
-    cancel() {
-        this.resolver ? this.resolver.cancel() : super.cancel()
-    }
-
-    /**
-     * Before stopping, set the motion value to where the WAAPI animation
-     * is now, with velocity, for the next animation to start from.
-     */
-    protected stopAnimation() {
-        if (this.resolver) return this.resolver.cancel()
-
-        this.isAccelerated() && this.sync()
-        super.stopAnimation()
-        this.stopTimeline?.()
-    }
-
-    get group() {
-        return getGroup(getOwner(this.options).current)
-    }
-
-    get js() {
-        return (this.driver as TransformDriverControls | undefined)?.js
-    }
-
-    stopJS() {
-        ;(this.driver as TransformDriver | undefined)?.stopJS()
-    }
-
-    get name() {
-        return this.options.name!
-    }
-
-    /**
-     * When this stops moving, or, if it repeats forever, when it starts
-     * repeating, and how long each repeat takes. Held (paused, or at
-     * speed 0) animations never stop moving.
-     */
-    timing() {
-        const { startTime, speed, totalDuration } = this
-        const { delay = 0, repeatType } = this.options
-
-        return this.holdTime !== null
-            ? [Infinity, 0]
-            : totalDuration === Infinity
-            ? [
-                  startTime! + delay / speed,
-                  (this.resolvedDuration * (repeatType === "loop" ? 1 : 2)) /
-                      speed || 1,
-              ]
-            : [startTime! + (delay + totalDuration) / speed, 0]
-    }
-
-    /**
-     * Whether this is running, or paused, on the compositor.
-     */
-    isAccelerated(): boolean | undefined {
-        const { group, state } = this
-        return (
-            group?.tracks.has(this) &&
-            !group.isJS &&
-            this.canAccelerate &&
-            (state === "running" || state === "paused")
-        )
-    }
-
-    /**
-     * The value now, while this runs on the compositor and so doesn't
-     * set its motion value every frame.
-     */
-    liveValue() {
-        return this.isAccelerated() ? this.sampleAt(time.now()) : undefined
-    }
-
-    /**
-     * Write the current value, and velocity, to the motion value.
-     */
-    sync() {
-        const now = time.now()
-        const value = this.sampleAt(now, true)
-
-        /**
-         * A held value doesn't move, so there's no need to sample it
-         * twice.
-         */
-        this.options.motionValue!.setWithVelocity(
-            this.holdTime === null
-                ? this.sampleAt(now - sampleDelta, true)
-                : value,
-            value,
-            sampleDelta
-        )
-    }
-
-    play() {
-        this.flush()
-
-        /**
-         * A stopped animation (one that was interrupted) can't play again,
-         * so it mustn't join the group.
-         */
-        if (this.isStopped) return
-        joinGroup(this)
-        const owner = getOwner(this.options)
-
-        /**
-         * The frame loop driver is only made once the group is on the
-         * main thread, as accelerated animations never tick. The driver
-         * is made here rather than through options, as JSAnimation would
-         * make a closure for each.
-         */
-        this.driver ||= new TransformDriver(
-            owner.current,
-            this.options.driver || frameloopDriver,
-            this
-        )
-
-        super.play()
-    }
-
-    /**
-     * The driver's own stop() leaves the group, so only the frame loop
-     * driver of a group on the main thread is held.
-     */
-    protected hold() {
-        this.group?.isJS && holdDriver(this.js!)
-    }
-
-    pause() {
-        this.flush()
-        super.pause()
-
-        this.isAccelerated() && this.group!.schedule(false)
-    }
-
-    /**
-     * JSAnimation finishes on its next tick, which only happens once the
-     * group is on the main thread, so finish now. That includes an
-     * animation that can't be accelerated but reached its end before the
-     * group could move there.
-     */
-    complete() {
-        this.flush()
-        super.complete()
-        const { group } = this
-        group && !group.isJS && this.tick(time.now())
-    }
-
-    /**
-     * Without a tick to rebase it, a held time still includes the delay,
-     * so take it off here, as a JS animation does on its next tick.
-     */
-    get time() {
-        if (this.isAccelerated()) {
-            return millisecondsToSeconds(
-                clamp(
-                    0,
-                    this.totalDuration,
-                    this.at(time.now()) - (this.options.delay || 0)
-                )
-            )
-        }
-
-        return super.time
-    }
-
-    /**
-     * Calls JSAnimation's setter directly, as `super.time =` is a slow
-     * path in V8 and this runs for every animation of a seeked sequence.
-     */
-    set time(newTime: number) {
-        this.flush()
-        ;(setTime ??= clockSetter("time")).call(this, newTime)
-    }
-
-    get speed() {
-        return super.speed
-    }
-
-    set speed(newSpeed: number) {
-        this.isRetiming = true
-        ;(setSpeed ??= clockSetter("speed")).call(this, newSpeed)
-        this.isRetiming = false
-    }
-
-    /**
-     * Scroll timelines set time every frame, so run these on the main
-     * thread.
-     */
-    attachTimeline(timeline: TimelineWithFallback) {
-        if (this.resolver) {
-            this.pendingTimeline = timeline
-        } else {
-            this.stopTimeline = this.attach(timeline)
-        }
-
-        return () => this.stop()
-    }
-
-    private attach(timeline: TimelineWithFallback) {
-        if (
-            this.canAccelerate &&
-            timeline.timeline &&
-            supportsScrollTimeline()
-        ) {
-            /**
-             * As JSAnimation does, a scroll-linked animation without its
-             * own easing runs linearly.
-             */
-            if (this.options.allowFlatten) {
-                this.options.type = "keyframes"
-                this.options.ease = "linear"
-                this.initAnimation()
-            }
-
-            this.scrollTimeline = timeline
-            this.group?.schedule(true)
-
-            return () => {
-                this.scrollTimeline = undefined
-            }
-        }
-
-        return this.observe(timeline)
-    }
-
-    /**
-     * Follow the timeline from JS, on the main thread, as values that
-     * can't run on it natively do.
-     */
-    observe(timeline = this.scrollTimeline!) {
-        this.scrollTimeline = undefined
-        this.canAccelerate = false
-        this.group?.demote(true)
-        return (this.stopTimeline = super.attachTimeline(timeline))
-    }
-
-    /**
-     * On a scroll timeline, its time is where the timeline has it.
-     */
-    at(timestamp: number): number {
-        return (
-            (this.scrollTimeline && this.group?.scrollTime(this)) ??
-            super.at(timestamp)
-        )
-    }
 }
 
 /**
@@ -1564,7 +1091,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
                     /**
                      * Played backwards, it finishes at its start.
                      */
-                    track.tick(now - track.at(now) / speed)
+                    track.complete()
                 } else {
                     return
                 }
@@ -1617,7 +1144,6 @@ function createGroup(owner: TransformOwner): TransformGroup {
         if (group.isJS) {
             group.isJS = false
             needsBuild = true
-            tracks.forEach((track) => track.stopJS())
         }
 
         const shouldBuild = needsBuild

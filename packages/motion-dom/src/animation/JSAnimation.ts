@@ -7,7 +7,6 @@ import { getFinalKeyframe } from "./keyframes/get-final"
 import {
     AnimationState,
     KeyframeGenerator,
-    Lane,
     TimelineWithFallback,
     ValueAnimationOptions,
 } from "./types"
@@ -15,8 +14,6 @@ import { generateTrack, initTrack } from "./track"
 import { resolveStartTime } from "./utils/resolve-start-time"
 import { notifyAnimationStart } from "./utils/notify-inspector"
 import { AnimationClock } from "./AnimationClock"
-
-export { holdDriver, round } from "./AnimationClock"
 
 /**
  * A JSAnimation is a Track with its own clock. It doesn't declare
@@ -49,29 +46,15 @@ export class JSAnimation<T extends number | string> extends AnimationClock<T> {
     /** @internal */
     delayState?: AnimationState<T>
 
-    /**
-     * The generator's two-number blend, when nothing else (repeats or a
-     * keyframe mixer) changes its output.
-     */
-    /** @internal */
-    lane?: Lane
-
-    /**
-     * @param isDeferred - Don't start until begin() is called, for a
-     * subclass that resolves its own keyframes first.
-     */
-    constructor(options: ValueAnimationOptions<T>, isDeferred?: boolean) {
+    constructor(options: ValueAnimationOptions<T>) {
         super(options)
-        isDeferred || this.begin()
-    }
 
-    protected begin() {
         this.initAnimation()
         this.play()
 
-        if (this.options.autoplay === false) this.pause()
+        if (options.autoplay === false) this.pause()
 
-        notifyAnimationStart(this, this.options)
+        notifyAnimationStart(this, options)
     }
 
     initAnimation() {
@@ -82,7 +65,7 @@ export class JSAnimation<T extends number | string> extends AnimationClock<T> {
      * The frame loop's update.
      */
     step(timestamp: number) {
-        this.handLane(timestamp, this) || this.tick(timestamp)
+        this.tick(timestamp)
     }
 
     tick(timestamp: number, sample = false) {
