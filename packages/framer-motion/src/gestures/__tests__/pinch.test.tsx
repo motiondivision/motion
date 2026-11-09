@@ -79,7 +79,10 @@ describe("pinch prop", () => {
         const onEnd = jest.fn()
         const { container } = render(
             <LazyMotion features={features}>
-                <m.div pinch={{ max: 1.5, onEnd }} style={{ scale }} />
+                <m.div
+                    pinch={{ scale: { max: 1.5 }, elastic: 0, onEnd }}
+                    style={{ scale }}
+                />
             </LazyMotion>
         )
 
@@ -156,7 +159,12 @@ describe("pinch prop", () => {
         const Component = () => {
             const [max, set] = useState(4)
             setMax = set
-            return <m.div pinch={{ max }} style={{ scale }} />
+            return (
+                <m.div
+                    pinch={{ scale: { max }, elastic: 0 }}
+                    style={{ scale }}
+                />
+            )
         }
         const { container } = render(
             <LazyMotion features={features}>
@@ -239,7 +247,10 @@ describe("pinch prop", () => {
             const [pinch, set] = useState(true)
             setPinch = set
             return (
-                <m.div pinch={pinch && { max: 1.2, onEnd }} style={{ scale }} />
+                <m.div
+                    pinch={pinch && { scale: { max: 1.2 }, onEnd }}
+                    style={{ scale }}
+                />
             )
         }
         const { container } = render(
@@ -284,7 +295,7 @@ describe("pinch prop", () => {
         const { container } = render(
             <>
                 <motion.div pinch />
-                <motion.div pinch={{ max: 2 }} />
+                <motion.div pinch={{ scale: { max: 2 } }} />
             </>
         )
         const [a, b] = Array.from(container.children)
@@ -394,5 +405,37 @@ describe("whilePinch", () => {
         expect(
             (container.firstChild as Element).hasAttribute("whilePinch")
         ).toBe(false)
+    })
+})
+
+describe("pinch limits", () => {
+    test("scale resists past max and springs back on release", async () => {
+        const scale = motionValue(1)
+        const { container } = render(
+            <LazyMotion features={features}>
+                <m.div
+                    pinch={{ scale: { max: 1.5 }, rotate: false }}
+                    style={{ scale }}
+                />
+            </LazyMotion>
+        )
+        const element = container.firstChild as Element
+
+        await act(async () => {
+            pointer(element, "pointerdown", 1, -50)
+            pointer(element, "pointerdown", 2, 50)
+            await nextFrame()
+            pointer(window, "pointermove", 1, -100)
+            pointer(window, "pointermove", 2, 100)
+            await nextFrame()
+        })
+        expect(scale.get()).toBeCloseTo(1.5 + 0.5 * 0.35)
+
+        await act(async () => {
+            pointer(window, "pointerup", 1, -100)
+            pointer(window, "pointerup", 2, 100)
+            await new Promise((resolve) => setTimeout(resolve, 1500))
+        })
+        expect(scale.get()).toBeCloseTo(1.5, 3)
     })
 })

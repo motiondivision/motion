@@ -10,11 +10,13 @@ import { useState } from "react"
 /**
  * The pinch prop in React: whilePinch on the box and, by variant label, on
  * its child, a tap counter, and drag with its release velocity. The
- * 100x100 box starts at (100, 100). Add ?drag to make it draggable.
+ * 100x100 box starts at (100, 100). Add ?drag to make it draggable, and
+ * ?limits to limit its scale to 1.5.
  */
 export const App = () => {
     const params = new URLSearchParams(window.location.search)
     const isDraggable = params.has("drag")
+    const pinch = params.has("limits") ? { scale: { max: 1.5 } } : true
     const opacity = useMotionValue(1)
     const [taps, setTaps] = useState(0)
     const [velocity, setVelocity] = useState<number | null>(null)
@@ -25,7 +27,7 @@ export const App = () => {
                 id="box"
                 drag={isDraggable}
                 dragMomentum={false}
-                pinch
+                pinch={pinch}
                 whilePinch="pinching"
                 whileTap={{ backgroundColor: "rgb(0, 0, 255)" }}
                 onTap={() => setTaps((t) => t + 1)}

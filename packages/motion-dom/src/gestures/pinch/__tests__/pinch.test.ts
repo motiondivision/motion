@@ -225,8 +225,19 @@ describe("pinch", () => {
         await gesture.end()
     })
 
-    test("doesn't rotate by default", async () => {
+    test("rotates by default", async () => {
         makePinchable(element)
+
+        const gesture = await twoFinger(element, [0, 0, 100, 0])
+        await gesture.to([50, -50, 50, 50])
+
+        expect(value(element, "rotate")).toBeCloseTo(90)
+
+        await gesture.end()
+    })
+
+    test("rotate: false doesn't rotate", async () => {
+        makePinchable(element, noop, { rotate: false })
 
         const gesture = await twoFinger(element, [0, 0, 100, 0])
         await gesture.to([50, -50, 50, 50])
@@ -263,8 +274,11 @@ describe("pinch", () => {
         await gesture.end()
     })
 
-    test("clamps scale to min and max", async () => {
-        makePinchable(element, noop, { min: 0.5, max: 1.5 })
+    test("clamps scale to min and max with elastic: 0", async () => {
+        makePinchable(element, noop, {
+            scale: { min: 0.5, max: 1.5 },
+            elastic: 0,
+        })
 
         const gesture = await twoFinger(element, [0, 0, 100, 0])
         await gesture.to([-50, 0, 150, 0])
@@ -422,7 +436,9 @@ describe("pinch", () => {
     })
 
     test("pinches without a start callback", async () => {
-        stops.push(pinch(element, undefined, { max: 1.5 }))
+        stops.push(
+            pinch(element, undefined, { scale: { max: 1.5 }, elastic: 0 })
+        )
         stops.push(pinch(document.createElement("div")))
 
         const gesture = await twoFinger(element, [0, 0, 100, 0])
@@ -938,7 +954,7 @@ describe("pinch edge cases", () => {
     test("disabling mid-gesture ends it", async () => {
         const onEnd = jest.fn()
         let enabled = true
-        const options = { max: 1.2 }
+        const options = { scale: { max: 1.2 } }
         const { addPinchListeners } = require("..")
         const remove = addPinchListeners(
             element,
@@ -1005,7 +1021,7 @@ describe("pinch edge cases", () => {
     })
 
     test("doesn't stop animations on values it won't write", async () => {
-        makePinchable(element)
+        makePinchable(element, noop, { rotate: false })
         animateElement(element, { rotate: 90 }, { duration: 10 })
         await nextFrame()
 
@@ -1079,7 +1095,7 @@ describe("pinch with a trackpad: wheel deltas", () => {
     })
 
     test("pinching past max doesn't build up", async () => {
-        makePinchable(element, noop, { max: 2 })
+        makePinchable(element, noop, { scale: { max: 2 }, elastic: 0 })
 
         for (let i = 0; i < 2000; i++) wheelWithMode(-1e6, 0)
         await nextFrame()
@@ -1164,5 +1180,157 @@ describe("pinch with press", () => {
         await gesture.end()
 
         expect(visualElementStore.get(parent)!.getValue("x")!.get()).toBe(0)
+    })
+})
+
+describe("pinch limits", () => {
+    /**
+     * Where the focal point sits in the element's own (unscaled, unrotated)
+     * coordinates, relative to its centre. Snapping back keeps this fixed.
+     */
+    const local = (point: { x: number; y: number }) => {
+        const scale = value(element, "scale")
+        const angle = (-(value(element, "rotate") ?? 0) * Math.PI) / 180
+        const dx = (point.x - (50 + (value(element, "x") ?? 0))) / scale
+        const dy = (point.y - (value(element, "y") ?? 0)) / scale
+        return {
+            x: dx * Math.cos(angle) - dy * Math.sin(angle),
+            y: dx * Math.sin(angle) + dy * Math.cos(angle),
+        }
+    }
+
+    test("scale resists past max, then springs back on release", async () => {
+        let info: PinchInfo | undefined
+        makePinchable(element, () => (_, i) => (info = i), {
+            scale: { max: 1.5 },
+            rotate: false,
+        })
+
+        // 2x around (25, 0), off the element's centre.
+        const gesture = await twoFinger(element, [0, 0, 50, 0])
+        await gesture.to([-25, 0, 75, 0])
+        expect(value(element, "scale")).toBeCloseTo(1.5 + 0.5 * 0.35)
+
+        const before = local({ x: 25, y: 0 })
+        await gesture.end()
+        expect(info!.scale).toBeCloseTo(2)
+
+        await sleep(1500)
+        expect(value(element, "scale")).toBeCloseTo(1.5, 3)
+        const after = local({ x: 25, y: 0 })
+        expect(after.x).toBeCloseTo(before.x, 1)
+        expect(after.y).toBeCloseTo(before.y, 1)
+    })
+
+    test("scale resists past min, then springs back", async () => {
+        makePinchable(element, noop, { scale: { min: 1 }, rotate: false })
+
+        const gesture = await twoFinger(element, [0, 0, 100, 0])
+        await gesture.to([25, 0, 75, 0])
+        expect(value(element, "scale")).toBeCloseTo(1 - 0.5 * 0.35)
+
+        await gesture.end()
+        await sleep(1500)
+        expect(value(element, "scale")).toBeCloseTo(1, 3)
+    })
+
+    test("elastic sets the resistance, per side", async () => {
+        makePinchable(element, noop, {
+            scale: { min: 1, max: 1.5 },
+            rotate: false,
+            elastic: { min: 0, max: 0.5 },
+        })
+
+        const gesture = await twoFinger(element, [0, 0, 100, 0])
+        await gesture.to([-50, 0, 150, 0])
+        expect(value(element, "scale")).toBeCloseTo(1.75)
+        await gesture.to([25, 0, 75, 0])
+        expect(value(element, "scale")).toBeCloseTo(1)
+        await gesture.end()
+    })
+
+    test("rotation resists past its limits and springs back", async () => {
+        makePinchable(element, noop, { rotate: { min: -45, max: 45 } })
+
+        const gesture = await twoFinger(element, [0, 0, 100, 0])
+        await gesture.to([50, -50, 50, 50]) // 90deg
+        expect(value(element, "rotate")).toBeCloseTo(45 + 45 * 0.35)
+
+        await gesture.end()
+        await sleep(1500)
+        expect(value(element, "rotate")).toBeCloseTo(45, 2)
+    })
+
+    test("rotation snaps to the nearest step on release", async () => {
+        makePinchable(element, noop, { rotate: { snap: 90 } })
+
+        const gesture = await twoFinger(element, [0, 0, 100, 0])
+        await gesture.to([50, -50, 50, 50]) // 90deg
+        await gesture.to([100, -30, 0, 30]) // about 149deg
+
+        const before = local({ x: 50, y: 0 })
+        await gesture.end()
+        await sleep(1500)
+
+        expect(value(element, "rotate")).toBeCloseTo(180, 2)
+        const after = local({ x: 50, y: 0 })
+        expect(after.x).toBeCloseTo(before.x, 1)
+        expect(after.y).toBeCloseTo(before.y, 1)
+    })
+
+    test("snapToOrigin animates everything back on release", async () => {
+        makePinchable(element, noop, { snapToOrigin: true })
+
+        const gesture = await twoFinger(element, [0, 0, 100, 0])
+        await gesture.to([50, -100, 150, 100])
+        expect(value(element, "scale")).not.toBeCloseTo(1)
+        expect(value(element, "x")).not.toBeCloseTo(0)
+
+        await gesture.end()
+        await sleep(1500)
+        expect(value(element, "scale")).toBeCloseTo(1, 3)
+        expect(value(element, "rotate")).toBeCloseTo(0, 2)
+        expect(value(element, "x")).toBeCloseTo(0, 1)
+        expect(value(element, "y")).toBeCloseTo(0, 1)
+    })
+
+    test("transition sets the spring", async () => {
+        makePinchable(element, noop, {
+            scale: { max: 1 },
+            transition: { stiffness: 2000, damping: 100 },
+        })
+
+        const gesture = await twoFinger(element, [0, 0, 100, 0])
+        await gesture.to([-50, 0, 150, 0])
+        await gesture.end()
+        await sleep(150)
+        expect(value(element, "scale")).toBeCloseTo(1, 1)
+    })
+
+    test("a new pinch stops a spring back", async () => {
+        makePinchable(element, noop, { scale: { max: 1 }, rotate: false })
+
+        let gesture = await twoFinger(element, [0, 0, 100, 0])
+        await gesture.to([-50, 0, 150, 0])
+        await gesture.end()
+        await sleep(30)
+
+        gesture = await twoFinger(element, [0, 0, 100, 0])
+        const held = value(element, "scale")
+        expect(held).toBeGreaterThan(1)
+        await sleep(100)
+        expect(value(element, "scale")).toBe(held)
+        await gesture.end()
+    })
+
+    test("within its limits, nothing animates on release", async () => {
+        makePinchable(element, noop, { scale: { max: 4 } })
+
+        const gesture = await twoFinger(element, [0, 0, 100, 0])
+        await gesture.to([-50, 0, 150, 0])
+        const scale = value(element, "scale")
+        await gesture.end()
+        await sleep(100)
+        expect(value(element, "scale")).toBe(scale)
     })
 })

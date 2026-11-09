@@ -64,8 +64,7 @@
                 {
                     rotate: params.has("rotate"),
                     pan: params.get("pan") !== "false",
-                    min: num("min"),
-                    max: num("max"),
+                    scale: { min: num("min"), max: num("max") },
                 }
             )
         </script>

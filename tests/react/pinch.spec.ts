@@ -125,6 +125,20 @@ test.describe("pinch prop", () => {
         )
     })
 
+    test("scale resists past its limit and springs back", async ({ page }) => {
+        await open(page, "&limits")
+        const cdp = await page.context().newCDPSession(page)
+
+        await spread(page, cdp)
+        const stretched = await width(page)
+        expect(stretched).toBeGreaterThan(155)
+        expect(stretched).toBeLessThan(400)
+
+        await touch(cdp, "touchEnd", [])
+        await page.waitForTimeout(1500)
+        expect(await width(page)).toBeCloseTo(150, 0)
+    })
+
     test("a tap still taps", async ({ page }) => {
         await open(page)
         await page.click("#box")

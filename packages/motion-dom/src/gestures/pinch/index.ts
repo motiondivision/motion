@@ -1,4 +1,6 @@
 import { clamp, type Point } from "motion-utils"
+import { spring } from "../../animation/generators/spring"
+import type { SpringOptions } from "../../animation/types"
 import { readStyleValue, styleSubjectEffect } from "../../effects/style"
 import { svgSubjectEffect } from "../../effects/svg"
 import { cancelFrame, frame } from "../../frameloop"
@@ -6,12 +8,14 @@ import { time } from "../../frameloop/sync-time"
 import { visualElementStore } from "../../render/store"
 import { activeScope, addToScope } from "../../scope/active"
 import { isSVGElement } from "../../utils/is-svg-element"
+import { mixNumber } from "../../utils/mix/number"
 import {
     resolveElements,
     type ElementOrSelector,
 } from "../../utils/resolve-elements"
 import { motionValue, type MotionValue } from "../../value"
 import { setDragLock } from "../drag/state/set-active"
+import { applyConstraints, defaultElastic } from "../drag/utils/constraints"
 import { elementDragControls } from "../drag/VisualElementDragControls"
 
 /**
@@ -84,18 +88,50 @@ export type OnPinchStartEvent = (
 ) => OnPinchEvent | PinchHandlers | void
 
 /**
+ * The limits of a pinch's scale or rotation.
+ *
+ * @public
+ */
+export interface PinchLimits {
+    /**
+     * The minimum. Past it, the gesture resists by `elastic`, and the
+     * value springs back to it on release.
+     */
+    min?: number
+
+    /**
+     * The maximum. Past it, the gesture resists by `elastic`, and the
+     * value springs back to it on release.
+     */
+    max?: number
+}
+
+/**
+ * @public
+ */
+export interface PinchRotateOptions extends PinchLimits {
+    /**
+     * On release, rotate to the nearest multiple of this many degrees.
+     */
+    snap?: number
+}
+
+/**
  * @public
  */
 export interface PinchOptions {
     /**
-     * Scale the element. Defaults to `true`.
+     * Scale the element. Defaults to `true`. Pass `{ min, max }` to limit
+     * the scale.
      */
-    scale?: boolean
+    scale?: boolean | PinchLimits
 
     /**
-     * Rotate the element with the touches. Defaults to `false`.
+     * Rotate the element with the touches. Defaults to `true`. Pass
+     * `{ min, max }` (in degrees) to limit the rotation, and `snap` to
+     * rotate to the nearest multiple of `snap` degrees on release.
      */
-    rotate?: boolean
+    rotate?: boolean | PinchRotateOptions
 
     /**
      * Move the element with the focal point, and keep the point under the
@@ -109,14 +145,23 @@ export interface PinchOptions {
     pan?: boolean
 
     /**
-     * The minimum scale.
+     * How far scale and rotation can go past their limits, as for
+     * `dragElastic`: `0` stops at the limit, `1` doesn't resist. Pass
+     * `{ min, max }` to set each side. Defaults to `0.35`.
      */
-    min?: number
+    elastic?: boolean | number | PinchLimits
 
     /**
-     * The maximum scale.
+     * On release, animate scale back to `1`, and rotation and `x`/`y`
+     * back to `0`.
      */
-    max?: number
+    snapToOrigin?: boolean
+
+    /**
+     * The spring values use to animate back inside their limits, to a
+     * `snap` angle or to their origin.
+     */
+    transition?: SpringOptions
 }
 
 /**
@@ -165,6 +210,26 @@ const toPixels = (value: MotionValue<number>, size: number) => {
         value.set(parseFloat(latest) * (latest.endsWith("%") ? size / 100 : 1))
     }
 }
+
+const limitsOf = (option?: boolean | PinchRotateOptions): PinchRotateOptions =>
+    typeof option === "object" ? option : {}
+
+/**
+ * Resolve `elastic` to a resistance for each side, as for `dragElastic`.
+ */
+const resolveElastic = (
+    elastic: PinchOptions["elastic"] = defaultElastic
+): { min: number; max: number } => {
+    const side = (value?: number | boolean) =>
+        value === true ? defaultElastic : +(value || 0)
+
+    return typeof elastic === "object"
+        ? { min: side(elastic.min), max: side(elastic.max) }
+        : { min: side(elastic), max: side(elastic) }
+}
+
+const clampTo = (value: number, { min = -Infinity, max = Infinity }) =>
+    clamp(min, max, value)
 
 /**
  * Listen for pinch gestures on `element`: two touches (or pens), a trackpad
@@ -218,6 +283,13 @@ export function addPinchListeners(
     let unlock: VoidFunction | null | undefined
 
     /**
+     * The gesture's scale and rotation before limits and elastic apply.
+     */
+    let rawScale = 1
+    let rawRotate = 0
+    let stopSnap = () => {}
+
+    /**
      * The latest enabled options, so a gesture disabled mid-way can still
      * report its end.
      */
@@ -246,7 +318,9 @@ export function addPinchListeners(
          * rest running.
          */
         scale !== false && s.stop()
-        rotate && r.stop()
+        rotate !== false && r.stop()
+        rawScale = s.get()
+        rawRotate = r.get()
 
         if (pan !== false) {
             x.stop()
@@ -261,6 +335,99 @@ export function addPinchListeners(
         originY = top + height / 2 - lastY
     }
 
+    const dragControls = () =>
+        elementDragControls.get(visualElementStore.get(element)!)
+
+    /**
+     * On release, spring scale and rotation back inside their limits (or
+     * to a `snap` angle), keeping the focal point in place, or everything
+     * back to its origin with `snapToOrigin`.
+     */
+    const snap = () => {
+        const {
+            scale: scaleOption,
+            rotate: rotateOption,
+            pan,
+            snapToOrigin,
+            transition,
+        } = options
+        const [scale, rotate, x, y] = values!
+        const s0 = scale.get()
+        const r0 = rotate.get()
+        const x0 = x.get()
+        const y0 = y.get()
+        const { snap: step } = limitsOf(rotateOption)
+        let s1 = clampTo(s0, limitsOf(scaleOption))
+        let r1 = clampTo(
+            step ? Math.round(r0 / step) * step : r0,
+            limitsOf(rotateOption)
+        )
+
+        if (snapToOrigin) {
+            s1 = 1
+            r1 = 0
+        }
+
+        /**
+         * Keep the focal point in place, unless the element doesn't move
+         * with it, or a drag carries on and owns x/y.
+         */
+        const moves = pan !== false && !dragControls()?.isDragging
+        const vx = originX + x0 - current.x
+        const vy = originY + y0 - current.y
+
+        if (
+            !s0 ||
+            (s1 === s0 && r1 === r0 && !(snapToOrigin && moves && (x0 || y0)))
+        ) {
+            return
+        }
+
+        const generator = spring({
+            keyframes: [0, 1],
+            stiffness: 200,
+            damping: 40,
+            ...transition,
+        })
+        const startTime = time.now()
+
+        /**
+         * Drive the values from one spring, from 0 to 1, so they stay in
+         * step and the focal point stays in place.
+         */
+        const tick = () => {
+            if (dragControls()?.isDragging) return stopSnap()
+
+            const { value: p, done } = generator.next(time.now() - startTime)
+            if (done) stopSnap()
+
+            const k = mixNumber(s0, s1, p)
+            const r = mixNumber(r0, r1, p)
+            const angle = ((r - r0) * Math.PI) / 180
+            const cos = (Math.cos(angle) * k) / s0
+            const sin = (Math.sin(angle) * k) / s0
+
+            scaleOption !== false && scale.set(k)
+            rotateOption !== false && rotate.set(r)
+
+            if (moves) {
+                x.set(
+                    snapToOrigin
+                        ? mixNumber(x0, 0, p)
+                        : x0 + cos * vx - sin * vy - vx
+                )
+                y.set(
+                    snapToOrigin
+                        ? mixNumber(y0, 0, p)
+                        : y0 + sin * vx + cos * vy - vy
+                )
+            }
+        }
+
+        stopSnap = () => cancelFrame(tick)
+        frame.update(tick, true)
+    }
+
     /**
      * Apply the change in the gesture since the last frame as an
      * incremental scale and rotation around the previous focal point,
@@ -271,28 +438,50 @@ export function addPinchListeners(
         hasMoved = false
 
         const {
-            rotate: canRotate,
-            scale: canScale,
+            rotate: rotateOption,
+            scale: scaleOption,
             pan,
-            min,
-            max,
+            elastic,
         } = getOptions()
         const [scale, rotate, x, y] = values
-        const theta = canRotate ? current.a - prev.a : 0
+        const resistance = resolveElastic(elastic)
         const latest = scale.get()
+        let theta = 0
         let k = 1
 
-        if (canScale !== false && latest) {
-            const next = clamp(
-                min ?? 0,
-                max ?? Infinity,
-                latest * Math.exp(current.l - prev.l)
+        /**
+         * Apply limits and elastic to the gesture's raw scale and rotation.
+         * At a hard limit, the raw value stops too, so moving back responds
+         * straight away.
+         */
+        const constrain = (raw: number, option?: boolean | PinchLimits) => {
+            const limits = limitsOf(option)
+            const limit = clampTo(raw, limits)
+
+            return resistance[raw < limit ? "min" : "max"]
+                ? [applyConstraints(raw, limits, resistance), raw]
+                : [limit, limit]
+        }
+
+        if (scaleOption !== false && latest) {
+            const [next, raw] = constrain(
+                clamp(1e-9, 1e9, rawScale * Math.exp(current.l - prev.l)),
+                scaleOption
             )
+            rawScale = raw
             k = next / latest
             scale.set(next)
         }
 
-        if (theta) rotate.set(rotate.get() + theta)
+        if (rotateOption !== false) {
+            const [next, raw] = constrain(
+                rawRotate + current.a - prev.a,
+                rotateOption
+            )
+            rawRotate = raw
+            theta = next - rotate.get()
+            if (theta) rotate.set(next)
+        }
 
         if (pan !== false) {
             /**
@@ -311,9 +500,7 @@ export function addPinchListeners(
              * element, and its release velocity only counts movement after
              * the pinch, so a zoom doesn't end in a fling.
              */
-            const drag = elementDragControls.get(
-                visualElementStore.get(element)!
-            )
+            const drag = dragControls()
             const isDragging = drag?.isDragging
 
             if (!isDragging) {
@@ -373,6 +560,7 @@ export function addPinchListeners(
     const begin = (event: Event, from: typeof source) => {
         if (!getEnabledOptions()) return
 
+        stopSnap()
         source = from
         lastEvent = event
         hasMoved = false
@@ -392,7 +580,12 @@ export function addPinchListeners(
         if (!source) return
         cancelFrame(measure)
         cancelFrame(update)
-        getEnabledOptions() && apply()
+
+        if (getEnabledOptions()) {
+            apply()
+            values && snap()
+        }
+
         source = undefined
         handlers.onComplete?.(event, info())
     }
@@ -568,6 +761,7 @@ export function addPinchListeners(
         }
         toggleWindowListeners()
         end(lastEvent)
+        stopSnap()
         pointers.clear()
         release()
     }
