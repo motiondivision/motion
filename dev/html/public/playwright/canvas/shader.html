@@ -1,0 +1,98 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+
+            canvas {
+                display: block;
+                width: 300px;
+                height: 250px;
+            }
+
+            canvas > div {
+                width: 200px;
+                height: 100px;
+                background: rgb(255, 0, 0);
+            }
+        </style>
+    </head>
+    <body>
+        <canvas>
+            <div id="panel"></div>
+            <div id="second"></div>
+        </canvas>
+        <script type="module">
+            import {
+                animate,
+                canvasLayer,
+                frameData,
+                motionValue,
+                MotionGlobalConfig,
+                processFrame,
+            } from "/src/canvas-inc.js"
+            import { nextRender } from "./pixels.js"
+
+            /**
+             * Left of `progress`, the element is drawn in `tint`. Above
+             * `band.x`, it's white.
+             */
+            const wipe = `
+                uniform float progress;
+                uniform vec4 tint;
+                uniform vec2 band;
+                vec4 effect(vec2 uv) {
+                    vec4 color = texture(uTexture, uv);
+                    if (uv.y < band.x) return vec4(color.a);
+                    if (uv.x < progress) return tint * color.a;
+                    return color;
+                }
+            `
+
+            const canvas = document.querySelector("canvas")
+            const layer = canvasLayer(canvas, {
+                context: { preserveDrawingBuffer: true, antialias: false },
+            })
+            const panel = document.getElementById("panel")
+            const second = document.getElementById("second")
+            const bandHeight = motionValue(0)
+            const secondProgress = motionValue(0)
+
+            layer.add(panel, {
+                shader: wipe,
+                uniforms: { progress: 0, tint: "#0000ff", band: [bandHeight, 0] },
+            })
+            // Same shader and program, its own values
+            layer.add(second, {
+                y: 120,
+                shader: wipe,
+                uniforms: { progress: secondProgress, tint: "#00ff00" },
+            })
+
+            let shaderError
+            try {
+                const broken = document.createElement("div")
+                layer.add(broken, { shader: "vec4 effect(vec2 uv) { oops }" })
+            } catch (error) {
+                shaderError = error.message
+            }
+
+            Object.assign(window, {
+                animate,
+                bandHeight,
+                frameData,
+                layer,
+                MotionGlobalConfig,
+                panel,
+                processFrame,
+                second,
+                secondProgress,
+                shaderError,
+                nextRender: () => nextRender(layer),
+            })
+
+            nextRender(layer).then(() => (window.ready = true))
+        </script>
+    </body>
+</html>
