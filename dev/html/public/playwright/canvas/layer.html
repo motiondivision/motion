@@ -1,0 +1,96 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+
+            canvas {
+                position: absolute;
+                left: 50px;
+                top: 40px;
+                width: 400px;
+                height: 300px;
+            }
+
+            #card {
+                width: 100px;
+                height: 60px;
+                background: rgb(255, 0, 0);
+                box-shadow: inset 0 20px 0 rgb(0, 255, 0);
+            }
+
+            #button {
+                width: 120px;
+                height: 40px;
+                border: 0;
+                padding: 0;
+                background: rgb(0, 0, 255);
+                color: white;
+            }
+        </style>
+    </head>
+    <body>
+        <canvas>
+            <div id="card"></div>
+            <button id="button">0</button>
+        </canvas>
+        <script type="module">
+            import {
+                animate,
+                canvasLayer,
+                drag,
+                frameData,
+                hover,
+                htmlInCanvas,
+                MotionGlobalConfig,
+                press,
+                processFrame,
+            } from "/src/canvas-inc.js"
+            import { nextRender, readCanvas } from "./pixels.js"
+
+            const canvas = document.querySelector("canvas")
+            const card = document.getElementById("card")
+            const button = document.getElementById("button")
+            const layer = canvasLayer(canvas, {
+                context: { preserveDrawingBuffer: true, antialias: false },
+            })
+
+            layer.add(card)
+            layer.add(button, { x: 150, y: 200 })
+
+            let clicks = 0
+            button.addEventListener("click", () => {
+                button.textContent = String(++clicks)
+            })
+
+            const events = []
+            hover(card, () => {
+                events.push("hover start")
+                return () => events.push("hover end")
+            })
+            press(button, () => {
+                events.push("press start")
+                return () => events.push("press end")
+            })
+
+            Object.assign(window, {
+                animate,
+                card,
+                button,
+                drag,
+                events,
+                frameData,
+                htmlInCanvas,
+                layer,
+                MotionGlobalConfig,
+                nextRender: () => nextRender(layer),
+                processFrame,
+                readCanvas: () => readCanvas(canvas),
+            })
+            Object.defineProperty(window, "clicks", { get: () => clicks })
+
+            nextRender(layer).then(() => (window.ready = true))
+        </script>
+    </body>
+</html>

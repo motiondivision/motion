@@ -61,13 +61,35 @@ export default defineConfig({
                 ...devices["Desktop Chrome"],
                 launchOptions: chromiumLaunchOptions,
             },
-            testIgnore: /tests\/(react|remix)\//,
+            testIgnore: /tests\/(react|remix|canvas)\//,
         },
 
         {
             name: "webkit",
             use: { ...devices["Desktop Safari"] },
-            testIgnore: /tests\/(react|remix)\//,
+            testIgnore: /tests\/(react|remix|canvas)\//,
+        },
+
+        /**
+         * motion/canvas needs HTML-in-canvas. Chromium 138-156 has its origin
+         * trial behind a flag, which the dev app's shim maps to the shipped
+         * API. WebGL runs on SwiftShader so it works without a GPU.
+         */
+        {
+            name: "canvas",
+            testMatch: /tests\/canvas\/.*\.spec\.ts/,
+            use: {
+                ...devices["Desktop Chrome"],
+                launchOptions: {
+                    ...chromiumLaunchOptions,
+                    args: [
+                        "--enable-blink-features=CanvasDrawElement",
+                        "--use-angle=swiftshader",
+                        "--enable-unsafe-swiftshader",
+                        "--ignore-gpu-blocklist",
+                    ],
+                },
+            },
         },
 
         /**

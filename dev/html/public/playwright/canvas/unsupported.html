@@ -1,0 +1,49 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+
+            canvas {
+                display: block;
+                width: 300px;
+                height: 200px;
+            }
+
+            #card {
+                width: 100px;
+                height: 60px;
+            }
+        </style>
+    </head>
+    <body>
+        <canvas>
+            <div id="card"></div>
+        </canvas>
+        <script type="module">
+            import { animate, canvasLayer } from "/src/canvas-inc.js"
+
+            const canvas = document.querySelector("canvas")
+            const card = document.getElementById("card")
+            const result = {}
+
+            try {
+                const layer = canvasLayer(canvas, { motionBlur: 0.5 })
+                layer.add(card, { x: 10, shader: "not glsl" })
+                layer.invalidate()
+                result.supported = layer.supported
+                result.content = canvas.getAttribute("content")
+                result.drawable = card.hasAttribute("drawable")
+                result.context = canvas.getContext("2d") !== null
+
+                animate(card, { x: 100 }, { duration: 0 }).then(() => {
+                    result.transform = card.style.transform
+                    window.result = result
+                })
+            } catch (error) {
+                window.result = { threw: error.message }
+            }
+        </script>
+    </body>
+</html>

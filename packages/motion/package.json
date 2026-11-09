@@ -29,6 +29,12 @@
             "import": "./dist/es/three.mjs",
             "default": "./dist/cjs/three.js"
         },
+        "./canvas": {
+            "types": "./dist/canvas.d.ts",
+            "require": "./dist/cjs/canvas.js",
+            "import": "./dist/es/canvas.mjs",
+            "default": "./dist/cjs/canvas.js"
+        },
         "./vgpu": {
             "types": "./dist/vgpu.d.ts",
             "require": "./dist/cjs/vgpu.js",

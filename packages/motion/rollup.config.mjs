@@ -130,6 +130,7 @@ const cjsClient = Object.assign({}, cjs, { input : "lib/react-client.js" })
 const cjsM = Object.assign({}, cjs, { input : "lib/react-m.js" })
 const cjsThree = Object.assign({}, cjs, { input : "lib/three.js" })
 const cjsVgpu = Object.assign({}, cjs, { input : "lib/vgpu.js" })
+const cjsCanvas = Object.assign({}, cjs, { input : "lib/canvas.js" })
 const cjsRemix = Object.assign({}, cjs, { input : "lib/remix.js" })
 
 export const es = Object.assign({}, config, {
@@ -144,6 +145,7 @@ export const es = Object.assign({}, config, {
         "lib/debug.js",
         "lib/three.js",
         "lib/vgpu.js",
+        "lib/canvas.js",
         "lib/remix.js",
     ],
     output: {
@@ -252,6 +254,15 @@ const remixTypes = {
     plugins: typePlugins,
 }
 
+const canvasTypes = {
+    input: "types/canvas.d.ts",
+    output: {
+        format: "es",
+        file: "dist/canvas.d.ts",
+    },
+    plugins: typePlugins,
+}
+
 const vgpuTypes = {
     input: "types/vgpu.d.ts",
     output: {
@@ -274,6 +285,7 @@ export default [
     cjsM,
     cjsThree,
     cjsVgpu,
+    cjsCanvas,
     cjsRemix,
     es,
     animateViewTypes,
@@ -286,5 +298,6 @@ export default [
     clientTypes,
     threeTypes,
     vgpuTypes,
+    canvasTypes,
     remixTypes,
 ]
