@@ -49,7 +49,7 @@ import { acceleratedValues } from "../utils/accelerated-values"
 import { needsMixer } from "../utils/needs-mixer"
 import { supportsLinearEasing } from "../../../utils/supports/linear-easing"
 import { supportsScrollTimeline } from "../../../utils/supports/scroll-timeline"
-import { TransformGroupHooks, transformGroups } from "./groups"
+import { isRepainting, TransformGroupHooks, transformGroups } from "./groups"
 
 /**
  * Independent transforms (x, y, scale, rotate etc) all write to the one
@@ -1542,6 +1542,12 @@ function createGroup(owner: TransformOwner): TransformGroup {
         tracks.forEach((track) => hasEnded(track) && tracks.delete(track))
 
         if (end()) return
+
+        /**
+         * One of too many elements repainting every frame, it stays on the
+         * main thread until it stops.
+         */
+        if (isRepainting(element)) return group.demote(true)
 
         let timeline: TimelineWithFallback | undefined | false = false
         for (const track of tracks) {

@@ -2,6 +2,7 @@ import { animateElement } from "../../../animate/element"
 import { ValueTrack } from "../../../MultiValueAnimation"
 import { JSAnimation } from "../../../JSAnimation"
 import { TransformAnimation } from "../TransformAnimation"
+import { repaintLimit } from "../groups"
 import { frame } from "../../../../frameloop"
 import { styleEffect } from "../../../../effects/style"
 import { motionValue } from "../../../../value"
@@ -1878,36 +1879,100 @@ describe("independent transform acceleration", () => {
         const transforms = (element: Element) =>
             running(element).filter(({ keyframes }) => keyframes.transform)
 
-        it("run on the main thread with them", async () => {
-            const element = document.createElement("div")
+        const elements = (count: number) =>
+            Array.from({ length: count }, () => document.createElement("div"))
 
-            animateElement(
-                element,
-                { x: [0, 100], borderRadius: ["0px", "10px"] },
-                { duration: 1, ease: "linear" }
-            )
-            await nextFrame()
-            await nextFrame()
-            const first = element.style.transform
+        it("stay on the compositor for a few elements", async () => {
+            const boxes = elements(repaintLimit - 1)
+
+            for (const element of boxes) {
+                animateElement(
+                    element,
+                    { x: [0, 100], borderRadius: ["0px", "10px"] },
+                    { duration: 1, ease: "linear" }
+                )
+            }
+            await untilRunning(boxes[0], 500)
             await wait(50)
             await nextFrame()
 
             /**
-             * The element repaints every frame anyway, so a compositor
-             * layer for its transform would only add work.
+             * Up to here, a layer for each costs about the same as
+             * repainting them together, and keeps the transform smooth
+             * while the main thread is busy.
              */
-            expect(transforms(element)).toHaveLength(0)
-            expect(readX(element.style.transform)).toBeGreaterThan(readX(first))
+            for (const element of boxes) {
+                expect(transforms(element)).toHaveLength(1)
+            }
         })
 
-        it("never build a compositor transform when the same call repaints", async () => {
-            const element = document.createElement("div")
+        it("build once for a few elements", async () => {
+            const boxes = elements(repaintLimit - 1)
 
-            animateElement(
-                element,
-                { x: [0, 100], opacity: [0, 1], borderRadius: ["0px", "10px"] },
-                { duration: 1 }
+            for (const element of boxes) {
+                animateElement(
+                    element,
+                    { x: [0, 100], borderRadius: ["0px", "10px"] },
+                    { duration: 1, ease: "linear" }
+                )
+            }
+            await untilRunning(boxes[0], 500)
+            for (let i = 0; i < 5; i++) await nextFrame()
+
+            /**
+             * Repainting every frame doesn't rebuild the WAAPI animation.
+             */
+            for (const element of boxes) {
+                expect(
+                    created(element).filter(
+                        ({ keyframes }) => keyframes?.transform
+                    )
+                ).toHaveLength(1)
+            }
+        })
+
+        it("run on the main thread for many elements", async () => {
+            const boxes = elements(repaintLimit)
+
+            for (const element of boxes) {
+                animateElement(
+                    element,
+                    { x: [0, 100], borderRadius: ["0px", "10px"] },
+                    { duration: 1, ease: "linear" }
+                )
+            }
+            await nextFrame()
+            await nextFrame()
+            const first = boxes[0].style.transform
+            await wait(50)
+            await nextFrame()
+
+            /**
+             * Each would be rastered on its own layer every frame, which
+             * costs more than rastering them together.
+             */
+            for (const element of boxes) {
+                expect(transforms(element)).toHaveLength(0)
+            }
+            expect(readX(boxes[0].style.transform)).toBeGreaterThan(
+                readX(first)
             )
+        })
+
+        it("never build a compositor transform for many elements when the same call repaints", async () => {
+            const boxes = elements(repaintLimit)
+
+            for (const element of boxes) {
+                animateElement(
+                    element,
+                    {
+                        x: [0, 100],
+                        opacity: [0, 1],
+                        borderRadius: ["0px", "10px"],
+                    },
+                    { duration: 1 }
+                )
+            }
             await wait(150)
             await nextFrame()
 
@@ -1915,9 +1980,47 @@ describe("independent transform acceleration", () => {
              * Building it only to tear it down on the first paint costs
              * a frame for each element at startup.
              */
-            expect(
-                created(element).filter(({ keyframes }) => keyframes?.transform)
-            ).toHaveLength(0)
+            for (const element of boxes) {
+                expect(
+                    created(element).filter(
+                        ({ keyframes }) => keyframes?.transform
+                    )
+                ).toHaveLength(0)
+            }
+        })
+
+        it("move back to the compositor when the elements stop repainting", async () => {
+            const boxes = elements(repaintLimit)
+
+            for (const element of boxes) {
+                animateElement(element, { x: [0, 100] }, { duration: 2 })
+            }
+            await untilRunning(boxes[0], 500)
+
+            for (const element of boxes) {
+                animateElement(
+                    element,
+                    { borderRadius: ["0px", "10px"] },
+                    { duration: 0.1 }
+                )
+            }
+            await wait(50)
+            await nextFrame()
+
+            for (const element of boxes) {
+                expect(transforms(element)).toHaveLength(0)
+            }
+
+            await wait(200)
+            await nextFrame()
+            await nextFrame()
+
+            /**
+             * The rest of the move doesn't need the main thread.
+             */
+            for (const element of boxes) {
+                expect(transforms(element)).toHaveLength(1)
+            }
         })
 
         it("stay on the compositor with other composited values", async () => {
