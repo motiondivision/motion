@@ -1330,6 +1330,20 @@ describe("pinch limits", () => {
         expect(value(element, "y")).toBeCloseTo(0, 1)
     })
 
+    test("snapToOrigin turns the shortest way to an upright angle", async () => {
+        makePinchable(element, noop, { snapToOrigin: true })
+
+        const gesture = await twoFinger(element, [0, 0, 100, 0])
+        await gesture.to([50, -50, 50, 50]) // 90deg
+        await gesture.to([100, 0, 0, 0]) // 180deg
+        await gesture.to([50, 50, 50, -50]) // 270deg
+        expect(value(element, "rotate")).toBeCloseTo(270)
+
+        await gesture.end()
+        await sleep(1500)
+        expect(value(element, "rotate")).toBeCloseTo(360, 2)
+    })
+
     test("transition sets the spring", async () => {
         makePinchable(element, noop, {
             scale: { max: 1 },

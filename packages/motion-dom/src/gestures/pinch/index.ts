@@ -382,7 +382,8 @@ export function addPinchListeners(
 
         if (snapToOrigin) {
             s1 = 1
-            r1 = 0
+            // The nearest upright angle, so it turns the shortest way
+            r1 = Math.round(r0 / 360) * 360
         }
 
         /**
