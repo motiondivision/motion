@@ -6,7 +6,8 @@ import {
     processFrame,
     visualElementStore,
 } from "framer-motion/dom"
-import { canvasLayer } from "../canvas"
+import { canvasEffect, canvasLayer } from "../canvas"
+import { canvasItems } from "../canvas/layer"
 import {
     blurSamples,
     defaultPose,
@@ -321,6 +322,58 @@ describe("CanvasVisualElement", () => {
         } finally {
             delete (Element.prototype as any).animate
         }
+    })
+})
+
+describe("canvasEffect", () => {
+    test("binds motion values to an element's layer values", async () => {
+        MotionGlobalConfig.useManualTiming = true
+        const element = document.createElement("div")
+        document.body.appendChild(element)
+        const invalidate = jest.fn()
+        const visualElement = new CanvasVisualElement(
+            invalidate,
+            (key) => key === "progress",
+            () => 0
+        )
+        visualElement.mount(element)
+        canvasItems.set(element, { visualElement } as any)
+
+        const x = motionValue(10)
+        const progress = motionValue(0.5)
+        const cleanup = canvasEffect(element, { x, progress })
+
+        expect(canvasEffect.test(element)).toBe(true)
+        expect(canvasEffect.get(element, "x")).toBe(x)
+        expect(visualElement.latestValues).toMatchObject({
+            x: 10,
+            progress: 0.5,
+        })
+
+        x.set(40)
+        await step(20)
+        expect(visualElement.latestValues.x).toBe(40)
+        expect(invalidate).toHaveBeenCalled()
+        expect(element.style.transform).toBe("")
+
+        cleanup()
+        expect(visualElement.getValue("x")).toBeUndefined()
+        // Left where it was
+        expect(visualElement.latestValues.x).toBe(40)
+        x.set(80)
+        await step(20)
+        expect(visualElement.latestValues.x).toBe(40)
+
+        canvasItems.delete(element)
+        element.remove()
+    })
+
+    test("does nothing for elements outside a layer", () => {
+        const element = document.createElement("div")
+        const x = motionValue(10)
+        const cleanup = canvasEffect(element, { x })
+        expect(canvasEffect.test(element)).toBe(false)
+        expect(() => cleanup()).not.toThrow()
     })
 })
 

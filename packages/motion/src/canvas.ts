@@ -1,3 +1,4 @@
+export { canvasEffect } from "./canvas/effect"
 export {
     canvasLayer,
     type CanvasElementOptions,

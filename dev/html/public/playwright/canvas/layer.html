@@ -38,11 +38,13 @@
         <script type="module">
             import {
                 animate,
+                canvasEffect,
                 canvasLayer,
                 drag,
                 frameData,
                 hover,
                 htmlInCanvas,
+                motionValue,
                 MotionGlobalConfig,
                 press,
                 processFrame,
@@ -76,6 +78,7 @@
 
             Object.assign(window, {
                 animate,
+                canvasEffect,
                 card,
                 button,
                 drag,
@@ -83,6 +86,7 @@
                 frameData,
                 htmlInCanvas,
                 layer,
+                motionValue,
                 MotionGlobalConfig,
                 nextRender: () => nextRender(layer),
                 processFrame,

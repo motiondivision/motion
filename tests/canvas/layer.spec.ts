@@ -186,3 +186,26 @@ test("hover() and press() follow the drawn element", async ({ page }) => {
         "press end",
     ])
 })
+
+test("canvasEffect() binds motion values to the drawn element", async ({
+    page,
+}) => {
+    await page.evaluate(() => {
+        const w = window as any
+        w.x = w.motionValue(0)
+        w.stopEffect = w.canvasEffect(w.card, { x: w.x })
+        w.x.set(120)
+    })
+    expect(await leftEdge(page, 40)).toBe(120)
+
+    await page.evaluate(() => (window as any).x.set(60))
+    expect(await leftEdge(page, 40)).toBe(60)
+
+    // Unbound, the element stays where it is
+    await page.evaluate(() => {
+        const w = window as any
+        w.stopEffect()
+        w.x.set(200)
+    })
+    expect(await leftEdge(page, 40)).toBe(60)
+})
