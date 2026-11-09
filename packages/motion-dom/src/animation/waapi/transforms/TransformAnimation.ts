@@ -383,14 +383,6 @@ class TransformDriver implements TransformDriverControls {
 }
 
 /**
- * JSAnimation's time setter, looked up on first use rather than at module
- * load, so the module has no top-level side effects and stays
- * tree-shakeable in flattened bundles.
- */
-let setTime: ((this: JSAnimation<any>, time: number) => void) | undefined
-let setSpeed: ((this: JSAnimation<any>, speed: number) => void) | undefined
-
-/**
  * A transform value's animation. It resolves its own keyframes, as
  * AsyncMotionValueAnimation does for other values, so each value is one
  * object rather than a wrapper, a resolver callback and an animation.
@@ -668,27 +660,20 @@ export class TransformAnimation<
     }
 
     /**
-     * Calls JSAnimation's setter directly, as `super.time =` is a slow
-     * path in V8 and this runs for every animation of a seeked sequence.
+     * Overriding the getter needs the setter with it.
      */
     set time(newTime: number) {
+        this.setTime(newTime)
+    }
+
+    protected setTime(newTime: number) {
         this.flush()
-        ;(setTime ??= Object.getOwnPropertyDescriptor(
-            JSAnimation.prototype,
-            "time"
-        )!.set!).call(this, newTime)
+        super.setTime(newTime)
     }
 
-    get speed() {
-        return super.speed
-    }
-
-    set speed(newSpeed: number) {
+    protected setSpeed(newSpeed: number) {
         this.isRetiming = true
-        ;(setSpeed ??= Object.getOwnPropertyDescriptor(
-            JSAnimation.prototype,
-            "speed"
-        )!.set!).call(this, newSpeed)
+        super.setSpeed(newSpeed)
         this.isRetiming = false
     }
 

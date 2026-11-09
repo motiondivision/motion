@@ -177,6 +177,15 @@ export abstract class AnimationClock<T extends number | string>
     }
 
     set time(newTime: number) {
+        this.setTime(newTime)
+    }
+
+    /**
+     * The time setter, as a method, so a subclass can add to it with a
+     * plain super call. `super.time =` is a slow path in V8, and this runs
+     * for every animation of a seeked sequence.
+     */
+    protected setTime(newTime: number) {
         /**
          * Seeking out of "finished" leaves the animation paused, so play()
          * won't renew finished. Renew it here.
@@ -211,6 +220,10 @@ export abstract class AnimationClock<T extends number | string>
     }
 
     set speed(newSpeed: number) {
+        this.setSpeed(newSpeed)
+    }
+
+    protected setSpeed(newSpeed: number) {
         const hasChanged = this.playbackSpeed !== newSpeed
 
         if (hasChanged && this.driver) {

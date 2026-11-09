@@ -797,9 +797,16 @@ export class MultiValueAnimation extends AnimationClock<any> {
         return millisecondsToSeconds(this.currentTime)
     }
 
+    /**
+     * Overriding the getter needs the setter with it.
+     */
     set time(newTime: number) {
+        this.setTime(newTime)
+    }
+
+    protected setTime(newTime: number) {
         this.revive()
-        ;(setTime ??= clockSetter("time")).call(this, newTime)
+        super.setTime(newTime)
         this.natives((native) => {
             native.onfinish = onNativeFinish
             native.currentTime = secondsToMilliseconds(newTime)
@@ -808,18 +815,14 @@ export class MultiValueAnimation extends AnimationClock<any> {
         this.isRetiming || this.regroup(true)
     }
 
-    get speed() {
-        return this.playbackSpeed
-    }
-
     /**
      * A change of speed keeps the time, which isn't a seek.
      */
     private isRetiming = false
 
-    set speed(newSpeed: number) {
+    protected setSpeed(newSpeed: number) {
         this.isRetiming = true
-        ;(setSpeed ??= clockSetter("speed")).call(this, newSpeed)
+        super.setSpeed(newSpeed)
         this.isRetiming = false
         this.natives((native) => (native.playbackRate = newSpeed))
         this.regroup()
@@ -997,13 +1000,3 @@ function onNativeFinish(this: Animation) {
     }
     track.finish()
 }
-
-/**
- * AnimationClock's setters, read on first use rather than when the module
- * loads, so a bundle that never plays a MultiValueAnimation can drop it.
- */
-type Setter = (this: AnimationClock<any>, value: number) => void
-let setTime: Setter | undefined
-let setSpeed: Setter | undefined
-const clockSetter = (name: "time" | "speed") =>
-    Object.getOwnPropertyDescriptor(AnimationClock.prototype, name)!.set!
