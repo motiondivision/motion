@@ -204,7 +204,7 @@ export type PinchValues = [
     scale: MotionValue<number>,
     rotate: MotionValue<number>,
     x: MotionValue<number>,
-    y: MotionValue<number>
+    y: MotionValue<number>,
 ]
 
 /**
@@ -416,42 +416,56 @@ export function addPinchListeners(
         const vy = originY + y0 - current.y
 
         /**
-         * With `pan: { cover: true }`, find where the focal point would
-         * leave the element, and how far it must move from there to cover
-         * its parent at the final scale and rotation.
+         * Scale, rotation and x/y at progress `p` of the snap, keeping the
+         * focal point in place.
+         */
+        const at = (p: number) => {
+            const k = mixNumber(s0, s1, p)
+            const r = mixNumber(r0, r1, p)
+            const angle = ((r - r0) * Math.PI) / 180
+            const cos = (Math.cos(angle) * k) / s0
+            const sin = (Math.sin(angle) * k) / s0
+            return [
+                k,
+                r,
+                x0 + cos * vx - sin * vy - vx,
+                y0 + sin * vx + cos * vy - vy,
+            ]
+        }
+
+        /**
+         * With `pan: { cover: true }`, how far x/y must move from where the
+         * focal point leaves them to cover the parent at the final scale
+         * and rotation. Centred if the element is smaller.
          */
         let dx = 0
         let dy = 0
 
         if (moves && !snapToOrigin && (pan as PinchPanOptions)?.cover) {
-            const { left, top, right, bottom } =
-                element.parentElement!.getBoundingClientRect()
+            const box = element.parentElement!.getBoundingClientRect()
             const { offsetWidth: w, offsetHeight: h } = element as HTMLElement
-            const turn = ((r1 - r0) * Math.PI) / 180
-            const k = s1 / s0
             const a = (r1 * Math.PI) / 180
-            const cos = Math.abs(Math.cos(a))
-            const sin = Math.abs(Math.sin(a))
+            const cos = Math.abs(Math.cos(a)) * s1
+            const sin = Math.abs(Math.sin(a)) * s1
+            const [, , x1, y1] = at(1)
             const fit = (
                 to: number,
                 origin: number,
-                half: number,
+                size: number,
                 start: number,
                 end: number
             ) => {
-                const low = end - half - origin
-                const high = start + half - origin
+                const low = end - size / 2 - origin
+                const high = start + size / 2 - origin
                 return (
                     (low > high
                         ? (start + end) / 2 - origin
-                        : Math.min(high, Math.max(low, to))) - to
+                        : clamp(low, high, to)) - to
                 )
             }
-            const x1 = x0 + k * (Math.cos(turn) * vx - Math.sin(turn) * vy) - vx
-            const y1 = y0 + k * (Math.sin(turn) * vx + Math.cos(turn) * vy) - vy
 
-            dx = fit(x1, originX, (s1 * (cos * w + sin * h)) / 2, left, right)
-            dy = fit(y1, originY, (s1 * (sin * w + cos * h)) / 2, top, bottom)
+            dx = fit(x1, originX, cos * w + sin * h, box.left, box.right)
+            dy = fit(y1, originY, sin * w + cos * h, box.top, box.bottom)
         }
 
         if (
@@ -483,26 +497,14 @@ export function addPinchListeners(
             const { value: p, done } = generator.next(time.now() - startTime)
             if (done) stopSnap()
 
-            const k = mixNumber(s0, s1, p)
-            const r = mixNumber(r0, r1, p)
-            const angle = ((r - r0) * Math.PI) / 180
-            const cos = (Math.cos(angle) * k) / s0
-            const sin = (Math.sin(angle) * k) / s0
+            const [k, r, fx, fy] = at(p)
 
             scaleOption !== false && scale.set(k)
             rotateOption !== false && rotate.set(r)
 
             if (moves) {
-                x.set(
-                    snapToOrigin
-                        ? mixNumber(x0, 0, p)
-                        : x0 + cos * vx - sin * vy - vx + dx * p
-                )
-                y.set(
-                    snapToOrigin
-                        ? mixNumber(y0, 0, p)
-                        : y0 + sin * vx + cos * vy - vy + dy * p
-                )
+                x.set(snapToOrigin ? mixNumber(x0, 0, p) : fx + dx * p)
+                y.set(snapToOrigin ? mixNumber(y0, 0, p) : fy + dy * p)
             }
         }
 
