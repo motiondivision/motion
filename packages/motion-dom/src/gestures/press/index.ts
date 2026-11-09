@@ -210,6 +210,12 @@ export function press(
         const endEventOptions = { ...eventOptions, capture: true }
 
         const onPointerEnd = (endEvent: PointerEvent, success: boolean) => {
+            /**
+             * Another touch lifting (for instance after a pinch) doesn't
+             * end the press.
+             */
+            if (!isPrimaryPointer(endEvent)) return
+
             window.removeEventListener(
                 "pointerup",
                 onPointerUp,
@@ -228,8 +234,6 @@ export function press(
             target.removeEventListener("contextmenu", preventDefault)
             cancelFrame(tick)
             isPressing.delete(target)
-
-            if (!isPrimaryPointer(endEvent)) return
 
             /**
              * A press that ends while a drag is active is a cancel.
