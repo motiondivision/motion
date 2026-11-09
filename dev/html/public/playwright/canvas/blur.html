@@ -1,0 +1,94 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+
+            canvas {
+                display: block;
+                width: 400px;
+                height: 200px;
+            }
+
+            canvas > div {
+                width: 60px;
+                height: 60px;
+                background: rgb(240, 200, 20);
+            }
+        </style>
+    </head>
+    <body>
+        <canvas>
+            <div id="moving"></div>
+            <div id="unblurred"></div>
+            <div id="still"></div>
+        </canvas>
+        <script type="module">
+            import {
+                animate,
+                canvasLayer,
+                frameData,
+                MotionGlobalConfig,
+                processFrame,
+            } from "/src/canvas-inc.js"
+            import { nextRender, readCanvas } from "./pixels.js"
+
+            const canvas = document.querySelector("canvas")
+            const layer = canvasLayer(canvas, {
+                motionBlur: 1,
+                context: { preserveDrawingBuffer: true, antialias: false },
+            })
+            const moving = document.getElementById("moving")
+            const unblurred = document.getElementById("unblurred")
+
+            layer.add(moving)
+            layer.add(unblurred, { y: 70, motionBlur: 0 })
+            layer.add(document.getElementById("still"), { x: 200, y: 140 })
+
+            const gl = canvas.getContext("webgl2")
+            const isFloat = Boolean(
+                gl.getExtension("EXT_color_buffer_float") ||
+                    gl.getExtension("EXT_color_buffer_half_float")
+            )
+
+            /**
+             * Read each element's row, and the moving element's colour
+             * where it's fully covered, in the frame's own paint.
+             */
+            const read = (px) => {
+                const partial = (row) =>
+                    row.filter((alpha) => alpha > 8 && alpha < 247).length
+                const moving = px.alphaRow(30)
+                const solid = moving.lastIndexOf(255)
+                return {
+                    moving: partial(moving),
+                    movingRight: moving.findLastIndex((a) => a > 128) + 1,
+                    unblurred: partial(px.alphaRow(100)),
+                    still: partial(px.alphaRow(170)),
+                    solid: solid > -1 ? px.at(solid - 5, 30) : null,
+                }
+            }
+
+            MotionGlobalConfig.useManualTiming = true
+            const start = frameData.timestamp
+            processFrame(start)
+
+            Object.assign(window, {
+                isFloat,
+                start: () => {
+                    // 1200px/s, 20px a frame at 60fps
+                    const options = { duration: 0.25, ease: "linear" }
+                    animate(moving, { x: [0, 300] }, options)
+                    animate(unblurred, { x: [0, 300] }, options)
+                },
+                stepTo: (ms) => {
+                    processFrame(start + ms)
+                    return nextRender(layer, (c) => read(readCanvas(c)))
+                },
+            })
+
+            nextRender(layer).then(() => (window.ready = true))
+        </script>
+    </body>
+</html>
