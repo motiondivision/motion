@@ -1055,7 +1055,63 @@ describe("independent transform acceleration", () => {
         ])
         expect(offset).toEqual([0, 0.5, 1])
         expect(waapi.options.duration).toBeCloseTo(2000, 0)
-        expect(waapi.options.iterations).toBe(2)
+
+        /**
+         * It ends with its last iteration, not after another delay.
+         */
+        expect(waapi.options.iterations).toBe(1.5)
+    })
+
+    it("holds at both ends of a reversed repeat with a delay", async () => {
+        const element = document.createElement("div")
+
+        const [x] = animateElement(
+            element,
+            { x: [0, 100] },
+            {
+                duration: 1,
+                ease: "linear",
+                repeat: 1,
+                repeatType: "reverse",
+                repeatDelay: 1,
+            }
+        )
+        await nextFrame()
+
+        /**
+         * WAAPI reverses a whole iteration, hold included. With half the
+         * hold at each end of it, started half a hold in, the value moves
+         * out, holds for the delay, moves back, and ends.
+         */
+        const [waapi] = running(element)
+        const { transform, offset } = waapi.keyframes as any
+        expect(transform).toEqual([
+            "translateX(0px) ",
+            "translateX(0px) ",
+            "translateX(100px) ",
+            "translateX(100px) ",
+        ])
+        expect(offset).toEqual([0, 0.25, 0.75, 1])
+        expect(waapi.options.direction).toBe("alternate")
+        expect(waapi.options.duration).toBeCloseTo(2000, 0)
+        expect(waapi.options.iterations).toBe(1.75)
+        expect(x.startTime! - waapi.startTime!).toBeCloseTo(500, 0)
+    })
+
+    it("doesn't delay an animation that doesn't repeat", async () => {
+        const element = document.createElement("div")
+
+        animateElement(
+            element,
+            { x: [0, 100] },
+            { duration: 1, ease: "linear", repeatDelay: 1 }
+        )
+        await nextFrame()
+
+        const [waapi] = running(element)
+        expect((waapi.keyframes as any).transform).toHaveLength(2)
+        expect(waapi.options.duration).toBeCloseTo(1000, 0)
+        expect(waapi.options.iterations).toBe(1)
     })
 
     it("jumps back to the start when sampled keyframes repeat", async () => {

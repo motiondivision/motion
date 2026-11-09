@@ -766,9 +766,16 @@ export function nativeOf(
     track: TransformMember,
     isScroll?: boolean
 ): NativeKeyframes | undefined {
-    const { startTime, speed, resolvedDuration, totalDuration, options } = track
+    const {
+        startTime,
+        speed,
+        calculatedDuration,
+        resolvedDuration,
+        totalDuration,
+        options,
+    } = track
     const { keyframes, repeat, repeatType, repeatDelay, type, delay } = options
-    const samples = countSamples(resolvedDuration)
+    const samples = countSamples(calculatedDuration)
     let { ease, times } = options
     let offsets = times || defaultOffset(keyframes)
     let easings: string[]
@@ -813,7 +820,7 @@ export function nativeOf(
                 (p) =>
                     (parseFloat(
                         track.sampleTime(
-                            delay! + p * resolvedDuration,
+                            delay! + p * calculatedDuration,
                             true
                         ) as string
                     ) -
@@ -826,16 +833,35 @@ export function nativeOf(
 
     /**
      * A repeat delay holds the last keyframe for its share of each
-     * iteration. Over a scroll timeline, the delay holds the first
-     * keyframe for its share of the timeline.
+     * iteration, and the animation ends with its last iteration, before
+     * that one's delay. A reversed iteration starts back straight after
+     * the hold, and then holds the first keyframe. WAAPI reverses a whole
+     * iteration, hold included, so half the hold goes at each end of it,
+     * and the animation starts half a hold in.
      */
     let values = keyframes as AnyResolvedKeyframe[]
-    if (repeatDelay) {
-        const share = track.calculatedDuration / resolvedDuration
-        offsets = [...offsets.map((o) => o * share), 1]
+    let start = startTime! + delay! / speed
+    let iterations = repeat! + 1
+    const isReversed = repeatType === "reverse"
+    if (repeat && repeatDelay && !isScroll) {
+        const share = calculatedDuration / resolvedDuration
+        const lead = isReversed ? (1 - share) / 2 : 0
+        offsets = [...offsets.map((o) => lead + o * share), 1]
         values = [...values, values[values.length - 1]]
         easings.push("linear")
+        if (isReversed) {
+            offsets.unshift(0)
+            values.unshift(values[0])
+            easings.unshift("linear")
+            start -= (lead * resolvedDuration) / speed
+        }
+        iterations -= 1 - share - lead
     }
+
+    /**
+     * Over a scroll timeline, the delay holds the first keyframe for its
+     * share of the timeline.
+     */
     if (isScroll && delay) {
         const share = totalDuration / (delay + totalDuration)
         offsets = [0, ...offsets.map((o) => 1 - share + o * share)]
@@ -844,13 +870,10 @@ export function nativeOf(
     }
 
     return {
-        start: isScroll ? 0 : startTime! + delay! / speed,
-        duration: isScroll ? 0 : resolvedDuration,
-        iterations: isScroll ? 1 : repeat! + 1,
-        direction:
-            !isScroll && repeat && repeatType === "reverse"
-                ? "alternate"
-                : "normal",
+        start: isScroll ? 0 : start,
+        duration: isScroll ? 0 : repeat ? resolvedDuration : totalDuration,
+        iterations: isScroll ? 1 : iterations,
+        direction: !isScroll && repeat && isReversed ? "alternate" : "normal",
         speed: isScroll ? 1 : speed,
         offsets,
         values,
@@ -1073,26 +1096,47 @@ function createGroup(owner: TransformOwner): TransformGroup {
         let shared: NativeKeyframes | undefined
         let offsets: number[] = []
         const all = keys.concat(extras)
+        /**
+         * The longest of the values on each spring's curve. Springs from
+         * rest follow one curve however far they move, and the one that
+         * comes to rest last has the others follow its easing, and end
+         * with it.
+         */
+        const curves: Record<string, NativeKeyframes> = {}
 
         for (const key of all) {
             const track = byKey.get(key)
             if (!track || track.timing()[0] === Infinity) continue
 
             const keyframes = nativeOf(track, isScroll)
+            if (!keyframes) return
+            natives.set(key, keyframes)
+
+            const { curve } = track.options
+            if (curve && !(curves[curve]?.duration >= keyframes.duration)) {
+                curves[curve] = keyframes
+            }
+        }
+
+        for (const [key, keyframes] of natives) {
+            const longest = curves[byKey.get(key)!.options.curve!]
+            if (longest) {
+                keyframes.duration = longest.duration
+                keyframes.easings = longest.easings
+            }
+
             if (
-                !keyframes ||
-                (shared &&
-                    (Math.abs(keyframes.start - shared.start) > 1 ||
-                        Math.abs(keyframes.duration - shared.duration) > 1 ||
-                        keyframes.iterations !== shared.iterations ||
-                        keyframes.direction !== shared.direction ||
-                        keyframes.speed !== shared.speed))
+                shared &&
+                (Math.abs(keyframes.start - shared.start) > 1 ||
+                    Math.abs(keyframes.duration - shared.duration) > 1 ||
+                    keyframes.iterations !== shared.iterations ||
+                    keyframes.direction !== shared.direction ||
+                    keyframes.speed !== shared.speed)
             ) {
                 return
             }
 
             shared ||= keyframes
-            natives.set(key, keyframes)
             for (const offset of keyframes.offsets) {
                 offsets.includes(offset) || offsets.push(offset)
             }
