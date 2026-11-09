@@ -142,7 +142,7 @@ export class ValueTrack<T extends AnyResolvedKeyframe = any>
     at(timestamp: number): number {
         return (
             (this.scrollTimeline && this.group!.scrollTime(this)) ??
-            this.parent.at(timestamp)
+            this.parent.timeOf(this, this.parent.at(timestamp))
         )
     }
 
@@ -165,12 +165,14 @@ export class ValueTrack<T extends AnyResolvedKeyframe = any>
 
     /**
      * When it stops moving, or, if it repeats forever, when it starts
-     * repeating, and how long each repeat takes. Held, it never stops.
+     * repeating, and how long each repeat takes. Held, it never stops,
+     * unless it follows a native scroll timeline, which moves it while the
+     * clock is held for the values that follow the timeline from JS.
      */
     timing() {
         const { startTime, speed, totalDuration } = this
         const { delay = 0, repeatType } = this.options
-        return this.parent.isHeld()
+        return this.parent.isHeld() && !this.scrollTimeline
             ? [Infinity, 0]
             : totalDuration === Infinity
             ? [
@@ -513,8 +515,31 @@ export class MultiValueAnimation extends AnimationClock<any> {
      */
     valueAt(track: ValueTrack, timestamp: number) {
         track.generator || initTrack(track)
-        const t = this.at(timestamp) - (track.options.delay || 0)
+        const t =
+            this.timeOf(track, this.at(timestamp)) - (track.options.delay || 0)
         return generateTrack(track, Math.max(t, 0), t < 0).value
+    }
+
+    /**
+     * A track's time, delay included, at a time of the clock. Following a
+     * timeline from JS, the clock runs over the longest value, and each
+     * value spans the timeline, as an animation of its own would.
+     */
+    timeOf(
+        { calculatedDuration, options }: ValueTrack,
+        clockTime: number,
+        span = this.span()
+    ) {
+        return span
+            ? (clockTime * (calculatedDuration + (options.delay || 0))) / span
+            : clockTime
+    }
+
+    /**
+     * The time the clock runs over while it follows a timeline from JS.
+     */
+    private span() {
+        return this.unfollow && secondsToMilliseconds(this.iterationDuration)
     }
 
     /**
@@ -621,6 +646,7 @@ export class MultiValueAnimation extends AnimationClock<any> {
         const isForwards = speed >= 0
         const isFinished = this.state === "finished" && holdTime === null
         const isRunning = this.state === "running" && holdTime === null
+        const span = this.span()
         let numActive = this.numPending
         let numOff = 0
         let hasTime = false
@@ -634,7 +660,9 @@ export class MultiValueAnimation extends AnimationClock<any> {
             const delay = options.delay || 0
             const trackDuration = track.totalDuration
 
-            const timeWithoutDelay = clockTime - (isForwards ? delay : -delay)
+            const timeWithoutDelay =
+                this.timeOf(track, clockTime, span) -
+                (isForwards ? delay : -delay)
             const isInDelayPhase = isForwards
                 ? timeWithoutDelay < 0
                 : timeWithoutDelay > trackDuration
@@ -907,6 +935,10 @@ export class MultiValueAnimation extends AnimationClock<any> {
                     ? native.effect?.updateTiming({ easing: "linear" })
                     : ((options.type = "keyframes" as any),
                       (options.ease = "linear"),
+                      /**
+                       * Not that of a spring made into an easing.
+                       */
+                      (options.duration = track.plan.base.duration),
                       track.isReady && initTrack(track))
             }
             if (native && isNative) {
