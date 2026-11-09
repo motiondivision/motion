@@ -51,5 +51,8 @@
     "motion-div+useTransform+useMotionTemplate": 44339,
     "motion-div+useScroll+useTransform+useSpring": 47827,
     "motion-div+Reorder": 46547,
-    "domMax+useScroll": 43839
+    "domMax+useScroll": 43839,
+    "threeEffect": 2000,
+    "htmlPlane": 2810,
+    "three-all": 4085
 }
