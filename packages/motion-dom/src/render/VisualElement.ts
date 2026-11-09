@@ -2,13 +2,21 @@ import {
     Box,
     isNumericalString,
     isZeroValueString,
+    noop,
     secondsToMilliseconds,
     SubscriptionManager,
     warnOnce,
 } from "motion-utils"
 import type { KeyframeResolver } from "../animation/keyframes/KeyframesResolver"
-import { NativeAnimation } from "../animation/NativeAnimation"
-import type { AnyResolvedKeyframe } from "../animation/types"
+import type {
+    AnimationPlaybackControlsWithThen,
+    AnyResolvedKeyframe,
+    TimelineWithFallback,
+} from "../animation/types"
+import { notifyAnimationStart } from "../animation/utils/notify-inspector"
+import { mapEasingToNativeEasing } from "../animation/waapi/easing/map-easing"
+import { animateStyle, setStyle } from "../effects/style/output"
+import { supportsScrollTimeline } from "../utils/supports/scroll-timeline"
 import { acceleratedValues } from "../animation/waapi/utils/accelerated-values"
 import { transformGroups } from "../animation/waapi/transforms/groups"
 import { cancelFrame, frame } from "../frameloop"
@@ -583,13 +591,66 @@ export abstract class VisualElement<
             const { factory, keyframes, times, ease, duration } =
                 value.accelerate
 
-            const animation = new NativeAnimation({
-                element: this.current,
+            /**
+             * The factory links this to a scroll timeline, so it only needs
+             * the part of the playback controls that linking calls.
+             */
+            const element = this.current
+            const ms = secondsToMilliseconds(duration)
+            const easing = mapEasingToNativeEasing(ease ?? "easeOut", ms)
+            const perKeyframe = Array.isArray(easing)
+            const frames: PropertyIndexedKeyframes = {
+                [key]: keyframes,
+                offset: times,
+            }
+            if (perKeyframe) frames.easing = easing
+
+            const waapi = animateStyle(element, frames, {
+                duration: ms,
+                easing: perKeyframe ? "linear" : easing,
+                fill: "both",
+            })
+            waapi.onfinish = () => {
+                setStyle(element, key, keyframes[keyframes.length - 1])
+                waapi.cancel()
+            }
+
+            const animation = {
+                attachTimeline({
+                    timeline,
+                    onAttach,
+                    observe,
+                }: TimelineWithFallback) {
+                    waapi.onfinish = null
+
+                    if (timeline && supportsScrollTimeline()) {
+                        waapi.timeline = timeline as any
+                        onAttach?.(waapi)
+                        return noop
+                    }
+
+                    return observe(animation)
+                },
+                pause: () => waapi.pause(),
+                set time(newTime: number) {
+                    waapi.currentTime = secondsToMilliseconds(newTime)
+                },
+                iterationDuration: duration,
+                cancel() {
+                    waapi.onfinish = null
+                    try {
+                        waapi.cancel()
+                    } catch (e) {}
+                },
+            } as unknown as AnimationPlaybackControlsWithThen
+
+            notifyAnimationStart(animation, {
+                element,
                 name: key,
                 keyframes,
                 times,
                 ease,
-                duration: secondsToMilliseconds(duration),
+                duration: ms,
             })
 
             const cleanup = factory(animation)
