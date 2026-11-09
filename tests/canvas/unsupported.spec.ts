@@ -13,5 +13,6 @@ test("without HTML-in-canvas, canvasLayer fails soft", async ({ page }) => {
         drawable: false,
         // The element is still fallback content, styled as normal
         transform: "translateX(100px)",
+        renderVideo: "renderVideo() needs HTML-in-canvas support.",
     })
 })

@@ -1,0 +1,118 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+
+            canvas {
+                display: block;
+                width: 320px;
+                height: 180px;
+            }
+
+            #background {
+                width: 320px;
+                height: 180px;
+                background: rgb(20, 20, 20);
+            }
+
+            #box {
+                width: 40px;
+                height: 40px;
+                background: rgb(255, 255, 255);
+            }
+
+            #counter {
+                width: 20px;
+                height: 20px;
+            }
+        </style>
+    </head>
+    <body>
+        <canvas>
+            <div id="background"></div>
+            <div id="box"></div>
+            <div id="counter"></div>
+        </canvas>
+        <script type="module">
+            import {
+                animate,
+                canvasLayer,
+                frame,
+                renderVideo,
+            } from "/src/canvas-inc.js"
+            import {
+                createVideoSink,
+                readVideoTimestamps,
+            } from "/src/canvas-video-sink.js"
+            import { nextRender, readCanvas } from "./pixels.js"
+
+            const canvas = document.querySelector("canvas")
+            const layer = canvasLayer(canvas)
+            const box = document.getElementById("box")
+            const counter = document.getElementById("counter")
+
+            layer.add(document.getElementById("background"))
+            layer.add(box, { y: 70 })
+            layer.add(counter, { x: 290, y: 10 })
+
+            const animation = animate(
+                box,
+                { x: [0, 280] },
+                { duration: 1, ease: "linear" }
+            )
+            animation.pause()
+
+            /**
+             * A DOM change made on Motion's frameloop each frame, from the
+             * animation's time. Each captured frame must show the change
+             * made for it.
+             */
+            let frameIndex = 0
+            frame.update(() => {
+                frameIndex = Math.round(animation.time * 30)
+                counter.style.background =
+                    frameIndex % 2 ? "rgb(255, 0, 0)" : "rgb(0, 0, 255)"
+            }, true)
+
+            const boxLeft = (px) => {
+                for (let x = 0; x < 320; x++) {
+                    if (px.at(x + 0.5, 90)[0] > 128) return x
+                }
+                return -1
+            }
+
+            window.exportFrames = () => {
+                const frames = []
+                return renderVideo(layer, animation, {
+                    fps: 30,
+                    onFrame: (canvas, timestamp, duration) => {
+                        // Read in the paint: no preserveDrawingBuffer
+                        const px = readCanvas(canvas)
+                        frames.push({
+                            timestamp,
+                            duration,
+                            frameIndex,
+                            left: boxLeft(px),
+                            counter: px.at(300, 20),
+                        })
+                    },
+                }).then((count) => ({ count, frames }))
+            }
+
+            window.exportVideo = async () => {
+                const sink = await createVideoSink(canvas, { fps: 30 })
+                const count = await renderVideo(layer, animation, {
+                    fps: 30,
+                    onFrame: sink.onFrame,
+                })
+                const blob = await sink.finalize()
+                const { codec, timestamps } = await readVideoTimestamps(blob)
+                return { count, codec, bytes: blob.size, timestamps }
+            }
+
+            nextRender(layer).then(() => (window.ready = true))
+        </script>
+    </body>
+</html>

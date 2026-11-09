@@ -3729,10 +3729,33 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/dom-mediacapture-transform@npm:^0.1.11":
+  version: 0.1.12
+  resolution: "@types/dom-mediacapture-transform@npm:0.1.12"
+  dependencies:
+    "@types/dom-webcodecs": "*"
+  checksum: 49125cf18a9359b14c81bf4e31db0d3e0b47caf8fe684fa12bfb44e14d7c24a4fb7896290baf2e85fddc6bfa6fa13ff4aebeedcd5f56b9d13c4ae519aaefe398
+  languageName: node
+  linkType: hard
+
 "@types/dom-navigation@npm:^1.0.7":
   version: 1.0.7
   resolution: "@types/dom-navigation@npm:1.0.7"
   checksum: 96e630423a16143e50faf71a7a93f1d660fb743a30fbb093b567a1c2deafe54254c88f95b5498904fc2225c7ab625d1fedd2481d65f65212d6e8f0c6e620b24f
+  languageName: node
+  linkType: hard
+
+"@types/dom-webcodecs@npm:*":
+  version: 0.1.19
+  resolution: "@types/dom-webcodecs@npm:0.1.19"
+  checksum: af29a0a6c49f78c546b98d7fe6e71d8639e3dd08818054c9b82be91ea812e9c772c71d862ba653df9bfc28a5ff3ee82a6e793881fbb47e65edcfaf4c4ca3faba
+  languageName: node
+  linkType: hard
+
+"@types/dom-webcodecs@npm:0.1.13":
+  version: 0.1.13
+  resolution: "@types/dom-webcodecs@npm:0.1.13"
+  checksum: 57b9912afab8cc536354fd18b86fdf440a7ed8be95ef526871075ba6810c254db3a6ce8fe78705d411993ddb6a025060ec2f2aa054fec2e7385407422791a15e
   languageName: node
   linkType: hard
 
@@ -7565,6 +7588,7 @@ __metadata:
   resolution: "html-env@workspace:dev/html"
   dependencies:
     framer-motion: 14.11.1
+    mediabunny: ^1.65.2
     motion: 14.11.1
     motion-dom: 14.11.1
     react: ^18.3.1
@@ -9612,6 +9636,16 @@ __metadata:
   version: 1.1.0
   resolution: "math-intrinsics@npm:1.1.0"
   checksum: 0e513b29d120f478c85a70f49da0b8b19bc638975eca466f2eeae0071f3ad00454c621bf66e16dd435896c208e719fc91ad79bbfba4e400fe0b372e7c1c9c9a2
+  languageName: node
+  linkType: hard
+
+"mediabunny@npm:^1.65.2":
+  version: 1.65.2
+  resolution: "mediabunny@npm:1.65.2"
+  dependencies:
+    "@types/dom-mediacapture-transform": ^0.1.11
+    "@types/dom-webcodecs": 0.1.13
+  checksum: fc118dee345b6df330923357a5f13483ff13e67c790600d66ca7b5b28fe14a4147736871616f81e6f93f1dc4932228076b9401616225c25dd003d244559bf46c
   languageName: node
   linkType: hard
 

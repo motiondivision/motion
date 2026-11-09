@@ -22,7 +22,7 @@
             <div id="card"></div>
         </canvas>
         <script type="module">
-            import { animate, canvasLayer } from "/src/canvas-inc.js"
+            import { animate, canvasLayer, renderVideo } from "/src/canvas-inc.js"
 
             const canvas = document.querySelector("canvas")
             const card = document.getElementById("card")
@@ -39,7 +39,9 @@
 
                 animate(card, { x: 100 }, { duration: 0 }).then(() => {
                     result.transform = card.style.transform
-                    window.result = result
+                    renderVideo(layer, null, { duration: 1, onFrame() {} })
+                        .catch((error) => (result.renderVideo = error.message))
+                        .then(() => (window.result = result))
                 })
             } catch (error) {
                 window.result = { threw: error.message }

@@ -6,8 +6,8 @@ import {
     processFrame,
     visualElementStore,
 } from "framer-motion/dom"
-import { canvasEffect, canvasLayer } from "../canvas"
-import { canvasItems } from "../canvas/layer"
+import { canvasEffect, canvasLayer, renderVideo } from "../canvas"
+import { canvasItems, type CanvasLayer } from "../canvas/layer"
 import {
     blurSamples,
     defaultPose,
@@ -374,6 +374,122 @@ describe("canvasEffect", () => {
         const cleanup = canvasEffect(element, { x })
         expect(canvasEffect.test(element)).toBe(false)
         expect(() => cleanup()).not.toThrow()
+    })
+})
+
+/**
+ * A layer that renders as soon as it's invalidated, as a paint would.
+ */
+function createStubLayer() {
+    const callbacks = new Set<(layer: CanvasLayer) => void>()
+    const layer: CanvasLayer = {
+        canvas: document.createElement("canvas"),
+        supported: true,
+        motionBlur: 0,
+        samples: 24,
+        add: () => {},
+        remove: () => {},
+        has: () => false,
+        destroy: () => {},
+        onRender: (callback) => {
+            callbacks.add(callback)
+            return () => callbacks.delete(callback)
+        },
+        invalidate: () =>
+            queueMicrotask(() => callbacks.forEach((cb) => cb(layer))),
+    }
+    return layer
+}
+
+describe("renderVideo", () => {
+    test("renders every frame at its time, captured in the paint", async () => {
+        const layer = createStubLayer()
+        const value = motionValue(0)
+        const animation = animate(value, [0, 100], {
+            duration: 1,
+            ease: "linear",
+        })
+        const frames: [number, number, number][] = []
+
+        const count = await renderVideo(layer, animation, {
+            fps: 10,
+            onFrame: (canvas, timestamp, duration) => {
+                expect(canvas).toBe(layer.canvas)
+                frames.push([timestamp, duration, value.get()])
+            },
+        })
+
+        expect(count).toBe(10)
+        expect(frames.map(([t]) => t)).toEqual([
+            0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9,
+        ])
+        frames.forEach(([timestamp, duration, latest]) => {
+            expect(duration).toBe(0.1)
+            expect(latest).toBeCloseTo(timestamp * 100, 5)
+        })
+        // Restores the clock it found
+        expect(MotionGlobalConfig.useManualTiming).toBe(false)
+    })
+
+    test("steps Motion's frameloop with the frames", async () => {
+        const layer = createStubLayer()
+        const start = frameData.timestamp
+        const times: number[] = []
+
+        await renderVideo(layer, null, {
+            fps: 4,
+            duration: 1,
+            onFrame: () => {
+                times.push(frameData.timestamp - start)
+            },
+        })
+
+        expect(times).toHaveLength(4)
+        ;[0, 250, 500, 750].forEach((expected, i) =>
+            expect(times[i]).toBeCloseTo(expected, 6)
+        )
+    })
+
+    test("waits for each frame's sink before rendering the next", async () => {
+        const layer = createStubLayer()
+        const order: string[] = []
+        await renderVideo(layer, null, {
+            fps: 2,
+            duration: 1,
+            onFrame: async (_, timestamp) => {
+                order.push("start " + timestamp)
+                await new Promise((resolve) => setTimeout(resolve, 10))
+                order.push("end " + timestamp)
+            },
+        })
+        expect(order).toEqual(["start 0", "end 0", "start 0.5", "end 0.5"])
+    })
+
+    test("rejects without support or a finite duration", async () => {
+        const layer = { ...createStubLayer(), supported: false }
+        await expect(
+            renderVideo(layer, null, { duration: 1, onFrame: () => {} })
+        ).rejects.toThrow()
+        await expect(
+            renderVideo(createStubLayer(), null, { onFrame: () => {} })
+        ).rejects.toThrow()
+    })
+
+    test("can be aborted", async () => {
+        const controller = new AbortController()
+        let frames = 0
+        await expect(
+            renderVideo(createStubLayer(), null, {
+                fps: 10,
+                duration: 1,
+                signal: controller.signal,
+                onFrame: () => {
+                    ++frames === 3 && controller.abort()
+                },
+            })
+        ).rejects.toThrow()
+        expect(frames).toBe(3)
+        expect(MotionGlobalConfig.useManualTiming).toBe(false)
     })
 })
 

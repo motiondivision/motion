@@ -19,6 +19,7 @@
         "vgpu": "^0.3.1"
     },
     "devDependencies": {
+        "mediabunny": "^1.65.2",
         "vite": "^6.4.2"
     }
 }
