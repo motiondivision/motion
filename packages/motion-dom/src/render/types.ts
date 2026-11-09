@@ -157,6 +157,7 @@ export type AnimationType =
     | "whileHover"
     | "whileTap"
     | "whileDrag"
+    | "whilePinch"
     | "whileFocus"
     | "whileInView"
     | "exit"
@@ -182,4 +183,5 @@ export type FeatureDefinitions = {
     pan?: FeatureDefinition
     inView?: FeatureDefinition
     layout?: FeatureDefinition
+    pinch?: FeatureDefinition
 }

@@ -7,6 +7,7 @@ export const variantPriorityOrder: AnimationType[] = [
     "whileHover",
     "whileTap",
     "whileDrag",
+    "whilePinch",
     "exit",
 ]
 
