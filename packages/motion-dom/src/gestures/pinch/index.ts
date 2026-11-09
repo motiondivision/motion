@@ -1,5 +1,6 @@
 import { clamp, type Point } from "motion-utils"
 import { spring } from "../../animation/generators/spring"
+import { JSAnimation } from "../../animation/JSAnimation"
 import type { SpringOptions } from "../../animation/types"
 import { readStyleValue, styleSubjectEffect } from "../../effects/style"
 import { svgSubjectEffect } from "../../effects/svg"
@@ -401,49 +402,44 @@ export function addPinchListeners(
             return
         }
 
-        const generator = spring({
-            keyframes: [0, 1],
-            stiffness: 200,
-            damping: 40,
-            ...transition,
-        })
-        const startTime = time.now()
-
         /**
          * Drive the values from one spring, from 0 to 1, so they stay in
          * step and the focal point stays in place.
          */
-        const tick = () => {
-            if (dragControls()?.isDragging) return stopSnap()
+        const animation = new JSAnimation({
+            keyframes: [0, 1],
+            type: spring,
+            stiffness: 200,
+            damping: 40,
+            ...transition,
+            onUpdate: (p: number) => {
+                if (dragControls()?.isDragging) return stopSnap()
 
-            const { value: p, done } = generator.next(time.now() - startTime)
-            if (done) stopSnap()
+                const k = mixNumber(s0, s1, p)
+                const r = mixNumber(r0, r1, p)
+                const angle = ((r - r0) * Math.PI) / 180
+                const cos = (Math.cos(angle) * k) / s0
+                const sin = (Math.sin(angle) * k) / s0
 
-            const k = mixNumber(s0, s1, p)
-            const r = mixNumber(r0, r1, p)
-            const angle = ((r - r0) * Math.PI) / 180
-            const cos = (Math.cos(angle) * k) / s0
-            const sin = (Math.sin(angle) * k) / s0
+                scaleOption !== false && scale.set(k)
+                rotateOption !== false && rotate.set(r)
 
-            scaleOption !== false && scale.set(k)
-            rotateOption !== false && rotate.set(r)
+                if (moves) {
+                    x.set(
+                        snapToOrigin
+                            ? mixNumber(x0, 0, p)
+                            : x0 + cos * vx - sin * vy - vx
+                    )
+                    y.set(
+                        snapToOrigin
+                            ? mixNumber(y0, 0, p)
+                            : y0 + sin * vx + cos * vy - vy
+                    )
+                }
+            },
+        })
 
-            if (moves) {
-                x.set(
-                    snapToOrigin
-                        ? mixNumber(x0, 0, p)
-                        : x0 + cos * vx - sin * vy - vx
-                )
-                y.set(
-                    snapToOrigin
-                        ? mixNumber(y0, 0, p)
-                        : y0 + sin * vx + cos * vy - vy
-                )
-            }
-        }
-
-        stopSnap = () => cancelFrame(tick)
-        frame.update(tick, true)
+        stopSnap = () => animation.stop()
     }
 
     /**
