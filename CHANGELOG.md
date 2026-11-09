@@ -4,7 +4,13 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
-## [14.11.0] 2026-11-05
+## [14.11.0] 2026-11-09
+
+### Changed
+
+-   `pinch`: Snap points use velocity-based prediction to calculate snap point.
+
+## [14.11.0] 2026-11-09
 
 ### Added
 
