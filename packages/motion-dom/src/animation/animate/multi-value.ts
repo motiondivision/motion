@@ -36,6 +36,7 @@ import { replaceStringEasing } from "../waapi/utils/unsupported-easing"
 import { mapEasingToNativeEasing } from "../waapi/easing/map-easing"
 import { keyframes as keyframesType } from "../generators/keyframes"
 import { spring } from "../generators/spring"
+import { createGeneratorEasing } from "../generators/utils/create-generator-easing"
 import { canGroupValue } from "../waapi/transforms/TransformAnimation"
 
 /**
@@ -252,11 +253,58 @@ function resolveNow(target: any[], value: MotionValue) {
     return keyframes
 }
 
+/**
+ * A spring from rest follows the same curve over any distance. Only when
+ * it's near and slow enough to stop depends on how far it moves. So the
+ * values of a call that move as far, with the same spring, share one
+ * easing, and an element's transforms compose into two keyframes rather
+ * than many sampled ones, which the browser parses slowly.
+ */
+function shareSpring(options: any, springs: Record<string, object>) {
+    const {
+        keyframes,
+        stiffness,
+        damping,
+        mass,
+        duration,
+        bounce,
+        visualDuration,
+        restDelta,
+        restSpeed,
+    } = options
+    const distance =
+        Math.abs(parseFloat(keyframes[1]) - parseFloat(keyframes[0])) || 100
+    const id =
+        [
+            stiffness,
+            damping,
+            mass,
+            duration,
+            bounce,
+            visualDuration,
+            restDelta,
+            restSpeed,
+            distance,
+        ] + ""
+
+    if (!springs[id]) {
+        const easing = createGeneratorEasing(options, distance, spring)
+        springs[id] = {
+            ease: easing.ease,
+            duration: secondsToMilliseconds(easing.duration),
+            type: keyframesType,
+        }
+    }
+
+    Object.assign(options, springs[id])
+}
+
 function resolve(
     track: ValueTrack,
     parent: MultiValueAnimation,
     value: MotionValue,
-    element: AnimationElement | undefined
+    element: AnimationElement | undefined,
+    springs?: Record<string, object> | false
 ) {
     const { options } = track
 
@@ -281,6 +329,8 @@ function resolve(
 
         ;(options as any).finalKeyframe = finalKeyframe
         options.keyframes = keyframes
+
+        springs && canAnimateValue && shareSpring(options, springs)
 
         if (
             element &&
@@ -413,51 +463,21 @@ export const startValue =
             motionValue: value,
         }
 
-        if (isTransform) {
-            /**
-             * A spring from rest has the same curve for every value with
-             * its options. As one easing, an element's transforms compose
-             * into two keyframes rather than many sampled ones, which the
-             * browser parses slowly.
-             */
-            const { type } = options as any
-            if ((type === "spring" || type === spring) && !velocity) {
-                const {
-                    stiffness,
-                    damping,
-                    mass,
-                    duration,
-                    bounce,
-                    visualDuration,
-                    restDelta,
-                    restSpeed,
-                } = options as any
-                const id =
-                    [
-                        stiffness,
-                        damping,
-                        mass,
-                        duration,
-                        bounce,
-                        visualDuration,
-                        restDelta,
-                        restSpeed,
-                    ] + ""
-                const springs = (ref.springs ||= {})
-                if (!springs[id]) {
-                    const { ease, duration } = spring.applyToOptions({
-                        ...options,
-                    })
-                    springs[id] = { ease, duration, type: keyframesType }
-                }
-                Object.assign(options, springs[id])
-            }
-        }
+        /**
+         * A spring from rest is made into an easing once its keyframes
+         * are read.
+         */
+        const { type } = options as any
+        const springs =
+            isTransform &&
+            (type === "spring" || type === spring) &&
+            !velocity &&
+            (ref.springs ||= {})
 
         const track = parent.add(options, value, plan, onComplete)
         track.isTransform = isTransform
 
-        resolve(track, parent, value, element)
+        resolve(track, parent, value, element, springs)
 
         return track
     }
