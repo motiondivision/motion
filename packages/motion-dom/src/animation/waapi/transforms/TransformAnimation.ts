@@ -29,6 +29,7 @@ import {
     ResolvedKeyframes,
 } from "../../keyframes/KeyframesResolver"
 import { defaultOffset } from "../../keyframes/offsets/default"
+import { AnimationClock } from "../../AnimationClock"
 import { holdDriver, JSAnimation, round } from "../../JSAnimation"
 import { sampleDelta } from "../../utils/sample-delta"
 import {
@@ -391,6 +392,12 @@ let setTime: ((this: JSAnimation<any>, time: number) => void) | undefined
 let setSpeed: ((this: JSAnimation<any>, speed: number) => void) | undefined
 
 /**
+ * The accessors are AnimationClock's own. JSAnimation only inherits them.
+ */
+const clockSetter = (name: "time" | "speed") =>
+    Object.getOwnPropertyDescriptor(AnimationClock.prototype, name)!.set!
+
+/**
  * A transform value's animation. It resolves its own keyframes, as
  * AsyncMotionValueAnimation does for other values, so each value is one
  * object rather than a wrapper, a resolver callback and an animation.
@@ -673,10 +680,7 @@ export class TransformAnimation<
      */
     set time(newTime: number) {
         this.flush()
-        ;(setTime ??= Object.getOwnPropertyDescriptor(
-            JSAnimation.prototype,
-            "time"
-        )!.set!).call(this, newTime)
+        ;(setTime ??= clockSetter("time")).call(this, newTime)
     }
 
     get speed() {
@@ -685,10 +689,7 @@ export class TransformAnimation<
 
     set speed(newSpeed: number) {
         this.isRetiming = true
-        ;(setSpeed ??= Object.getOwnPropertyDescriptor(
-            JSAnimation.prototype,
-            "speed"
-        )!.set!).call(this, newSpeed)
+        ;(setSpeed ??= clockSetter("speed")).call(this, newSpeed)
         this.isRetiming = false
     }
 
