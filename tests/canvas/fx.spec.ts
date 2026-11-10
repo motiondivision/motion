@@ -181,3 +181,70 @@ test.describe("<MotionFX>", () => {
         expect(result.off).toEqual(red)
     })
 })
+
+/**
+ * <motion-fx> is a grid of two 100px columns with a 20px gap and 10px of
+ * padding. #a is red and 50px tall, #b is blue and stretches to match.
+ * Neither has a width of its own.
+ */
+test.describe("<motion-fx> layout", () => {
+    test.beforeEach(async ({ page }) => {
+        await page.goto("canvas/fx-layout.html")
+        await page.waitForFunction(() => (window as any).ready)
+    })
+
+    test("keeps the layout its own CSS gives the children", async ({
+        page,
+    }) => {
+        const result = await page.evaluate(async () => {
+            const w = window as any
+            const px = await w.nextRender()
+            return {
+                supported: w.host.supported,
+                before: w.before,
+                after: w.boxes(),
+                a: px.at(60, 35),
+                gap: px.at(120, 35),
+                b: px.at(180, 35),
+                right: px.at(250, 35),
+                below: px.at(180, 65),
+            }
+        })
+        expect(result.supported).toBe(true)
+        expect(result.a).toEqual([255, 0, 0, 255])
+        expect(result.b).toEqual([0, 0, 255, 255])
+        expect(result.gap[3]).toBe(0)
+        expect(result.right[3]).toBe(0)
+        expect(result.below[3]).toBe(0)
+        // Nothing on the page moves or changes size
+        expect(result.after.host).toEqual(result.before.host)
+        expect(result.after.after).toEqual(result.before.after)
+        expect(result.after.a.slice(2)).toEqual([100, 50])
+        expect(result.after.b.slice(2)).toEqual([100, 50])
+    })
+
+    test("gives the children their own sizes back to measure again", async ({
+        page,
+    }) => {
+        const result = await page.evaluate(async () => {
+            const w = window as any
+            w.host.style.width = "200px"
+            w.host.style.gridTemplateColumns = "60px 60px"
+            // The resize is seen before the next frame
+            await new Promise(requestAnimationFrame)
+            await w.nextRender()
+            const px = await w.nextRender()
+            return {
+                boxes: w.boxes(),
+                a: px.at(40, 35),
+                gap: px.at(80, 35),
+                b: px.at(120, 35),
+            }
+        })
+        expect(result.boxes.a.slice(2)).toEqual([60, 50])
+        expect(result.boxes.b.slice(2)).toEqual([60, 50])
+        expect(result.a).toEqual([255, 0, 0, 255])
+        expect(result.gap[3]).toBe(0)
+        expect(result.b).toEqual([0, 0, 255, 255])
+    })
+})

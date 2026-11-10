@@ -92,6 +92,23 @@ export function defineMotionFX({
 
         private drawn = new Set<HTMLElement>()
 
+        /**
+         * Takes the children's place in the layout while they're in the
+         * canvas, so the element keeps its size.
+         */
+        private spacer = document.createElement("div")
+
+        /**
+         * Styles for while the canvas is drawing.
+         */
+        private drawing = document.createElement("style")
+
+        /**
+         * The inline width and height each child had before it was given
+         * the size of its layout box.
+         */
+        private sizes = new Map<HTMLElement, [string, string]>()
+
         private fx: FXShader[] = []
 
         get shaders() {
@@ -108,8 +125,8 @@ export function defineMotionFX({
             const root = this.attachShadow({ mode: "open" })
             const style = document.createElement("style")
             style.textContent =
-                ":host{display:block}canvas{display:block;width:100%}"
-            root.append(style, this.slotElement)
+                ":host{display:block;position:relative}canvas{position:absolute;inset:0;width:100%;height:100%}"
+            root.append(style, this.drawing, this.slotElement)
             /**
              * Moving the slot fires slotchange too, so only a change to
              * the children themselves is synced.
@@ -155,7 +172,7 @@ export function defineMotionFX({
                 if (!isReady || this.canvas !== canvas) return false
                 this.layer = layer
                 this.configure()
-                this.shadowRoot!.append(canvas)
+                this.shadowRoot!.append(this.spacer, canvas)
                 this.observer.observe(this)
                 this.sync()
                 return true
@@ -174,6 +191,9 @@ export function defineMotionFX({
             this.observer.disconnect()
             this.shadowRoot!.append(this.slotElement)
             this.canvas?.remove()
+            this.spacer.remove()
+            this.drawing.textContent = ""
+            this.restoreSizes()
             this.drawn.clear()
             this.layer = this.created = this.canvas = undefined
         }
@@ -193,29 +213,73 @@ export function defineMotionFX({
             layer.setShaders(this.fx)
         }
 
+        private restoreSizes() {
+            this.sizes.forEach(([width, height], { style }) => {
+                style.width = width
+                style.height = height
+            })
+            this.sizes.clear()
+        }
+
         /**
-         * Draw each child where it's laid out as normal DOM, so nothing
-         * moves when the canvas takes over. Children of a canvas aren't
-         * laid out against each other, so they're measured with the slot
-         * outside it.
+         * Draw each child where the element's own CSS lays it out, at the
+         * size that gives it, so nothing moves when the canvas takes
+         * over. Children of a canvas aren't laid out against each other,
+         * so they're measured with the slot outside it.
          */
         private sync = () => {
-            const { layer, drawn, canvas, slotElement } = this
+            const { layer, drawn, canvas, slotElement, spacer, sizes } = this
             if (!layer || !canvas) return
 
-            canvas.style.display = "none"
+            this.drawing.textContent = ""
+            canvas.style.display = spacer.style.display = "none"
+            this.restoreSizes()
             this.shadowRoot!.append(slotElement)
-            const origin = this.getBoundingClientRect()
+
+            const style = getComputedStyle(this)
             const assigned = new Set(slotElement.assignedElements())
-            const boxes = new Map<Element, DOMRect>()
-            assigned.forEach((element) =>
-                boxes.set(element, element.getBoundingClientRect())
-            )
+            const boxes = new Map<Element, [number, number]>()
+            const pinned: [HTMLElement, string, string][] = []
+            assigned.forEach((element) => {
+                if (element instanceof HTMLElement) {
+                    /**
+                     * Offsets, not the bounding box, which can include
+                     * where the canvas last drew the child.
+                     */
+                    boxes.set(element, [element.offsetLeft, element.offsetTop])
+                    const { width, height } = getComputedStyle(element)
+                    pinned.push([element, width, height])
+                }
+            })
+
             /**
-             * The canvas takes the children's place in the layout, at
-             * the size they gave the element.
+             * The spacer takes the children's place in the layout. The
+             * element's own display would lay it out as one of them, so
+             * that's switched off while the canvas draws.
              */
-            canvas.style.height = `${this.clientHeight}px`
+            spacer.style.cssText = `width:${
+                this.clientWidth -
+                parseFloat(style.paddingLeft) -
+                parseFloat(style.paddingRight)
+            }px;height:${
+                this.clientHeight -
+                parseFloat(style.paddingTop) -
+                parseFloat(style.paddingBottom)
+            }px`
+            this.drawing.textContent = `:host{display:${
+                style.display.startsWith("inline") ? "inline-" : ""
+            }block!important}`
+
+            /**
+             * In the canvas, a child no longer gets its size from the
+             * element's layout, so it's given the size it had.
+             */
+            pinned.forEach(([element, width, height]) => {
+                sizes.set(element, [element.style.width, element.style.height])
+                element.style.width = width
+                element.style.height = height
+            })
+
             canvas.style.display = ""
             canvas.append(slotElement)
 
@@ -227,10 +291,10 @@ export function defineMotionFX({
 
             assigned.forEach((element) => {
                 if (!(element instanceof HTMLElement)) return
-                const box = boxes.get(element)!
+                const [left, top] = boxes.get(element)!
                 layer.add(element, {
-                    left: box.left - origin.left - this.clientLeft,
-                    top: box.top - origin.top - this.clientTop,
+                    left,
+                    top,
                     shader: shaders[element.getAttribute("shader")!],
                     motionBlur: number(element, "motion-blur"),
                 })

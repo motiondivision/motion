@@ -1,0 +1,75 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+
+            /**
+             * The children get their size and position from the grid.
+             * The element's height comes from them.
+             */
+            motion-fx {
+                display: grid;
+                grid-template-columns: 100px 100px;
+                gap: 20px;
+                padding: 10px;
+                width: 300px;
+            }
+
+            #a {
+                height: 50px;
+                background: rgb(255, 0, 0);
+            }
+
+            #b {
+                background: rgb(0, 0, 255);
+            }
+
+            #after {
+                height: 20px;
+            }
+        </style>
+    </head>
+    <body>
+        <motion-fx>
+            <div id="a"></div>
+            <div id="b"></div>
+        </motion-fx>
+        <div id="after"></div>
+        <script type="module">
+            import { animate, defineMotionFX } from "/src/canvas-inc.js"
+            import { nextRender } from "./pixels.js"
+
+            const host = document.querySelector("motion-fx")
+            const box = (element) => {
+                const { left, top, width, height } =
+                    element.getBoundingClientRect()
+                return [left, top, width, height]
+            }
+            const boxes = () => ({
+                host: box(host),
+                a: box(document.getElementById("a")),
+                b: box(document.getElementById("b")),
+                after: box(document.getElementById("after")),
+            })
+
+            window.before = boxes()
+
+            defineMotionFX()
+
+            Object.assign(window, {
+                animate,
+                host,
+                boxes,
+                nextRender: () => nextRender(host.layer),
+            })
+
+            host.ready.then((isReady) =>
+                isReady
+                    ? nextRender(host.layer).then(() => (window.ready = true))
+                    : (window.ready = true)
+            )
+        </script>
+    </body>
+</html>
