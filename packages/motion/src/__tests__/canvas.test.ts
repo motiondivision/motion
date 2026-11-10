@@ -120,6 +120,63 @@ describe("pose mixing and travel", () => {
         expect(mixed.scale).toBe(1)
     })
 
+    test("z, rotateX and rotateY are flat without a perspective", () => {
+        const m = poseMatrix(pose({ z: 100, rotateY: 60 }), 100, 50)
+        expect([m[2] + 0, m[5] + 0, m[8]]).toEqual([0, 0, 1])
+        // cos(60deg) halves the width around the centre
+        expectPoint(apply(m, 0, 0), 25, 0)
+        expectPoint(apply(m, 100, 50), 75, 50)
+
+        const turned = poseMatrix(pose({ rotateX: 60 }), 100, 50)
+        expectPoint(apply(turned, 0, 0), 0, 12.5)
+    })
+
+    test("a perspective divides by the distance from the viewer", () => {
+        const camera = [400, 200, 150]
+        const project = (m: Float32Array, x: number, y: number) => {
+            const w = m[2] * x + m[5] * y + m[8]
+            return [
+                (m[0] * x + m[3] * y + m[6]) / w,
+                (m[1] * x + m[4] * y + m[7]) / w,
+            ]
+        }
+
+        // Half way to the viewer is twice the size, around the camera
+        const near = poseMatrix(
+            pose({ x: 150, y: 120, z: 200 }),
+            100,
+            60,
+            undefined,
+            camera
+        )
+        expectPoint(project(near, 0, 0), 100, 90)
+        expectPoint(project(near, 100, 60), 300, 210)
+
+        // rotateY brings the left side nearer, so it's drawn larger
+        const turned = poseMatrix(
+            pose({ x: 150, y: 120, rotateY: 60 }),
+            100,
+            60,
+            undefined,
+            camera
+        )
+        const [left, top] = project(turned, 0, 0)
+        const [right, farTop] = project(turned, 100, 0)
+        expect(left).toBeCloseTo(200 - 25 / (1 - 43.301 / 400), 2)
+        expect(right).toBeCloseTo(200 + 25 / (1 + 43.301 / 400), 2)
+        expect(top).toBeLessThan(farTop)
+
+        expect(
+            poseTravel(
+                pose({ x: 150, y: 120 }),
+                pose({ x: 150, y: 120, z: 200 }),
+                100,
+                60,
+                camera
+            )
+        ).toBeCloseTo(Math.hypot(50, 30), 4)
+    })
+
     test("poseTravel is the furthest corner movement", () => {
         expect(poseTravel(pose({}), pose({}), 100, 100)).toBe(0)
         expect(poseTravel(pose({}), pose({ opacity: 0 }), 100, 100)).toBe(0)
@@ -452,6 +509,7 @@ function createStubLayer() {
         onLost: () => () => {},
         motionBlur: 0,
         samples: 24,
+        perspective: 0,
         setShaders: () => {},
         unproject: (x: number, y: number) => ({ x, y }),
         add: () => {},

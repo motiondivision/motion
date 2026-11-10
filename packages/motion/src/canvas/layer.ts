@@ -14,6 +14,7 @@ import {
     poseTravel,
     readPose,
     sweptBounds,
+    type Camera,
     type CanvasPose,
     type CanvasPoseKey,
 } from "./pose"
@@ -52,6 +53,14 @@ export interface CanvasLayerOptions {
      * are used for short moves. Defaults to `24`.
      */
     samples?: number
+
+    /**
+     * How far the viewer is from the canvas, in CSS pixels, as the CSS
+     * `perspective` property. Elements with `z`, `rotateX` or `rotateY`
+     * are then drawn in 3D, the nearest last, and `project()` in a shader
+     * uses it. Defaults to `0`, which is none.
+     */
+    perspective?: number
 
     /**
      * Shaders run in order on everything the layer has drawn. See
@@ -126,6 +135,8 @@ export interface CanvasLayer {
 
     samples: number
 
+    perspective: number
+
     /**
      * Draw `element`, a child of the canvas (it's appended if it isn't
      * one, or slotted into it), with Motion values. `animate()` and `drag()` then animate those
@@ -193,6 +204,11 @@ interface Item {
     pose: CanvasPose
     prev?: CanvasPose
     matrix: Float32Array
+    /**
+     * How far its centre is from the viewer, as a part of the
+     * perspective.
+     */
+    depth: number
     geometry: number[]
     cleanup: VoidFunction[]
 
@@ -291,7 +307,12 @@ const vertexUsage = 0x20 | 0x08
  */
 export function canvasLayer(
     canvas: HTMLCanvasElement,
-    { motionBlur = 0, samples = 24, shaders }: CanvasLayerOptions = {}
+    {
+        motionBlur = 0,
+        samples = 24,
+        perspective = 0,
+        shaders,
+    }: CanvasLayerOptions = {}
 ): CanvasLayer {
     const items = new Map<Element, Item>()
     const listeners = new SubscriptionManager<(layer: CanvasLayer) => void>()
@@ -304,6 +325,7 @@ export function canvasLayer(
         ready: Promise.resolve(false),
         motionBlur,
         samples,
+        perspective,
         add: noop as CanvasLayer["add"],
         remove: noop as CanvasLayer["remove"],
         has: (element: Element) => items.has(element),
@@ -530,6 +552,7 @@ export function canvasLayer(
     }
 
     let seconds = 0
+    const camera: Camera = [0, 0, 0]
     const scratch: number[] = []
     const frameData = new Float32Array(8)
 
@@ -544,6 +567,7 @@ export function canvasLayer(
         frameData[2] = scene[2]
         frameData[3] = scene[3]
         frameData[4] = seconds
+        frameData[5] = camera[0]
         device.queue.writeBuffer(item.frame, 0, frameData)
 
         const compiled = program(item.shader)
@@ -578,13 +602,18 @@ export function canvasLayer(
      * Add an instance of the element drawn with `pose`.
      */
     const pushInstance = (item: Item, pose: CanvasPose, alpha: number) => {
-        const matrix = poseMatrix(pose, item.width, item.height, item.matrix)
-        instances[cursor++] = matrix[0]
-        instances[cursor++] = matrix[1]
-        instances[cursor++] = matrix[3]
-        instances[cursor++] = matrix[4]
-        instances[cursor++] = matrix[6] + scene[0]
-        instances[cursor++] = matrix[7] + scene[1]
+        const matrix = poseMatrix(
+            pose,
+            item.width,
+            item.height,
+            item.matrix,
+            camera
+        )
+        // Moved by the scene's origin, which is scaled by w too
+        for (let i = 0; i < 9; i++) {
+            instances[cursor++] =
+                matrix[i] + (i % 3 < 2 ? scene[i % 3] * matrix[i - (i % 3) + 2] : 0)
+        }
         instances[cursor++] = alpha
     }
 
@@ -610,8 +639,26 @@ export function canvasLayer(
      * element is drawn.
      */
     const updateGeometry = ({ element, matrix, geometry }: Item) => {
-        const [a, b, , c, d, , e, f] = matrix
-        const next = [a, b, c, d, e + shiftX, f + shiftY]
+        const [a, b, wx, c, d, wy, e, f, w] = matrix
+        // The 4x4 matrix that does the same to a point with no depth
+        const next = [
+            a + shiftX * wx,
+            b + shiftY * wx,
+            0,
+            wx,
+            c + shiftX * wy,
+            d + shiftY * wy,
+            0,
+            wy,
+            0,
+            0,
+            1,
+            0,
+            e + shiftX * w,
+            f + shiftY * w,
+            0,
+            w,
+        ]
         if (next.some((value, i) => value !== geometry[i])) {
             next.forEach((value, i) => (geometry[i] = value))
             drawable.updateElementGeometry(element, {
@@ -669,6 +716,9 @@ export function canvasLayer(
         const sceneHeight = Math.max(1, Math.round(scene[3] * scaleY))
 
         seconds = time.now() / 1000
+        camera[0] = layer.perspective
+        camera[1] = clientWidth / 2
+        camera[2] = clientHeight / 2
 
         /**
          * Every pose drawn this frame is an instance in one buffer, which
@@ -733,6 +783,11 @@ export function canvasLayer(
             })
         let pass = beginPass(view, "clear")
 
+        /**
+         * DOM order, as the elements are stacked for hit testing. With a
+         * perspective, the furthest are drawn first.
+         */
+        const order: Item[] = []
         for (const element of drawOrder(canvas)) {
             const item = items.get(element)
             if (!item) continue
@@ -740,6 +795,17 @@ export function canvasLayer(
             const pose = readPose(item.visualElement.latestValues, item.pose)
             pose.x += item.left
             pose.y += item.top
+
+            const width0 = item.element.offsetWidth
+            const height0 = item.element.offsetHeight
+            const m = poseMatrix(pose, width0, height0, item.matrix, camera)
+            item.depth = (m[2] * width0 + m[5] * height0) / 2 + m[8]
+            order.push(item)
+        }
+        camera[0] && order.sort((a, b) => b.depth - a.depth)
+
+        for (const item of order) {
+            const { pose } = item
 
             /**
              * An element that's outside the scene isn't copied or drawn.
@@ -751,7 +817,8 @@ export function canvasLayer(
                 pose,
                 width0,
                 height0,
-                1
+                1,
+                camera
             )
             if (
                 reach[2] < -scene[0] - cullMargin ||
@@ -762,7 +829,6 @@ export function canvasLayer(
                 item.isDirty = true
                 item.width = width0
                 item.height = height0
-                poseMatrix(pose, item.width, item.height, item.matrix)
                 updateGeometry(item)
                 item.pose = item.prev || ({} as CanvasPose)
                 item.prev = pose
@@ -776,7 +842,13 @@ export function canvasLayer(
             const shutter = item.motionBlur ?? layer.motionBlur
             const travel =
                 prev && shutter > 0
-                    ? poseTravel(prev, pose, item.width, item.height) *
+                    ? poseTravel(
+                          prev,
+                          pose,
+                          item.width,
+                          item.height,
+                          camera
+                      ) *
                       shutter *
                       scaleX
                     : 0
@@ -797,7 +869,9 @@ export function canvasLayer(
                         mixPose(pose, prev!, shutter, sample),
                         pose,
                         item.width,
-                        item.height
+                        item.height,
+                        8,
+                        camera
                     )
                     const x = Math.max(
                         0,
@@ -889,7 +963,7 @@ export function canvasLayer(
                 if (program.usesTime) drawAgain = true
             }
 
-            poseMatrix(pose, item.width, item.height, item.matrix)
+            poseMatrix(pose, item.width, item.height, item.matrix, camera)
             updateGeometry(item)
 
             item.pose = prev || ({} as CanvasPose)
@@ -905,7 +979,7 @@ export function canvasLayer(
              * One more instance: the whole scene, as it is.
              */
             const full = cursor / floatsPerInstance
-            instances.set([1, 0, 0, 1, 0, 0, 1], cursor)
+            instances.set([1, 0, 0, 0, 1, 0, 0, 0, 1, 1], cursor)
             cursor += floatsPerInstance
 
             const { elementLayout, uniformsLayout, sampler, mip, mipLayout } =
@@ -935,6 +1009,7 @@ export function canvasLayer(
                 frameData[2] = clientWidth
                 frameData[3] = clientHeight
                 frameData[4] = seconds
+                frameData[5] = camera[0]
                 frameData[6] = post.segments[0]
                 frameData[7] = post.segments[1]
                 device.queue.writeBuffer(post.frame, 0, frameData)
@@ -1258,6 +1333,7 @@ export function canvasLayer(
             isDirty: true,
             pose: {} as CanvasPose,
             matrix: new Float32Array(9),
+            depth: 0,
             geometry: [],
             cleanup,
         }
@@ -1418,10 +1494,13 @@ export function canvasLayer(
             const {
                 x,
                 y,
+                z,
                 scale,
                 scaleX,
                 scaleY,
                 rotate,
+                rotateX,
+                rotateY,
                 opacity,
                 originX,
                 originY,
@@ -1429,9 +1508,11 @@ export function canvasLayer(
             remove(element as HTMLElement)
             const { style } = element as HTMLElement
             style.transformOrigin = `${originX * 100}% ${originY * 100}%`
-            style.transform = `translate(${x}px, ${y}px) rotate(${rotate}deg) scale(${
+            style.transform = `translate3d(${x}px, ${y}px, ${z}px) scale(${
                 scale * scaleX
-            }, ${scale * scaleY})`
+            }, ${
+                scale * scaleY
+            }) rotate(${rotate}deg) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`
             if (opacity !== 1) style.opacity = `${opacity}`
         })
         destroy()

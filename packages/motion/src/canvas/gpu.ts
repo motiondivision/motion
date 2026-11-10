@@ -42,10 +42,10 @@ export const onDeviceLost = (callback: VoidFunction) => lost.add(callback)
 
 /**
  * Every element shader gets these. An instance is one pose of the
- * element: a 2D affine matrix in CSS pixels and an alpha.
+ * element: the matrix from poseMatrix(), in CSS pixels, and an alpha.
  */
 const prelude = `
-struct Layer { size: vec2f, canvas: vec2f, time: f32, segments: vec2f }
+struct Layer { size: vec2f, canvas: vec2f, time: f32, perspective: f32, segments: vec2f }
 @group(0) @binding(0) var<uniform> layer: Layer;
 @group(0) @binding(1) var elementTexture: texture_2d<f32>;
 @group(0) @binding(2) var elementSampler: sampler;
@@ -66,19 +66,26 @@ fn element(uv: vec2f) -> vec4f {
     f32(all(uv >= vec2f(0.0)) && all(uv <= vec2f(1.0)));
 }
 
+// A point (x * w, y * w, w), in CSS pixels from the canvas' top-left
+fn toClip(p: vec3f) -> vec4f {
+  return vec4f(p.x / layer.canvas.x * 2.0 - p.z, p.z - p.y / layer.canvas.y * 2.0, 0.0, p.z);
+}
+
+// A point in the layer's perspective. z is towards the viewer.
+fn project(position: vec3f) -> vec4f {
+  let k = position.z / max(layer.perspective, 1e-6) * f32(layer.perspective > 0.0);
+  return toClip(vec3f(position.xy - layer.canvas * 0.5 * k, 1.0 - k));
+}
+
 @vertex fn vertexMain(
   @builtin(vertex_index) index: u32,
-  @location(0) matrix: vec4f,
-  @location(1) offset: vec2f,
-  @location(2) alpha: f32,
+  @location(0) x: vec3f,
+  @location(1) y: vec3f,
+  @location(2) offset: vec3f,
+  @location(3) alpha: f32,
 ) -> Vertex {
   let uv = vec2f(f32(index & 1u), f32(index >> 1u));
-  let p = mat2x2f(matrix.xy, matrix.zw) * (uv * layer.size) + offset;
-  return Vertex(
-    vec4f(p.x / layer.canvas.x * 2.0 - 1.0, 1.0 - p.y / layer.canvas.y * 2.0, 0.0, 1.0),
-    uv,
-    alpha,
-  );
+  return Vertex(toClip(mat3x3f(x, y, offset) * vec3f(uv * layer.size, 1.0)), uv, alpha);
 }
 
 @fragment fn fragmentMain(in: Vertex) -> @location(0) vec4f {
@@ -147,17 +154,18 @@ const copyShader = `
 `
 
 /**
- * Bytes per instance: matrix (4 floats), offset (2) and alpha (1).
+ * Bytes per instance: the three columns of its matrix and an alpha.
  */
-export const instanceSize = 28
+export const instanceSize = 40
 
 const instanceLayout = {
     arrayStride: instanceSize,
     stepMode: "instance",
     attributes: [
-        { shaderLocation: 0, offset: 0, format: "float32x4" },
-        { shaderLocation: 1, offset: 16, format: "float32x2" },
-        { shaderLocation: 2, offset: 24, format: "float32" },
+        { shaderLocation: 0, offset: 0, format: "float32x3" },
+        { shaderLocation: 1, offset: 12, format: "float32x3" },
+        { shaderLocation: 2, offset: 24, format: "float32x3" },
+        { shaderLocation: 3, offset: 36, format: "float32" },
     ],
 }
 

@@ -1,0 +1,88 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+
+            motion-fx {
+                width: 400px;
+                height: 300px;
+            }
+
+            motion-fx > * {
+                position: absolute;
+                width: 100px;
+                height: 60px;
+                border: 0;
+                padding: 0;
+            }
+
+            /* Centred, so perspective leaves its centre where it is */
+            #card {
+                left: 150px;
+                top: 120px;
+                background: rgb(255, 0, 0);
+            }
+
+            #behind {
+                left: 150px;
+                top: 20px;
+                background: rgb(0, 255, 0);
+            }
+
+            #front {
+                left: 150px;
+                top: 20px;
+                background: rgb(0, 0, 255);
+            }
+        </style>
+    </head>
+    <body>
+        <motion-fx perspective="400">
+            <button id="card"></button>
+            <div id="front"></div>
+            <div id="behind"></div>
+        </motion-fx>
+        <script type="module">
+            import {
+                animate,
+                defineFXShader,
+                defineMotionFX,
+            } from "/src/canvas-inc.js"
+            import { nextRender } from "./pixels.js"
+
+            const host = document.querySelector("motion-fx")
+
+            let clicks = 0
+            document
+                .getElementById("card")
+                .addEventListener("click", () => clicks++)
+
+            /**
+             * Puts the scene 400px behind the canvas with project(), so
+             * a perspective of 400 draws it at half size.
+             */
+            const far = defineFXShader(`
+                fn vertex(uv: vec2f) -> vec4f {
+                    return project(vec3f(uv * layer.size, -400.0));
+                }`)
+
+            defineMotionFX()
+
+            Object.assign(window, {
+                animate,
+                host,
+                far,
+                nextRender: () => nextRender(host.layer),
+            })
+            Object.defineProperty(window, "clicks", { get: () => clicks })
+
+            host.ready.then((isReady) =>
+                isReady
+                    ? nextRender(host.layer).then(() => (window.ready = true))
+                    : (window.ready = true)
+            )
+        </script>
+    </body>
+</html>

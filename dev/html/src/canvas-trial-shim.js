@@ -69,12 +69,14 @@ export function installTrialShim() {
             [width, height],
             [0, height],
         ]) {
-            const point = canvasTransform.transformPoint(new DOMPoint(x, y))
+            const { x: px, y: py, w } = canvasTransform.transformPoint(
+                new DOMPoint(x, y)
+            )
             if (
-                point.x < -1 ||
-                point.y < -1 ||
-                point.x > this.clientWidth + 1 ||
-                point.y > this.clientHeight + 1
+                px / w < -1 ||
+                py / w < -1 ||
+                px / w > this.clientWidth + 1 ||
+                py / w > this.clientHeight + 1
             ) {
                 return this.clearElementGeometry(element)
             }

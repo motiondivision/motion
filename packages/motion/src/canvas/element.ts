@@ -62,7 +62,7 @@ const number = (element: Element, name: string) => {
  * The children stay children of the element, so they're displayed as
  * normal DOM in browsers without HTML-in-canvas.
  *
- * Attributes: `motion-blur` and `samples` on the element, `shader` and
+ * Attributes: `motion-blur`, `samples` and `perspective` on the element, `shader` and
  * `motion-blur` on its children. Shaders for the whole element are set
  * with its `shaders` property.
  */
@@ -75,7 +75,7 @@ export function defineMotionFX({
     }
 
     class MotionFX extends HTMLElement implements MotionFXElement {
-        static observedAttributes = ["motion-blur", "samples"]
+        static observedAttributes = ["motion-blur", "samples", "perspective"]
 
         layer?: CanvasLayer
 
@@ -206,10 +206,22 @@ export function defineMotionFX({
          * A `motionBlur()` in `shaders` wins over the attributes.
          */
         private configure() {
+            /**
+             * The same perspective for the children when they're
+             * displayed as normal DOM.
+             */
+            const perspective = number(this, "perspective")
+            if (perspective !== undefined) {
+                this.style.perspective = perspective
+                    ? perspective + "px"
+                    : ""
+            }
+
             const layer = this.layer || this.created
             if (!layer) return
             layer.motionBlur = number(this, "motion-blur") ?? 0
             layer.samples = number(this, "samples") ?? 24
+            layer.perspective = perspective ?? 0
             layer.setShaders(this.fx)
         }
 

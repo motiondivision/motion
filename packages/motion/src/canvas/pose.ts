@@ -1,15 +1,20 @@
 /**
  * The values a canvas layer draws an element with. Lengths are CSS pixels
- * from the canvas origin to the element's top-left corner, rotate is in
- * degrees and origins are fractions of the element's size, as in CSS.
+ * from the canvas origin to the element's top-left corner, rotations are
+ * in degrees and origins are fractions of the element's size, as in CSS.
+ * `z` is towards the viewer. It, `rotateX` and `rotateY` are flat without
+ * a perspective on the layer.
  */
 export interface CanvasPose {
     x: number
     y: number
+    z: number
     scale: number
     scaleX: number
     scaleY: number
     rotate: number
+    rotateX: number
+    rotateY: number
     opacity: number
     originX: number
     originY: number
@@ -20,10 +25,13 @@ export type CanvasPoseKey = keyof CanvasPose
 export const defaultPose: CanvasPose = {
     x: 0,
     y: 0,
+    z: 0,
     scale: 1,
     scaleX: 1,
     scaleY: 1,
     rotate: 0,
+    rotateX: 0,
+    rotateY: 0,
     opacity: 1,
     originX: 0.5,
     originY: 0.5,
@@ -52,39 +60,97 @@ export function readPose(
 }
 
 /**
- * The column-major 3x3 matrix that maps a point in a `width` x `height`
- * box to the canvas: translate(x, y), then rotate and scale around the
- * origin, in the same order as a CSS transform.
+ * How a layer looks at its elements: [perspective, x, y]. The perspective
+ * is the distance of the viewer from the canvas, as in CSS, with 0 for
+ * none. The point (x, y) of the canvas is the one the viewer is in front
+ * of.
+ */
+export type Camera = number[]
+
+const noCamera: Camera = [0, 0, 0]
+
+const toRadians = Math.PI / 180
+
+/**
+ * The column-major 3x3 matrix that maps a point (x, y, 1) of a `width` x
+ * `height` box to the canvas, as (x * w, y * w, w): translate, then
+ * scale, rotate, rotateX and rotateY around the origin, in the order
+ * Motion builds a CSS transform, then the camera's perspective. Without
+ * one, w is 1.
  */
 export function poseMatrix(
-    { x, y, scale, scaleX, scaleY, rotate, originX, originY }: CanvasPose,
+    {
+        x,
+        y,
+        z,
+        scale,
+        scaleX,
+        scaleY,
+        rotate,
+        rotateX,
+        rotateY,
+        originX,
+        originY,
+    }: CanvasPose,
     width: number,
     height: number,
-    out = new Float32Array(9)
+    out = new Float32Array(9),
+    [perspective, centreX, centreY]: Camera = noCamera
 ) {
-    const radians = (rotate * Math.PI) / 180
-    const cos = Math.cos(radians)
-    const sin = Math.sin(radians)
+    const cosZ = Math.cos(rotate * toRadians)
+    const sinZ = Math.sin(rotate * toRadians)
+    const cosX = Math.cos(rotateX * toRadians)
+    const sinX = Math.sin(rotateX * toRadians)
+    const cosY = Math.cos(rotateY * toRadians)
+    const sinY = Math.sin(rotateY * toRadians)
     const sx = scale * scaleX
     const sy = scale * scaleY
     const ox = originX * width
     const oy = originY * height
-    const a = cos * sx
-    const b = sin * sx
-    const c = -sin * sy
-    const d = cos * sy
 
-    out[0] = a
-    out[1] = b
-    out[2] = 0
-    out[3] = c
-    out[4] = d
-    out[5] = 0
-    out[6] = x + ox - (a * ox + c * oy)
-    out[7] = y + oy - (b * ox + d * oy)
-    out[8] = 1
+    /**
+     * Where the box's x and y axes point after rotateY, then rotateX,
+     * then rotate, then the scale.
+     */
+    const ax = sx * (cosZ * cosY - sinZ * sinX * sinY)
+    const ay = sy * (sinZ * cosY + cosZ * sinX * sinY)
+    const az = -cosX * sinY
+    const bx = sx * -sinZ * cosX
+    const by = sy * cosZ * cosX
+    const bz = sinX
+
+    const tx = x + ox - (ax * ox + bx * oy)
+    const ty = y + oy - (ay * ox + by * oy)
+    const tz = z - (az * ox + bz * oy)
+
+    // A point at depth z is divided by 1 - z / perspective
+    const k = perspective ? 1 / perspective : 0
+    const kx = centreX * k
+    const ky = centreY * k
+
+    out[0] = ax - kx * az
+    out[1] = ay - ky * az
+    out[2] = -k * az
+    out[3] = bx - kx * bz
+    out[4] = by - ky * bz
+    out[5] = -k * bz
+    out[6] = tx - kx * tz
+    out[7] = ty - ky * tz
+    out[8] = 1 - k * tz
 
     return out
+}
+
+/**
+ * Where a matrix from poseMatrix() draws the point (x, y) of its box. A
+ * point behind the viewer is put far away.
+ */
+const point = [0, 0]
+function project(m: Float32Array, x: number, y: number) {
+    const w = Math.max(m[2] * x + m[5] * y + m[8], 1e-4)
+    point[0] = (m[0] * x + m[3] * y + m[6]) / w
+    point[1] = (m[1] * x + m[4] * y + m[7]) / w
+    return point
 }
 
 /**
@@ -114,20 +180,19 @@ export function poseTravel(
     a: CanvasPose,
     b: CanvasPose,
     width: number,
-    height: number
+    height: number,
+    camera?: Camera
 ) {
-    const ma = poseMatrix(a, width, height, matrixA)
-    const mb = poseMatrix(b, width, height, matrixB)
+    const ma = poseMatrix(a, width, height, matrixA, camera)
+    const mb = poseMatrix(b, width, height, matrixB, camera)
     let travel = 0
 
     for (let i = 0; i < 8; i += 2) {
         const px = corners[i] * width
         const py = corners[i + 1] * height
-        const dx =
-            ma[0] * px + ma[3] * py + ma[6] - (mb[0] * px + mb[3] * py + mb[6])
-        const dy =
-            ma[1] * px + ma[4] * py + ma[7] - (mb[1] * px + mb[4] * py + mb[7])
-        travel = Math.max(travel, Math.hypot(dx, dy))
+        const [ax, ay] = project(ma, px, py)
+        const [bx, by] = project(mb, px, py)
+        travel = Math.max(travel, Math.hypot(ax - bx, ay - by))
     }
 
     return travel
@@ -144,7 +209,8 @@ export function sweptBounds(
     b: CanvasPose,
     width: number,
     height: number,
-    steps = 8
+    steps = 8,
+    camera?: Camera
 ) {
     const bounds = [Infinity, Infinity, -Infinity, -Infinity]
     const pose = {} as CanvasPose
@@ -154,14 +220,16 @@ export function sweptBounds(
             mixPose(a, b, i / steps, pose),
             width,
             height,
-            matrixA
+            matrixA,
+            camera
         )
 
         for (let j = 0; j < 8; j += 2) {
-            const px = corners[j] * width
-            const py = corners[j + 1] * height
-            const x = m[0] * px + m[3] * py + m[6]
-            const y = m[1] * px + m[4] * py + m[7]
+            const [x, y] = project(
+                m,
+                corners[j] * width,
+                corners[j + 1] * height
+            )
             bounds[0] = Math.min(bounds[0], x)
             bounds[1] = Math.min(bounds[1], y)
             bounds[2] = Math.max(bounds[2], x)
