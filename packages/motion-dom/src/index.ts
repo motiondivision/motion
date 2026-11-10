@@ -63,6 +63,7 @@ export * from "./animation/waapi/utils/apply-generator"
 export * from "./animation/waapi/utils/linear"
 
 export * from "./animation/animate/effects"
+export { supportTimelines } from "./animation/animate/attach-timeline"
 export * from "./animation/animate/element"
 export * from "./effects/attr"
 export * from "./effects/MotionValueState"

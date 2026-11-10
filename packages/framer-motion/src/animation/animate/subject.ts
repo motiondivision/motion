@@ -22,7 +22,7 @@ import { invariant } from "motion-utils"
 import { ObjectTarget } from "../sequence/types"
 import { isDOMKeyframes } from "../utils/is-dom-keyframes"
 import { resolveSubjects } from "./resolve-subjects"
-import { animateSingleValue } from "motion-dom"
+import { animateSingleValue, supportTimelines } from "motion-dom"
 
 export type AnimationSubject = Element | MotionValue<any> | any
 
@@ -100,6 +100,11 @@ export function animateSubject<O extends Object>(
     animationRef?: MultiValueRef
 ): AnimationPlaybackControlsWithThen[] {
     const animations: AnimationPlaybackControlsWithThen[] = []
+
+    /**
+     * Animations made here can be attached to a timeline.
+     */
+    supportTimelines()
 
     if (isSingleValue(subject, keyframes)) {
         animations.push(

@@ -1,4 +1,4 @@
-import { Axis, invariant, Point } from "motion-utils"
+import { Axis, invariant, noop, Point } from "motion-utils"
 import { animateMotionValue } from "../../animation/interfaces/motion-value"
 import type { Transition } from "../../animation/types"
 import { getVariableValue } from "../../animation/utils/css-variables-conversion"
@@ -20,7 +20,6 @@ import type {
 import { eachAxis } from "../../projection/utils/each-axis"
 import { measurePageBox } from "../../projection/utils/measure"
 import type { VisualElement } from "../../render/VisualElement"
-import { resizeElement } from "../../resize/handle-element"
 import { addToScope } from "../../scope/active"
 import { mixNumber } from "../../utils/mix/number"
 import { percent, px } from "../../value/types/numbers/units"
@@ -913,36 +912,24 @@ function isElementConstraints(
 const resolveConstraintsElement = (constraints: ConstraintsElement) =>
     "current" in constraints ? constraints.current : constraints
 
-function skipFirstCall(callback: VoidFunction): VoidFunction {
-    let isFirst = true
-    return () => {
-        if (isFirst) {
-            isFirst = false
-            return
-        }
-        callback()
-    }
-}
-
 function startResizeObservers(
     element: HTMLElement,
     constraintsElement: HTMLElement,
     onResize: VoidFunction
 ): VoidFunction {
+    if (typeof ResizeObserver === "undefined") return noop as VoidFunction
+
     /**
-     * As `resize(element, callback)`, without the window resize handler
-     * that only its callback-only signature needs.
+     * An observer reports each element once when it starts to observe it.
+     * Those reports aren't resizes.
      */
-    const stopElement = addToScope(
-        resizeElement(element, skipFirstCall(onResize))
+    const initial = new Set<Element>([element, constraintsElement])
+    const observer = new ResizeObserver((entries) =>
+        entries.forEach(({ target }) => initial.delete(target) || onResize())
     )
-    const stopContainer = addToScope(
-        resizeElement(constraintsElement, skipFirstCall(onResize))
-    )
-    return () => {
-        stopElement()
-        stopContainer()
-    }
+    initial.forEach((target) => observer.observe(target))
+
+    return addToScope(() => observer.disconnect())
 }
 
 function shouldDrag(

@@ -6,6 +6,7 @@ import { transformProps } from "../../render/utils/keys-transform"
 import { markRepaint } from "../waapi/transforms/groups"
 import { acceleratedValues } from "../waapi/utils/accelerated-values"
 import { MotionValue, motionValue } from "../../value"
+import { supportTimelines } from "./attach-timeline"
 import { MultiValueRef, startValue } from "./multi-value"
 export type { MultiValueRef }
 import { AnimationElement } from "../keyframes/types"
@@ -97,6 +98,12 @@ export function animateValues(
      * then share a WAAPI animation with.
      */
     let composes = false
+
+    /**
+     * Animations made here can be attached to a timeline.
+     */
+    supportTimelines()
+
     if (element?.current instanceof HTMLElement) {
         for (const key in keyframes) composes ||= transformProps.has(key)
     }

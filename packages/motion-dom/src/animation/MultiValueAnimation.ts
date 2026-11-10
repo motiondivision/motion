@@ -1,7 +1,6 @@
 import { millisecondsToSeconds, secondsToMilliseconds } from "motion-utils"
 import { time } from "../frameloop/sync-time"
 import { animateStyle, setStyle } from "../effects/style/output"
-import { supportsScrollTimeline } from "../utils/supports/scroll-timeline"
 import { sampleDelta } from "./utils/sample-delta"
 import { flushKeyframeResolvers } from "./keyframes/KeyframesResolver"
 import { getFinalKeyframe } from "./keyframes/get-final"
@@ -362,13 +361,21 @@ export class ValueTrack<T extends AnyResolvedKeyframe = any>
  * the values rather than one animation each. Each value is sampled as a
  * JSAnimation of its own would be.
  */
+export const timelineSupport: {
+    attach?: (
+        animation: MultiValueAnimation,
+        timeline: TimelineWithFallback
+    ) => VoidFunction
+} = {}
+
 export class MultiValueAnimation extends AnimationClock<any> {
     tracks: ValueTrack[] = []
 
     /**
      * Tracks still waiting on their keyframes.
      */
-    private numPending = 0
+    /** @internal */
+    numPending = 0
 
     /**
      * A stopped track's animation never finishes, so neither does the
@@ -895,64 +902,17 @@ export class MultiValueAnimation extends AnimationClock<any> {
             : this.catchUp(track)
     }
 
+    /**
+     * Follow a timeline. The work is done by what `timelineSupport` holds,
+     * which the code that makes animations to attach sets, so that
+     * animations that are never attached don't carry it.
+     */
     attachTimeline(timeline: TimelineWithFallback): VoidFunction {
-        this.numPending && flushKeyframeResolvers()
-
-        /**
-         * WAAPI values follow a native scroll timeline. Without one, they
-         * follow it from JS, like the rest.
-         */
-        const isNative = timeline.timeline && supportsScrollTimeline()
-
-        /**
-         * WAAPI values follow a native scroll timeline. Without one, they,
-         * and the rest, follow it on the shared clock. An easing that was
-         * only a default is made linear, as a JSAnimation's is.
-         */
-        for (const track of this.tracks) {
-            const { native, options } = track
-            if (track.isStopped) continue
-            if (track.plan.base.allowFlatten) {
-                native
-                    ? native.effect?.updateTiming({ easing: "linear" })
-                    : ((options.type = "keyframes" as any),
-                      (options.ease = "linear"),
-                      /**
-                       * Not that of a spring made into an easing.
-                       */
-                      (options.duration = track.plan.base.duration),
-                      track.isReady && initTrack(track))
-            }
-            if (native && isNative) {
-                watch(native)
-                native.timeline = timeline.timeline as any
-                track.isScrolling = true
-                timeline.onAttach?.(native)
-            }
-
-            /**
-             * Transforms follow a native timeline on the compositor too.
-             */
-            if (track.isTransform) {
-                isNative && track.canAccelerate
-                    ? (track.scrollTimeline = timeline)
-                    : track.observe()
-                track.group?.schedule(true)
-            }
-        }
-        /**
-         * Only values off the native timeline follow it from JS.
-         */
-        for (const track of this.tracks) {
-            track.isStopped ||
-                track.isScrolling ||
-                track.scrollTimeline ||
-                this.follow(timeline)
-        }
-        return () => this.unfollow?.()
+        return timelineSupport.attach!(this, timeline)
     }
 
-    private unfollow?: VoidFunction
+    /** @internal */
+    unfollow?: VoidFunction
 
     /**
      * Follow a timeline on the shared clock, from JS.
@@ -1037,7 +997,7 @@ const commit = (track: ValueTrack, value: AnyResolvedKeyframe) => {
  * WebKit never collects an animation once it has run, nor anything it
  * references (#4034), so it's left pointing at nothing.
  */
-function watch(native: Animation, track?: ValueTrack) {
+export function watch(native: Animation, track?: ValueTrack) {
     ;(native as any).track = track
     native.onfinish = track ? onNativeFinish : null
 }
