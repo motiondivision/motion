@@ -75,8 +75,9 @@ const toRadians = Math.PI / 180
  * The 3D transform of a pose, as four columns of three: where the box's
  * x, y and z axes point, and where its top-left corner goes. It's
  * translate, then scale, rotate, rotateX and rotateY around the origin,
- * in the order Motion builds a CSS transform. With `group`, the transform
- * of another pose, the result is in that group's space.
+ * in the order Motion builds a CSS transform. `base` is a transform the
+ * box already has, like one from its CSS, and `group` is the transform of
+ * the space it's in: the result is group * pose * base.
  */
 export function poseTransform(
     {
@@ -95,7 +96,8 @@ export function poseTransform(
     width: number,
     height: number,
     out = new Float32Array(12),
-    group?: Float32Array
+    group?: Float32Array,
+    base?: Float32Array
 ) {
     const cosZ = Math.cos(rotate * toRadians)
     const sinZ = Math.sin(rotate * toRadians)
@@ -108,35 +110,44 @@ export function poseTransform(
     const ox = originX * width
     const oy = originY * height
 
-    out[0] = sx * (cosZ * cosY - sinZ * sinX * sinY)
-    out[1] = sy * (sinZ * cosY + cosZ * sinX * sinY)
-    out[2] = -cosX * sinY
-    out[3] = sx * -sinZ * cosX
-    out[4] = sy * cosZ * cosX
-    out[5] = sinX
-    out[6] = sx * (cosZ * sinY + sinZ * sinX * cosY)
-    out[7] = sy * (sinZ * sinY - cosZ * sinX * cosY)
-    out[8] = cosX * cosY
-    out[9] = x + ox - (out[0] * ox + out[3] * oy)
-    out[10] = y + oy - (out[1] * ox + out[4] * oy)
-    out[11] = z - (out[2] * ox + out[5] * oy)
+    const own = base ? scratch : out
+    own[0] = sx * (cosZ * cosY - sinZ * sinX * sinY)
+    own[1] = sy * (sinZ * cosY + cosZ * sinX * sinY)
+    own[2] = -cosX * sinY
+    own[3] = sx * -sinZ * cosX
+    own[4] = sy * cosZ * cosX
+    own[5] = sinX
+    own[6] = sx * (cosZ * sinY + sinZ * sinX * cosY)
+    own[7] = sy * (sinZ * sinY - cosZ * sinX * cosY)
+    own[8] = cosX * cosY
+    own[9] = x + ox - (own[0] * ox + own[3] * oy)
+    own[10] = y + oy - (own[1] * ox + own[4] * oy)
+    own[11] = z - (own[2] * ox + own[5] * oy)
 
-    if (group) {
-        for (let column = 0; column < 12; column += 3) {
-            const px = out[column]
-            const py = out[column + 1]
-            const pz = out[column + 2]
-            for (let row = 0; row < 3; row++) {
-                out[column + row] =
-                    group[row] * px +
-                    group[3 + row] * py +
-                    group[6 + row] * pz +
-                    (column > 8 ? group[9 + row] : 0)
-            }
-        }
-    }
+    base && multiply(own, base, out)
+    group && multiply(group, out, out)
 
     return out
+}
+
+const scratch = new Float32Array(12)
+
+/**
+ * out = a * b, for transforms from poseTransform(). `out` can be `b`.
+ */
+function multiply(a: Float32Array, b: Float32Array, out: Float32Array) {
+    for (let column = 0; column < 12; column += 3) {
+        const px = b[column]
+        const py = b[column + 1]
+        const pz = b[column + 2]
+        for (let row = 0; row < 3; row++) {
+            out[column + row] =
+                a[row] * px +
+                a[3 + row] * py +
+                a[6 + row] * pz +
+                (column > 8 ? a[9 + row] : 0)
+        }
+    }
 }
 
 const transform = new Float32Array(12)
@@ -152,9 +163,10 @@ export function poseMatrix(
     height: number,
     out = new Float32Array(9),
     [perspective, centreX, centreY]: Camera = noCamera,
-    group?: Float32Array
+    group?: Float32Array,
+    base?: Float32Array
 ) {
-    const t = poseTransform(pose, width, height, transform, group)
+    const t = poseTransform(pose, width, height, transform, group, base)
 
     // A point at depth z is divided by 1 - z / perspective
     const k = perspective ? 1 / perspective : 0
@@ -211,10 +223,11 @@ export function poseTravel(
     width: number,
     height: number,
     camera?: Camera,
-    group?: Float32Array
+    group?: Float32Array,
+    base?: Float32Array
 ) {
-    const ma = poseMatrix(a, width, height, matrixA, camera, group)
-    const mb = poseMatrix(b, width, height, matrixB, camera, group)
+    const ma = poseMatrix(a, width, height, matrixA, camera, group, base)
+    const mb = poseMatrix(b, width, height, matrixB, camera, group, base)
     let travel = 0
 
     for (let i = 0; i < 8; i += 2) {
@@ -241,7 +254,8 @@ export function sweptBounds(
     height: number,
     steps = 8,
     camera?: Camera,
-    group?: Float32Array
+    group?: Float32Array,
+    base?: Float32Array
 ) {
     const bounds = [Infinity, Infinity, -Infinity, -Infinity]
     const pose = {} as CanvasPose
@@ -253,7 +267,8 @@ export function sweptBounds(
             height,
             matrixA,
             camera,
-            group
+            group,
+            base
         )
 
         for (let j = 0; j < 8; j += 2) {

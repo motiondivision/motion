@@ -62,10 +62,14 @@ const number = (element: Element, name: string) => {
  * The children stay children of the element, so they're displayed as
  * normal DOM in browsers without HTML-in-canvas.
  *
- * Attributes: `motion-blur`, `samples` and `perspective` on the element, `shader` and
- * `motion-blur` on its children. Shaders for the whole element are set
- * with its `shaders` property. A child with `group="id"` moves with the
- * child that has that id, as if it were inside it.
+ * Attributes: `motion-blur`, `samples` and `perspective` on the element,
+ * `shader` and `motion-blur` on its children. Shaders for the whole
+ * element are set with its `shaders` property. A child with `group="id"`
+ * moves with the child that has that id, as if it were inside it.
+ *
+ * The element's CSS `perspective` and each child's CSS `transform` are
+ * read when the layout changes. Motion's values are applied after a
+ * child's own transform.
  */
 export function defineMotionFX({
     name = "motion-fx",
@@ -208,22 +212,31 @@ export function defineMotionFX({
          */
         private configure() {
             /**
-             * The same perspective for the children when they're
-             * displayed as normal DOM.
+             * The attribute is the CSS property, so the children have the
+             * same perspective when they're displayed as normal DOM.
              */
             const perspective = number(this, "perspective")
-            if (perspective !== undefined) {
-                this.style.perspective = perspective
-                    ? perspective + "px"
-                    : ""
+            if (perspective !== undefined || this.hasPerspective) {
+                this.hasPerspective = perspective !== undefined
+                this.style.perspective = perspective ? perspective + "px" : ""
             }
 
             const layer = this.layer || this.created
             if (!layer) return
             layer.motionBlur = number(this, "motion-blur") ?? 0
             layer.samples = number(this, "samples") ?? 24
-            layer.perspective = perspective ?? 0
+            this.readStyles(layer)
             layer.setShaders(this.fx)
+        }
+
+        private hasPerspective = false
+
+        /**
+         * The perspective can also be set with CSS.
+         */
+        private readStyles(layer: CanvasLayer) {
+            layer.perspective =
+                parseFloat(getComputedStyle(this).perspective) || 0
         }
 
         private restoreSizes() {
@@ -244,6 +257,7 @@ export function defineMotionFX({
             const { layer, drawn, canvas, slotElement, spacer, sizes } = this
             if (!layer || !canvas) return
 
+            this.readStyles(layer)
             this.drawing.textContent = ""
             canvas.style.display = spacer.style.display = "none"
             this.restoreSizes()

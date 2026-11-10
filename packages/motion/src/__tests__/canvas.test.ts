@@ -22,6 +22,7 @@ import {
     defaultPose,
     mixPose,
     poseMatrix,
+    poseTransform,
     poseTravel,
     readPose,
     sweptBounds,
@@ -175,6 +176,25 @@ describe("pose mixing and travel", () => {
                 camera
             )
         ).toBeCloseTo(Math.hypot(50, 30), 4)
+    })
+
+    test("a base transform is applied before the pose, a group after", () => {
+        // The base moves the box 10px along its own x axis
+        const base = new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 0, 0])
+        const turned = poseTransform(
+            pose({ rotate: 90, originX: 0, originY: 0 }),
+            100,
+            50,
+            undefined,
+            undefined,
+            base
+        )
+        // which the pose's rotation turns to point down
+        expect([turned[9], turned[10]].map(Math.round)).toEqual([0, 10])
+
+        const group = new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 5])
+        const grouped = poseTransform(pose({ x: 3 }), 100, 50, undefined, group)
+        expect([grouped[9], grouped[10], grouped[11]]).toEqual([3, 0, 5])
     })
 
     test("poseTravel is the furthest corner movement", () => {

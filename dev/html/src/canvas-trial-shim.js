@@ -32,6 +32,35 @@ export function installTrialShim() {
         },
     })
 
+    /**
+     * The trial keeps hit testing in place with the element's inline
+     * transform. The shipped API leaves the element's styles alone, so
+     * computed styles are read without it.
+     */
+    const getStyle = window.getComputedStyle
+    window.getComputedStyle = (element, ...args) => {
+        const computed = getStyle(element, ...args)
+        if (element.__trialTransform === undefined) return computed
+
+        const { style } = element
+        const { transform, transformOrigin } = style
+        style.transform = style.transformOrigin = ""
+        const own = {
+            transform: computed.transform,
+            transformOrigin: computed.transformOrigin,
+        }
+        style.transform = transform
+        style.transformOrigin = transformOrigin
+
+        return new Proxy(computed, {
+            get: (target, key) => {
+                if (key in own) return own[key]
+                const value = target[key]
+                return typeof value === "function" ? value.bind(target) : value
+            },
+        })
+    }
+
     const setTransform = (element, transform, pointerEvents) => {
         const { style } = element
         style.pointerEvents = pointerEvents

@@ -47,6 +47,16 @@
                 background: rgb(255, 255, 0);
             }
 
+            /* Placed by its CSS transform: drawn from (30, 210) to (110, 290) */
+            #css {
+                left: 20px;
+                top: 220px;
+                width: 40px;
+                height: 40px;
+                background: rgb(0, 255, 255);
+                transform: translate(30px, 10px) scale(2);
+            }
+
             #front {
                 left: 150px;
                 top: 20px;
@@ -59,6 +69,7 @@
             <button id="card"></button>
             <div id="front"></div>
             <div id="behind"></div>
+            <button id="css"></button>
             <div id="pivot"></div>
             <div id="moon" group="pivot"></div>
         </motion-fx>
@@ -79,7 +90,7 @@
                 .addEventListener("click", () => clicks++)
 
             const hits = []
-            for (const id of ["front", "behind"]) {
+            for (const id of ["front", "behind", "css"]) {
                 document
                     .getElementById(id)
                     .addEventListener("click", () => hits.push(id))

@@ -166,6 +166,54 @@ test.describe("<motion-fx> perspective", () => {
         expect(outside[3]).toBe(0)
     })
 
+    test("a child's CSS transform is its base pose", async ({ page }) => {
+        const cyan = [0, 255, 255, 255]
+        const [topLeft, bottomRight, outside] = await at(page, [
+            [35, 215],
+            [105, 285],
+            [25, 250],
+        ])
+        expect(topLeft).toEqual(cyan)
+        expect(bottomRight).toEqual(cyan)
+        expect(outside[3]).toBe(0)
+
+        // Hit testing is where it's drawn, not where its layout box is
+        await page.mouse.click(100, 280)
+        expect(await page.evaluate(() => (window as any).hits)).toEqual(["css"])
+
+        // Motion's values move it from there
+        await set(page, "#css", { x: 100 })
+        const [moved, left] = await at(page, [
+            [205, 285],
+            [105, 285],
+        ])
+        expect(moved).toEqual(cyan)
+        expect(left[3]).toBe(0)
+    })
+
+    test("reads the perspective from CSS", async ({ page }) => {
+        await page.evaluate(async () => {
+            const w = window as any
+            w.host.removeAttribute("perspective")
+            await w.nextRender()
+        })
+        await set(page, "#card", { z: 100 })
+        // No perspective: z does nothing
+        const [flat] = await at(page, [[200 - 60, 150]])
+        expect(flat[3]).toBe(0)
+
+        await page.evaluate(async () => {
+            const w = window as any
+            w.host.style.perspective = "200px"
+            // A new layout is when the element reads its styles again
+            w.host.style.height = "301px"
+            for (let i = 0; i < 4; i++) await w.nextRender()
+        })
+        // 200 / (200 - 100) = 2
+        const [inside] = await at(page, [[200 - 90, 150]])
+        expect(inside).toEqual(red)
+    })
+
     test("layer.origin is where the canvas is in a larger scene", async ({
         page,
     }) => {

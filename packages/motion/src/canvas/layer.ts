@@ -228,6 +228,11 @@ interface Item {
      */
     outer?: Float32Array
     /**
+     * The transform its CSS gives it, and the styles that's from.
+     */
+    base?: Float32Array
+    baseKey?: string
+    /**
      * Whether an element that's drawn on top of it is under the pointer.
      */
     isCovered?: boolean
@@ -638,7 +643,8 @@ export function canvasLayer(
             item.height,
             item.matrix,
             camera,
-            item.outer
+            item.outer,
+            item.base
         )
         // Moved by the scene's origin, which is scaled by w too
         for (let i = 0; i < 9; i++) {
@@ -718,7 +724,8 @@ export function canvasLayer(
                 element.offsetWidth,
                 element.offsetHeight,
                 item.transform,
-                groupTransform(item.parent)
+                groupTransform(item.parent),
+                item.base
             )
             /**
              * That's from the group's box to the canvas. The elements
@@ -765,6 +772,44 @@ export function canvasLayer(
             if (isUnder) top ||= item
         }
         items.forEach(updateGeometry)
+    }
+
+    /**
+     * An element's CSS transform isn't drawn in a canvas, so the layer
+     * reads it and draws the element with it. Motion's values are applied
+     * after it. An element that had a visual element already has Motion's
+     * own transform as its style, which isn't read.
+     */
+    const readBase = (item: Item) => {
+        if (!item.ownsVisualElement) return
+        const { transform, transformOrigin } = getComputedStyle(item.element)
+        const key = transform + transformOrigin
+        if (key === item.baseKey) return
+        item.baseKey = key
+        item.base = undefined
+        if (transform !== "none") {
+            const [x, y, z = 0] = transformOrigin.split(" ").map(parseFloat)
+            const m = new DOMMatrix()
+                .translate(x, y, z)
+                .multiply(new DOMMatrix(transform))
+                .translate(-x, -y, -z)
+            item.base = new Float32Array([
+                m.m11,
+                m.m12,
+                m.m13,
+                m.m21,
+                m.m22,
+                m.m23,
+                m.m31,
+                m.m32,
+                m.m33,
+                m.m41,
+                m.m42,
+                m.m43,
+            ])
+        }
+        item.prev = undefined
+        invalidate()
     }
 
     const render = (changedElements?: Iterable<Element>) => {
@@ -908,7 +953,8 @@ export function canvasLayer(
                 height0,
                 item.matrix,
                 camera,
-                item.outer
+                item.outer,
+                item.base
             )
             item.depth = (m[2] * width0 + m[5] * height0) / 2 + m[8]
         }
@@ -929,7 +975,8 @@ export function canvasLayer(
                 height0,
                 1,
                 camera,
-                item.outer
+                item.outer,
+                item.base
             )
             if (
                 reach[2] < -scene[0] - cullMargin ||
@@ -958,7 +1005,8 @@ export function canvasLayer(
                           item.width,
                           item.height,
                           camera,
-                          item.outer
+                          item.outer,
+                item.base
                       ) *
                       shutter *
                       scaleX
@@ -983,7 +1031,8 @@ export function canvasLayer(
                         item.height,
                         8,
                         camera,
-                        item.outer
+                        item.outer,
+                item.base
                     )
                     const x = Math.max(
                         0,
@@ -1081,7 +1130,8 @@ export function canvasLayer(
                 item.height,
                 item.matrix,
                 camera,
-                item.outer
+                item.outer,
+                item.base
             )
 
             item.pose = prev || ({} as CanvasPose)
@@ -1367,6 +1417,7 @@ export function canvasLayer(
         const added = items.get(element)
         if (added) {
             if (group !== undefined) added.parent = group
+            readBase(added)
             /**
              * A move of the layout box isn't motion, so it's not blurred.
              */
@@ -1496,6 +1547,7 @@ export function canvasLayer(
 
         items.set(element, item)
         canvasItems.set(element, item)
+        readBase(item)
         invalidate()
     }
 
