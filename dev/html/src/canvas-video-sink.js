@@ -1,5 +1,5 @@
 /**
- * An encoder for renderVideo(), built on mediabunny. motion/canvas has no
+ * An encoder for renderVideo(), built on mediabunny. motion/fx has no
  * muxer of its own: renderVideo() hands each frame to an onFrame callback,
  * and this one encodes the canvas with a mediabunny CanvasSource.
  *

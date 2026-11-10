@@ -1,8 +1,9 @@
+import type { FXShader } from "./effects"
 import { canvasLayer, type CanvasLayer } from "./layer"
 
-export interface MotionCanvasOptions {
+export interface MotionFXOptions {
     /**
-     * The element's tag name. Defaults to `motion-canvas`.
+     * The element's tag name. Defaults to `motion-fx`.
      */
     name?: string
 
@@ -13,7 +14,7 @@ export interface MotionCanvasOptions {
     shaders?: Record<string, string>
 }
 
-export interface MotionCanvasElement extends HTMLElement {
+export interface MotionFXElement extends HTMLElement {
     /**
      * Whether the element is drawing its children in a canvas. Without
      * HTML-in-canvas support, they're displayed as normal DOM.
@@ -30,6 +31,16 @@ export interface MotionCanvasElement extends HTMLElement {
      * `false` if it won't. Until then they're displayed as normal DOM.
      */
     readonly ready: Promise<boolean>
+
+    /**
+     * Shaders run in order on everything the element draws, and
+     * `motionBlur()`.
+     *
+     * ```javascript
+     * element.shaders = [motionBlur(), chromaticAberration()]
+     * ```
+     */
+    shaders: FXShader[]
 }
 
 const number = (element: Element, name: string) => {
@@ -38,31 +49,32 @@ const number = (element: Element, name: string) => {
 }
 
 /**
- * Defines `<motion-canvas>`, a custom element that draws its children in a
+ * Defines `<motion-fx>`, a custom element that draws its children in a
  * canvas layer. `animate()` and `drag()` then animate what's drawn, with
  * motion blur and shaders.
  *
  * ```html
- * <motion-canvas motion-blur="0.5">
+ * <motion-fx motion-blur="0.5">
  *   <div class="card" shader="dissolve">Live HTML</div>
- * </motion-canvas>
+ * </motion-fx>
  * ```
  *
  * The children stay children of the element, so they're displayed as
  * normal DOM in browsers without HTML-in-canvas.
  *
  * Attributes: `motion-blur` and `samples` on the element, `shader` and
- * `motion-blur` on its children.
+ * `motion-blur` on its children. Shaders for the whole element are set
+ * with its `shaders` property.
  */
-export function defineMotionCanvas({
-    name = "motion-canvas",
+export function defineMotionFX({
+    name = "motion-fx",
     shaders = {},
-}: MotionCanvasOptions = {}) {
+}: MotionFXOptions = {}) {
     if (typeof customElements === "undefined" || customElements.get(name)) {
         return
     }
 
-    class MotionCanvas extends HTMLElement implements MotionCanvasElement {
+    class MotionFX extends HTMLElement implements MotionFXElement {
         static observedAttributes = ["motion-blur", "samples"]
 
         layer?: CanvasLayer
@@ -79,6 +91,17 @@ export function defineMotionCanvas({
         private created?: CanvasLayer
 
         private drawn = new Set<HTMLElement>()
+
+        private fx: FXShader[] = []
+
+        get shaders() {
+            return this.fx
+        }
+
+        set shaders(shaders: FXShader[]) {
+            this.fx = shaders || []
+            this.configure()
+        }
 
         constructor() {
             super()
@@ -106,11 +129,18 @@ export function defineMotionCanvas({
         }
 
         connectedCallback() {
+            /**
+             * `shaders` set before the element was defined is a property
+             * of its own, which hides the setter.
+             */
+            if (Object.prototype.hasOwnProperty.call(this, "shaders")) {
+                const shaders = this.shaders
+                delete (this as any).shaders
+                this.shaders = shaders
+            }
+
             const canvas = document.createElement("canvas")
-            const layer = canvasLayer(canvas, {
-                motionBlur: number(this, "motion-blur"),
-                samples: number(this, "samples"),
-            })
+            const layer = canvasLayer(canvas)
             if (!layer.supported) return
 
             this.canvas = canvas
@@ -124,6 +154,7 @@ export function defineMotionCanvas({
             this.ready = layer.ready.then((isReady) => {
                 if (!isReady || this.canvas !== canvas) return false
                 this.layer = layer
+                this.configure()
                 this.shadowRoot!.append(canvas)
                 this.observer.observe(this)
                 this.sync()
@@ -148,11 +179,18 @@ export function defineMotionCanvas({
         }
 
         attributeChangedCallback() {
-            const { layer } = this
+            this.configure()
+        }
+
+        /**
+         * A `motionBlur()` in `shaders` wins over the attributes.
+         */
+        private configure() {
+            const layer = this.layer || this.created
             if (!layer) return
             layer.motionBlur = number(this, "motion-blur") ?? 0
             layer.samples = number(this, "samples") ?? 24
-            layer.invalidate()
+            layer.setShaders(this.fx)
         }
 
         /**
@@ -203,5 +241,5 @@ export function defineMotionCanvas({
         private observer = new ResizeObserver(this.sync)
     }
 
-    customElements.define(name, MotionCanvas)
+    customElements.define(name, MotionFX)
 }

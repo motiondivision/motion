@@ -1,7 +1,7 @@
 /**
- * Dev and test only. Not part of motion/canvas.
+ * Dev and test only. Not part of motion/fx.
  *
- * motion/canvas targets HTML-in-canvas as shipped in Chrome 157:
+ * motion/fx targets HTML-in-canvas as shipped in Chrome 157:
  * <canvas content="drawable">, updateElementGeometry() and
  * texElementSubImage2D(). The origin trial (Chromium 138-156, behind
  * --enable-blink-features=CanvasDrawElement) has an older shape:

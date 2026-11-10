@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test"
 
 /**
- * <motion-canvas> is at (50, 40) on the page, 400 x 300 CSS pixels. #card
+ * <motion-fx> is at (50, 40) on the page, 400 x 300 CSS pixels. #card
  * is 100 x 60 and red, laid out at its top-left. #button is below it at
  * (0, 60), 120 x 40, blue, and drawn through an "invert" shader, so
  * yellow.
@@ -9,7 +9,7 @@ import { expect, test } from "@playwright/test"
 const left = 50
 const top = 40
 
-test.describe("<motion-canvas>", () => {
+test.describe("<motion-fx>", () => {
     test.beforeEach(async ({ page }) => {
         await page.goto("canvas/element.html")
         await page.waitForFunction(() => (window as any).ready)
@@ -162,7 +162,7 @@ test.describe("<motion-canvas>", () => {
     })
 })
 
-test("without HTML-in-canvas, <motion-canvas> shows its children as normal DOM", async ({
+test("without HTML-in-canvas, <motion-fx> shows its children as normal DOM", async ({
     page,
 }) => {
     await page.goto("canvas/element.html?noshim")

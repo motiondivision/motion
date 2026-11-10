@@ -56,8 +56,10 @@ struct Vertex {
   @location(1) alpha: f32,
 }
 
+// Transparent outside the element, not a smear of its edge
 fn element(uv: vec2f) -> vec4f {
-  return textureSampleLevel(elementTexture, elementSampler, uv, 0.0);
+  return textureSampleLevel(elementTexture, elementSampler, uv, 0.0) *
+    f32(all(uv >= vec2f(0.0)) && all(uv <= vec2f(1.0)));
 }
 
 @vertex fn vertexMain(
@@ -225,7 +227,7 @@ export function createRenderer(device: GPU, onChange: VoidFunction): Renderer {
             result.isValid = !error
             if (error && typeof console !== "undefined") {
                 console.warn(
-                    `motion/canvas: A shader failed, so its elements are drawn without it. ${error.message}`
+                    `motion/fx: A shader failed, so its elements are drawn without it. ${error.message}`
                 )
             }
             onChange()

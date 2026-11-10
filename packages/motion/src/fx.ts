@@ -1,8 +1,17 @@
 export { canvasEffect } from "./canvas/effect"
 export {
-    defineMotionCanvas,
-    type MotionCanvasElement,
-    type MotionCanvasOptions,
+    chromaticAberration,
+    goo,
+    motionBlur,
+    pixelate,
+    shader,
+    type FXShader,
+    type MotionBlurOptions,
+} from "./canvas/effects"
+export {
+    defineMotionFX,
+    type MotionFXElement,
+    type MotionFXOptions,
 } from "./canvas/element"
 export {
     canvasLayer,

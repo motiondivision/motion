@@ -57,8 +57,8 @@ export const scenarios = {
     frame: `export { frame, cancelFrame } from "motion"`,
     mix: `export { mix } from "motion"`,
     "vanilla-all": `export * from "motion"`,
-    canvas: `export * from "motion/canvas"`,
-    "canvas+animate": `export * from "motion/canvas"; export { animate } from "motion"`,
+    fx: `export * from "motion/fx"`,
+    "fx+animate": `export * from "motion/fx"; export { animate } from "motion"`,
 
     // React components
     "motion-div": `import { motion } from "motion/react"; export const D = motion.div`,

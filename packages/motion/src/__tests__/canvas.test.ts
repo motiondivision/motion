@@ -6,7 +6,16 @@ import {
     processFrame,
     visualElementStore,
 } from "framer-motion/dom"
-import { canvasEffect, canvasLayer, renderVideo } from "../canvas"
+import {
+    canvasEffect,
+    canvasLayer,
+    chromaticAberration,
+    goo,
+    motionBlur,
+    pixelate,
+    renderVideo,
+    shader,
+} from "../fx"
 import { canvasItems, type CanvasLayer } from "../canvas/layer"
 import {
     blurSamples,
@@ -443,6 +452,7 @@ function createStubLayer() {
         onLost: () => () => {},
         motionBlur: 0,
         samples: 24,
+        setShaders: () => {},
         add: () => {},
         remove: () => {},
         has: () => false,
@@ -587,3 +597,28 @@ class DOMMatrixLike {
         return [a * x + c * y + e, b * x + d * y + f]
     }
 }
+
+describe("effects", () => {
+    test("motionBlur() is a marker, not a shader", () => {
+        expect(motionBlur()).toEqual({ motionBlur: 0.5, samples: undefined })
+        expect(motionBlur({ strength: 1, samples: 8 })).toEqual({
+            motionBlur: 1,
+            samples: 8,
+        })
+    })
+
+    test("shader() keeps the WGSL and uniforms it's given", () => {
+        const amount = motionValue(1)
+        expect(shader("wgsl", { amount })).toEqual({
+            wgsl: "wgsl",
+            uniforms: { amount },
+        })
+    })
+
+    test("built-in effects name every member of their Uniforms", () => {
+        for (const effect of [chromaticAberration(), pixelate(), goo()]) {
+            const members = [...parseUniforms(effect.wgsl!)!.members.keys()]
+            expect(Object.keys(effect.uniforms!)).toEqual(members)
+        }
+    })
+})

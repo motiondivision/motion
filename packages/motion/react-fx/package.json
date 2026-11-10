@@ -1,0 +1,6 @@
+{
+    "private": true,
+    "types": "../dist/react-fx.d.ts",
+    "main": "../dist/cjs/react-fx.js",
+    "module": "../dist/es/react-fx.mjs"
+}

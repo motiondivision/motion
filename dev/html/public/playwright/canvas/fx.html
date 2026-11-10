@@ -1,0 +1,99 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+
+            motion-fx {
+                width: 400px;
+                height: 300px;
+            }
+
+            #card {
+                width: 100px;
+                height: 60px;
+                background: rgb(255, 0, 0);
+            }
+        </style>
+    </head>
+    <body>
+        <motion-fx>
+            <div id="card"></div>
+        </motion-fx>
+        <script type="module">
+            import {
+                animate,
+                chromaticAberration,
+                defineMotionFX,
+                motionBlur,
+                motionValue,
+                pixelate,
+                shader,
+            } from "/src/canvas-inc.js"
+            import { nextRender } from "./pixels.js"
+
+            const host = document.querySelector("motion-fx")
+
+            const warnings = []
+            const warn = console.warn
+            console.warn = (...args) => {
+                warnings.push(args.join(" "))
+                warn(...args)
+            }
+
+            const invert = `fn effect(uv: vec2f) -> vec4f {
+                let c = element(uv);
+                return vec4f(c.a - c.rgb, c.a);
+            }`
+
+            /**
+             * Inverts the left half of the canvas only.
+             */
+            const invertLeft = `fn effect(uv: vec2f) -> vec4f {
+                let c = element(uv);
+                if (uv.x > 0.5) { return c; }
+                return vec4f(c.a - c.rgb, c.a);
+            }`
+
+            /**
+             * Moves everything right by amount of the canvas' width.
+             */
+            const shift = `struct Uniforms { amount: f32 }
+            fn effect(uv: vec2f) -> vec4f {
+                return element(uv - vec2f(uniforms.amount, 0.0));
+            }`
+
+            const broken = `fn effect(uv: vec2f) -> vec4f { return nope; }`
+
+            /**
+             * Set before the element is defined, as a framework might.
+             */
+            host.shaders = [shader(invert)]
+
+            defineMotionFX()
+
+            Object.assign(window, {
+                animate,
+                host,
+                warnings,
+                motionValue,
+                shader,
+                motionBlur,
+                chromaticAberration,
+                pixelate,
+                invert,
+                invertLeft,
+                shift,
+                broken,
+                nextRender: () => nextRender(host.layer),
+            })
+
+            host.ready.then((isReady) =>
+                isReady
+                    ? nextRender(host.layer).then(() => (window.ready = true))
+                    : (window.ready = true)
+            )
+        </script>
+    </body>
+</html>

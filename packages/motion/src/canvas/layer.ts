@@ -35,6 +35,7 @@ import {
     type UniformLayout,
 } from "./uniforms"
 import { CanvasVisualElement } from "./visual-element"
+import type { FXShader } from "./effects"
 
 export interface CanvasLayerOptions {
     /**
@@ -50,6 +51,12 @@ export interface CanvasLayerOptions {
      * are used for short moves. Defaults to `24`.
      */
     samples?: number
+
+    /**
+     * Shaders run in order on everything the layer has drawn. See
+     * `setShaders()`.
+     */
+    shaders?: FXShader[]
 }
 
 export type CanvasPoseValues = {
@@ -134,6 +141,13 @@ export interface CanvasLayer {
     has(element: Element): boolean
 
     /**
+     * Run these shaders, in order, on everything the layer has drawn.
+     * Each one reads the result of the one before it with `element(uv)`.
+     * A `motionBlur()` entry sets the layer's motion blur instead.
+     */
+    setShaders(shaders?: FXShader[]): void
+
+    /**
      * Draw a new frame at the next rendering opportunity. Called for you
      * when values or the elements change.
      */
@@ -187,6 +201,19 @@ interface Item {
 }
 
 /**
+ * A shader run on the whole layer.
+ */
+interface Post {
+    wgsl: string
+    uniforms: Record<string, CanvasUniform>
+    layout?: UniformLayout
+    data?: ArrayBuffer
+    buffer?: GPU
+    group?: GPU
+    stop: VoidFunction[]
+}
+
+/**
  * Elements drawn by a canvas layer, for canvasEffect.
  */
 export const canvasItems = new WeakMap<Element, Item>()
@@ -218,7 +245,7 @@ const vertexUsage = 0x20 | 0x08
  */
 export function canvasLayer(
     canvas: HTMLCanvasElement,
-    { motionBlur = 0, samples = 24 }: CanvasLayerOptions = {}
+    { motionBlur = 0, samples = 24, shaders }: CanvasLayerOptions = {}
 ): CanvasLayer {
     const items = new Map<Element, Item>()
     const listeners = new SubscriptionManager<(layer: CanvasLayer) => void>()
@@ -234,6 +261,7 @@ export function canvasLayer(
         add: noop as CanvasLayer["add"],
         remove: noop as CanvasLayer["remove"],
         has: (element: Element) => items.has(element),
+        setShaders: noop as CanvasLayer["setShaders"],
         invalidate: noop,
         onRender: (callback: (layer: CanvasLayer) => void) =>
             listeners.add(callback),
@@ -275,6 +303,16 @@ export function canvasLayer(
     let blurTexture: GPU
     let blurView: GPU
     let blurGroup: GPU
+
+    /**
+     * With shaders on the layer, the elements are drawn into the first of
+     * two targets. Each shader then reads one and draws into the other,
+     * and the last draws into the canvas.
+     */
+    let posts: Post[] = []
+    let targets: GPU[] = []
+    let targetGroups: GPU[] = []
+    let postFrame: GPU
 
     const resize = (entry?: ResizeObserverEntry) => {
         const box = entry?.devicePixelContentBoxSize?.[0]
@@ -398,7 +436,7 @@ export function canvasLayer(
         try {
             /**
              * Some builds only take an element whose parent is the
-             * canvas. A slotted one, as <motion-canvas> has, is then
+             * canvas. A slotted one, as <motion-fx> has, is then
              * copied through a captured image of it.
              */
             try {
@@ -543,8 +581,7 @@ export function canvasLayer(
          * is written once, before the frame is submitted.
          */
         const capacity =
-            items.size *
-            Math.max(2, Math.ceil(layer.samples)) *
+            (items.size * Math.max(2, Math.ceil(layer.samples)) + 1) *
             floatsPerInstance
         if (instances.length < capacity) {
             instances = new Float32Array(capacity)
@@ -557,7 +594,39 @@ export function canvasLayer(
         cursor = 0
 
         const encoder = device.createCommandEncoder()
-        const view = context.getCurrentTexture().createView()
+        const canvasView = context.getCurrentTexture().createView()
+
+        const active = posts.filter(
+            (post) => renderer!.program(post.wgsl).isValid
+        )
+        if (
+            active.length &&
+            (!targets[0] ||
+                targets[0].width !== width ||
+                targets[0].height !== height)
+        ) {
+            const { elementLayout, sampler, format } = renderer
+            postFrame ||= device.createBuffer({ size: 32, usage: uniformUsage })
+            targets.forEach((target) => target.destroy())
+            targets = [0, 1].map(() =>
+                device.createTexture({
+                    size: [width, height],
+                    format,
+                    usage: targetUsage,
+                })
+            )
+            targetGroups = targets.map((target) =>
+                device.createBindGroup({
+                    layout: elementLayout,
+                    entries: [
+                        { binding: 0, resource: { buffer: postFrame } },
+                        { binding: 1, resource: target.createView() },
+                        { binding: 2, resource: sampler },
+                    ],
+                })
+            )
+        }
+        const view = active.length ? targets[0].createView() : canvasView
         const beginPass = (target: GPU, loadOp: string) =>
             encoder.beginRenderPass({
                 colorAttachments: [
@@ -694,6 +763,72 @@ export function canvasLayer(
         }
 
         pass.end()
+
+        if (active.length) {
+            /**
+             * One more instance: the whole canvas, as it is.
+             */
+            const full = cursor / floatsPerInstance
+            instances.set([1, 0, 0, 1, 0, 0, 1], cursor)
+            cursor += floatsPerInstance
+
+            frameData[0] = frameData[2] = canvas.clientWidth
+            frameData[1] = frameData[3] = canvas.clientHeight
+            frameData[4] = seconds
+            device.queue.writeBuffer(postFrame, 0, frameData)
+
+            active.forEach((post, i) => {
+                const program = renderer!.program(post.wgsl)
+                const { layout } = post
+
+                if (layout) {
+                    if (!post.buffer) {
+                        post.data = new ArrayBuffer(layout.size)
+                        post.buffer = device.createBuffer({
+                            size: layout.size,
+                            usage: uniformUsage,
+                        })
+                        post.group = device.createBindGroup({
+                            layout: renderer!.uniformsLayout,
+                            entries: [
+                                {
+                                    binding: 0,
+                                    resource: { buffer: post.buffer },
+                                },
+                            ],
+                        })
+                    }
+                    const floats = new Float32Array(post.data!)
+                    const ints = new Int32Array(post.data!)
+                    layout.members.forEach((info, name) =>
+                        writeUniform(
+                            floats,
+                            ints,
+                            info,
+                            post.uniforms[name] ?? 0,
+                            scratch
+                        )
+                    )
+                    device.queue.writeBuffer(post.buffer, 0, post.data)
+                }
+
+                const postPass = beginPass(
+                    i === active.length - 1
+                        ? canvasView
+                        : targets[(i + 1) % 2].createView(),
+                    "clear"
+                )
+                postPass.setPipeline(program.main)
+                postPass.setBindGroup(0, targetGroups[i % 2])
+                layout && postPass.setBindGroup(1, post.group)
+                postPass.setVertexBuffer(0, instanceBuffer)
+                postPass.draw(4, 1, 0, full)
+                postPass.end()
+
+                if (program.usesTime) drawAgain = true
+            })
+        }
+
         cursor &&
             device.queue.writeBuffer(instanceBuffer, 0, instances, 0, cursor)
         device.queue.submit([encoder.finish()])
@@ -847,9 +982,58 @@ export function canvasLayer(
         invalidate()
     }
 
+    const watch = (value: unknown, stop: VoidFunction[]) => {
+        if (isMotionValue(value)) {
+            stop.push(value.on("change", invalidate))
+        } else if (value && typeof value === "object") {
+            const list = value as ArrayLike<unknown>
+            for (let i = 0; i < list.length; i++) watch(list[i], stop)
+        }
+    }
+
+    const stopPost = (post: Post) => {
+        post.stop.forEach((stop) => stop())
+        post.buffer?.destroy()
+    }
+
+    const setShaders = (list: FXShader[] = []) => {
+        const next: Post[] = []
+
+        for (const { wgsl, uniforms = {}, motionBlur, samples } of list) {
+            if (motionBlur !== undefined) {
+                layer.motionBlur = motionBlur
+                layer.samples = samples ?? layer.samples
+            }
+            if (!wgsl) continue
+
+            /**
+             * The same shader in the same place keeps its GPU resources,
+             * as a framework makes a new list on every render.
+             */
+            const previous = posts[next.length]
+            const post: Post =
+                previous?.wgsl === wgsl
+                    ? previous
+                    : { wgsl, uniforms, layout: parseUniforms(wgsl), stop: [] }
+            post.stop.forEach((stop) => stop())
+            post.stop = []
+            post.uniforms = uniforms
+            for (const name in uniforms) watch(uniforms[name], post.stop)
+            next.push(post)
+        }
+
+        posts.forEach((post) => next.includes(post) || stopPost(post))
+        posts = next
+        invalidate()
+    }
+
     const destroy = () => {
         if (isDestroyed) return
         isDestroyed = true
+        posts.forEach(stopPost)
+        posts = []
+        targets.forEach((target) => target.destroy())
+        postFrame?.destroy()
         items.forEach((_, element) => remove(element as HTMLElement))
         canvas.removeEventListener("paint", onPaint)
         observer.disconnect()
@@ -917,7 +1101,10 @@ export function canvasLayer(
         return true
     })
 
-    return Object.assign(layer, { add, remove, invalidate, destroy })
+    Object.assign(layer, { add, remove, setShaders, invalidate, destroy })
+    setShaders(shaders)
+
+    return layer
 }
 
 /**

@@ -1,0 +1,84 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+
+            .fx {
+                display: block;
+                width: 400px;
+                height: 300px;
+            }
+
+            #card {
+                width: 100px;
+                height: 60px;
+                background: rgb(255, 0, 0);
+            }
+        </style>
+    </head>
+    <body>
+        <div id="root"></div>
+        <script type="module">
+            import { shader } from "/src/canvas-inc.js"
+            import {
+                createElement,
+                createRoot,
+                MotionFX,
+                motion,
+                useState,
+            } from "/src/canvas-react.js"
+            import { nextRender } from "./pixels.js"
+
+            const invert = `fn effect(uv: vec2f) -> vec4f {
+                let c = element(uv);
+                return vec4f(c.a - c.rgb, c.a);
+            }`
+
+            function App() {
+                const [isOn, setOn] = useState(true)
+                const [x, setX] = useState(0)
+                window.setOn = setOn
+                window.setX = setX
+
+                return createElement(
+                    MotionFX,
+                    {
+                        className: "fx",
+                        // A new list on every render
+                        shaders: isOn ? [shader(invert)] : [],
+                        ref: (element) => (window.host = element),
+                    },
+                    createElement(motion.div, {
+                        id: "card",
+                        initial: false,
+                        animate: { x },
+                        transition: { duration: 0 },
+                    })
+                )
+            }
+
+            createRoot(document.getElementById("root")).render(
+                createElement(App)
+            )
+
+            window.nextRender = () => nextRender(window.host.layer)
+
+            const wait = () =>
+                window.host?.ready && window.host.localName === "motion-fx"
+                    ? customElements
+                          .whenDefined("motion-fx")
+                          .then(() => window.host.ready)
+                          .then((isReady) =>
+                              isReady
+                                  ? window
+                                        .nextRender()
+                                        .then(() => (window.ready = true))
+                                  : (window.ready = true)
+                          )
+                    : requestAnimationFrame(wait)
+            wait()
+        </script>
+    </body>
+</html>

@@ -5,7 +5,7 @@
                 margin: 0;
             }
 
-            motion-canvas {
+            motion-fx {
                 position: absolute;
                 left: 50px;
                 top: 40px;
@@ -36,19 +36,19 @@
         </style>
     </head>
     <body>
-        <motion-canvas motion-blur="0.5" samples="12">
+        <motion-fx motion-blur="0.5" samples="12">
             <div id="card"></div>
             <button id="button" shader="invert">0</button>
-        </motion-canvas>
+        </motion-fx>
         <script type="module">
             import {
                 animate,
-                defineMotionCanvas,
+                defineMotionFX,
                 htmlInCanvas,
             } from "/src/canvas-inc.js"
             import { nextRender, readCanvas } from "./pixels.js"
 
-            const host = document.querySelector("motion-canvas")
+            const host = document.querySelector("motion-fx")
             const card = document.getElementById("card")
             const button = document.getElementById("button")
 
@@ -62,7 +62,7 @@
                 }
             }
 
-            defineMotionCanvas({
+            defineMotionFX({
                 shaders: {
                     invert: `fn effect(uv: vec2f) -> vec4f {
                         let c = element(uv);

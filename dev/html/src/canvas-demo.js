@@ -113,7 +113,7 @@ if (!layer.supported) {
         const video = await sink.finalize()
         const link = document.createElement("a")
         link.href = URL.createObjectURL(video)
-        link.download = `motion-canvas.${sink.codec === "avc" ? "mp4" : "webm"}`
+        link.download = `motion-fx.${sink.codec === "avc" ? "mp4" : "webm"}`
         link.textContent = `Download ${frames} frames (${sink.codec}, ${(
             video.size / 1e6
         ).toFixed(2)} MB)`

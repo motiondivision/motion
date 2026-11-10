@@ -29,11 +29,17 @@
             "import": "./dist/es/three.mjs",
             "default": "./dist/cjs/three.js"
         },
-        "./canvas": {
-            "types": "./dist/canvas.d.ts",
-            "require": "./dist/cjs/canvas.js",
-            "import": "./dist/es/canvas.mjs",
-            "default": "./dist/cjs/canvas.js"
+        "./fx": {
+            "types": "./dist/fx.d.ts",
+            "require": "./dist/cjs/fx.js",
+            "import": "./dist/es/fx.mjs",
+            "default": "./dist/cjs/fx.js"
+        },
+        "./react-fx": {
+            "types": "./dist/react-fx.d.ts",
+            "require": "./dist/cjs/react-fx.js",
+            "import": "./dist/es/react-fx.mjs",
+            "default": "./dist/cjs/react-fx.js"
         },
         "./vgpu": {
             "types": "./dist/vgpu.d.ts",

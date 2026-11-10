@@ -1,5 +1,5 @@
 /**
- * motion/canvas for dev pages and Playwright tests, with the origin trial
+ * motion/fx for dev pages and Playwright tests, with the origin trial
  * shim installed first so older Chromium builds can run them.
  */
 import { installTrialShim } from "./canvas-trial-shim.js"
@@ -11,7 +11,7 @@ export const htmlInCanvas = new URLSearchParams(location.search).has("noshim")
     ? "none"
     : installTrialShim()
 
-export * from "motion/canvas"
+export * from "motion/fx"
 export {
     animate,
     drag,

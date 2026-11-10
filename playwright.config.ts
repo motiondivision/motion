@@ -86,7 +86,7 @@ export default defineConfig({
         },
 
         /**
-         * motion/canvas and htmlPlane need HTML-in-canvas. Chromium 138-156
+         * motion/fx and htmlPlane need HTML-in-canvas. Chromium 138-156
          * has its origin trial behind a flag, which the dev app's shims map
          * to the shipped API. WebGL runs on SwiftShader so it works without
          * a GPU.

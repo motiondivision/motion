@@ -130,7 +130,8 @@ const cjsClient = Object.assign({}, cjs, { input : "lib/react-client.js" })
 const cjsM = Object.assign({}, cjs, { input : "lib/react-m.js" })
 const cjsThree = Object.assign({}, cjs, { input : "lib/three.js" })
 const cjsVgpu = Object.assign({}, cjs, { input : "lib/vgpu.js" })
-const cjsCanvas = Object.assign({}, cjs, { input : "lib/canvas.js" })
+const cjsFx = Object.assign({}, cjs, { input : "lib/fx.js" })
+const cjsReactFx = Object.assign({}, cjs, { input : "lib/react-fx.js" })
 const cjsRemix = Object.assign({}, cjs, { input : "lib/remix.js" })
 
 export const es = Object.assign({}, config, {
@@ -145,7 +146,8 @@ export const es = Object.assign({}, config, {
         "lib/debug.js",
         "lib/three.js",
         "lib/vgpu.js",
-        "lib/canvas.js",
+        "lib/fx.js",
+        "lib/react-fx.js",
         "lib/remix.js",
     ],
     output: {
@@ -254,11 +256,20 @@ const remixTypes = {
     plugins: typePlugins,
 }
 
-const canvasTypes = {
-    input: "types/canvas.d.ts",
+const fxTypes = {
+    input: "types/fx.d.ts",
     output: {
         format: "es",
-        file: "dist/canvas.d.ts",
+        file: "dist/fx.d.ts",
+    },
+    plugins: typePlugins,
+}
+
+const reactFxTypes = {
+    input: "types/react-fx.d.ts",
+    output: {
+        format: "es",
+        file: "dist/react-fx.d.ts",
     },
     plugins: typePlugins,
 }
@@ -285,7 +296,8 @@ export default [
     cjsM,
     cjsThree,
     cjsVgpu,
-    cjsCanvas,
+    cjsFx,
+    cjsReactFx,
     cjsRemix,
     es,
     animateViewTypes,
@@ -298,6 +310,7 @@ export default [
     clientTypes,
     threeTypes,
     vgpuTypes,
-    canvasTypes,
+    fxTypes,
+    reactFxTypes,
     remixTypes,
 ]
