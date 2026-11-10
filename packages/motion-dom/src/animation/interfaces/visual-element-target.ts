@@ -5,7 +5,7 @@ import { positionalKeys } from "../../render/utils/keys-position"
 import { setTarget } from "../../render/utils/setters"
 import { addValueToWillChange } from "../../value/will-change/add-will-change"
 import { getOptimisedAppearId } from "../optimized-appear/get-appear-id"
-import { animateMotionValue } from "./motion-value"
+import { MultiValueRef, startValue } from "../animate/multi-value"
 import type { MotionPath } from "../types"
 import type { VisualElementAnimationOptions } from "./types"
 import type { AnimationPlaybackControlsWithThen } from "../types"
@@ -54,6 +54,13 @@ export function animateTarget(
 
     const animations: AnimationPlaybackControlsWithThen[] = []
 
+    /**
+     * The values of this call share one clock. Those that carry on from
+     * an optimised appear animation started when it did, so share another.
+     */
+    const ref: MultiValueRef = {}
+    const handoffRef: MultiValueRef = {}
+
     const animationTypeState =
         type && visualElement.animationState?.getState()[type]
 
@@ -99,7 +106,7 @@ export function animateTarget(
         const valueTransition = {
             delay,
             ...getValueTransition(
-                animationTypeState?.out[key] || transition || {},
+                animationTypeState?.out[key] || transition,
                 key
             ),
         }
@@ -151,7 +158,8 @@ export function animateTarget(
             reduceMotion ?? visualElement.shouldReduceMotion
 
         value.run(
-            animateMotionValue(
+            startValue(
+                isHandoff ? handoffRef : ref,
                 key,
                 value,
                 valueTarget,
@@ -159,6 +167,7 @@ export function animateTarget(
                     ? { type: false }
                     : valueTransition,
                 visualElement,
+                false,
                 isHandoff
             )
         )
@@ -172,11 +181,12 @@ export function animateTarget(
         }
     }
 
+    ref.animation?.start()
+    handoffRef.animation?.start()
+
     if (transitionEnd) {
         const applyTransitionEnd = () =>
-            frame.update(() => {
-                transitionEnd && setTarget(visualElement, transitionEnd)
-            })
+            frame.update(() => setTarget(visualElement, transitionEnd))
 
         if (animations.length) {
             Promise.all(animations).then(applyTransitionEnd)

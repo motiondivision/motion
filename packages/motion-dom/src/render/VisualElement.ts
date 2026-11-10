@@ -2,12 +2,10 @@ import {
     Box,
     isNumericalString,
     isZeroValueString,
-    secondsToMilliseconds,
     SubscriptionManager,
     warnOnce,
 } from "motion-utils"
-import { KeyframeResolver } from "../animation/keyframes/KeyframesResolver"
-import { NativeAnimation } from "../animation/NativeAnimation"
+import type { KeyframeResolver } from "../animation/keyframes/KeyframesResolver"
 import type { AnyResolvedKeyframe } from "../animation/types"
 import { acceleratedValues } from "../animation/waapi/utils/accelerated-values"
 import { transformGroups } from "../animation/waapi/transforms/groups"
@@ -244,8 +242,8 @@ export abstract class VisualElement<
     /**
      * Determine what role this visual element should take in the variant tree.
      */
-    isVariantNode: boolean = false
-    isControllingVariants: boolean = false
+    isVariantNode: boolean
+    isControllingVariants: boolean
 
     /**
      * If this component is part of the variant tree, it should track
@@ -302,7 +300,11 @@ export abstract class VisualElement<
      */
     animationState?: AnimationState
 
-    KeyframeResolver = KeyframeResolver
+    /**
+     * Resolves this element's keyframes. Left unset, values use the
+     * default KeyframeResolver.
+     */
+    KeyframeResolver?: typeof KeyframeResolver
 
     /**
      * The options used to create this VisualElement. The Options type is defined
@@ -372,7 +374,7 @@ export abstract class VisualElement<
      * Track whether this element has been mounted before, to detect
      * remounts after Suspense unmount/remount cycles.
      */
-    private hasBeenMounted = false
+    private hasBeenMounted?: boolean
 
     /**
      * An object containing a SubscriptionManager for each active event.
@@ -387,7 +389,7 @@ export abstract class VisualElement<
      * VisualElement.on(), but only one of those can be defined via the onUpdate prop.
      */
     private propEventSubscriptions: {
-        [key: string]: VoidFunction
+        [key: string]: VoidFunction | undefined
     } = {}
 
     constructor(
@@ -434,13 +436,20 @@ export abstract class VisualElement<
          * Doing so will break some tests but this isn't necessarily a breaking change,
          * more a reflection of the test.
          */
-        const { willChange, ...initialMotionValues } =
-            this.scrapeMotionValuesFromProps(props, {}, this)
+        const initialMotionValues = this.scrapeMotionValuesFromProps(
+            props,
+            {},
+            this
+        )
 
         for (const key in initialMotionValues) {
             const value = initialMotionValues[key]
 
-            if (latestValues[key] !== undefined && isMotionValue(value)) {
+            if (
+                key !== "willChange" &&
+                latestValues[key] !== undefined &&
+                isMotionValue(value)
+            ) {
                 value.set(latestValues[key])
             }
         }
@@ -495,16 +504,12 @@ export abstract class VisualElement<
          * listener if we actually need the dynamic value (i.e., when config
          * is neither "never" nor "always").
          */
-        if (this.reducedMotionConfig === "never") {
-            this.shouldReduceMotion = false
-        } else if (this.reducedMotionConfig === "always") {
-            this.shouldReduceMotion = true
-        } else {
-            if (!hasReducedMotionListener.current) {
-                initPrefersReducedMotion()
-            }
-            this.shouldReduceMotion = prefersReducedMotion.current
-        }
+        const { reducedMotionConfig } = this
+        this.shouldReduceMotion =
+            reducedMotionConfig !== "never" &&
+            (reducedMotionConfig === "always" ||
+                (hasReducedMotionListener.current || initPrefersReducedMotion(),
+                prefersReducedMotion.current))
 
         if (process.env.NODE_ENV !== "production") {
             warnOnce(
@@ -564,29 +569,16 @@ export abstract class VisualElement<
     private bindToMotionValue(key: string, value: MotionValue) {
         this.valueSubscriptions.get(key)?.()
 
+        const { accelerate } = value
         if (
-            value.accelerate &&
+            accelerate?.bind &&
             acceleratedValues.has(key) &&
             this.current instanceof HTMLElement
         ) {
-            const { factory, keyframes, times, ease, duration } =
-                value.accelerate
-
-            const animation = new NativeAnimation({
-                element: this.current,
-                name: key,
-                keyframes,
-                times,
-                ease,
-                duration: secondsToMilliseconds(duration),
-            })
-
-            const cleanup = factory(animation)
-
-            this.valueSubscriptions.set(key, () => {
-                cleanup()
-                animation.cancel()
-            })
+            this.valueSubscriptions.set(
+                key,
+                accelerate.bind(this.current, key, accelerate)
+            )
             return
         }
 
@@ -771,14 +763,16 @@ export abstract class VisualElement<
          */
         for (let i = 0; i < propEventHandlers.length; i++) {
             const key = propEventHandlers[i]
-            this.propEventSubscriptions[key]?.()
-            delete this.propEventSubscriptions[key]
+            const listener = props[("on" + key) as keyof typeof props]
 
-            const listenerName = ("on" + key) as keyof typeof props
-            const listener = props[listenerName]
-            if (listener) {
-                this.propEventSubscriptions[key] = this.on(key as any, listener)
-            }
+            /**
+             * Replaced rather than deleted, as delete is slow even when
+             * there's nothing to remove.
+             */
+            this.propEventSubscriptions[key]?.()
+            this.propEventSubscriptions[key] = listener
+                ? this.on(key as any, listener)
+                : undefined
         }
 
         this.prevMotionValues = updateMotionValuesFromProps(

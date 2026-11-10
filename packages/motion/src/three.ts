@@ -30,20 +30,18 @@ type ThreeObject = Record<string, any>
  * threeEffect(uniforms, { progress })
  * ```
  *
- * Writes happen once per frame in `frame.preRender`, ahead of render loops
- * scheduled with `frame.render`.
+ * Changes made during a frame, as animations make them, are written
+ * straight away. Others are written in `frame.preRender`. Either way the
+ * scene is up to date ahead of render loops scheduled with `frame.render`.
  */
 export const threeEffect = createEffect<ThreeObject>(
     (subject, state: MotionValueState, key, value) =>
-        state.set(
-            key,
-            value,
-            () => setObjectValue(subject, key, value.get())
-        ),
+        state.set(key, value, createRender(subject, key, value)),
     {
         test: isThreeSubject,
         read: getObjectValue,
         step: frame.preRender,
+        sync: true,
     }
 )
 
@@ -161,6 +159,36 @@ function getAnimatableValue(value: unknown) {
 
 function isUniform(value: unknown): value is ThreeUniform {
     return Boolean(value && typeof value === "object" && "value" in value)
+}
+
+/**
+ * The render for a bound value. A transform writes straight to its
+ * vector or Euler, found once here rather than on every frame.
+ */
+function createRender(
+    object: ThreeObject,
+    key: string,
+    value: MotionValue
+): VoidFunction {
+    const transform = transformMap[key as keyof typeof transformMap]
+    const target = transform && object[transform[0]]
+
+    if (target && !isUniform(object[key])) {
+        const axis = transform[1]
+
+        /**
+         * Renders are passed the latest value when written during a frame.
+         */
+        return (
+            transform[0] === "rotation"
+                ? (latest = value.get()) =>
+                      (target[axis] = latest * (Math.PI / 180))
+                : (latest = value.get()) => (target[axis] = latest)
+        ) as VoidFunction
+    }
+
+    return ((latest = value.get()) =>
+        setObjectValue(object, key, latest)) as VoidFunction
 }
 
 function setObjectValue(object: ThreeObject, key: string, value: unknown) {

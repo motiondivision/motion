@@ -1,4 +1,4 @@
-import type { JSAnimation } from "../../animation/JSAnimation"
+import type { AnimationPlaybackControlsWithThen } from "../../animation/types"
 import type {
     MotionPath,
     Transition,
@@ -125,7 +125,7 @@ export interface IProjectionNode<I = unknown> {
 
     isProjecting(): boolean
     animationValues?: ResolvedValues
-    currentAnimation?: JSAnimation<number>
+    currentAnimation?: AnimationPlaybackControlsWithThen
     isTreeAnimating?: boolean
     isAnimationBlocked?: boolean
     setAnimationOrigin(

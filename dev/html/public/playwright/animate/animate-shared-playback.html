@@ -1,0 +1,93 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+
+            .box {
+                width: 100px;
+                height: 100px;
+                background-color: #0077ff;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="box" id="transform"></div>
+        <div class="box" id="waapi"></div>
+        <div class="box" id="js"></div>
+        <div class="box" id="interrupted"></div>
+        <div class="box" id="finished"></div>
+        <div class="box" id="cancelled"></div>
+        <div class="box" id="stopped"></div>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            const { animate } = window.Motion
+
+            /**
+             * startTime: each animation plays as if it started half a
+             * second ago.
+             */
+            const startTime = performance.now() - 500
+            const timing = { duration: 1, ease: "linear", startTime }
+            window.startTime = startTime
+            window.started = {
+                transform: animate("#transform", { x: [0, 100] }, timing),
+                waapi: animate("#waapi", { opacity: [0, 1] }, timing),
+                js: animate("#js", { width: [100, 200] }, timing),
+            }
+
+            /**
+             * One value of a call is interrupted, and the other, which
+             * the browser plays, finishes.
+             */
+            window.interrupted = animate(
+                "#interrupted",
+                { opacity: [0, 1], x: [0, 100] },
+                { duration: 0.2 }
+            )
+            setTimeout(
+                () => animate("#interrupted", { x: 50 }, { duration: 0.05 }),
+                50
+            )
+
+            /**
+             * What's left on the browser's own animation of a value once
+             * Motion is done with it.
+             */
+            const leftOn = (animation) => ({
+                onfinish: !!animation.onfinish,
+                references: Object.keys(animation).filter(
+                    (key) => animation[key] != null
+                ),
+            })
+            const nativeOf = (id) =>
+                document.getElementById(id).getAnimations()[0]
+
+            window.left = {}
+            const short = { duration: 0.2 }
+            const finished = animate("#finished", { opacity: [0, 1] }, short)
+            const cancelled = animate("#cancelled", { opacity: [0, 1] }, short)
+            const stopped = animate("#stopped", { opacity: [0, 1] }, short)
+
+            setTimeout(() => {
+                const natives = {
+                    finished: nativeOf("finished"),
+                    cancelled: nativeOf("cancelled"),
+                    stopped: nativeOf("stopped"),
+                }
+                window.held = Object.keys(natives).filter(
+                    (name) => !natives[name]
+                )
+                cancelled.cancel()
+                stopped.stop()
+                finished.finished.then(() => {
+                    for (const name in natives) {
+                        window.left[name] = leftOn(natives[name])
+                    }
+                    window.left.done = true
+                })
+            }, 50)
+        </script>
+    </body>
+</html>

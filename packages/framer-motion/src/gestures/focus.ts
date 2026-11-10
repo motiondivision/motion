@@ -2,7 +2,7 @@ import { Feature, addDomEvent } from "motion-dom"
 import { pipe } from "motion-utils"
 
 export class FocusGesture extends Feature<Element> {
-    private isActive = false
+    private isActive?: boolean
 
     onFocus() {
         let isFocusVisible = false

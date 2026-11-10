@@ -35,6 +35,12 @@ export interface EffectOptions<Subject extends object> {
      * Frameloop step writes are scheduled in. Defaults to `frame.render`.
      */
     step?: Schedule
+
+    /**
+     * During a frame, write each change as it's made rather than in
+     * `step`. For subjects a write can't make the browser lay out.
+     */
+    sync?: boolean
 }
 
 export interface Effect<Subject extends object = object>
@@ -88,7 +94,7 @@ export function createEffect<Subject extends object>(
 ): Effect<Subject>
 export function createEffect<Subject extends object>(
     addValue: AddEffectValue<Subject>,
-    { step, ...options }: EffectOptions<Subject> = {}
+    { step, sync, ...options }: EffectOptions<Subject> = {}
 ): Effect<Subject> {
     const stateCache = new WeakMap<Subject, MotionValueState>()
 
@@ -96,7 +102,7 @@ export function createEffect<Subject extends object>(
         subject: Subject,
         values: Record<string, MotionValue>
     ): VoidFunction => {
-        const state = stateCache.get(subject) ?? new MotionValueState(step)
+        const state = stateCache.get(subject) ?? new MotionValueState(step, sync)
 
         stateCache.set(subject, state)
 

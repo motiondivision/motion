@@ -2,13 +2,13 @@ import type { AnyResolvedKeyframe } from "../../animation/types"
 import type { MotionValue } from "../../value"
 import type { MotionNodeOptions } from "../../node/types"
 import { transformProps } from "../utils/keys-transform"
-import { getDefaultValueType } from "../../value/types/maps/defaults"
+import { transformValueTypes } from "../../value/types/maps/transform"
 import { createBox } from "../../projection/geometry/models"
 import { DOMVisualElement } from "../dom/DOMVisualElement"
 import { defaultTransformValue } from "../dom/parse-transform"
 import type { DOMVisualElementOptions } from "../dom/types"
 import { camelToDash } from "../dom/utils/camel-to-dash"
-import type { ResolvedValues } from "../types"
+import type { ResolvedValues, VisualElementOptions } from "../types"
 import type { VisualElement, MotionStyle } from "../VisualElement"
 import { SVGRenderState } from "./types"
 import { buildSVGAttrs, cssStyleProperties } from "./utils/build-attrs"
@@ -24,6 +24,17 @@ export class SVGVisualElement extends DOMVisualElement<
     type = "svg"
 
     isSVGTag = false
+
+    /**
+     * Declared rather than implicit, as the implicit constructor compiles
+     * to super(...arguments), which is slow to run per element.
+     */
+    constructor(
+        options: VisualElementOptions<SVGElement, SVGRenderState>,
+        renderOptions?: DOMVisualElementOptions
+    ) {
+        super(options, renderOptions)
+    }
 
     getBaseTargetFromProps(
         props: MotionNodeOptions,
@@ -52,8 +63,7 @@ export class SVGVisualElement extends DOMVisualElement<
 
     readValueFromInstance(instance: SVGElement, key: string) {
         if (transformProps.has(key)) {
-            const defaultType = getDefaultValueType(key)
-            return defaultType ? defaultType.default || 0 : 0
+            return transformValueTypes[key]?.default || 0
         }
 
         if (cssStyleProperties.includes(key)) {

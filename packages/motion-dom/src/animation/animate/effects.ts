@@ -2,8 +2,12 @@ import { invariant, removeItem } from "motion-utils"
 import { AnimateEffect } from "../../effects/utils/create-effect"
 import { frame } from "../../frameloop"
 import { positionalKeys } from "../../render/utils/keys-position"
+import { transformProps } from "../../render/utils/keys-transform"
+import { markRepaint } from "../waapi/transforms/groups"
+import { acceleratedValues } from "../waapi/utils/accelerated-values"
 import { MotionValue, motionValue } from "../../value"
-import { animateMotionValue } from "../interfaces/motion-value"
+import { MultiValueRef, startValue } from "./multi-value"
+export type { MultiValueRef }
 import { AnimationElement } from "../keyframes/types"
 import {
     AnimationPlaybackControlsWithThen,
@@ -66,10 +70,17 @@ export function animateValues(
     getValue: (key: string) => MotionValue,
     keyframes: EffectKeyframes,
     transition: EffectTransition = {},
-    element?: AnimationElement
+    element?: AnimationElement,
+    /**
+     * The animation values share. Passed by a caller animating many subjects
+     * in one call, which then starts it. Otherwise one is made and
+     * started for these values.
+     */
+    animationRef?: MultiValueRef
 ): AnimationPlaybackControlsWithThen[] {
     const animations: AnimationPlaybackControlsWithThen[] = []
     const { velocity, path } = transition
+    const ref: MultiValueRef = animationRef || {}
     const reduceMotion = transition.reduceMotion ?? element?.shouldReduceMotion
 
     /**
@@ -79,6 +90,16 @@ export function animateValues(
     if (path?.animateValues && element) {
         keyframes = { ...keyframes }
         path.animateValues(getValue, keyframes, transition, 0, animations)
+    }
+
+    /**
+     * Whether it moves a transform, which its other compositor values
+     * then share a WAAPI animation with.
+     */
+    let composes = false
+
+    if (element?.current instanceof HTMLElement) {
+        for (const key in keyframes) composes ||= transformProps.has(key)
     }
 
     for (const key in keyframes) {
@@ -107,14 +128,16 @@ export function animateValues(
         }
 
         value.run(
-            animateMotionValue(
+            startValue(
+                ref,
                 key,
                 value,
-                target as any,
+                target,
                 reduceMotion && positionalKeys.has(key)
                     ? { type: false }
                     : transition,
-                element
+                element,
+                composes
             )
         )
 
@@ -122,7 +145,23 @@ export function animateValues(
             animations.push(
                 value.animation as AnimationPlaybackControlsWithThen
             )
+
+        /**
+         * A style animating on the main thread repaints the element. It's
+         * counted before its transforms first build, so if too many
+         * elements repaint, they start on the main thread.
+         */
+        composes &&
+            !(
+                transformProps.has(key) ||
+                acceleratedValues.has(key) ||
+                key.startsWith("origin") ||
+                key.startsWith("transition")
+            ) &&
+            markRepaint(element!.current!, value)
     }
+
+    animationRef || ref.animation?.start()
 
     const { transitionEnd } = keyframes
     if (transitionEnd) {
@@ -156,7 +195,8 @@ export function animateEffectSubject<Subject extends object>(
     subject: Subject,
     keyframes: EffectKeyframes,
     transition?: EffectTransition,
-    element?: AnimationElement
+    element?: AnimationElement,
+    animationRef?: MultiValueRef
 ): AnimationPlaybackControlsWithThen[] {
     /**
      * Values made for this call are bound with one effect call, after the
@@ -198,7 +238,8 @@ export function animateEffectSubject<Subject extends object>(
         },
         keyframes,
         transition,
-        element
+        element,
+        animationRef
     )
 
     isBound = true

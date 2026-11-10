@@ -252,12 +252,89 @@ test.describe("scroll() with a spring between strings", () => {
             )
             await page.waitForTimeout(100)
 
-            const transform = await page
-                .locator("#box")
-                .evaluate((element) => element.style.transform)
-            expect(
-                parseFloat(transform.replace("translateX(", ""))
-            ).toBeCloseTo(100 * fraction, 0)
+            /**
+             * Where it shows, as it can run on the compositor, which
+             * doesn't write its style.
+             */
+            const box = await page.locator("#box").boundingBox()
+            expect(box?.x).toBeCloseTo(100 * fraction, 0)
+        }
+    })
+})
+
+test.describe("scroll() with an animation of several values", () => {
+    test.use({ viewport: { width: 500, height: 500 } })
+
+    const read = (page: Page, id: string) =>
+        page.evaluate((id) => {
+            const element = document.getElementById(id)!
+            const style = getComputedStyle(element)
+            return {
+                x: new DOMMatrixReadOnly(style.transform).m41,
+                width: parseFloat(style.width),
+                height: parseFloat(style.height),
+                opacity: parseFloat(style.opacity),
+            }
+        }, id)
+
+    const scrollTo = async (page: Page, progress: number) => {
+        await page.evaluate((progress) => {
+            window.scrollTo(
+                0,
+                (document.documentElement.scrollHeight - window.innerHeight) *
+                    progress
+            )
+        }, progress)
+        await page.waitForTimeout(100)
+    }
+
+    test.beforeEach(async ({ page }) => {
+        await page.goto("scroll/scroll-mixed-values.html")
+        await settle(page)
+    })
+
+    test("a transform follows the scroll alongside a main thread value", async ({
+        page,
+    }) => {
+        for (const progress of [0.5, 0.25, 1]) {
+            await scrollTo(page, progress)
+            const { x, width } = await read(page, "mixed")
+            expect(x).toBeCloseTo(200 * progress, 0)
+            expect(width).toBeCloseTo(100 + 100 * progress, 0)
+        }
+    })
+
+    test("a transform and opacity follow the scroll alongside a main thread value", async ({
+        page,
+    }) => {
+        for (const progress of [0.5, 0.25, 1]) {
+            await scrollTo(page, progress)
+            const { x, opacity, height } = await read(page, "mixed-opacity")
+            expect(x).toBeCloseTo(200 * progress, 0)
+            expect(opacity).toBeCloseTo(1 - progress, 1)
+            expect(height).toBeCloseTo(100 + 100 * progress, 0)
+        }
+    })
+
+    test("values with different durations each span the scroll", async ({
+        page,
+    }) => {
+        for (const progress of [0.25, 0.5, 1]) {
+            await scrollTo(page, progress)
+            const { width, height } = await read(page, "durations")
+            expect(width).toBeCloseTo(100 + 100 * progress, 0)
+            expect(height).toBeCloseTo(100 + 100 * progress, 0)
+        }
+    })
+
+    test("values with default transitions each span the scroll", async ({
+        page,
+    }) => {
+        for (const progress of [0.25, 0.5, 1]) {
+            await scrollTo(page, progress)
+            const { x, width } = await read(page, "defaults")
+            expect(x).toBeCloseTo(200 * progress, 0)
+            expect(width).toBeCloseTo(100 + 100 * progress, 0)
         }
     })
 })

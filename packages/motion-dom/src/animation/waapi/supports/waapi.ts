@@ -7,7 +7,7 @@ import { acceleratedValues } from "../utils/accelerated-values"
 import { hasBrowserOnlyColors } from "../utils/is-browser-color"
 import { needsMixer } from "../utils/needs-mixer"
 
-const colorProperties = new Set([
+export const colorProperties = new Set([
     "color",
     "backgroundColor",
     "outlineColor",

@@ -1,9 +1,6 @@
 import { syncDriver } from "../../animation/__tests__/utils"
 import { frame } from "../../frameloop"
-import {
-    stepFrames,
-    withManualFrames,
-} from "../../frameloop/__tests__/utils"
+import { stepFrames, withManualFrames } from "../../frameloop/__tests__/utils"
 import { followValue } from "../follow-value"
 import { motionValue } from "../index"
 import { attachSpring, springValue } from "../spring-value"
@@ -13,7 +10,7 @@ import { attachSpring, springValue } from "../spring-value"
  * second creates a SubscriptionManager, so count both. Private API.
  */
 const countChangeSubscribers = (value: any) =>
-    (value.changeSubscriber ? 1 : 0) + (value.events.change?.getSize() ?? 0)
+    (value.changeSubscriber ? 1 : 0) + (value.events?.change?.getSize() ?? 0)
 
 describe("springValue types", () => {
     test("can create a motion value from a number", () => {
@@ -199,28 +196,26 @@ const runSpringTests = (unit?: string | undefined) => {
         })
 
         test("skips animation on first change when skipInitialAnimation is true", async () => {
-            const promise = new Promise<Array<string | number>>(
-                (resolve) => {
-                    const output: Array<string | number> = []
-                    const x = motionValue(createValue(0))
-                    const y = followValue(x, {
-                        type: "spring",
-                        skipInitialAnimation: true,
-                        driver: syncDriver(10),
-                    } as any)
+            const promise = new Promise<Array<string | number>>((resolve) => {
+                const output: Array<string | number> = []
+                const x = motionValue(createValue(0))
+                const y = followValue(x, {
+                    type: "spring",
+                    skipInitialAnimation: true,
+                    driver: syncDriver(10),
+                } as any)
 
-                    y.on("change", (v) => {
-                        output.push(formatOutput(parseTestValue(v)))
-                    })
+                y.on("change", (v) => {
+                    output.push(formatOutput(parseTestValue(v)))
+                })
 
-                    // First change should jump, not animate
-                    x.set(createValue(100))
+                // First change should jump, not animate
+                x.set(createValue(100))
 
-                    setTimeout(() => {
-                        resolve(output)
-                    }, 100)
-                }
-            )
+                setTimeout(() => {
+                    resolve(output)
+                }, 100)
+            })
 
             const resolved = await promise
 
@@ -229,31 +224,29 @@ const runSpringTests = (unit?: string | undefined) => {
         })
 
         test("animates on second change when skipInitialAnimation is true", async () => {
-            const promise = new Promise<Array<string | number>>(
-                (resolve) => {
-                    const output: Array<string | number> = []
-                    const x = motionValue(createValue(0))
-                    const y = followValue(x, {
-                        type: "spring",
-                        skipInitialAnimation: true,
-                        driver: syncDriver(10),
-                    } as any)
+            const promise = new Promise<Array<string | number>>((resolve) => {
+                const output: Array<string | number> = []
+                const x = motionValue(createValue(0))
+                const y = followValue(x, {
+                    type: "spring",
+                    skipInitialAnimation: true,
+                    driver: syncDriver(10),
+                } as any)
 
-                    // First change: jump
-                    x.set(createValue(50))
+                // First change: jump
+                x.set(createValue(50))
 
-                    // Second change: should animate
-                    y.on("change", (v) => {
-                        if (output.length >= 10) {
-                            resolve(output)
-                        } else {
-                            output.push(formatOutput(parseTestValue(v)))
-                        }
-                    })
+                // Second change: should animate
+                y.on("change", (v) => {
+                    if (output.length >= 10) {
+                        resolve(output)
+                    } else {
+                        output.push(formatOutput(parseTestValue(v)))
+                    }
+                })
 
-                    x.set(createValue(100))
-                }
-            )
+                x.set(createValue(100))
+            })
 
             const resolved = await promise
 
@@ -273,12 +266,15 @@ describe("springValue transition type", () => {
     test.each(["spring", "tween"])(
         "animates with a spring when passed type %s",
         async (type) => {
-            const spring = springValue(0 as number, {
-                type,
-                stiffness: 1000,
-                damping: 10,
-                driver: syncDriver(10),
-            } as any)
+            const spring = springValue(
+                0 as number,
+                {
+                    type,
+                    stiffness: 1000,
+                    damping: 10,
+                    driver: syncDriver(10),
+                } as any
+            )
             const output: number[] = []
             spring.on("change", (v) => output.push(v))
 
@@ -297,10 +293,13 @@ describe("springValue transition type", () => {
 
 describe("spring isAnimating and animationComplete", () => {
     test("isAnimating returns true during spring animation via set()", async () => {
-        const spring = followValue(0 as number, {
-            type: "spring",
-            driver: syncDriver(10),
-        } as any)
+        const spring = followValue(
+            0 as number,
+            {
+                type: "spring",
+                driver: syncDriver(10),
+            } as any
+        )
 
         const isAnimatingValues: boolean[] = []
 
@@ -320,10 +319,13 @@ describe("spring isAnimating and animationComplete", () => {
     })
 
     test("animationComplete fires after spring animation via set()", async () => {
-        const spring = followValue(0 as number, {
-            type: "spring",
-            driver: syncDriver(10),
-        } as any)
+        const spring = followValue(
+            0 as number,
+            {
+                type: "spring",
+                driver: syncDriver(10),
+            } as any
+        )
 
         const completed = await new Promise<boolean>((resolve) => {
             spring.on("animationComplete", () => {
@@ -340,10 +342,13 @@ describe("spring isAnimating and animationComplete", () => {
     })
 
     test("isAnimating returns false after spring animation completes", async () => {
-        const spring = followValue(0 as number, {
-            type: "spring",
-            driver: syncDriver(10),
-        } as any)
+        const spring = followValue(
+            0 as number,
+            {
+                type: "spring",
+                driver: syncDriver(10),
+            } as any
+        )
 
         await new Promise<void>((resolve) => {
             spring.on("animationComplete", () => {

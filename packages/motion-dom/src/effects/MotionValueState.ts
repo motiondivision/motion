@@ -1,11 +1,49 @@
 import { frame } from "../frameloop/frame"
+import { frameData } from "../frameloop/frame-data"
 import { Schedule } from "../frameloop/types"
 import { MotionValue } from "../value"
 
 interface Entry {
     value: MotionValue
     render?: VoidFunction
-    onRemove: VoidFunction
+    /**
+     * Schedules the render. Values bound to the same computed render
+     * share one, so each bound value holds no function of its own.
+     */
+    onChange: VoidFunction
+}
+
+/**
+ * States with renders pending in a frame step, flushed by one callback
+ * for the step rather than one for each state.
+ */
+interface Batch {
+    states: MotionValueState[]
+    flush: VoidFunction
+}
+
+const batches = new Map<Schedule, Batch>()
+
+function getBatch(step: Schedule) {
+    let batch = batches.get(step)
+
+    if (!batch) {
+        const created: Batch = {
+            states: [],
+            flush: () => {
+                /**
+                 * States scheduled while flushing join the next batch,
+                 * which runs in the next frame.
+                 */
+                const { states } = created
+                created.states = []
+                for (let i = 0; i < states.length; i++) states[i].flush()
+            },
+        }
+        batches.set(step, (batch = created))
+    }
+
+    return batch
 }
 
 export class MotionValueState {
@@ -35,7 +73,20 @@ export class MotionValueState {
      * to `frame.render`. Effects that feed a render loop running in
      * `frame.render` (GPU scenes) should write in `frame.preRender`.
      */
-    constructor(private step: Schedule = frame.render) {}
+    private batch: Batch
+
+    /**
+     * @param isSync - During a frame, write each change as it's made
+     * rather than in `step`, for subjects a write can't make the browser
+     * lay out, like plain objects and 3D scenes. Outside a frame, changes
+     * still wait for `step`.
+     */
+    constructor(
+        private step: Schedule = frame.render,
+        private isSync?: boolean
+    ) {
+        this.batch = getBatch(step)
+    }
 
     /**
      * @param render - Writes the value to the subject. Renders read the
@@ -50,15 +101,36 @@ export class MotionValueState {
         render?: VoidFunction,
         computed?: MotionValue
     ): VoidFunction {
-        this.values.get(name)?.onRemove()
+        this.remove(name)
+
+        let onChange: VoidFunction | undefined
+        let isBound = false
 
         if (computed) {
             for (const entry of this.values.values()) {
-                if (entry.value === computed) render = entry.render
+                if (entry.value === computed) {
+                    render = entry.render
+                    onChange = entry.onChange
+                }
+                if (entry.value === value) isBound = true
             }
         }
 
-        const onChange = () => render && this.schedule(render)
+        /**
+         * A value bound under two names subscribes once for each, so it
+         * can't share its computed value's subscriber.
+         */
+        if (!onChange || isBound) {
+            /**
+             * A sync render is passed the latest value, so it needn't
+             * read it back from the motion value.
+             */
+            onChange = (latest?: unknown) =>
+                render &&
+                (this.isSync && frameData.isProcessing
+                    ? (render as (latest?: unknown) => void)(latest)
+                    : this.schedule(render))
+        }
 
         /**
          * Values created ahead of a DOM read start out undefined and
@@ -66,26 +138,27 @@ export class MotionValueState {
          */
         value.get() !== undefined && onChange()
 
-        const cancelOnChange = value.on("change", onChange)
-
-        const onRemove = () => {
-            cancelOnChange()
-            render && !computed && this.cancel(render)
-            /**
-             * A later set() of the same name has already removed this
-             * entry, so leave the one that replaced it.
-             */
-            this.values.get(name)?.onRemove === onRemove &&
-                this.values.delete(name)
-        }
+        value.addChangeSubscriber(onChange)
 
         this.values.set(name, {
             value,
             render: computed ? undefined : render,
-            onRemove,
+            onChange,
         })
 
-        return onRemove
+        return () => this.remove(name, value)
+    }
+
+    /**
+     * Unbind a value, if it's the one bound to this name.
+     */
+    remove(name: string, value?: MotionValue) {
+        const entry = this.values.get(name)
+        if (!entry || (value && entry.value !== value)) return
+
+        entry.value.removeChangeSubscriber(entry.onChange)
+        entry.render && this.cancel(entry.render)
+        this.values.delete(name)
     }
 
     get(name: string): MotionValue | undefined {
@@ -102,7 +175,7 @@ export class MotionValueState {
         const values = new Map<string, MotionValue>()
         this.values.forEach((entry, name) => {
             values.set(name, entry.value)
-            entry.onRemove()
+            this.remove(name)
         })
         this.transformKeys = this.transformValues = undefined
         return values
@@ -115,7 +188,11 @@ export class MotionValueState {
             if (pending[i] === render) return
         }
 
-        numPending || this.step(this.flush)
+        if (!numPending) {
+            const { batch } = this
+            batch.states.length || this.step(batch.flush)
+            batch.states.push(this)
+        }
 
         pending[this.numPending++] = render
     }
@@ -136,7 +213,7 @@ export class MotionValueState {
      * scheduled while flushing lands in the next frame, as with the
      * frameloop itself.
      */
-    flush = () => {
+    flush() {
         const { pending, numPending } = this
         this.numPending = 0
         for (let i = 0; i < numPending; i++) pending[i]()

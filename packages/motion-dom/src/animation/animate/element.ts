@@ -1,5 +1,11 @@
-import { styleSubjectEffect, StyleSubject } from "../../effects/style"
-import { svgSubjectEffect } from "../../effects/svg"
+import {
+    isStyleSubject,
+    readStyleValue,
+    styleSubjectEffect,
+    StyleSubject,
+} from "../../effects/style"
+import { readSVGValue, svgSubjectEffect } from "../../effects/svg"
+import type { AnimateEffect } from "../../effects/utils/create-effect"
 import { measureViewportBox } from "../../projection/utils/measure"
 import type { VisualElement } from "../../render/VisualElement"
 import { isSVGElement } from "../../utils/is-svg-element"
@@ -10,6 +16,7 @@ import { DOMKeyframesResolver } from "../keyframes/DOMKeyframesResolver"
 import { AnimationElement } from "../keyframes/types"
 import { AnimationPlaybackControlsWithThen } from "../types"
 import {
+    MultiValueRef,
     animateEffectSubject,
     animateValues,
     EffectKeyframes,
@@ -18,12 +25,33 @@ import {
 
 const noProps = {}
 
-type ElementEffect = typeof styleSubjectEffect
+/**
+ * The hooks `animate()` resolves elements through: whether an effect
+ * claims a subject, and the subject's current value as an animation's
+ * origin. They're attached here, which only `animate()` loads, so a
+ * `styleEffect()` or `svgEffect()` import alone doesn't bundle the
+ * computed-style and transform-matrix readers. The selector effects'
+ * `test` and `read` forward to these.
+ *
+ * Attached from a pure call whose result `getElementEffect` reads, so a
+ * bundle that keeps this module but never calls `animate()` (like a
+ * library that flattens Motion into one file) can still drop it.
+ */
+const attachHooks = () => {
+    Object.assign(styleSubjectEffect, {
+        test: isStyleSubject,
+        read: readStyleValue,
+    })
+    Object.assign(svgSubjectEffect, { test: isSVGElement, read: readSVGValue })
+    return [styleSubjectEffect, svgSubjectEffect] as ElementEffect[]
+}
+
+type ElementEffect = AnimateEffect<StyleSubject>
+
+const elementEffects = /*@__PURE__*/ attachHooks()
 
 const getElementEffect = (element: Element) =>
-    (isSVGElement(element)
-        ? svgSubjectEffect
-        : styleSubjectEffect) as ElementEffect
+    elementEffects[isSVGElement(element) ? 1 : 0]
 
 /**
  * Presents an effect bound to a DOM element in the shape the DOM keyframe
@@ -71,7 +99,8 @@ export function animateElement(
     element: StyleSubject,
     keyframes: EffectKeyframes,
     transition?: EffectTransition,
-    visualElement?: VisualElement
+    visualElement?: VisualElement,
+    animationRef?: MultiValueRef
 ): AnimationPlaybackControlsWithThen[] {
     activeScope.current?.track(element)
 
@@ -80,7 +109,8 @@ export function animateElement(
             (key) => visualElement.getValue(key, null),
             keyframes,
             transition,
-            visualElement
+            visualElement,
+            animationRef
         )
     }
 
@@ -91,7 +121,8 @@ export function animateElement(
         element,
         keyframes,
         transition,
-        new EffectSubject(effect, element)
+        new EffectSubject(effect, element),
+        animationRef
     )
 }
 

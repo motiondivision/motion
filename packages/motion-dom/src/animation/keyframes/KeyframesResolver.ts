@@ -1,6 +1,7 @@
 import { isNumericalString, isZeroValueString } from "motion-utils"
 import { frame } from "../../frameloop"
 import { MotionValue } from "../../value"
+import { batchTransformReads } from "../../render/dom/parse-transform"
 import { complex } from "../../value/types/complex"
 import { getAnimatableNone } from "../../value/types/utils/animatable-none"
 import { AnyResolvedKeyframe } from "../types"
@@ -93,13 +94,15 @@ function measureAllKeyframes() {
 }
 
 function readAllKeyframes() {
-    toResolve.forEach((resolver) => {
-        resolver.readKeyframes()
+    batchTransformReads(() =>
+        toResolve.forEach((resolver) => {
+            resolver.readKeyframes()
 
-        if (resolver.needsMeasurement) {
-            anyNeedsMeasurement = true
-        }
-    })
+            if (resolver.needsMeasurement) {
+                anyNeedsMeasurement = true
+            }
+        })
+    )
 }
 
 export function flushKeyframeResolvers() {
@@ -155,7 +158,7 @@ export class KeyframeResolver<T extends AnyResolvedKeyframe = any> {
      * resolver queue and flushed in the next frame. Resolvers that aren't going
      * to trigger read/write thrashing don't need to be async.
      */
-    protected isAsync = false
+    protected isAsync: boolean
 
     /**
      * Track whether this resolver needs to perform a measurement
@@ -225,17 +228,32 @@ export class KeyframeResolver<T extends AnyResolvedKeyframe = any> {
                 unresolvedKeyframes[0] = finalKeyframe
             }
 
+            /**
+             * A value made ahead of this read starts where the subject
+             * already is, so it isn't written back to it. Writing a style
+             * changes the style attribute, which on a page with rules
+             * that match on it makes the browser restyle the element and
+             * everything inside it.
+             *
+             * A value that never leaves its origin is written now, as no
+             * later change would write it, and what was read isn't always
+             * what the subject shows (originX reads as 0 with no
+             * transform-origin set).
+             */
             if (motionValue && currentValue === undefined) {
-                motionValue.set(unresolvedKeyframes[0] as T)
+                const origin = unresolvedKeyframes[0] as T
+                unresolvedKeyframes.some(
+                    (keyframe) => keyframe !== null && keyframe !== origin
+                )
+                    ? motionValue.setCurrent(origin)
+                    : motionValue.set(origin)
             }
         }
 
         fillWildcards(unresolvedKeyframes)
     }
 
-    setFinalKeyframe() {}
     measureInitialState() {}
-    renderEndStyles() {}
     measureEndState() {}
 
     complete(isForcedComplete = false) {

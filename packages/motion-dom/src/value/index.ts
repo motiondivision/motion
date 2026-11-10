@@ -61,6 +61,15 @@ export interface Owner {
 }
 
 export interface AccelerateConfig {
+    /**
+     * Plays a style of an element from this config and returns its cleanup.
+     * Set it to `bindAccelerate`. Without it the value is driven from JS.
+     */
+    bind?: (
+        element: HTMLElement,
+        name: string,
+        config: AccelerateConfig
+    ) => VoidFunction
     factory: (animation: AnimationPlaybackControlsWithThen) => VoidFunction
     times: number[]
     keyframes: any[]
@@ -246,45 +255,55 @@ export class MotionValue<V = any> {
     }
 
     /**
-     * An object containing a SubscriptionManager for each active event.
+     * A SubscriptionManager for each active event, made with the first
+     * subscriber that needs one. Most values only ever have one change
+     * subscriber, which is held without one.
      */
-    private events: {
+    private events?: {
         [key: string]: SubscriptionManager<any>
-    } = {}
+    }
 
     on<EventName extends keyof MotionValueEventCallbacks<V>>(
         eventName: EventName,
         callback: MotionValueEventCallbacks<V>[EventName]
     ): VoidFunction {
-        if (eventName === "change") return this.onChangeSubscribe(callback)
+        if (eventName === "change") {
+            this.addChangeSubscriber(callback)
+            return () => this.removeChangeSubscriber(callback)
+        }
 
-        return (this.events[eventName] ||= new SubscriptionManager()).add(
-            callback
-        )
+        return ((this.events ||= {})[eventName] ||=
+            new SubscriptionManager()).add(callback)
     }
 
-    private onChangeSubscribe(callback: Subscriber<V>): VoidFunction {
-        const { events } = this
+    /**
+     * on("change"), without making a function to unsubscribe, for
+     * subscribers that unsubscribe with removeChangeSubscriber().
+     */
+    addChangeSubscriber(callback: Subscriber<V>) {
+        const events = this.events
 
-        if (!events.change && !this.changeSubscriber) {
+        if (!events?.change && !this.changeSubscriber) {
             this.changeSubscriber = callback
         } else {
-            if (!events.change) {
-                events.change = new SubscriptionManager()
-                events.change.add(this.changeSubscriber!)
-                this.changeSubscriber = undefined
-            }
-            events.change.add(callback)
-        }
+            const change = ((this.events ||= {}).change ||=
+                new SubscriptionManager())
 
-        return () => {
-            if (this.changeSubscriber === callback) {
+            if (this.changeSubscriber) {
+                change.add(this.changeSubscriber)
                 this.changeSubscriber = undefined
-            } else {
-                events.change?.remove(callback)
             }
-            this.stopIfUnobserved()
+            change.add(callback)
         }
+    }
+
+    removeChangeSubscriber(callback: Subscriber<V>) {
+        if (this.changeSubscriber === callback) {
+            this.changeSubscriber = undefined
+        } else {
+            this.events?.change?.remove(callback)
+        }
+        this.stopIfUnobserved()
     }
 
     /**
@@ -293,7 +312,7 @@ export class MotionValue<V = any> {
      */
     private stopIfUnobserved() {
         frame.read(() => {
-            if (!this.changeSubscriber && !this.events.change?.getSize()) {
+            if (!this.changeSubscriber && !this.events?.change?.getSize()) {
                 this.stop()
             }
         })
@@ -331,7 +350,11 @@ export class MotionValue<V = any> {
      */
     set(v: V) {
         this.passiveEffect
-            ? this.passiveEffect(v, this.updateAndNotify)
+            ? this.passiveEffect(
+                  v,
+                  (this.boundUpdateAndNotify ||= (v: V) =>
+                      this.updateAndNotify(v))
+              )
             : this.updateAndNotify(v)
     }
 
@@ -373,7 +396,7 @@ export class MotionValue<V = any> {
         if (changeSubscriber) {
             changeSubscriber(current!)
         } else {
-            this.events.change?.notify(current)
+            this.events?.change?.notify(current)
         }
     }
 
@@ -385,7 +408,13 @@ export class MotionValue<V = any> {
         this.dependents?.delete(dependent)
     }
 
-    updateAndNotify = (v: V) => {
+    /**
+     * updateAndNotify bound to this value, made only for a passive effect,
+     * rather than one function per value.
+     */
+    private boundUpdateAndNotify?: (v: V) => void
+
+    updateAndNotify(v: V) {
         const currentTime = time.now()
 
         /**
@@ -393,16 +422,22 @@ export class MotionValue<V = any> {
          * than the previous frame, then the we set the previous frame value
          * to current.
          */
+        const prev = (this.prev = this.current)
+
         if (this.updatedAt !== currentTime) {
-            this.setPrevFrameValue()
+            this.prevFrameValue = prev
+            this.prevUpdatedAt = this.updatedAt
         }
 
-        this.prev = this.current
+        this.current = v
+        this.updatedAt = currentTime
 
-        this.setCurrent(v)
+        if (this.canTrackVelocity === null && v !== undefined) {
+            this.canTrackVelocity = isFloat(v)
+        }
 
         // Update update subscribers
-        if (this.current !== this.prev) {
+        if (v !== prev) {
             this.dirty()
 
             if (this.dependents) {
@@ -511,14 +546,14 @@ export class MotionValue<V = any> {
         // eslint-disable-next-line prefer-const -- read by the callback before assignment when completing synchronously
         animation = startAnimation(() => {
             isComplete = true
-            this.events.animationComplete?.notify()
+            this.events?.animationComplete?.notify()
             if (this.animation === animation) this.animation = undefined
             onComplete?.()
         })
 
         if (!isComplete) this.animation = animation
 
-        this.events.animationStart?.notify()
+        this.events?.animationStart?.notify()
     }
 
     /**
@@ -529,7 +564,7 @@ export class MotionValue<V = any> {
     stop() {
         if (this.animation) {
             this.animation.stop()
-            this.events.animationCancel?.notify()
+            this.events?.animationCancel?.notify()
         }
         // Assign rather than delete to keep the object's shape stable
         this.animation = undefined
@@ -555,7 +590,7 @@ export class MotionValue<V = any> {
      */
     destroy() {
         this.dependents?.clear()
-        this.events.destroy?.notify()
+        this.events?.destroy?.notify()
         this.clearListeners()
         this.stop()
         this.stopPassiveEffect?.()

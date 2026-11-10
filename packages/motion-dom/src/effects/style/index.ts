@@ -1,5 +1,9 @@
-import { transformGroups } from "../../animation/waapi/transforms/groups"
+import {
+    markRepaint,
+    transformGroups,
+} from "../../animation/waapi/transforms/groups"
 import { isCSSVar } from "../../render/dom/is-css-var"
+import { acceleratedValues } from "../../animation/waapi/utils/accelerated-values"
 import { readTransformValue } from "../../render/dom/parse-transform"
 import {
     transformPropOrder,
@@ -13,7 +17,18 @@ import { getValueAsType } from "../../value/types/utils/get-as-type"
 import { MotionValueState } from "../MotionValueState"
 import { createSelectorEffect } from "../utils/create-dom-effect"
 import { createEffect } from "../utils/create-effect"
+import { setStyle } from "./output"
 import { buildTransform } from "./transform"
+
+/**
+ * A style animating on the main thread repaints the element every frame.
+ * If it also has compositor transforms, count it, as too many such
+ * elements cost more than animating their transforms on the main thread.
+ */
+const noteRepaint = (element: Element, value: MotionValue) =>
+    value.isAnimating() &&
+    transformGroups.has(element) &&
+    markRepaint(element, value)
 
 export const originProps = new Set(["originX", "originY", "originZ"])
 
@@ -38,12 +53,14 @@ export const addStyleValue = (
             ;(state.transformValues ??= {})[key] = value
 
             if (!keys.includes(key)) {
-                keys.push(key)
-                keys.sort(
-                    (a, b) =>
-                        transformPropOrder.indexOf(a) -
-                        transformPropOrder.indexOf(b)
-                )
+                /**
+                 * Insert in transformPropOrder, rather than push and
+                 * sort, as animate() binds values one at a time.
+                 */
+                const order = transformPropOrder.indexOf(key)
+                let i = keys.length
+                while (i && transformPropOrder.indexOf(keys[i - 1]) > order) i--
+                keys.splice(i, 0, key)
             }
         }
 
@@ -59,7 +76,12 @@ export const addStyleValue = (
                 )
             }
 
-            state.set("transform", new MotionValue("none"), () => {
+            /**
+             * The transform is built from the values bound to it, which
+             * render it as they change. This holds the render, so has no
+             * value of its own to write when it's bound.
+             */
+            state.set("transform", new MotionValue(undefined), () => {
                 transformGroups.get(element)?.check()
                 element.style.transform = buildTransform(state)
             })
@@ -68,7 +90,7 @@ export const addStyleValue = (
         computed = state.get("transform")
     } else if (originProps.has(key)) {
         if (!state.get("transformOrigin")) {
-            state.set("transformOrigin", new MotionValue(""), () => {
+            state.set("transformOrigin", new MotionValue(undefined), () => {
                 const originX = styleValue(state, "originX") ?? "50%"
                 const originY = styleValue(state, "originY") ?? "50%"
                 const originZ = styleValue(state, "originZ") ?? 0
@@ -77,16 +99,18 @@ export const addStyleValue = (
         }
 
         computed = state.get("transformOrigin")
-    } else if (isCSSVar(key)) {
-        render = () => {
-            element.style.setProperty(key, value.getCurrent() as string)
-        }
     } else {
+        /**
+         * A CSS variable is never composited.
+         */
+        const isComposited = acceleratedValues.has(key)
         render = () => {
-            element.style[key as any] = getValueAsType(
-                value.getCurrent(),
-                numberValueTypes[key]
-            ) as string
+            isComposited || noteRepaint(element, value)
+            setStyle(
+                element,
+                key,
+                getValueAsType(value.getCurrent(), numberValueTypes[key])
+            )
         }
     }
 
@@ -95,7 +119,7 @@ export const addStyleValue = (
 
 export type StyleSubject = HTMLElement | SVGElement
 
-const isStyleSubject = (subject: unknown): subject is StyleSubject =>
+export const isStyleSubject = (subject: unknown): subject is StyleSubject =>
     isHTMLElement(subject) || isSVGElement(subject)
 
 /**
@@ -121,12 +145,11 @@ export const readStyleValue = (element: StyleSubject, key: string) => {
 /**
  * The per-element effect `animate()` binds through, so HTML values share
  * state with a direct `styleEffect()` call. The exported `styleEffect`
- * is this wrapped to also accept selectors.
+ * is this wrapped to also accept selectors. `animate()` attaches the
+ * `test` and `read` hooks (see animation/animate/element.ts), so a
+ * `styleEffect()` import alone doesn't bundle the computed-style readers.
  */
-export const styleSubjectEffect = /*@__PURE__*/ createEffect(addStyleValue, {
-    test: isStyleSubject,
-    read: readStyleValue,
-})
+export const styleSubjectEffect = /*@__PURE__*/ createEffect(addStyleValue)
 
 export const styleEffect =
     /*@__PURE__*/ createSelectorEffect(styleSubjectEffect)

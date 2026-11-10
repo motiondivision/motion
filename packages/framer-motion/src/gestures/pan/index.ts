@@ -5,7 +5,6 @@ import {
     PanSession,
     type PanInfo,
 } from "motion-dom"
-import { noop } from "motion-utils"
 
 type PanEventHandler = (event: PointerEvent, info: PanInfo) => void
 const asyncHandler =
@@ -18,7 +17,7 @@ const asyncHandler =
 export class PanGesture extends Feature<Element> {
     private session?: PanSession
 
-    private removePointerDownListener: Function = noop
+    private removePointerDownListener!: Function
 
     onPointerDown(pointerDownEvent: PointerEvent) {
         this.session = new PanSession(

@@ -1,463 +1,104 @@
-import {
-    clamp,
-    invariant,
-    millisecondsToSeconds,
-    pipe,
-    secondsToMilliseconds,
-} from "motion-utils"
 import { time } from "../frameloop/sync-time"
-import { mix } from "../utils/mix"
-import { Mixer } from "../utils/mix/types"
-import { frameloopDriver } from "./drivers/frame"
-import { DriverControls } from "./drivers/types"
-import { inertia } from "./generators/inertia"
-import { keyframes as keyframesGenerator } from "./generators/keyframes"
-import { calcGeneratorDuration } from "./generators/utils/calc-duration"
+import type { MotionValue } from "../value"
 import { calcGeneratorVelocity } from "./generators/utils/velocity"
-import { getFinalKeyframe } from "./keyframes/get-final"
+import { MultiValueAnimation, ValueTrack } from "./MultiValueAnimation"
+import { generateTrack } from "./track"
+import { supportTimelines } from "./animate/attach-timeline"
 import {
-    AnimationPlaybackControlsWithThen,
     AnimationState,
-    GeneratorFactory,
-    KeyframeGenerator,
     TimelineWithFallback,
     ValueAnimationOptions,
 } from "./types"
-import { replaceTransitionType } from "./utils/replace-transition-type"
-import { resolveStartTime } from "./utils/resolve-start-time"
-import { notifyAnimationStart } from "./utils/notify-inspector"
-import { WithPromise } from "./utils/WithPromise"
 
-const percentToProgress = (percent: number) => percent / 100
-
-export const round = (value: number) => Math.round(value * 10000) / 10000
-
-export class JSAnimation<T extends number | string>
-    extends WithPromise
-    implements AnimationPlaybackControlsWithThen
-{
-    state: AnimationPlayState = "idle"
-
-    startTime: number | null = null
+/**
+ * One value, animated from options that are already resolved, on an
+ * animation of its own. It's a MultiValueAnimation of one value, which
+ * is given to `onUpdate` rather than set on a motion value.
+ */
+export class JSAnimation<
+    T extends number | string
+> extends MultiValueAnimation {
+    private track: ValueTrack<T>
 
     /**
-     * The driver that's controlling the animation loop. Normally this is a requestAnimationFrame loop
-     * but in tests we can pass in a synchronous loop.
+     * Stands in for the motion value a track sets, and keeps the latest
+     * value. It's marked as updated so the track isn't caught up when
+     * stopped, which is done here.
      */
-    protected driver?: DriverControls
-
-    protected isStopped = false
-
-    /**
-     * The start time this animation picked for itself, until its first tick.
-     */
-    private pendingStartTime?: number
-
-    private generator: KeyframeGenerator<T>
-
-    private calculatedDuration: number
-
-    protected resolvedDuration: number
-
-    protected totalDuration: number
-
-    protected options: ValueAnimationOptions<T>
-
-    /**
-     * The current time of the animation.
-     */
-    private currentTime: number = 0
-
-    /**
-     * The time at which the animation was paused.
-     */
-    protected holdTime: number | null = null
-
-    /**
-     * Playback speed as a factor. 0 would be stopped, -1 reverse and 2 double speed.
-     */
-    private playbackSpeed = 1
-
-    /*
-     * If our generator doesn't support mixing numbers, we need to replace keyframes with
-     * [0, 100] and then make a function that maps that to the actual keyframes.
-     *
-     * 100 is chosen instead of 1 as it works nicer with spring animations.
-     */
-    private mixKeyframes: Mixer<T> | undefined
-
-    private mirroredGenerator: KeyframeGenerator<T> | undefined
-
-    /**
-     * Reusable state object for the delay phase to avoid
-     * allocating a new object every frame.
-     */
-    private delayState: AnimationState<T> = {
-        done: false,
-        value: undefined as unknown as T,
+    private output = {
+        latest: undefined as unknown as T,
+        updatedAt: 0,
+        set(latest: T) {
+            this.latest = latest
+        },
     }
+
+    /**
+     * The time in ms being sampled, which then is the clock's time.
+     */
+    private sampled?: number
 
     constructor(options: ValueAnimationOptions<T>) {
-        super()
+        super(options.driver)
 
-        this.options = options
-        this.initAnimation()
-        this.play()
+        const { autoplay, startTime, onUpdate } = options
+        Object.assign(this.options, { autoplay, startTime })
 
-        if (options.autoplay === false) this.pause()
-
-        notifyAnimationStart(this, this.options)
+        const track = (this.track = this.add(
+            options,
+            this.output as unknown as MotionValue<T>,
+            { transition: { onUpdate }, base: options } as any,
+            () => {}
+        ))
+        track.init()
+        this.start()
     }
 
-    initAnimation() {
-        const { options } = this
-
-        replaceTransitionType(options)
-
-        const {
-            type = keyframesGenerator,
-            repeat = 0,
-            repeatDelay = 0,
-            repeatType,
-            velocity = 0,
-        } = options
-        let { keyframes } = options
-
-        const generatorFactory =
-            (type as GeneratorFactory) || keyframesGenerator
-
-        if (
-            process.env.NODE_ENV !== "production" &&
-            generatorFactory !== keyframesGenerator
-        ) {
-            invariant(
-                keyframes.length <= 2,
-                `Only two keyframes currently supported with spring and inertia animations. Trying to animate ${keyframes}`,
-                "spring-two-frames"
-            )
-        }
-
-        /**
-         * This runs again when a spring is flattened to attach it to a
-         * timeline, and the keyframes generator blends values itself.
-         */
-        this.mixKeyframes = undefined
-
-        if (
-            generatorFactory !== keyframesGenerator &&
-            typeof keyframes[0] !== "number"
-        ) {
-            this.mixKeyframes = pipe(
-                percentToProgress,
-                options.mixer?.(keyframes[0], keyframes[1]) ||
-                    mix(keyframes[0], keyframes[1])
-            ) as (t: number) => T
-
-            keyframes = [0 as T, 100 as T]
-        }
-
-        const generator = generatorFactory(
-            keyframes === options.keyframes
-                ? options
-                : { ...options, keyframes }
-        )
-
-        /**
-         * If we have a mirror repeat type we need to create a second generator that outputs the
-         * mirrored (not reversed) animation and later ping pong between the two generators.
-         */
-        if (repeatType === "mirror") {
-            this.mirroredGenerator = generatorFactory({
-                ...options,
-                keyframes: [...keyframes].reverse(),
-                velocity: -velocity,
-            })
-        }
-
-        /**
-         * If duration is undefined and we have repeat options,
-         * we need to calculate a duration from the generator.
-         *
-         * We set it to the generator itself to cache the duration.
-         * Any timeline resolver will need to have already precalculated
-         * the duration by this step.
-         */
-        if (generator.calculatedDuration === null) {
-            generator.calculatedDuration = calcGeneratorDuration(generator)
-        }
-
-        const { calculatedDuration } = generator
-        this.calculatedDuration = calculatedDuration
-        this.resolvedDuration = calculatedDuration + repeatDelay
-        this.totalDuration = this.resolvedDuration * (repeat + 1) - repeatDelay
-        this.generator = generator
+    /**
+     * An inspector is given this animation, not its track.
+     */
+    onTrackReady(track: ValueTrack) {
+        super.onTrackReady(track, this)
     }
 
     updateTime(timestamp: number) {
-        // Rounding the time because floating point arithmetic is not always accurate, e.g. 3000.367 - 1000.367 =
-        // 2000.0000000000002. This is a problem when we are comparing the currentTime with the duration, for
-        // example.
-        this.currentTime =
-            this.holdTime ??
-            Math.round(timestamp - this.startTime!) * this.playbackSpeed
+        this.sampled === undefined
+            ? super.updateTime(timestamp)
+            : (this.currentTime = this.sampled)
     }
 
-    tick(timestamp: number, sample = false) {
-        const { generator, totalDuration, calculatedDuration } = this
+    /**
+     * The latest value, and whether its generator is done there.
+     */
+    tick(timestamp: number): AnimationState<T> {
+        const { track, output } = this
+        if (this.startTime === null) return track.generator.next(0)
 
-        if (this.startTime === null) return generator.next(0)
+        super.tick(timestamp)
 
-        const {
-            delay = 0,
-            keyframes,
-            type,
-            onUpdate,
-            finalKeyframe,
-        } = this.options
-
-        if (this.startTime === this.pendingStartTime) {
-            this.startTime = resolveStartTime(this.startTime, timestamp)
+        return {
+            value: output.latest,
+            done:
+                this.state === "finished" ||
+                generateTrack(track, this.currentTime, false).done,
         }
-        this.pendingStartTime = undefined
+    }
 
-        /**
-         * requestAnimationFrame timestamps can come through as lower than
-         * the startTime as set by performance.now(). Here we prevent this,
-         * though in the future it could be possible to make setting startTime
-         * a pending operation that gets resolved here.
-         */
-        if (this.speed > 0) {
-            this.startTime = Math.min(this.startTime, timestamp)
-        } else if (this.speed < 0) {
-            this.startTime = Math.min(
-                timestamp - totalDuration / this.speed,
-                this.startTime
-            )
-        }
+    finish() {
+        super.finish()
+        this.track.options.onComplete?.()
+    }
 
-        if (sample) {
-            this.currentTime = timestamp
-        } else {
-            this.updateTime(timestamp)
-        }
-
-        // Rebase on delay
-        const timeWithoutDelay =
-            this.currentTime - delay * (this.playbackSpeed >= 0 ? 1 : -1)
-        const isInDelayPhase =
-            this.playbackSpeed >= 0
-                ? timeWithoutDelay < 0
-                : timeWithoutDelay > totalDuration
-        this.currentTime = Math.max(timeWithoutDelay, 0)
-
-        // If this animation has finished, set the current time  to the total duration.
-        if (this.state === "finished" && this.holdTime === null) {
-            this.currentTime = totalDuration
-        }
-
-        const state = this.generate(this.currentTime, isInDelayPhase)
-
-        let { done } = state
-
-        /**
-         * A generator that takes longer than maxGeneratorDuration to finish
-         * has an Infinity duration, so played forwards it finishes when it
-         * says it's done.
-         */
-        if (!isInDelayPhase) {
-            done =
-                this.playbackSpeed >= 0
-                    ? calculatedDuration < Infinity
-                        ? this.currentTime >= totalDuration
-                        : done
-                    : this.currentTime <= 0
-        }
-
-        const isAnimationFinished =
-            this.holdTime === null &&
-            (this.state === "finished" || (this.state === "running" && done))
-
-        // TODO: The exception for inertia could be cleaner here
-        if (isAnimationFinished && type !== inertia) {
-            state.value = getFinalKeyframe(
-                keyframes,
-                this.options,
-                finalKeyframe,
-                this.speed
-            )
-        }
-
-        if (onUpdate) {
-            onUpdate(state.value)
-        }
-
-        if (isAnimationFinished) {
-            this.finish()
-        }
-
+    /**
+     * Move to a time in ms, delay included, whatever the clock's time and
+     * speed, and update the value.
+     */
+    sample(sampleTime: number): AnimationState<T> {
+        this.startTime = 0
+        this.sampled = sampleTime
+        const state = this.tick(sampleTime)
+        this.sampled = undefined
         return state
-    }
-
-    /**
-     * This animation's time, including delay, at a timestamp.
-     */
-    at(timestamp: number) {
-        return (
-            this.holdTime ??
-            round((timestamp - this.startTime!) * this.playbackSpeed)
-        )
-    }
-
-    /**
-     * The value at a timestamp, without changing this animation's state.
-     * If resolved, it ends at the last resolved keyframe, which is in the
-     * same unit as the others, rather than at finalKeyframe.
-     */
-    sampleAt(timestamp: number, resolved?: boolean): T {
-        const { options, totalDuration } = this
-        const t = this.at(timestamp) - (options.delay || 0)
-
-        return t >= totalDuration && options.type !== inertia
-            ? getFinalKeyframe(
-                  options.keyframes,
-                  options,
-                  resolved ? undefined : options.finalKeyframe
-              )
-            : this.generate(Math.max(t, 0), t < 0).value
-    }
-
-    /**
-     * The generator's state `currentTime` ms after the delay, without
-     * changing the animation's own state.
-     */
-    protected generate(
-        currentTime: number,
-        isInDelayPhase: boolean
-    ): AnimationState<T> {
-        const {
-            generator,
-            totalDuration,
-            mixKeyframes,
-            mirroredGenerator,
-            resolvedDuration,
-        } = this
-        const { keyframes, repeat, repeatType, repeatDelay } = this.options
-
-        let elapsed = currentTime
-        let frameGenerator = generator
-
-        if (repeat) {
-            /**
-             * Get the current progress (0-1) of the animation. If t is >
-             * than duration we'll get values like 2.5 (midway through the
-             * third iteration)
-             */
-            const progress =
-                Math.min(currentTime, totalDuration) / resolvedDuration
-
-            /**
-             * Get the current iteration (0 indexed). For instance the floor of
-             * 2.5 is 2.
-             */
-            let currentIteration = Math.floor(progress)
-
-            /**
-             * Get the current progress of the iteration by taking the remainder
-             * so 2.5 is 0.5 through iteration 2
-             */
-            let iterationProgress = progress % 1.0
-
-            /**
-             * If iteration progress is 1 we count that as the end
-             * of the previous iteration.
-             */
-            if (!iterationProgress && progress >= 1) {
-                iterationProgress = 1
-            }
-
-            iterationProgress === 1 && currentIteration--
-
-            currentIteration = Math.min(currentIteration, repeat + 1)
-
-            /**
-             * Reverse progress if we're not running in "normal" direction
-             */
-
-            const isOddIteration = Boolean(currentIteration % 2)
-            if (isOddIteration) {
-                if (repeatType === "reverse") {
-                    iterationProgress = 1 - iterationProgress
-                    if (repeatDelay) {
-                        iterationProgress -= repeatDelay / resolvedDuration
-                    }
-                } else if (repeatType === "mirror") {
-                    frameGenerator = mirroredGenerator!
-                }
-            }
-
-            elapsed = clamp(0, 1, iterationProgress) * resolvedDuration
-        }
-
-        /**
-         * If we're in negative time, set state as the initial keyframe.
-         * This prevents delay: x, duration: 0 animations from finishing
-         * instantly.
-         */
-        let state: AnimationState<T>
-        if (isInDelayPhase) {
-            this.delayState.value = keyframes[0]
-            state = this.delayState
-        } else {
-            state = frameGenerator.next(elapsed)
-        }
-
-        if (mixKeyframes && !isInDelayPhase) {
-            state.value = mixKeyframes(state.value as number)
-        }
-
-        return state
-    }
-
-    get duration() {
-        return millisecondsToSeconds(this.calculatedDuration)
-    }
-
-    get iterationDuration() {
-        return this.duration + millisecondsToSeconds(this.options.delay ?? 0)
-    }
-
-    get time() {
-        return millisecondsToSeconds(this.currentTime)
-    }
-
-    set time(newTime: number) {
-        /**
-         * Seeking out of "finished" leaves the animation paused, so play()
-         * won't renew finished. Renew it here.
-         */
-        if (this.state === "finished") this.updateFinished()
-
-        newTime = secondsToMilliseconds(newTime)
-        this.currentTime = newTime
-
-        if (
-            this.startTime === null ||
-            this.holdTime !== null ||
-            this.playbackSpeed === 0
-        ) {
-            this.holdTime = newTime
-        } else if (this.driver) {
-            this.startTime = this.driver.now() - newTime / this.playbackSpeed
-        }
-
-        if (this.driver) {
-            this.driver.start(false)
-        } else {
-            this.startTime = 0
-            this.state = "paused"
-            this.holdTime = newTime
-            this.tick(newTime)
-        }
     }
 
     /**
@@ -467,145 +108,29 @@ export class JSAnimation<T extends number | string>
      */
     getGeneratorVelocity(): number {
         return calcGeneratorVelocity(
-            this.generator,
+            this.track.generator,
             this.currentTime,
-            this.options.velocity
+            this.track.options.velocity
         )
     }
 
-    get speed() {
-        return this.playbackSpeed
+    attachTimeline(timeline: TimelineWithFallback) {
+        supportTimelines()
+        return super.attachTimeline(timeline)
     }
 
-    set speed(newSpeed: number) {
-        const hasChanged = this.playbackSpeed !== newSpeed
-
-        if (hasChanged && this.driver) {
-            this.updateTime(time.now())
-        }
-
-        this.playbackSpeed = newSpeed
-
-        if (hasChanged && this.driver) {
-            this.time = millisecondsToSeconds(this.currentTime)
-        }
-    }
-
-    play() {
-        if (this.isStopped) return
-
-        const { driver = frameloopDriver, startTime } = this.options
-
-        if (!this.driver) {
-            this.driver = driver((timestamp) => this.tick(timestamp))
-        }
-
-        this.options.onPlay?.()
-
-        const now = this.driver.now()
-
-        if (this.state === "finished") {
-            this.updateFinished()
-            this.startTime = now
-        } else if (this.holdTime !== null) {
-            this.startTime = now - this.holdTime / (this.playbackSpeed || 1)
-        } else if (!this.startTime) {
-            this.startTime = startTime ?? (this.pendingStartTime = now)
-        }
-
-        if (this.state === "finished" && this.speed < 0) {
-            this.startTime += this.calculatedDuration
-        }
-
-        this.holdTime = null
-
+    protected stopAnimation() {
+        const { motionValue } = this.track.options
+        const now = (this.output.updatedAt = time.now())
         /**
-         * Set playState to running only after we've used it in
-         * the previous logic.
+         * Catch the value up to now, but measure its velocity from the
+         * previous frame: marking it as updated now keeps the value's
+         * previous-frame sample.
          */
-        this.state = "running"
-
-        this.driver.start()
-    }
-
-    pause() {
-        this.state = "paused"
-        this.updateTime(time.now())
-        this.holdTime = this.currentTime
-    }
-
-    /**
-     * This method is bound to the instance to fix a pattern where
-     * animation.stop is returned as a reference from a useEffect.
-     */
-    stop = () => {
-        const { motionValue } = this.options
-        const now = time.now()
         if (motionValue && motionValue.updatedAt !== now) {
-            /**
-             * Catch the value up to now, but measure its velocity from the
-             * previous frame: marking it as updated now keeps the value's
-             * previous-frame sample. This tick is usually less than a frame
-             * after the last, and the animation's time is rounded to whole
-             * milliseconds, so measured from the last frame alone the
-             * velocity an interrupting animation inherits could read as 0,
-             * or a multiple of the real one.
-             */
             this.tick((motionValue.updatedAt = now))
         }
-
-        this.isStopped = true
-        if (this.state === "idle") return
-        this.teardown()
-        this.options.onStop?.()
-    }
-
-    complete() {
-        if (this.state !== "running") {
-            this.play()
-        }
-
-        this.state = "finished"
-        this.holdTime = null
-    }
-
-    finish() {
-        this.notifyFinished()
-        this.teardown()
-        this.state = "finished"
-
-        this.options.onComplete?.()
-    }
-
-    cancel() {
-        this.holdTime = null
-        this.startTime = 0
-        this.tick(0)
-        this.teardown()
-        this.options.onCancel?.()
-    }
-
-    private teardown() {
-        this.state = "idle"
-        this.driver?.stop()
-        this.driver = undefined
-        this.startTime = this.holdTime = null
-    }
-
-    sample(sampleTime: number): AnimationState<T> {
-        this.startTime = 0
-        return this.tick(sampleTime, true)
-    }
-
-    attachTimeline(timeline: TimelineWithFallback): VoidFunction {
-        if (this.options.allowFlatten) {
-            this.options.type = "keyframes"
-            this.options.ease = "linear"
-            this.initAnimation()
-        }
-
-        this.driver?.stop()
-        return timeline.observe(this)
+        super.stopAnimation()
     }
 }
 

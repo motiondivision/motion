@@ -4,7 +4,13 @@ import { frame } from "../../../frameloop"
 import { HTMLVisualElement } from "../../../render/html/HTMLVisualElement"
 import { motionValue } from "../../../value"
 import { arc } from "../../utils/arc"
+import { supportTimelines } from "../attach-timeline"
 import { animateElement, handOffElementState } from "../element"
+
+/**
+ * The code that attaches a timeline loads this, as a Timeline does.
+ */
+supportTimelines()
 
 async function nextFrame() {
     return new Promise<void>((resolve) => {
@@ -29,6 +35,33 @@ function createVisualElement() {
 }
 
 describe("animateElement", () => {
+    it("holds its value against another write while paused", async () => {
+        const element = document.createElement("div")
+        const onUpdate = jest.fn()
+
+        const [animation] = animateElement(
+            element,
+            { width: [0, 100] },
+            { duration: 10, ease: "linear", onUpdate }
+        )
+        await nextFrame()
+        await nextFrame()
+
+        animation.pause()
+        await nextFrame()
+        const calls = onUpdate.mock.calls.length
+        const held = styleEffect.get(element, "width")!.get()
+
+        styleEffect.get(element, "width")!.set(500)
+        await nextFrame()
+        await nextFrame()
+
+        expect(onUpdate.mock.calls.length).toBe(calls + 2)
+        expect(styleEffect.get(element, "width")!.get()).toBe(held)
+        expect(element.style.width).toBe(held + "px")
+        animation.stop()
+    })
+
     it("reads the initial value from the DOM before the first frame", async () => {
         const element = document.createElement("div")
         element.style.opacity = "0"
@@ -528,5 +561,142 @@ describe("animateElement", () => {
 
             animation.stop()
         })
+    })
+})
+
+describe("values of one call", () => {
+    const timeline = () => {
+        let seek: (progress: number) => void = () => {}
+        return {
+            seek: (progress: number) => seek(progress),
+            observe: (animation: any) => {
+                animation.pause()
+                seek = (progress) =>
+                    (animation.time = animation.iterationDuration * progress)
+                return () => {}
+            },
+        }
+    }
+
+    test("follow a scroll timeline together, with a default easing made linear", async () => {
+        const element = document.createElement("div")
+        const [opacity] = animateElement(
+            element,
+            { opacity: [0, 1], width: ["0px", "100px"] },
+            { duration: 1 }
+        )
+        const scroll = timeline()
+        opacity.attachTimeline(scroll)
+
+        scroll.seek(0.5)
+        await nextFrame()
+
+        expect(element.style.opacity).toBe("0.5")
+        expect(element.style.width).toBe("50px")
+    })
+
+    test("keep a given easing on a scroll timeline", async () => {
+        const element = document.createElement("div")
+        const [opacity] = animateElement(
+            element,
+            { opacity: [0, 1], width: ["0px", "100px"] },
+            { duration: 1, ease: "easeIn" }
+        )
+        const scroll = timeline()
+        opacity.attachTimeline(scroll)
+
+        scroll.seek(0.5)
+        await nextFrame()
+
+        expect(parseFloat(element.style.opacity)).toBeLessThan(0.5)
+    })
+
+    test("are controlled together through any of them", async () => {
+        const element = document.createElement("div")
+        const [opacity, width] = animateElement(
+            element,
+            { opacity: [0, 1], width: ["0px", "100px"] },
+            { duration: 1, ease: "linear" }
+        )
+
+        opacity.pause()
+        opacity.time = 0.25
+        await nextFrame()
+
+        expect(width.state).toBe("paused")
+        expect(element.style.width).toBe("25px")
+    })
+
+    test("call each value's onPlay, onStop and onCancel", async () => {
+        const element = document.createElement("div")
+        const calls: string[] = []
+        const log = (name: string) => ({
+            onPlay: () => calls.push(name + " play"),
+            onStop: () => calls.push(name + " stop"),
+            onCancel: () => calls.push(name + " cancel"),
+        })
+        const [animation] = animateElement(
+            element,
+            { opacity: [0, 1], width: ["0px", "100px"] },
+            { duration: 1, opacity: log("opacity"), width: log("width") }
+        )
+        await nextFrame()
+        expect(calls).toEqual(["opacity play", "width play"])
+
+        animation.pause()
+        animation.play()
+        expect(calls.slice(2)).toEqual(["opacity play", "width play"])
+
+        animation.cancel()
+        expect(calls.slice(4)).toEqual(["opacity cancel", "width cancel"])
+
+        calls.length = 0
+        const [, width] = animateElement(
+            element,
+            { opacity: [0, 1], width: ["0px", "100px"] },
+            { duration: 1, opacity: log("opacity"), width: log("width") }
+        )
+        await nextFrame()
+        animateElement(element, { opacity: 0.5 }, { duration: 1 })
+        await nextFrame()
+        expect(calls.slice(2)).toEqual(["opacity stop"])
+
+        width.stop()
+        expect(calls.slice(3)).toEqual(["width stop"])
+    })
+})
+
+describe("a value that's read from the DOM at its target", () => {
+    test("is still written to the element", async () => {
+        const element = document.createElement("div")
+        document.body.appendChild(element)
+
+        const animations = animateElement(
+            element,
+            { originX: 0, opacity: 1 },
+            { duration: 0.05 }
+        )
+
+        await Promise.all(animations.map((animation) => animation.finished))
+        await nextFrame()
+
+        expect(element.style.transformOrigin).toBe("0% 50% 0")
+        expect(element.style.opacity).toBe("1")
+
+        element.remove()
+    })
+
+    test("is written when it's set without an animation", async () => {
+        const element = document.createElement("div")
+        document.body.appendChild(element)
+
+        animateElement(element, { originX: 0 }, { duration: 0 })
+
+        await nextFrame()
+        await nextFrame()
+
+        expect(element.style.transformOrigin).toBe("0% 50% 0")
+
+        element.remove()
     })
 })

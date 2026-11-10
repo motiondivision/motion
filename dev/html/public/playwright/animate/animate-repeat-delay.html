@@ -1,0 +1,73 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+
+            .box {
+                width: 100px;
+                height: 100px;
+                background-color: #0077ff;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="box" id="reverse"></div>
+        <div class="box" id="loop"></div>
+        <div class="box" id="once"></div>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            const { animate } = window.Motion
+
+            const options = {
+                duration: 0.4,
+                ease: "linear",
+                repeatDelay: 0.4,
+            }
+
+            const readX = (id) =>
+                new DOMMatrixReadOnly(
+                    getComputedStyle(document.getElementById(id)).transform
+                ).m41
+
+            /**
+             * Each animation's x every frame, and when it finished, in
+             * ms since it started.
+             */
+            const record = (id, animation) => {
+                const startedAt = performance.now()
+                const result = { frames: [], finishedAt: undefined }
+                animation.finished.then(() => {
+                    result.finishedAt = performance.now() - startedAt
+                })
+                const tick = () => {
+                    const t = performance.now() - startedAt
+                    result.frames.push({ t, x: readX(id) })
+                    t < 2500 && requestAnimationFrame(tick)
+                }
+                requestAnimationFrame(tick)
+                return result
+            }
+
+            window.results = {
+                // Out, hold, back: done after 1200ms.
+                reverse: record(
+                    "reverse",
+                    animate(
+                        "#reverse",
+                        { x: [0, 200] },
+                        { ...options, repeat: 1, repeatType: "reverse" }
+                    )
+                ),
+                // Out, hold, out again: done after 1200ms.
+                loop: record(
+                    "loop",
+                    animate("#loop", { x: [0, 200] }, { ...options, repeat: 1 })
+                ),
+                // Without a repeat there's nothing to delay: 400ms.
+                once: record("once", animate("#once", { x: [0, 200] }, options)),
+            }
+        </script>
+    </body>
+</html>

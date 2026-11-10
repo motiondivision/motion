@@ -1,3 +1,4 @@
+import "../../animation/animate/element"
 import { frame } from "../../frameloop"
 import { motionValue } from "../../value"
 import { styleEffect } from "../style"
@@ -564,16 +565,18 @@ describe("styleEffect", () => {
 })
 
 describe("styleEffect as an animate() effect", () => {
+    // Attached by the animate() element module, imported above
+    const test = styleEffect.test!
+    const read = styleEffect.read!
+
     it("claims HTML and SVG elements only", () => {
-        expect(styleEffect.test(document.createElement("div"))).toBe(true)
+        expect(test(document.createElement("div"))).toBe(true)
         expect(
-            styleEffect.test(
-                document.createElementNS("http://www.w3.org/2000/svg", "rect")
-            )
+            test(document.createElementNS("http://www.w3.org/2000/svg", "rect"))
         ).toBe(true)
-        expect(styleEffect.test({})).toBe(false)
-        expect(styleEffect.test("div")).toBe(false)
-        expect(styleEffect.test(null)).toBe(false)
+        expect(test({})).toBe(false)
+        expect(test("div")).toBe(false)
+        expect(test(null)).toBe(false)
     })
 
     it("reads styles, CSS variables and transforms from the element", () => {
@@ -584,20 +587,18 @@ describe("styleEffect as an animate() effect", () => {
         // Browsers report computed transforms as a matrix
         element.style.transform = "matrix(2, 0, 0, 2, 20, 0)"
 
-        expect(styleEffect.read(element, "width")).toBe("50px")
-        expect(styleEffect.read(element, "backgroundColor")).toBe(
-            "rgb(255, 0, 0)"
-        )
-        expect(styleEffect.read(element, "--progress")).toBe("0.5")
-        expect(styleEffect.read(element, "x")).toBe(20)
-        expect(styleEffect.read(element, "scale")).toBe(2)
-        expect(styleEffect.read(element, "rotate")).toBe(0)
+        expect(read(element, "width")).toBe("50px")
+        expect(read(element, "backgroundColor")).toBe("rgb(255, 0, 0)")
+        expect(read(element, "--progress")).toBe("0.5")
+        expect(read(element, "x")).toBe(20)
+        expect(read(element, "scale")).toBe(2)
+        expect(read(element, "rotate")).toBe(0)
     })
 
     it("returns 0 for styles the browser can't report", () => {
         const element = document.createElement("div")
 
-        expect(styleEffect.read(element, "notAStyle")).toBe(0)
+        expect(read(element, "notAStyle")).toBe(0)
     })
 
     it("exposes bound motion values via get", () => {
