@@ -4,6 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [14.12.1] 2026-11-10
+
+### Fixed
+
+-   `pinch`: `drag` initiated during snap animation no longer breaks animation.
+
 ## [14.12.0] 2026-11-10
 
 ### Added
