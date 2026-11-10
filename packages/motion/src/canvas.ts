@@ -1,5 +1,10 @@
 export { canvasEffect } from "./canvas/effect"
 export {
+    defineMotionCanvas,
+    type MotionCanvasElement,
+    type MotionCanvasOptions,
+} from "./canvas/element"
+export {
     canvasLayer,
     type CanvasElementOptions,
     type CanvasLayer,

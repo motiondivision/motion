@@ -1,0 +1,82 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+
+            motion-canvas {
+                position: absolute;
+                left: 50px;
+                top: 40px;
+                width: 400px;
+                height: 300px;
+            }
+
+            #card {
+                width: 100px;
+                height: 60px;
+                background: rgb(255, 0, 0);
+            }
+
+            #button {
+                width: 120px;
+                height: 40px;
+                border: 0;
+                padding: 0;
+                background: rgb(0, 0, 255);
+                color: white;
+            }
+
+            #late {
+                width: 50px;
+                height: 50px;
+                background: rgb(0, 255, 0);
+            }
+        </style>
+    </head>
+    <body>
+        <motion-canvas motion-blur="0.5" samples="12">
+            <div id="card"></div>
+            <button id="button" shader="invert">0</button>
+        </motion-canvas>
+        <script type="module">
+            import {
+                animate,
+                defineMotionCanvas,
+                htmlInCanvas,
+            } from "/src/canvas-inc.js"
+            import { nextRender, readCanvas } from "./pixels.js"
+
+            const host = document.querySelector("motion-canvas")
+            const card = document.getElementById("card")
+            const button = document.getElementById("button")
+
+            defineMotionCanvas({
+                shaders: {
+                    invert: `vec4 effect(vec2 uv) {
+                        vec4 c = texture(uTexture, uv);
+                        return vec4(c.a - c.rgb, c.a);
+                    }`,
+                },
+            })
+
+            let clicks = 0
+            button.addEventListener("click", () => clicks++)
+
+            Object.assign(window, {
+                animate,
+                host,
+                card,
+                button,
+                htmlInCanvas,
+                nextRender: () => nextRender(host.layer),
+            })
+            Object.defineProperty(window, "clicks", { get: () => clicks })
+
+            host.layer
+                ? nextRender(host.layer).then(() => (window.ready = true))
+                : (window.ready = true)
+        </script>
+    </body>
+</html>

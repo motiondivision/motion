@@ -97,7 +97,7 @@ export interface CanvasLayer {
 
     /**
      * Draw `element`, a child of the canvas (it's appended if it isn't
-     * one), with Motion values. `animate()` and `drag()` then animate those
+     * one, or slotted into it), with Motion values. `animate()` and `drag()` then animate those
      * values instead of the element's style. Elements are drawn in DOM
      * order, as they're stacked for hit testing.
      */
@@ -511,7 +511,7 @@ export function canvasLayer(
         gl.enableVertexAttribArray(0)
         gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0)
 
-        for (const element of canvas.children) {
+        for (const element of drawOrder(canvas)) {
             const item = items.get(element)
             if (!item) continue
 
@@ -653,7 +653,9 @@ export function canvasLayer(
             }
         })
 
-        element.parentNode !== canvas && canvas.appendChild(element)
+        element.parentNode !== canvas &&
+            element.assignedSlot?.parentNode !== canvas &&
+            canvas.appendChild(element)
         element.setAttribute("drawable", "")
         existing || visualElement.mount(element)
 
@@ -695,6 +697,20 @@ export function canvasLayer(
         invalidate,
         destroy,
     })
+}
+
+/**
+ * The canvas' children in the order they're drawn. A <slot>, as a canvas
+ * in a shadow root has, stands for the elements assigned to it.
+ */
+function drawOrder(canvas: HTMLCanvasElement) {
+    const elements: Element[] = []
+    for (const child of canvas.children) {
+        child instanceof HTMLSlotElement
+            ? elements.push(...child.assignedElements())
+            : elements.push(child)
+    }
+    return elements
 }
 
 function createTexture(gl: WebGL2RenderingContext) {
