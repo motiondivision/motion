@@ -485,8 +485,6 @@ export function addPinchListeners(
          * step and the focal point stays in place.
          */
         const tick = () => {
-            if (dragControls()?.isDragging) return stopSnap()
-
             const { value: p, done } = generator.next(time.now() - startTime)
             if (done) stopSnap()
 
@@ -495,7 +493,8 @@ export function addPinchListeners(
             scaleOption !== false && scale.set(k)
             rotateOption !== false && rotate.set(r)
 
-            if (moves) {
+            // A drag that starts mid-snap owns x/y from then on.
+            if (moves && !dragControls()?.isDragging) {
                 x.set(snapToOrigin ? mixNumber(x0, 0, p) : fx)
                 y.set(snapToOrigin ? mixNumber(y0, 0, p) : fy)
             }

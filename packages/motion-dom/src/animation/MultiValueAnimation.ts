@@ -124,6 +124,7 @@ export class ValueTrack<T extends AnyResolvedKeyframe = any>
      * Join its element's transform group, which composes it from now.
      */
     join() {
+        this.parent.anchor(time.now())
         const group = (this.group = joinGroup(this))
         group.isJS || group.schedule(false)
     }
@@ -486,15 +487,23 @@ export class MultiValueAnimation extends AnimationClock<any> {
             native.pause()
             native.currentTime = this.holdTime ?? 0
         } else {
-            /**
-             * A start time that was given is kept. One the animation
-             * picked may have been long ago by now.
-             */
-            native.startTime =
-                startTime === this.options.startTime
-                    ? startTime
-                    : resolveStartTime(startTime, time.now())
+            native.startTime = this.anchor(time.now())
         }
+    }
+
+    /**
+     * A start time that was given is kept. One the animation picked may
+     * have been long ago by the time its keyframes resolve, or its first
+     * frame renders, so it starts from then instead. That's decided once,
+     * by whichever of WAAPI and the first tick needs it first, so the
+     * values WAAPI plays and the clock run from the same time.
+     */
+    anchor(now: number) {
+        if (this.startTime === this.pendingStartTime) {
+            this.startTime = resolveStartTime(this.startTime!, now)
+        }
+        this.pendingStartTime = undefined
+        return this.startTime
     }
 
     /**
@@ -614,10 +623,7 @@ export class MultiValueAnimation extends AnimationClock<any> {
     tick(timestamp: number): AnimationState<any> {
         if (this.startTime === null) return undefined as any
 
-        if (this.startTime === this.pendingStartTime) {
-            this.startTime = resolveStartTime(this.startTime, timestamp)
-        }
-        this.pendingStartTime = undefined
+        this.anchor(timestamp)
 
         const speed = this.playbackSpeed
         const { holdTime, totalDuration, tracks } = this
@@ -989,6 +995,13 @@ export class MultiValueAnimation extends AnimationClock<any> {
             this.startTime !== null &&
             track.value.updatedAt !== now
         ) {
+            /**
+             * Marked as updated now, the value keeps its sample from the
+             * previous frame, so the velocity an interrupting animation
+             * inherits is measured from there, not from the part of a
+             * frame since.
+             */
+            track.value.updatedAt = now
             track.update(this.valueAt(track, now))
         }
     }
