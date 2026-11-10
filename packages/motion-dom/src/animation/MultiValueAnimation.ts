@@ -995,6 +995,13 @@ export class MultiValueAnimation extends AnimationClock<any> {
             this.startTime !== null &&
             track.value.updatedAt !== now
         ) {
+            /**
+             * Marked as updated now, the value keeps its sample from the
+             * previous frame, so the velocity an interrupting animation
+             * inherits is measured from there, not from the part of a
+             * frame since.
+             */
+            track.value.updatedAt = now
             track.update(this.valueAt(track, now))
         }
     }
