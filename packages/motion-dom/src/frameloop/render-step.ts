@@ -30,11 +30,10 @@ export function createRenderStep(runNextFrame: () => void): Step {
      */
     const toKeepAlive = new Set<Process>()
 
-    let latestFrameData: FrameData = {
-        delta: 0.0,
-        timestamp: 0.0,
-        isProcessing: false,
-    }
+    /**
+     * Set by process() before any callback runs.
+     */
+    let latestFrameData: FrameData
 
     function triggerCallback(callback: Process) {
         if (toKeepAlive.has(callback)) {

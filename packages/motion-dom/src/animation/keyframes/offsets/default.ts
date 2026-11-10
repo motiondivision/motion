@@ -1,12 +1,11 @@
-import { fillOffset } from "./fill"
-
 export function defaultOffset(arr: any[]): number[] {
-    /**
-     * Most animations have two keyframes.
-     */
-    if (arr.length === 2) return [0, 1]
-
     const offset = [0]
-    fillOffset(offset, arr.length - 1)
+    const remaining = arr.length - 1
+
+    /**
+     * The same offsets as fillOffset(offset, remaining) makes from [0].
+     */
+    for (let i = 1; i <= remaining; i++) offset.push(i / remaining)
+
     return offset
 }

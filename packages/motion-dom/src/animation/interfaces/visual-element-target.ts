@@ -106,7 +106,7 @@ export function animateTarget(
         const valueTransition = {
             delay,
             ...getValueTransition(
-                animationTypeState?.out[key] || transition || {},
+                animationTypeState?.out[key] || transition,
                 key
             ),
         }
@@ -186,9 +186,7 @@ export function animateTarget(
 
     if (transitionEnd) {
         const applyTransitionEnd = () =>
-            frame.update(() => {
-                transitionEnd && setTarget(visualElement, transitionEnd)
-            })
+            frame.update(() => setTarget(visualElement, transitionEnd))
 
         if (animations.length) {
             Promise.all(animations).then(applyTransitionEnd)

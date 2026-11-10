@@ -1,5 +1,6 @@
 import {
     AnimationPlaybackControls,
+    bindAccelerate,
     motionValue,
     supportsFlags,
     TimelineWithFallback,
@@ -36,6 +37,7 @@ describe("accelerated motion values", () => {
         cleanup = jest.fn()
         const opacity = motionValue(0)
         opacity.accelerate = {
+            bind: bindAccelerate,
             factory: (animation) => {
                 controls = animation
                 return cleanup

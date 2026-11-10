@@ -2,21 +2,11 @@ import {
     Box,
     isNumericalString,
     isZeroValueString,
-    noop,
-    secondsToMilliseconds,
     SubscriptionManager,
     warnOnce,
 } from "motion-utils"
 import type { KeyframeResolver } from "../animation/keyframes/KeyframesResolver"
-import type {
-    AnimationPlaybackControlsWithThen,
-    AnyResolvedKeyframe,
-    TimelineWithFallback,
-} from "../animation/types"
-import { notifyAnimationStart } from "../animation/utils/notify-inspector"
-import { mapEasingToNativeEasing } from "../animation/waapi/easing/map-easing"
-import { animateStyle, setStyle } from "../effects/style/output"
-import { supportsScrollTimeline } from "../utils/supports/scroll-timeline"
+import type { AnyResolvedKeyframe } from "../animation/types"
 import { acceleratedValues } from "../animation/waapi/utils/accelerated-values"
 import { transformGroups } from "../animation/waapi/transforms/groups"
 import { cancelFrame, frame } from "../frameloop"
@@ -252,8 +242,8 @@ export abstract class VisualElement<
     /**
      * Determine what role this visual element should take in the variant tree.
      */
-    isVariantNode: boolean = false
-    isControllingVariants: boolean = false
+    isVariantNode: boolean
+    isControllingVariants: boolean
 
     /**
      * If this component is part of the variant tree, it should track
@@ -384,7 +374,7 @@ export abstract class VisualElement<
      * Track whether this element has been mounted before, to detect
      * remounts after Suspense unmount/remount cycles.
      */
-    private hasBeenMounted = false
+    private hasBeenMounted?: boolean
 
     /**
      * An object containing a SubscriptionManager for each active event.
@@ -514,16 +504,12 @@ export abstract class VisualElement<
          * listener if we actually need the dynamic value (i.e., when config
          * is neither "never" nor "always").
          */
-        if (this.reducedMotionConfig === "never") {
-            this.shouldReduceMotion = false
-        } else if (this.reducedMotionConfig === "always") {
-            this.shouldReduceMotion = true
-        } else {
-            if (!hasReducedMotionListener.current) {
-                initPrefersReducedMotion()
-            }
-            this.shouldReduceMotion = prefersReducedMotion.current
-        }
+        const { reducedMotionConfig } = this
+        this.shouldReduceMotion =
+            reducedMotionConfig !== "never" &&
+            (reducedMotionConfig === "always" ||
+                (hasReducedMotionListener.current || initPrefersReducedMotion(),
+                prefersReducedMotion.current))
 
         if (process.env.NODE_ENV !== "production") {
             warnOnce(
@@ -583,82 +569,16 @@ export abstract class VisualElement<
     private bindToMotionValue(key: string, value: MotionValue) {
         this.valueSubscriptions.get(key)?.()
 
+        const { accelerate } = value
         if (
-            value.accelerate &&
+            accelerate?.bind &&
             acceleratedValues.has(key) &&
             this.current instanceof HTMLElement
         ) {
-            const { factory, keyframes, times, ease, duration } =
-                value.accelerate
-
-            /**
-             * The factory links this to a scroll timeline, so it only needs
-             * the part of the playback controls that linking calls.
-             */
-            const element = this.current
-            const ms = secondsToMilliseconds(duration)
-            const easing = mapEasingToNativeEasing(ease ?? "easeOut", ms)
-            const perKeyframe = Array.isArray(easing)
-            const frames: PropertyIndexedKeyframes = {
-                [key]: keyframes,
-                offset: times,
-            }
-            if (perKeyframe) frames.easing = easing
-
-            const waapi = animateStyle(element, frames, {
-                duration: ms,
-                easing: perKeyframe ? "linear" : easing,
-                fill: "both",
-            })
-            waapi.onfinish = () => {
-                setStyle(element, key, keyframes[keyframes.length - 1])
-                waapi.cancel()
-            }
-
-            const animation = {
-                attachTimeline({
-                    timeline,
-                    onAttach,
-                    observe,
-                }: TimelineWithFallback) {
-                    waapi.onfinish = null
-
-                    if (timeline && supportsScrollTimeline()) {
-                        waapi.timeline = timeline as any
-                        onAttach?.(waapi)
-                        return noop
-                    }
-
-                    return observe(animation)
-                },
-                pause: () => waapi.pause(),
-                set time(newTime: number) {
-                    waapi.currentTime = secondsToMilliseconds(newTime)
-                },
-                iterationDuration: duration,
-                cancel() {
-                    waapi.onfinish = null
-                    try {
-                        waapi.cancel()
-                    } catch (e) {}
-                },
-            } as unknown as AnimationPlaybackControlsWithThen
-
-            notifyAnimationStart(animation, {
-                element,
-                name: key,
-                keyframes,
-                times,
-                ease,
-                duration: ms,
-            })
-
-            const cleanup = factory(animation)
-
-            this.valueSubscriptions.set(key, () => {
-                cleanup()
-                animation.cancel()
-            })
+            this.valueSubscriptions.set(
+                key,
+                accelerate.bind(this.current, key, accelerate)
+            )
             return
         }
 

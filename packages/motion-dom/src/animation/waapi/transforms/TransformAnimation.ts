@@ -135,7 +135,7 @@ const maxSamples = 50
  */
 const sampleStep = 16
 
-type Composed = NativeKeyframes & {
+type Composed = Omit<NativeKeyframes, "values" | "easings"> & {
     easing: string[]
     /**
      * The keyframes of each value: the composed transform, if it has
@@ -400,7 +400,10 @@ export function nativeOf(
         start: isScroll ? 0 : start,
         duration: isScroll ? 0 : repeat ? resolvedDuration : totalDuration,
         iterations: isScroll ? 1 : iterations,
-        direction: !isScroll && repeat && isReversed ? "alternate" : "normal",
+        /**
+         * Over a scroll timeline nothing repeats, as checked above.
+         */
+        direction: repeat && isReversed ? "alternate" : "normal",
         speed: isScroll ? 1 : speed,
         offsets,
         values,
@@ -798,8 +801,6 @@ function createGroup(owner: TransformOwner): TransformGroup {
             direction: "normal",
             speed: 1,
             offsets: times.map((t) => (t - now) / (end - now)),
-            values: [],
-            easings: [],
             easing: times.map(() => "linear").slice(1),
             props,
         }
@@ -885,11 +886,12 @@ function createGroup(owner: TransformOwner): TransformGroup {
          */
         let keyframes: PropertyIndexedKeyframes | null = null
         let isHeld = false
-        const add = (key: string, values: AnyResolvedKeyframe[]) =>
+        for (const key in props) {
+            const values = props[key]
             values.some((v) => v !== values[0])
                 ? ((keyframes ||= {})[key] = values as string[])
                 : (isHeld = true)
-        for (const key in props) add(key, props[key])
+        }
         isHeld && commit()
         if (keyframes && offsets.length > 2) {
             ;(keyframes as PropertyIndexedKeyframes).offset = offsets
@@ -913,9 +915,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
         /**
          * Rebuild anything that carries on past its end.
          */
-        if (iterations < Infinity) {
-            animation.onfinish = () => group.schedule(true)
-        }
+        if (iterations < Infinity) animation.onfinish = wake
 
         return true
     }
@@ -1085,16 +1085,18 @@ function createGroup(owner: TransformOwner): TransformGroup {
 
                 const { speed } = track
 
-                if (speed > 0 && !trackCycle && trackEnd <= now + 1) {
-                    track.complete()
-                } else if (speed < 0 && track.at(now) <= 1) {
-                    /**
-                     * Played backwards, it finishes at its start.
-                     */
-                    track.complete()
-                } else {
+                /**
+                 * Played backwards, it finishes at its start.
+                 */
+                if (
+                    !(speed > 0
+                        ? !trackCycle && trackEnd <= now + 1
+                        : speed < 0 && track.at(now) <= 1)
+                ) {
                     return
                 }
+
+                track.complete()
 
                 /**
                  * From now it's checked for outside writes like any other

@@ -14,11 +14,7 @@ const hasFloat = /*@__PURE__*/ new RegExp(floatRegex.source)
 const hasColor = /*@__PURE__*/ new RegExp(colorRegex.source, "i")
 
 function test(v: any) {
-    return (
-        isNaN(v) &&
-        typeof v === "string" &&
-        (hasFloat.test(v) || hasColor.test(v))
-    )
+    return isNaN(v) && typeof v === "string" && hasComplexValues(v)
 }
 
 const NUMBER_TOKEN = "number"
@@ -125,9 +121,6 @@ function createTransformer(source: AnyResolvedKeyframe) {
     return buildTransformer(analyseComplexValue(source))
 }
 
-const convertNumbersToZero = (v: number | string) =>
-    typeof v === "number" ? 0 : color.test(v) ? color.getAnimatableNone(v) : v
-
 /**
  * Convert a parsed value to its zero equivalent, but preserve numbers
  * that act as divisors in CSS calc() expressions.
@@ -149,7 +142,7 @@ const convertToZero = (
     if (typeof value === "number") {
         return splitBefore?.trim().endsWith("/") ? value : 0
     }
-    return convertNumbersToZero(value as string)
+    return color.test(value) ? color.getAnimatableNone(value as string) : value
 }
 
 function getAnimatableNone(v: AnyResolvedKeyframe) {

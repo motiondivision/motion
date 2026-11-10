@@ -115,7 +115,6 @@ export class ValueTrack<T extends AnyResolvedKeyframe = any>
             this.canAccelerate = canAccelerateTransform(this.options)
         }
         initTrack(this)
-        notifyAnimationStart(this, this.options)
         this.parent.onTrackReady(this)
         this.isTransform && this.parent.state === "running" && this.join()
     }
@@ -148,11 +147,16 @@ export class ValueTrack<T extends AnyResolvedKeyframe = any>
         return this.sampleTime(this.at(timestamp), resolved)
     }
 
-    sampleTime(time: number, resolved?: boolean) {
+    /**
+     * Its value at a time in ms, delay included. Past its end that's its
+     * final keyframe, unless `sampled`, which reads its generator there
+     * too.
+     */
+    sampleTime(time: number, resolved?: boolean, sampled?: boolean) {
         this.generator || initTrack(this)
         const { options, totalDuration } = this
         const t = time - (options.delay || 0)
-        return t >= totalDuration && options.type !== inertia
+        return !sampled && t >= totalDuration && options.type !== inertia
             ? getFinalKeyframe(
                   options.keyframes,
                   options,
@@ -384,8 +388,6 @@ export class MultiValueAnimation extends AnimationClock<any> {
      */
     private isOffloaded = false
 
-    private hasStoppedTracks = false
-
     constructor(driver?: Driver) {
         super({ driver } as any)
         this.calculatedDuration = this.totalDuration = 0
@@ -419,6 +421,7 @@ export class MultiValueAnimation extends AnimationClock<any> {
     }
 
     onTrackReady(track: ValueTrack) {
+        notifyAnimationStart(track, track.options)
         this.numPending--
         this.js?.start()
         const { calculatedDuration, totalDuration, options } = track
@@ -441,8 +444,6 @@ export class MultiValueAnimation extends AnimationClock<any> {
             : this.regroup(false, true)
         this.natives((native) => this.syncNative(native))
     }
-
-    initAnimation() {}
 
     /**
      * Play a track on WAAPI, pooled with the animation's other WAAPI values:
@@ -471,7 +472,6 @@ export class MultiValueAnimation extends AnimationClock<any> {
         track.isReady = true
         track.resolver = undefined
         watch(native, track)
-        notifyAnimationStart(track, track.options)
         this.onTrackReady(track)
         this.syncNative(native)
     }
@@ -527,10 +527,11 @@ export class MultiValueAnimation extends AnimationClock<any> {
      * A track's value at a timestamp, from the animation's time.
      */
     valueAt(track: ValueTrack, timestamp: number) {
-        track.generator || initTrack(track)
-        const t =
-            this.timeOf(track, this.at(timestamp)) - (track.options.delay || 0)
-        return generateTrack(track, Math.max(t, 0), t < 0).value
+        return track.sampleTime(
+            this.timeOf(track, this.at(timestamp)),
+            false,
+            true
+        )
     }
 
     /**
@@ -582,8 +583,7 @@ export class MultiValueAnimation extends AnimationClock<any> {
     }
 
     /**
-     * Tracks that left the clock: stopped, or on an animation of their
-     * own.
+     * Stopped tracks still in `tracks`, until the next tick drops them.
      */
     private numOut = 0
 
@@ -711,10 +711,9 @@ export class MultiValueAnimation extends AnimationClock<any> {
             }
         }
 
-        if (this.hasStoppedTracks) {
-            this.hasStoppedTracks = false
+        if (this.numOut) {
             this.tracks = tracks.filter((track) => !track.isStopped)
-            this.numOut -= tracks.length - this.tracks.length
+            this.numOut = 0
         }
 
         this.isOffloaded = numActive > 0 && numActive === numOff
@@ -771,7 +770,7 @@ export class MultiValueAnimation extends AnimationClock<any> {
         super.pause()
         this.natives((native) => {
             native.pause()
-            native.currentTime = this.holdTime ?? native.currentTime
+            native.currentTime = this.holdTime!
         })
         this.regroup()
     }
@@ -977,7 +976,7 @@ export class MultiValueAnimation extends AnimationClock<any> {
             this.numDone--
         }
 
-        this.isInterrupted = this.hasStoppedTracks = true
+        this.isInterrupted = true
         this.numOut++
 
         if (!this.numLive() && this.numPending <= 0) this.teardown()

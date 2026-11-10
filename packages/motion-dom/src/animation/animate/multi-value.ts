@@ -132,11 +132,11 @@ function makePlan(
         isInstant = true
     }
 
-    const isSkipped = Boolean(
+    const isSkipped = !!(
         MotionGlobalConfig.instantAnimations ||
-            MotionGlobalConfig.skipAnimations ||
-            element?.shouldSkipAnimations ||
-            transition.skipAnimations
+        MotionGlobalConfig.skipAnimations ||
+        element?.shouldSkipAnimations ||
+        transition.skipAnimations
     )
     isSkipped && makeAnimationInstant(base)
 
@@ -346,7 +346,7 @@ function resolve(
                 try {
                     return parent.pool(
                         track,
-                        options.motionValue!.owner!.current as Element,
+                        value.owner!.current as Element,
                         timing
                     )
                 } catch {}

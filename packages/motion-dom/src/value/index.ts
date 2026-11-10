@@ -61,6 +61,15 @@ export interface Owner {
 }
 
 export interface AccelerateConfig {
+    /**
+     * Plays a style of an element from this config and returns its cleanup.
+     * Set it to `bindAccelerate`. Without it the value is driven from JS.
+     */
+    bind?: (
+        element: HTMLElement,
+        name: string,
+        config: AccelerateConfig
+    ) => VoidFunction
     factory: (animation: AnimationPlaybackControlsWithThen) => VoidFunction
     times: number[]
     keyframes: any[]

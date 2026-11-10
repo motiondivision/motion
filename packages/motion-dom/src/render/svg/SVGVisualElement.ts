@@ -2,7 +2,7 @@ import type { AnyResolvedKeyframe } from "../../animation/types"
 import type { MotionValue } from "../../value"
 import type { MotionNodeOptions } from "../../node/types"
 import { transformProps } from "../utils/keys-transform"
-import { getDefaultValueType } from "../../value/types/maps/defaults"
+import { transformValueTypes } from "../../value/types/maps/transform"
 import { createBox } from "../../projection/geometry/models"
 import { DOMVisualElement } from "../dom/DOMVisualElement"
 import { defaultTransformValue } from "../dom/parse-transform"
@@ -63,8 +63,7 @@ export class SVGVisualElement extends DOMVisualElement<
 
     readValueFromInstance(instance: SVGElement, key: string) {
         if (transformProps.has(key)) {
-            const defaultType = getDefaultValueType(key)
-            return defaultType ? defaultType.default || 0 : 0
+            return transformValueTypes[key]?.default || 0
         }
 
         if (cssStyleProperties.includes(key)) {

@@ -71,8 +71,6 @@ export abstract class AnimationClock<T extends number | string>
 
     abstract get iterationDuration(): number
 
-    abstract initAnimation(): void
-
     /**
      * The frame loop's update.
      */

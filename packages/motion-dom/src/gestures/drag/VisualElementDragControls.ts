@@ -20,7 +20,8 @@ import type {
 import { eachAxis } from "../../projection/utils/each-axis"
 import { measurePageBox } from "../../projection/utils/measure"
 import type { VisualElement } from "../../render/VisualElement"
-import { resize } from "../../resize"
+import { resizeElement } from "../../resize/handle-element"
+import { addToScope } from "../../scope/active"
 import { mixNumber } from "../../utils/mix/number"
 import { percent, px } from "../../value/types/numbers/units"
 import { addValueToWillChange } from "../../value/will-change/add-will-change"
@@ -99,7 +100,7 @@ export class VisualElementDragControls {
 
     panSession?: PanSession
 
-    private openDragLock: VoidFunction | null = null
+    private openDragLock?: VoidFunction | null
 
     isDragging = false
     private currentDirection: DragDirection | null = null
@@ -115,7 +116,7 @@ export class VisualElementDragControls {
      */
     private constraints: ResolvedConstraints | false = false
 
-    private hasMutatedConstraints = false
+    private hasMutatedConstraints?: boolean
 
     /**
      * A constraint, from a `dragConstraints` function, that moves the
@@ -137,12 +138,12 @@ export class VisualElementDragControls {
     /**
      * The latest pointer event. Used as fallback when the `cancel` and `stop` functions are called without arguments.
      */
-    private latestPointerEvent: PointerEvent | null = null
+    private latestPointerEvent?: PointerEvent | null
 
     /**
      * The latest pan info. Used as fallback when the `cancel` and `stop` functions are called without arguments.
      */
-    private latestPanInfo: PanInfo | null = null
+    private latestPanInfo?: PanInfo | null
 
     /**
      * Where drag options are read from. By default these are the
@@ -299,13 +300,9 @@ export class VisualElementDragControls {
         }
 
         const onSessionEnd = (event: PointerEvent, info: PanInfo) => {
-            this.latestPointerEvent = event
-            this.latestPanInfo = info
-
             this.stop(event, info)
 
-            this.latestPointerEvent = null
-            this.latestPanInfo = null
+            this.latestPointerEvent = this.latestPanInfo = null
         }
 
         const resumeAnimation = () => {
@@ -465,16 +462,12 @@ export class VisualElementDragControls {
             this.constraints &&
             !this.hasMutatedConstraints
         ) {
+            const constraints = this.constraints
             eachAxis((axis) => {
-                if (
-                    this.constraints !== false &&
-                    this.getAxisMotionValue(axis)
-                ) {
-                    this.constraints[axis] = rebaseAxisConstraints(
-                        layout.layoutBox[axis],
-                        this.constraints[axis]
-                    )
-                }
+                constraints[axis] = rebaseAxisConstraints(
+                    layout.layoutBox[axis],
+                    constraints[axis]
+                )
             })
         }
     }
@@ -936,8 +929,16 @@ function startResizeObservers(
     constraintsElement: HTMLElement,
     onResize: VoidFunction
 ): VoidFunction {
-    const stopElement = resize(element, skipFirstCall(onResize))
-    const stopContainer = resize(constraintsElement, skipFirstCall(onResize))
+    /**
+     * As `resize(element, callback)`, without the window resize handler
+     * that only its callback-only signature needs.
+     */
+    const stopElement = addToScope(
+        resizeElement(element, skipFirstCall(onResize))
+    )
+    const stopContainer = addToScope(
+        resizeElement(constraintsElement, skipFirstCall(onResize))
+    )
     return () => {
         stopElement()
         stopContainer()
@@ -962,20 +963,15 @@ function shouldDrag(
  * @param offset - The x/y offset from origin.
  * @param lockThreshold - (Optional) - the minimum absolute offset before we can determine a drag direction.
  */
-function getCurrentDirection(
+const getCurrentDirection = (
     offset: Point,
     lockThreshold = 10
-): DragDirection | null {
-    let direction: DragDirection | null = null
-
-    if (Math.abs(offset.y) > lockThreshold) {
-        direction = "y"
-    } else if (Math.abs(offset.x) > lockThreshold) {
-        direction = "x"
-    }
-
-    return direction
-}
+): DragDirection | null =>
+    Math.abs(offset.y) > lockThreshold
+        ? "y"
+        : Math.abs(offset.x) > lockThreshold
+        ? "x"
+        : null
 
 export function expectsResolvedDragConstraints({
     dragConstraints,
