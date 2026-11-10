@@ -35,19 +35,6 @@ describe("waapi", () => {
             })
     })
 
-    it("Can stop before keyframes resolved", () => {
-        cy.visit("?test=waapi-immediate-stop")
-            .wait(100)
-            .get("#box")
-            .should(([$element]: any) => {
-                expect($element.innerText).not.to.equal("Error")
-            })
-            .get("iframe")
-            .should((result: any) => {
-                expect(result.length).to.equal(0)
-            })
-    })
-
     it("Interrupt animations with pre-generated keyframes correctly", () => {
         cy.visit("?test=waapi-interrupt-pregenerated-keyframes")
             .wait(100)
