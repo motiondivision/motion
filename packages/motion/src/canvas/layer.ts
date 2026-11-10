@@ -22,6 +22,7 @@ import {
     createRenderer,
     hasWebGPU,
     instanceSize,
+    mapFormat,
     onDeviceLost,
     requestDevice,
     type GPU,
@@ -148,6 +149,14 @@ export interface CanvasLayer {
     setShaders(shaders?: FXShader[]): void
 
     /**
+     * The point of the flat layout that's drawn at a point of the canvas,
+     * both in CSS pixels from the canvas' top-left. They differ when a
+     * shader with a vertex function bends what's drawn. `undefined` where
+     * nothing is drawn.
+     */
+    unproject(x: number, y: number): { x: number; y: number } | undefined
+
+    /**
      * Draw a new frame at the next rendering opportunity. Called for you
      * when values or the elements change.
      */
@@ -206,11 +215,32 @@ interface Item {
 interface Post {
     wgsl: string
     uniforms: Record<string, CanvasUniform>
+    segments: number[]
+    extend: number[]
     layout?: UniformLayout
     data?: ArrayBuffer
     buffer?: GPU
     group?: GPU
+    /**
+     * The layer values and the target it reads, one for each target.
+     */
+    frame?: GPU
+    sources?: GPU[]
     stop: VoidFunction[]
+}
+
+/**
+ * The flat point drawn at each pixel of a small copy of the canvas, read
+ * back from the GPU.
+ */
+interface HitMap {
+    data: Float32Array
+    width: number
+    height: number
+    /**
+     * The scene the points are in, as in render().
+     */
+    scene: number[]
 }
 
 /**
@@ -221,6 +251,22 @@ export const canvasItems = new WeakMap<Element, Item>()
 const noop = () => {}
 
 const floatsPerInstance = instanceSize / 4
+
+/**
+ * Elements this far outside the scene, in CSS pixels, aren't drawn.
+ */
+const cullMargin = 100
+
+/**
+ * Columns of the hit map. Its rows are 256 bytes apart, as a texture
+ * copy needs.
+ */
+const hitMapWidth = 256
+
+/**
+ * Far enough to put every element outside the canvas.
+ */
+const offscreen = 1e5
 
 // GPUTextureUsage and GPUBufferUsage flags
 const elementTextureUsage = 0x02 | 0x04 | 0x10
@@ -262,6 +308,10 @@ export function canvasLayer(
         remove: noop as CanvasLayer["remove"],
         has: (element: Element) => items.has(element),
         setShaders: noop as CanvasLayer["setShaders"],
+        unproject: ((x: number, y: number) => ({
+            x,
+            y,
+        })) as CanvasLayer["unproject"],
         invalidate: noop,
         onRender: (callback: (layer: CanvasLayer) => void) =>
             listeners.add(callback),
@@ -311,8 +361,28 @@ export function canvasLayer(
      */
     let posts: Post[] = []
     let targets: GPU[] = []
-    let targetGroups: GPU[] = []
-    let postFrame: GPU
+    let targetViews: GPU[] = []
+    let targetMips = 1
+
+    /**
+     * The scene is what the elements are drawn into: the canvas, or with
+     * a shader that extends it, more of the layout around the canvas.
+     * [x, y, width, height] in CSS pixels, with the canvas at (x, y).
+     */
+    let scene = [0, 0, 0, 0]
+
+    /**
+     * With a shader that has a vertex function, hit testing can't follow
+     * the drawing with a matrix. So the element geometry is shifted to put
+     * the flat point that's drawn under the pointer, under the pointer.
+     */
+    let hitMap: HitMap | undefined
+    let hitKey = ""
+    let hitPending = false
+    let hitTexture: GPU
+    let hitBuffer: GPU
+    let shiftX = 0
+    let shiftY = 0
 
     const resize = (entry?: ResizeObserverEntry) => {
         const box = entry?.devicePixelContentBoxSize?.[0]
@@ -471,8 +541,8 @@ export function canvasLayer(
     const useItem = ({ device, program }: Renderer, item: Item): Program => {
         frameData[0] = item.width
         frameData[1] = item.height
-        frameData[2] = canvas.clientWidth
-        frameData[3] = canvas.clientHeight
+        frameData[2] = scene[2]
+        frameData[3] = scene[3]
         frameData[4] = seconds
         device.queue.writeBuffer(item.frame, 0, frameData)
 
@@ -513,8 +583,8 @@ export function canvasLayer(
         instances[cursor++] = matrix[1]
         instances[cursor++] = matrix[3]
         instances[cursor++] = matrix[4]
-        instances[cursor++] = matrix[6]
-        instances[cursor++] = matrix[7]
+        instances[cursor++] = matrix[6] + scene[0]
+        instances[cursor++] = matrix[7] + scene[1]
         instances[cursor++] = alpha
     }
 
@@ -541,7 +611,7 @@ export function canvasLayer(
      */
     const updateGeometry = ({ element, matrix, geometry }: Item) => {
         const [a, b, , c, d, , e, f] = matrix
-        const next = [a, b, c, d, e, f]
+        const next = [a, b, c, d, e + shiftX, f + shiftY]
         if (next.some((value, i) => value !== geometry[i])) {
             next.forEach((value, i) => (geometry[i] = value))
             drawable.updateElementGeometry(element, {
@@ -570,9 +640,33 @@ export function canvasLayer(
         }
 
         const changed = changedElements && new Set(changedElements)
-        const scaleX = width / canvas.clientWidth
-        const scaleY = height / canvas.clientHeight
+        const { clientWidth, clientHeight } = canvas
         let drawAgain = false
+
+        const active = posts.filter(
+            (post) => renderer!.program(post.wgsl).isValid
+        )
+
+        /**
+         * The scene, and the size of the textures it's drawn into.
+         */
+        const extend = [0, 0, 0, 0]
+        active.forEach((post) =>
+            post.extend.forEach(
+                (value, i) => (extend[i] = Math.max(extend[i], value))
+            )
+        )
+        scene = [
+            extend[3] * clientWidth,
+            extend[0] * clientHeight,
+            (1 + extend[1] + extend[3]) * clientWidth,
+            (1 + extend[0] + extend[2]) * clientHeight,
+        ]
+        const limit = device.limits.maxTextureDimension2D
+        const scaleX = Math.min(width / clientWidth, limit / scene[2])
+        const scaleY = Math.min(height / clientHeight, limit / scene[3])
+        const sceneWidth = Math.max(1, Math.round(scene[2] * scaleX))
+        const sceneHeight = Math.max(1, Math.round(scene[3] * scaleY))
 
         seconds = time.now() / 1000
 
@@ -596,45 +690,44 @@ export function canvasLayer(
         const encoder = device.createCommandEncoder()
         const canvasView = context.getCurrentTexture().createView()
 
-        const active = posts.filter(
-            (post) => renderer!.program(post.wgsl).isValid
-        )
+        /**
+         * A shader with a vertex function can draw the scene smaller than
+         * it is, so it reads mipmaps of it.
+         */
+        const mips = active.some((post) => renderer!.program(post.wgsl).surface)
+            ? Math.floor(Math.log2(Math.max(sceneWidth, sceneHeight))) + 1
+            : 1
         if (
             active.length &&
             (!targets[0] ||
-                targets[0].width !== width ||
-                targets[0].height !== height)
+                targets[0].width !== sceneWidth ||
+                targets[0].height !== sceneHeight ||
+                targetMips !== mips)
         ) {
-            const { elementLayout, sampler, format } = renderer
-            postFrame ||= device.createBuffer({ size: 32, usage: uniformUsage })
+            targetMips = mips
             targets.forEach((target) => target.destroy())
             targets = [0, 1].map(() =>
                 device.createTexture({
-                    size: [width, height],
-                    format,
+                    size: [sceneWidth, sceneHeight],
+                    format: renderer!.format,
                     usage: targetUsage,
+                    mipLevelCount: mips,
                 })
             )
-            targetGroups = targets.map((target) =>
-                device.createBindGroup({
-                    layout: elementLayout,
-                    entries: [
-                        { binding: 0, resource: { buffer: postFrame } },
-                        { binding: 1, resource: target.createView() },
-                        { binding: 2, resource: sampler },
-                    ],
-                })
+            targetViews = targets.map((target) =>
+                target.createView({ mipLevelCount: 1 })
             )
+            posts.forEach((post) => (post.sources = undefined))
         }
-        const view = active.length ? targets[0].createView() : canvasView
-        const beginPass = (target: GPU, loadOp: string) =>
+        const view = active.length ? targetViews[0] : canvasView
+        const beginPass = (target: GPU, loadOp: string, clear = 0) =>
             encoder.beginRenderPass({
                 colorAttachments: [
                     {
                         view: target,
                         loadOp,
                         storeOp: "store",
-                        clearValue: [0, 0, 0, 0],
+                        clearValue: [clear, clear, 0, 0],
                     },
                 ],
             })
@@ -644,12 +737,40 @@ export function canvasLayer(
             const item = items.get(element)
             if (!item) continue
 
-            upload(renderer, item, changed)
-            if (!item.isReady) continue
-
             const pose = readPose(item.visualElement.latestValues, item.pose)
             pose.x += item.left
             pose.y += item.top
+
+            /**
+             * An element that's outside the scene isn't copied or drawn.
+             */
+            const width0 = item.element.offsetWidth
+            const height0 = item.element.offsetHeight
+            const reach = sweptBounds(
+                pose,
+                pose,
+                width0,
+                height0,
+                1
+            )
+            if (
+                reach[2] < -scene[0] - cullMargin ||
+                reach[3] < -scene[1] - cullMargin ||
+                reach[0] > scene[2] - scene[0] + cullMargin ||
+                reach[1] > scene[3] - scene[1] + cullMargin
+            ) {
+                item.isDirty = true
+                item.width = width0
+                item.height = height0
+                poseMatrix(pose, item.width, item.height, item.matrix)
+                updateGeometry(item)
+                item.pose = item.prev || ({} as CanvasPose)
+                item.prev = pose
+                continue
+            }
+
+            upload(renderer, item, changed)
+            if (!item.isReady) continue
 
             const { prev } = item
             const shutter = item.motionBlur ?? layer.motionBlur
@@ -678,23 +799,36 @@ export function canvasLayer(
                         item.width,
                         item.height
                     )
-                    const x = Math.max(0, Math.floor(left * scaleX) - 1)
-                    const y = Math.max(0, Math.floor(top * scaleY) - 1)
-                    const w = Math.min(width, Math.ceil(right * scaleX) + 1) - x
+                    const x = Math.max(
+                        0,
+                        Math.floor((left + scene[0]) * scaleX) - 1
+                    )
+                    const y = Math.max(
+                        0,
+                        Math.floor((top + scene[1]) * scaleY) - 1
+                    )
+                    const w =
+                        Math.min(
+                            sceneWidth,
+                            Math.ceil((right + scene[0]) * scaleX) + 1
+                        ) - x
                     const h =
-                        Math.min(height, Math.ceil(bottom * scaleY) + 1) - y
+                        Math.min(
+                            sceneHeight,
+                            Math.ceil((bottom + scene[1]) * scaleY) + 1
+                        ) - y
 
                     if (w > 0 && h > 0) {
                         isBlurred = true
 
                         if (
                             !blurTexture ||
-                            blurTexture.width !== width ||
-                            blurTexture.height !== height
+                            blurTexture.width !== sceneWidth ||
+                            blurTexture.height !== sceneHeight
                         ) {
                             blurTexture?.destroy()
                             blurTexture = device.createTexture({
-                                size: [width, height],
+                                size: [sceneWidth, sceneHeight],
                                 format: blurFormat,
                                 usage: targetUsage,
                             })
@@ -737,7 +871,7 @@ export function canvasLayer(
                         pass.setPipeline(copy)
                         pass.setBindGroup(0, blurGroup)
                         pass.draw(3)
-                        pass.setScissorRect(0, 0, width, height)
+                        pass.setScissorRect(0, 0, sceneWidth, sceneHeight)
 
                         /**
                          * Draw again next frame, so an element that's
@@ -764,22 +898,46 @@ export function canvasLayer(
 
         pass.end()
 
+        let hitPost: Post | undefined
+
         if (active.length) {
             /**
-             * One more instance: the whole canvas, as it is.
+             * One more instance: the whole scene, as it is.
              */
             const full = cursor / floatsPerInstance
             instances.set([1, 0, 0, 1, 0, 0, 1], cursor)
             cursor += floatsPerInstance
 
-            frameData[0] = frameData[2] = canvas.clientWidth
-            frameData[1] = frameData[3] = canvas.clientHeight
-            frameData[4] = seconds
-            device.queue.writeBuffer(postFrame, 0, frameData)
+            const { elementLayout, uniformsLayout, sampler, mip, mipLayout } =
+                renderer
 
             active.forEach((post, i) => {
                 const program = renderer!.program(post.wgsl)
                 const { layout } = post
+                const source = i % 2
+
+                post.frame ||= device.createBuffer({
+                    size: 32,
+                    usage: uniformUsage,
+                })
+                post.sources ||= targets.map((target) =>
+                    device.createBindGroup({
+                        layout: elementLayout,
+                        entries: [
+                            { binding: 0, resource: { buffer: post.frame } },
+                            { binding: 1, resource: target.createView() },
+                            { binding: 2, resource: sampler },
+                        ],
+                    })
+                )
+                frameData[0] = scene[2]
+                frameData[1] = scene[3]
+                frameData[2] = clientWidth
+                frameData[3] = clientHeight
+                frameData[4] = seconds
+                frameData[6] = post.segments[0]
+                frameData[7] = post.segments[1]
+                device.queue.writeBuffer(post.frame, 0, frameData)
 
                 if (layout) {
                     if (!post.buffer) {
@@ -789,7 +947,7 @@ export function canvasLayer(
                             usage: uniformUsage,
                         })
                         post.group = device.createBindGroup({
-                            layout: renderer!.uniformsLayout,
+                            layout: uniformsLayout,
                             entries: [
                                 {
                                     binding: 0,
@@ -812,30 +970,185 @@ export function canvasLayer(
                     device.queue.writeBuffer(post.buffer, 0, post.data)
                 }
 
+                if (program.surface) {
+                    hitPost = post
+                    for (let level = 1; level < targetMips; level++) {
+                        const mipPass = beginPass(
+                            targets[source].createView({
+                                baseMipLevel: level,
+                                mipLevelCount: 1,
+                            }),
+                            "clear"
+                        )
+                        mipPass.setPipeline(mip)
+                        mipPass.setBindGroup(
+                            0,
+                            device.createBindGroup({
+                                layout: mipLayout,
+                                entries: [
+                                    {
+                                        binding: 0,
+                                        resource: targets[source].createView({
+                                            baseMipLevel: level - 1,
+                                            mipLevelCount: 1,
+                                        }),
+                                    },
+                                    { binding: 1, resource: sampler },
+                                ],
+                            })
+                        )
+                        mipPass.draw(3)
+                        mipPass.end()
+                    }
+                }
+
                 const postPass = beginPass(
-                    i === active.length - 1
-                        ? canvasView
-                        : targets[(i + 1) % 2].createView(),
+                    i === active.length - 1 ? canvasView : targetViews[1 - source],
                     "clear"
                 )
-                postPass.setPipeline(program.main)
-                postPass.setBindGroup(0, targetGroups[i % 2])
+                postPass.setBindGroup(0, post.sources[source])
                 layout && postPass.setBindGroup(1, post.group)
-                postPass.setVertexBuffer(0, instanceBuffer)
-                postPass.draw(4, 1, 0, full)
+                if (program.surface) {
+                    postPass.setPipeline(program.surface)
+                    postPass.draw(post.segments[0] * post.segments[1] * 6)
+                } else {
+                    postPass.setPipeline(program.main)
+                    postPass.setVertexBuffer(0, instanceBuffer)
+                    postPass.draw(4, 1, 0, full)
+                }
                 postPass.end()
 
                 if (program.usesTime) drawAgain = true
             })
         }
 
+        /**
+         * Read back where the last mesh draws each flat point, when it
+         * has changed.
+         */
+        let readHits: VoidFunction | undefined
+        if (hitPost) {
+            const post: Post = hitPost
+            const key =
+                post.wgsl +
+                scene +
+                [clientWidth, clientHeight, post.segments] +
+                (post.data ? new Float32Array(post.data) : "")
+            if (key !== hitKey && !hitPending) {
+                hitKey = key
+                hitPending = true
+                const mapHeight = Math.max(
+                    1,
+                    Math.round((hitMapWidth * clientHeight) / clientWidth)
+                )
+                if (hitTexture?.height !== mapHeight) {
+                    hitTexture?.destroy()
+                    hitBuffer?.destroy()
+                    hitTexture = device.createTexture({
+                        size: [hitMapWidth, mapHeight],
+                        format: mapFormat,
+                        usage: 0x10 | 0x01,
+                    })
+                    hitBuffer = device.createBuffer({
+                        size: hitMapWidth * mapHeight * 8,
+                        usage: 0x08 | 0x01,
+                    })
+                }
+                const mapPass = beginPass(hitTexture.createView(), "clear", -1)
+                mapPass.setPipeline(renderer.program(post.wgsl).map)
+                mapPass.setBindGroup(0, post.sources![0])
+                post.layout && mapPass.setBindGroup(1, post.group)
+                mapPass.draw(post.segments[0] * post.segments[1] * 6)
+                mapPass.end()
+                encoder.copyTextureToBuffer(
+                    { texture: hitTexture },
+                    { buffer: hitBuffer, bytesPerRow: hitMapWidth * 8 },
+                    [hitMapWidth, mapHeight]
+                )
+                const buffer = hitBuffer
+                const mapScene = scene
+                readHits = () =>
+                    buffer
+                        .mapAsync(1)
+                        .then(() => {
+                            hitMap = {
+                                data: new Float32Array(
+                                    buffer.getMappedRange().slice(0)
+                                ),
+                                width: hitMapWidth,
+                                height: mapHeight,
+                                scene: mapScene,
+                            }
+                            buffer.unmap()
+                        })
+                        .catch(noop)
+                        .then(() => {
+                            hitPending = false
+                            // The mesh may have changed in the meantime
+                            invalidate()
+                        })
+            }
+        } else if (hitMap || shiftX || shiftY) {
+            hitMap = undefined
+            hitKey = ""
+            shiftX = shiftY = 0
+            items.forEach(updateGeometry)
+        }
+
         cursor &&
             device.queue.writeBuffer(instanceBuffer, 0, instances, 0, cursor)
         device.queue.submit([encoder.finish()])
+        readHits?.()
 
         listeners.notify(layer)
         drawAgain && invalidate()
     }
+
+    const unproject = (x: number, y: number) => {
+        if (!hitMap) return hitKey ? undefined : { x, y }
+
+        const { data, width, height, scene } = hitMap
+        const mapX = (x / canvas.clientWidth) * width - 0.5
+        const mapY = (y / canvas.clientHeight) * height - 0.5
+        const column = Math.floor(mapX)
+        const row = Math.floor(mapY)
+        if (column < 0 || row < 0 || column > width - 2 || row > height - 2) {
+            return
+        }
+
+        // Mix the four pixels around the point
+        const mixX = mapX - column
+        const mixY = mapY - row
+        let u = 0
+        let v = 0
+        for (let i = 0; i < 4; i++) {
+            const index = ((row + (i >> 1)) * width + column + (i & 1)) * 2
+            if (data[index] < 0) return
+            const weight =
+                (i & 1 ? mixX : 1 - mixX) * (i >> 1 ? mixY : 1 - mixY)
+            u += data[index] * weight
+            v += data[index + 1] * weight
+        }
+
+        return { x: u * scene[2] - scene[0], y: v * scene[3] - scene[1] }
+    }
+
+    /**
+     * Put the flat point that's drawn under the pointer, under the
+     * pointer, so the browser hits the element that's drawn there.
+     */
+    const onPointer = (event: PointerEvent) => {
+        if (!hitMap) return
+        const box = canvas.getBoundingClientRect()
+        const x = event.clientX - box.left
+        const y = event.clientY - box.top
+        const point = unproject(x, y)
+        shiftX = point ? x - point.x : offscreen
+        shiftY = point ? y - point.y : offscreen
+        items.forEach(updateGeometry)
+    }
+    canvas.addEventListener("pointermove", onPointer, true)
+    canvas.addEventListener("pointerdown", onPointer, true)
 
     const onPaint = (event: Event) =>
         render((event as CanvasPaintEventLike).changedElements)
@@ -1015,12 +1328,20 @@ export function canvasLayer(
     const stopPost = (post: Post) => {
         post.stop.forEach((stop) => stop())
         post.buffer?.destroy()
+        post.frame?.destroy()
     }
 
     const setShaders = (list: FXShader[] = []) => {
         const next: Post[] = []
 
-        for (const { wgsl, uniforms = {}, motionBlur, samples } of list) {
+        for (const {
+            wgsl,
+            uniforms = {},
+            motionBlur,
+            samples,
+            segments = [32, 32],
+            extend = {},
+        } of list) {
             if (motionBlur !== undefined) {
                 layer.motionBlur = motionBlur
                 layer.samples = samples ?? layer.samples
@@ -1035,10 +1356,26 @@ export function canvasLayer(
             const post: Post =
                 previous?.wgsl === wgsl
                     ? previous
-                    : { wgsl, uniforms, layout: parseUniforms(wgsl), stop: [] }
+                    : {
+                          wgsl,
+                          uniforms,
+                          segments,
+                          extend: [],
+                          layout: parseUniforms(wgsl),
+                          stop: [],
+                      }
             post.stop.forEach((stop) => stop())
             post.stop = []
             post.uniforms = uniforms
+            post.segments = segments.map((count) =>
+                Math.max(1, Math.round(count))
+            )
+            post.extend = [
+                extend.top || 0,
+                extend.right || 0,
+                extend.bottom || 0,
+                extend.left || 0,
+            ]
             for (const name in uniforms) watch(uniforms[name], post.stop)
             next.push(post)
         }
@@ -1054,7 +1391,10 @@ export function canvasLayer(
         posts.forEach(stopPost)
         posts = []
         targets.forEach((target) => target.destroy())
-        postFrame?.destroy()
+        hitTexture?.destroy()
+        hitBuffer?.destroy()
+        canvas.removeEventListener("pointermove", onPointer, true)
+        canvas.removeEventListener("pointerdown", onPointer, true)
         items.forEach((_, element) => remove(element as HTMLElement))
         canvas.removeEventListener("paint", onPaint)
         observer.disconnect()
@@ -1122,7 +1462,14 @@ export function canvasLayer(
         return true
     })
 
-    Object.assign(layer, { add, remove, setShaders, invalidate, destroy })
+    Object.assign(layer, {
+        add,
+        remove,
+        setShaders,
+        unproject,
+        invalidate,
+        destroy,
+    })
     setShaders(shaders)
 
     return layer

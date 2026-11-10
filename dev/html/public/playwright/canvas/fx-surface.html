@@ -1,0 +1,119 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+
+            motion-fx {
+                width: 400px;
+                height: 300px;
+            }
+
+            motion-fx > * {
+                position: absolute;
+            }
+
+            #card {
+                left: 0;
+                top: 0;
+                width: 100px;
+                height: 60px;
+                border: 0;
+                padding: 0;
+                background: rgb(255, 0, 0);
+            }
+
+            /* Above the element, so only an extended scene holds it */
+            #above {
+                left: 200px;
+                top: -200px;
+                width: 100px;
+                height: 60px;
+                background: rgb(0, 255, 0);
+            }
+
+            #stripes {
+                left: 0;
+                top: 100px;
+                width: 64px;
+                height: 64px;
+                background: repeating-linear-gradient(
+                    90deg,
+                    rgb(255, 0, 0) 0 1px,
+                    rgb(0, 0, 255) 1px 2px
+                );
+            }
+        </style>
+    </head>
+    <body>
+        <motion-fx>
+            <button id="card"></button>
+            <div id="above"></div>
+            <div id="stripes"></div>
+        </motion-fx>
+        <script type="module">
+            import { defineFXShader, defineMotionFX } from "/src/canvas-inc.js"
+            import { nextRender } from "./pixels.js"
+
+            const host = document.querySelector("motion-fx")
+
+            const warnings = []
+            const warn = console.warn
+            console.warn = (...args) => {
+                warnings.push(args.join(" "))
+                warn(...args)
+            }
+
+            let clicks = 0
+            document
+                .getElementById("card")
+                .addEventListener("click", () => clicks++)
+
+            /**
+             * Draws everything in the right half of the canvas.
+             */
+            const half = defineFXShader(`
+                fn vertex(uv: vec2f) -> vec4f {
+                    return vec4f(uv.x, 1.0 - uv.y * 2.0, 0.0, 1.0);
+                }`)
+
+            /**
+             * Fits a scene that's two canvases tall into the canvas.
+             */
+            const whole = defineFXShader(
+                `fn vertex(uv: vec2f) -> vec4f {
+                    return vec4f(uv.x * 2.0 - 1.0, 1.0 - uv.y * 2.0, 0.0, 1.0);
+                }`,
+                {},
+                { extend: { top: 1 } }
+            )
+
+            /**
+             * Draws everything small, in the top left corner.
+             */
+            const small = defineFXShader(`
+                fn vertex(uv: vec2f) -> vec4f {
+                    return vec4f(uv.x * 0.26 - 1.0, 1.0 - uv.y * 0.26, 0.0, 1.0);
+                }`)
+
+            defineMotionFX()
+
+            Object.assign(window, {
+                host,
+                warnings,
+                half,
+                whole,
+                small,
+                nextRender: () => nextRender(host.layer),
+            })
+            Object.defineProperty(window, "clicks", { get: () => clicks })
+
+            host.ready.then((isReady) =>
+                isReady
+                    ? nextRender(host.layer).then(() => (window.ready = true))
+                    : (window.ready = true)
+            )
+        </script>
+    </body>
+</html>

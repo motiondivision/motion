@@ -45,7 +45,7 @@ export const onDeviceLost = (callback: VoidFunction) => lost.add(callback)
  * element: a 2D affine matrix in CSS pixels and an alpha.
  */
 const prelude = `
-struct Layer { size: vec2f, canvas: vec2f, time: f32 }
+struct Layer { size: vec2f, canvas: vec2f, time: f32, segments: vec2f }
 @group(0) @binding(0) var<uniform> layer: Layer;
 @group(0) @binding(1) var elementTexture: texture_2d<f32>;
 @group(0) @binding(2) var elementSampler: sampler;
@@ -56,9 +56,13 @@ struct Vertex {
   @location(1) alpha: f32,
 }
 
+// How uv changes across a pixel, which picks the mipmap
+var<private> gradX: vec2f;
+var<private> gradY: vec2f;
+
 // Transparent outside the element, not a smear of its edge
 fn element(uv: vec2f) -> vec4f {
-  return textureSampleLevel(elementTexture, elementSampler, uv, 0.0) *
+  return textureSampleGrad(elementTexture, elementSampler, uv, gradX, gradY) *
     f32(all(uv >= vec2f(0.0)) && all(uv <= vec2f(1.0)));
 }
 
@@ -78,9 +82,52 @@ fn element(uv: vec2f) -> vec4f {
 }
 
 @fragment fn fragmentMain(in: Vertex) -> @location(0) vec4f {
+  gradX = dpdx(in.uv);
+  gradY = dpdy(in.uv);
   return effect(in.uv) * in.alpha;
 }
 `
+
+/**
+ * For a shader with \`fn vertex(uv: vec2f) -> vec4f\`. It's drawn on a
+ * grid of layer.segments cells, and vertex() gives the clip space
+ * position of each point of it. mapMain writes the uv of each pixel, to
+ * find what's under the pointer.
+ */
+const surface = `
+@vertex fn surfaceMain(@builtin(vertex_index) index: u32) -> Vertex {
+  var corners = array<vec2f, 6>(
+    vec2f(0.0, 0.0), vec2f(1.0, 0.0), vec2f(0.0, 1.0),
+    vec2f(0.0, 1.0), vec2f(1.0, 0.0), vec2f(1.0, 1.0),
+  );
+  let cell = index / 6u;
+  let columns = u32(layer.segments.x);
+  let uv = (vec2f(f32(cell % columns), f32(cell / columns)) + corners[index % 6u]) / layer.segments;
+  return Vertex(vertex(uv), uv, 1.0);
+}
+
+@fragment fn mapMain(in: Vertex) -> @location(0) vec4f {
+  return vec4f(in.uv, 0.0, 1.0);
+}
+`
+
+/**
+ * Halves a texture into its next mipmap.
+ */
+const mipShader = `
+@group(0) @binding(0) var source: texture_2d<f32>;
+@group(0) @binding(1) var sourceSampler: sampler;
+struct Vertex { @builtin(position) position: vec4f, @location(0) uv: vec2f }
+@vertex fn vertexMain(@builtin(vertex_index) index: u32) -> Vertex {
+  let p = vec2f(f32(index & 1u), f32(index >> 1u)) * 2.0;
+  return Vertex(vec4f(p.x * 2.0 - 1.0, 1.0 - p.y * 2.0, 0.0, 1.0), p);
+}
+@fragment fn fragmentMain(in: Vertex) -> @location(0) vec4f {
+  return textureSampleLevel(source, sourceSampler, in.uv, 0.0);
+}
+`
+
+export const mapFormat = "rg32float"
 
 const uniformsBinding = `@group(1) @binding(0) var<uniform> uniforms: Uniforms;\n`
 
@@ -131,6 +178,12 @@ export interface Program {
      * Adds to the motion blur buffer.
      */
     blur: GPU
+    /**
+     * For a shader with a vertex function: draws its mesh to the canvas,
+     * and the uv of each of its pixels to the hit map.
+     */
+    surface?: GPU
+    map?: GPU
     uniforms?: UniformLayout
     /**
      * Whether the shader reads `layer.time`, so needs drawing every frame.
@@ -150,6 +203,8 @@ export interface Renderer {
     sampler: GPU
     copy: GPU
     copyLayout: GPU
+    mip: GPU
+    mipLayout: GPU
     program(shader?: string): Program
 }
 
@@ -172,27 +227,38 @@ export function createRenderer(device: GPU, onChange: VoidFunction): Renderer {
         entries: [{ binding: 0, visibility: fragment, texture: {} }],
     })
 
+    const mipLayout = device.createBindGroupLayout({
+        entries: [
+            { binding: 0, visibility: fragment, texture: {} },
+            { binding: 1, visibility: fragment, sampler: {} },
+        ],
+    })
+
     const pipeline = (
         module: GPU,
         layouts: GPU[],
         targetFormat: string,
-        blend: object,
-        buffers?: object[]
+        blend?: object,
+        buffers?: object[],
+        vertexEntry = "vertexMain",
+        fragmentEntry = "fragmentMain"
     ) =>
         device.createRenderPipeline({
             layout: device.createPipelineLayout({ bindGroupLayouts: layouts }),
-            vertex: { module, entryPoint: "vertexMain", buffers },
+            vertex: { module, entryPoint: vertexEntry, buffers },
             fragment: {
                 module,
-                entryPoint: "fragmentMain",
+                entryPoint: fragmentEntry,
                 targets: [
                     {
                         format: targetFormat,
-                        blend: { color: blend, alpha: blend },
+                        blend: blend && { color: blend, alpha: blend },
                     },
                 ],
             },
-            primitive: { topology: "triangle-strip" },
+            primitive: {
+                topology: buffers ? "triangle-strip" : "triangle-list",
+            },
         })
 
     const programs = new Map<string, Program>()
@@ -206,11 +272,40 @@ export function createRenderer(device: GPU, onChange: VoidFunction): Renderer {
             ? [elementLayout, uniformsLayout]
             : [elementLayout]
 
+        const hasVertex = /\bfn\s+vertex\s*\(/.test(shader)
+
         device.pushErrorScope("validation")
         const module = device.createShaderModule({
-            code: prelude + (uniforms ? uniformsBinding : "") + shader,
+            code:
+                prelude +
+                (uniforms ? uniformsBinding : "") +
+                shader +
+                // A shader can be a vertex function alone
+                (/\bfn\s+effect\s*\(/.test(shader) ? "" : defaultShader) +
+                (hasVertex ? surface : ""),
         })
         compiled = {
+            surface:
+                hasVertex &&
+                pipeline(
+                    module,
+                    layouts,
+                    format,
+                    premultiplied,
+                    undefined,
+                    "surfaceMain"
+                ),
+            map:
+                hasVertex &&
+                pipeline(
+                    module,
+                    layouts,
+                    mapFormat,
+                    undefined,
+                    undefined,
+                    "surfaceMain",
+                    "mapMain"
+                ),
             main: pipeline(module, layouts, format, premultiplied, [
                 instanceLayout,
             ]),
@@ -245,15 +340,23 @@ export function createRenderer(device: GPU, onChange: VoidFunction): Renderer {
         elementLayout,
         uniformsLayout,
         copyLayout,
+        mipLayout,
         sampler: device.createSampler({
             magFilter: "linear",
             minFilter: "linear",
+            mipmapFilter: "linear",
+            maxAnisotropy: 8,
         }),
         copy: pipeline(
             device.createShaderModule({ code: copyShader }),
             [copyLayout],
             format,
             premultiplied
+        ),
+        mip: pipeline(
+            device.createShaderModule({ code: mipShader }),
+            [mipLayout],
+            format
         ),
         program,
     }

@@ -24,7 +24,22 @@ export interface FXShader {
      */
     motionBlur?: number
     samples?: number
+
+    /**
+     * For a shader with a vertex function: the columns and rows of the
+     * mesh it's drawn on. Defaults to `[32, 32]`.
+     */
+    segments?: [number, number]
+
+    /**
+     * How much more of the layout than the canvas the shader reads, each
+     * as a part of the canvas' size. `{ top: 2 }` adds two canvas heights
+     * above it. Children there are drawn into the scene the shader reads.
+     */
+    extend?: { top?: number; right?: number; bottom?: number; left?: number }
 }
+
+export type FXShaderOptions = Pick<FXShader, "segments" | "extend">
 
 type Option = number | MotionValue<number>
 
@@ -45,10 +60,19 @@ type Uniforms = Record<string, CanvasUniform>
  *
  * fx.shaders = [wave({ amount })]
  * ```
+ *
+ * The WGSL can also have `fn vertex(uv: vec2f) -> vec4f`, which returns
+ * the clip space position of each point of the scene. The scene is then
+ * drawn on a mesh, so it can bend and have perspective.
  */
 export const defineFXShader =
-    <U extends Uniforms = Uniforms>(wgsl: string, defaults?: Uniforms) =>
+    <U extends Uniforms = Uniforms>(
+        wgsl: string,
+        defaults?: Uniforms,
+        options?: FXShaderOptions
+    ) =>
     (uniforms?: Partial<U>): FXShader => ({
+        ...options,
         wgsl,
         uniforms: { ...defaults, ...uniforms } as Uniforms,
     })

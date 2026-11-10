@@ -453,6 +453,7 @@ function createStubLayer() {
         motionBlur: 0,
         samples: 24,
         setShaders: () => {},
+        unproject: (x: number, y: number) => ({ x, y }),
         add: () => {},
         remove: () => {},
         has: () => false,

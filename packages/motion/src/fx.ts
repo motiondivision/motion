@@ -6,6 +6,7 @@ export {
     motionBlur,
     pixelate,
     type FXShader,
+    type FXShaderOptions,
     type MotionBlurOptions,
 } from "./canvas/effects"
 export {
