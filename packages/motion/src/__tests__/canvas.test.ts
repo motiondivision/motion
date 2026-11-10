@@ -10,11 +10,11 @@ import {
     canvasEffect,
     canvasLayer,
     chromaticAberration,
+    defineFXShader,
     goo,
     motionBlur,
     pixelate,
     renderVideo,
-    shader,
 } from "../fx"
 import { canvasItems, type CanvasLayer } from "../canvas/layer"
 import {
@@ -607,11 +607,16 @@ describe("effects", () => {
         })
     })
 
-    test("shader() keeps the WGSL and uniforms it's given", () => {
+    test("defineFXShader() makes an effect with default uniforms", () => {
         const amount = motionValue(1)
-        expect(shader("wgsl", { amount })).toEqual({
+        const wave = defineFXShader("wgsl", { amount: 2, speed: 3 })
+        expect(wave()).toEqual({
             wgsl: "wgsl",
-            uniforms: { amount },
+            uniforms: { amount: 2, speed: 3 },
+        })
+        expect(wave({ amount })).toEqual({
+            wgsl: "wgsl",
+            uniforms: { amount, speed: 3 },
         })
     })
 

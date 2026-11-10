@@ -1,10 +1,10 @@
 export { canvasEffect } from "./canvas/effect"
 export {
     chromaticAberration,
+    defineFXShader,
     goo,
     motionBlur,
     pixelate,
-    shader,
     type FXShader,
     type MotionBlurOptions,
 } from "./canvas/effects"

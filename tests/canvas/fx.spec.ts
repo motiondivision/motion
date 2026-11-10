@@ -48,8 +48,8 @@ test.describe("<motion-fx> shaders", () => {
                 const px = await w.nextRender()
                 return { from: px.at(50, 30), to: px.at(250, 30) }
             }
-            const shift = () => w.shader(w.shift, { amount: 0.5 })
-            const invertLeft = () => w.shader(w.invertLeft)
+            const shift = () => w.defineFXShader(w.shift)({ amount: 0.5 })
+            const invertLeft = () => w.defineFXShader(w.invertLeft)()
             return {
                 shiftFirst: await read([shift(), invertLeft()]),
                 invertFirst: await read([invertLeft(), shift()]),
@@ -69,7 +69,7 @@ test.describe("<motion-fx> shaders", () => {
         const result = await page.evaluate(async () => {
             const w = window as any
             const amount = w.motionValue(0)
-            w.host.shaders = [w.shader(w.shift, { amount })]
+            w.host.shaders = [w.defineFXShader(w.shift)({ amount })]
             for (let i = 0; i < 5; i++) await w.nextRender()
             const before = (await w.nextRender()).at(50, 30)
 
@@ -94,7 +94,7 @@ test.describe("<motion-fx> shaders", () => {
     }) => {
         const result = await page.evaluate(async () => {
             const w = window as any
-            w.host.shaders = [w.shader(w.broken), w.shader(w.invert)]
+            w.host.shaders = [w.defineFXShader(w.broken)(), w.defineFXShader(w.invert)()]
             for (let i = 0; i < 5; i++) await w.nextRender()
             const px = await w.nextRender()
             return { card: px.at(50, 30), warnings: w.warnings.join() }
@@ -119,6 +119,32 @@ test.describe("<motion-fx> shaders", () => {
         expect(result.on).toEqual([0.8, 6])
         expect(result.defaults).toEqual([0.5, 24])
         expect(result.off).toEqual([0, 24])
+    })
+
+    test("redraws as a child that already had a visual element animates", async ({
+        page,
+    }) => {
+        const result = await page.evaluate(async () => {
+            const w = window as any
+            w.host.shaders = []
+            await w.nextRender()
+            const seen = w.watchRenders()
+            await w.animate(
+                "#card",
+                { x: 200 },
+                { duration: 0.4, ease: "linear" }
+            )
+            await new Promise((resolve) => setTimeout(resolve, 100))
+            return {
+                count: seen.count,
+                from: seen.last?.at(50, 30),
+                to: seen.last?.at(250, 30),
+            }
+        })
+        // A frame for most of the animation's frames
+        expect(result.count).toBeGreaterThan(10)
+        expect(result.from[3]).toBe(0)
+        expect(result.to).toEqual(red)
     })
 
     test("the built-in effects compile and draw", async ({ page }) => {

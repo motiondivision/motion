@@ -889,7 +889,28 @@ export function canvasLayer(
                 }
             )
 
-        if (!existing) {
+        if (existing) {
+            /**
+             * A visual element made before the layer drew the element,
+             * e.g. by drag() or a motion component, renders to its
+             * style, which the canvas doesn't draw. So each render it
+             * schedules is a frame for the layer too, and its values
+             * stay on the main thread, where the layer can read them.
+             */
+            const { scheduleRender } = existing
+            existing.scheduleRender = () => {
+                scheduleRender()
+                invalidate()
+            }
+            existing.getProps = () => ({
+                onUpdate: invalidate,
+                ...existing.props,
+            })
+            cleanup.push(() => {
+                existing.scheduleRender = scheduleRender
+                delete (existing as Partial<VisualElement>).getProps
+            })
+        } else {
             /**
              * Values animate() was already rendering to the element's
              * style move to the layer.

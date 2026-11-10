@@ -26,12 +26,13 @@
                 animate,
                 chromaticAberration,
                 defineMotionFX,
+                drag,
                 motionBlur,
                 motionValue,
                 pixelate,
-                shader,
+                defineFXShader,
             } from "/src/canvas-inc.js"
-            import { nextRender } from "./pixels.js"
+            import { nextRender, readCanvas } from "./pixels.js"
 
             const host = document.querySelector("motion-fx")
 
@@ -67,18 +68,38 @@
             const broken = `fn effect(uv: vec2f) -> vec4f { return nope; }`
 
             /**
+             * A gesture made before the canvas draws gives the card a
+             * visual element that renders to its style.
+             */
+            drag(document.getElementById("card"))
+
+            /**
+             * Count the frames the canvas draws by itself, and keep the
+             * pixels of the last one.
+             */
+            const watchRenders = () => {
+                const seen = { count: 0, last: undefined }
+                host.layer.onRender(() => {
+                    seen.count++
+                    seen.last = readCanvas(host.layer.canvas)
+                })
+                return seen
+            }
+
+            /**
              * Set before the element is defined, as a framework might.
              */
-            host.shaders = [shader(invert)]
+            host.shaders = [defineFXShader(invert)()]
 
             defineMotionFX()
 
             Object.assign(window, {
                 animate,
                 host,
+                watchRenders,
                 warnings,
                 motionValue,
-                shader,
+                defineFXShader,
                 motionBlur,
                 chromaticAberration,
                 pixelate,

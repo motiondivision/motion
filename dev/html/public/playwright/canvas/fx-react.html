@@ -21,7 +21,7 @@
     <body>
         <div id="root"></div>
         <script type="module">
-            import { shader } from "/src/canvas-inc.js"
+            import { defineFXShader } from "/src/canvas-inc.js"
             import {
                 createElement,
                 createRoot,
@@ -47,7 +47,7 @@
                     {
                         className: "fx",
                         // A new list on every render
-                        shaders: isOn ? [shader(invert)] : [],
+                        shaders: isOn ? [defineFXShader(invert)()] : [],
                         ref: (element) => (window.host = element),
                     },
                     createElement(motion.div, {
