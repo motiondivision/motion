@@ -45,7 +45,7 @@ export const onDeviceLost = (callback: VoidFunction) => lost.add(callback)
  * element: the matrix from poseMatrix(), in CSS pixels, and an alpha.
  */
 const prelude = `
-struct Layer { size: vec2f, canvas: vec2f, time: f32, perspective: f32, segments: vec2f }
+struct Layer { size: vec2f, canvas: vec2f, time: f32, perspective: f32, segments: vec2f, origin: vec2f }
 @group(0) @binding(0) var<uniform> layer: Layer;
 @group(0) @binding(1) var elementTexture: texture_2d<f32>;
 @group(0) @binding(2) var elementSampler: sampler;

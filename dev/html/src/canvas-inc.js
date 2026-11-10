@@ -19,6 +19,7 @@ export {
     frameData,
     hover,
     motionValue,
+    pinch,
     MotionGlobalConfig,
     press,
     processFrame,

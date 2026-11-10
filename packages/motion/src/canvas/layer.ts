@@ -11,6 +11,7 @@ import {
     blurSamples,
     mixPose,
     poseMatrix,
+    poseTransform,
     poseTravel,
     readPose,
     sweptBounds,
@@ -105,6 +106,13 @@ export interface CanvasElementOptions extends CanvasPoseValues {
      * Overrides the layer's `motionBlur` for this element.
      */
     motionBlur?: number
+
+    /**
+     * Another element of the layer that this one moves with, as if it
+     * were inside it: the group's transform is applied after this
+     * element's own. The group can have no size, to be drawn as nothing.
+     */
+    group?: HTMLElement | null
 }
 
 export interface CanvasLayer {
@@ -209,6 +217,20 @@ interface Item {
      * perspective.
      */
     depth: number
+    parent?: HTMLElement | null
+    /**
+     * Its own 3D transform, in its group's, and the frame it's from.
+     */
+    transform: Float32Array
+    frameId?: number
+    /**
+     * Its group's transform.
+     */
+    outer?: Float32Array
+    /**
+     * Whether an element that's drawn on top of it is under the pointer.
+     */
+    isCovered?: boolean
     geometry: number[]
     cleanup: VoidFunction[]
 
@@ -403,8 +425,15 @@ export function canvasLayer(
     let hitPending = false
     let hitTexture: GPU
     let hitBuffer: GPU
-    let shiftX = 0
-    let shiftY = 0
+    const shift = [0, 0]
+
+    /**
+     * The elements in the order they were drawn, and the flat point
+     * under the pointer.
+     */
+    let order: Item[] = []
+    let pointer: number[] | undefined
+    let frameId = 0
 
     const resize = (entry?: ResizeObserverEntry) => {
         const box = entry?.devicePixelContentBoxSize?.[0]
@@ -455,7 +484,7 @@ export function canvasLayer(
         }
 
         if (!item.frame) {
-            item.frame = device.createBuffer({ size: 32, usage: uniformUsage })
+            item.frame = device.createBuffer({ size: 48, usage: uniformUsage })
 
             if (item.layout) {
                 const { size } = item.layout
@@ -554,7 +583,7 @@ export function canvasLayer(
     let seconds = 0
     const camera: Camera = [0, 0, 0]
     const scratch: number[] = []
-    const frameData = new Float32Array(8)
+    const frameData = new Float32Array(12)
 
     /**
      * Write the values the element's shader reads, and return the
@@ -568,6 +597,7 @@ export function canvasLayer(
         frameData[3] = scene[3]
         frameData[4] = seconds
         frameData[5] = camera[0]
+        frameData[8] = frameData[9] = 0
         device.queue.writeBuffer(item.frame, 0, frameData)
 
         const compiled = program(item.shader)
@@ -607,7 +637,8 @@ export function canvasLayer(
             item.width,
             item.height,
             item.matrix,
-            camera
+            camera,
+            item.outer
         )
         // Moved by the scene's origin, which is scaled by w too
         for (let i = 0; i < 9; i++) {
@@ -638,8 +669,15 @@ export function canvasLayer(
      * Keep hit testing, focus rings and the accessibility tree where the
      * element is drawn.
      */
-    const updateGeometry = ({ element, matrix, geometry }: Item) => {
+    const updateGeometry = ({
+        element,
+        matrix,
+        geometry,
+        isCovered,
+    }: Item) => {
         const [a, b, wx, c, d, wy, e, f, w] = matrix
+        const shiftX = isCovered ? offscreen : shift[0]
+        const shiftY = isCovered ? offscreen : shift[1]
         // The 4x4 matrix that does the same to a point with no depth
         const next = [
             a + shiftX * wx,
@@ -665,6 +703,68 @@ export function canvasLayer(
                 canvasTransform: new DOMMatrix(next),
             })
         }
+    }
+
+    /**
+     * The transform of an element others are grouped with.
+     */
+    const groupTransform = (element?: HTMLElement | null) => {
+        const item = element && items.get(element)
+        if (!item) return
+        if (item.frameId !== frameId) {
+            item.frameId = frameId
+            const t = poseTransform(
+                item.pose,
+                element.offsetWidth,
+                element.offsetHeight,
+                item.transform,
+                groupTransform(item.parent)
+            )
+            /**
+             * That's from the group's box to the canvas. The elements
+             * in the group are already where they are in the canvas.
+             */
+            for (let i = 0; i < 3; i++) {
+                t[9 + i] -= t[i] * item.left + t[3 + i] * item.top
+            }
+        }
+        return item.transform
+    }
+
+    /**
+     * The browser hit tests the elements in DOM order. With a
+     * perspective they're drawn in depth order, so an element that's
+     * under the pointer and under another element is moved away.
+     */
+    const cover = () => {
+        let top: Item | undefined
+        for (let i = order.length; i--; ) {
+            const item = order[i]
+            const [a, b, c, d, e, f, g, h, w] = item.matrix
+            let isUnder = false
+            if (pointer && camera[0]) {
+                // The point of the element's box that's drawn at the pointer
+                const [x, y] = pointer
+                const xx = a - c * x
+                const xy = d - f * x
+                const yx = b - c * y
+                const yy = e - f * y
+                const px = x * w - g
+                const py = y * w - h
+                const det = xx * yy - xy * yx
+                const u = (px * yy - xy * py) / det
+                const v = (xx * py - yx * px) / det
+                isUnder =
+                    u >= 0 &&
+                    v >= 0 &&
+                    u <= item.element.offsetWidth &&
+                    v <= item.element.offsetHeight &&
+                    c * u + f * v + w > 0
+            }
+            item.isCovered = isUnder && Boolean(top)
+            if (isUnder) top ||= item
+        }
+        items.forEach(updateGeometry)
     }
 
     const render = (changedElements?: Iterable<Element>) => {
@@ -787,7 +887,8 @@ export function canvasLayer(
          * DOM order, as the elements are stacked for hit testing. With a
          * perspective, the furthest are drawn first.
          */
-        const order: Item[] = []
+        order = []
+        frameId++
         for (const element of drawOrder(canvas)) {
             const item = items.get(element)
             if (!item) continue
@@ -795,12 +896,21 @@ export function canvasLayer(
             const pose = readPose(item.visualElement.latestValues, item.pose)
             pose.x += item.left
             pose.y += item.top
-
+            order.push(item)
+        }
+        for (const item of order) {
             const width0 = item.element.offsetWidth
             const height0 = item.element.offsetHeight
-            const m = poseMatrix(pose, width0, height0, item.matrix, camera)
+            item.outer = groupTransform(item.parent)
+            const m = poseMatrix(
+                item.pose,
+                width0,
+                height0,
+                item.matrix,
+                camera,
+                item.outer
+            )
             item.depth = (m[2] * width0 + m[5] * height0) / 2 + m[8]
-            order.push(item)
         }
         camera[0] && order.sort((a, b) => b.depth - a.depth)
 
@@ -818,7 +928,8 @@ export function canvasLayer(
                 width0,
                 height0,
                 1,
-                camera
+                camera,
+                item.outer
             )
             if (
                 reach[2] < -scene[0] - cullMargin ||
@@ -829,7 +940,6 @@ export function canvasLayer(
                 item.isDirty = true
                 item.width = width0
                 item.height = height0
-                updateGeometry(item)
                 item.pose = item.prev || ({} as CanvasPose)
                 item.prev = pose
                 continue
@@ -847,7 +957,8 @@ export function canvasLayer(
                           pose,
                           item.width,
                           item.height,
-                          camera
+                          camera,
+                          item.outer
                       ) *
                       shutter *
                       scaleX
@@ -871,7 +982,8 @@ export function canvasLayer(
                         item.width,
                         item.height,
                         8,
-                        camera
+                        camera,
+                        item.outer
                     )
                     const x = Math.max(
                         0,
@@ -963,14 +1075,21 @@ export function canvasLayer(
                 if (program.usesTime) drawAgain = true
             }
 
-            poseMatrix(pose, item.width, item.height, item.matrix, camera)
-            updateGeometry(item)
+            poseMatrix(
+                pose,
+                item.width,
+                item.height,
+                item.matrix,
+                camera,
+                item.outer
+            )
 
             item.pose = prev || ({} as CanvasPose)
             item.prev = pose
         }
 
         pass.end()
+        cover()
 
         let hitPost: Post | undefined
 
@@ -991,7 +1110,7 @@ export function canvasLayer(
                 const source = i % 2
 
                 post.frame ||= device.createBuffer({
-                    size: 32,
+                    size: 48,
                     usage: uniformUsage,
                 })
                 post.sources ||= targets.map((target) =>
@@ -1012,6 +1131,8 @@ export function canvasLayer(
                 frameData[5] = camera[0]
                 frameData[6] = post.segments[0]
                 frameData[7] = post.segments[1]
+                frameData[8] = scene[0]
+                frameData[9] = scene[1]
                 device.queue.writeBuffer(post.frame, 0, frameData)
 
                 if (layout) {
@@ -1163,10 +1284,10 @@ export function canvasLayer(
                             invalidate()
                         })
             }
-        } else if (hitMap || shiftX || shiftY) {
+        } else if (hitMap || shift[0] || shift[1]) {
             hitMap = undefined
             hitKey = ""
-            shiftX = shiftY = 0
+            shift[0] = shift[1] = 0
             items.forEach(updateGeometry)
         }
 
@@ -1213,14 +1334,17 @@ export function canvasLayer(
      * pointer, so the browser hits the element that's drawn there.
      */
     const onPointer = (event: PointerEvent) => {
-        if (!hitMap) return
         const box = canvas.getBoundingClientRect()
         const x = event.clientX - box.left
         const y = event.clientY - box.top
-        const point = unproject(x, y)
-        shiftX = point ? x - point.x : offscreen
-        shiftY = point ? y - point.y : offscreen
-        items.forEach(updateGeometry)
+        pointer = [x, y]
+        if (hitMap) {
+            const point = unproject(x, y)
+            shift[0] = point ? x - point.x : offscreen
+            shift[1] = point ? y - point.y : offscreen
+            pointer = point && [point.x, point.y]
+        }
+        cover()
     }
     canvas.addEventListener("pointermove", onPointer, true)
     canvas.addEventListener("pointerdown", onPointer, true)
@@ -1236,11 +1360,13 @@ export function canvasLayer(
             motionBlur,
             left = 0,
             top = 0,
+            group,
             ...values
         } = options
 
         const added = items.get(element)
         if (added) {
+            if (group !== undefined) added.parent = group
             /**
              * A move of the layout box isn't motion, so it's not blurred.
              */
@@ -1334,6 +1460,8 @@ export function canvasLayer(
             pose: {} as CanvasPose,
             matrix: new Float32Array(9),
             depth: 0,
+            parent: group,
+            transform: new Float32Array(12),
             geometry: [],
             cleanup,
         }

@@ -104,6 +104,84 @@ test.describe("<motion-fx> perspective", () => {
         expect(after).toEqual([0, 0, 255, 255])
     })
 
+    test("hit testing follows the depth order", async ({ page }) => {
+        await page.mouse.click(200, 50)
+        await set(page, "#behind", { z: -100 })
+        await page.mouse.click(200, 50)
+        expect(await page.evaluate(() => (window as any).hits)).toEqual([
+            "behind",
+            "front",
+        ])
+    })
+
+    test("a child with a group moves with that child", async ({ page }) => {
+        const yellow = [255, 255, 0, 255]
+        // #moon's centre is 80px to the right of #pivot
+        const [start] = await at(page, [[280, 150]])
+        expect(start).toEqual(yellow)
+
+        await set(page, "#pivot", { rotate: 90 })
+        const [left, below] = await at(page, [
+            [280, 150],
+            [200, 230],
+        ])
+        expect(left[3]).toBe(0)
+        expect(below).toEqual(yellow)
+
+        // Half a turn around the vertical axis, and towards the camera
+        await set(page, "#pivot", { rotate: 0, rotateY: 180, z: 200 })
+        const [near, edge, outside] = await at(page, [
+            [200 - 160, 150],
+            [200 - 160 - 35, 150 + 35],
+            [200 - 160 + 45, 150],
+        ])
+        expect(near).toEqual(yellow)
+        expect(edge).toEqual(yellow)
+        expect(outside[3]).toBe(0)
+    })
+
+    test("pinch() scales a child in the canvas", async ({ page }) => {
+        const cdp = await page.context().newCDPSession(page)
+        const touch = (type: string, xs: number[]) =>
+            cdp.send("Input.dispatchTouchEvent", {
+                type: type as "touchStart",
+                touchPoints: xs.map((x, id) => ({ x, y: 150, id })),
+            })
+        await touch("touchStart", [180, 220])
+        await at(page, [])
+        for (let i = 1; i <= 5; i++) {
+            await touch("touchMove", [180 - i * 4, 220 + i * 4])
+            await at(page, [])
+        }
+        // The touches are twice as far apart, so it's drawn 200 x 120
+        await at(page, [])
+        const [inside, edge, outside] = await at(page, [
+            [200 - 90, 150],
+            [200, 150 + 55],
+            [200 - 110, 150],
+        ])
+        await touch("touchEnd", [])
+        expect(inside).toEqual(red)
+        expect(edge).toEqual(red)
+        expect(outside[3]).toBe(0)
+    })
+
+    test("layer.origin is where the canvas is in a larger scene", async ({
+        page,
+    }) => {
+        await page.evaluate(async () => {
+            const w = window as any
+            w.host.shaders = [w.flat()]
+            for (let i = 0; i < 6; i++) await w.nextRender()
+        })
+        const [inside, outside] = await at(page, [
+            [200 + 45, 150],
+            [200 + 55, 150],
+        ])
+        expect(inside).toEqual(red)
+        expect(outside[3]).toBe(0)
+    })
+
     test("project() puts a mesh in front of the same camera", async ({
         page,
     }) => {
@@ -115,7 +193,7 @@ test.describe("<motion-fx> perspective", () => {
         // Half size around the centre: the card is at 175-225, 135-165
         const [inside, outside] = await at(page, [
             [200 + 20, 150],
-            [200 + 30, 150],
+            [200 + 27, 150],
         ])
         expect(inside).toEqual(red)
         expect(outside[3]).toBe(0)

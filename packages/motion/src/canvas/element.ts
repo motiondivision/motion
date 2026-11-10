@@ -64,7 +64,8 @@ const number = (element: Element, name: string) => {
  *
  * Attributes: `motion-blur`, `samples` and `perspective` on the element, `shader` and
  * `motion-blur` on its children. Shaders for the whole element are set
- * with its `shaders` property.
+ * with its `shaders` property. A child with `group="id"` moves with the
+ * child that has that id, as if it were inside it.
  */
 export function defineMotionFX({
     name = "motion-fx",
@@ -309,6 +310,11 @@ export function defineMotionFX({
                     top,
                     shader: shaders[element.getAttribute("shader")!],
                     motionBlur: number(element, "motion-blur"),
+                    group: [...assigned].find(
+                        (other) =>
+                            other.id &&
+                            other.id === element.getAttribute("group")
+                    ) as HTMLElement | undefined,
                 })
                 drawn.add(element)
             })

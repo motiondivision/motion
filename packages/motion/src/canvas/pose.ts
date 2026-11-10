@@ -72,13 +72,13 @@ const noCamera: Camera = [0, 0, 0]
 const toRadians = Math.PI / 180
 
 /**
- * The column-major 3x3 matrix that maps a point (x, y, 1) of a `width` x
- * `height` box to the canvas, as (x * w, y * w, w): translate, then
- * scale, rotate, rotateX and rotateY around the origin, in the order
- * Motion builds a CSS transform, then the camera's perspective. Without
- * one, w is 1.
+ * The 3D transform of a pose, as four columns of three: where the box's
+ * x, y and z axes point, and where its top-left corner goes. It's
+ * translate, then scale, rotate, rotateX and rotateY around the origin,
+ * in the order Motion builds a CSS transform. With `group`, the transform
+ * of another pose, the result is in that group's space.
  */
-export function poseMatrix(
+export function poseTransform(
     {
         x,
         y,
@@ -94,8 +94,8 @@ export function poseMatrix(
     }: CanvasPose,
     width: number,
     height: number,
-    out = new Float32Array(9),
-    [perspective, centreX, centreY]: Camera = noCamera
+    out = new Float32Array(12),
+    group?: Float32Array
 ) {
     const cosZ = Math.cos(rotate * toRadians)
     const sinZ = Math.sin(rotate * toRadians)
@@ -108,35 +108,64 @@ export function poseMatrix(
     const ox = originX * width
     const oy = originY * height
 
-    /**
-     * Where the box's x and y axes point after rotateY, then rotateX,
-     * then rotate, then the scale.
-     */
-    const ax = sx * (cosZ * cosY - sinZ * sinX * sinY)
-    const ay = sy * (sinZ * cosY + cosZ * sinX * sinY)
-    const az = -cosX * sinY
-    const bx = sx * -sinZ * cosX
-    const by = sy * cosZ * cosX
-    const bz = sinX
+    out[0] = sx * (cosZ * cosY - sinZ * sinX * sinY)
+    out[1] = sy * (sinZ * cosY + cosZ * sinX * sinY)
+    out[2] = -cosX * sinY
+    out[3] = sx * -sinZ * cosX
+    out[4] = sy * cosZ * cosX
+    out[5] = sinX
+    out[6] = sx * (cosZ * sinY + sinZ * sinX * cosY)
+    out[7] = sy * (sinZ * sinY - cosZ * sinX * cosY)
+    out[8] = cosX * cosY
+    out[9] = x + ox - (out[0] * ox + out[3] * oy)
+    out[10] = y + oy - (out[1] * ox + out[4] * oy)
+    out[11] = z - (out[2] * ox + out[5] * oy)
 
-    const tx = x + ox - (ax * ox + bx * oy)
-    const ty = y + oy - (ay * ox + by * oy)
-    const tz = z - (az * ox + bz * oy)
+    if (group) {
+        for (let column = 0; column < 12; column += 3) {
+            const px = out[column]
+            const py = out[column + 1]
+            const pz = out[column + 2]
+            for (let row = 0; row < 3; row++) {
+                out[column + row] =
+                    group[row] * px +
+                    group[3 + row] * py +
+                    group[6 + row] * pz +
+                    (column > 8 ? group[9 + row] : 0)
+            }
+        }
+    }
+
+    return out
+}
+
+const transform = new Float32Array(12)
+
+/**
+ * The column-major 3x3 matrix that maps a point (x, y, 1) of a `width` x
+ * `height` box to the canvas, as (x * w, y * w, w): the pose's transform,
+ * then the camera's perspective. Without one, w is 1.
+ */
+export function poseMatrix(
+    pose: CanvasPose,
+    width: number,
+    height: number,
+    out = new Float32Array(9),
+    [perspective, centreX, centreY]: Camera = noCamera,
+    group?: Float32Array
+) {
+    const t = poseTransform(pose, width, height, transform, group)
 
     // A point at depth z is divided by 1 - z / perspective
     const k = perspective ? 1 / perspective : 0
-    const kx = centreX * k
-    const ky = centreY * k
 
-    out[0] = ax - kx * az
-    out[1] = ay - ky * az
-    out[2] = -k * az
-    out[3] = bx - kx * bz
-    out[4] = by - ky * bz
-    out[5] = -k * bz
-    out[6] = tx - kx * tz
-    out[7] = ty - ky * tz
-    out[8] = 1 - k * tz
+    for (let i = 0; i < 3; i++) {
+        const column = i > 1 ? 9 : i * 3
+        const depth = t[column + 2] * k
+        out[i * 3] = t[column] - centreX * depth
+        out[i * 3 + 1] = t[column + 1] - centreY * depth
+        out[i * 3 + 2] = (i > 1 ? 1 : 0) - depth
+    }
 
     return out
 }
@@ -181,10 +210,11 @@ export function poseTravel(
     b: CanvasPose,
     width: number,
     height: number,
-    camera?: Camera
+    camera?: Camera,
+    group?: Float32Array
 ) {
-    const ma = poseMatrix(a, width, height, matrixA, camera)
-    const mb = poseMatrix(b, width, height, matrixB, camera)
+    const ma = poseMatrix(a, width, height, matrixA, camera, group)
+    const mb = poseMatrix(b, width, height, matrixB, camera, group)
     let travel = 0
 
     for (let i = 0; i < 8; i += 2) {
@@ -210,7 +240,8 @@ export function sweptBounds(
     width: number,
     height: number,
     steps = 8,
-    camera?: Camera
+    camera?: Camera,
+    group?: Float32Array
 ) {
     const bounds = [Infinity, Infinity, -Infinity, -Infinity]
     const pose = {} as CanvasPose
@@ -221,7 +252,8 @@ export function sweptBounds(
             width,
             height,
             matrixA,
-            camera
+            camera,
+            group
         )
 
         for (let j = 0; j < 8; j += 2) {
