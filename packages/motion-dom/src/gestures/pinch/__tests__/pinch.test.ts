@@ -724,6 +724,33 @@ describe("pinch with a trackpad", () => {
 })
 
 describe("pinch with drag", () => {
+    test("a drag during the spring back still settles scale (#4076)", async () => {
+        stops.push(drag(element, { momentum: false }))
+        makePinchable(element, noop, { scale: { max: 1.5 }, rotate: false })
+        const scale = () =>
+            visualElementStore.get(element)!.getValue("scale")!.get()
+
+        // A trackpad zoom past max, which ends once the wheels stop.
+        for (let i = 0; i < 5; i++) {
+            wheel(element, -20, 50, 50)
+            await nextFrame()
+        }
+        expect(scale()).toBeGreaterThan(1.5)
+        await sleep(200)
+
+        // A drag starts while scale springs back.
+        pointer(element, "pointerdown", 1, 50, 50)
+        await nextFrame()
+        pointer(window, "pointermove", 1, 80, 50)
+        await nextFrame()
+
+        await sleep(1500)
+        expect(scale()).toBeCloseTo(1.5, 3)
+
+        pointer(window, "pointerup", 1, 80, 50)
+        await nextFrame()
+    })
+
     test("the element follows both touches while one of them drags", async () => {
         const removeDrag = drag(element, { momentum: false })
         stops.push(removeDrag)
