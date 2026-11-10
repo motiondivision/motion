@@ -52,11 +52,21 @@
             const card = document.getElementById("card")
             const button = document.getElementById("button")
 
+            /**
+             * Keep the GPU device, so a test can lose it.
+             */
+            if (self.GPUAdapter) {
+                const request = GPUAdapter.prototype.requestDevice
+                GPUAdapter.prototype.requestDevice = async function (...args) {
+                    return (window.device = await request.apply(this, args))
+                }
+            }
+
             defineMotionCanvas({
                 shaders: {
-                    invert: `vec4 effect(vec2 uv) {
-                        vec4 c = texture(uTexture, uv);
-                        return vec4(c.a - c.rgb, c.a);
+                    invert: `fn effect(uv: vec2f) -> vec4f {
+                        let c = element(uv);
+                        return vec4f(c.a - c.rgb, c.a);
                     }`,
                 },
             })
@@ -74,9 +84,11 @@
             })
             Object.defineProperty(window, "clicks", { get: () => clicks })
 
-            host.layer
-                ? nextRender(host.layer).then(() => (window.ready = true))
-                : (window.ready = true)
+            host.ready.then((isReady) =>
+                isReady
+                    ? nextRender(host.layer).then(() => (window.ready = true))
+                    : (window.ready = true)
+            )
         </script>
     </body>
 </html>

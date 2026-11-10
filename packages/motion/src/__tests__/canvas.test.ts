@@ -18,7 +18,7 @@ import {
     sweptBounds,
     type CanvasPose,
 } from "../canvas/pose"
-import { fitUniform, resolveUniform } from "../canvas/uniforms"
+import { parseUniforms, resolveUniform, writeUniform } from "../canvas/uniforms"
 import { CanvasVisualElement } from "../canvas/visual-element"
 
 const pose = (values: Partial<CanvasPose>): CanvasPose => ({
@@ -175,16 +175,70 @@ describe("resolveUniform", () => {
         expect(resolveUniform(4, out)).toBe(out)
         expect(out).toEqual([4])
     })
+})
 
-    test("fitUniform pads and truncates to the declared type", () => {
-        const vec3 = { location: {} as any, type: 0x8b51, size: 1 }
-        expect([...fitUniform([1, 0, 0, 1], vec3)]).toEqual([1, 0, 0])
-        expect([...fitUniform([0.5], vec3)]).toEqual([0.5, 0, 0])
+describe("parseUniforms", () => {
+    test("lays out the members of Uniforms as WGSL does", () => {
+        const layout = parseUniforms(`
+            // struct Uniforms { ignored: f32 }
+            struct Uniforms {
+                progress: f32,
+                tint: vec4f,
+                band: vec2<f32>,
+                count: i32,
+                axis: vec3f,
+                spin: mat3x3f,
+            }
+            fn effect(uv: vec2f) -> vec4f { return element(uv); }
+        `)!
+        const offsets = [...layout.members].map(([name, info]) => [
+            name,
+            info.offset,
+        ])
+        expect(offsets).toEqual([
+            ["progress", 0],
+            ["tint", 16],
+            ["band", 32],
+            ["count", 40],
+            ["axis", 48],
+            ["spin", 64],
+        ])
+        expect(layout.size).toBe(112)
+        expect(layout.members.get("count")!.integer).toBe(true)
+    })
 
-        const ints = { location: {} as any, type: 0x1404, size: 2 }
-        const data = fitUniform([1.6, 2.2], ints)
-        expect(data).toBeInstanceOf(Int32Array)
-        expect([...data]).toEqual([2, 2])
+    test("is undefined for a shader without Uniforms", () => {
+        expect(parseUniforms("fn effect(uv: vec2f) -> vec4f {}")).toBe(
+            undefined
+        )
+    })
+
+    test("writeUniform pads, truncates and rounds to the member's type", () => {
+        const { members, size } = parseUniforms(
+            "struct Uniforms { tint: vec3f, count: i32, spin: mat3x3f }"
+        )!
+        const data = new ArrayBuffer(size)
+        const floats = new Float32Array(data)
+        const ints = new Int32Array(data)
+        const scratch: number[] = []
+
+        writeUniform(floats, ints, members.get("tint")!, "#ff0000", scratch)
+        expect([...floats.slice(0, 3)]).toEqual([1, 0, 0])
+
+        writeUniform(floats, ints, members.get("count")!, 1.6, scratch)
+        expect(ints[3]).toBe(2)
+
+        // Columns of three are padded to four
+        writeUniform(
+            floats,
+            ints,
+            members.get("spin")!,
+            [1, 2, 3, 4, 5, 6, 7, 8, 9],
+            scratch
+        )
+        expect([...floats.slice(4, 16)]).toEqual([
+            1, 2, 3, 0, 4, 5, 6, 0, 7, 8, 9, 0,
+        ])
     })
 })
 
@@ -385,6 +439,8 @@ function createStubLayer() {
     const layer: CanvasLayer = {
         canvas: document.createElement("canvas"),
         supported: true,
+        ready: Promise.resolve(true),
+        onLost: () => () => {},
         motionBlur: 0,
         samples: 24,
         add: () => {},

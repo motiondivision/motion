@@ -24,6 +24,12 @@ export interface MotionCanvasElement extends HTMLElement {
      * The element's canvas layer, while it's connected and supported.
      */
     readonly layer?: CanvasLayer
+
+    /**
+     * Resolves once the canvas has taken over drawing the children, with
+     * `false` if it won't. Until then they're displayed as normal DOM.
+     */
+    readonly ready: Promise<boolean>
 }
 
 const number = (element: Element, name: string) => {
@@ -61,9 +67,16 @@ export function defineMotionCanvas({
 
         layer?: CanvasLayer
 
+        ready = Promise.resolve(false)
+
         private slotElement = document.createElement("slot")
 
         private canvas?: HTMLCanvasElement
+
+        /**
+         * The layer from when it's made, before it's ready to draw.
+         */
+        private created?: CanvasLayer
 
         private drawn = new Set<HTMLElement>()
 
@@ -72,9 +85,20 @@ export function defineMotionCanvas({
             const root = this.attachShadow({ mode: "open" })
             const style = document.createElement("style")
             style.textContent =
-                ":host{display:block}canvas{display:block;width:100%;height:100%}"
+                ":host{display:block}canvas{display:block;width:100%}"
             root.append(style, this.slotElement)
-            this.slotElement.addEventListener("slotchange", this.sync)
+            /**
+             * Moving the slot fires slotchange too, so only a change to
+             * the children themselves is synced.
+             */
+            this.slotElement.addEventListener("slotchange", () => {
+                const assigned = this.slotElement.assignedElements()
+                ;(assigned.length !== this.drawn.size ||
+                    assigned.some(
+                        (child) => !this.drawn.has(child as HTMLElement)
+                    )) &&
+                    this.sync()
+            })
         }
 
         get supported() {
@@ -89,25 +113,38 @@ export function defineMotionCanvas({
             })
             if (!layer.supported) return
 
-            /**
-             * Slotted children are laid out as children of the canvas,
-             * which makes them drawable, while staying where they are in
-             * the document.
-             */
-            canvas.append(this.slotElement)
-            this.shadowRoot!.append(canvas)
             this.canvas = canvas
-            this.layer = layer
-            this.sync()
+            this.created = layer
+            layer.onLost(() => this.canvas === canvas && this.release())
+
+            /**
+             * The children are displayed as normal DOM until the layer
+             * can draw, which takes a few frames.
+             */
+            this.ready = layer.ready.then((isReady) => {
+                if (!isReady || this.canvas !== canvas) return false
+                this.layer = layer
+                this.shadowRoot!.append(canvas)
+                this.observer.observe(this)
+                this.sync()
+                return true
+            })
         }
 
         disconnectedCallback() {
-            if (!this.layer) return
-            this.layer.destroy()
+            this.created?.destroy()
+            this.release()
+        }
+
+        /**
+         * Hand the children back to the DOM.
+         */
+        private release() {
+            this.observer.disconnect()
             this.shadowRoot!.append(this.slotElement)
-            this.canvas!.remove()
+            this.canvas?.remove()
             this.drawn.clear()
-            this.layer = this.canvas = undefined
+            this.layer = this.created = this.canvas = undefined
         }
 
         attributeChangedCallback() {
@@ -118,11 +155,31 @@ export function defineMotionCanvas({
             layer.invalidate()
         }
 
+        /**
+         * Draw each child where it's laid out as normal DOM, so nothing
+         * moves when the canvas takes over. Children of a canvas aren't
+         * laid out against each other, so they're measured with the slot
+         * outside it.
+         */
         private sync = () => {
-            const { layer, drawn } = this
-            if (!layer) return
+            const { layer, drawn, canvas, slotElement } = this
+            if (!layer || !canvas) return
 
-            const assigned = new Set(this.slotElement.assignedElements())
+            canvas.style.display = "none"
+            this.shadowRoot!.append(slotElement)
+            const origin = this.getBoundingClientRect()
+            const assigned = new Set(slotElement.assignedElements())
+            const boxes = new Map<Element, DOMRect>()
+            assigned.forEach((element) =>
+                boxes.set(element, element.getBoundingClientRect())
+            )
+            /**
+             * The canvas takes the children's place in the layout, at
+             * the size they gave the element.
+             */
+            canvas.style.height = `${this.clientHeight}px`
+            canvas.style.display = ""
+            canvas.append(slotElement)
 
             drawn.forEach((element) => {
                 if (assigned.has(element)) return
@@ -131,16 +188,19 @@ export function defineMotionCanvas({
             })
 
             assigned.forEach((element) => {
-                if (!(element instanceof HTMLElement) || drawn.has(element)) {
-                    return
-                }
+                if (!(element instanceof HTMLElement)) return
+                const box = boxes.get(element)!
                 layer.add(element, {
+                    left: box.left - origin.left - this.clientLeft,
+                    top: box.top - origin.top - this.clientTop,
                     shader: shaders[element.getAttribute("shader")!],
                     motionBlur: number(element, "motion-blur"),
                 })
                 drawn.add(element)
             })
         }
+
+        private observer = new ResizeObserver(this.sync)
     }
 
     customElements.define(name, MotionCanvas)

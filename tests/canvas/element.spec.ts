@@ -2,8 +2,9 @@ import { expect, test } from "@playwright/test"
 
 /**
  * <motion-canvas> is at (50, 40) on the page, 400 x 300 CSS pixels. #card
- * is 100 x 60 and red. #button is 120 x 40, blue, and drawn through an
- * "invert" shader, so yellow.
+ * is 100 x 60 and red, laid out at its top-left. #button is below it at
+ * (0, 60), 120 x 40, blue, and drawn through an "invert" shader, so
+ * yellow.
  */
 const left = 50
 const top = 40
@@ -39,17 +40,79 @@ test.describe("<motion-canvas>", () => {
         expect(result.empty[3]).toBe(0)
     })
 
+    test("draws children where they're laid out as normal DOM", async ({
+        page,
+    }) => {
+        const result = await page.evaluate(async () => {
+            const w = window as any
+            const px = await w.nextRender()
+            return {
+                card: px.at(50, 30),
+                button: px.at(60, 80),
+                below: px.at(60, 120),
+                height: w.host.shadowRoot.querySelector("canvas").clientHeight,
+            }
+        })
+        expect(result.card).toEqual([255, 0, 0, 255])
+        expect(result.button).toEqual([255, 255, 0, 255])
+        expect(result.below[3]).toBe(0)
+        expect(result.height).toBe(300)
+    })
+
+    test("x and y move a child from its layout position", async ({ page }) => {
+        const pixel = await page.evaluate(async () => {
+            const w = window as any
+            await w.animate("#button", { x: 100 }, { duration: 0 })
+            await w.nextRender()
+            return (await w.nextRender()).at(110, 80)
+        })
+        expect(pixel).toEqual([255, 255, 0, 255])
+    })
+
+    test("goes back to normal DOM if the GPU device is lost", async ({
+        page,
+    }) => {
+        const result = await page.evaluate(async () => {
+            const w = window as any
+            await w.animate("#card", { x: 200, y: 100 }, { duration: 0 })
+            await w.nextRender()
+            let lost = false
+            w.host.layer.onLost(() => (lost = true))
+            w.device.destroy()
+            await w.device.lost
+            await new Promise((resolve) => setTimeout(resolve, 50))
+            const rect = w.card.getBoundingClientRect()
+            return {
+                lost,
+                supported: w.host.supported,
+                canvas: !!w.host.shadowRoot.querySelector("canvas"),
+                drawable: w.card.hasAttribute("drawable"),
+                rect: [rect.left, rect.top],
+                hit: document.elementFromPoint(rect.left + 5, rect.top + 5)?.id,
+            }
+        })
+        expect(result).toEqual({
+            lost: true,
+            supported: false,
+            canvas: false,
+            drawable: false,
+            // Where it was drawn: the element's corner plus x and y
+            rect: [left + 200, top + 100],
+            hit: "card",
+        })
+    })
+
     test("a real click hits a child where it's drawn", async ({ page }) => {
         await page.evaluate(async () => {
             const w = window as any
-            await w.animate("#button", { x: 220, y: 200 }, { duration: 0 })
+            await w.animate("#button", { x: 220, y: 140 }, { duration: 0 })
             await w.nextRender()
             await w.nextRender()
         })
         await page.mouse.click(left + 280, top + 220)
         expect(await page.evaluate(() => (window as any).clicks)).toBe(1)
-        // Its layout box at the canvas origin no longer takes the click
-        await page.mouse.click(left + 150, top + 20)
+        // Its layout box no longer takes the click
+        await page.mouse.click(left + 60, top + 80)
         expect(await page.evaluate(() => (window as any).clicks)).toBe(1)
     })
 
@@ -70,7 +133,7 @@ test.describe("<motion-canvas>", () => {
     test("a shader attribute names a registered shader", async ({ page }) => {
         const pixel = await page.evaluate(async () => {
             const w = window as any
-            await w.animate("#button", { x: 200, y: 200 }, { duration: 0 })
+            await w.animate("#button", { x: 200, y: 140 }, { duration: 0 })
             await w.nextRender()
             return (await w.nextRender()).at(205, 205)
         })
@@ -85,7 +148,7 @@ test.describe("<motion-canvas>", () => {
             late.id = "late"
             w.host.appendChild(late)
             await new Promise((resolve) => setTimeout(resolve, 50))
-            await w.animate(late, { x: 300, y: 200 }, { duration: 0 })
+            await w.animate(late, { x: 300, y: 100 }, { duration: 0 })
             await w.nextRender()
             const added = (await w.nextRender()).at(320, 220)
             late.remove()

@@ -37,7 +37,6 @@
             const canvas = document.querySelector("canvas")
             const layer = canvasLayer(canvas, {
                 motionBlur: 1,
-                context: { preserveDrawingBuffer: true, antialias: false },
             })
             const moving = document.getElementById("moving")
             const unblurred = document.getElementById("unblurred")
@@ -45,12 +44,6 @@
             layer.add(moving)
             layer.add(unblurred, { y: 70, motionBlur: 0 })
             layer.add(document.getElementById("still"), { x: 200, y: 140 })
-
-            const gl = canvas.getContext("webgl2")
-            const isFloat = Boolean(
-                gl.getExtension("EXT_color_buffer_float") ||
-                    gl.getExtension("EXT_color_buffer_half_float")
-            )
 
             /**
              * Read each element's row, and the moving element's colour
@@ -75,7 +68,6 @@
             processFrame(start)
 
             Object.assign(window, {
-                isFloat,
                 start: () => {
                     // 1200px/s, 20px a frame at 60fps
                     const options = { duration: 0.25, ease: "linear" }

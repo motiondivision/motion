@@ -101,7 +101,11 @@ test("arrays of motion values and motion value uniforms", async ({ page }) => {
     ).toBe(1)
 })
 
-test("a shader that doesn't compile throws from add()", async ({ page }) => {
-    const message = await page.evaluate(() => (window as any).shaderError)
-    expect(message).toMatch(/ERROR/)
+test("a shader that doesn't compile warns and its element is drawn without it", async ({
+    page,
+}) => {
+    // #broken is 40 x 40 and blue, at (240, 10)
+    expect(await sample(page, [[260, 30]])).toEqual([blue])
+    const warnings = await page.evaluate(() => (window as any).warnings)
+    expect(warnings.join()).toMatch(/shader failed/)
 })

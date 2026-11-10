@@ -54,9 +54,7 @@
             const canvas = document.querySelector("canvas")
             const card = document.getElementById("card")
             const button = document.getElementById("button")
-            const layer = canvasLayer(canvas, {
-                context: { preserveDrawingBuffer: true, antialias: false },
-            })
+            const layer = canvasLayer(canvas)
 
             layer.add(card)
             layer.add(button, { x: 150, y: 200 })

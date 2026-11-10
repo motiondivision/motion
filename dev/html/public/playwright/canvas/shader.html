@@ -39,21 +39,17 @@
              * `band.x`, it's white.
              */
             const wipe = `
-                uniform float progress;
-                uniform vec4 tint;
-                uniform vec2 band;
-                vec4 effect(vec2 uv) {
-                    vec4 color = texture(uTexture, uv);
-                    if (uv.y < band.x) return vec4(color.a);
-                    if (uv.x < progress) return tint * color.a;
+                struct Uniforms { progress: f32, tint: vec4f, band: vec2f }
+                fn effect(uv: vec2f) -> vec4f {
+                    let color = element(uv);
+                    if (uv.y < uniforms.band.x) { return vec4f(color.a); }
+                    if (uv.x < uniforms.progress) { return uniforms.tint * color.a; }
                     return color;
                 }
             `
 
             const canvas = document.querySelector("canvas")
-            const layer = canvasLayer(canvas, {
-                context: { preserveDrawingBuffer: true, antialias: false },
-            })
+            const layer = canvasLayer(canvas)
             const panel = document.getElementById("panel")
             const second = document.getElementById("second")
             const bandHeight = motionValue(0)
@@ -70,13 +66,24 @@
                 uniforms: { progress: secondProgress, tint: "#00ff00" },
             })
 
-            let shaderError
-            try {
-                const broken = document.createElement("div")
-                layer.add(broken, { shader: "vec4 effect(vec2 uv) { oops }" })
-            } catch (error) {
-                shaderError = error.message
+            /**
+             * A shader that doesn't compile warns, and its element is
+             * drawn without it.
+             */
+            const warnings = []
+            const warn = console.warn
+            console.warn = (...args) => {
+                warnings.push(args.join(" "))
+                warn(...args)
             }
+            const broken = document.createElement("div")
+            broken.style.cssText =
+                "width:40px;height:40px;background:rgb(0,0,255)"
+            layer.add(broken, {
+                left: 240,
+                top: 10,
+                shader: "fn effect(uv: vec2f) -> vec4f { oops }",
+            })
 
             Object.assign(window, {
                 animate,
@@ -88,7 +95,7 @@
                 processFrame,
                 second,
                 secondProgress,
-                shaderError,
+                warnings,
                 nextRender: () => nextRender(layer),
             })
 

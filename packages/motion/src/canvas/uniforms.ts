@@ -56,61 +56,93 @@ function flatten(value: unknown, out: number[]) {
 }
 
 /**
- * GLSL uniform types by WebGL enum: [components, setter, integer].
+ * WGSL host-shareable types: [align, size, columns, rows], all in bytes
+ * and components.
  */
-const types: Record<number, [number, string, boolean?]> = {
-    0x1406: [1, "uniform1fv"], // FLOAT
-    0x8b50: [2, "uniform2fv"], // FLOAT_VEC2
-    0x8b51: [3, "uniform3fv"], // FLOAT_VEC3
-    0x8b52: [4, "uniform4fv"], // FLOAT_VEC4
-    0x8b5a: [4, "uniformMatrix2fv"], // FLOAT_MAT2
-    0x8b5b: [9, "uniformMatrix3fv"], // FLOAT_MAT3
-    0x8b5c: [16, "uniformMatrix4fv"], // FLOAT_MAT4
-    0x1404: [1, "uniform1iv", true], // INT
-    0x8b53: [2, "uniform2iv", true], // INT_VEC2
-    0x8b54: [3, "uniform3iv", true], // INT_VEC3
-    0x8b55: [4, "uniform4iv", true], // INT_VEC4
-    0x8b56: [1, "uniform1iv", true], // BOOL
-    0x8b57: [2, "uniform2iv", true], // BOOL_VEC2
-    0x8b58: [3, "uniform3iv", true], // BOOL_VEC3
-    0x8b59: [4, "uniform4iv", true], // BOOL_VEC4
+const types: Record<string, [number, number, number, number]> = {
+    "32": [4, 4, 1, 1],
+    vec2: [8, 8, 1, 2],
+    vec3: [16, 12, 1, 3],
+    vec4: [16, 16, 1, 4],
+    mat2x2: [8, 16, 2, 2],
+    mat3x3: [16, 48, 3, 3],
+    mat4x4: [16, 64, 4, 4],
 }
 
 export interface UniformInfo {
-    location: WebGLUniformLocation
-    type: number
+    /**
+     * Byte offset in the uniform buffer.
+     */
+    offset: number
+    columns: number
+    rows: number
+    integer: boolean
+}
+
+export interface UniformLayout {
+    members: Map<string, UniformInfo>
+    /**
+     * Size of the buffer in bytes.
+     */
     size: number
 }
 
-/**
- * Whether a uniform of this type can be set from numbers. Samplers can't.
- */
-export const isSettable = (type: number) => type in types
+const roundUp = (value: number, to: number) => Math.ceil(value / to) * to
 
 /**
- * Fit `values` to the uniform's declared size, padding with zeroes, so a
- * colour can feed a vec3 or a number a float.
+ * Read the members of the shader's `struct Uniforms`, with the offsets
+ * WGSL lays them out at. WebGPU has no way to ask a shader for these.
  */
-export function fitUniform(values: number[], { type, size }: UniformInfo) {
-    const [components, , integer] = types[type]
-    const length = components * size
-    const data = integer ? new Int32Array(length) : new Float32Array(length)
-    for (let i = 0; i < length && i < values.length; i++) {
-        data[i] = integer ? Math.round(values[i]) : values[i]
+export function parseUniforms(shader: string): UniformLayout | undefined {
+    const body = shader
+        .replace(/\/\/.*|\/\*[^]*?\*\//g, "")
+        .match(/struct\s+Uniforms\s*\{([^}]*)\}/)?.[1]
+    if (!body) return
+
+    const members = new Map<string, UniformInfo>()
+    let offset = 0
+
+    for (const [, name, declared] of body.matchAll(
+        /(\w+)\s*:\s*([\w<>\s]+)/g
+    )) {
+        // vec3<f32> and vec3f are the same type
+        const [, shape, kind] =
+            declared.replace(/\s/g, "").match(/^(\w*?)<?([fiu])(?:32)?>?$/) ||
+            []
+        const type = types[shape || "32"]
+        if (!type) continue
+
+        const [align, size, columns, rows] = type
+        offset = roundUp(offset, align)
+        members.set(name, { offset, columns, rows, integer: kind !== "f" })
+        offset += size
     }
-    return data
+
+    return { members, size: roundUp(offset, 16) }
 }
 
-export function setUniform(
-    gl: WebGL2RenderingContext,
-    info: UniformInfo,
+/**
+ * Write `value` into the uniform buffer's data, padded with zeroes to the
+ * member's size, so a colour can feed a vec3 or a number a float.
+ */
+export function writeUniform(
+    floats: Float32Array,
+    ints: Int32Array,
+    { offset, columns, rows, integer }: UniformInfo,
     value: unknown,
     scratch: number[]
 ) {
-    const [, setter] = types[info.type]
-    const data = fitUniform(resolveUniform(value, scratch), info)
+    const values = resolveUniform(value, scratch)
+    // Columns of three are padded to four
+    const stride = rows === 3 ? 4 : rows
 
-    setter.startsWith("uniformMatrix")
-        ? (gl as any)[setter](info.location, false, data)
-        : (gl as any)[setter](info.location, data)
+    for (let column = 0; column < columns; column++) {
+        for (let row = 0; row < rows; row++) {
+            const number = values[column * rows + row] || 0
+            const index = offset / 4 + column * stride + row
+            integer
+                ? (ints[index] = Math.round(number))
+                : (floats[index] = number)
+        }
+    }
 }

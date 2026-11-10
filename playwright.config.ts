@@ -35,6 +35,10 @@ const chromiumLaunchOptions =
  * so they run without a GPU.
  */
 const webglArgs = [
+    // WebGPU on SwiftShader's GL. Its Vulkan adapter loses the device
+    // when a canvas is presented in headless Chromium.
+    "--enable-unsafe-webgpu",
+    "--use-webgpu-adapter=opengles",
     "--use-angle=swiftshader",
     "--enable-unsafe-swiftshader",
     "--ignore-gpu-blocklist",

@@ -86,8 +86,16 @@ export function installTrialShim() {
         setTransform(element, transform.toString(), "")
     }
 
+    /**
+     * An element that's still drawn has no place in the canvas, so can't
+     * be hit. One that's no longer drawable goes back to normal.
+     */
     Canvas.clearElementGeometry = function (element) {
-        setTransform(element, "none", "none")
+        setTransform(
+            element,
+            "none",
+            element.hasAttribute("drawable") ? "none" : ""
+        )
     }
 
     Canvas.getElementImageDefaultSize = function (element) {

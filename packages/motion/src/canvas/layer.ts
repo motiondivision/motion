@@ -18,16 +18,21 @@ import {
     type CanvasPoseKey,
 } from "./pose"
 import {
-    builtInUniforms,
-    compileCopyProgram,
-    compileElementProgram,
+    blurFormat,
+    createRenderer,
+    hasWebGPU,
+    instanceSize,
+    onDeviceLost,
+    requestDevice,
+    type GPU,
     type Program,
-} from "./program"
+    type Renderer,
+} from "./gpu"
 import {
-    isSettable,
-    setUniform,
+    parseUniforms,
+    writeUniform,
     type CanvasUniform,
-    type UniformInfo,
+    type UniformLayout,
 } from "./uniforms"
 import { CanvasVisualElement } from "./visual-element"
 
@@ -42,16 +47,9 @@ export interface CanvasLayerOptions {
 
     /**
      * The most sub-frame poses averaged for one blurred element. Fewer
-     * are used for short moves. Defaults to `24`, or `8` where the GPU
-     * can't render to half-float textures.
+     * are used for short moves. Defaults to `24`.
      */
     samples?: number
-
-    /**
-     * Attributes for the canvas' WebGL2 context. `preserveDrawingBuffer`
-     * lets the canvas be read outside its `paint` event.
-     */
-    context?: WebGLContextAttributes
 }
 
 export type CanvasPoseValues = {
@@ -60,16 +58,26 @@ export type CanvasPoseValues = {
 
 export interface CanvasElementOptions extends CanvasPoseValues {
     /**
-     * A GLSL ES 3.00 function, `vec4 effect(vec2 uv)`, that returns the
-     * premultiplied colour of the element at `uv` (0-1, from its top-left
-     * corner). It can read the element with `texture(uTexture, uv)`, its
-     * size in CSS pixels as `uSize`, the time in seconds as `uTime`, and
-     * the uniforms it declares.
+     * Where the element's layout box is in the canvas, in CSS pixels.
+     * `x` and `y` move it from there, as a CSS transform would. Call
+     * `add()` again to change them.
+     */
+    left?: number
+    top?: number
+
+    /**
+     * WGSL with a function, `fn effect(uv: vec2f) -> vec4f`, that returns
+     * the premultiplied colour of the element at `uv` (0-1, from its
+     * top-left corner). It can read the element with `element(uv)`, its
+     * size in CSS pixels as `layer.size`, the time in seconds as
+     * `layer.time`, and the members of a `struct Uniforms` it declares
+     * as `uniforms.name`. If it fails to compile, the element is drawn
+     * without it.
      */
     shader?: string
 
     /**
-     * Values for the uniforms `shader` declares. Numbers and colours
+     * Values for the members of the shader's `Uniforms`. Numbers and colours
      * become values of the element, so `animate(element, { progress: 1 })`
      * animates them. Motion values and arrays (which can hold motion
      * values) are read each frame.
@@ -86,10 +94,25 @@ export interface CanvasLayer {
     readonly canvas: HTMLCanvasElement
 
     /**
-     * Whether the browser can draw HTML in a canvas. Without it, the layer
-     * does nothing and the canvas' children stay fallback content.
+     * Whether the browser can draw HTML in a canvas with WebGPU. Without
+     * it, the layer does nothing and the canvas' children stay fallback
+     * content. It becomes `false` if the GPU device can't be made or is
+     * lost.
      */
     readonly supported: boolean
+
+    /**
+     * Resolves once the layer can draw, with `false` if it never will.
+     * Getting a GPU device takes a few frames.
+     */
+    readonly ready: Promise<boolean>
+
+    /**
+     * Called if the layer stops drawing because the GPU device was lost.
+     * Its elements are left with their last transform and opacity as
+     * styles, ready to be displayed as normal DOM.
+     */
+    onLost(callback: VoidFunction): VoidFunction
 
     motionBlur: number
 
@@ -129,25 +152,38 @@ interface Item {
     element: HTMLElement
     visualElement: VisualElement
     ownsVisualElement: boolean
-    program: Program
+    shader?: string
     /**
-     * Each uniform to set, with the vector or matrix that feeds it if
-     * it's not a value of the element.
+     * The layout of the shader's `Uniforms`, with the vector or matrix
+     * that feeds each member if it's not a value of the element.
      */
-    uniforms: [UniformInfo, string, unknown?][]
+    layout?: UniformLayout
+    sources: Map<string, unknown>
     motionBlur?: number
-    texture: WebGLTexture
-    textureWidth: number
-    textureHeight: number
+    left: number
+    top: number
     width: number
     height: number
     isReady: boolean
     isDirty: boolean
+    isCaptured?: boolean
     pose: CanvasPose
     prev?: CanvasPose
     matrix: Float32Array
     geometry: number[]
     cleanup: VoidFunction[]
+
+    /**
+     * GPU resources, made when the element is first drawn.
+     */
+    texture?: GPU
+    textureWidth: number
+    textureHeight: number
+    frame?: GPU
+    group?: GPU
+    uniformData?: ArrayBuffer
+    uniformBuffer?: GPU
+    uniformGroup?: GPU
 }
 
 /**
@@ -157,130 +193,88 @@ export const canvasItems = new WeakMap<Element, Item>()
 
 const noop = () => {}
 
-const quadVertices = new Float32Array([0, 0, 1, 0, 0, 1, 1, 1])
+const floatsPerInstance = instanceSize / 4
+
+// GPUTextureUsage and GPUBufferUsage flags
+const elementTextureUsage = 0x02 | 0x04 | 0x10
+const targetUsage = 0x04 | 0x10
+const uniformUsage = 0x40 | 0x08
+const vertexUsage = 0x20 | 0x08
 
 /**
- * Composite live HTML with WebGL2. Each element added to the layer is
+ * Composite live HTML with WebGPU. Each element added to the layer is
  * drawn as a textured quad with Motion transform values, optionally
  * through a fragment shader and with motion blur, and its hit testing is
  * kept where it's drawn.
  *
  * ```javascript
  * const layer = canvasLayer(canvas, { motionBlur: 0.5 })
- * layer.add(card, { x: 40, y: 40 })
+ * layer.add(card, { left: 40, top: 40 })
  * animate(card, { x: 400, rotate: 90 })
  * ```
  *
- * Needs a browser that can draw HTML in canvas. Elsewhere `supported` is
- * `false` and nothing is drawn.
+ * Needs a browser that can draw HTML in canvas with WebGPU. Elsewhere
+ * `supported` is `false` and nothing is drawn.
  */
 export function canvasLayer(
     canvas: HTMLCanvasElement,
-    { motionBlur = 0, samples = 24, context }: CanvasLayerOptions = {}
+    { motionBlur = 0, samples = 24 }: CanvasLayerOptions = {}
 ): CanvasLayer {
     const items = new Map<Element, Item>()
     const listeners = new SubscriptionManager<(layer: CanvasLayer) => void>()
+    const lostListeners = new SubscriptionManager<VoidFunction>()
     const previousContent = canvas.getAttribute("content")
 
-    const layer: CanvasLayer = {
+    const layer = {
         canvas,
         supported: false,
+        ready: Promise.resolve(false),
         motionBlur,
         samples,
-        add: noop,
-        remove: noop,
-        has: (element) => items.has(element),
+        add: noop as CanvasLayer["add"],
+        remove: noop as CanvasLayer["remove"],
+        has: (element: Element) => items.has(element),
         invalidate: noop,
-        onRender: (callback) => listeners.add(callback),
+        onRender: (callback: (layer: CanvasLayer) => void) =>
+            listeners.add(callback),
+        onLost: (callback: VoidFunction) => lostListeners.add(callback),
         destroy: noop,
     }
 
-    let webgl: WebGL2RenderingContext | null = null
-
-    try {
-        canvas.setAttribute("content", "drawable")
-        if ((canvas as any).content === "drawable") {
-            webgl = canvas.getContext("webgl2", {
-                premultipliedAlpha: true,
-                ...context,
-            })
-        }
-    } catch {}
-
-    if (!webgl) {
+    const restoreContent = () =>
         previousContent === null
             ? canvas.removeAttribute("content")
             : canvas.setAttribute("content", previousContent)
+
+    let context: GPU = null
+
+    try {
+        if (hasWebGPU()) {
+            canvas.setAttribute("content", "drawable")
+            if ((canvas as any).content === "drawable") {
+                context = canvas.getContext("webgpu" as any)
+            }
+        }
+    } catch {}
+
+    if (!context) {
+        restoreContent()
         return layer
     }
-
-    const gl = webgl
 
     const drawable = canvas as DrawableCanvas
     const invalidate = () => drawable.requestPaint()
 
-    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true)
+    let renderer: Renderer | undefined
+    let isDestroyed = false
+    let isConfigured = false
+    let stopLost: VoidFunction | undefined
 
-    const quad = gl.createBuffer()
-    gl.bindBuffer(gl.ARRAY_BUFFER, quad)
-    gl.bufferData(gl.ARRAY_BUFFER, quadVertices, gl.STATIC_DRAW)
-
-    const programs = new Map<string, Program>()
-    const getProgram = (shader = "") => {
-        let program = programs.get(shader)
-        if (!program) {
-            program = compileElementProgram(gl, shader || undefined)
-            programs.set(shader, program)
-        }
-        return program
-    }
-    const copy = compileCopyProgram(gl)
-
-    /**
-     * Motion blur averages many faint poses, which 8-bit targets can't
-     * hold without banding and tinting, so it needs half-float targets.
-     * Without them, fewer, stronger samples keep it close.
-     */
-    const isFloat = Boolean(
-        gl.getExtension("EXT_color_buffer_float") ||
-            gl.getExtension("EXT_color_buffer_half_float")
-    )
-    let blurTarget: [WebGLTexture, WebGLFramebuffer] | undefined
-
-    const sizeBlurTarget = () => {
-        if (!blurTarget) return
-        const { width, height } = canvas
-        gl.bindTexture(gl.TEXTURE_2D, blurTarget[0])
-        gl.texImage2D(
-            gl.TEXTURE_2D,
-            0,
-            isFloat ? gl.RGBA16F : gl.RGBA8,
-            width,
-            height,
-            0,
-            gl.RGBA,
-            isFloat ? gl.HALF_FLOAT : gl.UNSIGNED_BYTE,
-            null
-        )
-    }
-
-    const getBlurTarget = () => {
-        if (!blurTarget) {
-            const texture = createTexture(gl)
-            const framebuffer = gl.createFramebuffer()!
-            blurTarget = [texture, framebuffer]
-            sizeBlurTarget()
-            gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer)
-            gl.framebufferTexture2D(
-                gl.FRAMEBUFFER,
-                gl.COLOR_ATTACHMENT0,
-                gl.TEXTURE_2D,
-                texture,
-                0
-            )
-        }
-        return blurTarget[1]
-    }
+    let instanceBuffer: GPU
+    let instances = new Float32Array(0)
+    let blurTexture: GPU
+    let blurView: GPU
+    let blurGroup: GPU
 
     const resize = (entry?: ResizeObserverEntry) => {
         const box = entry?.devicePixelContentBoxSize?.[0]
@@ -297,10 +291,12 @@ export function canvasLayer(
             Math.round(canvas.clientHeight * devicePixelRatio)
         )
 
+        // A canvas that's not displayed keeps the size it had
+        if (!width || !height) return
+
         if (canvas.width !== width || canvas.height !== height) {
             canvas.width = width
             canvas.height = height
-            sizeBlurTarget()
             items.forEach((item) => (item.isDirty = true))
         }
         invalidate()
@@ -314,7 +310,11 @@ export function canvasLayer(
     }
     resize()
 
-    const upload = (item: Item, changed?: Set<Element>) => {
+    const upload = (
+        { device, elementLayout, uniformsLayout, sampler }: Renderer,
+        item: Item,
+        changed?: Set<Element>
+    ) => {
         const { element } = item
         const width = element.offsetWidth
         const height = element.offsetHeight
@@ -322,6 +322,28 @@ export function canvasLayer(
         if (!width || !height) {
             item.isReady = false
             return
+        }
+
+        if (!item.frame) {
+            item.frame = device.createBuffer({ size: 32, usage: uniformUsage })
+
+            if (item.layout) {
+                const { size } = item.layout
+                item.uniformData = new ArrayBuffer(size)
+                item.uniformBuffer = device.createBuffer({
+                    size,
+                    usage: uniformUsage,
+                })
+                item.uniformGroup = device.createBindGroup({
+                    layout: uniformsLayout,
+                    entries: [
+                        {
+                            binding: 0,
+                            resource: { buffer: item.uniformBuffer },
+                        },
+                    ],
+                })
+            }
         }
 
         if (
@@ -340,144 +362,145 @@ export function canvasLayer(
         item.isDirty = false
 
         const size = drawable.getElementImageDefaultSize(element)
-        const textureWidth = Math.ceil(size.width)
-        const textureHeight = Math.ceil(size.height)
-
-        gl.bindTexture(gl.TEXTURE_2D, item.texture)
+        const textureWidth = Math.max(1, Math.ceil(size.width))
+        const textureHeight = Math.max(1, Math.ceil(size.height))
 
         if (
             textureWidth !== item.textureWidth ||
             textureHeight !== item.textureHeight
         ) {
+            item.texture?.destroy()
             item.textureWidth = textureWidth
             item.textureHeight = textureHeight
-            gl.texImage2D(
-                gl.TEXTURE_2D,
-                0,
-                gl.RGBA8,
-                textureWidth,
-                textureHeight,
-                0,
-                gl.RGBA,
-                gl.UNSIGNED_BYTE,
-                null
-            )
+            item.texture = device.createTexture({
+                size: [textureWidth, textureHeight],
+                format: "rgba8unorm",
+                usage: elementTextureUsage,
+            })
+            item.group = device.createBindGroup({
+                layout: elementLayout,
+                entries: [
+                    { binding: 0, resource: { buffer: item.frame } },
+                    { binding: 1, resource: item.texture.createView() },
+                    { binding: 2, resource: sampler },
+                ],
+            })
+            // Nothing's in the new texture until the copy below succeeds
+            item.isReady = false
         }
 
-        try {
-            ;(gl as DrawableContext).texElementSubImage2D(
-                gl.TEXTURE_2D,
-                0,
-                0,
-                0,
-                element
+        const copy = (source: unknown) =>
+            device.queue.copyElementImageToTexture(
+                { source },
+                {
+                    destination: {
+                        texture: item.texture,
+                        premultipliedAlpha: true,
+                    },
+                }
             )
+
+        try {
+            /**
+             * WebGPU only takes an element whose parent is the canvas. A
+             * slotted one, as <motion-canvas> has, is copied through a
+             * captured image of it.
+             */
+            try {
+                if (item.isCaptured) throw 0
+                copy(element)
+            } catch {
+                const image = drawable.captureElementImage(element)
+                copy(image)
+                image.close()
+                item.isCaptured = true
+            }
             item.isReady = true
         } catch {
             /**
-             * The element has no snapshot yet, e.g. it's not been laid
-             * out. It'll be in a later paint.
+             * The element has no snapshot yet, e.g. it was laid out
+             * after this paint began. Try again in the next one.
              */
             item.isDirty = true
+            invalidate()
         }
     }
 
     let seconds = 0
     const scratch: number[] = []
+    const frameData = new Float32Array(8)
 
-    const useItem = ({ program, texture, uniforms, visualElement }: Item) => {
-        const { program: glProgram, uniforms: locations } = program
-        gl.useProgram(glProgram)
-        gl.activeTexture(gl.TEXTURE0)
-        gl.bindTexture(gl.TEXTURE_2D, texture)
-        gl.uniform2f(
-            locations.get("uCanvas")!.location,
-            canvas.clientWidth,
-            canvas.clientHeight
-        )
-        const timeUniform = locations.get("uTime")
-        timeUniform && gl.uniform1f(timeUniform.location, seconds)
-        for (const [info, name, source] of uniforms) {
-            /**
-             * Elements with the same shader share a program, so a uniform
-             * without a value is reset to 0 rather than left as the last
-             * element set it.
-             */
-            setUniform(
-                gl,
-                info,
-                source ?? visualElement.getValue(name) ?? 0,
-                scratch
-            )
+    /**
+     * Write the values the element's shader reads, and return the
+     * program to draw it with: its own once it's known to compile, the
+     * default shader until then or if it failed.
+     */
+    const useItem = ({ device, program }: Renderer, item: Item): Program => {
+        frameData[0] = item.width
+        frameData[1] = item.height
+        frameData[2] = canvas.clientWidth
+        frameData[3] = canvas.clientHeight
+        frameData[4] = seconds
+        device.queue.writeBuffer(item.frame, 0, frameData)
+
+        const compiled = program(item.shader)
+        if (!compiled.isValid) return program()
+
+        if (item.layout) {
+            const floats = new Float32Array(item.uniformData!)
+            const ints = new Int32Array(item.uniformData!)
+            item.layout.members.forEach((info, name) => {
+                /**
+                 * A member without a value is 0.
+                 */
+                writeUniform(
+                    floats,
+                    ints,
+                    info,
+                    item.sources.get(name) ??
+                        item.visualElement.getValue(name) ??
+                        0,
+                    scratch
+                )
+            })
+            device.queue.writeBuffer(item.uniformBuffer, 0, item.uniformData)
         }
+
+        return compiled
     }
 
-    const drawPose = (item: Item, pose: CanvasPose, alpha: number) => {
-        const { uniforms } = item.program
-        gl.uniformMatrix3fv(
-            uniforms.get("uMatrix")!.location,
-            false,
-            poseMatrix(pose, item.width, item.height, item.matrix)
-        )
-        const size = uniforms.get("uSize")
-        size && gl.uniform2f(size.location, item.width, item.height)
-        gl.uniform1f(uniforms.get("uAlpha")!.location, alpha)
-        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
+    let cursor = 0
+
+    /**
+     * Add an instance of the element drawn with `pose`.
+     */
+    const pushInstance = (item: Item, pose: CanvasPose, alpha: number) => {
+        const matrix = poseMatrix(pose, item.width, item.height, item.matrix)
+        instances[cursor++] = matrix[0]
+        instances[cursor++] = matrix[1]
+        instances[cursor++] = matrix[3]
+        instances[cursor++] = matrix[4]
+        instances[cursor++] = matrix[6]
+        instances[cursor++] = matrix[7]
+        instances[cursor++] = alpha
+    }
+
+    const draw = (
+        pass: GPU,
+        pipeline: GPU,
+        item: Item,
+        hasUniforms: boolean,
+        first: number,
+        count: number
+    ) => {
+        pass.setPipeline(pipeline)
+        pass.setBindGroup(0, item.group)
+        hasUniforms && pass.setBindGroup(1, item.uniformGroup)
+        pass.setVertexBuffer(0, instanceBuffer)
+        pass.draw(4, count, 0, first)
     }
 
     const sample = {} as CanvasPose
-
-    /**
-     * Draw the average of the poses from `pose` back to `shutter` of the
-     * way to `prev` into the blur target, then composite it. Only the
-     * swept area is touched.
-     */
-    const drawBlurred = (
-        item: Item,
-        prev: CanvasPose,
-        pose: CanvasPose,
-        shutter: number,
-        travel: number
-    ) => {
-        const { width, height } = canvas
-        const scaleX = width / canvas.clientWidth
-        const scaleY = height / canvas.clientHeight
-        const [left, top, right, bottom] = sweptBounds(
-            mixPose(pose, prev, shutter, sample),
-            pose,
-            item.width,
-            item.height
-        )
-        const x = Math.max(0, Math.floor(left * scaleX) - 1)
-        const y = Math.max(0, Math.floor(height - bottom * scaleY) - 1)
-        const w = Math.min(width, Math.ceil(right * scaleX) + 1) - x
-        const h = Math.min(height, Math.ceil(height - top * scaleY) + 1) - y
-
-        if (w <= 0 || h <= 0) return
-
-        gl.enable(gl.SCISSOR_TEST)
-        gl.scissor(x, y, w, h)
-        gl.bindFramebuffer(gl.FRAMEBUFFER, getBlurTarget())
-        gl.clear(gl.COLOR_BUFFER_BIT)
-        gl.blendFunc(gl.ONE, gl.ONE)
-        useItem(item)
-
-        const count = blurSamples(
-            travel,
-            isFloat ? layer.samples : Math.min(layer.samples, 8)
-        )
-        for (let i = 0; i < count; i++) {
-            mixPose(pose, prev, (i / (count - 1)) * shutter, sample)
-            drawPose(item, sample, sample.opacity / count)
-        }
-
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-        gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
-        gl.useProgram(copy.program)
-        gl.bindTexture(gl.TEXTURE_2D, blurTarget![0])
-        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
-        gl.disable(gl.SCISSOR_TEST)
-    }
 
     /**
      * Keep hit testing, focus rings and the accessibility tree where the
@@ -495,52 +518,177 @@ export function canvasLayer(
     }
 
     const render = (changedElements?: Iterable<Element>) => {
+        const { width, height } = canvas
+        if (!renderer || !width || !height) return
+
+        const { device, copy, copyLayout } = renderer
+
+        /**
+         * Configured here, not when the device arrives, because the
+         * canvas needs a size first.
+         */
+        if (!isConfigured) {
+            context.configure({
+                device,
+                format: renderer.format,
+                alphaMode: "premultiplied",
+            })
+            isConfigured = true
+        }
+
         const changed = changedElements && new Set(changedElements)
-        const scale = canvas.width / canvas.clientWidth
+        const scaleX = width / canvas.clientWidth
+        const scaleY = height / canvas.clientHeight
         let drawAgain = false
 
         seconds = time.now() / 1000
 
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-        gl.viewport(0, 0, canvas.width, canvas.height)
-        gl.clearColor(0, 0, 0, 0)
-        gl.clear(gl.COLOR_BUFFER_BIT)
-        gl.enable(gl.BLEND)
-        gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
-        gl.bindBuffer(gl.ARRAY_BUFFER, quad)
-        gl.enableVertexAttribArray(0)
-        gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0)
+        /**
+         * Every pose drawn this frame is an instance in one buffer, which
+         * is written once, before the frame is submitted.
+         */
+        const capacity =
+            items.size *
+            Math.max(2, Math.ceil(layer.samples)) *
+            floatsPerInstance
+        if (instances.length < capacity) {
+            instances = new Float32Array(capacity)
+            instanceBuffer?.destroy()
+            instanceBuffer = device.createBuffer({
+                size: capacity * 4,
+                usage: vertexUsage,
+            })
+        }
+        cursor = 0
+
+        const encoder = device.createCommandEncoder()
+        const view = context.getCurrentTexture().createView()
+        const beginPass = (target: GPU, loadOp: string) =>
+            encoder.beginRenderPass({
+                colorAttachments: [
+                    {
+                        view: target,
+                        loadOp,
+                        storeOp: "store",
+                        clearValue: [0, 0, 0, 0],
+                    },
+                ],
+            })
+        let pass = beginPass(view, "clear")
 
         for (const element of drawOrder(canvas)) {
             const item = items.get(element)
             if (!item) continue
 
-            upload(item, changed)
+            upload(renderer, item, changed)
             if (!item.isReady) continue
 
             const pose = readPose(item.visualElement.latestValues, item.pose)
+            pose.x += item.left
+            pose.y += item.top
+
             const { prev } = item
             const shutter = item.motionBlur ?? layer.motionBlur
             const travel =
                 prev && shutter > 0
                     ? poseTravel(prev, pose, item.width, item.height) *
                       shutter *
-                      scale
+                      scaleX
                     : 0
 
             if (pose.opacity > 0) {
+                const program = useItem(renderer, item)
+                const hasUniforms = Boolean(program.uniforms)
+                const first = cursor / floatsPerInstance
+                let isBlurred = false
+
                 if (travel > 0.5) {
-                    drawBlurred(item, prev!, pose, shutter, travel)
                     /**
-                     * Draw again next frame, so an element that's come
-                     * to rest ends sharp.
+                     * Draw the average of the poses from `pose` back to
+                     * `shutter` of the way to `prev` into the blur
+                     * target, then composite the area they swept.
                      */
-                    drawAgain = true
-                } else {
-                    useItem(item)
-                    drawPose(item, pose, pose.opacity)
+                    const [left, top, right, bottom] = sweptBounds(
+                        mixPose(pose, prev!, shutter, sample),
+                        pose,
+                        item.width,
+                        item.height
+                    )
+                    const x = Math.max(0, Math.floor(left * scaleX) - 1)
+                    const y = Math.max(0, Math.floor(top * scaleY) - 1)
+                    const w = Math.min(width, Math.ceil(right * scaleX) + 1) - x
+                    const h =
+                        Math.min(height, Math.ceil(bottom * scaleY) + 1) - y
+
+                    if (w > 0 && h > 0) {
+                        isBlurred = true
+
+                        if (
+                            !blurTexture ||
+                            blurTexture.width !== width ||
+                            blurTexture.height !== height
+                        ) {
+                            blurTexture?.destroy()
+                            blurTexture = device.createTexture({
+                                size: [width, height],
+                                format: blurFormat,
+                                usage: targetUsage,
+                            })
+                            blurView = blurTexture.createView()
+                            blurGroup = device.createBindGroup({
+                                layout: copyLayout,
+                                entries: [{ binding: 0, resource: blurView }],
+                            })
+                        }
+
+                        const count = blurSamples(
+                            travel,
+                            Math.max(2, Math.ceil(layer.samples))
+                        )
+                        for (let i = 0; i < count; i++) {
+                            mixPose(
+                                pose,
+                                prev!,
+                                (i / (count - 1)) * shutter,
+                                sample
+                            )
+                            pushInstance(item, sample, sample.opacity / count)
+                        }
+
+                        pass.end()
+                        const blurPass = beginPass(blurView, "clear")
+                        blurPass.setScissorRect(x, y, w, h)
+                        draw(
+                            blurPass,
+                            program.blur,
+                            item,
+                            hasUniforms,
+                            first,
+                            count
+                        )
+                        blurPass.end()
+
+                        pass = beginPass(view, "load")
+                        pass.setScissorRect(x, y, w, h)
+                        pass.setPipeline(copy)
+                        pass.setBindGroup(0, blurGroup)
+                        pass.draw(3)
+                        pass.setScissorRect(0, 0, width, height)
+
+                        /**
+                         * Draw again next frame, so an element that's
+                         * come to rest ends sharp.
+                         */
+                        drawAgain = true
+                    }
                 }
-                if (item.program.usesTime) drawAgain = true
+
+                if (!isBlurred) {
+                    pushInstance(item, pose, pose.opacity)
+                    draw(pass, program.main, item, hasUniforms, first, 1)
+                }
+
+                if (program.usesTime) drawAgain = true
             }
 
             poseMatrix(pose, item.width, item.height, item.matrix)
@@ -549,6 +697,11 @@ export function canvasLayer(
             item.pose = prev || ({} as CanvasPose)
             item.prev = pose
         }
+
+        pass.end()
+        cursor &&
+            device.queue.writeBuffer(instanceBuffer, 0, instances, 0, cursor)
+        device.queue.submit([encoder.finish()])
 
         listeners.notify(layer)
         drawAgain && invalidate()
@@ -559,29 +712,42 @@ export function canvasLayer(
     canvas.addEventListener("paint", onPaint)
 
     const add = (element: HTMLElement, options: CanvasElementOptions = {}) => {
-        if (items.has(element)) return
+        const {
+            shader,
+            uniforms = {},
+            motionBlur,
+            left = 0,
+            top = 0,
+            ...values
+        } = options
 
-        const { shader, uniforms = {}, motionBlur, ...values } = options
-        const program = getProgram(shader)
+        const added = items.get(element)
+        if (added) {
+            /**
+             * A move of the layout box isn't motion, so it's not blurred.
+             */
+            if (added.left !== left || added.top !== top) {
+                added.left = left
+                added.top = top
+                added.prev = undefined
+                invalidate()
+            }
+            return
+        }
+
+        const layout = shader ? parseUniforms(shader) : undefined
         const cleanup: VoidFunction[] = []
 
         /**
-         * The uniforms the shader declares that the element can set. Any
-         * of them can be animated, from 0 like GLSL unless given a value.
+         * Any member of the shader's Uniforms can be animated, from 0
+         * unless given a value.
          */
-        const settable = new Map<string, UniformInfo>()
-        program.uniforms.forEach((info, name) => {
-            !builtInUniforms.has(name) &&
-                isSettable(info.type) &&
-                settable.set(name, info)
-        })
-
         const existing = visualElementStore.get(element)
         const visualElement =
             existing ||
             new CanvasVisualElement(
                 invalidate,
-                (key) => settable.has(key),
+                (key) => Boolean(layout?.members.has(key)),
                 (key) => {
                     const value = uniforms[key]
                     const latest = isMotionValue(value) ? value.get() : value
@@ -614,10 +780,12 @@ export function canvasLayer(
             element,
             visualElement,
             ownsVisualElement: !existing,
-            program,
-            uniforms: [],
+            shader,
+            layout,
+            sources: new Map(),
             motionBlur,
-            texture: createTexture(gl),
+            left,
+            top,
             textureWidth: 0,
             textureHeight: 0,
             width: 0,
@@ -630,7 +798,7 @@ export function canvasLayer(
             cleanup,
         }
 
-        settable.forEach((info, name) => {
+        layout?.members.forEach((_, name) => {
             const value = uniforms[name]
             if (
                 value !== null &&
@@ -646,10 +814,9 @@ export function canvasLayer(
                     isMotionValue(part) &&
                         cleanup.push(part.on("change", invalidate))
                 }
-                item.uniforms.push([info, name, value])
+                item.sources.set(name, value)
             } else {
                 value !== undefined && bind(name, value)
-                item.uniforms.push([info, name])
             }
         })
 
@@ -677,26 +844,85 @@ export function canvasLayer(
             visualElementStore.delete(element)
         }
 
-        gl.deleteTexture(item.texture)
-        drawable.clearElementGeometry(element)
+        item.texture?.destroy()
+        item.frame?.destroy()
+        item.uniformBuffer?.destroy()
         element.removeAttribute("drawable")
+        drawable.clearElementGeometry(element)
         invalidate()
     }
 
     const destroy = () => {
+        if (isDestroyed) return
+        isDestroyed = true
         items.forEach((_, element) => remove(element as HTMLElement))
         canvas.removeEventListener("paint", onPaint)
         observer.disconnect()
         listeners.clear()
+        stopLost?.()
+        instanceBuffer?.destroy()
+        blurTexture?.destroy()
+        try {
+            context.unconfigure()
+        } catch {}
+        renderer = undefined
     }
 
-    return Object.assign(layer, {
-        supported: true,
-        add,
-        remove,
-        invalidate,
-        destroy,
+    /**
+     * Stop drawing for good. Each element gets the transform and opacity
+     * it was drawn with as styles, so it looks the same as normal DOM.
+     */
+    const giveUp = () => {
+        if (isDestroyed) return
+        items.forEach((item, element) => {
+            const {
+                x,
+                y,
+                scale,
+                scaleX,
+                scaleY,
+                rotate,
+                opacity,
+                originX,
+                originY,
+            } = readPose(item.visualElement.latestValues)
+            remove(element as HTMLElement)
+            const { style } = element as HTMLElement
+            style.transformOrigin = `${originX * 100}% ${originY * 100}%`
+            style.transform = `translate(${x}px, ${y}px) rotate(${rotate}deg) scale(${
+                scale * scaleX
+            }, ${scale * scaleY})`
+            if (opacity !== 1) style.opacity = `${opacity}`
+        })
+        destroy()
+        layer.supported = false
+        restoreContent()
+        lostListeners.notify()
+        lostListeners.clear()
+    }
+
+    layer.supported = true
+    layer.ready = requestDevice().then((device) => {
+        if (isDestroyed) return false
+
+        if (!device) {
+            giveUp()
+            return false
+        }
+
+        try {
+            renderer = createRenderer(device, invalidate)
+        } catch {
+            giveUp()
+            return false
+        }
+
+        stopLost = onDeviceLost(giveUp)
+        invalidate()
+        return true
     })
+
+    return Object.assign(layer, { add, remove, invalidate, destroy })
 }
 
 /**
@@ -711,16 +937,6 @@ function drawOrder(canvas: HTMLCanvasElement) {
             : elements.push(child)
     }
     return elements
-}
-
-function createTexture(gl: WebGL2RenderingContext) {
-    const texture = gl.createTexture()!
-    gl.bindTexture(gl.TEXTURE_2D, texture)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
-    return texture
 }
 
 /**
@@ -738,18 +954,9 @@ interface DrawableCanvas extends HTMLCanvasElement {
         options: { canvasTransform: DOMMatrix }
     ): void
     clearElementGeometry(element: Element): void
+    captureElementImage(element: Element): { close(): void }
 }
 
 interface CanvasPaintEventLike extends Event {
     changedElements?: Iterable<Element>
-}
-
-interface DrawableContext extends WebGL2RenderingContext {
-    texElementSubImage2D(
-        target: GLenum,
-        level: GLint,
-        xoffset: GLint,
-        yoffset: GLint,
-        element: Element
-    ): void
 }
