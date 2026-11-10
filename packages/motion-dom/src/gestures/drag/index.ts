@@ -33,8 +33,12 @@ export interface DragOptions {
      * The permitted draggable area. Either `top`/`left`/`right`/`bottom`
      * distances in pixels, relative to the element's origin, an element
      * the draggable element must stay within, or a function that returns
-     * a `DragPointConstraint` to move the element itself. Constraints
-     * from `constrain()` can be shared with `pinch()`.
+     * a `DragPointConstraint` to move the element itself.
+     *
+     * These are the element's constraints, shared with `pinch()`: without
+     * its own, drag uses those set on pinch, and pinch uses these.
+     * Whichever is set last applies to both. A `DragPointConstraint` only
+     * applies to drag.
      */
     constraints?:
         | Partial<BoundingBox>

@@ -1,10 +1,4 @@
-import { clamp, type BoundingBox } from "motion-utils"
-import { spring } from "../../animation/generators/spring"
-import type { SpringOptions } from "../../animation/types"
-import { cancelFrame, frame } from "../../frameloop"
-import { time } from "../../frameloop/sync-time"
-import type { MotionValue } from "../../value"
-import { resize } from "../../resize"
+import type { BoundingBox } from "motion-utils"
 import {
     resolveElements,
     type ElementOrSelector,
@@ -58,19 +52,14 @@ export type ConstraintsTarget =
  */
 export interface ConstrainOptions {
     /**
+     * Which box element constraints keep within the constraining element.
      * Defaults to `"visual"`.
      */
     type?: ConstraintsType
-
-    /**
-     * The spring `x`/`y` use to move back inside the constraints when an
-     * animation finishes outside them.
-     */
-    transition?: SpringOptions
 }
 
 /**
- * Constraints that `drag()`, `pinch()` and `constrain()` share.
+ * Constraints measured for an element.
  *
  * @public
  */
@@ -82,36 +71,46 @@ export interface Constraints {
     at(transform?: Partial<ConstraintsTransform>): Partial<BoundingBox>
 
     /**
-     * Measure the element and the constraining element again.
+     * Measure the element and the constraining element again. Gestures
+     * call this as they start.
      */
     measure(): void
-
-    /**
-     * Hold the constraints while a gesture owns `x`/`y`, so `constrain()`
-     * doesn't move the element. Returns a function that releases it.
-     */
-    hold(): VoidFunction
-
-    /**
-     * Stop keeping the element within the constraints.
-     */
-    stop(): void
-}
-
-export interface Bounds extends Constraints {
-    held: number
-    onHold?: VoidFunction
-    onRelease?: VoidFunction
 }
 
 /**
- * `constrain()` instances, by the element they constrain, so gestures on
- * the element can hold them.
+ * The constraints an element's gestures share. Setting constraints on
+ * `drag()` or `pinch()` (or calling `constrain()`) replaces them, so the
+ * last one set applies to both gestures.
  */
-export const elementConstraints = new WeakMap<Element, Bounds>()
+export interface ElementConstraints {
+    /**
+     * What set them: a gesture recognises its own.
+     */
+    owner: unknown
+    target: unknown
+    type: ConstraintsType
+    bounds?: Constraints
+}
+
+export const elementConstraints = new WeakMap<Element, ElementConstraints>()
+
+export const setElementConstraints = (
+    element: Element,
+    owner: unknown,
+    target: unknown,
+    type: ConstraintsType,
+    bounds?: Constraints
+) => elementConstraints.set(element, { owner, target, type, bounds })
+
+/**
+ * Remove an element's constraints, if `owner` set them.
+ */
+export const removeElementConstraints = (element: Element, owner: unknown) =>
+    elementConstraints.get(element)?.owner === owner &&
+    elementConstraints.delete(element)
 
 export const isConstraints = (value: unknown): value is Constraints =>
-    !!value && typeof value === "object" && "hold" in value
+    !!value && typeof value === "object" && "at" in value
 
 export const isElement = (value: unknown): value is Element =>
     !!value && typeof value === "object" && "getBoundingClientRect" in value
@@ -143,7 +142,7 @@ export function createBounds(
     target: ConstraintsTarget,
     type: ConstraintsType = "visual",
     getXY: () => [unknown, unknown]
-): Bounds {
+): Constraints {
     let width = 0
     let height = 0
     let centreX = 0
@@ -153,8 +152,7 @@ export function createBounds(
     const resolveTarget = () =>
         target && "current" in target ? target.current : target
 
-    const bounds: Bounds = {
-        held: 0,
+    const bounds: Constraints = {
         measure() {
             const constraint = resolveTarget()
             if (!isElement(constraint)) return
@@ -212,167 +210,43 @@ export function createBounds(
 
             return { left, right, top, bottom }
         },
-        hold() {
-            bounds.onHold?.()
-            bounds.held++
-            let released = false
-
-            return () => {
-                if (released) return
-                released = true
-                bounds.held--
-                bounds.held || bounds.onRelease?.()
-            }
-        },
-        stop() {},
     }
 
     return bounds
 }
 
 /**
- * Hold `constraints`, and any `constrain()` on `element`, while a gesture
- * owns its `x`/`y`. Returns a function that releases them.
- */
-export const holdConstraints = (element: Element, constraints?: Bounds) => {
-    const releases = [constraints, elementConstraints.get(element)]
-        .filter((bounds, i, all) => bounds && all.indexOf(bounds) === i)
-        .map((bounds) => bounds!.hold())
-
-    return () => releases.forEach((release) => release())
-}
-
-/**
- * Keep an element within constraints, whatever moves it. Returns the
- * constraints, which `drag()` and `pinch()` can share:
+ * Set the constraints of an element's `drag()` and `pinch()` gestures in
+ * one call. It's a shortcut for setting `constraints` on both, and like
+ * those, replaces constraints set before. Returns the constraints:
  *
  * ```javascript
  * const bounds = constrain(photo, frame)
  *
- * drag(photo, { constraints: bounds })
- * pinch(photo, { constraints: bounds })
+ * drag(photo)
+ * pinch(photo, { scale: { min: 1, max: 4 } })
  *
- * // Zoom out, and the photo stays within the frame
- * animate(photo, { scale: 1 })
+ * // Where a double-tap zoom to 2.5x can move the photo to
+ * bounds.at({ scale: 2.5 })
  * ```
  *
- * While a gesture is active, it applies the constraints itself, with its
- * elastic. Otherwise, a change to the element's `x`, `y`, `scale` or
- * `rotate` that leaves it outside the constraints moves it back inside.
- * An animation on `x` or `y` runs to its end first, after which the
- * element springs back inside.
+ * Constraints only apply to gestures: `animate()` can still move the
+ * element outside them.
  *
  * @public
  */
 export function constrain(
     elementOrSelector: ElementOrSelector,
     target: ConstraintsTarget,
-    { type, transition }: ConstrainOptions = {}
+    { type = "visual" }: ConstrainOptions = {}
 ): Constraints {
     const element = resolveElements(elementOrSelector)[0]
-    const [scale, rotate, x, y] = getElementValues(element)
-    const bounds = createBounds(element, target, type, () => [x.get(), y.get()])
+    const bounds = createBounds(element, target, type, () => {
+        const [, , x, y] = getElementValues(element)
+        return [x.get(), y.get()]
+    })
 
-    elementConstraints.get(element)?.stop()
-    elementConstraints.set(element, bounds)
-
-    let springBack = false
-
-    /**
-     * Spring back with a spring generator of our own, rather than an
-     * animation, so constrain() doesn't bundle the animation engine.
-     */
-    const springs = new Map<MotionValue<number>, VoidFunction>()
-    const stopSprings = () => {
-        springs.forEach((tick) => cancelFrame(tick))
-        springs.clear()
-    }
-
-    const springTo = (value: MotionValue<number>, target: number) => {
-        const generator = spring({
-            keyframes: [toPixels(value.get()), target],
-            velocity: value.getVelocity(),
-            stiffness: 200,
-            damping: 40,
-            ...transition,
-        })
-        const startTime = time.now()
-        const tick = () => {
-            const { value: latest, done } = generator.next(
-                time.now() - startTime
-            )
-            if (done) {
-                cancelFrame(tick)
-                springs.delete(value)
-            }
-            value.set(latest)
-        }
-        springs.set(value, tick)
-        frame.update(tick, true)
-    }
-
-    const settle = () => {
-        if (bounds.held || springs.size || x.isAnimating() || y.isAnimating()) {
-            return
-        }
-
-        const { left, right, top, bottom } = bounds.at({
-            scale: scale.get(),
-            rotate: rotate.get(),
-        })
-
-        const limits = [
-            [x, left, right],
-            [y, top, bottom],
-        ] as const
-
-        for (const [value, min = -Infinity, max = Infinity] of limits) {
-            const latest = toPixels(value.get())
-            const next = clamp(min, max, latest)
-            if (next === latest) continue
-
-            springBack ? springTo(value, next) : value.set(next)
-        }
-
-        springBack = false
-    }
-
-    const schedule = () => frame.preRender(settle)
-    const scheduleSpring = () => {
-        springBack = true
-        schedule()
-    }
-
-    bounds.onRelease = scheduleSpring
-
-    /**
-     * A gesture takes over from a spring back, as from an animation.
-     */
-    bounds.onHold = stopSprings
-
-    const remeasure = () => {
-        frame.read(bounds.measure)
-        schedule()
-    }
-
-    const constraint = "current" in target ? target.current : target
-    const stops = [
-        ...[scale, rotate, x, y].map((value) => value.on("change", schedule)),
-        x.on("animationComplete", scheduleSpring),
-        y.on("animationComplete", scheduleSpring),
-        resize(element, remeasure),
-        isElement(constraint) ? resize(constraint, remeasure) : () => {},
-    ]
-
-    bounds.stop = () => {
-        stopSprings()
-        stops.forEach((stop) => stop())
-        if (elementConstraints.get(element) === bounds) {
-            elementConstraints.delete(element)
-        }
-    }
-
-    remeasure()
+    setElementConstraints(element, bounds, target, type, bounds)
 
     return bounds
 }

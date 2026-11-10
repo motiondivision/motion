@@ -13,9 +13,10 @@ import {
 import type { MotionValue } from "../../value"
 import {
     createBounds,
-    holdConstraints,
+    elementConstraints,
     isConstraints,
-    type Bounds,
+    removeElementConstraints,
+    setElementConstraints,
     type Constraints,
     type ConstraintsTarget,
     type ConstraintsType,
@@ -145,7 +146,7 @@ export interface PinchOptions {
      * fingers (or cursor) in place while scaling and rotating. Defaults to
      * `true`. Composes with drag: a drag that one of the touches started
      * carries on from wherever the pinch leaves the element (its offset
-     * restarts there). Drag constraints aren't applied while pinching.
+     * restarts there).
      *
      * Assumes the default `transform-origin` (the element's centre).
      */
@@ -162,10 +163,13 @@ export interface PinchOptions {
 
     /**
      * Keep the element within an element, `top`/`left`/`right`/`bottom`
-     * limits for `x`/`y`, a function that returns these for a scale and
-     * rotation, or constraints from `constrain()` shared with `drag()`.
-     * Past them, `x`/`y` resist by `elastic`, and spring back inside on
-     * release, at the scale and rotation the pinch settles at.
+     * limits for `x`/`y`, or a function that returns these for a scale and
+     * rotation. Past them, `x`/`y` resist by `elastic`, and spring back
+     * inside on release, at the scale and rotation the pinch settles at.
+     *
+     * These are the element's constraints, shared with `drag()`: without
+     * its own, pinch uses those set on drag, and drag uses these. Whichever
+     * is set last applies to both.
      */
     constraints?: ConstraintsTarget | Constraints
 
@@ -348,32 +352,58 @@ export function addPinchListeners(
     /**
      * The constraints on x/y, and x/y before they and elastic apply.
      */
-    let bounds: Bounds | undefined
-    let boundsTarget: unknown
+    let bounds: Constraints | undefined
     let rawX = 0
     let rawY = 0
-    let releaseHold: VoidFunction | undefined
-    const releaseConstraints = () => {
-        releaseHold?.()
-        releaseHold = undefined
+
+    /**
+     * The `constraints` this gesture last set as the element's, and the
+     * element's constraints it last measured.
+     */
+    let ownConstraints: unknown
+    let lastConstraints: unknown
+
+    const createElementBounds = (target: any, type?: ConstraintsType) =>
+        createBounds(element, target, type, () => {
+            const [, , x, y] = getValues()
+            return [x.get(), y.get()]
+        })
+
+    /**
+     * Set `constraints` as the element's constraints when they change,
+     * replacing any drag() or constrain() set before.
+     */
+    const syncConstraints = () => {
+        const { constraints, constraintsType = "visual" } =
+            getEnabledOptions() || {}
+        if (constraints === ownConstraints) return
+        ownConstraints = constraints
+
+        constraints &&
+            setElementConstraints(
+                element,
+                getValues,
+                constraints,
+                constraintsType,
+                isConstraints(constraints)
+                    ? constraints
+                    : createElementBounds(constraints, constraintsType)
+            )
     }
 
+    /**
+     * Use the element's constraints, whichever gesture set them last.
+     */
     const resolveBounds = () => {
-        const { constraints, constraintsType } = getOptions()
+        const latest = elementConstraints.get(element)
 
-        if (!constraints) {
-            bounds = undefined
-        } else if (isConstraints(constraints)) {
-            bounds = constraints as Bounds
-        } else if (boundsTarget !== constraints) {
-            boundsTarget = constraints
-            bounds = createBounds(element, constraints, constraintsType, () => [
-                values?.[2].get(),
-                values?.[3].get(),
-            ])
+        if (latest !== lastConstraints) {
+            lastConstraints = latest
+            bounds =
+                latest &&
+                (latest.bounds ||
+                    createElementBounds(latest.target, latest.type))
         }
-
-        return bounds
     }
 
     /**
@@ -576,12 +606,8 @@ export function addPinchListeners(
             }
         }
 
-        stopSnap = () => {
-            cancelFrame(tick)
-            releaseConstraints()
-        }
+        stopSnap = () => cancelFrame(tick)
         frame.update(tick, true)
-        return true
     }
 
     /**
@@ -752,8 +778,8 @@ export function addPinchListeners(
         hasMoved = false
         values = undefined
         handlers = {}
-        releaseConstraints()
-        releaseHold = holdConstraints(element, resolveBounds())
+        syncConstraints()
+        resolveBounds()
         Object.assign(start, current)
         Object.assign(prev, current)
         frame.read(measure)
@@ -769,15 +795,10 @@ export function addPinchListeners(
         cancelFrame(measure)
         cancelFrame(update)
 
-        let snapping: boolean | undefined
-
         if (getEnabledOptions()) {
             apply()
-            snapping = values && snap()
+            values && snap()
         }
-
-        // A snap holds the constraints until it finishes
-        snapping || releaseConstraints()
 
         source = undefined
         handlers.onComplete?.(event, info())
@@ -929,6 +950,8 @@ export function addPinchListeners(
         if (source) event.preventDefault()
     }
 
+    syncConstraints()
+
     const listeners = {
         pointerdown: onPointerDown,
         wheel: onWheel,
@@ -957,6 +980,7 @@ export function addPinchListeners(
         stopSnap()
         pointers.clear()
         release()
+        removeElementConstraints(element, getValues)
     }
 }
 
