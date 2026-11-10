@@ -12,7 +12,7 @@ export type GPU = any
 export const hasWebGPU = () =>
     typeof navigator !== "undefined" &&
     "gpu" in navigator &&
-    "copyElementImageToTexture" in
+    "drawElementImageToTexture" in
         ((globalThis as GPU).GPUQueue?.prototype || {})
 
 let shared: Promise<GPU | null> | undefined

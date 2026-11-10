@@ -390,21 +390,16 @@ export function canvasLayer(
         }
 
         const copy = (source: unknown) =>
-            device.queue.copyElementImageToTexture(
+            device.queue.drawElementImageToTexture(
                 { source },
-                {
-                    destination: {
-                        texture: item.texture,
-                        premultipliedAlpha: true,
-                    },
-                }
+                { texture: item.texture, premultipliedAlpha: true }
             )
 
         try {
             /**
-             * WebGPU only takes an element whose parent is the canvas. A
-             * slotted one, as <motion-canvas> has, is copied through a
-             * captured image of it.
+             * Some builds only take an element whose parent is the
+             * canvas. A slotted one, as <motion-canvas> has, is then
+             * copied through a captured image of it.
              */
             try {
                 if (item.isCaptured) throw 0

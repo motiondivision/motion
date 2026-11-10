@@ -105,6 +105,16 @@ export function installTrialShim() {
         }
     }
 
+    /**
+     * The trial's WebGPU copy has an older name, and nests the texture.
+     */
+    const Queue = self.GPUQueue?.prototype
+    if (Queue && !Queue.drawElementImageToTexture) {
+        Queue.drawElementImageToTexture = function (source, destination) {
+            this.copyElementImageToTexture(source, { destination })
+        }
+    }
+
     const GL = WebGL2RenderingContext.prototype
     GL.texElementSubImage2D = function (target, level, x, y, element) {
         this.texElementImage2D(target, this.RGBA8, element)
