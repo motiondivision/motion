@@ -11,6 +11,7 @@ import type {
     DragElastic,
 } from "../gestures/drag/types"
 import { PanInfo } from "../gestures/pan/types"
+import type { Constraints } from "../gestures/constrain"
 import type { PinchProps } from "../gestures/pinch"
 import type { PressOptions } from "../gestures/press/types"
 import type { MotionValue } from "../value"
@@ -686,6 +687,7 @@ export interface MotionNodeDraggableOptions {
         | Element
         | { current: Element | null }
         | DragConstraintsFunction
+        | Constraints
 
     /**
      * The degree of movement allowed outside constraints. 0 = no movement, 1 =

@@ -1,0 +1,62 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+
+            #frame {
+                position: absolute;
+                left: 100px;
+                top: 100px;
+                width: 300px;
+                height: 300px;
+                overflow: hidden;
+                background: #eee;
+            }
+
+            #photo {
+                width: 300px;
+                height: 300px;
+                background: linear-gradient(135deg, red, blue);
+            }
+        </style>
+    </head>
+    <body>
+        <!--
+            A pannable, zoomable photo: a 300x300 photo fills a 300x300
+            frame at (100, 100). drag(), pinch() and constrain() share one
+            set of constraints, so the photo always covers the frame.
+        -->
+        <div id="frame"><div id="photo"></div></div>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            const { constrain, drag, pinch } = window.MotionDOM
+            const { animate } = window.Motion
+
+            const frame = document.getElementById("frame")
+            const photo = document.getElementById("photo")
+
+            const bounds = constrain(photo, frame)
+
+            drag(photo, { constraints: bounds })
+            pinch(photo, {
+                constraints: bounds,
+                scale: { min: 1, max: 4 },
+                rotate: false,
+            })
+
+            window.bounds = bounds
+            window.zoomTo = (scale) =>
+                animate(photo, { scale }, { duration: 0.2 })
+            window.values = () => {
+                const ve = window.MotionDOM.visualElementStore.get(photo)
+                return {
+                    x: ve.getValue("x").get(),
+                    y: ve.getValue("y").get(),
+                    scale: ve.getValue("scale").get(),
+                }
+            }
+        </script>
+    </body>
+</html>

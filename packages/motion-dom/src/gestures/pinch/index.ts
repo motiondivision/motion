@@ -1,22 +1,29 @@
 import { clamp, type Point } from "motion-utils"
 import { spring } from "../../animation/generators/spring"
 import type { SpringOptions } from "../../animation/types"
-import { readStyleValue, styleSubjectEffect } from "../../effects/style"
-import { svgSubjectEffect } from "../../effects/svg"
 import { cancelFrame, frame } from "../../frameloop"
 import { time } from "../../frameloop/sync-time"
 import { visualElementStore } from "../../render/store"
 import { activeScope, addToScope } from "../../scope/active"
-import { isSVGElement } from "../../utils/is-svg-element"
 import { mixNumber } from "../../utils/mix/number"
 import {
     resolveElements,
     type ElementOrSelector,
 } from "../../utils/resolve-elements"
-import { motionValue, type MotionValue } from "../../value"
+import type { MotionValue } from "../../value"
+import {
+    createBounds,
+    holdConstraints,
+    isConstraints,
+    type Bounds,
+    type Constraints,
+    type ConstraintsTarget,
+    type ConstraintsType,
+} from "../constrain"
 import { setDragLock } from "../drag/state/set-active"
 import { applyConstraints, defaultElastic } from "../drag/utils/constraints"
 import { elementDragControls } from "../drag/VisualElementDragControls"
+import { getElementValues } from "../utils/element-values"
 
 /**
  * @public
@@ -154,7 +161,23 @@ export interface PinchOptions {
     origin?: "pointer" | Point
 
     /**
-     * How far scale and rotation can go past their limits, as for
+     * Keep the element within an element, `top`/`left`/`right`/`bottom`
+     * limits for `x`/`y`, a function that returns these for a scale and
+     * rotation, or constraints from `constrain()` shared with `drag()`.
+     * Past them, `x`/`y` resist by `elastic`, and spring back inside on
+     * release, at the scale and rotation the pinch settles at.
+     */
+    constraints?: ConstraintsTarget | Constraints
+
+    /**
+     * Which box element `constraints` keep within the constraining
+     * element. Defaults to `"visual"`: the box as drawn, scaled and
+     * rotated.
+     */
+    constraintsType?: ConstraintsType
+
+    /**
+     * How far scale, rotation and `x`/`y` can go past their limits, as for
      * `dragElastic`: `0` stops at the limit, `1` doesn't resist. Pass
      * `{ min, max }` to set each side. Defaults to `0.35`.
      */
@@ -323,6 +346,37 @@ export function addPinchListeners(
     let stopSnap = () => {}
 
     /**
+     * The constraints on x/y, and x/y before they and elastic apply.
+     */
+    let bounds: Bounds | undefined
+    let boundsTarget: unknown
+    let rawX = 0
+    let rawY = 0
+    let releaseHold: VoidFunction | undefined
+    const releaseConstraints = () => {
+        releaseHold?.()
+        releaseHold = undefined
+    }
+
+    const resolveBounds = () => {
+        const { constraints, constraintsType } = getOptions()
+
+        if (!constraints) {
+            bounds = undefined
+        } else if (isConstraints(constraints)) {
+            bounds = constraints as Bounds
+        } else if (boundsTarget !== constraints) {
+            boundsTarget = constraints
+            bounds = createBounds(element, constraints, constraintsType, () => [
+                values?.[2].get(),
+                values?.[3].get(),
+            ])
+        }
+
+        return bounds
+    }
+
+    /**
      * The latest enabled options, so a gesture disabled mid-way can still
      * report its end.
      */
@@ -367,10 +421,11 @@ export function addPinchListeners(
             toPixels(y, height)
         }
 
-        lastX = x.get()
-        lastY = y.get()
+        rawX = lastX = x.get()
+        rawY = lastY = y.get()
         originX = left + box.width / 2 - lastX
         originY = top + box.height / 2 - lastY
+        bounds?.measure()
     }
 
     /**
@@ -465,9 +520,30 @@ export function addPinchListeners(
             ]
         }
 
+        /**
+         * Move x/y inside the constraints at the scale and rotation the
+         * pinch settles at, over the course of the snap.
+         */
+        let fixX = 0
+        let fixY = 0
+
+        if (bounds && moves && !snapToOrigin) {
+            const [, , x1, y1] = at(1)
+            const { left, right, top, bottom } = bounds.at({
+                scale: s1,
+                rotate: r1,
+            })
+            fixX = clampTo(x1, { min: left, max: right }) - x1
+            fixY = clampTo(y1, { min: top, max: bottom }) - y1
+        }
+
         if (
             !s0 ||
-            (s1 === s0 && r1 === r0 && !(snapToOrigin && moves && (x0 || y0)))
+            (s1 === s0 &&
+                r1 === r0 &&
+                !fixX &&
+                !fixY &&
+                !(snapToOrigin && moves && (x0 || y0)))
         ) {
             return
         }
@@ -495,13 +571,17 @@ export function addPinchListeners(
 
             // A drag that starts mid-snap owns x/y from then on.
             if (moves && !dragControls()?.isDragging) {
-                x.set(snapToOrigin ? mixNumber(x0, 0, p) : fx)
-                y.set(snapToOrigin ? mixNumber(y0, 0, p) : fy)
+                x.set(snapToOrigin ? mixNumber(x0, 0, p) : fx + fixX * p)
+                y.set(snapToOrigin ? mixNumber(y0, 0, p) : fy + fixY * p)
             }
         }
 
-        stopSnap = () => cancelFrame(tick)
+        stopSnap = () => {
+            cancelFrame(tick)
+            releaseConstraints()
+        }
         frame.update(tick, true)
+        return true
     }
 
     /**
@@ -597,8 +677,35 @@ export function addPinchListeners(
              * Move the centre so the pivot, scaled and rotated around the
              * centre, stays in place, plus the focal point's movement.
              */
-            lastX += dx + panX - (cos * dx - sin * dy)
-            lastY += dy + panY - (sin * dx + cos * dy)
+            const moveX = dx + panX - (cos * dx - sin * dy)
+            const moveY = dy + panY - (sin * dx + cos * dy)
+
+            if (bounds) {
+                /**
+                 * Track x/y without constraints, so elastic doesn't
+                 * build up from one frame to the next.
+                 */
+                rawX += moveX
+                rawY += moveY
+
+                const { left, right, top, bottom } = bounds.at({
+                    scale: scale.get(),
+                    rotate: rotate.get(),
+                })
+                lastX = applyConstraints(
+                    rawX,
+                    { min: left, max: right },
+                    resistance
+                )
+                lastY = applyConstraints(
+                    rawY,
+                    { min: top, max: bottom },
+                    resistance
+                )
+            } else {
+                lastX += moveX
+                lastY += moveY
+            }
 
             if (isDragging) {
                 const history = drag!.panSession!.history
@@ -610,8 +717,8 @@ export function addPinchListeners(
                  * processes as the touch lifts is part of the pinch.
                  */
                 history[0].timestamp = -Infinity
-                drag!.originPoint.x = lastX
-                drag!.originPoint.y = lastY
+                drag!.originPoint.x = bounds ? rawX : lastX
+                drag!.originPoint.y = bounds ? rawY : lastY
             }
 
             x.set(lastX)
@@ -645,6 +752,8 @@ export function addPinchListeners(
         hasMoved = false
         values = undefined
         handlers = {}
+        releaseConstraints()
+        releaseHold = holdConstraints(element, resolveBounds())
         Object.assign(start, current)
         Object.assign(prev, current)
         frame.read(measure)
@@ -660,10 +769,15 @@ export function addPinchListeners(
         cancelFrame(measure)
         cancelFrame(update)
 
+        let snapping: boolean | undefined
+
         if (getEnabledOptions()) {
             apply()
-            values && snap()
+            snapping = values && snap()
         }
+
+        // A snap holds the constraints until it finishes
+        snapping || releaseConstraints()
 
         source = undefined
         handlers.onComplete?.(event, info())
@@ -844,34 +958,6 @@ export function addPinchListeners(
         pointers.clear()
         release()
     }
-}
-
-const valueKeys = ["scale", "rotate", "x", "y"]
-
-/**
- * The element's scale/rotate/x/y motion values: those of its
- * VisualElement if it has one (it's a <motion.*> component, or drag() or
- * animateLayout() own it), otherwise those animate() binds to it, created
- * from its current style if this is the first time.
- */
-const getElementValues = (element: HTMLElement | SVGElement) => {
-    const visualElement = visualElementStore.get(element)
-    const effect = isSVGElement(element) ? svgSubjectEffect : styleSubjectEffect
-
-    return valueKeys.map((key) => {
-        if (visualElement) {
-            return visualElement.getValue(key, key === "scale" ? 1 : 0)
-        }
-
-        let value = effect.get(element as any, key)
-
-        if (!value) {
-            value = motionValue(readStyleValue(element, key))
-            effect(element as any, { [key]: value })
-        }
-
-        return value
-    }) as PinchValues
 }
 
 /**

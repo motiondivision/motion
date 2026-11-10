@@ -1,4 +1,4 @@
-import { Axis, invariant, Point } from "motion-utils"
+import { Axis, BoundingBox, invariant, Point } from "motion-utils"
 import { animateMotionValue } from "../../animation/interfaces/motion-value"
 import type { Transition } from "../../animation/types"
 import { getVariableValue } from "../../animation/utils/css-variables-conversion"
@@ -27,6 +27,7 @@ import { addValueToWillChange } from "../../value/will-change/add-will-change"
 import type { PanInfo } from "../pan/types"
 import { PanSession } from "../pan/PanSession"
 import { isElementTextInput } from "../press/utils/is-keyboard-accessible"
+import { holdConstraints, isConstraints, type Bounds } from "../constrain"
 import { setDragLock } from "./state/set-active"
 import type { DragPointConstraint, ResolvedConstraints } from "./types"
 import {
@@ -118,6 +119,11 @@ export class VisualElementDragControls {
     private hasMutatedConstraints = false
 
     /**
+     * Releases the constraints this drag holds while it owns x/y.
+     */
+    private releaseConstraints?: VoidFunction
+
+    /**
      * A constraint, from a `dragConstraints` function, that moves the
      * element itself, from the drag's latest pointer position.
      */
@@ -191,6 +197,10 @@ export class VisualElementDragControls {
             this.currentDirection = null
 
             this.resolveConstraints()
+            this.releaseConstraints = holdConstraints(
+                this.visualElement.current!,
+                this.getBounds()
+            )
 
             const { projection } = this.visualElement
             if (projection) {
@@ -275,6 +285,11 @@ export class VisualElementDragControls {
 
                 onDirectionLock && onDirectionLock(this.currentDirection)
             }
+
+            /**
+             * Pinch can change the scale mid-drag, so follow it.
+             */
+            this.updateBounds()
 
             // Update each point with the latest position
             this.updateAxis("x", offset)
@@ -363,6 +378,7 @@ export class VisualElementDragControls {
 
     cancel() {
         this.isDragging = false
+        this.releaseConstraints?.()
 
         const { projection, animationState } = this.visualElement
 
@@ -412,8 +428,45 @@ export class VisualElementDragControls {
         this.point ? (this.point[axis] = next) : axisValue.set(next)
     }
 
+    /**
+     * Constraints that follow the element's scale and rotation, like
+     * those from `constrain()`, if the drag uses them.
+     */
+    private getBounds() {
+        const { dragConstraints } = this.getProps()
+        if (isConstraints(dragConstraints)) return dragConstraints as Bounds
+    }
+
+    /**
+     * Set the constraints to the bounds at the element's latest scale and
+     * rotation.
+     */
+    private updateBounds() {
+        const bounds = this.getBounds()
+        if (!bounds) return
+
+        const { visualElement } = this
+        const { left, right, top, bottom } = bounds.at({
+            scale: visualElement.getValue("scale", 1).get(),
+            rotate: visualElement.getValue("rotate", 0).get(),
+        })
+
+        this.constraints = {
+            x: { min: left, max: right },
+            y: { min: top, max: bottom },
+        }
+    }
+
     private resolveConstraints() {
         const { dragConstraints, dragElastic } = this.getProps()
+        const bounds = this.getBounds()
+
+        if (bounds) {
+            bounds.measure()
+            this.updateBounds()
+            this.elastic = resolveDragElastic(dragElastic)
+            return
+        }
 
         const { projection } = this.visualElement
         const layout =
@@ -443,7 +496,7 @@ export class VisualElementDragControls {
             ) {
                 this.constraints = calcRelativeConstraints(
                     layout.layoutBox,
-                    dragConstraints
+                    dragConstraints as Partial<BoundingBox>
                 )
             } else {
                 this.constraints = false
@@ -586,6 +639,7 @@ export class VisualElementDragControls {
                 .then(onDragTransitionEnd)
         }
 
+        this.updateBounds()
         const constraints: Partial<ResolvedConstraints> = this.constraints || {}
 
         const momentumAnimations = eachAxis((axis) => {
@@ -696,6 +750,7 @@ export class VisualElementDragControls {
         const { drag, dragConstraints } = this.getProps()
         const { projection } = this.visualElement
         if (
+            this.getBounds() ||
             !isElementConstraints(dragConstraints) ||
             !projection ||
             !this.constraints
@@ -814,6 +869,8 @@ export class VisualElementDragControls {
             const constraintsElement =
                 isElementConstraints(dragConstraints) &&
                 resolveConstraintsElement(dragConstraints)
+
+            if (this.getBounds()) return
 
             if (constraintsElement) {
                 this.constraints = this.resolveRefConstraints()
