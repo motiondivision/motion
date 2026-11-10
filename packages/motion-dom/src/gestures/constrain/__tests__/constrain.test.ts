@@ -216,77 +216,49 @@ describe("createBounds", () => {
     })
 })
 
-describe("constrain", () => {
-    test("moves the element back inside when its scale changes", async () => {
-        const { element, frameElement } = setup()
-        const [scale, , x] = getElementValues(element)
-        const bounds = constrain(element, frameElement)
-        stops.push(bounds.stop)
-        await nextFrame()
+async function pan(element: Element, dx: number) {
+    pointer(element, "pointerdown", 1, 100, 150)
+    pointer(element, "pointerdown", 2, 200, 150)
+    await nextFrame()
+    pointer(window, "pointermove", 1, 100 + dx, 150)
+    pointer(window, "pointermove", 2, 200 + dx, 150)
+    await nextFrame()
+}
 
-        scale.set(5)
-        x.set(100)
-        await nextFrame()
-        expect(x.get()).toBe(100)
+async function lift() {
+    pointer(window, "pointerup", 1, 0, 0)
+    pointer(window, "pointerup", 2, 0, 0)
+    await nextFrame()
+}
 
-        // Zooming out shrinks how far it can move
-        scale.set(2)
-        await nextFrame()
-        expect(x.get()).toBe(50)
-    })
+/**
+ * Drag with a mouse-like pointer from (0, 0) to (x, 0) and release.
+ */
+async function dragTo(element: Element, x: number) {
+    const event = (type: string, target: EventTarget, pageX: number) => {
+        const e = new Event(type, { bubbles: true, cancelable: true })
+        Object.assign(e, { isPrimary: true, button: 0, pageX, pageY: 0 })
+        target.dispatchEvent(e)
+    }
+    event("pointerdown", element, 0)
+    event("pointermove", document.body, 1)
+    await nextFrame()
+    event("pointermove", document.body, x)
+    await nextFrame()
+    event("pointerup", element, x)
+}
 
-    test("leaves x/y alone while held", async () => {
-        const { element, frameElement } = setup()
-        const [, , x] = getElementValues(element)
-        const bounds = constrain(element, frameElement)
-        stops.push(bounds.stop)
-        await nextFrame()
+const xOf = (element: Element) =>
+    (visualElementStore.get(element)?.getValue("x")?.get() as number) ??
+    (styleSubjectEffect.get(element as HTMLElement, "x")?.get() as number)
 
-        const release = bounds.hold()
-        x.set(500)
-        await nextFrame()
-        expect(x.get()).toBe(500)
+const scaleTo = (element: Element, scale: number) =>
+    getElementValues(element)[0].set(scale)
 
-        // Released, it springs back inside
-        release()
-        await nextFrame()
-        await nextFrame()
-        // Springing, rather than jumping
-        expect(x.get()).toBeLessThan(500)
-        expect(x.get()).toBeGreaterThan(100)
-        await sleep(1500)
-        expect(x.get()).toBeCloseTo(100, 0)
-    })
-
-    test("stop() stops constraining", async () => {
-        const { element, frameElement } = setup()
-        const [, , x] = getElementValues(element)
-        const bounds = constrain(element, frameElement)
-        await nextFrame()
-        bounds.stop()
-
-        x.set(500)
-        await nextFrame()
-        expect(x.get()).toBe(500)
-    })
-})
+const fixed = { elastic: 0, scale: false, rotate: false } as const
+const stiff = { elastic: false, momentum: false } as const
 
 describe("pinch constraints", () => {
-    async function pan(element: Element, dx: number) {
-        pointer(element, "pointerdown", 1, 100, 150)
-        pointer(element, "pointerdown", 2, 200, 150)
-        await nextFrame()
-        pointer(window, "pointermove", 1, 100 + dx, 150)
-        pointer(window, "pointermove", 2, 200 + dx, 150)
-        await nextFrame()
-    }
-
-    async function lift() {
-        pointer(window, "pointerup", 1, 0, 0)
-        pointer(window, "pointerup", 2, 0, 0)
-        await nextFrame()
-    }
-
     test("x/y resist past the constraints and spring back on release", async () => {
         const { element, frameElement } = setup()
         stops.push(
@@ -296,15 +268,14 @@ describe("pinch constraints", () => {
                 rotate: false,
             })
         )
-        const [, , x] = getElementValues(element)
 
         await pan(element, 200)
         // 100 inside, then 100 past it at 0.35
-        expect(x.get()).toBeCloseTo(135)
+        expect(xOf(element)).toBeCloseTo(135)
 
         await lift()
         await sleep(1000)
-        expect(x.get()).toBeCloseTo(100, 0)
+        expect(xOf(element)).toBeCloseTo(100, 0)
     })
 
     test("springs inside the constraints at the scale it settles at", async () => {
@@ -317,77 +288,132 @@ describe("pinch constraints", () => {
                 elastic: 0,
             })
         )
-        const [scale, , x] = getElementValues(element)
-        scale.set(2)
+        scaleTo(element, 2)
 
         await pan(element, 200)
         // At 2x the element can move 50px
-        expect(x.get()).toBeCloseTo(50)
+        expect(xOf(element)).toBeCloseTo(50)
 
         await lift()
         await sleep(1000)
-        expect(scale.get()).toBe(2)
-        expect(x.get()).toBeCloseTo(50, 0)
-    })
-
-    test("shares constraints with drag and holds constrain()", async () => {
-        const { element, frameElement } = setup()
-        const bounds = constrain(element, frameElement)
-        stops.push(bounds.stop)
-        stops.push(
-            drag(element, { constraints: bounds, momentum: false }),
-            pinch(element, {
-                constraints: bounds,
-                scale: false,
-                rotate: false,
-            })
-        )
-        await nextFrame()
-        const x = visualElementStore.get(element)!.getValue("x")!
-
-        await pan(element, 200)
-        expect(x.get()).toBeGreaterThan(100)
-
-        await lift()
-        await sleep(1000)
-        expect(x.get()).toBeCloseTo(100, 0)
+        expect(getElementValues(element)[0].get()).toBe(2)
+        expect(xOf(element)).toBeCloseTo(50, 0)
     })
 })
 
 describe("drag constraintsType", () => {
-    function dragBy(element: Element) {
-        const event = (type: string, target: EventTarget, pageX: number) => {
-            const e = new Event(type, { bubbles: true, cancelable: true })
-            Object.assign(e, { isPrimary: true, button: 0, pageX, pageY: 0 })
-            target.dispatchEvent(e)
-        }
-        event("pointerdown", element, 0)
-        return {
-            to: async (x: number) => {
-                event("pointermove", document.body, x)
-                await nextFrame()
-            },
-            end: (x: number) => event("pointerup", element, x),
-        }
-    }
-
     test("visual constraints follow the element's scale", async () => {
         const { element, frameElement } = setup()
         stops.push(
             drag(element, {
                 constraints: frameElement,
                 constraintsType: "visual",
-                elastic: false,
-                momentum: false,
+                ...stiff,
             })
         )
-        visualElementStore.get(element)!.getValue("scale", 1).set(2)
+        scaleTo(element, 2)
 
-        const gesture = dragBy(element)
-        await gesture.to(1)
-        await gesture.to(300)
-        gesture.end(300)
+        await dragTo(element, 300)
+        expect(xOf(element)).toBe(50)
+    })
 
-        expect(visualElementStore.get(element)!.getValue("x")!.get()).toBe(50)
+    test("layout constraints ignore the scale", async () => {
+        const { element, frameElement } = setup()
+        stops.push(drag(element, { constraints: frameElement, ...stiff }))
+        scaleTo(element, 2)
+
+        await dragTo(element, 300)
+        expect(xOf(element)).toBe(100)
+    })
+})
+
+describe("shared constraints", () => {
+    test("pinch uses drag's constraints", async () => {
+        const { element, frameElement } = setup()
+        stops.push(
+            drag(element, { constraints: frameElement, ...stiff }),
+            pinch(element, fixed)
+        )
+
+        await pan(element, 200)
+        expect(xOf(element)).toBeCloseTo(100)
+        await lift()
+    })
+
+    test("drag uses pinch's constraints", async () => {
+        const { element, frameElement } = setup()
+        stops.push(
+            pinch(element, { constraints: frameElement, ...fixed }),
+            drag(element, stiff)
+        )
+        scaleTo(element, 2)
+
+        // pinch's constraints are visual by default
+        await dragTo(element, 300)
+        expect(xOf(element)).toBe(50)
+    })
+
+    test("the constraints set last apply to both gestures", async () => {
+        const { element, frameElement } = setup()
+        stops.push(
+            drag(element, { constraints: { left: -10, right: 10 }, ...stiff }),
+            pinch(element, { constraints: frameElement, ...fixed })
+        )
+
+        await dragTo(element, 300)
+        expect(xOf(element)).toBe(100)
+
+        const other = setup()
+        stops.push(
+            pinch(other.element, {
+                constraints: other.frameElement,
+                ...fixed,
+            }),
+            drag(other.element, {
+                constraints: { left: -10, right: 10 },
+                ...stiff,
+            })
+        )
+
+        await pan(other.element, 200)
+        expect(xOf(other.element)).toBeCloseTo(10)
+        await lift()
+    })
+
+    test("constrain() sets the constraints of both gestures", async () => {
+        const { element, frameElement } = setup()
+        const bounds = constrain(element, frameElement)
+        stops.push(drag(element, stiff), pinch(element, fixed))
+        scaleTo(element, 2)
+
+        expect(bounds.at({ scale: 2 }).right).toBe(50)
+
+        await pan(element, 200)
+        expect(xOf(element)).toBeCloseTo(50)
+        await lift()
+
+        await dragTo(element, 300)
+        expect(xOf(element)).toBe(50)
+    })
+
+    test("constrain() replaces constraints set before", async () => {
+        const { element, frameElement } = setup()
+        stops.push(
+            drag(element, { constraints: { left: -10, right: 10 }, ...stiff })
+        )
+        constrain(element, frameElement)
+
+        await dragTo(element, 300)
+        expect(xOf(element)).toBe(100)
+    })
+
+    test("constraints only apply to gestures", async () => {
+        const { element, frameElement } = setup()
+        constrain(element, frameElement)
+        stops.push(drag(element, stiff))
+
+        getElementValues(element)[2].set(500)
+        await nextFrame()
+        expect(xOf(element)).toBe(500)
     })
 })

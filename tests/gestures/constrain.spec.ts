@@ -2,7 +2,7 @@ import { CDPSession, expect, Page, test } from "@playwright/test"
 import { frames } from "./drag-helpers"
 
 /**
- * constrain() shared by drag() and pinch() with real browser input. A
+ * constrain() setting drag() and pinch() constraints, with real browser input. A
  * 300x300 photo fills a 300x300 frame at (100, 100), centred on
  * (250, 250). At 2x the photo is 600px wide, so it can move 150px either
  * way before an edge shows.
@@ -126,21 +126,20 @@ test.describe("constrain", () => {
         expect(x).toBeCloseTo(150, 0)
     })
 
-    test("zooming out with animate() keeps the photo covering the frame", async ({
-        page,
-    }) => {
+    test("animate() isn't constrained", async ({ page }) => {
         await open(page)
         const cdp = await zoomAndPan(page, 300)
         await touch(cdp, "touchEnd", [])
         await settle(page)
         expect((await values(page)).x).toBeCloseTo(150, 0)
 
+        // Constraints only apply to gestures
         await page.evaluate(() => (window as any).zoomTo(1))
         await settle(page)
 
         const { x, scale } = await values(page)
         expect(scale).toBe(1)
-        expect(x).toBeCloseTo(0, 0)
+        expect(x).toBeCloseTo(150, 0)
     })
 
     test("bounds.at() gives the limits at a scale", async ({ page }) => {

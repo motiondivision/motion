@@ -27,7 +27,12 @@ import { addValueToWillChange } from "../../value/will-change/add-will-change"
 import type { PanInfo } from "../pan/types"
 import { PanSession } from "../pan/PanSession"
 import { isElementTextInput } from "../press/utils/is-keyboard-accessible"
-import { holdConstraints, isConstraints, type Bounds } from "../constrain"
+import {
+    elementConstraints,
+    isConstraints,
+    removeElementConstraints,
+    setElementConstraints,
+} from "../constrain"
 import { setDragLock } from "./state/set-active"
 import type { DragPointConstraint, ResolvedConstraints } from "./types"
 import {
@@ -119,9 +124,10 @@ export class VisualElementDragControls {
     private hasMutatedConstraints = false
 
     /**
-     * Releases the constraints this drag holds while it owns x/y.
+     * The `dragConstraints` this drag last set as the element's
+     * constraints, which pinch shares.
      */
-    private releaseConstraints?: VoidFunction
+    private ownConstraints?: unknown
 
     /**
      * A constraint, from a `dragConstraints` function, that moves the
@@ -196,11 +202,8 @@ export class VisualElementDragControls {
 
             this.currentDirection = null
 
+            this.syncConstraints()
             this.resolveConstraints()
-            this.releaseConstraints = holdConstraints(
-                this.visualElement.current!,
-                this.getBounds()
-            )
 
             const { projection } = this.visualElement
             if (projection) {
@@ -378,7 +381,6 @@ export class VisualElementDragControls {
 
     cancel() {
         this.isDragging = false
-        this.releaseConstraints?.()
 
         const { projection, animationState } = this.visualElement
 
@@ -429,12 +431,34 @@ export class VisualElementDragControls {
     }
 
     /**
-     * Constraints that follow the element's scale and rotation, like
-     * those from `constrain()`, if the drag uses them.
+     * Set `dragConstraints` as the element's constraints when they change,
+     * replacing any pinch() or constrain() set before.
+     */
+    private syncConstraints() {
+        const { dragConstraints } = this.getProps()
+        if (dragConstraints === this.ownConstraints) return
+        this.ownConstraints = dragConstraints
+
+        // A point constraint only applies to drag
+        if (dragConstraints && typeof dragConstraints !== "function") {
+            setElementConstraints(
+                this.visualElement.current!,
+                this,
+                dragConstraints,
+                "layout",
+                isConstraints(dragConstraints) ? dragConstraints : undefined
+            )
+        }
+    }
+
+    /**
+     * Constraints that follow the element's scale and rotation: those set
+     * last by pinch() or constrain(), or this drag's own visual ones. Drag's
+     * own layout constraints are measured as they always have been.
      */
     private getBounds() {
-        const { dragConstraints } = this.getProps()
-        if (isConstraints(dragConstraints)) return dragConstraints as Bounds
+        const element = this.visualElement.current
+        return element && elementConstraints.get(element)?.bounds
     }
 
     /**
@@ -827,6 +851,7 @@ export class VisualElementDragControls {
     addListeners() {
         if (!this.visualElement.current) return
         elementDragControls.set(this.visualElement, this)
+        this.syncConstraints()
         const element = this.visualElement.current
 
         /**
@@ -949,6 +974,7 @@ export class VisualElementDragControls {
             stopMeasureLayoutListener()
             stopLayoutUpdateListener()
             stopResizeObservers?.()
+            removeElementConstraints(element, this)
         }
     }
 
