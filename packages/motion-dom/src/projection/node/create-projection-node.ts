@@ -38,9 +38,7 @@ import { MotionValue, motionValue } from "../../value"
 import { resolveMotionValue } from "../../value/utils/resolve-motion-value"
 import { mixValues } from "../animation/mix-values"
 import {
-    pixelToProgressVelocity,
     pointToProgressVelocity,
-    progressToPixelVelocity,
     toVelocityTransition,
 } from "../animation/layout-velocity"
 import { transformGroups } from "../../animation/waapi/transforms/groups"
@@ -1063,20 +1061,23 @@ export function createProjectionNode<I>({
              */
             if (this.snapshot) {
                 const { visualElement } = this.options
-                const delta = this.currentAnimation && this.animationDelta
-                const values = this.axisValues
-                this.snapshot.velocity = eachAxis((axis) => [
-                    delta
-                        ? progressToPixelVelocity(
-                              delta[axis].translate,
-                              (values
-                                  ? values[axis]
-                                  : this.motionValue
-                              )?.getVelocity() || 0
-                          )
-                        : 0,
-                    visualElement?.getValue(axis)?.getVelocity() || 0,
-                ])
+                const edges = this.currentAnimation && this.animationEdges
+                const values = this.edgeValues
+                const progress = this.motionValue?.getVelocity() || 0
+                this.snapshot.velocity = eachAxis((axis) =>
+                    [0, 1]
+                        .map((side) => {
+                            const i = side + (axis === "x" ? 0 : 2)
+                            return edges
+                                ? values
+                                    ? values[i].getVelocity()
+                                    : (-edges[i] * progress) / 1000
+                                : 0
+                        })
+                        .concat(
+                            visualElement?.getValue(axis)?.getVelocity() || 0
+                        )
+                )
             }
         }
 
@@ -1783,14 +1784,16 @@ export function createProjectionNode<I>({
 
         /**
          * Layout velocity.
-         * startVelocity is progress velocity for the next animation: one
-         * number for a curved path, or x and y for separate springs.
-         * axisValues hold x and y translate progress (0-1000) while they
-         * run on their own springs.
+         * animationEdges are the offsets (px) of the x min, x max, y min and
+         * y max edges from the layout at the start of the animation.
+         * startVelocity is for the next animation: one progress velocity for
+         * a curved path, or a velocity (px/s) for each edge.
+         * edgeValues hold the edge offsets while each edge runs on its own
+         * spring.
          */
-        animationDelta?: Delta
-        startVelocity?: number | Point
-        axisValues?: { x: MotionValue<number>; y: MotionValue<number> }
+        animationEdges?: number[]
+        startVelocity?: number | number[]
+        edgeValues?: MotionValue<number>[]
 
         setAnimationOrigin(
             delta: Delta,
@@ -1832,8 +1835,17 @@ export function createProjectionNode<I>({
             const interpolate: PathInterpolator | undefined =
                 pathFn?.interpolateProjection(delta)
 
-            this.animationDelta = delta
-            this.axisValues = this.startVelocity = undefined
+            const box = this.layout?.layoutBox
+            const edges = (this.animationEdges =
+                box &&
+                eachAxis((axis) => {
+                    const { translate, scale, originPoint } = delta[axis]
+                    const { min, max } = box[axis]
+                    return [min, max].map(
+                        (edge) => (edge - originPoint) * (scale - 1) + translate
+                    )
+                }).flat())
+            this.edgeValues = this.startVelocity = undefined
 
             /**
              * A shared snapshot is measured with the old element's own
@@ -1841,32 +1853,45 @@ export function createProjectionNode<I>({
              * too. Otherwise those values keep animating themselves.
              */
             const velocity = snapshot?.velocity
-            if (velocity) {
-                const [x, y] = velocity.map(
-                    ([layout, value]) =>
-                        layout + (isSharedLayoutAnimation ? value : 0)
+            if (velocity && edges) {
+                const v = velocity.flatMap(([min, max, value]) =>
+                    [min, max].map(
+                        (edge) => edge + (isSharedLayoutAnimation ? value : 0)
+                    )
                 )
-                if (x || y) {
-                    const tx = delta.x.translate
-                    const ty = delta.y.translate
+                if (v.some(Boolean)) {
                     this.startVelocity = interpolate
-                        ? pointToProgressVelocity(tx, ty, { x, y })
-                        : {
-                              x: pixelToProgressVelocity(tx, x),
-                              y: pixelToProgressVelocity(ty, y),
-                          }
+                        ? pointToProgressVelocity(
+                              delta.x.translate,
+                              delta.y.translate,
+                              { x: (v[0] + v[1]) / 2, y: (v[2] + v[3]) / 2 }
+                          )
+                        : v
                 }
             }
 
             this.mixTargetDelta = (latest: number) => {
                 const progress = latest / 1000
                 const point = interpolate?.(progress)
-                const axes = this.axisValues
-                const px = axes ? axes.x.get() / 1000 : progress
-                const py = axes ? axes.y.get() / 1000 : progress
+                const values = this.edgeValues
+                const offset = (axis: "x" | "y", side: number) =>
+                    values![side + (axis === "x" ? 0 : 2)].get()
 
-                mixAxisDeltaLinear(targetDelta.x, delta.x, px)
-                mixAxisDeltaLinear(targetDelta.y, delta.y, py)
+                eachAxis((axis) =>
+                    values
+                        ? edgesToDelta(
+                              targetDelta[axis],
+                              delta[axis],
+                              this.layout!.layoutBox[axis],
+                              offset(axis, 0),
+                              offset(axis, 1)
+                          )
+                        : mixAxisDeltaLinear(
+                              targetDelta[axis],
+                              delta[axis],
+                              progress
+                          )
+                )
 
                 if (point) {
                     targetDelta.x.translate = point.x
@@ -1888,18 +1913,33 @@ export function createProjectionNode<I>({
                         this.relativeParent.layout.layoutBox,
                         this.options.layoutAnchor || undefined
                     )
-                    mixAxis(
-                        this.relativeTarget.x,
-                        this.relativeTargetOrigin.x,
-                        relativeLayout.x,
-                        px
-                    )
-                    mixAxis(
-                        this.relativeTarget.y,
-                        this.relativeTargetOrigin.y,
-                        relativeLayout.y,
-                        py
-                    )
+                    const from = this.relativeTargetOrigin
+                    const to = relativeLayout
+                    eachAxis((axis) => {
+                        const output = this.relativeTarget![axis]
+                        if (values) {
+                            /**
+                             * Each edge travels from its relative start by
+                             * the share of its offset still to go.
+                             */
+                            const i = axis === "x" ? 0 : 2
+                            const mix = (side: "min" | "max", j: number) => {
+                                const start = edges![i + j]
+                                const latest = offset(axis, j)
+                                output[side] =
+                                    to[axis][side] +
+                                    (start
+                                        ? ((from[axis][side] - to[axis][side]) *
+                                              latest) /
+                                          start
+                                        : latest)
+                            }
+                            mix("min", 0)
+                            mix("max", 1)
+                        } else {
+                            mixAxis(output, from[axis], to[axis], progress)
+                        }
+                    })
 
                     /**
                      * If this is an unchanged relative target we can consider the
@@ -1944,7 +1984,9 @@ export function createProjectionNode<I>({
                  * Only complete when x and y translate have finished too.
                  */
                 this.animationProgress =
-                    px === 1 && py === 1 ? progress : Math.min(progress, 0.999)
+                    !values || values.every((value) => !value.get())
+                        ? progress
+                        : Math.min(progress, 0.999)
             }
 
             this.mixTargetDelta(this.options.layoutRoot ? 1000 : 0)
@@ -2003,33 +2045,41 @@ export function createProjectionNode<I>({
                             mainVelocity = velocity
                         } else {
                             /**
-                             * x and y get their own springs, each with its
-                             * own start velocity. An axis spring moves the
-                             * whole axis (position and size), so an edge
-                             * that doesn't move stays put. One generator
-                             * steps all three, so one animation drives them
-                             * and its controls reach them all.
+                             * Each edge (x min, x max, y min, y max) gets its
+                             * own spring in pixels, with its own start
+                             * velocity. An edge that doesn't move keeps
+                             * still, and a thrown element keeps its size.
+                             * One generator steps them all with the main
+                             * spring, so one animation drives them and its
+                             * controls reach them all.
                              */
-                            const values = (this.axisValues = {
-                                x: motionValue(0),
-                                y: motionValue(0),
-                            })
-                            let axes: number[] = []
+                            const edges = this.animationEdges!
+                            const values = (this.edgeValues = edges.map(
+                                (edge) => motionValue(edge)
+                            ))
+                            let latest: number[] = []
                             transition = {
                                 ...transition,
                                 type: (o: any) => {
                                     const springs = [
                                         o.velocity,
-                                        velocity.x,
-                                        velocity.y,
-                                    ].map((v) => spring({ ...o, velocity: v }))
+                                        ...velocity,
+                                    ].map((v, i) =>
+                                        spring({
+                                            ...o,
+                                            keyframes: i
+                                                ? [edges[i - 1], 0]
+                                                : o.keyframes,
+                                            velocity: v,
+                                        })
+                                    )
                                     return {
                                         calculatedDuration: null,
                                         next: (t: number) => {
                                             const states = springs.map((g) =>
                                                 g.next(t)
                                             )
-                                            axes = states.map((s) => s.value)
+                                            latest = states.map((s) => s.value)
                                             states[0].done = states.every(
                                                 (s) => s.done
                                             )
@@ -2038,10 +2088,10 @@ export function createProjectionNode<I>({
                                     }
                                 },
                             }
-                            onAxes = () => {
-                                values.x.set(axes[1])
-                                values.y.set(axes[2])
-                            }
+                            onAxes = () =>
+                                values.forEach((value, i) =>
+                                    value.set(latest[i + 1])
+                                )
                         }
                     }
                 }
@@ -2084,7 +2134,7 @@ export function createProjectionNode<I>({
             this.resumingFrom =
                 this.currentAnimation =
                 this.animationValues =
-                this.axisValues =
+                this.edgeValues =
                     undefined
 
             this.notifyListeners("animationComplete")
@@ -2092,7 +2142,7 @@ export function createProjectionNode<I>({
 
         finishAnimation() {
             if (this.currentAnimation) {
-                this.axisValues = undefined
+                this.edgeValues = undefined
                 this.mixTargetDelta?.(animationTarget)
                 this.currentAnimation.stop()
             }
@@ -2743,6 +2793,25 @@ function calcProjection(node: IProjectionNode) {
 
 function resetSkewAndRotation(node: IProjectionNode) {
     node.resetSkewAndRotation()
+}
+
+/**
+ * Build an axis delta that moves the layout's edges by these offsets (px).
+ */
+function edgesToDelta(
+    output: AxisDelta,
+    delta: AxisDelta,
+    layout: Axis,
+    min: number,
+    max: number
+) {
+    const length = layout.max - layout.min
+    const scale = length ? Math.max(0, (length + max - min) / length) : 1
+    const origin = (output.originPoint = delta.originPoint)
+    output.origin = delta.origin
+    output.scale = scale
+    output.translate =
+        layout.min + min - (origin + (layout.min - origin) * scale)
 }
 
 function mixAxisDeltaLinear(output: AxisDelta, delta: AxisDelta, p: number) {

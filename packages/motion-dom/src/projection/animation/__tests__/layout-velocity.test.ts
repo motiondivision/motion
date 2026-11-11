@@ -1,24 +1,10 @@
 import { getSpringOptions } from "../../../animation/generators/spring"
 import {
-    pixelToProgressVelocity,
     pointToProgressVelocity,
-    progressToPixelVelocity,
     toVelocityTransition,
 } from "../layout-velocity"
 
 describe("layout velocity conversions", () => {
-    test("pixel and progress velocity round trip", () => {
-        // Box starts 200px right of its layout and moves left at 500px/s
-        const progressVelocity = pixelToProgressVelocity(200, -500)
-        expect(progressVelocity).toBe(2500)
-        expect(progressToPixelVelocity(200, progressVelocity)).toBe(-500)
-    })
-
-    test("an axis that doesn't move takes no velocity", () => {
-        expect(pixelToProgressVelocity(0, 1000)).toBe(0)
-        expect(pixelToProgressVelocity(0.5, 1000)).toBe(0)
-    })
-
     test("a curved path takes the velocity along its chord", () => {
         // Chord from (100, 0) to the layout. Velocity straight down the
         // chord at 100px/s is 1000 progress/s, perpendicular is 0.

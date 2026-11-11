@@ -155,6 +155,46 @@ describe("Layout velocity", () => {
         })
     })
 
+    it("A thrown card keeps its size between the card and the detail view", () => {
+        const y = 150
+        cy.visit("?test=layout-velocity-throw-resize")
+            .wait(200)
+            .get("#box")
+            .nextFrame()
+            .nextFrame()
+            .window()
+            .then((win: any) => {
+                dispatchPointer(win, "pointerdown", 350, y)
+                dispatchPointer(win, "pointermove", 360, y)
+                return afterFrame(win)
+            })
+            .wait(50)
+            .window()
+            .then(async (win: any) => {
+                for (const x of [400, 440, 480, 520]) {
+                    dispatchPointer(win, "pointermove", x, y)
+                    await afterFrame(win)
+                }
+                dispatchPointer(win, "pointerup", 520, y)
+                const widths: number[] = []
+                for (let i = 0; i < 40; i++) {
+                    await afterFrame(win)
+                    const box = win.document.getElementById("box")
+                    if (box.style.backgroundColor === "blue") {
+                        widths.push(box.getBoundingClientRect().width)
+                    }
+                }
+                return widths
+            })
+            .then((widths: number[]) => {
+                // The throw moves the edges together, so the width only
+                // travels from the card's 100px to the detail's 400px.
+                expect(widths.length).to.be.greaterThan(10)
+                expect(Math.min(...widths)).to.be.greaterThan(99)
+                expect(Math.max(...widths)).to.be.lessThan(401)
+            })
+    })
+
     it("An interrupted spring keeps an edge that doesn't move still", () => {
         cy.visit("?test=layout-velocity-fixed-edge")
             .wait(200)

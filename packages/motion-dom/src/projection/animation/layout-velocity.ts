@@ -3,22 +3,6 @@ import { getSpringOptions } from "../../animation/generators/spring"
 import type { ValueAnimationOptions } from "../../animation/types"
 
 /**
- * Layout animations run on progress values from 0 to 1000. An axis moves
- * its origin point by `translate * (1 - progress / 1000)`, so its page
- * velocity (px/s) is `-translate * progressVelocity / 1000`.
- */
-export const progressToPixelVelocity = (
-    translate: number,
-    progressVelocity: number
-) => (-translate * progressVelocity) / 1000
-
-/**
- * An axis that doesn't move can't carry velocity in progress units.
- */
-export const pixelToProgressVelocity = (translate: number, velocity: number) =>
-    Math.abs(translate) < 1 ? 0 : (-1000 * velocity) / translate
-
-/**
  * A curved path ties x and y to one progress value, so it takes the part of
  * the velocity along the straight line from start to end.
  */
