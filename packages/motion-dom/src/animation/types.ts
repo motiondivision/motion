@@ -757,6 +757,18 @@ export interface MotionPath {
     interpolateProjection(delta: Delta): PathInterpolator | undefined
 }
 
+/**
+ * Lets a renderer animate keys of a target itself: it deletes them from
+ * `target` and pushes their animations to `animations`. Called before the
+ * remaining values are animated.
+ */
+export type ClaimTarget = (
+    target: { [key: string]: unknown },
+    transition: Transition | undefined,
+    delay: number,
+    animations: AnimationPlaybackControlsWithThen[]
+) => void
+
 export type DynamicOption<T> = (i: number, total: number) => T
 
 export type ValueAnimationWithDynamicDelay = Omit<

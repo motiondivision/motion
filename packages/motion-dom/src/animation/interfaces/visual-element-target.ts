@@ -81,6 +81,8 @@ export function animateTarget(
               )
     }
 
+    visualElement.claimTarget?.(target, transition, delay, animations)
+
     for (const key in target) {
         const value = visualElement.getValue(
             key,
