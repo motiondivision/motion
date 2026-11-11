@@ -32,6 +32,7 @@ import {
     isConstraints,
     settleTransforms,
     removeElementConstraints,
+    type Bounds,
     setElementConstraints,
 } from "../constrain"
 import { setDragLock } from "./state/set-active"
@@ -296,8 +297,13 @@ export class VisualElementDragControls {
             this.updateBounds()
 
             // Update each point with the latest position
-            this.updateAxis("x", offset)
-            this.updateAxis("y", offset)
+            const bounds = !this.point && this.getBounds()
+            if (bounds) {
+                this.moveWithin(bounds, offset)
+            } else {
+                this.updateAxis("x", offset)
+                this.updateAxis("y", offset)
+            }
             this.point && this.point.move()
 
             /**
@@ -470,23 +476,47 @@ export class VisualElementDragControls {
         const bounds = this.getBounds()
         if (!bounds) return
 
-        const { visualElement } = this
-
-        /**
-         * On release, aim for the limits at the scale and rotation a pinch
-         * is settling at, rather than those it's passing through.
-         */
         const { left, right, top, bottom } = bounds.at(
-            (isRelease && settleTransforms.get(visualElement.current!)) || {
-                scale: visualElement.getValue("scale", 1).get(),
-                rotate: visualElement.getValue("rotate", 0).get(),
-            }
+            this.transform(isRelease)
         )
 
         this.constraints = {
             x: { min: left, max: right },
             y: { min: top, max: bottom },
         }
+    }
+
+    /**
+     * The element's scale and rotation. On release, those a pinch is
+     * settling at, rather than those it's passing through.
+     */
+    private transform(isRelease?: boolean) {
+        const { visualElement } = this
+        return (
+            (isRelease && settleTransforms.get(visualElement.current!)) || {
+                scale: visualElement.getValue("scale", 1).get(),
+                rotate: visualElement.getValue("rotate", 0).get(),
+            }
+        )
+    }
+
+    /**
+     * Move within constraints that follow the element's scale and
+     * rotation. A rotated element covering its frame is limited along its
+     * own axes, so both axes are constrained together.
+     */
+    private moveWithin(bounds: Bounds, offset: Point) {
+        const { drag } = this.readProps()
+        const point = { x: 0, y: 0 }
+
+        eachAxis((axis) => {
+            point[axis] = shouldDrag(axis, drag, this.currentDirection)
+                ? this.originPoint[axis] + offset[axis]
+                : this.getAxisMotionValue(axis).get()
+        })
+
+        const shown = bounds.constrain(point, this.transform(), this.elastic)
+        eachAxis((axis) => this.getAxisMotionValue(axis).set(shown[axis]))
     }
 
     private resolveConstraints() {
@@ -671,6 +701,40 @@ export class VisualElementDragControls {
                 .then(onDragTransitionEnd)
         }
 
+        /**
+         * Limits along a rotated element's own axes aren't a box on x/y,
+         * which inertia needs. Spring to where momentum would carry it,
+         * inside them, instead.
+         */
+        const bounds = !dragSnapToOrigin && this.getBounds()
+        const transform = this.transform(true)
+        if (bounds && bounds.region(transform).sin) {
+            const point = { x: 0, y: 0 }
+            eachAxis((axis) => {
+                point[axis] =
+                    this.getAxisMotionValue(axis).get() +
+                    0.2 * axisVelocity(axis)
+            })
+            const target = bounds.constrain(point, transform)
+
+            return Promise.all(
+                eachAxis((axis) =>
+                    this.startAxisValueAnimation(
+                        axis,
+                        {
+                            type: "spring",
+                            stiffness: 200,
+                            damping: 40,
+                            restDelta: 1,
+                            restSpeed: 10,
+                            velocity: axisVelocity(axis),
+                        },
+                        target[axis]
+                    )
+                )
+            ).then(onDragTransitionEnd)
+        }
+
         this.updateBounds(true)
         const constraints: Partial<ResolvedConstraints> = this.constraints || {}
 
@@ -706,7 +770,8 @@ export class VisualElementDragControls {
 
     private startAxisValueAnimation(
         axis: DragDirection,
-        transition: Transition
+        transition: Transition,
+        target = 0
     ) {
         const axisValue = this.getAxisMotionValue(axis)
 
@@ -716,7 +781,7 @@ export class VisualElementDragControls {
             animateMotionValue(
                 axis,
                 axisValue,
-                0,
+                target,
                 transition,
                 this.visualElement,
                 false

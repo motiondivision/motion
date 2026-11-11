@@ -491,3 +491,127 @@ describe("feedback from #4080", () => {
         expect(xOf(element)).toBeCloseTo(50, 0)
     })
 })
+
+describe("rotated cover", () => {
+    /**
+     * Whether a 100px square element at (x, y), scale and rotation covers
+     * the 300px frame: every frame corner is inside it.
+     */
+    const covers = (x: number, y: number, scale: number, rotate: number) => {
+        const a = (rotate * Math.PI) / 180
+        const half = (100 * scale) / 2 + 1e-6
+        return [
+            [0, 0],
+            [300, 0],
+            [0, 300],
+            [300, 300],
+        ].every(([px, py]) => {
+            const dx = px - 150 - x
+            const dy = py - 150 - y
+            const u = dx * Math.cos(a) + dy * Math.sin(a)
+            const v = -dx * Math.sin(a) + dy * Math.cos(a)
+            return Math.abs(u) <= half && Math.abs(v) <= half
+        })
+    }
+
+    test("keeps every frame corner inside the rotated element", () => {
+        const { element, frameElement } = setup()
+        const bounds = createBounds(
+            element,
+            frameElement,
+            "visual",
+            xy(element)
+        )
+
+        for (const rotate of [10, 30, 45, 70, 135]) {
+            for (const [x, y] of [
+                [0, 0],
+                [500, 0],
+                [-300, 200],
+                [80, -400],
+                [1000, 1000],
+            ]) {
+                const point = bounds.constrain({ x, y }, { scale: 6, rotate })
+                expect(covers(point.x, point.y, 6, rotate)).toBe(true)
+            }
+        }
+
+        // The box around the element alone would let these through
+        expect(covers(150, 150, 6, 45)).toBe(false)
+        expect(bounds.at({ scale: 6, rotate: 45 }).right).toBeLessThan(150)
+    })
+
+    test("centres an element too small to cover at its angle", () => {
+        const { element, frameElement } = setup()
+        const bounds = createBounds(
+            element,
+            frameElement,
+            "visual",
+            xy(element)
+        )
+
+        // 300px turned 45°: its box covers the frame, it doesn't
+        const point = bounds.constrain(
+            { x: 80, y: -60 },
+            { scale: 3, rotate: 45 }
+        )
+        expect(point.x).toBeCloseTo(0)
+        expect(point.y).toBeCloseTo(0)
+    })
+
+    test("layout constraints ignore rotation", () => {
+        const { element, frameElement } = setup()
+        const bounds = createBounds(
+            element,
+            frameElement,
+            "layout",
+            xy(element)
+        )
+        expect(bounds.region({ scale: 6, rotate: 45 }).sin).toBe(0)
+    })
+
+    test("a pinch keeps a rotated element covering the frame", async () => {
+        const { element, frameElement } = setup()
+        stops.push(
+            pinch(element, {
+                constraints: frameElement,
+                scale: false,
+                rotate: false,
+                elastic: 0,
+            })
+        )
+        const [scale, rotate] = getElementValues(element)
+        scale.set(6)
+        rotate.set(45)
+
+        await pan(element, 400)
+        const [, , x, y] = getElementValues(element)
+        expect(x.get()).toBeGreaterThan(0)
+        expect(covers(x.get(), y.get(), 6, 45)).toBe(true)
+        await lift()
+    })
+
+    test("a drag keeps a rotated element covering the frame", async () => {
+        const { element, frameElement } = setup()
+        stops.push(
+            drag(element, {
+                constraints: frameElement,
+                constraintsType: "visual",
+                elastic: false,
+            })
+        )
+        scaleTo(element, 6)
+        getElementValues(element)[1].set(45)
+
+        await dragTo(element, 400)
+        const ve = visualElementStore.get(element)!
+        const at = () =>
+            [ve.getValue("x")!.get(), ve.getValue("y")!.get()] as number[]
+        expect(covers(at()[0], at()[1], 6, 45)).toBe(true)
+        expect(at()[0]).toBeGreaterThan(0)
+
+        // Released, it springs to a point that still covers the frame
+        await sleep(1500)
+        expect(covers(at()[0], at()[1], 6, 45)).toBe(true)
+    })
+})

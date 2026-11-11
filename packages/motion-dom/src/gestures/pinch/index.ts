@@ -1,4 +1,4 @@
-import { clamp, type Axis, type Point } from "motion-utils"
+import { clamp, type Point } from "motion-utils"
 import { spring } from "../../animation/generators/spring"
 import type { SpringOptions } from "../../animation/types"
 import { cancelFrame, frame } from "../../frameloop"
@@ -12,11 +12,11 @@ import {
 } from "../../utils/resolve-elements"
 import type { MotionValue } from "../../value"
 import {
-    axesAt,
     createBounds,
     elementConstraints,
     isConstraints,
     removeElementConstraints,
+    type Bounds,
     setElementConstraints,
     settleTransforms,
     type Constraints,
@@ -354,7 +354,7 @@ export function addPinchListeners(
     /**
      * The constraints on x/y, and x/y before they and elastic apply.
      */
-    let bounds: Constraints | undefined
+    let bounds: Bounds | undefined
     let rawX = 0
     let rawY = 0
 
@@ -467,24 +467,15 @@ export function addPinchListeners(
              * its own elastic applied.
              */
             const drag = dragControls()
-            const [limitsX, limitsY] = axesAt(bounds, {
-                scale: s.get(),
-                rotate: r.get(),
-            })
-            const unconstrainAxis = (
-                value: number,
-                limits: Partial<Axis>,
-                axis: "x" | "y"
-            ) => {
-                const limit = clampTo(value, limits)
-                const side = value < limit ? "min" : "max"
-                const elastic = drag?.isDragging
-                    ? drag.elastic[axis][side]
-                    : resistance[side]
-                return elastic ? limit + (value - limit) / elastic : value
-            }
-            rawX = unconstrainAxis(lastX, limitsX, "x")
-            rawY = unconstrainAxis(lastY, limitsY, "y")
+            const raw = bounds.unconstrain(
+                { x: lastX, y: lastY },
+                { scale: s.get(), rotate: r.get() },
+                drag?.isDragging
+                    ? drag.elastic
+                    : { x: resistance, y: resistance }
+            )
+            rawX = raw.x
+            rawY = raw.y
         }
     }
 
@@ -589,12 +580,12 @@ export function addPinchListeners(
 
         if (bounds && moves && !snapToOrigin) {
             const [, , x1, y1] = at(1)
-            const { left, right, top, bottom } = bounds.at({
-                scale: s1,
-                rotate: r1,
-            })
-            fixX = clampTo(x1, { min: left, max: right }) - x1
-            fixY = clampTo(y1, { min: top, max: bottom }) - y1
+            const fixed = bounds.constrain(
+                { x: x1, y: y1 },
+                { scale: s1, rotate: r1 }
+            )
+            fixX = fixed.x - x1
+            fixY = fixed.y - y1
         }
 
         if (
@@ -742,14 +733,8 @@ export function addPinchListeners(
             const moveY = dy + panY - (sin * dx + cos * dy)
 
             if (bounds) {
-                const before = axesAt(bounds, {
-                    scale: latest,
-                    rotate: latestRotate,
-                })
-                const after = axesAt(bounds, {
-                    scale: scale.get(),
-                    rotate: rotate.get(),
-                })
+                const before = { scale: latest, rotate: latestRotate }
+                const after = { scale: scale.get(), rotate: rotate.get() }
 
                 /**
                  * Track x/y without constraints, so elastic doesn't build up
@@ -757,24 +742,25 @@ export function addPinchListeners(
                  *
                  * Only the fingers' own movement goes past the limits, with
                  * elastic. Movement from scaling and rotating around them
-                 * stops at the limits at the new scale, so an edge at the
-                 * frame stays pinned there as the element zooms out, and the
-                 * point under the fingers drifts instead.
+                 * stops at the limits at the new scale and rotation, so an
+                 * edge at the frame stays pinned there as the element zooms
+                 * out, and the point under the fingers drifts instead.
                  */
-                const pin = (
-                    raw: number,
-                    pan: number,
-                    move: number,
-                    axis: 0 | 1
-                ) => {
-                    raw += pan
-                    const base = clampTo(raw, before[axis])
-                    return clampTo(base + move - pan, after[axis]) + raw - base
-                }
-                rawX = pin(rawX, panX, moveX, 0)
-                rawY = pin(rawY, panY, moveY, 1)
-                lastX = applyConstraints(rawX, after[0], resistance)
-                lastY = applyConstraints(rawY, after[1], resistance)
+                const raw = { x: rawX + panX, y: rawY + panY }
+                const base = bounds.constrain(raw, before)
+                const moved = bounds.constrain(
+                    { x: base.x + moveX - panX, y: base.y + moveY - panY },
+                    after
+                )
+                rawX = moved.x + raw.x - base.x
+                rawY = moved.y + raw.y - base.y
+
+                const shown = bounds.constrain({ x: rawX, y: rawY }, after, {
+                    x: resistance,
+                    y: resistance,
+                })
+                lastX = shown.x
+                lastY = shown.y
             } else {
                 lastX += moveX
                 lastY += moveY
