@@ -1,4 +1,6 @@
-import type { BoundingBox } from "motion-utils"
+import type { Axis, BoundingBox, Point } from "motion-utils"
+import type { ResolvedElastic } from "../drag/types"
+import { applyConstraints } from "../drag/utils/constraints"
 import {
     resolveElements,
     type ElementOrSelector,
@@ -89,7 +91,7 @@ export interface ElementConstraints {
     owner: unknown
     target: unknown
     type: ConstraintsType
-    bounds?: Constraints
+    bounds?: Bounds
 }
 
 export const elementConstraints = new WeakMap<Element, ElementConstraints>()
@@ -103,23 +105,12 @@ export const settleTransforms = new WeakMap<Element, ConstraintsTransform>()
 /**
  * An element's `x`/`y` limits at a scale and rotation, as axes.
  */
-export const axesAt = (
-    bounds: Constraints,
-    transform: Partial<ConstraintsTransform>
-) => {
-    const { left, right, top, bottom } = bounds.at(transform)
-    return [
-        { min: left, max: right },
-        { min: top, max: bottom },
-    ]
-}
-
 export const setElementConstraints = (
     element: Element,
     owner: unknown,
     target: unknown,
     type: ConstraintsType,
-    bounds?: Constraints
+    bounds?: Bounds
 ) => elementConstraints.set(element, { owner, target, type, bounds })
 
 /**
@@ -129,8 +120,8 @@ export const removeElementConstraints = (element: Element, owner: unknown) =>
     elementConstraints.get(element)?.owner === owner &&
     elementConstraints.delete(element)
 
-export const isConstraints = (value: unknown): value is Constraints =>
-    !!value && typeof value === "object" && "at" in value
+export const isConstraints = (value: unknown): value is Bounds =>
+    !!value && typeof value === "object" && "region" in value
 
 export const isElement = (value: unknown): value is Element =>
     !!value && typeof value === "object" && "getBoundingClientRect" in value
@@ -149,6 +140,68 @@ const axisLimits = (min: number, max: number, half: number, centre: number) => {
 }
 
 /**
+ * Limits along two perpendicular axes: `x` along (cos, sin) and `y`
+ * along (-sin, cos). Usually these are the page's x and y axes, but a
+ * rotated element covering its frame is limited along its own axes.
+ */
+export interface ConstraintsRegion {
+    cos: number
+    sin: number
+    x: Partial<Axis>
+    y: Partial<Axis>
+}
+
+/**
+ * Constraints with the internals gestures use.
+ */
+export interface Bounds extends Constraints {
+    region(transform: Partial<ConstraintsTransform>): ConstraintsRegion
+
+    /**
+     * Apply the limits, and elastic past them, to a point.
+     */
+    constrain(
+        point: Point,
+        transform: Partial<ConstraintsTransform>,
+        elastic?: ResolvedElastic
+    ): Point
+
+    /**
+     * Where a point shown with elastic would be without it.
+     */
+    unconstrain(
+        point: Point,
+        transform: Partial<ConstraintsTransform>,
+        elastic: ResolvedElastic
+    ): Point
+}
+
+const toRegion = ({
+    left,
+    right,
+    top,
+    bottom,
+}: Partial<BoundingBox>): ConstraintsRegion => ({
+    cos: 1,
+    sin: 0,
+    x: { min: left, max: right },
+    y: { min: top, max: bottom },
+})
+
+/**
+ * Map a point onto the region's axes, apply `fn` to each, and map it back.
+ */
+const alongRegion = (
+    { cos, sin, x, y }: ConstraintsRegion,
+    point: Point,
+    fn: (value: number, limits: Partial<Axis>, axis: "x" | "y") => number
+): Point => {
+    const p = fn(point.x * cos + point.y * sin, x, "x")
+    const q = fn(point.y * cos - point.x * sin, y, "y")
+    return { x: p * cos - q * sin, y: p * sin + q * cos }
+}
+
+/**
  * Create the constraints for `element`. `getXY` returns the element's
  * `x`/`y` when measuring.
  *
@@ -162,7 +215,7 @@ export function createBounds(
     target: ConstraintsTarget,
     type: ConstraintsType = "visual",
     getXY: () => [unknown, unknown]
-): Constraints {
+): Bounds {
     let width = 0
     let height = 0
     let centreX = 0
@@ -172,7 +225,7 @@ export function createBounds(
     const resolveTarget = () =>
         target && "current" in target ? target.current : target
 
-    const bounds: Constraints = {
+    const bounds: Bounds = {
         measure() {
             const constraint = resolveTarget()
             if (!isElement(constraint)) return
@@ -191,44 +244,116 @@ export function createBounds(
             centreY = box.top + box.height / 2 - toPixels(y)
             frameBox = constraint.getBoundingClientRect()
         },
-        at({ scale = 1, rotate = 0 } = {}) {
+        region({ scale = 1, rotate = 0 }) {
             const constraint = resolveTarget()
 
             if (typeof constraint === "function") {
-                return constraint({ scale, rotate })
+                return toRegion(constraint({ scale, rotate }))
             }
 
-            if (!isElement(constraint)) return constraint || {}
+            if (!isElement(constraint)) return toRegion(constraint || {})
 
             frameBox || bounds.measure()
-            if (!frameBox) return {}
+            if (!frameBox) return toRegion({})
 
             const visual = type === "visual"
             const s = visual ? scale : 1
             const angle = visual ? (rotate * Math.PI) / 180 : 0
-            const cos = Math.abs(Math.cos(angle))
-            const sin = Math.abs(Math.sin(angle))
+            const cos = Math.cos(angle)
+            const sin = Math.sin(angle)
+            const absCos = Math.abs(cos)
+            const absSin = Math.abs(sin)
 
             /**
              * Half the size of the box around the scaled, rotated element.
              */
-            const halfX = ((width * cos + height * sin) * s) / 2
-            const halfY = ((width * sin + height * cos) * s) / 2
+            const halfX = ((width * absCos + height * absSin) * s) / 2
+            const halfY = ((width * absSin + height * absCos) * s) / 2
+            const { left, right, top, bottom } = frameBox
 
-            const [left, right] = axisLimits(
-                frameBox.left,
-                frameBox.right,
-                halfX,
-                centreX
-            )
-            const [top, bottom] = axisLimits(
-                frameBox.top,
-                frameBox.bottom,
-                halfY,
-                centreY
-            )
+            /**
+             * A rotated element larger than its frame covers it when all
+             * four of the frame's corners are inside it: limits along
+             * the element's own axes. If it's too small to cover the frame
+             * at this angle, it's centred along that axis.
+             */
+            if (
+                absSin > 1e-6 &&
+                absCos > 1e-6 &&
+                2 * halfX >= right - left &&
+                2 * halfY >= bottom - top
+            ) {
+                const along = (u: number, v: number, half: number) => {
+                    const projections = [
+                        [left, top],
+                        [right, top],
+                        [left, bottom],
+                        [right, bottom],
+                    ].map(([px, py]) => (px - centreX) * u + (py - centreY) * v)
+                    let min = Math.max(...projections) - half
+                    let max = Math.min(...projections) + half
+                    if (min > max) min = max = (min + max) / 2
+                    return { min, max }
+                }
 
-            return { left, right, top, bottom }
+                return {
+                    cos,
+                    sin,
+                    x: along(cos, sin, (width * s) / 2),
+                    y: along(-sin, cos, (height * s) / 2),
+                }
+            }
+
+            const [l, r] = axisLimits(left, right, halfX, centreX)
+            const [t, b] = axisLimits(top, bottom, halfY, centreY)
+
+            return toRegion({ left: l, right: r, top: t, bottom: b })
+        },
+        at(transform = {}) {
+            const region = bounds.region(transform)
+            const { cos, sin, x, y } = region
+            if (!sin) {
+                return { left: x.min, right: x.max, top: y.min, bottom: y.max }
+            }
+
+            /**
+             * The box around a rotated region.
+             */
+            const corners = [x.min!, x.max!].flatMap((p) =>
+                [y.min!, y.max!].map((q) => ({
+                    x: p * cos - q * sin,
+                    y: p * sin + q * cos,
+                }))
+            )
+            const xs = corners.map((c) => c.x)
+            const ys = corners.map((c) => c.y)
+
+            return {
+                left: Math.min(...xs),
+                right: Math.max(...xs),
+                top: Math.min(...ys),
+                bottom: Math.max(...ys),
+            }
+        },
+        constrain(point, transform, elastic) {
+            return alongRegion(
+                bounds.region(transform),
+                point,
+                (v, limits, axis) =>
+                    applyConstraints(v, limits, elastic?.[axis])
+            )
+        },
+        unconstrain(point, transform, elastic) {
+            return alongRegion(
+                bounds.region(transform),
+                point,
+                (v, limits, axis) => {
+                    const { min = -Infinity, max = Infinity } = limits
+                    const limit = Math.min(max, Math.max(min, v))
+                    const e = elastic[axis][v < limit ? "min" : "max"]
+                    return e ? limit + (v - limit) / e : v
+                }
+            )
         },
     }
 
