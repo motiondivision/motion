@@ -58,6 +58,23 @@ export interface ConstrainOptions {
      * Defaults to `"visual"`.
      */
     type?: ConstraintsType
+
+    /**
+     * Where to hold the element along an axis where it's smaller than the
+     * constraining element, from `0` (the start edge) to `1` (the end
+     * edge). For example, `0.5` keeps a photo narrower than its frame
+     * centred, instead of free to move within it. By default, it can move
+     * anywhere inside.
+     */
+    align?: number | ConstraintsAlign
+}
+
+/**
+ * @public
+ */
+export interface ConstraintsAlign {
+    x?: number
+    y?: number
 }
 
 /**
@@ -131,12 +148,22 @@ const toPixels = (value: unknown) => parseFloat(value as string) || 0
 /**
  * The limits along one axis that keep a box of half-length `half`, whose
  * layout centre is at `centre`, between `min` and `max`. If the box is
- * longer than the space, they flip, so it covers the space instead.
+ * longer than the space, they flip, so it covers the space instead. If
+ * it's shorter and `align` is set, it's held at that point between them.
  */
-const axisLimits = (min: number, max: number, half: number, centre: number) => {
+const axisLimits = (
+    min: number,
+    max: number,
+    half: number,
+    centre: number,
+    align?: number
+) => {
     const a = min + half - centre
     const b = max - half - centre
-    return a < b ? [a, b] : [b, a]
+    if (a > b) return [b, a]
+    if (align === undefined) return [a, b]
+    const held = a + (b - a) * align
+    return [held, held]
 }
 
 /**
@@ -214,8 +241,11 @@ export function createBounds(
     element: Element,
     target: ConstraintsTarget,
     type: ConstraintsType = "visual",
-    getXY: () => [unknown, unknown]
+    getXY: () => [unknown, unknown],
+    align?: number | ConstraintsAlign
 ): Bounds {
+    const { x: alignX, y: alignY } =
+        typeof align === "number" ? { x: align, y: align } : align || {}
     let width = 0
     let height = 0
     let centreX = 0
@@ -304,8 +334,8 @@ export function createBounds(
                 }
             }
 
-            const [l, r] = axisLimits(left, right, halfX, centreX)
-            const [t, b] = axisLimits(top, bottom, halfY, centreY)
+            const [l, r] = axisLimits(left, right, halfX, centreX, alignX)
+            const [t, b] = axisLimits(top, bottom, halfY, centreY, alignY)
 
             return toRegion({ left: l, right: r, top: t, bottom: b })
         },
@@ -383,13 +413,19 @@ export function createBounds(
 export function constrain(
     elementOrSelector: ElementOrSelector,
     target: ConstraintsTarget,
-    { type = "visual" }: ConstrainOptions = {}
+    { type = "visual", align }: ConstrainOptions = {}
 ): Constraints {
     const element = resolveElements(elementOrSelector)[0]
-    const bounds = createBounds(element, target, type, () => {
-        const [, , x, y] = getElementValues(element)
-        return [x.get(), y.get()]
-    })
+    const bounds = createBounds(
+        element,
+        target,
+        type,
+        () => {
+            const [, , x, y] = getElementValues(element)
+            return [x.get(), y.get()]
+        },
+        align
+    )
 
     setElementConstraints(element, bounds, target, type, bounds)
 
