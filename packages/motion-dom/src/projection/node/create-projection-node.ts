@@ -2005,14 +2005,11 @@ export function createProjectionNode<I>({
                 let mainVelocity = 0
 
                 /**
-                 * Layout animations default to a soft physics spring, so
-                 * they can start with a velocity.
+                 * Springs start with the element's velocity. With
+                 * mass: "auto", mass comes from the outermost animating
+                 * layout in this tree, so a nested tree moves as one.
                  */
-                if ((options as any).type !== false) {
-                    /**
-                     * Mass comes from the outermost animating layout in
-                     * this tree, so a nested tree moves as one.
-                     */
+                if ((options as any).type === "spring") {
                     let box = this.layout?.layoutBox
                     for (let node = this.parent; node; node = node.parent) {
                         if (
@@ -2024,7 +2021,6 @@ export function createProjectionNode<I>({
                     }
                     transition = toVelocityTransition(
                         options,
-                        defaultLayoutTransition.ease,
                         box && Math.sqrt(calcLength(box.x) * calcLength(box.y))
                     )
                     /**

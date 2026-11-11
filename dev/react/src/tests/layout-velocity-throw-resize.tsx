@@ -7,6 +7,13 @@ import { useState } from "react"
  * width must only travel from the card's width to its own: never shrink
  * below the card, grow past the detail view or turn inside out.
  */
+const transition = {
+    type: "spring",
+    visualDuration: 0.45,
+    bounce: 0,
+    mass: "auto",
+} as const
+
 export const App = () => {
     const [isOpen, setIsOpen] = useState(false)
 
@@ -15,6 +22,7 @@ export const App = () => {
             key="detail"
             id="box"
             layoutId="card"
+            transition={transition}
             style={{
                 position: "absolute",
                 top: 400,
@@ -29,6 +37,7 @@ export const App = () => {
             key="card"
             id="box"
             layoutId="card"
+            transition={transition}
             drag
             onDragEnd={() => setIsOpen(true)}
             style={{

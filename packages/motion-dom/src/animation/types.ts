@@ -329,11 +329,14 @@ export interface SpringOptions extends DurationSpringOptions, VelocityOptions {
      * Mass of the moving object. Higher values will result in more lethargic
      * movement. Set to `1` by default.
      *
+     * In layout animations, `"auto"` sets mass from the element's size, so
+     * bigger elements move heavier.
+     *
      * @default 1
      *
      * @public
      */
-    mass?: number
+    mass?: number | "auto"
 }
 
 /**

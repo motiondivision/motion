@@ -15,44 +15,40 @@ describe("layout velocity conversions", () => {
 })
 
 describe("toVelocityTransition", () => {
-    const defaultEase = [0.4, 0, 0.1, 1]
-
-    test("the default layout tween becomes a physics spring", () => {
-        const onComplete = () => {}
-        const transition = toVelocityTransition(
-            { duration: 0.45, ease: defaultEase, onComplete } as any,
-            defaultEase
-        ) as any
-        expect(transition.type).toBe("spring")
-        expect(transition.stiffness).toBeGreaterThan(0)
-        expect(transition.damping).toBeGreaterThan(0)
-        expect(transition.duration).toBeUndefined()
-        expect(getSpringOptions(transition).isTimeDefined).toBe(false)
-        expect(transition.onComplete).toBe(onComplete)
+    test("the default layout tween stays a tween", () => {
+        const tween = { duration: 0.45, ease: [0.4, 0, 0.1, 1] }
+        expect(toVelocityTransition(tween)).toBe(tween)
     })
 
     test("time-defined springs resolve to physics", () => {
-        const fromVisual = toVelocityTransition(
-            { type: "spring", visualDuration: 0.5, bounce: 0.2 } as any,
-            defaultEase
-        ) as any
+        const onComplete = () => {}
+        const fromVisual = toVelocityTransition({
+            type: "spring",
+            visualDuration: 0.5,
+            bounce: 0.2,
+            onComplete,
+        }) as any
         expect(fromVisual.stiffness).toBeGreaterThan(0)
         expect(getSpringOptions(fromVisual).isTimeDefined).toBe(false)
+        expect(fromVisual.onComplete).toBe(onComplete)
 
-        const fromDuration = toVelocityTransition(
-            { type: "spring", duration: 0.5, bounce: 0.2 } as any,
-            defaultEase
-        ) as any
+        const fromDuration = toVelocityTransition({
+            type: "spring",
+            duration: 0.5,
+            bounce: 0.2,
+        }) as any
         expect(fromDuration.duration).toBeUndefined()
         expect(fromDuration.stiffness).toBeGreaterThan(0)
         expect(getSpringOptions(fromDuration).isTimeDefined).toBe(false)
     })
 
     test("physics springs keep their physics", () => {
-        const transition = toVelocityTransition(
-            { type: "spring", stiffness: 300, damping: 20, mass: 2 } as any,
-            defaultEase
-        ) as any
+        const transition = toVelocityTransition({
+            type: "spring",
+            stiffness: 300,
+            damping: 20,
+            mass: 2,
+        })
         expect(transition).toMatchObject({
             type: "spring",
             stiffness: 300,
@@ -61,18 +57,26 @@ describe("toVelocityTransition", () => {
         })
     })
 
-    test("other tweens are unchanged", () => {
-        const tween = { duration: 0.3, ease: "linear" } as any
-        expect(toVelocityTransition(tween, defaultEase)).toBe(tween)
-        const inertia = { type: "inertia" } as any
-        expect(toVelocityTransition(inertia, defaultEase)).toBe(inertia)
+    test("other transitions are unchanged", () => {
+        const tween = { duration: 0.3, ease: "linear" }
+        expect(toVelocityTransition(tween)).toBe(tween)
+        const inertia = { type: "inertia" }
+        expect(toVelocityTransition(inertia)).toBe(inertia)
+        const instant = { type: "spring", duration: 0 }
+        expect(toVelocityTransition(instant)).toBe(instant)
+        const untyped = { duration: 0.3, bounce: 0.4 }
+        expect(toVelocityTransition(untyped)).toBe(untyped)
     })
 
-    test("the default spring's mass follows element size", () => {
+    test("mass auto follows element size", () => {
         const resolve = (size: number) =>
             toVelocityTransition(
-                { duration: 0.45, ease: defaultEase } as any,
-                defaultEase,
+                {
+                    type: "spring",
+                    visualDuration: 0.45,
+                    bounce: 0.2,
+                    mass: "auto",
+                },
                 size
             ) as any
         const small = resolve(30)
@@ -82,25 +86,19 @@ describe("toVelocityTransition", () => {
         expect(card.mass).toBe(1)
         expect(hero.mass).toBe(2)
 
-        // Same stiffness, and every size stays critically damped
+        // Same stiffness, and every size keeps the same damping ratio
         expect(small.stiffness).toBe(hero.stiffness)
-        for (const { stiffness, damping, mass } of [small, card, hero]) {
-            expect(damping / (2 * Math.sqrt(stiffness * mass))).toBeCloseTo(1)
-        }
+        const ratio = ({ stiffness, damping, mass }: any) =>
+            damping / (2 * Math.sqrt(stiffness * mass))
+        expect(ratio(small)).toBeCloseTo(ratio(card))
+        expect(ratio(hero)).toBeCloseTo(ratio(card))
     })
 
-    test("user springs keep their mass", () => {
+    test("springs without mass auto keep their mass", () => {
         const transition = toVelocityTransition(
-            { type: "spring", visualDuration: 0.5, bounce: 0.2 } as any,
-            defaultEase,
+            { type: "spring", visualDuration: 0.5, bounce: 0.2 },
             2000
         ) as any
         expect(transition.mass).toBe(1)
-    })
-    test("zero-duration springs and untyped transitions are unchanged", () => {
-        const instant = { type: "spring", duration: 0 }
-        expect(toVelocityTransition(instant, defaultEase)).toBe(instant)
-        const untyped = { duration: 0.3, bounce: 0.4 }
-        expect(toVelocityTransition(untyped, defaultEase)).toBe(untyped)
     })
 })

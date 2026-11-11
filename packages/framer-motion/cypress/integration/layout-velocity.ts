@@ -303,26 +303,33 @@ describe("Layout velocity", () => {
             })
     })
 
-    it("The default layout transition is a physics spring", () => {
-        cy.visit("?test=layout-velocity-default-spring")
+    it("With mass auto, a bigger element settles later", () => {
+        cy.visit("?test=layout-velocity-auto-mass")
             .wait(200)
-            .get("#box")
-            .click()
-            .wait(1500)
-            .should(([$el]: any) => {
-                // The 0.45s default tween would finish in about 450ms. A 100px box is light (mass 0.33), so the spring settles in about 600ms.
-                expect(Number($el.dataset.duration)).to.be.greaterThan(530)
+            .get("#toggle")
+            .click(10, 10)
+            .wait(2500)
+            .should(() => {
+                const small = Number(Cypress.$("#small")[0].dataset.duration)
+                const big = Number(Cypress.$("#big")[0].dataset.duration)
+                // Mass 0.25 (50px) against mass 1.67 (500px).
+                expect(small).to.be.greaterThan(0)
+                expect(big - small).to.be.greaterThan(300)
             })
     })
 
-    it("An explicit layout tween stays a tween", () => {
-        cy.visit("?test=layout-velocity-default-spring&tween")
+    it("The default layout transition stays a tween", () => {
+        cy.visit("?test=layout-velocity-auto-mass&default")
             .wait(200)
-            .get("#box")
-            .click()
+            .get("#toggle")
+            .click(10, 10)
             .wait(1500)
-            .should(([$el]: any) => {
-                expect(Number($el.dataset.duration)).to.be.lessThan(530)
+            .should(() => {
+                for (const id of ["#small", "#big"]) {
+                    const duration = Number(Cypress.$(id)[0].dataset.duration)
+                    expect(duration).to.be.greaterThan(0)
+                    expect(duration).to.be.lessThan(530)
+                }
             })
     })
 })

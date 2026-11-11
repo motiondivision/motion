@@ -222,7 +222,7 @@ export function getSpringOptions(options: SpringOptions) {
      */
     const validStiffness = resolvePhysics(options.stiffness)
     const validDamping = resolvePhysics(options.damping, true)
-    const validMass = resolvePhysics(options.mass)
+    const validMass = resolvePhysics(options.mass as number)
 
     const springOptions = {
         ...options,
