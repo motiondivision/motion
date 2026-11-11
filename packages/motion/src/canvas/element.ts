@@ -67,6 +67,9 @@ const number = (element: Element, name: string) => {
  * element are set with its `shaders` property. A child with `group="id"`
  * moves with the child that has that id, as if it were inside it.
  *
+ * `:state(drawing)` matches the element while the canvas draws its
+ * children, for styles that only apply then.
+ *
  * The element's CSS `perspective` and each child's CSS `transform` are
  * read when the layout changes. Motion's values are applied after a
  * child's own transform.
@@ -130,7 +133,7 @@ export function defineMotionFX({
             const root = this.attachShadow({ mode: "open" })
             const style = document.createElement("style")
             style.textContent =
-                ":host{display:block;position:relative}canvas{position:absolute;inset:0;width:100%;height:100%}"
+                ":host{display:block;position:relative}:host([perspective]){transform-style:preserve-3d}canvas{position:absolute;inset:0;width:100%;height:100%}"
             root.append(style, this.drawing, this.slotElement)
             /**
              * Moving the slot fires slotchange too, so only a change to
@@ -142,8 +145,79 @@ export function defineMotionFX({
                     assigned.some(
                         (child) => !this.drawn.has(child as HTMLElement)
                     )) &&
-                    this.sync()
+                    (this.layer ? this.sync() : this.follow())
             })
+        }
+
+        /**
+         * `:state(drawing)` matches while the canvas draws the children.
+         */
+        private states?: Set<string> = (() => {
+            try {
+                return (this.attachInternals() as any).states
+            } catch {}
+        })()
+
+        /**
+         * As normal DOM, a child can't be inside its group, so the
+         * group's transform is written to its style in front of its own.
+         * [the inline transform it had, the one written]
+         */
+        private followed = new Map<HTMLElement, [string, string]>()
+
+        private follower = new MutationObserver(() => this.follow())
+
+        private unfollow() {
+            this.follower.disconnect()
+            this.followed.forEach(([own, written], { style }) => {
+                if (style.transform === written) style.transform = own
+            })
+        }
+
+        private follow() {
+            const { followed, follower } = this
+            this.unfollow()
+            if (this.layer || !this.isConnected) return followed.clear()
+
+            const origin = (element: HTMLElement, style: CSSStyleDeclaration) =>
+                style.transformOrigin
+                    .split(" ")
+                    .map(
+                        (value, i) =>
+                            parseFloat(value) +
+                            (i ? (i > 1 ? 0 : element.offsetTop) : element.offsetLeft)
+                    )
+
+            const options = { attributes: true, attributeFilter: ["style", "class"] }
+            const members = new Set<HTMLElement>()
+            for (const child of this.children) {
+                const group = this.querySelector<HTMLElement>(
+                    `:scope > [id="${child.getAttribute("group")}"]`
+                )
+                if (!group || !(child instanceof HTMLElement)) continue
+
+                const groupStyle = getComputedStyle(group)
+                const style = getComputedStyle(child)
+                const [gx, gy, gz = 0] = origin(group, groupStyle)
+                const [x, y, z = 0] = origin(child, style)
+                const written = new DOMMatrix()
+                    .translate(gx - x, gy - y, gz - z)
+                    .multiply(new DOMMatrix(groupStyle.transform))
+                    .translate(x - gx, y - gy, z - gz)
+                    .multiply(new DOMMatrix(style.transform))
+                    .toString()
+
+                const own = child.style.transform
+                child.style.transform = written
+                // As the browser writes it, to know it again
+                followed.set(child, [own, child.style.transform])
+                members.add(child)
+                follower.observe(group, options)
+                follower.observe(child, options)
+            }
+            followed.forEach((_, child) => members.has(child) || followed.delete(child))
+            // Not the styles that were written here
+            follower.takeRecords()
         }
 
         get supported() {
@@ -161,6 +235,8 @@ export function defineMotionFX({
                 this.shaders = shaders
             }
 
+            this.follow()
+
             const canvas = document.createElement("canvas")
             const layer = canvasLayer(canvas)
             if (!layer.supported) return
@@ -176,6 +252,7 @@ export function defineMotionFX({
             this.ready = layer.ready.then((isReady) => {
                 if (!isReady || this.canvas !== canvas) return false
                 this.layer = layer
+                this.follow()
                 this.configure()
                 this.shadowRoot!.append(this.spacer, canvas)
                 this.observer.observe(this)
@@ -201,6 +278,8 @@ export function defineMotionFX({
             this.restoreSizes()
             this.drawn.clear()
             this.layer = this.created = this.canvas = undefined
+            this.states?.delete("drawing")
+            this.follow()
         }
 
         attributeChangedCallback() {
@@ -309,6 +388,7 @@ export function defineMotionFX({
 
             canvas.style.display = ""
             canvas.append(slotElement)
+            this.states?.add("drawing")
 
             drawn.forEach((element) => {
                 if (assigned.has(element)) return

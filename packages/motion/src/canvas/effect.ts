@@ -1,7 +1,9 @@
-import { createEffect, type MotionValueState } from "framer-motion/dom"
+import {
+    createEffect,
+    styleEffect,
+    type MotionValueState,
+} from "framer-motion/dom"
 import { canvasItems } from "./layer"
-
-const noop = () => {}
 
 /**
  * Binds motion values to an element drawn by a canvas layer, as
@@ -15,13 +17,14 @@ const noop = () => {}
  *
  * `animate()` and `drag()` already animate elements in a layer through
  * the layer, so this is only for motion values made elsewhere. Returns a
- * function that unbinds them, leaving the element where it is. Binding an
- * element that isn't in a layer does nothing.
+ * function that unbinds them, leaving the element where it is. An
+ * element that isn't in a layer, as in a browser without HTML-in-canvas,
+ * gets them as styles.
  */
 export const canvasEffect = createEffect<HTMLElement>(
     (element, state: MotionValueState, key, value) => {
         const visualElement = canvasItems.get(element)?.visualElement
-        if (!visualElement) return noop
+        if (!visualElement) return styleEffect(element, { [key]: value })
 
         visualElement.addValue(key, value)
         const remove = state.set(key, value)

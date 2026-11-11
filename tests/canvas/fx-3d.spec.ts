@@ -247,3 +247,66 @@ test.describe("<motion-fx> perspective", () => {
         expect(outside[3]).toBe(0)
     })
 })
+
+test.describe("<motion-fx> 3D as normal DOM", () => {
+    const frames = (page: any) =>
+        page.evaluate(
+            () =>
+                new Promise((resolve) =>
+                    requestAnimationFrame(() => requestAnimationFrame(resolve))
+                )
+        )
+    const centre = (page: any, selector: string) =>
+        page.evaluate((selector: string) => {
+            const box = document.querySelector(selector)!.getBoundingClientRect()
+            return [
+                Math.round(box.left + box.width / 2),
+                Math.round(box.top + box.height / 2),
+            ]
+        }, selector)
+
+    test.beforeEach(async ({ page }) => {
+        await page.goto("canvas/fx-3d.html?noshim")
+        await page.waitForFunction(() => (window as any).ready)
+    })
+
+    test("a child follows its group", async ({ page }) => {
+        expect(await centre(page, "#moon")).toEqual([280, 150])
+        await page.evaluate(() =>
+            (window as any).animate("#pivot", { rotate: 90 }, { duration: 0 })
+        )
+        await frames(page)
+        expect(await centre(page, "#moon")).toEqual([200, 230])
+
+        // Each change starts again from the child's own transform
+        await page.evaluate(() =>
+            (window as any).animate("#pivot", { rotate: 180 }, { duration: 0 })
+        )
+        await frames(page)
+        expect(await centre(page, "#moon")).toEqual([120, 150])
+    })
+
+    test("canvasEffect() binds to the style", async ({ page }) => {
+        await page.evaluate(() => {
+            const w = window as any
+            w.canvasEffect(document.getElementById("card"), {
+                x: w.motionValue(50),
+            })
+        })
+        await frames(page)
+        expect(await centre(page, "#card")).toEqual([250, 150])
+    })
+
+    test(":state(drawing) only matches while the canvas draws", async ({
+        page,
+    }) => {
+        const matches = () =>
+            page.evaluate(() =>
+                document.querySelector("motion-fx")!.matches(":state(drawing)")
+            )
+        expect(await matches()).toBe(false)
+        await page.goto("canvas/fx-3d.html")
+        await page.waitForFunction(() => (window as any).ready)
+        expect(await matches()).toBe(true)
+    })
+})
