@@ -29,6 +29,15 @@ export function filterProps(
 
         if (isMotionValue(props[key as keyof typeof props])) continue
 
+        /**
+         * `fx` marks the element for a canvas layer to draw. React doesn't
+         * render `true` as an attribute.
+         */
+        if (key === "fx") {
+            if (props.fx) (filteredProps as any).fx = ""
+            continue
+        }
+
         if (
             shouldForward(key, isValidProp) ||
             (forwardMotionProps === true && isValidMotionProp(key)) ||
