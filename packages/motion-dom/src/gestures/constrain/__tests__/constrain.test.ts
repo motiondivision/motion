@@ -615,3 +615,95 @@ describe("rotated cover", () => {
         expect(covers(at()[0], at()[1], 6, 45)).toBe(true)
     })
 })
+
+describe("align", () => {
+    test("holds an element smaller than its frame at the aligned point", () => {
+        const { element, frameElement } = setup()
+        const bounds = constrain(element, frameElement, { align: 0.5 })
+
+        // 100px and 200px wide in a 300px frame: held at the centre
+        expect(bounds.at()).toEqual({ left: 0, right: 0, top: 0, bottom: 0 })
+        expect(bounds.at({ scale: 2 }).left).toBe(0)
+        expect(bounds.at({ scale: 2 }).right).toBe(0)
+
+        // 400px wide covers the frame as before
+        expect(bounds.at({ scale: 4 })).toEqual({
+            left: -50,
+            right: 50,
+            top: -50,
+            bottom: 50,
+        })
+    })
+
+    test("aligns each axis on its own", () => {
+        const { element, frameElement } = setup()
+        const bounds = constrain(element, frameElement, { align: { x: 0 } })
+
+        // Held at the left edge, free to move vertically
+        expect(bounds.at()).toEqual({
+            left: -100,
+            right: -100,
+            top: -100,
+            bottom: 100,
+        })
+    })
+
+    test("a smaller photo comes back to the centre after a pan and zoom", async () => {
+        const { element, frameElement } = setup()
+        constrain(element, frameElement, { align: 0.5 })
+        stops.push(
+            pinch(element, {
+                scale: { min: 1, max: 4 },
+                rotate: false,
+                transition: { stiffness: 1000, damping: 100 },
+            })
+        )
+
+        // Zoomed in and panned to an edge, then pinched back to 1x
+        scaleTo(element, 4)
+        getElementValues(element)[2].set(50)
+        pointer(element, "pointerdown", 1, 50, 150)
+        pointer(element, "pointerdown", 2, 250, 150)
+        await nextFrame()
+        pointer(window, "pointermove", 1, 125, 150)
+        pointer(window, "pointermove", 2, 175, 150)
+        await nextFrame()
+        await lift()
+        await sleep(1000)
+
+        expect(getElementValues(element)[0].get()).toBeCloseTo(1)
+        expect(xOf(element)).toBeCloseTo(0, 0)
+    })
+
+    test("without align, a smaller photo can rest away from the centre", async () => {
+        const { element, frameElement } = setup()
+        constrain(element, frameElement)
+        stops.push(pinch(element, { scale: false, rotate: false }))
+
+        await pan(element, 60)
+        await lift()
+        await sleep(1000)
+        expect(xOf(element)).toBeCloseTo(60, 0)
+    })
+
+    test("with align, a pan at 1x springs back to the centre", async () => {
+        const { element, frameElement } = setup()
+        constrain(element, frameElement, { align: 0.5 })
+        stops.push(pinch(element, { scale: false, rotate: false }))
+
+        await pan(element, 60)
+        expect(xOf(element)).toBeGreaterThan(0)
+        await lift()
+        await sleep(1000)
+        expect(xOf(element)).toBeCloseTo(0, 0)
+    })
+
+    test("a drag at 1x stops at the aligned point", async () => {
+        const { element, frameElement } = setup()
+        constrain(element, frameElement, { align: 0.5 })
+        stops.push(drag(element, stiff))
+
+        await dragTo(element, 80)
+        expect(xOf(element)).toBe(0)
+    })
+})
