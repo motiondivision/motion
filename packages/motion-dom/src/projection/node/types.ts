@@ -132,6 +132,7 @@ export interface IProjectionNode<I = unknown> {
     animationValues?: ResolvedValues
     currentAnimation?: AnimationPlaybackControls
     pendingAnimation?: unknown
+    edgeValues?: number[]
     isTreeAnimating?: boolean
     isAnimationBlocked?: boolean
     setAnimationOrigin(

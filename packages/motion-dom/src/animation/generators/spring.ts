@@ -205,7 +205,7 @@ function resolvePhysics(value: number | undefined, canBeZero?: boolean) {
 
     if (process.env.NODE_ENV !== "production") {
         warning(
-            value === undefined,
+            value === undefined || (value as unknown) === "auto",
             "Spring stiffness and mass must be positive, damping 0 or greater",
             "spring-invalid-physics"
         )

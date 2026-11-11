@@ -28,13 +28,11 @@ export function toVelocityTransition(
     size = 300
 ): ValueAnimationOptions<number> {
     if (t.type === "spring" && t.duration !== 0) {
-        const isAuto = t.mass === "auto"
         let { stiffness, damping, mass } = getSpringOptions({
             ...t,
-            mass: isAuto ? undefined : t.mass,
             duration: t.duration && secondsToMilliseconds(t.duration),
         })
-        if (isAuto) {
+        if (t.mass === "auto") {
             mass = clamp(0.25, 2, size / 300)
             damping *= Math.sqrt(mass)
         }

@@ -1062,7 +1062,12 @@ export function createProjectionNode<I>({
              */
             if (this.snapshot) {
                 const { visualElement } = this.options
-                const edges = this.currentAnimation && this.animationEdges
+                /**
+                 * A paused or stopped animation hands on no velocity.
+                 */
+                const edges =
+                    this.currentAnimation?.state === "running" &&
+                    this.animationEdges
                 const velocity = this.edgeVelocity
                 const progress = this.motionValue?.getVelocity() || 0
                 this.snapshot.velocity = eachAxis((axis) =>
@@ -1981,6 +1986,7 @@ export function createProjectionNode<I>({
 
             this.currentAnimation?.stop()
             this.resumingFrom?.currentAnimation?.stop()
+            if (this.resumingFrom) this.resumingFrom.edgeValues = undefined
 
             if (this.pendingAnimation) {
                 cancelFrame(this.pendingAnimation)
@@ -2009,7 +2015,10 @@ export function createProjectionNode<I>({
                  * mass: "auto", mass comes from the outermost animating
                  * layout in this tree, so a nested tree moves as one.
                  */
-                if ((options as any).type === "spring") {
+                if (
+                    (options as any).type === "spring" &&
+                    (velocity !== undefined || options.mass === "auto")
+                ) {
                     let box = this.layout?.layoutBox
                     for (let node = this.parent; node; node = node.parent) {
                         if (
@@ -2029,7 +2038,8 @@ export function createProjectionNode<I>({
                      */
                     if (
                         velocity !== undefined &&
-                        transition.type === "spring"
+                        transition.type === "spring" &&
+                        !options.repeat
                     ) {
                         if (typeof velocity === "number") {
                             mainVelocity = velocity
