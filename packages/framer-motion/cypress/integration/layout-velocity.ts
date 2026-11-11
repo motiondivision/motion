@@ -215,6 +215,94 @@ describe("Layout velocity", () => {
             })
     })
 
+    it("A nested child keeps its place while its parent is interrupted", () => {
+        cy.visit("?test=layout-velocity-nested")
+            .wait(200)
+            .get("#parent")
+            .click(150, 150)
+            .wait(200)
+            .window()
+            .then((win: any) => {
+                const doc = win.document
+                doc.getElementById("parent").click()
+                return new Cypress.Promise<number[]>((resolve) => {
+                    const offsets: number[] = []
+                    const tick = () => {
+                        const parent = doc
+                            .getElementById("parent")
+                            .getBoundingClientRect()
+                        const child = doc
+                            .getElementById("child")
+                            .getBoundingClientRect()
+                        offsets.push(child.left - parent.left)
+                        offsets.length < 40
+                            ? win.requestAnimationFrame(tick)
+                            : resolve(offsets)
+                    }
+                    win.requestAnimationFrame(tick)
+                })
+            })
+            .then((offsets: number[]) => {
+                // Parent and child share one spring, so the child stays
+                // 20px in from the parent's left edge.
+                for (const offset of offsets) {
+                    expect(Math.abs(offset - 20)).to.be.lessThan(1)
+                }
+            })
+    })
+
+    it("A layout animation that starts with no width completes", () => {
+        cy.visit("?test=layout-velocity-zero-size")
+            .wait(200)
+            .window()
+            .then((win: any) => {
+                win.document.getElementById("box").click()
+            })
+            .wait(150)
+            .window()
+            .then((win: any) => {
+                win.document.getElementById("box").click()
+            })
+            .wait(2000)
+            .get("#box")
+            .should(([$el]: any) => {
+                expect($el.dataset.completed).to.equal("1")
+                expect($el.getBoundingClientRect().width).to.equal(200)
+            })
+    })
+
+    it("An interrupted spring with a delay holds still during the delay", () => {
+        let atInterrupt = 0
+        cy.visit("?test=layout-velocity-fixed-edge&delay")
+            .wait(200)
+            .get("#box")
+            .click(10, 10)
+            .wait(700)
+            .window()
+            .then((win: any) => {
+                const box = win.document.getElementById("box")
+                atInterrupt = box.getBoundingClientRect().width
+                box.click()
+                return new Cypress.Promise<number[]>((resolve) => {
+                    const widths: number[] = []
+                    const tick = () => {
+                        widths.push(box.getBoundingClientRect().width)
+                        widths.length < 10
+                            ? win.requestAnimationFrame(tick)
+                            : resolve(widths)
+                    }
+                    win.requestAnimationFrame(tick)
+                })
+            })
+            .then((widths: number[]) => {
+                // The 0.3s delay shows the box where it was interrupted,
+                // not at the end of the new animation.
+                for (const width of widths) {
+                    expect(Math.abs(width - atInterrupt)).to.be.lessThan(2)
+                }
+            })
+    })
+
     it("The default layout transition is a physics spring", () => {
         cy.visit("?test=layout-velocity-default-spring")
             .wait(200)

@@ -97,4 +97,10 @@ describe("toVelocityTransition", () => {
         ) as any
         expect(transition.mass).toBe(1)
     })
+    test("zero-duration springs and untyped transitions are unchanged", () => {
+        const instant = { type: "spring", duration: 0 }
+        expect(toVelocityTransition(instant, defaultEase)).toBe(instant)
+        const untyped = { duration: 0.3, bounce: 0.4 }
+        expect(toVelocityTransition(untyped, defaultEase)).toBe(untyped)
+    })
 })

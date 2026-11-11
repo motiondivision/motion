@@ -22,7 +22,7 @@ export const pointToProgressVelocity = (
  * same visual duration, with mass from the element's size: a 300px square
  * has mass 1, bigger elements are heavier and slower (mass 0.25 to 2), and
  * damping scales with mass so every size stays critically damped. Other
- * tweens keep their curve and lose the velocity.
+ * tweens, untyped transitions and zero-duration springs are unchanged.
  */
 export function toVelocityTransition(
     options: any,
@@ -40,10 +40,10 @@ export function toVelocityTransition(
           }
         : options
 
-    if (
-        t.type === "spring" ||
-        (!t.type && (t.bounce ?? t.visualDuration ?? t.stiffness) !== undefined)
-    ) {
+    /**
+     * A zero-duration spring stays instant.
+     */
+    if (t.type === "spring" && t.duration !== 0) {
         let { stiffness, damping, mass } = getSpringOptions({
             ...t,
             duration: t.duration && secondsToMilliseconds(t.duration),

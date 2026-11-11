@@ -9,6 +9,7 @@ import {
 } from "motion-utils"
 import { animateSingleValue } from "../../animation/animate/single-value"
 import { spring } from "../../animation/generators/spring"
+import { calcGeneratorDuration } from "../../animation/generators/utils/calc-duration"
 import { notifyLayoutAnimationStart } from "../../animation/utils/notify-inspector"
 import { getOptimisedAppearId } from "../../animation/optimized-appear/get-appear-id"
 import {
@@ -1062,17 +1063,19 @@ export function createProjectionNode<I>({
             if (this.snapshot) {
                 const { visualElement } = this.options
                 const edges = this.currentAnimation && this.animationEdges
-                const values = this.edgeValues
+                const velocity = this.edgeVelocity
                 const progress = this.motionValue?.getVelocity() || 0
                 this.snapshot.velocity = eachAxis((axis) =>
                     [0, 1]
                         .map((side) => {
                             const i = side + (axis === "x" ? 0 : 2)
-                            return edges
-                                ? values
-                                    ? values[i].getVelocity()
-                                    : (-edges[i] * progress) / 1000
-                                : 0
+                            return (
+                                (edges &&
+                                    (this.edgeValues
+                                        ? velocity!(i)
+                                        : (-edges[i] * progress) / 1000)) ||
+                                0
+                            )
                         })
                         .concat(
                             visualElement?.getValue(axis)?.getVelocity() || 0
@@ -1788,12 +1791,13 @@ export function createProjectionNode<I>({
          * y max edges from the layout at the start of the animation.
          * startVelocity is for the next animation: one progress velocity for
          * a curved path, or a velocity (px/s) for each edge.
-         * edgeValues hold the edge offsets while each edge runs on its own
-         * spring.
+         * edgeValues hold the latest edge offsets while each edge runs on
+         * its own spring, and edgeVelocity reads an edge's velocity.
          */
         animationEdges?: number[]
         startVelocity?: number | number[]
-        edgeValues?: MotionValue<number>[]
+        edgeValues?: number[]
+        edgeVelocity?: (i: number) => number
 
         setAnimationOrigin(
             delta: Delta,
@@ -1836,7 +1840,7 @@ export function createProjectionNode<I>({
                 pathFn?.interpolateProjection(delta)
 
             const box = this.layout?.layoutBox
-            const edges = (this.animationEdges =
+            let edges =
                 box &&
                 eachAxis((axis) => {
                     const { translate, scale, originPoint } = delta[axis]
@@ -1844,7 +1848,12 @@ export function createProjectionNode<I>({
                     return [min, max].map(
                         (edge) => (edge - originPoint) * (scale - 1) + translate
                     )
-                }).flat())
+                }).flat()
+            /**
+             * A zero-length layout axis has no finite edge offsets.
+             */
+            if (!edges?.every(isFinite)) edges = undefined
+            this.animationEdges = edges
             this.edgeValues = this.startVelocity = undefined
 
             /**
@@ -1875,7 +1884,7 @@ export function createProjectionNode<I>({
                 const point = interpolate?.(progress)
                 const values = this.edgeValues
                 const offset = (axis: "x" | "y", side: number) =>
-                    values![side + (axis === "x" ? 0 : 2)].get()
+                    values![side + (axis === "x" ? 0 : 2)]
 
                 eachAxis((axis) =>
                     values
@@ -1915,31 +1924,11 @@ export function createProjectionNode<I>({
                     )
                     const from = this.relativeTargetOrigin
                     const to = relativeLayout
-                    eachAxis((axis) => {
-                        const output = this.relativeTarget![axis]
-                        if (values) {
-                            /**
-                             * Each edge travels from its relative start by
-                             * the share of its offset still to go.
-                             */
-                            const i = axis === "x" ? 0 : 2
-                            const mix = (side: "min" | "max", j: number) => {
-                                const start = edges![i + j]
-                                const latest = offset(axis, j)
-                                output[side] =
-                                    to[axis][side] +
-                                    (start
-                                        ? ((from[axis][side] - to[axis][side]) *
-                                              latest) /
-                                          start
-                                        : latest)
-                            }
-                            mix("min", 0)
-                            mix("max", 1)
-                        } else {
-                            mixAxis(output, from[axis], to[axis], progress)
-                        }
-                    })
+                    /**
+                     * A child mixes its place in its parent by progress,
+                     * so a nested tree moves as one.
+                     */
+                    mixBox(this.relativeTarget, from, to, progress)
 
                     /**
                      * If this is an unchanged relative target we can consider the
@@ -1980,13 +1969,7 @@ export function createProjectionNode<I>({
                 this.root.scheduleUpdateProjection()
                 this.scheduleRender()
 
-                /**
-                 * Only complete when x and y translate have finished too.
-                 */
-                this.animationProgress =
-                    !values || values.every((value) => !value.get())
-                        ? progress
-                        : Math.min(progress, 0.999)
+                this.animationProgress = progress
             }
 
             this.mixTargetDelta(this.options.layoutRoot ? 1000 : 0)
@@ -2020,14 +2003,25 @@ export function createProjectionNode<I>({
 
                 let transition: any = options
                 let mainVelocity = 0
-                let onAxes: VoidFunction | undefined
 
                 /**
                  * Layout animations default to a soft physics spring, so
                  * they can start with a velocity.
                  */
                 if ((options as any).type !== false) {
-                    const box = this.layout?.layoutBox
+                    /**
+                     * Mass comes from the outermost animating layout in
+                     * this tree, so a nested tree moves as one.
+                     */
+                    let box = this.layout?.layoutBox
+                    for (let node = this.parent; node; node = node.parent) {
+                        if (
+                            node.layout &&
+                            (node.currentAnimation || node.pendingAnimation)
+                        ) {
+                            box = node.layout.layoutBox
+                        }
+                    }
                     transition = toVelocityTransition(
                         options,
                         defaultLayoutTransition.ease,
@@ -2054,10 +2048,6 @@ export function createProjectionNode<I>({
                              * controls reach them all.
                              */
                             const edges = this.animationEdges!
-                            const values = (this.edgeValues = edges.map(
-                                (edge) => motionValue(edge)
-                            ))
-                            let latest: number[] = []
                             transition = {
                                 ...transition,
                                 type: (o: any) => {
@@ -2073,25 +2063,37 @@ export function createProjectionNode<I>({
                                             velocity: v,
                                         })
                                     )
-                                    return {
-                                        calculatedDuration: null,
+                                    let time = 0
+                                    const generator = {
+                                        calculatedDuration: null as
+                                            | number
+                                            | null,
                                         next: (t: number) => {
                                             const states = springs.map((g) =>
-                                                g.next(t)
+                                                g.next((time = t))
                                             )
-                                            latest = states.map((s) => s.value)
+                                            this.edgeValues = states
+                                                .slice(1)
+                                                .map((s) => s.value)
                                             states[0].done = states.every(
                                                 (s) => s.done
                                             )
                                             return states[0]
                                         },
                                     }
+                                    /**
+                                     * Measure the duration now, then go back
+                                     * to the start, so a delay shows the
+                                     * start and not the end.
+                                     */
+                                    generator.calculatedDuration =
+                                        calcGeneratorDuration(generator)
+                                    generator.next(0)
+                                    this.edgeVelocity = (i) =>
+                                        springs[i + 1].velocity!(time)
+                                    return generator
                                 },
                             }
-                            onAxes = () =>
-                                values.forEach((value, i) =>
-                                    value.set(latest[i + 1])
-                                )
                         }
                     }
                 }
@@ -2101,7 +2103,6 @@ export function createProjectionNode<I>({
                     velocity: mainVelocity,
                     isSync: true,
                     onUpdate: (latest: number) => {
-                        onAxes && onAxes()
                         this.mixTargetDelta(latest)
                         options.onUpdate && options.onUpdate(latest)
                     },

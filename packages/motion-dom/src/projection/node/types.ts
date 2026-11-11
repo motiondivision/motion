@@ -131,6 +131,7 @@ export interface IProjectionNode<I = unknown> {
     isProjecting(): boolean
     animationValues?: ResolvedValues
     currentAnimation?: AnimationPlaybackControls
+    pendingAnimation?: unknown
     isTreeAnimating?: boolean
     isAnimationBlocked?: boolean
     setAnimationOrigin(
