@@ -332,4 +332,41 @@ describe("Layout velocity", () => {
                 }
             })
     })
+
+    it("A layout spring with a duration ends on time", () => {
+        cy.visit("?test=layout-velocity-auto-mass&duration")
+            .wait(200)
+            .get("#toggle")
+            .click(10, 10)
+            .wait(1500)
+            .should(() => {
+                for (const id of ["#small", "#big"]) {
+                    const duration = Number(Cypress.$(id)[0].dataset.duration)
+                    expect(duration).to.be.greaterThan(0)
+                    expect(duration).to.be.lessThan(380)
+                }
+            })
+    })
+
+    it("An interrupted mirror spring goes back to where it was interrupted", () => {
+        let atInterrupt = 0
+        cy.visit("?test=layout-velocity-interrupt&mirror")
+            .wait(200)
+            .get("#box")
+            .click()
+            .wait(120)
+            .window()
+            .then((win: any) => {
+                atInterrupt = leftOfBox(win.document)
+                win.document.getElementById("box").click()
+                return sampleFrames(win, 90)
+            })
+            .then((samples: number[]) => {
+                // The spring reaches the left, then mirrors back to the
+                // point of the interrupt and not past it.
+                const left = samples.indexOf(Math.min(...samples))
+                const back = Math.max(...samples.slice(left))
+                expect(Math.abs(back - atInterrupt)).to.be.lessThan(5)
+            })
+    })
 })

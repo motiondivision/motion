@@ -7,6 +7,7 @@ import { useRef, useState } from "react"
  * writes how long its animation took.
  *
  * ?default uses no transition, which stays the 0.45s tween.
+ * ?duration uses a 0.3s duration spring, which ends on time.
  */
 const Box = ({
     id,
@@ -19,10 +20,11 @@ const Box = ({
 }) => {
     const startedAt = useRef(0)
     const [duration, setDuration] = useState<number | null>(null)
-    const transition = new URLSearchParams(window.location.search).has(
-        "default"
-    )
+    const params = new URLSearchParams(window.location.search)
+    const transition = params.has("default")
         ? undefined
+        : params.has("duration")
+        ? ({ type: "spring", duration: 0.3, bounce: 0 } as const)
         : ({
               type: "spring",
               visualDuration: 0.45,
