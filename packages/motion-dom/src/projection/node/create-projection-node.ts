@@ -1865,8 +1865,8 @@ export function createProjectionNode<I>({
                 const px = axes ? axes.x.get() / 1000 : progress
                 const py = axes ? axes.y.get() / 1000 : progress
 
-                mixAxisDeltaLinear(targetDelta.x, delta.x, progress, px)
-                mixAxisDeltaLinear(targetDelta.y, delta.y, progress, py)
+                mixAxisDeltaLinear(targetDelta.x, delta.x, px)
+                mixAxisDeltaLinear(targetDelta.y, delta.y, py)
 
                 if (point) {
                     targetDelta.x.translate = point.x
@@ -1888,18 +1888,16 @@ export function createProjectionNode<I>({
                         this.relativeParent.layout.layoutBox,
                         this.options.layoutAnchor || undefined
                     )
-                    mixAxisSplit(
+                    mixAxis(
                         this.relativeTarget.x,
                         this.relativeTargetOrigin.x,
                         relativeLayout.x,
-                        progress,
                         px
                     )
-                    mixAxisSplit(
+                    mixAxis(
                         this.relativeTarget.y,
                         this.relativeTargetOrigin.y,
                         relativeLayout.y,
-                        progress,
                         py
                     )
 
@@ -2005,8 +2003,10 @@ export function createProjectionNode<I>({
                             mainVelocity = velocity
                         } else {
                             /**
-                             * x and y translate get their own springs, each
-                             * with its own start velocity. One generator
+                             * x and y get their own springs, each with its
+                             * own start velocity. An axis spring moves the
+                             * whole axis (position and size), so an edge
+                             * that doesn't move stays put. One generator
                              * steps all three, so one animation drives them
                              * and its controls reach them all.
                              */
@@ -2745,13 +2745,8 @@ function resetSkewAndRotation(node: IProjectionNode) {
     node.resetSkewAndRotation()
 }
 
-function mixAxisDeltaLinear(
-    output: AxisDelta,
-    delta: AxisDelta,
-    p: number,
-    pTranslate: number
-) {
-    output.translate = mixNumber(delta.translate, 0, pTranslate)
+function mixAxisDeltaLinear(output: AxisDelta, delta: AxisDelta, p: number) {
+    output.translate = mixNumber(delta.translate, 0, p)
     output.scale = mixNumber(delta.scale, 1, p)
     output.origin = delta.origin
     output.originPoint = delta.originPoint
@@ -2760,22 +2755,6 @@ function mixAxisDeltaLinear(
 export function mixAxis(output: Axis, from: Axis, to: Axis, p: number) {
     output.min = mixNumber(from.min, to.min, p)
     output.max = mixNumber(from.max, to.max, p)
-}
-
-/**
- * Mix an axis, then move its centre to pCenter progress.
- */
-function mixAxisSplit(
-    output: Axis,
-    from: Axis,
-    to: Axis,
-    p: number,
-    pCenter: number
-) {
-    mixAxis(output, from, to, p)
-    const shift = ((to.min + to.max - from.min - from.max) / 2) * (pCenter - p)
-    output.min += shift
-    output.max += shift
 }
 
 export function mixBox(output: Box, from: Box, to: Box, p: number) {

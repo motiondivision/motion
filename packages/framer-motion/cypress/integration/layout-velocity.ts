@@ -155,6 +155,26 @@ describe("Layout velocity", () => {
         })
     })
 
+    it("An interrupted spring keeps an edge that doesn't move still", () => {
+        cy.visit("?test=layout-velocity-fixed-edge")
+            .wait(200)
+            .get("#box")
+            .click(10, 10)
+            .wait(250)
+            .window()
+            .then((win: any) => {
+                win.document.getElementById("box").click()
+                return sampleFrames(win, 20)
+            })
+            .then((samples: number[]) => {
+                // Position and size share each axis spring, so the left
+                // edge stays at 100px while the box keeps its velocity.
+                for (const left of samples) {
+                    expect(Math.abs(left - 100)).to.be.lessThan(1)
+                }
+            })
+    })
+
     it("The default layout transition is a physics spring", () => {
         cy.visit("?test=layout-velocity-default-spring")
             .wait(200)
@@ -162,8 +182,8 @@ describe("Layout velocity", () => {
             .click()
             .wait(1500)
             .should(([$el]: any) => {
-                // The 0.45s default tween would finish in about 450ms.
-                expect(Number($el.dataset.duration)).to.be.greaterThan(600)
+                // The 0.45s default tween would finish in about 450ms. A 100px box is light (mass 0.33), so the spring settles in about 600ms.
+                expect(Number($el.dataset.duration)).to.be.greaterThan(530)
             })
     })
 
@@ -174,7 +194,7 @@ describe("Layout velocity", () => {
             .click()
             .wait(1500)
             .should(([$el]: any) => {
-                expect(Number($el.dataset.duration)).to.be.lessThan(600)
+                expect(Number($el.dataset.duration)).to.be.lessThan(530)
             })
     })
 })

@@ -36,7 +36,7 @@ export const pointToProgressVelocity = (
  * it. So resolve duration, visualDuration and bounce to the same physics.
  * The default layout tween becomes a soft (critically damped) spring of the
  * same visual duration, with mass from the element's size: a 300px square
- * has mass 1, bigger elements are heavier and slower (mass 0.5 to 2), and
+ * has mass 1, bigger elements are heavier and slower (mass 0.25 to 2), and
  * damping scales with mass so every size stays critically damped. Other
  * tweens keep their curve and lose the velocity.
  */
@@ -65,7 +65,7 @@ export function toVelocityTransition(
             duration: t.duration && secondsToMilliseconds(t.duration),
         })
         if (isDefault) {
-            mass = clamp(0.5, 2, size / 300)
+            mass = clamp(0.25, 2, size / 300)
             damping *= Math.sqrt(mass)
         }
         return {

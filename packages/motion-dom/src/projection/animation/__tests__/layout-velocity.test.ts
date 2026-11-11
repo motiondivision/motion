@@ -89,10 +89,10 @@ describe("toVelocityTransition", () => {
                 defaultEase,
                 size
             ) as any
-        const small = resolve(50)
+        const small = resolve(30)
         const card = resolve(300)
         const hero = resolve(2000)
-        expect(small.mass).toBe(0.5)
+        expect(small.mass).toBe(0.25)
         expect(card.mass).toBe(1)
         expect(hero.mass).toBe(2)
 
