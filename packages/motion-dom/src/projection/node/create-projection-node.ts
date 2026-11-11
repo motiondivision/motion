@@ -2004,7 +2004,17 @@ export function createProjectionNode<I>({
                 this.motionValue ||= motionValue(0)
                 this.motionValue.jump(0, false)
 
-                const velocity = this.startVelocity
+                /**
+                 * A spring set with duration lasts exactly its duration, so
+                 * like animate() it starts from rest.
+                 */
+                const t = options as any
+                const velocity =
+                    t.duration &&
+                    !t.visualDuration &&
+                    !(t.stiffness || t.damping || t.mass > 0)
+                        ? undefined
+                        : this.startVelocity
                 this.startVelocity = undefined
 
                 let transition: any = options

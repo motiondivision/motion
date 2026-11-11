@@ -7,6 +7,7 @@ import { useState } from "react"
  * turns back.
  *
  * ?tween uses a tween, which takes no velocity and starts from rest.
+ * ?duration uses a duration spring, which also starts from rest.
  * ?mirror repeats the spring once as a mirror, so the box goes back.
  */
 export const App = () => {
@@ -20,6 +21,8 @@ export const App = () => {
             transition={
                 params.has("tween")
                     ? { duration: 0.8 }
+                    : params.has("duration")
+                    ? { type: "spring", duration: 0.8, bounce: 0 }
                     : {
                           type: "spring",
                           visualDuration: params.has("mirror") ? 0.3 : 0.8,

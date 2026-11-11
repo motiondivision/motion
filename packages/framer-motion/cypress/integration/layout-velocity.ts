@@ -139,6 +139,12 @@ describe("Layout velocity", () => {
         })
     })
 
+    it("An interrupted layout spring with a duration starts from rest", () => {
+        interrupt("&duration").then(({ atInterrupt, samples }: any) => {
+            expect(Math.max(...samples)).to.be.lessThan(atInterrupt + 1)
+        })
+    })
+
     it("A thrown card hands its velocity to a layoutId element", () => {
         throwCard("").then(({ atSwap, samples }: any) => {
             // The detail view is to the left, but the first frames follow
