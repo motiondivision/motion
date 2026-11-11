@@ -4,7 +4,7 @@ import { visualElementStore } from "../../../render/store"
 import { drag } from "../../drag"
 import { pinch } from "../../pinch"
 import { getElementValues } from "../../utils/element-values"
-import { constrain, createBounds } from ".."
+import { constrain, createBounds, settleTransforms } from ".."
 
 const xy = (element: Element) => () => {
     const [, , x, y] = getElementValues(element)
@@ -415,5 +415,79 @@ describe("shared constraints", () => {
         getElementValues(element)[2].set(500)
         await nextFrame()
         expect(xOf(element)).toBe(500)
+    })
+})
+
+describe("feedback from #4080", () => {
+    test("an edge stays pinned while zooming out around the fingers", async () => {
+        const { element, frameElement } = setup()
+        stops.push(
+            pinch(element, {
+                constraints: frameElement,
+                scale: { min: 1, max: 8 },
+                rotate: false,
+            })
+        )
+        const [scale, , x] = getElementValues(element)
+
+        // 600px wide with its left edge at the frame's left edge
+        scale.set(6)
+        x.set(150)
+
+        // Pinch from 6x to 4x around (100, 150), left of the centre
+        pointer(element, "pointerdown", 1, 50, 150)
+        pointer(element, "pointerdown", 2, 150, 150)
+        await nextFrame()
+        pointer(window, "pointermove", 1, 100 - 100 / 3, 150)
+        pointer(window, "pointermove", 2, 100 + 100 / 3, 150)
+        await nextFrame()
+
+        expect(scale.get()).toBeCloseTo(4)
+
+        /**
+         * Around the fingers, x would be 83, past the 4x limit of 50.
+         * The edge stays at the frame's edge instead.
+         */
+        expect(xOf(element)).toBeCloseTo(50)
+        await lift()
+    })
+
+    test("a pinch starting past an edge carries on without a jump", async () => {
+        const { element, frameElement } = setup()
+        stops.push(
+            pinch(element, {
+                constraints: frameElement,
+                scale: false,
+                rotate: false,
+            })
+        )
+
+        // Shown with elastic: 100 inside, then 100 past it at 0.35
+        getElementValues(element)[2].set(135)
+
+        await pan(element, 1)
+        expect(xOf(element)).toBeCloseTo(135.35)
+        await lift()
+    })
+
+    test("a drag released while a pinch settles aims for the settled limits", async () => {
+        const { element, frameElement } = setup()
+        stops.push(
+            drag(element, {
+                constraints: frameElement,
+                constraintsType: "visual",
+                elastic: false,
+            })
+        )
+
+        // Springing back from 2.5x to 2x: the limits grow from 25 to 50
+        scaleTo(element, 2.5)
+        settleTransforms.set(element, { scale: 2, rotate: 0 })
+
+        await dragTo(element, 300)
+        expect(xOf(element)).toBe(25)
+
+        await sleep(1500)
+        expect(xOf(element)).toBeCloseTo(50, 0)
     })
 })

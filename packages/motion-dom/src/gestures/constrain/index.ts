@@ -94,6 +94,26 @@ export interface ElementConstraints {
 
 export const elementConstraints = new WeakMap<Element, ElementConstraints>()
 
+/**
+ * The scale and rotation a pinch is settling at, by element, so a drag
+ * released mid-settle aims for the limits it will end up with.
+ */
+export const settleTransforms = new WeakMap<Element, ConstraintsTransform>()
+
+/**
+ * An element's `x`/`y` limits at a scale and rotation, as axes.
+ */
+export const axesAt = (
+    bounds: Constraints,
+    transform: Partial<ConstraintsTransform>
+) => {
+    const { left, right, top, bottom } = bounds.at(transform)
+    return [
+        { min: left, max: right },
+        { min: top, max: bottom },
+    ]
+}
+
 export const setElementConstraints = (
     element: Element,
     owner: unknown,

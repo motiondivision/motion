@@ -30,6 +30,7 @@ import { isElementTextInput } from "../press/utils/is-keyboard-accessible"
 import {
     elementConstraints,
     isConstraints,
+    settleTransforms,
     removeElementConstraints,
     setElementConstraints,
 } from "../constrain"
@@ -465,15 +466,22 @@ export class VisualElementDragControls {
      * Set the constraints to the bounds at the element's latest scale and
      * rotation.
      */
-    private updateBounds() {
+    private updateBounds(isRelease?: boolean) {
         const bounds = this.getBounds()
         if (!bounds) return
 
         const { visualElement } = this
-        const { left, right, top, bottom } = bounds.at({
-            scale: visualElement.getValue("scale", 1).get(),
-            rotate: visualElement.getValue("rotate", 0).get(),
-        })
+
+        /**
+         * On release, aim for the limits at the scale and rotation a pinch
+         * is settling at, rather than those it's passing through.
+         */
+        const { left, right, top, bottom } = bounds.at(
+            (isRelease && settleTransforms.get(visualElement.current!)) || {
+                scale: visualElement.getValue("scale", 1).get(),
+                rotate: visualElement.getValue("rotate", 0).get(),
+            }
+        )
 
         this.constraints = {
             x: { min: left, max: right },
@@ -663,7 +671,7 @@ export class VisualElementDragControls {
                 .then(onDragTransitionEnd)
         }
 
-        this.updateBounds()
+        this.updateBounds(true)
         const constraints: Partial<ResolvedConstraints> = this.constraints || {}
 
         const momentumAnimations = eachAxis((axis) => {

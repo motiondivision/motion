@@ -1,4 +1,4 @@
-import { clamp, type Point } from "motion-utils"
+import { clamp, type Axis, type Point } from "motion-utils"
 import { spring } from "../../animation/generators/spring"
 import type { SpringOptions } from "../../animation/types"
 import { cancelFrame, frame } from "../../frameloop"
@@ -12,11 +12,13 @@ import {
 } from "../../utils/resolve-elements"
 import type { MotionValue } from "../../value"
 import {
+    axesAt,
     createBounds,
     elementConstraints,
     isConstraints,
     removeElementConstraints,
     setElementConstraints,
+    settleTransforms,
     type Constraints,
     type ConstraintsTarget,
     type ConstraintsType,
@@ -455,7 +457,35 @@ export function addPinchListeners(
         rawY = lastY = y.get()
         originX = left + box.width / 2 - lastX
         originY = top + box.height / 2 - lastY
-        bounds?.measure()
+
+        if (bounds) {
+            bounds.measure()
+
+            /**
+             * Carry on from where the element would be without elastic,
+             * as for scale and rotation. A drag past an edge shows x/y with
+             * its own elastic applied.
+             */
+            const drag = dragControls()
+            const [limitsX, limitsY] = axesAt(bounds, {
+                scale: s.get(),
+                rotate: r.get(),
+            })
+            const unconstrainAxis = (
+                value: number,
+                limits: Partial<Axis>,
+                axis: "x" | "y"
+            ) => {
+                const limit = clampTo(value, limits)
+                const side = value < limit ? "min" : "max"
+                const elastic = drag?.isDragging
+                    ? drag.elastic[axis][side]
+                    : resistance[side]
+                return elastic ? limit + (value - limit) / elastic : value
+            }
+            rawX = unconstrainAxis(lastX, limitsX, "x")
+            rawY = unconstrainAxis(lastY, limitsY, "y")
+        }
     }
 
     /**
@@ -606,7 +636,11 @@ export function addPinchListeners(
             }
         }
 
-        stopSnap = () => cancelFrame(tick)
+        settleTransforms.set(element, { scale: s1, rotate: r1 })
+        stopSnap = () => {
+            cancelFrame(tick)
+            settleTransforms.delete(element)
+        }
         frame.update(tick, true)
     }
 
@@ -628,6 +662,7 @@ export function addPinchListeners(
         const [scale, rotate, x, y] = values
         const resistance = resolveElastic(elastic)
         const latest = scale.get()
+        const latestRotate = rotate.get()
         const drag = dragControls()
         const isDragging = drag?.isDragging
 
@@ -707,27 +742,39 @@ export function addPinchListeners(
             const moveY = dy + panY - (sin * dx + cos * dy)
 
             if (bounds) {
-                /**
-                 * Track x/y without constraints, so elastic doesn't
-                 * build up from one frame to the next.
-                 */
-                rawX += moveX
-                rawY += moveY
-
-                const { left, right, top, bottom } = bounds.at({
+                const before = axesAt(bounds, {
+                    scale: latest,
+                    rotate: latestRotate,
+                })
+                const after = axesAt(bounds, {
                     scale: scale.get(),
                     rotate: rotate.get(),
                 })
-                lastX = applyConstraints(
-                    rawX,
-                    { min: left, max: right },
-                    resistance
-                )
-                lastY = applyConstraints(
-                    rawY,
-                    { min: top, max: bottom },
-                    resistance
-                )
+
+                /**
+                 * Track x/y without constraints, so elastic doesn't build up
+                 * from one frame to the next.
+                 *
+                 * Only the fingers' own movement goes past the limits, with
+                 * elastic. Movement from scaling and rotating around them
+                 * stops at the limits at the new scale, so an edge at the
+                 * frame stays pinned there as the element zooms out, and the
+                 * point under the fingers drifts instead.
+                 */
+                const pin = (
+                    raw: number,
+                    pan: number,
+                    move: number,
+                    axis: 0 | 1
+                ) => {
+                    raw += pan
+                    const base = clampTo(raw, before[axis])
+                    return clampTo(base + move - pan, after[axis]) + raw - base
+                }
+                rawX = pin(rawX, panX, moveX, 0)
+                rawY = pin(rawY, panY, moveY, 1)
+                lastX = applyConstraints(rawX, after[0], resistance)
+                lastY = applyConstraints(rawY, after[1], resistance)
             } else {
                 lastX += moveX
                 lastY += moveY
