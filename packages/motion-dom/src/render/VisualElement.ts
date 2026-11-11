@@ -8,7 +8,7 @@ import {
 } from "motion-utils"
 import { KeyframeResolver } from "../animation/keyframes/KeyframesResolver"
 import { NativeAnimation } from "../animation/NativeAnimation"
-import type { AnyResolvedKeyframe } from "../animation/types"
+import type { AnyResolvedKeyframe, ClaimTarget } from "../animation/types"
 import { acceleratedValues } from "../animation/waapi/utils/accelerated-values"
 import { transformGroups } from "../animation/waapi/transforms/groups"
 import { cancelFrame, frame } from "../frameloop"
@@ -262,6 +262,11 @@ export abstract class VisualElement<
      * like it could be set globally.
      */
     shouldReduceMotion: boolean | null = null
+
+    /**
+     * Set by a renderer that animates some keys of a target itself.
+     */
+    claimTarget?: ClaimTarget
 
     /**
      * Decides whether animations should be skipped for this VisualElement.
