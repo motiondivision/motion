@@ -11,6 +11,8 @@ import type {
     DragElastic,
 } from "../gestures/drag/types"
 import { PanInfo } from "../gestures/pan/types"
+import type { PinchProps } from "../gestures/pinch"
+import type { PressOptions } from "../gestures/press/types"
 import type { MotionValue } from "../value"
 
 export interface EventInfo {
@@ -542,6 +544,30 @@ export interface MotionNodeTapHandlers {
      */
     globalTapTarget?: boolean
 
+    /**
+     * Options for the tap gesture, applied to `onTapStart`, `onTap`,
+     * `onTapCancel` and `whileTap`. `onTapStart` and `whileTap` start on
+     * the first press. `onTap` fires only when the gesture completes,
+     * otherwise `onTapCancel` fires.
+     *
+     * ```jsx
+     * // Double tap
+     * <motion.div tap={{ count: 2 }} onTap={onDoubleTap} />
+     *
+     * // Long press
+     * <motion.div tap={{ hold: 0.5 }} whileTap={{ scale: 0.9 }} onTap={onLongPress} />
+     *
+     * // Stepper: `onTap` fires every 0.1 seconds while held
+     * <motion.button tap={{ repeat: 0.1 }} onTap={increment} />
+     * ```
+     *
+     * - `count`: Quick, consecutive presses needed for `onTap`. Default `1`.
+     * - `countTimeout`: Max seconds between presses. Default `0.3`.
+     * - `hold`: Seconds a press must be held for `onTap`. Default `0`.
+     * - `repeat`: While held, `onTap` fires every `repeat` seconds,
+     *   and `whileTap` stays active.
+     */
+    tap?: PressOptions
 }
 
 /**
@@ -1103,4 +1129,29 @@ export interface MotionNodeOptions
      * ```
      */
     propagate?: PropagateOptions
+
+    /**
+     * Scale (and optionally rotate and move) the element with pinch
+     * gestures: two touches, a trackpad pinch or Safari's gesture events.
+     * Pass options to configure it.
+     *
+     * Requires `pinchFeatures` to be loaded via `LazyMotion`.
+     *
+     * ```jsx
+     * <LazyMotion features={{ ...domMax, ...pinchFeatures }}>
+     *   <motion.img pinch={{ min: 1, max: 4 }} />
+     * </LazyMotion>
+     * ```
+     */
+    pinch?: boolean | PinchProps
+
+    /**
+     * Properties or variant label to animate to while the pinch gesture
+     * is recognised. Like `pinch`, requires `pinchFeatures`.
+     *
+     * ```jsx
+     * <motion.img pinch whilePinch={{ boxShadow: "0 8px 32px #0004" }} />
+     * ```
+     */
+    whilePinch?: VariantLabels | TargetAndTransition
 }

@@ -18,7 +18,7 @@ export function animateSingleValue<V extends AnyResolvedKeyframe>(
 ): AnimationPlaybackControlsWithThen {
     const motionValue = isMotionValue(value) ? value : createMotionValue(value)
 
-    motionValue.start(animateMotionValue("", motionValue, keyframes, options))
+    motionValue.run(animateMotionValue("", motionValue, keyframes, options))
 
     return motionValue.animation as AnimationPlaybackControlsWithThen
 }

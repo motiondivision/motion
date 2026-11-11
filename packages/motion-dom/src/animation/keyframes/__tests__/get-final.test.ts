@@ -42,4 +42,20 @@ describe("getFinalKeyframe", () => {
             getFinalKeyframe([0, 1], { repeat: 3, repeatType: "mirror" }, -1)
         ).toEqual(0)
     })
+
+    test("skips null keyframes", () => {
+        expect(getFinalKeyframe([null, 1], {})).toEqual(1)
+        expect(getFinalKeyframe([0, null], {})).toEqual(0)
+        expect(getFinalKeyframe([null, 0, 1, null], {})).toEqual(1)
+        expect(
+            getFinalKeyframe([null, 0, 1, null], {
+                repeat: 1,
+                repeatType: "reverse",
+            })
+        ).toEqual(0)
+        expect(getFinalKeyframe([null, 0, 1], {}, 2, -1)).toEqual(0)
+        expect(getFinalKeyframe([null], {})).toEqual(undefined)
+        expect(getFinalKeyframe([null], {}, 2)).toEqual(2)
+        expect(getFinalKeyframe([null, 1], {}, 2)).toEqual(1)
+    })
 })

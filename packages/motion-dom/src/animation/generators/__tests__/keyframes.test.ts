@@ -1,4 +1,5 @@
-import { easeInOut, noop } from "motion-utils"
+import { easeInOut, easingDefinitionToFunction, noop } from "motion-utils"
+import { interpolate } from "../../../utils/interpolate"
 import { defaultOffset } from "../../keyframes/offsets/default"
 import { convertOffsetToTimes } from "../../keyframes/offsets/time"
 import { AnyResolvedKeyframe, KeyframeGenerator } from "../../types"
@@ -216,5 +217,62 @@ describe("keyframes", () => {
             "rgba(114, 114, 114, 1)",
             "rgba(0, 0, 0, 1)",
         ])
+    })
+})
+
+describe("keyframes that hold, move once, then hold", () => {
+    const cases: Array<[string, any[], number[] | undefined, any]> = [
+        [
+            "numbers",
+            [0, 0, 100, 100],
+            [0, 0.25, 0.75, 1],
+            ["linear", "easeIn", "easeOut"],
+        ],
+        ["a single easing", [5, 5, -50], [0, 0.4, 1], "easeInOut"],
+        [
+            "units",
+            ["0px", "0px", "100px", "100px"],
+            [0, 0.2, 0.6, 1],
+            "easeOut",
+        ],
+        ["colours", ["#f00", "#00f", "#00f"], [0, 0.5, 1], "linear"],
+        ["no times", [1, 1, 2, 2], undefined, "easeOut"],
+        ["two keyframes", [0, 100], undefined, (p: number) => 0.25 + p / 2],
+        [
+            "a last pair that moves",
+            [0, 0, 100],
+            [0, 0.5, 1],
+            (p: number) => 0.25 + p / 2,
+        ],
+        [
+            "a first pair that moves",
+            [0, 100, 100],
+            [0, 0.5, 1],
+            (p: number) => 0.25 + p / 2,
+        ],
+    ]
+
+    test.each(cases)("match interpolate for %s", (_, values, times, ease) => {
+        const duration = 1000
+        const generator = keyframes({
+            keyframes: values,
+            times,
+            ease,
+            duration,
+        })
+        const easings = Array.isArray(ease)
+            ? ease.map(easingDefinitionToFunction)
+            : values.slice(1).map(() => easingDefinitionToFunction(ease))
+        const expected = interpolate(
+            convertOffsetToTimes(times || defaultOffset(values), duration),
+            values,
+            { ease: easings }
+        )
+
+        for (let t = -100; t <= 1100; t += 25) {
+            expect(generator.next(t).value).toEqual(expected(t))
+        }
+        expect(generator.next(999).done).toBe(false)
+        expect(generator.next(1000).done).toBe(true)
     })
 })

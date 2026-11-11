@@ -4,6 +4,52 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [14.12.1] 2026-11-10
+
+### Fixed
+
+-   `pinch`: `drag` initiated during snap animation no longer breaks animation.
+
+## [14.12.0] 2026-11-10
+
+### Added
+
+-   `spring`: `visualDuration`/`bounce` respects `velocity`.
+
+## [14.11.1] 2026-11-09
+
+### Changed
+
+-   `pinch`: Snap points use velocity-based prediction to calculate rotation snap point.
+-   `pinch`: Configure transform origin between element-relative origin and pointer center.
+
+## [14.11.0] 2026-11-09
+
+### Added
+
+-   `pinch`: Multitouch pinch and rotate gestures.
+
+## [14.10.1] 2026-11-05
+
+### Fixed
+
+-   `animate`: Fix not recognising timeline of only nested sequences as timeline.
+-   Various performance-related improvements.
+
+## [14.10.0] 2026-11-05
+
+### Added
+
+-   `press`: `count`, `hold` and `repeat`, for double/triple press, long press and multipress gestures.
+-   `drag`: Expose `getProps` on the dragConstraints function context.
+-   `drag`: `x`/`y` props for headless gesture tracking.
+-   `Reorder`: Home and End buttons move selected item to beginning and end of list, respectively.
+-   `motion`: New `tap` prop for configuring press gesture.
+
+### Fixed
+
+-   `animate`: Minor fixes.
+
 ## [14.9.1] 2026-11-04
 
 ### Added
