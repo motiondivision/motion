@@ -1072,7 +1072,8 @@ export function createProjectionNode<I>({
                  * velocity relative to the parent.
                  */
                 if (isRunning && this.relativeTarget) {
-                    this.snapshot.relativeVelocity = this.relativeVelocity || []
+                    this.snapshot.relativeVelocity =
+                        this.relativeVelocity?.map((v) => [...v]) || []
                 }
                 const velocity = this.edgeVelocity
                 const progress = this.motionValue?.getVelocity() || 0
@@ -1914,8 +1915,6 @@ export function createProjectionNode<I>({
                 const progress = latest / 1000
                 const point = interpolate?.(progress)
                 const values = this.edgeValues
-                const offset = (axis: "x" | "y", side: number) =>
-                    values![side + (axis === "x" ? 0 : 2)]
 
                 eachAxis((axis) =>
                     values
@@ -1923,8 +1922,8 @@ export function createProjectionNode<I>({
                               targetDelta[axis],
                               delta[axis],
                               this.layout!.layoutBox[axis],
-                              offset(axis, 0),
-                              offset(axis, 1)
+                              values[axis === "x" ? 0 : 2],
+                              values[axis === "x" ? 1 : 3]
                           )
                         : mixAxisDeltaLinear(
                               targetDelta[axis],
@@ -1975,21 +1974,25 @@ export function createProjectionNode<I>({
                         const now = time.now()
                         const dt = (now - this.relativeTime!) / 1000
                         this.relativeTime = now
-                        const speeds = eachAxis((axis) =>
-                            (["min", "max"] as const).map((edge, side) => {
+                        const speeds = (this.relativeVelocity ||= [
+                            [0, 0],
+                            [0, 0],
+                        ])
+                        for (let a = 0; a < 2; a++) {
+                            const axis = a ? "y" : "x"
+                            for (let side = 0; side < 2; side++) {
+                                const edge = side ? "max" : "min"
                                 if (start) {
-                                    box[axis][edge] +=
-                                        start[axis === "x" ? 0 : 1][side] *
-                                        impulse
+                                    box[axis][edge] += start[a][side] * impulse
                                 }
-                                return prevRelativeTarget
-                                    ? (box[axis][edge] -
-                                          prevRelativeTarget[axis][edge]) /
-                                          dt
-                                    : 0
-                            })
-                        )
-                        if (dt > 0) this.relativeVelocity = speeds
+                                if (prevRelativeTarget && dt > 0) {
+                                    speeds[a][side] =
+                                        (box[axis][edge] -
+                                            prevRelativeTarget[axis][edge]) /
+                                        dt
+                                }
+                            }
+                        }
                     }
 
                     /**
@@ -2141,29 +2144,33 @@ export function createProjectionNode<I>({
                                             velocity: 1000,
                                         })
                                     let time = 0
+                                    const values: number[] = []
                                     const generator = {
                                         calculatedDuration: null as
                                             | number
                                             | null,
                                         next: (t: number) => {
-                                            const states = springs.map((g) =>
-                                                g.next((time = t))
-                                            )
-                                            if (edges) {
-                                                this.edgeValues = states
-                                                    .slice(1)
-                                                    .map((s) => s.value)
+                                            time = t
+                                            const state = springs[0].next(t)
+                                            let done = state.done
+                                            for (
+                                                let i = 1;
+                                                i < springs.length;
+                                                i++
+                                            ) {
+                                                const edge = springs[i].next(t)
+                                                values[i - 1] = edge.value
+                                                done = done && edge.done
                                             }
+                                            if (edges) this.edgeValues = values
                                             if (impulse) {
-                                                const state = impulse.next(t)
+                                                const response = impulse.next(t)
                                                 this.impulse =
-                                                    state.value / 1000
-                                                states.push(state)
+                                                    response.value / 1000
+                                                done = done && response.done
                                             }
-                                            states[0].done = states.every(
-                                                (s) => s.done
-                                            )
-                                            return states[0]
+                                            state.done = done
+                                            return state
                                         },
                                     }
                                     /**
