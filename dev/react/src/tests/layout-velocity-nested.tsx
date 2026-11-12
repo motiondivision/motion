@@ -6,8 +6,9 @@ import { useState } from "react"
  * mass: "auto". The child must keep its place in the parent while the
  * animation is interrupted.
  *
- * ?move also moves the child inside the parent. ?still keeps the parent in
- * place, so only the child moves.
+ * ?move also moves the child inside the parent, with mass 1 for both, so
+ * the child's own velocity shows. ?still keeps the parent in place, so only
+ * the child moves.
  */
 const params = new URLSearchParams(window.location.search)
 
@@ -15,7 +16,7 @@ const transition = {
     type: "spring",
     visualDuration: 0.45,
     bounce: 0,
-    mass: "auto",
+    ...(!params.has("move") && { mass: "auto" as const }),
 } as const
 
 export const App = () => {

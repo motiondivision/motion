@@ -2080,29 +2080,13 @@ export function createProjectionNode<I>({
 
                 /**
                  * Springs start with the element's velocity. With
-                 * mass: "auto", mass comes from the outermost animating
-                 * layout in this tree, so a nested tree moves as one.
+                 * mass: "auto", mass comes from the element's own size.
                  */
                 if (
                     (options as any).type === "spring" &&
                     (velocity !== undefined || options.mass === "auto")
                 ) {
-                    /**
-                     * Only mass: "auto" needs a size. The path runs from
-                     * the root, so the first animating ancestor is the
-                     * outermost and the search stops there.
-                     */
-                    const box =
-                        options.mass === "auto"
-                            ? (
-                                  this.path.find(
-                                      (node) =>
-                                          node.layout &&
-                                          (node.currentAnimation ||
-                                              node.pendingAnimation)
-                                  ) || this
-                              ).layout?.layoutBox
-                            : undefined
+                    const box = this.layout?.layoutBox
                     transition = toVelocityTransition(
                         options,
                         box && Math.sqrt(calcLength(box.x) * calcLength(box.y))

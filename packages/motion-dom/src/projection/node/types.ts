@@ -17,8 +17,10 @@ export interface Measurements {
     latestValues: ResolvedValues
     source: number
     /**
-     * Experimental: per axis, [layout animation, x/y value] page velocity
-     * (px/s) when measured.
+     * Velocity (px/s) when measured, for the next spring layout animation.
+     * velocity is per axis [min edge, max edge, x/y value] in the page.
+     * relativeVelocity is per axis [min edge, max edge] inside the
+     * parent, for a child that was moving inside an animating parent.
      */
     velocity?: number[][]
     relativeVelocity?: number[][]
@@ -132,7 +134,10 @@ export interface IProjectionNode<I = unknown> {
     isProjecting(): boolean
     animationValues?: ResolvedValues
     currentAnimation?: AnimationPlaybackControls
-    pendingAnimation?: unknown
+    /**
+     * The latest offsets (px) of the x min, x max, y min and y max edge
+     * springs, while a layout animation runs with velocity.
+     */
     edgeValues?: number[]
     isTreeAnimating?: boolean
     isAnimationBlocked?: boolean
