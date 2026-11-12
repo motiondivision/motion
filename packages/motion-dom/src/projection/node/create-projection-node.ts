@@ -1065,9 +1065,15 @@ export function createProjectionNode<I>({
                 /**
                  * A paused or stopped animation hands on no velocity.
                  */
-                const edges =
-                    this.currentAnimation?.state === "running" &&
-                    this.animationEdges
+                const isRunning = this.currentAnimation?.state === "running"
+                const edges = isRunning && this.animationEdges
+                /**
+                 * A child moving inside its parent hands on only its
+                 * velocity relative to the parent.
+                 */
+                if (isRunning && this.relativeTarget) {
+                    this.snapshot.relativeVelocity = this.relativeVelocity || []
+                }
                 const velocity = this.edgeVelocity
                 const progress = this.motionValue?.getVelocity() || 0
                 this.snapshot.velocity = eachAxis((axis) =>
@@ -1803,6 +1809,16 @@ export function createProjectionNode<I>({
         startVelocity?: number | number[]
         edgeValues?: number[]
         edgeVelocity?: (i: number) => number
+        /**
+         * relativeVelocity is measured each frame while a child moves inside
+         * its parent. relativeStart is the relative velocity of the next
+         * animation, and impulse is how far one px/s of it has moved the
+         * child so far.
+         */
+        relativeVelocity?: number[][]
+        relativeTime?: number
+        relativeStart?: number[][]
+        impulse?: number
 
         setAnimationOrigin(
             delta: Delta,
@@ -1859,7 +1875,8 @@ export function createProjectionNode<I>({
              */
             if (!edges?.every(isFinite)) edges = undefined
             this.animationEdges = edges
-            this.edgeValues = this.startVelocity = undefined
+            this.edgeValues = this.startVelocity = this.impulse = undefined
+            this.relativeVelocity = undefined
 
             /**
              * A shared snapshot is measured with the old element's own
@@ -1867,6 +1884,14 @@ export function createProjectionNode<I>({
              * too. Otherwise those values keep animating themselves.
              */
             const velocity = snapshot?.velocity
+            /**
+             * A child that wasn't moving inside an animating parent before
+             * moved in page space, so that is its relative velocity.
+             */
+            const relativeStart = snapshot?.relativeVelocity || velocity
+            this.relativeStart = relativeStart?.flat().some(Boolean)
+                ? relativeStart
+                : undefined
             if (velocity && edges) {
                 const v = velocity.flatMap(([min, max, value]) =>
                     [min, max].map(
@@ -1934,6 +1959,31 @@ export function createProjectionNode<I>({
                      * so a nested tree moves as one.
                      */
                     mixBox(this.relativeTarget, from, to, progress)
+
+                    /**
+                     * Springs are linear, so the child's own velocity adds
+                     * the impulse response on top of the mix.
+                     */
+                    const box = this.relativeTarget
+                    const impulse = this.impulse || 0
+                    const start = this.relativeStart
+                    const now = time.now()
+                    const dt = (now - this.relativeTime!) / 1000
+                    this.relativeTime = now
+                    const speeds = eachAxis((axis) =>
+                        (["min", "max"] as const).map((edge, side) => {
+                            if (start) {
+                                box[axis][edge] +=
+                                    start[axis === "x" ? 0 : 1][side] * impulse
+                            }
+                            return prevRelativeTarget
+                                ? (box[axis][edge] -
+                                      prevRelativeTarget[axis][edge]) /
+                                      dt
+                                : 0
+                        })
+                    )
+                    if (dt > 0) this.relativeVelocity = speeds
 
                     /**
                      * If this is an unchanged relative target we can consider the
@@ -2046,8 +2096,9 @@ export function createProjectionNode<I>({
                      * Only springs take a velocity. A tween keeps one
                      * driver, so its controls (pause, time) reach it all.
                      */
+                    const relative = this.relativeStart
                     if (
-                        velocity !== undefined &&
+                        (velocity !== undefined || relative) &&
                         transition.type === "spring" &&
                         !options.repeat
                     ) {
@@ -2063,22 +2114,33 @@ export function createProjectionNode<I>({
                              * spring, so one animation drives them and its
                              * controls reach them all.
                              */
-                            const edges = this.animationEdges!
+                            const edges = velocity && this.animationEdges!
                             transition = {
                                 ...transition,
                                 type: (o: any) => {
                                     const springs = [
                                         o.velocity,
-                                        ...velocity,
+                                        ...(velocity || []),
                                     ].map((v, i) =>
                                         spring({
                                             ...o,
                                             keyframes: i
-                                                ? [edges[i - 1], 0]
+                                                ? [edges![i - 1], 0]
                                                 : o.keyframes,
                                             velocity: v,
                                         })
                                     )
+                                    /**
+                                     * The response to 1000 px/s, for a
+                                     * child's velocity inside its parent.
+                                     */
+                                    const impulse =
+                                        relative &&
+                                        spring({
+                                            ...o,
+                                            keyframes: [0, 0],
+                                            velocity: 1000,
+                                        })
                                     let time = 0
                                     const generator = {
                                         calculatedDuration: null as
@@ -2088,9 +2150,17 @@ export function createProjectionNode<I>({
                                             const states = springs.map((g) =>
                                                 g.next((time = t))
                                             )
-                                            this.edgeValues = states
-                                                .slice(1)
-                                                .map((s) => s.value)
+                                            if (edges) {
+                                                this.edgeValues = states
+                                                    .slice(1)
+                                                    .map((s) => s.value)
+                                            }
+                                            if (impulse) {
+                                                const state = impulse.next(t)
+                                                this.impulse =
+                                                    state.value / 1000
+                                                states.push(state)
+                                            }
                                             states[0].done = states.every(
                                                 (s) => s.done
                                             )
@@ -2152,6 +2222,7 @@ export function createProjectionNode<I>({
                 this.currentAnimation =
                 this.animationValues =
                 this.edgeValues =
+                this.impulse =
                     undefined
 
             this.notifyListeners("animationComplete")
@@ -2159,7 +2230,7 @@ export function createProjectionNode<I>({
 
         finishAnimation() {
             if (this.currentAnimation) {
-                this.edgeValues = undefined
+                this.edgeValues = this.impulse = undefined
                 this.mixTargetDelta?.(animationTarget)
                 this.currentAnimation.stop()
             }

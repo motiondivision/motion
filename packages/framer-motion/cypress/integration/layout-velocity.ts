@@ -257,6 +257,39 @@ describe("Layout velocity", () => {
             })
     })
 
+    it("A child moving inside its parent keeps only its own velocity", () => {
+        let atInterrupt = 0
+        const offset = (doc: Document) =>
+            doc.getElementById("child")!.getBoundingClientRect().left -
+            doc.getElementById("parent")!.getBoundingClientRect().left
+        cy.visit("?test=layout-velocity-nested&move")
+            .wait(200)
+            .get("#parent")
+            .click(150, 150)
+            .wait(150)
+            .window()
+            .then((win: any) => {
+                const doc = win.document
+                atInterrupt = offset(doc)
+                doc.getElementById("parent").click()
+                return new Cypress.Promise<number[]>((resolve) => {
+                    const offsets: number[] = []
+                    const tick = () => {
+                        offsets.push(offset(doc))
+                        offsets.length < 4
+                            ? win.requestAnimationFrame(tick)
+                            : resolve(offsets)
+                    }
+                    win.requestAnimationFrame(tick)
+                })
+            })
+            .then((offsets: number[]) => {
+                // The child keeps moving right inside its parent for a few
+                // frames before it turns back.
+                expect(Math.max(...offsets)).to.be.greaterThan(atInterrupt + 3)
+            })
+    })
+
     it("A layout animation that starts with no width completes", () => {
         cy.visit("?test=layout-velocity-zero-size")
             .wait(200)

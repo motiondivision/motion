@@ -21,6 +21,7 @@ export interface Measurements {
      * (px/s) when measured.
      */
     velocity?: number[][]
+    relativeVelocity?: number[][]
 }
 
 export type Phase = "snapshot" | "measure"
