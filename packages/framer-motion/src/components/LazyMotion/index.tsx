@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { startTransition, useEffect, useRef, useState } from "react"
 import { LazyContext } from "../../context/LazyContext"
 import { loadFeatures } from "../../motion/features/load-features"
 import { FeatureBundle, LazyFeatureBundle } from "../../motion/features/types"
@@ -60,7 +60,12 @@ export function LazyMotion({ children, features, strict = false }: LazyProps) {
             features().then(({ renderer, ...loadedFeatures }) => {
                 loadFeatures(loadedFeatures)
                 loadedRenderer.current = renderer
-                setIsLoaded(true)
+                /**
+                 * Use a transition so React can finish hydrating any
+                 * pending Suspense boundaries before re-rendering, rather
+                 * than discarding their server HTML.
+                 */
+                startTransition(() => setIsLoaded(true))
             })
         }
     }, [])
