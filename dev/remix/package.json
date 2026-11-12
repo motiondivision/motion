@@ -1,7 +1,7 @@
 {
     "name": "remix-env",
     "private": true,
-    "version": "14.12.0",
+    "version": "14.13.0",
     "type": "module",
     "scripts": {
         "dev": "vite",
@@ -9,7 +9,7 @@
     },
     "dependencies": {
         "@remix-run/component": "1.1.0",
-        "motion": "14.12.0"
+        "motion": "14.13.0"
     },
     "devDependencies": {
         "vite": "^6.4.2"
