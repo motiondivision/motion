@@ -1,5 +1,15 @@
 import { getSpringOptions } from "../../../animation/generators/spring"
-import { resolveAutoMass } from "../layout-velocity"
+import { pointToProgressVelocity, resolveAutoMass } from "../layout-velocity"
+
+describe("layout velocity conversions", () => {
+    test("a curved path takes the velocity along its chord", () => {
+        // Chord from (100, 0) to the layout. Velocity straight down the
+        // chord at 100px/s is 1000 progress/s, perpendicular is 0.
+        expect(pointToProgressVelocity(100, 0, { x: -100, y: 0 })).toBe(1000)
+        expect(pointToProgressVelocity(100, 0, { x: 0, y: 300 })).toBe(-0)
+        expect(pointToProgressVelocity(0, 0, { x: 100, y: 100 })).toBe(0)
+    })
+})
 
 describe("resolveAutoMass", () => {
     test("mass follows element size", () => {
