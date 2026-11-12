@@ -38,10 +38,7 @@ import { mixNumber } from "../../utils/mix/number"
 import { MotionValue, motionValue } from "../../value"
 import { resolveMotionValue } from "../../value/utils/resolve-motion-value"
 import { mixValues } from "../animation/mix-values"
-import {
-    pointToProgressVelocity,
-    resolveAutoMass,
-} from "../animation/layout-velocity"
+import { resolveAutoMass } from "../animation/layout-velocity"
 import { transformGroups } from "../../animation/waapi/transforms/groups"
 import { copyAxisDeltaInto, copyAxisInto, copyBoxInto } from "../geometry/copy"
 import {
@@ -1796,13 +1793,13 @@ export function createProjectionNode<I>({
          * Layout velocity.
          * animationEdges are the offsets (px) of the x min, x max, y min and
          * y max edges from the layout at the start of the animation.
-         * startVelocity is for the next animation: one progress velocity for
-         * a curved path, or a velocity (px/s) for each edge.
+         * startVelocity is the velocity (px/s) of each edge for the next
+         * animation.
          * edgeValues hold the latest edge offsets while each edge runs on
          * its own spring, and edgeVelocity reads an edge's velocity.
          */
         animationEdges?: number[]
-        startVelocity?: number | number[]
+        startVelocity?: number[]
         edgeValues?: number[]
         edgeVelocity?: (i: number) => number
         /**
@@ -1894,7 +1891,10 @@ export function createProjectionNode<I>({
             ) {
                 this.relativeStart = relative
             }
-            if (velocity && edges) {
+            /**
+             * A curved path starts from rest.
+             */
+            if (velocity && edges && !interpolate) {
                 const v = velocity
                     .slice(0, 4)
                     .map(
@@ -1904,15 +1904,7 @@ export function createProjectionNode<I>({
                                 ? velocity[4 + (i >> 1)]
                                 : 0)
                     )
-                if (v.some(Boolean)) {
-                    this.startVelocity = interpolate
-                        ? pointToProgressVelocity(
-                              delta.x.translate,
-                              delta.y.translate,
-                              { x: (v[0] + v[1]) / 2, y: (v[2] + v[3]) / 2 }
-                          )
-                        : v
-                }
+                if (v.some(Boolean)) this.startVelocity = v
             }
 
             this.mixTargetDelta = (latest: number) => {
@@ -2071,7 +2063,6 @@ export function createProjectionNode<I>({
                 this.startVelocity = undefined
 
                 let transition: any = options
-                let mainVelocity = 0
 
                 if (isSpring) {
                     /**
@@ -2092,100 +2083,94 @@ export function createProjectionNode<I>({
                      */
                     const relative = this.relativeStart
                     if ((velocity || relative) && !options.repeat) {
-                        if (typeof velocity === "number") {
-                            mainVelocity = velocity
-                        } else {
-                            /**
-                             * Each edge (x min, x max, y min, y max) gets its
-                             * own spring in pixels, with its own start
-                             * velocity. An edge that doesn't move keeps
-                             * still, and a thrown element keeps its size.
-                             * One generator steps them all with the main
-                             * spring, so one animation drives them and its
-                             * controls reach them all.
-                             */
-                            const edges = velocity && this.animationEdges!
-                            transition = {
-                                ...transition,
-                                type: (o: any) => {
-                                    const springs = [
-                                        o.velocity,
-                                        ...(velocity || []),
-                                    ].map((v, i) =>
+                        /**
+                         * Each edge (x min, x max, y min, y max) gets its
+                         * own spring in pixels, with its own start
+                         * velocity. An edge that doesn't move keeps
+                         * still, and a thrown element keeps its size.
+                         * One generator steps them all with the main
+                         * spring, so one animation drives them and its
+                         * controls reach them all.
+                         */
+                        const edges = velocity && this.animationEdges!
+                        transition = {
+                            ...transition,
+                            type: (o: any) => {
+                                const springs = [
+                                    o.velocity,
+                                    ...(velocity || []),
+                                ].map((v, i) =>
+                                    spring({
+                                        ...o,
+                                        keyframes: i
+                                            ? [edges![i - 1], 0]
+                                            : o.keyframes,
+                                        velocity: v,
+                                    })
+                                )
+                                const count = springs.length
+                                /**
+                                 * The response to 1000 px/s, for a
+                                 * child's velocity inside its parent.
+                                 * Coarse rest thresholds, because a
+                                 * small offset of it is far below 1px.
+                                 */
+                                relative &&
+                                    springs.push(
                                         spring({
                                             ...o,
-                                            keyframes: i
-                                                ? [edges![i - 1], 0]
-                                                : o.keyframes,
-                                            velocity: v,
+                                            keyframes: [0, 0],
+                                            velocity: 1000,
+                                            restDelta: 0.5,
+                                            restSpeed: 5,
                                         })
                                     )
-                                    const count = springs.length
-                                    /**
-                                     * The response to 1000 px/s, for a
-                                     * child's velocity inside its parent.
-                                     * Coarse rest thresholds, because a
-                                     * small offset of it is far below 1px.
-                                     */
-                                    relative &&
-                                        springs.push(
-                                            spring({
-                                                ...o,
-                                                keyframes: [0, 0],
-                                                velocity: 1000,
-                                                restDelta: 0.5,
-                                                restSpeed: 5,
-                                            })
-                                        )
-                                    let time = 0
-                                    const values: number[] = []
-                                    const generator = {
-                                        calculatedDuration: null as
-                                            | number
-                                            | null,
-                                        next: (t: number) => {
-                                            time = t
-                                            const state = springs[0].next(t)
-                                            let done = state.done
-                                            for (
-                                                let i = 1;
-                                                i < springs.length;
-                                                i++
-                                            ) {
-                                                const { value, done: rest } =
-                                                    springs[i].next(t)
-                                                if (i < count) {
-                                                    values[i - 1] = value
-                                                } else {
-                                                    this.impulse = value / 1000
-                                                }
-                                                done = done && rest
+                                let time = 0
+                                const values: number[] = []
+                                const generator = {
+                                    calculatedDuration: null as number | null,
+                                    next: (t: number) => {
+                                        time = t
+                                        const state = springs[0].next(t)
+                                        let done = state.done
+                                        for (
+                                            let i = 1;
+                                            i < springs.length;
+                                            i++
+                                        ) {
+                                            const { value, done: rest } =
+                                                springs[i].next(t)
+                                            if (i < count) {
+                                                values[i - 1] = value
+                                            } else {
+                                                this.impulse = value / 1000
                                             }
-                                            if (edges) this.edgeValues = values
-                                            state.done = done
-                                            return state
-                                        },
-                                    }
-                                    /**
-                                     * Measure the duration now, then go back
-                                     * to the start, so a delay shows the
-                                     * start and not the end.
-                                     */
-                                    generator.calculatedDuration =
-                                        calcGeneratorDuration(generator)
-                                    generator.next(0)
-                                    this.edgeVelocity = (i) =>
-                                        springs[i + 1].velocity!(time)
-                                    return generator
-                                },
-                            }
+                                            done = done && rest
+                                        }
+                                        if (edges) this.edgeValues = values
+                                        state.done = done
+                                        return state
+                                    },
+                                }
+                                /**
+                                 * Measure the duration now, then go back
+                                 * to the start, so a delay shows the
+                                 * start and not the end.
+                                 */
+                                generator.calculatedDuration =
+                                    calcGeneratorDuration(generator)
+                                generator.next(0)
+                                this.edgeVelocity = (i) =>
+                                    springs[i + 1].velocity!(time)
+                                return generator
+                            },
                         }
                     }
                 }
 
                 const main = animateSingleValue(this.motionValue, [0, 1000], {
                     ...transition,
-                    velocity: mainVelocity,
+                    velocity: 0,
                     isSync: true,
                     onUpdate: (latest: number) => {
                         this.mixTargetDelta(latest)
