@@ -1,5 +1,5 @@
-import type { JSAnimation } from "../../animation/JSAnimation"
 import type {
+    AnimationPlaybackControls,
     MotionPath,
     Transition,
     ValueTransition,
@@ -16,6 +16,15 @@ export interface Measurements {
     layoutBox: Box
     latestValues: ResolvedValues
     source: number
+    /**
+     * Velocity (px/s) when measured, for the next spring layout animation.
+     * velocity is [x min, x max, y min, y max, x value, y value] in the
+     * page, and is only set when something moves. relativeVelocity is
+     * [x min, x max, y min, y max] inside the parent, for a child that was
+     * moving inside an animating parent.
+     */
+    velocity?: number[]
+    relativeVelocity?: number[]
 }
 
 export type Phase = "snapshot" | "measure"
@@ -125,7 +134,12 @@ export interface IProjectionNode<I = unknown> {
 
     isProjecting(): boolean
     animationValues?: ResolvedValues
-    currentAnimation?: JSAnimation<number>
+    currentAnimation?: AnimationPlaybackControls
+    /**
+     * The latest offsets (px) of the x min, x max, y min and y max edge
+     * springs, while a layout animation runs with velocity.
+     */
+    edgeValues?: number[]
     isTreeAnimating?: boolean
     isAnimationBlocked?: boolean
     setAnimationOrigin(

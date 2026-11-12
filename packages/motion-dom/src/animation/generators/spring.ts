@@ -205,7 +205,7 @@ function resolvePhysics(value: number | undefined, canBeZero?: boolean) {
 
     if (process.env.NODE_ENV !== "production") {
         warning(
-            value === undefined,
+            value === undefined || (value as unknown) === "auto",
             "Spring stiffness and mass must be positive, damping 0 or greater",
             "spring-invalid-physics"
         )
@@ -214,7 +214,7 @@ function resolvePhysics(value: number | undefined, canBeZero?: boolean) {
     return undefined
 }
 
-function getSpringOptions(options: SpringOptions) {
+export function getSpringOptions(options: SpringOptions) {
     /**
      * Resolve physics before choosing between physics- and duration-based
      * resolution, so an invalid stiffness doesn't also silently discard a
@@ -222,7 +222,7 @@ function getSpringOptions(options: SpringOptions) {
      */
     const validStiffness = resolvePhysics(options.stiffness)
     const validDamping = resolvePhysics(options.damping, true)
-    const validMass = resolvePhysics(options.mass)
+    const validMass = resolvePhysics(options.mass as number)
 
     const springOptions = {
         ...options,

@@ -8,10 +8,12 @@ import {
     SubscriptionManager,
 } from "motion-utils"
 import { animateSingleValue } from "../../animation/animate/single-value"
+import { spring } from "../../animation/generators/spring"
+import { calcGeneratorDuration } from "../../animation/generators/utils/calc-duration"
 import { notifyLayoutAnimationStart } from "../../animation/utils/notify-inspector"
-import { JSAnimation } from "../../animation/JSAnimation"
 import { getOptimisedAppearId } from "../../animation/optimized-appear/get-appear-id"
 import {
+    AnimationPlaybackControls,
     MotionPath,
     PathInterpolator,
     Transition,
@@ -36,6 +38,10 @@ import { mixNumber } from "../../utils/mix/number"
 import { MotionValue, motionValue } from "../../value"
 import { resolveMotionValue } from "../../value/utils/resolve-motion-value"
 import { mixValues } from "../animation/mix-values"
+import {
+    pointToProgressVelocity,
+    resolveAutoMass,
+} from "../animation/layout-velocity"
 import { transformGroups } from "../../animation/waapi/transforms/groups"
 import { copyAxisDeltaInto, copyAxisInto, copyBoxInto } from "../geometry/copy"
 import {
@@ -1049,6 +1055,40 @@ export function createProjectionNode<I>({
             ) {
                 this.snapshot = undefined
             }
+
+            /**
+             * Record how fast the element is moving when it's measured, so
+             * the next layout animation can start at the same speed.
+             */
+            if (this.snapshot) {
+                const { visualElement } = this.options
+                /**
+                 * A paused or stopped animation hands on no velocity.
+                 */
+                const isRunning = this.currentAnimation?.state === "running"
+                const edges = isRunning && this.animationEdges
+                /**
+                 * A child moving inside its parent hands on only its
+                 * velocity relative to the parent.
+                 */
+                if (isRunning && this.relativeTarget) {
+                    this.snapshot.relativeVelocity =
+                        this.relativeVelocity?.slice() || []
+                }
+                const progress = (edges && this.motionValue?.getVelocity()) || 0
+                const velocity = [0, 1, 2, 3, 4, 5].map(
+                    (i) =>
+                        (i < 4
+                            ? edges &&
+                              (this.edgeValues
+                                  ? this.edgeVelocity!(i)
+                                  : (-edges[i] * progress) / 1000)
+                            : visualElement
+                                  ?.getValue(i < 5 ? "x" : "y")
+                                  ?.getVelocity()) || 0
+                )
+                if (velocity.some(Boolean)) this.snapshot.velocity = velocity
+            }
         }
 
         updateLayout() {
@@ -1748,9 +1788,34 @@ export function createProjectionNode<I>({
          */
         animationValues?: ResolvedValues
         pendingAnimation?: Process
-        currentAnimation?: JSAnimation<number>
+        currentAnimation?: AnimationPlaybackControls
         mixTargetDelta: (progress: number) => void
         animationProgress = 0
+
+        /**
+         * Layout velocity.
+         * animationEdges are the offsets (px) of the x min, x max, y min and
+         * y max edges from the layout at the start of the animation.
+         * startVelocity is for the next animation: one progress velocity for
+         * a curved path, or a velocity (px/s) for each edge.
+         * edgeValues hold the latest edge offsets while each edge runs on
+         * its own spring, and edgeVelocity reads an edge's velocity.
+         */
+        animationEdges?: number[]
+        startVelocity?: number | number[]
+        edgeValues?: number[]
+        edgeVelocity?: (i: number) => number
+        /**
+         * relativeVelocity is measured each frame while a child moves inside
+         * its parent. relativeStart is the relative velocity of the next
+         * animation, and impulse is how far one px/s of it has moved the
+         * child so far.
+         */
+        relativeVelocity?: number[]
+        relativeTime?: number
+        relativeStart?: number[]
+        impulse?: number
+        isSpringLayout?: boolean
 
         setAnimationOrigin(
             delta: Delta,
@@ -1792,12 +1857,85 @@ export function createProjectionNode<I>({
             const interpolate: PathInterpolator | undefined =
                 pathFn?.interpolateProjection(delta)
 
+            const box = this.layout?.layoutBox
+            let edges =
+                box &&
+                [box.x.min, box.x.max, box.y.min, box.y.max].map((edge, i) => {
+                    const { translate, scale, originPoint } =
+                        delta[i < 2 ? "x" : "y"]
+                    return (edge - originPoint) * (scale - 1) + translate
+                })
+            /**
+             * A zero-length layout axis has no finite edge offsets.
+             */
+            if (!edges?.every(isFinite)) edges = undefined
+            this.animationEdges = edges
+            this.edgeValues =
+                this.startVelocity =
+                this.impulse =
+                this.relativeVelocity =
+                this.relativeStart =
+                    undefined
+
+            /**
+             * A shared snapshot is measured with the old element's own
+             * transforms (like x/y from drag), so it hands their velocity on
+             * too. Otherwise those values keep animating themselves.
+             */
+            const velocity = snapshot?.velocity
+            /**
+             * A child that wasn't moving inside an animating parent before
+             * moved in page space, so that is its relative velocity.
+             */
+            const relative = snapshot?.relativeVelocity || velocity
+            if (
+                relative?.slice(0, 4).some(Boolean) &&
+                this.getClosestProjectingParent()
+            ) {
+                this.relativeStart = relative
+            }
+            if (velocity && edges) {
+                const v = velocity
+                    .slice(0, 4)
+                    .map(
+                        (edge, i) =>
+                            edge +
+                            (isSharedLayoutAnimation
+                                ? velocity[4 + (i >> 1)]
+                                : 0)
+                    )
+                if (v.some(Boolean)) {
+                    this.startVelocity = interpolate
+                        ? pointToProgressVelocity(
+                              delta.x.translate,
+                              delta.y.translate,
+                              { x: (v[0] + v[1]) / 2, y: (v[2] + v[3]) / 2 }
+                          )
+                        : v
+                }
+            }
+
             this.mixTargetDelta = (latest: number) => {
                 const progress = latest / 1000
                 const point = interpolate?.(progress)
+                const values = this.edgeValues
 
-                mixAxisDeltaLinear(targetDelta.x, delta.x, progress)
-                mixAxisDeltaLinear(targetDelta.y, delta.y, progress)
+                for (let i = 0; i < 2; i++) {
+                    const axis = i ? "y" : "x"
+                    values
+                        ? edgesToDelta(
+                              targetDelta[axis],
+                              delta[axis],
+                              this.layout!.layoutBox[axis],
+                              values[i * 2],
+                              values[i * 2 + 1]
+                          )
+                        : mixAxisDeltaLinear(
+                              targetDelta[axis],
+                              delta[axis],
+                              progress
+                          )
+                }
 
                 if (point) {
                     targetDelta.x.translate = point.x
@@ -1819,12 +1957,41 @@ export function createProjectionNode<I>({
                         this.relativeParent.layout.layoutBox,
                         this.options.layoutAnchor || undefined
                     )
-                    mixBox(
-                        this.relativeTarget,
-                        this.relativeTargetOrigin,
-                        relativeLayout,
-                        progress
-                    )
+                    const from = this.relativeTargetOrigin
+                    const to = relativeLayout
+                    /**
+                     * A child mixes its place in its parent by progress,
+                     * so a nested tree moves as one.
+                     */
+                    mixBox(this.relativeTarget, from, to, progress)
+
+                    /**
+                     * Springs are linear, so the child's own velocity adds
+                     * the impulse response on top of the mix.
+                     */
+                    /**
+                     * Only springs take velocity, so a tween skips this.
+                     */
+                    if (this.isSpringLayout) {
+                        const box = this.relativeTarget
+                        const impulse = this.impulse || 0
+                        const start = this.relativeStart
+                        const now = time.now()
+                        const dt = (now - this.relativeTime!) / 1000
+                        this.relativeTime = now
+                        const speeds = (this.relativeVelocity ||= [0, 0, 0, 0])
+                        for (let i = 0; i < 4; i++) {
+                            const axis = i < 2 ? "x" : "y"
+                            const edge = i & 1 ? "max" : "min"
+                            if (start) box[axis][edge] += start[i] * impulse
+                            if (prevRelativeTarget && dt > 0) {
+                                speeds[i] =
+                                    (box[axis][edge] -
+                                        prevRelativeTarget[axis][edge]) /
+                                    dt
+                            }
+                        }
+                    }
 
                     /**
                      * If this is an unchanged relative target we can consider the
@@ -1875,8 +2042,10 @@ export function createProjectionNode<I>({
         startAnimation(options: ValueAnimationOptions<number>) {
             this.notifyListeners("animationStart")
 
+            const isSpring = (this.isSpringLayout = options.type === "spring")
             this.currentAnimation?.stop()
             this.resumingFrom?.currentAnimation?.stop()
+            if (this.resumingFrom) this.resumingFrom.edgeValues = undefined
 
             if (this.pendingAnimation) {
                 cancelFrame(this.pendingAnimation)
@@ -1894,23 +2063,141 @@ export function createProjectionNode<I>({
                 this.motionValue ||= motionValue(0)
                 this.motionValue.jump(0, false)
 
-                this.currentAnimation = animateSingleValue(
-                    this.motionValue,
-                    [0, 1000],
-                    {
-                        ...(options as any),
-                        velocity: 0,
-                        isSync: true,
-                        onUpdate: (latest: number) => {
-                            this.mixTargetDelta(latest)
-                            options.onUpdate && options.onUpdate(latest)
-                        },
-                        onComplete: () => {
-                            options.onComplete && options.onComplete()
-                            this.completeAnimation()
-                        },
+                /**
+                 * A duration spring ignores velocity, like in animate(), so
+                 * it ends on time.
+                 */
+                const velocity = this.startVelocity
+                this.startVelocity = undefined
+
+                let transition: any = options
+                let mainVelocity = 0
+
+                if (isSpring) {
+                    /**
+                     * With mass: "auto", mass comes from the element's own
+                     * size.
+                     */
+                    if (options.mass === "auto") {
+                        const box = this.layout?.layoutBox
+                        transition = resolveAutoMass(
+                            options,
+                            box &&
+                                Math.sqrt(calcLength(box.x) * calcLength(box.y))
+                        )
                     }
-                ) as JSAnimation<number>
+                    /**
+                     * Only springs take a velocity. A tween keeps one
+                     * driver, so its controls (pause, time) reach it all.
+                     */
+                    const relative = this.relativeStart
+                    if ((velocity || relative) && !options.repeat) {
+                        if (typeof velocity === "number") {
+                            mainVelocity = velocity
+                        } else {
+                            /**
+                             * Each edge (x min, x max, y min, y max) gets its
+                             * own spring in pixels, with its own start
+                             * velocity. An edge that doesn't move keeps
+                             * still, and a thrown element keeps its size.
+                             * One generator steps them all with the main
+                             * spring, so one animation drives them and its
+                             * controls reach them all.
+                             */
+                            const edges = velocity && this.animationEdges!
+                            transition = {
+                                ...transition,
+                                type: (o: any) => {
+                                    const springs = [
+                                        o.velocity,
+                                        ...(velocity || []),
+                                    ].map((v, i) =>
+                                        spring({
+                                            ...o,
+                                            keyframes: i
+                                                ? [edges![i - 1], 0]
+                                                : o.keyframes,
+                                            velocity: v,
+                                        })
+                                    )
+                                    const count = springs.length
+                                    /**
+                                     * The response to 1000 px/s, for a
+                                     * child's velocity inside its parent.
+                                     * Coarse rest thresholds, because a
+                                     * small offset of it is far below 1px.
+                                     */
+                                    relative &&
+                                        springs.push(
+                                            spring({
+                                                ...o,
+                                                keyframes: [0, 0],
+                                                velocity: 1000,
+                                                restDelta: 0.5,
+                                                restSpeed: 5,
+                                            })
+                                        )
+                                    let time = 0
+                                    const values: number[] = []
+                                    const generator = {
+                                        calculatedDuration: null as
+                                            | number
+                                            | null,
+                                        next: (t: number) => {
+                                            time = t
+                                            const state = springs[0].next(t)
+                                            let done = state.done
+                                            for (
+                                                let i = 1;
+                                                i < springs.length;
+                                                i++
+                                            ) {
+                                                const { value, done: rest } =
+                                                    springs[i].next(t)
+                                                if (i < count) {
+                                                    values[i - 1] = value
+                                                } else {
+                                                    this.impulse = value / 1000
+                                                }
+                                                done = done && rest
+                                            }
+                                            if (edges) this.edgeValues = values
+                                            state.done = done
+                                            return state
+                                        },
+                                    }
+                                    /**
+                                     * Measure the duration now, then go back
+                                     * to the start, so a delay shows the
+                                     * start and not the end.
+                                     */
+                                    generator.calculatedDuration =
+                                        calcGeneratorDuration(generator)
+                                    generator.next(0)
+                                    this.edgeVelocity = (i) =>
+                                        springs[i + 1].velocity!(time)
+                                    return generator
+                                },
+                            }
+                        }
+                    }
+                }
+
+                const main = animateSingleValue(this.motionValue, [0, 1000], {
+                    ...transition,
+                    velocity: mainVelocity,
+                    isSync: true,
+                    onUpdate: (latest: number) => {
+                        this.mixTargetDelta(latest)
+                        options.onUpdate && options.onUpdate(latest)
+                    },
+                    onComplete: () => {
+                        options.onComplete && options.onComplete()
+                        this.completeAnimation()
+                    },
+                })
+
+                this.currentAnimation = main
 
                 notifyLayoutAnimationStart(this.currentAnimation, this)
 
@@ -1933,6 +2220,9 @@ export function createProjectionNode<I>({
             this.resumingFrom =
                 this.currentAnimation =
                 this.animationValues =
+                this.edgeValues =
+                this.edgeVelocity =
+                this.impulse =
                     undefined
 
             this.notifyListeners("animationComplete")
@@ -1940,6 +2230,7 @@ export function createProjectionNode<I>({
 
         finishAnimation() {
             if (this.currentAnimation) {
+                this.edgeValues = this.impulse = undefined
                 this.mixTargetDelta?.(animationTarget)
                 this.currentAnimation.stop()
             }
@@ -2590,6 +2881,25 @@ function calcProjection(node: IProjectionNode) {
 
 function resetSkewAndRotation(node: IProjectionNode) {
     node.resetSkewAndRotation()
+}
+
+/**
+ * Build an axis delta that moves the layout's edges by these offsets (px).
+ */
+function edgesToDelta(
+    output: AxisDelta,
+    delta: AxisDelta,
+    layout: Axis,
+    min: number,
+    max: number
+) {
+    const length = layout.max - layout.min
+    const scale = length ? Math.max(0, (length + max - min) / length) : 1
+    const origin = (output.originPoint = delta.originPoint)
+    output.origin = delta.origin
+    output.scale = scale
+    output.translate =
+        layout.min + min - (origin + (layout.min - origin) * scale)
 }
 
 function mixAxisDeltaLinear(output: AxisDelta, delta: AxisDelta, p: number) {
