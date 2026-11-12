@@ -11,8 +11,6 @@ Undocumented APIs should be considered internal and may change without warning.
 -   `layout`: Animated layers now preserve spring velocity.
 -   `layout`: `mass: "auto"` setting for size-relative spring mass.
 
-## [14.12.1] 2026-11-10
-
 ### Fixed
 
 -   `pinch`: `drag` initiated during snap animation no longer breaks animation.
