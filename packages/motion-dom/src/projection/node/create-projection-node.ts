@@ -1819,6 +1819,7 @@ export function createProjectionNode<I>({
         relativeTime?: number
         relativeStart?: number[][]
         impulse?: number
+        isSpringLayout?: boolean
 
         setAnimationOrigin(
             delta: Delta,
@@ -1964,26 +1965,32 @@ export function createProjectionNode<I>({
                      * Springs are linear, so the child's own velocity adds
                      * the impulse response on top of the mix.
                      */
-                    const box = this.relativeTarget
-                    const impulse = this.impulse || 0
-                    const start = this.relativeStart
-                    const now = time.now()
-                    const dt = (now - this.relativeTime!) / 1000
-                    this.relativeTime = now
-                    const speeds = eachAxis((axis) =>
-                        (["min", "max"] as const).map((edge, side) => {
-                            if (start) {
-                                box[axis][edge] +=
-                                    start[axis === "x" ? 0 : 1][side] * impulse
-                            }
-                            return prevRelativeTarget
-                                ? (box[axis][edge] -
-                                      prevRelativeTarget[axis][edge]) /
-                                      dt
-                                : 0
-                        })
-                    )
-                    if (dt > 0) this.relativeVelocity = speeds
+                    /**
+                     * Only springs take velocity, so a tween skips this.
+                     */
+                    if (this.isSpringLayout) {
+                        const box = this.relativeTarget
+                        const impulse = this.impulse || 0
+                        const start = this.relativeStart
+                        const now = time.now()
+                        const dt = (now - this.relativeTime!) / 1000
+                        this.relativeTime = now
+                        const speeds = eachAxis((axis) =>
+                            (["min", "max"] as const).map((edge, side) => {
+                                if (start) {
+                                    box[axis][edge] +=
+                                        start[axis === "x" ? 0 : 1][side] *
+                                        impulse
+                                }
+                                return prevRelativeTarget
+                                    ? (box[axis][edge] -
+                                          prevRelativeTarget[axis][edge]) /
+                                          dt
+                                    : 0
+                            })
+                        )
+                        if (dt > 0) this.relativeVelocity = speeds
+                    }
 
                     /**
                      * If this is an unchanged relative target we can consider the
@@ -2068,6 +2075,7 @@ export function createProjectionNode<I>({
                 this.startVelocity = undefined
 
                 let transition: any = options
+                this.isSpringLayout = (options as any).type === "spring"
                 let mainVelocity = 0
 
                 /**
@@ -2079,15 +2087,22 @@ export function createProjectionNode<I>({
                     (options as any).type === "spring" &&
                     (velocity !== undefined || options.mass === "auto")
                 ) {
-                    let box = this.layout?.layoutBox
-                    for (let node = this.parent; node; node = node.parent) {
-                        if (
-                            node.layout &&
-                            (node.currentAnimation || node.pendingAnimation)
-                        ) {
-                            box = node.layout.layoutBox
-                        }
-                    }
+                    /**
+                     * Only mass: "auto" needs a size. The path runs from
+                     * the root, so the first animating ancestor is the
+                     * outermost and the search stops there.
+                     */
+                    const box =
+                        options.mass === "auto"
+                            ? (
+                                  this.path.find(
+                                      (node) =>
+                                          node.layout &&
+                                          (node.currentAnimation ||
+                                              node.pendingAnimation)
+                                  ) || this
+                              ).layout?.layoutBox
+                            : undefined
                     transition = toVelocityTransition(
                         options,
                         box && Math.sqrt(calcLength(box.x) * calcLength(box.y))
