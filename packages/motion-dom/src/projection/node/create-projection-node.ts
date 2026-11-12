@@ -1073,26 +1073,21 @@ export function createProjectionNode<I>({
                  */
                 if (isRunning && this.relativeTarget) {
                     this.snapshot.relativeVelocity =
-                        this.relativeVelocity?.map((v) => [...v]) || []
+                        this.relativeVelocity?.slice() || []
                 }
-                const velocity = this.edgeVelocity
-                const progress = this.motionValue?.getVelocity() || 0
-                this.snapshot.velocity = eachAxis((axis) =>
-                    [0, 1]
-                        .map((side) => {
-                            const i = side + (axis === "x" ? 0 : 2)
-                            return (
-                                (edges &&
-                                    (this.edgeValues
-                                        ? velocity!(i)
-                                        : (-edges[i] * progress) / 1000)) ||
-                                0
-                            )
-                        })
-                        .concat(
-                            visualElement?.getValue(axis)?.getVelocity() || 0
-                        )
+                const progress = (edges && this.motionValue?.getVelocity()) || 0
+                const velocity = [0, 1, 2, 3, 4, 5].map(
+                    (i) =>
+                        (i < 4
+                            ? edges &&
+                              (this.edgeValues
+                                  ? this.edgeVelocity!(i)
+                                  : (-edges[i] * progress) / 1000)
+                            : visualElement
+                                  ?.getValue(i < 5 ? "x" : "y")
+                                  ?.getVelocity()) || 0
                 )
+                if (velocity.some(Boolean)) this.snapshot.velocity = velocity
             }
         }
 
@@ -1816,9 +1811,9 @@ export function createProjectionNode<I>({
          * animation, and impulse is how far one px/s of it has moved the
          * child so far.
          */
-        relativeVelocity?: number[][]
+        relativeVelocity?: number[]
         relativeTime?: number
-        relativeStart?: number[][]
+        relativeStart?: number[]
         impulse?: number
         isSpringLayout?: boolean
 
@@ -1865,20 +1860,22 @@ export function createProjectionNode<I>({
             const box = this.layout?.layoutBox
             let edges =
                 box &&
-                eachAxis((axis) => {
-                    const { translate, scale, originPoint } = delta[axis]
-                    const { min, max } = box[axis]
-                    return [min, max].map(
-                        (edge) => (edge - originPoint) * (scale - 1) + translate
-                    )
-                }).flat()
+                [box.x.min, box.x.max, box.y.min, box.y.max].map((edge, i) => {
+                    const { translate, scale, originPoint } =
+                        delta[i < 2 ? "x" : "y"]
+                    return (edge - originPoint) * (scale - 1) + translate
+                })
             /**
              * A zero-length layout axis has no finite edge offsets.
              */
             if (!edges?.every(isFinite)) edges = undefined
             this.animationEdges = edges
-            this.edgeValues = this.startVelocity = this.impulse = undefined
-            this.relativeVelocity = undefined
+            this.edgeValues =
+                this.startVelocity =
+                this.impulse =
+                this.relativeVelocity =
+                this.relativeStart =
+                    undefined
 
             /**
              * A shared snapshot is measured with the old element's own
@@ -1890,16 +1887,23 @@ export function createProjectionNode<I>({
              * A child that wasn't moving inside an animating parent before
              * moved in page space, so that is its relative velocity.
              */
-            const relativeStart = snapshot?.relativeVelocity || velocity
-            this.relativeStart = relativeStart?.flat().some(Boolean)
-                ? relativeStart
-                : undefined
+            const relative = snapshot?.relativeVelocity || velocity
+            if (
+                relative?.slice(0, 4).some(Boolean) &&
+                this.getClosestProjectingParent()
+            ) {
+                this.relativeStart = relative
+            }
             if (velocity && edges) {
-                const v = velocity.flatMap(([min, max, value]) =>
-                    [min, max].map(
-                        (edge) => edge + (isSharedLayoutAnimation ? value : 0)
+                const v = velocity
+                    .slice(0, 4)
+                    .map(
+                        (edge, i) =>
+                            edge +
+                            (isSharedLayoutAnimation
+                                ? velocity[4 + (i >> 1)]
+                                : 0)
                     )
-                )
                 if (v.some(Boolean)) {
                     this.startVelocity = interpolate
                         ? pointToProgressVelocity(
@@ -1916,21 +1920,22 @@ export function createProjectionNode<I>({
                 const point = interpolate?.(progress)
                 const values = this.edgeValues
 
-                eachAxis((axis) =>
+                for (let i = 0; i < 2; i++) {
+                    const axis = i ? "y" : "x"
                     values
                         ? edgesToDelta(
                               targetDelta[axis],
                               delta[axis],
                               this.layout!.layoutBox[axis],
-                              values[axis === "x" ? 0 : 2],
-                              values[axis === "x" ? 1 : 3]
+                              values[i * 2],
+                              values[i * 2 + 1]
                           )
                         : mixAxisDeltaLinear(
                               targetDelta[axis],
                               delta[axis],
                               progress
                           )
-                )
+                }
 
                 if (point) {
                     targetDelta.x.translate = point.x
@@ -1974,23 +1979,16 @@ export function createProjectionNode<I>({
                         const now = time.now()
                         const dt = (now - this.relativeTime!) / 1000
                         this.relativeTime = now
-                        const speeds = (this.relativeVelocity ||= [
-                            [0, 0],
-                            [0, 0],
-                        ])
-                        for (let a = 0; a < 2; a++) {
-                            const axis = a ? "y" : "x"
-                            for (let side = 0; side < 2; side++) {
-                                const edge = side ? "max" : "min"
-                                if (start) {
-                                    box[axis][edge] += start[a][side] * impulse
-                                }
-                                if (prevRelativeTarget && dt > 0) {
-                                    speeds[a][side] =
-                                        (box[axis][edge] -
-                                            prevRelativeTarget[axis][edge]) /
-                                        dt
-                                }
+                        const speeds = (this.relativeVelocity ||= [0, 0, 0, 0])
+                        for (let i = 0; i < 4; i++) {
+                            const axis = i < 2 ? "x" : "y"
+                            const edge = i & 1 ? "max" : "min"
+                            if (start) box[axis][edge] += start[i] * impulse
+                            if (prevRelativeTarget && dt > 0) {
+                                speeds[i] =
+                                    (box[axis][edge] -
+                                        prevRelativeTarget[axis][edge]) /
+                                    dt
                             }
                         }
                     }
@@ -2044,6 +2042,7 @@ export function createProjectionNode<I>({
         startAnimation(options: ValueAnimationOptions<number>) {
             this.notifyListeners("animationStart")
 
+            const isSpring = (this.isSpringLayout = options.type === "spring")
             this.currentAnimation?.stop()
             this.resumingFrom?.currentAnimation?.stop()
             if (this.resumingFrom) this.resumingFrom.edgeValues = undefined
@@ -2078,7 +2077,6 @@ export function createProjectionNode<I>({
                 this.startVelocity = undefined
 
                 let transition: any = options
-                this.isSpringLayout = (options as any).type === "spring"
                 let mainVelocity = 0
 
                 /**
@@ -2086,7 +2084,7 @@ export function createProjectionNode<I>({
                  * mass: "auto", mass comes from the element's own size.
                  */
                 if (
-                    (options as any).type === "spring" &&
+                    isSpring &&
                     (velocity !== undefined || options.mass === "auto")
                 ) {
                     const box = this.layout?.layoutBox
@@ -2132,17 +2130,23 @@ export function createProjectionNode<I>({
                                             velocity: v,
                                         })
                                     )
+                                    const count = springs.length
                                     /**
                                      * The response to 1000 px/s, for a
                                      * child's velocity inside its parent.
+                                     * Coarse rest thresholds, because a
+                                     * small offset of it is far below 1px.
                                      */
-                                    const impulse =
-                                        relative &&
-                                        spring({
-                                            ...o,
-                                            keyframes: [0, 0],
-                                            velocity: 1000,
-                                        })
+                                    relative &&
+                                        springs.push(
+                                            spring({
+                                                ...o,
+                                                keyframes: [0, 0],
+                                                velocity: 1000,
+                                                restDelta: 0.5,
+                                                restSpeed: 5,
+                                            })
+                                        )
                                     let time = 0
                                     const values: number[] = []
                                     const generator = {
@@ -2158,17 +2162,16 @@ export function createProjectionNode<I>({
                                                 i < springs.length;
                                                 i++
                                             ) {
-                                                const edge = springs[i].next(t)
-                                                values[i - 1] = edge.value
-                                                done = done && edge.done
+                                                const { value, done: rest } =
+                                                    springs[i].next(t)
+                                                if (i < count) {
+                                                    values[i - 1] = value
+                                                } else {
+                                                    this.impulse = value / 1000
+                                                }
+                                                done = done && rest
                                             }
                                             if (edges) this.edgeValues = values
-                                            if (impulse) {
-                                                const response = impulse.next(t)
-                                                this.impulse =
-                                                    response.value / 1000
-                                                done = done && response.done
-                                            }
                                             state.done = done
                                             return state
                                         },
@@ -2228,6 +2231,7 @@ export function createProjectionNode<I>({
                 this.currentAnimation =
                 this.animationValues =
                 this.edgeValues =
+                this.edgeVelocity =
                 this.impulse =
                     undefined
 
