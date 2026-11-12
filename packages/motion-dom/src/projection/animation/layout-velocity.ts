@@ -16,34 +16,19 @@ export const pointToProgressVelocity = (
 }
 
 /**
- * Only physics springs start with a velocity: time-defined springs ignore
- * it. So resolve duration, visualDuration and bounce to the same physics.
  * With `mass: "auto"`, mass comes from the element's size: a 300px square
  * has mass 1, bigger elements are heavier and slower (mass 0.25 to 2), and
- * damping scales with mass so the spring keeps its bounce. Tweens, untyped
- * transitions and zero-duration springs are unchanged.
+ * damping scales with mass so the spring keeps its bounce. The result is a
+ * physics spring.
  */
-export function toVelocityTransition(
+export const resolveAutoMass = (
     t: any,
     size = 300
-): ValueAnimationOptions<number> {
-    if (t.type === "spring" && t.duration !== 0) {
-        let { stiffness, damping, mass } = getSpringOptions({
-            ...t,
-            duration: t.duration && secondsToMilliseconds(t.duration),
-        })
-        if (t.mass === "auto") {
-            mass = clamp(0.25, 2, size / 300)
-            damping *= Math.sqrt(mass)
-        }
-        return {
-            ...t,
-            duration: undefined,
-            stiffness,
-            damping,
-            mass,
-        }
-    }
-
-    return t
+): ValueAnimationOptions<number> => {
+    const mass = clamp(0.25, 2, size / 300)
+    const { stiffness, damping } = getSpringOptions({
+        ...t,
+        duration: t.duration && secondsToMilliseconds(t.duration),
+    })
+    return { ...t, stiffness, damping: damping * Math.sqrt(mass), mass }
 }

@@ -1,8 +1,5 @@
 import { getSpringOptions } from "../../../animation/generators/spring"
-import {
-    pointToProgressVelocity,
-    toVelocityTransition,
-} from "../layout-velocity"
+import { pointToProgressVelocity, resolveAutoMass } from "../layout-velocity"
 
 describe("layout velocity conversions", () => {
     test("a curved path takes the velocity along its chord", () => {
@@ -14,68 +11,17 @@ describe("layout velocity conversions", () => {
     })
 })
 
-describe("toVelocityTransition", () => {
-    test("the default layout tween stays a tween", () => {
-        const tween = { duration: 0.45, ease: [0.4, 0, 0.1, 1] }
-        expect(toVelocityTransition(tween)).toBe(tween)
-    })
-
-    test("time-defined springs resolve to physics", () => {
+describe("resolveAutoMass", () => {
+    test("mass follows element size", () => {
         const onComplete = () => {}
-        const fromVisual = toVelocityTransition({
-            type: "spring",
-            visualDuration: 0.5,
-            bounce: 0.2,
-            onComplete,
-        }) as any
-        expect(fromVisual.stiffness).toBeGreaterThan(0)
-        expect(getSpringOptions(fromVisual).isTimeDefined).toBe(false)
-        expect(fromVisual.onComplete).toBe(onComplete)
-
-        const fromDuration = toVelocityTransition({
-            type: "spring",
-            duration: 0.5,
-            bounce: 0.2,
-        }) as any
-        expect(fromDuration.duration).toBeUndefined()
-        expect(fromDuration.stiffness).toBeGreaterThan(0)
-        expect(getSpringOptions(fromDuration).isTimeDefined).toBe(false)
-    })
-
-    test("physics springs keep their physics", () => {
-        const transition = toVelocityTransition({
-            type: "spring",
-            stiffness: 300,
-            damping: 20,
-            mass: 2,
-        })
-        expect(transition).toMatchObject({
-            type: "spring",
-            stiffness: 300,
-            damping: 20,
-            mass: 2,
-        })
-    })
-
-    test("other transitions are unchanged", () => {
-        const tween = { duration: 0.3, ease: "linear" }
-        expect(toVelocityTransition(tween)).toBe(tween)
-        const inertia = { type: "inertia" }
-        expect(toVelocityTransition(inertia)).toBe(inertia)
-        const instant = { type: "spring", duration: 0 }
-        expect(toVelocityTransition(instant)).toBe(instant)
-        const untyped = { duration: 0.3, bounce: 0.4 }
-        expect(toVelocityTransition(untyped)).toBe(untyped)
-    })
-
-    test("mass auto follows element size", () => {
         const resolve = (size: number) =>
-            toVelocityTransition(
+            resolveAutoMass(
                 {
                     type: "spring",
                     visualDuration: 0.45,
                     bounce: 0.2,
                     mass: "auto",
+                    onComplete,
                 },
                 size
             ) as any
@@ -85,6 +31,8 @@ describe("toVelocityTransition", () => {
         expect(small.mass).toBe(0.25)
         expect(card.mass).toBe(1)
         expect(hero.mass).toBe(2)
+        expect(card.onComplete).toBe(onComplete)
+        expect(getSpringOptions(card).isTimeDefined).toBe(false)
 
         // Same stiffness, and every size keeps the same damping ratio
         expect(small.stiffness).toBe(hero.stiffness)
@@ -94,9 +42,9 @@ describe("toVelocityTransition", () => {
         expect(ratio(hero)).toBeCloseTo(ratio(card))
     })
 
-    test("mass auto works with physics springs", () => {
+    test("works with physics springs", () => {
         const resolve = (size: number) =>
-            toVelocityTransition(
+            resolveAutoMass(
                 { type: "spring", stiffness: 400, damping: 30, mass: "auto" },
                 size
             ) as any
@@ -107,11 +55,12 @@ describe("toVelocityTransition", () => {
         expect(big.damping).toBeCloseTo(30 * Math.SQRT2)
     })
 
-    test("springs without mass auto keep their mass", () => {
-        const transition = toVelocityTransition(
-            { type: "spring", visualDuration: 0.5, bounce: 0.2 },
-            2000
+    test("works with duration springs", () => {
+        const resolved = resolveAutoMass(
+            { type: "spring", duration: 0.5, bounce: 0.2, mass: "auto" },
+            300
         ) as any
-        expect(transition.mass).toBe(1)
+        expect(resolved.stiffness).toBeGreaterThan(0)
+        expect(getSpringOptions(resolved).isTimeDefined).toBe(false)
     })
 })

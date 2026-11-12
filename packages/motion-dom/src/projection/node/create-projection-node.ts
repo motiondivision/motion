@@ -40,7 +40,7 @@ import { resolveMotionValue } from "../../value/utils/resolve-motion-value"
 import { mixValues } from "../animation/mix-values"
 import {
     pointToProgressVelocity,
-    toVelocityTransition,
+    resolveAutoMass,
 } from "../animation/layout-velocity"
 import { transformGroups } from "../../animation/waapi/transforms/groups"
 import { copyAxisDeltaInto, copyAxisInto, copyBoxInto } from "../geometry/copy"
@@ -2064,44 +2064,34 @@ export function createProjectionNode<I>({
                 this.motionValue.jump(0, false)
 
                 /**
-                 * A spring set with duration lasts exactly its duration, so
-                 * like animate() it starts from rest.
+                 * A duration spring ignores velocity, like in animate(), so
+                 * it ends on time.
                  */
-                const t = options as any
-                const velocity =
-                    t.duration &&
-                    !t.visualDuration &&
-                    !(t.stiffness || t.damping || t.mass > 0)
-                        ? undefined
-                        : this.startVelocity
+                const velocity = this.startVelocity
                 this.startVelocity = undefined
 
                 let transition: any = options
                 let mainVelocity = 0
 
-                /**
-                 * Springs start with the element's velocity. With
-                 * mass: "auto", mass comes from the element's own size.
-                 */
-                if (
-                    isSpring &&
-                    (velocity !== undefined || options.mass === "auto")
-                ) {
-                    const box = this.layout?.layoutBox
-                    transition = toVelocityTransition(
-                        options,
-                        box && Math.sqrt(calcLength(box.x) * calcLength(box.y))
-                    )
+                if (isSpring) {
+                    /**
+                     * With mass: "auto", mass comes from the element's own
+                     * size.
+                     */
+                    if (options.mass === "auto") {
+                        const box = this.layout?.layoutBox
+                        transition = resolveAutoMass(
+                            options,
+                            box &&
+                                Math.sqrt(calcLength(box.x) * calcLength(box.y))
+                        )
+                    }
                     /**
                      * Only springs take a velocity. A tween keeps one
                      * driver, so its controls (pause, time) reach it all.
                      */
                     const relative = this.relativeStart
-                    if (
-                        (velocity !== undefined || relative) &&
-                        transition.type === "spring" &&
-                        !options.repeat
-                    ) {
+                    if ((velocity || relative) && !options.repeat) {
                         if (typeof velocity === "number") {
                             mainVelocity = velocity
                         } else {
