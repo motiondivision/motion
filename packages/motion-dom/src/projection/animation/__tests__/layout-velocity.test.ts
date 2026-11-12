@@ -94,6 +94,19 @@ describe("toVelocityTransition", () => {
         expect(ratio(hero)).toBeCloseTo(ratio(card))
     })
 
+    test("mass auto works with physics springs", () => {
+        const resolve = (size: number) =>
+            toVelocityTransition(
+                { type: "spring", stiffness: 400, damping: 30, mass: "auto" },
+                size
+            ) as any
+        const small = resolve(75)
+        const big = resolve(600)
+        expect(small).toMatchObject({ stiffness: 400, damping: 15, mass: 0.25 })
+        expect(big.mass).toBe(2)
+        expect(big.damping).toBeCloseTo(30 * Math.SQRT2)
+    })
+
     test("springs without mass auto keep their mass", () => {
         const transition = toVelocityTransition(
             { type: "spring", visualDuration: 0.5, bounce: 0.2 },
