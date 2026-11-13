@@ -3,13 +3,10 @@ import {
     RenderSource,
     sharedRender,
 } from "../../../effects/style"
-import { isCSSVar } from "../../dom/is-css-var"
 import type { NodeRender } from "../../../node/MotionNode"
 import { numberValueTypes } from "../../../value/types/maps/number"
 import { getValueAsType } from "../../../value/types/utils/get-as-type"
 import { transformProps } from "../../utils/keys-transform"
-import { cssStyleProperties } from "./build-attrs"
-import { isSVGTag } from "./is-svg-tag"
 
 const attrKeys: { [key: string]: string } = {
     attrX: "x",
@@ -18,6 +15,14 @@ const attrKeys: { [key: string]: string } = {
 }
 
 const sameName = (name: string) => name
+
+/**
+ * Values written as styles: CSS variables, origins, `transform` and its
+ * box and origin, and the values WAAPI can accelerate, as WAAPI writes
+ * its final value to style, which would override an attribute.
+ */
+const isSVGStyle =
+    /^(--|origin|transform|opacity$|clipPath$|filter$|offset[DPRA])/u
 
 /**
  * The function that writes `key` of a motion SVG component. Everything
@@ -38,13 +43,9 @@ export const getSVGRender = (
     const name = key
 
     if (
-        isSVGTag(element.tagName)
+        element.tagName === "svg"
             ? key !== "viewBox"
-            : transformProps.has(key) ||
-              isCSSVar(key) ||
-              key.startsWith("origin") ||
-              key.startsWith("transform") ||
-              cssStyleProperties.includes(key)
+            : transformProps.has(key) || isSVGStyle.test(key)
     ) {
         return getStyleRender(element, node, key)
     }
@@ -59,7 +60,7 @@ export const getSVGRender = (
             const { pathLength, pathSpacing = 1, pathOffset = 0 } =
                 latestValues
             if (pathLength === undefined) return
-            element.setAttribute(attrName("pathLength"), "1")
+            element.setAttribute(attrName("pathLength"), 1 as any)
             element.setAttribute(
                 attrName("strokeDashoffset"),
                 `${-pathOffset}`

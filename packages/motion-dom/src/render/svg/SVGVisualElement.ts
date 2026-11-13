@@ -14,7 +14,6 @@ import { getSVGRender } from "./utils/get-render"
 import { SVGRenderState } from "./types"
 import { cssStyleProperties } from "./utils/build-attrs"
 import { camelCaseAttributes } from "./utils/camel-case-attrs"
-import { isSVGTag } from "./utils/is-svg-tag"
 import { scrapeMotionValuesFromProps } from "./utils/scrape-motion-values"
 
 const attrName = (name: string) =>
@@ -33,8 +32,6 @@ export class SVGVisualElement extends DOMVisualElement<
     DOMVisualElementOptions
 > {
     type = "svg"
-
-    isSVGTag = false
 
     getBaseTargetFromProps(
         props: MotionNodeOptions,
@@ -87,9 +84,4 @@ export class SVGVisualElement extends DOMVisualElement<
     }
 
     bind = addSVGComponentValue
-
-    mount(instance: SVGElement) {
-        this.isSVGTag = isSVGTag(instance.tagName)
-        super.mount(instance)
-    }
 }
