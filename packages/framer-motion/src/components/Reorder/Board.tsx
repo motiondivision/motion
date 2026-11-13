@@ -2,6 +2,7 @@
 
 import {
     elementDragControls,
+    extractEventInfo,
     microtask,
     visualElementStore,
     type VisualElementDragControls,
@@ -365,9 +366,17 @@ function createBoard(props: {
             if (!nextControls || !controls?.isDragging) return false
 
             /**
+             * End the item's drag in its previous group now. Measuring this
+             * commit flushes a frame, which would otherwise carry that drag
+             * on, moving the item it left and scrolling for it, from a
+             * pointermove that the drag carrying on here would then miss.
+             */
+            const session = controls.panSession!
+            session.end()
+
+            /**
              * Once the commit that moved the item has been measured, and
-             * before it's drawn. Until then, the item's drag in its
-             * previous group waits.
+             * before it's drawn.
              */
             microtask.read(() => {
                 if (handoff !== latest) return
@@ -410,6 +419,17 @@ function createBoard(props: {
                 nextControls.start(latest.event as PointerEvent, {
                     immediate: true,
                 })
+
+                /**
+                 * Then the latest pointermove, which its previous drag can
+                 * have received since and not processed. Otherwise it's the
+                 * event it carries on from, which this doesn't change.
+                 */
+                const move = session.lastMoveEvent!
+                nextControls.panSession?.handlePointerMove(
+                    move,
+                    extractEventInfo(move)
+                )
             })
 
             /**
