@@ -85,10 +85,13 @@ export * from "./frameloop/types"
  */
 export {
     acquireProjectionNode,
+    dropNode,
     flushLayoutSnapshots,
     LayoutAnimationBuilder,
     parseAnimateLayoutArgs,
+    setLayoutNode,
 } from "./layout/LayoutAnimationBuilder"
+export type { RestorePoint } from "./layout/LayoutAnimationBuilder"
 export * from "./gestures/drag"
 export * from "./gestures/drag/state/is-active"
 export * from "./gestures/drag/state/set-active"
@@ -277,7 +280,7 @@ export { buildProjectionTransform } from "./projection/styles/transform"
 export * from "./projection/styles/types"
 
 // Projection animation
-export { mixValues } from "./projection/animation/mix-values"
+export { easeCrossfadeIn, mixValues } from "./projection/animation/mix-values"
 
 // Utilities (used by projection system)
 export { animateSingleValue } from "./animation/animate/single-value"
@@ -301,7 +304,10 @@ export {
 export { DocumentProjectionNode } from "./projection/node/DocumentProjectionNode"
 export { nodeGroup } from "./projection/node/group"
 export type { NodeGroup } from "./projection/node/group"
-export { HTMLProjectionNode } from "./projection/node/HTMLProjectionNode"
+export {
+    documentRoot,
+    HTMLProjectionNode,
+} from "./projection/node/HTMLProjectionNode"
 export { rootProjectionNode } from "./projection/node/root"
 export { globalProjectionState } from "./projection/node/state"
 export type {

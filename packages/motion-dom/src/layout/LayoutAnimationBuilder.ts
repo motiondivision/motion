@@ -19,7 +19,7 @@ type LayoutAnimationScope = Element | Document
 type LayoutBuilderResolve = (animation: GroupAnimation) => void
 type LayoutBuilderReject = (error: unknown) => void
 
-interface RestorePoint {
+export interface RestorePoint {
     parent: Element
     next: ChildNode | null
 }
@@ -97,6 +97,19 @@ function readNodeOptions(element: HTMLElement, transition?: Transition) {
     }
 }
 
+/**
+ * The projection node class for elements. animateLayout3d() swaps in one
+ * with quad projection.
+ */
+let LayoutNode: new (
+    latestValues: any,
+    parent?: IProjectionNode
+) => IProjectionNode = HTMLProjectionNode
+
+export function setLayoutNode(Node: typeof LayoutNode) {
+    LayoutNode = Node
+}
+
 function prepareNode(
     element: HTMLElement,
     transition?: Transition
@@ -106,7 +119,7 @@ function prepareNode(
     if (!node) {
         const visualElement = resolveVisualElement(element)
 
-        node = new HTMLProjectionNode(
+        node = new LayoutNode(
             visualElement.latestValues,
             getProjectionParent(element)
         )
@@ -134,7 +147,9 @@ function prepareNode(
  * Create a node for an element in the shared imperative tree. Returns the
  * node and a function that releases it.
  */
-function createLayoutNode(element: HTMLElement): [IProjectionNode, VoidFunction] {
+function createLayoutNode(
+    element: HTMLElement
+): [IProjectionNode, VoidFunction] {
     const node = prepareNode(element)
 
     return [
@@ -174,7 +189,7 @@ function sortDocumentOrder(elements: Iterable<HTMLElement>) {
     )
 }
 
-function dropNode(element: Element, node: IProjectionNode) {
+export function dropNode(element: Element, node: IProjectionNode) {
     node.setOptions({ onExitComplete: undefined })
 
     /**
@@ -277,13 +292,13 @@ export const flushLayoutSnapshots = flushPendingBuilders
 export class LayoutAnimationBuilder {
     private sharedTransitions = new Map<string, AnimationOptions>()
 
-    private notifyReady: LayoutBuilderResolve = () => {}
-    private rejectReady: LayoutBuilderReject = () => {}
+    protected notifyReady: LayoutBuilderResolve = () => {}
+    protected rejectReady: LayoutBuilderReject = () => {}
     private readyPromise: Promise<GroupAnimation>
 
-    private tracked = new Map<HTMLElement, IProjectionNode>()
-    private restorePoints = new Map<HTMLElement, RestorePoint>()
-    private updateError: unknown
+    protected tracked = new Map<HTMLElement, IProjectionNode>()
+    protected restorePoints = new Map<HTMLElement, RestorePoint>()
+    protected updateError: unknown
 
     constructor(
         private scope: LayoutAnimationScope,

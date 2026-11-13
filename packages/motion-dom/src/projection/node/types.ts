@@ -1,3 +1,4 @@
+import type { TransformTemplate } from "../../node/types"
 import type {
     AnimationPlaybackControls,
     MotionPath,
@@ -9,6 +10,7 @@ import type { VisualElement, MotionStyle } from "../../render/VisualElement"
 import { Box, Delta, Point } from "motion-utils"
 import { FlatTree } from "../utils/flat-tree"
 import { NodeStack } from "../shared/stack"
+
 
 export interface Measurements {
     animationId: number
@@ -75,6 +77,8 @@ export interface IProjectionNode<I = unknown> {
     treeScale?: Point
     projectionDelta?: Delta
     projectionDeltaWithTransform?: Delta
+    isSVG?: boolean
+    applyTransformsToTarget(): void
     latestValues: ResolvedValues
     isLayoutDirty: boolean
     isProjectionDirty: boolean
@@ -106,6 +110,7 @@ export interface IProjectionNode<I = unknown> {
     sharedNodes: Map<string, NodeStack>
     registerSharedNode(id: string, node: IProjectionNode): void
     getStack(): NodeStack | undefined
+    getLead(): IProjectionNode
     isVisible: boolean
     hide(): void
     show(): void
@@ -125,6 +130,8 @@ export interface IProjectionNode<I = unknown> {
     resolveTargetDelta(force?: boolean): void
     removeRelativeTarget(): void
     calcProjection(): void
+    completeAnimation(): void
+    getTransformTemplate(): TransformTemplate | undefined
     applyProjectionStyles(
         targetStyle: CSSStyleDeclaration,
         styleProp?: MotionStyle
@@ -134,6 +141,11 @@ export interface IProjectionNode<I = unknown> {
 
     isProjecting(): boolean
     animationValues?: ResolvedValues
+    mixShared?: VoidFunction
+    animationProgress: number
+    mixTargetDelta: (progress: number) => void
+    attemptToResolveRelativeTarget?: boolean
+    hasProjected: boolean
     currentAnimation?: AnimationPlaybackControls
     /**
      * The latest offsets (px) of the x min, x max, y min and y max edge
