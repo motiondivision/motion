@@ -1093,6 +1093,21 @@ export interface MotionNodeAdvancedOptions {
      */
     transformTemplate?: TransformTemplate
 
+    /**
+     * Draw this element on its own in the canvas of an `<FX>` it's
+     * inside, at any depth, so it can have effects. Direct children of a
+     * `<FX>` are drawn without it.
+     *
+     * ```jsx
+     * <FX shaders={[motionBlur()]}>
+     *   <ul>
+     *     <motion.li fx animate={{ x: 300 }} />
+     *   </ul>
+     * </FX>
+     * ```
+     */
+    fx?: boolean
+
     "data-framer-appear-id"?: string
 }
 
