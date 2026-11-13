@@ -85,6 +85,18 @@ export default defineConfig({
         },
 
         /**
+         * React specs that need WebKit, against the React 19 dev app.
+         */
+        {
+            name: "react-19-webkit",
+            testMatch: /tests\/react\/reorder-scroll-container-selection\.spec\.ts/,
+            use: {
+                ...devices["Desktop Safari"],
+                baseURL: "http://localhost:9991/",
+            },
+        },
+
+        /**
          * Remix 3 dev app, for motion/remix, including server rendering.
          */
         {
