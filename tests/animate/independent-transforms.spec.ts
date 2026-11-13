@@ -301,6 +301,53 @@ test.describe("animate() independent transforms", () => {
         expect(result.count).toBe(1)
     })
 
+    /**
+     * onUpdate keeps the group on the main thread, which mustn't leave an
+     * animation paused before its first frame unrendered (#4073).
+     */
+    for (const pauseWith of ["pause()", "autoplay: false"]) {
+        test(`an animation with onUpdate paused with ${pauseWith} renders its first keyframe`, async ({
+            page,
+        }) => {
+            const result = await page.evaluate(async (pauseWith) => {
+                const element = document.getElementById("a")!
+                const updates: number[] = []
+                const options: any = {
+                    duration: 0.3,
+                    ease: "linear",
+                    onUpdate: (latest: number) => updates.push(latest),
+                }
+                if (pauseWith !== "pause()") options.autoplay = false
+                const animation = window.Motion.animate(
+                    element,
+                    { x: [100, 0] },
+                    options
+                )
+                if (pauseWith === "pause()") animation.pause()
+                await window.waitFrame(100)
+                const paused = window.readTransform(element).x
+                const pausedUpdates = updates.slice()
+                animation.play()
+                await window.waitFrame(150)
+                const playing = window.readTransform(element).x
+                await window.waitFrame(300)
+                return {
+                    paused,
+                    pausedUpdates,
+                    playing,
+                    finished: window.readTransform(element).x,
+                }
+            }, pauseWith)
+
+            expect(result.paused).toBeCloseTo(100, 0)
+            expect(result.pausedUpdates.length).toBeGreaterThan(0)
+            expect(result.pausedUpdates.every((x) => x === 100)).toBe(true)
+            expect(result.playing).toBeGreaterThan(5)
+            expect(result.playing).toBeLessThan(95)
+            expect(result.finished).toBeCloseTo(0, 0)
+        })
+    }
+
     test("repeat: Infinity loops on the compositor", async ({ page }) => {
         const result = await page.evaluate(async () => {
             const element = document.getElementById("a")!
