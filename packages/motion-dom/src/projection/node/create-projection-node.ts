@@ -787,6 +787,12 @@ export function createProjectionNode<I>({
 
             this.nodes?.forEach(resetSkewAndRotation)
             this.animationId++
+
+            /**
+             * Before the DOM changes, and after the reset above. With this
+             * update's animationId, so ancestors' scroll is read once.
+             */
+            this.nodes?.forEach(snapshotDragged)
         }
 
         getTransformTemplate() {
@@ -835,21 +841,7 @@ export function createProjectionNode<I>({
             this.isLayoutDirty = true
             for (let i = 0; i < this.path.length; i++) {
                 const node = this.path[i]
-                node.shouldResetTransform = true
-                demoteTransforms(node)
-
-                /**
-                 * Percentage translates resolve against layoutBox dimensions,
-                 * so ancestors with them must be re-measured after transform reset.
-                 */
-                if (
-                    typeof node.latestValues.x === "string" ||
-                    typeof node.latestValues.y === "string"
-                ) {
-                    node.isLayoutDirty = true
-                }
-
-                node.updateScroll("snapshot")
+                prepareAncestor(node)
 
                 if (node.options.layoutRoot) {
                     node.willUpdate(false)
@@ -2824,9 +2816,48 @@ function followDraggedAncestor(node: IProjectionNode) {
 }
 
 /**
+ * Ready `node`, an ancestor of a node about to be measured: move its
+ * accelerated transforms to the main thread, reset its transform when
+ * layouts are measured, and read its scroll.
+ */
+function prepareAncestor(node: IProjectionNode) {
+    node.shouldResetTransform = true
+    demoteTransforms(node)
+
+    /**
+     * Percentage translates resolve against layoutBox dimensions,
+     * so ancestors with them must be re-measured after transform reset.
+     */
+    if (
+        typeof node.latestValues.x === "string" ||
+        typeof node.latestValues.y === "string"
+    ) {
+        node.isLayoutDirty = true
+    }
+
+    node.updateScroll("snapshot")
+}
+
+/**
+ * Measure a dragged node before the DOM changes, as willUpdate() would. Its
+ * drag follows layout changes that its component doesn't have to render for
+ * (e.g. it's memoized), by how far it moves from this snapshot. Its last
+ * layout won't do: it can predate a scroll that its drag has already
+ * followed, or include transforms of ancestors that this update resets.
+ */
+function snapshotDragged(node: IProjectionNode) {
+    if (node.isAnimationBlocked && node.layout) {
+        node.path.forEach(prepareAncestor)
+        demoteTransforms(node)
+        node.dragSnapshot = node.measure()
+    }
+}
+
+/**
  * When a node is animation-blocked (e.g. during drag) and its component
  * didn't re-render (memoized), willUpdate() is never called so there's
- * no snapshot. Use the previous layout as a snapshot and mark dirty so
+ * no snapshot. Use the one startUpdate() took (or, if it was dragged since,
+ * its previous layout) and mark dirty so
  * resetTransform/updateLayout/notifyLayoutUpdate process it normally.
  */
 function ensureDraggedNodesSnapshotted(node: IProjectionNode) {
