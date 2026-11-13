@@ -40,15 +40,7 @@ export const App = () => {
                             key={id}
                             style={{
                                 flexShrink: 0,
-                                /**
-                                 * A fixed width, with room for a scrollbar:
-                                 * a dragged item overflowing its column
-                                 * gives it scrollbars, which would otherwise
-                                 * widen it, and the board's scroll range
-                                 * with it, mid-drag.
-                                 */
                                 ...(overflow && {
-                                    width: 140,
                                     height: 320,
                                     overflowY: "auto",
                                 }),
