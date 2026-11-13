@@ -40,6 +40,7 @@ export function supportsBrowserAnimation<T extends AnyResolvedKeyframe>(
         damping,
         type,
         keyframes,
+        hasOnUpdate,
     } = options
 
     /**
@@ -82,10 +83,12 @@ export function supportsBrowserAnimation<T extends AnyResolvedKeyframe>(
                 hasBrowserOnlyColors(keyframes))) &&
         (name !== "transform" || !transformTemplate) &&
         /**
-         * If we're outputting values to onUpdate then we can't use WAAPI as there's
-         * no way to read the value from WAAPI every frame.
+         * If we're outputting values to onUpdate (the onUpdate prop, or this
+         * value's transition) then we can't use WAAPI as there's no way to
+         * read the value from WAAPI every frame.
          */
         !onUpdate &&
+        !hasOnUpdate &&
         !repeatDelay &&
         repeatType !== "mirror" &&
         damping !== 0 &&
