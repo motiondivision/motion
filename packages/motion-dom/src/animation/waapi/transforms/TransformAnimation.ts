@@ -34,7 +34,12 @@ import { createStyleAnimation, setStyle } from "../../../effects/style/output"
 import { acceleratedValues } from "../utils/accelerated-values"
 import { needsMixer } from "../utils/needs-mixer"
 import { supportsLinearEasing } from "../../../utils/supports/linear-easing"
-import { isRepainting, TransformGroupHooks, transformGroups } from "./groups"
+import {
+    isRepainting,
+    markRepaint,
+    TransformGroupHooks,
+    transformGroups,
+} from "./groups"
 
 export const round = (value: number) => Math.round(value * 10000) / 10000
 
@@ -1281,6 +1286,8 @@ function createGroup(owner: TransformOwner): TransformGroup {
 
             return true
         },
+
+        repaint: (value) => markRepaint(element, value),
     }
 
     transformGroups.set(element, group)

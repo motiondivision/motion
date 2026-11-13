@@ -27,6 +27,12 @@ export interface TransformGroupHooks {
      * Rebuild or retime the WAAPI animation.
      */
     schedule(needsBuild: boolean): void
+
+    /**
+     * A style animating on the main thread repaints the element this
+     * frame. A hook so a renderer can count it without the frame loop.
+     */
+    repaint(value: MotionValue): void
 }
 
 export const transformGroups = new WeakMap<object, TransformGroupHooks>()

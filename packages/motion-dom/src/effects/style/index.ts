@@ -1,7 +1,4 @@
-import {
-    markRepaint,
-    transformGroups,
-} from "../../animation/waapi/transforms/groups"
+import { transformGroups } from "../../animation/waapi/transforms/groups"
 import { isCSSVar } from "../../render/dom/is-css-var"
 import { acceleratedValues } from "../../animation/waapi/utils/accelerated-values"
 import { readTransformValue } from "../../render/dom/parse-transform"
@@ -141,9 +138,10 @@ const getValueRender = (
     const isComposited = acceleratedValues.has(key)
 
     return () => {
-        if (!isComposited && transformGroups.has(element)) {
-            const value = (node as MotionNode).values.get(key)
-            value?.isAnimating() && markRepaint(element, value)
+        if (!isComposited) {
+            const value = (node as MotionNode).values?.get(key)
+            value?.isAnimating() &&
+                transformGroups.get(element)?.repaint(value)
         }
 
         setStyle(element, key, styleValue(node, key) as string)
