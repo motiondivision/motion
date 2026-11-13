@@ -1,96 +1,103 @@
 import { transformGroups } from "../../animation/waapi/transforms/groups"
 import { isCSSVar } from "../../render/dom/is-css-var"
 import { readTransformValue } from "../../render/dom/parse-transform"
-import {
-    transformPropOrder,
-    transformProps,
-} from "../../render/utils/keys-transform"
+import { buildTransform } from "../../render/html/utils/build-transform"
+import { nodeStore } from "../../render/store"
+import { transformProps } from "../../render/utils/keys-transform"
 import { isHTMLElement } from "../../utils/is-html-element"
 import { isSVGElement } from "../../utils/is-svg-element"
+import type { MotionNode } from "../../node/MotionNode"
 import { MotionValue } from "../../value"
 import { numberValueTypes } from "../../value/types/maps/number"
 import { getValueAsType } from "../../value/types/utils/get-as-type"
-import { MotionValueState } from "../MotionValueState"
 import { createSelectorEffect } from "../utils/create-dom-effect"
 import { createEffect } from "../utils/create-effect"
-import { buildTransform } from "./transform"
 
 export const originProps = new Set(["originX", "originY", "originZ"])
 
 /**
- * A bound value in its default unit, e.g. `originX: 50` -> `"50%"`.
+ * A latest value in its default unit, e.g. `originX: 50` -> `"50%"`.
  */
-const styleValue = (state: MotionValueState, key: string) =>
-    getValueAsType(state.get(key)?.get(), numberValueTypes[key])
+const styleValue = (node: MotionNode, key: string) =>
+    getValueAsType(node.latestValues[key], numberValueTypes[key])
+
+/**
+ * The transforms record a transformTemplate is given. Without a
+ * template nothing is written to it.
+ */
+const noTemplateTransforms = {}
+
+/**
+ * The function that writes `transform` from the node's independent
+ * transforms (`x`, `scale` etc). Every transform key shares it.
+ */
+export const getTransformRender = (
+    element: HTMLElement | SVGElement,
+    node: MotionNode
+) =>
+    ((node.shared ||= {}).transform ||= () => {
+        transformGroups.get(element)?.check()
+
+        const { latestValues } = node
+
+        /**
+         * A `transform` value is written as any other style, and takes
+         * the place of one built from independent transforms.
+         */
+        if (latestValues.transform) return
+
+        const { transformTemplate } = node.getProps()
+        const { style } = element
+
+        style.transform = buildTransform(
+            latestValues,
+            transformTemplate ? {} : noTemplateTransforms,
+            transformTemplate
+        )
+
+        /**
+         * An SVG element's transforms are relative to its own box, with
+         * the origin at its centre, as an HTML element's are.
+         */
+        if (!isHTMLElement(element) && element.tagName !== "svg") {
+            style.transformBox ||
+                latestValues.transformBox ||
+                (style.transformBox = "fill-box")
+            style.transformOrigin || (style.transformOrigin = "50% 50%")
+        }
+    })
 
 export const addStyleValue = (
     element: HTMLElement | SVGElement,
-    state: MotionValueState,
+    node: MotionNode,
     key: string,
-    value: MotionValue
+    value?: MotionValue
 ) => {
-    let render: VoidFunction | undefined = undefined
-    let computed: MotionValue | undefined = undefined
+    let render: VoidFunction
+    let shared = false
 
     if (transformProps.has(key)) {
-        if (key !== "pathRotation") {
-            const keys = (state.transformKeys ??= [])
-            ;(state.transformValues ??= {})[key] = value
-
-            if (!keys.includes(key)) {
-                keys.push(key)
-                keys.sort(
-                    (a, b) =>
-                        transformPropOrder.indexOf(a) -
-                        transformPropOrder.indexOf(b)
-                )
-            }
-        }
-
-        if (!state.get("transform")) {
-            // If this is an HTML element, we need to set the transform-box to fill-box
-            // to normalise the transform relative to the element's bounding box
-            if (!isHTMLElement(element) && !state.get("transformBox")) {
-                addStyleValue(
-                    element,
-                    state,
-                    "transformBox",
-                    new MotionValue("fill-box")
-                )
-            }
-
-            state.set("transform", new MotionValue("none"), () => {
-                transformGroups.get(element)?.check()
-                element.style.transform = buildTransform(state)
-            })
-        }
-
-        computed = state.get("transform")
+        render = getTransformRender(element, node)
+        shared = true
     } else if (originProps.has(key)) {
-        if (!state.get("transformOrigin")) {
-            state.set("transformOrigin", new MotionValue(""), () => {
-                const originX = styleValue(state, "originX") ?? "50%"
-                const originY = styleValue(state, "originY") ?? "50%"
-                const originZ = styleValue(state, "originZ") ?? 0
-                element.style.transformOrigin = `${originX} ${originY} ${originZ}`
-            })
+        render = (node.shared ||= {}).origin ||= () => {
+            const originX = styleValue(node, "originX") ?? "50%"
+            const originY = styleValue(node, "originY") ?? "50%"
+            const originZ = styleValue(node, "originZ") ?? 0
+            element.style.transformOrigin = `${originX} ${originY} ${originZ}`
         }
-
-        computed = state.get("transformOrigin")
+        shared = true
     } else if (isCSSVar(key)) {
         render = () => {
-            element.style.setProperty(key, value.getCurrent() as string)
+            element.style.setProperty(key, node.latestValues[key] as string)
         }
     } else {
         render = () => {
-            element.style[key as any] = getValueAsType(
-                value.getCurrent(),
-                numberValueTypes[key]
-            ) as string
+            element.style[key as any] = styleValue(node, key) as string
         }
     }
 
-    return state.set(key, value, render, computed)
+    return node.set(key, value, render, shared)
 }
 
 export type StyleSubject = HTMLElement | SVGElement
@@ -120,12 +127,14 @@ export const readStyleValue = (element: StyleSubject, key: string) => {
 
 /**
  * The per-element effect `animate()` binds through, so HTML values share
- * state with a direct `styleEffect()` call. The exported `styleEffect`
- * is this wrapped to also accept selectors.
+ * a node with a direct `styleEffect()` call and with the element's motion
+ * component, if it has one. The exported `styleEffect` is this wrapped to
+ * also accept selectors.
  */
 export const styleSubjectEffect = /*@__PURE__*/ createEffect(addStyleValue, {
     test: isStyleSubject,
     read: readStyleValue,
+    nodes: nodeStore,
 })
 
 export const styleEffect =

@@ -4,7 +4,7 @@ import { frame } from "../../../frameloop"
 import { HTMLVisualElement } from "../../../render/html/HTMLVisualElement"
 import { motionValue } from "../../../value"
 import { arc } from "../../utils/arc"
-import { animateElement, handOffElementState } from "../element"
+import { animateElement } from "../element"
 
 async function nextFrame() {
     return new Promise<void>((resolve) => {
@@ -230,11 +230,10 @@ describe("animateElement", () => {
         )
         const state = styleEffect.state(element)!
         const x = styleEffect.get(element, "x")!
-        expect(state.transformKeys).toEqual(["x"])
+        expect(state.values.get("x")).toBe(x)
 
         // As animateLayout() does when it first meets the element
         const visualElement = createVisualElement()
-        handOffElementState(element, visualElement)
         visualElement.mount(element)
 
         // The same values now live on the VisualElement...
@@ -242,11 +241,13 @@ describe("animateElement", () => {
         expect(visualElement.getValue("opacity")).toBeDefined()
         // ...not the style effect's derived transform
         expect(visualElement.getValue("transform")).toBeUndefined()
-        // ...and the style effect has let go of them
-        expect(styleEffect.get(element, "x")).toBeUndefined()
-        expect(styleEffect.get(element, "transform")).toBeUndefined()
-        expect(state.transformKeys).toBeUndefined()
-        expect(state.transformValues).toBeUndefined()
+        // ...and the node that held them is empty
+        expect(state.values.size).toBe(0)
+        expect(state.latestValues).toEqual({})
+        expect(state.shared).toBeUndefined()
+        // The effect now addresses the VisualElement, as the element's node
+        expect(styleEffect.state(element)).toBe(visualElement)
+        expect(styleEffect.get(element, "x")).toBe(x)
 
         // The VisualElement renders them from here
         x.jump(40)
@@ -265,18 +266,18 @@ describe("animateElement", () => {
         styleEffect(element, { rotate })
 
         const visualElement = createVisualElement()
-        handOffElementState(element, visualElement)
+        visualElement.adopt(element)
 
         expect(visualElement.getValue("rotate")).toBe(rotate)
-        expect(styleEffect.get(element, "rotate")).toBeUndefined()
+        expect(styleEffect.state(element)).toBe(visualElement)
     })
 
     it("is a no-op for elements with nothing bound", () => {
         const element = document.createElement("div")
         const visualElement = createVisualElement()
 
-        expect(() => handOffElementState(element, visualElement)).not.toThrow()
-        expect(styleEffect.state(element)).toBeUndefined()
+        expect(() => visualElement.adopt(element)).not.toThrow()
+        expect(visualElement.values.size).toBe(0)
     })
 
     describe("with transition.path", () => {

@@ -2,7 +2,7 @@ import { camelToDash } from "../../render/dom/utils/camel-to-dash"
 import { MotionValue } from "../../value"
 import { numberValueTypes } from "../../value/types/maps/number"
 import { getValueAsType } from "../../value/types/utils/get-as-type"
-import { MotionValueState } from "../MotionValueState"
+import type { MotionNode } from "../../node/MotionNode"
 import { createSelectorEffect } from "../utils/create-dom-effect"
 import { createEffect } from "../utils/create-effect"
 
@@ -24,9 +24,9 @@ function canSetAsProperty(element: HTMLElement | SVGElement, name: string) {
  */
 export const addAttrValue = (
     element: HTMLElement | SVGElement,
-    state: MotionValueState,
+    state: MotionNode,
     key: string,
-    value: MotionValue,
+    value?: MotionValue,
     name: string = key
 ) => {
     const isProp = canSetAsProperty(element, name)
@@ -42,12 +42,12 @@ export const addAttrValue = (
     const render = isProp
         ? () => {
               ;(element as any)[name] = getValueAsType(
-                  value.get(),
+                  state.latestValues[key],
                   numberValueTypes[key]
               )
           }
         : () => {
-              const v = getValueAsType(value.get(), type)
+              const v = getValueAsType(state.latestValues[key], type)
               if (v === null || v === undefined) {
                   element.removeAttribute(name)
               } else {

@@ -618,7 +618,8 @@ const pendingElements = /*@__PURE__*/ new WeakMap<Element, AnyVisualElement>()
 function findParent(element: Element) {
     for (let node = element.parentElement; node; node = node.parentElement) {
         const parent = pendingElements.get(node) || visualElementStore.get(node)
-        if (parent) return parent as AnyVisualElement
+        // An element animate() or an effect reached has a node too
+        if (parent?.mount) return parent as AnyVisualElement
     }
     return undefined
 }
@@ -932,7 +933,6 @@ const motionMixin = /*@__PURE__*/ createMixin<Element, [props: MotionProps]>(
                                 isSVG,
                                 isInitialBlocked
                             ),
-                            renderState: createRenderState(),
                         },
                     }) as AnyVisualElement
                     pendingElements.set(node, visualElement)

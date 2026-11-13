@@ -5,6 +5,7 @@ import { DOMKeyframesResolver } from "../../animation/keyframes/DOMKeyframesReso
 import type { MotionNodeOptions } from "../../node/types"
 import type { DOMVisualElementOptions } from "./types"
 import type { HTMLRenderState } from "../html/types"
+import { getTransformRender } from "../../effects/style"
 import { VisualElement, MotionStyle } from "../VisualElement"
 
 export abstract class DOMVisualElement<
@@ -29,12 +30,21 @@ export abstract class DOMVisualElement<
         return style ? (style[key] as string) : undefined
     }
 
-    removeValueFromRenderState(
-        key: string,
-        { vars, style }: HTMLRenderState
-    ): void {
-        delete vars[key]
-        delete style[key]
+    /**
+     * A transformTemplate is called even when no transform is set.
+     */
+    protected queueAll() {
+        super.queueAll()
+        this.props.transformTemplate &&
+            this.queue(getTransformRender(this.current!, this))
+    }
+
+    protected afterRender() {
+        this.current &&
+            this.projection?.applyProjectionStyles(
+                this.current.style,
+                (this.props as any).style
+            )
     }
 
     KeyframeResolver = DOMKeyframesResolver

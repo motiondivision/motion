@@ -88,9 +88,12 @@ export interface MotionConfigContextProps {
     skipAnimations?: boolean
 }
 
-export interface VisualState<_Instance, RenderState> {
+export interface VisualState<_Instance, RenderState = any> {
     latestValues: ResolvedValues
-    renderState: RenderState
+    /**
+     * @deprecated Values are written by the node, which keeps no render state.
+     */
+    renderState?: RenderState
 }
 
 export interface VisualElementOptions<Instance, RenderState = any> {

@@ -1,11 +1,12 @@
 import { clamp, type Point } from "motion-utils"
 import { spring } from "../../animation/generators/spring"
 import type { SpringOptions } from "../../animation/types"
-import { readStyleValue, styleSubjectEffect } from "../../effects/style"
+import { styleSubjectEffect } from "../../effects/style"
 import { svgSubjectEffect } from "../../effects/svg"
 import { cancelFrame, frame } from "../../frameloop"
 import { time } from "../../frameloop/sync-time"
-import { visualElementStore } from "../../render/store"
+import type { MotionNode } from "../../node/MotionNode"
+import { nodeStore, visualElementStore } from "../../render/store"
 import { activeScope, addToScope } from "../../scope/active"
 import { isSVGElement } from "../../utils/is-svg-element"
 import { mixNumber } from "../../utils/mix/number"
@@ -13,7 +14,7 @@ import {
     resolveElements,
     type ElementOrSelector,
 } from "../../utils/resolve-elements"
-import { motionValue, type MotionValue } from "../../value"
+import type { MotionValue } from "../../value"
 import { setDragLock } from "../drag/state/set-active"
 import { applyConstraints, defaultElastic } from "../drag/utils/constraints"
 import { elementDragControls } from "../drag/VisualElementDragControls"
@@ -849,29 +850,21 @@ export function addPinchListeners(
 const valueKeys = ["scale", "rotate", "x", "y"]
 
 /**
- * The element's scale/rotate/x/y motion values: those of its
- * VisualElement if it has one (it's a <motion.*> component, or drag() or
- * animateLayout() own it), otherwise those animate() binds to it, created
- * from its current style if this is the first time.
+ * The element's scale/rotate/x/y motion values, on the node that owns
+ * it, created from its current style if this is the first time.
  */
 const getElementValues = (element: HTMLElement | SVGElement) => {
-    const visualElement = visualElementStore.get(element)
-    const effect = isSVGElement(element) ? svgSubjectEffect : styleSubjectEffect
+    const node: MotionNode =
+        nodeStore.get(element) ||
+        (isSVGElement(element) ? svgSubjectEffect : styleSubjectEffect).node(
+            element as any
+        )
 
-    return valueKeys.map((key) => {
-        if (visualElement) {
-            return visualElement.getValue(key, key === "scale" ? 1 : 0)
-        }
-
-        let value = effect.get(element as any, key)
-
-        if (!value) {
-            value = motionValue(readStyleValue(element, key))
-            effect(element as any, { [key]: value })
-        }
-
-        return value
-    }) as PinchValues
+    return valueKeys.map(
+        (key) =>
+            node.getValue(key) ||
+            node.getValue(key, node.readValue(key) ?? (key === "scale" ? 1 : 0))
+    ) as PinchValues
 }
 
 /**

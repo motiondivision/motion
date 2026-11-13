@@ -4,6 +4,7 @@ import {
     elementDragControls,
     microtask,
     visualElementStore,
+    type MotionValue,
     type VisualElementDragControls,
 } from "motion-dom"
 import type { Point } from "motion-utils"
@@ -381,7 +382,7 @@ function createBoard(props: {
                  */
                 visualElementStore
                     .get(latest.element)
-                    ?.values.forEach((motionValue, key) => {
+                    ?.values.forEach((motionValue: MotionValue, key: string) => {
                         const current = motionValue.get()
                         visualElement!
                             .getValue(

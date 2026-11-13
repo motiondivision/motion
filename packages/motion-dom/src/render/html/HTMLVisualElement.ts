@@ -10,11 +10,10 @@ import {
 import { measureViewportBox } from "../../projection/utils/measure"
 import { DOMVisualElement } from "../dom/DOMVisualElement"
 import type { DOMVisualElementOptions } from "../dom/types"
-import type { ResolvedValues, MotionConfigContextProps } from "../types"
+import type { MotionConfigContextProps } from "../types"
 import type { VisualElement } from "../VisualElement"
 import { HTMLRenderState } from "./types"
-import { buildHTMLStyles } from "./utils/build-styles"
-import { renderHTML } from "./utils/render"
+import { addStyleValue } from "../../effects/style"
 import { scrapeMotionValuesFromProps } from "./utils/scrape-motion-values"
 
 export function getComputedStyle(element: HTMLElement) {
@@ -70,14 +69,6 @@ export class HTMLVisualElement extends DOMVisualElement<
         return measureViewportBox(instance, transformPagePoint)
     }
 
-    build(
-        renderState: HTMLRenderState,
-        latestValues: ResolvedValues,
-        props: MotionNodeOptions
-    ) {
-        buildHTMLStyles(renderState, latestValues, props.transformTemplate)
-    }
-
     scrapeMotionValuesFromProps(
         props: MotionNodeOptions,
         prevProps: MotionNodeOptions,
@@ -86,5 +77,5 @@ export class HTMLVisualElement extends DOMVisualElement<
         return scrapeMotionValuesFromProps(props, prevProps, visualElement)
     }
 
-    renderInstance = renderHTML
+    bind = addStyleValue
 }

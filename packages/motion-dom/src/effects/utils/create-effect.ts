@@ -3,8 +3,8 @@ import {
     UnresolvedValueKeyframe,
 } from "../../animation/types"
 import { Schedule } from "../../frameloop/types"
+import { MotionNode } from "../../node/MotionNode"
 import { MotionValue } from "../../value"
-import { MotionValueState } from "../MotionValueState"
 
 /**
  * Returns true if the effect knows how to write to `subject`.
@@ -35,6 +35,13 @@ export interface EffectOptions<Subject extends object> {
      * Frameloop step writes are scheduled in. Defaults to `frame.render`.
      */
     step?: Schedule
+
+    /**
+     * Where the effect keeps the node of each subject. Effects that
+     * render the same kind of subject share a store, so they share its
+     * values. Defaults to a store of the effect's own.
+     */
+    nodes?: WeakMap<object, MotionNode>
 }
 
 export interface Effect<Subject extends object = object>
@@ -53,10 +60,15 @@ export interface Effect<Subject extends object = object>
     flush(subject: Subject): void
 
     /**
-     * The state holding the motion values bound to `subject`, if any have
-     * been, so they can be handed to another renderer.
+     * The node holding the motion values bound to `subject`, if any have
+     * been.
      */
-    state(subject: Subject): MotionValueState | undefined
+    state(subject: Subject): MotionNode<Subject> | undefined
+
+    /**
+     * The node for `subject`, made if it has none.
+     */
+    node(subject: Subject): MotionNode<Subject>
 }
 
 /**
@@ -70,7 +82,7 @@ export interface AnimateEffect<Subject extends object = object>
 
 export type AddEffectValue<Subject extends object> = (
     subject: Subject,
-    state: MotionValueState,
+    state: MotionNode<Subject>,
     key: string,
     value: MotionValue
 ) => VoidFunction
@@ -88,24 +100,43 @@ export function createEffect<Subject extends object>(
 ): Effect<Subject>
 export function createEffect<Subject extends object>(
     addValue: AddEffectValue<Subject>,
-    { step, ...options }: EffectOptions<Subject> = {}
+    { step, nodes, ...options }: EffectOptions<Subject> = {}
 ): Effect<Subject> {
-    const stateCache = new WeakMap<Subject, MotionValueState>()
+    const own = new WeakMap<Subject, MotionNode<Subject>>()
+
+    /**
+     * A subject in a shared store can be owned by another effect's
+     * node, which writes its keys differently. This effect then keeps
+     * its own.
+     */
+    const state = (subject: Subject) => {
+        const node = nodes?.get(subject)
+        return node?.bind === addValue ? node : own.get(subject)
+    }
+
+    const getNode = (subject: Subject) => {
+        let node = state(subject)
+
+        if (!node) {
+            node = new MotionNode<Subject>(step)
+            node.current = subject
+            node.bind = addValue as MotionNode<Subject>["bind"]
+            node.read = options.read
+            ;(nodes && !nodes.has(subject) ? nodes : own).set(subject, node)
+        }
+
+        return node
+    }
 
     const effect = (
         subject: Subject,
         values: Record<string, MotionValue>
     ): VoidFunction => {
-        const state = stateCache.get(subject) ?? new MotionValueState(step)
-
-        stateCache.set(subject, state)
-
+        const node = getNode(subject)
         const subscriptions: VoidFunction[] = []
 
         for (const key in values) {
-            const value = values[key]
-            const remove = addValue(subject, state, key, value)
-            subscriptions.push(remove)
+            subscriptions.push(addValue(subject, node, key, values[key]))
         }
 
         return () => {
@@ -114,9 +145,9 @@ export function createEffect<Subject extends object>(
     }
 
     return Object.assign(effect, options, {
-        get: (subject: Subject, key: string) =>
-            stateCache.get(subject)?.get(key),
-        flush: (subject: Subject) => stateCache.get(subject)?.flush(),
-        state: (subject: Subject) => stateCache.get(subject),
+        get: (subject: Subject, key: string) => state(subject)?.get(key),
+        flush: (subject: Subject) => state(subject)?.flush(),
+        state,
+        node: getNode,
     })
 }

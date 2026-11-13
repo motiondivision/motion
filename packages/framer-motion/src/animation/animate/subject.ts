@@ -15,7 +15,6 @@ import {
     propEffect,
     UnresolvedValueKeyframe,
     ValueAnimationTransition,
-    visualElementStore,
 } from "motion-dom"
 import { invariant } from "motion-utils"
 import { ObjectTarget } from "../sequence/types"
@@ -143,18 +142,15 @@ export function animateSubject<O extends Object>(
 
             if (thisSubject instanceof Element) {
                 /**
-                 * An element already owned by a VisualElement (a <motion.*>
-                 * component or animateLayout()) animates its values so they
-                 * share one renderer. Anything else is driven through
-                 * styleEffect (or svgEffect) and the DOM keyframe resolver,
-                 * without creating a VisualElement.
+                 * An element animates on the values of its node, which
+                 * a <motion.*> component, animateLayout(), an effect or
+                 * an earlier animate() made, so one renderer writes them.
                  */
                 animations.push(
                     ...animateElement(
                         thisSubject as HTMLElement | SVGElement,
                         keyframes as EffectKeyframes,
-                        transition as EffectTransition,
-                        visualElementStore.get(thisSubject)
+                        transition as EffectTransition
                     )
                 )
             } else {

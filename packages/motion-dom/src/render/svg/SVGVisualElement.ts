@@ -8,14 +8,85 @@ import { DOMVisualElement } from "../dom/DOMVisualElement"
 import { defaultTransformValue } from "../dom/parse-transform"
 import type { DOMVisualElementOptions } from "../dom/types"
 import { camelToDash } from "../dom/utils/camel-to-dash"
-import type { ResolvedValues } from "../types"
-import type { VisualElement, MotionStyle } from "../VisualElement"
+import type { VisualElement } from "../VisualElement"
+import type { MotionNode } from "../../node/MotionNode"
+import { addStyleValue } from "../../effects/style"
+import { isSVGStyle } from "../../effects/svg"
+import { numberValueTypes } from "../../value/types/maps/number"
+import { getValueAsType } from "../../value/types/utils/get-as-type"
 import { SVGRenderState } from "./types"
-import { buildSVGAttrs, cssStyleProperties } from "./utils/build-attrs"
+import { cssStyleProperties } from "./utils/build-attrs"
 import { camelCaseAttributes } from "./utils/camel-case-attrs"
 import { isSVGTag } from "./utils/is-svg-tag"
-import { renderSVG } from "./utils/render"
 import { scrapeMotionValuesFromProps } from "./utils/scrape-motion-values"
+
+const attrKeys: { [key: string]: string } = {
+    attrX: "x",
+    attrY: "y",
+    attrScale: "scale",
+}
+
+/**
+ * Binds a key of a motion SVG component. Everything is an attribute,
+ * except on the <svg> tag itself and for the values that only work, or
+ * that WAAPI writes, as styles.
+ */
+const addSVGComponentValue = (
+    element: SVGElement,
+    node: MotionNode,
+    key: string,
+    value?: MotionValue
+) => {
+    const { latestValues } = node
+    const isRoot = isSVGTag(element.tagName)
+
+    if (
+        isRoot
+            ? key !== "viewBox"
+            : isSVGStyle(key) ||
+              cssStyleProperties.includes(key) ||
+              key === "transformOrigin" ||
+              key === "transformBox"
+    ) {
+        return addStyleValue(element, node, key, value)
+    }
+
+    /**
+     * pathLength, pathSpacing and pathOffset are written together, as a
+     * dash pattern on a path normalised to a length of 1. Unitless, as
+     * Safari scales px values when the page is zoomed.
+     */
+    if (key.startsWith("path")) {
+        return node.set(
+            key,
+            value,
+            ((node.shared ||= {}).dash ||= () => {
+                const { pathLength, pathSpacing = 1, pathOffset = 0 } =
+                    latestValues
+                if (pathLength === undefined) return
+                element.setAttribute("pathLength", "1")
+                element.setAttribute("stroke-dashoffset", `${-pathOffset}`)
+                element.setAttribute(
+                    "stroke-dasharray",
+                    `${pathLength} ${pathSpacing}`
+                )
+            }),
+            true
+        )
+    }
+
+    const name =
+        attrKeys[key] ||
+        (camelCaseAttributes.has(key) ? key : camelToDash(key))
+
+    return node.set(key, value, () => {
+        element.setAttribute(
+            name,
+            getValueAsType(latestValues[key], numberValueTypes[key]) as string
+        )
+    })
+}
+
 export class SVGVisualElement extends DOMVisualElement<
     SVGElement,
     SVGRenderState,
@@ -76,28 +147,7 @@ export class SVGVisualElement extends DOMVisualElement<
         return scrapeMotionValuesFromProps(props, prevProps, visualElement)
     }
 
-    build(
-        renderState: SVGRenderState,
-        latestValues: ResolvedValues,
-        props: MotionNodeOptions
-    ) {
-        buildSVGAttrs(
-            renderState,
-            latestValues,
-            this.isSVGTag,
-            props.transformTemplate,
-            (props as any).style
-        )
-    }
-
-    renderInstance(
-        instance: SVGElement,
-        renderState: SVGRenderState,
-        styleProp?: MotionStyle | undefined,
-        projection?: any
-    ): void {
-        renderSVG(instance, renderState, styleProp, projection)
-    }
+    bind = addSVGComponentValue
 
     mount(instance: SVGElement) {
         this.isSVGTag = isSVGTag(instance.tagName)

@@ -1,147 +1,70 @@
 import { styleSubjectEffect, StyleSubject } from "../../effects/style"
 import { svgSubjectEffect } from "../../effects/svg"
+import type { MotionNode } from "../../node/MotionNode"
 import { measureViewportBox } from "../../projection/utils/measure"
-import type { VisualElement } from "../../render/VisualElement"
+import { nodeStore } from "../../render/store"
 import { isSVGElement } from "../../utils/is-svg-element"
 import { activeScope } from "../../scope/active"
-import { MotionValue, Owner } from "../../value"
-import { transformGroups } from "../waapi/transforms/groups"
 import { DOMKeyframesResolver } from "../keyframes/DOMKeyframesResolver"
-import { AnimationElement } from "../keyframes/types"
 import { AnimationPlaybackControlsWithThen } from "../types"
-import {
-    animateEffectSubject,
-    animateValues,
-    EffectKeyframes,
-    EffectTransition,
-} from "./effects"
+import { animateValues, EffectKeyframes, EffectTransition } from "./effects"
 
-const noProps = {}
-
-type ElementEffect = typeof styleSubjectEffect
-
-const getElementEffect = (element: Element) =>
-    (isSVGElement(element)
-        ? svgSubjectEffect
-        : styleSubjectEffect) as ElementEffect
-
-/**
- * Presents an effect bound to a DOM element in the shape the DOM keyframe
- * resolver and WAAPI expect, which is that of a VisualElement. Holds no
- * state: everything delegates to the effect. Goes once the resolver takes
- * an effect and subject directly.
- */
-class EffectSubject implements AnimationElement, Owner {
-    KeyframeResolver = DOMKeyframesResolver
-
-    constructor(private effect: ElementEffect, public current: StyleSubject) {}
-
-    getValue(key: string) {
-        return this.effect.get(this.current, key)
-    }
-
-    readValue(key: string, target?: unknown) {
-        return this.effect.read(this.current, key, target as any)
-    }
-
-    render() {
-        this.effect.flush(this.current)
-    }
-
-    measureViewportBox() {
-        return measureViewportBox(this.current as HTMLElement)
-    }
-
-    getProps() {
-        return noProps
-    }
+function measureNode(this: MotionNode<HTMLElement>) {
+    return measureViewportBox(this.current!)
 }
 
 /**
- * Animate a DOM element's styles. HTML elements are bound through
- * styleEffect, SVG through svgEffect, and both are resolved with the DOM
- * keyframe resolver so reads are batched, units are converted by
- * measurement and eligible values run on WAAPI.
+ * The node that owns a DOM element: its motion component's, or the one
+ * made by whichever of animate(), styleEffect(), svgEffect() or a
+ * gesture reached the element first.
  *
- * Pass the element's VisualElement (a <motion.*> component or an
- * animateLayout() node) to animate its values instead, so the two keep
- * sharing values and a renderer.
+ * Animating needs the node to resolve keyframes against the DOM, so
+ * reads are batched, units are converted by measurement and eligible
+ * values run on WAAPI. A node made by styleEffect() alone doesn't
+ * bundle that, so it's added here.
+ */
+export function getElementNode(element: StyleSubject): MotionNode {
+    let node = nodeStore.get(element)
+
+    if (!node) {
+        node = (
+            isSVGElement(element) ? svgSubjectEffect : styleSubjectEffect
+        ).node(element as any)
+    }
+
+    if (!node.KeyframeResolver) {
+        node.KeyframeResolver = DOMKeyframesResolver
+        node.measureViewportBox = measureNode
+    }
+
+    return node
+}
+
+/**
+ * Animate a DOM element's styles, on the values of the node that owns it.
  */
 export function animateElement(
     element: StyleSubject,
     keyframes: EffectKeyframes,
     transition?: EffectTransition,
-    visualElement?: VisualElement
+    node: MotionNode = getElementNode(element)
 ): AnimationPlaybackControlsWithThen[] {
     activeScope.current?.track(element)
 
-    if (visualElement) {
-        return animateValues(
-            (key) => visualElement.getValue(key, null),
-            keyframes,
-            transition,
-            visualElement
-        )
-    }
-
-    const effect = getElementEffect(element)
-
-    return animateEffectSubject(
-        effect,
-        element,
+    return animateValues(
+        (key) => node.getValue(key, null),
         keyframes,
         transition,
-        new EffectSubject(effect, element)
+        node
     )
 }
 
 /**
- * Detach the values styleEffect/svgEffect bound to `element`, so the
- * next animation reads its starting values from the DOM again.
+ * Detach the values bound to `element` by animate(), styleEffect() or
+ * svgEffect(), so the next animation reads its starting values from the
+ * DOM again. A motion component keeps its values.
  */
-export const releaseElement = (element: Element) =>
-    getElementEffect(element)
-        .state(element as StyleSubject)
-        ?.release()
-
-/**
- * Hand the values styleEffect/svgEffect are rendering on `element`,
- * whether bound by animate() or directly, to a VisualElement that now
- * owns the element (e.g. created by animateLayout()), so a single
- * renderer drives them alongside its own values.
- */
-export function handOffElementState(
-    element: Element,
-    visualElement: VisualElement
-) {
-    const state = getElementEffect(element).state(element as StyleSubject)
-    if (!state) return
-
-    /**
-     * A transform group reads values through the effect state, which is
-     * about to be emptied. Hand its animations to the main thread (writing
-     * their current transform) and detach it, so animations the
-     * VisualElement starts form a new group that reads from it.
-     */
-    const group = transformGroups.get(element)
-    if (group) {
-        group.demote()
-        transformGroups.delete(element)
-    }
-
-    const { transformKeys } = state
-    state.release().forEach((value: MotionValue, key: string) => {
-        /**
-         * The style effect derives transform (from the bound transform
-         * keys) and transformBox itself; a VisualElement builds its own.
-         */
-        const derived =
-            key === "transformBox" ||
-            (key === "transform" && transformKeys?.length)
-
-        if (!derived) {
-            value.owner = visualElement
-            visualElement.addValue(key, value)
-        }
-    })
+export const releaseElement = (element: Element) => {
+    const node = nodeStore.get(element)
+    node && !(node as any).mount && node.release()
 }

@@ -1,19 +1,13 @@
 import { createBox } from "../../projection/geometry/models"
-import { ResolvedValues } from "../types"
+import type { MotionNode } from "../../node/MotionNode"
+import type { MotionValue } from "../../value"
 import { VisualElement } from "../VisualElement"
-
-interface ObjectRenderState {
-    output: ResolvedValues
-}
 
 function isObjectKey(key: string, object: Object): key is keyof Object {
     return key in object
 }
 
-export class ObjectVisualElement extends VisualElement<
-    Object,
-    ObjectRenderState
-> {
+export class ObjectVisualElement extends VisualElement<Object> {
     type = "object"
 
     readValueFromInstance(instance: Object, key: string) {
@@ -31,24 +25,19 @@ export class ObjectVisualElement extends VisualElement<
         return undefined
     }
 
-    removeValueFromRenderState(
-        key: string,
-        renderState: ObjectRenderState
-    ): void {
-        delete renderState.output[key]
-    }
-
     measureInstanceViewportBox() {
         return createBox()
     }
 
-    build(renderState: ObjectRenderState, latestValues: ResolvedValues) {
-        Object.assign(renderState.output, latestValues)
-    }
-
-    renderInstance(instance: Object, { output }: ObjectRenderState) {
-        Object.assign(instance, output)
-    }
+    bind = (
+        instance: any,
+        node: MotionNode,
+        key: string,
+        value?: MotionValue
+    ) =>
+        node.set(key, value, () => {
+            instance[key] = node.latestValues[key]
+        })
 
     sortInstanceNodePosition() {
         return 0

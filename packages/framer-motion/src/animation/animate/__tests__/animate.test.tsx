@@ -3,6 +3,7 @@ import {
     motionValue,
     MotionValue,
     scopeMotion,
+    VisualElement,
     visualElementStore,
 } from "motion-dom"
 import { useEffect } from "react"
@@ -553,7 +554,10 @@ describe("animate", () => {
         document.body.appendChild(element)
 
         const animation = animate(element, { x: 100 }, { duration })
-        expect(visualElementStore.has(element)).toBe(false)
+        // The element has a node, which is the light base class
+        expect(visualElementStore.get(element)).not.toBeInstanceOf(
+            VisualElement
+        )
 
         await animation
         await nextFrame()

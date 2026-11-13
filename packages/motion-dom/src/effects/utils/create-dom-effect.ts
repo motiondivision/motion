@@ -3,7 +3,7 @@ import {
     resolveElements,
 } from "../../utils/resolve-elements"
 import { MotionValue } from "../../value"
-import { MotionValueState } from "../MotionValueState"
+import type { MotionNode } from "../../node/MotionNode"
 import {
     AnimateEffect,
     Effect,
@@ -26,7 +26,7 @@ export interface SelectorEffect<T extends object> extends EffectOptions<T> {
     get(subject: T, key: string): MotionValue | undefined
 
     flush(subject: T): void
-    state(subject: T): MotionValueState | undefined
+    state(subject: T): MotionNode | undefined
 }
 
 export interface SelectorAnimateEffect<T extends object>

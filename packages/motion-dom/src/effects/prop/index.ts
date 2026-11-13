@@ -1,6 +1,6 @@
 import { isObject } from "motion-utils"
 import { MotionValue } from "../../value"
-import { MotionValueState } from "../MotionValueState"
+import type { MotionNode } from "../../node/MotionNode"
 import { createEffect } from "../utils/create-effect"
 
 interface PropSubject {
@@ -14,7 +14,7 @@ interface PropSubject {
 export const propEffect = /*@__PURE__*/ createEffect(
     (
         subject: PropSubject,
-        state: MotionValueState,
+        state: MotionNode,
         key: string,
         value: MotionValue
     ) => {
@@ -22,7 +22,7 @@ export const propEffect = /*@__PURE__*/ createEffect(
             key,
             value,
             () => {
-                subject[key] = value.get()
+                subject[key] = state.latestValues[key]
             }
         )
     },

@@ -19,8 +19,7 @@ import { useConstant } from "../../utils/use-constant"
 import { resolveMotionValue } from "motion-dom"
 import { MotionProps } from "../types"
 
-export interface VisualState<Instance, RenderState> {
-    renderState: RenderState
+export interface VisualState<Instance, _RenderState = any> {
     latestValues: ResolvedValues
     onMount?: (instance: Instance) => void
 }
@@ -32,14 +31,14 @@ export type UseVisualState<Instance, RenderState> = (
 
 export interface UseVisualStateConfig<RenderState> {
     scrapeMotionValuesFromProps: ScrapeMotionValuesFromProps
-    createRenderState: () => RenderState
+    /**
+     * @deprecated Values are written by the node, which keeps no render state.
+     */
+    createRenderState?: () => RenderState
 }
 
 function makeState<I, RS>(
-    {
-        scrapeMotionValuesFromProps,
-        createRenderState,
-    }: UseVisualStateConfig<RS>,
+    { scrapeMotionValuesFromProps }: UseVisualStateConfig<RS>,
     props: MotionProps,
     context: MotionContextProps,
     presenceContext: PresenceContextProps | null
@@ -51,7 +50,6 @@ function makeState<I, RS>(
             presenceContext,
             scrapeMotionValuesFromProps
         ),
-        renderState: createRenderState(),
     }
 
     return state

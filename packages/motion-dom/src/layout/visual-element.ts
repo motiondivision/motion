@@ -1,42 +1,28 @@
-import { handOffElementState } from "../animation/animate/element"
 import { hasTransform } from "../projection/utils/has-transform"
 import { HTMLVisualElement } from "../render/html/HTMLVisualElement"
-import { visualElementStore } from "../render/store"
+import { nodeStore } from "../render/store"
+import { VisualElement } from "../render/VisualElement"
 
 /**
  * Get the VisualElement that imperative APIs like animateLayout() and
  * drag() render an element with, creating one if it has none, ready for
- * a projection node to be attached.
+ * a projection node to be attached. Values animate() has been rendering
+ * on the element move to it when it mounts.
  */
 export function resolveVisualElement(element: HTMLElement): HTMLVisualElement {
-    let visualElement = visualElementStore.get(element) as
-        | HTMLVisualElement
-        | undefined
+    let visualElement = nodeStore.get(element) as HTMLVisualElement | undefined
 
-    if (!visualElement) {
+    if (!(visualElement instanceof VisualElement)) {
         visualElement = new HTMLVisualElement(
             {
                 props: {},
                 presenceContext: null,
-                visualState: {
-                    latestValues: {},
-                    renderState: {
-                        transform: {},
-                        transformOrigin: {},
-                        style: {},
-                        vars: {},
-                    },
-                },
+                visualState: { latestValues: {} },
             },
             { allowProjection: true }
         )
 
-        /**
-         * Values animate() has been rendering on this element move to
-         * the VisualElement, so the layout animation composes with
-         * them instead of overwriting them.
-         */
-        handOffElementState(element, visualElement)
+        visualElement.adopt(element)
     }
 
     /**
