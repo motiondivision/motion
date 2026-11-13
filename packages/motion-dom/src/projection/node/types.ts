@@ -93,8 +93,8 @@ export interface IProjectionNode<I = unknown> {
     written: ResolvedValues
     prepareFlush(node: any): void
     needsShow?: boolean
-    startUpdate(): void
-    willUpdate(notifyListeners?: boolean): void
+    startUpdate(isUnmount?: boolean): void
+    willUpdate(notifyListeners?: boolean, isUnmount?: boolean): void
     didUpdate(): void
     measure(removeTransform?: boolean): Measurements
     measurePageBox(): Box
