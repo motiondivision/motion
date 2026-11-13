@@ -73,13 +73,12 @@ export function animateValues(
     const reduceMotion = transition.reduceMotion ?? element?.shouldReduceMotion
 
     /**
-     * Only elements have x/y to move along a path, or a renderer to claim
-     * keys. Both claim keys by deleting them, so hand them a copy.
+     * Only elements have x/y to move along a path. path claims them by
+     * deleting them, so hand it a copy.
      */
-    if (element && (path?.animateValues || element.claimTarget)) {
+    if (path?.animateValues && element) {
         keyframes = { ...keyframes }
-        path?.animateValues?.(getValue, keyframes, transition, 0, animations)
-        element.claimTarget?.(keyframes, transition, 0, animations)
+        path.animateValues(getValue, keyframes, transition, 0, animations)
     }
 
     for (const key in keyframes) {

@@ -649,20 +649,11 @@ export type SVGPathKeyframesDefinition = {
     [K in keyof SVGPathProperties]?: ValueKeyframesDefinition
 }
 
-export interface FXKeyframesDefinition {
-    /**
-     * The effects of one element that a canvas layer draws, as the
-     * `shaders` of an `<FX>`. Only the options named here are animated.
-     */
-    shaders?: unknown[]
-}
-
 export type DOMKeyframesDefinition = StyleKeyframesDefinition &
     SVGKeyframesDefinition &
     SVGPathKeyframesDefinition &
     SVGForcedAttrKeyframesDefinition &
-    VariableKeyframesDefinition &
-    FXKeyframesDefinition
+    VariableKeyframesDefinition
 
 export interface Target extends DOMKeyframesDefinition {}
 
@@ -768,18 +759,6 @@ export interface MotionPath {
     ): void
     interpolateProjection(delta: Delta): PathInterpolator | undefined
 }
-
-/**
- * Lets a renderer animate keys of a target itself: it deletes them from
- * `target` and pushes their animations to `animations`. Called before the
- * remaining values are animated.
- */
-export type ClaimTarget = (
-    target: { [key: string]: unknown },
-    transition: Transition | undefined,
-    delay: number,
-    animations: AnimationPlaybackControlsWithThen[]
-) => void
 
 export type DynamicOption<T> = (i: number, total: number) => T
 

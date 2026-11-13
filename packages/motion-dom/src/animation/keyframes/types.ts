@@ -1,6 +1,5 @@
 import { Box } from "motion-utils"
 import type { MotionValue, Owner } from "../../value"
-import type { ClaimTarget } from "../types"
 import type { KeyframeResolver } from "./KeyframesResolver"
 
 /**
@@ -35,5 +34,4 @@ export interface AnimationElement
     KeyframeResolver?: typeof KeyframeResolver
     shouldSkipAnimations?: boolean
     shouldReduceMotion?: boolean | null
-    claimTarget?: ClaimTarget
 }

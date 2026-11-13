@@ -6,7 +6,7 @@ import { setTarget } from "../../render/utils/setters"
 import { addValueToWillChange } from "../../value/will-change/add-will-change"
 import { getOptimisedAppearId } from "../optimized-appear/get-appear-id"
 import { animateMotionValue } from "./motion-value"
-import type { MotionPath, ValueKeyframesDefinition } from "../types"
+import type { MotionPath } from "../types"
 import type { VisualElementAnimationOptions } from "./types"
 import type { AnimationPlaybackControlsWithThen } from "../types"
 import type { TargetAndTransition } from "../../node/types"
@@ -81,16 +81,12 @@ export function animateTarget(
               )
     }
 
-    visualElement.claimTarget?.(target, transition, delay, animations)
-
     for (const key in target) {
         const value = visualElement.getValue(
             key,
             visualElement.latestValues[key] ?? null
         )
-        const valueTarget = target[
-            key as keyof typeof target
-        ] as ValueKeyframesDefinition | undefined
+        const valueTarget = target[key as keyof typeof target]
 
         if (
             valueTarget === undefined ||
