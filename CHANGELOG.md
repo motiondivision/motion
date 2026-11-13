@@ -4,6 +4,16 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## [14.14.0] 2026-11-13
+
+### Added
+
+-   Internal exports for use inside Motion UI.
+
+### Fixed
+
+-   `LazyMotion`: Fix async hydration blink.
+
 ## [14.13.0] 2026-11-12
 
 ### Added
