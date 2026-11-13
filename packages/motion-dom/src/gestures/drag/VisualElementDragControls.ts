@@ -165,6 +165,17 @@ export class VisualElementDragControls {
          */
         if (this.visualElement.presenceContext?.isPresent === false) return
 
+        /**
+         * Stop the press starting a native text selection (#4053, #1489).
+         * user-select: none doesn't do this in WebKit, or when the press
+         * starts on a selectable child via dragControls. That selection's
+         * autoscroll scrolls a scroll container towards the pointer, we
+         * move the dragged element by as much to keep it under the
+         * pointer, which grows the container's overflow, so it never runs
+         * out of room to scroll. Touch has no such selection.
+         */
+        if (originEvent.pointerType !== "touch") originEvent.preventDefault()
+
         const onSessionStart = (event: PointerEvent) => {
             if (options.snapToCursor) this.snapToCursor(event)
             this.stopAnimation()
@@ -798,7 +809,9 @@ export class VisualElementDragControls {
                 if (drag && dragListener && !isClickingTextInputChild) {
                     this.start(event)
                 }
-            }
+            },
+            // Not passive, so start() can prevent the press's default
+            { passive: false }
         )
 
         /**
