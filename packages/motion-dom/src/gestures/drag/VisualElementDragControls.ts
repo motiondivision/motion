@@ -453,7 +453,12 @@ export class VisualElementDragControls {
                 this,
                 dragConstraints,
                 "layout",
-                isConstraints(dragConstraints) ? dragConstraints : undefined
+                isConstraints(dragConstraints)
+                    ? dragConstraints.bind(this.visualElement.current!, () => [
+                          this.getAxisMotionValue("x").get(),
+                          this.getAxisMotionValue("y").get(),
+                      ])
+                    : undefined
             )
         }
     }

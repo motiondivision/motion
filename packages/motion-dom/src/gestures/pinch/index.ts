@@ -365,11 +365,13 @@ export function addPinchListeners(
     let ownConstraints: unknown
     let lastConstraints: unknown
 
+    const getXY = (): [number, number] => {
+        const [, , x, y] = getValues()
+        return [x.get(), y.get()]
+    }
+
     const createElementBounds = (target: any, type?: ConstraintsType) =>
-        createBounds(element, target, type, () => {
-            const [, , x, y] = getValues()
-            return [x.get(), y.get()]
-        })
+        createBounds(element, target, type, getXY)
 
     /**
      * Set `constraints` as the element's constraints when they change,
@@ -388,7 +390,7 @@ export function addPinchListeners(
                 constraints,
                 constraintsType,
                 isConstraints(constraints)
-                    ? constraints
+                    ? constraints.bind(element, getXY)
                     : createElementBounds(constraints, constraintsType)
             )
     }

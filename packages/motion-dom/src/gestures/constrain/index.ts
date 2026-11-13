@@ -196,6 +196,12 @@ export interface Bounds extends Constraints {
     /**
      * Where a point shown with elastic would be without it.
      */
+    /**
+     * These constraints for `element`. Constraints created without an
+     * element create a copy for each element a gesture uses them on.
+     */
+    bind(element: Element, getXY: () => [unknown, unknown]): Bounds
+
     unconstrain(
         point: Point,
         transform: Partial<ConstraintsTransform>,
@@ -238,7 +244,7 @@ const alongRegion = (
  * DOM.
  */
 export function createBounds(
-    element: Element,
+    element: Element | undefined,
     target: ConstraintsTarget,
     type: ConstraintsType = "visual",
     getXY: () => [unknown, unknown],
@@ -255,8 +261,20 @@ export function createBounds(
     const resolveTarget = () =>
         target && "current" in target ? target.current : target
 
+    /**
+     * Without an element, the constraints a gesture last bound.
+     */
+    let bound: Bounds | undefined
+
     const bounds: Bounds = {
+        bind(el, xy) {
+            return element
+                ? bounds
+                : (bound = createBounds(el, target, type, xy, align))
+        },
         measure() {
+            if (!element) return bound?.measure()
+
             const constraint = resolveTarget()
             if (!isElement(constraint)) return
 
@@ -282,6 +300,8 @@ export function createBounds(
             }
 
             if (!isElement(constraint)) return toRegion(constraint || {})
+            if (!element)
+                return bound ? bound.region({ scale, rotate }) : toRegion({})
 
             frameBox || bounds.measure()
             if (!frameBox) return toRegion({})
@@ -391,6 +411,17 @@ export function createBounds(
 }
 
 /**
+ * Whether `constrain()`'s second argument is its options, so it was called
+ * without an element. Elements are checked first, as a <div> has `align`.
+ */
+const isOptions = (value: unknown) =>
+    value === undefined ||
+    (!!value &&
+        typeof value === "object" &&
+        !isElement(value) &&
+        ("type" in value || "align" in value))
+
+/**
  * Set the constraints of an element's `drag()` and `pinch()` gestures in
  * one call. It's a shortcut for setting `constraints` on both, and like
  * those, replaces constraints set before. Returns the constraints:
@@ -405,17 +436,50 @@ export function createBounds(
  * bounds.at({ scale: 2.5 })
  * ```
  *
+ * Without an element, it creates constraints to pass to a gesture's
+ * `constraints` (or React's `dragConstraints`). Each element a gesture
+ * uses them on is measured separately:
+ *
+ * ```jsx
+ * const bounds = useMemo(() => constrain(frameRef, { align: 0.5 }), [])
+ *
+ * <motion.img drag pinch dragConstraints={bounds} />
+ * ```
+ *
  * Constraints only apply to gestures: `animate()` can still move the
  * element outside them.
  *
  * @public
  */
 export function constrain(
+    target: ConstraintsTarget,
+    options?: ConstrainOptions
+): Constraints
+export function constrain(
     elementOrSelector: ElementOrSelector,
     target: ConstraintsTarget,
-    { type = "visual", align }: ConstrainOptions = {}
+    options?: ConstrainOptions
+): Constraints
+export function constrain(
+    elementOrTarget: ElementOrSelector | ConstraintsTarget,
+    targetOrOptions?: ConstraintsTarget | ConstrainOptions,
+    options?: ConstrainOptions
 ): Constraints {
-    const element = resolveElements(elementOrSelector)[0]
+    if (isOptions(targetOrOptions)) {
+        const { type = "visual", align } =
+            (targetOrOptions as ConstrainOptions) || {}
+        return createBounds(
+            undefined,
+            elementOrTarget as ConstraintsTarget,
+            type,
+            () => [0, 0],
+            align
+        )
+    }
+
+    const { type = "visual", align } = options || {}
+    const element = resolveElements(elementOrTarget as ElementOrSelector)[0]
+    const target = targetOrOptions as ConstraintsTarget
     const bounds = createBounds(
         element,
         target,
