@@ -39,7 +39,7 @@ const createVisualElement = (
     Element: typeof HTMLVisualElement | typeof SVGVisualElement,
     latestValues = {},
     props = {}
-) =>
+): VisualElement<any> =>
     new Element(
         { props, presenceContext: null, visualState: { latestValues } },
         {}
