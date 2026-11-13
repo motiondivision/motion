@@ -707,3 +707,52 @@ describe("align", () => {
         expect(xOf(element)).toBe(0)
     })
 })
+
+describe("constrain() without an element", () => {
+    test("drag binds it to its element", async () => {
+        const { element, frameElement } = setup()
+        const bounds = constrain(frameElement, { align: { y: 0.5 } })
+        stops.push(drag(element, { ...stiff, constraints: bounds }))
+
+        await dragTo(element, 300)
+        expect(xOf(element)).toBe(100)
+
+        // Bound to the element, so the limits follow its scale
+        expect(bounds.at({ scale: 2 }).right).toBe(50)
+    })
+
+    test("pinch binds it to its element, and drag shares it", async () => {
+        const { element, frameElement } = setup()
+        stops.push(
+            pinch(element, {
+                ...fixed,
+                constraints: constrain(frameElement),
+            }),
+            drag(element, stiff)
+        )
+        scaleTo(element, 2)
+
+        await pan(element, 0)
+        await lift()
+        await dragTo(element, 300)
+        expect(xOf(element)).toBe(50)
+    })
+
+    test("each element gets its own bounds", async () => {
+        const { element, frameElement } = setup()
+        const other = document.createElement("div")
+        frameElement.appendChild(other)
+        layout(other, 100, 150)
+
+        const shared = constrain(frameElement)
+        stops.push(
+            drag(element, { ...stiff, constraints: shared }),
+            drag(other, { ...stiff, constraints: shared })
+        )
+
+        await dragTo(element, 300)
+        await dragTo(other, 300)
+        expect(xOf(element)).toBe(100)
+        expect(xOf(other)).toBe(150)
+    })
+})
