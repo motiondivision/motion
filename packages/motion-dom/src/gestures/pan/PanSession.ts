@@ -58,7 +58,12 @@ export class PanSession {
 
     private startEvent: PointerEvent | null = null
 
-    private lastMoveEvent: PointerEvent | null = null
+    /**
+     * The latest pointermove, which may not have been processed yet. Public,
+     * with handlePointerMove, so Reorder.Board can pass one this session
+     * hasn't processed on to the drag that carries on from it.
+     */
+    lastMoveEvent: PointerEvent | null = null
 
     private lastMoveEventInfo: EventInfo | null = null
 
@@ -283,7 +288,7 @@ export class PanSession {
         onMove?.(this.lastMoveEvent, info)
     }
 
-    private handlePointerMove = (event: PointerEvent, info: EventInfo) => {
+    handlePointerMove = (event: PointerEvent, info: EventInfo) => {
         /**
          * This event's pageX/pageY already include any window scroll that
          * hasn't fired its scroll event yet. Settle it now, so that scroll

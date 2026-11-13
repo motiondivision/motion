@@ -135,6 +135,52 @@ describe("Reorder.Board", () => {
         cy.get("[data-testid='drags']").should("have.text", "1,1")
     })
 
+    it("carries on from a move made while the item moves to another group", () => {
+        let start: Point
+        let target: Point
+        let moved: Point
+
+        item("d").then(([d]) => {
+            const { x, y } = centre(d)
+            target = { x, y: y + 15 }
+            moved = { x: x + 30, y: y + 25 }
+        })
+        item("a")
+            .then(([a]) => {
+                start = centre(a)
+                pointer(a, "pointerdown", start)
+            })
+            .then(() => moveTo(start, { x: start.x + 10, y: start.y }, 2))
+            .wait(400)
+
+        // Over "doing", then move again once that frame has moved the item
+        // there but before React commits the move
+        cy.get("body").then(([body]) => {
+            const win = body.ownerDocument.defaultView!
+            pointer(body, "pointermove", target)
+            win.requestAnimationFrame(() =>
+                pointer(body, "pointermove", moved)
+            )
+        })
+
+        cy.get("[data-testid='state']").should(
+            "have.text",
+            "todo:b,c doing:d,a,e done:"
+        )
+
+        // It follows that last move, rather than stopping where the move
+        // to "doing" began
+        item("a").should(([a]) => {
+            expect(a.parentElement!.dataset.testid).to.equal("doing")
+            const { x, y } = centre(a)
+            expect(x).to.be.closeTo(moved.x, 3)
+            expect(y).to.be.closeTo(moved.y, 3)
+        })
+
+        cy.get("body").then(([body]) => pointer(body, "pointerup", moved))
+        cy.get("[data-testid='drags']").should("have.text", "1,1")
+    })
+
     it("drags an item into an empty group", () => {
         let start: Point
         let target: Point
@@ -253,6 +299,66 @@ describe("Reorder.Board in a scrolling board", () => {
                 expect(a.getBoundingClientRect().top).to.be.closeTo(slot, 1)
             })
         })
+        cy.get("[data-testid='drags']").should("have.text", "1,1")
+    })
+
+    it("scrolls the board from a move made while the item moves to another group", () => {
+        let start: Point
+        let over: Point
+        let edge: Point
+
+        // Scroll "done" into view, short of where the board scrolls across
+        cy.get("[data-testid='board']")
+            .then(([board]) => {
+                const { right } = board.getBoundingClientRect()
+                const { left } = board.children[2].getBoundingClientRect()
+                board.scrollLeft += left - (right - 120)
+            })
+            .nextFrame()
+            .then(([board]) => {
+                const { right } = board.getBoundingClientRect()
+                const { left } = board.children[2].getBoundingClientRect()
+                over = { x: left + 1, y: 0 }
+                edge = { x: right - 20, y: 0 }
+                // With some way left to scroll
+                expect(board.scrollWidth - board.clientWidth).to.be.greaterThan(
+                    board.scrollLeft + 10
+                )
+            })
+        item("d")
+            .then(([d]) => {
+                start = centre(d)
+                over.y = edge.y = start.y
+                pointer(d, "pointerdown", start)
+            })
+            .then(() => moveTo(start, { x: over.x - 10, y: start.y }, 6))
+
+        // Over "done", then by the board's edge once that frame has moved
+        // the item there but before React commits the move
+        cy.get("body").then(([body]) => {
+            const win = body.ownerDocument.defaultView!
+            pointer(body, "pointermove", over)
+            win.requestAnimationFrame(() =>
+                pointer(body, "pointermove", edge)
+            )
+        })
+        cy.get("[data-testid='state']").should(
+            "have.text",
+            "todo:a,b,c doing:e done:d"
+        )
+
+        // Held there, the board scrolls across to its end
+        cy.get("[data-testid='board']").should(([board]) => {
+            expect(board.scrollLeft).to.be.closeTo(
+                board.scrollWidth - board.clientWidth,
+                1
+            )
+        })
+        item("d").should(([d]) => {
+            expect(centre(d).x).to.be.closeTo(edge.x, 3)
+        })
+
+        cy.get("body").then(([body]) => pointer(body, "pointerup", edge))
         cy.get("[data-testid='drags']").should("have.text", "1,1")
     })
 })

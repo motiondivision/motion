@@ -40,7 +40,13 @@ export const App = () => {
                             key={id}
                             style={{
                                 flexShrink: 0,
+                                /**
+                                 * Wide enough for a scrollbar, which a
+                                 * dragged item can show, without widening
+                                 * the column and the board's scroll range.
+                                 */
                                 ...(overflow && {
+                                    width: 140,
                                     height: 320,
                                     overflowY: "auto",
                                 }),
