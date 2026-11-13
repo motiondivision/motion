@@ -63,11 +63,12 @@ export function animateElement(
 /**
  * Detach the values bound to `element` by animate(), styleEffect() or
  * svgEffect(), so the next animation reads its starting values from the
- * DOM again. A motion component keeps its values.
+ * DOM again. A motion component keeps its values, as does an element
+ * that has a projection node.
  */
 export const releaseElement = (element: Element) => {
     const node = nodeStore.get(element)
-    node && !(node as any).mount && releaseNode(node)
+    node && !(node as any).scheduleRender && releaseNode(node)
 }
 
 /**

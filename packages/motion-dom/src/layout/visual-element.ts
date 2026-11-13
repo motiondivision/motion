@@ -1,28 +1,26 @@
 import { adoptElement } from "../animation/animate/element"
 import { hasTransform } from "../projection/utils/has-transform"
-import { HTMLVisualElement } from "../render/html/HTMLVisualElement"
+import { HTMLNode } from "../render/html/HTMLNode"
 import { nodeStore } from "../render/store"
-import { VisualElement } from "../render/VisualElement"
+import type { VisualElement } from "../render/VisualElement"
 
 /**
- * Get the VisualElement that imperative APIs like animateLayout() and
- * drag() render an element with, creating one if it has none, ready for
- * a projection node to be attached. Values animate() has been rendering
- * on the element move to it when it mounts.
+ * Get the node that imperative APIs like animateLayout() and drag()
+ * render an element with, ready for a projection node to be attached:
+ * its motion component's, or an HTMLNode, which is made if it has
+ * neither. Values animate() has been rendering on the element move to
+ * the new node.
+ *
+ * It's typed as the VisualElement a projection node is written for. An
+ * HTMLNode has the parts of one that a projection node uses.
  */
-export function resolveVisualElement(element: HTMLElement): HTMLVisualElement {
-    let visualElement = nodeStore.get(element) as HTMLVisualElement | undefined
+export function resolveVisualElement(
+    element: HTMLElement
+): VisualElement<HTMLElement> {
+    let visualElement = nodeStore.get(element) as any
 
-    if (!(visualElement instanceof VisualElement)) {
-        visualElement = new HTMLVisualElement(
-            {
-                props: {},
-                presenceContext: null,
-                visualState: { latestValues: {} },
-            },
-            { allowProjection: true }
-        )
-
+    if (!visualElement?.scheduleRender) {
+        visualElement = new HTMLNode(element)
         adoptElement(element, visualElement)
     }
 
