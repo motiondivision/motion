@@ -579,19 +579,20 @@ export abstract class VisualElement<
      * they're first rendered.
      */
     protected queueAll() {
-        if (this.current) {
-            for (const key in this.latestValues) {
-                this.bindings.has(key) || this.bindValue(key)
-            }
+        for (const key in this.latestValues) {
+            this.bindings.has(key) || this.bindValue(key)
         }
 
         super.queueAll()
     }
 
     /**
-     * Schedule every key to be written in the next frame.
+     * Schedule every key to be written in the next frame. Before mount
+     * there's nothing to write to, and the component's first styles
+     * are rendered from its latest values.
      */
     scheduleRender = () => {
+        if (!this.current) return
         this.step(this.flush, false, true)
         this.queueAll()
     }

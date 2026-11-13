@@ -222,6 +222,23 @@ describe("MotionNode", () => {
         visualElement.unmount()
     })
 
+    it("writes a transformTemplate that was scheduled before mount", () => {
+        const element = document.createElement("div")
+        const visualElement = createVisualElement(
+            HTMLVisualElement,
+            {},
+            { transformTemplate: () => "translateX(10px)" }
+        )
+
+        visualElement.scheduleRender()
+        visualElement.mount(element)
+        visualElement.render()
+
+        expect(element.style.transform).toBe("translateX(10px)")
+
+        visualElement.unmount()
+    })
+
     it("writes an SVG component's values as attributes, and transforms as styles", async () => {
         const element = document.createElementNS(
             "http://www.w3.org/2000/svg",
