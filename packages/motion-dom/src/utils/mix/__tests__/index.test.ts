@@ -50,8 +50,8 @@ describe("mix", () => {
 
     test("mixes mismatched or exotic units via the complex mixer", () => {
         expect(mix("0px", "50%")(0.5)).toBe("25%")
-        // Exponents aren't a unit: same (odd) result as the complex mixer
-        expect(mix("1e2px", "3e2px")(0.5)).toBe("2e2px")
+        // Exponents fall through to the complex mixer, which reads 1e2 as 100
+        expect(mix("1e2px", "3e2px")(0.5)).toBe("200px")
         expect(mix("10px 0px", "20px 10px")(0.5)).toBe("15px 5px")
     })
 

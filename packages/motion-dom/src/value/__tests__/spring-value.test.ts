@@ -368,6 +368,20 @@ describe("attachSpring to a MotionValue source", () => {
     describe("on a manual clock", () => {
         withManualFrames()
 
+        test("keeps the unit of a value in exponent notation", async () => {
+            const value = springValue<string>("1e-7px")
+            value.set("100px")
+            await stepFrames(5)
+            expect(value.get()).toMatch(/^[\d.]+px$/)
+        })
+
+        test("keeps the unit of an uppercase exponent", async () => {
+            const value = springValue<string>("1E-7px")
+            value.set("100px")
+            await stepFrames(5)
+            expect(value.get()).toMatch(/^[\d.]+px$/)
+        })
+
         test("follows a source that already differs", async () => {
             const source = motionValue(100)
             const value = motionValue(0)

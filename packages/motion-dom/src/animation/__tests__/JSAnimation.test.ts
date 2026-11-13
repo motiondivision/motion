@@ -1246,8 +1246,12 @@ describe("JSAnimation", () => {
         const group = new GroupAnimation([animation])
         group.finished.then(() => (isResolved = true))
 
-        await nextFrame()
-        await nextFrame()
+        /**
+         * A stale, already-resolved finished promise resolves the group
+         * within microtasks. Check before the next frame can run, so a
+         * slow frame can't finish the 100ms animation first.
+         */
+        await new Promise((resolve) => setTimeout(resolve, 0))
         expect(isResolved).toBe(false)
 
         await group.finished
