@@ -19,7 +19,49 @@
 import { expect, Page, test } from "@playwright/test"
 import { frames } from "../gestures/drag-helpers"
 
-async function dragBelowContainer(page: Page) {
+/**
+ * Presses with page.mouse, or with a pen through Chromium's DevTools
+ * protocol: Chromium starts the same selection from a pen press.
+ */
+async function pointer(page: Page, pen: boolean) {
+    if (!pen) return page.mouse
+    const cdp = await page.context().newCDPSession(page)
+    let x = 0
+    let y = 0
+    let buttons = 0
+    const send = (type: "mouseMoved" | "mousePressed" | "mouseReleased") =>
+        cdp.send("Input.dispatchMouseEvent", {
+            type,
+            x,
+            y,
+            button: type === "mouseMoved" && !buttons ? "none" : "left",
+            buttons,
+            clickCount: 1,
+            pointerType: "pen",
+        })
+    return {
+        move: async (toX: number, toY: number, { steps = 1 } = {}) => {
+            const fromX = x
+            const fromY = y
+            for (let i = 1; i <= steps; i++) {
+                x = fromX + ((toX - fromX) * i) / steps
+                y = fromY + ((toY - fromY) * i) / steps
+                await send("mouseMoved")
+            }
+        },
+        down: async () => {
+            buttons = 1
+            await send("mousePressed")
+        },
+        up: async () => {
+            buttons = 0
+            await send("mouseReleased")
+        },
+    }
+}
+
+async function dragBelowContainer(page: Page, pen = false) {
+    const mouse = await pointer(page, pen)
     const container = page.locator("#scroll-container")
     await expect(page.locator("#item-5")).toBeVisible()
     await frames(page, 2)
@@ -40,18 +82,18 @@ async function dragBelowContainer(page: Page) {
 
     // Press Item 5's text and drag past the bottom of the container,
     // towards the Control text, then hold and wiggle there.
-    await page.mouse.move(start.x, start.y)
-    await page.mouse.down()
+    await mouse.move(start.x, start.y)
+    await mouse.down()
     await frames(page, 1)
-    await page.mouse.move(start.x, start.y + 10)
+    await mouse.move(start.x, start.y + 10)
     await frames(page, 1)
     const belowY = start.bottom + 40
-    await page.mouse.move(start.x, belowY, { steps: 15 })
+    await mouse.move(start.x, belowY, { steps: 15 })
 
     let maxScrollHeight = start.scrollHeight
     for (let i = 0; i < 40; i++) {
         await page.waitForTimeout(50)
-        await page.mouse.move(start.x + (i % 2 ? 2 : -2), belowY)
+        await mouse.move(start.x + (i % 2 ? 2 : -2), belowY)
         maxScrollHeight = Math.max(
             maxScrollHeight,
             await container.evaluate((c) => c.scrollHeight)
@@ -65,22 +107,27 @@ async function dragBelowContainer(page: Page) {
             selection: String(window.getSelection()),
         }
     })
-    await page.mouse.up()
+    await mouse.up()
 
     return { ...result, maxScrollHeight, startScrollHeight: start.scrollHeight }
 }
 
-for (const handle of [false, true]) {
+for (const [handle, pen] of [
+    [false, false],
+    [true, false],
+    [true, true],
+]) {
     test(`dragging below a scroll container doesn't grow it without bound${
         handle ? " (drag handle)" : ""
-    }`, async ({ page }) => {
+    }${pen ? " (pen)" : ""}`, async ({ page, browserName }) => {
+        test.skip(pen && browserName !== "chromium", "Pen input needs CDP")
         await page.goto(
             "?test=reorder-scroll-container-selection" +
                 (handle ? "&handle=1" : "")
         )
 
         const { scrollTop, selection, maxScrollHeight, startScrollHeight } =
-            await dragBelowContainer(page)
+            await dragBelowContainer(page, pen)
 
         /**
          * The dragged item may extend the container's overflow by roughly

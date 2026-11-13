@@ -95,9 +95,28 @@ test.describe("Reorder items with nested controls", () => {
         const before = await scrollY(page)
         const a = (await page.locator("#a-text").boundingBox())!
         await page.mouse.click(a.x + 2, a.y + 2)
-        expect(await focused(page)).toBe("a")
         expect(await scrollY(page)).toBe(before)
     })
+
+    /**
+     * A mouse press on an item has its default prevented (#4053), so it
+     * doesn't move focus, or blur a grabbed item. It drops it instead.
+     */
+    for (const [name, pressed] of [
+        ["another item", "#b-text"],
+        ["the grabbed item itself", "#a-text"],
+    ]) {
+        test(`pressing ${name} drops the grabbed item`, async ({ page }) => {
+            await page.focus("#a")
+            await page.keyboard.press("Space")
+            await expect.poll(() => grabbed(page)).toBe("a")
+            await page.click(pressed)
+            await expect.poll(() => grabbed(page)).toBe("")
+            // Arrows no longer move it
+            await page.keyboard.press("ArrowDown")
+            expect(await text(page, "#order")).toBe("a,b,c")
+        })
+    }
 
     test("dragging an item still reorders", async ({ page }) => {
         const a = (await page.locator("#a-text").boundingBox())!

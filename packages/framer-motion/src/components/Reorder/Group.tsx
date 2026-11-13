@@ -25,6 +25,7 @@ import {
     ReorderElementTag,
 } from "./types"
 import { checkReorder, keyTarget } from "./utils/check-reorder"
+import { keyGrab } from "./Item"
 import { detectAxis } from "./utils/detect-axis"
 import { mergeRefs } from "./utils/merge-refs"
 
@@ -352,9 +353,12 @@ export function ReorderGroupComponent<
              * release's click, or on the next press. Clicks with no
              * pointer press behind them (detail 0, e.g. keyboard) are left
              * alone.
+             * A press also drops a keyboard grab, here or in another group,
+             * even of the item pressed: the pointer takes over from there.
              */
             onPointerDownCapture={(event: React.PointerEvent<any>) => {
                 hasReordered.current = false
+                keyGrab.drop?.()
                 onPointerDownCapture?.(event)
             }}
             onClickCapture={(event: React.MouseEvent<any>) => {

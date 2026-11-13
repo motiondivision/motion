@@ -89,7 +89,8 @@ export default defineConfig({
          */
         {
             name: "react-19-webkit",
-            testMatch: /tests\/react\/reorder-scroll-container-selection\.spec\.ts/,
+            testMatch:
+                /tests\/react\/(reorder-scroll-container-selection|drag-press-text-input|reorder-board-press)\.spec\.ts/,
             use: {
                 ...devices["Desktop Safari"],
                 baseURL: "http://localhost:9991/",

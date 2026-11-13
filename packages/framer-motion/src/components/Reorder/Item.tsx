@@ -50,6 +50,12 @@ export interface Props<
     layout?: true | "position"
 }
 
+/**
+ * Drops the item grabbed with the keyboard, for a pointer press to call: a
+ * mouse press on an item doesn't move focus (#4053), so doesn't blur it.
+ */
+export const keyGrab: { drop?: VoidFunction } = {}
+
 function useDefaultMotionValue(value: any, defaultValue: number = 0) {
     return isMotionValue(value) ? value : useMotionValue(defaultValue)
 }
@@ -147,6 +153,7 @@ export function ReorderItemComponent<
      */
     const grab: Grab<V> = (element, from) => {
         grabbedFrom.current = from
+        keyGrab.drop = from && (() => grab(element))
         from || board?.end(value)
         visualElementStore
             .get(element)
