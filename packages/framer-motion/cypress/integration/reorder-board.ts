@@ -226,18 +226,25 @@ describe("Reorder.Board in a scrolling board", () => {
             })
             .then(() => moveTo(start, edge, 10))
 
-        // Held by its edge, the board scrolls across to its end, passing
-        // "done" under the item on the way
+        /**
+         * On the way, "done" passes under the item. Its drag there carries
+         * on from the last move its previous group handled: a move that
+         * arrived before the item did is dropped. So, once it's there,
+         * report the held pointer again, as a real one would.
+         */
+        cy.get("[data-testid='state']").should(
+            "have.text",
+            "todo:b,c doing:d,e done:a"
+        )
+        cy.get("body").then(([body]) => pointer(body, "pointermove", edge))
+
+        // Held by its edge, the board scrolls across to its end
         cy.get("[data-testid='board']").should(([board]) => {
             expect(board.scrollLeft).to.be.closeTo(
                 board.scrollWidth - board.clientWidth,
                 1
             )
         })
-        cy.get("[data-testid='state']").should(
-            "have.text",
-            "todo:b,c doing:d,e done:a"
-        )
 
         // The columns, which scroll down, don't scroll across
         cy.get("[data-testid='board'] > div").then((columns) => {
