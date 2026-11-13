@@ -1,8 +1,5 @@
 import { IProjectionNode } from "./types"
 
-const notify = (node: IProjectionNode) =>
-    !node.isLayoutDirty && node.willUpdate(false)
-
 export interface NodeGroup {
     add: (node: IProjectionNode) => void
     remove: (node: IProjectionNode) => void
@@ -13,7 +10,13 @@ export function nodeGroup(): NodeGroup {
     const nodes = new Set<IProjectionNode>()
     const subscriptions = new WeakMap<IProjectionNode, () => void>()
 
-    const dirtyAll = () => nodes.forEach(notify)
+    /**
+     * `isUnmount`: a member is unmounting, so React is changing the DOM.
+     */
+    const dirtyAll = (isUnmount?: boolean) =>
+        nodes.forEach(
+            (node) => !node.isLayoutDirty && node.willUpdate(false, isUnmount)
+        )
 
     return {
         add: (node) => {
@@ -30,7 +33,7 @@ export function nodeGroup(): NodeGroup {
                 unsubscribe()
                 subscriptions.delete(node)
             }
-            dirtyAll()
+            dirtyAll(true)
         },
         dirty: dirtyAll,
     }

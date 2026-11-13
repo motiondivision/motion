@@ -755,7 +755,7 @@ export function createProjectionNode<I>({
         }
 
         unmount() {
-            this.options.layoutId && this.willUpdate()
+            this.options.layoutId && this.willUpdate(true, true)
             this.root.nodes!.remove(this)
             this.getStack()?.remove(this)
             this.parent?.children.delete(this)
@@ -780,7 +780,7 @@ export function createProjectionNode<I>({
         }
 
         // Note: currently only running on root node
-        startUpdate() {
+        startUpdate(isUnmount?: boolean) {
             if (this.isUpdateBlocked()) return
 
             this.isUpdating = true
@@ -791,8 +791,12 @@ export function createProjectionNode<I>({
             /**
              * Before the DOM changes, and after the reset above. With this
              * update's animationId, so ancestors' scroll is read once.
+             *
+             * An update that starts in an unmount starts while React is
+             * already changing the DOM, too late for this snapshot, so
+             * dragged nodes use their last layout.
              */
-            this.nodes?.forEach(snapshotDragged)
+            isUnmount || this.nodes?.forEach(snapshotDragged)
         }
 
         getTransformTemplate() {
@@ -800,7 +804,7 @@ export function createProjectionNode<I>({
             return visualElement && visualElement.getProps().transformTemplate
         }
 
-        willUpdate(shouldNotifyListeners = true) {
+        willUpdate(shouldNotifyListeners = true, isUnmount?: boolean) {
             this.root.hasTreeAnimated = true
 
             if (this.root.isUpdateBlocked()) {
@@ -827,7 +831,7 @@ export function createProjectionNode<I>({
                 cancelTreeOptimisedTransformAnimations(this)
             }
 
-            !this.root.isUpdating && this.root.startUpdate()
+            !this.root.isUpdating && this.root.startUpdate(isUnmount)
 
             if (this.isLayoutDirty) return
 
@@ -2856,8 +2860,8 @@ function snapshotDragged(node: IProjectionNode) {
 /**
  * When a node is animation-blocked (e.g. during drag) and its component
  * didn't re-render (memoized), willUpdate() is never called so there's
- * no snapshot. Use the one startUpdate() took (or, if it was dragged since,
- * its previous layout) and mark dirty so
+ * no snapshot. Use the one startUpdate() took (or, if it took none or the
+ * node was dragged since, its previous layout) and mark dirty so
  * resetTransform/updateLayout/notifyLayoutUpdate process it normally.
  */
 function ensureDraggedNodesSnapshotted(node: IProjectionNode) {

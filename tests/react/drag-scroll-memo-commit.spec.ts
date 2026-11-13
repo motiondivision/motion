@@ -3,6 +3,10 @@
  * so its last layout can predate a scroll that its drag has since followed.
  * A render elsewhere then mustn't count that scroll again as a layout
  * change, moving the element off the pointer.
+ *
+ * The `&layoutScroll` variants never had that bug, as a `layoutScroll`
+ * ancestor's scroll is measured with its layouts. They guard the scroll that
+ * startUpdate() reads for a dragged element's snapshot instead.
  */
 import { expect, test } from "@playwright/test"
 

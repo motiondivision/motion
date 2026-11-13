@@ -91,8 +91,8 @@ export interface IProjectionNode<I = unknown> {
     isUpdating: boolean
     needsReset: boolean
     needsShow?: boolean
-    startUpdate(): void
-    willUpdate(notifyListeners?: boolean): void
+    startUpdate(isUnmount?: boolean): void
+    willUpdate(notifyListeners?: boolean, isUnmount?: boolean): void
     didUpdate(): void
     measure(removeTransform?: boolean): Measurements
     measurePageBox(): Box
