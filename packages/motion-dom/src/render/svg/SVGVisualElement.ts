@@ -10,82 +10,22 @@ import type { DOMVisualElementOptions } from "../dom/types"
 import { camelToDash } from "../dom/utils/camel-to-dash"
 import type { VisualElement } from "../VisualElement"
 import type { MotionNode } from "../../node/MotionNode"
-import { addStyleValue } from "../../effects/style"
-import { isSVGStyle } from "../../effects/svg"
-import { numberValueTypes } from "../../value/types/maps/number"
-import { getValueAsType } from "../../value/types/utils/get-as-type"
+import { getSVGRender } from "./utils/get-render"
 import { SVGRenderState } from "./types"
 import { cssStyleProperties } from "./utils/build-attrs"
 import { camelCaseAttributes } from "./utils/camel-case-attrs"
 import { isSVGTag } from "./utils/is-svg-tag"
 import { scrapeMotionValuesFromProps } from "./utils/scrape-motion-values"
 
-const attrKeys: { [key: string]: string } = {
-    attrX: "x",
-    attrY: "y",
-    attrScale: "scale",
-}
+const attrName = (name: string) =>
+    camelCaseAttributes.has(name) ? name : camelToDash(name)
 
-/**
- * Binds a key of a motion SVG component. Everything is an attribute,
- * except on the <svg> tag itself and for the values that only work, or
- * that WAAPI writes, as styles.
- */
 const addSVGComponentValue = (
     element: SVGElement,
     node: MotionNode,
     key: string,
     value?: MotionValue
-) => {
-    const { latestValues } = node
-    const isRoot = isSVGTag(element.tagName)
-
-    if (
-        isRoot
-            ? key !== "viewBox"
-            : isSVGStyle(key) ||
-              cssStyleProperties.includes(key) ||
-              key === "transformOrigin" ||
-              key === "transformBox"
-    ) {
-        return addStyleValue(element, node, key, value)
-    }
-
-    /**
-     * pathLength, pathSpacing and pathOffset are written together, as a
-     * dash pattern on a path normalised to a length of 1. Unitless, as
-     * Safari scales px values when the page is zoomed.
-     */
-    if (key.startsWith("path")) {
-        return node.set(
-            key,
-            value,
-            ((node.shared ||= {}).dash ||= () => {
-                const { pathLength, pathSpacing = 1, pathOffset = 0 } =
-                    latestValues
-                if (pathLength === undefined) return
-                element.setAttribute("pathLength", "1")
-                element.setAttribute("stroke-dashoffset", `${-pathOffset}`)
-                element.setAttribute(
-                    "stroke-dasharray",
-                    `${pathLength} ${pathSpacing}`
-                )
-            }),
-            true
-        )
-    }
-
-    const name =
-        attrKeys[key] ||
-        (camelCaseAttributes.has(key) ? key : camelToDash(key))
-
-    return node.set(key, value, () => {
-        element.setAttribute(
-            name,
-            getValueAsType(latestValues[key], numberValueTypes[key]) as string
-        )
-    })
-}
+) => node.set(key, value, getSVGRender(element, node, key, attrName))
 
 export class SVGVisualElement extends DOMVisualElement<
     SVGElement,
@@ -133,8 +73,7 @@ export class SVGVisualElement extends DOMVisualElement<
             if (typeof value === "string" && value) return value.trim()
         }
 
-        key = !camelCaseAttributes.has(key) ? camelToDash(key) : key
-        return instance.getAttribute(key)
+        return instance.getAttribute(attrName(key))
     }
 
     measureInstanceViewportBox = createBox

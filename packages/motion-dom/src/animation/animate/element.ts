@@ -1,10 +1,11 @@
 import { styleSubjectEffect, StyleSubject } from "../../effects/style"
 import { svgSubjectEffect } from "../../effects/svg"
-import type { MotionNode } from "../../node/MotionNode"
+import { releaseNode, type MotionNode } from "../../node/MotionNode"
 import { measureViewportBox } from "../../projection/utils/measure"
 import { nodeStore } from "../../render/store"
 import { isSVGElement } from "../../utils/is-svg-element"
 import { activeScope } from "../../scope/active"
+import { transformGroups } from "../waapi/transforms/groups"
 import { DOMKeyframesResolver } from "../keyframes/DOMKeyframesResolver"
 import { AnimationPlaybackControlsWithThen } from "../types"
 import { animateValues, EffectKeyframes, EffectTransition } from "./effects"
@@ -66,5 +67,35 @@ export function animateElement(
  */
 export const releaseElement = (element: Element) => {
     const node = nodeStore.get(element)
-    node && !(node as any).mount && node.release()
+    node && !(node as any).mount && releaseNode(node)
+}
+
+/**
+ * Hand the values a node is writing to `element` to a node that now
+ * owns the element (e.g. a VisualElement created by animateLayout()),
+ * so one node writes them alongside its own.
+ */
+export function adoptElement(element: Element, to: MotionNode) {
+    const from = nodeStore.get(element)
+
+    if (from && from !== to) {
+        /**
+         * A transform group reads values through the node that is about
+         * to be emptied. Hand its animations to the main thread (writing
+         * their current transform) and detach it, so animations the new
+         * owner starts form a new group that reads from it.
+         */
+        const group = transformGroups.get(element)
+        if (group) {
+            group.demote()
+            transformGroups.delete(element)
+        }
+
+        releaseNode(from).forEach((value, key) => {
+            value.owner = to
+            to.addValue(key, value)
+        })
+    }
+
+    nodeStore.set(element, to)
 }

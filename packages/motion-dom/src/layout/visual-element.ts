@@ -1,3 +1,4 @@
+import { adoptElement } from "../animation/animate/element"
 import { hasTransform } from "../projection/utils/has-transform"
 import { HTMLVisualElement } from "../render/html/HTMLVisualElement"
 import { nodeStore } from "../render/store"
@@ -22,7 +23,7 @@ export function resolveVisualElement(element: HTMLElement): HTMLVisualElement {
             { allowProjection: true }
         )
 
-        visualElement.adopt(element)
+        adoptElement(element, visualElement)
     }
 
     /**

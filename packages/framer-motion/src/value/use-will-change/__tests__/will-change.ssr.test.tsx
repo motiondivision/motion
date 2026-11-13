@@ -24,7 +24,7 @@ function runTests(render: (components: any) => string) {
         )
 
         expect(div).toBe(
-            `<div style="--color:#000;clip-path:inset(10px);transform:translateX(100px)"></div>`
+            `<div style="clip-path:inset(10px);--color:#000;transform:translateX(100px)"></div>`
         )
     })
 
@@ -87,7 +87,7 @@ function runTests(render: (components: any) => string) {
         )
 
         expect(div).toBe(
-            `<div style="--color:#000;will-change:opacity;transform:translateX(100px)"></div>`
+            `<div style="will-change:opacity;--color:#000;transform:translateX(100px)"></div>`
         )
     })
 

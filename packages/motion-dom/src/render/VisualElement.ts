@@ -372,35 +372,6 @@ export abstract class VisualElement<
         }
     }
 
-    /**
-     * Become the node of `instance`. Values another node has been
-     * writing to it (e.g. animate() ran on the element first) move
-     * here, so one node writes them alongside this one's.
-     */
-    adopt(instance: Instance) {
-        const prev = nodeStore.get(instance)
-
-        if (prev && prev !== this) {
-            /**
-             * A transform group reads values through the node that is
-             * about to be emptied. Hand its animations to the main
-             * thread and detach it, so the next form a new group.
-             */
-            const group = transformGroups.get(instance as any)
-            if (group) {
-                group.demote()
-                transformGroups.delete(instance as any)
-            }
-
-            prev.release().forEach((value, key) => {
-                value.owner = this
-                this.addValue(key, value)
-            })
-        }
-
-        nodeStore.set(instance, this)
-    }
-
     mount(instance: Instance) {
         /**
          * If this element has been mounted before (e.g. after a Suspense
@@ -421,9 +392,9 @@ export abstract class VisualElement<
             }
         }
 
-        this.adopt(instance)
-
         this.current = instance
+
+        nodeStore.set(instance, this)
 
         this.projection?.instance || this.projection?.mount(instance)
 
@@ -490,7 +461,15 @@ export abstract class VisualElement<
         this.projection?.unmount()
         cancelFrame(this.notifyUpdate)
         cancelFrame(this.flush)
-        this.unbindAll()
+
+        /**
+         * Stop listening to every value, keeping the values themselves,
+         * as the subject may come back.
+         */
+        this.bindings.forEach((binding) => binding.stop?.())
+        this.bindings.clear()
+        this.shared = undefined
+        this.numPending = 0
         this.removeFromVariantTree?.()
         this.parent?.removeChild(this)
 
@@ -577,6 +556,44 @@ export abstract class VisualElement<
                 }
             }
         }
+    }
+
+    hasValue(key: string) {
+        return this.values.has(key)
+    }
+
+    getStaticValue(key: string) {
+        return this.latestValues[key]
+    }
+
+    /**
+     * Set the latest value of a key without a motion value. It's written
+     * by the next render.
+     */
+    setStaticValue(key: string, value: AnyResolvedKeyframe) {
+        this.latestValues[key] = value
+    }
+
+    /**
+     * Keys that have a latest value but no motion value are bound when
+     * they're first rendered.
+     */
+    protected queueAll() {
+        if (this.current) {
+            for (const key in this.latestValues) {
+                this.bindings.has(key) || this.bindValue(key)
+            }
+        }
+
+        super.queueAll()
+    }
+
+    /**
+     * Schedule every key to be written in the next frame.
+     */
+    scheduleRender = () => {
+        this.step(this.flush, false, true)
+        this.queueAll()
     }
 
     protected onChange(key: string) {

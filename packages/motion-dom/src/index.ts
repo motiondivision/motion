@@ -322,6 +322,8 @@ export { NodeStack } from "./projection/shared/stack"
 // HTML/SVG utilities
 export { camelToDash } from "./render/dom/utils/camel-to-dash"
 export { buildHTMLStyles } from "./render/html/utils/build-styles"
+export { buildVisualProps } from "./render/utils/build-props"
+export { getSVGRender } from "./render/svg/utils/get-render"
 export { buildTransform } from "./render/html/utils/build-transform"
 export { scrapeMotionValuesFromProps as scrapeHTMLMotionValuesFromProps } from "./render/html/utils/scrape-motion-values"
 export { buildSVGAttrs } from "./render/svg/utils/build-attrs"

@@ -4,7 +4,7 @@ import { frame } from "../../../frameloop"
 import { HTMLVisualElement } from "../../../render/html/HTMLVisualElement"
 import { motionValue } from "../../../value"
 import { arc } from "../../utils/arc"
-import { animateElement } from "../element"
+import { adoptElement, animateElement } from "../element"
 
 async function nextFrame() {
     return new Promise<void>((resolve) => {
@@ -234,6 +234,7 @@ describe("animateElement", () => {
 
         // As animateLayout() does when it first meets the element
         const visualElement = createVisualElement()
+        adoptElement(element, visualElement)
         visualElement.mount(element)
 
         // The same values now live on the VisualElement...
@@ -266,7 +267,7 @@ describe("animateElement", () => {
         styleEffect(element, { rotate })
 
         const visualElement = createVisualElement()
-        visualElement.adopt(element)
+        adoptElement(element, visualElement)
 
         expect(visualElement.getValue("rotate")).toBe(rotate)
         expect(styleEffect.state(element)).toBe(visualElement)
@@ -276,7 +277,7 @@ describe("animateElement", () => {
         const element = document.createElement("div")
         const visualElement = createVisualElement()
 
-        expect(() => visualElement.adopt(element)).not.toThrow()
+        expect(() => adoptElement(element, visualElement)).not.toThrow()
         expect(visualElement.values.size).toBe(0)
     })
 

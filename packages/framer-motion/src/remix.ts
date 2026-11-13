@@ -1,15 +1,15 @@
 import {
     acquireProjectionNode,
     animateLayout,
-    buildHTMLStyles,
-    buildSVGAttrs,
+    buildVisualProps,
+    getStyleRender,
+    getSVGRender,
     flushLayoutSnapshots,
     frame,
     HTMLVisualElement,
     isControllingVariants,
     isForcedMotionValue,
     isMotionValue,
-    isSVGTag,
     isVariantNode,
     resolveMotionValue,
     resolveVariantFromProps,
@@ -503,14 +503,6 @@ function splitStyle(style: MotionStyle | undefined, props: MotionProps) {
     return css
 }
 
-const createRenderState = () => ({
-    style: {},
-    vars: {},
-    transform: {},
-    transformOrigin: {},
-    attrs: {},
-})
-
 /**
  * The style, and attributes for SVG, that render `latestValues`.
  */
@@ -520,19 +512,13 @@ function renderValues(
     tag: string,
     isSVG: boolean
 ): Values {
-    const state = createRenderState()
-    if (isSVG) {
-        buildSVGAttrs(
-            state,
-            latestValues,
-            isSVGTag(tag),
-            props.transformTemplate,
-            props.style
-        )
-    } else {
-        buildHTMLStyles(state, latestValues, props.transformTemplate)
-    }
-    return { ...state.attrs, style: { ...state.vars, ...state.style } }
+    const { attrs, style } = buildVisualProps(
+        isSVG ? getSVGRender : getStyleRender,
+        latestValues,
+        props,
+        isSVG ? tag : undefined
+    )
+    return { ...attrs, style: { ...style } }
 }
 
 /**

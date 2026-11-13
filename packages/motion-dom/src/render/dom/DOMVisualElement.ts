@@ -39,7 +39,14 @@ export abstract class DOMVisualElement<
             this.queue(getTransformRender(this.current!, this))
     }
 
-    protected afterRender() {
+    /**
+     * Projection styles are written over the values, after any of them
+     * is written.
+     */
+    private writeValues = this.flush
+
+    flush = () => {
+        this.writeValues()
         this.current &&
             this.projection?.applyProjectionStyles(
                 this.current.style,

@@ -6,19 +6,47 @@ import { nodeStore } from "../../render/store"
 import { transformProps } from "../../render/utils/keys-transform"
 import { isHTMLElement } from "../../utils/is-html-element"
 import { isSVGElement } from "../../utils/is-svg-element"
-import type { MotionNode } from "../../node/MotionNode"
+import type { MotionNode, NodeRender } from "../../node/MotionNode"
+import type { ResolvedValues } from "../../node/types"
 import { MotionValue } from "../../value"
 import { numberValueTypes } from "../../value/types/maps/number"
 import { getValueAsType } from "../../value/types/utils/get-as-type"
 import { createSelectorEffect } from "../utils/create-dom-effect"
 import { createEffect } from "../utils/create-effect"
 
-export const originProps = new Set(["originX", "originY", "originZ"])
+/**
+ * What a write function reads from: a node, or the values of a
+ * component that's rendering before it has one.
+ */
+export interface RenderSource {
+    latestValues: ResolvedValues
+    shared?: { [name: string]: NodeRender }
+    getProps(): any
+}
+
+/**
+ * What a write function uses of an element, so it can also write to an
+ * object that a component renders its first styles from.
+ */
+export type RenderTarget = HTMLElement | SVGElement
+
+/**
+ * A write function every key of a kind shares, e.g. each independent
+ * transform writes `transform`. Made once per node.
+ */
+export const sharedRender = (
+    node: RenderSource,
+    name: string,
+    create: () => NodeRender
+) => {
+    const shared = (node.shared ||= {})
+    return (shared[name] ||= Object.assign(create(), { shared: true }))
+}
 
 /**
  * A latest value in its default unit, e.g. `originX: 50` -> `"50%"`.
  */
-const styleValue = (node: MotionNode, key: string) =>
+const styleValue = (node: RenderSource, key: string) =>
     getValueAsType(node.latestValues[key], numberValueTypes[key])
 
 /**
@@ -29,13 +57,13 @@ const noTemplateTransforms = {}
 
 /**
  * The function that writes `transform` from the node's independent
- * transforms (`x`, `scale` etc). Every transform key shares it.
+ * transforms (`x`, `scale` etc).
  */
 export const getTransformRender = (
     element: HTMLElement | SVGElement,
-    node: MotionNode
+    node: RenderSource
 ) =>
-    ((node.shared ||= {}).transform ||= () => {
+    sharedRender(node, "transform", () => () => {
         transformGroups.get(element)?.check()
 
         const { latestValues } = node
@@ -59,46 +87,48 @@ export const getTransformRender = (
          * An SVG element's transforms are relative to its own box, with
          * the origin at its centre, as an HTML element's are.
          */
-        if (!isHTMLElement(element) && element.tagName !== "svg") {
-            style.transformBox ||
+        if (
+            (element as SVGElement).ownerSVGElement !== undefined &&
+            element.tagName !== "svg"
+        ) {
+            style.transformOrigin ||= "50% 50%"
+            style.transformBox ||=
                 latestValues.transformBox ||
-                (style.transformBox = "fill-box")
-            style.transformOrigin || (style.transformOrigin = "50% 50%")
+                node.getProps().style?.transformBox ||
+                "fill-box"
         }
     })
+
+/**
+ * The function that writes `key` to an element's style.
+ */
+export const getStyleRender = (
+    element: HTMLElement | SVGElement,
+    node: RenderSource,
+    key: string
+): NodeRender =>
+    transformProps.has(key)
+        ? getTransformRender(element, node)
+        : key.startsWith("origin")
+        ? sharedRender(node, "origin", () => () => {
+              element.style.transformOrigin = `${
+                  styleValue(node, "originX") ?? "50%"
+              } ${styleValue(node, "originY") ?? "50%"} ${
+                  styleValue(node, "originZ") ?? 0
+              }`
+          })
+        : isCSSVar(key)
+        ? () => element.style.setProperty(key, node.latestValues[key] as string)
+        : () => {
+              element.style[key as any] = styleValue(node, key) as string
+          }
 
 export const addStyleValue = (
     element: HTMLElement | SVGElement,
     node: MotionNode,
     key: string,
     value?: MotionValue
-) => {
-    let render: VoidFunction
-    let shared = false
-
-    if (transformProps.has(key)) {
-        render = getTransformRender(element, node)
-        shared = true
-    } else if (originProps.has(key)) {
-        render = (node.shared ||= {}).origin ||= () => {
-            const originX = styleValue(node, "originX") ?? "50%"
-            const originY = styleValue(node, "originY") ?? "50%"
-            const originZ = styleValue(node, "originZ") ?? 0
-            element.style.transformOrigin = `${originX} ${originY} ${originZ}`
-        }
-        shared = true
-    } else if (isCSSVar(key)) {
-        render = () => {
-            element.style.setProperty(key, node.latestValues[key] as string)
-        }
-    } else {
-        render = () => {
-            element.style[key as any] = styleValue(node, key) as string
-        }
-    }
-
-    return node.set(key, value, render, shared)
-}
+) => node.set(key, value, getStyleRender(element, node, key))
 
 export type StyleSubject = HTMLElement | SVGElement
 

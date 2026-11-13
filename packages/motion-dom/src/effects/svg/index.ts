@@ -9,7 +9,7 @@ import { isSVGElement } from "../../utils/is-svg-element"
 import { MotionValue } from "../../value"
 import { numberValueTypes } from "../../value/types/maps/number"
 import { addAttrValue } from "../attr"
-import { addStyleValue, originProps, readStyleValue } from "../style"
+import { addStyleValue, readStyleValue, sharedRender } from "../style"
 import { createSelectorEffect } from "../utils/create-dom-effect"
 import { createEffect } from "../utils/create-effect"
 
@@ -36,7 +36,7 @@ function addSVGPathValue(
     return node.set(
         key,
         value,
-        ((node.shared ||= {}).dash ||= () => {
+        sharedRender(node, "dash", () => () => {
             const { pathLength = 1, pathSpacing } = latestValues
 
             // Use unitless values to avoid Safari zoom bug
@@ -44,8 +44,7 @@ function addSVGPathValue(
                 "stroke-dasharray",
                 `${pathLength} ${pathSpacing ?? 1 - Number(pathLength)}`
             )
-        }),
-        true
+        })
     )
 }
 
@@ -54,7 +53,7 @@ function addSVGPathValue(
  * browser supports as a CSS property.
  */
 export const isSVGStyle = (key: string) =>
-    transformProps.has(key) || originProps.has(key) || isCSSVar(key)
+    transformProps.has(key) || key.startsWith("origin") || isCSSVar(key)
 
 export const addSVGValue = (
     element: SVGElement,

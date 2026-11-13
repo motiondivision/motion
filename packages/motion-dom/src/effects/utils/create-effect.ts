@@ -145,7 +145,7 @@ export function createEffect<Subject extends object>(
     }
 
     return Object.assign(effect, options, {
-        get: (subject: Subject, key: string) => state(subject)?.get(key),
+        get: (subject: Subject, key: string) => state(subject)?.getValue(key),
         flush: (subject: Subject) => state(subject)?.flush(),
         state,
         node: getNode,

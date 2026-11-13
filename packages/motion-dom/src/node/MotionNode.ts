@@ -8,6 +8,20 @@ import { motionValue, MotionValue } from "../value"
 import type { ResolvedValues } from "./types"
 
 /**
+ * Writes one or more keys of a node to its subject.
+ */
+export interface NodeRender {
+    (): void
+
+    /**
+     * True if more than one key schedules this write, e.g. `x` and
+     * `scale` both write `transform`. It then runs again when one of
+     * its keys is removed, rather than being cancelled.
+     */
+    shared?: boolean
+}
+
+/**
  * Binds `key` of `subject` to `node`, by calling `node.set()` with the
  * function that writes it. `value` is undefined for a key that has a
  * latest value but no motion value.
@@ -30,8 +44,7 @@ export type ReadValue<Subject = any> = (
 ) => AnyResolvedKeyframe | null | undefined
 
 export interface NodeBinding {
-    render?: VoidFunction
-    shared?: boolean
+    render?: NodeRender
     stop?: VoidFunction
 }
 
@@ -78,7 +91,7 @@ export class MotionNode<Subject = any> {
     /**
      * Write functions shared between keys, by name, e.g. `transform`.
      */
-    shared?: { [name: string]: VoidFunction }
+    shared?: { [name: string]: NodeRender }
 
     /**
      * Resolves the keyframes of animations on this node's values.
@@ -93,7 +106,11 @@ export class MotionNode<Subject = any> {
      * is reallocated every frame.
      */
     private pending: VoidFunction[] = []
-    protected numPending = 0
+
+    /**
+     * @internal
+     */
+    numPending = 0
 
     /**
      * @param step - The frameloop step writes are scheduled in. Defaults
@@ -106,26 +123,13 @@ export class MotionNode<Subject = any> {
      * Bind `value` to `name`, writing it with `render` whenever it changes.
      *
      * @param render - Writes to the subject. Reads `latestValues`, or the
-     * motion value itself.
-     * @param shared - True if other keys schedule `render` too, so it
-     * isn't cancelled when this key is removed. Or a value already bound
-     * to this node, whose render this key should schedule.
+     * motion value itself. Keys that write the same thing pass the same
+     * function, marked `shared`.
      */
-    set(
-        name: string,
-        value?: MotionValue,
-        render?: VoidFunction,
-        shared?: MotionValue | boolean
-    ): VoidFunction {
+    set(name: string, value?: MotionValue, render?: NodeRender): VoidFunction {
         this.unbind(name)
 
-        if (shared && shared !== true) {
-            this.values.forEach((bound, key) => {
-                if (bound === shared) render = this.bindings.get(key)!.render
-            })
-        }
-
-        const binding: NodeBinding = { render, shared: Boolean(shared) }
+        const binding: NodeBinding = { render }
         this.bindings.set(name, binding)
 
         if (value) {
@@ -178,38 +182,29 @@ export class MotionNode<Subject = any> {
     protected unbind(name: string) {
         const binding = this.bindings.get(name)
         if (!binding) return
+
+        const { render } = binding
         binding.stop?.()
 
         /**
          * A write shared with other keys runs again without this one,
-         * e.g. `transform` is written without `x`.
+         * e.g. `transform` is written without `x`. Any other write is
+         * cancelled.
          */
-        if (binding.render) {
-            binding.shared
-                ? this.schedule(binding.render)
-                : this.cancel(binding.render)
+        if (render) {
+            if (render.shared) {
+                this.schedule(render)
+            } else {
+                const { pending } = this
+                for (let i = 0; i < this.numPending; i++) {
+                    if (pending[i] === render) {
+                        pending[i] = pending[--this.numPending]
+                    }
+                }
+            }
         }
 
         this.bindings.delete(name)
-    }
-
-    /**
-     * Stop listening to every value, keeping the values themselves, as
-     * when the subject is removed and may come back.
-     */
-    protected unbindAll() {
-        this.bindings.forEach((binding) => binding.stop?.())
-        this.bindings.clear()
-        this.shared = undefined
-        this.numPending = 0
-    }
-
-    get(name: string): MotionValue | undefined {
-        return this.values.get(name)
-    }
-
-    hasValue(name: string) {
-        return this.values.has(name)
     }
 
     /**
@@ -258,7 +253,7 @@ export class MotionNode<Subject = any> {
     ): MotionValue | undefined {
         let value = this.values.get(name)
 
-        if (value === undefined && defaultValue !== undefined) {
+        if (!value && defaultValue !== undefined) {
             value = motionValue(defaultValue ?? this.getDefaultValue?.(name), {
                 owner: this,
             })
@@ -282,34 +277,8 @@ export class MotionNode<Subject = any> {
     readValue(name: string, target?: any): any {
         return (
             this.latestValues[name] ??
-            (this.current
-                ? this.read?.(this.current, name, target)
-                : undefined)
+            (this.current && this.read?.(this.current, name, target))
         )
-    }
-
-    getStaticValue(name: string) {
-        return this.latestValues[name]
-    }
-
-    /**
-     * Set the latest value of a key without a motion value. It's written
-     * by the next render.
-     */
-    setStaticValue(name: string, value: AnyResolvedKeyframe) {
-        this.latestValues[name] = value
-    }
-
-    /**
-     * Detach every value from this node and return them, so another
-     * node can take them over.
-     */
-    release() {
-        const values = new Map(this.values)
-        values.forEach((_, name) => this.removeValue(name))
-        this.shared = undefined
-        this.numPending = 0
-        return values
     }
 
     protected queue(render: VoidFunction) {
@@ -326,27 +295,10 @@ export class MotionNode<Subject = any> {
      * `immediate`, so a write scheduled by something else in the same
      * frameloop step is flushed in this frame.
      */
-    private schedule(render: VoidFunction) {
+    protected schedule(render: VoidFunction) {
         this.numPending || this.step(this.flush, false, true)
         this.queue(render)
     }
-
-    private cancel(render: VoidFunction) {
-        const { pending } = this
-
-        for (let i = 0; i < this.numPending; i++) {
-            if (pending[i] === render) {
-                pending[i] = pending[--this.numPending]
-                return
-            }
-        }
-    }
-
-    /**
-     * True if the next flush was asked for with scheduleRender() or
-     * render(), so runs afterRender() even with nothing to write.
-     */
-    private isForced = false
 
     /**
      * Run the pending writes. Resetting the count first means a write
@@ -354,47 +306,24 @@ export class MotionNode<Subject = any> {
      * frameloop itself.
      */
     flush = () => {
-        const { pending, numPending, isForced } = this
+        const { pending, numPending } = this
         this.numPending = 0
-        this.isForced = false
         for (let i = 0; i < numPending; i++) pending[i]()
-        ;(numPending || isForced) && this.afterRender?.()
         this.numPending && this.step(this.flush)
     }
 
     /**
-     * Called after a flush that wrote something, or was asked for.
+     * Queue every key that has a value. One that hasn't been read from
+     * the subject yet has nothing to write, and writing first could
+     * change what is read.
      */
-    protected afterRender?(): void
-
     protected queueAll() {
-        /**
-         * Bind keys that have a latest value but no motion value.
-         */
-        if (this.current) {
-            for (const key in this.latestValues) {
-                this.bindings.has(key) || this.bindValue(key)
-            }
-        }
-
-        this.bindings.forEach(this.queueBinding)
-        this.isForced = true
-    }
-
-    /**
-     * A value that hasn't been read from the subject yet has nothing
-     * to write, and writing first could change what is read.
-     */
-    private queueBinding = ({ render }: NodeBinding, name: string) => {
-        render && this.latestValues[name] !== undefined && this.queue(render)
-    }
-
-    /**
-     * Schedule every key to be written in the next frame.
-     */
-    scheduleRender = () => {
-        this.isForced || this.step(this.flush, false, true)
-        this.queueAll()
+        this.bindings.forEach(
+            ({ render }, name) =>
+                render &&
+                this.latestValues[name] !== undefined &&
+                this.queue(render)
+        )
     }
 
     /**
@@ -413,4 +342,16 @@ export class MotionNode<Subject = any> {
     getProps(): any {
         return noProps
     }
+}
+
+/**
+ * Detach every value from a node and return them, so another node can
+ * take them over.
+ */
+export function releaseNode(node: MotionNode) {
+    const values = new Map(node.values)
+    values.forEach((_, name) => node.removeValue(name))
+    node.shared = undefined
+    node.numPending = 0
+    return values
 }
