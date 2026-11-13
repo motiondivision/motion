@@ -8,6 +8,7 @@ import {
     SubscriptionManager,
 } from "motion-utils"
 import { animateSingleValue } from "../../animation/animate/single-value"
+import type { JSAnimation } from "../../animation/JSAnimation"
 import { spring } from "../../animation/generators/spring"
 import { calcGeneratorDuration } from "../../animation/generators/utils/calc-duration"
 import { notifyLayoutAnimationStart } from "../../animation/utils/notify-inspector"
@@ -1075,7 +1076,22 @@ export function createProjectionNode<I>({
                     this.snapshot.relativeVelocity =
                         this.relativeVelocity?.slice() || []
                 }
-                const progress = (edges && this.motionValue?.getVelocity()) || 0
+                /**
+                 * The animation's own velocity, as the value's reads 0 once
+                 * its last frame is 30ms old, which a slow frame or a long
+                 * render before this snapshot can pass. Past the first
+                 * iteration of a repeat, the generator's time isn't the
+                 * animation's, so that uses the value's. The edge springs
+                 * hand on their own velocities instead.
+                 */
+                const animation = this.currentAnimation as JSAnimation<number>
+                const progress =
+                    (edges &&
+                        !this.edgeValues &&
+                        ((animation.time <= animation.duration &&
+                            animation.getGeneratorVelocity?.()) ||
+                            this.motionValue?.getVelocity())) ||
+                    0
                 const velocity = [0, 1, 2, 3, 4, 5].map(
                     (i) =>
                         (i < 4

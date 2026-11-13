@@ -9,10 +9,12 @@ import { useState } from "react"
  * ?tween uses a tween, which takes no velocity and starts from rest.
  * ?duration uses a duration spring, which also starts from rest.
  * ?mirror repeats the spring once as a mirror, so the box goes back.
+ * ?return mirrors only the way out, and goes back with a slow spring.
  */
 export const App = () => {
     const [isRight, setIsRight] = useState(false)
     const params = new URLSearchParams(window.location.search)
+    const mirror = params.has("mirror") || (params.has("return") && isRight)
 
     return (
         <motion.div
@@ -25,9 +27,13 @@ export const App = () => {
                     ? { type: "spring", duration: 0.8, bounce: 0 }
                     : {
                           type: "spring",
-                          visualDuration: params.has("mirror") ? 0.3 : 0.8,
+                          visualDuration: mirror
+                              ? 0.3
+                              : params.has("return")
+                              ? 2
+                              : 0.8,
                           bounce: 0,
-                          ...(params.has("mirror") && {
+                          ...(mirror && {
                               repeat: 1,
                               repeatType: "mirror",
                           }),
