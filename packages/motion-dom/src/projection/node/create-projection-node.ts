@@ -11,6 +11,7 @@ import {
     MultiValueRef,
     startValueAnimation,
 } from "../../animation/animate/multi-value"
+import type { ValueTrack } from "../../animation/MultiValueAnimation"
 import { spring } from "../../animation/generators/spring"
 import { calcGeneratorDuration } from "../../animation/generators/utils/calc-duration"
 import { notifyLayoutAnimationStart } from "../../animation/utils/notify-inspector"
@@ -1051,7 +1052,25 @@ export function createProjectionNode<I>({
                     this.snapshot.relativeVelocity =
                         this.relativeVelocity?.slice() || []
                 }
-                const progress = (edges && this.motionValue?.getVelocity()) || 0
+                /**
+                 * The animation's own velocity, sampled over the 5ms to
+                 * its last frame, as the value's reads 0 once that frame
+                 * is 30ms old, which a slow frame or a long render before
+                 * this snapshot can pass. The edge springs hand on their
+                 * own velocities instead.
+                 */
+                const track = this
+                    .currentAnimation as unknown as ValueTrack<number>
+                const time = edges && Math.max(track.time * 1000, 5)
+                const progress =
+                    (time &&
+                        !this.edgeValues &&
+                        (track.isReady
+                            ? (track.sampleTime(time) -
+                                  track.sampleTime(time - 5)) *
+                              200
+                            : this.motionValue?.getVelocity())) ||
+                    0
                 const velocity = [0, 1, 2, 3, 4, 5].map(
                     (i) =>
                         (i < 4
