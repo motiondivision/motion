@@ -75,20 +75,40 @@ function dispatchPointer(win: any, type: string, x: number, y: number) {
  * right, then click again to send it back to the left. Returns the left
  * edge at the second click and the samples from the frames after it.
  */
-function interrupt(query: string) {
+function interrupt(query: string, frameLength = 0) {
     let atInterrupt = 0
     return cy
         .visit(`?test=layout-velocity-interrupt${query}`)
         .wait(200)
         .get("#box")
         .click()
-        .wait(250)
         .window()
-        .then((win: any) => {
-            atInterrupt = leftOfBox(win.document)
-            win.document.getElementById("box").click()
-            return sampleFrames(win, 6)
-        })
+        .then(
+            (win: any) =>
+                /**
+                 * Interrupt as the frame that renders the box past 250px
+                 * ends, rather than after a fixed wait, which a stalled page
+                 * can land at the start or end of the animation, where it's
+                 * slow.
+                 */
+                new Cypress.Promise<number[]>((resolve) => {
+                    const box = win.document.getElementById("box")
+                    const observer = new win.MutationObserver(() => {
+                        atInterrupt = leftOfBox(win.document)
+                        if (atInterrupt < 250 || atInterrupt > 450) return
+                        observer.disconnect()
+                        /**
+                         * Hold the frame, as a slow frame or a long render
+                         * would, before the click.
+                         */
+                        const end = win.performance.now() + frameLength
+                        while (win.performance.now() < end) {}
+                        box.click()
+                        resolve(sampleFrames(win, 6))
+                    })
+                    observer.observe(box, { attributeFilter: ["style"] })
+                })
+        )
         .then((samples: number[]) => ({ atInterrupt, samples }))
 }
 
@@ -131,6 +151,48 @@ describe("Layout velocity", () => {
                 atInterrupt + 5
             )
         })
+    })
+
+    it("An interrupted layout animation keeps its velocity after a long frame", () => {
+        // 40ms since the box's last frame, which reads its value as still.
+        interrupt("", 40).then(({ atInterrupt, samples }: any) => {
+            expect(Math.max(...samples.slice(0, 4))).to.be.greaterThan(
+                atInterrupt + 5
+            )
+        })
+    })
+
+    it("A mirror spring interrupted on its way back keeps its velocity", () => {
+        let atInterrupt = 0
+        cy.visit("?test=layout-velocity-interrupt&return")
+            .wait(200)
+            .get("#box")
+            .click()
+            .window()
+            .then(
+                (win: any) =>
+                    new Cypress.Promise<number[]>((resolve) => {
+                        const box = win.document.getElementById("box")
+                        let prev = Infinity
+                        const observer = new win.MutationObserver(() => {
+                            atInterrupt = leftOfBox(win.document)
+                            // Interrupt once it's moving back, in the mirror.
+                            if (atInterrupt >= prev || prev > 400) {
+                                prev = atInterrupt
+                                return
+                            }
+                            observer.disconnect()
+                            box.click()
+                            resolve(sampleFrames(win, 4))
+                        })
+                        observer.observe(box, { attributeFilter: ["style"] })
+                    })
+            )
+            .then((samples: number[]) => {
+                // It keeps moving left fast, where the slow spring back
+                // from rest would barely move.
+                expect(Math.min(...samples)).to.be.lessThan(atInterrupt - 20)
+            })
     })
 
     it("An interrupted layout tween starts from rest", () => {
