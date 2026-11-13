@@ -29,7 +29,7 @@ export function follow<T extends AnyResolvedKeyframe>(
 
     const unit =
         typeof initialValue === "string"
-            ? initialValue.replace(/[\d.-]+(?:e[-+]?\d+)?/g, "")
+            ? initialValue.replace(/[\d.-]+(?:e[-+]?\d+)?/gi, "")
             : undefined
 
     const onUpdate = (v: number) => set((unit ? v + unit : v) as T)
