@@ -85,10 +85,13 @@ export * from "./frameloop/types"
  */
 export {
     acquireProjectionNode,
+    dropNode,
     flushLayoutSnapshots,
     LayoutAnimationBuilder,
     parseAnimateLayoutArgs,
+    setLayoutNode,
 } from "./layout/LayoutAnimationBuilder"
+export type { RestorePoint } from "./layout/LayoutAnimationBuilder"
 export * from "./gestures/drag"
 export * from "./gestures/drag/state/is-active"
 export * from "./gestures/drag/state/set-active"
@@ -97,6 +100,7 @@ export * from "./gestures/drag/VisualElementDragControls"
 export * from "./gestures/hover"
 export * from "./gestures/pan/PanSession"
 export * from "./gestures/pan/types"
+export * from "./gestures/pinch"
 export * from "./gestures/press"
 export * from "./gestures/press/types"
 export * from "./gestures/press/utils/is-keyboard-accessible"
@@ -276,7 +280,7 @@ export { buildProjectionTransform } from "./projection/styles/transform"
 export * from "./projection/styles/types"
 
 // Projection animation
-export { mixValues } from "./projection/animation/mix-values"
+export { easeCrossfadeIn, mixValues } from "./projection/animation/mix-values"
 
 // Utilities (used by projection system)
 export { animateSingleValue } from "./animation/animate/single-value"
@@ -300,7 +304,10 @@ export {
 export { DocumentProjectionNode } from "./projection/node/DocumentProjectionNode"
 export { nodeGroup } from "./projection/node/group"
 export type { NodeGroup } from "./projection/node/group"
-export { HTMLProjectionNode } from "./projection/node/HTMLProjectionNode"
+export {
+    documentRoot,
+    HTMLProjectionNode,
+} from "./projection/node/HTMLProjectionNode"
 export { rootProjectionNode } from "./projection/node/root"
 export { globalProjectionState } from "./projection/node/state"
 export type {
@@ -332,15 +339,6 @@ export { renderSVG } from "./render/svg/utils/render"
 export { scrapeMotionValuesFromProps as scrapeSVGMotionValuesFromProps } from "./render/svg/utils/scrape-motion-values"
 
 export { animateLayout } from "./layout/animate-layout"
-export { setLayoutEngine } from "./projection/node/layout-engine"
-export type { LayoutEngine } from "./projection/node/layout-engine"
-export { quadLayout } from "./projection/node/quad-projection"
-export { createLayoutPlane } from "./layout/layout-plane"
-export type {
-    LayoutPlane,
-    LayoutPlaneOptions,
-    LayoutPlaneSource,
-} from "./layout/layout-plane"
 
 /**
  * Deprecated

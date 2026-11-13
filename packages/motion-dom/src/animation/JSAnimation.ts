@@ -540,8 +540,18 @@ export class JSAnimation<T extends number | string>
      */
     stop = () => {
         const { motionValue } = this.options
-        if (motionValue && motionValue.updatedAt !== time.now()) {
-            this.tick(time.now())
+        const now = time.now()
+        if (motionValue && motionValue.updatedAt !== now) {
+            /**
+             * Catch the value up to now, but measure its velocity from the
+             * previous frame: marking it as updated now keeps the value's
+             * previous-frame sample. This tick is usually less than a frame
+             * after the last, and the animation's time is rounded to whole
+             * milliseconds, so measured from the last frame alone the
+             * velocity an interrupting animation inherits could read as 0,
+             * or a multiple of the real one.
+             */
+            this.tick((motionValue.updatedAt = now))
         }
 
         this.isStopped = true

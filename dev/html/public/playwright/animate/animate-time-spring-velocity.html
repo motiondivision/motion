@@ -1,0 +1,60 @@
+<html>
+    <body>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            const { animate } = window.Motion
+            const wait = (ms) =>
+                new Promise((resolve) => setTimeout(resolve, ms))
+
+            const read = {
+                opacity: (element) =>
+                    parseFloat(getComputedStyle(element).opacity),
+                x: (element) =>
+                    new DOMMatrix(getComputedStyle(element).transform).m41,
+            }
+            const targets = {
+                opacity: [1, 0],
+                x: [1000, 0],
+            }
+
+            /**
+             * Starts a spring towards a target, then reverses it mid-flight.
+             * If the reversed spring inherits the first one's velocity, the
+             * value keeps moving towards the first target for a while.
+             */
+            window.run = async (transition) => {
+                const results = {}
+
+                for (const name of ["opacity", "x"]) {
+                    const element = document.createElement("div")
+                    element.style.cssText =
+                        "width:100px;height:100px;background:red;opacity:0"
+                    document.body.append(element)
+
+                    const [to, back] = targets[name]
+                    animate(element, { [name]: to }, transition)
+                    await wait(100)
+
+                    const before = read[name](element)
+                    const animation = animate(
+                        element,
+                        { [name]: back },
+                        transition
+                    )
+                    await wait(32)
+                    const after = read[name](element)
+                    await animation
+
+                    results[name] = {
+                        before,
+                        after,
+                        final: read[name](element),
+                    }
+                    element.remove()
+                }
+
+                return results
+            }
+        </script>
+    </body>
+</html>

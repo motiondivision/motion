@@ -26,12 +26,8 @@ export function mixValues(
     isOnlyMember: boolean
 ) {
     if (shouldCrossfadeOpacity) {
-        /**
-         * Interrupting a crossfade, the new lead was shown at the old
-         * lead's exit opacity, so it fades in from there.
-         */
         target.opacity = mixNumber(
-            (follow.opacityExit as number) || 0,
+            0,
             (lead.opacity as number) ?? 1,
             easeCrossfadeIn(progress)
         )
@@ -106,7 +102,7 @@ function getRadius(values: ResolvedValues, radiusName: string) {
         : values.borderRadius
 }
 
-const easeCrossfadeIn = /*@__PURE__*/ compress(0, 0.5, circOut)
+export const easeCrossfadeIn = /*@__PURE__*/ compress(0, 0.5, circOut)
 const easeCrossfadeOut = /*@__PURE__*/ compress(0.5, 0.95, noop)
 
 function compress(

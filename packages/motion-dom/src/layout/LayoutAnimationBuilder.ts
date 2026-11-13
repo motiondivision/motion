@@ -9,7 +9,6 @@ import { HTMLProjectionNode } from "../projection/node/HTMLProjectionNode"
 import type { IProjectionNode } from "../projection/node/types"
 import { visualElementStore } from "../render/store"
 import { resolveVisualElement } from "./visual-element"
-import { exitingElements, layoutPlanes } from "./layout-planes"
 import {
     resolveElements,
     type ElementOrSelector,
@@ -20,7 +19,7 @@ type LayoutAnimationScope = Element | Document
 type LayoutBuilderResolve = (animation: GroupAnimation) => void
 type LayoutBuilderReject = (error: unknown) => void
 
-interface RestorePoint {
+export interface RestorePoint {
     parent: Element
     next: ChildNode | null
 }
@@ -98,11 +97,17 @@ function readNodeOptions(element: HTMLElement, transition?: Transition) {
     }
 }
 
-function revive(node: IProjectionNode) {
-    node.isPresent = true
-    if (node.options.onExitComplete) {
-        node.setOptions({ onExitComplete: undefined })
-    }
+/**
+ * The projection node class for elements. animateLayout3d() swaps in one
+ * with quad projection.
+ */
+let LayoutNode: new (
+    latestValues: any,
+    parent?: IProjectionNode
+) => IProjectionNode = HTMLProjectionNode
+
+export function setLayoutNode(Node: typeof LayoutNode) {
+    LayoutNode = Node
 }
 
 function prepareNode(
@@ -114,7 +119,7 @@ function prepareNode(
     if (!node) {
         const visualElement = resolveVisualElement(element)
 
-        node = new HTMLProjectionNode(
+        node = new LayoutNode(
             visualElement.latestValues,
             getProjectionParent(element)
         )
@@ -130,7 +135,10 @@ function prepareNode(
         node.setOptions(readNodeOptions(element, transition))
     }
 
-    exitingElements.has(element) || revive(node)
+    node.isPresent = true
+    if (node.options.onExitComplete) {
+        node.setOptions({ onExitComplete: undefined })
+    }
 
     return node
 }
@@ -175,22 +183,13 @@ export function acquireProjectionNode(
     return owned?.instance ? [owned, () => {}] : createLayoutNode(element)
 }
 
-function restoreElement(element: Element, { parent, next }: RestorePoint) {
-    parent.insertBefore(element, next?.parentNode === parent ? next : null)
-}
-
 function sortDocumentOrder(elements: Iterable<HTMLElement>) {
     return [...elements].sort((a, b) =>
         a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1
     )
 }
 
-const snapshot = (node: IProjectionNode) => {
-    node.isLayoutDirty = false
-    node.willUpdate()
-}
-
-function dropNode(element: Element, node: IProjectionNode) {
+export function dropNode(element: Element, node: IProjectionNode) {
     node.setOptions({ onExitComplete: undefined })
 
     /**
@@ -232,30 +231,15 @@ function flushPendingBuilders() {
         const owners = targets.get(element)!
         const node = prepareNode(
             element,
-            owners[owners.length - 1].transitionFor(
-                element.getAttribute("data-layout-id")
-            )
+            owners[owners.length - 1].transitionFor(element)
         )
         for (const owner of owners) owner.adopt(element, node)
         union.set(element, node)
     }
 
-    /**
-     * Animations already running, which this commit's controls leave out
-     * unless the commit restarts them.
-     */
-    const running = new Map<IProjectionNode, unknown>()
-    const record = (node: IProjectionNode) =>
-        running.set(node, node.currentAnimation)
-    union.forEach(record)
-    layoutPlanes.forEach(record)
-
-    union.forEach(snapshot)
-    layoutPlanes.forEach(snapshot)
-
-    exitingElements.forEach((restore, element) => {
-        restore.next = element.nextSibling
-        element.remove()
+    union.forEach((node) => {
+        node.isLayoutDirty = false
+        node.willUpdate()
     })
 
     const updatePromises: Promise<void>[] = []
@@ -263,20 +247,6 @@ function flushPendingBuilders() {
         const result = builder.runUpdate()
         if (result) updatePromises.push(result)
     }
-
-    /**
-     * An exiting element the update put back takes part again. Otherwise
-     * it goes back where it was to finish its exit.
-     */
-    exitingElements.forEach((restore, element) => {
-        if (element.isConnected) {
-            exitingElements.delete(element)
-            const node = layoutNodes.get(element)
-            node && revive(node)
-        } else {
-            restoreElement(element, restore)
-        }
-    })
 
     const commit = () => {
         /**
@@ -296,18 +266,6 @@ function flushPendingBuilders() {
         union.forEach((node) => (root ||= node.root))
         for (const builder of builders) root ||= builder.getRoot()
 
-        /**
-         * Planes outside the DOM animate with this commit's transitions.
-         */
-        const last = builders[builders.length - 1]
-        layoutPlanes.forEach((node) => {
-            root ||= node.root
-            node.setOptions({
-                crossfade: node.options.crossfade,
-                transition: last.transitionFor(node.options.layoutId),
-            })
-        })
-
         root?.didUpdate()
 
         /**
@@ -316,7 +274,7 @@ function flushPendingBuilders() {
          * them in a later microtask step of the same pass.
          */
         microtask.render(() => {
-            for (const builder of builders) builder.finalize(running)
+            for (const builder of builders) builder.finalize()
         })
     }
 
@@ -334,13 +292,13 @@ export const flushLayoutSnapshots = flushPendingBuilders
 export class LayoutAnimationBuilder {
     private sharedTransitions = new Map<string, AnimationOptions>()
 
-    private notifyReady: LayoutBuilderResolve = () => {}
-    private rejectReady: LayoutBuilderReject = () => {}
+    protected notifyReady: LayoutBuilderResolve = () => {}
+    protected rejectReady: LayoutBuilderReject = () => {}
     private readyPromise: Promise<GroupAnimation>
 
-    private tracked = new Map<HTMLElement, IProjectionNode>()
-    private restorePoints = new Map<HTMLElement, RestorePoint>()
-    private updateError: unknown
+    protected tracked = new Map<HTMLElement, IProjectionNode>()
+    protected restorePoints = new Map<HTMLElement, RestorePoint>()
+    protected updateError: unknown
 
     constructor(
         private scope: LayoutAnimationScope,
@@ -368,7 +326,8 @@ export class LayoutAnimationBuilder {
         return this.readyPromise.then(resolve, reject)
     }
 
-    transitionFor(layoutId?: string | null): Transition | undefined {
+    transitionFor(element: HTMLElement): Transition | undefined {
+        const layoutId = element.getAttribute("data-layout-id")
         return ((layoutId && this.sharedTransitions.get(layoutId)) ||
             this.defaultOptions) as Transition | undefined
     }
@@ -402,10 +361,7 @@ export class LayoutAnimationBuilder {
     reconcileAdditions(newMemberIds: Set<string>) {
         for (const element of collectLayoutElements(this.scope)) {
             if (this.tracked.has(element)) continue
-            const node = prepareNode(
-                element,
-                this.transitionFor(element.getAttribute("data-layout-id"))
-            )
+            const node = prepareNode(element, this.transitionFor(element))
             this.adopt(element, node)
             node.options.layoutId && newMemberIds.add(node.options.layoutId)
         }
@@ -435,37 +391,29 @@ export class LayoutAnimationBuilder {
              * crossfade: restore the element to its old position in the
              * DOM, relegate it and let the survivor take over. It's
              * removed again once the animation completes.
-             *
-             * It does the same when a plane took over from it in this
-             * update, so it crossfades with the plane.
              */
-            const lead = stack?.lead
-            const toPlane =
-                lead !== node &&
-                lead?.resumeFrom === node &&
-                layoutPlanes.has(lead)
-
             if (
                 layoutId &&
-                ((node.isLead() &&
-                    hasSurvivor &&
-                    !newMemberIds.has(layoutId)) ||
-                    toPlane)
+                node.isLead() &&
+                hasSurvivor &&
+                !newMemberIds.has(layoutId)
             ) {
                 if (restore && restore.parent.isConnected) {
-                    restoreElement(element, restore)
-                    exitingElements.set(element, restore)
+                    restore.parent.insertBefore(
+                        element,
+                        restore.next?.parentNode === restore.parent
+                            ? restore.next
+                            : null
+                    )
                     node.isPresent = false
                     node.setOptions({
                         onExitComplete: () => {
-                            exitingElements.delete(element)
                             element.remove()
                             dropNode(element, node)
                         },
                     })
-                    if (toPlane || node.relegate()) return
+                    if (node.relegate()) return
 
-                    exitingElements.delete(element)
                     element.remove()
                 }
             }
@@ -481,24 +429,18 @@ export class LayoutAnimationBuilder {
         return root
     }
 
-    finalize(running: Map<IProjectionNode, unknown>) {
+    finalize() {
         if (this.updateError) {
             this.rejectReady(this.updateError)
             return
         }
 
         const animations = new Set<GroupAnimation["animations"][number]>()
-        const collect = (node: IProjectionNode) => {
-            if (
-                node.instance &&
-                node.currentAnimation &&
-                node.currentAnimation !== running.get(node)
-            ) {
+        this.tracked.forEach((node) => {
+            if (node.instance && node.currentAnimation) {
                 animations.add(node.currentAnimation)
             }
-        }
-        this.tracked.forEach(collect)
-        layoutPlanes.forEach(collect)
+        })
 
         this.notifyReady(new GroupAnimation([...animations]))
     }

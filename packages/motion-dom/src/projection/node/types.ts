@@ -1,5 +1,6 @@
-import type { JSAnimation } from "../../animation/JSAnimation"
+import type { TransformTemplate } from "../../node/types"
 import type {
+    AnimationPlaybackControls,
     MotionPath,
     Transition,
     ValueTransition,
@@ -9,58 +10,7 @@ import type { VisualElement, MotionStyle } from "../../render/VisualElement"
 import { Box, Delta, Point } from "motion-utils"
 import { FlatTree } from "../utils/flat-tree"
 import { NodeStack } from "../shared/stack"
-import type { Mat3 } from "../quad/mat3"
-import type { Quad } from "../quad/quad"
-import type { QuadProjection } from "./quad-projection"
 
-/**
- * The space a node is drawn in, when transforms Motion doesn't control
- * ("layers") lie above it, and (for snapshots that might hand over to
- * another space) the corners it was visible at.
- *
- * A node's boxes are measured inside its layers, so the box engine
- * animates it exactly while it stays in the same space.
- */
-export interface QuadMeasurements {
-    /**
-     * The node's untransformed box on the page.
-     */
-    rect: Box
-
-    /**
-     * Layers between the node's projection parent and the node, as a
-     * page-space homography.
-     */
-    env: Mat3
-
-    /**
-     * Every layer above the node, as a page-space homography. A node whose
-     * frame changes between snapshot and layout has moved between spaces.
-     */
-    frame: Mat3
-
-    /**
-     * `perspective` on the node's parent: distance (0 if none), then its
-     * page origin.
-     */
-    perspective: Float64Array
-
-    /**
-     * Whether a layer distorts the node relative to a tracked projection
-     * parent, which the box engine can't correct for.
-     */
-    isQuadSpace: boolean
-
-    /**
-     * For snapshots, the corners the node was visible at.
-     */
-    visual?: Quad
-
-    /**
-     * Restores the layers neutralised while the node's boxes are measured.
-     */
-    restore?: VoidFunction
-}
 
 export interface Measurements {
     animationId: number
@@ -68,7 +18,15 @@ export interface Measurements {
     layoutBox: Box
     latestValues: ResolvedValues
     source: number
-    quad?: QuadMeasurements
+    /**
+     * Velocity (px/s) when measured, for the next spring layout animation.
+     * velocity is [x min, x max, y min, y max, x value, y value] in the
+     * page, and is only set when something moves. relativeVelocity is
+     * [x min, x max, y min, y max] inside the parent, for a child that was
+     * moving inside an animating parent.
+     */
+    velocity?: number[]
+    relativeVelocity?: number[]
 }
 
 export type Phase = "snapshot" | "measure"
@@ -119,7 +77,6 @@ export interface IProjectionNode<I = unknown> {
     treeScale?: Point
     projectionDelta?: Delta
     projectionDeltaWithTransform?: Delta
-    quad?: QuadProjection
     isSVG?: boolean
     applyTransformsToTarget(): void
     latestValues: ResolvedValues
@@ -173,6 +130,8 @@ export interface IProjectionNode<I = unknown> {
     resolveTargetDelta(force?: boolean): void
     removeRelativeTarget(): void
     calcProjection(): void
+    completeAnimation(): void
+    getTransformTemplate(): TransformTemplate | undefined
     applyProjectionStyles(
         targetStyle: CSSStyleDeclaration,
         styleProp?: MotionStyle
@@ -187,14 +146,12 @@ export interface IProjectionNode<I = unknown> {
     mixTargetDelta: (progress: number) => void
     attemptToResolveRelativeTarget?: boolean
     hasProjected: boolean
-
+    currentAnimation?: AnimationPlaybackControls
     /**
-     * For nodes whose own transform isn't in `latestValues`, like planes
-     * in a 3D scene: write the page-space homography from `rect` onto
-     * where the node is laid out now. Returns false if it can't be seen.
+     * The latest offsets (px) of the x min, x max, y min and y max edge
+     * springs, while a layout animation runs with velocity.
      */
-    measureTransform?(rect: Box, out: Mat3): boolean
-    currentAnimation?: JSAnimation<number>
+    edgeValues?: number[]
     isTreeAnimating?: boolean
     isAnimationBlocked?: boolean
     setAnimationOrigin(

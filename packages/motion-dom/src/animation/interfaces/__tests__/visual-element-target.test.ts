@@ -8,7 +8,7 @@ describe("animateTarget in a non-browser environment", () => {
         get: () => 0,
         set: () => {},
         isAnimating: () => false,
-        start: () => {},
+        run: () => {},
         stop: () => {},
         animation: undefined,
     })

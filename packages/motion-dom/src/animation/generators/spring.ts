@@ -105,9 +105,9 @@ function approximateRoot(
 const safeMin = 0.001
 
 /**
- * Assumes zero initial velocity and the default mass: time-defined springs
- * ignore inherited velocity and only resolve without valid physics. Returns
- * NaN physics when the root search doesn't converge.
+ * Assumes zero initial velocity and the default mass: duration springs start
+ * from rest so they end exactly at their duration. Only resolves without
+ * valid physics. Returns NaN physics when the root search doesn't converge.
  */
 function findSpring({
     duration = defaultDuration,
@@ -205,7 +205,7 @@ function resolvePhysics(value: number | undefined, canBeZero?: boolean) {
 
     if (process.env.NODE_ENV !== "production") {
         warning(
-            value === undefined,
+            value === undefined || (value as unknown) === "auto",
             "Spring stiffness and mass must be positive, damping 0 or greater",
             "spring-invalid-physics"
         )
@@ -214,7 +214,7 @@ function resolvePhysics(value: number | undefined, canBeZero?: boolean) {
     return undefined
 }
 
-function getSpringOptions(options: SpringOptions) {
+export function getSpringOptions(options: SpringOptions) {
     /**
      * Resolve physics before choosing between physics- and duration-based
      * resolution, so an invalid stiffness doesn't also silently discard a
@@ -222,7 +222,7 @@ function getSpringOptions(options: SpringOptions) {
      */
     const validStiffness = resolvePhysics(options.stiffness)
     const validDamping = resolvePhysics(options.damping, true)
-    const validMass = resolvePhysics(options.mass)
+    const validMass = resolvePhysics(options.mass as number)
 
     const springOptions = {
         ...options,
@@ -303,12 +303,13 @@ function springGenerator(
     } = getSpringOptions({ ...options })
 
     /**
-     * Time-defined springs ignore inherited velocity. Velocity from
-     * interrupted animations causes massive oscillation on small-range
-     * animations.
+     * A duration spring must end exactly at its duration, and it's settled
+     * from rest by then. Inherited velocity could leave it still moving, so
+     * it starts from rest. Every other spring, visualDuration included, ends
+     * when it comes to rest, so inherits velocity as its initial condition.
      */
     const inheritVelocity = (velocity: number) =>
-        isTimeDefined ? 0 : -millisecondsToSeconds(velocity)
+        isResolvedFromDuration ? 0 : -millisecondsToSeconds(velocity)
 
     const dampingRatio = damping / (2 * Math.sqrt(stiffness * mass))
     const undampedAngularFreq = millisecondsToSeconds(
@@ -326,7 +327,7 @@ function springGenerator(
     const s = {
         target,
         delta: target - origin,
-        velocity: inheritVelocity(options.velocity || 0) || 0,
+        velocity: inheritVelocity(options.velocity!) || 0,
         restSpeed: 0,
         restDelta: 0,
     }
@@ -508,7 +509,6 @@ function springGenerator(
 
             return easingDuration + "ms " + easing
         },
-        toTransition: () => {},
     }
 
     return generator

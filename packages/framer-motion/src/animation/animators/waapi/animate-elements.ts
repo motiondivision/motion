@@ -18,7 +18,7 @@ import {
 } from "motion-dom"
 import { invariant, secondsToMilliseconds } from "motion-utils"
 
-interface AnimationDefinition {
+export interface AnimationDefinition {
     map: Map<string, NativeAnimation<any>>
     key: string
     unresolvedKeyframes: UnresolvedValueKeyframe[]
@@ -33,10 +33,48 @@ export function animateElements(
     options?: DynamicAnimationOptions,
     scope?: AnimationScope
 ) {
+    const animationDefinitions: AnimationDefinition[] = []
+    addAnimationDefinitions(
+        animationDefinitions,
+        elementOrSelector,
+        keyframes,
+        options,
+        scope
+    )
+    return startAnimationDefinitions(animationDefinitions)
+}
+
+/**
+ * WAAPI doesn't support interrupting animations.
+ *
+ * Therefore, starting animations requires a three-step process:
+ * 1. Stop existing animations (write styles to DOM)
+ * 2. Resolve keyframes (read styles from DOM)
+ * 3. Create new animations (write styles to DOM)
+ *
+ * The hybrid `animate()` function uses AsyncAnimation to resolve
+ * keyframes before creating new animations, which removes style
+ * thrashing. Here, we have much stricter filesize constraints.
+ * Therefore we do this in a synchronous way that ensures that
+ * at least within `animate()` calls there is no style thrashing.
+ *
+ * In the motion-native-animate-mini-interrupt benchmark this
+ * was 80% faster than a single loop.
+ *
+ * Step 1, here, can run for many `animate()`-style calls (as for each
+ * element of a sequence) before steps 2 and 3 start them all together.
+ * Otherwise each call's read would force a style recalc after the last
+ * call's write.
+ */
+export function addAnimationDefinitions(
+    animationDefinitions: AnimationDefinition[],
+    elementOrSelector: ElementOrSelector,
+    keyframes: DOMKeyframesDefinition,
+    options?: DynamicAnimationOptions,
+    scope?: AnimationScope
+) {
     // Gracefully handle null/undefined elements (e.g., from querySelector returning null)
-    if (elementOrSelector == null) {
-        return []
-    }
+    if (elementOrSelector == null) return
 
     const elements = resolveElements(elementOrSelector, scope) as Array<
         HTMLElement | SVGElement
@@ -50,25 +88,6 @@ export function animateElements(
             "No valid elements provided.",
             "no-valid-elements"
         )
-
-    /**
-     * WAAPI doesn't support interrupting animations.
-     *
-     * Therefore, starting animations requires a three-step process:
-     * 1. Stop existing animations (write styles to DOM)
-     * 2. Resolve keyframes (read styles from DOM)
-     * 3. Create new animations (write styles to DOM)
-     *
-     * The hybrid `animate()` function uses AsyncAnimation to resolve
-     * keyframes before creating new animations, which removes style
-     * thrashing. Here, we have much stricter filesize constraints.
-     * Therefore we do this in a synchronous way that ensures that
-     * at least within `animate()` calls there is no style thrashing.
-     *
-     * In the motion-native-animate-mini-interrupt benchmark this
-     * was 80% faster than a single loop.
-     */
-    const animationDefinitions: AnimationDefinition[] = []
 
     /**
      * Step 1: Build options and stop existing animations (write)
@@ -127,7 +146,11 @@ export function animateElements(
             })
         }
     }
+}
 
+export function startAnimationDefinitions(
+    animationDefinitions: AnimationDefinition[]
+) {
     /**
      * Step 2: Resolve keyframes (read)
      */

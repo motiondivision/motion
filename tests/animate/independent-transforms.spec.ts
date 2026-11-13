@@ -166,6 +166,42 @@ test.describe("animate() independent transforms", () => {
         expect(result.style).toBe("translateY(100px)")
     })
 
+    test("a linear value keeps its pace when another value interrupts", async ({
+        page,
+    }) => {
+        const result = await page.evaluate(async () => {
+            const element = document.getElementById("a")!
+            const { animate } = window.Motion
+            const start = document.timeline.currentTime as number
+            animate(element, { y: 200 }, { duration: 1.5, ease: "linear" })
+            await window.waitFrame(300)
+            animate(element, { x: 100 }, { duration: 0.4, ease: "easeOut" })
+            const frames: any[] = await (window as any).recordFrames(
+                element,
+                1300
+            )
+            await window.nextFrames(2)
+            return {
+                frames: frames.map((frame) => ({
+                    ...frame,
+                    t: frame.t - start,
+                })),
+                style: element.style.transform,
+            }
+        })
+
+        let x = 0
+        for (const frame of result.frames) {
+            // Within a frame of where it'd be, when it started.
+            const y = Math.min(200, (frame.t / 1500) * 200)
+            expect(Math.abs(frame.y - y)).toBeLessThan(4)
+            expect(frame.x).toBeGreaterThanOrEqual(x - 0.01)
+            x = frame.x
+        }
+        expect(x).toBeCloseTo(100)
+        expect(result.style).toBe("translateX(100px) translateY(200px)")
+    })
+
     test("an interrupting spring inherits velocity", async ({ page }) => {
         const result = await page.evaluate(async () => {
             const element = document.getElementById("a")!
@@ -369,6 +405,40 @@ test.describe("animate() independent transforms", () => {
         expect(result.x).toBeCloseTo(50)
     })
 
+    test("a paused animation seeked every frame plays on the compositor", async ({
+        page,
+    }) => {
+        const result = await page.evaluate(async () => {
+            const element = document.getElementById("a")!
+            const animation = window.Motion.animate(
+                element,
+                { x: 100, y: 50 },
+                { duration: 1, ease: "linear" }
+            )
+            animation.pause()
+            const seeked: number[] = []
+            for (let i = 1; i <= 5; i++) {
+                animation.time = i * 0.1
+                // Read once Motion has rendered the frame.
+                await new Promise((resolve) =>
+                    window.Motion.frame.postRender(resolve)
+                )
+                seeked.push(window.readTransform(element).x)
+            }
+            animation.play()
+            await window.nextFrames(2)
+            const count = window.transformAnimations(element).length
+            await window.waitFrame(200)
+            return { seeked, count, ...window.readTransform(element) }
+        })
+
+        expect(result.seeked.map(Math.round)).toEqual([10, 20, 30, 40, 50])
+        expect(result.count).toBe(1)
+        expect(result.x).toBeGreaterThan(62)
+        expect(result.x).toBeLessThan(85)
+        expect(result.y).toBeCloseTo(result.x / 2, 0)
+    })
+
     test("shows a value set instantly while others run on the compositor", async ({
         page,
     }) => {
@@ -565,5 +635,223 @@ test.describe("animate() independent transforms", () => {
         // The box's colour, #0077ff, not the white page behind it.
         expect(color[0]).toBeLessThan(50)
         expect(color[2]).toBeGreaterThan(200)
+    })
+
+    test("a sequence builds later segments before they start, and starts them on time", async ({
+        page,
+    }) => {
+        const result = await page.evaluate(async () => {
+            const a = document.getElementById("a")!
+            const b = document.getElementById("b")!
+            const start = document.timeline.currentTime as number
+            window.Motion.animate([
+                [a, { x: 100 }, { duration: 0.3, ease: "linear" }],
+                [
+                    b,
+                    { x: 100, y: 20 },
+                    { duration: 0.4, ease: "linear", at: 0.5 },
+                ],
+            ])
+            await window.nextFrames(2)
+            const early = window.transformAnimations(b).length
+            await window.waitFrame(440)
+            const before = {
+                count: window.transformAnimations(b).length,
+                ...window.readTransform(b),
+            }
+            const frames: any[] = await (window as any).recordFrames(b, 500)
+            return {
+                early,
+                before,
+                frames: frames.map((frame) => ({
+                    ...frame,
+                    t: frame.t - start,
+                })),
+                style: b.style.transform,
+            }
+        })
+
+        // Not built at first, but built before it starts.
+        expect(result.early).toBe(0)
+        expect(result.before.count).toBe(1)
+        expect(result.before.x).toBe(0)
+
+        for (const { t, x, y } of result.frames) {
+            /**
+             * Linear from 500ms to 900ms, give or take when the sequence
+             * started, within a frame of the call.
+             */
+            const expected = Math.min(100, Math.max(0, (t - 500) / 4))
+            expect(Math.abs(x - expected)).toBeLessThan(6)
+            expect(Math.abs(y - expected / 5)).toBeLessThan(1.5)
+        }
+        expect(result.frames.some(({ x }) => x > 20 && x < 80)).toBe(true)
+        expect(result.style).toBe("translateX(100px) translateY(20px)")
+    })
+
+    test("a sequence paused and played before its segments start keeps them on time", async ({
+        page,
+    }) => {
+        const result = await page.evaluate(async () => {
+            const a = document.getElementById("a")!
+            const b = document.getElementById("b")!
+            const c = document.getElementById("c")!
+            const start = document.timeline.currentTime as number
+            const animation = window.Motion.animate([
+                [a, { x: 100 }, { duration: 0.3, ease: "linear" }],
+                [b, { x: 100 }, { duration: 0.4, ease: "linear", at: 0.5 }],
+                [c, { x: 100 }, { duration: 0.4, ease: "linear", at: 0.8 }],
+            ])
+            /**
+             * b is built shortly before it starts. c is still waiting to
+             * be built.
+             */
+            await window.waitFrame(440)
+            const [built] = window.transformAnimations(b)
+            const waiting = window.transformAnimations(c).length
+            animation.pause()
+            const pausedAt = document.timeline.currentTime as number
+            await window.waitFrame(200)
+            const held = [window.readTransform(b).x, window.readTransform(c).x]
+            animation.play()
+            const paused = (document.timeline.currentTime as number) - pausedAt
+            await window.nextFrames(1)
+            const isSame = window.transformAnimations(b)[0] === built
+            const frames: any[] = await new Promise((resolve) => {
+                const recorded: any[] = []
+                const record = () => {
+                    const t = document.timeline.currentTime as number
+                    recorded.push({
+                        t: t - start - paused,
+                        b: window.readTransform(b).x,
+                        c: window.readTransform(c).x,
+                    })
+                    if (t - pausedAt - paused >= 800) {
+                        window.Motion.cancelFrame(record)
+                        resolve(recorded)
+                    }
+                }
+                window.Motion.frame.postRender(record, true)
+            })
+            return {
+                isBuilt: !!built,
+                waiting,
+                held,
+                isSame,
+                frames,
+            }
+        })
+
+        expect(result.isBuilt).toBe(true)
+        expect(result.waiting).toBe(0)
+        expect(result.held).toEqual([0, 0])
+        // b's WAAPI animation was held and played, not rebuilt.
+        expect(result.isSame).toBe(true)
+
+        /**
+         * Linear from 500ms (b) and 800ms (c) for 400ms, later by the
+         * pause, give or take a frame.
+         */
+        const check = (key: "b" | "c", from: number) => {
+            for (const frame of result.frames) {
+                const expected = Math.min(
+                    100,
+                    Math.max(0, (frame.t - from) / 4)
+                )
+                expect(Math.abs(frame[key] - expected)).toBeLessThan(6)
+            }
+            expect(
+                result.frames.some(
+                    (frame: any) => frame[key] > 20 && frame[key] < 80
+                )
+            ).toBe(true)
+        }
+        check("b", 500)
+        check("c", 800)
+    })
+
+    test("a sequence segment follows an easing WAAPI can't run", async ({
+        page,
+    }) => {
+        const result = await page.evaluate(async () => {
+            const a = document.getElementById("a")!
+            const b = document.getElementById("b")!
+            const { animate, backOut } = window.Motion
+            const start = document.timeline.currentTime as number
+            animate([
+                [a, { x: 100 }, { duration: 0.2, ease: "linear" }],
+                [
+                    b,
+                    { x: 100, rotate: 90 },
+                    { duration: 0.6, ease: "backOut", at: 0.3 },
+                ],
+            ])
+            const frames: any[] = await (window as any).recordFrames(b, 1000)
+            /**
+             * Where JS puts it, within a frame either side.
+             */
+            const at = (t: number) =>
+                backOut(Math.min(1, Math.max(0, (t - start - 300) / 600))) * 100
+            return frames.map((frame) => {
+                const range = [-17, -8, 0, 8, 17].map((ms) => at(frame.t + ms))
+                return {
+                    ...frame,
+                    low: Math.min(...range) - 1,
+                    high: Math.max(...range) + 1,
+                }
+            })
+        })
+
+        for (const { x, rotate, low, high, count } of result) {
+            expect(x).toBeGreaterThan(low)
+            expect(x).toBeLessThan(high)
+            expect(rotate).toBeGreaterThan(low * 0.9 - 1)
+            expect(rotate).toBeLessThan(high * 0.9 + 1)
+            expect(count).toBeLessThan(2)
+        }
+        // It overshoots, as backOut does.
+        expect(Math.max(...result.map(({ x }) => x))).toBeGreaterThan(105)
+    })
+
+    test("a sequence renders where it's seeked to, forwards and backwards", async ({
+        page,
+    }) => {
+        const result = await page.evaluate(async () => {
+            const a = document.getElementById("a")!
+            const b = document.getElementById("b")!
+            const animation = window.Motion.animate([
+                [a, { x: 100 }, { duration: 0.3, ease: "linear" }],
+                [b, { x: 100 }, { duration: 0.4, ease: "linear", at: 0.5 }],
+            ])
+            await window.waitFrame(50)
+            animation.pause()
+            animation.time = 0.7
+            await window.waitFrame(50)
+            const seeked = [
+                window.readTransform(a).x,
+                window.readTransform(b).x,
+            ]
+            animation.time = 0.15
+            await window.waitFrame(50)
+            const early = [window.readTransform(a).x, window.readTransform(b).x]
+            animation.time = 0.8
+            animation.speed = -1
+            animation.play()
+            await window.waitFrame(200)
+            const reversed = [
+                window.readTransform(a).x,
+                window.readTransform(b).x,
+            ]
+            return { seeked, early, reversed }
+        })
+
+        expect(result.seeked[0]).toBeCloseTo(100, 0)
+        expect(result.seeked[1]).toBeCloseTo(50, 0)
+        expect(result.early[0]).toBeCloseTo(50, 0)
+        expect(result.early[1]).toBeCloseTo(0, 0)
+        // Back from 0.8s to ~0.6s, give or take a frame or two.
+        expect(result.reversed[0]).toBeCloseTo(100, 0)
+        expect(result.reversed[1]).toBeGreaterThan(15)
+        expect(result.reversed[1]).toBeLessThan(42)
     })
 })

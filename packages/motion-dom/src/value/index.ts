@@ -491,30 +491,34 @@ export class MotionValue<V = any> {
      * @param animation - A function that starts the provided animation
      */
     start(startAnimation: StartAnimation) {
+        return new Promise<void>((resolve) => this.run(startAnimation, resolve))
+    }
+
+    /**
+     * As start(), without making a promise, for animations started
+     * internally, which complete through their own controls.
+     */
+    run(startAnimation: StartAnimation, onComplete?: VoidFunction) {
         this.stop()
+        this.hasAnimated = true
 
-        return new Promise<void>((resolve) => {
-            this.hasAnimated = true
-
-            /**
-             * Complete synchronously via the callback rather than chaining a
-             * second promise per animation. Guard against animations that
-             * complete before startAnimation has returned.
-             */
-            let isComplete = false
-            let animation: MotionValueAnimation | undefined
-            // eslint-disable-next-line prefer-const -- read by the callback before assignment when completing synchronously
-            animation = startAnimation(() => {
-                isComplete = true
-                this.events.animationComplete?.notify()
-                if (this.animation === animation) this.animation = undefined
-                resolve()
-            })
-
-            if (!isComplete) this.animation = animation
-
-            this.events.animationStart?.notify()
+        /**
+         * Guard against animations that complete before startAnimation
+         * has returned.
+         */
+        let isComplete = false
+        let animation: MotionValueAnimation | undefined
+        // eslint-disable-next-line prefer-const -- read by the callback before assignment when completing synchronously
+        animation = startAnimation(() => {
+            isComplete = true
+            this.events.animationComplete?.notify()
+            if (this.animation === animation) this.animation = undefined
+            onComplete?.()
         })
+
+        if (!isComplete) this.animation = animation
+
+        this.events.animationStart?.notify()
     }
 
     /**
