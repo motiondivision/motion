@@ -9,6 +9,12 @@ import {
     resolveElements,
     type ElementOrSelector,
 } from "../../utils/resolve-elements"
+import {
+    createBounds,
+    isElement,
+    type Constraints,
+    type ConstraintsType,
+} from "../constrain"
 import { acquireDragNode } from "./projection"
 import type { DragConstraintsFunction, DragElastic, DragHandler } from "./types"
 import { VisualElementDragControls } from "./VisualElementDragControls"
@@ -28,8 +34,25 @@ export interface DragOptions {
      * distances in pixels, relative to the element's origin, an element
      * the draggable element must stay within, or a function that returns
      * a `DragPointConstraint` to move the element itself.
+     *
+     * These are the element's constraints, shared with `pinch()`: without
+     * its own, drag uses those set on pinch, and pinch uses these.
+     * Whichever is set last applies to both. A `DragPointConstraint` only
+     * applies to drag.
      */
-    constraints?: Partial<BoundingBox> | Element | DragConstraintsFunction
+    constraints?:
+        | Partial<BoundingBox>
+        | Element
+        | DragConstraintsFunction
+        | Constraints
+
+    /**
+     * Which box element constraints keep within the constraining element.
+     * `"layout"` (the default) measures the element without its
+     * transform. `"visual"` measures it as drawn, so the limits follow
+     * its scale and rotation, for instance while it's pinched.
+     */
+    constraintsType?: ConstraintsType
 
     /**
      * How far, from `0` to `1`, the element can move outside its
@@ -200,9 +223,37 @@ export function drag(
          */
         node.setOptions({ alwaysMeasureLayout: true })
 
+        const visualElement = visualElementStore.get(
+            element
+        ) as VisualElement<HTMLElement>
+        let elementProps = props
+
+        /**
+         * Visual element constraints follow the element's scale and
+         * rotation, so measure them as constrain() does.
+         */
+        if (
+            options.constraintsType === "visual" &&
+            isElement(options.constraints)
+        ) {
+            const { x, y } = options
+            elementProps = {
+                ...props,
+                dragConstraints: createBounds(
+                    element,
+                    options.constraints,
+                    "visual",
+                    () => [
+                        (x || visualElement.getValue("x", 0)).get(),
+                        (y || visualElement.getValue("y", 0)).get(),
+                    ]
+                ),
+            }
+        }
+
         const controls = new VisualElementDragControls(
-            visualElementStore.get(element) as VisualElement<HTMLElement>,
-            () => props
+            visualElement,
+            () => elementProps
         )
         const removeListeners = controls.addListeners()
         const removeStyles = applyDragStyles(
