@@ -135,7 +135,7 @@ export function addAnimationDefinitions(
             animationDefinitions.push({
                 map,
                 key,
-                unresolvedKeyframes: valueKeyframes,
+                unresolvedKeyframes: valueKeyframes as UnresolvedValueKeyframe[],
                 options: {
                     ...valueOptions,
                     element,

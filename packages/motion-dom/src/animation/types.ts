@@ -649,11 +649,20 @@ export type SVGPathKeyframesDefinition = {
     [K in keyof SVGPathProperties]?: ValueKeyframesDefinition
 }
 
+export interface FXKeyframesDefinition {
+    /**
+     * The effects of one element that a canvas layer draws, as the
+     * `shaders` of an `<FX>`. Only the options named here are animated.
+     */
+    shaders?: unknown[]
+}
+
 export type DOMKeyframesDefinition = StyleKeyframesDefinition &
     SVGKeyframesDefinition &
     SVGPathKeyframesDefinition &
     SVGForcedAttrKeyframesDefinition &
-    VariableKeyframesDefinition
+    VariableKeyframesDefinition &
+    FXKeyframesDefinition
 
 export interface Target extends DOMKeyframesDefinition {}
 
