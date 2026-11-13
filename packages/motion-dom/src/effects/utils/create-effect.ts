@@ -42,6 +42,12 @@ export interface EffectOptions<Subject extends object> {
      * values. Defaults to a store of the effect's own.
      */
     nodes?: WeakMap<object, MotionNode>
+
+    /**
+     * During a frame, write each change as it's made rather than in
+     * `step`. For subjects a write can't make the browser lay out.
+     */
+    sync?: boolean
 }
 
 export interface Effect<Subject extends object = object>
@@ -100,7 +106,7 @@ export function createEffect<Subject extends object>(
 ): Effect<Subject>
 export function createEffect<Subject extends object>(
     addValue: AddEffectValue<Subject>,
-    { step, nodes, ...options }: EffectOptions<Subject> = {}
+    { step, sync, nodes, ...options }: EffectOptions<Subject> = {}
 ): Effect<Subject> {
     const own = new WeakMap<Subject, MotionNode<Subject>>()
 
@@ -118,7 +124,7 @@ export function createEffect<Subject extends object>(
         let node = state(subject)
 
         if (!node) {
-            node = new MotionNode<Subject>(step)
+            node = new MotionNode<Subject>(step, sync)
             node.current = subject
             node.bind = addValue as MotionNode<Subject>["bind"]
             node.read = options.read

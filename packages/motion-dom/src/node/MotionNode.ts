@@ -2,6 +2,7 @@ import type { Box } from "motion-utils"
 import type { AnyResolvedKeyframe } from "../animation/types"
 import type { KeyframeResolver } from "../animation/keyframes/KeyframesResolver"
 import { frame } from "../frameloop/frame"
+import { frameData } from "../frameloop/frame-data"
 import type { Schedule } from "../frameloop/types"
 import { createBox } from "../projection/geometry/models"
 import { motionValue, MotionValue } from "../value"
@@ -49,6 +50,41 @@ export interface NodeBinding {
 }
 
 const noProps = {}
+
+/**
+ * Nodes with writes pending in a frame step, flushed by one callback
+ * for the step rather than one for each node.
+ */
+interface Batch {
+    nodes: MotionNode[]
+    flush: VoidFunction
+}
+
+const batches = new Map<Schedule, Batch>()
+
+function getBatch(step: Schedule) {
+    let batch = batches.get(step)
+
+    if (!batch) {
+        const created: Batch = {
+            nodes: [],
+            flush: () => {
+                const { nodes } = created
+                created.nodes = []
+                for (let i = 0; i < nodes.length; i++) nodes[i].flush()
+
+                /**
+                 * Nodes scheduled while flushing are the next batch,
+                 * which runs in the next frame.
+                 */
+                created.nodes.length && step(created.flush)
+            },
+        }
+        batches.set(step, (batch = created))
+    }
+
+    return batch
+}
 
 /**
  * The motion values of one subject (an element, a Three.js object, any
@@ -113,11 +149,27 @@ export class MotionNode<Subject = any> {
     numPending = 0
 
     /**
+     * True when the node is in its step's batch, to be flushed.
+     */
+    private isScheduled?: boolean
+
+    private batch: Batch
+
+    /**
      * @param step - The frameloop step writes are scheduled in. Defaults
      * to `frame.render`. Nodes that feed a render loop running in
      * `frame.render` (GPU scenes) should write in `frame.preRender`.
+     * @param isSync - During a frame, write each change as it's made
+     * rather than in `step`, for subjects a write can't make the browser
+     * lay out, like plain objects and 3D scenes. Outside a frame, changes
+     * still wait for `step`.
      */
-    constructor(protected step: Schedule = frame.render) {}
+    constructor(
+        protected step: Schedule = frame.render,
+        private isSync?: boolean
+    ) {
+        this.batch = getBatch(step)
+    }
 
     /**
      * Bind `value` to `name`, writing it with `render` whenever it changes.
@@ -145,11 +197,16 @@ export class MotionNode<Subject = any> {
                 render && !this.isSilent && this.schedule(render)
             }
 
-            binding.stop = value.on("change", (v: AnyResolvedKeyframe) => {
+            const onChange = (v: AnyResolvedKeyframe) => {
                 this.latestValues[name] = v
                 this.onChange?.(name)
-                render && this.schedule(render)
-            })
+                render &&
+                    (this.isSync && frameData.isProcessing
+                        ? render()
+                        : this.schedule(render))
+            }
+            value.addChangeSubscriber(onChange)
+            binding.stop = () => value.removeChangeSubscriber(onChange)
         } else if (render) {
             this.schedule(render)
         }
@@ -292,11 +349,19 @@ export class MotionNode<Subject = any> {
     }
 
     /**
-     * `immediate`, so a write scheduled by something else in the same
-     * frameloop step is flushed in this frame.
+     * Have the node flushed in its step. `immediate`, so a flush asked
+     * for by something else in the same step runs in this frame.
      */
+    protected requestFlush() {
+        if (this.isScheduled) return
+        this.isScheduled = true
+        const { batch } = this
+        batch.nodes.length || this.step(batch.flush, false, true)
+        batch.nodes.push(this)
+    }
+
     protected schedule(render: VoidFunction) {
-        this.numPending || this.step(this.flush, false, true)
+        this.requestFlush()
         this.queue(render)
     }
 
@@ -305,11 +370,11 @@ export class MotionNode<Subject = any> {
      * scheduled while flushing lands in the next frame, as with the
      * frameloop itself.
      */
-    flush = () => {
+    flush() {
+        this.isScheduled = false
         const { pending, numPending } = this
         this.numPending = 0
         for (let i = 0; i < numPending; i++) pending[i]()
-        this.numPending && this.step(this.flush)
     }
 
     /**

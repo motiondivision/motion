@@ -1,5 +1,9 @@
-import { transformGroups } from "../../animation/waapi/transforms/groups"
+import {
+    markRepaint,
+    transformGroups,
+} from "../../animation/waapi/transforms/groups"
 import { isCSSVar } from "../../render/dom/is-css-var"
+import { acceleratedValues } from "../../animation/waapi/utils/accelerated-values"
 import { readTransformValue } from "../../render/dom/parse-transform"
 import { buildTransform } from "../../render/html/utils/build-transform"
 import { nodeStore } from "../../render/store"
@@ -13,6 +17,7 @@ import { numberValueTypes } from "../../value/types/maps/number"
 import { getValueAsType } from "../../value/types/utils/get-as-type"
 import { createSelectorEffect } from "../utils/create-dom-effect"
 import { createEffect } from "../utils/create-effect"
+import { setStyle } from "./output"
 
 /**
  * What a write function reads from: a node, or the values of a
@@ -117,11 +122,33 @@ export const getStyleRender = (
                   styleValue(node, "originZ") ?? 0
               }`
           })
-        : isCSSVar(key)
-        ? () => element.style.setProperty(key, node.latestValues[key] as string)
-        : () => {
-              element.style[key as any] = styleValue(node, key) as string
-          }
+        : getValueRender(element, node, key)
+
+/**
+ * The function that writes a style or a CSS variable.
+ */
+const getValueRender = (
+    element: HTMLElement | SVGElement,
+    node: RenderSource,
+    key: string
+) => {
+    /**
+     * A style animating on the main thread repaints the element every
+     * frame. If it also has compositor transforms, count it, as too many
+     * such elements cost more than animating their transforms on the
+     * main thread. A CSS variable is never composited.
+     */
+    const isComposited = acceleratedValues.has(key)
+
+    return () => {
+        if (!isComposited && transformGroups.has(element)) {
+            const value = (node as MotionNode).values.get(key)
+            value?.isAnimating() && markRepaint(element, value)
+        }
+
+        setStyle(element, key, styleValue(node, key) as string)
+    }
+}
 
 export const addStyleValue = (
     element: HTMLElement | SVGElement,
@@ -132,7 +159,7 @@ export const addStyleValue = (
 
 export type StyleSubject = HTMLElement | SVGElement
 
-const isStyleSubject = (subject: unknown): subject is StyleSubject =>
+export const isStyleSubject = (subject: unknown): subject is StyleSubject =>
     isHTMLElement(subject) || isSVGElement(subject)
 
 /**
@@ -159,11 +186,11 @@ export const readStyleValue = (element: StyleSubject, key: string) => {
  * The per-element effect `animate()` binds through, so HTML values share
  * a node with a direct `styleEffect()` call and with the element's motion
  * component, if it has one. The exported `styleEffect` is this wrapped to
- * also accept selectors.
+ * also accept selectors. `animate()` attaches the `test` and `read` hooks
+ * (see animation/animate/element.ts), so a `styleEffect()` import alone
+ * doesn't bundle the computed-style readers.
  */
 export const styleSubjectEffect = /*@__PURE__*/ createEffect(addStyleValue, {
-    test: isStyleSubject,
-    read: readStyleValue,
     nodes: nodeStore,
 })
 

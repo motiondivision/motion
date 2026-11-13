@@ -6,6 +6,7 @@ import type { MotionNodeOptions } from "../../node/types"
 import type { DOMVisualElementOptions } from "./types"
 import type { HTMLRenderState } from "../html/types"
 import { getTransformRender } from "../../effects/style"
+import type { VisualElementOptions } from "../types"
 import { VisualElement, MotionStyle } from "../VisualElement"
 
 export abstract class DOMVisualElement<
@@ -13,6 +14,17 @@ export abstract class DOMVisualElement<
     State extends HTMLRenderState = HTMLRenderState,
     Options extends DOMVisualElementOptions = DOMVisualElementOptions
 > extends VisualElement<Instance, State, Options> {
+    /**
+     * Declared rather than implicit, as the implicit constructor compiles
+     * to super(...arguments), which is slow to run per element.
+     */
+    constructor(
+        options: VisualElementOptions<Instance, State>,
+        renderOptions?: Options
+    ) {
+        super(options, renderOptions)
+    }
+
     sortInstanceNodePosition(a: Instance, b: Instance): number {
         /**
          * compareDocumentPosition returns a bitmask, by using the bitwise &
@@ -43,10 +55,8 @@ export abstract class DOMVisualElement<
      * Projection styles are written over the values, after any of them
      * is written.
      */
-    private writeValues = this.flush
-
-    flush = () => {
-        this.writeValues()
+    flush() {
+        super.flush()
         this.current &&
             this.projection?.applyProjectionStyles(
                 this.current.style,

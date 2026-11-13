@@ -13,7 +13,7 @@ import { calcGeneratorDuration } from "../../animation/generators/utils/calc-dur
 import { notifyLayoutAnimationStart } from "../../animation/utils/notify-inspector"
 import { getOptimisedAppearId } from "../../animation/optimized-appear/get-appear-id"
 import {
-    AnimationPlaybackControls,
+    AnimationPlaybackControlsWithThen,
     MotionPath,
     PathInterpolator,
     Transition,
@@ -92,35 +92,12 @@ import {
 } from "./types"
 
 /**
- * Transforms that distort an element's layout, so must be reset before measuring.
- */
-const distortingTransforms = ["z", "skew", "skewZ"]
-
-/**
  * We use 1000 as the animation target as 0-1000 maps better to pixels than 0-1
  * which has a noticeable difference in spring animations
  */
 const animationTarget = 1000
 
 let id = 0
-
-function resetDistortingTransform(
-    key: string,
-    visualElement: VisualElement,
-    values: ResolvedValues,
-    sharedAnimationValues?: ResolvedValues
-) {
-    const { latestValues } = visualElement
-
-    // Record the distorting transform and then temporarily set it to 0
-    if (latestValues[key]) {
-        values[key] = latestValues[key]
-        visualElement.setStaticValue(key, 0)
-        if (sharedAnimationValues) {
-            sharedAnimationValues[key] = 0
-        }
-    }
-}
 
 /**
  * Move accelerated transforms back to the main thread. The WAAPI animation
@@ -230,8 +207,7 @@ export function createProjectionNode<I>({
                 layoutId,
                 layout,
                 alwaysMeasureLayout:
-                    Boolean(drag) ||
-                    (dragConstraints && isRefObject(dragConstraints)),
+                    !!drag || (dragConstraints && isRefObject(dragConstraints)),
                 visualElement,
                 /**
                  * TODO: Update options in an effect. This could be tricky as it'll be too late
@@ -790,7 +766,7 @@ export function createProjectionNode<I>({
 
         getTransformTemplate() {
             const { visualElement } = this.options
-            return visualElement && visualElement.getProps().transformTemplate
+            return visualElement?.getProps().transformTemplate
         }
 
         willUpdate(shouldNotifyListeners = true) {
@@ -1045,15 +1021,11 @@ export function createProjectionNode<I>({
         updateSnapshot() {
             if (this.snapshot || !this.instance) return
 
-            this.snapshot = this.measure()
+            const snapshot = this.measure()
+            const { x, y } = snapshot.measuredBox
 
-            if (
-                this.snapshot &&
-                !calcLength(this.snapshot.measuredBox.x) &&
-                !calcLength(this.snapshot.measuredBox.y)
-            ) {
-                this.snapshot = undefined
-            }
+            this.snapshot =
+                calcLength(x) || calcLength(y) ? snapshot : undefined
 
             /**
              * Record how fast the element is moving when it's measured, so
@@ -1367,7 +1339,7 @@ export function createProjectionNode<I>({
         }
 
         forceRelativeParentToResolveTarget() {
-            if (!this.relativeParent) return
+            const { relativeParent } = this
 
             /**
              * If the parent target isn't up-to-date, force it to update.
@@ -1375,12 +1347,10 @@ export function createProjectionNode<I>({
              * projection will cause all the relative parents to recalculate back
              * up the tree.
              */
-            if (
-                this.relativeParent.resolvedRelativeTargetAt !==
-                frameData.timestamp
-            ) {
-                this.relativeParent.resolveTargetDelta(true)
-            }
+            relativeParent &&
+                relativeParent.resolvedRelativeTargetAt !==
+                    frameData.timestamp &&
+                relativeParent.resolveTargetDelta(true)
         }
 
         /**
@@ -1398,7 +1368,7 @@ export function createProjectionNode<I>({
             this.isTransformDirty ||= lead.isTransformDirty
             this.isSharedProjectionDirty ||= lead.isSharedProjectionDirty
 
-            const isShared = Boolean(this.resumingFrom) || this !== lead
+            const isShared = !!this.resumingFrom || this !== lead
 
             /**
              * We don't use transform for this step of processing so we don't
@@ -1434,8 +1404,7 @@ export function createProjectionNode<I>({
             if (!this.targetDelta && !this.relativeTarget) {
                 if (
                     this.options.layoutAnchor !== false &&
-                    relativeParent &&
-                    relativeParent.layout
+                    relativeParent?.layout
                 ) {
                     this.createRelativeTarget(
                         relativeParent,
@@ -1467,8 +1436,7 @@ export function createProjectionNode<I>({
             if (
                 this.relativeTarget &&
                 this.relativeTargetOrigin &&
-                this.relativeParent &&
-                this.relativeParent.target
+                this.relativeParent?.target
             ) {
                 this.forceRelativeParentToResolveTarget()
 
@@ -1483,7 +1451,7 @@ export function createProjectionNode<I>({
                  * If we've only got a targetDelta, resolve it into a target
                  */
             } else if (this.targetDelta) {
-                if (Boolean(this.resumingFrom)) {
+                if (this.resumingFrom) {
                     /**
                      * Own transforms are applied later, in applyTransformsToTarget,
                      * so only apply ancestor transforms here or they'd be doubled.
@@ -1559,11 +1527,11 @@ export function createProjectionNode<I>({
         }
 
         isProjecting() {
-            return Boolean(
+            return !!(
                 (this.relativeTarget ||
                     this.targetDelta ||
                     this.options.layoutRoot) &&
-                    this.layout
+                this.layout
             )
         }
 
@@ -1594,38 +1562,29 @@ export function createProjectionNode<I>({
 
         calcProjection() {
             const lead = this.getLead()
-            const isShared = Boolean(this.resumingFrom) || this !== lead
-
-            let canSkip = true
+            const isShared = !!this.resumingFrom || this !== lead
 
             /**
-             * If this is a normal layout animation and neither this node nor its nearest projecting
-             * is dirty then we can't skip.
-             */
-            if (this.isProjectionDirty || this.parent?.isProjectionDirty) {
-                canSkip = false
-            }
-
-            /**
-             * If this is a shared layout animation and this node's shared projection is dirty then
-             * we can't skip.
+             * We can't skip if:
+             * - This is a normal layout animation and this node or its
+             *   nearest projecting parent is dirty.
+             * - This is a shared layout animation and this node's shared
+             *   projection or transform is dirty.
+             * - We have resolved the target this frame, as we must recalculate
+             *   the projection to ensure it visually represents the internal
+             *   calculations.
              */
             if (
-                isShared &&
-                (this.isSharedProjectionDirty || this.isTransformDirty)
-            ) {
-                canSkip = false
-            }
-
-            /**
-             * If we have resolved the target this frame we must recalculate the
-             * projection to ensure it visually represents the internal calculations.
-             */
-            if (this.resolvedRelativeTargetAt === frameData.timestamp) {
-                canSkip = false
-            }
-
-            if (canSkip) return
+                !(
+                    this.isProjectionDirty ||
+                    this.parent?.isProjectionDirty ||
+                    (isShared &&
+                        (this.isSharedProjectionDirty ||
+                            this.isTransformDirty)) ||
+                    this.resolvedRelativeTargetAt === frameData.timestamp
+                )
+            )
+                return
 
             const { layout, layoutId } = this.options
 
@@ -1633,10 +1592,10 @@ export function createProjectionNode<I>({
              * If this section of the tree isn't animating we can
              * delete our target sources for the following frame.
              */
-            this.isTreeAnimating = Boolean(
+            this.isTreeAnimating = !!(
                 this.parent?.isTreeAnimating ||
-                    this.currentAnimation ||
-                    this.pendingAnimation
+                this.currentAnimation ||
+                this.pendingAnimation
             )
             if (!this.isTreeAnimating) {
                 this.targetDelta = this.relativeTarget = undefined
@@ -1787,7 +1746,7 @@ export function createProjectionNode<I>({
          */
         animationValues?: ResolvedValues
         pendingAnimation?: Process
-        currentAnimation?: AnimationPlaybackControls
+        currentAnimation?: AnimationPlaybackControlsWithThen
         mixTargetDelta: (progress: number) => void
         animationProgress = 0
 
@@ -1826,10 +1785,7 @@ export function createProjectionNode<I>({
             const mixedValues = { ...this.latestValues }
 
             const targetDelta = createDelta()
-            if (
-                !this.relativeParent ||
-                !this.relativeParent.options.layoutRoot
-            ) {
+            if (!this.relativeParent?.options.layoutRoot) {
                 this.relativeTarget = this.relativeTargetOrigin = undefined
             }
             this.attemptToResolveRelativeTarget = !hasOnlyRelativeTargetChanged
@@ -1840,12 +1796,11 @@ export function createProjectionNode<I>({
                 snapshot?.source !== this.layout?.source
             const stack = this.getStack()
             const isOnlyMember = !stack || stack.members.length <= 1
-            const shouldCrossfadeOpacity = Boolean(
+            const shouldCrossfadeOpacity =
                 isSharedLayoutAnimation &&
-                    !isOnlyMember &&
-                    this.options.crossfade === true &&
-                    !this.path.some(hasOpacityCrossfade)
-            )
+                !isOnlyMember &&
+                this.options.crossfade === true &&
+                !this.path.some(hasOpacityCrossfade)
 
             this.animationProgress = 0
 
@@ -1947,8 +1902,7 @@ export function createProjectionNode<I>({
                     this.relativeTarget &&
                     this.relativeTargetOrigin &&
                     this.layout &&
-                    this.relativeParent &&
-                    this.relativeParent.layout
+                    this.relativeParent?.layout
                 ) {
                     calcRelativePosition(
                         relativeLayout,
@@ -2046,10 +2000,7 @@ export function createProjectionNode<I>({
             this.resumingFrom?.currentAnimation?.stop()
             if (this.resumingFrom) this.resumingFrom.edgeValues = undefined
 
-            if (this.pendingAnimation) {
-                cancelFrame(this.pendingAnimation)
-                this.pendingAnimation = undefined
-            }
+            this.pendingAnimation && cancelFrame(this.pendingAnimation)
 
             /**
              * Start the animation in the next frame to have a frame with progress 0,
@@ -2214,8 +2165,7 @@ export function createProjectionNode<I>({
                 this.resumingFrom.preserveOpacity = undefined
             }
 
-            const stack = this.getStack()
-            stack && stack.exitAnimationComplete()
+            this.getStack()?.exitAnimationComplete()
             this.resumingFrom =
                 this.currentAnimation =
                 this.animationValues =
@@ -2252,7 +2202,6 @@ export function createProjectionNode<I>({
             if (
                 this !== lead &&
                 this.layout &&
-                layout &&
                 shouldAnimatePositionOnly(
                     this.options.animationType,
                     this.layout.layoutBox,
@@ -2317,13 +2266,11 @@ export function createProjectionNode<I>({
         }
 
         getLead() {
-            const { layoutId } = this.options
-            return layoutId ? this.getStack()?.lead || this : this
+            return this.getStack()?.lead || this
         }
 
         getPrevLead() {
-            const { layoutId } = this.options
-            return layoutId ? this.getStack()?.prevLead : undefined
+            return this.getStack()?.prevLead
         }
 
         getStack() {
@@ -2368,23 +2315,17 @@ export function createProjectionNode<I>({
 
             const resetValues: ResolvedValues = {}
 
-            // Check the skew and rotate value of all axes and reset to 0
-            for (let i = 0; i < distortingTransforms.length; i++) {
-                resetDistortingTransform(
-                    distortingTransforms[i],
-                    visualElement,
-                    resetValues,
-                    this.animationValues
-                )
-            }
-            for (let i = 0; i < angleTransforms.length; i++) {
-                resetDistortingTransform(
-                    angleTransforms[i],
-                    visualElement,
-                    resetValues,
-                    this.animationValues
-                )
-            }
+            /**
+             * Record each transform that distorts the element's layout, then
+             * temporarily set it to 0.
+             */
+            ;["z", "skew", "skewZ", ...angleTransforms].forEach((key) => {
+                if (latestValues[key]) {
+                    resetValues[key] = latestValues[key]
+                    visualElement.setStaticValue(key, 0)
+                    if (this.animationValues) this.animationValues[key] = 0
+                }
+            })
 
             // Force a render of this element to apply the transform with all skews and rotations
             // set to 0.
@@ -2762,10 +2703,10 @@ export function propagateDirtyNodes(node: IProjectionNode) {
      * throughout the whole tree. A future revision can take another look at
      * this but for safety we still recalcualte shared nodes.
      */
-    node.isSharedProjectionDirty ||= Boolean(
+    node.isSharedProjectionDirty ||= !!(
         node.isProjectionDirty ||
-            node.parent.isProjectionDirty ||
-            node.parent.isSharedProjectionDirty
+        node.parent.isProjectionDirty ||
+        node.parent.isSharedProjectionDirty
     )
 
     node.isTransformDirty ||= node.parent.isTransformDirty

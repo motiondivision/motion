@@ -300,7 +300,7 @@ function springGenerator(
         duration,
         isResolvedFromDuration,
         isTimeDefined,
-    } = getSpringOptions({ ...options })
+    } = getSpringOptions(options)
 
     /**
      * A duration spring must end exactly at its duration, and it's settled
@@ -397,17 +397,16 @@ function springGenerator(
             return c.env * (c.sinC * c.sin + c.cosC * c.cos)
         }
     } else if (dampingRatio === 1) {
-        // Critically damped spring
-        resolveSpring = (t: number) =>
-            s.target -
-            Math.exp(-undampedAngularFreq * t) *
-                (s.delta + (s.velocity + undampedAngularFreq * s.delta) * t)
-
-        // Analytical derivative of critically damped spring (px/ms)
         const c = { C: 0 }
         update = () => {
             c.C = s.velocity + undampedAngularFreq * s.delta
         }
+
+        // Critically damped spring
+        resolveSpring = (t: number) =>
+            s.target - Math.exp(-undampedAngularFreq * t) * (s.delta + c.C * t)
+
+        // Analytical derivative of critically damped spring (px/ms)
         resolveVelocity = (t: number) =>
             Math.exp(-undampedAngularFreq * t) *
             (undampedAngularFreq * c.C * t - s.velocity)

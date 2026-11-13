@@ -11,15 +11,11 @@ export class WithPromise {
     private isResolved = false
 
     get finished() {
-        if (!this._finished) {
-            this._finished = this.isResolved
-                ? Promise.resolve()
-                : new Promise<void>((resolve) => {
-                      this._resolve = resolve
-                  })
-        }
-
-        return this._finished
+        return (this._finished ||= this.isResolved
+            ? Promise.resolve()
+            : new Promise<void>((resolve) => {
+                  this._resolve = resolve
+              }))
     }
 
     protected updateFinished() {

@@ -239,6 +239,20 @@ describe("MotionNode", () => {
         visualElement.unmount()
     })
 
+    it("has the origin of a value that is animating but not yet written", async () => {
+        const element = document.createElement("div")
+        element.style.opacity = "0.5"
+        document.body.appendChild(element)
+
+        animateElement(element, { opacity: 1 }, { delay: 1, duration: 1 })
+        await nextFrame()
+        await nextFrame()
+
+        expect(nodeStore.get(element)!.latestValues.opacity).toBe(0.5)
+
+        element.remove()
+    })
+
     it("writes an SVG component's values as attributes, and transforms as styles", async () => {
         const element = document.createElementNS(
             "http://www.w3.org/2000/svg",

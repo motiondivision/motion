@@ -25,13 +25,16 @@ export interface WithRender {
 }
 
 /**
- * The owner of an animating value. Either a VisualElement or an
- * EffectSubject.
+ * The owner of an animating value: a MotionNode.
  */
 export interface AnimationElement
     extends Omit<WithRender, "current">,
         Owner {
     KeyframeResolver?: typeof KeyframeResolver
+    /**
+     * The latest value of each key, which the subject is written from.
+     */
+    latestValues?: { [key: string]: any }
     shouldSkipAnimations?: boolean
     shouldReduceMotion?: boolean | null
 }

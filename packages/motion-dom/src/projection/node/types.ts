@@ -1,5 +1,5 @@
 import type {
-    AnimationPlaybackControls,
+    AnimationPlaybackControlsWithThen,
     MotionPath,
     Transition,
     ValueTransition,
@@ -134,7 +134,7 @@ export interface IProjectionNode<I = unknown> {
 
     isProjecting(): boolean
     animationValues?: ResolvedValues
-    currentAnimation?: AnimationPlaybackControls
+    currentAnimation?: AnimationPlaybackControlsWithThen
     /**
      * The latest offsets (px) of the x min, x max, y min and y max edge
      * springs, while a layout animation runs with velocity.

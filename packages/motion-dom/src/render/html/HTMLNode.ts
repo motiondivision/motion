@@ -78,7 +78,7 @@ export class HTMLNode extends MotionNode<HTMLElement> {
     }
 
     scheduleRender = () => {
-        this.step(this.flush, false, true)
+        this.requestFlush()
         this.queueAll()
     }
 
@@ -86,10 +86,8 @@ export class HTMLNode extends MotionNode<HTMLElement> {
      * Projection styles are written over the values, after any of them
      * is written.
      */
-    private writeValues = this.flush
-
-    flush = () => {
-        this.writeValues()
+    flush() {
+        super.flush()
         this.projection?.applyProjectionStyles(this.current!.style)
     }
 

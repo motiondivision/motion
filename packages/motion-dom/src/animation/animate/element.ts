@@ -1,5 +1,11 @@
-import { styleSubjectEffect, StyleSubject } from "../../effects/style"
-import { svgSubjectEffect } from "../../effects/svg"
+import {
+    isStyleSubject,
+    readStyleValue,
+    styleSubjectEffect,
+    StyleSubject,
+} from "../../effects/style"
+import { readSVGValue, svgSubjectEffect } from "../../effects/svg"
+import type { AnimateEffect } from "../../effects/utils/create-effect"
 import { releaseNode, type MotionNode } from "../../node/MotionNode"
 import { measureViewportBox } from "../../projection/utils/measure"
 import { nodeStore } from "../../render/store"
@@ -8,7 +14,37 @@ import { activeScope } from "../../scope/active"
 import { transformGroups } from "../waapi/transforms/groups"
 import { DOMKeyframesResolver } from "../keyframes/DOMKeyframesResolver"
 import { AnimationPlaybackControlsWithThen } from "../types"
-import { animateValues, EffectKeyframes, EffectTransition } from "./effects"
+import {
+    MultiValueRef,
+    animateValues,
+    EffectKeyframes,
+    EffectTransition,
+} from "./effects"
+
+/**
+ * The hooks `animate()` resolves elements through: whether an effect
+ * claims a subject, and the subject's current value as an animation's
+ * origin. They're attached here, which only `animate()` loads, so a
+ * `styleEffect()` or `svgEffect()` import alone doesn't bundle the
+ * computed-style and transform-matrix readers. The selector effects'
+ * `test` and `read` forward to these.
+ *
+ * Attached from a pure call whose result `getElementNode` reads, so a
+ * bundle that keeps this module but never calls `animate()` (like a
+ * library that flattens Motion into one file) can still drop it.
+ */
+const attachHooks = () => {
+    Object.assign(styleSubjectEffect, {
+        test: isStyleSubject,
+        read: readStyleValue,
+    })
+    Object.assign(svgSubjectEffect, { test: isSVGElement, read: readSVGValue })
+    return [styleSubjectEffect, svgSubjectEffect] as ElementEffect[]
+}
+
+type ElementEffect = AnimateEffect<StyleSubject>
+
+const elementEffects = /*@__PURE__*/ attachHooks()
 
 function measureNode(this: MotionNode<HTMLElement>) {
     return measureViewportBox(this.current!)
@@ -25,17 +61,17 @@ function measureNode(this: MotionNode<HTMLElement>) {
  * bundle that, so it's added here.
  */
 export function getElementNode(element: StyleSubject): MotionNode {
-    let node = nodeStore.get(element)
+    const effect = elementEffects[isSVGElement(element) ? 1 : 0]
+    const node = nodeStore.get(element) || effect.node(element)
 
-    if (!node) {
-        node = (
-            isSVGElement(element) ? svgSubjectEffect : styleSubjectEffect
-        ).node(element as any)
-    }
-
+    /**
+     * A node made by styleEffect() or svgEffect() alone has no way to
+     * read the element. One an effect made reads as that effect does.
+     */
     if (!node.KeyframeResolver) {
         node.KeyframeResolver = DOMKeyframesResolver
         node.measureViewportBox = measureNode
+        node.read ||= effect.read
     }
 
     return node
@@ -48,7 +84,8 @@ export function animateElement(
     element: StyleSubject,
     keyframes: EffectKeyframes,
     transition?: EffectTransition,
-    node: MotionNode = getElementNode(element)
+    node: MotionNode = getElementNode(element),
+    animationRef?: MultiValueRef
 ): AnimationPlaybackControlsWithThen[] {
     activeScope.current?.track(element)
 
@@ -56,7 +93,8 @@ export function animateElement(
         (key) => node.getValue(key, null),
         keyframes,
         transition,
-        node
+        node,
+        animationRef
     )
 }
 

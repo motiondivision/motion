@@ -45,18 +45,16 @@ export function createMotionProxy(
     /**
      * Support for deprecated`motion(Component)` pattern
      */
-    const deprecatedFactoryFunction = (
-        Component: string,
-        options?: MotionComponentOptions
-    ) => {
-        if (process.env.NODE_ENV !== "production") {
-            warnOnce(
-                false,
-                "motion() is deprecated. Use motion.create() instead."
-            )
-        }
-        return factory(Component, options)
-    }
+    const deprecatedFactoryFunction =
+        process.env.NODE_ENV !== "production"
+            ? (Component: string, options?: MotionComponentOptions) => {
+                  warnOnce(
+                      false,
+                      "motion() is deprecated. Use motion.create() instead."
+                  )
+                  return factory(Component, options)
+              }
+            : factory
 
     return new Proxy(deprecatedFactoryFunction, {
         /**
@@ -71,15 +69,7 @@ export function createMotionProxy(
              * If this element doesn't exist in the component cache, create it and cache.
              */
             if (!componentCache.has(key)) {
-                componentCache.set(
-                    key,
-                    createMotionComponent(
-                        key,
-                        undefined,
-                        preloadedFeatures,
-                        createVisualElement
-                    )
-                )
+                componentCache.set(key, factory(key))
             }
 
             return componentCache.get(key)!

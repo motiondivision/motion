@@ -90,7 +90,30 @@ export function parseValueFromTransform(
         : values[valueParser]
 }
 
+/**
+ * While keyframes are read as one batch, nothing writes styles, so an
+ * element's computed transform is read once for all of its values, rather
+ * than once for each.
+ */
+let isBatching = false
+let lastInstance: HTMLElement | undefined
+let lastTransform: string | undefined
+
+export function batchTransformReads(read: VoidFunction) {
+    isBatching = true
+    try {
+        read()
+    } finally {
+        isBatching = false
+        lastInstance = lastTransform = undefined
+    }
+}
+
 export const readTransformValue = (instance: HTMLElement, name: string) => {
-    const { transform = "none" } = getComputedStyle(instance)
-    return parseValueFromTransform(transform, name)
+    if (!isBatching || instance !== lastInstance) {
+        lastInstance = instance
+        lastTransform = getComputedStyle(instance).transform || "none"
+    }
+
+    return parseValueFromTransform(lastTransform, name)
 }

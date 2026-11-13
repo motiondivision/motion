@@ -34,5 +34,6 @@ export const propEffect = /*@__PURE__*/ createEffect(
                 ? value
                 : undefined
         },
+        sync: true,
     }
 )

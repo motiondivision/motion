@@ -43,8 +43,6 @@ export function useRender<
         forwardMotionProps,
         isValidProp
     )
-    const elementProps =
-        Component !== Fragment ? { ...filteredProps, ...visualProps, ref } : {}
 
     /**
      * If component has been handed a motion value as its child,
@@ -57,8 +55,15 @@ export function useRender<
         [children]
     )
 
-    return createElement<any>(Component, {
-        ...elementProps,
-        children: renderedChildren,
-    })
+    return createElement<any>(
+        Component,
+        Component !== Fragment
+            ? {
+                  ...filteredProps,
+                  ...visualProps,
+                  ref,
+                  children: renderedChildren,
+              }
+            : { children: renderedChildren }
+    )
 }

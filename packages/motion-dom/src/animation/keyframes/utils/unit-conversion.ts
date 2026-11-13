@@ -1,5 +1,8 @@
 import type { Box } from "motion-utils"
-import { parseValueFromTransform } from "../../../render/dom/parse-transform"
+import {
+    defaultTransformValue,
+    parseValueFromTransform,
+} from "../../../render/dom/parse-transform"
 import { transformPropOrder } from "../../../render/utils/keys-transform"
 import { MotionValue } from "../../../value"
 import { number } from "../../../value/types/numbers"
@@ -42,7 +45,7 @@ export function removeNonTranslationalTransform(visualElement: WithRender) {
             visualElement.getValue(key)
         if (value !== undefined) {
             const current = value.get()
-            const reset = key.startsWith("scale") ? 1 : 0
+            const reset = defaultTransformValue(key)
 
             if (current === reset) return
 

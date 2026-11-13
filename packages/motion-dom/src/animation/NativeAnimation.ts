@@ -4,7 +4,7 @@ import {
     noop,
     secondsToMilliseconds,
 } from "motion-utils"
-import { setStyle } from "../render/dom/style-set"
+import { setStyle } from "../effects/style/output"
 import { supportsScrollTimeline } from "../utils/supports/scroll-timeline"
 import { getFinalKeyframe } from "./keyframes/get-final"
 import {
@@ -190,12 +190,6 @@ export class NativeAnimation<T extends AnyResolvedKeyframe>
      *
      * In this method, we commit styles back to the DOM before cancelling
      * the animation.
-     *
-     * This is designed to be overridden by NativeAnimationExtended, which
-     * will create a renderless JS animation and sample it twice to calculate
-     * its current value, "previous" value, and therefore allow
-     * Motion to also correctly calculate velocity for any subsequent animation
-     * while deferring the commit until the next animation frame.
      */
     protected commitStyles() {
         const element = this.options?.element

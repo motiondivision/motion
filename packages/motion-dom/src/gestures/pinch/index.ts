@@ -1,7 +1,7 @@
 import { clamp, type Point } from "motion-utils"
 import { spring } from "../../animation/generators/spring"
 import type { SpringOptions } from "../../animation/types"
-import { styleSubjectEffect } from "../../effects/style"
+import { readStyleValue, styleSubjectEffect } from "../../effects/style"
 import { svgSubjectEffect } from "../../effects/svg"
 import { cancelFrame, frame } from "../../frameloop"
 import { time } from "../../frameloop/sync-time"
@@ -863,7 +863,7 @@ const getElementValues = (element: HTMLElement | SVGElement) => {
     return valueKeys.map(
         (key) =>
             node.getValue(key) ||
-            node.getValue(key, node.readValue(key) ?? (key === "scale" ? 1 : 0))
+            node.getValue(key, node.readValue(key) ?? readStyleValue(element, key))
     ) as PinchValues
 }
 

@@ -12,7 +12,7 @@ import { useSpring } from "../use-spring"
  * second creates a SubscriptionManager, so count both. Private API.
  */
 const countChangeSubscribers = (value: any) =>
-    (value.changeSubscriber ? 1 : 0) + (value.events.change?.getSize() ?? 0)
+    (value.changeSubscriber ? 1 : 0) + (value.events?.change?.getSize() ?? 0)
 
 describe("useSpring types", () => {
     test("can create a motion value from a number", async () => {

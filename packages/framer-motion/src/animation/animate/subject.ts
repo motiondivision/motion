@@ -1,4 +1,5 @@
 import {
+    MultiValueRef,
     animateEffectSubject,
     animateElement,
     AnimationPlaybackControlsWithThen,
@@ -58,7 +59,8 @@ export function animateSubject(
     element: ElementOrSelector,
     keyframes: DOMKeyframesDefinition,
     options?: DynamicAnimationOptions,
-    scope?: AnimationScope
+    scope?: AnimationScope,
+    animationRef?: MultiValueRef
 ): AnimationPlaybackControlsWithThen[]
 /**
  * Animate a object
@@ -66,7 +68,9 @@ export function animateSubject(
 export function animateSubject<O extends Object>(
     object: O | O[],
     keyframes: ObjectTarget<O>,
-    options?: DynamicAnimationOptions
+    options?: DynamicAnimationOptions,
+    scope?: AnimationScope,
+    animationRef?: MultiValueRef
 ): AnimationPlaybackControlsWithThen[]
 /**
  * Implementation
@@ -91,7 +95,8 @@ export function animateSubject<O extends Object>(
         | ValueAnimationTransition<number>
         | ValueAnimationTransition<string>
         | DynamicAnimationOptions,
-    scope?: AnimationScope
+    scope?: AnimationScope,
+    animationRef?: MultiValueRef
 ): AnimationPlaybackControlsWithThen[] {
     const animations: AnimationPlaybackControlsWithThen[] = []
 
@@ -119,6 +124,12 @@ export function animateSubject<O extends Object>(
 
         const numSubjects = subjects.length
 
+        /**
+         * Every subject's values play on one shared animation, started once they're
+         * all added.
+         */
+        const ref: MultiValueRef = animationRef || {}
+
         process.env.NODE_ENV !== "production" &&
             invariant(
                 Boolean(numSubjects),
@@ -128,17 +139,15 @@ export function animateSubject<O extends Object>(
 
         for (let i = 0; i < numSubjects; i++) {
             const thisSubject = subjects[i]
-            const transition = { ...options }
 
             /**
-             * Resolve stagger function if provided.
+             * Resolve stagger function if provided. Otherwise every
+             * subject shares the options, which nothing below changes.
              */
-            if (
-                "delay" in transition &&
-                typeof transition.delay === "function"
-            ) {
-                transition.delay = transition.delay(i, numSubjects)
-            }
+            const transition =
+                typeof options?.delay === "function"
+                    ? { ...options, delay: options.delay(i, numSubjects) }
+                    : options
 
             if (thisSubject instanceof Element) {
                 /**
@@ -150,7 +159,9 @@ export function animateSubject<O extends Object>(
                     ...animateElement(
                         thisSubject as HTMLElement | SVGElement,
                         keyframes as EffectKeyframes,
-                        transition as EffectTransition
+                        transition as EffectTransition,
+                        undefined,
+                        ref
                     )
                 )
             } else {
@@ -163,11 +174,15 @@ export function animateSubject<O extends Object>(
                         findEffect(thisSubject) ?? propEffect,
                         thisSubject as object,
                         keyframes as EffectKeyframes,
-                        transition as EffectTransition
+                        transition as EffectTransition,
+                        undefined,
+                        ref
                     )
                 )
             }
         }
+
+        animationRef || ref.animation?.start()
     }
 
     return animations
