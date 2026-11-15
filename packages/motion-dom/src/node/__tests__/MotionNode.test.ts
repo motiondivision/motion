@@ -143,7 +143,7 @@ describe("MotionNode", () => {
         visualElement.unmount()
     })
 
-    it("keeps a node of its own for an effect that writes keys differently", () => {
+    it("shares an SVG component's node with svgEffect", async () => {
         const element = document.createElementNS(
             "http://www.w3.org/2000/svg",
             "circle"
@@ -151,11 +151,28 @@ describe("MotionNode", () => {
         const visualElement = createVisualElement(SVGVisualElement)
         visualElement.mount(element)
 
-        svgEffect(element, { cx: motionValue(10) })
+        const cx = motionValue(10)
+        svgEffect(element, { cx })
+
+        expect(svgEffect.state(element)).toBe(visualElement)
+        expect(visualElement.getValue("cx")).toBe(cx)
+
+        await nextFrame()
+        expect(element.getAttribute("cx")).toBe("10")
+
+        visualElement.unmount()
+    })
+
+    it("keeps a node of its own for an effect that writes keys differently", () => {
+        const element = document.createElement("div")
+        const visualElement = createVisualElement(HTMLVisualElement)
+        visualElement.mount(element)
+
+        svgEffect(element as any, { cx: motionValue(10) })
 
         expect(nodeStore.get(element)).toBe(visualElement)
         expect(visualElement.getValue("cx")).toBeUndefined()
-        expect(svgEffect.state(element)).not.toBe(visualElement)
+        expect(svgEffect.state(element as any)).not.toBe(visualElement)
 
         visualElement.unmount()
     })
@@ -338,25 +355,54 @@ describe("MotionNode", () => {
         element.remove()
     })
 
-    it("writes an SVG component's values as attributes, and transforms as styles", async () => {
+    it("writes an SVG component's values as svgEffect does", async () => {
         const element = document.createElementNS(
             "http://www.w3.org/2000/svg",
             "circle"
         )
-        const visualElement = createVisualElement(SVGVisualElement, {
+        const values = {
             cx: 10,
             strokeWidth: 2,
+            fill: "#f00",
             x: 5,
             pathLength: 0.5,
-        })
+            attrRx: 3,
+            d: 'path("M0 0L1 1")',
+        }
+        const visualElement = createVisualElement(SVGVisualElement, values)
         visualElement.mount(element)
         visualElement.render()
 
+        /**
+         * The same values through the effect, on an element with no
+         * component.
+         */
+        const control = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "circle"
+        )
+        svgEffect(
+            control,
+            Object.fromEntries(
+                Object.entries(values).map(([key, v]) => [key, motionValue(v)])
+            )
+        )
+        await nextFrame()
+        expect(element.outerHTML).toBe(control.outerHTML)
+
+        /**
+         * A value the browser has as a CSS property is a style. Any
+         * other is an attribute.
+         */
         expect(element.getAttribute("cx")).toBe("10")
-        expect(element.getAttribute("stroke-width")).toBe("2")
+        expect(element.style.strokeWidth).toBe("2")
+        expect(element.hasAttribute("stroke-width")).toBe(false)
+        expect(element.style.fill).toBe("#f00")
+        expect(element.getAttribute("rx")).toBe("3")
+        expect(element.getAttribute("d")).toBe("M0 0L1 1")
         expect(element.getAttribute("pathLength")).toBe("1")
-        expect(element.getAttribute("stroke-dasharray")).toBe("0.5 1")
-        expect(element.getAttribute("stroke-dashoffset")).toBe("0")
+        expect(element.getAttribute("stroke-dasharray")).toBe("0.5 0.5")
+        expect(element.hasAttribute("stroke-dashoffset")).toBe(false)
         expect(element.style.transform).toBe("translateX(5px)")
         expect(element.style.transformOrigin).toBe("50% 50%")
         expect(element.style.transformBox).toBe("fill-box")
@@ -417,11 +463,11 @@ describe("buildVisualProps", () => {
         )
 
         expect(attrs).toEqual({
-            strokeWidth: 2,
-            x: 4,
-            pathLength: 1,
+            strokeWidth: "2",
+            x: "4px",
+            pathLength: "1",
             strokeDashoffset: "-0.25",
-            strokeDasharray: "0.5 1",
+            strokeDasharray: "0.5 0.5",
         })
         expect({ ...style }).toEqual({
             transform: "translateY(5px)",

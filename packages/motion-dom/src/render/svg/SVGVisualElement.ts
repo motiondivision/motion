@@ -2,30 +2,15 @@ import type { AnyResolvedKeyframe } from "../../animation/types"
 import type { MotionValue } from "../../value"
 import type { MotionNodeOptions } from "../../node/types"
 import { transformProps } from "../utils/keys-transform"
-import { transformValueTypes } from "../../value/types/maps/transform"
 import { createBox } from "../../projection/geometry/models"
+import { addSVGValue, readSVGValue } from "../../effects/svg"
 import { DOMVisualElement } from "../dom/DOMVisualElement"
 import { defaultTransformValue } from "../dom/parse-transform"
 import type { DOMVisualElementOptions } from "../dom/types"
-import { camelToDash } from "../dom/utils/camel-to-dash"
 import type { VisualElement } from "../VisualElement"
-import type { MotionNode } from "../../node/MotionNode"
-import { getSVGRender } from "./utils/get-render"
 import type { VisualElementOptions } from "../types"
 import { SVGRenderState } from "./types"
-import { cssStyleProperties } from "./utils/build-attrs"
-import { camelCaseAttributes } from "./utils/camel-case-attrs"
 import { scrapeMotionValuesFromProps } from "./utils/scrape-motion-values"
-
-const attrName = (name: string) =>
-    camelCaseAttributes.has(name) ? name : camelToDash(name)
-
-const addSVGComponentValue = (
-    element: SVGElement,
-    node: MotionNode,
-    key: string,
-    value?: MotionValue
-) => node.set(key, value, getSVGRender(element, node, key, attrName))
 
 export class SVGVisualElement extends DOMVisualElement<
     SVGElement,
@@ -71,17 +56,7 @@ export class SVGVisualElement extends DOMVisualElement<
     }
 
     readValueFromInstance(instance: SVGElement, key: string) {
-        if (transformProps.has(key)) {
-            return transformValueTypes[key]?.default || 0
-        }
-
-        if (cssStyleProperties.includes(key)) {
-            const computedStyle = getComputedStyle(instance)
-            const value = computedStyle[key as keyof typeof computedStyle]
-            if (typeof value === "string" && value) return value.trim()
-        }
-
-        return instance.getAttribute(attrName(key))
+        return readSVGValue(instance, key)
     }
 
     measureInstanceViewportBox = createBox
@@ -94,5 +69,8 @@ export class SVGVisualElement extends DOMVisualElement<
         return scrapeMotionValuesFromProps(props, prevProps, visualElement)
     }
 
-    bind = addSVGComponentValue
+    /**
+     * Bound as svgEffect binds, so the two share this node.
+     */
+    bind = addSVGValue
 }

@@ -1,5 +1,4 @@
-import { frame } from "../../frameloop"
-import type { MotionNode } from "../../node/MotionNode"
+import type { MotionNode, NodeRender } from "../../node/MotionNode"
 import { isCSSVar } from "../../render/dom/is-css-var"
 import { camelToDash } from "../../render/dom/utils/camel-to-dash"
 import { nodeStore } from "../../render/store"
@@ -7,45 +6,15 @@ import { cssStyleProperties } from "../../render/svg/utils/build-attrs"
 import { transformProps } from "../../render/utils/keys-transform"
 import { MotionValue } from "../../value"
 import { numberValueTypes } from "../../value/types/maps/number"
-import { addAttrValue } from "../attr"
-import { addStyleValue, readStyleValue, sharedRender } from "../style"
+import { getAttrRender } from "../attr"
+import {
+    getStyleRender,
+    readStyleValue,
+    RenderSource,
+    sharedRender,
+} from "../style"
 import { createSelectorEffect } from "../utils/create-dom-effect"
 import { createEffect } from "../utils/create-effect"
-
-function addSVGPathValue(
-    element: SVGElement,
-    node: MotionNode,
-    key: string,
-    value?: MotionValue
-) {
-    frame.render(() => element.setAttribute("pathLength", "1"))
-
-    const { latestValues } = node
-
-    if (key === "pathOffset") {
-        return node.set(key, value, () => {
-            // Use unitless value to avoid Safari zoom bug
-            element.setAttribute(
-                "stroke-dashoffset",
-                `${-(latestValues.pathOffset as number)}`
-            )
-        })
-    }
-
-    return node.set(
-        key,
-        value,
-        sharedRender(node, "dash", () => () => {
-            const { pathLength = 1, pathSpacing } = latestValues
-
-            // Use unitless values to avoid Safari zoom bug
-            element.setAttribute(
-                "stroke-dasharray",
-                `${pathLength} ${pathSpacing ?? 1 - Number(pathLength)}`
-            )
-        })
-    )
-}
 
 /**
  * Whether `key` is written to an SVG element's style whatever the
@@ -54,42 +23,85 @@ function addSVGPathValue(
 export const isSVGStyle = (key: string) =>
     transformProps.has(key) || key.startsWith("origin") || isCSSVar(key)
 
-export const addSVGValue = (
+/**
+ * The function that writes `key` to an SVG element. It's a style if the
+ * browser has it as a CSS property, and an attribute otherwise.
+ */
+export const getSVGValueRender = (
     element: SVGElement,
-    node: MotionNode,
-    key: string,
-    value?: MotionValue
-) => {
+    node: RenderSource,
+    key: string
+): NodeRender => {
+    const { latestValues } = node
+
+    /**
+     * pathLength, pathSpacing and pathOffset are a dash pattern on a
+     * path normalised to a length of 1. Unitless, as Safari scales px
+     * values when the page is zoomed.
+     */
     if (key.startsWith("path") && !transformProps.has(key)) {
-        return addSVGPathValue(element, node, key, value)
-    } else if (key.startsWith("attr")) {
-        return addAttrValue(element, node, key, value, convertAttrKey(key))
-    } else if (key === "d") {
+        return key === "pathOffset"
+            ? () => {
+                  element.setAttribute("pathLength", "1")
+                  element.setAttribute(
+                      "stroke-dashoffset",
+                      `${-(latestValues.pathOffset as number)}`
+                  )
+              }
+            : sharedRender(node, "dash", () => () => {
+                  const { pathLength = 1, pathSpacing } = latestValues
+
+                  element.setAttribute("pathLength", "1")
+                  element.setAttribute(
+                      "stroke-dasharray",
+                      `${pathLength} ${pathSpacing ?? 1 - Number(pathLength)}`
+                  )
+              })
+    }
+
+    if (key.startsWith("attr")) {
+        return getAttrRender(element, node, key, convertAttrKey(key))
+    }
+
+    if (key === "d") {
         /**
          * `d` is a CSS property in Chrome and Firefox, but only as
          * `path(...)`, so path data goes to the attribute, taken out of
          * `path(...)` if it's written that way. Path data itself has no
          * quotes or brackets.
          */
-        return node.set(key, value, () => {
-            const d = (node.latestValues.d as string | undefined)?.replace(
+        return () => {
+            const d = (latestValues.d as string | undefined)?.replace(
                 /path\(|["')]/g,
                 ""
             )
             d === undefined
                 ? element.removeAttribute(key)
                 : element.setAttribute(key, d)
-        })
+        }
     }
 
     /**
      * Transforms and origins aren't CSS properties (bar `x`/`y` in some
      * browsers), so check them by name rather than `key in element.style`.
+     * `offset` is a CSS property for motion paths, but on a gradient
+     * stop it's the attribute.
      */
-    const handler =
-        isSVGStyle(key) || key in element.style ? addStyleValue : addAttrValue
-    return handler(element, node, key, value)
+    return (
+        isSVGStyle(key) ||
+            (key in element.style &&
+                !(key === "offset" && element.tagName === "stop"))
+            ? getStyleRender
+            : getAttrRender
+    )(element, node, key)
 }
+
+export const addSVGValue = (
+    element: SVGElement,
+    node: MotionNode,
+    key: string,
+    value?: MotionValue
+) => node.set(key, value, getSVGValueRender(element, node, key))
 
 /**
  * Reads the current value of `key` from an SVG element as the origin of

@@ -40,7 +40,13 @@ export function buildVisualProps(
         attrs,
         tagName,
         ownerSVGElement: tagName && null,
-        setAttribute: (name: string, value: any) => (attrs[name] = value),
+        /**
+         * A framework takes the dash attributes by their camel case
+         * names.
+         */
+        setAttribute: (name: string, value: any) =>
+            (attrs[name.replace(/^stroke-d/, "strokeD")] = value),
+        removeAttribute: (name: string) => delete attrs[name],
     }
     const node: RenderSource = { latestValues, getProps: () => props }
 

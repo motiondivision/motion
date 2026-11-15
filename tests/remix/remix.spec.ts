@@ -282,7 +282,7 @@ test.describe("svg", () => {
     test("animates attributes, pathLength and transforms", async ({ page }) => {
         const errors = await open(page, "svg")
         await page.waitForTimeout(500)
-        const cx = parseFloat((await page.getAttribute("#circle", "cx"))!)
+        const cx = parseFloat(await css(page, "#circle", "cx"))
         expect(cx).toBeGreaterThan(20)
         expect(cx).toBeLessThan(80)
         expect(await page.getAttribute("#path", "pathLength")).toBe("1")
@@ -294,7 +294,7 @@ test.describe("svg", () => {
         expect(svgOpacity).toBeGreaterThan(0.2)
         expect(svgOpacity).toBeLessThan(0.8)
         await page.waitForTimeout(700)
-        expect(await page.getAttribute("#circle", "cx")).toBe("100")
+        expect(await css(page, "#circle", "cx")).toBe("100px")
         expect(await css(page, "#rect", "transform-box")).toBe("fill-box")
         expect(await css(page, "#rect", "transform")).toContain("matrix")
         expect(errors).toEqual([])
@@ -303,11 +303,11 @@ test.describe("svg", () => {
 
 test("motion values as SVG attributes and text", async ({ page }) => {
     await open(page, "svg")
-    expect(await page.getAttribute("#mv-circle", "cx")).toBe("20")
+    expect(await css(page, "#mv-circle", "cx")).toBe("20px")
     expect(await page.textContent("#mv-text")).toBe("0")
     await call(page, "setMotionValues", 60, 5)
     await page.waitForTimeout(100)
-    expect(await page.getAttribute("#mv-circle", "cx")).toBe("60")
+    expect(await css(page, "#mv-circle", "cx")).toBe("60px")
     expect(await page.textContent("#mv-text")).toBe("5")
 })
 

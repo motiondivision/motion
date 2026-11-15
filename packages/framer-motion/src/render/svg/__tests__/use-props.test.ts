@@ -30,10 +30,10 @@ describe("SVG useProps", () => {
         )
 
         expect(result.current).toStrictEqual({
-            x: 6,
-            y: 10,
-            scale: 4,
-            cx: 7,
+            x: "6px",
+            y: "10px",
+            scale: "4",
+            cx: "7",
             style: {
                 transform: "translateX(8px) scale(9)",
                 transformBox: "fill-box",
@@ -56,9 +56,8 @@ describe("SVG useProps", () => {
 
         // Uses unitless values to avoid Safari zoom bug
         expect(result.current).toStrictEqual({
-            pathLength: 1,
-            strokeDasharray: "0.5 1",
-            strokeDashoffset: "0",
+            pathLength: "1",
+            strokeDasharray: "0.5 0.5",
             style: {},
         })
     })
@@ -74,7 +73,7 @@ describe("SVG useProps", () => {
         )
 
         expect(result.current).toStrictEqual({
-            y: 3,
+            y: "3px",
             style: {},
         })
     })
