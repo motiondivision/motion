@@ -133,7 +133,7 @@
     "bundlesize": [
         {
             "path": "./dist/size-rollup-motion.js",
-            "maxSize": "46.05 kB"
+            "maxSize": "46.1 kB"
         },
         {
             "path": "./dist/size-rollup-m.js",
@@ -141,15 +141,15 @@
         },
         {
             "path": "./dist/size-rollup-m-dom-animation.js",
-            "maxSize": "31.3 kB"
+            "maxSize": "31.35 kB"
         },
         {
             "path": "./dist/size-rollup-m-dom-max.js",
-            "maxSize": "46.2 kB"
+            "maxSize": "46.25 kB"
         },
         {
             "path": "./dist/size-rollup-animate.js",
-            "maxSize": "26.8 kB"
+            "maxSize": "26.85 kB"
         },
         {
             "path": "./dist/size-rollup-scroll.js",

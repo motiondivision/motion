@@ -470,8 +470,11 @@ export abstract class VisualElement<
          * Stop listening to every value, keeping the values themselves,
          * as the subject may come back.
          */
-        this.bindings.forEach((binding) => binding.stop?.())
-        this.bindings.clear()
+        for (const key in this.bindings) {
+            const binding = this.bindings[key]
+            binding && this.stop(binding)
+        }
+        this.bindings = {}
         this.shared = undefined
         this.numPending = 0
         this.removeFromVariantTree?.()
@@ -511,9 +514,9 @@ export abstract class VisualElement<
             this.current instanceof HTMLElement
         ) {
             this.unbind(key)
-            this.bindings.set(key, {
+            this.bindings[key] = {
                 stop: accelerate.bind(this.current, key, accelerate),
-            })
+            }
             return
         }
 
@@ -530,7 +533,7 @@ export abstract class VisualElement<
             typeof window !== "undefined" &&
             (window as any).MotionCheckAppearSync
         ) {
-            const binding = this.bindings.get(key)
+            const binding = this.bindings[key]
             if (binding) {
                 const { stop } = binding
                 const removeSyncCheck = (window as any).MotionCheckAppearSync(
@@ -568,7 +571,7 @@ export abstract class VisualElement<
      */
     protected queueAll() {
         for (const key in this.latestValues) {
-            this.bindings.has(key) || this.bindValue(key)
+            this.bindings[key] || this.bindValue(key)
         }
 
         super.queueAll()
@@ -821,7 +824,9 @@ export abstract class VisualElement<
         this.events[eventName]?.notify(...args)
     }
 
+    private renderNow = () => this.render()
+
     scheduleRenderMicrotask() {
-        microtask.render(this.render)
+        microtask.render(this.renderNow)
     }
 }

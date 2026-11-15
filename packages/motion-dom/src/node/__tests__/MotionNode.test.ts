@@ -61,6 +61,29 @@ describe("MotionNode", () => {
         expect(String(element.style.opacity)).toBe("0.5")
     })
 
+    it("gives a write made during a frame the value that changed", async () => {
+        const node = new MotionNode(frame.preRender, true)
+        const value = motionValue(0)
+        const render = jest.fn()
+        node.set("x", value, render)
+        await nextFrame()
+        render.mockClear()
+
+        /**
+         * Reading the value again would sample its animation, so a write
+         * that takes the latest value is given it.
+         */
+        await new Promise<void>((resolve) =>
+            frame.update(() => {
+                value.set(5)
+                resolve()
+            })
+        )
+
+        expect(render).toHaveBeenCalledTimes(1)
+        expect(render).toHaveBeenCalledWith(5)
+    })
+
     it("writes a shared key once per frame", async () => {
         const element = document.createElement("div")
         const x = motionValue(0)

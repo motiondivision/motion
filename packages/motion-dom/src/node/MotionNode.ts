@@ -12,7 +12,10 @@ import type { ResolvedValues } from "./types"
  * Writes one or more keys of a node to its subject.
  */
 export interface NodeRender {
-    (): void
+    /**
+     * Given the value that changed when it's written as it changes.
+     */
+    (latest?: any): void
 
     /**
      * True if more than one key schedules this write, e.g. `x` and
@@ -46,6 +49,18 @@ export type ReadValue<Subject = any> = (
 
 export interface NodeBinding {
     render?: NodeRender
+
+    /**
+     * The value the binding listens to, and its listener. Kept here
+     * rather than in a function that stops it, as there's one binding
+     * per value of every subject.
+     */
+    value?: MotionValue
+    onChange?: (v: any) => void
+
+    /**
+     * Anything else to stop with the binding.
+     */
     stop?: VoidFunction
 }
 
@@ -134,7 +149,7 @@ export class MotionNode<Subject = any> {
      */
     KeyframeResolver?: typeof KeyframeResolver
 
-    protected bindings = new Map<string, NodeBinding>()
+    protected bindings: { [name: string]: NodeBinding | undefined } = {}
 
     /**
      * Writes scheduled for the next flush, usually one or two. Tracked
@@ -181,8 +196,21 @@ export class MotionNode<Subject = any> {
     set(name: string, value?: MotionValue, render?: NodeRender): VoidFunction {
         this.unbind(name)
 
-        const binding: NodeBinding = { render }
-        this.bindings.set(name, binding)
+        /**
+         * Declared here, not beside the listener that uses them, as a
+         * block with captured variables is allocated per call.
+         */
+        const { latestValues, isSync, onChange: notify } = this
+
+        /**
+         * The listener is in the literal so bindings share one shape.
+         */
+        const binding: NodeBinding = {
+            render,
+            value,
+            onChange: undefined,
+        }
+        this.bindings[name] = binding
 
         if (value) {
             this.values.set(name, value)
@@ -193,20 +221,27 @@ export class MotionNode<Subject = any> {
              */
             const latest = value.get()
             if (latest !== undefined) {
-                this.latestValues[name] = latest
+                latestValues[name] = latest
                 render && !this.isSilent && this.schedule(render)
             }
 
-            const onChange = (v: AnyResolvedKeyframe) => {
-                this.latestValues[name] = v
-                this.onChange?.(name)
-                render &&
-                    (this.isSync && frameData.isProcessing
-                        ? render()
-                        : this.schedule(render))
-            }
-            value.addChangeSubscriber(onChange)
-            binding.stop = () => value.removeChangeSubscriber(onChange)
+            value.addChangeSubscriber(
+                (binding.onChange = (v: AnyResolvedKeyframe) => {
+                    /**
+                     * A write made as the value changes is given the
+                     * value, so it isn't kept in latestValues: with
+                     * many subjects, that is one more object to touch
+                     * for each change.
+                     */
+                    if (isSync && frameData.isProcessing) {
+                        render?.(v)
+                    } else {
+                        latestValues[name] = v
+                        notify?.call(this, name)
+                        render && this.schedule(render)
+                    }
+                })
+            )
         } else if (render) {
             this.schedule(render)
         }
@@ -218,7 +253,7 @@ export class MotionNode<Subject = any> {
          * replaced it.
          */
         return () => {
-            if (this.bindings.get(name) === binding) {
+            if (this.bindings[name] === binding) {
                 this.unbind(name)
                 this.values.delete(name)
             }
@@ -237,11 +272,11 @@ export class MotionNode<Subject = any> {
     protected onChange?(name: string): void
 
     protected unbind(name: string) {
-        const binding = this.bindings.get(name)
+        const binding = this.bindings[name]
         if (!binding) return
 
         const { render } = binding
-        binding.stop?.()
+        this.stop(binding)
 
         /**
          * A write shared with other keys runs again without this one,
@@ -261,7 +296,15 @@ export class MotionNode<Subject = any> {
             }
         }
 
-        this.bindings.delete(name)
+        this.bindings[name] = undefined
+    }
+
+    /**
+     * Stop a binding listening to its value.
+     */
+    protected stop({ value, onChange, stop }: NodeBinding) {
+        onChange && value!.removeChangeSubscriber(onChange)
+        stop?.()
     }
 
     /**
@@ -383,18 +426,17 @@ export class MotionNode<Subject = any> {
      * change what is read.
      */
     protected queueAll() {
-        this.bindings.forEach(
-            ({ render }, name) =>
-                render &&
-                this.latestValues[name] !== undefined &&
-                this.queue(render)
-        )
+        const { bindings, latestValues } = this
+        for (const name in bindings) {
+            const render = bindings[name]?.render
+            render && latestValues[name] !== undefined && this.queue(render)
+        }
     }
 
     /**
      * Write every key now, e.g. so the subject can be measured.
      */
-    render = () => {
+    render() {
         if (!this.current) return
         this.queueAll()
         this.flush()

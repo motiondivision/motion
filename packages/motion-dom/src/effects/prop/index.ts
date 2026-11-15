@@ -18,13 +18,13 @@ export const propEffect = /*@__PURE__*/ createEffect(
         key: string,
         value: MotionValue
     ) => {
-        return state.set(
-            key,
-            value,
-            () => {
-                subject[key] = state.latestValues[key]
-            }
-        )
+        /**
+         * Written as the value changes, so it's given the value. When
+         * it's flushed instead, it reads the value itself.
+         */
+        return state.set(key, value, (latest = value.get()) => {
+            subject[key] = latest
+        })
     },
     {
         test: (subject: unknown): subject is PropSubject => isObject(subject),

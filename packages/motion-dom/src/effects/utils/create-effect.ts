@@ -46,6 +46,8 @@ export interface EffectOptions<Subject extends object> {
     /**
      * During a frame, write each change as it's made rather than in
      * `step`. For subjects a write can't make the browser lay out.
+     * The write is given the value that changed and uses it or the
+     * motion value, as these changes aren't kept in `latestValues`.
      */
     sync?: boolean
 }

@@ -71,7 +71,7 @@ export class HTMLNode extends MotionNode<HTMLElement> {
      */
     protected queueAll() {
         for (const key in this.latestValues) {
-            this.bindings.has(key) || this.bindValue(key)
+            this.bindings[key] || this.bindValue(key)
         }
 
         super.queueAll()
