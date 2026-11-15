@@ -5,7 +5,8 @@ import { angleTransforms } from "../utils/has-transform"
 export function buildProjectionTransform(
     delta: Delta,
     treeScale: Point,
-    latestTransform?: ResolvedValues
+    latestTransform?: ResolvedValues,
+    is3D?: boolean
 ): string {
     let transform = ""
 
@@ -19,11 +20,12 @@ export function buildProjectionTransform(
     const yTranslate = delta.y.translate / treeScale.y
     const zTranslate = latestTransform?.z || 0
     /**
-     * Only use translate3d when there's a z. A 3D transform promotes every
-     * projecting element to its own compositor layer, which is far more
-     * expensive across large or nested layout trees than repainting.
+     * A 3D transform promotes the element to its own compositor layer.
+     * Across a large flat list that costs more than repainting. Inside
+     * an animating parent it costs less, because the parent is painted
+     * again each frame and a layer keeps the child out of that paint.
      */
-    if (zTranslate) {
+    if (zTranslate || (is3D && (xTranslate || yTranslate))) {
         transform = `translate3d(${xTranslate}px, ${yTranslate}px, ${zTranslate}px) `
     } else if (xTranslate || yTranslate) {
         transform = `translate(${xTranslate}px, ${yTranslate}px) `

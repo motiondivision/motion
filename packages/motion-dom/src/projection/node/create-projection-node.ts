@@ -2406,7 +2406,8 @@ export function createProjectionNode<I>({
             let transform = buildProjectionTransform(
                 this.projectionDeltaWithTransform!,
                 this.treeScale,
-                valuesToRender
+                valuesToRender,
+                this.parent?.isTreeAnimating
             )
 
             if (transformTemplate) {
