@@ -76,8 +76,9 @@ describe("SVG", () => {
             .wait(50)
             .get("circle")
             .should(([$circle]: any) => {
-                expect($circle.getAttribute("fill")).to.equal(
-                    "rgba(180, 0, 180, 1)"
+                // fill is a CSS property, so it's written as a style
+                expect(window.getComputedStyle($circle).fill).to.equal(
+                    "rgb(180, 0, 180)"
                 )
             })
     })
