@@ -85,10 +85,6 @@ export class HTMLNode extends MotionNode<HTMLElement> {
     }
 
     isProjectionPending?: boolean
-    scheduleProjectionRender = () => {
-        this.requestFlush()
-        this.isProjectionPending = true
-    }
 
     /**
      * Projection styles are written over the values, after any of them

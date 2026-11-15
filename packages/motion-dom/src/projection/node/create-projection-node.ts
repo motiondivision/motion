@@ -1761,8 +1761,15 @@ export function createProjectionNode<I>({
         }
 
         scheduleRender(notifyAll = true) {
+            /**
+             * A flush of the projection and the keys it can write over,
+             * not of every key. Before mount there's nothing to write to.
+             */
             const ve = this.options.visualElement
-            ;(ve?.scheduleProjectionRender || ve?.scheduleRender)?.()
+            if (ve?.current) {
+                ve.isProjectionPending = true
+                ve.requestFlush()
+            }
             if (notifyAll) {
                 this.getStack()?.scheduleRender()
             }
@@ -2311,7 +2318,6 @@ export function createProjectionNode<I>({
         stacksChanged = 0
         stack?: NodeStack
         stackFor?: string
-        stackAt = -1
 
         registerSharedNode(layoutId: string, node: IProjectionNode) {
             if (!this.sharedNodes.has(layoutId)) {
@@ -2348,13 +2354,10 @@ export function createProjectionNode<I>({
             const { layoutId } = this.options
             if (!layoutId) return
             const { root } = this
-            if (
-                this.stackFor !== layoutId ||
-                this.stackAt !== root.stacksChanged
-            ) {
+            const key = root.stacksChanged + ":" + layoutId
+            if (this.stackFor !== key) {
                 this.stack = root.sharedNodes.get(layoutId)
-                this.stackFor = layoutId
-                this.stackAt = root.stacksChanged
+                this.stackFor = key
             }
             return this.stack
         }

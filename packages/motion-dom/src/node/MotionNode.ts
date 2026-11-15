@@ -409,7 +409,7 @@ export class MotionNode<Subject = any> {
      * Have the node flushed in its step. `immediate`, so a flush asked
      * for by something else in the same step runs in this frame.
      */
-    protected requestFlush() {
+    requestFlush() {
         if (this.isScheduled) return
         this.isScheduled = true
         const { batch } = this

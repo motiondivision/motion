@@ -596,14 +596,9 @@ export abstract class VisualElement<
 
     /**
      * A flush that writes the projection, and the keys it can write over,
-     * rather than every key. Asked for by the projection node.
+     * rather than every key. Set by the projection node.
      */
     isProjectionPending?: boolean
-    scheduleProjectionRender = () => {
-        if (!this.current) return
-        this.requestFlush()
-        this.isProjectionPending = true
-    }
 
     protected onChange(key: string) {
         this.props.onUpdate && frame.preRender(this.notifyUpdate)
