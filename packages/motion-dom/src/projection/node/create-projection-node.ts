@@ -27,6 +27,7 @@ import type { Process } from "../../frameloop/types"
 import type { MotionNodeOptions } from "../../node/types"
 import type { ResolvedValues } from "../../render/types"
 import { scaleCorrectors } from "../../render/utils/is-forced-motion-value"
+import { transformProps } from "../../render/utils/keys-transform"
 import type { MotionStyle, VisualElement } from "../../render/VisualElement"
 import { statsBuffer } from "../../stats/buffer"
 import { delay } from "../../utils/delay"
@@ -559,6 +560,7 @@ export function createProjectionNode<I>({
             this.isSVG = isSVGElement(instance) && !isSVGSVGElement(instance)
 
             this.instance = instance
+            this.written = {}
 
             const { layoutId, layout, visualElement } = this.options
             if (visualElement && !visualElement.current) {
@@ -1560,6 +1562,28 @@ export function createProjectionNode<I>({
 
         hasProjected: boolean = false
 
+        /**
+         * The visibility, opacity, pointerEvents and transformOrigin this
+         * node last wrote, so unchanged ones aren't written again each
+         * frame. Its element's node clears it before any other write
+         * reaches the element, and a new instance starts it afresh.
+         */
+        written: ResolvedValues = {}
+
+        /**
+         * Before its element's node flushes: queue the keys the projection
+         * can write over, if only the projection asked for the flush. If
+         * anything else will be written to the element, forget what was
+         * last written, so it's all written again.
+         */
+        prepareFlush(node: any) {
+            if (node.isProjectionPending) {
+                node.isProjectionPending = false
+                node.isAllPending || node.queueAll(isProjectionStyle)
+            }
+            if (node.numPending || node.isAllPending) this.written = {}
+        }
+
         calcProjection() {
             const lead = this.getLead()
             const isShared = !!this.resumingFrom || this !== lead
@@ -1726,7 +1750,8 @@ export function createProjectionNode<I>({
         }
 
         scheduleRender(notifyAll = true) {
-            this.options.visualElement?.scheduleRender()
+            const ve = this.options.visualElement
+            ;(ve?.scheduleProjectionRender || ve?.scheduleRender)?.()
             if (notifyAll) {
                 this.getStack()?.scheduleRender()
             }
@@ -2350,6 +2375,17 @@ export function createProjectionNode<I>({
         ) {
             if (!this.instance || this.isSVG) return
 
+            /**
+             * Write a style the projection owns, unless it's what was last
+             * written (see `written`).
+             */
+            const { written } = this
+            const write = (key: string, value: any) => {
+                if (written[key] !== value) {
+                    targetStyle[key] = written[key] = value
+                }
+            }
+
             const lead = this.getLead()
 
             /**
@@ -2358,7 +2394,7 @@ export function createProjectionNode<I>({
              * rendering, so only hide nodes that follow another.
              */
             if (!this.isVisible && lead !== this) {
-                targetStyle.visibility = "hidden"
+                write("visibility", "hidden")
                 return
             }
 
@@ -2367,10 +2403,12 @@ export function createProjectionNode<I>({
             if (this.needsReset) {
                 this.needsReset = false
 
-                targetStyle.visibility = ""
-                targetStyle.opacity = ""
-                targetStyle.pointerEvents =
+                write("visibility", "")
+                write("opacity", "")
+                write(
+                    "pointerEvents",
                     resolveMotionValue(styleProp?.pointerEvents) || ""
+                )
                 targetStyle.transform = transformTemplate
                     ? transformTemplate(this.latestValues, "")
                     : "none"
@@ -2380,13 +2418,17 @@ export function createProjectionNode<I>({
             if (!this.projectionDelta || !this.layout || !lead.target) {
                 if (this.options.layoutId || this.needsShow) {
                     this.needsShow = false
-                    targetStyle.visibility = ""
-                    targetStyle.opacity =
+                    write("visibility", "")
+                    write(
+                        "opacity",
                         this.latestValues.opacity !== undefined
                             ? this.latestValues.opacity
                             : 1
-                    targetStyle.pointerEvents =
+                    )
+                    write(
+                        "pointerEvents",
                         resolveMotionValue(styleProp?.pointerEvents) || ""
+                    )
                 }
                 if (this.hasProjected && !hasTransform(this.latestValues)) {
                     targetStyle.transform = transformTemplate
@@ -2398,7 +2440,7 @@ export function createProjectionNode<I>({
                 return
             }
 
-            targetStyle.visibility = ""
+            write("visibility", "")
 
             const valuesToRender = lead.animationValues || lead.latestValues
             this.applyTransformsToTarget()
@@ -2416,37 +2458,34 @@ export function createProjectionNode<I>({
             targetStyle.transform = transform
 
             const { x, y } = this.projectionDelta
-            targetStyle.transformOrigin = `${x.origin * 100}% ${
-                y.origin * 100
-            }% 0`
+            write("transformOrigin", `${x.origin * 100}% ${y.origin * 100}% 0`)
 
-            if (lead.animationValues) {
-                /**
-                 * If the lead component is animating, assign this either the entering/leaving
-                 * opacity
-                 */
-                targetStyle.opacity =
-                    lead === this
+            write(
+                "opacity",
+                lead.animationValues
+                    ? /**
+                       * If the lead component is animating, assign this either
+                       * the entering/leaving opacity.
+                       */
+                      lead === this
                         ? valuesToRender.opacity ??
                           this.latestValues.opacity ??
                           1
                         : this.preserveOpacity
                         ? this.latestValues.opacity
                         : valuesToRender.opacityExit
-            } else {
-                /**
-                 * Or we're not animating at all, set the lead component to its layout
-                 * opacity and other components to hidden.
-                 */
-                targetStyle.opacity =
+                    : /**
+                     * Or we're not animating at all, set the lead component to
+                     * its layout opacity and other components to hidden.
+                     */
                     lead === this
-                        ? valuesToRender.opacity !== undefined
-                            ? valuesToRender.opacity
-                            : ""
-                        : valuesToRender.opacityExit !== undefined
-                        ? valuesToRender.opacityExit
-                        : 0
-            }
+                    ? valuesToRender.opacity !== undefined
+                        ? valuesToRender.opacity
+                        : ""
+                    : valuesToRender.opacityExit !== undefined
+                    ? valuesToRender.opacityExit
+                    : 0
+            )
 
             /**
              * Apply scale correction
@@ -2487,10 +2526,12 @@ export function createProjectionNode<I>({
              * pointer events on the lead.
              */
             if (this.options.layoutId) {
-                targetStyle.pointerEvents =
+                write(
+                    "pointerEvents",
                     lead === this
                         ? resolveMotionValue(styleProp?.pointerEvents) || ""
                         : "none"
+                )
             }
         }
 
@@ -2853,6 +2894,16 @@ export function mixBox(output: Box, from: Box, to: Box, p: number) {
     mixAxis(output.x, from.x, to.x, p)
     mixAxis(output.y, from.y, to.y, p)
 }
+
+/**
+ * Whether the projection can write over a key's style. While an element
+ * projects, a frame that writes its projection writes these keys first,
+ * as the projection might have written over them, and no other key.
+ */
+const isProjectionStyle = (key: string) =>
+    transformProps.has(key) ||
+    !!scaleCorrectors[key] ||
+    /^(transform|origin|opacity|visibility|pointerEvents)/.test(key)
 
 function hasOpacityCrossfade(node: IProjectionNode) {
     return node.animationValues?.opacityExit !== undefined

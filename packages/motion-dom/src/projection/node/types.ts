@@ -90,6 +90,8 @@ export interface IProjectionNode<I = unknown> {
     unblockUpdate(): void
     isUpdating: boolean
     needsReset: boolean
+    written: ResolvedValues
+    prepareFlush(node: any): void
     needsShow?: boolean
     startUpdate(): void
     willUpdate(notifyListeners?: boolean): void
