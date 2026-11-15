@@ -1526,6 +1526,17 @@ export function createProjectionNode<I>({
             }
         }
 
+        /**
+         * Whether a child also projects. Its subtree then moves inside this
+         * element, so a layer of its own saves repainting the subtree.
+         */
+        hasProjectingChild() {
+            for (const child of this.children) {
+                if (child.isProjecting()) return true
+            }
+            return false
+        }
+
         isProjecting() {
             return !!(
                 (this.relativeTarget ||
@@ -2406,7 +2417,8 @@ export function createProjectionNode<I>({
             let transform = buildProjectionTransform(
                 this.projectionDeltaWithTransform!,
                 this.treeScale,
-                valuesToRender
+                valuesToRender,
+                this.hasProjectingChild()
             )
 
             if (transformTemplate) {

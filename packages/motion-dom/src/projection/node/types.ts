@@ -133,6 +133,7 @@ export interface IProjectionNode<I = unknown> {
     resetTree(): void
 
     isProjecting(): boolean
+    hasProjectingChild(): boolean
     animationValues?: ResolvedValues
     currentAnimation?: AnimationPlaybackControlsWithThen
     /**
