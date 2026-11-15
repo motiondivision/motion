@@ -79,7 +79,7 @@ export class HTMLNode extends MotionNode<HTMLElement> {
 
     scheduleRender = () => {
         this.requestFlush()
-        this.queueAll()
+        this.isAllPending = true
     }
 
     /**

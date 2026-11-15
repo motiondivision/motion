@@ -262,6 +262,68 @@ describe("MotionNode", () => {
         visualElement.unmount()
     })
 
+    it("subscribes once to a value added after mount", async () => {
+        const element = document.createElement("div")
+        const visualElement = createVisualElement(HTMLVisualElement, {})
+        visualElement.mount(element)
+
+        const opacity = motionValue(0.5)
+        const subscribe = jest.spyOn(opacity, "addChangeSubscriber")
+        visualElement.addValue("opacity", opacity)
+        visualElement.addValue("opacity", opacity)
+
+        expect(subscribe).toHaveBeenCalledTimes(1)
+        expect(visualElement.getValue("opacity")).toBe(opacity)
+        expect(visualElement.latestValues.opacity).toBe(0.5)
+
+        const writes = countWrites(element)
+        opacity.set(0.8)
+        await nextFrame()
+        expect(writes).toEqual({ opacity: 1 })
+
+        visualElement.unmount()
+    })
+
+    it("collects its values once for many render requests in a frame", async () => {
+        const element = document.createElement("div")
+        const visualElement = createVisualElement(HTMLVisualElement, {
+            opacity: 0.5,
+            x: 10,
+        })
+        visualElement.mount(element)
+        await nextFrame()
+
+        const queueAll = jest.spyOn(visualElement as any, "queueAll")
+        const writes = countWrites(element)
+        for (let i = 0; i < 10; i++) visualElement.scheduleRender()
+        visualElement.setStaticValue("opacity", 0.8)
+        await nextFrame()
+
+        expect(queueAll).toHaveBeenCalledTimes(1)
+        expect(writes).toEqual({ opacity: 1, transform: 1 })
+        expect(Number(element.style.opacity)).toBe(0.8)
+
+        visualElement.unmount()
+    })
+
+    it("drops a render request when it unmounts", async () => {
+        const element = document.createElement("div")
+        const visualElement = createVisualElement(
+            HTMLVisualElement,
+            { opacity: 0.5 },
+            { transformTemplate: () => "translateX(10px)" }
+        )
+        visualElement.mount(element)
+        await nextFrame()
+
+        visualElement.scheduleRender()
+        visualElement.unmount()
+        const writes = countWrites(element)
+        await nextFrame()
+
+        expect(writes).toEqual({})
+    })
+
     it("has the origin of a value that is animating but not yet written", async () => {
         const element = document.createElement("div")
         element.style.opacity = "0.5"
@@ -307,7 +369,14 @@ describe("buildVisualProps", () => {
     it("builds the styles the node writes", () => {
         const { style } = buildVisualProps(
             getStyleRender,
-            { x: 10, scale: 2, opacity: 0.5, width: 100, "--size": 3, originX: 0 },
+            {
+                x: 10,
+                scale: 2,
+                opacity: 0.5,
+                width: 100,
+                "--size": 3,
+                originX: 0,
+            },
             {}
         )
 
@@ -324,7 +393,10 @@ describe("buildVisualProps", () => {
         const { style } = buildVisualProps(
             getStyleRender,
             { opacity: 1 },
-            { transformTemplate: (_: any, generated: string) => `a ${generated}` }
+            {
+                transformTemplate: (_: any, generated: string) =>
+                    `a ${generated}`,
+            }
         )
 
         expect(style.transform).toBe("a ")
@@ -333,7 +405,13 @@ describe("buildVisualProps", () => {
     it("builds SVG attributes with the names a framework renders", () => {
         const { style, attrs } = buildVisualProps(
             getSVGRender,
-            { strokeWidth: 2, attrX: 4, pathLength: 0.5, pathOffset: 0.25, y: 5 },
+            {
+                strokeWidth: 2,
+                attrX: 4,
+                pathLength: 0.5,
+                pathOffset: 0.25,
+                y: 5,
+            },
             {},
             "path"
         )

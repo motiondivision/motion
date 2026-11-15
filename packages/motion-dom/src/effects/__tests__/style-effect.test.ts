@@ -26,6 +26,53 @@ describe("styleEffect", () => {
         expect(element.style.transform).toBe("none")
     })
 
+    it("writes the transforms it is bound to, in transform order", async () => {
+        const element = document.createElement("div")
+        const scale = motionValue(2)
+        const rotate = motionValue(45)
+        const y = motionValue(5)
+        const x = motionValue(10)
+        styleEffect(element, { scale })
+        styleEffect(element, { rotate, y })
+        const stopX = styleEffect(element, { x })
+        await nextFrame()
+        expect(element.style.transform).toBe(
+            "translateX(10px) translateY(5px) scale(2) rotate(45deg)"
+        )
+
+        /**
+         * A key that is no longer bound keeps its last value.
+         */
+        stopX()
+        x.set(20)
+        y.set(0)
+        await nextFrame()
+        expect(element.style.transform).toBe(
+            "translateX(10px) scale(2) rotate(45deg)"
+        )
+
+        /**
+         * A key that is bound again goes back to its own place.
+         */
+        styleEffect(element, { x: motionValue(1) })
+        scale.set(1)
+        await nextFrame()
+        expect(element.style.transform).toBe("translateX(1px) rotate(45deg)")
+    })
+
+    it("writes a path rotation after the other transforms", async () => {
+        const element = document.createElement("div")
+        const pathRotation = motionValue(90)
+        const x = motionValue(0)
+        styleEffect(element, { pathRotation, x } as any)
+        await nextFrame()
+        expect(element.style.transform).toBe("rotate(90deg)")
+
+        x.set(10)
+        await nextFrame()
+        expect(element.style.transform).toBe("translateX(10px) rotate(90deg)")
+    })
+
     it("renders a transform key rebound to a new motion value", async () => {
         const element = document.createElement("div")
         const x = motionValue(10)

@@ -168,6 +168,12 @@ export class MotionNode<Subject = any> {
      */
     private isScheduled?: boolean
 
+    /**
+     * Every key is to be written by the next flush. The keys are
+     * collected when it runs, once for any number of requests.
+     */
+    isAllPending?: boolean
+
     private batch: Batch
 
     /**
@@ -323,13 +329,18 @@ export class MotionNode<Subject = any> {
      */
     addValue(name: string, value: MotionValue) {
         if (value === this.values.get(name)) return
+
+        /**
+         * Binding a value also keeps it and its latest value, so
+         * that's only done here when there's no subject to bind to.
+         */
+        if (this.current) return this.bindValue(name, value)
+
         this.unbind(name)
         this.values.set(name, value)
 
         const latest = value.get()
         if (latest !== undefined) this.latestValues[name] = latest
-
-        this.current && this.bindValue(name, value)
     }
 
     /**
@@ -346,7 +357,10 @@ export class MotionNode<Subject = any> {
      * one is made if none exists.
      */
     getValue(name: string): MotionValue | undefined
-    getValue(name: string, defaultValue: AnyResolvedKeyframe | null): MotionValue
+    getValue(
+        name: string,
+        defaultValue: AnyResolvedKeyframe | null
+    ): MotionValue
     getValue(
         name: string,
         defaultValue?: AnyResolvedKeyframe | null
@@ -415,6 +429,10 @@ export class MotionNode<Subject = any> {
      */
     flush() {
         this.isScheduled = false
+        if (this.isAllPending) {
+            this.isAllPending = false
+            this.queueAll()
+        }
         const { pending, numPending } = this
         this.numPending = 0
         for (let i = 0; i < numPending; i++) pending[i]()
@@ -438,7 +456,7 @@ export class MotionNode<Subject = any> {
      */
     render() {
         if (!this.current) return
-        this.queueAll()
+        this.isAllPending = true
         this.flush()
     }
 
@@ -460,5 +478,6 @@ export function releaseNode(node: MotionNode) {
     values.forEach((_, name) => node.removeValue(name))
     node.shared = undefined
     node.numPending = 0
+    node.isAllPending = false
     return values
 }

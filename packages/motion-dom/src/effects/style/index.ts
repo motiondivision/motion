@@ -4,7 +4,10 @@ import { acceleratedValues } from "../../animation/waapi/utils/accelerated-value
 import { readTransformValue } from "../../render/dom/parse-transform"
 import { buildTransform } from "../../render/html/utils/build-transform"
 import { nodeStore } from "../../render/store"
-import { transformProps } from "../../render/utils/keys-transform"
+import {
+    transformPropOrder,
+    transformProps,
+} from "../../render/utils/keys-transform"
 import { isHTMLElement } from "../../utils/is-html-element"
 import { isSVGElement } from "../../utils/is-svg-element"
 import type { MotionNode, NodeRender } from "../../node/MotionNode"
@@ -24,6 +27,12 @@ export interface RenderSource {
     latestValues: ResolvedValues
     shared?: { [name: string]: NodeRender }
     getProps(): any
+
+    /**
+     * Set by a component's node, which can have a latest value that
+     * was never bound.
+     */
+    scheduleRender?: unknown
 }
 
 /**
@@ -63,43 +72,76 @@ const noTemplateTransforms = {}
  */
 export const getTransformRender = (
     element: HTMLElement | SVGElement,
-    node: RenderSource
-) =>
-    sharedRender(node, "transform", () => () => {
-        transformGroups.get(element)?.check()
-
-        const { latestValues } = node
-
+    node: RenderSource,
+    key?: string
+) => {
+    const render = sharedRender(node, "transform", () => {
         /**
-         * A `transform` value is written as any other style, and takes
-         * the place of one built from independent transforms.
+         * The transforms bound to this node, in the order they're
+         * written, so each write visits these rather than every
+         * transform there is. A component can also set a latest value
+         * without binding it, so it visits them all.
          */
-        if (latestValues.transform) return
-
-        const { transformTemplate } = node.getProps()
+        const keys: string[] = []
+        const order = node.scheduleRender ? undefined : keys
         const { style } = element
-
-        style.transform = buildTransform(
-            latestValues,
-            transformTemplate ? {} : noTemplateTransforms,
-            transformTemplate
-        )
 
         /**
          * An SVG element's transforms are relative to its own box, with
          * the origin at its centre, as an HTML element's are.
          */
-        if (
+        const isSVG =
             (element as SVGElement).ownerSVGElement !== undefined &&
             element.tagName !== "svg"
-        ) {
-            style.transformOrigin ||= "50% 50%"
-            style.transformBox ||=
-                latestValues.transformBox ||
-                node.getProps().style?.transformBox ||
-                "fill-box"
-        }
-    })
+
+        return Object.assign(
+            () => {
+                transformGroups.get(element)?.check()
+
+                const { latestValues } = node
+
+                /**
+                 * A `transform` value is written as any other style, and
+                 * takes the place of one built from independent
+                 * transforms.
+                 */
+                if (latestValues.transform) return
+
+                const { transformTemplate } = node.getProps()
+
+                style.transform = buildTransform(
+                    latestValues,
+                    transformTemplate ? {} : noTemplateTransforms,
+                    transformTemplate,
+                    order
+                )
+
+                if (isSVG) {
+                    style.transformOrigin ||= "50% 50%"
+                    style.transformBox ||=
+                        latestValues.transformBox ||
+                        node.getProps().style?.transformBox ||
+                        "fill-box"
+                }
+            },
+            { keys }
+        )
+    }) as NodeRender & { keys: string[] }
+
+    /**
+     * Keep the bound transforms in the order they're written.
+     */
+    const { keys } = render
+    key &&
+        !keys.includes(key) &&
+        keys.splice(
+            0,
+            keys.length,
+            ...transformPropOrder.filter((k) => k === key || keys.includes(k))
+        )
+
+    return render
+}
 
 /**
  * The function that writes `key` to an element's style.
@@ -110,7 +152,7 @@ export const getStyleRender = (
     key: string
 ): NodeRender =>
     transformProps.has(key)
-        ? getTransformRender(element, node)
+        ? getTransformRender(element, node, key)
         : key.startsWith("origin")
         ? sharedRender(node, "origin", () => () => {
               element.style.transformOrigin = `${
@@ -140,8 +182,7 @@ const getValueRender = (
     return () => {
         if (!isComposited) {
             const value = (node as MotionNode).values?.get(key)
-            value?.isAnimating() &&
-                transformGroups.get(element)?.repaint(value)
+            value?.isAnimating() && transformGroups.get(element)?.repaint(value)
         }
 
         setStyle(element, key, styleValue(node, key) as string)

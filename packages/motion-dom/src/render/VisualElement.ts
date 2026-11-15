@@ -477,6 +477,7 @@ export abstract class VisualElement<
         this.bindings = {}
         this.shared = undefined
         this.numPending = 0
+        this.isAllPending = false
         this.removeFromVariantTree?.()
         this.parent?.removeChild(this)
 
@@ -514,6 +515,9 @@ export abstract class VisualElement<
             this.current instanceof HTMLElement
         ) {
             this.unbind(key)
+            this.values.set(key, value!)
+            const latest = value!.get()
+            if (latest !== undefined) this.latestValues[key] = latest
             this.bindings[key] = {
                 stop: accelerate.bind(this.current, key, accelerate),
             }
@@ -585,7 +589,7 @@ export abstract class VisualElement<
     scheduleRender = () => {
         if (!this.current) return
         this.requestFlush()
-        this.queueAll()
+        this.isAllPending = true
     }
 
     protected onChange(key: string) {
@@ -675,8 +679,13 @@ export abstract class VisualElement<
     ) {
         const { transformTemplate, onUpdate } = this.props
 
-        if (props.transformTemplate || transformTemplate) {
-            this.scheduleRender()
+        /**
+         * Queued now, while the node still has the old props, so a
+         * transformTemplate that is removed is written over.
+         */
+        if ((props.transformTemplate || transformTemplate) && this.current) {
+            this.requestFlush()
+            this.queueAll()
         }
 
         /**
