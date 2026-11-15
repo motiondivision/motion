@@ -964,7 +964,7 @@ export function createProjectionNode<I>({
             this.sharedNodes.forEach((stack, layoutId) =>
                 stack.members.length
                     ? stack.removeLeadSnapshot()
-                    : this.sharedNodes.delete(layoutId)
+                    : this.sharedNodes.delete(layoutId) && this.stacksChanged++
             )
         }
 
@@ -2292,9 +2292,20 @@ export function createProjectionNode<I>({
          */
         // TODO Only running on root node
         sharedNodes: Map<string, NodeStack> = new Map()
+
+        /**
+         * Counts the changes to the root's sharedNodes, so each node can
+         * keep the stack it found until they change.
+         */
+        stacksChanged = 0
+        stack?: NodeStack
+        stackFor?: string
+        stackAt = -1
+
         registerSharedNode(layoutId: string, node: IProjectionNode) {
             if (!this.sharedNodes.has(layoutId)) {
                 this.sharedNodes.set(layoutId, new NodeStack())
+                this.stacksChanged++
             }
 
             const stack = this.sharedNodes.get(layoutId)!
@@ -2324,7 +2335,17 @@ export function createProjectionNode<I>({
 
         getStack() {
             const { layoutId } = this.options
-            if (layoutId) return this.root.sharedNodes.get(layoutId)
+            if (!layoutId) return
+            const { root } = this
+            if (
+                this.stackFor !== layoutId ||
+                this.stackAt !== root.stacksChanged
+            ) {
+                this.stack = root.sharedNodes.get(layoutId)
+                this.stackFor = layoutId
+                this.stackAt = root.stacksChanged
+            }
+            return this.stack
         }
 
         promote({
@@ -2586,6 +2607,7 @@ export function createProjectionNode<I>({
             )
             this.root.nodes!.forEach(clearMeasurements)
             this.root.sharedNodes.clear()
+            this.root.stacksChanged++
         }
     }
 }

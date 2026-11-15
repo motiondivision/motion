@@ -106,6 +106,7 @@ export interface IProjectionNode<I = unknown> {
     scheduleCheckAfterUnmount(): void
     checkUpdateFailed(): void
     sharedNodes: Map<string, NodeStack>
+    stacksChanged: number
     registerSharedNode(id: string, node: IProjectionNode): void
     getStack(): NodeStack | undefined
     isVisible: boolean
