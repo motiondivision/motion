@@ -2007,8 +2007,12 @@ export function createProjectionNode<I>({
                     this.animationValues.pathRotation = point.rotate
                 }
 
-                this.root.scheduleUpdateProjection()
-                this.scheduleRender()
+                /**
+                 * setTargetDelta has scheduled the projection, which
+                 * schedules a render if it changes. Mixed values change
+                 * what's rendered without it.
+                 */
+                this.animationValues && this.scheduleRender()
 
                 this.animationProgress = progress
             }
@@ -2443,10 +2447,22 @@ export function createProjectionNode<I>({
             write("visibility", "")
 
             const valuesToRender = lead.animationValues || lead.latestValues
-            this.applyTransformsToTarget()
+
+            /**
+             * Without a translate or scale of its own, a lead's target with
+             * its transforms is its target, so the delta into it is its
+             * projection delta.
+             */
+            const delta =
+                lead !== this ||
+                hasScale(this.latestValues) ||
+                has2DTranslate(this.latestValues)
+                    ? (this.applyTransformsToTarget(),
+                      this.projectionDeltaWithTransform!)
+                    : this.projectionDelta
 
             let transform = buildProjectionTransform(
-                this.projectionDeltaWithTransform!,
+                delta,
                 this.treeScale,
                 valuesToRender
             )

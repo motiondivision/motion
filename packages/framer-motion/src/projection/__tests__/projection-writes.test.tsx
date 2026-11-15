@@ -1,4 +1,9 @@
-import { motionValue, MotionValue } from "motion-dom"
+import {
+    buildProjectionTransform,
+    motionValue,
+    MotionValue,
+    visualElementStore,
+} from "motion-dom"
 import { act, useState } from "react"
 import { stepFrames, withManualFrames } from "../../gestures/__tests__/utils"
 import { render } from "../../jest.setup"
@@ -183,5 +188,54 @@ describe("projection writes", () => {
         await frames(1)
         expect(element.style.transform).toContain("translate")
         expect(element.style.visibility).toBe("")
+    })
+
+    /**
+     * Without a translate or scale of its own, a lead renders its
+     * projection delta rather than working out the delta into its target
+     * with transforms, which is the same.
+     */
+    test.each([
+        ["no transforms", {}],
+        ["a rotate", { rotate: motionValue(10) }],
+        ["an x", { x: motionValue(10) }],
+        ["a scale", { scale: motionValue(2) }],
+    ])(
+        "a lead with %s renders the delta into its target with transforms",
+        async (_, values: Record<string, MotionValue>) => {
+            const { element } = await start(values)
+            await frames(5)
+
+            const projection = visualElementStore.get(element)!.projection!
+            projection.applyTransformsToTarget()
+            const transform = buildProjectionTransform(
+                projection.projectionDeltaWithTransform!,
+                projection.treeScale,
+                projection.latestValues
+            )
+            expect(transform).toContain("translate")
+            expect(element.style.transform).toBe(transform)
+        }
+    )
+
+    test("a lead without transforms renders its delta in a render without a projection update", async () => {
+        const { element } = await start()
+        await frames(5)
+        const before = element.style.transform
+        expect(before).toContain("translate")
+
+        const visualElement = visualElementStore.get(element)!
+        visualElement.render()
+        expect(element.style.transform).toBe(before)
+
+        const projection = visualElement.projection!
+        projection.applyTransformsToTarget()
+        expect(
+            buildProjectionTransform(
+                projection.projectionDeltaWithTransform!,
+                projection.treeScale,
+                projection.latestValues
+            )
+        ).toBe(before)
     })
 })
