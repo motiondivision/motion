@@ -7,7 +7,7 @@ import {
     Point,
     SubscriptionManager,
 } from "motion-utils"
-import { animateSingleValue } from "../../animation/animate/single-value"
+import { MultiValueRef, startValue } from "../../animation/animate/multi-value"
 import { spring } from "../../animation/generators/spring"
 import { calcGeneratorDuration } from "../../animation/generators/utils/calc-duration"
 import { notifyLayoutAnimationStart } from "../../animation/utils/notify-inspector"
@@ -2025,6 +2025,12 @@ export function createProjectionNode<I>({
             this.notifyListeners("animationStart")
 
             const isSpring = (this.isSpringLayout = options.type === "spring")
+
+            /**
+             * The transition the node was given, which it's cleared of once
+             * it's notified of its layout update.
+             */
+            const { transition: clockKey } = this.options
             this.currentAnimation?.stop()
             this.resumingFrom?.currentAnimation?.stop()
             if (this.resumingFrom) this.resumingFrom.edgeValues = undefined
@@ -2162,21 +2168,35 @@ export function createProjectionNode<I>({
                     }
                 }
 
-                const main = animateSingleValue(this.motionValue, [0, 1000], {
-                    ...transition,
-                    velocity: mainVelocity,
-                    isSync: true,
-                    onUpdate: (latest: number) => {
-                        this.mixTargetDelta(latest)
-                        options.onUpdate && options.onUpdate(latest)
-                    },
-                    onComplete: () => {
-                        options.onComplete && options.onComplete()
-                        this.completeAnimation()
-                    },
-                })
+                /**
+                 * Each node's progress is a track of an animation that the
+                 * layout animations starting in this frame share, so they
+                 * run on one clock. Each has its own transition and
+                 * completes, or is stopped, by itself.
+                 */
+                this.motionValue.run(
+                    startValue(
+                        getLayoutClock(clockKey),
+                        "",
+                        this.motionValue,
+                        [0, 1000],
+                        {
+                            ...transition,
+                            velocity: mainVelocity,
+                            isSync: true,
+                            onUpdate: (latest: number) => {
+                                this.mixTargetDelta(latest)
+                                options.onUpdate && options.onUpdate(latest)
+                            },
+                            onComplete: () => {
+                                options.onComplete && options.onComplete()
+                                this.completeAnimation()
+                            },
+                        }
+                    )
+                )
 
-                this.currentAnimation = main
+                this.currentAnimation = this.motionValue.animation as any
 
                 notifyLayoutAnimationStart(this.currentAnimation, this)
 
@@ -2920,6 +2940,35 @@ const isProjectionStyle = (key: string) =>
     transformProps.has(key) ||
     !!scaleCorrectors[key] ||
     /^(transform|origin|opacity|visibility|pointerEvents)/.test(key)
+
+/**
+ * The shared animations of the layout animations starting in this frame,
+ * by the transition their nodes were given. Nodes given the same one, like
+ * those of one animateLayout(), or none, like a component's, share one.
+ * Its controls (pause, time, speed) are the clock's, so nodes given
+ * different transitions don't share one.
+ */
+let clocks: Map<unknown, MultiValueRef> | undefined
+
+function getLayoutClock(key: unknown) {
+    if (!clocks) {
+        clocks = new Map()
+        /**
+         * Start them once every node starting this frame has joined, which
+         * they do in this step.
+         */
+        frame.update(startLayoutClocks, false, true)
+    }
+    let ref = clocks.get(key)
+    ref || clocks.set(key, (ref = {}))
+    return ref
+}
+
+function startLayoutClocks() {
+    const started = clocks!
+    clocks = undefined
+    started.forEach((ref) => ref.animation?.start())
+}
 
 function hasOpacityCrossfade(node: IProjectionNode) {
     return node.animationValues?.opacityExit !== undefined
