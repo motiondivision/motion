@@ -50,6 +50,7 @@ const createMeasureNode: CreateNode = (element) => {
          */
         isProjecting: noop,
         applyProjectionStyles: noop,
+        prepareFlush: noop,
         removeElementScroll: (box: Box) => box,
         updateLayout: () => {
             const layoutBox = measurePageBox(

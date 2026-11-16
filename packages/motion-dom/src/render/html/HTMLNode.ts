@@ -69,12 +69,14 @@ export class HTMLNode extends MotionNode<HTMLElement> {
      * A projection node sets latest values that have no motion value.
      * They're bound when they're first rendered.
      */
-    protected queueAll() {
-        for (const key in this.latestValues) {
-            this.bindings[key] || this.bindValue(key)
+    protected queueAll(test?: (name: string) => boolean) {
+        if (!test) {
+            for (const key in this.latestValues) {
+                this.bindings[key] || this.bindValue(key)
+            }
         }
 
-        super.queueAll()
+        super.queueAll(test)
     }
 
     scheduleRender = () => {
@@ -82,11 +84,18 @@ export class HTMLNode extends MotionNode<HTMLElement> {
         this.isAllPending = true
     }
 
+    isProjectionPending?: boolean
+    scheduleProjectionRender = () => {
+        this.requestFlush()
+        this.isProjectionPending = true
+    }
+
     /**
      * Projection styles are written over the values, after any of them
      * is written.
      */
     flush() {
+        this.projection?.prepareFlush(this)
         super.flush()
         this.projection?.applyProjectionStyles(this.current!.style)
     }

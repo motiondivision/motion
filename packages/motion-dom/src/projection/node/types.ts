@@ -90,6 +90,8 @@ export interface IProjectionNode<I = unknown> {
     unblockUpdate(): void
     isUpdating: boolean
     needsReset: boolean
+    written: ResolvedValues
+    prepareFlush(node: any): void
     needsShow?: boolean
     startUpdate(): void
     willUpdate(notifyListeners?: boolean): void
@@ -104,6 +106,7 @@ export interface IProjectionNode<I = unknown> {
     scheduleCheckAfterUnmount(): void
     checkUpdateFailed(): void
     sharedNodes: Map<string, NodeStack>
+    stacksChanged: number
     registerSharedNode(id: string, node: IProjectionNode): void
     getStack(): NodeStack | undefined
     isVisible: boolean
@@ -133,6 +136,7 @@ export interface IProjectionNode<I = unknown> {
     resetTree(): void
 
     isProjecting(): boolean
+    hasProjectingChild(): boolean
     animationValues?: ResolvedValues
     currentAnimation?: AnimationPlaybackControlsWithThen
     /**

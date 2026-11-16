@@ -45,8 +45,8 @@ export abstract class DOMVisualElement<
     /**
      * A transformTemplate is called even when no transform is set.
      */
-    protected queueAll() {
-        super.queueAll()
+    protected queueAll(test?: (name: string) => boolean) {
+        super.queueAll(test)
         this.props.transformTemplate &&
             this.queue(getTransformRender(this.current!, this))
     }
@@ -56,6 +56,7 @@ export abstract class DOMVisualElement<
      * is written.
      */
     flush() {
+        this.projection?.prepareFlush(this)
         super.flush()
         this.current &&
             this.projection?.applyProjectionStyles(

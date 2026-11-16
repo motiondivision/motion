@@ -439,15 +439,18 @@ export class MotionNode<Subject = any> {
     }
 
     /**
-     * Queue every key that has a value. One that hasn't been read from
-     * the subject yet has nothing to write, and writing first could
-     * change what is read.
+     * Queue every key that has a value, or with `test`, those it passes.
+     * One that hasn't been read from the subject yet has nothing to
+     * write, and writing first could change what is read.
      */
-    protected queueAll() {
+    protected queueAll(test?: (name: string) => boolean) {
         const { bindings, latestValues } = this
         for (const name in bindings) {
             const render = bindings[name]?.render
-            render && latestValues[name] !== undefined && this.queue(render)
+            render &&
+                latestValues[name] !== undefined &&
+                (!test || test(name)) &&
+                this.queue(render)
         }
     }
 

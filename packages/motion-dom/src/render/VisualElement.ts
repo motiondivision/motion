@@ -573,12 +573,14 @@ export abstract class VisualElement<
      * Keys that have a latest value but no motion value are bound when
      * they're first rendered.
      */
-    protected queueAll() {
-        for (const key in this.latestValues) {
-            this.bindings[key] || this.bindValue(key)
+    protected queueAll(test?: (name: string) => boolean) {
+        if (!test) {
+            for (const key in this.latestValues) {
+                this.bindings[key] || this.bindValue(key)
+            }
         }
 
-        super.queueAll()
+        super.queueAll(test)
     }
 
     /**
@@ -590,6 +592,17 @@ export abstract class VisualElement<
         if (!this.current) return
         this.requestFlush()
         this.isAllPending = true
+    }
+
+    /**
+     * A flush that writes the projection, and the keys it can write over,
+     * rather than every key. Asked for by the projection node.
+     */
+    isProjectionPending?: boolean
+    scheduleProjectionRender = () => {
+        if (!this.current) return
+        this.requestFlush()
+        this.isProjectionPending = true
     }
 
     protected onChange(key: string) {
