@@ -34,7 +34,9 @@ function box(left: number, width: number) {
 
 const frames = (count: number) => stepFrames((count * 1000) / 60)
 
-const transition = { layout: { type: "tween", ease: "linear", duration: 10 } }
+const transition = {
+    layout: { type: "tween" as const, ease: "linear" as const, duration: 10 },
+}
 
 /**
  * Count the writes to some of an element's styles.
