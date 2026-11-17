@@ -41,7 +41,10 @@ describe("waapi", () => {
             .get("#box")
             .should(([$element]: any) => {
                 expect($element.innerText).not.to.equal("Error")
-                expect($element.getAnimations().length).to.equal(0)
+                // Cypress's Electron has no getAnimations()
+                if ($element.getAnimations) {
+                    expect($element.getAnimations().length).to.equal(0)
+                }
             })
             .get("iframe")
             .should((result: any) => {
