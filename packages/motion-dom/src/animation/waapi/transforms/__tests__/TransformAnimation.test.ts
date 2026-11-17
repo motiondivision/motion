@@ -419,11 +419,17 @@ describe("independent transform acceleration", () => {
     it("removes the handlers of the WAAPI animations it cancels", async () => {
         const element = document.createElement("div")
 
-        animateElement(element, { x: [0, 100] }, { duration: 0.1 })
+        /**
+         * x outlasts scale by far, so however slowly the timers run,
+         * scale finishes while x is running and the group makes a new
+         * WAAPI animation for x alone.
+         */
+        const [x] = animateElement(element, { x: [0, 100] }, { duration: 10 })
         await Promise.all(
             animateElement(element, { scale: [1, 2] }, { duration: 0.05 })
         )
-        await wait(100)
+        await nextFrame()
+        x.stop()
         await nextFrame()
 
         expect(running(element)).toHaveLength(0)
