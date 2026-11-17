@@ -610,6 +610,28 @@ test.describe("animate() options", () => {
     })
 })
 
+test.describe("animate() onUpdate", () => {
+    test("onUpdate fires for an accelerated value", async ({ page }) => {
+        await waitForAnimation(
+            "animate/animate-opacity-onupdate.html",
+            page,
+            300
+        )
+
+        // onUpdate needs the value every frame, which WAAPI can't provide,
+        // so opacity runs in JS. Without onUpdate it stays accelerated.
+        const updates = await page.evaluate(() => (window as any).updates)
+        expect(updates.length).toBeGreaterThan(1)
+        expect(updates[updates.length - 1]).toBeGreaterThan(0.5)
+        expect(updates[updates.length - 1]).toBeLessThan(1)
+
+        const waapiCount = (id: string) =>
+            page.locator(id).evaluate((el) => el.getAnimations().length)
+        expect(await waapiCount("#with-onupdate")).toBe(0)
+        expect(await waapiCount("#without-onupdate")).toBe(1)
+    })
+})
+
 test.describe("animate() backgroundColor", () => {
     test("backgroundColor runs as a JS animation, not WAAPI", async ({
         page,
