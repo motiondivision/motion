@@ -138,9 +138,15 @@ Motion drives the animations on the Cursor homepage, and is working with Cursor 
   <img alt="Cursor" src="https://github.com/user-attachments/assets/81c482d3-c2c2-4b35-bbcf-933b28d5b448" width="250px" height="150px" />
 </a>
 
+Motion collaborates with Figma to ensure code export stability.
+
+<a href="https://figma.com">
+  <img alt="Figma" src="https://github.com/user-attachments/assets/1077d0ab-4305-4a1f-81c8-d5be8c4c6717" width="250px" height="150px" />
+</a>
+
 ### Platinum
 
-<a href="https://linear.app"><img alt="Linear" src="https://github.com/user-attachments/assets/f9ce44b4-af28-4770-bb6e-9515b474bfb2" width="250px" height="150px"></a> <a href="https://figma.com"><img alt="Figma" src="https://github.com/user-attachments/assets/1077d0ab-4305-4a1f-81c8-d5be8c4c6717" width="250px" height="150px"></a> <a href="https://sanity.io"><img alt="Sanity" src="https://github.com/user-attachments/assets/80134088-f456-483f-8edd-940593c120ce" width="250px" height="150px"></a> <a href="https://clerk.com?utm_campaign=motion"><img alt="Clerk" src="https://github.com/user-attachments/assets/16789f85-eaf4-46fb-9961-b3e66d33afbc" width="250px" height="150px"></a>
+<a href="https://linear.app"><img alt="Linear" src="https://github.com/user-attachments/assets/f9ce44b4-af28-4770-bb6e-9515b474bfb2" width="250px" height="150px"></a> <a href="https://sanity.io"><img alt="Sanity" src="https://github.com/user-attachments/assets/80134088-f456-483f-8edd-940593c120ce" width="250px" height="150px"></a> <a href="https://clerk.com?utm_campaign=motion"><img alt="Clerk" src="https://github.com/user-attachments/assets/16789f85-eaf4-46fb-9961-b3e66d33afbc" width="250px" height="150px"></a>
 
 ### Gold
 

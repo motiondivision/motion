@@ -1,0 +1,43 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+
+            .box {
+                width: 100px;
+                height: 100px;
+                background-color: red;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="box" id="with-onupdate"></div>
+        <div class="box" id="without-onupdate"></div>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            const { animate } = window.Motion
+
+            window.updates = []
+
+            // opacity is accelerated, but onUpdate needs the value every
+            // frame, which WAAPI can't provide.
+            animate(
+                "#with-onupdate",
+                { opacity: [0.5, 1] },
+                {
+                    duration: 10,
+                    ease: "linear",
+                    onUpdate: (v) => window.updates.push(v),
+                }
+            )
+
+            animate(
+                "#without-onupdate",
+                { opacity: [0.5, 1] },
+                { duration: 10, ease: "linear" }
+            )
+        </script>
+    </body>
+</html>

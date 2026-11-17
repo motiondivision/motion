@@ -1275,9 +1275,11 @@ function createGroup(owner: TransformOwner): TransformGroup {
             stop()
             scrollAnimation = undefined
 
-            tracks.forEach(
-                (track) => track.state === "running" && track.js?.start()
-            )
+            /**
+             * Paused animations tick too, as a JSAnimation does, so one
+             * paused before its first frame still renders it.
+             */
+            tracks.forEach((track) => hasEnded(track) || track.js?.start())
 
             /**
              * Values on a native scroll timeline follow it from JS instead.
