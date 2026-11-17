@@ -378,7 +378,7 @@ function resolve(
  * Start a value's animation on the call's shared animation, or on an animation of its
  * own when it can't share it.
  */
-export const startValue =
+export const startValueAnimation =
     <V extends AnyResolvedKeyframe>(
         ref: MultiValueRef,
         name: string,

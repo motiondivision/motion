@@ -5,7 +5,7 @@ import { positionalKeys } from "../../render/utils/keys-position"
 import { setTarget } from "../../render/utils/setters"
 import { addValueToWillChange } from "../../value/will-change/add-will-change"
 import { getOptimisedAppearId } from "../optimized-appear/get-appear-id"
-import { MultiValueRef, startValue } from "../animate/multi-value"
+import { MultiValueRef, startValueAnimation } from "../animate/multi-value"
 import type { MotionPath } from "../types"
 import type { VisualElementAnimationOptions } from "./types"
 import type { AnimationPlaybackControlsWithThen } from "../types"
@@ -36,18 +36,15 @@ export function animateTarget(
     targetAndTransition: TargetAndTransition,
     { delay = 0, transitionOverride, type }: VisualElementAnimationOptions = {}
 ): AnimationPlaybackControlsWithThen[] {
-    let {
-        transition,
-        transitionEnd,
-        ...target
-    } = targetAndTransition
+    let { transition, transitionEnd, ...target } = targetAndTransition
 
     const defaultTransition = visualElement.getDefaultTransition()
     transition = transition
         ? resolveTransition(transition, defaultTransition)
         : defaultTransition
 
-    const reduceMotion = (transition as { reduceMotion?: boolean })?.reduceMotion
+    const reduceMotion = (transition as { reduceMotion?: boolean })
+        ?.reduceMotion
     const skipAnimations = transition?.skipAnimations
 
     if (transitionOverride) transition = transitionOverride
@@ -158,7 +155,7 @@ export function animateTarget(
             reduceMotion ?? visualElement.shouldReduceMotion
 
         value.run(
-            startValue(
+            startValueAnimation(
                 isHandoff ? handoffRef : ref,
                 key,
                 value,

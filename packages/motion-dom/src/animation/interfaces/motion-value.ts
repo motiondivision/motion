@@ -2,7 +2,7 @@ import type { AnyResolvedKeyframe, ValueTransition } from "../types"
 import type { UnresolvedKeyframes } from "../keyframes/KeyframesResolver"
 import type { MotionValue, StartAnimation } from "../../value"
 import type { AnimationElement } from "../keyframes/types"
-import { MultiValueRef, startValue } from "../animate/multi-value"
+import { MultiValueRef, startValueAnimation } from "../animate/multi-value"
 
 /**
  * Animate one value on a clock of its own.
@@ -18,7 +18,7 @@ export const animateMotionValue =
     ): StartAnimation =>
     (onComplete) => {
         const ref: MultiValueRef = {}
-        const animation = startValue(
+        const animation = startValueAnimation(
             ref,
             name,
             value,

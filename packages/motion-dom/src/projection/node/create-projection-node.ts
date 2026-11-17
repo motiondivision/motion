@@ -7,7 +7,10 @@ import {
     Point,
     SubscriptionManager,
 } from "motion-utils"
-import { MultiValueRef, startValue } from "../../animation/animate/multi-value"
+import {
+    MultiValueRef,
+    startValueAnimation,
+} from "../../animation/animate/multi-value"
 import { spring } from "../../animation/generators/spring"
 import { calcGeneratorDuration } from "../../animation/generators/utils/calc-duration"
 import { notifyLayoutAnimationStart } from "../../animation/utils/notify-inspector"
@@ -2193,7 +2196,7 @@ export function createProjectionNode<I>({
                  * completes, or is stopped, by itself.
                  */
                 this.motionValue.run(
-                    startValue(
+                    startValueAnimation(
                         getLayoutClock(clockKey),
                         "",
                         this.motionValue,

@@ -7,7 +7,7 @@ import { transformProps } from "../../render/utils/keys-transform"
 import { markRepaint } from "../waapi/transforms/groups"
 import { acceleratedValues } from "../waapi/utils/accelerated-values"
 import { MotionValue } from "../../value"
-import { MultiValueRef, startValue } from "./multi-value"
+import { MultiValueRef, startValueAnimation } from "./multi-value"
 export type { MultiValueRef }
 import { AnimationElement } from "../keyframes/types"
 import {
@@ -129,7 +129,7 @@ export function animateValues(
         }
 
         value.run(
-            startValue(
+            startValueAnimation(
                 ref,
                 key,
                 value,
@@ -234,7 +234,14 @@ export const animateEffectSubject = <Subject extends object>(
     transition?: EffectTransition,
     element?: AnimationElement,
     animationRef?: MultiValueRef
-) => animateNode(effect.node(subject), keyframes, transition, element, animationRef)
+) =>
+    animateNode(
+        effect.node(subject),
+        keyframes,
+        transition,
+        element,
+        animationRef
+    )
 
 function firstKeyframe(
     target: UnresolvedValueKeyframe | UnresolvedValueKeyframe[] | undefined
