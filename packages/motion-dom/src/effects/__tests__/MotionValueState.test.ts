@@ -1,5 +1,6 @@
 import { frame } from "../../frameloop"
 import { motionValue } from "../../value"
+import { releaseNode } from "../../node/MotionNode"
 import { MotionValueState } from "../MotionValueState"
 
 async function nextFrame() {
@@ -41,16 +42,14 @@ describe("MotionValueState", () => {
         expect(render).toHaveBeenCalledTimes(1)
     })
 
-    it("schedules the computed value's render when a source value changes", async () => {
+    it("schedules a shared render once when the values that share it change", async () => {
         const state = new MotionValueState()
-        const transform = motionValue("none")
         const x = motionValue(0)
         const y = motionValue(0)
-        const render = jest.fn()
+        const render = Object.assign(jest.fn(), { shared: true })
 
-        state.set("transform", transform, render)
-        state.set("x", x, undefined, transform)
-        state.set("y", y, undefined, transform)
+        state.set("x", x, render)
+        state.set("y", y, render)
         await nextFrame()
         render.mockClear()
 
@@ -62,23 +61,21 @@ describe("MotionValueState", () => {
         expect(render).toHaveBeenCalledTimes(1)
     })
 
-    it("removing a source value doesn't cancel the computed value's render", async () => {
+    it("removing a value doesn't cancel the render it shares", async () => {
         const state = new MotionValueState()
-        const transform = motionValue("none")
         const x = motionValue(0)
         const y = motionValue(0)
-        const render = jest.fn()
+        const render = Object.assign(jest.fn(), { shared: true })
 
-        state.set("transform", transform, render)
-        const removeX = state.set("x", x, undefined, transform)
-        state.set("y", y, undefined, transform)
+        const removeX = state.set("x", x, render)
+        state.set("y", y, render)
         await nextFrame()
         render.mockClear()
 
         y.set(100)
         removeX()
-        expect(state.get("x")).toBeUndefined()
-        expect(state.get("y")).toBe(y)
+        expect(state.getValue("x")).toBeUndefined()
+        expect(state.getValue("y")).toBe(y)
 
         await nextFrame()
         expect(render).toHaveBeenCalledTimes(1)
@@ -140,8 +137,8 @@ describe("MotionValueState", () => {
         const removeSecond = state.set("opacity", second, render)
         removeFirst()
 
-        expect(state.get("opacity")).toBe(second)
-        expect(state.release().get("opacity")).toBe(second)
+        expect(state.getValue("opacity")).toBe(second)
+        expect(releaseNode(state).get("opacity")).toBe(second)
 
         second.set(1)
         await nextFrame()

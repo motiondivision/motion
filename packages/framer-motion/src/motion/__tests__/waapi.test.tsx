@@ -236,6 +236,39 @@ describe("WAAPI animations", () => {
         expect(ref.current!.animate).toBeCalled()
     })
 
+    test("doesn't throw when a component unmounts while its WAAPI animation runs", async () => {
+        const onError = jest.fn()
+        window.addEventListener("error", onError)
+
+        /**
+         * An animation that hasn't finished by the time its value stops,
+         * the frame after its component unmounts.
+         */
+        jest.spyOn(Element.prototype, "animate").mockImplementation(
+            () => ({ cancel: () => {} } as any)
+        )
+
+        const ref = createRef<HTMLDivElement>()
+        const Component = () => (
+            <motion.div
+                ref={ref}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+            />
+        )
+        const { rerender, unmount } = render(<Component />)
+        rerender(<Component />)
+
+        await nextFrame()
+        expect(ref.current!.animate).toBeCalled()
+
+        unmount()
+        await new Promise((resolve) => setTimeout(resolve, 50))
+
+        window.removeEventListener("error", onError)
+        expect(onError).not.toBeCalled()
+    })
+
     test("opacity animates with WAAPI at default settings when layout is enabled", async () => {
         const ref = createRef<HTMLDivElement>()
         const Component = () => (

@@ -294,11 +294,16 @@ describe("scopeMotion", () => {
             animate(".item", { opacity: 0.5 }, { duration: 10 })
         })
 
-        return nextFrame().then(() => {
-            expect(inA.style.opacity).toBe("")
-            expect(inB.style.opacity).not.toBe("")
-            scope.stop()
-        })
+        /**
+         * The first frame can be at time 0, where the value is still
+         * its origin and there's nothing new to write.
+         */
+        await nextFrame()
+        await nextFrame()
+
+        expect(inA.style.opacity).toBe("")
+        expect(inB.style.opacity).not.toBe("")
+        scope.stop()
     })
 
     test("accepts a root element with options, or a root that's missing", () => {

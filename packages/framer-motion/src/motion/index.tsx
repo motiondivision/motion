@@ -134,7 +134,12 @@ export function createMotionComponent<
         const visualState = useVisualState(props, isStatic)
 
         if (!isStatic && typeof window !== "undefined") {
-            useStrictMode(configAndProps, preloadedFeatures)
+            /**
+             * A development-only check. useVisualElement reads LazyContext
+             * too, so production doesn't need this read to subscribe to it.
+             */
+            if (process.env.NODE_ENV !== "production")
+                useStrictMode(configAndProps, preloadedFeatures)
 
             const layoutProjection = getProjectionFunctionality(configAndProps)
 
@@ -216,17 +221,11 @@ function useStrictMode(
     configAndProps: MotionProps,
     preloadedFeatures?: FeaturePackages
 ) {
-    const isStrict = useContext(LazyContext).strict
-
     /**
-     * If we're in development mode, check to make sure we're not rendering a motion component
-     * as a child of LazyMotion, as this will break the file-size benefits of using it.
+     * Check to make sure we're not rendering a motion component as a child
+     * of LazyMotion, as this will break the file-size benefits of using it.
      */
-    if (
-        process.env.NODE_ENV !== "production" &&
-        preloadedFeatures &&
-        isStrict
-    ) {
+    if (preloadedFeatures && useContext(LazyContext).strict) {
         const strictMessage =
             "You have rendered a `motion` component within a `LazyMotion` component. This will break tree shaking. Import and render a `m` component instead"
 
@@ -247,16 +246,11 @@ function useStrictMode(
 }
 
 function getProjectionFunctionality(props: MotionProps) {
-    const featureDefinitions = getInitializedFeatureDefinitions()
-    const { drag, layout } = featureDefinitions
-
-    if (!drag && !layout) return {}
-
-    const combined = { ...drag, ...layout }
+    const { drag, layout } = getInitializedFeatureDefinitions()
 
     return {
-        MeasureLayout: combined.MeasureLayout,
+        ...drag,
+        ...layout,
         isEnabled: drag?.isEnabled(props) || layout?.isEnabled(props),
-        ProjectionNode: combined.ProjectionNode,
     }
 }

@@ -5,6 +5,8 @@ import { DOMKeyframesResolver } from "../../animation/keyframes/DOMKeyframesReso
 import type { MotionNodeOptions } from "../../node/types"
 import type { DOMVisualElementOptions } from "./types"
 import type { HTMLRenderState } from "../html/types"
+import { getTransformRender } from "../../effects/style"
+import type { VisualElementOptions } from "../types"
 import { VisualElement, MotionStyle } from "../VisualElement"
 
 export abstract class DOMVisualElement<
@@ -12,6 +14,17 @@ export abstract class DOMVisualElement<
     State extends HTMLRenderState = HTMLRenderState,
     Options extends DOMVisualElementOptions = DOMVisualElementOptions
 > extends VisualElement<Instance, State, Options> {
+    /**
+     * Declared rather than implicit, as the implicit constructor compiles
+     * to super(...arguments), which is slow to run per element.
+     */
+    constructor(
+        options: VisualElementOptions<Instance, State>,
+        renderOptions?: Options
+    ) {
+        super(options, renderOptions)
+    }
+
     sortInstanceNodePosition(a: Instance, b: Instance): number {
         /**
          * compareDocumentPosition returns a bitmask, by using the bitwise &
@@ -29,12 +42,27 @@ export abstract class DOMVisualElement<
         return style ? (style[key] as string) : undefined
     }
 
-    removeValueFromRenderState(
-        key: string,
-        { vars, style }: HTMLRenderState
-    ): void {
-        delete vars[key]
-        delete style[key]
+    /**
+     * A transformTemplate is called even when no transform is set.
+     */
+    protected queueAll(test?: (name: string) => boolean) {
+        super.queueAll(test)
+        this.props.transformTemplate &&
+            this.queue(getTransformRender(this.current!, this))
+    }
+
+    /**
+     * Projection styles are written over the values, after any of them
+     * is written.
+     */
+    flush() {
+        this.projection?.prepareFlush(this)
+        super.flush()
+        this.current &&
+            this.projection?.applyProjectionStyles(
+                this.current.style,
+                (this.props as any).style
+            )
     }
 
     KeyframeResolver = DOMKeyframesResolver

@@ -1,6 +1,6 @@
 import { isObject } from "motion-utils"
 import { MotionValue } from "../../value"
-import { MotionValueState } from "../MotionValueState"
+import type { MotionNode } from "../../node/MotionNode"
 import { createEffect } from "../utils/create-effect"
 
 interface PropSubject {
@@ -14,17 +14,17 @@ interface PropSubject {
 export const propEffect = /*@__PURE__*/ createEffect(
     (
         subject: PropSubject,
-        state: MotionValueState,
+        state: MotionNode,
         key: string,
         value: MotionValue
     ) => {
-        return state.set(
-            key,
-            value,
-            () => {
-                subject[key] = value.get()
-            }
-        )
+        /**
+         * Written as the value changes, so it's given the value. When
+         * it's flushed instead, it reads the value itself.
+         */
+        return state.set(key, value, (latest = value.get()) => {
+            subject[key] = latest
+        })
     },
     {
         test: (subject: unknown): subject is PropSubject => isObject(subject),
@@ -34,5 +34,6 @@ export const propEffect = /*@__PURE__*/ createEffect(
                 ? value
                 : undefined
         },
+        sync: true,
     }
 )

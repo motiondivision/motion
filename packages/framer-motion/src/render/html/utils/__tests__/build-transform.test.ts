@@ -16,6 +16,31 @@ describe("transformProps.has", () => {
 })
 
 describe("buildTransform", () => {
+    it("Only writes the keys it is given, in the order given", () => {
+        const values = { x: 1, y: 2, scale: 3, rotate: 4 }
+        expect(buildTransform(values, {}, undefined, ["x", "rotate"])).toBe(
+            "translateX(1px) rotate(4deg)"
+        )
+        expect(buildTransform(values, {}, undefined, [])).toBe("none")
+        expect(
+            buildTransform({ ...values, pathRotation: 5 }, {}, undefined, ["y"])
+        ).toBe("translateY(2px) rotate(5deg)")
+    })
+
+    it("Separates transforms with one space and none at the ends", () => {
+        expect(buildTransform({ x: 0, y: 2, scale: 1, rotate: 4 }, {})).toBe(
+            "translateY(2px) rotate(4deg)"
+        )
+        expect(buildTransform({ pathRotation: 5 }, {})).toBe("rotate(5deg)")
+        expect(
+            buildTransform(
+                { x: 1, pathRotation: 5 },
+                {},
+                (_, generated) => `[${generated}]`
+            )
+        ).toBe("[translateX(1px) rotate(5deg)]")
+    })
+
     it("Outputs 'none' when all values are default", () => {
         expect(buildTransform({ x: 0 }, {})).toBe("none")
         expect(buildTransform({ x: "0px" }, {})).toBe("none")

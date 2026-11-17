@@ -34,7 +34,7 @@ export function follow<T extends AnyResolvedKeyframe>(
 
     const onUpdate = (v: number) => set((unit ? v + unit : v) as T)
 
-    const onPlay = () => value["events"].animationStart?.notify()
+    const onPlay = () => value["events"]?.animationStart?.notify()
 
     const stopAnimation = () => {
         if (activeAnimation) {
@@ -90,7 +90,7 @@ export function follow<T extends AnyResolvedKeyframe>(
             if (activeAnimation !== animation) return
             activeAnimation = null
             value.animation = undefined
-            value["events"].animationComplete?.notify()
+            value["events"]?.animationComplete?.notify()
         })
     }, stopAnimation)
 

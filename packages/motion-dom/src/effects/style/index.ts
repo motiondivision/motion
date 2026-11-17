@@ -1,101 +1,204 @@
 import { transformGroups } from "../../animation/waapi/transforms/groups"
 import { isCSSVar } from "../../render/dom/is-css-var"
+import { acceleratedValues } from "../../animation/waapi/utils/accelerated-values"
 import { readTransformValue } from "../../render/dom/parse-transform"
+import { buildTransform } from "../../render/html/utils/build-transform"
+import { nodeStore } from "../../render/store"
 import {
     transformPropOrder,
     transformProps,
 } from "../../render/utils/keys-transform"
 import { isHTMLElement } from "../../utils/is-html-element"
 import { isSVGElement } from "../../utils/is-svg-element"
+import type { MotionNode, NodeRender } from "../../node/MotionNode"
+import type { ResolvedValues } from "../../node/types"
 import { MotionValue } from "../../value"
 import { numberValueTypes } from "../../value/types/maps/number"
 import { getValueAsType } from "../../value/types/utils/get-as-type"
-import { MotionValueState } from "../MotionValueState"
 import { createSelectorEffect } from "../utils/create-dom-effect"
 import { createEffect } from "../utils/create-effect"
-import { buildTransform } from "./transform"
-
-export const originProps = new Set(["originX", "originY", "originZ"])
+import { setStyle } from "./output"
 
 /**
- * A bound value in its default unit, e.g. `originX: 50` -> `"50%"`.
+ * What a write function reads from: a node, or the values of a
+ * component that's rendering before it has one.
  */
-const styleValue = (state: MotionValueState, key: string) =>
-    getValueAsType(state.get(key)?.get(), numberValueTypes[key])
+export interface RenderSource {
+    latestValues: ResolvedValues
+    shared?: { [name: string]: NodeRender }
+    getProps(): any
+
+    /**
+     * Set by a component's node, which can have a latest value that
+     * was never bound.
+     */
+    scheduleRender?: unknown
+}
+
+/**
+ * What a write function uses of an element, so it can also write to an
+ * object that a component renders its first styles from.
+ */
+export type RenderTarget = HTMLElement | SVGElement
+
+/**
+ * A write function every key of a kind shares, e.g. each independent
+ * transform writes `transform`. Made once per node.
+ */
+export const sharedRender = (
+    node: RenderSource,
+    name: string,
+    create: () => NodeRender
+) => {
+    const shared = (node.shared ||= {})
+    return (shared[name] ||= Object.assign(create(), { shared: true }))
+}
+
+/**
+ * A latest value in its default unit, e.g. `originX: 50` -> `"50%"`.
+ */
+const styleValue = (node: RenderSource, key: string) =>
+    getValueAsType(node.latestValues[key], numberValueTypes[key])
+
+/**
+ * The transforms record a transformTemplate is given. Without a
+ * template nothing is written to it.
+ */
+const noTemplateTransforms = {}
+
+/**
+ * The function that writes `transform` from the node's independent
+ * transforms (`x`, `scale` etc).
+ */
+export const getTransformRender = (
+    element: HTMLElement | SVGElement,
+    node: RenderSource,
+    key?: string
+) => {
+    const render = sharedRender(node, "transform", () => {
+        /**
+         * The transforms bound to this node, in the order they're
+         * written, so each write visits these rather than every
+         * transform there is. A component can also set a latest value
+         * without binding it, so it visits them all.
+         */
+        const keys: string[] = []
+        const order = node.scheduleRender ? undefined : keys
+        const { style } = element
+
+        /**
+         * An SVG element's transforms are relative to its own box, with
+         * the origin at its centre, as an HTML element's are.
+         */
+        const isSVG =
+            (element as SVGElement).ownerSVGElement !== undefined &&
+            element.tagName !== "svg"
+
+        return Object.assign(
+            () => {
+                transformGroups.get(element)?.check()
+
+                const { latestValues } = node
+
+                /**
+                 * A `transform` value is written as any other style, and
+                 * takes the place of one built from independent
+                 * transforms.
+                 */
+                if (latestValues.transform) return
+
+                const { transformTemplate } = node.getProps()
+
+                style.transform = buildTransform(
+                    latestValues,
+                    transformTemplate ? {} : noTemplateTransforms,
+                    transformTemplate,
+                    order
+                )
+
+                if (isSVG) {
+                    style.transformOrigin ||= "50% 50%"
+                    style.transformBox ||=
+                        latestValues.transformBox ||
+                        node.getProps().style?.transformBox ||
+                        "fill-box"
+                }
+            },
+            { keys }
+        )
+    }) as NodeRender & { keys: string[] }
+
+    /**
+     * Keep the bound transforms in the order they're written.
+     */
+    const { keys } = render
+    key &&
+        !keys.includes(key) &&
+        keys.splice(
+            0,
+            keys.length,
+            ...transformPropOrder.filter((k) => k === key || keys.includes(k))
+        )
+
+    return render
+}
+
+/**
+ * The function that writes `key` to an element's style.
+ */
+export const getStyleRender = (
+    element: HTMLElement | SVGElement,
+    node: RenderSource,
+    key: string
+): NodeRender =>
+    transformProps.has(key)
+        ? getTransformRender(element, node, key)
+        : key.startsWith("origin")
+        ? sharedRender(node, "origin", () => () => {
+              element.style.transformOrigin = `${
+                  styleValue(node, "originX") ?? "50%"
+              } ${styleValue(node, "originY") ?? "50%"} ${
+                  styleValue(node, "originZ") ?? 0
+              }`
+          })
+        : getValueRender(element, node, key)
+
+/**
+ * The function that writes a style or a CSS variable.
+ */
+const getValueRender = (
+    element: HTMLElement | SVGElement,
+    node: RenderSource,
+    key: string
+) => {
+    /**
+     * A style animating on the main thread repaints the element every
+     * frame. If it also has compositor transforms, count it, as too many
+     * such elements cost more than animating their transforms on the
+     * main thread. A CSS variable is never composited.
+     */
+    const isComposited = acceleratedValues.has(key)
+
+    return () => {
+        if (!isComposited) {
+            const value = (node as MotionNode).values?.get(key)
+            value?.isAnimating() && transformGroups.get(element)?.repaint(value)
+        }
+
+        setStyle(element, key, styleValue(node, key) as string)
+    }
+}
 
 export const addStyleValue = (
     element: HTMLElement | SVGElement,
-    state: MotionValueState,
+    node: MotionNode,
     key: string,
-    value: MotionValue
-) => {
-    let render: VoidFunction | undefined = undefined
-    let computed: MotionValue | undefined = undefined
-
-    if (transformProps.has(key)) {
-        if (key !== "pathRotation") {
-            const keys = (state.transformKeys ??= [])
-            ;(state.transformValues ??= {})[key] = value
-
-            if (!keys.includes(key)) {
-                keys.push(key)
-                keys.sort(
-                    (a, b) =>
-                        transformPropOrder.indexOf(a) -
-                        transformPropOrder.indexOf(b)
-                )
-            }
-        }
-
-        if (!state.get("transform")) {
-            // If this is an HTML element, we need to set the transform-box to fill-box
-            // to normalise the transform relative to the element's bounding box
-            if (!isHTMLElement(element) && !state.get("transformBox")) {
-                addStyleValue(
-                    element,
-                    state,
-                    "transformBox",
-                    new MotionValue("fill-box")
-                )
-            }
-
-            state.set("transform", new MotionValue("none"), () => {
-                transformGroups.get(element)?.check()
-                element.style.transform = buildTransform(state)
-            })
-        }
-
-        computed = state.get("transform")
-    } else if (originProps.has(key)) {
-        if (!state.get("transformOrigin")) {
-            state.set("transformOrigin", new MotionValue(""), () => {
-                const originX = styleValue(state, "originX") ?? "50%"
-                const originY = styleValue(state, "originY") ?? "50%"
-                const originZ = styleValue(state, "originZ") ?? 0
-                element.style.transformOrigin = `${originX} ${originY} ${originZ}`
-            })
-        }
-
-        computed = state.get("transformOrigin")
-    } else if (isCSSVar(key)) {
-        render = () => {
-            element.style.setProperty(key, value.getCurrent() as string)
-        }
-    } else {
-        render = () => {
-            element.style[key as any] = getValueAsType(
-                value.getCurrent(),
-                numberValueTypes[key]
-            ) as string
-        }
-    }
-
-    return state.set(key, value, render, computed)
-}
+    value?: MotionValue
+) => node.set(key, value, getStyleRender(element, node, key))
 
 export type StyleSubject = HTMLElement | SVGElement
 
-const isStyleSubject = (subject: unknown): subject is StyleSubject =>
+export const isStyleSubject = (subject: unknown): subject is StyleSubject =>
     isHTMLElement(subject) || isSVGElement(subject)
 
 /**
@@ -120,12 +223,14 @@ export const readStyleValue = (element: StyleSubject, key: string) => {
 
 /**
  * The per-element effect `animate()` binds through, so HTML values share
- * state with a direct `styleEffect()` call. The exported `styleEffect`
- * is this wrapped to also accept selectors.
+ * a node with a direct `styleEffect()` call and with the element's motion
+ * component, if it has one. The exported `styleEffect` is this wrapped to
+ * also accept selectors. `animate()` attaches the `test` and `read` hooks
+ * (see animation/animate/element.ts), so a `styleEffect()` import alone
+ * doesn't bundle the computed-style readers.
  */
 export const styleSubjectEffect = /*@__PURE__*/ createEffect(addStyleValue, {
-    test: isStyleSubject,
-    read: readStyleValue,
+    nodes: nodeStore,
 })
 
 export const styleEffect =

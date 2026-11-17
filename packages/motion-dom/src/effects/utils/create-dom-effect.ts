@@ -3,7 +3,7 @@ import {
     resolveElements,
 } from "../../utils/resolve-elements"
 import { MotionValue } from "../../value"
-import { MotionValueState } from "../MotionValueState"
+import type { MotionNode } from "../../node/MotionNode"
 import {
     AnimateEffect,
     Effect,
@@ -26,7 +26,7 @@ export interface SelectorEffect<T extends object> extends EffectOptions<T> {
     get(subject: T, key: string): MotionValue | undefined
 
     flush(subject: T): void
-    state(subject: T): MotionValueState | undefined
+    state(subject: T): MotionNode | undefined
 }
 
 export interface SelectorAnimateEffect<T extends object>
@@ -66,11 +66,16 @@ export function createSelectorEffect<T extends object>(
         }
     }
 
-    const { test, read, get, flush, state } = subjectEffect
+    const { get, flush, state } = subjectEffect
 
     return Object.assign(effect, {
-        test,
-        read,
+        /**
+         * Forwarded rather than copied, as `animate()` attaches these to
+         * the per-element effect after it's made.
+         */
+        test: (subject: unknown): subject is T => subjectEffect.test!(subject),
+        read: ((subject, key, keyframes) =>
+            subjectEffect.read!(subject, key, keyframes)) as EffectRead<T>,
         get: get as SelectorEffect<T>["get"],
         flush,
         state,

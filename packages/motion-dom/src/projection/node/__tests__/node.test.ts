@@ -300,6 +300,36 @@ describe("node", () => {
         expect(stack.members).toEqual([next])
     })
 
+    test("A node finds its layoutId's new stack once the old one is released", async () => {
+        const node = createTestNode(undefined, { layoutId: "renewed" })
+        node.mount({})
+        const { root } = node
+        const stack = node.getStack()
+        expect(stack).toBe(root.sharedNodes.get("renewed"))
+
+        node.unmount()
+        node.scheduleCheckAfterUnmount()
+        await nextFrame()
+        await nextMicrotask()
+        expect(node.getStack()).toBeUndefined()
+
+        const next = createTestNode(undefined, { layoutId: "renewed" })
+        next.mount({})
+        const renewed = root.sharedNodes.get("renewed")
+        expect(renewed).not.toBe(stack)
+        expect(node.getStack()).toBe(renewed)
+        expect(next.getStack()).toBe(renewed)
+
+        /**
+         * And a new layoutId's.
+         */
+        next.setOptions({ layoutId: "other" })
+        expect(next.getStack()).toBe(root.sharedNodes.get("other"))
+
+        root.resetTree()
+        expect(next.getStack()).toBeUndefined()
+    })
+
     /**
      * #2284: a shared layout animation must apply the lead's own transforms
      * (here `scale`) once, not twice.

@@ -19,10 +19,18 @@ export function createRenderBatcher(
 
     const flagRunNextFrame = () => (runNextFrame = true)
 
-    const steps = stepsOrder.reduce((acc, key) => {
-        acc[key] = createRenderStep(flagRunNextFrame)
-        return acc
-    }, {} as Steps)
+    const steps = {} as Steps
+    const schedule = {} as Batcher
+
+    for (const key of stepsOrder) {
+        const step = (steps[key] = createRenderStep(flagRunNextFrame))
+
+        schedule[key] = (process, keepAlive = false, immediate = false) => {
+            if (!runNextFrame) wake()
+
+            return step.schedule(process, keepAlive, immediate)
+        }
+    }
 
     const {
         setup,
@@ -77,16 +85,6 @@ export function createRenderBatcher(
             scheduleNextBatch(processBatch)
         }
     }
-
-    const schedule = stepsOrder.reduce((acc, key) => {
-        const step = steps[key]
-        acc[key] = (process: Process, keepAlive = false, immediate = false) => {
-            if (!runNextFrame) wake()
-
-            return step.schedule(process, keepAlive, immediate)
-        }
-        return acc
-    }, {} as Batcher)
 
     const cancel = (process: Process) => {
         for (let i = 0; i < stepsOrder.length; i++) {

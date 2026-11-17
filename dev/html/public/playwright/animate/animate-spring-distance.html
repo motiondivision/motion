@@ -1,0 +1,49 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+
+            .box {
+                width: 100px;
+                height: 100px;
+                background-color: #0077ff;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="box" id="far"></div>
+        <div class="box" id="near"></div>
+        <div class="box" id="both"></div>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            const { animate, spring } = window.Motion
+
+            const options = { type: "spring", stiffness: 100, damping: 10 }
+
+            /**
+             * How long a spring over a distance takes to come to rest,
+             * in seconds, as an animation of it works it out.
+             */
+            const restAfter = (distance) => {
+                const generator = spring({
+                    keyframes: [0, distance],
+                    ...options,
+                })
+                let duration = 0
+                while (!generator.next(duration).done) duration += 50
+                return duration / 1000
+            }
+
+            window.expected = { far: restAfter(3000), near: restAfter(10) }
+
+            // Springs from rest over a long and a short distance.
+            window.far = animate("#far", { x: 3000 }, options)
+            window.near = animate("#near", { x: 10 }, options)
+
+            // Two distances on one element.
+            window.both = animate("#both", { x: 3000, y: 10 }, options)
+        </script>
+    </body>
+</html>

@@ -1,11 +1,12 @@
 import { MotionGlobalConfig } from "motion-utils"
 import { motionValue } from "../"
-import { NativeAnimationExtended } from "../../animation/NativeAnimationExtended"
+import { animateElement } from "../../animation/animate/element"
 import { animateMotionValue } from "../../animation/interfaces/motion-value"
 import {
     MotionValueAnimation,
     ValueAnimationTransition,
 } from "../../animation/types"
+import { styleEffect } from "../../effects/style"
 import { frame, frameData } from "../../frameloop"
 import { time } from "../../frameloop/sync-time"
 
@@ -51,7 +52,7 @@ describe("MotionValue change subscribers", () => {
         const callback = jest.fn()
 
         value.on("change", callback)
-        expect(value["events"].change).toBeUndefined()
+        expect(value["events"]?.change).toBeUndefined()
 
         value.set(1)
         expect(callback).toHaveBeenCalledTimes(1)
@@ -64,7 +65,7 @@ describe("MotionValue change subscribers", () => {
 
         const cancelA = value.on("change", (v) => calls.push(`a:${v}`))
         const cancelB = value.on("change", (v) => calls.push(`b:${v}`))
-        expect(value["events"].change.getSize()).toBe(2)
+        expect(value["events"]?.change.getSize()).toBe(2)
 
         value.set(1)
         expect(calls).toEqual(["a:1", "b:1"])
@@ -90,7 +91,7 @@ describe("MotionValue change subscribers", () => {
 
         value.on("change", a)()
         value.on("change", b)
-        expect(value["events"].change).toBeUndefined()
+        expect(value["events"]?.change).toBeUndefined()
 
         value.set(1)
         expect(a).not.toHaveBeenCalled()
@@ -198,20 +199,15 @@ describe("MotionValue.jump", () => {
         }))
 
         const element = document.createElement("div")
-        const value = motionValue(0)
         const onChange = jest.fn()
 
-        value.start(
-            () =>
-                new NativeAnimationExtended({
-                    element,
-                    name: "opacity",
-                    keyframes: [0, 1],
-                    motionValue: value,
-                    duration: 300,
-                    ease: "linear",
-                } as any)
+        animateElement(
+            element,
+            { opacity: [0, 1] },
+            { duration: 0.3, ease: "linear" }
         )
+        const value = styleEffect.get(element, "opacity")!
+        expect(Element.prototype.animate).toHaveBeenCalled()
 
         expect(value.isAnimating()).toBe(true)
 
@@ -220,7 +216,7 @@ describe("MotionValue.jump", () => {
 
         expect(value.isAnimating()).toBe(false)
         expect(value.get()).toBe(0)
-        expect(onChange).toHaveBeenLastCalledWith(0)
+        expect(onChange.mock.calls.pop()[0]).toBe(0)
         expect(value.getVelocity()).toBe(0)
     })
 })

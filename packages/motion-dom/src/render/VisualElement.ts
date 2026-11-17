@@ -2,26 +2,24 @@ import {
     Box,
     isNumericalString,
     isZeroValueString,
-    secondsToMilliseconds,
     SubscriptionManager,
     warnOnce,
 } from "motion-utils"
-import { KeyframeResolver } from "../animation/keyframes/KeyframesResolver"
-import { NativeAnimation } from "../animation/NativeAnimation"
+import type { KeyframeResolver } from "../animation/keyframes/KeyframesResolver"
+import { MotionNode } from "../node/MotionNode"
 import type { AnyResolvedKeyframe } from "../animation/types"
 import { acceleratedValues } from "../animation/waapi/utils/accelerated-values"
 import { transformGroups } from "../animation/waapi/transforms/groups"
 import { cancelFrame, frame } from "../frameloop"
 import { microtask } from "../frameloop/microtask"
-import { time } from "../frameloop/sync-time"
 import type { MotionNodeOptions } from "../node/types"
 import { createBox } from "../projection/geometry/models"
-import { motionValue, MotionValue } from "../value"
+import type { MotionValue } from "../value"
 import { complex } from "../value/types/complex"
 import { getAnimatableNone } from "../value/types/utils/animatable-none"
 import { isMotionValue } from "../value/utils/is-motion-value"
 import { Feature } from "./Feature"
-import { visualElementStore } from "./store"
+import { nodeStore } from "./store"
 import {
     FeatureDefinitions,
     MotionConfigContextProps,
@@ -84,14 +82,15 @@ export type MotionStyle = {
 }
 
 /**
- * A VisualElement is an imperative abstraction around UI elements such as
- * HTMLElement, SVGElement, Three.Object3D etc.
+ * A VisualElement is the MotionNode of a component: it adds the props,
+ * variants, features and presence that a framework drives a subject
+ * with. Its values are stored and written by MotionNode.
  */
 export abstract class VisualElement<
     Instance = unknown,
-    RenderState = unknown,
+    _RenderState = unknown,
     Options extends {} = {}
-> {
+> extends MotionNode<Instance> {
     /**
      * VisualElements are arranged in trees mirroring that of the React tree.
      * Each type of VisualElement has a unique name, to detect when we're crossing
@@ -135,51 +134,6 @@ export abstract class VisualElement<
     ): AnyResolvedKeyframe | null | undefined
 
     /**
-     * When a value has been removed from the VisualElement we use this to remove
-     * it from the inheriting class' unique render state.
-     */
-    abstract removeValueFromRenderState(
-        key: string,
-        renderState: RenderState
-    ): void
-
-    /**
-     * Run before a React or VisualElement render, builds the latest motion
-     * values into an Instance-specific format. For example, HTMLVisualElement
-     * will use this step to build `style` and `var` values.
-     */
-    abstract build(
-        renderState: RenderState,
-        latestValues: ResolvedValues,
-        props: MotionNodeOptions
-    ): void
-
-    /**
-     * Apply the built values to the Instance. For example, HTMLElements will have
-     * styles applied via `setProperty` and the style attribute, whereas SVGElements
-     * will have values applied to attributes.
-     */
-    abstract renderInstance(
-        instance: Instance,
-        renderState: RenderState,
-        styleProp?: MotionStyle,
-        projection?: any
-    ): void
-
-    /**
-     * This method is called when a transform property is bound to a motion value.
-     * It's currently used to measure SVG elements when a new transform property is bound.
-     */
-    onBindTransform?(): void
-
-    /**
-     * The value getValue starts a new motion value from when it isn't given
-     * a default. Without it, values start unread and the keyframe resolver
-     * reads their origin.
-     */
-    getDefaultValue?(key: string): AnyResolvedKeyframe | undefined
-
-    /**
      * If the component child is provided as a motion value, handle subscriptions
      * with the renderer-specific VisualElement.
      */
@@ -201,12 +155,6 @@ export abstract class VisualElement<
     } {
         return {}
     }
-
-    /**
-     * A reference to the current underlying Instance, e.g. a HTMLElement
-     * or Three.Mesh etc.
-     */
-    current: Instance | null = null
 
     /**
      * A reference to the parent VisualElement (if exists).
@@ -231,21 +179,10 @@ export abstract class VisualElement<
     depth: number
 
     /**
-     * The current render state of this VisualElement. Defined by inheriting VisualElements.
-     */
-    renderState: RenderState
-
-    /**
-     * An object containing the latest static values for each of this VisualElement's
-     * MotionValues.
-     */
-    latestValues: ResolvedValues
-
-    /**
      * Determine what role this visual element should take in the variant tree.
      */
-    isVariantNode: boolean = false
-    isControllingVariants: boolean = false
+    isVariantNode: boolean
+    isControllingVariants: boolean
 
     /**
      * If this component is part of the variant tree, it should track
@@ -291,18 +228,15 @@ export abstract class VisualElement<
     projection?: any
 
     /**
-     * A map of all motion values attached to this visual element. Motion
-     * values are source of truth for any given animated value. A motion
-     * value might be provided externally by the component via props.
-     */
-    values = new Map<string, MotionValue>()
-
-    /**
      * The AnimationState, this is hydrated by the animation Feature.
      */
     animationState?: AnimationState
 
-    KeyframeResolver = KeyframeResolver
+    /**
+     * Resolves this element's keyframes. Left unset, values use the
+     * default KeyframeResolver.
+     */
+    KeyframeResolver?: typeof KeyframeResolver
 
     /**
      * The options used to create this VisualElement. The Options type is defined
@@ -325,12 +259,6 @@ export abstract class VisualElement<
     private features: {
         [K in keyof FeatureDefinitions]?: Feature<Instance>
     } = {}
-
-    /**
-     * A map of every subscription that binds the provided or generated
-     * motion values onChange listeners to this visual element.
-     */
-    private valueSubscriptions = new Map<string, VoidFunction>()
 
     /**
      * A reference to the ReducedMotionConfig passed to the VisualElement's host React component.
@@ -372,7 +300,7 @@ export abstract class VisualElement<
      * Track whether this element has been mounted before, to detect
      * remounts after Suspense unmount/remount cycles.
      */
-    private hasBeenMounted = false
+    private hasBeenMounted?: boolean
 
     /**
      * An object containing a SubscriptionManager for each active event.
@@ -387,7 +315,7 @@ export abstract class VisualElement<
      * VisualElement.on(), but only one of those can be defined via the onUpdate prop.
      */
     private propEventSubscriptions: {
-        [key: string]: VoidFunction
+        [key: string]: VoidFunction | undefined
     } = {}
 
     constructor(
@@ -399,14 +327,14 @@ export abstract class VisualElement<
             skipAnimations,
             blockInitialAnimation,
             visualState,
-        }: VisualElementOptions<Instance, RenderState>,
+        }: VisualElementOptions<Instance>,
         options: Options = {} as any
     ) {
-        const { latestValues, renderState } = visualState
+        super()
+        const { latestValues } = visualState
         this.latestValues = latestValues
         this.baseTarget = { ...latestValues }
         this.initialValues = props.initial ? { ...latestValues } : {}
-        this.renderState = renderState
         this.parent = parent
         this.props = props
         this.presenceContext = presenceContext
@@ -434,13 +362,20 @@ export abstract class VisualElement<
          * Doing so will break some tests but this isn't necessarily a breaking change,
          * more a reflection of the test.
          */
-        const { willChange, ...initialMotionValues } =
-            this.scrapeMotionValuesFromProps(props, {}, this)
+        const initialMotionValues = this.scrapeMotionValuesFromProps(
+            props,
+            {},
+            this
+        )
 
         for (const key in initialMotionValues) {
             const value = initialMotionValues[key]
 
-            if (latestValues[key] !== undefined && isMotionValue(value)) {
+            if (
+                key !== "willChange" &&
+                latestValues[key] !== undefined &&
+                isMotionValue(value)
+            ) {
                 value.set(latestValues[key])
             }
         }
@@ -468,7 +403,7 @@ export abstract class VisualElement<
 
         this.current = instance
 
-        visualElementStore.set(instance, this)
+        nodeStore.set(instance, this)
 
         this.projection?.instance || this.projection?.mount(instance)
 
@@ -488,23 +423,24 @@ export abstract class VisualElement<
             }
         }
 
-        this.values.forEach((value, key) => this.bindToMotionValue(key, value))
+        this.values.forEach((value, key) => this.bindValue(key, value))
+
+        /**
+         * A subject that's shown again can be showing anything.
+         */
+        this.hasBeenMounted && this.scheduleRender()
 
         /**
          * Determine reduced motion preference. Only initialize the matchMedia
          * listener if we actually need the dynamic value (i.e., when config
          * is neither "never" nor "always").
          */
-        if (this.reducedMotionConfig === "never") {
-            this.shouldReduceMotion = false
-        } else if (this.reducedMotionConfig === "always") {
-            this.shouldReduceMotion = true
-        } else {
-            if (!hasReducedMotionListener.current) {
-                initPrefersReducedMotion()
-            }
-            this.shouldReduceMotion = prefersReducedMotion.current
-        }
+        const { reducedMotionConfig } = this
+        this.shouldReduceMotion =
+            reducedMotionConfig !== "never" &&
+            (reducedMotionConfig === "always" ||
+                (hasReducedMotionListener.current || initPrefersReducedMotion(),
+                prefersReducedMotion.current))
 
         if (process.env.NODE_ENV !== "production") {
             warnOnce(
@@ -529,9 +465,19 @@ export abstract class VisualElement<
     unmount() {
         this.projection?.unmount()
         cancelFrame(this.notifyUpdate)
-        cancelFrame(this.render)
-        this.valueSubscriptions.forEach((remove) => remove())
-        this.valueSubscriptions.clear()
+
+        /**
+         * Stop listening to every value, keeping the values themselves,
+         * as the subject may come back.
+         */
+        for (const key in this.bindings) {
+            const binding = this.bindings[key]
+            binding && this.stop(binding)
+        }
+        this.bindings = {}
+        this.shared = undefined
+        this.numPending = 0
+        this.isAllPending = false
         this.removeFromVariantTree?.()
         this.parent?.removeChild(this)
 
@@ -561,77 +507,105 @@ export abstract class VisualElement<
         this.enteringChildren?.delete(child)
     }
 
-    private bindToMotionValue(key: string, value: MotionValue) {
-        this.valueSubscriptions.get(key)?.()
-
+    protected bindValue(key: string, value?: MotionValue) {
+        const accelerate = value?.accelerate
         if (
-            value.accelerate &&
+            accelerate?.bind &&
             acceleratedValues.has(key) &&
             this.current instanceof HTMLElement
         ) {
-            const { factory, keyframes, times, ease, duration } =
-                value.accelerate
-
-            const animation = new NativeAnimation({
-                element: this.current,
-                name: key,
-                keyframes,
-                times,
-                ease,
-                duration: secondsToMilliseconds(duration),
-            })
-
-            const cleanup = factory(animation)
-
-            this.valueSubscriptions.set(key, () => {
-                cleanup()
-                animation.cancel()
-            })
+            this.unbind(key)
+            this.values.set(key, value!)
+            const latest = value!.get()
+            if (latest !== undefined) this.latestValues[key] = latest
+            this.bindings[key] = {
+                stop: accelerate.bind(this.current, key, accelerate),
+            }
             return
         }
 
-        const valueIsTransform = transformProps.has(key)
+        /**
+         * The framework renders a value it binds, and one made to
+         * animate starts from what the subject shows.
+         */
+        this.isSilent = true
+        super.bindValue(key, value)
+        this.isSilent = false
 
-        if (valueIsTransform && this.onBindTransform) {
-            this.onBindTransform()
-        }
-
-        const removeOnChange = value.on(
-            "change",
-            (latestValue: AnyResolvedKeyframe) => {
-                this.latestValues[key] = latestValue
-
-                this.props.onUpdate && frame.preRender(this.notifyUpdate)
-
-                if (valueIsTransform) {
-                    if (this.projection) {
-                        this.projection.isTransformDirty = true
-                    }
-                    transformGroups.get(this.current!)?.check()
-                }
-
-                this.scheduleRender()
-            }
-        )
-
-        let removeSyncCheck: VoidFunction | void
         if (
+            value &&
             typeof window !== "undefined" &&
             (window as any).MotionCheckAppearSync
         ) {
-            removeSyncCheck = (window as any).MotionCheckAppearSync(
-                this,
-                key,
-                value
-            )
+            const binding = this.bindings[key]
+            if (binding) {
+                const { stop } = binding
+                const removeSyncCheck = (window as any).MotionCheckAppearSync(
+                    this,
+                    key,
+                    value
+                )
+                binding.stop = () => {
+                    stop?.()
+                    removeSyncCheck?.()
+                }
+            }
+        }
+    }
+
+    hasValue(key: string) {
+        return this.values.has(key)
+    }
+
+    getStaticValue(key: string) {
+        return this.latestValues[key]
+    }
+
+    /**
+     * Set the latest value of a key without a motion value. It's written
+     * by the next render.
+     */
+    setStaticValue(key: string, value: AnyResolvedKeyframe) {
+        this.latestValues[key] = value
+    }
+
+    /**
+     * Keys that have a latest value but no motion value are bound when
+     * they're first rendered.
+     */
+    protected queueAll(test?: (name: string) => boolean) {
+        if (!test) {
+            for (const key in this.latestValues) {
+                this.bindings[key] || this.bindValue(key)
+            }
         }
 
-        this.valueSubscriptions.set(key, () => {
-            removeOnChange()
-            removeSyncCheck?.()
-            // Defer to MotionValue.on("change") auto-stop so React 19 remounts
-            // can resubscribe before the animation is cancelled (#3315).
-        })
+        super.queueAll(test)
+    }
+
+    /**
+     * Schedule every key to be written in the next frame. Before mount
+     * there's nothing to write to, and the component's first styles
+     * are rendered from its latest values.
+     */
+    scheduleRender = () => {
+        if (!this.current) return
+        this.requestFlush()
+        this.isAllPending = true
+    }
+
+    /**
+     * A flush that writes the projection, and the keys it can write over,
+     * rather than every key. Set by the projection node.
+     */
+    isProjectionPending?: boolean
+
+    protected onChange(key: string) {
+        this.props.onUpdate && frame.preRender(this.notifyUpdate)
+
+        if (this.projection && transformProps.has(key)) {
+            this.projection.isTransformDirty = true
+        }
     }
 
     sortNodePosition(other: VisualElement<Instance>) {
@@ -692,30 +666,6 @@ export abstract class VisualElement<
 
     notifyUpdate = () => this.notify("Update", this.latestValues)
 
-    triggerBuild() {
-        this.build(this.renderState, this.latestValues, this.props)
-    }
-
-    render = () => {
-        if (!this.current) return
-        this.triggerBuild()
-        this.renderInstance(
-            this.current,
-            this.renderState,
-            (this.props as any).style,
-            this.projection
-        )
-    }
-
-    private renderScheduledAt = 0.0
-    scheduleRender = () => {
-        const now = time.now()
-        if (this.renderScheduledAt < now) {
-            this.renderScheduledAt = now
-            frame.render(this.render, false, true)
-        }
-    }
-
     /**
      * Measure the current viewport box with or without transforms.
      * Only measures axis-aligned boxes, rotate and skew must be manually
@@ -725,14 +675,6 @@ export abstract class VisualElement<
         return this.current
             ? this.measureInstanceViewportBox(this.current, this.props)
             : createBox()
-    }
-
-    getStaticValue(key: string) {
-        return this.latestValues[key]
-    }
-
-    setStaticValue(key: string, value: AnyResolvedKeyframe) {
-        this.latestValues[key] = value
     }
 
     /**
@@ -745,8 +687,13 @@ export abstract class VisualElement<
     ) {
         const { transformTemplate, onUpdate } = this.props
 
-        if (props.transformTemplate || transformTemplate) {
-            this.scheduleRender()
+        /**
+         * Queued now, while the node still has the old props, so a
+         * transformTemplate that is removed is written over.
+         */
+        if ((props.transformTemplate || transformTemplate) && this.current) {
+            this.requestFlush()
+            this.queueAll()
         }
 
         /**
@@ -771,14 +718,16 @@ export abstract class VisualElement<
          */
         for (let i = 0; i < propEventHandlers.length; i++) {
             const key = propEventHandlers[i]
-            this.propEventSubscriptions[key]?.()
-            delete this.propEventSubscriptions[key]
+            const listener = props[("on" + key) as keyof typeof props]
 
-            const listenerName = ("on" + key) as keyof typeof props
-            const listener = props[listenerName]
-            if (listener) {
-                this.propEventSubscriptions[key] = this.on(key as any, listener)
-            }
+            /**
+             * Replaced rather than deleted, as delete is slow even when
+             * there's nothing to remove.
+             */
+            this.propEventSubscriptions[key]?.()
+            this.propEventSubscriptions[key] = listener
+                ? this.on(key as any, listener)
+                : undefined
         }
 
         this.prevMotionValues = updateMotionValuesFromProps(
@@ -813,47 +762,6 @@ export abstract class VisualElement<
     }
 
     /**
-     * Add a motion value and bind it to this visual element.
-     */
-    addValue(key: string, value: MotionValue) {
-        // Remove existing value if it exists
-        const existingValue = this.values.get(key)
-
-        if (value !== existingValue) {
-            if (existingValue) this.removeValue(key)
-            this.bindToMotionValue(key, value)
-            this.values.set(key, value)
-
-            /**
-             * An animated value with no base value is undefined until the
-             * keyframe resolver reads its origin. Rendering it before then
-             * writes an invalid placeholder (e.g. points="undefined") that
-             * the resolver can read back from the DOM as the origin.
-             */
-            const latest = value.get()
-            if (latest !== undefined) this.latestValues[key] = latest
-        }
-    }
-
-    /**
-     * Remove a motion value and unbind any active subscriptions.
-     */
-    removeValue(key: string) {
-        this.values.delete(key)
-        this.valueSubscriptions.get(key)?.()
-        this.valueSubscriptions.delete(key)
-        delete this.latestValues[key]
-        this.removeValueFromRenderState(key, this.renderState)
-    }
-
-    /**
-     * Check whether we have a motion value for this key
-     */
-    hasValue(key: string) {
-        return this.values.has(key)
-    }
-
-    /**
      * Get a motion value for this key. If called with a default
      * value, we'll create one if none exists.
      */
@@ -863,19 +771,9 @@ export abstract class VisualElement<
         key: string,
         defaultValue?: AnyResolvedKeyframe | null
     ): MotionValue | undefined {
-        let value: MotionValue | undefined = this.props.values?.[key]
-        if (value) return value
-
-        value = this.values.get(key)
-
-        if (value === undefined && defaultValue !== undefined) {
-            value = motionValue(defaultValue ?? this.getDefaultValue?.(key), {
-                owner: this,
-            })
-            this.addValue(key, value)
-        }
-
-        return value
+        return (
+            this.props.values?.[key] || super.getValue(key, defaultValue as any)
+        )
     }
 
     /**
@@ -943,7 +841,9 @@ export abstract class VisualElement<
         this.events[eventName]?.notify(...args)
     }
 
+    private renderNow = () => this.render()
+
     scheduleRenderMicrotask() {
-        microtask.render(this.render)
+        microtask.render(this.renderNow)
     }
 }

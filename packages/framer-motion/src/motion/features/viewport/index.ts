@@ -8,9 +8,9 @@ const thresholdNames = {
 }
 
 export class InViewFeature extends Feature<Element> {
-    private hasEnteredView = false
+    private hasEnteredView?: boolean
 
-    private isInView = false
+    private isInView?: boolean
 
     private stopObserver?: () => void
 
@@ -33,7 +33,7 @@ export class InViewFeature extends Feature<Element> {
             /**
              * If there's been no change in the viewport state, early return.
              */
-            if (this.isInView === isIntersecting) return
+            if (!this.isInView === !isIntersecting) return
 
             this.isInView = isIntersecting
 
@@ -47,12 +47,7 @@ export class InViewFeature extends Feature<Element> {
                 this.hasEnteredView = true
             }
 
-            if (this.node.animationState) {
-                this.node.animationState.setActive(
-                    "whileInView",
-                    isIntersecting
-                )
-            }
+            this.node.animationState?.setActive("whileInView", isIntersecting)
 
             /**
              * Use the latest committed props rather than the ones in scope
@@ -60,7 +55,7 @@ export class InViewFeature extends Feature<Element> {
              */
             const { onViewportEnter, onViewportLeave } = this.node.getProps()
             const callback = isIntersecting ? onViewportEnter : onViewportLeave
-            callback && callback(entry)
+            callback?.(entry)
         }
 
         this.stopObserver = observeIntersection(

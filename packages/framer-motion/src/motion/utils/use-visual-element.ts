@@ -169,17 +169,13 @@ export function useVisualElement<
          * So if we detect a situation where optimised appear animations
          * are running, we use useLayoutEffect to trigger animations.
          */
-        if (wantsHandoff.current && visualElement.animationState) {
-            visualElement.animationState.animateChanges()
-        }
+        wantsHandoff.current && visualElement.animationState?.animateChanges()
     })
 
     useEffect(() => {
         if (!visualElement) return
 
-        if (!wantsHandoff.current && visualElement.animationState) {
-            visualElement.animationState.animateChanges()
-        }
+        wantsHandoff.current || visualElement.animationState?.animateChanges()
 
         if (wantsHandoff.current) {
             // This ensures all future calls to animateChanges() in this component will run in useEffect

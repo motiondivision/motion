@@ -1,10 +1,16 @@
 "use client"
 
-import { AnyResolvedKeyframe, buildHTMLStyles, isForcedMotionValue, isMotionValue, MotionValue } from "motion-dom"
+import {
+    AnyResolvedKeyframe,
+    buildVisualProps,
+    getStyleRender,
+    isForcedMotionValue,
+    isMotionValue,
+    MotionValue,
+} from "motion-dom"
 import { HTMLProps, useMemo } from "react"
 import { MotionProps } from "../../motion/types"
 import { ResolvedValues } from "../types"
-import { createHtmlRenderState } from "./utils/create-render-state"
 
 export function copyRawValuesOnly(
     target: ResolvedValues,
@@ -19,16 +25,13 @@ export function copyRawValuesOnly(
 }
 
 function useInitialMotionValues(
-    { transformTemplate }: MotionProps,
+    props: MotionProps,
     visualState: ResolvedValues
 ) {
-    return useMemo(() => {
-        const state = createHtmlRenderState()
-
-        buildHTMLStyles(state, visualState, transformTemplate)
-
-        return Object.assign({}, state.vars, state.style)
-    }, [visualState])
+    return useMemo(
+        () => ({ ...buildVisualProps(getStyleRender, visualState, props).style }),
+        [visualState]
+    )
 }
 
 function useStyle(

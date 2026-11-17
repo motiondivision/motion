@@ -909,6 +909,57 @@ describe("JSAnimation", () => {
         })
     })
 
+    test("Is finished when onComplete is called, and can be played again from it", async () => {
+        const output: Array<number | string> = []
+        let plays = 0
+
+        const animation = new JSAnimation({
+            keyframes: [0, 100],
+            duration: 40,
+            ease: linear,
+            driver: syncDriver(20),
+            onUpdate: (v) => output.push(v),
+            onComplete: () => {
+                output.push(animation.state)
+                plays++ || animation.play()
+            },
+        })
+
+        await new Promise((resolve) => setTimeout(resolve, 50))
+
+        expect(output).toEqual([
+            0,
+            50,
+            100,
+            "finished",
+            0,
+            50,
+            100,
+            "finished",
+        ])
+        expect(animation.state).toBe("finished")
+    })
+
+    test("Sampling updates the value and moves the animation's time", () => {
+        const onUpdate = jest.fn()
+        const animation = animateValue({
+            keyframes: [0, 100],
+            duration: 100,
+            autoplay: false,
+            ease: linear,
+            onUpdate,
+        })
+
+        expect(animation.sample(50).value).toBe(50)
+        expect(onUpdate).toHaveBeenLastCalledWith(50)
+        expect(animation.time).toBe(0.05)
+
+        expect(animation.sample(20).value).toBe(20)
+        expect(onUpdate).toHaveBeenLastCalledWith(20)
+        expect(animation.state).toBe("paused")
+        animation.stop()
+    })
+
     test("Correctly samples", () => {
         const animation = animateValue({
             keyframes: [0, 1],
@@ -1123,6 +1174,37 @@ describe("JSAnimation", () => {
         })
 
         expect(output).toEqual([0, 20, 20, 20, 20, 20, 70, 90])
+    })
+
+    test("Outputs its held value on every frame while paused", async () => {
+        const onUpdate = jest.fn()
+        const animation = new JSAnimation({
+            keyframes: [0, 100],
+            duration: 1000,
+            ease: linear,
+            onUpdate,
+        })
+        await nextFrame()
+        await nextFrame()
+
+        animation.pause()
+        await nextFrame()
+        const calls = onUpdate.mock.calls.length
+        const held = onUpdate.mock.calls[calls - 1][0]
+        await nextFrame()
+        await nextFrame()
+        await nextFrame()
+
+        expect(onUpdate.mock.calls.length).toBe(calls + 3)
+        expect(onUpdate.mock.calls[calls + 2][0]).toBe(held)
+
+        animation.play()
+        await nextFrame()
+        await nextFrame()
+        expect(
+            onUpdate.mock.calls[onUpdate.mock.calls.length - 1][0]
+        ).toBeGreaterThan(held)
+        animation.stop()
     })
 
     test("Correctly sets time during pause", async () => {

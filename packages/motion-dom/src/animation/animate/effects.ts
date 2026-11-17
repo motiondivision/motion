@@ -1,9 +1,14 @@
 import { invariant, removeItem } from "motion-utils"
 import { AnimateEffect } from "../../effects/utils/create-effect"
 import { frame } from "../../frameloop"
+import type { MotionNode } from "../../node/MotionNode"
 import { positionalKeys } from "../../render/utils/keys-position"
-import { MotionValue, motionValue } from "../../value"
-import { animateMotionValue } from "../interfaces/motion-value"
+import { transformProps } from "../../render/utils/keys-transform"
+import { markRepaint } from "../waapi/transforms/groups"
+import { acceleratedValues } from "../waapi/utils/accelerated-values"
+import { MotionValue } from "../../value"
+import { MultiValueRef, startValueAnimation } from "./multi-value"
+export type { MultiValueRef }
 import { AnimationElement } from "../keyframes/types"
 import {
     AnimationPlaybackControlsWithThen,
@@ -66,10 +71,17 @@ export function animateValues(
     getValue: (key: string) => MotionValue,
     keyframes: EffectKeyframes,
     transition: EffectTransition = {},
-    element?: AnimationElement
+    element?: AnimationElement,
+    /**
+     * The animation values share. Passed by a caller animating many subjects
+     * in one call, which then starts it. Otherwise one is made and
+     * started for these values.
+     */
+    animationRef?: MultiValueRef
 ): AnimationPlaybackControlsWithThen[] {
     const animations: AnimationPlaybackControlsWithThen[] = []
     const { velocity, path } = transition
+    const ref: MultiValueRef = animationRef || {}
     const reduceMotion = transition.reduceMotion ?? element?.shouldReduceMotion
 
     /**
@@ -79,6 +91,16 @@ export function animateValues(
     if (path?.animateValues && element) {
         keyframes = { ...keyframes }
         path.animateValues(getValue, keyframes, transition, 0, animations)
+    }
+
+    /**
+     * Whether it moves a transform, which its other compositor values
+     * then share a WAAPI animation with.
+     */
+    let composes = false
+
+    if (element?.current instanceof HTMLElement) {
+        for (const key in keyframes) composes ||= transformProps.has(key)
     }
 
     for (const key in keyframes) {
@@ -107,14 +129,16 @@ export function animateValues(
         }
 
         value.run(
-            animateMotionValue(
+            startValueAnimation(
+                ref,
                 key,
                 value,
-                target as any,
+                target,
                 reduceMotion && positionalKeys.has(key)
                     ? { type: false }
                     : transition,
-                element
+                element,
+                composes
             )
         )
 
@@ -122,7 +146,23 @@ export function animateValues(
             animations.push(
                 value.animation as AnimationPlaybackControlsWithThen
             )
+
+        /**
+         * A style animating on the main thread repaints the element. It's
+         * counted before its transforms first build, so if too many
+         * elements repaint, they start on the main thread.
+         */
+        composes &&
+            !(
+                transformProps.has(key) ||
+                acceleratedValues.has(key) ||
+                key.startsWith("origin") ||
+                key.startsWith("transition")
+            ) &&
+            markRepaint(element!.current!, value)
     }
+
+    animationRef || ref.animation?.start()
 
     const { transitionEnd } = keyframes
     if (transitionEnd) {
@@ -142,70 +182,66 @@ export function animateValues(
 }
 
 /**
- * Animate the keys of `subject` via `effect`. Motion values are created on
- * first animation and bound to the subject through the effect for the
- * rest of its life.
- *
- * Without `element`, a new value is seeded synchronously from the first
- * keyframe or `effect.read()`. With it, the value starts undefined and the
- * keyframe resolver reads the subject (batched, with unit conversion by
- * measurement) via `element`.
+ * Animate the keys of a node's subject on the node's values. A value is
+ * made the first time its key is animated, starting from the first
+ * keyframe or what the node reads from the subject.
  */
-export function animateEffectSubject<Subject extends object>(
-    effect: AnimateEffect<Subject>,
-    subject: Subject,
+export function animateNode(
+    node: MotionNode,
     keyframes: EffectKeyframes,
     transition?: EffectTransition,
-    element?: AnimationElement
+    element?: AnimationElement,
+    animationRef?: MultiValueRef
 ): AnimationPlaybackControlsWithThen[] {
-    /**
-     * Values made for this call are bound with one effect call, after the
-     * loop, rather than one each.
-     */
-    let created: Record<string, MotionValue> | undefined
-    let isBound = false
-
-    const animations = animateValues(
+    return animateValues(
         (key) => {
-            let value = created?.[key] ?? effect.get(subject, key)
+            let value = node.getValue(key)
 
             if (!value) {
-                let initial: AnyResolvedKeyframe | undefined
+                const target = keyframes[key] as
+                    | UnresolvedValueKeyframe
+                    | UnresolvedValueKeyframe[]
+                const initial =
+                    firstKeyframe(target) ?? node.readValue(key, target)
 
-                if (!element) {
-                    const target = keyframes[key] as
-                        | UnresolvedValueKeyframe
-                        | UnresolvedValueKeyframe[]
-                    initial =
-                        firstKeyframe(target) ??
-                        effect.read(subject, key, target)
+                process.env.NODE_ENV !== "production" &&
+                    invariant(
+                        initial !== undefined,
+                        `"${key}" can't be read from the animated subject. Provide [from, to] keyframes.`,
+                        "effect-unreadable-value"
+                    )
 
-                    process.env.NODE_ENV !== "production" &&
-                        invariant(
-                            initial !== undefined,
-                            `"${key}" can't be read from the animated subject. Provide [from, to] keyframes.`,
-                            "effect-unreadable-value"
-                        )
-                }
-
-                value = motionValue(initial, { owner: element })
-                isBound
-                    ? effect(subject, { [key]: value })
-                    : ((created ||= {})[key] = value)
+                value = node.getValue(key, initial)
             }
 
             return value
         },
         keyframes,
         transition,
-        element
+        element,
+        animationRef
     )
-
-    isBound = true
-    created && effect(subject, created)
-
-    return animations
 }
+
+/**
+ * Animate the keys of `subject` on the values of the node `effect` keeps
+ * for it.
+ */
+export const animateEffectSubject = <Subject extends object>(
+    effect: AnimateEffect<Subject>,
+    subject: Subject,
+    keyframes: EffectKeyframes,
+    transition?: EffectTransition,
+    element?: AnimationElement,
+    animationRef?: MultiValueRef
+) =>
+    animateNode(
+        effect.node(subject),
+        keyframes,
+        transition,
+        element,
+        animationRef
+    )
 
 function firstKeyframe(
     target: UnresolvedValueKeyframe | UnresolvedValueKeyframe[] | undefined

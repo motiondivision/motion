@@ -4,7 +4,6 @@ import { extractEventInfo } from "../../events/event-info"
 import { cancelFrame, frame } from "../../frameloop/frame"
 import { time } from "../../frameloop/sync-time"
 import type { EventInfo } from "../../node/types"
-import { distance2D } from "../../utils/distance"
 import { isPrimaryPointer } from "../utils/is-primary-pointer"
 import type { PanHandler } from "./types"
 import {
@@ -56,17 +55,17 @@ export class PanSession {
      */
     history: TimestampedPoint[]
 
-    private startEvent: PointerEvent | null = null
+    private startEvent?: PointerEvent
 
-    private lastMoveEvent: PointerEvent | null = null
+    private lastMoveEvent?: PointerEvent
 
-    private lastMoveEventInfo: EventInfo | null = null
+    private lastMoveEventInfo?: EventInfo
 
     /**
      * Raw (untransformed) event info, re-transformed each frame
      * so transformPagePoint sees the current parent matrix.
      */
-    private lastRawMoveEventInfo: EventInfo | null = null
+    private lastRawMoveEventInfo?: EventInfo
 
     /**
      * Whether a pointermove has arrived since the last updatePoint.
@@ -89,7 +88,7 @@ export class PanSession {
      */
     private distanceThreshold: number
 
-    private contextWindow: PanSessionOptions["contextWindow"] = window
+    private contextWindow: PanSessionOptions["contextWindow"]
 
     /**
      * Scroll positions of scrollable ancestors and window.
@@ -106,7 +105,7 @@ export class PanSession {
         handlers: Partial<PanSessionHandlers>,
         {
             transformPagePoint,
-            contextWindow = window,
+            contextWindow,
             dragSnapToOrigin = false,
             distanceThreshold = 3,
             element,
@@ -236,10 +235,8 @@ export class PanSession {
             }
         } else {
             // Element scroll: pageX/pageY unchanged, so adjust history origin
-            if (this.history.length > 0) {
-                this.history[0].x -= delta.x
-                this.history[0].y -= delta.y
-            }
+            this.history[0].x -= delta.x
+            this.history[0].y -= delta.y
         }
 
         this.scrollPositions.set(target, current)
@@ -260,17 +257,22 @@ export class PanSession {
         }
 
         const info = getPanInfo(this.lastMoveEventInfo, this.history)
-        const isPanStarted = this.startEvent !== null
+        const isPanStarted = !!this.startEvent
 
         // Only start panning if the offset is larger than 3 pixels. If we make it
         // any larger than this we'll want to reset the pointer history
         // on the first update to avoid visual snapping to the cursor.
-        const isDistancePastThreshold =
-            distance2D(info.offset, { x: 0, y: 0 }) >= this.distanceThreshold
+        const { point, offset } = info
 
-        if (!isPanStarted && !isDistancePastThreshold) return
+        if (
+            !isPanStarted &&
+            !(
+                Math.sqrt(offset.x ** 2 + offset.y ** 2) >=
+                this.distanceThreshold
+            )
+        )
+            return
 
-        const { point } = info
         this.history.push({ ...point, timestamp: time.now() })
 
         const { onStart, onMove } = this.handlers
@@ -380,7 +382,7 @@ function getVelocity(history: TimestampedPoint[], timeDelta: number): Point {
     }
 
     let i = history.length - 1
-    let timestampedPoint: TimestampedPoint | null = null
+    let timestampedPoint!: TimestampedPoint
     const lastPoint = lastDevicePoint(history)
     while (i >= 0) {
         timestampedPoint = history[i]
@@ -391,10 +393,6 @@ function getVelocity(history: TimestampedPoint[], timeDelta: number): Point {
             break
         }
         i--
-    }
-
-    if (!timestampedPoint) {
-        return { x: 0, y: 0 }
     }
 
     /**

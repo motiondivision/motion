@@ -84,6 +84,26 @@ test.describe("animate() independent transforms", () => {
         expect(result.xAfter).toBeGreaterThan(result.xBefore)
     })
 
+    test("doesn't run the frame loop while the compositor plays every value", async ({
+        page,
+    }) => {
+        const result = await page.evaluate(async () => {
+            const { frameData } = (window as any).MotionDOM
+            const element = document.getElementById("a")!
+            window.Motion.animate(
+                element,
+                { x: 100, y: 50, rotate: 45 },
+                { type: "spring", stiffness: 100, damping: 5 }
+            )
+            await window.waitFrame(200)
+            const before = frameData.timestamp
+            await window.waitFrame(300)
+            return { before, after: frameData.timestamp }
+        })
+
+        expect(result.after).toBe(result.before)
+    })
+
     test("writes the final value as an inline style", async ({ page }) => {
         const result = await page.evaluate(async () => {
             const element = document.getElementById("a")!
@@ -347,8 +367,8 @@ test.describe("animate() independent transforms", () => {
             return { count, a, b }
         })
 
-        // A finite part, then a loop that takes over when it ends.
-        expect(result.count).toBe(2)
+        // On the compositor, and the loop carries on when the finite part ends.
+        expect(result.count).toBeGreaterThan(0)
         expect(result.a.x).toBeCloseTo(100)
         expect(result.b.x).toBeCloseTo(100)
         expect(result.b.rotate).not.toBeCloseTo(result.a.rotate, 0)
@@ -768,6 +788,32 @@ test.describe("animate() independent transforms", () => {
         }
         check("b", 500)
         check("c", 800)
+    })
+
+    test("plays once when its first frame is late", async ({ page }) => {
+        const frames = await page.evaluate(async () => {
+            const a = document.getElementById("a")!
+            const start = performance.now()
+            window.Motion.animate(
+                a,
+                { x: [0, 100] },
+                { duration: 0.5, ease: "linear" }
+            )
+            /**
+             * The main thread is busy for longer than an animation's start
+             * may be late by.
+             */
+            while (performance.now() - start < 150) {}
+            return (window as any).recordFrames(a, 800)
+        })
+
+        for (let i = 1; i < frames.length; i++) {
+            expect(frames[i].x, `frame ${i}`).toBeGreaterThanOrEqual(
+                frames[i - 1].x - 0.5
+            )
+            expect(frames[i].count).toBeLessThan(2)
+        }
+        expect(frames[frames.length - 1].x).toBe(100)
     })
 
     test("a sequence segment follows an easing WAAPI can't run", async ({

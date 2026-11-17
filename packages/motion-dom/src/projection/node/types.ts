@@ -1,5 +1,5 @@
 import type {
-    AnimationPlaybackControls,
+    AnimationPlaybackControlsWithThen,
     MotionPath,
     Transition,
     ValueTransition,
@@ -90,6 +90,8 @@ export interface IProjectionNode<I = unknown> {
     unblockUpdate(): void
     isUpdating: boolean
     needsReset: boolean
+    written: ResolvedValues
+    prepareFlush(node: any): void
     needsShow?: boolean
     startUpdate(): void
     willUpdate(notifyListeners?: boolean): void
@@ -104,6 +106,7 @@ export interface IProjectionNode<I = unknown> {
     scheduleCheckAfterUnmount(): void
     checkUpdateFailed(): void
     sharedNodes: Map<string, NodeStack>
+    stacksChanged: number
     registerSharedNode(id: string, node: IProjectionNode): void
     getStack(): NodeStack | undefined
     isVisible: boolean
@@ -133,8 +136,9 @@ export interface IProjectionNode<I = unknown> {
     resetTree(): void
 
     isProjecting(): boolean
+    hasProjectingChild(): boolean
     animationValues?: ResolvedValues
-    currentAnimation?: AnimationPlaybackControls
+    currentAnimation?: AnimationPlaybackControlsWithThen
     /**
      * The latest offsets (px) of the x min, x max, y min and y max edge
      * springs, while a layout animation runs with velocity.

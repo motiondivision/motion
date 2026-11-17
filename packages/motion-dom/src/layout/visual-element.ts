@@ -1,42 +1,27 @@
-import { handOffElementState } from "../animation/animate/element"
+import { adoptElement } from "../animation/animate/element"
 import { hasTransform } from "../projection/utils/has-transform"
-import { HTMLVisualElement } from "../render/html/HTMLVisualElement"
-import { visualElementStore } from "../render/store"
+import { HTMLNode } from "../render/html/HTMLNode"
+import { nodeStore } from "../render/store"
+import type { VisualElement } from "../render/VisualElement"
 
 /**
- * Get the VisualElement that imperative APIs like animateLayout() and
- * drag() render an element with, creating one if it has none, ready for
- * a projection node to be attached.
+ * Get the node that imperative APIs like animateLayout() and drag()
+ * render an element with, ready for a projection node to be attached:
+ * its motion component's, or an HTMLNode, which is made if it has
+ * neither. Values animate() has been rendering on the element move to
+ * the new node.
+ *
+ * It's typed as the VisualElement a projection node is written for. An
+ * HTMLNode has the parts of one that a projection node uses.
  */
-export function resolveVisualElement(element: HTMLElement): HTMLVisualElement {
-    let visualElement = visualElementStore.get(element) as
-        | HTMLVisualElement
-        | undefined
+export function resolveVisualElement(
+    element: HTMLElement
+): VisualElement<HTMLElement> {
+    let visualElement = nodeStore.get(element) as any
 
-    if (!visualElement) {
-        visualElement = new HTMLVisualElement(
-            {
-                props: {},
-                presenceContext: null,
-                visualState: {
-                    latestValues: {},
-                    renderState: {
-                        transform: {},
-                        transformOrigin: {},
-                        style: {},
-                        vars: {},
-                    },
-                },
-            },
-            { allowProjection: true }
-        )
-
-        /**
-         * Values animate() has been rendering on this element move to
-         * the VisualElement, so the layout animation composes with
-         * them instead of overwriting them.
-         */
-        handOffElementState(element, visualElement)
+    if (!visualElement?.scheduleRender) {
+        visualElement = new HTMLNode(element)
+        adoptElement(element, visualElement)
     }
 
     /**

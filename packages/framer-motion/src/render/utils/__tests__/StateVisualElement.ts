@@ -7,10 +7,7 @@ export class StateVisualElement extends VisualElement<
     { initialState: ResolvedValues }
 > {
     type: "state"
-    build() {}
     measureInstanceViewportBox = createBox
-    removeValueFromRenderState() {}
-    renderInstance() {}
     scrapeMotionValuesFromProps() {
         return {}
     }

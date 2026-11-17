@@ -33,17 +33,16 @@ describe("SVG styles on mount (#2949)", () => {
             .get("#path")
             .then(([$path]: any) => {
                 // pathLength should be 0.5 (useTransform(50, [0,100], [0,1]))
-                // buildSVGPath normalizes the pathLength attribute to 1
+                // The pathLength attribute is normalised to 1
                 expect($path.getAttribute("pathLength")).to.equal("1")
 
-                // stroke-dasharray should reflect pathLength=0.5
+                // stroke-dasharray is the drawn length, then the rest
                 expect($path.getAttribute("stroke-dasharray")).to.equal(
-                    "0.5 1"
+                    "0.5 0.5"
                 )
 
-                // stroke-dashoffset should be 0 (pathOffset defaults to 0)
-                const dashoffset = $path.getAttribute("stroke-dashoffset")
-                expect(parseFloat(dashoffset)).to.equal(0)
+                // stroke-dashoffset is only written with a pathOffset
+                expect($path.getAttribute("stroke-dashoffset")).to.equal(null)
             })
     })
 

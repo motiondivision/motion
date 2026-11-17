@@ -1,45 +1,54 @@
-import { AsyncMotionValueAnimation, motionValue } from "motion-dom"
+import { animate } from "framer-motion"
+import { animateMotionValue, motionValue } from "motion-dom"
 import { useEffect, useRef } from "react"
 
-interface ExtendedMotionValue {
-    owner: { current: HTMLDivElement | undefined; getProps: () => unknown }
-}
-
-interface ExtendedAnimation extends AsyncMotionValueAnimation<number> {
-    _resolved: boolean
-}
-
+/**
+ * An animation stopped before its keyframes resolve must start nothing,
+ * and an element removed before its keyframes resolve must not throw.
+ */
 export const App = () => {
     const ref = useRef<HTMLDivElement>(null)
+    const removed = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
-        if (!ref.current) return
-        const opacity = motionValue(0)
-        const extendedOpacity = opacity as unknown as ExtendedMotionValue
-        extendedOpacity.owner = { current: ref.current, getProps: () => ({}) }
+        const box = ref.current
+        const detached = removed.current
+        if (!box || !detached) return
 
-        const animation = new AsyncMotionValueAnimation({
-            keyframes: [0, 1],
-            motionValue: opacity,
-            name: "opacity",
-        })
+        const fail = () => (box.textContent = "Error")
+        window.addEventListener("error", fail)
 
+        // Stopped in the call that made it.
+        const animation = animate(box, { opacity: [0, 1] }, { duration: 1 })
         animation.stop()
 
-        // If this animation resolved, that is incorrect
-        const extendedAnimation = animation as unknown as ExtendedAnimation
-        if (extendedAnimation._resolved) {
-            ref.current.textContent = "Error"
-        }
+        // The same for one motion value on a clock of its own.
+        const opacity = motionValue<number>(1)
+        opacity.on("change", fail)
+        const owner: any = { current: box, getProps: () => ({}) }
+        animateMotionValue(
+            "opacity",
+            opacity,
+            [0, 1],
+            { duration: 1 },
+            owner
+        )(fail)?.stop()
 
-        new AsyncMotionValueAnimation({
-            keyframes: [0.4, 0.5],
-            motionValue: opacity,
-            name: "opacity",
-        })
+        // Its element is gone before its keyframes resolve.
+        const gone = { ...owner, current: undefined }
+        animateMotionValue(
+            "opacity",
+            motionValue<number>(0),
+            [0.4, 0.5],
+            {},
+            gone
+        )(() => {})
 
-        // Animation shouldn't fail if element is removed before keyframes resolve
-        extendedOpacity.owner.current = undefined
+        // Removed before its keyframes resolve.
+        animate(detached, { opacity: [0.4, 0.5] }, { duration: 1 })
+        detached.remove()
+
+        return () => window.removeEventListener("error", fail)
     }, [])
 
     return (
@@ -66,6 +75,7 @@ export const App = () => {
             >
                 Content
             </div>
+            <div ref={removed} id="removed" />
         </section>
     )
 }

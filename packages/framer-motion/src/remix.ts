@@ -1,15 +1,15 @@
 import {
     acquireProjectionNode,
     animateLayout,
-    buildHTMLStyles,
-    buildSVGAttrs,
+    buildVisualProps,
+    getStyleRender,
+    getSVGRender,
     flushLayoutSnapshots,
     frame,
     HTMLVisualElement,
     isControllingVariants,
     isForcedMotionValue,
     isMotionValue,
-    isSVGTag,
     isVariantNode,
     resolveMotionValue,
     resolveVariantFromProps,
@@ -503,14 +503,6 @@ function splitStyle(style: MotionStyle | undefined, props: MotionProps) {
     return css
 }
 
-const createRenderState = () => ({
-    style: {},
-    vars: {},
-    transform: {},
-    transformOrigin: {},
-    attrs: {},
-})
-
 /**
  * The style, and attributes for SVG, that render `latestValues`.
  */
@@ -520,19 +512,13 @@ function renderValues(
     tag: string,
     isSVG: boolean
 ): Values {
-    const state = createRenderState()
-    if (isSVG) {
-        buildSVGAttrs(
-            state,
-            latestValues,
-            isSVGTag(tag),
-            props.transformTemplate,
-            props.style
-        )
-    } else {
-        buildHTMLStyles(state, latestValues, props.transformTemplate)
-    }
-    return { ...state.attrs, style: { ...state.vars, ...state.style } }
+    const { attrs, style } = buildVisualProps(
+        isSVG ? getSVGRender : getStyleRender,
+        latestValues,
+        props,
+        isSVG ? tag : undefined
+    )
+    return { ...attrs, style: { ...style } }
 }
 
 /**
@@ -618,7 +604,8 @@ const pendingElements = /*@__PURE__*/ new WeakMap<Element, AnyVisualElement>()
 function findParent(element: Element) {
     for (let node = element.parentElement; node; node = node.parentElement) {
         const parent = pendingElements.get(node) || visualElementStore.get(node)
-        if (parent) return parent as AnyVisualElement
+        // An element animate() or an effect reached has a node too
+        if (parent?.mount) return parent as AnyVisualElement
     }
     return undefined
 }
@@ -932,7 +919,6 @@ const motionMixin = /*@__PURE__*/ createMixin<Element, [props: MotionProps]>(
                                 isSVG,
                                 isInitialBlocked
                             ),
-                            renderState: createRenderState(),
                         },
                     }) as AnyVisualElement
                     pendingElements.set(node, visualElement)

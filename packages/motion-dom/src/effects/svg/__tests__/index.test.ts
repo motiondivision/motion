@@ -22,6 +22,23 @@ describe("svgEffect", () => {
         expect(rect.getAttribute("scale")).toBe("2")
     })
 
+    it("writes the offset of a gradient stop as an attribute", async () => {
+        const stop = svg("stop")
+        const path = svg("path")
+        svgEffect(stop, { offset: motionValue(0.5) })
+        svgEffect(path, { offset: motionValue("none") })
+
+        await nextFrame()
+
+        /**
+         * `offset` is also a CSS property, for motion paths, which a
+         * stop doesn't have.
+         */
+        expect(stop.getAttribute("offset")).toBe("0.5")
+        expect(stop.style.offset).toBeFalsy()
+        expect(path.hasAttribute("offset")).toBe(false)
+    })
+
     it("builds transform and origin values into styles, not attributes", async () => {
         const rect = svg("rect")
         const values = {

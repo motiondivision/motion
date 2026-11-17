@@ -1,0 +1,73 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+                height: 400vh;
+            }
+
+            .box {
+                width: 100px;
+                height: 100px;
+                background-color: #0077ff;
+                flex: none;
+            }
+
+            .container {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                display: flex;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="box" id="mixed"></div>
+            <div class="box" id="mixed-opacity"></div>
+            <div class="box" id="durations"></div>
+            <div class="box" id="defaults"></div>
+        </div>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            const { animate, scroll } = window.Motion
+
+            const linear = { ease: "linear" }
+
+            // A transform with a value that animates on the main thread.
+            scroll(
+                animate("#mixed", { x: [0, 200], width: [100, 200] }, linear)
+            )
+
+            // With another compositor value too.
+            scroll(
+                animate(
+                    "#mixed-opacity",
+                    { x: [0, 200], opacity: [1, 0], height: [100, 200] },
+                    linear
+                )
+            )
+
+            // Values with different durations each span the whole scroll.
+            scroll(
+                animate(
+                    "#durations",
+                    { width: [100, 200], height: [100, 200] },
+                    {
+                        width: { duration: 1, ease: "linear" },
+                        height: { duration: 2, ease: "linear" },
+                    }
+                )
+            )
+
+            // Default transitions (a spring for x, a tween for width)
+            // are made linear, and each spans the whole scroll.
+            scroll(animate("#defaults", { x: [0, 200], width: [100, 200] }))
+        </script>
+    </body>
+</html>

@@ -1,6 +1,7 @@
 import {
     AnimationPlaybackControlsWithThen,
     AnimationScope,
+    MultiValueRef,
     motionValue,
     spring,
 } from "motion-dom"
@@ -58,14 +59,25 @@ export function animateSequence(
         options?.reduceMotion ??
         (options?.defaultTransition as SequenceOptions)?.reduceMotion
 
+    /**
+     * The whole sequence plays on one shared animation.
+     */
+    const ref: MultiValueRef = {}
     animationDefinitions.forEach(({ keyframes, transition }, subject) => {
         animations.push(
-            ...animateSubject(subject, keyframes, {
-                ...transition,
-                reduceMotion,
-            })
+            ...animateSubject(
+                subject,
+                keyframes,
+                {
+                    ...transition,
+                    reduceMotion,
+                },
+                undefined,
+                ref
+            )
         )
     })
+    ref.animation?.start()
 
     return animations
 }

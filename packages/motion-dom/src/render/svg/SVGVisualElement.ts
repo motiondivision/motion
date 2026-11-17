@@ -2,20 +2,16 @@ import type { AnyResolvedKeyframe } from "../../animation/types"
 import type { MotionValue } from "../../value"
 import type { MotionNodeOptions } from "../../node/types"
 import { transformProps } from "../utils/keys-transform"
-import { getDefaultValueType } from "../../value/types/maps/defaults"
 import { createBox } from "../../projection/geometry/models"
+import { addSVGValue, readSVGValue } from "../../effects/svg"
 import { DOMVisualElement } from "../dom/DOMVisualElement"
 import { defaultTransformValue } from "../dom/parse-transform"
 import type { DOMVisualElementOptions } from "../dom/types"
-import { camelToDash } from "../dom/utils/camel-to-dash"
-import type { ResolvedValues } from "../types"
-import type { VisualElement, MotionStyle } from "../VisualElement"
+import type { VisualElement } from "../VisualElement"
+import type { VisualElementOptions } from "../types"
 import { SVGRenderState } from "./types"
-import { buildSVGAttrs, cssStyleProperties } from "./utils/build-attrs"
-import { camelCaseAttributes } from "./utils/camel-case-attrs"
-import { isSVGTag } from "./utils/is-svg-tag"
-import { renderSVG } from "./utils/render"
 import { scrapeMotionValuesFromProps } from "./utils/scrape-motion-values"
+
 export class SVGVisualElement extends DOMVisualElement<
     SVGElement,
     SVGRenderState,
@@ -23,7 +19,16 @@ export class SVGVisualElement extends DOMVisualElement<
 > {
     type = "svg"
 
-    isSVGTag = false
+    /**
+     * Declared rather than implicit, as the implicit constructor compiles
+     * to super(...arguments), which is slow to run per element.
+     */
+    constructor(
+        options: VisualElementOptions<SVGElement, SVGRenderState>,
+        renderOptions?: DOMVisualElementOptions
+    ) {
+        super(options, renderOptions)
+    }
 
     getBaseTargetFromProps(
         props: MotionNodeOptions,
@@ -51,19 +56,7 @@ export class SVGVisualElement extends DOMVisualElement<
     }
 
     readValueFromInstance(instance: SVGElement, key: string) {
-        if (transformProps.has(key)) {
-            const defaultType = getDefaultValueType(key)
-            return defaultType ? defaultType.default || 0 : 0
-        }
-
-        if (cssStyleProperties.includes(key)) {
-            const computedStyle = getComputedStyle(instance)
-            const value = computedStyle[key as keyof typeof computedStyle]
-            if (typeof value === "string" && value) return value.trim()
-        }
-
-        key = !camelCaseAttributes.has(key) ? camelToDash(key) : key
-        return instance.getAttribute(key)
+        return readSVGValue(instance, key)
     }
 
     measureInstanceViewportBox = createBox
@@ -76,31 +69,8 @@ export class SVGVisualElement extends DOMVisualElement<
         return scrapeMotionValuesFromProps(props, prevProps, visualElement)
     }
 
-    build(
-        renderState: SVGRenderState,
-        latestValues: ResolvedValues,
-        props: MotionNodeOptions
-    ) {
-        buildSVGAttrs(
-            renderState,
-            latestValues,
-            this.isSVGTag,
-            props.transformTemplate,
-            (props as any).style
-        )
-    }
-
-    renderInstance(
-        instance: SVGElement,
-        renderState: SVGRenderState,
-        styleProp?: MotionStyle | undefined,
-        projection?: any
-    ): void {
-        renderSVG(instance, renderState, styleProp, projection)
-    }
-
-    mount(instance: SVGElement) {
-        this.isSVGTag = isSVGTag(instance.tagName)
-        super.mount(instance)
-    }
+    /**
+     * Bound as svgEffect binds, so the two share this node.
+     */
+    bind = addSVGValue
 }

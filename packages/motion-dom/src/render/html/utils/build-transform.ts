@@ -14,8 +14,6 @@ export const translateAlias: Record<string, string> = {
     transformPerspective: "perspective",
 }
 
-const numTransforms = transformPropOrder.length
-
 /**
  * Cache of `translateX(`-style openers so each transform function is a few
  * string concatenations rather than a template.
@@ -47,7 +45,8 @@ export const isDefaultTransform = (key: string, value: AnyResolvedKeyframe) =>
 export function buildTransform(
     latestValues: ResolvedValues,
     transform: HTMLRenderState["transform"],
-    transformTemplate?: MotionNodeOptions["transformTemplate"]
+    transformTemplate?: MotionNodeOptions["transformTemplate"],
+    keys: string[] = transformPropOrder
 ) {
     // The transform string we're going to build into.
     let transformString = ""
@@ -56,8 +55,8 @@ export function buildTransform(
      * Loop over all possible transforms in order, adding the ones that
      * are present to the transform string.
      */
-    for (let i = 0; i < numTransforms; i++) {
-        const key = transformPropOrder[i]
+    for (let i = 0; i < keys.length; i++) {
+        const key = keys[i]
         const value = latestValues[key]
 
         if (value === undefined) continue
@@ -68,7 +67,8 @@ export function buildTransform(
 
         if (!isDefaultTransform(key, value)) {
             transformString +=
-                transformFunction(key, value, valueAsType || undefined) + " "
+                (transformString && " ") +
+                transformFunction(key, value, valueAsType || undefined)
         }
     }
 
@@ -77,10 +77,9 @@ export function buildTransform(
     // `transformPropOrder`.
     const pathRotation = latestValues.pathRotation
     if (pathRotation) {
-        transformString += transformFunction("rotate", pathRotation)
+        transformString +=
+            (transformString && " ") + transformFunction("rotate", pathRotation)
     }
-
-    transformString = transformString.trim()
 
     // If we have a custom `transform` template, pass our transform values and
     // generated transformString to that before returning

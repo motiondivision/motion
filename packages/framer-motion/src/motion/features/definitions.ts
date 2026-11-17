@@ -21,6 +21,14 @@ const featureProps = {
 let isInitialized = false
 
 /**
+ * isEnabled runs for every feature on every render, so props are passed
+ * to some() as thisArg rather than captured by a new callback each time.
+ */
+function isSet(this: MotionProps, name: string) {
+    return !!this[name as keyof MotionProps]
+}
+
+/**
  * Initialize feature definitions with isEnabled checks.
  * This must be called before any motion components are rendered.
  */
@@ -35,7 +43,8 @@ export function initFeatureDefinitions() {
         ] = {
             isEnabled: (props: MotionProps) =>
                 featureProps[key as keyof typeof featureProps].some(
-                    (name: string) => !!props[name as keyof typeof props]
+                    isSet,
+                    props
                 ),
         }
     }

@@ -55,3 +55,16 @@ describe("JSAnimation", () => {
         animation.stop()
     })
 })
+
+describe("animateSingleValue", () => {
+    test("notifies of a value that starts without one", async () => {
+        const value = motionValue<number>(undefined as any)
+        const onChange = jest.fn()
+        value.on("change", onChange)
+
+        await animateSingleValue(value, 5, { duration: 0.05 }).finished
+
+        expect(value.get()).toBe(5)
+        expect(onChange).toHaveBeenCalledWith(5)
+    })
+})

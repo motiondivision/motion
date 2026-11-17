@@ -7,6 +7,7 @@ import {
     GroupAnimationWithThen,
     MotionValue,
     motionValue,
+    supportTimelines,
     TimelineWithFallback,
 } from "motion-dom"
 import { removeItem } from "motion-utils"
@@ -416,6 +417,7 @@ export class Timeline implements AnimationPlaybackControlsWithThen {
     }
 
     attachTimeline(timeline: TimelineWithFallback) {
+        supportTimelines()
         this.flush()
         this.scrollTimeline = timeline
         this.detachScroll = this.group?.attachTimeline(timeline)

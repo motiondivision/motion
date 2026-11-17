@@ -107,7 +107,7 @@ describe("motion/remix on the server", () => {
         expect(html).toContain("transform: rotate(45deg)")
         expect(html).toContain("transform-box: fill-box")
         expect(html).toContain('pathLength="1"')
-        expect(html).toContain('stroke-dasharray="0.5 1"')
+        expect(html).toContain('stroke-dasharray="0.5 0.5"')
     })
 
     it("renders animate values inside AnimatePresence initial={false}", async () => {

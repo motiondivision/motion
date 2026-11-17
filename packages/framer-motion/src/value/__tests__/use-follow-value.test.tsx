@@ -11,7 +11,7 @@ import { useFollowValue } from "../use-follow-value"
  * second creates a SubscriptionManager, so count both. Private API.
  */
 const countChangeSubscribers = (value: any) =>
-    (value.changeSubscriber ? 1 : 0) + (value.events.change?.getSize() ?? 0)
+    (value.changeSubscriber ? 1 : 0) + (value.events?.change?.getSize() ?? 0)
 
 describe("useFollowValue types", () => {
     test("can create a motion value from a number", async () => {

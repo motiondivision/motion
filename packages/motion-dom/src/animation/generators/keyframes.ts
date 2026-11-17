@@ -72,11 +72,16 @@ export function keyframes<T extends AnyResolvedKeyframe>({
         }
     }
 
+    /**
+     * Only use the provided offsets if they're the correct length
+     * TODO Maybe we should warn here if there's a length mismatch
+     */
+    const offsets =
+        times && times.length === keyframeValues.length
+            ? times
+            : defaultOffset(keyframeValues)
+
     if (span >= 0) {
-        const offsets =
-            times && times.length === keyframeValues.length
-                ? times
-                : defaultOffset(keyframeValues)
         const from = offsets[span] * duration
         const to = offsets[span + 1] * duration
         const origin = keyframeValues[span]
@@ -119,14 +124,7 @@ export function keyframes<T extends AnyResolvedKeyframe>({
     /**
      * Create a times array based on the provided 0-1 offsets
      */
-    const absoluteTimes = convertOffsetToTimes(
-        // Only use the provided offsets if they're the correct length
-        // TODO Maybe we should warn here if there's a length mismatch
-        times && times.length === keyframeValues.length
-            ? times
-            : defaultOffset(keyframeValues),
-        duration
-    )
+    const absoluteTimes = convertOffsetToTimes(offsets, duration)
 
     const mapTimeToKeyframe = interpolate<T>(absoluteTimes, keyframeValues, {
         ease: Array.isArray(easingFunctions)

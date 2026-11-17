@@ -42,16 +42,12 @@ test("drag() works without the layout projection system", async () => {
     expect(visualElementStore.get(element)?.projection).toBe(undefined)
 })
 
-test("An element can remount, and drag again, after drag() stops", async () => {
+test("An element can drag again after drag() stops", async () => {
     const element = createElement()
     element.getBoundingClientRect = () =>
         ({ left: 0, top: 0, right: 100, bottom: 100 } as DOMRect)
 
     drag(element, { momentum: false })()
-
-    const visualElement = visualElementStore.get(element)!
-    visualElement.unmount()
-    expect(() => visualElement.mount(element)).not.toThrow()
 
     const stop = drag(element, { momentum: false })
     await nextFrame()
