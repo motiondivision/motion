@@ -138,7 +138,7 @@ Motion drives the animations on the Cursor homepage, and is working with Cursor 
   <img alt="Cursor" src="https://github.com/user-attachments/assets/81c482d3-c2c2-4b35-bbcf-933b28d5b448" width="250px" height="150px" />
 </a>
 
-Motion powers code export from Figma Motion, and the animations in Figma Sites and Figma Make.
+Motion collaborates with Figma to ensure code export stability.
 
 <a href="https://figma.com">
   <img alt="Figma" src="https://github.com/user-attachments/assets/1077d0ab-4305-4a1f-81c8-d5be8c4c6717" width="250px" height="150px" />
