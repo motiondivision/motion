@@ -10,6 +10,7 @@ import { createRef, StrictMode } from "react"
 import { visualElementStore } from "motion-dom"
 import { AnimatePresence } from "../../components/AnimatePresence"
 import { LayoutGroup } from "../../components/LayoutGroup"
+import { SwitchLayoutGroupContext } from "../../context/SwitchLayoutGroupContext"
 import { motion } from "../../render/components/motion"
 import { render } from "../../jest.setup"
 import { nextFrame } from "../../gestures/__tests__/utils"
@@ -444,6 +445,44 @@ describe("changing an open card's layoutId (#1411)", () => {
             expect(card.style.visibility).not.toBe("hidden")
         }
     )
+
+    /**
+     * A node that's promoted with a transition, as in a
+     * SwitchLayoutGroupContext, has options set on it when it is. It must
+     * keep crossfade disabled, or it fades in while the element it's
+     * replacing is already hidden.
+     */
+    test("doesn't fade in a layoutCrossfade={false} card that's promoted with a transition", async () => {
+        const App = ({ open }: { open: boolean }) => (
+            <SwitchLayoutGroupContext.Provider value={{ transition }}>
+                <motion.div
+                    id="one"
+                    data-box="one"
+                    layoutId="x"
+                    layoutCrossfade={false}
+                    transition={transition}
+                />
+                {open && (
+                    <motion.div
+                        id="card"
+                        data-box="card"
+                        layoutId="x"
+                        layoutCrossfade={false}
+                        transition={transition}
+                    />
+                )}
+            </SwitchLayoutGroupContext.Provider>
+        )
+        const { rerender } = render(<App open={false} />)
+        await nextFrame()
+        rerender(<App open />)
+        await nextFrame()
+        await nextFrame()
+
+        expect(getNode(element("card")).currentAnimation).toBeDefined()
+        expect(element("one").style.visibility).toBe("hidden")
+        expect(element("card").style.opacity).toBe("1")
+    })
 
     /**
      * A thumbnail that follows an open card and then loses its layoutId

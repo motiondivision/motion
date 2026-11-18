@@ -228,6 +228,11 @@ export interface ProjectionNodeOptions {
     layoutId?: string
     layout?: boolean | string
     visualElement?: VisualElement
+
+    /**
+     * `false` disables the opacity crossfade between nodes that share a
+     * layoutId. Enabled by default.
+     */
     crossfade?: boolean
     transition?: Transition
     initialPromotionConfig?: InitialPromotionConfig
