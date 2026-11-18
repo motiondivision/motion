@@ -1,10 +1,7 @@
 import {
-    calcRelativeAxisConstraints,
     applyConstraints,
-    calcConstrainedMinPoint,
+    calcRelativeAxisConstraints,
     calcViewportAxisConstraints,
-    calcPositionFromProgress,
-    rebaseAxisConstraints,
     resolveDragElastic,
 } from "../constraints"
 
@@ -81,82 +78,19 @@ describe("applyConstraints", () => {
     })
 })
 
-describe("calcConstraintedMinPoint", () => {
-    test("Correctly calculates a minimum point when no constraints are provided", () => {
-        expect(calcConstrainedMinPoint(100, 100, 0.25)).toBe(75)
-    })
-
-    test("Correctly applies constraints", () => {
-        expect(
-            calcConstrainedMinPoint(100, 100, 0.25, { min: 100, max: 100 })
-        ).toBe(100)
-    })
-})
-
 describe("calcRelativeAxisConstraints", () => {
-    test("Correctly calculates viewport constraints given a relative bounding box", () => {
-        expect(
-            calcRelativeAxisConstraints({ min: 0, max: 50 }, undefined, 100)
-        ).toEqual({
-            max: 100,
+    test("Returns the constraints it's given", () => {
+        expect(calcRelativeAxisConstraints(-100, 300)).toEqual({
+            min: -100,
+            max: 300,
         })
-        expect(
-            calcRelativeAxisConstraints({ min: 0, max: 50 }, undefined, 50)
-        ).toEqual({
-            max: 50,
-        })
-        expect(
-            calcRelativeAxisConstraints({ min: 0, max: 50 }, undefined, 200)
-        ).toEqual({
-            max: 200,
-        })
+        expect(calcRelativeAxisConstraints(0, 0)).toEqual({ min: 0, max: 0 })
+    })
 
-        expect(
-            calcRelativeAxisConstraints({ min: 100, max: 200 }, -100, 300)
-        ).toEqual({
-            min: 0,
-            max: 400,
-        })
-
-        expect(
-            calcRelativeAxisConstraints({ min: 100, max: 200 }, undefined, 300)
-        ).toEqual({
-            min: undefined,
-            max: 400,
-        })
-
-        expect(
-            calcRelativeAxisConstraints({ min: 100, max: 200 }, -100, undefined)
-        ).toEqual({
-            min: 0,
-            max: undefined,
-        })
-
-        expect(
-            calcRelativeAxisConstraints({ min: 0, max: 100 }, 0, 50)
-        ).toEqual({ min: 0, max: 50 })
-
-        expect(
-            calcRelativeAxisConstraints({ min: 100, max: 200 }, 0, 50)
-        ).toEqual({ min: 100, max: 150 })
-
-        expect(
-            calcRelativeAxisConstraints({ min: 214, max: 414 }, 0, 0)
-        ).toEqual({ min: 214, max: 214 })
-
-        expect(
-            calcRelativeAxisConstraints({ min: 0, max: 100 }, 0, 100)
-        ).toEqual({
-            min: 0,
-            max: 100,
-        })
-
-        expect(
-            calcRelativeAxisConstraints({ min: 100, max: 200 }, 0, 100)
-        ).toEqual({
-            min: 100,
-            max: 200,
-        })
+    test("Leaves out an edge that isn't defined", () => {
+        expect("min" in calcRelativeAxisConstraints(undefined, 300)).toBe(false)
+        expect("max" in calcRelativeAxisConstraints(-100)).toBe(false)
+        expect(calcRelativeAxisConstraints()).toEqual({})
     })
 })
 
@@ -184,36 +118,5 @@ describe("calcViewportAxisConstraints", () => {
                 { min: 100, max: 300 }
             )
         ).toEqual({ min: -300, max: 0 })
-    })
-})
-
-describe("calcPositionFromProgress", () => {
-    test("Correctly calculates an axis within constraints based on a progress value", () => {
-        expect(
-            calcPositionFromProgress(
-                { min: 100, max: 200 },
-                { min: 0, max: 500 },
-                0
-            )
-        ).toEqual({ min: 0, max: 100 })
-
-        expect(
-            calcPositionFromProgress(
-                { min: 100, max: 200 },
-                { min: 0, max: 500 },
-                1
-            )
-        ).toEqual({ min: 400, max: 500 })
-    })
-})
-
-describe("rebaseAxisConstraints", () => {
-    test("Converts viewport-relative constraints to element-relative", () => {
-        expect(
-            rebaseAxisConstraints({ min: 0, max: 100 }, { min: -100 })
-        ).toEqual({ min: -100 })
-        expect(
-            rebaseAxisConstraints({ min: 200, max: 300 }, { max: 400 })
-        ).toEqual({ max: 200 })
     })
 })
