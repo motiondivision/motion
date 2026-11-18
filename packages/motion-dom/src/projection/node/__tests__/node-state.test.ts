@@ -13,12 +13,12 @@ describe("per-node state", () => {
         expect(root).not.toBe(parent)
         expect(root.sharedNodes).toBeInstanceOf(Map)
         expect(root.scheduleUpdate).toBeInstanceOf(Function)
-        expect(root.updateProjection).toBeInstanceOf(Function)
+        expect(root.hasOwnProperty("updateProjection")).toBe(true)
 
         for (const node of [parent, child] as any[]) {
             expect(node.sharedNodes).toBeUndefined()
             expect(node.scheduleUpdate).toBeUndefined()
-            expect(node.updateProjection).toBeUndefined()
+            expect(node.hasOwnProperty("updateProjection")).toBe(false)
         }
     })
 
