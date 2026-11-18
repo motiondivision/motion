@@ -87,7 +87,12 @@ describe("FlatTree", () => {
 
     test("Visits a child removed and added again mid-loop once", () => {
         const tree = new FlatTree()
-        const children = [{ depth: 0 }, { depth: 1 }, { depth: 2 }]
+        const children = [
+            { depth: 0 },
+            { depth: 1 },
+            { depth: 2 },
+            { depth: 3 },
+        ]
         children.forEach((child) => tree.add(child))
 
         const received: WithDepth[] = []
