@@ -140,6 +140,11 @@ export interface IProjectionNode<I = unknown> {
 
     isProjecting(): boolean
     hasProjectingChild(): boolean
+    /**
+     * On the root: whether this frame has more layout parents than the
+     * layer budget, so none moves as a compositor layer.
+     */
+    overLayerBudget?: boolean
     animationValues?: ResolvedValues
     currentAnimation?: AnimationPlaybackControlsWithThen
     /**

@@ -101,6 +101,19 @@ import {
  */
 const animationTarget = 1000
 
+/**
+ * The most layout parents that get a compositor layer of their own (see
+ * hasProjectingChild). Past this, the layers cost the GPU more than the
+ * repaints they save, so every node moves with translate(). Measured on
+ * the benchmark server: a win up to about 150 layers, a loss from 300.
+ */
+const layerBudget = 100
+
+let layers = 0
+const countLayer = (node: IProjectionNode) => {
+    node.isProjecting() && node.hasProjectingChild() && layers++
+}
+
 let id = 0
 
 /**
@@ -978,6 +991,8 @@ export function createProjectionNode<I>({
         }
 
         projectionUpdateScheduled = false
+
+        declare overLayerBudget?: boolean
         scheduleUpdateProjection() {
             if (!this.projectionUpdateScheduled) {
                 this.projectionUpdateScheduled = true
@@ -1021,6 +1036,10 @@ export function createProjectionNode<I>({
             this.nodes!.forEach(resolveTargetDelta)
             this.nodes!.forEach(calcProjection)
             this.nodes!.forEach(cleanDirtyNodes)
+
+            layers = 0
+            this.nodes!.forEach(countLayer)
+            this.overLayerBudget = layers > layerBudget
 
             /**
              * Record this frame's debug counts, if recordStats() is running.
@@ -2538,7 +2557,7 @@ export function createProjectionNode<I>({
                 delta,
                 this.treeScale,
                 valuesToRender,
-                this.hasProjectingChild()
+                !this.root.overLayerBudget && this.hasProjectingChild()
             )
 
             if (transformTemplate) {
