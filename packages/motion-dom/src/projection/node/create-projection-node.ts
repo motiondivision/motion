@@ -2685,7 +2685,16 @@ function joinTree(node: IProjectionNode, force?: boolean) {
     ) {
         node.inTree = true
         node.parent && joinTree(node.parent, true)
-        node.instance && node.root!.nodes!.add(node)
+
+        if (node.instance) {
+            node.root!.nodes!.add(node)
+
+            /**
+             * A node that joins as it's told to update, or as an ancestor
+             * of one, has missed the start of an update that's under way.
+             */
+            force && node.root!.isUpdating && node.resetSkewAndRotation()
+        }
     }
 }
 
