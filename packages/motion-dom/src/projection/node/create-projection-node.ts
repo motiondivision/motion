@@ -1047,14 +1047,26 @@ export function createProjectionNode<I>({
                     this.snapshot.relativeVelocity =
                         this.relativeVelocity?.slice() || []
                 }
-                const progress = (edges && this.motionValue?.getVelocity()) || 0
+                /**
+                 * Worked out from the value's last two frames, as its own
+                 * getVelocity() reads 0 once the last frame is 30ms old,
+                 * which a slow frame or a long render before this snapshot
+                 * can pass. NaN before its second frame. In progress
+                 * (0-1000) per ms, which is edge px per second.
+                 */
+                const value = this.motionValue as any
+                const progress =
+                    (edges &&
+                        (value.current - value.prevFrameValue) /
+                            (value.updatedAt - value.prevUpdatedAt)) ||
+                    0
                 const velocity = [0, 1, 2, 3, 4, 5].map(
                     (i) =>
                         (i < 4
                             ? edges &&
                               (this.edgeValues
                                   ? this.edgeVelocity!(i)
-                                  : (-edges[i] * progress) / 1000)
+                                  : -edges[i] * progress)
                             : visualElement
                                   ?.getValue(i < 5 ? "x" : "y")
                                   ?.getVelocity()) || 0
