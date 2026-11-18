@@ -37,29 +37,25 @@ describe("the frame flush at the end of a tree update", () => {
         ])
     })
 
-    test("leaves a frame that's already processing to finish in order", async () => {
+    test("ends a frame that was left processing", async () => {
         const node = createNode()
-        const order: string[] = []
-        let delta: number | undefined
-        let state: unknown[] = []
-
         await nextFrame()
 
-        frame.update(() => {
-            delta = frameData.delta
-            frame.preRender(() => order.push("preRender"))
-            frame.render(() => order.push("render"))
+        /**
+         * What a frame callback that throws leaves behind. Nothing
+         * scheduled while this is set requests a frame.
+         */
+        frameData.isProcessing = true
 
-            node.willUpdate()
-            ;(node.root as any).update()
+        node.willUpdate()
+        node.root!.didUpdate()
+        await nextMicrotask()
 
-            state = [frameData.isProcessing, frameData.delta]
-            order.push("update")
-        })
+        expect(frameData.isProcessing).toBe(false)
 
+        const render = jest.fn()
+        frame.render(render)
         await nextFrame()
-
-        expect(state).toEqual([true, delta])
-        expect(order).toEqual(["update", "preRender", "render"])
+        expect(render).toHaveBeenCalledTimes(1)
     })
 })

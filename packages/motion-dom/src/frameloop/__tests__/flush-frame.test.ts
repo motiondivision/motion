@@ -47,26 +47,13 @@ describe("flushFrame", () => {
         expect(seen).toEqual([time.now(), 1000 / 60])
     })
 
-    test("is ignored inside a frame, which runs those steps itself", async () => {
-        const order: string[] = []
-        let state: unknown[] = []
+    test("has a delta of 0 when the frame's timestamp is ahead of now", () => {
+        frameData.timestamp = time.now() + 1000
 
-        frame.read(() => {
-            const { timestamp, delta } = frameData
-            frame.update(() => order.push("update"))
+        let seen: number[] = []
+        frame.update(({ timestamp, delta }) => (seen = [timestamp, delta]))
+        flushFrame()
 
-            flushFrame()
-
-            order.push("read")
-            state = [
-                frameData.isProcessing,
-                frameData.timestamp === timestamp,
-                frameData.delta === delta,
-            ]
-        })
-
-        await nextFrame()
-        expect(order).toEqual(["read", "update"])
-        expect(state).toEqual([true, true, true])
+        expect(seen).toEqual([time.now(), 0])
     })
 })

@@ -1,6 +1,7 @@
 import { activeScope } from "../scope/active"
 import { GroupAnimation } from "../animation/GroupAnimation"
 import type { AnimationOptions, Transition } from "../animation/types"
+import { frameData } from "../frameloop"
 import { flushFrame } from "../frameloop/flush-frame"
 import { microtask } from "../frameloop/microtask"
 import { HTMLProjectionNode } from "../projection/node/HTMLProjectionNode"
@@ -178,7 +179,7 @@ function flushPendingBuilders() {
      * (controls.time = x) without a frame having rendered it. Materialise
      * that state into the DOM before taking snapshots.
      */
-    flushFrame()
+    frameData.isProcessing || flushFrame()
 
     /**
      * Discover and mount every node across all builders before snapshotting
