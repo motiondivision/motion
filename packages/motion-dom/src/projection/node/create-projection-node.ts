@@ -101,6 +101,19 @@ import {
  */
 const animationTarget = 1000
 
+/**
+ * The most layout parents that get a compositor layer of their own (see
+ * hasProjectingChild). Past this, the layers cost the GPU more than the
+ * repaints they save, so every node moves with translate(). Measured on
+ * the benchmark server: a win up to about 150 layers, a loss from 300.
+ */
+const layerBudget = 100
+
+let layers = 0
+const countLayer = (node: IProjectionNode) => {
+    node.isProjecting() && node.hasProjectingChild() && layers++
+}
+
 let id = 0
 
 /**
@@ -968,6 +981,8 @@ export function createProjectionNode<I>({
         }
 
         projectionUpdateScheduled = false
+
+        declare overLayerBudget?: boolean
         scheduleUpdateProjection() {
             if (!this.projectionUpdateScheduled) {
                 this.projectionUpdateScheduled = true
@@ -1009,6 +1024,10 @@ export function createProjectionNode<I>({
             this.nodes!.forEach(resolveTargetDelta)
             this.nodes!.forEach(calcProjection)
             this.nodes!.forEach(cleanDirtyNodes)
+
+            layers = 0
+            this.nodes!.forEach(countLayer)
+            this.overLayerBudget = layers > layerBudget
 
             /**
              * Record this frame's debug counts, if recordStats() is running.
@@ -1537,6 +1556,17 @@ export function createProjectionNode<I>({
             } else {
                 return this.parent.getClosestProjectingParent()
             }
+        }
+
+        /**
+         * Whether a child also projects. Its subtree then moves inside this
+         * element, so a layer of its own saves repainting the subtree.
+         */
+        hasProjectingChild() {
+            for (const child of this.children) {
+                if (child.isProjecting()) return true
+            }
+            return false
         }
 
         isProjecting() {
@@ -2519,7 +2549,8 @@ export function createProjectionNode<I>({
             let transform = buildProjectionTransform(
                 delta,
                 this.treeScale,
-                valuesToRender
+                valuesToRender,
+                !this.root.overLayerBudget && this.hasProjectingChild()
             )
 
             if (transformTemplate) {
