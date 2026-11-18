@@ -32,6 +32,7 @@ import type { DragPointConstraint, ResolvedConstraints } from "./types"
 import {
     applyConstraints,
     calcOrigin,
+    calcRelativeAxisConstraints,
     calcViewportConstraints,
     defaultElastic,
     resolveDragElastic,
@@ -428,8 +429,8 @@ export class VisualElementDragControls {
              */
             const { top, left, bottom, right } = dragConstraints
             this.constraints = {
-                x: { min: left, max: right },
-                y: { min: top, max: bottom },
+                x: calcRelativeAxisConstraints(left, right),
+                y: calcRelativeAxisConstraints(top, bottom),
             }
         } else {
             this.constraints = false

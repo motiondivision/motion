@@ -29,6 +29,22 @@ export function applyConstraints(
 }
 
 /**
+ * The constraints of an axis when they're defined relative to where the
+ * element is laid out, which is the space its x and y values are in. An
+ * edge that isn't defined is left out, as inertia takes one it isn't
+ * given from `dragTransition`.
+ */
+export function calcRelativeAxisConstraints(
+    min?: number,
+    max?: number
+): Partial<Axis> {
+    const constraints: Partial<Axis> = {}
+    if (min !== undefined) constraints.min = min
+    if (max !== undefined) constraints.max = max
+    return constraints
+}
+
+/**
  * Calculate viewport constraints when defined as another viewport-relative axis
  */
 export function calcViewportAxisConstraints(

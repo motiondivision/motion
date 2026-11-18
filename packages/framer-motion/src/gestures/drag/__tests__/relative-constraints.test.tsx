@@ -3,7 +3,7 @@ import { useRef } from "react"
 import { BoundingBox, motion, motionValue } from "../../../"
 import { render } from "../../../jest.setup"
 import { nextFrame } from "../../__tests__/utils"
-import { dragFrame } from "./utils"
+import { dragFrame, sleep } from "./utils"
 
 /**
  * Mimic a 100x100 element laid out at (200, 0) and offset by its
@@ -122,5 +122,32 @@ describe("relative dragConstraints", () => {
 
         await dragBy(element, 100)
         expect(x.get()).toBe(50)
+    })
+
+    test("leave an edge they don't set to dragTransition", async () => {
+        const x = motionValue(0)
+        mockLayout(x)
+
+        const { getByTestId } = render(
+            <motion.div
+                data-testid="draggable"
+                drag="x"
+                dragConstraints={{ right: 100 }}
+                dragElastic={false}
+                dragMomentum={false}
+                dragTransition={{
+                    min: -20,
+                    bounceStiffness: 300000,
+                    bounceDamping: 1000000,
+                }}
+                style={{ x }}
+            />
+        )
+
+        await dragBy(getByTestId("draggable"), -50)
+        await sleep(50)
+
+        // A spring this stiff has brought it back to `min` by now
+        expect(x.get()).toBeCloseTo(-20)
     })
 })

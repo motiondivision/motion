@@ -1,5 +1,6 @@
 import {
     applyConstraints,
+    calcRelativeAxisConstraints,
     calcViewportAxisConstraints,
     resolveDragElastic,
 } from "../constraints"
@@ -74,6 +75,22 @@ describe("applyConstraints", () => {
         expect(
             applyConstraints(-5, { min: 0, max: 20 }, { min: 0, max: 1 })
         ).toBe(0)
+    })
+})
+
+describe("calcRelativeAxisConstraints", () => {
+    test("Returns the constraints it's given", () => {
+        expect(calcRelativeAxisConstraints(-100, 300)).toEqual({
+            min: -100,
+            max: 300,
+        })
+        expect(calcRelativeAxisConstraints(0, 0)).toEqual({ min: 0, max: 0 })
+    })
+
+    test("Leaves out an edge that isn't defined", () => {
+        expect("min" in calcRelativeAxisConstraints(undefined, 300)).toBe(false)
+        expect("max" in calcRelativeAxisConstraints(-100)).toBe(false)
+        expect(calcRelativeAxisConstraints()).toEqual({})
     })
 })
 
