@@ -1,5 +1,6 @@
 "use client"
 
+import { noop } from "motion-utils"
 import { startTransition, useEffect, useRef, useState } from "react"
 import { LazyContext } from "../../context/LazyContext"
 import { loadFeatures } from "../../motion/features/load-features"
@@ -66,7 +67,7 @@ export function LazyMotion({ children, features, strict = false }: LazyProps) {
                  * than discarding their server HTML.
                  */
                 startTransition(() => setIsLoaded(true))
-            })
+            }, noop)
         }
     }, [])
 
