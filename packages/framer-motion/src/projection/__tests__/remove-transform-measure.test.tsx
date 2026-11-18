@@ -20,7 +20,7 @@ const rect = (left: number, width: number) =>
         height: 50,
         bottom: 50,
         toJSON: () => ({}),
-    }) as DOMRect
+    } as DOMRect)
 
 async function snapshotItems(x: number | string) {
     const wrapper = createRef<HTMLDivElement>()

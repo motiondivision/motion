@@ -1325,8 +1325,17 @@ export function createProjectionNode<I>({
 
                 if (node.instance) {
                     hasScale(node.latestValues) && node.updateSnapshot()
-                    sourceBox = createBox()
-                    copyBoxInto(sourceBox, node.measurePageBox())
+
+                    /**
+                     * Only a percentage x or y is relative to the node's
+                     * measured size.
+                     */
+                    if (
+                        typeof node.latestValues.x === "string" ||
+                        typeof node.latestValues.y === "string"
+                    ) {
+                        sourceBox = node.measurePageBox()
+                    }
                 }
 
                 removeBoxTransforms(
