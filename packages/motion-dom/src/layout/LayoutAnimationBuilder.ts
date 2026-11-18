@@ -1,10 +1,9 @@
 import { activeScope } from "../scope/active"
-import { clamp } from "motion-utils"
 import { GroupAnimation } from "../animation/GroupAnimation"
 import type { AnimationOptions, Transition } from "../animation/types"
-import { frameData, frameSteps } from "../frameloop"
+import { frameData } from "../frameloop"
+import { flushFrame } from "../frameloop/flush-frame"
 import { microtask } from "../frameloop/microtask"
-import { time } from "../frameloop/sync-time"
 import { HTMLProjectionNode } from "../projection/node/HTMLProjectionNode"
 import type { IProjectionNode } from "../projection/node/types"
 import { visualElementStore } from "../render/store"
@@ -52,25 +51,6 @@ function collectLayoutElements(scope: LayoutAnimationScope): HTMLElement[] {
     })
 
     return elements
-}
-
-/**
- * Process any work scheduled on the frameloop now. A previous animation
- * may have been seeked while paused (controls.time = x) without a frame
- * having rendered it - we must materialise that state into the DOM
- * before taking snapshots.
- */
-function flushPendingFrame() {
-    if (frameData.isProcessing) return
-
-    const now = time.now()
-    frameData.delta = clamp(0, 1000 / 60, now - frameData.timestamp)
-    frameData.timestamp = now
-    frameData.isProcessing = true
-    frameSteps.update.process(frameData)
-    frameSteps.preRender.process(frameData)
-    frameSteps.render.process(frameData)
-    frameData.isProcessing = false
 }
 
 function getProjectionParent(element: Element): IProjectionNode | undefined {
@@ -194,7 +174,12 @@ function flushPendingBuilders() {
     if (!builders) return
     pendingBuilders = undefined
 
-    flushPendingFrame()
+    /**
+     * A previous animation may have been seeked while paused
+     * (controls.time = x) without a frame having rendered it. Materialise
+     * that state into the DOM before taking snapshots.
+     */
+    frameData.isProcessing || flushFrame()
 
     /**
      * Discover and mount every node across all builders before snapshotting

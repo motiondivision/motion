@@ -2,7 +2,6 @@ import {
     Axis,
     AxisDelta,
     Box,
-    clamp,
     Delta,
     Point,
     SubscriptionManager,
@@ -23,7 +22,8 @@ import {
     ValueAnimationOptions,
 } from "../../animation/types"
 import { getValueTransition } from "../../animation/utils/get-value-transition"
-import { cancelFrame, frame, frameData, frameSteps } from "../../frameloop"
+import { cancelFrame, frame, frameData } from "../../frameloop"
+import { flushFrame } from "../../frameloop/flush-frame"
 import { microtask } from "../../frameloop/microtask"
 import { time } from "../../frameloop/sync-time"
 import type { Process } from "../../frameloop/types"
@@ -950,14 +950,7 @@ export function createProjectionNode<I>({
              * we could leave this to the following requestAnimationFrame but this seems
              * to leave a flash of incorrectly styled content.
              */
-            const now = time.now()
-            frameData.delta = clamp(0, 1000 / 60, now - frameData.timestamp)
-            frameData.timestamp = now
-            frameData.isProcessing = true
-            frameSteps.update.process(frameData)
-            frameSteps.preRender.process(frameData)
-            frameSteps.render.process(frameData)
-            frameData.isProcessing = false
+            flushFrame()
         }
 
         /**
