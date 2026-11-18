@@ -151,6 +151,12 @@ export interface IProjectionNode<I = unknown> {
     edgeValues?: number[]
     isTreeAnimating?: boolean
     isAnimationBlocked?: boolean
+    /**
+     * Whether this update's layout animation would happen entirely
+     * off-screen, so it finishes instantly.
+     */
+    isOffscreen?: boolean
+    hasVisibleChild?: boolean
     setAnimationOrigin(
         delta: Delta,
         hasOnlyRelativeTargetChanged?: boolean,

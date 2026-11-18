@@ -381,6 +381,13 @@ export function createProjectionNode<I>({
         isAnimationBlocked = false
 
         /**
+         * Whether this update's layout animation would happen entirely
+         * off-screen, so it finishes instantly. See markOffscreen.
+         */
+        isOffscreen?: boolean
+        hasVisibleChild?: boolean
+
+        /**
          * If true, attempt to resolve relativeTarget.
          */
         attemptToResolveRelativeTarget?: boolean
@@ -659,12 +666,6 @@ export function createProjectionNode<I>({
                         return
                     }
 
-                    // TODO: Check here if an animation exists
-                    const layoutTransition =
-                        this.options.transition ||
-                        visualElement.getDefaultTransition() ||
-                        defaultLayoutTransition
-
                     const {
                         onLayoutAnimationStart,
                         onLayoutAnimationComplete,
@@ -705,14 +706,15 @@ export function createProjectionNode<I>({
                         }
 
                         const animationOptions = {
-                            ...getValueTransition(layoutTransition, "layout"),
+                            ...getLayoutTransition(this),
                             onPlay: onLayoutAnimationStart,
                             onComplete: onLayoutAnimationComplete,
                         }
 
                         if (
                             visualElement.shouldReduceMotion ||
-                            this.options.layoutRoot
+                            this.options.layoutRoot ||
+                            this.isOffscreen
                         ) {
                             animationOptions.delay = 0
                             animationOptions.type = false
@@ -933,6 +935,8 @@ export function createProjectionNode<I>({
                 /**
                  * Write
                  */
+                markOffscreen(this)
+
                 // Notify listeners that the layout is updated
                 this.nodes!.forEach(notifyLayoutUpdate)
             }
@@ -3103,6 +3107,130 @@ function shouldAnimatePositionOnly(
         (animationType === "preserve-aspect" &&
             !isNear(aspectRatio(snapshot), aspectRatio(layout), 0.2))
     )
+}
+
+/**
+ * How far past each edge of the viewport (or a layoutScroll container), as
+ * a fraction of its size, a layout animation still counts as visible.
+ */
+const offscreenMargin = 0.25
+
+/**
+ * Whether the path between two boxes stays outside a view, grown on each
+ * side by offscreenMargin of its size. A transition that can overshoot,
+ * like a spring or a back ease, can travel up to its own distance again
+ * past either end, so the path grows by that distance.
+ */
+function isOutside(start: Box, end: Box, view: Box, overshoot: boolean) {
+    let isOutside = false
+
+    eachAxis((axis) => {
+        const a = start[axis]
+        const b = end[axis]
+        const { min, max } = view[axis]
+        const margin = (max - min) * offscreenMargin
+        const extra = overshoot
+            ? Math.max(Math.abs(b.min - a.min), Math.abs(b.max - a.max))
+            : 0
+
+        if (
+            Math.max(a.max, b.max) + extra < min - margin ||
+            Math.min(a.min, b.min) - extra > max + margin
+        ) {
+            isOutside = true
+        }
+    })
+
+    return isOutside
+}
+
+function canOvershoot(transition: any) {
+    const { type, ease } = transition
+    return (
+        (type && type !== "tween" && type !== "keyframes") ||
+        transition.bounce ||
+        transition.stiffness ||
+        transition.damping ||
+        transition.visualDuration ||
+        [ease].flat().some(
+            (value) =>
+                typeof value === "function" ||
+                value < 0 ||
+                value > 1 ||
+                /back|antic/i.test(value)
+        )
+    )
+}
+
+function getLayoutTransition(node: IProjectionNode) {
+    return getValueTransition(
+        node.options.transition ||
+            node.options.visualElement?.getDefaultTransition() ||
+            defaultLayoutTransition,
+        "layout"
+    )
+}
+
+/**
+ * Before layout animations start, flag the nodes whose animation could never
+ * be seen, so they finish instantly. A node is off-screen when the path
+ * between its start and end boxes is outside the viewport, or outside
+ * a layoutScroll ancestor. A node still animates if any projecting
+ * descendant animates on-screen, as that descendant can animate relative
+ * to it. Shared layout animations crossfade between elements, so they
+ * always run.
+ *
+ * Measured boxes are page-relative and include transforms, so this reads
+ * nothing from the DOM except the viewport size.
+ */
+function markOffscreen(root: IProjectionNode) {
+    const nodes: IProjectionNode[] = []
+    root.nodes!.forEach((node: IProjectionNode) => nodes.push(node))
+
+    const { x, y } = root.scroll?.offset || { x: 0, y: 0 }
+    const viewport: Box = {
+        x: { min: x, max: x + window.innerWidth },
+        y: { min: y, max: y + window.innerHeight },
+    }
+
+    for (let i = nodes.length; i--; ) {
+        const node = nodes[i]
+        const { snapshot, layout, path, parent } = node
+        const hasVisibleChild = node.hasVisibleChild
+        node.hasVisibleChild = node.isOffscreen = false
+
+        if (!snapshot || !layout || !node.hasListeners("didUpdate")) {
+            if (hasVisibleChild && parent) parent.hasVisibleChild = true
+            continue
+        }
+
+        if (
+            !hasVisibleChild &&
+            !node.options.layoutId &&
+            !node.resumeFrom &&
+            !path.some(checkNodeWasScrollRoot)
+        ) {
+            const start = snapshot.measuredBox
+            const end = layout.measuredBox
+            const overshoot = canOvershoot(getLayoutTransition(node))
+
+            node.isOffscreen = isOutside(start, end, viewport, overshoot)
+
+            for (let j = 1; j < path.length && !node.isOffscreen; j++) {
+                const { layout: container, options } = path[j]
+                if (container && options.layoutScroll) {
+                    node.isOffscreen = isOutside(
+                        start,
+                        end,
+                        container.measuredBox,
+                        overshoot
+                    )
+                }
+            }
+        }
+
+        if (!node.isOffscreen && parent) parent.hasVisibleChild = true
+    }
 }
 
 function checkNodeWasScrollRoot(node: IProjectionNode) {
