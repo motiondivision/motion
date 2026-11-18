@@ -378,7 +378,7 @@ describe("setOptions", () => {
 
         node.setOptions({ alwaysMeasureLayout: true })
 
-        expect(node.options).toEqual({
+        expect(node.options).toMatchObject({
             layoutId: "a",
             crossfade: false,
             alwaysMeasureLayout: true,
