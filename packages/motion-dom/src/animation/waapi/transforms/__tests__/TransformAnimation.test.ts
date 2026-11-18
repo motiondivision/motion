@@ -2,6 +2,7 @@ import { animateElement } from "../../../animate/element"
 import { ValueTrack } from "../../../MultiValueAnimation"
 import { repaintLimit } from "../groups"
 import { frame } from "../../../../frameloop"
+import { time } from "../../../../frameloop/sync-time"
 import { styleEffect } from "../../../../effects/style"
 import { motionValue } from "../../../../value"
 import { supportsFlags } from "../../../../utils/supports/flags"
@@ -1661,15 +1662,20 @@ describe("independent transform acceleration", () => {
             // Built, but not moving yet.
             expect(xAt(waapi, performance.now() - startTime)).toBe(0)
 
+            /**
+             * Timed with the clock the animation holds and resumes on. It's
+             * the frame's, which on a busy machine can be a frame or more
+             * behind performance.now() by a different amount at each call.
+             */
             animation.forEach((a) => a.pause())
-            const pausedAt = performance.now()
+            const pausedAt = time.now()
             await nextFrame()
             expect(waapi.playState).toBe("paused")
             expect(waapi.currentTime).toBeLessThan(500)
 
             await wait(100)
             animation.forEach((a) => a.play())
-            const paused = performance.now() - pausedAt
+            const paused = time.now() - pausedAt
             await nextFrame()
 
             expect(created(element)).toEqual([waapi])

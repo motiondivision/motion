@@ -105,6 +105,9 @@ export interface IProjectionNode<I = unknown> {
     scheduleUpdateProjection(): void
     scheduleCheckAfterUnmount(): void
     checkUpdateFailed(): void
+    /**
+     * Only the root has this. Read it as `node.root.sharedNodes`.
+     */
     sharedNodes: Map<string, NodeStack>
     stacksChanged: number
     registerSharedNode(id: string, node: IProjectionNode): void

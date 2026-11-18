@@ -510,9 +510,9 @@ export function createProjectionNode<I>({
         latestValues: ResolvedValues
 
         /**
-         *
+         * Created with the node's first listener, as most never have one.
          */
-        eventHandlers = new Map<LayoutEvents, SubscriptionManager<any>>()
+        eventHandlers?: Map<LayoutEvents, SubscriptionManager<any>>
 
         nodes?: FlatTree
 
@@ -548,23 +548,29 @@ export function createProjectionNode<I>({
                 this.path[i].shouldResetTransform = true
             }
 
-            if (this.root === this) this.nodes = new FlatTree()
+            if (this.root === this) {
+                this.nodes = new FlatTree()
+                this.sharedNodes = new Map()
+                this.scheduleUpdate = () => this.update()
+                this.updateProjection = this.updateProjection.bind(this)
+            }
         }
 
         addEventListener(name: LayoutEvents, handler: any) {
-            if (!this.eventHandlers.has(name)) {
-                this.eventHandlers.set(name, new SubscriptionManager())
+            const handlers = (this.eventHandlers ||= new Map())
+            if (!handlers.has(name)) {
+                handlers.set(name, new SubscriptionManager())
             }
 
-            return this.eventHandlers.get(name)!.add(handler)
+            return handlers.get(name)!.add(handler)
         }
 
         notifyListeners(name: LayoutEvents, ...args: any) {
-            this.eventHandlers.get(name)?.notify(...args)
+            this.eventHandlers?.get(name)?.notify(...args)
         }
 
         hasListeners(name: LayoutEvents) {
-            return this.eventHandlers.has(name)
+            return !!this.eventHandlers?.has(name)
         }
 
         /**
@@ -753,7 +759,7 @@ export function createProjectionNode<I>({
             this.getStack()?.remove(this)
             this.parent?.children.delete(this)
             this.instance = undefined
-            this.eventHandlers.clear()
+            this.eventHandlers = undefined
             this.hasLayoutListener = false
 
             cancelFrame(this.updateProjection)
@@ -954,7 +960,11 @@ export function createProjectionNode<I>({
             frameData.isProcessing = false
         }
 
-        scheduleUpdate = () => this.update()
+        /**
+         * Only on the root, as is everything else that's created for it
+         * in the constructor.
+         */
+        scheduleUpdate: VoidFunction
 
         didUpdate() {
             if (!this.updateScheduled) {
@@ -1005,7 +1015,7 @@ export function createProjectionNode<I>({
             })
         }
 
-        checkUpdateFailed = () => {
+        checkUpdateFailed() {
             if (this.isUpdating) {
                 this.isUpdating = false
                 this.clearAllSnapshots()
@@ -1016,8 +1026,10 @@ export function createProjectionNode<I>({
          * This is a multi-step process as shared nodes might be of different depths. Nodes
          * are sorted by depth order, so we need to resolve the entire tree before moving to
          * the next step.
+         *
+         * Only run on the root, which binds it to schedule it.
          */
-        updateProjection = () => {
+        updateProjection() {
             this.projectionUpdateScheduled = false
 
             this.nodes!.forEach(propagateDirtyNodes)
@@ -2331,10 +2343,9 @@ export function createProjectionNode<I>({
         }
 
         /**
-         * Shared layout
+         * The stack of nodes for each layoutId. Only on the root.
          */
-        // TODO Only running on root node
-        sharedNodes: Map<string, NodeStack> = new Map()
+        sharedNodes: Map<string, NodeStack>
 
         /**
          * Counts the changes to the root's sharedNodes, so each node can
@@ -2369,10 +2380,6 @@ export function createProjectionNode<I>({
 
         getLead() {
             return this.getStack()?.lead || this
-        }
-
-        getPrevLead() {
-            return this.getStack()?.prevLead
         }
 
         getStack() {
