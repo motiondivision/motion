@@ -84,4 +84,84 @@ describe("FlatTree", () => {
         expect(received).toEqual([a])
         expect(collect(tree)).toEqual([b, a])
     })
+
+    test("Visits a child removed and added again mid-loop once", () => {
+        const tree = new FlatTree()
+        const children = [{ depth: 0 }, { depth: 1 }, { depth: 2 }]
+        children.forEach((child) => tree.add(child))
+
+        const received: WithDepth[] = []
+        tree.forEach((child) => {
+            received.push(child)
+            if (child === children[1]) {
+                tree.remove(children[0])
+                tree.add(children[0])
+                tree.remove(children[2])
+                tree.add(children[2])
+            }
+        })
+        expect(received).toEqual(children)
+        expect(collect(tree)).toEqual(children)
+    })
+
+    test("Finishes a loop over the children it started with when a nested loop follows a removal", () => {
+        const tree = new FlatTree()
+        const children = [
+            { depth: 0 },
+            { depth: 1 },
+            { depth: 2 },
+            { depth: 3 },
+        ]
+        children.forEach((child) => tree.add(child))
+
+        const outer: WithDepth[] = []
+        let inner: WithDepth[] = []
+        tree.forEach((child) => {
+            outer.push(child)
+            if (child === children[1]) {
+                tree.remove(children[2])
+                inner = collect(tree)
+                tree.add(children[2])
+            }
+        })
+        expect(outer).toEqual(children)
+        expect(inner).toEqual([children[0], children[1], children[3]])
+    })
+
+    test("Doesn't visit a child removed before a nested loop", () => {
+        const tree = new FlatTree()
+        const children = [{ depth: 0 }, { depth: 1 }, { depth: 2 }]
+        children.forEach((child) => tree.add(child))
+
+        const outer: WithDepth[] = []
+        tree.forEach((child) => {
+            outer.push(child)
+            if (child === children[0]) {
+                tree.remove(children[1])
+                collect(tree)
+            }
+        })
+        expect(outer).toEqual([children[0], children[2]])
+    })
+
+    test("Finishes a loop over the children it started with when a nested loop follows an addition", () => {
+        const tree = new FlatTree()
+        const a = { depth: 1 }
+        const b = { depth: 2 }
+        const shallower = { depth: 0 }
+        tree.add(a)
+        tree.add(b)
+
+        const outer: WithDepth[] = []
+        let inner: WithDepth[] = []
+        tree.forEach((child) => {
+            outer.push(child)
+            if (child === a) {
+                tree.add(shallower)
+                inner = collect(tree)
+            }
+        })
+        expect(outer).toEqual([a, b])
+        expect(inner).toEqual([shallower, a, b])
+    })
 })

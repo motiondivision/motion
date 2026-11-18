@@ -4,7 +4,8 @@ export class FlatTree {
     private children = new Set<WithDepth>()
 
     /**
-     * The children in depth order, until they change.
+     * The children in depth order, until they change. It's dropped
+     * rather than updated, so it never holds a child that was removed.
      */
     private sorted?: WithDepth[]
 
@@ -27,8 +28,8 @@ export class FlatTree {
          * each one looked up.
          */
         for (let i = 0; i < sorted.length; i++) {
-            ;(sorted === this.sorted || children.has(sorted[i])) &&
-                callback(sorted[i])
+            const child = sorted[i]
+            ;(sorted === this.sorted || children.has(child)) && callback(child)
         }
     }
 }
