@@ -122,6 +122,54 @@ describe("which nodes a tree walks", () => {
         expect(node.layout).toBeTruthy()
     })
 
+    test("a node that joins once an update has started has its rotation reset, as the update's start does for the rest", () => {
+        const rendered: number[] = []
+        const latestValues: Record<string, number> = { rotate: 45 }
+        const visualElement = {
+            current: {},
+            latestValues,
+            getProps: () => ({}),
+            notify: () => {},
+            setStaticValue: (key: string, value: number) =>
+                (latestValues[key] = value),
+            render: () => rendered.push(latestValues.rotate),
+            scheduleRender: () => {},
+        } as any
+
+        const root = createRoot()
+        const first = mount(root, { layout: true })
+        const parent = mount(root)
+        const node = mount(parent, { visualElement })
+
+        first.willUpdate()
+        expect(rendered).toEqual([])
+
+        /**
+         * Rendered without its rotation, which is then put back for the
+         * next frame's render.
+         */
+        node.willUpdate()
+        expect(walked(root)).toEqual(ids(root, first, parent, node))
+        expect(rendered).toEqual([0])
+        expect(latestValues.rotate).toBe(45)
+
+        node.willUpdate()
+        expect(rendered).toEqual([0])
+    })
+
+    test("not a node with no part in layout that unmounts and mounts again", () => {
+        const root = createRoot()
+        const parent = mount(root)
+        const node = mount(parent)
+
+        node.unmount()
+        node.mount({ box: box() })
+        expect(walked(root)).toEqual(ids(root))
+
+        node.setOptions({ layout: true })
+        expect(walked(root)).toEqual(ids(root, parent, node))
+    })
+
     test("a node until it unmounts, and again when it mounts", () => {
         const root = createRoot()
         const parent = mount(root)
