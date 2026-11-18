@@ -56,6 +56,27 @@ describe("which nodes a tree walks", () => {
         expect(walked(root)).toEqual(ids(root, grandparent, parent, node))
     })
 
+    test("a node whose component has onBeforeLayoutMeasure, which every update calls", async () => {
+        const onBeforeLayoutMeasure = jest.fn()
+        const visualElement = {
+            current: {},
+            latestValues: {},
+            getProps: () => ({ onBeforeLayoutMeasure }),
+            notify: (name: string) =>
+                name === "BeforeLayoutMeasure" && onBeforeLayoutMeasure(),
+        } as any
+
+        const root = createRoot()
+        const node = mount(root, { visualElement })
+        const other = mount(root, { layout: true })
+        expect(walked(root)).toEqual(ids(root, node, other))
+
+        other.willUpdate()
+        root.didUpdate()
+        await nextFrame()
+        expect(onBeforeLayoutMeasure).toHaveBeenCalledTimes(1)
+    })
+
     test("ancestors that mount after the node, as React's do", () => {
         const root = createRoot()
         const grandparent = createNode(root)
