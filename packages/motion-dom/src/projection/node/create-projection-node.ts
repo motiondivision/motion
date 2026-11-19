@@ -3228,8 +3228,11 @@ function getLayoutTransition(node: IProjectionNode) {
  * - a projecting descendant animates on-screen, as it can animate relative
  *   to this node.
  * - they, or an ancestor, have a transform, which their layout boxes leave out.
- * - they use shared layout, a curved path, carried velocity or an
- *   animationType other than "both", which change the path after this check.
+ * - they use shared layout, carried velocity or an animationType other
+ *   than "both", which change the path after this check.
+ *
+ * A curved path (transition.path) can bulge past the box between its ends.
+ * It's still skipped when both ends are off-screen.
  */
 function markOffscreen(root: IProjectionNode) {
     const nodes: IProjectionNode[] = []
@@ -3265,8 +3268,7 @@ function markOffscreen(root: IProjectionNode) {
             (!options.animationType || options.animationType === "both") &&
             !snapshot.velocity?.some(Boolean) &&
             !snapshot.relativeVelocity?.some(Boolean) &&
-            !hasTransform(node.latestValues) &&
-            !(getLayoutTransition(node) as { path?: unknown }).path
+            !hasTransform(node.latestValues)
         ) {
             const start = createBox()
             const end = createBox()
@@ -3308,7 +3310,8 @@ function markOffscreen(root: IProjectionNode) {
                 }
 
                 /**
-                 * Where this node starts if it rides on this ancestor.
+                 * Where this node starts if it rides on this ancestor. Only
+                 * an ancestor that can be seen can carry it into view.
                  */
                 if (
                     isOffscreen &&
@@ -3317,6 +3320,12 @@ function markOffscreen(root: IProjectionNode) {
                     !boxEqualsRounded(
                         ancestorSnapshot.layoutBox,
                         ancestorLayout.layoutBox
+                    ) &&
+                    !isOutside(
+                        ancestorSnapshot.layoutBox,
+                        ancestorLayout.layoutBox,
+                        viewport,
+                        canNodeOvershoot(ancestor)
                     )
                 ) {
                     const carried = createBox()

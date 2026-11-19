@@ -179,15 +179,15 @@ describe("animateLayout off-screen", () => {
         element.remove()
     })
 
-    test("animates a curved path that bulges into the viewport", async () => {
-        // Below the viewport and its margin, but the arc rises into view.
+    test("finishes a curved path whose start and end are off-screen", async () => {
+        // The arc could bulge into view, but both ends are off-screen.
         expect(
             await isAnimating({ x: 0, y: 1000 }, { x: 1000, y: 1000 }, {
                 duration: 10,
                 ease: "linear",
                 path: arc({ strength: 1, direction: "cw" }),
             })
-        ).toBe(true)
+        ).toBe(false)
     })
 
     test("animates a size-only layout animation whose start box is moved into view", async () => {
@@ -226,6 +226,28 @@ describe("animateLayout off-screen", () => {
 
         expect(getNode(parent.element)!.currentAnimation).toBeDefined()
         expect(getNode(child.element)!.currentAnimation).toBeDefined()
+
+        animation.stop()
+        parent.element.remove()
+    })
+
+    test("finishes an off-screen child of an off-screen parent", async () => {
+        // The parent can't be seen, so neither can a child that rides on it.
+        const parent = createElement({ x: 0, y: 2000, width: 500, height: 500 })
+        const child = createElement({ x: 0, y: 2100 }, parent.element)
+
+        const animation = await animateLayout(
+            () => {
+                parent.moveTo({ x: 0, y: 3000, width: 500, height: 500 })
+                child.moveTo({ x: 0, y: 3300 })
+            },
+            { duration: 10, ease: "linear" }
+        )
+        await nextFrame()
+        await nextFrame()
+
+        expect(getNode(parent.element)!.currentAnimation).toBeUndefined()
+        expect(getNode(child.element)!.currentAnimation).toBeUndefined()
 
         animation.stop()
         parent.element.remove()
