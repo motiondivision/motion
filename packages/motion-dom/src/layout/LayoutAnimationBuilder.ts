@@ -134,7 +134,9 @@ function prepareNode(
  * Create a node for an element in the shared imperative tree. Returns the
  * node and a function that releases it.
  */
-function createLayoutNode(element: HTMLElement): [IProjectionNode, VoidFunction] {
+function createLayoutNode(
+    element: HTMLElement
+): [IProjectionNode, VoidFunction] {
     const node = prepareNode(element)
 
     return [
@@ -168,10 +170,20 @@ export function acquireProjectionNode(
     return owned?.instance ? [owned, () => {}] : createLayoutNode(element)
 }
 
-function sortDocumentOrder(elements: Iterable<HTMLElement>) {
-    return [...elements].sort((a, b) =>
-        a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1
-    )
+/**
+ * A single builder collects its elements in document order already. Only
+ * sort when several builders were merged: comparing two siblings walks
+ * their sibling list, so sorting a long flat list takes quadratic time.
+ */
+function sortDocumentOrder(elements: Iterable<HTMLElement>, sort: boolean) {
+    const sorted = [...elements]
+    return sort
+        ? sorted.sort((a, b) =>
+              a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING
+                  ? -1
+                  : 1
+          )
+        : sorted
 }
 
 function dropNode(element: Element, node: IProjectionNode) {
@@ -212,7 +224,10 @@ function flushPendingBuilders() {
     }
 
     const union = new Map<HTMLElement, IProjectionNode>()
-    for (const element of sortDocumentOrder(targets.keys())) {
+    for (const element of sortDocumentOrder(
+        targets.keys(),
+        builders.length > 1
+    )) {
         const owners = targets.get(element)!
         const node = prepareNode(
             element,
