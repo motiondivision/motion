@@ -102,16 +102,21 @@ import {
 const animationTarget = 1000
 
 /**
- * The most layout parents that get a compositor layer of their own (see
- * hasProjectingChild). Past this, the layers cost the GPU more than the
- * repaints they save, so every node moves with translate(). Measured on
- * the benchmark server: a win up to about 150 layers, a loss from 300.
+ * The most projecting nodes that each get a compositor layer, through
+ * will-change: transform, while they project. A layer is painted once and
+ * then only moved, where a node without one repaints every frame. Each
+ * layer also costs the main thread and the GPU a little, so past this
+ * every node moves without one.
+ *
+ * It's will-change rather than translate3d as Chrome paints a translate3d
+ * layer again whenever its sub-pixel offset changes, and every node rather
+ * than only parents as a layer repaints when a child moves inside it.
  */
 const layerBudget = 100
 
 let layers = 0
 const countLayer = (node: IProjectionNode) => {
-    node.isProjecting() && node.hasProjectingChild() && layers++
+    node.isProjecting() && layers++
 }
 
 let id = 0
@@ -1558,17 +1563,6 @@ export function createProjectionNode<I>({
             }
         }
 
-        /**
-         * Whether a child also projects. Its subtree then moves inside this
-         * element, so a layer of its own saves repainting the subtree.
-         */
-        hasProjectingChild() {
-            for (const child of this.children) {
-                if (child.isProjecting()) return true
-            }
-            return false
-        }
-
         isProjecting() {
             return !!(
                 (this.relativeTarget ||
@@ -2489,6 +2483,17 @@ export function createProjectionNode<I>({
 
             const transformTemplate = this.getTransformTemplate()
 
+            /**
+             * Give this element a layer while it has a projection
+             * transform (see layerBudget), and take it away after. An
+             * element with a will-change of its own keeps that.
+             */
+            const setLayer = (isLayer?: boolean) =>
+                (isLayer || written.willChange) &&
+                !styleProp?.willChange &&
+                !this.latestValues.willChange &&
+                write("willChange", isLayer ? "transform" : "")
+
             if (this.needsReset) {
                 this.needsReset = false
 
@@ -2501,6 +2506,7 @@ export function createProjectionNode<I>({
                 targetStyle.transform = transformTemplate
                     ? transformTemplate(this.latestValues, "")
                     : "none"
+                setLayer()
                 return
             }
 
@@ -2525,6 +2531,7 @@ export function createProjectionNode<I>({
                         : "none"
                     this.hasProjected = false
                 }
+                setLayer()
 
                 return
             }
@@ -2549,9 +2556,10 @@ export function createProjectionNode<I>({
             let transform = buildProjectionTransform(
                 delta,
                 this.treeScale,
-                valuesToRender,
-                !this.root.overLayerBudget && this.hasProjectingChild()
+                valuesToRender
             )
+
+            setLayer(transform !== "none" && !this.root.overLayerBudget)
 
             if (transformTemplate) {
                 transform = transformTemplate(valuesToRender, transform)
