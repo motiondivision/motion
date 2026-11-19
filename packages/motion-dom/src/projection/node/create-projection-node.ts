@@ -3158,32 +3158,48 @@ function shouldAnimatePositionOnly(
 const offscreenMargin = 0.25
 
 /**
- * Whether the path between two boxes stays outside a view, grown on each
- * side by offscreenMargin of its size. A transition that can overshoot,
- * like a spring or a back ease, can travel up to its own distance again
- * past either end, so the path grows by that distance.
+ * Whether the path between two boxes, each moved by its own offset, stays
+ * outside a view, grown on each side by offscreenMargin of its size. A
+ * transition that can overshoot, like a spring or a back ease, can travel
+ * up to its own distance again past either end, so the path grows by that
+ * distance.
  */
-function isOutside(start: Box, end: Box, view: Box, overshoot: boolean) {
-    let isOutside = false
+function isAxisOutside(
+    a: Axis,
+    aShift: number,
+    b: Axis,
+    bShift: number,
+    { min, max }: Axis,
+    overshoot?: boolean
+) {
+    const margin = (max - min) * offscreenMargin
+    const extra = overshoot
+        ? Math.max(
+              Math.abs(b.min + bShift - a.min - aShift),
+              Math.abs(b.max + bShift - a.max - aShift)
+          )
+        : 0
 
-    eachAxis((axis) => {
-        const a = start[axis]
-        const b = end[axis]
-        const { min, max } = view[axis]
-        const margin = (max - min) * offscreenMargin
-        const extra = overshoot
-            ? Math.max(Math.abs(b.min - a.min), Math.abs(b.max - a.max))
-            : 0
+    return (
+        Math.max(a.max + aShift, b.max + bShift) + extra < min - margin ||
+        Math.min(a.min + aShift, b.min + bShift) - extra > max + margin
+    )
+}
 
-        if (
-            Math.max(a.max, b.max) + extra < min - margin ||
-            Math.min(a.min, b.min) - extra > max + margin
-        ) {
-            isOutside = true
-        }
-    })
-
-    return isOutside
+function isOutside(
+    a: Box,
+    b: Box,
+    view: Box,
+    overshoot?: boolean,
+    ax = 0,
+    ay = 0,
+    bx = ax,
+    by = ay
+) {
+    return (
+        isAxisOutside(a.x, ax, b.x, bx, view.x, overshoot) ||
+        isAxisOutside(a.y, ay, b.y, by, view.y, overshoot)
+    )
 }
 
 function canOvershoot(transition: any) {
@@ -3236,8 +3252,24 @@ function getLayoutTransition(node: IProjectionNode) {
  */
 function markOffscreen(root: IProjectionNode) {
     const nodes: IProjectionNode[] = []
-    root.nodes!.forEach((node: IProjectionNode) => nodes.push(node))
+    root.nodes!.forEach((node: IProjectionNode) => {
+        node.isOffscreen = false
+        nodes.push(node)
+    })
 
+    /**
+     * A small tree has little to gain from skipping animations, so it
+     * doesn't pay for the check.
+     */
+    nodes.length > offscreenMinNodes && findOffscreen(root, nodes)
+}
+
+/**
+ * Trees with up to this many projection nodes always animate every node.
+ */
+const offscreenMinNodes = 500
+
+function findOffscreen(root: IProjectionNode, nodes: IProjectionNode[]) {
     const { x, y } = root.scroll?.offset || { x: 0, y: 0 }
     const viewport: Box = {
         x: { min: x, max: x + window.innerWidth },
@@ -3245,16 +3277,12 @@ function markOffscreen(root: IProjectionNode) {
     }
     const canNodeOvershoot = (node: IProjectionNode): boolean =>
         !!canOvershoot(getLayoutTransition(node))
-    const shift = (box: Box, x: number, y: number) => {
-        translateAxis(box.x, x)
-        translateAxis(box.y, y)
-    }
 
     for (let i = nodes.length; i--; ) {
         const node = nodes[i]
         const { snapshot, layout, path, parent, options } = node
         const hasVisibleChild = node.hasVisibleChild
-        node.hasVisibleChild = node.isOffscreen = false
+        node.hasVisibleChild = false
 
         if (!snapshot || !layout || !node.hasListeners("didUpdate")) {
             if (hasVisibleChild && parent) parent.hasVisibleChild = true
@@ -3270,32 +3298,48 @@ function markOffscreen(root: IProjectionNode) {
             !snapshot.relativeVelocity?.some(Boolean) &&
             !hasTransform(node.latestValues)
         ) {
-            const start = createBox()
-            const end = createBox()
-            copyBoxInto(start, snapshot.layoutBox)
-            copyBoxInto(end, layout.layoutBox)
+            const start = snapshot.layoutBox
+            const end = layout.layoutBox
 
+            /**
+             * The scroll of layoutScroll ancestors, which layout boxes
+             * leave out.
+             */
+            let sx = 0
+            let sy = 0
             let isOffscreen = true
             for (let j = 1; j < path.length && isOffscreen; j++) {
                 const { scroll, options: ancestorOptions } = path[j]
-                if (
-                    scroll?.wasRoot ||
-                    hasTransform(path[j].latestValues)
-                ) {
+                if (scroll?.wasRoot || hasTransform(path[j].latestValues)) {
                     isOffscreen = false
                 } else if (scroll && ancestorOptions.layoutScroll) {
-                    shift(start, -scroll.offset.x, -scroll.offset.y)
-                    shift(end, -scroll.offset.x, -scroll.offset.y)
+                    sx -= scroll.offset.x
+                    sy -= scroll.offset.y
                 }
             }
 
-            const overshoot = canNodeOvershoot(node)
-            isOffscreen &&= isOutside(start, end, viewport, overshoot)
+            /**
+             * Test without overshoot first, so on-screen nodes never
+             * resolve their transition.
+             */
+            let overshoot = false
+            isOffscreen &&=
+                isOutside(start, end, viewport, false, sx, sy) &&
+                (!(overshoot = canNodeOvershoot(node)) ||
+                    isOutside(start, end, viewport, true, sx, sy))
 
+            /**
+             * The scroll of layoutScroll ancestors above path[j].
+             */
+            let ax = 0
+            let ay = 0
             for (let j = 1; j < path.length && isOffscreen; j++) {
                 const ancestor = path[j]
-                const { layout: ancestorLayout, snapshot: ancestorSnapshot } =
-                    ancestor
+                const {
+                    layout: ancestorLayout,
+                    snapshot: ancestorSnapshot,
+                    scroll,
+                } = ancestor
 
                 if (
                     ancestor.options.layoutScroll &&
@@ -3305,7 +3349,9 @@ function markOffscreen(root: IProjectionNode) {
                         start,
                         end,
                         ancestorLayout.measuredBox,
-                        overshoot
+                        overshoot,
+                        sx,
+                        sy
                     )
                 }
 
@@ -3320,29 +3366,39 @@ function markOffscreen(root: IProjectionNode) {
                     !boxEqualsRounded(
                         ancestorSnapshot.layoutBox,
                         ancestorLayout.layoutBox
-                    ) &&
-                    !isOutside(
-                        ancestorSnapshot.layoutBox,
-                        ancestorLayout.layoutBox,
-                        viewport,
-                        canNodeOvershoot(ancestor)
                     )
                 ) {
-                    const carried = createBox()
-                    copyBoxInto(carried, end)
-                    shift(
-                        carried,
-                        ancestorSnapshot.layoutBox.x.min -
-                            ancestorLayout.layoutBox.x.min,
-                        ancestorSnapshot.layoutBox.y.min -
-                            ancestorLayout.layoutBox.y.min
-                    )
-                    isOffscreen = isOutside(
-                        carried,
-                        end,
-                        viewport,
-                        overshoot || canNodeOvershoot(ancestor)
-                    )
+                    const ancestorOvershoot = canNodeOvershoot(ancestor)
+                    if (
+                        !isOutside(
+                            ancestorSnapshot.layoutBox,
+                            ancestorLayout.layoutBox,
+                            viewport,
+                            ancestorOvershoot,
+                            ax,
+                            ay
+                        )
+                    ) {
+                        isOffscreen = isOutside(
+                            end,
+                            end,
+                            viewport,
+                            overshoot || ancestorOvershoot,
+                            sx +
+                                ancestorSnapshot.layoutBox.x.min -
+                                ancestorLayout.layoutBox.x.min,
+                            sy +
+                                ancestorSnapshot.layoutBox.y.min -
+                                ancestorLayout.layoutBox.y.min,
+                            sx,
+                            sy
+                        )
+                    }
+                }
+
+                if (scroll && ancestor.options.layoutScroll) {
+                    ax -= scroll.offset.x
+                    ay -= scroll.offset.y
                 }
             }
 

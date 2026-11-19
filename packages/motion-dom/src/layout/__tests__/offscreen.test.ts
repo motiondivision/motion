@@ -64,6 +64,28 @@ async function isAnimating(
 }
 
 describe("animateLayout off-screen", () => {
+    /**
+     * Small trees always animate, so add enough nodes that stay still.
+     */
+    const padding = document.createElement("div")
+    beforeAll(() => {
+        for (let i = 0; i < 500; i++) {
+            const element = document.createElement("div")
+            element.setAttribute("data-layout", "")
+            padding.appendChild(element)
+        }
+        document.body.appendChild(padding)
+    })
+    afterAll(() => padding.remove())
+
+    test("animates every node in a small tree", async () => {
+        padding.remove()
+        expect(await isAnimating({ x: 0, y: 2000 }, { x: 0, y: 3000 })).toBe(
+            true
+        )
+        document.body.appendChild(padding)
+    })
+
     test("animates an element that moves within the viewport", async () => {
         expect(await isAnimating({ x: 0, y: 0 }, { x: 0, y: 300 })).toBe(true)
     })

@@ -32,6 +32,13 @@ const transition = {
 
 let toggle: VoidFunction
 
+/**
+ * Small trees always animate, so add enough nodes that stay still.
+ */
+const padding = Array.from({ length: 500 }, (_, i) => (
+    <motion.div key={i} layout />
+))
+
 function Card({ from, to }: { from: number; to: number }) {
     const [moved, setMoved] = useState(false)
     toggle = () => setMoved(true)
@@ -60,7 +67,12 @@ describe("off-screen layout animations", () => {
     afterEach(() => jest.restoreAllMocks())
 
     async function transformAfterMove(from: number, to: number) {
-        const { container } = render(<Card from={from} to={to} />)
+        const { container } = render(
+            <>
+                {padding}
+                <Card from={from} to={to} />
+            </>
+        )
         await frames(2)
         await act(async () => toggle())
         await frames(10)
@@ -111,7 +123,12 @@ describe("off-screen layout animations", () => {
             )
         }
 
-        const { container } = render(<Track />)
+        const { container } = render(
+            <>
+                {padding}
+                <Track />
+            </>
+        )
         await frames(2)
         await act(async () => move())
         await frames(10)
@@ -162,7 +179,12 @@ describe("off-screen layout animations", () => {
             )
         }
 
-        const { container } = render(<List />)
+        const { container } = render(
+            <>
+                {padding}
+                <List />
+            </>
+        )
         await frames(2)
         await act(async () => move())
         await frames(10)
