@@ -182,20 +182,4 @@ describe("buildProjectionTransform", () => {
             buildProjectionTransform(createDelta(), { x: 1, y: 1 }, { z: 20 })
         ).toBe("translate3d(0px, 0px, 20px) ")
     })
-
-    test("Writes translate3d when asked to give the element its own layer", () => {
-        const delta = createDelta()
-        delta.x.translate = 100
-        delta.y.translate = 50
-
-        expect(
-            buildProjectionTransform(delta, { x: 1, y: 1 }, undefined, true)
-        ).toBe("translate3d(100px, 50px, 0px) ")
-        expect(
-            buildProjectionTransform(delta, { x: 1, y: 1 }, undefined, false)
-        ).toBe("translate(100px, 50px) ")
-        expect(
-            buildProjectionTransform(createDelta(), { x: 1, y: 1 }, {}, true)
-        ).toBe("none")
-    })
 })

@@ -56,6 +56,7 @@ export interface IProjectionNode<I = unknown> {
     children: Set<IProjectionNode>
     path: IProjectionNode[]
     nodes?: FlatTree
+    inTree?: boolean
     depth: number
     instance: I | undefined
     mount: (node: I, isLayoutDirty?: boolean) => void
@@ -136,9 +137,8 @@ export interface IProjectionNode<I = unknown> {
     resetTree(): void
 
     isProjecting(): boolean
-    hasProjectingChild(): boolean
     /**
-     * On the root: whether this frame has more layout parents than the
+     * On the root: whether this frame has more projecting nodes than the
      * layer budget, so none moves as a compositor layer.
      */
     overLayerBudget?: boolean

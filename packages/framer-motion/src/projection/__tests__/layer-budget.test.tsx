@@ -4,10 +4,10 @@ import { render } from "../../jest.setup"
 import { motion } from "../../render/components/motion"
 
 /**
- * A layout node whose children also project writes translate3d, so its
- * subtree moves as a compositor layer instead of repainting. Past a budget
- * of such parents, the layers cost the GPU more than the repaints they
- * save, so every node writes translate() instead.
+ * While a layout animation runs, every node it moves gets
+ * will-change: transform, so it moves as a compositor layer instead of
+ * repainting, and loses it when the animation ends. Past a budget of such
+ * nodes, the layers cost more than the repaints they save, so none get one.
  *
  * JSDOM has no layout, so getBoundingClientRect is mocked from a data
  * attribute.
@@ -29,12 +29,12 @@ function box(left: number, width: number) {
 const frames = (count: number) => stepFrames((count * 1000) / 60)
 
 const transition = {
-    layout: { type: "tween" as const, ease: "linear" as const, duration: 10 },
+    layout: { type: "tween" as const, ease: "linear" as const, duration: 1 },
 }
 
 let toggle: VoidFunction
 
-function Cards({ count }: { count: number }) {
+function Cards({ count, willChange }: { count: number; willChange?: string }) {
     const [moved, setMoved] = useState(false)
     toggle = () => setMoved((value) => !value)
     return (
@@ -47,8 +47,10 @@ function Cards({ count }: { count: number }) {
                     layoutDependency={moved}
                     transition={transition}
                     data-moved={moved}
+                    style={{ willChange }}
                 >
                     <motion.div
+                        className="child"
                         layout
                         layoutDependency={moved}
                         transition={transition}
@@ -80,28 +82,51 @@ describe("layer budget", () => {
 
     afterEach(() => jest.restoreAllMocks())
 
-    async function transforms(count: number) {
-        render(<Cards count={count} />)
+    const elements = () =>
+        Array.from(document.querySelectorAll<HTMLElement>(".card, .child"))
+
+    async function animate(count: number, willChange?: string) {
+        render(<Cards count={count} willChange={willChange} />)
         await frames(2)
         await act(async () => toggle())
         await frames(10)
-        return Array.from(document.querySelectorAll<HTMLElement>(".card")).map(
-            (card) => card.style.transform
-        )
+        return elements()
     }
 
-    test("a few parents with projecting children each get a layer", async () => {
-        const cards = await transforms(3)
-        expect(cards).toHaveLength(3)
-        for (const transform of cards) expect(transform).toContain("translate3d(")
+    test("every node in a small layout animation gets will-change", async () => {
+        const nodes = await animate(3)
+        expect(nodes).toHaveLength(6)
+        for (const { style } of nodes) {
+            expect(style.willChange).toBe("transform")
+            expect(style.transform).toContain("translate(")
+            expect(style.transform).not.toContain("translate3d(")
+        }
     })
 
-    test("past the budget, every parent moves with translate()", async () => {
-        const cards = await transforms(150)
-        expect(cards).toHaveLength(150)
-        for (const transform of cards) {
-            expect(transform).toContain("translate(")
-            expect(transform).not.toContain("translate3d(")
+    test("will-change is removed when the animation ends", async () => {
+        await animate(3)
+        await frames(70)
+        for (const { style } of elements()) {
+            expect(style.transform).toBe("none")
+            expect(style.willChange).toBe("")
         }
+    })
+
+    test("past the budget, no node gets will-change", async () => {
+        const nodes = await animate(60)
+        expect(nodes).toHaveLength(120)
+        for (const { style } of nodes) {
+            expect(style.willChange).toBe("")
+            expect(style.transform).toContain("translate(")
+            expect(style.transform).not.toContain("translate3d(")
+        }
+    })
+
+    test("a will-change set in style is left alone", async () => {
+        await animate(3, "opacity")
+        const cards = document.querySelectorAll<HTMLElement>(".card")
+        for (const { style } of cards) expect(style.willChange).toBe("opacity")
+        await frames(70)
+        for (const { style } of cards) expect(style.willChange).toBe("opacity")
     })
 })
