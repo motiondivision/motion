@@ -3215,15 +3215,21 @@ function getLayoutTransition(node: IProjectionNode) {
 
 /**
  * Before layout animations start, flag the nodes whose animation could never
- * be seen, so they finish instantly. A node is off-screen when the path
- * between its start and end boxes is outside the viewport, or outside
- * a layoutScroll ancestor. A node still animates if any projecting
- * descendant animates on-screen, as that descendant can animate relative
- * to it. Shared layout animations crossfade between elements, so they
- * always run.
+ * be seen, so they finish instantly. The check uses the boxes the animation
+ * draws between: snapshot.layoutBox to layout.layoutBox, moved by the
+ * current scroll of layoutScroll ancestors. A node is off-screen when that
+ * path is outside the viewport, or outside a layoutScroll ancestor.
  *
- * Measured boxes are page-relative and include transforms, so this reads
- * nothing from the DOM except the viewport size.
+ * A node that finishes inside an animating ancestor rides on it, at its
+ * final offset from it, so that path must be off-screen too, for every
+ * ancestor whose layout changed.
+ *
+ * Nodes still animate when:
+ * - a projecting descendant animates on-screen, as it can animate relative
+ *   to this node.
+ * - they, or an ancestor, have a transform, which their layout boxes leave out.
+ * - they use shared layout, a curved path, carried velocity or an
+ *   animationType other than "both", which change the path after this check.
  */
 function markOffscreen(root: IProjectionNode) {
     const nodes: IProjectionNode[] = []
@@ -3234,10 +3240,16 @@ function markOffscreen(root: IProjectionNode) {
         x: { min: x, max: x + window.innerWidth },
         y: { min: y, max: y + window.innerHeight },
     }
+    const canNodeOvershoot = (node: IProjectionNode): boolean =>
+        !!canOvershoot(getLayoutTransition(node))
+    const shift = (box: Box, x: number, y: number) => {
+        translateAxis(box.x, x)
+        translateAxis(box.y, y)
+    }
 
     for (let i = nodes.length; i--; ) {
         const node = nodes[i]
-        const { snapshot, layout, path, parent } = node
+        const { snapshot, layout, path, parent, options } = node
         const hasVisibleChild = node.hasVisibleChild
         node.hasVisibleChild = node.isOffscreen = false
 
@@ -3248,27 +3260,84 @@ function markOffscreen(root: IProjectionNode) {
 
         if (
             !hasVisibleChild &&
-            !node.options.layoutId &&
+            !options.layoutId &&
             !node.resumeFrom &&
-            !path.some(checkNodeWasScrollRoot)
+            (!options.animationType || options.animationType === "both") &&
+            !snapshot.velocity?.some(Boolean) &&
+            !snapshot.relativeVelocity?.some(Boolean) &&
+            !hasTransform(node.latestValues) &&
+            !(getLayoutTransition(node) as { path?: unknown }).path
         ) {
-            const start = snapshot.measuredBox
-            const end = layout.measuredBox
-            const overshoot = canOvershoot(getLayoutTransition(node))
+            const start = createBox()
+            const end = createBox()
+            copyBoxInto(start, snapshot.layoutBox)
+            copyBoxInto(end, layout.layoutBox)
 
-            node.isOffscreen = isOutside(start, end, viewport, overshoot)
+            let isOffscreen = true
+            for (let j = 1; j < path.length && isOffscreen; j++) {
+                const { scroll, options: ancestorOptions } = path[j]
+                if (
+                    scroll?.wasRoot ||
+                    hasTransform(path[j].latestValues)
+                ) {
+                    isOffscreen = false
+                } else if (scroll && ancestorOptions.layoutScroll) {
+                    shift(start, -scroll.offset.x, -scroll.offset.y)
+                    shift(end, -scroll.offset.x, -scroll.offset.y)
+                }
+            }
 
-            for (let j = 1; j < path.length && !node.isOffscreen; j++) {
-                const { layout: container, options } = path[j]
-                if (container && options.layoutScroll) {
-                    node.isOffscreen = isOutside(
+            const overshoot = canNodeOvershoot(node)
+            isOffscreen &&= isOutside(start, end, viewport, overshoot)
+
+            for (let j = 1; j < path.length && isOffscreen; j++) {
+                const ancestor = path[j]
+                const { layout: ancestorLayout, snapshot: ancestorSnapshot } =
+                    ancestor
+
+                if (
+                    ancestor.options.layoutScroll &&
+                    ancestorLayout?.animationId === root.animationId
+                ) {
+                    isOffscreen = isOutside(
                         start,
                         end,
-                        container.measuredBox,
+                        ancestorLayout.measuredBox,
                         overshoot
                     )
                 }
+
+                /**
+                 * Where this node starts if it rides on this ancestor.
+                 */
+                if (
+                    isOffscreen &&
+                    ancestorLayout &&
+                    ancestorSnapshot &&
+                    !boxEqualsRounded(
+                        ancestorSnapshot.layoutBox,
+                        ancestorLayout.layoutBox
+                    )
+                ) {
+                    const carried = createBox()
+                    copyBoxInto(carried, end)
+                    shift(
+                        carried,
+                        ancestorSnapshot.layoutBox.x.min -
+                            ancestorLayout.layoutBox.x.min,
+                        ancestorSnapshot.layoutBox.y.min -
+                            ancestorLayout.layoutBox.y.min
+                    )
+                    isOffscreen = isOutside(
+                        carried,
+                        end,
+                        viewport,
+                        overshoot || canNodeOvershoot(ancestor)
+                    )
+                }
             }
+
+            node.isOffscreen = isOffscreen
         }
 
         if (!node.isOffscreen && parent) parent.hasVisibleChild = true

@@ -1,4 +1,4 @@
-import { act, useState } from "react"
+import { act, useLayoutEffect, useState } from "react"
 import { stepFrames, withManualFrames } from "../../gestures/__tests__/utils"
 import { render } from "../../jest.setup"
 import { motion } from "../../render/components/motion"
@@ -78,4 +78,97 @@ describe("off-screen layout animations", () => {
     test("animates a layout change into the viewport", async () => {
         expect(await transformAfterMove(3000, 300)).toContain("translate")
     })
+
+    test("animates a card in a transformed track that moves into view", async () => {
+        /**
+         * The track's x is in the browser's measurement only while it's
+         * applied, which it isn't when the new layout is measured.
+         */
+        jest.spyOn(
+            HTMLElement.prototype,
+            "getBoundingClientRect"
+        ).mockImplementation(function (this: HTMLElement) {
+            const shift = /-3000px/.test(this.parentElement!.style.transform)
+                ? -3000
+                : 0
+            const left = Number(this.dataset.left ?? 0) + shift
+            return { ...box(0), x: left, left, right: left + 100 } as DOMRect
+        })
+
+        let move: VoidFunction = () => {}
+        function Track() {
+            const [moved, setMoved] = useState(false)
+            move = () => setMoved(true)
+            return (
+                <motion.div style={{ x: -3000 }}>
+                    <motion.div
+                        className="card"
+                        layout
+                        transition={transition}
+                        data-left={moved ? 3000 : 4500}
+                    />
+                </motion.div>
+            )
+        }
+
+        const { container } = render(<Track />)
+        await frames(2)
+        await act(async () => move())
+        await frames(10)
+        expect(
+            container.querySelector<HTMLElement>(".card")!.style.transform
+        ).toContain("translate")
+    })
+
+    test("animates an item that a layoutScroll container scrolls into view", async () => {
+        let scrollTop = 0
+        jest.spyOn(
+            HTMLElement.prototype,
+            "getBoundingClientRect"
+        ).mockImplementation(function (this: HTMLElement) {
+            if (this.dataset.scroller !== undefined) {
+                return { ...box(0), height: 500, bottom: 500 } as DOMRect
+            }
+            return box(Number(this.dataset.top ?? 0) - scrollTop)
+        })
+
+        let move: VoidFunction = () => {}
+        function List() {
+            const [moved, setMoved] = useState(false)
+            move = () => setMoved(true)
+            // The list scrolls to follow the item, after the snapshot.
+            useLayoutEffect(() => {
+                if (moved) scrollTop = 1000
+            }, [moved])
+            return (
+                <motion.div
+                    layoutScroll
+                    data-scroller
+                    ref={(element: HTMLElement | null) => {
+                        element &&
+                            Object.defineProperty(element, "scrollTop", {
+                                get: () => scrollTop,
+                                configurable: true,
+                            })
+                    }}
+                >
+                    <motion.div
+                        className="card"
+                        layout
+                        transition={transition}
+                        data-top={moved ? 2000 : 1100}
+                    />
+                </motion.div>
+            )
+        }
+
+        const { container } = render(<List />)
+        await frames(2)
+        await act(async () => move())
+        await frames(10)
+        expect(
+            container.querySelector<HTMLElement>(".card")!.style.transform
+        ).toContain("translate")
+    })
 })
+
