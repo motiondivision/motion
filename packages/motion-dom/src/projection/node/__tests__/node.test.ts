@@ -368,3 +368,49 @@ describe("node", () => {
         expect(node.target).toEqual(box())
     })
 })
+
+describe("setOptions", () => {
+    test("keeps the options it isn't given", () => {
+        const node = createTestNode(undefined, {
+            layoutId: "a",
+            crossfade: false,
+        })
+
+        node.setOptions({ alwaysMeasureLayout: true })
+
+        expect(node.options).toMatchObject({
+            layoutId: "a",
+            crossfade: false,
+            alwaysMeasureLayout: true,
+        })
+    })
+
+    test("turns crossfade back on when it's given as undefined", () => {
+        const node = createTestNode(undefined, {
+            layoutId: "a",
+            crossfade: false,
+        })
+
+        node.setOptions({ crossfade: undefined })
+
+        expect(node.options.crossfade).not.toBe(false)
+        expect(node.options.layoutId).toBe("a")
+    })
+
+    test("promoting a node with a transition keeps crossfade disabled", () => {
+        const transition = { duration: 1 }
+        const node = createTestNode(undefined, {
+            layoutId: "promoted",
+            crossfade: false,
+            initialPromotionConfig: { transition },
+        })
+
+        node.mount({
+            box: { x: { min: 0, max: 100 }, y: { min: 0, max: 100 } },
+        })
+
+        expect(node.isLead()).toBe(true)
+        expect(node.options.transition).toBe(transition)
+        expect(node.options.crossfade).toBe(false)
+    })
+})
