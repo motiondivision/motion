@@ -538,6 +538,12 @@ export function createProjectionNode<I>({
          */
         hasLayoutListener?: boolean
 
+        /**
+         * Whether this node is one its root walks, or will be once it's
+         * mounted. See joinTree().
+         */
+        inTree?: boolean
+
         constructor(
             latestValues: ResolvedValues = {},
             parent: IProjectionNode | undefined = defaultParent?.()
@@ -588,7 +594,7 @@ export function createProjectionNode<I>({
                 visualElement.mount(instance)
             }
 
-            this.root.nodes!.add(this)
+            this.inTree ? this.root.nodes!.add(this) : joinTree(this)
             this.parent?.children.add(this)
 
             if (this.root.hasTreeAnimated && (layout || layoutId)) {
@@ -804,6 +810,7 @@ export function createProjectionNode<I>({
 
         willUpdate(shouldNotifyListeners = true, isUnmount?: boolean) {
             this.root.hasTreeAnimated = true
+            joinTree(this, true)
 
             if (this.root.isUpdateBlocked()) {
                 this.options.onExitComplete?.()
@@ -1363,6 +1370,7 @@ export function createProjectionNode<I>({
                     options.crossfade !== undefined ? options.crossfade : true,
             }
             this.addLayoutListener()
+            joinTree(this)
         }
 
         clearMeasurements() {
@@ -2661,6 +2669,39 @@ export function createProjectionNode<I>({
             this.root.nodes!.forEach(clearMeasurements)
             this.root.sharedNodes.clear()
             this.root.stacksChanged++
+        }
+    }
+}
+
+/**
+ * Add a node to the nodes its root walks on every update and every
+ * projection frame, if it takes part in layout: it has a layout option, it's
+ * told its layout will update, or it's an ancestor of a node that does. So a
+ * component that only animates values costs those walks nothing.
+ */
+function joinTree(node: IProjectionNode, force?: boolean) {
+    const { options } = node
+
+    if (
+        !node.inTree &&
+        (force ||
+            options.layout ||
+            options.layoutId ||
+            options.alwaysMeasureLayout ||
+            !node.parent ||
+            options.visualElement?.getProps().onBeforeLayoutMeasure)
+    ) {
+        node.inTree = true
+        node.parent && joinTree(node.parent, true)
+
+        if (node.instance) {
+            node.root!.nodes!.add(node)
+
+            /**
+             * A node that joins as it's told to update, or as an ancestor
+             * of one, has missed the start of an update that's under way.
+             */
+            force && node.root!.isUpdating && node.resetSkewAndRotation()
         }
     }
 }

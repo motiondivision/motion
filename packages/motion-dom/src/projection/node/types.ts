@@ -56,6 +56,7 @@ export interface IProjectionNode<I = unknown> {
     children: Set<IProjectionNode>
     path: IProjectionNode[]
     nodes?: FlatTree
+    inTree?: boolean
     depth: number
     instance: I | undefined
     mount: (node: I, isLayoutDirty?: boolean) => void
