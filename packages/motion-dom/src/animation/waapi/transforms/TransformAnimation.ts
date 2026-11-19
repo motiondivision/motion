@@ -35,6 +35,7 @@ import { acceleratedValues } from "../utils/accelerated-values"
 import { needsMixer } from "../utils/needs-mixer"
 import { supportsLinearEasing } from "../../../utils/supports/linear-easing"
 import {
+    addCompositorLayer,
     isRepainting,
     markRepaint,
     TransformGroupHooks,
@@ -233,10 +234,7 @@ const read = (owner: TransformOwner, key: string) => {
  * to stay on the main thread while they run. Browsers without linear()
  * easing stay on the main thread.
  */
-const canGroupTransform = ({
-    name,
-    motionValue,
-}: ValueAnimationOptions<any>) =>
+const canGroupTransform = ({ name, motionValue }: ValueAnimationOptions<any>) =>
     name &&
     name !== "pathRotation" &&
     transformProps.has(name) &&
@@ -566,6 +564,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
             native.onfinish = native.oncancel = null
             native.cancel()
             native = scrollAnimation = undefined
+            addCompositorLayer(-1)
         }
     }
 
@@ -620,6 +619,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
          * Something else cancelled it, so carry on on the main thread.
          */
         animation.oncancel = () => native === animation && group.demote()
+        native || addCompositorLayer(1)
         return (native = animation)
     }
 
