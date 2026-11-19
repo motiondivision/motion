@@ -47,7 +47,7 @@
     "motion-div+AnimatePresence": 50000,
     "motion-div+useAnimate": 54000,
     "motion-div+animate": 53900,
-    "motion-div+useInView": 48300,
+    "motion-div+useInView": 48350,
     "motion-div+useScroll": 51400,
     "motion-div+useTransform+useMotionTemplate": 48600,
     "motion-div+useScroll+useTransform+useSpring": 52850,

@@ -38,6 +38,14 @@ export interface TransformGroupHooks {
 export const transformGroups = new WeakMap<object, TransformGroupHooks>()
 
 /**
+ * How many elements have a WAAPI animation from their group, and so a
+ * compositor layer. Layout animations share their layer budget with these.
+ */
+export let compositorLayers = 0
+export const addCompositorLayer = (amount: number) =>
+    (compositorLayers += amount)
+
+/**
  * An element repainted every frame by a style animating on the main thread
  * is rastered again every frame. With a compositor layer for its
  * transforms, each element is rastered on its own; without, they're
