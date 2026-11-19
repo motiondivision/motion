@@ -45,7 +45,10 @@ import {
     pointToProgressVelocity,
     resolveAutoMass,
 } from "../animation/layout-velocity"
-import { transformGroups } from "../../animation/waapi/transforms/groups"
+import {
+    compositorLayers,
+    transformGroups,
+} from "../../animation/waapi/transforms/groups"
 import { copyAxisDeltaInto, copyAxisInto, copyBoxInto } from "../geometry/copy"
 import {
     applyBoxDelta,
@@ -102,8 +105,10 @@ import {
 const animationTarget = 1000
 
 /**
- * The most projecting nodes that each get a compositor layer, through
- * will-change: transform, while they project. A layer is painted once and
+ * The most compositor layers Motion makes at once before projecting nodes
+ * stop getting one. The count is the projecting nodes, which each get a
+ * layer through will-change: transform while they project, plus the
+ * elements with a WAAPI animation (see compositorLayers). A layer is painted once and
  * then only moved, where a node without one repaints every frame. Each
  * layer also costs the main thread and the GPU a little, so past this
  * every node moves without one.
@@ -1039,7 +1044,7 @@ export function createProjectionNode<I>({
 
             layers = 0
             this.nodes!.forEach(countLayer)
-            this.overLayerBudget = layers > layerBudget
+            this.overLayerBudget = layers + compositorLayers > layerBudget
 
             /**
              * Record this frame's debug counts, if recordStats() is running.

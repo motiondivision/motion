@@ -45,4 +45,32 @@ test.describe("layout animation layers", () => {
             expect(transform).toContain("translate(")
         }
     })
+
+    test("elements animating on the compositor share the layer budget", async ({
+        page,
+    }) => {
+        await page.goto("layout/will-change.html?animated=98")
+        await page.waitForTimeout(100)
+        expect(await page.evaluate(() => (window as any).accelerated())).toBe(
+            98
+        )
+
+        await page.evaluate(() => {
+            ;(window as any).run()
+        })
+        await page.waitForTimeout(200)
+        for (const [willChange] of await page.evaluate(read)) {
+            expect(willChange).toBe("")
+        }
+
+        await page.waitForTimeout(600)
+        await page.evaluate(() => {
+            ;(window as any).stopBoxes()
+            ;(window as any).run()
+        })
+        await page.waitForTimeout(200)
+        for (const [willChange] of await page.evaluate(read)) {
+            expect(willChange).toBe("transform")
+        }
+    })
 })
