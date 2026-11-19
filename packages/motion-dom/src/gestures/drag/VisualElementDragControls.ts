@@ -32,10 +32,9 @@ import type { DragPointConstraint, ResolvedConstraints } from "./types"
 import {
     applyConstraints,
     calcOrigin,
-    calcRelativeConstraints,
+    calcRelativeAxisConstraints,
     calcViewportConstraints,
     defaultElastic,
-    rebaseAxisConstraints,
     resolveDragElastic,
 } from "./utils/constraints"
 
@@ -114,8 +113,6 @@ export class VisualElementDragControls {
      * The permitted boundaries of travel, in pixels.
      */
     private constraints: ResolvedConstraints | false = false
-
-    private hasMutatedConstraints?: boolean
 
     /**
      * A constraint, from a `dragConstraints` function, that moves the
@@ -411,12 +408,6 @@ export class VisualElementDragControls {
     private resolveConstraints() {
         const { dragConstraints, dragElastic } = this.getProps()
 
-        const { projection } = this.visualElement
-        const layout =
-            projection && (projection.layout || projection.measure(false))
-
-        const prevConstraints = this.constraints
-
         if (isElementConstraints(dragConstraints)) {
             /**
              * Ref constraints are measured with the layout. Scrolling a
@@ -427,48 +418,25 @@ export class VisualElementDragControls {
              */
             if (
                 !this.constraints ||
-                this.scroll !== measureScroll(projection!)
+                this.scroll !== measureScroll(this.visualElement.projection!)
             ) {
                 this.constraints = this.resolveRefConstraints()
             }
-        } else {
-            if (
-                dragConstraints &&
-                layout &&
-                typeof dragConstraints === "object"
-            ) {
-                this.constraints = calcRelativeConstraints(
-                    layout.layoutBox,
-                    dragConstraints
-                )
-            } else {
-                this.constraints = false
+        } else if (dragConstraints && typeof dragConstraints === "object") {
+            /**
+             * Relative constraints are already in the space of the x/y
+             * motion values.
+             */
+            const { top, left, bottom, right } = dragConstraints
+            this.constraints = {
+                x: calcRelativeAxisConstraints(left, right),
+                y: calcRelativeAxisConstraints(top, bottom),
             }
+        } else {
+            this.constraints = false
         }
 
         this.elastic = resolveDragElastic(dragElastic)
-
-        /**
-         * If we're outputting to external MotionValues, we want to rebase the measured constraints
-         * from viewport-relative to component-relative. This only applies to relative (non-ref)
-         * constraints, as ref-based constraints from calcViewportConstraints are already in the
-         * correct coordinate space for the motion value transform offset.
-         */
-        if (
-            prevConstraints !== this.constraints &&
-            !isElementConstraints(dragConstraints) &&
-            layout &&
-            this.constraints &&
-            !this.hasMutatedConstraints
-        ) {
-            const constraints = this.constraints
-            eachAxis((axis) => {
-                constraints[axis] = rebaseAxisConstraints(
-                    layout.layoutBox[axis],
-                    constraints[axis]
-                )
-            })
-        }
     }
 
     private resolveRefConstraints() {
@@ -523,8 +491,6 @@ export class VisualElementDragControls {
             const userConstraints = onMeasureDragConstraints(
                 convertBoxToBoundingBox(measuredConstraints)
             )
-
-            this.hasMutatedConstraints = !!userConstraints
 
             if (userConstraints) {
                 measuredConstraints = convertBoundingBoxToBox(userConstraints)
