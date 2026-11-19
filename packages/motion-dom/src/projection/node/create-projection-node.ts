@@ -1356,12 +1356,7 @@ export function createProjectionNode<I>({
         }
 
         setOptions(options: ProjectionNodeOptions) {
-            this.options = {
-                ...this.options,
-                ...options,
-                crossfade:
-                    options.crossfade !== undefined ? options.crossfade : true,
-            }
+            this.options = { ...this.options, ...options }
             this.addLayoutListener()
             joinTree(this)
         }
@@ -1867,7 +1862,7 @@ export function createProjectionNode<I>({
             const shouldCrossfadeOpacity =
                 isSharedLayoutAnimation &&
                 !isOnlyMember &&
-                this.options.crossfade === true &&
+                this.options.crossfade !== false &&
                 !this.path.some(hasOpacityCrossfade)
 
             this.animationProgress = 0
