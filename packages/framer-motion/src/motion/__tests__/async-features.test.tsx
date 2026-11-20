@@ -112,11 +112,22 @@ describe("motion components with async layout and drag", () => {
         expect(projectionOf(container.firstChild as Element)).toBeUndefined()
 
         /**
+         * A caller that preloads is told of the failure.
+         */
+        const dragLoad = featureLoaders.drag.load
+        featureLoaders.drag.load = featureLoaders.layout.load
+        featureLoaders.layout.failedAt = 0
+        await expect(preloadFeatures()).rejects.toThrow("offline")
+        featureLoaders.drag.load = dragLoad
+        featureLoaders.drag.failedAt = 0
+        expect(featureLoaders.layout.load).toHaveBeenCalledTimes(3)
+
+        /**
          * Not asked for again straight away.
          */
         rerender(<motion.div layout />)
         await settle()
-        expect(featureLoaders.layout.load).toHaveBeenCalledTimes(1)
+        expect(featureLoaders.layout.load).toHaveBeenCalledTimes(3)
 
         /**
          * Asked for again once it has been left a while.

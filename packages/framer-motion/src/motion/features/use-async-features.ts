@@ -1,4 +1,4 @@
-import { warnOnce } from "motion-utils"
+import { noop, warnOnce } from "motion-utils"
 import { useSyncExternalStore } from "react"
 import { MotionProps } from "../types"
 import { getInitializedFeatureDefinitions } from "./definitions"
@@ -44,14 +44,16 @@ const fetchFeature = (loaders: FeatureLoaders, name: string) => {
         (error) => {
             /**
              * A later render asks again, as a failed request can succeed
-             * once the network is back.
+             * once the network is back. Browsers that keep a failed
+             * module, like Chrome, only fetch it again after a reload.
              */
             loader.promise = undefined
             loader.failedAt = Date.now()
             warnOnce(
                 false,
-                `The ${name} feature failed to load, so ${name} props do nothing until it does: ${error}`
+                `The ${name} feature failed to load, so ${name} props do nothing until it does, which can need a page reload: ${error}`
             )
+            throw error
         }
     ))
 }
@@ -93,13 +95,13 @@ export function useAsyncFeatures(props: MotionProps, loaders: FeatureLoaders) {
             continue
         }
 
-        fetchFeature(loaders, name)
+        fetchFeature(loaders, name).catch(noop)
     }
 }
 
 /**
  * Fetch every feature now, for instance before a test runs or ahead of an
- * interaction that needs one.
+ * interaction that needs one. Rejects if one fails to load.
  */
 export const preloadFeatures = (loaders: FeatureLoaders) =>
     Promise.all(Object.keys(loaders).map((name) => fetchFeature(loaders, name)))
