@@ -32,7 +32,7 @@ export function useVisualElement<
     ProjectionNodeConstructor?: any,
     isSVG?: boolean
 ): VisualElement<HTMLElement | SVGElement> | undefined {
-    const { visualElement: parent } = useContext(MotionContext)
+    const { visualElement: parent, project } = useContext(MotionContext)
     const lazyContext = useContext(LazyContext)
     const presenceContext = useContext(PresenceContext)
     const motionConfig = useContext(MotionConfigContext)
@@ -100,18 +100,12 @@ export function useVisualElement<
          * component's props, so components only bundle the setup with the
          * layout and drag features.
          */
+        project?.(ProjectionNodeConstructor)
         ProjectionNodeConstructor.create(
             visualElement,
             props,
             initialLayoutGroupConfig
         )
-
-        /**
-         * A projection node made after its element mounted, as when the
-         * layout feature is fetched, missed the mount in the ref callback.
-         */
-        visualElement.current &&
-            visualElement.projection.mount(visualElement.current)
     }
 
     useInsertionEffect(() => {

@@ -1,29 +1,95 @@
 import { noop, warnOnce } from "motion-utils"
-import { useSyncExternalStore } from "react"
+import { useContext, useSyncExternalStore } from "react"
+import { MotionContext, MotionContextProps } from "../../context/MotionContext"
+import { SwitchLayoutGroupContext } from "../../context/SwitchLayoutGroupContext"
+import { useConstant } from "../../utils/use-constant"
 import { MotionProps } from "../types"
 import { getInitializedFeatureDefinitions } from "./definitions"
 import { loadFeatures } from "./load-features"
-import { FeatureLoaders } from "./types"
+import { FeatureLoader, FeatureLoaders } from "./types"
 
-/**
- * Every component that can fetch features renders again when one arrives,
- * in one commit and from the top of the tree down. With the layout feature
- * each of them makes its projection node then, parents before children,
- * as they would have if the feature had been there from the start.
- */
-const listeners = new Set<VoidFunction>()
-let version = 0
-
-const subscribe = (listener: VoidFunction) => {
-    listeners.add(listener)
-    return () => listeners.delete(listener)
+interface Entry {
+    context?: MotionContextProps
+    parent?: MotionContextProps
+    props?: MotionProps
+    promotion?: any
+    version: number
+    onChange?: VoidFunction
+    subscribe: (onChange: VoidFunction) => VoidFunction
+    getVersion: () => number
 }
 
-const getVersion = () => version
+/**
+ * Each component that can fetch features, by the context it gives its
+ * children, and those that are mounted.
+ */
+const entries = new WeakMap<MotionContextProps, Entry>()
+const mounted = new Set<Entry>()
 
-const notify = () => {
-    version++
-    listeners.forEach((listener) => listener())
+const getProjectionNode = () => {
+    const { layout, drag } = getInitializedFeatureDefinitions()
+    return layout?.ProjectionNode || drag?.ProjectionNode
+}
+
+/**
+ * Give a component the projection node it would have made while rendering,
+ * had the feature been there. Its ancestors are given theirs first, as a
+ * node finds its parent when it's made.
+ */
+function ensureNode(context: MotionContextProps, ProjectionNode: any) {
+    const entry = entries.get(context)
+    const { visualElement } = context
+    if (!entry || !visualElement || visualElement.projection) return
+
+    entry.parent!.project?.(ProjectionNode)
+    ProjectionNode.create(visualElement, visualElement.props, entry.promotion)
+    visualElement.current &&
+        visualElement.projection!.mount(visualElement.current)
+}
+
+/**
+ * When a feature arrives, mounted components are given projection nodes
+ * without rendering again. Only those whose props use the feature render,
+ * to mount it.
+ */
+const notify = (keys: FeatureLoader["keys"]) => {
+    const ProjectionNode = getProjectionNode()
+    const definitions = getInitializedFeatureDefinitions()
+
+    if (ProjectionNode) {
+        for (const entry of mounted) {
+            ensureNode(entry.context!, ProjectionNode)
+        }
+    }
+
+    for (const entry of mounted) {
+        if (keys.some((key) => definitions[key]?.isEnabled(entry.props!))) {
+            entry.version++
+            entry.onChange!()
+        }
+    }
+}
+
+const createEntry = () => {
+    const entry: Entry = {
+        version: 0,
+        getVersion: () => entry.version,
+        subscribe: (onChange) => {
+            entry.onChange = onChange
+            mounted.add(entry)
+
+            /**
+             * A feature that arrived between this component's render and
+             * its commit.
+             */
+            const ProjectionNode = getProjectionNode()
+            ProjectionNode && ensureNode(entry.context!, ProjectionNode)
+
+            return () => mounted.delete(entry)
+        },
+    }
+
+    return entry
 }
 
 /**
@@ -39,7 +105,7 @@ const fetchFeature = (loaders: FeatureLoaders, name: string) => {
         (features) => {
             loadFeatures(features)
             loader.isLoaded = true
-            notify()
+            notify(loader.keys)
         },
         (error) => {
             /**
@@ -65,8 +131,27 @@ const fetchFeature = (loaders: FeatureLoaders, name: string) => {
  * The fetch starts during render, not in an effect, so a server-rendered
  * page asks for its features while it hydrates rather than afterwards.
  */
-export function useAsyncFeatures(props: MotionProps, loaders: FeatureLoaders) {
-    useSyncExternalStore(subscribe, getVersion, getVersion)
+export function useAsyncFeatures(
+    props: MotionProps,
+    context: MotionContextProps,
+    loaders: FeatureLoaders
+) {
+    const entry = useConstant(createEntry)
+    entry.parent = useContext(MotionContext)
+    entry.promotion = useContext(SwitchLayoutGroupContext)
+    entry.props = props
+    entry.context = context
+    entries.set(context, entry)
+
+    /**
+     * A component below this one that makes its projection node while it
+     * renders gives this one its node first, if it rendered before the
+     * feature arrived.
+     */
+    context.project ||= (ProjectionNode) =>
+        ensureNode(context, ProjectionNode)
+
+    useSyncExternalStore(entry.subscribe, entry.getVersion, entry.getVersion)
 
     const definitions = getInitializedFeatureDefinitions()
 
@@ -82,7 +167,7 @@ export function useAsyncFeatures(props: MotionProps, loaders: FeatureLoaders) {
         if (definition.Feature || definition.ProjectionNode) {
             if (!loader.isLoaded) {
                 loader.isLoaded = true
-                queueMicrotask(notify)
+                queueMicrotask(() => notify(loader.keys))
             }
             continue
         }
@@ -97,6 +182,13 @@ export function useAsyncFeatures(props: MotionProps, loaders: FeatureLoaders) {
 
         fetchFeature(loaders, name).catch(noop)
     }
+
+    /**
+     * A mounted component is given its node here rather than when it
+     * makes its visual element, so the node is mounted too.
+     */
+    const ProjectionNode = getProjectionNode()
+    ProjectionNode && ensureNode(context, ProjectionNode)
 }
 
 /**

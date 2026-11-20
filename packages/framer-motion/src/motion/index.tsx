@@ -7,7 +7,7 @@ import { forwardRef, useContext } from "react"
 import { LayoutGroupContext } from "../context/LayoutGroupContext"
 import { LazyContext } from "../context/LazyContext"
 import { MotionConfigContext } from "../context/MotionConfigContext"
-import { MotionContext } from "../context/MotionContext"
+import { MotionContext, MotionContextProps } from "../context/MotionContext"
 import { useCreateMotionContext } from "../context/MotionContext/create"
 import { DOMMotionComponents } from "../render/dom/types"
 import { useRender } from "../render/dom/use-render"
@@ -81,7 +81,7 @@ export function createMotionComponent<
     { forwardMotionProps = false, type }: MotionComponentOptions = {},
     preloadedFeatures?: FeaturePackages,
     createVisualElement?: CreateVisualElement<Props, TagName>,
-    useFeatures?: (props: MotionProps) => void
+    useFeatures?: (props: MotionProps, context: MotionContextProps) => void
 ) {
     preloadedFeatures && loadFeatures(preloadedFeatures)
 
@@ -150,7 +150,7 @@ export function createMotionComponent<
              * life of the component, so this hook is always or never
              * called.
              */
-            useFeatures?.(configAndProps)
+            useFeatures?.(configAndProps, context)
 
             const layoutProjection = getProjectionFunctionality(configAndProps)
 

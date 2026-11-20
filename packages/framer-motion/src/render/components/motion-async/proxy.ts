@@ -4,6 +4,7 @@ import {
     preloadFeatures as preload,
     useAsyncFeatures,
 } from "../../../motion/features/use-async-features"
+import { MotionContextProps } from "../../../context/MotionContext"
 import { MotionProps } from "../../../motion/types"
 import { createDomVisualElement } from "../../dom/create-visual-element"
 import { createMotionProxy } from "../create-proxy"
@@ -16,7 +17,8 @@ import { featureLoaders } from "./loaders"
 export const motion = /*@__PURE__*/ createMotionProxy(
     { ...animations, ...gestureAnimations },
     createDomVisualElement,
-    (props: MotionProps) => useAsyncFeatures(props, featureLoaders)
+    (props: MotionProps, context: MotionContextProps) =>
+        useAsyncFeatures(props, context, featureLoaders)
 )
 
 /**

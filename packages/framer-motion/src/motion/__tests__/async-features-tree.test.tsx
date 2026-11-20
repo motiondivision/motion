@@ -1,5 +1,5 @@
 import { visualElementStore } from "motion-dom"
-import { act, memo } from "react"
+import { act, forwardRef, memo, ReactNode } from "react"
 import { render } from "../../jest.setup"
 import { featureLoaders } from "../../render/components/motion-async/loaders"
 import { motion } from "../../render/components/motion-async/proxy"
@@ -19,6 +19,47 @@ const projectionOf = (element: Element) =>
     visualElementStore.get(element)!.projection
 
 describe("the projection tree when layout is fetched", () => {
+    test("only components that use the feature render again", async () => {
+        const renders: Record<string, number> = {}
+
+        /**
+         * A motion component renders the component it wraps each time it
+         * renders itself.
+         */
+        const Counted = motion.create(
+            forwardRef<HTMLDivElement, { id: string; children?: ReactNode }>(
+                (props, ref) => {
+                    renders[props.id] = (renders[props.id] || 0) + 1
+                    return <div ref={ref} {...props} />
+                }
+            )
+        )
+
+        const { container } = render(
+            <Counted id="parent">
+                <Counted id="plain">
+                    <Counted id="child" layout />
+                </Counted>
+            </Counted>
+        )
+        const get = (id: string) => container.querySelector("#" + id)!
+        const mount = { ...renders }
+        expect(projectionOf(get("plain"))).toBeUndefined()
+
+        await settle()
+
+        expect(featureLoaders.layout.isLoaded).toBe(true)
+        expect(renders.parent).toBe(mount.parent)
+        expect(renders.plain).toBe(mount.plain)
+        expect(renders.child).toBeGreaterThan(mount.child)
+
+        const parent = projectionOf(get("parent"))
+        const plain = projectionOf(get("plain"))
+        expect(plain.parent).toBe(parent)
+        expect(plain.instance).toBe(get("plain"))
+        expect(projectionOf(get("child")).parent).toBe(plain)
+    })
+
     test("every mounted component joins it, parents first", async () => {
         const Middle = memo(() => (
             <motion.div id="middle">
