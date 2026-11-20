@@ -18,6 +18,7 @@ export type {
 } from "./render/types"
 
 export { animations } from "./motion/features/animations"
+export { ExitAnimationFeature } from "./motion/features/animation/exit"
 export { makeUseVisualState } from "./motion/utils/use-visual-state"
 export type { VisualState } from "./motion/utils/use-visual-state"
 export { calcLength, createBox } from "motion-dom"
