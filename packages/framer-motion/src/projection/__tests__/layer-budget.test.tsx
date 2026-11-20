@@ -126,6 +126,19 @@ describe("layer budget", () => {
         expect(layers).toBe(250)
     })
 
+    test("past the budget, the deepest nodes get will-change", async () => {
+        await animate(150)
+        /**
+         * A layer repaints when a child without one moves inside it,
+         * so children are given theirs before their parents.
+         */
+        for (const { style } of document.querySelectorAll<HTMLElement>(
+            ".child"
+        )) {
+            expect(style.willChange).toBe("transform")
+        }
+    })
+
     test("a will-change set in style is left alone", async () => {
         await animate(3, "opacity")
         const cards = document.querySelectorAll<HTMLElement>(".card")

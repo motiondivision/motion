@@ -107,13 +107,15 @@ const animationTarget = 1000
 /**
  * The most compositor layers Motion makes at once. The count is the
  * elements with a WAAPI animation (see compositorLayers), then the
- * projecting nodes in depth order, which each get a layer through
- * will-change: transform while they project. A layer is painted once and
- * then only moved, where a node without one repaints every frame. Each
- * layer also costs the main thread and the GPU a little, so the nodes
- * past this move without one. The nodes within it keep theirs, as
- * dropping every layer at once is a far bigger fall in framerate than
- * the layers cost.
+ * projecting nodes, which each get a layer through will-change: transform
+ * while they project. A layer is painted once and then only moved, where
+ * a node without one repaints every frame. Each layer also costs the main
+ * thread and the GPU a little, so the nodes past this move without one.
+ * The nodes within it keep theirs, as dropping every layer at once is a
+ * far bigger fall in framerate than the layers cost.
+ *
+ * The deepest nodes are within it first. A layer repaints when a child
+ * without one moves inside it, which costs more than no layer at all.
  *
  * It's will-change rather than translate3d as Chrome paints a translate3d
  * layer again whenever its sub-pixel offset changes, and every node rather
@@ -123,7 +125,15 @@ const layerBudget = 250
 
 let layers = 0
 const countLayer = (node: IProjectionNode) => {
-    node.hasLayer = node.isProjecting() && layers++ < layerBudget
+    node.isProjecting() && layers++
+}
+
+/**
+ * Nodes are visited shallowest first, so a node has a layer once the
+ * layers still to be given, its own included, fit the budget.
+ */
+const giveLayer = (node: IProjectionNode) => {
+    node.hasLayer = node.isProjecting() && layers-- <= layerBudget
 }
 
 let id = 0
@@ -1039,6 +1049,7 @@ export function createProjectionNode<I>({
 
             layers = compositorLayers
             this.nodes!.forEach(countLayer)
+            this.nodes!.forEach(giveLayer)
 
             /**
              * Record this frame's debug counts, if recordStats() is running.
