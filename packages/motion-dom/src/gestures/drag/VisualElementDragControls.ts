@@ -27,14 +27,7 @@ import { addValueToWillChange } from "../../value/will-change/add-will-change"
 import type { PanInfo } from "../pan/types"
 import { PanSession } from "../pan/PanSession"
 import { isElementTextInput } from "../press/utils/is-keyboard-accessible"
-import {
-    elementConstraints,
-    isConstraints,
-    settleTransforms,
-    removeElementConstraints,
-    type Bounds,
-    setElementConstraints,
-} from "../constrain"
+import { constraintsHooks } from "../constrain/store"
 import { setDragLock } from "./state/set-active"
 import type { DragPointConstraint, ResolvedConstraints } from "./types"
 import {
@@ -123,12 +116,6 @@ export class VisualElementDragControls {
     private constraints: ResolvedConstraints | false = false
 
     /**
-     * The `dragConstraints` this drag last set as the element's
-     * constraints, which pinch shares.
-     */
-    private ownConstraints?: unknown
-
-    /**
      * A constraint, from a `dragConstraints` function, that moves the
      * element itself, from the drag's latest pointer position.
      */
@@ -201,7 +188,6 @@ export class VisualElementDragControls {
 
             this.currentDirection = null
 
-            this.syncConstraints()
             this.resolveConstraints()
 
             const { projection } = this.visualElement
@@ -291,13 +277,8 @@ export class VisualElementDragControls {
             /**
              * Pinch can change the scale mid-drag, so follow it.
              */
-            this.updateBounds()
-
             // Update each point with the latest position
-            const bounds = !this.point && this.getBounds()
-            if (bounds) {
-                this.moveWithin(bounds, offset)
-            } else {
+            if (!constraintsHooks.get?.(this)?.drag(this as any, offset)) {
                 this.updateAxis("x", offset)
                 this.updateAxis("y", offset)
             }
@@ -430,103 +411,12 @@ export class VisualElementDragControls {
         this.point ? (this.point[axis] = next) : axisValue.set(next)
     }
 
-    /**
-     * Set `dragConstraints` as the element's constraints when they change,
-     * replacing any pinch() or constrain() set before.
-     */
-    private syncConstraints() {
-        const { dragConstraints } = this.getProps()
-        if (dragConstraints === this.ownConstraints) return
-        this.ownConstraints = dragConstraints
-
-        // A point constraint only applies to drag
-        if (dragConstraints && typeof dragConstraints !== "function") {
-            setElementConstraints(
-                this.visualElement.current!,
-                this,
-                dragConstraints,
-                "layout",
-                isConstraints(dragConstraints)
-                    ? dragConstraints.bind(this.visualElement.current!, () => [
-                          this.getAxisMotionValue("x").get(),
-                          this.getAxisMotionValue("y").get(),
-                      ])
-                    : undefined
-            )
-        }
-    }
-
-    /**
-     * Constraints that follow the element's scale and rotation: those set
-     * last by pinch() or constrain(), or this drag's own visual ones. Drag's
-     * own layout constraints are measured as they always have been.
-     */
-    private getBounds() {
-        const element = this.visualElement.current
-        return element && elementConstraints.get(element)?.bounds
-    }
-
-    /**
-     * Set the constraints to the bounds at the element's latest scale and
-     * rotation.
-     */
-    private updateBounds(isRelease?: boolean) {
-        const bounds = this.getBounds()
-        if (!bounds) return
-
-        const { left, right, top, bottom } = bounds.at(
-            this.transform(isRelease)
-        )
-
-        this.constraints = {
-            x: { min: left, max: right },
-            y: { min: top, max: bottom },
-        }
-    }
-
-    /**
-     * The element's scale and rotation. On release, those a pinch is
-     * settling at, rather than those it's passing through.
-     */
-    private transform(isRelease?: boolean) {
-        const { visualElement } = this
-        return (
-            (isRelease && settleTransforms.get(visualElement.current!)) || {
-                scale: visualElement.getValue("scale", 1).get(),
-                rotate: visualElement.getValue("rotate", 0).get(),
-            }
-        )
-    }
-
-    /**
-     * Move within constraints that follow the element's scale and
-     * rotation. A rotated element covering its frame is limited along its
-     * own axes, so both axes are constrained together.
-     */
-    private moveWithin(bounds: Bounds, offset: Point) {
-        const { drag } = this.readProps()
-        const point = { x: 0, y: 0 }
-
-        eachAxis((axis) => {
-            point[axis] = shouldDrag(axis, drag, this.currentDirection)
-                ? this.originPoint[axis] + offset[axis]
-                : this.getAxisMotionValue(axis).get()
-        })
-
-        const shown = bounds.constrain(point, this.transform(), this.elastic)
-        eachAxis((axis) => this.getAxisMotionValue(axis).set(shown[axis]))
-    }
-
     private resolveConstraints() {
         const { dragConstraints, dragElastic } = this.getProps()
-        const bounds = this.getBounds()
+        this.elastic = resolveDragElastic(dragElastic)
 
-        if (bounds) {
-            bounds.measure()
-            this.updateBounds()
-            this.elastic = resolveDragElastic(dragElastic)
+        if (constraintsHooks.get?.(this)?.limit(this as any, false, true))
             return
-        }
 
         if (isElementConstraints(dragConstraints)) {
             /**
@@ -556,8 +446,6 @@ export class VisualElementDragControls {
         } else {
             this.constraints = false
         }
-
-        this.elastic = resolveDragElastic(dragElastic)
     }
 
     private resolveRefConstraints() {
@@ -665,41 +553,10 @@ export class VisualElementDragControls {
                 .then(onDragTransitionEnd)
         }
 
-        /**
-         * Limits along a rotated element's own axes aren't a box on x/y,
-         * which inertia needs. Spring to where momentum would carry it,
-         * inside them, instead.
-         */
-        const bounds = !dragSnapToOrigin && this.getBounds()
-        const transform = this.transform(true)
-        if (bounds && bounds.region(transform).sin) {
-            const point = { x: 0, y: 0 }
-            eachAxis((axis) => {
-                point[axis] =
-                    this.getAxisMotionValue(axis).get() +
-                    0.2 * axisVelocity(axis)
-            })
-            const target = bounds.constrain(point, transform)
-
-            return Promise.all(
-                eachAxis((axis) =>
-                    this.startAxisValueAnimation(
-                        axis,
-                        {
-                            type: "spring",
-                            stiffness: 200,
-                            damping: 40,
-                            restDelta: 1,
-                            restSpeed: 10,
-                            velocity: axisVelocity(axis),
-                        },
-                        target[axis]
-                    )
-                )
-            ).then(onDragTransitionEnd)
-        }
-
-        this.updateBounds(true)
+        const released = constraintsHooks
+            .get?.(this)
+            ?.release(this as any, axisVelocity, dragSnapToOrigin)
+        if (released) return released.then(onDragTransitionEnd)
         const constraints: Partial<ResolvedConstraints> = this.constraints || {}
 
         const momentumAnimations = eachAxis((axis) => {
@@ -811,7 +668,7 @@ export class VisualElementDragControls {
         const { drag, dragConstraints } = this.getProps()
         const { projection } = this.visualElement
         if (
-            this.getBounds() ||
+            constraintsHooks.get?.(this) ||
             !isElementConstraints(dragConstraints) ||
             !projection ||
             !this.constraints
@@ -888,7 +745,7 @@ export class VisualElementDragControls {
     addListeners() {
         if (!this.visualElement.current) return
         elementDragControls.set(this.visualElement, this)
-        this.syncConstraints()
+        constraintsHooks.sync?.(this)
         const element = this.visualElement.current
 
         /**
@@ -932,7 +789,7 @@ export class VisualElementDragControls {
                 isElementConstraints(dragConstraints) &&
                 resolveConstraintsElement(dragConstraints)
 
-            if (this.getBounds()) return
+            if (constraintsHooks.get?.(this)) return
 
             if (constraintsElement) {
                 this.constraints = this.resolveRefConstraints()
@@ -1011,7 +868,7 @@ export class VisualElementDragControls {
             stopMeasureLayoutListener()
             stopLayoutUpdateListener()
             stopResizeObservers?.()
-            removeElementConstraints(element, this)
+            constraintsHooks.remove?.(this)
         }
     }
 

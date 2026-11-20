@@ -301,13 +301,12 @@ describe("pinch constraints", () => {
     })
 })
 
-describe("drag constraintsType", () => {
+describe("drag with constrain()", () => {
     test("visual constraints follow the element's scale", async () => {
         const { element, frameElement } = setup()
         stops.push(
             drag(element, {
-                constraints: frameElement,
-                constraintsType: "visual",
+                constraints: constrain(frameElement),
                 ...stiff,
             })
         )
@@ -474,8 +473,7 @@ describe("feedback from #4080", () => {
         const { element, frameElement } = setup()
         stops.push(
             drag(element, {
-                constraints: frameElement,
-                constraintsType: "visual",
+                constraints: constrain(frameElement),
                 elastic: false,
             })
         )
@@ -595,8 +593,7 @@ describe("rotated cover", () => {
         const { element, frameElement } = setup()
         stops.push(
             drag(element, {
-                constraints: frameElement,
-                constraintsType: "visual",
+                constraints: constrain(frameElement),
                 elastic: false,
             })
         )

@@ -1,11 +1,29 @@
 import type { Axis, BoundingBox, Point } from "motion-utils"
-import type { ResolvedElastic } from "../drag/types"
+import type { Transition } from "../../animation/types"
+import { eachAxis } from "../../projection/utils/each-axis"
+import type { VisualElement } from "../../render/VisualElement"
+import type { MotionValue } from "../../value"
+import type { MotionNodeOptions } from "../../node/types"
+import type { ResolvedConstraints, ResolvedElastic } from "../drag/types"
 import { applyConstraints } from "../drag/utils/constraints"
 import {
     resolveElements,
     type ElementOrSelector,
 } from "../../utils/resolve-elements"
 import { getElementValues } from "../utils/element-values"
+import {
+    constraintsHooks,
+    elementConstraints,
+    removeElementConstraints,
+    setElementConstraints,
+} from "./store"
+
+export {
+    elementConstraints,
+    removeElementConstraints,
+    setElementConstraints,
+} from "./store"
+export type { ElementConstraints } from "./store"
 
 /**
  * Which box element constraints keep inside the constraining element.
@@ -97,45 +115,10 @@ export interface Constraints {
 }
 
 /**
- * The constraints an element's gestures share. Setting constraints on
- * `drag()` or `pinch()` (or calling `constrain()`) replaces them, so the
- * last one set applies to both gestures.
- */
-export interface ElementConstraints {
-    /**
-     * What set them: a gesture recognises its own.
-     */
-    owner: unknown
-    target: unknown
-    type: ConstraintsType
-    bounds?: Bounds
-}
-
-export const elementConstraints = new WeakMap<Element, ElementConstraints>()
-
-/**
  * The scale and rotation a pinch is settling at, by element, so a drag
  * released mid-settle aims for the limits it will end up with.
  */
 export const settleTransforms = new WeakMap<Element, ConstraintsTransform>()
-
-/**
- * An element's `x`/`y` limits at a scale and rotation, as axes.
- */
-export const setElementConstraints = (
-    element: Element,
-    owner: unknown,
-    target: unknown,
-    type: ConstraintsType,
-    bounds?: Bounds
-) => elementConstraints.set(element, { owner, target, type, bounds })
-
-/**
- * Remove an element's constraints, if `owner` set them.
- */
-export const removeElementConstraints = (element: Element, owner: unknown) =>
-    elementConstraints.get(element)?.owner === owner &&
-    elementConstraints.delete(element)
 
 export const isConstraints = (value: unknown): value is Bounds =>
     !!value && typeof value === "object" && "region" in value
@@ -179,9 +162,57 @@ export interface ConstraintsRegion {
 }
 
 /**
+ * The parts of a drag that constraints following the element's scale and
+ * rotation read and set. They live here, rather than in the drag, so only
+ * apps that use them include them.
+ */
+export interface DragHost {
+    visualElement: VisualElement
+    constraints: ResolvedConstraints | false
+    elastic: ResolvedElastic
+    originPoint: Point
+    currentDirection: "x" | "y" | null
+    point?: unknown
+    readProps(): MotionNodeOptions
+    getAxisMotionValue(axis: "x" | "y"): MotionValue<number>
+    startAxisValueAnimation(
+        axis: "x" | "y",
+        transition: Transition,
+        target?: number
+    ): Promise<void>
+}
+
+/**
  * Constraints with the internals gestures use.
  */
 export interface Bounds extends Constraints {
+    /**
+     * Set a drag's constraints to the limits at the element's latest
+     * scale and rotation, or on release, those a pinch is settling at.
+     * Measures first if `measure` is set.
+     */
+    limit(drag: DragHost, isRelease?: boolean, measure?: boolean): true
+
+    /**
+     * Follow the scale (pinch can change it mid-drag) and move the drag
+     * within the limits. A rotated element covering its frame is limited
+     * along its own axes, so both axes are constrained together. Returns
+     * whether it moved the element: a point constraint moves it itself.
+     */
+    drag(drag: DragHost, offset: Point): boolean
+
+    /**
+     * Set the limits for a drag's release. Limits along a rotated
+     * element's own axes aren't a box on x/y, which inertia needs, so
+     * spring to where momentum would carry it, inside them, instead.
+     * Returns that animation, or nothing when inertia can run.
+     */
+    release(
+        drag: DragHost,
+        velocity: (axis: "x" | "y") => number,
+        snapToOrigin?: unknown
+    ): Promise<unknown> | undefined
+
     region(transform: Partial<ConstraintsTransform>): ConstraintsRegion
 
     /**
@@ -266,7 +297,93 @@ export function createBounds(
      */
     let bound: Bounds | undefined
 
+    /**
+     * The element's scale and rotation. On release, those a pinch is
+     * settling at, rather than those it's passing through.
+     */
+    const transformOf = (
+        { visualElement }: DragHost,
+        isRelease?: boolean
+    ): ConstraintsTransform =>
+        (isRelease &&
+            settleTransforms.get(visualElement.current as Element)) || {
+            scale: visualElement.getValue("scale", 1).get(),
+            rotate: visualElement.getValue("rotate", 0).get(),
+        }
+
+    /**
+     * Whether a drag moves along an axis, as drag decides it.
+     */
+    const moves = (drag: DragHost, axis: "x" | "y") => {
+        const allowed = drag.readProps().drag
+        const { currentDirection } = drag
+        return (
+            (allowed === true || allowed === axis) &&
+            (currentDirection === null || currentDirection === axis)
+        )
+    }
+
     const bounds: Bounds = {
+        limit(drag, isRelease, measure) {
+            measure && bounds.measure()
+            const { left, right, top, bottom } = bounds.at(
+                transformOf(drag, isRelease)
+            )
+            drag.constraints = {
+                x: { min: left, max: right },
+                y: { min: top, max: bottom },
+            }
+            return true
+        },
+        drag(drag, offset) {
+            bounds.limit(drag)
+            if (drag.point) return false
+
+            const point = { x: 0, y: 0 }
+            eachAxis((axis) => {
+                point[axis] = moves(drag, axis)
+                    ? drag.originPoint[axis] + offset[axis]
+                    : drag.getAxisMotionValue(axis).get()
+            })
+            const shown = bounds.constrain(
+                point,
+                transformOf(drag),
+                drag.elastic
+            )
+            eachAxis((axis) => drag.getAxisMotionValue(axis).set(shown[axis]))
+            return true
+        },
+        release(drag, velocity, snapToOrigin) {
+            const transform = transformOf(drag, true)
+            if (snapToOrigin || !bounds.region(transform).sin) {
+                bounds.limit(drag, true)
+                return
+            }
+
+            const point = { x: 0, y: 0 }
+            eachAxis((axis) => {
+                point[axis] =
+                    drag.getAxisMotionValue(axis).get() + 0.2 * velocity(axis)
+            })
+            const target = bounds.constrain(point, transform)
+
+            return Promise.all(
+                eachAxis((axis) =>
+                    drag.startAxisValueAnimation(
+                        axis,
+                        {
+                            type: "spring",
+                            stiffness: 200,
+                            damping: 40,
+                            restDelta: 1,
+                            restSpeed: 10,
+                            velocity: velocity(axis),
+                        },
+                        target[axis]
+                    )
+                )
+            )
+        },
         bind(el, xy) {
             return element
                 ? bounds
@@ -494,4 +611,43 @@ export function constrain(
     setElementConstraints(element, bounds, target, type, bounds)
 
     return bounds
+}
+
+/**
+ * Share a drag's `dragConstraints` as the element's constraints when they
+ * change, replacing any pinch() or constrain() set before.
+ */
+/**
+ * A drag's constraints, after sharing its own if they've changed.
+ */
+constraintsHooks.get = (drag) => {
+    constraintsHooks.sync!(drag)
+    const element = drag.visualElement.current
+    return element && elementConstraints.get(element)?.bounds
+}
+
+constraintsHooks.remove = (drag) =>
+    removeElementConstraints(drag.visualElement.current, drag)
+
+constraintsHooks.sync = (drag) => {
+    const { dragConstraints } = drag.readProps()
+    if (dragConstraints === drag.ownConstraints) return
+    drag.ownConstraints = dragConstraints
+
+    // A point constraint only applies to drag
+    if (dragConstraints && typeof dragConstraints !== "function") {
+        const element = drag.visualElement.current
+        setElementConstraints(
+            element,
+            drag,
+            dragConstraints,
+            "layout",
+            isConstraints(dragConstraints)
+                ? dragConstraints.bind(element, () => [
+                      drag.getAxisMotionValue("x").get(),
+                      drag.getAxisMotionValue("y").get(),
+                  ])
+                : undefined
+        )
+    }
 }
