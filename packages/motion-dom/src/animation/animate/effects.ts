@@ -22,23 +22,7 @@ import {
  */
 const effects: AnimateEffect<any>[] = []
 
-/**
- * How animate() animates DOM elements, once domEffect is added.
- */
-let dom: DOMEffectLike | undefined
-
-interface DOMEffectLike {
-    animateElement: (...args: any[]) => AnimationPlaybackControlsWithThen[]
-}
-
-export const getDOMEffect = () => dom
-
-export function addEffect(effect: AnimateEffect<any> | DOMEffectLike): void {
-    if ("animateElement" in effect) {
-        dom = effect
-        return
-    }
-
+export function addEffect(effect: AnimateEffect<any>): void {
     process.env.NODE_ENV !== "production" &&
         invariant(
             typeof effect.test === "function" &&
@@ -48,7 +32,12 @@ export function addEffect(effect: AnimateEffect<any> | DOMEffectLike): void {
         )
 
     removeEffect(effect)
-    effects.unshift(effect)
+
+    /**
+     * An effect marked `first`, like domEffect, keeps its subjects, so
+     * later effects are tested after it.
+     */
+    effects.splice(effect.first || !effects[0]?.first ? 0 : 1, 0, effect)
 }
 
 export function removeEffect(effect: AnimateEffect<any>): void {
@@ -241,7 +230,8 @@ export function animateNode(
 
 /**
  * Animate the keys of `subject` on the values of the node `effect` keeps
- * for it.
+ * for it. A node with a keyframe resolver, like a DOM element's, reads
+ * its own starting values when the keyframes are resolved.
  */
 export const animateEffectSubject = <Subject extends object>(
     effect: AnimateEffect<Subject>,
@@ -250,14 +240,19 @@ export const animateEffectSubject = <Subject extends object>(
     transition?: EffectTransition,
     element?: AnimationElement,
     animationRef?: MultiValueRef
-) =>
-    animateNode(
-        effect.node(subject),
-        keyframes,
-        transition,
-        element,
-        animationRef
-    )
+) => {
+    const node = effect.node(subject)
+
+    return node.KeyframeResolver
+        ? animateValues(
+              (key) => node.getValue(key, null),
+              keyframes,
+              transition,
+              node as AnimationElement,
+              animationRef
+          )
+        : animateNode(node, keyframes, transition, element, animationRef)
+}
 
 function firstKeyframe(
     target: UnresolvedValueKeyframe | UnresolvedValueKeyframe[] | undefined

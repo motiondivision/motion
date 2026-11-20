@@ -1,5 +1,8 @@
-import { domEffect, motionValue } from "motion-dom"
+import { domEffect, frame, motionValue } from "motion-dom"
 import { animate } from "../../../dom-core"
+
+const nextFrame = () =>
+    new Promise<void>((resolve) => frame.postRender(() => resolve()))
 
 describe("animate from motion/core", () => {
     test("animates a number", async () => {
@@ -39,5 +42,29 @@ describe("animate from motion/core", () => {
         animate.addEffect(domEffect)
         await animate(element, { opacity: 0.5 }, { duration: 0.01 })
         expect(element.style.opacity).toBe("0.5")
+    })
+
+    test("domEffect is an effect: it binds motion values to an element", async () => {
+        const element = document.createElement("div")
+        const opacity = motionValue(0.2)
+        const stop = domEffect(element, { opacity })
+
+        await nextFrame()
+        expect(element.style.opacity).toBe("0.2")
+        expect(domEffect.test(element)).toBe(true)
+        expect(domEffect.test({})).toBe(false)
+        expect(domEffect.get(element, "opacity")).toBe(opacity)
+
+        stop()
+    })
+
+    test("animate() uses values bound by domEffect", async () => {
+        const element = document.createElement("div")
+        const x = motionValue(0)
+        domEffect(element, { x })
+        animate.addEffect(domEffect)
+
+        await animate(element, { x: 100 }, { duration: 0.01 })
+        expect(x.get()).toBe(100)
     })
 })

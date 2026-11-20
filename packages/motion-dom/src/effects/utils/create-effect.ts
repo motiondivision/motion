@@ -86,6 +86,11 @@ export interface AnimateEffect<Subject extends object = object>
     extends Effect<Subject> {
     test: EffectTest<Subject>
     read: EffectRead<Subject>
+
+    /**
+     * Test this effect before effects added after it.
+     */
+    first?: boolean
 }
 
 export type AddEffectValue<Subject extends object> = (

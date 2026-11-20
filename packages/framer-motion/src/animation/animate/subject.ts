@@ -1,7 +1,6 @@
 import {
     MultiValueRef,
     animateEffectSubject,
-    getDOMEffect,
     AnimationPlaybackControlsWithThen,
     AnimationScope,
     AnyResolvedKeyframe,
@@ -149,46 +148,32 @@ export function animateSubject<O extends Object>(
                     ? { ...options, delay: options.delay(i, numSubjects) }
                     : options
 
-            if (thisSubject instanceof Element) {
-                /**
-                 * An element animates on the values of its node, which
-                 * a <motion.*> component, animateLayout(), an effect or
-                 * an earlier animate() made, so one renderer writes them.
-                 */
-                const dom = getDOMEffect()
+            /**
+             * Effects claim their subjects, domEffect an element, before
+             * we fall back to writing plain properties. An element animates
+             * on the values of its node, which a <motion.*> component,
+             * animateLayout(), an effect or an earlier animate() made, so
+             * one renderer writes them.
+             */
+            const effect = findEffect(thisSubject)
 
-                process.env.NODE_ENV !== "production" &&
-                    invariant(
-                        Boolean(dom),
-                        'animate() from "motion/core" animates values and objects. To animate elements, call animate.addEffect(domEffect) with domEffect from "motion".',
-                        "no-dom-effect"
-                    )
+            process.env.NODE_ENV !== "production" &&
+                invariant(
+                    Boolean(effect) || !(thisSubject instanceof Element),
+                    'animate() from "motion/core" animates values and objects. To animate elements, call animate.addEffect(domEffect) with domEffect from "motion".',
+                    "no-dom-effect"
+                )
 
-                animations.push(
-                    ...dom!.animateElement(
-                        thisSubject as HTMLElement | SVGElement,
-                        keyframes as EffectKeyframes,
-                        transition as EffectTransition,
-                        undefined,
-                        ref
-                    )
+            animations.push(
+                ...animateEffectSubject(
+                    effect ?? propEffect,
+                    thisSubject as object,
+                    keyframes as EffectKeyframes,
+                    transition as EffectTransition,
+                    undefined,
+                    ref
                 )
-            } else {
-                /**
-                 * Registered effects (animate.addEffect) claim non-DOM
-                 * subjects before we fall back to writing plain properties.
-                 */
-                animations.push(
-                    ...animateEffectSubject(
-                        findEffect(thisSubject) ?? propEffect,
-                        thisSubject as object,
-                        keyframes as EffectKeyframes,
-                        transition as EffectTransition,
-                        undefined,
-                        ref
-                    )
-                )
-            }
+            )
         }
 
         animationRef || ref.animation?.start()

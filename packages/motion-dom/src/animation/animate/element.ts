@@ -15,6 +15,7 @@ import { transformGroups } from "../waapi/transforms/groups"
 import { enableAcceleration } from "../waapi/transforms/enable"
 import { DOMKeyframesResolver } from "../keyframes/DOMKeyframesResolver"
 import { AnimationPlaybackControlsWithThen } from "../types"
+import type { MotionValue } from "../../value"
 import {
     MultiValueRef,
     animateValues,
@@ -22,31 +23,12 @@ import {
     EffectTransition,
 } from "./effects"
 
-/**
- * The hooks `animate()` resolves elements through: whether an effect
- * claims a subject, and the subject's current value as an animation's
- * origin. They're attached here, which only `animate()` loads, so a
- * `styleEffect()` or `svgEffect()` import alone doesn't bundle the
- * computed-style and transform-matrix readers. The selector effects'
- * `test` and `read` forward to these.
- *
- * Attached from a pure call whose result `getElementNode` reads, so a
- * bundle that keeps this module but never calls `animate()` (like a
- * library that flattens Motion into one file) can still drop it.
- */
-const attachHooks = () => {
-    Object.assign(styleSubjectEffect, {
-        test: isStyleSubject,
-        read: readStyleValue,
-    })
-    Object.assign(svgSubjectEffect, { test: isSVGElement, read: readSVGValue })
-    enableAcceleration()
-    return [styleSubjectEffect, svgSubjectEffect] as ElementEffect[]
-}
-
 type ElementEffect = AnimateEffect<StyleSubject>
 
-const elementEffects = /*@__PURE__*/ attachHooks()
+const elementEffect = (element: StyleSubject) =>
+    (isSVGElement(element)
+        ? svgSubjectEffect
+        : styleSubjectEffect) as ElementEffect
 
 function measureNode(this: MotionNode<HTMLElement>) {
     return measureViewportBox(this.current!)
@@ -63,8 +45,9 @@ function measureNode(this: MotionNode<HTMLElement>) {
  * bundle that, so it's added here.
  */
 export function getElementNode(element: StyleSubject): MotionNode {
-    const effect = elementEffects[isSVGElement(element) ? 1 : 0]
-    const node = nodeStore.get(element) || effect.node(element)
+    enableAcceleration()
+
+    const node = nodeStore.get(element) || elementEffect(element).node(element)
 
     /**
      * A node made by styleEffect() or svgEffect() alone has no way to
@@ -73,7 +56,9 @@ export function getElementNode(element: StyleSubject): MotionNode {
     if (!node.KeyframeResolver) {
         node.KeyframeResolver = DOMKeyframesResolver
         node.measureViewportBox = measureNode
-        node.read ||= effect.read
+        node.read ||= (
+            isSVGElement(element) ? readSVGValue : readStyleValue
+        ) as MotionNode["read"]
     }
 
     return node
@@ -142,10 +127,51 @@ export function adoptElement(element: Element, to: MotionNode) {
 }
 
 /**
- * Everything animate() needs to animate DOM elements. The animate() from
- * "motion" has it built in. The one from "motion/core" animates values
- * and plain objects, and gets this with animate.addEffect(domEffect).
+ * Made in a pure call, so a bundle that never uses domEffect drops it and
+ * the readers it attaches. `test` and `read` are also attached to the
+ * style and SVG effects, which `styleEffect` and `svgEffect` forward to.
  */
-export const domEffect = { animateElement }
+const createDOMEffect = (): ElementEffect => {
+    Object.assign(styleSubjectEffect, {
+        test: isStyleSubject,
+        read: readStyleValue,
+    })
+    Object.assign(svgSubjectEffect, { test: isSVGElement, read: readSVGValue })
 
-export type DOMEffect = typeof domEffect
+    return Object.assign(
+        (element: StyleSubject, values: Record<string, MotionValue>) =>
+            elementEffect(element)(element, values),
+        {
+            first: true,
+            test: isStyleSubject,
+            read: ((element, key, keyframes) =>
+                elementEffect(element).read(
+                    element,
+                    key,
+                    keyframes
+                )) as ElementEffect["read"],
+            get: (element: StyleSubject, key: string) =>
+                elementEffect(element).get(element, key),
+            flush: (element: StyleSubject) =>
+                elementEffect(element).flush(element),
+            state: (element: StyleSubject) =>
+                elementEffect(element).state(element),
+            node: (element: StyleSubject) => {
+                activeScope.current?.track(element)
+                return getElementNode(element) as MotionNode<StyleSubject>
+            },
+        }
+    )
+}
+
+/**
+ * The effect animate() animates DOM elements through: the style and SVG
+ * effects, with what an animation needs of an element. Keyframes are
+ * read and resolved against the DOM, units are converted by measurement
+ * and eligible values run on WAAPI.
+ *
+ * The animate() from "motion" has it built in. The one from "motion/core"
+ * animates values and plain objects, and gets this with
+ * animate.addEffect(domEffect).
+ */
+export const domEffect = /*@__PURE__*/ createDOMEffect()
