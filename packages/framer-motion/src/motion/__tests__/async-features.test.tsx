@@ -1,10 +1,12 @@
 import { motionValue, visualElementStore } from "motion-dom"
-import { MotionGlobalConfig } from "motion-utils"
 import { act } from "react"
 import { nextFrame } from "../../gestures/__tests__/utils"
 import { pointerEnter, render } from "../../jest.setup"
 import { featureLoaders } from "../../render/components/motion-async/loaders"
-import { motion } from "../../render/components/motion-async/proxy"
+import {
+    motion,
+    preloadFeatures,
+} from "../../render/components/motion-async/proxy"
 
 const loaded = () =>
     Object.keys(featureLoaders).filter((name) => featureLoaders[name].isLoaded)
@@ -20,17 +22,15 @@ const settle = async () => {
     }
 }
 
+const projectionOf = (element: Element) =>
+    visualElementStore.get(element)!.projection
+
+const instant = { duration: 0 }
+
 /**
  * Tests run in order and share the loaders, as an app's components do.
  */
-describe("motion components with async features", () => {
-    beforeEach(() => {
-        MotionGlobalConfig.instantAnimations = true
-    })
-    afterEach(() => {
-        MotionGlobalConfig.instantAnimations = false
-    })
-
+describe("motion components with async layout and drag", () => {
     test("renders motion value changes without loading a feature", async () => {
         const x = motionValue(0)
         const { container } = render(<motion.div style={{ x }} />)
@@ -44,78 +44,113 @@ describe("motion components with async features", () => {
         expect(loaded()).toEqual([])
     })
 
-    test("initial renders before the animation feature arrives", async () => {
+    test("animates on mount without a fetch", async () => {
         const { container } = render(
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} />
+            <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={instant}
+            />
         )
         const element = container.firstChild as HTMLElement
         expect(element.style.opacity).toBe("0")
-        expect(loaded()).toEqual([])
 
-        await settle()
         await act(nextFrame)
 
-        expect(loaded()).toEqual(["animation"])
         expect(element.style.opacity).toBe("1")
+        expect(loaded()).toEqual([])
     })
 
-    test("animates prop changes once loaded", async () => {
+    test("animates a change to animate after initial={false}", async () => {
         const Component = ({ x }: { x: number }) => (
-            <motion.div animate={{ x }} />
+            <motion.div initial={false} animate={{ x }} transition={instant} />
         )
-        const { container, rerender } = render(<Component x={0} />)
-        await settle()
-        rerender(<Component x={50} />)
+        const { container, rerender } = render(<Component x={100} />)
+        const element = container.firstChild as HTMLElement
+        expect(element.style.transform).toBe("translateX(100px)")
+
+        rerender(<Component x={200} />)
         await act(nextFrame)
 
-        expect((container.firstChild as HTMLElement).style.transform).toBe(
-            "translateX(50px)"
-        )
+        expect(element.style.transform).toBe("translateX(200px)")
     })
 
-    test("an event handler loads gestures", async () => {
+    test("gestures work from the first render", async () => {
         const onHoverStart = jest.fn()
         const { container } = render(
-            <motion.div onHoverStart={onHoverStart} />
+            <motion.div
+                onHoverStart={onHoverStart}
+                whileHover={{ opacity: 0.5 }}
+                transition={instant}
+            />
         )
-        await settle()
-
-        expect(loaded()).toEqual(["animation", "gestures"])
-        pointerEnter(container.firstChild as Element)
-        await act(nextFrame)
-        expect(onHoverStart).toHaveBeenCalled()
-    })
-
-    test("whileHover animates once gestures arrive", async () => {
-        const { container } = render(
-            <motion.div whileHover={{ opacity: 0.5 }} />
-        )
-        await settle()
         const element = container.firstChild as HTMLElement
 
         pointerEnter(element)
         await act(nextFrame)
-        await act(nextFrame)
+
+        expect(onHoverStart).toHaveBeenCalledTimes(1)
         expect(element.style.opacity).toBe("0.5")
+        expect(loaded()).toEqual([])
     })
 
-    test("layout loads the layout feature and makes a projection node", async () => {
-        const { container } = render(<motion.div layout />)
-        const element = container.firstChild as HTMLElement
-        expect(visualElementStore.get(element)!.projection).toBeFalsy()
+    test("a failed fetch doesn't throw, and a later render asks again", async () => {
+        const { load } = featureLoaders.layout
+        const warn = jest.spyOn(console, "warn").mockImplementation(() => {})
+        const unhandled = jest.fn()
+        process.on("unhandledRejection", unhandled)
 
+        featureLoaders.layout.load = jest.fn(() =>
+            Promise.reject(new Error("offline"))
+        )
+
+        const { container, rerender } = render(<motion.div layout />)
         await settle()
 
-        expect(loaded()).toEqual(["animation", "gestures", "layout"])
-        expect(visualElementStore.get(element)!.projection).toBeTruthy()
+        expect(featureLoaders.layout.load).toHaveBeenCalledTimes(1)
+        expect(loaded()).toEqual([])
+        expect(projectionOf(container.firstChild as Element)).toBeUndefined()
+
+        /**
+         * Not asked for again straight away.
+         */
+        rerender(<motion.div layout />)
+        await settle()
+        expect(featureLoaders.layout.load).toHaveBeenCalledTimes(1)
+
+        /**
+         * Asked for again once it has been left a while.
+         */
+        featureLoaders.layout.failedAt = 0
+        featureLoaders.layout.load = load
+        rerender(<motion.div layout />)
+        await settle()
+
+        expect(loaded()).toEqual(["layout"])
+        expect(projectionOf(container.firstChild as Element)).toBeTruthy()
+        expect(unhandled).not.toHaveBeenCalled()
+
+        process.off("unhandledRejection", unhandled)
+        warn.mockRestore()
     })
 
-    test("drag loads the drag feature", async () => {
+    test("preloadFeatures fetches what isn't loaded yet", async () => {
+        expect(loaded()).toEqual(["layout"])
+
+        await act(async () => {
+            await preloadFeatures()
+        })
+
+        expect(loaded()).toEqual(["layout", "drag"])
+    })
+
+    test("drag works once loaded", async () => {
         const { container } = render(<motion.div drag />)
         await settle()
-        const element = container.firstChild as HTMLElement
 
-        expect(loaded()).toEqual(["animation", "gestures", "layout", "drag"])
-        expect(visualElementStore.get(element)!.projection).toBeTruthy()
+        expect(
+            visualElementStore.get(container.firstChild as Element)!.features
+                .drag
+        ).toBeTruthy()
     })
 })

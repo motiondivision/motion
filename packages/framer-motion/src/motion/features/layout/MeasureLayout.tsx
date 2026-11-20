@@ -7,13 +7,14 @@ import {
     type IProjectionNode,
     type VisualElement,
 } from "motion-dom"
-import { Component, useContext } from "react"
+import { Component, useContext, useRef } from "react"
 import { usePresence } from "../../../components/AnimatePresence/use-presence"
 import {
     LayoutGroupContext,
     LayoutGroupContextProps,
 } from "../../../context/LayoutGroupContext"
 import { SwitchLayoutGroupContext } from "../../../context/SwitchLayoutGroupContext"
+import { PresenceContext } from "../../../context/PresenceContext"
 import { MotionProps } from "../../types"
 
 interface MeasureContextProps {
@@ -242,7 +243,15 @@ class MeasureLayoutWithContext extends Component<MeasureProps> {
 export function MeasureLayout(
     props: MotionProps & { visualElement: VisualElement }
 ) {
-    const [isPresent, safeToRemove] = usePresence()
+    /**
+     * When the layout feature is fetched while its element is exiting,
+     * this mounts already not present. It then doesn't hold up the exit,
+     * as it would never be told to let go of it.
+     */
+    const presence = useContext(PresenceContext)
+    const [isPresent, safeToRemove] = usePresence(
+        useRef(!presence || presence.isPresent).current
+    )
     const layoutGroup = useContext(LayoutGroupContext)
 
     return (

@@ -1,25 +1,14 @@
 import { FeatureLoaders } from "../../../motion/features/types"
 
 /**
- * The four feature packages a motion component can fetch. Each import()
- * is a split point, so a bundler emits each package as its own chunk and
- * an app only downloads the ones its props use.
+ * The feature packages a motion component can fetch. Each import() is a
+ * split point, so a bundler emits each package as its own chunk and an app
+ * only downloads the ones its props use.
+ *
+ * Animations and gestures aren't here. A component has them from the
+ * start, as an animation or gesture can begin before a fetch could finish.
  */
 export const featureLoaders: FeatureLoaders = {
-    animation: {
-        keys: ["animation"],
-        load: () =>
-            import("../../../motion/features/animations").then(
-                (m) => m.animations
-            ),
-    },
-    gestures: {
-        keys: ["hover", "tap", "focus", "inView"],
-        load: () =>
-            import("../../../motion/features/gestures").then(
-                (m) => m.gestureAnimations
-            ),
-    },
     layout: {
         keys: ["layout"],
         load: () =>

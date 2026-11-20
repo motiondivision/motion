@@ -68,6 +68,7 @@ export interface FeatureLoader {
     load: () => Promise<FeaturePackages>
     promise?: Promise<void>
     isLoaded?: boolean
+    failedAt?: number
 }
 
 export interface FeatureLoaders {

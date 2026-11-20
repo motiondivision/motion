@@ -1,1 +1,1 @@
-export { motion } from "./render/components/motion-async/proxy"
+export { motion, preloadFeatures } from "./render/components/motion-async/proxy"
