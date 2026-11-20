@@ -12,16 +12,12 @@ import {
 } from "../../utils/resolve-elements"
 import type { MotionValue } from "../../value"
 import {
-    createBounds,
     elementConstraints,
-    isConstraints,
     removeElementConstraints,
     type Bounds,
     setElementConstraints,
     settleTransforms,
     type Constraints,
-    type ConstraintsTarget,
-    type ConstraintsType,
 } from "../constrain"
 import { setDragLock } from "../drag/state/set-active"
 import { applyConstraints, defaultElastic } from "../drag/utils/constraints"
@@ -164,23 +160,16 @@ export interface PinchOptions {
     origin?: "pointer" | Point
 
     /**
-     * Keep the element within an element, `top`/`left`/`right`/`bottom`
-     * limits for `x`/`y`, or a function that returns these for a scale and
-     * rotation. Past them, `x`/`y` resist by `elastic`, and spring back
-     * inside on release, at the scale and rotation the pinch settles at.
+     * Constraints from `constrain()` to keep `x`/`y` within, for instance
+     * `constrain(frame)`. Past them, `x`/`y` resist by `elastic`, and
+     * spring back inside on release, at the scale and rotation the pinch
+     * settles at.
      *
      * These are the element's constraints, shared with `drag()`: without
-     * its own, pinch uses those set on drag, and drag uses these. Whichever
-     * is set last applies to both.
+     * its own, pinch uses `constrain()` constraints set on drag, and drag
+     * uses these. Whichever is set last applies to both.
      */
-    constraints?: ConstraintsTarget | Constraints
-
-    /**
-     * Which box element `constraints` keep within the constraining
-     * element. Defaults to `"visual"`: the box as drawn, scaled and
-     * rotated.
-     */
-    constraintsType?: ConstraintsType
+    constraints?: Constraints
 
     /**
      * How far scale, rotation and `x`/`y` can go past their limits, as for
@@ -370,16 +359,12 @@ export function addPinchListeners(
         return [x.get(), y.get()]
     }
 
-    const createElementBounds = (target: any, type?: ConstraintsType) =>
-        createBounds(element, target, type, getXY)
-
     /**
      * Set `constraints` as the element's constraints when they change,
      * replacing any drag() or constrain() set before.
      */
     const syncConstraints = () => {
-        const { constraints, constraintsType = "visual" } =
-            getEnabledOptions() || {}
+        const { constraints } = getEnabledOptions() || {}
         if (constraints === ownConstraints) return
         ownConstraints = constraints
 
@@ -388,10 +373,8 @@ export function addPinchListeners(
                 element,
                 getValues,
                 constraints,
-                constraintsType,
-                isConstraints(constraints)
-                    ? constraints.bind(element, getXY)
-                    : createElementBounds(constraints, constraintsType)
+                "visual",
+                (constraints as Bounds).bind(element, getXY)
             )
     }
 
@@ -403,10 +386,7 @@ export function addPinchListeners(
 
         if (latest !== lastConstraints) {
             lastConstraints = latest
-            bounds =
-                latest &&
-                (latest.bounds ||
-                    createElementBounds(latest.target, latest.type))
+            bounds = latest?.bounds
         }
     }
 

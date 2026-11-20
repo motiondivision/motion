@@ -263,7 +263,7 @@ describe("pinch constraints", () => {
         const { element, frameElement } = setup()
         stops.push(
             pinch(element, {
-                constraints: frameElement,
+                constraints: constrain(frameElement),
                 scale: false,
                 rotate: false,
             })
@@ -282,7 +282,7 @@ describe("pinch constraints", () => {
         const { element, frameElement } = setup()
         stops.push(
             pinch(element, {
-                constraints: frameElement,
+                constraints: constrain(frameElement),
                 scale: { min: 1, max: 2 },
                 rotate: false,
                 elastic: 0,
@@ -330,7 +330,7 @@ describe("shared constraints", () => {
     test("pinch uses drag's constraints", async () => {
         const { element, frameElement } = setup()
         stops.push(
-            drag(element, { constraints: frameElement, ...stiff }),
+            drag(element, { constraints: constrain(frameElement), ...stiff }),
             pinch(element, fixed)
         )
 
@@ -339,15 +339,26 @@ describe("shared constraints", () => {
         await lift()
     })
 
+    test("pinch doesn't use drag's own constraints", async () => {
+        const { element, frameElement } = setup()
+        stops.push(
+            drag(element, { constraints: frameElement, ...stiff }),
+            pinch(element, fixed)
+        )
+
+        await pan(element, 200)
+        expect(xOf(element)).toBeCloseTo(200)
+        await lift()
+    })
+
     test("drag uses pinch's constraints", async () => {
         const { element, frameElement } = setup()
         stops.push(
-            pinch(element, { constraints: frameElement, ...fixed }),
+            pinch(element, { constraints: constrain(frameElement), ...fixed }),
             drag(element, stiff)
         )
         scaleTo(element, 2)
 
-        // pinch's constraints are visual by default
         await dragTo(element, 300)
         expect(xOf(element)).toBe(50)
     })
@@ -355,8 +366,11 @@ describe("shared constraints", () => {
     test("the constraints set last apply to both gestures", async () => {
         const { element, frameElement } = setup()
         stops.push(
-            drag(element, { constraints: { left: -10, right: 10 }, ...stiff }),
-            pinch(element, { constraints: frameElement, ...fixed })
+            drag(element, {
+                constraints: constrain({ left: -10, right: 10 }),
+                ...stiff,
+            }),
+            pinch(element, { constraints: constrain(frameElement), ...fixed })
         )
 
         await dragTo(element, 300)
@@ -365,11 +379,11 @@ describe("shared constraints", () => {
         const other = setup()
         stops.push(
             pinch(other.element, {
-                constraints: other.frameElement,
+                constraints: constrain(other.frameElement),
                 ...fixed,
             }),
             drag(other.element, {
-                constraints: { left: -10, right: 10 },
+                constraints: constrain({ left: -10, right: 10 }),
                 ...stiff,
             })
         )
@@ -422,7 +436,7 @@ describe("feedback from #4080", () => {
         const { element, frameElement } = setup()
         stops.push(
             pinch(element, {
-                constraints: frameElement,
+                constraints: constrain(frameElement),
                 scale: { min: 1, max: 8 },
                 rotate: false,
             })
@@ -455,7 +469,7 @@ describe("feedback from #4080", () => {
         const { element, frameElement } = setup()
         stops.push(
             pinch(element, {
-                constraints: frameElement,
+                constraints: constrain(frameElement),
                 scale: false,
                 rotate: false,
             })
@@ -572,7 +586,7 @@ describe("rotated cover", () => {
         const { element, frameElement } = setup()
         stops.push(
             pinch(element, {
-                constraints: frameElement,
+                constraints: constrain(frameElement),
                 scale: false,
                 rotate: false,
                 elastic: 0,
