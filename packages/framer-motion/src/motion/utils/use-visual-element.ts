@@ -105,6 +105,13 @@ export function useVisualElement<
             props,
             initialLayoutGroupConfig
         )
+
+        /**
+         * A projection node made after its element mounted, as when the
+         * layout feature is fetched, missed the mount in the ref callback.
+         */
+        visualElement.current &&
+            visualElement.projection.mount(visualElement.current)
     }
 
     useInsertionEffect(() => {

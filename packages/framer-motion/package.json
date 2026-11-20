@@ -35,6 +35,18 @@
             "import": "./dist/es/client.mjs",
             "default": "./dist/cjs/client.js"
         },
+        "./dom/core": {
+            "types": "./dist/dom-core.d.ts",
+            "require": "./dist/cjs/dom-core.js",
+            "import": "./dist/es/dom-core.mjs",
+            "default": "./dist/cjs/dom-core.js"
+        },
+        "./core": {
+            "types": "./dist/core.d.ts",
+            "require": "./dist/cjs/core.js",
+            "import": "./dist/es/core.mjs",
+            "default": "./dist/cjs/core.js"
+        },
         "./m": {
             "types": "./dist/m.d.ts",
             "require": "./dist/cjs/m.js",

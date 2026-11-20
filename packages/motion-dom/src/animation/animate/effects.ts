@@ -22,7 +22,23 @@ import {
  */
 const effects: AnimateEffect<any>[] = []
 
-export function addEffect(effect: AnimateEffect<any>): void {
+/**
+ * How animate() animates DOM elements, once domEffect is added.
+ */
+let dom: DOMEffectLike | undefined
+
+interface DOMEffectLike {
+    animateElement: (...args: any[]) => AnimationPlaybackControlsWithThen[]
+}
+
+export const getDOMEffect = () => dom
+
+export function addEffect(effect: AnimateEffect<any> | DOMEffectLike): void {
+    if ("animateElement" in effect) {
+        dom = effect
+        return
+    }
+
     process.env.NODE_ENV !== "production" &&
         invariant(
             typeof effect.test === "function" &&

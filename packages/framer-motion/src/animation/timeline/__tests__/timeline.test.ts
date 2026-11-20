@@ -1,5 +1,10 @@
-import { frame, motionValue } from "motion-dom"
+import { addEffect, domEffect, frame, motionValue } from "motion-dom"
 import { Timeline, TimelineItem, TimelineOptions } from ".."
+
+/**
+ * Timeline is built here without animate(), which is what adds domEffect.
+ */
+addEffect(domEffect)
 
 const timeline = (items?: TimelineItem[], options?: TimelineOptions) =>
     new Timeline(items, options)

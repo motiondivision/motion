@@ -6,6 +6,7 @@ import { setTarget } from "../../render/utils/setters"
 import { addValueToWillChange } from "../../value/will-change/add-will-change"
 import { getOptimisedAppearId } from "../optimized-appear/get-appear-id"
 import { MultiValueRef, startValueAnimation } from "../animate/multi-value"
+import { enableAcceleration } from "../waapi/transforms/enable"
 import type { MotionPath } from "../types"
 import type { VisualElementAnimationOptions } from "./types"
 import type { AnimationPlaybackControlsWithThen } from "../types"
@@ -14,6 +15,12 @@ import type { AnimationTypeState } from "../../render/utils/animation-state"
 import type { VisualElement } from "../../render/VisualElement"
 
 const isBrowser = typeof window !== "undefined"
+
+/**
+ * Motion components animate elements, so their transforms can be composed
+ * and accelerated.
+ */
+enableAcceleration()
 
 /**
  * Decide whether we should block this animation. Previously, we achieved this

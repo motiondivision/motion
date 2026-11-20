@@ -1,7 +1,7 @@
 import {
     MultiValueRef,
     animateEffectSubject,
-    animateElement,
+    getDOMEffect,
     AnimationPlaybackControlsWithThen,
     AnimationScope,
     AnyResolvedKeyframe,
@@ -155,8 +155,17 @@ export function animateSubject<O extends Object>(
                  * a <motion.*> component, animateLayout(), an effect or
                  * an earlier animate() made, so one renderer writes them.
                  */
+                const dom = getDOMEffect()
+
+                process.env.NODE_ENV !== "production" &&
+                    invariant(
+                        Boolean(dom),
+                        'animate() from "motion/core" animates values and objects. To animate elements, call animate.addEffect(domEffect) with domEffect from "motion".',
+                        "no-dom-effect"
+                    )
+
                 animations.push(
-                    ...animateElement(
+                    ...dom!.animateElement(
                         thisSubject as HTMLElement | SVGElement,
                         keyframes as EffectKeyframes,
                         transition as EffectTransition,

@@ -58,3 +58,18 @@ export interface FeatureBundle extends FeaturePackages {
 }
 
 export type LazyFeatureBundle = () => Promise<FeatureBundle>
+
+/**
+ * A feature package that's fetched the first time a component's props
+ * enable one of the features in `keys`.
+ */
+export interface FeatureLoader {
+    keys: Array<keyof HydratedFeatureDefinitions>
+    load: () => Promise<FeaturePackages>
+    promise?: Promise<void>
+    isLoaded?: boolean
+}
+
+export interface FeatureLoaders {
+    [name: string]: FeatureLoader
+}

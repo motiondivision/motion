@@ -1,6 +1,9 @@
 import { warnOnce } from "motion-utils"
 import { createMotionComponent, MotionComponentOptions } from "../../motion"
-import { FeaturePackages } from "../../motion/features/types"
+import {
+    FeatureLoaders,
+    FeaturePackages,
+} from "../../motion/features/types"
 import { MotionProps } from "../../motion/types"
 import { DOMMotionComponents } from "../dom/types"
 import { CreateVisualElement } from "../types"
@@ -21,7 +24,8 @@ export type MotionProxy = typeof createMotionComponent &
 
 export function createMotionProxy(
     preloadedFeatures?: FeaturePackages,
-    createVisualElement?: CreateVisualElement<any, any>
+    createVisualElement?: CreateVisualElement<any, any>,
+    featureLoaders?: FeatureLoaders
 ): MotionProxy {
     if (typeof Proxy === "undefined") {
         return createMotionComponent as MotionProxy
@@ -38,7 +42,8 @@ export function createMotionProxy(
             Component,
             options,
             preloadedFeatures,
-            createVisualElement
+            createVisualElement,
+            featureLoaders
         )
     }
 

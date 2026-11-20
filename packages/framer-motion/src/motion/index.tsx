@@ -20,7 +20,12 @@ import { CreateVisualElement } from "../render/types"
 import { useConstant } from "../utils/use-constant"
 import { getInitializedFeatureDefinitions } from "./features/definitions"
 import { loadFeatures } from "./features/load-features"
-import { FeatureBundle, FeaturePackages } from "./features/types"
+import {
+    FeatureBundle,
+    FeatureLoaders,
+    FeaturePackages,
+} from "./features/types"
+import { useAsyncFeatures } from "./features/use-async-features"
 import { MotionProps } from "./types"
 import { motionComponentSymbol } from "./utils/symbol"
 import { useMotionRef } from "./utils/use-motion-ref"
@@ -77,7 +82,8 @@ export function createMotionComponent<
     Component: TagName | string | React.ComponentType<Props>,
     { forwardMotionProps = false, type }: MotionComponentOptions = {},
     preloadedFeatures?: FeaturePackages,
-    createVisualElement?: CreateVisualElement<Props, TagName>
+    createVisualElement?: CreateVisualElement<Props, TagName>,
+    featureLoaders?: FeatureLoaders
 ) {
     preloadedFeatures && loadFeatures(preloadedFeatures)
 
@@ -140,6 +146,12 @@ export function createMotionComponent<
              */
             if (process.env.NODE_ENV !== "production")
                 useStrictMode(configAndProps, preloadedFeatures)
+
+            /**
+             * featureLoaders is fixed for the life of the component, so
+             * this hook is always or never called.
+             */
+            featureLoaders && useAsyncFeatures(configAndProps, featureLoaders)
 
             const layoutProjection = getProjectionFunctionality(configAndProps)
 

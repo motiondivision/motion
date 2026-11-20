@@ -42,7 +42,8 @@ import {
     transformGroups,
 } from "./groups"
 
-export const round = (value: number) => Math.round(value * 10000) / 10000
+import { round } from "./acceleration"
+export { round }
 
 /**
  * Independent transforms (x, y, scale, rotate etc) all write to the one

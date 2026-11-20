@@ -23,12 +23,8 @@ import { WithPromise } from "./utils/WithPromise"
 import { Mixer } from "../utils/mix/types"
 import type { MotionValue } from "../value"
 import type { ValuePlan } from "./animate/multi-value"
-import {
-    canAccelerateTransform,
-    joinGroup,
-    round,
-    TransformGroup,
-} from "./waapi/transforms/TransformAnimation"
+import type { TransformGroup } from "./waapi/transforms/TransformAnimation"
+import { acceleration, round } from "./waapi/transforms/acceleration"
 
 /**
  * One value of a MultiValueAnimation. It's the value's animation (what the motion value
@@ -112,7 +108,9 @@ export class ValueTrack<T extends AnyResolvedKeyframe = any>
          * Before its type is replaced with its generator.
          */
         if (this.isTransform) {
-            this.canAccelerate = canAccelerateTransform(this.options)
+            this.canAccelerate = acceleration.current!.canAccelerateTransform(
+                this.options
+            )
         }
         initTrack(this)
         this.parent.onTrackReady(this)
@@ -124,7 +122,9 @@ export class ValueTrack<T extends AnyResolvedKeyframe = any>
      */
     join() {
         this.parent.anchor(time.now())
-        const group = (this.group = joinGroup(this))
+        const group = (this.group = acceleration.current!.joinGroup(
+            this
+        ) as TransformGroup)
         group.isJS || group.schedule(false)
     }
 

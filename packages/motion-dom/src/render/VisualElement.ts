@@ -644,7 +644,9 @@ export abstract class VisualElement<
              */
             const FeatureConstructor =
                 featureDefinition.Feature ||
-                (key === "exit" && this.presenceContext?.ExitFeature)
+                (key === "exit" &&
+                    this.animationState &&
+                    this.presenceContext?.ExitFeature)
 
             /**
              * If this feature is enabled but not active, make a new instance.

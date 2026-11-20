@@ -12,6 +12,7 @@ import { nodeStore } from "../../render/store"
 import { isSVGElement } from "../../utils/is-svg-element"
 import { activeScope } from "../../scope/active"
 import { transformGroups } from "../waapi/transforms/groups"
+import { enableAcceleration } from "../waapi/transforms/enable"
 import { DOMKeyframesResolver } from "../keyframes/DOMKeyframesResolver"
 import { AnimationPlaybackControlsWithThen } from "../types"
 import {
@@ -39,6 +40,7 @@ const attachHooks = () => {
         read: readStyleValue,
     })
     Object.assign(svgSubjectEffect, { test: isSVGElement, read: readSVGValue })
+    enableAcceleration()
     return [styleSubjectEffect, svgSubjectEffect] as ElementEffect[]
 }
 
@@ -138,3 +140,12 @@ export function adoptElement(element: Element, to: MotionNode) {
 
     nodeStore.set(element, to)
 }
+
+/**
+ * Everything animate() needs to animate DOM elements. The animate() from
+ * "motion" has it built in. The one from "motion/core" animates values
+ * and plain objects, and gets this with animate.addEffect(domEffect).
+ */
+export const domEffect = { animateElement }
+
+export type DOMEffect = typeof domEffect

@@ -27,7 +27,7 @@ import { mapEasingToNativeEasing } from "../waapi/easing/map-easing"
 import { keyframes as keyframesType } from "../generators/keyframes"
 import { spring } from "../generators/spring"
 import { createGeneratorEasing } from "../generators/utils/create-generator-easing"
-import { canGroupValue } from "../waapi/transforms/TransformAnimation"
+import { acceleration } from "../waapi/transforms/acceleration"
 
 /**
  * What every value of one key in a call animates with, worked out once
@@ -448,7 +448,7 @@ export const startValueAnimation =
          * Transforms and other compositor values on an HTML element join
          * its group, which plays them in one WAAPI animation.
          */
-        const isTransform = canGroupValue(
+        const isTransform = acceleration.current?.canGroupValue(
             { name, motionValue: value } as any,
             composes
         )
