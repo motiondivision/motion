@@ -133,6 +133,14 @@ describe("supportsBrowserAnimation", () => {
         ).toBe(false)
     })
 
+    it("returns false for an accelerated value when its transition has onUpdate", () => {
+        expect(
+            supportsBrowserAnimation(
+                createMockOptions({ keyframes: [0, 1], hasOnUpdate: true })
+            )
+        ).toBe(false)
+    })
+
     it("returns false for a color not in the accelerated set with standard keyframes", () => {
         expect(
             supportsBrowserAnimation(

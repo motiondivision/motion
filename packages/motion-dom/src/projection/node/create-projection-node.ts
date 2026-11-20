@@ -2,7 +2,6 @@ import {
     Axis,
     AxisDelta,
     Box,
-    clamp,
     Delta,
     Point,
     SubscriptionManager,
@@ -23,7 +22,8 @@ import {
     ValueAnimationOptions,
 } from "../../animation/types"
 import { getValueTransition } from "../../animation/utils/get-value-transition"
-import { cancelFrame, frame, frameData, frameSteps } from "../../frameloop"
+import { cancelFrame, frame, frameData } from "../../frameloop"
+import { flushFrame } from "../../frameloop/flush-frame"
 import { microtask } from "../../frameloop/microtask"
 import { time } from "../../frameloop/sync-time"
 import type { Process } from "../../frameloop/types"
@@ -45,7 +45,10 @@ import {
     pointToProgressVelocity,
     resolveAutoMass,
 } from "../animation/layout-velocity"
-import { transformGroups } from "../../animation/waapi/transforms/groups"
+import {
+    compositorLayers,
+    transformGroups,
+} from "../../animation/waapi/transforms/groups"
 import { copyAxisDeltaInto, copyAxisInto, copyBoxInto } from "../geometry/copy"
 import {
     applyBoxDelta,
@@ -100,6 +103,26 @@ import {
  * which has a noticeable difference in spring animations
  */
 const animationTarget = 1000
+
+/**
+ * The most compositor layers Motion makes at once before projecting nodes
+ * stop getting one. The count is the projecting nodes, which each get a
+ * layer through will-change: transform while they project, plus the
+ * elements with a WAAPI animation (see compositorLayers). A layer is painted once and
+ * then only moved, where a node without one repaints every frame. Each
+ * layer also costs the main thread and the GPU a little, so past this
+ * every node moves without one.
+ *
+ * It's will-change rather than translate3d as Chrome paints a translate3d
+ * layer again whenever its sub-pixel offset changes, and every node rather
+ * than only parents as a layer repaints when a child moves inside it.
+ */
+const layerBudget = 100
+
+let layers = 0
+const countLayer = (node: IProjectionNode) => {
+    node.isProjecting() && layers++
+}
 
 let id = 0
 
@@ -520,6 +543,12 @@ export function createProjectionNode<I>({
          */
         hasLayoutListener?: boolean
 
+        /**
+         * Whether this node is one its root walks, or will be once it's
+         * mounted. See joinTree().
+         */
+        inTree?: boolean
+
         constructor(
             latestValues: ResolvedValues = {},
             parent: IProjectionNode | undefined = defaultParent?.()
@@ -570,7 +599,7 @@ export function createProjectionNode<I>({
                 visualElement.mount(instance)
             }
 
-            this.root.nodes!.add(this)
+            this.inTree ? this.root.nodes!.add(this) : joinTree(this)
             this.parent?.children.add(this)
 
             if (this.root.hasTreeAnimated && (layout || layoutId)) {
@@ -735,7 +764,7 @@ export function createProjectionNode<I>({
         }
 
         unmount() {
-            this.options.layoutId && this.willUpdate()
+            this.options.layoutId && this.willUpdate(true, true)
             this.root.nodes!.remove(this)
             this.getStack()?.remove(this)
             this.parent?.children.delete(this)
@@ -760,13 +789,23 @@ export function createProjectionNode<I>({
         }
 
         // Note: currently only running on root node
-        startUpdate() {
+        startUpdate(isUnmount?: boolean) {
             if (this.isUpdateBlocked()) return
 
             this.isUpdating = true
 
             this.nodes?.forEach(resetSkewAndRotation)
             this.animationId++
+
+            /**
+             * Before the DOM changes, and after the reset above. With this
+             * update's animationId, so ancestors' scroll is read once.
+             *
+             * An update that starts in an unmount starts while React is
+             * already changing the DOM, too late for this snapshot, so
+             * dragged nodes use their last layout.
+             */
+            isUnmount || this.nodes?.forEach(snapshotDragged)
         }
 
         getTransformTemplate() {
@@ -774,8 +813,9 @@ export function createProjectionNode<I>({
             return visualElement?.getProps().transformTemplate
         }
 
-        willUpdate(shouldNotifyListeners = true) {
+        willUpdate(shouldNotifyListeners = true, isUnmount?: boolean) {
             this.root.hasTreeAnimated = true
+            joinTree(this, true)
 
             if (this.root.isUpdateBlocked()) {
                 this.options.onExitComplete?.()
@@ -801,7 +841,7 @@ export function createProjectionNode<I>({
                 cancelTreeOptimisedTransformAnimations(this)
             }
 
-            !this.root.isUpdating && this.root.startUpdate()
+            !this.root.isUpdating && this.root.startUpdate(isUnmount)
 
             if (this.isLayoutDirty) return
 
@@ -815,21 +855,7 @@ export function createProjectionNode<I>({
             this.isLayoutDirty = true
             for (let i = 0; i < this.path.length; i++) {
                 const node = this.path[i]
-                node.shouldResetTransform = true
-                demoteTransforms(node)
-
-                /**
-                 * Percentage translates resolve against layoutBox dimensions,
-                 * so ancestors with them must be re-measured after transform reset.
-                 */
-                if (
-                    typeof node.latestValues.x === "string" ||
-                    typeof node.latestValues.y === "string"
-                ) {
-                    node.isLayoutDirty = true
-                }
-
-                node.updateScroll("snapshot")
+                prepareAncestor(node)
 
                 if (node.options.layoutRoot) {
                     node.willUpdate(false)
@@ -935,14 +961,7 @@ export function createProjectionNode<I>({
              * we could leave this to the following requestAnimationFrame but this seems
              * to leave a flash of incorrectly styled content.
              */
-            const now = time.now()
-            frameData.delta = clamp(0, 1000 / 60, now - frameData.timestamp)
-            frameData.timestamp = now
-            frameData.isProcessing = true
-            frameSteps.update.process(frameData)
-            frameSteps.preRender.process(frameData)
-            frameSteps.render.process(frameData)
-            frameData.isProcessing = false
+            flushFrame()
         }
 
         scheduleUpdate = () => this.update()
@@ -972,6 +991,8 @@ export function createProjectionNode<I>({
         }
 
         projectionUpdateScheduled = false
+
+        declare overLayerBudget?: boolean
         scheduleUpdateProjection() {
             if (!this.projectionUpdateScheduled) {
                 this.projectionUpdateScheduled = true
@@ -1014,6 +1035,10 @@ export function createProjectionNode<I>({
             this.nodes!.forEach(calcProjection)
             this.nodes!.forEach(cleanDirtyNodes)
 
+            layers = 0
+            this.nodes!.forEach(countLayer)
+            this.overLayerBudget = layers + compositorLayers > layerBudget
+
             /**
              * Record this frame's debug counts, if recordStats() is running.
              */
@@ -1051,14 +1076,26 @@ export function createProjectionNode<I>({
                     this.snapshot.relativeVelocity =
                         this.relativeVelocity?.slice() || []
                 }
-                const progress = (edges && this.motionValue?.getVelocity()) || 0
+                /**
+                 * Worked out from the value's last two frames, as its own
+                 * getVelocity() reads 0 once the last frame is 30ms old,
+                 * which a slow frame or a long render before this snapshot
+                 * can pass. NaN before its second frame. In progress
+                 * (0-1000) per ms, which is edge px per second.
+                 */
+                const value = this.motionValue as any
+                const progress =
+                    (edges &&
+                        (value.current - value.prevFrameValue) /
+                            (value.updatedAt - value.prevUpdatedAt)) ||
+                    0
                 const velocity = [0, 1, 2, 3, 4, 5].map(
                     (i) =>
                         (i < 4
                             ? edges &&
                               (this.edgeValues
                                   ? this.edgeVelocity!(i)
-                                  : (-edges[i] * progress) / 1000)
+                                  : -edges[i] * progress)
                             : visualElement
                                   ?.getValue(i < 5 ? "x" : "y")
                                   ?.getVelocity()) || 0
@@ -1324,13 +1361,9 @@ export function createProjectionNode<I>({
         }
 
         setOptions(options: ProjectionNodeOptions) {
-            this.options = {
-                ...this.options,
-                ...options,
-                crossfade:
-                    options.crossfade !== undefined ? options.crossfade : true,
-            }
+            this.options = { ...this.options, ...options }
             this.addLayoutListener()
+            joinTree(this)
         }
 
         clearMeasurements() {
@@ -1529,17 +1562,6 @@ export function createProjectionNode<I>({
             } else {
                 return this.parent.getClosestProjectingParent()
             }
-        }
-
-        /**
-         * Whether a child also projects. Its subtree then moves inside this
-         * element, so a layer of its own saves repainting the subtree.
-         */
-        hasProjectingChild() {
-            for (const child of this.children) {
-                if (child.isProjecting()) return true
-            }
-            return false
         }
 
         isProjecting() {
@@ -1845,7 +1867,7 @@ export function createProjectionNode<I>({
             const shouldCrossfadeOpacity =
                 isSharedLayoutAnimation &&
                 !isOnlyMember &&
-                this.options.crossfade === true &&
+                this.options.crossfade !== false &&
                 !this.path.some(hasOpacityCrossfade)
 
             this.animationProgress = 0
@@ -2462,6 +2484,17 @@ export function createProjectionNode<I>({
 
             const transformTemplate = this.getTransformTemplate()
 
+            /**
+             * Give this element a layer while it has a projection
+             * transform (see layerBudget), and take it away after. An
+             * element with a will-change of its own keeps that.
+             */
+            const setLayer = (isLayer?: boolean) =>
+                (isLayer || written.willChange) &&
+                !styleProp?.willChange &&
+                !this.latestValues.willChange &&
+                write("willChange", isLayer ? "transform" : "")
+
             if (this.needsReset) {
                 this.needsReset = false
 
@@ -2474,6 +2507,7 @@ export function createProjectionNode<I>({
                 targetStyle.transform = transformTemplate
                     ? transformTemplate(this.latestValues, "")
                     : "none"
+                setLayer()
                 return
             }
 
@@ -2498,6 +2532,7 @@ export function createProjectionNode<I>({
                         : "none"
                     this.hasProjected = false
                 }
+                setLayer()
 
                 return
             }
@@ -2522,9 +2557,10 @@ export function createProjectionNode<I>({
             let transform = buildProjectionTransform(
                 delta,
                 this.treeScale,
-                valuesToRender,
-                this.hasProjectingChild()
+                valuesToRender
             )
+
+            setLayer(transform !== "none" && !this.root.overLayerBudget)
 
             if (transformTemplate) {
                 transform = transformTemplate(valuesToRender, transform)
@@ -2626,6 +2662,39 @@ export function createProjectionNode<I>({
             this.root.nodes!.forEach(clearMeasurements)
             this.root.sharedNodes.clear()
             this.root.stacksChanged++
+        }
+    }
+}
+
+/**
+ * Add a node to the nodes its root walks on every update and every
+ * projection frame, if it takes part in layout: it has a layout option, it's
+ * told its layout will update, or it's an ancestor of a node that does. So a
+ * component that only animates values costs those walks nothing.
+ */
+function joinTree(node: IProjectionNode, force?: boolean) {
+    const { options } = node
+
+    if (
+        !node.inTree &&
+        (force ||
+            options.layout ||
+            options.layoutId ||
+            options.alwaysMeasureLayout ||
+            !node.parent ||
+            options.visualElement?.getProps().onBeforeLayoutMeasure)
+    ) {
+        node.inTree = true
+        node.parent && joinTree(node.parent, true)
+
+        if (node.instance) {
+            node.root!.nodes!.add(node)
+
+            /**
+             * A node that joins as it's told to update, or as an ancestor
+             * of one, has missed the start of an update that's under way.
+             */
+            force && node.root!.isUpdating && node.resetSkewAndRotation()
         }
     }
 }
@@ -2876,9 +2945,48 @@ function followDraggedAncestor(node: IProjectionNode) {
 }
 
 /**
+ * Ready `node`, an ancestor of a node about to be measured: move its
+ * accelerated transforms to the main thread, reset its transform when
+ * layouts are measured, and read its scroll.
+ */
+function prepareAncestor(node: IProjectionNode) {
+    node.shouldResetTransform = true
+    demoteTransforms(node)
+
+    /**
+     * Percentage translates resolve against layoutBox dimensions,
+     * so ancestors with them must be re-measured after transform reset.
+     */
+    if (
+        typeof node.latestValues.x === "string" ||
+        typeof node.latestValues.y === "string"
+    ) {
+        node.isLayoutDirty = true
+    }
+
+    node.updateScroll("snapshot")
+}
+
+/**
+ * Measure a dragged node before the DOM changes, as willUpdate() would. Its
+ * drag follows layout changes that its component doesn't have to render for
+ * (e.g. it's memoized), by how far it moves from this snapshot. Its last
+ * layout won't do: it can predate a scroll that its drag has already
+ * followed, or include transforms of ancestors that this update resets.
+ */
+function snapshotDragged(node: IProjectionNode) {
+    if (node.isAnimationBlocked && node.layout) {
+        node.path.forEach(prepareAncestor)
+        demoteTransforms(node)
+        node.dragSnapshot = node.measure()
+    }
+}
+
+/**
  * When a node is animation-blocked (e.g. during drag) and its component
  * didn't re-render (memoized), willUpdate() is never called so there's
- * no snapshot. Use the previous layout as a snapshot and mark dirty so
+ * no snapshot. Use the one startUpdate() took (or, if it took none or the
+ * node was dragged since, its previous layout) and mark dirty so
  * resetTransform/updateLayout/notifyLayoutUpdate process it normally.
  */
 function ensureDraggedNodesSnapshotted(node: IProjectionNode) {

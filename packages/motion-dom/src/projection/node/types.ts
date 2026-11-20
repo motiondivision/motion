@@ -56,6 +56,7 @@ export interface IProjectionNode<I = unknown> {
     children: Set<IProjectionNode>
     path: IProjectionNode[]
     nodes?: FlatTree
+    inTree?: boolean
     depth: number
     instance: I | undefined
     mount: (node: I, isLayoutDirty?: boolean) => void
@@ -93,8 +94,8 @@ export interface IProjectionNode<I = unknown> {
     written: ResolvedValues
     prepareFlush(node: any): void
     needsShow?: boolean
-    startUpdate(): void
-    willUpdate(notifyListeners?: boolean): void
+    startUpdate(isUnmount?: boolean): void
+    willUpdate(notifyListeners?: boolean, isUnmount?: boolean): void
     didUpdate(): void
     measure(removeTransform?: boolean): Measurements
     measurePageBox(): Box
@@ -136,7 +137,11 @@ export interface IProjectionNode<I = unknown> {
     resetTree(): void
 
     isProjecting(): boolean
-    hasProjectingChild(): boolean
+    /**
+     * On the root: whether this frame has more projecting nodes than the
+     * layer budget, so none moves as a compositor layer.
+     */
+    overLayerBudget?: boolean
     animationValues?: ResolvedValues
     currentAnimation?: AnimationPlaybackControlsWithThen
     /**
@@ -223,6 +228,11 @@ export interface ProjectionNodeOptions {
     layoutId?: string
     layout?: boolean | string
     visualElement?: VisualElement
+
+    /**
+     * `false` disables the opacity crossfade between nodes that share a
+     * layoutId. Enabled by default.
+     */
     crossfade?: boolean
     transition?: Transition
     initialPromotionConfig?: InitialPromotionConfig

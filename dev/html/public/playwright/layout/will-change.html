@@ -1,0 +1,84 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+            }
+            #list {
+                display: flex;
+                gap: 10px;
+            }
+            .card {
+                width: 100px;
+                height: 100px;
+                padding: 10px;
+                background: #0cdcf7;
+            }
+            .child {
+                width: 20px;
+                height: 20px;
+                background: #fff;
+            }
+            .box {
+                width: 4px;
+                height: 4px;
+                background: #f00;
+            }
+            #list.moved {
+                flex-direction: row-reverse;
+            }
+            #list.moved .child {
+                margin-left: 40px;
+            }
+        </style>
+    </head>
+    <body>
+        <!--
+            Every element a layout animation moves gets will-change:
+            transform while it moves, and loses it when the animation ends.
+            ?count sets the number of cards. Each card and its child both
+            animate, so 60 cards is past the budget of 100 layers.
+            ?animated adds that many boxes with a transform animating on
+            the compositor, which count towards the same budget.
+        -->
+        <div id="list"></div>
+        <script type="module" src="/src/inc.js"></script>
+        <script type="module">
+            const { animate, animateLayout } = window.Motion
+
+            const params = new URLSearchParams(location.search)
+            const count = Number(params.get("count") || 3)
+            const list = document.getElementById("list")
+            for (let i = 0; i < count; i++) {
+                const card = document.createElement("div")
+                card.className = "card"
+                card.dataset.layout = true
+                const child = document.createElement("div")
+                child.className = "child"
+                child.dataset.layout = true
+                card.append(child)
+                list.append(card)
+            }
+
+            const boxes = []
+            for (let i = 0; i < Number(params.get("animated")); i++) {
+                const box = document.createElement("div")
+                box.className = "box"
+                document.body.append(box)
+                boxes.push(box)
+            }
+            const animations = boxes.length
+                ? animate(boxes, { x: 100 }, { duration: 10, ease: "linear" })
+                : undefined
+            window.accelerated = () =>
+                boxes.filter((box) => box.getAnimations().length).length
+            window.stopBoxes = () => animations.stop()
+
+            window.run = () =>
+                animateLayout(() => list.classList.toggle("moved"), {
+                    duration: 0.5,
+                    ease: "linear",
+                })
+        </script>
+    </body>
+</html>

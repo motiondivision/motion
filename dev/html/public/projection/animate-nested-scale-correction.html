@@ -67,6 +67,21 @@
 
             const aOrigin = a.getBoundingClientRect()
 
+            /**
+             * The spec waits for this to go before it looks for errors, as
+             * the check can come after its fixed wait on a slow machine.
+             */
+            document.body.dataset.layoutPending = ""
+
+            /**
+             * Run callback once no node is (or is about to be) animating.
+             */
+            const nodes = [parentProjection, aProjection, bProjection]
+            const whenSettled = (callback) =>
+                nodes.some((n) => n.currentAnimation || n.pendingAnimation)
+                    ? frame.postRender(() => whenSettled(callback))
+                    : callback()
+
             parentProjection.willUpdate()
             aProjection.willUpdate()
             bProjection.willUpdate()
@@ -83,19 +98,29 @@
                     a.classList.remove("open")
                     parentProjection.root.didUpdate()
 
-                    setTimeout(() => {
-                        parentProjection.willUpdate()
-                        aProjection.willUpdate()
-                        bProjection.willUpdate()
-                        b.classList.add("open")
-                        parentProjection.root.didUpdate()
+                    /**
+                     * Start the next update once the last one's 100ms
+                     * animations have finished, which can take longer than
+                     * 150ms on a slow machine.
+                     */
+                    setTimeout(
+                        () =>
+                            whenSettled(() => {
+                                parentProjection.willUpdate()
+                                aProjection.willUpdate()
+                                bProjection.willUpdate()
+                                b.classList.add("open")
+                                parentProjection.root.didUpdate()
 
-                        frame.postRender(() => {
-                            frame.postRender(() => {
-                                matchViewportBox(a, aOrigin)
-                            })
-                        })
-                    }, 150)
+                                frame.postRender(() => {
+                                    frame.postRender(() => {
+                                        matchViewportBox(a, aOrigin)
+                                        delete document.body.dataset.layoutPending
+                                    })
+                                })
+                            }),
+                        150
+                    )
                 })
             })
         </script>

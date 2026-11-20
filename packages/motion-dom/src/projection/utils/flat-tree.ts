@@ -1,24 +1,35 @@
-import { addUniqueItem, removeItem } from "motion-utils"
 import { compareByDepth, WithDepth } from "./compare-by-depth"
 
 export class FlatTree {
-    private children: WithDepth[] = []
+    private children = new Set<WithDepth>()
 
-    private isDirty: boolean = false
+    /**
+     * The children in depth order, until they change. It's dropped
+     * rather than updated, so it never holds a child that was removed.
+     */
+    private sorted?: WithDepth[]
 
     add(child: WithDepth) {
-        addUniqueItem(this.children, child)
-        this.isDirty = true
+        this.children.add(child)
+        this.sorted = undefined
     }
 
     remove(child: WithDepth) {
-        removeItem(this.children, child)
-        this.isDirty = true
+        this.children.delete(child) && (this.sorted = undefined)
     }
 
     forEach(callback: (child: WithDepth) => void) {
-        this.isDirty && this.children.sort(compareByDepth)
-        this.isDirty = false
-        this.children.forEach(callback)
+        const { children } = this
+        const sorted = (this.sorted ||= [...children].sort(compareByDepth))
+
+        /**
+         * A child removed by an earlier callback isn't visited. The
+         * list is only replaced when children change, so only then is
+         * each one looked up.
+         */
+        for (let i = 0; i < sorted.length; i++) {
+            const child = sorted[i]
+            ;(sorted === this.sorted || children.has(child)) && callback(child)
+        }
     }
 }

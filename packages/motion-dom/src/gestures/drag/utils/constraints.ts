@@ -1,14 +1,7 @@
 import { calcLength } from "../../../projection/geometry/delta-calc"
 import { mixNumber } from "../../../utils/mix/number"
-import type { DragElastic, ResolvedConstraints } from "../types"
-import {
-    Axis,
-    BoundingBox,
-    Box,
-    progress as calcProgress,
-    clamp,
-    Point,
-} from "motion-utils"
+import type { DragElastic } from "../types"
+import { Axis, Box, progress as calcProgress, clamp } from "motion-utils"
 
 /**
  * Apply constraints to a point. These constraints are both physical along an
@@ -36,57 +29,19 @@ export function applyConstraints(
 }
 
 /**
- * Calculates a min projection point based on a pointer, pointer progress
- * within the drag target, and constraints.
- *
- * For instance if an element was 100px width, we were dragging from 0.25
- * along this axis, the pointer is at 200px, and there were no constraints,
- * we would calculate a min projection point of 175px.
- */
-export function calcConstrainedMinPoint(
-    point: number,
-    length: number,
-    progress: number,
-    constraints?: Partial<Axis>,
-    elastic?: Axis
-): number {
-    // Calculate a min point for this axis and apply it to the current pointer
-    const min = point - length * progress
-
-    return constraints ? applyConstraints(min, constraints, elastic) : min
-}
-
-/**
- * Calculate constraints in terms of the viewport when defined relatively to the
- * measured axis. This is measured from the nearest edge, so a max constraint of 200
- * on an axis with a max value of 300 would return a constraint of 500 - axis length
+ * The constraints of an axis when they're defined relative to where the
+ * element is laid out, which is the space its x and y values are in. An
+ * edge that isn't defined is left out, as inertia takes one it isn't
+ * given from `dragTransition`.
  */
 export function calcRelativeAxisConstraints(
-    axis: Axis,
     min?: number,
     max?: number
 ): Partial<Axis> {
-    return {
-        min: min !== undefined ? axis.min + min : undefined,
-        max:
-            max !== undefined
-                ? axis.max + max - (axis.max - axis.min)
-                : undefined,
-    }
-}
-
-/**
- * Calculate constraints in terms of the viewport when
- * defined relatively to the measured bounding box.
- */
-export function calcRelativeConstraints(
-    layoutBox: Box,
-    { top, left, bottom, right }: Partial<BoundingBox>
-): ResolvedConstraints {
-    return {
-        x: calcRelativeAxisConstraints(layoutBox.x, left, right),
-        y: calcRelativeAxisConstraints(layoutBox.y, top, bottom),
-    }
+    const constraints: Partial<Axis> = {}
+    if (min !== undefined) constraints.min = min
+    if (max !== undefined) constraints.max = max
+    return constraints
 }
 
 /**
@@ -137,61 +92,6 @@ export function calcOrigin(source: Axis, target: Axis): number {
     }
 
     return clamp(0, 1, origin)
-}
-
-/**
- * Calculate the relative progress of one constraints box relative to another.
- * Imagine a page scroll bar. At the top, this would return 0, at the bottom, 1.
- * Anywhere in-between, a value between 0 and 1.
- *
- * This also handles flipped constraints, for instance a draggable container within
- * a smaller viewport like a scrollable view.
- */
-export function calcProgressWithinConstraints(
-    layoutBox: Box,
-    constraintsBox: Box
-): Point {
-    return {
-        x: calcOrigin(layoutBox.x, constraintsBox.x),
-        y: calcOrigin(layoutBox.y, constraintsBox.y),
-    }
-}
-
-/**
- * Calculate the an axis position based on two axes and a progress value.
- */
-export function calcPositionFromProgress(
-    axis: Axis,
-    constraints: Axis,
-    progress: number
-): Axis {
-    const axisLength = axis.max - axis.min
-    const min = mixNumber(
-        constraints.min,
-        constraints.max - axisLength,
-        progress
-    )
-    return { min, max: min + axisLength }
-}
-
-/**
- * Rebase the calculated viewport constraints relative to the layout.min point.
- */
-export function rebaseAxisConstraints(
-    layout: Axis,
-    constraints: Partial<Axis>
-): Partial<Axis> {
-    const relativeConstraints: Partial<Axis> = {}
-
-    if (constraints.min !== undefined) {
-        relativeConstraints.min = constraints.min - layout.min
-    }
-
-    if (constraints.max !== undefined) {
-        relativeConstraints.max = constraints.max - layout.min
-    }
-
-    return relativeConstraints
 }
 
 export const defaultElastic = 0.35

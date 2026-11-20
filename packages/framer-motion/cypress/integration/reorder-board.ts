@@ -8,7 +8,12 @@ interface Point {
  * dragged item moved to another group is a new element, and the gesture
  * listens on the window.
  */
-function pointer(el: Element, type: string, { x, y }: Point) {
+function pointer(
+    el: Element,
+    type: string,
+    { x, y }: Point,
+    init?: PointerEventInit
+) {
     const win = el.ownerDocument.defaultView as any
     el.dispatchEvent(
         new win.PointerEvent(type, {
@@ -19,6 +24,7 @@ function pointer(el: Element, type: string, { x, y }: Point) {
             pointerId: 1,
             button: 0,
             pointerType: "mouse",
+            ...init,
         })
     )
 }
@@ -132,6 +138,119 @@ describe("Reorder.Board", () => {
                 expect(scale(a)).to.equal(1)
             })
         })
+        cy.get("[data-testid='drags']").should("have.text", "1,1")
+    })
+
+    it("carries on from a move made while the item moves to another group", () => {
+        let start: Point
+        let target: Point
+        let moved: Point
+
+        item("d").then(([d]) => {
+            const { x, y } = centre(d)
+            target = { x, y: y + 15 }
+            moved = { x: x + 30, y: y + 25 }
+        })
+        item("a")
+            .then(([a]) => {
+                start = centre(a)
+                pointer(a, "pointerdown", start)
+            })
+            .then(() => moveTo(start, { x: start.x + 10, y: start.y }, 2))
+            .wait(400)
+
+        // Over "doing", then move again once that frame has moved the item
+        // there but before React commits the move
+        cy.get("body").then(([body]) => {
+            const win = body.ownerDocument.defaultView!
+            pointer(body, "pointermove", target)
+            win.requestAnimationFrame(() =>
+                pointer(body, "pointermove", moved)
+            )
+        })
+
+        cy.get("[data-testid='state']").should(
+            "have.text",
+            "todo:b,c doing:d,a,e done:"
+        )
+
+        // It follows that last move, rather than stopping where the move
+        // to "doing" began
+        item("a").should(([a]) => {
+            expect(a.parentElement!.dataset.testid).to.equal("doing")
+            const { x, y } = centre(a)
+            expect(x).to.be.closeTo(moved.x, 3)
+            expect(y).to.be.closeTo(moved.y, 3)
+        })
+
+        cy.get("body").then(([body]) => pointer(body, "pointerup", moved))
+        cy.get("[data-testid='drags']").should("have.text", "1,1")
+    })
+
+    it("ignores a move that presses another button, before or during a move to another group", () => {
+        let start: Point
+        let target: Point
+
+        item("d").then(([d]) => {
+            const { x, y } = centre(d)
+            target = { x, y: y + 15 }
+        })
+        item("a")
+            .then(([a]) => {
+                start = centre(a)
+                pointer(a, "pointerdown", start)
+            })
+            .then(() => moveTo(start, { x: start.x + 10, y: start.y }, 2))
+            .wait(400)
+
+        // Over "doing", pressing the right button too: not a move of the
+        // drag's pointer, so the item stays where it is
+        cy.get("body")
+            .then(([body]) =>
+                pointer(body, "pointermove", target, { button: 2, buttons: 3 })
+            )
+            .nextFrame()
+            .nextFrame()
+        cy.get("[data-testid='state']").then(([state]) => {
+            expect(state.textContent).to.equal("todo:a,b,c doing:d,e done:")
+        })
+
+        // Over "doing", then with the right button again once that frame
+        // has moved the item there but before React commits the move
+        cy.get("body").then(([body]) => {
+            const win = body.ownerDocument.defaultView!
+            pointer(body, "pointermove", target)
+            win.requestAnimationFrame(() =>
+                pointer(
+                    body,
+                    "pointermove",
+                    { x: target.x + 30, y: target.y },
+                    { button: 2, buttons: 3 }
+                )
+            )
+        })
+        cy.get("[data-testid='state']").should(
+            "have.text",
+            "todo:b,c doing:d,a,e done:"
+        )
+
+        // The drag carries on in "doing", from the last move of its pointer
+        item("a").should(([a]) => {
+            expect(a.parentElement!.dataset.testid).to.equal("doing")
+            const { x, y } = centre(a)
+            expect(x).to.be.closeTo(target.x, 3)
+            expect(y).to.be.closeTo(target.y, 3)
+        })
+        cy.wrap(null).then(() =>
+            moveTo(target, { x: target.x + 20, y: target.y }, 4)
+        )
+        item("a").should(([a]) => {
+            expect(centre(a).x).to.be.closeTo(target.x + 20, 3)
+        })
+
+        cy.get("body").then(([body]) =>
+            pointer(body, "pointerup", { x: target.x + 20, y: target.y })
+        )
         cy.get("[data-testid='drags']").should("have.text", "1,1")
     })
 
@@ -253,6 +372,116 @@ describe("Reorder.Board in a scrolling board", () => {
                 expect(a.getBoundingClientRect().top).to.be.closeTo(slot, 1)
             })
         })
+        cy.get("[data-testid='drags']").should("have.text", "1,1")
+    })
+
+    it("scrolls the board from a move made while the item moves to another group", () => {
+        let start: Point
+        let over: Point
+        let edge: Point
+
+        // Scroll "done" into view, short of where the board scrolls across
+        cy.get("[data-testid='board']")
+            .then(([board]) => {
+                const { right } = board.getBoundingClientRect()
+                const { left } = board.children[2].getBoundingClientRect()
+                board.scrollLeft += left - (right - 120)
+            })
+            .nextFrame()
+            .then(([board]) => {
+                const { right } = board.getBoundingClientRect()
+                const { left } = board.children[2].getBoundingClientRect()
+                over = { x: left + 1, y: 0 }
+                edge = { x: right - 20, y: 0 }
+                // With some way left to scroll
+                expect(board.scrollWidth - board.clientWidth).to.be.greaterThan(
+                    board.scrollLeft + 10
+                )
+            })
+        item("d")
+            .then(([d]) => {
+                start = centre(d)
+                over.y = edge.y = start.y
+                pointer(d, "pointerdown", start)
+            })
+            .then(() => moveTo(start, { x: over.x - 10, y: start.y }, 6))
+
+        // Over "done", then by the board's edge once that frame has moved
+        // the item there but before React commits the move
+        cy.get("body").then(([body]) => {
+            const win = body.ownerDocument.defaultView!
+            pointer(body, "pointermove", over)
+            win.requestAnimationFrame(() =>
+                pointer(body, "pointermove", edge)
+            )
+        })
+        cy.get("[data-testid='state']").should(
+            "have.text",
+            "todo:a,b,c doing:e done:d"
+        )
+
+        // Held there, the board scrolls across to its end
+        cy.get("[data-testid='board']").should(([board]) => {
+            expect(board.scrollLeft).to.be.closeTo(
+                board.scrollWidth - board.clientWidth,
+                1
+            )
+        })
+        item("d").should(([d]) => {
+            expect(centre(d).x).to.be.closeTo(edge.x, 3)
+        })
+
+        cy.get("body").then(([body]) => pointer(body, "pointerup", edge))
+        cy.get("[data-testid='drags']").should("have.text", "1,1")
+    })
+
+    it("keeps the item under the pointer when another group renders after the board scrolls", () => {
+        let start: Point
+        let edge: Point
+
+        cy.get("[data-testid='board']").then(([board]) => {
+            edge = { x: board.getBoundingClientRect().right - 20, y: 0 }
+        })
+        item("a")
+            .then(([a]) => {
+                start = centre(a)
+                edge.y = start.y
+                pointer(a, "pointerdown", start)
+            })
+            .then(() => moveTo(start, edge, 10))
+
+        // Held by its edge, the board scrolls across to its end, with the
+        // item following the pointer
+        cy.get("[data-testid='board']").should(([board]) => {
+            expect(board.scrollLeft).to.be.closeTo(
+                board.scrollWidth - board.clientWidth,
+                1
+            )
+        })
+        cy.get("[data-testid='state']").should(
+            "have.text",
+            "todo:b,c doing:d,e done:a"
+        )
+        item("a").should(([a]) => {
+            expect(centre(a).x).to.be.closeTo(edge.x, 3)
+        })
+
+        // A group the item isn't in renders: focusing e makes it the tab
+        // stop of "doing". That measures layout without rendering the item,
+        // whose last measured layout is from before the board scrolled.
+        item("e")
+            .then(([e]) => (e as HTMLElement).focus({ preventScroll: true }))
+            .nextFrame()
+            .nextFrame()
+
+        // The item stays under the pointer, rather than moving on by the
+        // scroll it has already followed
+        item("a").then(([a]) => {
+            expect(centre(a).x).to.be.closeTo(edge.x, 3)
+            expect(centre(a).y).to.be.closeTo(edge.y, 3)
+        })
+
+        cy.get("body").then(([body]) => pointer(body, "pointerup", edge))
         cy.get("[data-testid='drags']").should("have.text", "1,1")
     })
 })

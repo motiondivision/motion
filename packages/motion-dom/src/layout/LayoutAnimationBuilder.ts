@@ -1,10 +1,9 @@
 import { activeScope } from "../scope/active"
-import { clamp } from "motion-utils"
 import { GroupAnimation } from "../animation/GroupAnimation"
 import type { AnimationOptions, Transition } from "../animation/types"
-import { frameData, frameSteps } from "../frameloop"
+import { frameData } from "../frameloop"
+import { flushFrame } from "../frameloop/flush-frame"
 import { microtask } from "../frameloop/microtask"
-import { time } from "../frameloop/sync-time"
 import { HTMLProjectionNode } from "../projection/node/HTMLProjectionNode"
 import type { IProjectionNode } from "../projection/node/types"
 import { visualElementStore } from "../render/store"
@@ -52,25 +51,6 @@ function collectLayoutElements(scope: LayoutAnimationScope): HTMLElement[] {
     })
 
     return elements
-}
-
-/**
- * Process any work scheduled on the frameloop now. A previous animation
- * may have been seeked while paused (controls.time = x) without a frame
- * having rendered it - we must materialise that state into the DOM
- * before taking snapshots.
- */
-function flushPendingFrame() {
-    if (frameData.isProcessing) return
-
-    const now = time.now()
-    frameData.delta = clamp(0, 1000 / 60, now - frameData.timestamp)
-    frameData.timestamp = now
-    frameData.isProcessing = true
-    frameSteps.update.process(frameData)
-    frameSteps.preRender.process(frameData)
-    frameSteps.render.process(frameData)
-    frameData.isProcessing = false
 }
 
 function getProjectionParent(element: Element): IProjectionNode | undefined {
@@ -134,7 +114,9 @@ function prepareNode(
  * Create a node for an element in the shared imperative tree. Returns the
  * node and a function that releases it.
  */
-function createLayoutNode(element: HTMLElement): [IProjectionNode, VoidFunction] {
+function createLayoutNode(
+    element: HTMLElement
+): [IProjectionNode, VoidFunction] {
     const node = prepareNode(element)
 
     return [
@@ -168,10 +150,20 @@ export function acquireProjectionNode(
     return owned?.instance ? [owned, () => {}] : createLayoutNode(element)
 }
 
-function sortDocumentOrder(elements: Iterable<HTMLElement>) {
-    return [...elements].sort((a, b) =>
-        a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1
-    )
+/**
+ * A single builder collects its elements in document order already. Only
+ * sort when several builders were merged: comparing two siblings walks
+ * their sibling list, so sorting a long flat list takes quadratic time.
+ */
+function sortDocumentOrder(elements: Iterable<HTMLElement>, sort: boolean) {
+    const sorted = [...elements]
+    return sort
+        ? sorted.sort((a, b) =>
+              a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING
+                  ? -1
+                  : 1
+          )
+        : sorted
 }
 
 function dropNode(element: Element, node: IProjectionNode) {
@@ -194,7 +186,12 @@ function flushPendingBuilders() {
     if (!builders) return
     pendingBuilders = undefined
 
-    flushPendingFrame()
+    /**
+     * A previous animation may have been seeked while paused
+     * (controls.time = x) without a frame having rendered it. Materialise
+     * that state into the DOM before taking snapshots.
+     */
+    frameData.isProcessing || flushFrame()
 
     /**
      * Discover and mount every node across all builders before snapshotting
@@ -212,7 +209,10 @@ function flushPendingBuilders() {
     }
 
     const union = new Map<HTMLElement, IProjectionNode>()
-    for (const element of sortDocumentOrder(targets.keys())) {
+    for (const element of sortDocumentOrder(
+        targets.keys(),
+        builders.length > 1
+    )) {
         const owners = targets.get(element)!
         const node = prepareNode(
             element,

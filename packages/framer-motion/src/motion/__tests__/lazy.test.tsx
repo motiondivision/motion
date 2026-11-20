@@ -169,4 +169,23 @@ describe("Lazy feature loading", () => {
 
         return expect(promise).resolves.toBe(20)
     })
+
+    test("A failed async load doesn't cause an unhandled rejection", async () => {
+        const onUnhandled = jest.fn()
+        process.on("unhandledRejection", onUnhandled)
+
+        const { container } = render(
+            <LazyMotion
+                features={() => Promise.reject(new Error("Failed to load"))}
+            >
+                <m.div animate={{ opacity: 0.5 }}>Hello</m.div>
+            </LazyMotion>
+        )
+
+        await new Promise((resolve) => setTimeout(resolve, 20))
+        process.off("unhandledRejection", onUnhandled)
+
+        expect(onUnhandled).not.toHaveBeenCalled()
+        expect(container.textContent).toBe("Hello")
+    })
 })
