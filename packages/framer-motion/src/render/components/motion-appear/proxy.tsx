@@ -117,24 +117,35 @@ function withAppear(Component: any, isSVG: boolean) {
     return forwardRef(AppearComponent)
 }
 
-const cache = new Map<string, any>()
+/**
+ * Motion components whose enter animations start as CSS, from components
+ * that get their animation code after they mount.
+ */
+export function createAppearProxy<T extends object>(base: T): T {
+    const cache = new Map<string, any>()
+    const create = (Component: any, options?: any) =>
+        withAppear(
+            (base as any).create(Component, options),
+            options?.type
+                ? options.type === "svg"
+                : isSVGComponent(Component)
+        )
+
+    return new Proxy({} as T, {
+        get: (_, key: string) => {
+            if (key === "create") return create
+            if (!cache.has(key)) {
+                cache.set(
+                    key,
+                    withAppear((base as any)[key], isSVGComponent(key))
+                )
+            }
+            return cache.get(key)
+        },
+    })
+}
 
 /**
  * `m` components whose enter animations start as CSS.
  */
-export const motion = /*@__PURE__*/ new Proxy(
-    { create: (Component: any, options?: any) =>
-            withAppear(
-                m.create(Component, options),
-                options?.type ? options.type === "svg" : isSVGComponent(Component)
-            ) } as any,
-    {
-        get: (target, key: string) => {
-            if (key === "create") return target.create
-            if (!cache.has(key)) {
-                cache.set(key, withAppear((m as any)[key], isSVGComponent(key)))
-            }
-            return cache.get(key)
-        },
-    }
-) as typeof m
+export const motion = /*@__PURE__*/ createAppearProxy(m)

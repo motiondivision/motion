@@ -53,6 +53,12 @@
             "import": "./dist/es/appear.mjs",
             "default": "./dist/cjs/appear.js"
         },
+        "./appear-async": {
+            "types": "./dist/appear-async.d.ts",
+            "require": "./dist/cjs/appear-async.js",
+            "import": "./dist/es/appear-async.mjs",
+            "default": "./dist/cjs/appear-async.js"
+        },
         "./m": {
             "types": "./dist/m.d.ts",
             "require": "./dist/cjs/m.js",
