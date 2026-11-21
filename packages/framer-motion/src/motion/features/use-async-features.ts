@@ -26,11 +26,6 @@ interface Entry {
 const entries = new WeakMap<MotionContextProps, Entry>()
 const mounted = new Set<Entry>()
 
-const getProjectionNode = () => {
-    const { layout, drag } = getInitializedFeatureDefinitions()
-    return layout?.ProjectionNode || drag?.ProjectionNode
-}
-
 /**
  * Give a component the projection node it would have made while rendering,
  * had the feature been there. Its ancestors are given theirs first, as a
@@ -48,19 +43,23 @@ function ensureNode(context: MotionContextProps, ProjectionNode: any) {
 }
 
 /**
+ * Give a component its node if the feature that makes them has arrived.
+ */
+const project = ({ context }: Entry) => {
+    const { layout, drag } = getInitializedFeatureDefinitions()
+    const ProjectionNode = layout?.ProjectionNode || drag?.ProjectionNode
+    ProjectionNode && ensureNode(context!, ProjectionNode)
+}
+
+/**
  * When a feature arrives, mounted components are given projection nodes
  * without rendering again. Only those whose props use the feature render,
  * to mount it.
  */
 const notify = (keys: FeatureLoader["keys"]) => {
-    const ProjectionNode = getProjectionNode()
     const definitions = getInitializedFeatureDefinitions()
 
-    if (ProjectionNode) {
-        for (const entry of mounted) {
-            ensureNode(entry.context!, ProjectionNode)
-        }
-    }
+    mounted.forEach(project)
 
     for (const entry of mounted) {
         if (keys.some((key) => definitions[key]?.isEnabled(entry.props!))) {
@@ -82,8 +81,7 @@ const createEntry = () => {
              * A feature that arrived between this component's render and
              * its commit.
              */
-            const ProjectionNode = getProjectionNode()
-            ProjectionNode && ensureNode(entry.context!, ProjectionNode)
+            project(entry)
 
             return () => mounted.delete(entry)
         },
@@ -117,7 +115,7 @@ const fetchFeature = (loaders: FeatureLoaders, name: string) => {
             loader.failedAt = Date.now()
             warnOnce(
                 false,
-                `The ${name} feature failed to load, so ${name} props do nothing until it does, which can need a page reload: ${error}`
+                `${name} failed to load. A page reload may be needed: ${error}`
             )
             throw error
         }
@@ -187,8 +185,7 @@ export function useAsyncFeatures(
      * A mounted component is given its node here rather than when it
      * makes its visual element, so the node is mounted too.
      */
-    const ProjectionNode = getProjectionNode()
-    ProjectionNode && ensureNode(context, ProjectionNode)
+    project(entry)
 }
 
 /**
