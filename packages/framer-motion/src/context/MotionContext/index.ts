@@ -14,7 +14,7 @@ export interface MotionContextProps<Instance = unknown> {
      *
      * @internal
      */
-    project?: (ProjectionNode: any) => void
+    project?: (ProjectionNode: any, made?: VisualElement[]) => void
 }
 
 export const MotionContext = /* @__PURE__ */ createContext<MotionContextProps>(

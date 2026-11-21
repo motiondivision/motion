@@ -1,3 +1,4 @@
+import type { VisualElement } from "motion-dom"
 import { noop, warnOnce } from "motion-utils"
 import { useContext, useSyncExternalStore } from "react"
 import { MotionContext, MotionContextProps } from "../../context/MotionContext"
@@ -11,9 +12,12 @@ import { FeatureLoader, FeatureLoaders } from "./types"
 interface Entry {
     context?: MotionContextProps
     parent?: MotionContextProps
-    props?: MotionProps
     promotion?: any
     version: number
+    /**
+     * How many features had arrived when this last rendered.
+     */
+    arrived?: number
     onChange?: VoidFunction
     subscribe: (onChange: VoidFunction) => VoidFunction
     getVersion: () => number
@@ -27,28 +31,44 @@ const entries = new WeakMap<MotionContextProps, Entry>()
 const mounted = new Set<Entry>()
 
 /**
+ * How many times a feature has arrived.
+ */
+let arrived = 0
+
+/**
  * Give a component the projection node it would have made while rendering,
  * had the feature been there. Its ancestors are given theirs first, as a
  * node finds its parent when it's made.
+ *
+ * Nodes are mounted once each has been made, as they are when made while
+ * rendering. A node made after another has mounted with its layoutId
+ * would take over from it.
  */
-function ensureNode(context: MotionContextProps, ProjectionNode: any) {
+function ensureNode(
+    context: MotionContextProps,
+    ProjectionNode: any,
+    made?: VisualElement[]
+) {
     const entry = entries.get(context)
     const { visualElement } = context
     if (!entry || !visualElement || visualElement.projection) return
 
-    entry.parent!.project?.(ProjectionNode)
+    entry.parent!.project?.(ProjectionNode, made)
     ProjectionNode.create(visualElement, visualElement.props, entry.promotion)
-    visualElement.current &&
-        visualElement.projection!.mount(visualElement.current)
+    made ? made.push(visualElement) : mountNode(visualElement)
 }
+
+const mountNode = (visualElement: VisualElement) =>
+    visualElement.current &&
+    visualElement.projection!.mount(visualElement.current)
 
 /**
  * Give a component its node if the feature that makes them has arrived.
  */
-const project = ({ context }: Entry) => {
+const project = ({ context }: Entry, made?: VisualElement[]) => {
     const { layout, drag } = getInitializedFeatureDefinitions()
     const ProjectionNode = layout?.ProjectionNode || drag?.ProjectionNode
-    ProjectionNode && ensureNode(context!, ProjectionNode)
+    ProjectionNode && ensureNode(context!, ProjectionNode, made)
 }
 
 /**
@@ -58,11 +78,19 @@ const project = ({ context }: Entry) => {
  */
 const notify = (keys: FeatureLoader["keys"]) => {
     const definitions = getInitializedFeatureDefinitions()
+    const made: VisualElement[] = []
 
-    mounted.forEach(project)
+    arrived++
+    for (const entry of mounted) project(entry, made)
+    made.forEach(mountNode)
 
+    /**
+     * The props a component committed, not those of a render that React
+     * can still discard.
+     */
     for (const entry of mounted) {
-        if (keys.some((key) => definitions[key]?.isEnabled(entry.props!))) {
+        const { props } = entry.context!.visualElement!
+        if (keys.some((key) => definitions[key]?.isEnabled(props))) {
             entry.version++
             entry.onChange!()
         }
@@ -79,9 +107,11 @@ const createEntry = () => {
 
             /**
              * A feature that arrived between this component's render and
-             * its commit.
+             * now missed it. It's given its node, and React, which reads
+             * the version again once it has subscribed, renders it.
              */
             project(entry)
+            if (entry.arrived !== arrived) entry.version++
 
             return () => mounted.delete(entry)
         },
@@ -137,7 +167,13 @@ export function useAsyncFeatures(
     const entry = useConstant(createEntry)
     entry.parent = useContext(MotionContext)
     entry.promotion = useContext(SwitchLayoutGroupContext)
-    entry.props = props
+    entry.arrived = arrived
+
+    /**
+     * A change of variant labels makes a new context, which is given its
+     * visual element later in this render.
+     */
+    context.visualElement ||= entry.context?.visualElement
     entry.context = context
     entries.set(context, entry)
 
@@ -146,8 +182,8 @@ export function useAsyncFeatures(
      * renders gives this one its node first, if it rendered before the
      * feature arrived.
      */
-    context.project ||= (ProjectionNode) =>
-        ensureNode(context, ProjectionNode)
+    context.project ||= (ProjectionNode, made) =>
+        ensureNode(context, ProjectionNode, made)
 
     useSyncExternalStore(entry.subscribe, entry.getVersion, entry.getVersion)
 
@@ -190,7 +226,8 @@ export function useAsyncFeatures(
 
 /**
  * Fetch every feature now, for instance before a test runs or ahead of an
- * interaction that needs one. Rejects if one fails to load.
+ * interaction that needs one. Rejects if one fails to load, so catch it
+ * where that's expected.
  */
 export const preloadFeatures = (loaders: FeatureLoaders) =>
     Promise.all(Object.keys(loaders).map((name) => fetchFeature(loaders, name)))

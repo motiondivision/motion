@@ -246,12 +246,13 @@ export function MeasureLayout(
     /**
      * When the layout feature is fetched while its element is exiting,
      * this mounts already not present. It then doesn't hold up the exit,
-     * as it would never be told to let go of it.
+     * as it would never be told to let go of it. It can hold up a later
+     * exit, once its element has been present again.
      */
     const presence = useContext(PresenceContext)
-    const [isPresent, safeToRemove] = usePresence(
-        useRef(!presence || presence.isPresent).current
-    )
+    const subscribe = useRef(!presence || presence.isPresent)
+    subscribe.current ||= presence!.isPresent
+    const [isPresent, safeToRemove] = usePresence(subscribe.current)
     const layoutGroup = useContext(LayoutGroupContext)
 
     return (
