@@ -193,12 +193,19 @@ function takeOver(unit: Unit, interrupted?: Follower) {
     const time = now(unit)
     unit.animations.forEach((animation) => {
         const name = nameOf(animation)
-        appear.timings[name]?.keys.forEach((key) =>
+        appear.timings[name]?.keys.forEach((key) => {
+            /**
+             * The value itself is where its animation started, as
+             * that's where the animation that carries it on plays
+             * from.
+             */
+            appear.held?.[key] === undefined &&
+                visualElement.getValue(key, appear.from[key])
             visualElement.setStaticValue(
                 key,
                 sample(unit, { key, name }, time) as any
             )
-        )
+        })
     })
     visualElement.render()
 
@@ -276,6 +283,23 @@ function getUnit(
     queueMicrotask(check)
 
     return unit
+}
+
+/**
+ * Values a gesture set before the animation code arrived are shown by
+ * CSS animations that hold them. The animation code may have no reason
+ * to animate them, so their animations are taken over as it arrives.
+ */
+export function takeOverHeld(visualElement: VisualElement) {
+    const appear = appearElements.get(visualElement.current as object) as
+        | AppearAnimation
+        | undefined
+
+    for (const key in appear?.held) {
+        const name = animationOf(key, appear!) || appear!.transform[0]
+        const unit = name && getUnit(visualElement, appear!, name)
+        unit && takeOver(unit)
+    }
 }
 
 /**

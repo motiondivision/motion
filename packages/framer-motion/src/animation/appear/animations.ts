@@ -2,7 +2,7 @@ import { variantPriorityOrder, type VisualElement } from "motion-dom"
 import { AnimationFeature } from "../../motion/features/animation"
 import type { FeaturePackages } from "../../motion/features/types"
 import type { EarlyState } from "./early"
-import { followAppearAnimations } from "./follow"
+import { followAppearAnimations, takeOverHeld } from "./follow"
 
 /**
  * The animation feature for components whose enter animations start as
@@ -18,6 +18,8 @@ class AppearAnimationFeature extends AnimationFeature {
         super(node)
 
         if (active) {
+            takeOverHeld(node)
+
             for (const type of variantPriorityOrder) {
                 active[type] && node.animationState!.setActive(type, true)
             }

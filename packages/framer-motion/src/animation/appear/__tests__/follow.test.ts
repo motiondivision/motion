@@ -54,6 +54,7 @@ function setup(initial: any, animate: any, currentTime: number) {
     const resumed: string[] = []
     const visualElement = {
         current: element,
+        getValue: jest.fn(),
         setStaticValue: jest.fn(),
         render: jest.fn(),
     }
