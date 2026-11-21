@@ -1,3 +1,4 @@
+import { motionValue } from "motion-dom"
 import { appearRule, createAppearAnimation } from "../css"
 
 const linear = { duration: 2, ease: "linear" } as const
@@ -69,6 +70,21 @@ describe("createAppearAnimation", () => {
         expect(appear.style.animation).toBe("m-opacity 2s linear 0s both")
     })
 
+    test("records what each animation plays, for the animation code", () => {
+        const appear = make({
+            initial: { x: -100, scale: 0.5, opacity: 0 },
+            animate: { x: 0, scale: 1, opacity: 1 },
+            transition: linear,
+        })!
+
+        expect(appear.timings["m-transform"].keys).toEqual(["x", "scale"])
+        expect(appear.timings["m-opacity"].keys).toEqual(["opacity"])
+        expect(appear.timings["m-opacity"].transition).toEqual({
+            ...linear,
+            delay: undefined,
+        })
+    })
+
     test("gives a transform without an initial value its default", () => {
         const appear = make({ animate: { x: 100, scale: 2 } }, {})!
 
@@ -95,6 +111,22 @@ describe("createAppearAnimation", () => {
             undefined
         )
         expect(make({ initial: false, animate }, {})).toBe(undefined)
+
+        // Reports of every frame, and readers of a motion value
+        expect(make({ initial, animate, onUpdate: () => {} })).toBe(undefined)
+        expect(
+            make({ initial, animate, style: { opacity: motionValue(0) } })
+        ).toBe(undefined)
+
+        // A transform that layout or drag also moves, or that has a unit
+        const from = { x: -100 }
+        const to = { x: 0 }
+        expect(make({ initial: from, animate: to })).toBeTruthy()
+        expect(make({ initial: from, animate: to, layout: true })).toBe(
+            undefined
+        )
+        expect(make({ initial: from, animate: to, drag: "x" })).toBe(undefined)
+        expect(make({ initial: from, animate: { x: "50%" } })).toBe(undefined)
         expect(make({ initial }, initial)).toBe(undefined)
         expect(make({ animate: { height: 100 } }, {})).toBe(undefined)
         expect(

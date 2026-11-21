@@ -9,6 +9,7 @@ import {
     getStyleRender,
     getValueTransition,
     isAnimationControls,
+    isMotionValue,
     isTransitionDefined,
     resolveVariantFromProps,
     spring,
@@ -39,6 +40,25 @@ export interface AppearAnimation {
      * Initial values for the values that had none.
      */
     values: { [key: string]: number }
+    /**
+     * What each animation plays, by its name, for the animation code to
+     * follow it.
+     */
+    timings: { [name: string]: AppearTiming }
+}
+
+export interface AppearTiming {
+    /**
+     * The values the animation is of. A transform has many.
+     */
+    keys: string[]
+    /**
+     * The transition the animation was made from, and the numbers its
+     * spring ran between.
+     */
+    transition: any
+    from: unknown
+    to: unknown
 }
 
 export const appearName = (property: string) => "m-" + property
@@ -92,7 +112,10 @@ function cssTiming(transition: any, key: string, from: unknown, to: unknown) {
 
     if (typeof ease !== "string") return
 
-    return `${duration ?? 0.3}s ${ease} ${transition.delay || 0}s both`
+    return [
+        `${duration ?? 0.3}s ${ease} ${transition.delay || 0}s both`,
+        transition,
+    ] as const
 }
 
 /**
@@ -120,7 +143,12 @@ export function createAppearAnimation(
         presenceContext?.initial === false ||
         !animate ||
         isAnimationControls(animate) ||
-        (style as any)?.animation
+        (style as any)?.animation ||
+        /**
+         * A component that reports every frame needs the animation code
+         * to make them.
+         */
+        props.onUpdate
     ) {
         return
     }
@@ -143,7 +171,12 @@ export function createAppearAnimation(
         props as any
     ).style as { [key: string]: string | number }
 
-    const appear: AppearAnimation = { style: {}, properties: {}, values: {} }
+    const appear: AppearAnimation = {
+        style: {},
+        properties: {},
+        values: {},
+        timings: {},
+    }
     const animations: string[] = []
 
     for (const key in target) {
@@ -166,12 +199,21 @@ export function createAppearAnimation(
 
         /**
          * Keyframes and motion values need the animation code, as do
-         * values that aren't one CSS property.
+         * values that aren't one CSS property. So does a value the
+         * component was given as a motion value, as its readers expect
+         * every frame, and a transform that layout or drag also moves.
          */
         if (
             (typeof to !== "number" && typeof to !== "string") ||
             key.startsWith("--") ||
-            key.startsWith("origin")
+            key.startsWith("origin") ||
+            isMotionValue((style as any)?.[key]) ||
+            (isTransform &&
+                (typeof to !== "number" ||
+                    typeof from !== "number" ||
+                    props.layout ||
+                    props.layoutId ||
+                    props.drag))
         ) {
             return
         }
@@ -182,10 +224,12 @@ export function createAppearAnimation(
 
         /**
          * A transform is one CSS property, so its values share the
-         * timing of the first. The animation code gives each its own
-         * when it takes over.
+         * timing of the first.
          */
-        if (appear.properties[name]) continue
+        if (appear.properties[name]) {
+            appear.timings[name].keys.push(key)
+            continue
+        }
 
         const timing = cssTiming(
             {
@@ -202,7 +246,8 @@ export function createAppearAnimation(
 
         appear.properties[name] = property
         appear.style["--" + name] = value
-        animations.push(name + " " + timing)
+        appear.timings[name] = { keys: [key], transition: timing[1], from, to }
+        animations.push(name + " " + timing[0])
     }
 
     if (!animations.length) return

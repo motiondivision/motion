@@ -12,8 +12,8 @@ const loaders: FeatureLoaders = {
     animation: {
         keys: ["animation"],
         load: () =>
-            import("../../../motion/features/animations").then(
-                (m) => m.animations
+            import("../../../animation/appear/animations").then((m) =>
+                m.loadAnimations()
             ),
     },
     ...featureLoaders,

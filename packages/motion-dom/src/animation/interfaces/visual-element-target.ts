@@ -4,7 +4,10 @@ import { resolveTransition } from "../utils/resolve-transition"
 import { positionalKeys } from "../../render/utils/keys-position"
 import { setTarget } from "../../render/utils/setters"
 import { addValueToWillChange } from "../../value/will-change/add-will-change"
-import { getOptimisedAppearId } from "../optimized-appear/get-appear-id"
+import {
+    appearHandoff,
+    getOptimisedAppearId,
+} from "../optimized-appear/get-appear-id"
 import { MultiValueRef, startValueAnimation } from "../animate/multi-value"
 import { enableAcceleration } from "../waapi/transforms/enable"
 import type { MotionPath } from "../types"
@@ -131,6 +134,24 @@ export function animateTarget(
             !valueTransition.velocity
         ) {
             frame.update(() => value.set(valueTarget as any))
+            continue
+        }
+
+        /**
+         * An enter animation that's running as CSS is left to run, and
+         * the value follows it.
+         */
+        const followed = appearHandoff.current?.(
+            visualElement,
+            key,
+            value,
+            valueTarget,
+            valueTransition
+        )
+
+        if (followed) {
+            value.run(followed)
+            animations.push(value.animation as any)
             continue
         }
 

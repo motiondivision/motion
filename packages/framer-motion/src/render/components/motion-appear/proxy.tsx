@@ -21,7 +21,6 @@ import { MotionConfigContext } from "../../../context/MotionConfigContext"
 import { PresenceContext } from "../../../context/PresenceContext"
 import { isSVGComponent } from "../../dom/utils/is-svg-component"
 import { useHTMLVisualState } from "../../html/use-html-visual-state"
-import { m } from "../m/proxy"
 
 /**
  * React 19 moves a <style> with a precedence into the head, and keeps
@@ -49,8 +48,8 @@ function insertRules(properties: AppearAnimation["properties"]) {
 }
 
 /**
- * Wrap a motion component that gets its features from `LazyMotion`, so
- * its enter animation runs as CSS until they arrive.
+ * Wrap a motion component that fetches its animation code, so its enter
+ * animation runs as CSS until it arrives.
  */
 function withAppear(Component: any, isSVG: boolean) {
     if (isSVG) return Component
@@ -86,16 +85,16 @@ function withAppear(Component: any, isSVG: boolean) {
         const isRegistered = useRef(false)
         const setRef = useCallback(
             (element: HTMLElement | null) => {
-                if (element && !isRegistered.current) {
+                if (element && appear && !isRegistered.current) {
                     isRegistered.current = true
-                    registerAppearElement(element)
+                    registerAppearElement(element, appear)
                 }
 
                 typeof ref === "function"
                     ? ref(element)
                     : ref && ((ref as any).current = element)
             },
-            [ref]
+            [ref, appear]
         )
 
         useInsertionEffect(() => {
@@ -157,8 +156,3 @@ export function createAppearProxy<T extends object>(base: T): T {
         },
     })
 }
-
-/**
- * `m` components whose enter animations start as CSS.
- */
-export const motion = /*@__PURE__*/ createAppearProxy(m)

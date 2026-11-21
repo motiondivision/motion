@@ -31,6 +31,7 @@ export {
 } from "./animation/optimized-appear/data-id"
 export {
     appearElements,
+    appearHandoff,
     getOptimisedAppearId,
 } from "./animation/optimized-appear/get-appear-id"
 export type {
