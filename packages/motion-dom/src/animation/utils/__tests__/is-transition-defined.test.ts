@@ -18,4 +18,10 @@ describe("isTransitionDefined", () => {
         expect(isTransitionDefined({ delay: 1, out: true })).toBe(false)
         expect(isTransitionDefined({ duration: 1, out: true })).toBe(true)
     })
+
+    test("Ignores startTime, so a handed-off value keeps its default transition", () => {
+        expect(isTransitionDefined({ startTime: 100 })).toBe(false)
+        expect(isTransitionDefined({ delay: 0, startTime: 100 })).toBe(false)
+        expect(isTransitionDefined({ duration: 1, startTime: 100 })).toBe(true)
+    })
 })

@@ -47,6 +47,12 @@
             "import": "./dist/es/core.mjs",
             "default": "./dist/cjs/core.js"
         },
+        "./appear": {
+            "types": "./dist/appear.d.ts",
+            "require": "./dist/cjs/appear.js",
+            "import": "./dist/es/appear.mjs",
+            "default": "./dist/cjs/appear.js"
+        },
         "./m": {
             "types": "./dist/m.d.ts",
             "require": "./dist/cjs/m.js",

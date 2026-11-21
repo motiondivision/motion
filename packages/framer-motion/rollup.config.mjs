@@ -122,7 +122,7 @@ const cjs = Object.assign({}, config, {
      * from the `/m` subpath because each CJS bundle would have its own
      * `createContext()` instance. See issue #3091.
      */
-    input: ["lib/index.js", "lib/client.js", "lib/m.js", "lib/core.js"],
+    input: ["lib/index.js", "lib/client.js", "lib/m.js", "lib/core.js", "lib/appear.js"],
     output: {
         entryFileNames: `[name].js`,
         dir: "dist/cjs",
@@ -153,7 +153,7 @@ const cjsDomCore = Object.assign({}, cjs, { input : "lib/dom-core.js" })
 const cjsRemix = Object.assign({}, cjs, { input : "lib/remix.js" })
 
 export const es = Object.assign({}, config, {
-    input: ["lib/index.js", "lib/mini.js", "lib/debug.js", "lib/dom.js", "lib/dom-mini.js", "lib/client.js", "lib/m.js", "lib/core.js", "lib/dom-core.js","lib/projection.js", "lib/animate-view.js", "lib/remix.js"],
+    input: ["lib/index.js", "lib/mini.js", "lib/debug.js", "lib/dom.js", "lib/dom-mini.js", "lib/client.js", "lib/m.js", "lib/core.js", "lib/appear.js", "lib/dom-core.js","lib/projection.js", "lib/animate-view.js", "lib/remix.js"],
     output: {
         entryFileNames: "[name].mjs",
         format: "es",
@@ -195,6 +195,7 @@ const animateMiniTypes = createTypes("types/dom-mini.d.ts", "dist/dom-mini.d.ts"
 const mTypes = createTypes("types/m.d.ts", "dist/m.d.ts")
 const domCoreTypes = createTypes("types/dom-core.d.ts", "dist/dom-core.d.ts")
 const coreTypes = createTypes("types/core.d.ts", "dist/core.d.ts")
+const appearTypes = createTypes("types/appear.d.ts", "dist/appear.d.ts")
 const projectionTypes = createTypes("types/projection.d.ts", "dist/projection.d.ts")
 const remixTypes = createTypes("types/remix.d.ts", "dist/remix.d.ts")
 
@@ -219,6 +220,7 @@ export default [
     debugTypes,
     mTypes,
     coreTypes,
+    appearTypes,
     domCoreTypes,
     miniTypes,
     animateTypes,

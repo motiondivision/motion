@@ -14,6 +14,7 @@ const orchestrationKeys = new Set([
     "elapsed",
     "out",
     "mixer",
+    "startTime",
 ])
 
 /**
