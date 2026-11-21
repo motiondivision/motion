@@ -1,4 +1,4 @@
-import { Axis, invariant, noop, Point } from "motion-utils"
+import { Axis, BoundingBox, invariant, noop, Point } from "motion-utils"
 import { animateMotionValue } from "../../animation/interfaces/motion-value"
 import type { Transition } from "../../animation/types"
 import { getVariableValue } from "../../animation/utils/css-variables-conversion"
@@ -27,6 +27,7 @@ import { addValueToWillChange } from "../../value/will-change/add-will-change"
 import type { PanInfo } from "../pan/types"
 import { PanSession } from "../pan/PanSession"
 import { isElementTextInput } from "../press/utils/is-keyboard-accessible"
+import { constraintsHooks } from "../constrain/store"
 import { setDragLock } from "./state/set-active"
 import type { DragPointConstraint, ResolvedConstraints } from "./types"
 import {
@@ -273,9 +274,14 @@ export class VisualElementDragControls {
                 onDirectionLock && onDirectionLock(this.currentDirection)
             }
 
+            /**
+             * Pinch can change the scale mid-drag, so follow it.
+             */
             // Update each point with the latest position
-            this.updateAxis("x", offset)
-            this.updateAxis("y", offset)
+            if (!constraintsHooks.get?.(this)?.drag(this as any, offset)) {
+                this.updateAxis("x", offset)
+                this.updateAxis("y", offset)
+            }
             this.point && this.point.move()
 
             /**
@@ -407,6 +413,10 @@ export class VisualElementDragControls {
 
     private resolveConstraints() {
         const { dragConstraints, dragElastic } = this.getProps()
+        this.elastic = resolveDragElastic(dragElastic)
+
+        if (constraintsHooks.get?.(this)?.limit(this as any, false, true))
+            return
 
         if (isElementConstraints(dragConstraints)) {
             /**
@@ -427,7 +437,8 @@ export class VisualElementDragControls {
              * Relative constraints are already in the space of the x/y
              * motion values.
              */
-            const { top, left, bottom, right } = dragConstraints
+            const { top, left, bottom, right } =
+                dragConstraints as Partial<BoundingBox>
             this.constraints = {
                 x: calcRelativeAxisConstraints(left, right),
                 y: calcRelativeAxisConstraints(top, bottom),
@@ -435,8 +446,6 @@ export class VisualElementDragControls {
         } else {
             this.constraints = false
         }
-
-        this.elastic = resolveDragElastic(dragElastic)
     }
 
     private resolveRefConstraints() {
@@ -544,6 +553,10 @@ export class VisualElementDragControls {
                 .then(onDragTransitionEnd)
         }
 
+        const released = constraintsHooks
+            .get?.(this)
+            ?.release(this as any, axisVelocity, dragSnapToOrigin)
+        if (released) return released.then(onDragTransitionEnd)
         const constraints: Partial<ResolvedConstraints> = this.constraints || {}
 
         const momentumAnimations = eachAxis((axis) => {
@@ -578,7 +591,8 @@ export class VisualElementDragControls {
 
     private startAxisValueAnimation(
         axis: DragDirection,
-        transition: Transition
+        transition: Transition,
+        target = 0
     ) {
         const axisValue = this.getAxisMotionValue(axis)
 
@@ -588,7 +602,7 @@ export class VisualElementDragControls {
             animateMotionValue(
                 axis,
                 axisValue,
-                0,
+                target,
                 transition,
                 this.visualElement,
                 false
@@ -654,6 +668,7 @@ export class VisualElementDragControls {
         const { drag, dragConstraints } = this.getProps()
         const { projection } = this.visualElement
         if (
+            constraintsHooks.get?.(this) ||
             !isElementConstraints(dragConstraints) ||
             !projection ||
             !this.constraints
@@ -730,6 +745,7 @@ export class VisualElementDragControls {
     addListeners() {
         if (!this.visualElement.current) return
         elementDragControls.set(this.visualElement, this)
+        constraintsHooks.sync?.(this)
         const element = this.visualElement.current
 
         /**
@@ -772,6 +788,8 @@ export class VisualElementDragControls {
             const constraintsElement =
                 isElementConstraints(dragConstraints) &&
                 resolveConstraintsElement(dragConstraints)
+
+            if (constraintsHooks.get?.(this)) return
 
             if (constraintsElement) {
                 this.constraints = this.resolveRefConstraints()
@@ -850,6 +868,7 @@ export class VisualElementDragControls {
             stopMeasureLayoutListener()
             stopLayoutUpdateListener()
             stopResizeObservers?.()
+            constraintsHooks.remove?.(this)
         }
     }
 

@@ -9,6 +9,7 @@ import {
     resolveElements,
     type ElementOrSelector,
 } from "../../utils/resolve-elements"
+import type { Constraints } from "../constrain"
 import { acquireDragNode } from "./projection"
 import type { DragConstraintsFunction, DragElastic, DragHandler } from "./types"
 import { VisualElementDragControls } from "./VisualElementDragControls"
@@ -28,8 +29,21 @@ export interface DragOptions {
      * distances in pixels, relative to the element's origin, an element
      * the draggable element must stay within, or a function that returns
      * a `DragPointConstraint` to move the element itself.
+     *
+     * These are the element's constraints, shared with `pinch()`: without
+     * its own, drag uses those set on pinch, and pinch uses these.
+     * Whichever is set last applies to both. A `DragPointConstraint` only
+     * applies to drag.
+     *
+     * An element is measured without its transform. For limits that
+     * follow the element's scale and rotation, for instance while it's
+     * pinched, pass `constrain(frame)`.
      */
-    constraints?: Partial<BoundingBox> | Element | DragConstraintsFunction
+    constraints?:
+        | Partial<BoundingBox>
+        | Element
+        | DragConstraintsFunction
+        | Constraints
 
     /**
      * How far, from `0` to `1`, the element can move outside its
