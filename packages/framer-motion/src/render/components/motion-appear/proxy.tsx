@@ -11,7 +11,6 @@ import {
     useRef,
 } from "react"
 import {
-    appearRule,
     createAppearAnimation,
     hasAnimationFeature,
     type AppearAnimation,
@@ -32,8 +31,8 @@ const hoistsStyles = parseInt(React.version) > 18
 let sheet: CSSStyleSheet | undefined
 const inserted = new Set<string>()
 
-function insertRules(properties: AppearAnimation["properties"]) {
-    for (const name in properties) {
+function insertRules(rules: AppearAnimation["rules"]) {
+    for (const name in rules) {
         if (inserted.has(name)) continue
         inserted.add(name)
 
@@ -43,7 +42,7 @@ function insertRules(properties: AppearAnimation["properties"]) {
             sheet = style.sheet!
         }
 
-        sheet.insertRule(appearRule(properties[name]))
+        sheet.insertRule(rules[name])
     }
 }
 
@@ -98,7 +97,7 @@ function withAppear(Component: any, isSVG: boolean) {
         )
 
         useInsertionEffect(() => {
-            appear && !hoistsStyles && insertRules(appear.properties)
+            appear && !hoistsStyles && insertRules(appear.rules)
         }, [])
 
         if (!appear) return <Component {...props} ref={ref} />
@@ -106,11 +105,11 @@ function withAppear(Component: any, isSVG: boolean) {
         return (
             <Fragment>
                 {hoistsStyles &&
-                    Object.keys(appear.properties).map((name) =>
+                    Object.keys(appear.rules).map((name) =>
                         createElement(
                             "style",
                             { key: name, href: name, precedence: "motion" },
-                            appearRule(appear.properties[name])
+                            appear.rules[name]
                         )
                     )}
                 <Component

@@ -24,18 +24,18 @@ import type { MotionProps } from "../../motion/types"
 /**
  * A component's enter animation as CSS. It starts as soon as the browser
  * has the element's styles, before any of Motion's animation code has
- * loaded, and the animation code carries on from it once it has.
+ * loaded. When that arrives it leaves the animation to run.
  */
 export interface AppearAnimation {
     /**
      * The `animation` shorthand, and the custom properties its keyframes
-     * read each value's target from.
+     * read each value from.
      */
     style: { [key: string]: string | number }
     /**
-     * The CSS property each animation is of, by its name.
+     * The @keyframes rule of each animation, by its name.
      */
-    properties: { [name: string]: string }
+    rules: { [name: string]: string }
     /**
      * Initial values for the values that had none.
      */
@@ -45,6 +45,26 @@ export interface AppearAnimation {
      * follow it.
      */
     timings: { [name: string]: AppearTiming }
+    /**
+     * Each value's target.
+     */
+    targets: { [key: string]: unknown }
+    /**
+     * The animations that make the element's transform. They end, and
+     * are taken over, as one.
+     */
+    transform: string[]
+    /**
+     * The value each animated value starts at, and each transform value
+     * ends at.
+     */
+    from: { [key: string]: any }
+    to: { [key: string]: number }
+    /**
+     * Values a gesture set before the animation code arrived, which the
+     * element shows in place of its animation of them.
+     */
+    held?: { [key: string]: unknown }
 }
 
 export interface AppearTiming {
@@ -52,6 +72,10 @@ export interface AppearTiming {
      * The values the animation is of. A transform has many.
      */
     keys: string[]
+    /**
+     * Its duration, easing and delay as CSS.
+     */
+    css: string
     /**
      * The transition the animation was made from, and the numbers its
      * spring ran between.
@@ -72,6 +96,55 @@ export const appearRule = (property: string) =>
     `@keyframes ${appearName(property)}{to{${property}:var(--${appearName(
         property
     )})}}`
+
+/**
+ * `translate`, `scale` and `rotate` are properties of their own, so a
+ * transform of only these has an animation for each, with its own timing.
+ * The element's `transform` style holds the same values, so one more
+ * animation holds that at none.
+ */
+const independentRule = (property: string) => {
+    const name = appearName(property)
+    return `@keyframes ${name}{from{${property}:var(--${name}-from)}to{${property}:var(--${name})}}`
+}
+
+export const holdName = "m-hold"
+const holdRule = `@keyframes ${holdName}{from,to{transform:none}}`
+
+const independent: { [property: string]: string[] } = {
+    translate: ["x", "y", "z"],
+    scale: ["scale"],
+    rotate: ["rotate"],
+}
+
+const independentKeys = new Set(["x", "y", "z", "scale", "rotate"])
+
+const defaultOf = (key: string) => (key === "scale" ? 1 : 0)
+
+/**
+ * A property's value from the transform values it's made of.
+ */
+export function independentValue(
+    property: string,
+    values: { [key: string]: number }
+) {
+    const get = (key: string) => values[key] ?? defaultOf(key)
+
+    return property === "translate"
+        ? `${get("x")}px ${get("y")}px ${get("z")}px`
+        : property === "scale"
+        ? get("scale")
+        : get("rotate") + "deg"
+}
+
+/**
+ * The name of the animation a value is in.
+ */
+export function animationOf(key: string, appear: AppearAnimation) {
+    for (const name in appear.timings) {
+        if (appear.timings[name].keys.includes(key)) return name
+    }
+}
 
 /**
  * The duration and easing of a value's transition as CSS, or undefined if
@@ -165,19 +238,64 @@ export function createAppearAnimation(
         ...target
     } = resolved as any
 
-    const targetStyle = buildVisualProps(
-        getStyleRender,
-        { ...latestValues, ...target },
-        props as any
-    ).style as { [key: string]: string | number }
+    const final = { ...latestValues, ...target }
+    const targetStyle = buildVisualProps(getStyleRender, final, props as any)
+        .style as { [key: string]: string | number }
 
     const appear: AppearAnimation = {
         style: {},
-        properties: {},
+        rules: {},
         values: {},
         timings: {},
+        targets: {},
+        transform: [],
+        from: {},
+        to: {},
     }
     const animations: string[] = []
+
+    /**
+     * Whether every transform value the element has is one that the
+     * `translate`, `scale` and `rotate` properties can show.
+     */
+    let isIndependent = !props.transformTemplate
+    for (const key in final) {
+        if (transformProps.has(key)) {
+            isIndependent &&=
+                independentKeys.has(key) && typeof final[key] === "number"
+            appear.to[key] = final[key]
+        }
+    }
+
+    const timingOf = (key: string, from: unknown, to: unknown) =>
+        cssTiming(
+            {
+                delay: (transition as any)?.delay,
+                ...getValueTransition(transition, key),
+            },
+            key,
+            from,
+            to
+        )
+
+    const add = (
+        name: string,
+        rule: string,
+        key: string,
+        timing: NonNullable<ReturnType<typeof cssTiming>>,
+        from: unknown,
+        to: unknown
+    ) => {
+        appear.rules[name] = rule
+        appear.timings[name] = {
+            keys: [key],
+            css: timing[0],
+            transition: timing[1],
+            from,
+            to,
+        }
+        animations.push(name + " " + timing[0])
+    }
 
     for (const key in target) {
         const to = target[key]
@@ -194,6 +312,8 @@ export function createAppearAnimation(
             from = appear.values[key] =
                 key === "opacity" || key.startsWith("scale") ? 1 : 0
         }
+
+        appear.from[key] = from
 
         if (to === from) continue
 
@@ -218,41 +338,124 @@ export function createAppearAnimation(
             return
         }
 
-        const styleKey = isTransform ? "transform" : key
-        const property = camelToDash(styleKey)
-        const name = appearName(property)
+        appear.targets[key] = to
 
-        /**
-         * A transform is one CSS property, so its values share the
-         * timing of the first.
-         */
-        if (appear.properties[name]) {
-            appear.timings[name].keys.push(key)
+        const property =
+            isTransform && isIndependent
+                ? Object.keys(independent).find((property) =>
+                      independent[property].includes(key)
+                  )!
+                : camelToDash(isTransform ? "transform" : key)
+        const name = appearName(property)
+        const existing = appear.timings[name]
+        const timing = timingOf(key, from, to)
+
+        if (!timing) return
+
+        if (existing) {
+            /**
+             * x, y and z are one property, so they need one timing.
+             * Otherwise the whole transform is one animation, with the
+             * timing of its first value.
+             */
+            if (
+                isIndependent &&
+                timing[0] !== existing.css &&
+                /**
+                 * Springs of one transition over other distances differ
+                 * only in when they come to rest.
+                 */
+                JSON.stringify(timing[1]) !==
+                    JSON.stringify(existing.transition)
+            ) {
+                isIndependent = false
+                return createSharedTransform()
+            }
+
+            existing.keys.push(key)
             continue
         }
 
-        const timing = cssTiming(
-            {
-                delay: (transition as any)?.delay,
-                ...getValueTransition(transition, key),
-            },
-            key,
-            from,
-            to
-        )
-        const value = targetStyle[styleKey]
+        if (isTransform) {
+            appear.transform.push(name)
+            add(
+                name,
+                isIndependent ? independentRule(property) : appearRule(property),
+                key,
+                timing,
+                from,
+                to
+            )
+            isIndependent ||
+                (appear.style["--" + name] = targetStyle.transform || "none")
+        } else {
+            const value = targetStyle[key]
+            if (value === undefined) return
 
-        if (!timing || value === undefined) return
-
-        appear.properties[name] = property
-        appear.style["--" + name] = value
-        appear.timings[name] = { keys: [key], transition: timing[1], from, to }
-        animations.push(name + " " + timing[0])
+            add(name, appearRule(property), key, timing, from, to)
+            appear.style["--" + name] = value
+        }
     }
 
     if (!animations.length) return
 
+    if (isIndependent && appear.transform.length) {
+        for (const key in appear.to) appear.from[key] ??= appear.to[key]
+
+        /**
+         * A property that doesn't animate still has to show its value,
+         * as the element's transform is held at none.
+         */
+        for (const property in independent) {
+            const name = appearName(property)
+            const isAnimated = appear.timings[name]
+
+            if (
+                !isAnimated &&
+                independent[property].every(
+                    (key) => (appear.to[key] ?? defaultOf(key)) === defaultOf(key)
+                )
+            ) {
+                continue
+            }
+
+            if (!isAnimated) {
+                appear.rules[name] = independentRule(property)
+                appear.transform.push(name)
+                animations.push(name + " 1s both")
+            }
+
+            appear.style[`--${name}-from`] = independentValue(
+                property,
+                appear.from
+            )
+            appear.style["--" + name] = independentValue(property, appear.to)
+        }
+
+        appear.rules[holdName] = holdRule
+        appear.transform.push(holdName)
+        animations.push(holdName + " 1s both")
+    }
+
     appear.style.animation = animations.join(",")
 
     return appear
+
+    /**
+     * Start again with the transform as one animation.
+     */
+    function createSharedTransform(): AppearAnimation | undefined {
+        return createAppearAnimation(
+            { ...props, transformTemplate: sharedTransform } as any,
+            latestValues,
+            presenceContext,
+            defaultTransition
+        )
+    }
 }
+
+/**
+ * A template that changes nothing, which marks a transform as one that
+ * can't be split into properties.
+ */
+const sharedTransform = (_: unknown, generated: string) => generated

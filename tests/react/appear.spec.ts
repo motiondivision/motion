@@ -46,9 +46,16 @@ const read = (page: Page, id: string) =>
         const style = getComputedStyle(element)
         const matrix = new DOMMatrixReadOnly(style.transform)
 
+        /**
+         * A transform of only x, y, z, scale and rotate animates as the
+         * properties of those names.
+         */
+        const translate = parseFloat(style.translate) || 0
+        const scale = style.scale === "none" ? 1 : parseFloat(style.scale)
+
         return {
-            x: matrix.m41,
-            scale: matrix.a,
+            x: matrix.m41 + translate,
+            scale: matrix.a * scale,
             opacity: parseFloat(style.opacity),
             red: parseInt(style.backgroundColor.slice(4)),
             css: element
@@ -64,11 +71,19 @@ test.describe("CSS appear animations", () => {
         await open(page)
         await page.waitForTimeout(1000)
 
+        // One for opacity, one for translate, and one that holds the
+        // transform style at none
         const tween = await read(page, "tween")
-        expect(tween.css).toBe(2)
+        expect(tween.css).toBe(3)
 
         // The elements carry no id attribute
         expect(await page.locator("[data-framer-appear-id]").count()).toBe(0)
+
+        // Scale has its own timing, and is done while x is still moving
+        const independent = await read(page, "independent")
+        expect(independent.scale).toBeCloseTo(1, 2)
+        expect(independent.x).toBeGreaterThan(-350)
+        expect(independent.x).toBeLessThan(-150)
 
         expect(tween.opacity).toBeGreaterThan(0.15)
         expect(tween.opacity).toBeLessThan(0.6)
@@ -96,7 +111,7 @@ test.describe("CSS appear animations", () => {
         const after = await read(page, "tween")
 
         // The browser still plays them, and Motion hasn't set a style
-        expect(after.css).toBe(2)
+        expect(after.css).toBe(3)
         expect(after.transform).toBe(before.transform)
         expect(after.opacity).toBeGreaterThan(before.opacity)
         expect(after.x).toBeGreaterThan(before.x)
@@ -124,7 +139,7 @@ test.describe("CSS appear animations", () => {
         await arrive()
 
         const before = await read(page, "hover")
-        expect(before.css).toBe(1)
+        expect(before.css).toBe(3)
         expect(before.scale).toBeLessThan(1)
 
         const box = (await page.locator("#hover").boundingBox())!
@@ -167,5 +182,81 @@ test.describe("CSS appear animations", () => {
         expect(end.opacity).toBe(1)
         expect(end.x).toBe(0)
         expect((await read(page, "colour")).red).toBe(0)
+    })
+
+    test("start from what the element shows when the target has changed", async ({
+        page,
+    }) => {
+        const arrive = await open(page)
+        await page.waitForTimeout(1000)
+
+        // The CSS animation still goes to the target it mounted with
+        const before = await read(page, "changing")
+        expect(before.css).toBe(2)
+        expect(before.x).toBeGreaterThan(-350)
+        expect(before.x).toBeLessThan(-150)
+
+        await arrive()
+        await page.waitForTimeout(100)
+
+        // The animation to the new target starts from there
+        const after = await read(page, "changing")
+        expect(after.css).toBe(0)
+        expect(after.x).toBeGreaterThan(before.x - 1)
+        expect(after.x).toBeLessThan(before.x + 80)
+
+        await page.waitForTimeout(4500)
+        expect((await read(page, "changing")).x).toBe(200)
+    })
+
+    test("gestures change the element at once before the animation code", async ({
+        page,
+    }) => {
+        const arrive = await open(page)
+        await page.waitForTimeout(300)
+
+        const hover = async () => {
+            const box = (await page.locator("#hover").boundingBox())!
+            await page.mouse.move(
+                box.x + box.width / 2,
+                box.y + box.height / 2
+            )
+            await page.waitForTimeout(100)
+        }
+
+        const before = await read(page, "hover")
+        await hover()
+
+        // The gesture's value shows, and x carries on as CSS
+        const hovered = await read(page, "hover")
+        expect(hovered.scale).toBe(2)
+        expect(hovered.css).toBe(3)
+        expect(hovered.x).toBeGreaterThan(before.x)
+
+        // When the gesture ends the enter animation shows again
+        await page.mouse.move(0, 0)
+        await page.waitForTimeout(100)
+        const left = await read(page, "hover")
+        expect(left.scale).toBeGreaterThan(before.scale)
+        expect(left.scale).toBeLessThan(0.7)
+        expect(left.x).toBeGreaterThan(hovered.x)
+
+        // A gesture that is active when the animation code arrives
+        // stays, and x carries on from where it is
+        await hover()
+        const held = await read(page, "hover")
+        await arrive()
+        await page.waitForTimeout(100)
+        const after = await read(page, "hover")
+        expect(after.scale).toBe(2)
+        expect(after.x).toBeGreaterThan(held.x - 1)
+        expect(after.x).toBeLessThan(held.x + 80)
+
+        await page.mouse.move(0, 0)
+        await page.waitForTimeout(4500)
+        const end = await read(page, "hover")
+        expect(end.x).toBe(0)
+        expect(end.scale).toBe(1)
+        expect(end.css).toBe(0)
     })
 })

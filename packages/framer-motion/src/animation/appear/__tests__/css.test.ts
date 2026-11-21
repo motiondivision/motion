@@ -1,5 +1,5 @@
 import { motionValue } from "motion-dom"
-import { appearRule, createAppearAnimation } from "../css"
+import { createAppearAnimation } from "../css"
 
 const linear = { duration: 2, ease: "linear" } as const
 const make = (props: any, latest: any = props.initial) =>
@@ -14,26 +14,107 @@ describe("createAppearAnimation", () => {
         })!
 
         expect(appear.style.animation).toBe(
-            "m-opacity 2s linear 0.5s both,m-transform 2s linear 0.5s both,m-background-color 2s linear 0.5s both"
+            "m-opacity 2s linear 0.5s both,m-translate 2s linear 0.5s both,m-background-color 2s linear 0.5s both,m-hold 1s both"
         )
         expect(appear.style["--m-opacity"]).toBe(1)
-        expect(appear.style["--m-transform"]).toBe("none")
+        expect(appear.style["--m-translate-from"]).toBe("-100px 0px 0px")
+        expect(appear.style["--m-translate"]).toBe("0px 0px 0px")
         expect(appear.style["--m-background-color"]).toBe("#00f")
-        expect(appear.properties).toEqual({
-            "m-opacity": "opacity",
-            "m-transform": "transform",
-            "m-background-color": "background-color",
+        expect(appear.rules).toEqual({
+            "m-opacity": "@keyframes m-opacity{to{opacity:var(--m-opacity)}}",
+            "m-translate":
+                "@keyframes m-translate{from{translate:var(--m-translate-from)}to{translate:var(--m-translate)}}",
+            "m-background-color":
+                "@keyframes m-background-color{to{background-color:var(--m-background-color)}}",
+            "m-hold": "@keyframes m-hold{from,to{transform:none}}",
         })
-        expect(appearRule("background-color")).toBe(
-            "@keyframes m-background-color{to{background-color:var(--m-background-color)}}"
+        expect(appear.from).toEqual({
+            opacity: 0,
+            x: -100,
+            backgroundColor: "#f00",
+        })
+    })
+
+    test("gives translate, scale and rotate their own timing", () => {
+        const appear = make({
+            initial: { x: -100, y: 20, scale: 0.5, rotate: 10 },
+            animate: { x: 0, y: 0, scale: 1, rotate: 10 },
+            transition: {
+                ...linear,
+                scale: { duration: 1, ease: "easeIn", delay: 0.2 },
+            },
+        })!
+
+        // A property that doesn't animate still shows its value, as the
+        // transform style is held at none
+        expect(appear.style.animation).toBe(
+            "m-translate 2s linear 0s both,m-scale 1s ease-in 0.2s both,m-rotate 1s both,m-hold 1s both"
         )
+        expect(appear.style["--m-translate-from"]).toBe("-100px 20px 0px")
+        expect(appear.style["--m-scale-from"]).toBe(0.5)
+        expect(appear.style["--m-scale"]).toBe(1)
+        expect(appear.style["--m-rotate-from"]).toBe("10deg")
+        expect(appear.style["--m-rotate"]).toBe("10deg")
+        expect(appear.transform).toEqual([
+            "m-translate",
+            "m-scale",
+            "m-rotate",
+            "m-hold",
+        ])
+        expect(appear.timings["m-translate"].keys).toEqual(["x", "y"])
+    })
+
+    test("x and y springs over other distances share a timing", () => {
+        const appear = make({
+            initial: { x: -100, y: 20, scale: 0.5 },
+            animate: { x: 0, y: 0, scale: 1 },
+        })!
+
+        expect(appear.transform).toEqual(["m-translate", "m-scale", "m-hold"])
+        expect(appear.timings["m-translate"].keys).toEqual(["x", "y"])
+    })
+
+    test("animates the transform as one when its values can't be split", () => {
+        // x and y are one property, so can't have timings of their own
+        const timings = make({
+            initial: { x: -100, y: 20 },
+            animate: { x: 0, y: 0 },
+            transition: { x: linear, y: { duration: 1, ease: "linear" } },
+        })!
+
+        expect(timings.style.animation).toBe("m-transform 2s linear 0s both")
+        expect(timings.style["--m-transform"]).toBe("none")
+        expect(timings.transform).toEqual(["m-transform"])
+        expect(timings.timings["m-transform"].keys).toEqual(["x", "y"])
+
+        // Values that translate, scale and rotate can't show
+        const skew = make({
+            initial: { x: -100, skewX: 10 },
+            animate: { x: 50, skewX: 0 },
+            transition: linear,
+        })!
+
+        expect(skew.style.animation).toBe("m-transform 2s linear 0s both")
+        expect(skew.style["--m-transform"]).toBe("translateX(50px)")
+        expect(skew.rules["m-transform"]).toBe(
+            "@keyframes m-transform{to{transform:var(--m-transform)}}"
+        )
+
+        // A transform with a unit, or a template
+        expect(
+            make({
+                initial: { x: -100 },
+                animate: { x: 0 },
+                transformTemplate: (_: unknown, generated: string) => generated,
+            })!.transform
+        ).toEqual(["m-transform"])
     })
 
     test("gives a spring as a linear() easing", () => {
         const appear = make({ initial: { x: -100 }, animate: { x: 0 } })!
 
         expect(appear.style.animation).toMatch(
-            /^m-transform [\d.]+s linear\(0( 0%)?, .+\) 0s both$/
+            /^m-translate [\d.]+s linear\(0( 0%)?, .+\) 0s both,m-hold 1s both$/
         )
     })
 
@@ -77,7 +158,10 @@ describe("createAppearAnimation", () => {
             transition: linear,
         })!
 
-        expect(appear.timings["m-transform"].keys).toEqual(["x", "scale"])
+        expect(appear.timings["m-translate"].keys).toEqual(["x"])
+        expect(appear.timings["m-scale"].keys).toEqual(["scale"])
+        expect(appear.targets).toEqual({ x: 0, scale: 1, opacity: 1 })
+        expect(appear.to).toEqual({ x: 0, scale: 1 })
         expect(appear.timings["m-opacity"].keys).toEqual(["opacity"])
         expect(appear.timings["m-opacity"].transition).toEqual({
             ...linear,
@@ -89,9 +173,10 @@ describe("createAppearAnimation", () => {
         const appear = make({ animate: { x: 100, scale: 2 } }, {})!
 
         expect(appear.values).toEqual({ x: 0, scale: 1 })
-        expect(appear.style["--m-transform"]).toBe(
-            "translateX(100px) scale(2)"
-        )
+        expect(appear.style["--m-translate-from"]).toBe("0px 0px 0px")
+        expect(appear.style["--m-translate"]).toBe("100px 0px 0px")
+        expect(appear.style["--m-scale-from"]).toBe(1)
+        expect(appear.style["--m-scale"]).toBe(2)
     })
 
     test("leaves what CSS can't run in full to the animation code", () => {

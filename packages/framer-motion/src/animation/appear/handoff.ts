@@ -18,32 +18,37 @@ export function registerAppearElement(
      * are the functions an inline script would define for that, with the
      * element as its id.
      */
-    const getAnimation = (element: unknown) =>
-        appearElements.has(element as object)
+    const getAnimations = (element: unknown) => {
+        const appear = appearElements.get(element as object) as
+            | AppearAnimation
+            | undefined
+
+        return appear
             ? (element as HTMLElement)
                   .getAnimations()
-                  .find(
-                      (animation) =>
-                          (animation as CSSAnimation).animationName ===
-                          "m-transform"
+                  .filter((animation) =>
+                      appear.transform.includes(
+                          (animation as CSSAnimation).animationName
+                      )
                   )
-            : undefined
+            : []
+    }
 
-    window.MotionHasOptimisedAnimation = (element) => !!getAnimation(element)
+    window.MotionHasOptimisedAnimation = (element) =>
+        !!getAnimations(element).length
 
     window.MotionCancelOptimisedAnimation = (element, _, frame) => {
-        const animation = getAnimation(element)
-        if (!animation) return
-
         /**
-         * Take the animation off for the measurement, then carry on
-         * from where it was.
+         * Take the animations off for the measurement, then carry on
+         * from where they were.
          */
-        const { startTime } = animation
-        animation.cancel()
-        frame?.render(() => {
-            animation.play()
-            animation.startTime = startTime
+        getAnimations(element).forEach((animation) => {
+            const { startTime } = animation
+            animation.cancel()
+            frame?.render(() => {
+                animation.play()
+                animation.startTime = startTime
+            })
         })
     }
 }

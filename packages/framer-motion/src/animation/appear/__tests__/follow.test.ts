@@ -26,7 +26,12 @@ function setup(initial: any, animate: any, currentTime: number) {
     )!
     const element = document.createElement("div")
     const listeners: { [name: string]: VoidFunction } = {}
-    const animations = Object.keys(appear.timings).map((animationName) => ({
+    Object.defineProperty(document, "timeline", {
+        value: { currentTime },
+        configurable: true,
+    })
+    const names = new Set([...Object.keys(appear.timings), ...appear.transform])
+    const animations = [...names].map((animationName) => ({
         animationName,
         currentTime,
         startTime: 0,
@@ -47,7 +52,11 @@ function setup(initial: any, animate: any, currentTime: number) {
 
     const values: { [key: string]: MotionValue<any> } = {}
     const resumed: string[] = []
-    const visualElement = { current: element }
+    const visualElement = {
+        current: element,
+        setStaticValue: jest.fn(),
+        render: jest.fn(),
+    }
 
     const follow = (key: string, target = animate[key]) => {
         values[key] ||= motionValue(initial[key])
@@ -62,7 +71,16 @@ function setup(initial: any, animate: any, currentTime: number) {
         return start
     }
 
-    return { element, animations, listeners, values, resumed, follow }
+    return {
+        element,
+        animations,
+        listeners,
+        values,
+        resumed,
+        follow,
+        appear,
+        visualElement,
+    }
 }
 
 describe("followAppearAnimations", () => {
@@ -100,6 +118,7 @@ describe("followAppearAnimations", () => {
         const onComplete = jest.fn()
         values.opacity.on("animationComplete", onComplete)
 
+        animations[0].playState = "finished"
         listeners["m-opacity"]()
 
         expect(values.opacity.getCurrent()).toBe(1)
@@ -117,7 +136,7 @@ describe("followAppearAnimations", () => {
     })
 
     test("another animation starts from where the CSS animation is", () => {
-        const { values, follow, animations, element } = setup(
+        const { values, follow, animations, element, visualElement } = setup(
             { x: -200, scale: 0.5 },
             { x: 0, scale: 1 },
             1000
@@ -135,11 +154,62 @@ describe("followAppearAnimations", () => {
         expect(values.scale.getVelocity()).toBeCloseTo(0.25)
         expect(values.scale.isAnimating()).toBe(false)
 
+        // The element's styles show what the CSS animations did, before
+        // they go
+        expect(visualElement.setStaticValue).toHaveBeenCalledWith("x", -100)
+        expect(visualElement.setStaticValue).toHaveBeenCalledWith(
+            "scale",
+            0.75
+        )
+        expect(visualElement.render).toHaveBeenCalledTimes(1)
+
         // The other value of the transform carries on in an animation
         // of its own, from the time the CSS animation started
-        expect(animations[0].cancel).toHaveBeenCalled()
+        animations.forEach((animation) =>
+            expect(animation.cancel).toHaveBeenCalled()
+        )
         expect(values.x.isAnimating()).toBe(true)
         expect(values.x.get()).not.toBeCloseTo(-100)
         expect(element.style.animation).toBe("")
+    })
+
+    test("a value with a new target starts from what the element shows", () => {
+        const { values, follow, animations } = setup(
+            { x: -200, opacity: 0 },
+            { x: 0, opacity: 1 },
+            1000
+        )
+
+        // The component's target changed before the animation code came
+        expect(follow("x", 100)).toBe(undefined)
+        expect(values.x.getCurrent()).toBeCloseTo(-100)
+        expect(values.x.getVelocity()).toBeCloseTo(100)
+
+        const cancelled = animations
+            .filter((animation) => animation.cancel.mock.calls.length)
+            .map((animation) => animation.animationName)
+        expect(cancelled).toEqual(["m-translate", "m-hold"])
+
+        // Its other values still follow
+        expect(follow("opacity")).toBeTruthy()
+        expect(values.opacity.get()).toBeCloseTo(0.5)
+    })
+
+    test("a value a gesture holds is taken over as the gesture set it", () => {
+        const { values, follow, appear } = setup(
+            { x: -200, scale: 0.5 },
+            { x: 0, scale: 1 },
+            1000
+        )
+        appear.held = { scale: 2 }
+        values.scale = motionValue(2)
+
+        expect(follow("scale", 2)).toBe(undefined)
+        expect(values.scale.getCurrent()).toBe(2)
+        expect(values.scale.getVelocity()).toBe(0)
+
+        // The rest of its transform carries on in the animation code
+        expect(follow("x")).toBeTruthy()
+        expect(values.x.isAnimating()).toBe(true)
     })
 })

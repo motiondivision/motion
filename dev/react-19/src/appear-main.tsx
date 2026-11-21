@@ -3,13 +3,44 @@
  * one imports every test page and the animation features with them.
  */
 import { motion } from "framer-motion/appear"
+import { useEffect, useState } from "react"
 import ReactDOMClient from "react-dom/client"
 
 const linear = { type: "tween", ease: "linear", duration: 4 } as const
 const box = { width: 100, height: 100, background: "#f00" }
 
+/**
+ * Its target changes before the animation code can have arrived.
+ */
+const Changing = () => {
+    const [x, setX] = useState(0)
+
+    useEffect(() => {
+        const timer = setTimeout(() => setX(200), 300)
+        return () => clearTimeout(timer)
+    }, [])
+
+    return (
+        <motion.div
+            id="changing"
+            initial={{ x: -400 }}
+            animate={{ x }}
+            transition={linear}
+            style={box}
+        />
+    )
+}
+
 const App = () => (
     <>
+        <motion.div
+            id="independent"
+            initial={{ x: -400, scale: 0.5 }}
+            animate={{ x: 0, scale: 1 }}
+            transition={{ x: linear, scale: { ...linear, duration: 1 } }}
+            style={box}
+        />
+        <Changing />
         <motion.div
             id="tween"
             initial={{ opacity: 0, x: -400 }}
