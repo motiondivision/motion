@@ -105,35 +105,23 @@ import {
 const animationTarget = 1000
 
 /**
- * The most compositor layers Motion makes at once. The count is the
- * elements with a WAAPI animation (see compositorLayers), then the
- * projecting nodes, which each get a layer through will-change: transform
- * while they project. A layer is painted once and then only moved, where
- * a node without one repaints every frame. Each layer also costs the main
- * thread and the GPU a little, so the nodes past this move without one.
- * The nodes within it keep theirs, as dropping every layer at once is a
- * far bigger fall in framerate than the layers cost.
- *
- * The deepest nodes are within it first. A layer repaints when a child
- * without one moves inside it, which costs more than no layer at all.
+ * The most compositor layers Motion makes at once before projecting nodes
+ * stop getting one. The count is the projecting nodes, which each get a
+ * layer through will-change: transform while they project, plus the
+ * elements with a WAAPI animation (see compositorLayers). A layer is painted once and
+ * then only moved, where a node without one repaints every frame. Each
+ * layer also costs the main thread and the GPU a little, so past this
+ * every node moves without one.
  *
  * It's will-change rather than translate3d as Chrome paints a translate3d
  * layer again whenever its sub-pixel offset changes, and every node rather
  * than only parents as a layer repaints when a child moves inside it.
  */
-const layerBudget = 250
+const layerBudget = 400
 
 let layers = 0
 const countLayer = (node: IProjectionNode) => {
     node.isProjecting() && layers++
-}
-
-/**
- * Nodes are visited shallowest first, so a node has a layer once the
- * layers still to be given, its own included, fit the budget.
- */
-const giveLayer = (node: IProjectionNode) => {
-    node.hasLayer = node.isProjecting() && layers-- <= layerBudget
 }
 
 let id = 0
@@ -1004,7 +992,7 @@ export function createProjectionNode<I>({
 
         projectionUpdateScheduled = false
 
-        declare hasLayer?: boolean
+        declare overLayerBudget?: boolean
         scheduleUpdateProjection() {
             if (!this.projectionUpdateScheduled) {
                 this.projectionUpdateScheduled = true
@@ -1047,9 +1035,9 @@ export function createProjectionNode<I>({
             this.nodes!.forEach(calcProjection)
             this.nodes!.forEach(cleanDirtyNodes)
 
-            layers = compositorLayers
+            layers = 0
             this.nodes!.forEach(countLayer)
-            this.nodes!.forEach(giveLayer)
+            this.overLayerBudget = layers + compositorLayers > layerBudget
 
             /**
              * Record this frame's debug counts, if recordStats() is running.
@@ -2572,7 +2560,7 @@ export function createProjectionNode<I>({
                 valuesToRender
             )
 
-            setLayer(transform !== "none" && this.hasLayer)
+            setLayer(transform !== "none" && !this.root.overLayerBudget)
 
             if (transformTemplate) {
                 transform = transformTemplate(valuesToRender, transform)

@@ -29,33 +29,30 @@ test.describe("layout animation layers", () => {
         }
     })
 
-    test("past the layer budget, only the elements within it get will-change", async ({
+    test("past the layer budget, no element gets will-change", async ({
         page,
     }) => {
-        await page.goto("layout/will-change.html?count=150")
+        await page.goto("layout/will-change.html?count=201")
         await page.evaluate(() => {
             ;(window as any).run()
         })
         await page.waitForTimeout(200)
 
         const during = await page.evaluate(read)
-        expect(during).toHaveLength(300)
+        expect(during).toHaveLength(402)
         for (const [willChange, transform] of during) {
-            expect(["transform", ""]).toContain(willChange)
+            expect(willChange).toBe("")
             expect(transform).toContain("translate(")
         }
-        expect(
-            during.filter(([willChange]) => willChange === "transform")
-        ).toHaveLength(250)
     })
 
     test("elements animating on the compositor share the layer budget", async ({
         page,
     }) => {
-        await page.goto("layout/will-change.html?animated=250")
+        await page.goto("layout/will-change.html?animated=398")
         await page.waitForTimeout(100)
         expect(await page.evaluate(() => (window as any).accelerated())).toBe(
-            250
+            398
         )
 
         await page.evaluate(() => {

@@ -6,8 +6,8 @@ import { motion } from "../../render/components/motion"
 /**
  * While a layout animation runs, every node it moves gets
  * will-change: transform, so it moves as a compositor layer instead of
- * repainting, and loses it when the animation ends. Each layer costs a
- * little, so only a budget of nodes get one and the rest move without.
+ * repainting, and loses it when the animation ends. Past a budget of such
+ * nodes, the layers cost more than the repaints they save, so none get one.
  *
  * JSDOM has no layout, so getBoundingClientRect is mocked from a data
  * attribute.
@@ -112,30 +112,21 @@ describe("layer budget", () => {
         }
     })
 
-    test("past the budget, only the nodes within it get will-change", async () => {
-        const nodes = await animate(150)
-        expect(nodes).toHaveLength(300)
-        let layers = 0
+    test("every node in a layout animation within the budget gets will-change", async () => {
+        const nodes = await animate(200)
+        expect(nodes).toHaveLength(400)
         for (const { style } of nodes) {
-            style.willChange === "transform"
-                ? layers++
-                : expect(style.willChange).toBe("")
-            expect(style.transform).toContain("translate(")
-            expect(style.transform).not.toContain("translate3d(")
+            expect(style.willChange).toBe("transform")
         }
-        expect(layers).toBe(250)
     })
 
-    test("past the budget, the deepest nodes get will-change", async () => {
-        await animate(150)
-        /**
-         * A layer repaints when a child without one moves inside it,
-         * so children are given theirs before their parents.
-         */
-        for (const { style } of document.querySelectorAll<HTMLElement>(
-            ".child"
-        )) {
-            expect(style.willChange).toBe("transform")
+    test("past the budget, no node gets will-change", async () => {
+        const nodes = await animate(201)
+        expect(nodes).toHaveLength(402)
+        for (const { style } of nodes) {
+            expect(style.willChange).toBe("")
+            expect(style.transform).toContain("translate(")
+            expect(style.transform).not.toContain("translate3d(")
         }
     })
 
