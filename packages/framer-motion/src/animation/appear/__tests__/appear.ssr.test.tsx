@@ -14,7 +14,7 @@ describe("appear motion components", () => {
             />
         )
 
-        expect(html).toContain("data-framer-appear-id")
+        expect(html).not.toContain("data-framer-appear-id")
         expect(html).toContain("opacity:0")
         expect(html).toContain("--m-opacity:1")
         expect(html).toContain("animation:m-opacity 2s linear 0s both")

@@ -6,7 +6,7 @@ import {
     forwardRef,
     Fragment,
     useContext,
-    useId,
+    useCallback,
     useInsertionEffect,
     useRef,
 } from "react"
@@ -16,7 +16,7 @@ import {
     hasAnimationFeature,
     type AppearAnimation,
 } from "../../../animation/appear/css"
-import { registerAppearAnimation } from "../../../animation/appear/handoff"
+import { registerAppearElement } from "../../../animation/appear/handoff"
 import { MotionConfigContext } from "../../../context/MotionConfigContext"
 import { PresenceContext } from "../../../context/PresenceContext"
 import { isSVGComponent } from "../../dom/utils/is-svg-component"
@@ -56,7 +56,6 @@ function withAppear(Component: any, isSVG: boolean) {
     if (isSVG) return Component
 
     function AppearComponent(props: any, ref: React.Ref<unknown>) {
-        const id = useId()
         const { isStatic, transition } = useContext(MotionConfigContext)
         const presenceContext = useContext(PresenceContext)
         const { latestValues } = useHTMLVisualState(props, isStatic)
@@ -77,12 +76,27 @@ function withAppear(Component: any, isSVG: boolean) {
                         transition
                     )) ||
                 null
-
-            ref_.current &&
-                typeof window !== "undefined" &&
-                registerAppearAnimation(id)
         }
         const appear = ref_.current
+
+        /**
+         * The element is known to the animation code by itself, from
+         * the first time it's in the document.
+         */
+        const isRegistered = useRef(false)
+        const setRef = useCallback(
+            (element: HTMLElement | null) => {
+                if (element && !isRegistered.current) {
+                    isRegistered.current = true
+                    registerAppearElement(element)
+                }
+
+                typeof ref === "function"
+                    ? ref(element)
+                    : ref && ((ref as any).current = element)
+            },
+            [ref]
+        )
 
         useInsertionEffect(() => {
             appear && !hoistsStyles && insertRules(appear.properties)
@@ -102,8 +116,7 @@ function withAppear(Component: any, isSVG: boolean) {
                     )}
                 <Component
                     {...props}
-                    ref={ref}
-                    data-framer-appear-id={id}
+                    ref={setRef}
                     style={{
                         ...appear.values,
                         ...props.style,

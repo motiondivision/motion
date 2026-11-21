@@ -71,6 +71,11 @@ for (const query of ["", "?async"] as const) {
 
             const tween = await read(page, "tween")
             expect(tween.css).toBe(2)
+
+            // The elements carry no id attribute
+            expect(await page.locator("[data-framer-appear-id]").count()).toBe(
+                0
+            )
             expect(tween.opacity).toBeGreaterThan(0.15)
             expect(tween.opacity).toBeLessThan(0.6)
             expect(tween.x).toBeGreaterThan(-350)

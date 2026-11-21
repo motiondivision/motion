@@ -29,7 +29,10 @@ export {
     optimizedAppearDataAttribute,
     optimizedAppearDataId,
 } from "./animation/optimized-appear/data-id"
-export { getOptimisedAppearId } from "./animation/optimized-appear/get-appear-id"
+export {
+    appearElements,
+    getOptimisedAppearId,
+} from "./animation/optimized-appear/get-appear-id"
 export type {
     HandoffFunction,
     WithAppearProps,

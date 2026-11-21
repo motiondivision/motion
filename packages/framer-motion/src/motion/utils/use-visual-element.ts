@@ -178,11 +178,7 @@ export function useVisualElement<
 
         wantsHandoff.current || visualElement.animationState?.animateChanges()
 
-        /**
-         * Without the animation code there has been no handoff yet. It
-         * happens when the code arrives.
-         */
-        if (wantsHandoff.current && visualElement.animationState) {
+        if (wantsHandoff.current) {
             // This ensures all future calls to animateChanges() in this component will run in useEffect
             queueMicrotask(() => {
                 window.MotionHandoffMarkAsComplete?.(optimisedAppearId)

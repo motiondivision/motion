@@ -1,108 +1,111 @@
-import { camelToDash, transformProps, type Batcher } from "motion-dom"
+import {
+    appearElements,
+    camelToDash,
+    transformProps,
+    type Batcher,
+} from "motion-dom"
 import { noop } from "motion-utils"
 import { appearName } from "./css"
 
-/**
- * The elements whose enter animations started as CSS, by the id the
- * animation code asks with. True once the animation code has taken over.
- */
-const appeared = new Map<string, boolean>()
+const isAppear = (animation: Animation) =>
+    (animation as CSSAnimation).animationName?.startsWith("m-")
 
-const getElement = (id: string) =>
-    document.querySelector<HTMLElement>(
-        `[data-framer-appear-id="${CSS.escape(id)}"]`
-    )
-
-const getAnimation = (id: string, valueName: string) => {
+const getAnimation = (element: HTMLElement, valueName: string) => {
     const name = appearName(
         transformProps.has(valueName) ? "transform" : camelToDash(valueName)
     )
 
-    return getElement(id)
-        ?.getAnimations()
+    return element
+        .getAnimations()
         .find((animation) => (animation as CSSAnimation).animationName === name)
 }
 
 /**
- * Stop the CSS animation of a value. When it was the element's last, its
- * `animation` style goes too, as an element that is hidden and shown
- * again would otherwise play them all again.
+ * Stop an element's CSS animations. Its `animation` style goes too, as an
+ * element that is hidden and shown again would otherwise play them again.
  */
-function cancel(id: string, valueName: string) {
-    getAnimation(id, valueName)?.cancel()
-
-    const element = getElement(id)
-    if (
-        element &&
-        !element
-            .getAnimations()
-            .some((animation) =>
-                (animation as CSSAnimation).animationName?.startsWith("m-")
-            )
-    ) {
-        element.style.animation = ""
-    }
+function cancelAll(element: HTMLElement) {
+    element.getAnimations().forEach((animation) => {
+        isAppear(animation) && animation.cancel()
+    })
+    element.style.animation = ""
 }
 
 /**
- * Tell the animation code that an element's enter animation is running
- * as CSS. It asks for each value's start time through these functions,
- * as it does for the animations an inline script starts.
+ * The elements the animation code has started to take over.
  */
-export function registerAppearAnimation(id: string) {
-    if (appeared.has(id)) return
-    appeared.set(id, false)
+const handedOff = new WeakSet<HTMLElement>()
+
+/**
+ * Tell the animation code that an element's enter animation is running
+ * as CSS. It asks for each value's start time through the functions an
+ * inline script would define, with the element as its id.
+ */
+export function registerAppearElement(element: HTMLElement) {
+    appearElements.add(element)
 
     if (window.MotionHandoffAnimation) return
 
-    window.MotionHasOptimisedAnimation = (id, valueName) =>
-        !!id && (valueName ? !!getAnimation(id, valueName) : appeared.has(id))
+    const has = (element: unknown): element is HTMLElement =>
+        appearElements.has(element as object)
 
-    window.MotionHandoffMarkAsComplete = (id) => {
-        appeared.has(id) && appeared.set(id, true)
-    }
-
-    window.MotionHandoffIsComplete = (id) => appeared.get(id) === true
+    window.MotionHasOptimisedAnimation = (element, valueName) =>
+        has(element) && (!valueName || !!getAnimation(element, valueName))
 
     window.MotionCancelOptimisedAnimation = (
-        id,
+        element,
         valueName,
         frame,
         canResume
     ) => {
-        const animation = getAnimation(id!, valueName!)
+        if (!has(element)) return
+
+        const animation = getAnimation(element, valueName!)
         if (!animation) return
 
-        if (frame && canResume) {
-            /**
-             * Take the animation off for a layout measurement, then
-             * carry on from where it was.
-             */
-            const { startTime } = animation
-            animation.cancel()
+        /**
+         * Take the animation off for a layout measurement. An element
+         * without a layout animation carries on from where it was.
+         */
+        const { startTime } = animation
+        animation.cancel()
+        frame &&
+            canResume &&
             frame.render(() => {
                 animation.play()
                 animation.startTime = startTime
             })
-        } else {
-            cancel(id!, valueName!)
-        }
     }
 
-    window.MotionHandoffAnimation = (id: string, valueName: string, frame: Batcher) => {
-        const animation = getAnimation(id, valueName)
+    window.MotionHandoffAnimation = ((
+        element: unknown,
+        valueName: string,
+        frame: Batcher
+    ) => {
+        if (!has(element)) return null
+
+        const animation = getAnimation(element, valueName)
         if (!animation) return null
 
-        if (appeared.get(id)) {
-            cancel(id, valueName)
-            return null
+        if (!handedOff.has(element)) {
+            handedOff.add(element)
+
+            /**
+             * The animation code starts every value of the enter
+             * animation in one go. After that the element is as any
+             * other, and once the first frame of each value has
+             * rendered, the CSS animations can go.
+             */
+            queueMicrotask(() => appearElements.delete(element))
+            frame.postRender(() =>
+                frame.postRender(() => cancelAll(element))
+            )
         }
 
         const startTime =
             (animation.startTime as number | null) ??
             (animation.timeline!.currentTime as number) -
                 (animation.currentTime as number)
-        const element = getElement(id)!
         const { animationName } = animation as CSSAnimation
         const target = element.style.getPropertyValue("--" + animationName)
 
@@ -114,14 +117,15 @@ export function registerAppearAnimation(id: string) {
              * element's style, which the animation code now changes, so
              * one with a fixed start replaces it.
              */
-            const property = animationName.slice(2)
             const timing = animation.effect!.getTiming()
-            cancel(id, valueName)
+            animation.cancel()
             const keyframes = {
-                [property.replace(/-(\w)/g, (_, char) =>
-                    char.toUpperCase()
-                )]: [
-                    getComputedStyle(element).getPropertyValue(property),
+                [animationName
+                    .slice(2)
+                    .replace(/-(\w)/g, (_, char) => char.toUpperCase())]: [
+                    getComputedStyle(element).getPropertyValue(
+                        animationName.slice(2)
+                    ),
                     target,
                 ],
             }
@@ -139,16 +143,8 @@ export function registerAppearAnimation(id: string) {
              * newest animation is the one that shows.
              */
             frame.postRender(() => frame.postRender(fix))
-        } else {
-            /**
-             * Once the animation code has rendered its first frame of
-             * the value, the CSS animation can go.
-             */
-            frame.postRender(() =>
-                frame.postRender(() => cancel(id, valueName))
-            )
         }
 
         return startTime
-    }
+    }) as any
 }
