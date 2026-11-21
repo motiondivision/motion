@@ -77,7 +77,11 @@ export class ExitAnimationFeature extends Feature<unknown> {
     mount() {
         const { register } = this.node.presenceContext || {}
 
-        if (register) {
+        /**
+         * Without an animation state there's no exit to run, and a
+         * registered child would keep the presence waiting for one.
+         */
+        if (register && this.node.animationState) {
             this.unmount = register(this.id, this.node)
         }
 

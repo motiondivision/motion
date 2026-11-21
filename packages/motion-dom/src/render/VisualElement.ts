@@ -636,7 +636,15 @@ export abstract class VisualElement<
 
             if (!featureDefinition) continue
 
-            const { isEnabled, Feature: FeatureConstructor } = featureDefinition
+            const { isEnabled } = featureDefinition
+
+            /**
+             * The exit feature comes from the presence context when the
+             * loaded features don't include one.
+             */
+            const FeatureConstructor =
+                featureDefinition.Feature ||
+                (key === "exit" && this.presenceContext?.ExitFeature)
 
             /**
              * If this feature is enabled but not active, make a new instance.

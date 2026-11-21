@@ -7,6 +7,7 @@ import {
     type PresenceContextProps,
 } from "../../context/PresenceContext"
 import type { VisualElement } from "motion-dom"
+import { ExitAnimationFeature } from "../../motion/features/animation/exit"
 import { VariantLabels } from "../../motion/types"
 import { useConstant } from "../../utils/use-constant"
 import { useIsomorphicLayoutEffect } from "../../utils/use-isomorphic-effect"
@@ -64,6 +65,7 @@ export const PresenceChild = ({
             initial,
             isPresent,
             custom,
+            ExitFeature: ExitAnimationFeature,
             onExitComplete: (childId: string) => {
                 presenceChildren.set(childId, true)
 

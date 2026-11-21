@@ -35,6 +35,7 @@ import type { Handle, RemixNode } from "remix/component"
 import { DragGesture } from "./gestures/drag"
 import { PanGesture } from "./gestures/pan"
 import { animations } from "./motion/features/animations"
+import { ExitAnimationFeature } from "./motion/features/animation/exit"
 import { gestureAnimations } from "./motion/features/gestures"
 import { loadFeatures } from "./motion/features/load-features"
 import { isValidMotionProp } from "./motion/utils/valid-prop"
@@ -799,6 +800,7 @@ const motionMixin = /*@__PURE__*/ createMixin<Element, [props: MotionProps]>(
                 id,
                 isPresent,
                 register: () => () => {},
+                ExitFeature: ExitAnimationFeature,
                 onExitComplete,
                 custom: custom === undefined ? props.custom : custom,
             }

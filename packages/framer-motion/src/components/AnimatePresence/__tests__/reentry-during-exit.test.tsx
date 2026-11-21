@@ -2,6 +2,7 @@ import { MotionGlobalConfig } from "motion-utils"
 import { act, useEffect, useState } from "react"
 import { AnimatePresence, motion } from "../../.."
 import { PresenceContext } from "../../../context/PresenceContext"
+import { ExitAnimationFeature } from "../../../motion/features/animation/exit"
 import { nextFrame as frame } from "../../../gestures/__tests__/utils"
 import { render } from "../../../jest.setup"
 
@@ -61,6 +62,7 @@ describe("AnimatePresence re-entry during exit", () => {
             isPresent,
             onExitComplete,
             register: () => () => {},
+            ExitFeature: ExitAnimationFeature,
         })
         const Component = ({ isPresent }: { isPresent: boolean }) => (
             <PresenceContext.Provider value={context(isPresent)}>

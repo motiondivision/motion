@@ -33,6 +33,11 @@ export interface PresenceContextProps {
      * had instead.
      */
     keepValuesOnRemount?: boolean
+    /**
+     * The feature that runs `exit` animations. A presence provides it, so
+     * components that are never inside one don't bundle it.
+     */
+    ExitFeature?: new (node: any) => any
 }
 
 /**
