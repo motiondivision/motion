@@ -109,6 +109,34 @@ describe("correctBoxShadow", () => {
             "10px 10px 10px 10px rgba(0, 0, 0, 1), 0px 0px 0px 4px var(--token-c8953278-7b3-4177-a0fa-f3cda39afd50, #333)"
         )
     })
+
+    test("Parses an unchanged shadow once across frames", () => {
+        const complex = require("../../../value/types/complex")
+        const analyse = jest.spyOn(complex, "analyseComplexValue")
+        node.treeScale = { x: 1, y: 1 }
+
+        const shadow = "2px 4px 8px 1px #000"
+        expect(correctBoxShadow.correct(shadow, node)).toBe(
+            "4px 8px 16px 2px rgba(0, 0, 0, 1)"
+        )
+
+        // Each frame scales the shadow's own values, not the last result
+        node.projectionDelta!.x.scale = 0.25
+        node.projectionDelta!.y.scale = 0.25
+        expect(correctBoxShadow.correct(shadow, node)).toBe(
+            "8px 16px 32px 4px rgba(0, 0, 0, 1)"
+        )
+        expect(correctBoxShadow.correct(shadow, node)).toBe(
+            "8px 16px 32px 4px rgba(0, 0, 0, 1)"
+        )
+        expect(analyse).toHaveBeenCalledTimes(1)
+
+        expect(correctBoxShadow.correct("1px 1px 1px 1px #fff", node)).toBe(
+            "4px 4px 4px 4px rgba(255, 255, 255, 1)"
+        )
+        expect(analyse).toHaveBeenCalledTimes(2)
+        analyse.mockRestore()
+    })
 })
 
 describe("scaleCorrectors registry", () => {
