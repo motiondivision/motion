@@ -29,35 +29,42 @@ function useInitialMotionValues(
     visualState: ResolvedValues
 ) {
     return useMemo(
-        () => ({ ...buildVisualProps(getStyleRender, visualState, props).style }),
+        () => ({
+            ...buildVisualProps(getStyleRender, visualState, props).style,
+        }),
         [visualState]
     )
-}
-
-function useStyle(
-    props: MotionProps,
-    visualState: ResolvedValues
-): ResolvedValues {
-    const styleProp = props.style || {}
-    const style = {}
-
-    /**
-     * Copy non-Motion Values straight into style
-     */
-    copyRawValuesOnly(style, styleProp as any, props)
-
-    Object.assign(style, useInitialMotionValues(props, visualState))
-
-    return style
 }
 
 export function useHTMLProps(
     props: MotionProps & HTMLProps<HTMLElement>,
     visualState: ResolvedValues
 ) {
+    const initialValues = useInitialMotionValues(props, visualState)
+
+    /**
+     * Built once per props, so a render with reused props returns the same
+     * style object and React skips diffing it.
+     */
+    return useMemo(
+        () => buildHTMLProps(props, initialValues),
+        [props, initialValues]
+    )
+}
+
+function buildHTMLProps(
+    props: MotionProps & HTMLProps<HTMLElement>,
+    initialValues: ResolvedValues
+) {
     // The `any` isn't ideal but it is the type of createElement props argument
     const htmlProps: any = {}
-    const style = useStyle(props, visualState)
+    const style: ResolvedValues = {}
+
+    /**
+     * Copy non-Motion Values straight into style
+     */
+    copyRawValuesOnly(style, (props.style || {}) as any, props)
+    Object.assign(style, initialValues)
 
     if (props.drag && props.dragListener !== false) {
         // Disable the ghost element when a user drags

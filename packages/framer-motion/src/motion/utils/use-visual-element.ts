@@ -32,7 +32,8 @@ export function useVisualElement<
     ProjectionNodeConstructor?: any,
     isSVG?: boolean
 ): VisualElement<HTMLElement | SVGElement> | undefined {
-    const { visualElement: parent } = useContext(MotionContext)
+    const parentContext = useContext(MotionContext)
+    const { visualElement: parent } = parentContext
     const lazyContext = useContext(LazyContext)
     const presenceContext = useContext(PresenceContext)
     const motionConfig = useContext(MotionConfigContext)
@@ -107,6 +108,15 @@ export function useVisualElement<
         )
     }
 
+    /**
+     * Whether this commit changed the element's props, presence or features,
+     * and the parent variant context of the last commit. A commit that
+     * changes none of these (a parent re-rendering with unchanged props)
+     * has nothing to animate.
+     */
+    const didCommit = useRef(false)
+    const committedParentContext = useRef(parentContext)
+
     useInsertionEffect(() => {
         /**
          * Skip the update if the visual element was created with these props.
@@ -114,7 +124,11 @@ export function useVisualElement<
          * <Activity> runs insertion effects but not layout effects, and
          * props from renders made while hidden must still reach the element.
          */
-        if (visualElement && visualElement.props !== props) {
+        if (
+            visualElement &&
+            (visualElement.props !== props ||
+                visualElement.presenceContext !== presenceContext)
+        ) {
             visualElement.update(props, presenceContext)
         }
     })
@@ -156,8 +170,7 @@ export function useVisualElement<
 
         window.MotionIsMounted = true
 
-        visualElement.updateFeatures()
-        visualElement.scheduleRenderMicrotask()
+        didCommit.current = visualElement.commit()
 
         /**
          * Ideally this function would always run in a useEffect.
@@ -174,6 +187,15 @@ export function useVisualElement<
 
     useEffect(() => {
         if (!visualElement) return
+
+        if (
+            !didCommit.current &&
+            committedParentContext.current === parentContext &&
+            !visualElement.manuallyAnimateOnMount
+        ) {
+            return
+        }
+        committedParentContext.current = parentContext
 
         wantsHandoff.current || visualElement.animationState?.animateChanges()
 

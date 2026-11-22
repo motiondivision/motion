@@ -58,6 +58,12 @@ const propEventHandlers = [
 let featureDefinitions: Partial<FeatureDefinitions> = {}
 
 /**
+ * Counts feature definition changes, so elements that mounted before
+ * features loaded (e.g. LazyMotion) know to update their features.
+ */
+let featuresVersion = 0
+
+/**
  * Set feature definitions for all VisualElements.
  * This should be called by the framework layer (e.g., framer-motion) during initialization.
  */
@@ -65,6 +71,7 @@ export function setFeatureDefinitions(
     definitions: Partial<FeatureDefinitions>
 ) {
     featureDefinitions = definitions
+    featuresVersion++
 }
 
 /**
@@ -318,6 +325,22 @@ export abstract class VisualElement<
         [key: string]: VoidFunction | undefined
     } = {}
 
+    /**
+     * The listener each prop event subscription was made with, so an
+     * unchanged handler isn't unsubscribed and subscribed again.
+     */
+    private propEventListeners: {
+        [key: string]: Function | undefined
+    } = {}
+
+    /**
+     * The props, presence and feature definitions features were last
+     * updated with. A commit that changes none of these skips the update.
+     */
+    private committedProps?: MotionNodeOptions
+    private committedPresence?: PresenceContextProps | null
+    private committedFeatures = -1
+
     constructor(
         {
             parent,
@@ -493,6 +516,13 @@ export abstract class VisualElement<
             }
         }
         this.current = null
+
+        /**
+         * Events were cleared, so the next mount subscribes to prop events
+         * and mounts features again.
+         */
+        this.propEventListeners = {}
+        this.committedProps = undefined
     }
 
     addChild(child: VisualElement) {
@@ -664,6 +694,37 @@ export abstract class VisualElement<
         }
     }
 
+    /**
+     * Update features and render after React commits. Skipped when the
+     * props, presence and feature definitions are the ones of the last
+     * commit, as features would do nothing and React wrote no styles.
+     * Returns whether it updated.
+     */
+    commit() {
+        const { props, presenceContext } = this
+
+        if (
+            props === this.committedProps &&
+            presenceContext === this.committedPresence &&
+            featuresVersion === this.committedFeatures
+        ) {
+            /**
+             * Values set during the render, e.g. by useTransform, are
+             * still written before the browser paints.
+             */
+            this.numPending && this.scheduleRenderMicrotask()
+            return false
+        }
+
+        this.committedProps = props
+        this.committedPresence = presenceContext
+        this.committedFeatures = featuresVersion
+
+        this.updateFeatures()
+        this.scheduleRenderMicrotask()
+        return true
+    }
+
     notifyUpdate = () => this.notify("Update", this.latestValues)
 
     /**
@@ -719,6 +780,9 @@ export abstract class VisualElement<
         for (let i = 0; i < propEventHandlers.length; i++) {
             const key = propEventHandlers[i]
             const listener = props[("on" + key) as keyof typeof props]
+
+            if (listener === this.propEventListeners[key]) continue
+            this.propEventListeners[key] = listener as Function | undefined
 
             /**
              * Replaced rather than deleted, as delete is slow even when

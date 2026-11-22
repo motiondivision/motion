@@ -3,7 +3,7 @@
 import { rootProjectionNode } from "motion-dom"
 import { invariant, warnOnce } from "motion-utils"
 import * as React from "react"
-import { forwardRef, useContext } from "react"
+import { forwardRef, useContext, useRef } from "react"
 import { LayoutGroupContext } from "../context/LayoutGroupContext"
 import { LazyContext } from "../context/LazyContext"
 import { MotionConfigContext } from "../context/MotionConfigContext"
@@ -17,6 +17,7 @@ import { useHTMLVisualState } from "../render/html/use-html-visual-state"
 import { SVGRenderState } from "../render/svg/types"
 import { useSVGVisualState } from "../render/svg/use-svg-visual-state"
 import { CreateVisualElement } from "../render/types"
+import { isShallowEqual } from "../utils/is-shallow-equal"
 import { useConstant } from "../utils/use-constant"
 import { getInitializedFeatureDefinitions } from "./features/definitions"
 import { loadFeatures } from "./features/load-features"
@@ -121,10 +122,31 @@ export function createMotionComponent<
             props = { ...props, initial: false }
         }
 
-        const configAndProps = {
-            ...useContext(MotionConfigContext),
-            ...props,
-            layoutId,
+        const config = useContext(MotionConfigContext)
+        const lastProps = useRef<LastProps<MotionComponentProps<Props>> | null>(
+            null
+        )
+        let configAndProps: MotionConfigContext & MotionComponentProps<Props>
+
+        /**
+         * When a parent re-renders with props equal to the last render's
+         * (inline objects like style and animate are compared a level
+         * deeper, as they're usually made anew), reuse those, so the
+         * element, its features and its animations can skip the update and
+         * React can skip diffing what's rendered.
+         */
+        const last = lastProps.current
+        if (
+            last &&
+            last[1] === config &&
+            last[2] === layoutId &&
+            isShallowEqual(last[0], props, 1)
+        ) {
+            props = last[0]
+            configAndProps = last[3]
+        } else {
+            configAndProps = { ...config, ...props, layoutId }
+            lastProps.current = [props, config, layoutId, configAndProps]
         }
 
         const { isStatic, isValidProp } = configAndProps
@@ -209,6 +231,13 @@ export function createMotionComponent<
 
     return ForwardRefMotionComponent as MotionComponent<TagName, Props>
 }
+
+type LastProps<P> = [
+    P,
+    MotionConfigContext,
+    string | undefined,
+    MotionConfigContext & P
+]
 
 function useLayoutId({ layoutId }: MotionProps) {
     const layoutGroupId = useContext(LayoutGroupContext).id

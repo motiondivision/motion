@@ -23,16 +23,15 @@ export function useSVGProps(
         return { ...attrs, style: { ...style } }
     }, [visualState])
 
-    if (props.style) {
-        /**
-         * Build a fresh style each render rather than writing back into
-         * the memoised visualProps, which would carry the previous
-         * render's raw styles over (and above) the latest ones.
-         */
+    /**
+     * Build a fresh style per props rather than writing back into the
+     * memoised visualProps, which would carry the previous props' raw
+     * styles over (and above) the latest ones.
+     */
+    return useMemo(() => {
+        if (!props.style) return visualProps
         const style = {}
         copyRawValuesOnly(style, props.style as any, props)
         return { ...visualProps, style: { ...style, ...visualProps.style } }
-    }
-
-    return visualProps
+    }, [props, visualProps])
 }

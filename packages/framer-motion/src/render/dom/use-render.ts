@@ -29,19 +29,13 @@ export function useRender<
     isValidProp?: IsValidProp
 ) {
     const useVisualProps =
-        (isSVG ?? isSVGComponent(Component)) ? useSVGProps : useHTMLProps
+        isSVG ?? isSVGComponent(Component) ? useSVGProps : useHTMLProps
 
     const visualProps = useVisualProps(
         props as any,
         latestValues,
         isStatic,
         Component as any
-    )
-    const filteredProps = filterProps(
-        props,
-        typeof Component === "string",
-        forwardMotionProps,
-        isValidProp
     )
 
     /**
@@ -55,15 +49,28 @@ export function useRender<
         [children]
     )
 
-    return createElement<any>(
-        Component,
-        Component !== Fragment
-            ? {
-                  ...filteredProps,
-                  ...visualProps,
-                  ref,
-                  children: renderedChildren,
-              }
-            : { children: renderedChildren }
+    /**
+     * Props are reused when a render's props equal the last render's, so
+     * the same element is returned and React skips diffing it.
+     */
+    return useMemo(
+        () =>
+            createElement<any>(
+                Component,
+                Component !== Fragment
+                    ? {
+                          ...filterProps(
+                              props,
+                              typeof Component === "string",
+                              forwardMotionProps,
+                              isValidProp
+                          ),
+                          ...visualProps,
+                          ref,
+                          children: renderedChildren,
+                      }
+                    : { children: renderedChildren }
+            ),
+        [props, visualProps, ref]
     )
 }

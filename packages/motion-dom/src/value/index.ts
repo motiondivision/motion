@@ -311,11 +311,16 @@ export class MotionValue<V = any> {
      * of the next frame, stop active animations.
      */
     private stopIfUnobserved() {
-        frame.read(() => {
-            if (!this.changeSubscriber && !this.events?.change?.getSize()) {
-                this.stop()
-            }
-        })
+        /**
+         * Only an animating value has anything to stop, so unmounting many
+         * idle values doesn't schedule a check for each.
+         */
+        this.animation &&
+            frame.read(() => {
+                if (!this.changeSubscriber && !this.events?.change?.getSize()) {
+                    this.stop()
+                }
+            })
     }
 
     clearListeners() {

@@ -6,6 +6,7 @@ import {
     transform,
     TransformOptions,
 } from "motion-dom"
+import { isShallowEqual } from "../utils/is-shallow-equal"
 import { useConstant } from "../utils/use-constant"
 import { useCombineMotionValues } from "./use-combine-values"
 import { useComputed } from "./use-computed"
@@ -21,6 +22,13 @@ type Transformer<I, O> =
      * https://gist.github.com/InventingWithMonster/c4d23752a0fae7888596c4ff6d92733a
      */
     | MultiTransformer<AnyResolvedKeyframe, O>
+
+type TransformCache<O> = [
+    InputRange | undefined,
+    O[] | undefined,
+    TransformOptions<O> | undefined,
+    ((v: number) => O) | undefined
+]
 
 interface OutputMap<O> {
     [key: string]: O[]
@@ -203,10 +211,34 @@ export function useTransform<I, O, K extends string>(
     }
 
     const outputRange = outputRangeOrMap as O[] | undefined
-    const transformer =
-        typeof inputRangeOrTransformer === "function"
-            ? inputRangeOrTransformer
-            : transform(inputRangeOrTransformer!, outputRange!, options)
+
+    /**
+     * Ranges and options are usually written inline, so they're new each
+     * render. Keep the transformer while they hold the same values, rather
+     * than building its mixers again.
+     */
+    const cache = useConstant(() => [] as unknown as TransformCache<O>)
+    let transformer: Transformer<I, O>
+    if (typeof inputRangeOrTransformer === "function") {
+        transformer = inputRangeOrTransformer
+    } else {
+        if (
+            !cache[3] ||
+            !isShallowEqual(cache[0], inputRangeOrTransformer) ||
+            !isShallowEqual(cache[1], outputRange) ||
+            !isShallowEqual(cache[2], options)
+        ) {
+            cache[0] = inputRangeOrTransformer
+            cache[1] = outputRange
+            cache[2] = options
+            cache[3] = transform(
+                inputRangeOrTransformer!,
+                outputRange!,
+                options
+            )
+        }
+        transformer = cache[3] as Transformer<I, O>
+    }
 
     const result = Array.isArray(input)
         ? useListTransform(
@@ -284,7 +316,12 @@ function useMapTransform<O>(
     const output = useConstant<{ [key: string]: MotionValue<O> }>(() => ({}))
 
     for (const key of keys) {
-        output[key] = useTransform(inputValue, inputRange, outputMap[key], options)
+        output[key] = useTransform(
+            inputValue,
+            inputRange,
+            outputMap[key],
+            options
+        )
     }
 
     return output
