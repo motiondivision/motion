@@ -32,9 +32,14 @@ const store = (key: string, value: string) => {
     } catch {}
 }
 
-const interruptAfter = parseInt(stored("lab-interrupt", "0"))
+const interruptAfter = parseInt(stored("lab-interrupt", "800"))
 
 const linear = { type: "tween", ease: "linear", duration: 3 } as const
+/**
+ * Slow enough to interrupt by hand, with an overshoot that shows if the
+ * velocity carries over.
+ */
+const slowSpring = { type: "spring", visualDuration: 2, bounce: 0.5 } as const
 const box = {
     width: 100,
     height: 100,
@@ -87,6 +92,14 @@ function Enter() {
                 animate={{ x: 0, scale: 1 }}
                 style={box}
             />
+            <Label>Slow spring: x and scale</Label>
+            <motion.div
+                id="slow-spring"
+                initial={{ x: -300, scale: 0.5 }}
+                animate={{ x: 0, scale: 1 }}
+                transition={slowSpring}
+                style={box}
+            />
             <Label>
                 Own timing: x for 3 s, scale for 1 s, rotate after 1 s
             </Label>
@@ -124,6 +137,58 @@ function Layout() {
 
     return (
         <>
+            <Label>
+                Spring enter into a spring layout animation: the child springs
+                in as CSS (x, scale, rotate), and the interrupt moves and
+                resizes its layout parent
+            </Label>
+            <div style={{ display: "flex", justifyContent: justify }}>
+                <motion.div
+                    id="spring-parent"
+                    layout
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={slowSpring}
+                    style={{
+                        ...box,
+                        width: isMoved ? 320 : 180,
+                        height: isMoved ? 140 : 100,
+                        background: "#8df0cc",
+                        padding: 20,
+                        boxSizing: "border-box",
+                    }}
+                >
+                    <motion.div
+                        id="spring-child"
+                        layout
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={slowSpring}
+                        style={{
+                            ...box,
+                            width: 60,
+                            height: 60,
+                            marginLeft: isMoved ? "auto" : 0,
+                            background: "#ff0088",
+                        }}
+                    >
+                        <motion.div
+                            id="spring-grandchild"
+                            initial={{ x: -120, scale: 0.3, rotate: -180 }}
+                            animate={{ x: 0, scale: 1, rotate: 0 }}
+                            transition={slowSpring}
+                            style={{
+                                ...box,
+                                width: 30,
+                                height: 30,
+                                margin: 15,
+                                borderRadius: 6,
+                                background: "#fff",
+                            }}
+                        />
+                    </motion.div>
+                </motion.div>
+            </div>
             <Label>layout + opacity enter (opacity runs as CSS)</Label>
             <div style={{ display: "flex", justifyContent: justify }}>
                 <motion.div
@@ -592,7 +657,7 @@ const times = (values: number[], none: string) =>
     Object.fromEntries(values.map((ms) => [String(ms), ms ? `${ms} ms` : none]))
 
 function App() {
-    const name = stored("lab-scenario", Object.keys(scenarios)[0])
+    const name = stored("lab-scenario", "Layout animation interrupts enter")
     const Scenario = scenarios[name] || Enter
 
     return (
@@ -640,6 +705,12 @@ function App() {
                     Replay
                 </button>
             </div>
+            <p style={{ opacity: 0.7 }}>
+                Each scenario has one interruption: a layout change, a new
+                target, an exit, a reorder. It runs once after the "Interrupt
+                after" time, and each time you press "Interrupt now". "Code
+                delay" holds back the animation, layout and drag code.
+            </p>
             <p style={{ opacity: 0.7 }}>
                 <Arrivals />
             </p>
