@@ -100,8 +100,7 @@
     },
     "dependencies": {
         "motion-dom": "14.14.0",
-        "motion-utils": "14.7.0",
-        "tslib": "^2.4.0"
+        "motion-utils": "14.7.0"
     },
     "devDependencies": {
         "@radix-ui/react-dialog": "^1.1.15",

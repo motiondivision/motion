@@ -1,11 +1,12 @@
 import { transformPropOrder } from "./keys-transform"
 
-export const positionalKeys = new Set([
-    "width",
-    "height",
-    "top",
-    "left",
-    "right",
-    "bottom",
-    ...transformPropOrder,
-])
+export const positionalKeys = /* @__PURE__ */ (() =>
+    new Set([
+        "width",
+        "height",
+        "top",
+        "left",
+        "right",
+        "bottom",
+        ...transformPropOrder,
+    ]))()

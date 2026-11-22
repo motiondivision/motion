@@ -81,10 +81,14 @@ function prepareNode(
     element: HTMLElement,
     transition?: Transition
 ): IProjectionNode {
+    registerLayoutProjection()
     let node = layoutNodes.get(element)
 
     if (!node) {
         const visualElement = resolveVisualElement(element)
+        const existing = visualElement.projection as
+            | (IProjectionNode & { upgrade?: (node: IProjectionNode) => void })
+            | undefined
 
         node = new HTMLProjectionNode(
             visualElement.latestValues,
@@ -97,6 +101,7 @@ function prepareNode(
             visualElement,
         })
         node.mount(element)
+        existing?.upgrade?.(node)
         layoutNodes.set(element, node)
     } else {
         node.setOptions(readNodeOptions(element, transition))
@@ -127,9 +132,12 @@ function createLayoutNode(
 
 /**
  * Let drag() create its nodes in the shared imperative tree, so drag
- * gestures and layout animations work together.
+ * gestures and layout animations work together. Called lazily instead of
+ * at module evaluation time so this module stays side-effect free.
  */
-layoutProjection.create = createLayoutNode
+export function registerLayoutProjection() {
+    layoutProjection.create = createLayoutNode
+}
 
 /**
  * Get a projection node for an element, so motion/remix can measure and
@@ -140,14 +148,18 @@ layoutProjection.create = createLayoutNode
 export function acquireProjectionNode(
     element: HTMLElement
 ): [IProjectionNode, VoidFunction] {
+    registerLayoutProjection()
     const owned =
         layoutNodes.get(element) || visualElementStore.get(element)?.projection
 
     /**
      * A VisualElement can outlive a node we released (e.g. a stopped
-     * drag()), so only reuse a node that's still mounted.
+     * drag()), so only reuse a mounted projection node (not a
+     * measurement-only drag node, which should be upgraded).
      */
-    return owned?.instance ? [owned, () => {}] : createLayoutNode(element)
+    return owned?.instance && !(owned as any).upgrade
+        ? [owned, () => {}]
+        : createLayoutNode(element)
 }
 
 /**
@@ -290,6 +302,7 @@ export class LayoutAnimationBuilder {
         private updateDom: () => void | Promise<void>,
         private defaultOptions?: AnimationOptions
     ) {
+        registerLayoutProjection()
         this.readyPromise = new Promise<GroupAnimation>((resolve, reject) => {
             this.notifyReady = resolve
             this.rejectReady = reject

@@ -1,17 +1,22 @@
 import { clamp } from "motion-utils"
 
+const test = (v: any) => typeof v === "number"
+
 export const number = {
-    test: (v: number) => typeof v === "number",
+    test,
     parse: parseFloat,
     transform: (v: number) => v,
 }
 
 export const alpha = {
-    ...number,
+    test,
+    parse: parseFloat,
     transform: (v: number) => clamp(0, 1, v),
 }
 
 export const scale = {
-    ...number,
+    test,
+    parse: parseFloat,
+    transform: (v: number) => v,
     default: 1,
 }

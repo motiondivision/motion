@@ -9,9 +9,10 @@ import { sanitize } from "../utils/sanitize"
 /**
  * Non-global copies of the token regexes so test() can use .test()
  * (no match array, stops at the first token) without lastIndex state.
+ * Initialized lazily so importing this module has no top-level side effects.
  */
-const hasFloat = /*@__PURE__*/ new RegExp(floatRegex.source)
-const hasColor = /*@__PURE__*/ new RegExp(colorRegex.source, "i")
+let hasFloat: RegExp | undefined
+let hasColor: RegExp | undefined
 
 function test(v: any) {
     return isNaN(v) && typeof v === "string" && hasComplexValues(v)
@@ -52,7 +53,10 @@ const complexRegex =
  */
 export function hasComplexValues(value: AnyResolvedKeyframe) {
     const asString = value.toString()
-    return hasFloat.test(asString) || hasColor.test(asString)
+    return (
+        (hasFloat ??= new RegExp(floatRegex.source)).test(asString) ||
+        (hasColor ??= new RegExp(colorRegex.source, "i")).test(asString)
+    )
 }
 
 export function analyseComplexValue(
