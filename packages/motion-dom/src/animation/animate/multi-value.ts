@@ -375,6 +375,24 @@ function resolve(
 }
 
 /**
+ * A motion value made outside Motion, like one from useMotionValue, has no
+ * owner, so it couldn't run on WAAPI: something else might need its value
+ * every frame. While the element animating it is the only thing listening
+ * to it, nothing does, so the element owns it like a value of its own.
+ */
+function adoptValue(value: MotionValue, element?: AnimationElement) {
+    if (value.owner && !value.isAdopted) return
+
+    const isSole =
+        element?.current &&
+        value.changeSubscriber &&
+        !(value as any).events?.change?.getSize()
+
+    value.owner = isSole ? (element as any) : undefined
+    value.isAdopted = !!isSole
+}
+
+/**
  * Start a value's animation on the call's shared animation, or on an animation of its
  * own when it can't share it.
  */
@@ -443,6 +461,8 @@ export const startValueAnimation =
             "velocity" in valueTransition
                 ? valueTransition.velocity
                 : value.getVelocity()
+
+        adoptValue(value, element)
 
         /**
          * Transforms and other compositor values on an HTML element join

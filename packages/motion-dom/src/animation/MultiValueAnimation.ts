@@ -219,6 +219,14 @@ export class ValueTrack<T extends AnyResolvedKeyframe = any>
     }
 
     /**
+     * Play on the main thread from now, as something has started to
+     * listen to the value, which needs it every frame.
+     */
+    toMainThread() {
+        this.parent.toMainThread(this)
+    }
+
+    /**
      * Follow a timeline on the shared clock, from JS.
      */
     observe() {
@@ -626,6 +634,19 @@ export class MultiValueAnimation
      */
     private span() {
         return this.unfollow && secondsToMilliseconds(this.iterationDuration)
+    }
+
+    /**
+     * Move a track off WAAPI, or its group off the compositor, so it's
+     * played from JS.
+     */
+    toMainThread(track: ValueTrack) {
+        if (track.native) {
+            this.release(track)
+            this.js?.start()
+        } else {
+            track.group?.demote()
+        }
     }
 
     /**

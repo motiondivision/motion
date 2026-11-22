@@ -99,6 +99,12 @@ export class MotionValue<V = any> {
     owner?: Owner
 
     /**
+     * Whether the owner was given to a value made outside Motion, because
+     * one element is all that listens to it. See adoptValue.
+     */
+    isAdopted?: boolean
+
+    /**
      * The current state of the `MotionValue`.
      */
     private current: V | undefined
@@ -150,7 +156,7 @@ export class MotionValue<V = any> {
      * effect or a follower), so it's stored and notified directly. A
      * SubscriptionManager is only created for a second subscriber.
      */
-    private changeSubscriber?: Subscriber<V>
+    changeSubscriber?: Subscriber<V>
 
     /**
      * Tracks whether this value can output a velocity. Currently this is only true
@@ -282,6 +288,16 @@ export class MotionValue<V = any> {
      */
     addChangeSubscriber(callback: Subscriber<V>) {
         const events = this.events
+
+        /**
+         * An adopted value now has a second listener, so it's played from
+         * JS, where it's set every frame, and isn't adopted again until
+         * one element is all that listens to it.
+         */
+        if (this.isAdopted) {
+            ;(this.animation as any)?.toMainThread?.()
+            this.owner = this.isAdopted = undefined
+        }
 
         if (!events?.change && !this.changeSubscriber) {
             this.changeSubscriber = callback

@@ -1,7 +1,7 @@
 import { waitFor } from "@testing-library/dom"
 import { supportsFlags } from "motion-dom"
 import { act, createRef, useEffect, useRef, useState } from "react"
-import { motion, useMotionValue } from "../../"
+import { motion, useMotionValue, useMotionValueEvent } from "../../"
 import "../../animation/animators/waapi/__tests__/setup"
 import { nextFrame } from "../../gestures/__tests__/utils"
 import {
@@ -921,7 +921,7 @@ describe("WAAPI animations", () => {
         expect(ref.current!.animate).toBeCalled()
     })
 
-    test("Doesn't animate with WAAPI if external motion value is defined", async () => {
+    test("Animates an external motion value only its element listens to with WAAPI", async () => {
         const ref = createRef<HTMLDivElement>()
         const Component = () => (
             <motion.div
@@ -936,7 +936,78 @@ describe("WAAPI animations", () => {
 
         await nextFrame()
 
+        expect(ref.current!.animate).toBeCalled()
+    })
+
+    test("Doesn't animate an external motion value with WAAPI if something else listens to it", async () => {
+        const ref = createRef<HTMLDivElement>()
+        const Component = () => {
+            const opacity = useMotionValue(0)
+            useMotionValueEvent(opacity, "change", () => {})
+            return (
+                <motion.div
+                    ref={ref}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 0.7 }}
+                    style={{ opacity }}
+                />
+            )
+        }
+        const { rerender } = render(<Component />)
+        rerender(<Component />)
+
+        await nextFrame()
+
         expect(ref.current!.animate).not.toBeCalled()
+    })
+
+    test("Moves an external motion value off WAAPI when something starts listening to it", async () => {
+        const ref = createRef<HTMLDivElement>()
+        const updates: number[] = []
+        const Component = () => {
+            const opacity = useMotionValue(0)
+            useEffect(() => opacity.on("change", (v) => updates.push(v)), [])
+            return (
+                <motion.div
+                    ref={ref}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 0.7 }}
+                    transition={{ duration: 0.5, ease: "linear" }}
+                    style={{ opacity }}
+                />
+            )
+        }
+        const { rerender } = render(<Component />)
+        rerender(<Component />)
+
+        await new Promise((resolve) => setTimeout(resolve, 150))
+
+        expect(updates.some((v) => v > 0 && v < 0.7)).toBe(true)
+    })
+
+    test("Doesn't animate an external motion value with WAAPI if two elements share it", async () => {
+        const a = createRef<HTMLDivElement>()
+        const b = createRef<HTMLDivElement>()
+        const Component = () => {
+            const opacity = useMotionValue(0)
+            return (
+                <>
+                    <motion.div
+                        ref={a}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 0.7 }}
+                        style={{ opacity }}
+                    />
+                    <motion.div ref={b} style={{ opacity }} />
+                </>
+            )
+        }
+        const { rerender } = render(<Component />)
+        rerender(<Component />)
+
+        await nextFrame()
+
+        expect(a.current!.animate).not.toBeCalled()
     })
 
     test("Animates with WAAPI if repeat is defined and we need to generate keyframes", async () => {
