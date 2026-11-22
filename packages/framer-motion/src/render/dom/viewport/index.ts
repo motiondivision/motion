@@ -4,6 +4,7 @@ import {
     ElementOrSelector,
     resolveElements,
 } from "motion-dom"
+import { observeIntersection } from "../../../motion/features/viewport/observers"
 
 export type ViewChangeHandler = (entry: IntersectionObserverEntry) => void
 
@@ -37,10 +38,15 @@ export function inView(
     onStart = bindToScope(onStart)
 
     const activeIntersections = new WeakMap<Element, ViewChangeHandler>()
+    const options = {
+        root: root as Element | Document | undefined,
+        rootMargin,
+        threshold: typeof amount === "number" ? amount : thresholds[amount],
+    }
 
-    const onIntersectionChange: IntersectionObserverCallback = (entries) => {
-        entries.forEach((entry) => {
-            const onEnd = activeIntersections.get(entry.target)
+    const stops = elements.map((element) => {
+        const stop = observeIntersection(element, options, (entry) => {
+            const onEnd = activeIntersections.get(element)
 
             /**
              * If there's no change to the intersection, we don't need to
@@ -49,26 +55,17 @@ export function inView(
             if (entry.isIntersecting === Boolean(onEnd)) return
 
             if (entry.isIntersecting) {
-                const newOnEnd = onStart(entry.target, entry)
-                if (typeof newOnEnd === "function") {
-                    activeIntersections.set(entry.target, newOnEnd)
-                } else {
-                    observer.unobserve(entry.target)
-                }
+                const newOnEnd = onStart(element, entry)
+                typeof newOnEnd === "function"
+                    ? activeIntersections.set(element, newOnEnd)
+                    : stop()
             } else if (typeof onEnd === "function") {
                 onEnd(entry)
-                activeIntersections.delete(entry.target)
+                activeIntersections.delete(element)
             }
         })
-    }
-
-    const observer = new IntersectionObserver(onIntersectionChange, {
-        root,
-        rootMargin,
-        threshold: typeof amount === "number" ? amount : thresholds[amount],
+        return stop
     })
 
-    elements.forEach((element) => observer.observe(element))
-
-    return addToScope(() => observer.disconnect())
+    return addToScope(() => stops.forEach((stop) => stop()))
 }

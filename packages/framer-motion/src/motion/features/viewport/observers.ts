@@ -1,60 +1,42 @@
 type IntersectionHandler = (entry: IntersectionObserverEntry) => void
 
-interface ElementIntersectionObservers {
-    [key: string]: IntersectionObserver
+interface SharedObserver {
+    observer: IntersectionObserver
+    handlers: WeakMap<Element, Set<IntersectionHandler>>
 }
 
 /**
- * Map an IntersectionHandler callback to an element. We only ever make one handler for one
- * element, so even though these handlers might all be triggered by different
- * observers, we can keep them in the same map.
- */
-const observerCallbacks = new WeakMap<Element, IntersectionHandler>()
-
-/**
- * Multiple observers can be created for multiple element/document roots. Each with
- * different settings. So here we store dictionaries of observers to each root,
- * using serialised settings (threshold/margin) as lookup keys.
+ * Elements observed with the same root and settings share one
+ * IntersectionObserver, so many in-view elements don't each make their own.
+ * Observers are stored per root, under their serialised settings.
  */
 const observers = new WeakMap<
     Element | Document,
-    ElementIntersectionObservers
+    { [key: string]: SharedObserver }
 >()
 
-const fireObserverCallback = (entry: IntersectionObserverEntry) => {
-    const callback = observerCallbacks.get(entry.target)
-    callback && callback(entry)
-}
-
-const fireAllObserverCallbacks: IntersectionObserverCallback = (entries) => {
-    entries.forEach(fireObserverCallback)
-}
-
-function initIntersectionObserver({
-    root,
-    ...options
-}: IntersectionObserverInit): IntersectionObserver {
+function getObserver({ root, ...options }: IntersectionObserverInit) {
     const lookupRoot = root || document
 
-    /**
-     * If we don't have an observer lookup map for this root, create one.
-     */
-    if (!observers.has(lookupRoot)) {
-        observers.set(lookupRoot, {})
-    }
-    const rootObservers = observers.get(lookupRoot)!
+    let rootObservers = observers.get(lookupRoot)
+    if (!rootObservers) observers.set(lookupRoot, (rootObservers = {}))
 
     const key = JSON.stringify(options)
 
-    /**
-     * If we don't have an observer for this combination of root and settings,
-     * create one.
-     */
     if (!rootObservers[key]) {
-        rootObservers[key] = new IntersectionObserver(
-            fireAllObserverCallbacks,
-            { root, ...options }
-        )
+        const handlers = new WeakMap<Element, Set<IntersectionHandler>>()
+        rootObservers[key] = {
+            handlers,
+            observer: new IntersectionObserver(
+                (entries) =>
+                    entries.forEach((entry) =>
+                        handlers
+                            .get(entry.target)
+                            ?.forEach((handler) => handler(entry))
+                    ),
+                { root, ...options }
+            ),
+        }
     }
 
     return rootObservers[key]
@@ -63,15 +45,31 @@ function initIntersectionObserver({
 export function observeIntersection(
     element: Element,
     options: IntersectionObserverInit,
-    callback: IntersectionHandler
+    handler: IntersectionHandler
 ) {
-    const rootInteresectionObserver = initIntersectionObserver(options)
+    const { observer, handlers } = getObserver(options)
 
-    observerCallbacks.set(element, callback)
-    rootInteresectionObserver.observe(element)
+    let elementHandlers = handlers.get(element)
+    if (elementHandlers) {
+        /**
+         * Observe the element again, so this handler is told whether it's
+         * in view. Handlers already watching it ignore the unchanged entry.
+         */
+        observer.unobserve(element)
+    } else {
+        handlers.set(element, (elementHandlers = new Set()))
+    }
+    elementHandlers.add(handler)
+    observer.observe(element)
 
     return () => {
-        observerCallbacks.delete(element)
-        rootInteresectionObserver.unobserve(element)
+        elementHandlers!.delete(handler)
+        if (
+            !elementHandlers!.size &&
+            handlers.get(element) === elementHandlers
+        ) {
+            handlers.delete(element)
+            observer.unobserve(element)
+        }
     }
 }
