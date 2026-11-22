@@ -266,13 +266,51 @@ describe("drag() and animateLayout()", () => {
         pointer.end()
         await isolatedUtils.nextFrame()
 
-        // Subsequent dragging and stopping leaves animateLayout()'s projection node mounted
+        // Dragging keeps working on the upgraded node
         const afterPointer = await isolatedUtils.gesture(element).to(10, 0)
         afterPointer.end()
         await isolatedUtils.nextFrame()
-
-        stop()
         expect(visualElement.projection).toBe(upgradedNode)
-        expect(upgradedNode.instance).toBe(element)
+
+        // drag() owns the upgraded node, so stopping it releases the node
+        stop()
+        expect(upgradedNode.instance).toBeUndefined()
+    })
+
+    test("keeps a dragged parent without data-layout in the layout tree when animateLayout() runs later", async () => {
+        let isolatedDrag!: typeof drag
+        let isolatedAnimateLayout!: typeof animateLayout
+        let builder!: typeof import("../../../layout/LayoutAnimationBuilder")
+        let isolatedStore!: typeof visualElementStore
+        let isolatedUtils!: typeof import("./utils")
+
+        jest.isolateModules(() => {
+            isolatedAnimateLayout =
+                require("../../../layout/animate-layout").animateLayout
+            builder = require("../../../layout/LayoutAnimationBuilder")
+            isolatedDrag = require("..").drag
+            isolatedStore = require("../../../render/store").visualElementStore
+            isolatedUtils = require("./utils")
+        })
+
+        const parent = isolatedUtils.createElement()
+        const child = document.createElement("div")
+        child.setAttribute("data-layout", "")
+        parent.appendChild(child)
+
+        const stop = isolatedDrag(parent, { momentum: false })
+
+        await isolatedAnimateLayout(parent, () => {}, { duration: 0.05 })
+        await isolatedUtils.nextFrame()
+
+        const parentNode = isolatedStore.get(parent)!.projection!
+        expect((parentNode as any).upgrade).toBeUndefined()
+        expect(builder.acquireProjectionNode(child)[0].parent).toBe(
+            parentNode
+        )
+
+        // Stopping drag() releases the node it owns, as before
+        stop()
+        expect(parentNode.instance).toBeUndefined()
     })
 })

@@ -11,12 +11,16 @@ import { visualElementStore } from "../../render/store"
 type CreateNode = (element: HTMLElement) => [IProjectionNode, VoidFunction]
 
 /**
- * animateLayout() registers a function here lazily when it runs, so
- * subsequent drag() calls create nodes directly in the shared layout
- * projection tree. Any measurement-only node created before animateLayout()
- * runs can be upgraded in place via its `upgrade` method.
+ * animateLayout() registers a function here the first time it runs, so
+ * later drag() calls create their nodes in the shared layout projection
+ * tree. drag() calls made before then use a node that only measures, kept
+ * in `pending`. Registration upgrades each of these to a full node, so
+ * dragged elements join the tree (e.g. as the parent of a layout child).
  */
-export const layoutProjection: { create?: CreateNode } = {}
+export const layoutProjection: {
+    create?: CreateNode
+    pending: Set<any>
+} = { pending: /* @__PURE__ */ new Set() }
 
 /**
  * The document root of measurement-only nodes. Like the projection tree's
@@ -40,7 +44,7 @@ const createMeasureNode: CreateNode = (element) => {
         didUpdate: new SubscriptionManager(),
     }
     let upgraded: IProjectionNode | undefined
-    let stopUpgraded: VoidFunction[] | undefined
+    let stopUpgraded: VoidFunction[] = []
     let options: Record<string, any> | undefined
 
     const node: any = {
@@ -73,7 +77,12 @@ const createMeasureNode: CreateNode = (element) => {
             upgraded
                 ? upgraded.addEventListener(name, handler)
                 : listeners[name]?.add(handler) || noop,
-        upgrade: (nextNode: IProjectionNode) => {
+        /**
+         * Hand over to a full node. drag() then owns it, and releases it
+         * when it stops, like a node it created after registration.
+         */
+        upgrade: ([nextNode, release]: [IProjectionNode, VoidFunction]) => {
+            layoutProjection.pending.delete(node)
             upgraded = nextNode
             if (options) nextNode.setOptions(options)
             if (node.isAnimationBlocked) nextNode.isAnimationBlocked = true
@@ -82,6 +91,7 @@ const createMeasureNode: CreateNode = (element) => {
                     (listeners[name].notify as any)(...args)
                 )
             )
+            stopUpgraded.push(release)
         },
         /**
          * Detach from the VisualElement too, so it doesn't later remount
@@ -89,7 +99,8 @@ const createMeasureNode: CreateNode = (element) => {
          * can't do either.
          */
         unmount: () => {
-            stopUpgraded?.forEach((stop) => stop())
+            layoutProjection.pending.delete(node)
+            stopUpgraded.forEach((stop) => stop())
             node.instance = undefined
             if (visualElement.projection === node) {
                 visualElement.projection = undefined
@@ -98,6 +109,7 @@ const createMeasureNode: CreateNode = (element) => {
     }
 
     visualElement.projection = node
+    layoutProjection.pending.add(node)
     visualElement.current || visualElement.mount(element)
 
     return [node, node.unmount]

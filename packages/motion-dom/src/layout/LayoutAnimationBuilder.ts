@@ -86,9 +86,6 @@ function prepareNode(
 
     if (!node) {
         const visualElement = resolveVisualElement(element)
-        const existing = visualElement.projection as
-            | (IProjectionNode & { upgrade?: (node: IProjectionNode) => void })
-            | undefined
 
         node = new HTMLProjectionNode(
             visualElement.latestValues,
@@ -101,7 +98,6 @@ function prepareNode(
             visualElement,
         })
         node.mount(element)
-        existing?.upgrade?.(node)
         layoutNodes.set(element, node)
     } else {
         node.setOptions(readNodeOptions(element, transition))
@@ -132,11 +128,19 @@ function createLayoutNode(
 
 /**
  * Let drag() create its nodes in the shared imperative tree, so drag
- * gestures and layout animations work together. Called lazily instead of
- * at module evaluation time so this module stays side-effect free.
+ * gestures and layout animations work together. Called when a layout
+ * animation starts rather than at import, so this module has no side
+ * effects. Nodes drag() made before then are upgraded, parents first, so
+ * each finds its projection parent.
  */
 export function registerLayoutProjection() {
+    if (layoutProjection.create) return
     layoutProjection.create = createLayoutNode
+    ;[...layoutProjection.pending]
+        .sort((a, b) =>
+            a.instance.compareDocumentPosition(b.instance) & 2 ? 1 : -1
+        )
+        .forEach((node) => node.upgrade(createLayoutNode(node.instance)))
 }
 
 /**
@@ -154,12 +158,9 @@ export function acquireProjectionNode(
 
     /**
      * A VisualElement can outlive a node we released (e.g. a stopped
-     * drag()), so only reuse a mounted projection node (not a
-     * measurement-only drag node, which should be upgraded).
+     * drag()), so only reuse a node that's still mounted.
      */
-    return owned?.instance && !(owned as any).upgrade
-        ? [owned, () => {}]
-        : createLayoutNode(element)
+    return owned?.instance ? [owned, () => {}] : createLayoutNode(element)
 }
 
 /**

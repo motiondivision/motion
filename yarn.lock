@@ -6926,7 +6926,6 @@ __metadata:
     motion-utils: 14.7.0
     rollup: 4.59.0
     three: 0.137.0
-    tslib: ^2.4.0
     typescript: 5.4.3
   peerDependencies:
     react: ^18.0.0 || ^19.0.0
@@ -10033,7 +10032,6 @@ __metadata:
     framer-motion: 14.14.0
     jest: ^29.7.0
     rollup: 4.59.0
-    tslib: ^2.4.0
     typescript: 5.4.3
   peerDependencies:
     react: ^18.0.0 || ^19.0.0
