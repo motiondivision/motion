@@ -216,6 +216,76 @@ describe("domDrag feature bundle", () => {
         expect(x.get()).toBe(100)
     })
 
+    test("measures ref dragConstraints again after a re-render moves the element", async () => {
+        const y = motionValue(0)
+        let boxTop = 0
+
+        jest.spyOn(
+            HTMLElement.prototype,
+            "getBoundingClientRect"
+        ).mockImplementation(function (this: HTMLElement) {
+            if (this.dataset.testid === "container") {
+                return makeRect(0, 0, 100, 400)
+            }
+            if (this.dataset.testid === "box") {
+                return makeRect(0, boxTop, 100, 100)
+            }
+            return makeRect(0, 0, 0, 0)
+        })
+
+        const pointer = (type: string, target: Element, pageY: number) => {
+            const event = new PointerEvent(type, {
+                isPrimary: true,
+                bubbles: true,
+            })
+            Object.assign(event, { clientX: 0, clientY: pageY, pageX: 0, pageY })
+            act(() => {
+                fireEvent(target, event)
+            })
+        }
+        const move = async (pageY: number) => {
+            pointer("pointermove", document.body, pageY)
+            await act(async () => {
+                await dragFrame.postRender()
+            })
+        }
+
+        const Component = ({ offset }: { offset: number }) => {
+            const containerRef = useRef<HTMLDivElement>(null)
+            return (
+                <LazyMotion features={domDrag}>
+                    <div ref={containerRef} data-testid="container">
+                        <div style={{ height: offset }} />
+                        <m.div
+                            data-testid="box"
+                            drag="y"
+                            dragConstraints={containerRef}
+                            dragElastic={0}
+                            dragMomentum={false}
+                            style={{ y }}
+                        />
+                    </div>
+                </LazyMotion>
+            )
+        }
+
+        const { getByTestId, rerender } = render(<Component offset={0} />)
+        await nextFrame()
+
+        // Content above the box grows, moving it 100px down its container
+        boxTop = 100
+        rerender(<Component offset={100} />)
+        await nextFrame()
+
+        pointer("pointerdown", getByTestId("box"), 0)
+        await move(1)
+        await move(1000)
+        expect(y.get()).toBe(200)
+        await move(-1000)
+        expect(y.get()).toBe(-100)
+        pointer("pointerup", document.body, -1000)
+    })
+
     test("supports dragMomentum inertia on release", async () => {
         const x = motionValue(0)
 

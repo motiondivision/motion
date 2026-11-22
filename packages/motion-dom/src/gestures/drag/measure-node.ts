@@ -53,12 +53,25 @@ export function createDragMeasureNode(
             node.instance = el
         },
         updateLayout: () => {
-            if (!node.instance) return
+            const { instance } = node
+            if (!instance) return
+            /**
+             * Measure without the element's transform, like the full node,
+             * as drag sets x/y. Reading and restoring it in the same task
+             * doesn't paint.
+             */
+            const { style } = instance
+            const { transform } = style
+            const { transformTemplate } = visualElement.getProps()
+            style.transform = transformTemplate
+                ? transformTemplate({}, "")
+                : "none"
             const layoutBox = measurePageBox(
-                node.instance,
+                instance,
                 root,
                 visualElement.getTransformPagePoint()
             )
+            style.transform = transform
             roundBox(layoutBox)
             node.layout = { layoutBox }
             measureListeners.notify()

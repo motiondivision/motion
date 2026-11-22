@@ -148,6 +148,14 @@
             "maxSize": "47.05 kB"
         },
         {
+            "path": "./dist/size-rollup-m-dom-drag.js",
+            "maxSize": "36.1 kB"
+        },
+        {
+            "path": "./dist/size-rollup-m-dom-layout.js",
+            "maxSize": "43.2 kB"
+        },
+        {
             "path": "./dist/size-rollup-animate.js",
             "maxSize": "26.95 kB"
         },
