@@ -1,5 +1,5 @@
 import { Axis, AxisDelta, Box, Delta } from "motion-utils"
-import { calcLength } from "./delta-calc"
+import { calcLength, isNear } from "./delta-calc"
 
 function isAxisDeltaZero(delta: AxisDelta) {
     return delta.translate === 0 && delta.scale === 1
@@ -37,5 +37,17 @@ export function axisDeltaEquals(a: AxisDelta, b: AxisDelta) {
         a.translate === b.translate &&
         a.scale === b.scale &&
         a.originPoint === b.originPoint
+    )
+}
+
+export function shouldAnimatePositionOnly(
+    animationType: string | undefined,
+    snapshot: Box,
+    layout: Box
+) {
+    return (
+        animationType === "position" ||
+        (animationType === "preserve-aspect" &&
+            !isNear(aspectRatio(snapshot), aspectRatio(layout), 0.2))
     )
 }

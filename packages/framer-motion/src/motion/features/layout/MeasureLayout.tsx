@@ -15,6 +15,7 @@ import {
 } from "../../../context/LayoutGroupContext"
 import { SwitchLayoutGroupContext } from "../../../context/SwitchLayoutGroupContext"
 import { MotionProps } from "../../types"
+import { layoutOptions, layoutSnapshotState } from "./MeasureBasicLayout"
 
 interface MeasureContextProps {
     layoutGroup: LayoutGroupContextProps
@@ -25,31 +26,6 @@ interface MeasureContextProps {
 
 type MeasureProps = MotionProps &
     MeasureContextProps & { visualElement: VisualElement }
-
-/**
- * Track whether we've taken any snapshots yet. If not,
- * we can safely skip notification of didUpdate.
- *
- * Difficult to capture in a test but to prevent flickering
- * we must set this to true either on update or unmount.
- * Running `next-env/layout-id` in Safari will show this behaviour if broken.
- */
-let hasTakenAnySnapshot = false
-
-/**
- * The projection node is created with the props from the component's first
- * render, so keep these in sync as they can change (or be enabled) later.
- */
-const layoutOptions = ({
-    layout,
-    layoutDependency,
-    layoutAnchor,
-}: MeasureProps) => ({
-    layout,
-    layoutDependency,
-    layoutAnchor,
-    animationType: typeof layout === "string" ? layout : "both",
-})
 
 /**
  * Move a mounted node to its new layoutId's stack, as an unmount and remount
@@ -122,7 +98,7 @@ class MeasureLayoutWithContext extends Component<MeasureProps> {
             layoutGroup.group?.add(projection)
             layoutId && switchLayoutGroup?.register?.(projection)
 
-            if (hasTakenAnySnapshot) {
+            if (layoutSnapshotState.hasTakenAny) {
                 projection.root!.didUpdate()
             }
 
@@ -168,7 +144,7 @@ class MeasureLayoutWithContext extends Component<MeasureProps> {
 
         projection.setOptions(layoutOptions(this.props))
 
-        hasTakenAnySnapshot = true
+        layoutSnapshotState.hasTakenAny = true
 
         if (
             drag ||
@@ -221,7 +197,7 @@ class MeasureLayoutWithContext extends Component<MeasureProps> {
         } = this.props
         const { projection } = visualElement
 
-        hasTakenAnySnapshot = true
+        layoutSnapshotState.hasTakenAny = true
 
         if (projection) {
             projection.scheduleCheckAfterUnmount()

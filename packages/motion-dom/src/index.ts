@@ -268,6 +268,7 @@ export {
 export { measurePageBox, measureViewportBox } from "./projection/utils/measure"
 
 // Projection styles
+export { defaultScaleCorrectors } from "./projection/styles/default-scale-correctors"
 export {
     correctBorderRadius,
     pixelsToPercent,
@@ -295,12 +296,15 @@ export { resolveMotionValue } from "./value/utils/resolve-motion-value"
 // Projection node system
 export {
     cleanDirtyNodes,
-    createProjectionNode,
+    createBasicProjectionNode,
     propagateDirtyNodes,
-} from "./projection/node/create-projection-node"
+} from "./projection/node/create-basic-projection-node"
+export { createProjectionNode } from "./projection/node/create-projection-node"
+export { BasicDocumentProjectionNode } from "./projection/node/BasicDocumentProjectionNode"
 export { DocumentProjectionNode } from "./projection/node/DocumentProjectionNode"
 export { nodeGroup } from "./projection/node/group"
 export type { NodeGroup } from "./projection/node/group"
+export { BasicHTMLProjectionNode } from "./projection/node/BasicHTMLProjectionNode"
 export { HTMLProjectionNode } from "./projection/node/HTMLProjectionNode"
 export { rootProjectionNode } from "./projection/node/root"
 export { globalProjectionState } from "./projection/node/state"
@@ -317,6 +321,7 @@ export type {
     ProjectionNodeOptions,
     ScrollMeasurements,
 } from "./projection/node/types"
+export { withSharedLayout } from "./projection/shared/shared-layout"
 export { NodeStack } from "./projection/shared/stack"
 
 // HTML/SVG utilities

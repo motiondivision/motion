@@ -114,7 +114,7 @@ export function createMotionComponent<
         if (
             useConstant(
                 () =>
-                    !!rootProjectionNode.current?.sharedNodes.get(layoutId!)
+                    !!rootProjectionNode.current?.sharedNodes?.get(layoutId!)
                         ?.lead && props.initial
             )
         ) {
