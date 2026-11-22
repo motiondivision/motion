@@ -2,15 +2,22 @@
 
 import * as React from "react"
 import {
+    createContext,
     createElement,
     forwardRef,
     Fragment,
     useContext,
     useCallback,
+    useId,
     useInsertionEffect,
     useRef,
 } from "react"
-import { isAnimationControls, rootProjectionNode } from "motion-dom"
+import {
+    isAnimationControls,
+    isControllingVariants,
+    resolveVariantFromProps,
+    rootProjectionNode,
+} from "motion-dom"
 import { warnOnce } from "motion-utils"
 import {
     appearOffName,
@@ -54,6 +61,34 @@ function insertRules(rules: AppearAnimation["rules"]) {
 
 const offRules = { [appearOffName]: appearOffRule }
 
+/**
+ * The timing a component gives the components below it that take its
+ * variants. Each child's delay depends on its place among them, which is
+ * the order they first render in.
+ */
+interface Orchestration {
+    delay: number
+    /**
+     * A child's delay after that, from its place. Nothing if it also
+     * depends on how many children there are, which a render can't
+     * know.
+     */
+    stagger: (index: number) => number | undefined
+    ids: Map<string, number>
+    /**
+     * Why CSS can't time the children, if it can't.
+     */
+    off?: string
+}
+
+const OrchestrationContext = createContext<Orchestration | null>(null)
+
+/**
+ * When the last of a component's CSS animations ends, in seconds.
+ */
+const appearEnd = ({ timings }: AppearAnimation) =>
+    Math.max(0, ...Object.values(timings).map(({ end }) => end))
+
 const hoist = (rules: AppearAnimation["rules"]) =>
     hoistsStyles &&
     Object.keys(rules).map((name) =>
@@ -78,6 +113,8 @@ function withAppear(Component: any, isSVG: boolean) {
         const presenceContext = useContext(PresenceContext)
         const parent = useContext(MotionContext)
         const layoutId = useLayoutId(props)
+        const orchestration = useContext(OrchestrationContext)
+        const id = useId()
         // isSVG never changes for a component, so the hooks keep their order
         const latestValues = isSVG
             ? {}
@@ -88,12 +125,75 @@ function withAppear(Component: any, isSVG: boolean) {
          * mounts with.
          */
         const ref_ = useRef<AppearAnimation | string | null>()
+        const children = useRef<Orchestration | null>(null)
         if (ref_.current === undefined) {
-            const { animate, initial, variants } = props
+            const { variants } = props
+            let { animate, initial } = props
+            let delay = 0
+            let reason: string | undefined
+            let isInherited = false
+
+            /**
+             * A component that takes its parent's variants animates
+             * when its parent says, after a delay the parent sets.
+             */
+            if (
+                !isControllingVariants(props) &&
+                variants &&
+                props.inherit !== false &&
+                parent.animate !== undefined
+            ) {
+                animate = parent.animate
+                initial ??= parent.initial
+
+                /**
+                 * Under a parent that's already there, it animates by
+                 * itself as it mounts.
+                 */
+                if (orchestration && !parent.visualElement?.current) {
+                    const { ids } = orchestration
+                    ids.has(id) || ids.set(id, ids.size)
+                    const stagger = orchestration.stagger(ids.get(id)!)
+                    delay = orchestration.delay + (stagger || 0)
+                    reason =
+                        orchestration.off ||
+                        (stagger === undefined
+                            ? "a stagger that needs the number of children"
+                            : undefined)
+                    isInherited = true
+                }
+            }
+
+            const appearProps = { ...props, animate, initial }
             const hasEnter =
                 initial !== false && presenceContext?.initial !== false
 
-            ref_.current =
+            /**
+             * The timing this component gives the components that take
+             * its variants.
+             */
+            const label = Array.isArray(animate)
+                ? animate[animate.length - 1]
+                : animate
+            const isVariantNode =
+                hasEnter &&
+                typeof label === "string" &&
+                (variants || isControllingVariants(props))
+            const {
+                delayChildren = 0,
+                staggerChildren = 0,
+                staggerDirection = 1,
+                when,
+            } = ((isVariantNode &&
+                ((resolveVariantFromProps(appearProps, label) as any)
+                    ?.transition ??
+                    props.transition ??
+                    transition)) ||
+                {}) as any
+
+            if (when === "afterChildren") reason ||= 'when: "afterChildren"'
+
+            const isSkipped =
                 isStatic ||
                 hasAnimationFeature() ||
                 /**
@@ -101,29 +201,65 @@ function withAppear(Component: any, isSVG: boolean) {
                  * animation.
                  */
                 rootProjectionNode.current?.sharedNodes.get(layoutId!)?.lead
-                    ? null
-                    : isSVG
-                    ? (hasEnter &&
-                          animate &&
-                          !isAnimationControls(animate) &&
-                          "an SVG element") ||
-                      null
-                    : /**
-                     * A component that takes its parent's variants
-                     * animates when its parent says.
-                     */
-                    hasEnter &&
-                      animate === undefined &&
-                      variants &&
-                      typeof parent.animate === "string" &&
-                      parent.animate !== parent.initial
-                    ? "variants from a parent"
-                    : createAppearAnimation(
-                          props,
-                          latestValues,
-                          presenceContext,
-                          transition
-                      ) || null
+
+            ref_.current = isSkipped
+                ? null
+                : isSVG
+                ? (hasEnter &&
+                      animate &&
+                      !isAnimationControls(animate) &&
+                      "an SVG element") ||
+                  null
+                : createAppearAnimation(
+                      appearProps,
+                      latestValues,
+                      presenceContext,
+                      transition,
+                      delay
+                  ) || null
+
+            const made = ref_.current
+            if (made && typeof made !== "string") {
+                made.inherited = isInherited
+
+                /**
+                 * Its parent's timing is one CSS can't follow, so its
+                 * own animation waits.
+                 */
+                if (reason) ref_.current = reason
+            }
+
+            if (isVariantNode && !isSkipped) {
+                children.current = {
+                    delay:
+                        (when === "beforeChildren"
+                            ? made && typeof made !== "string"
+                                ? appearEnd(made)
+                                : 0
+                            : delay) +
+                        (typeof delayChildren === "number" ? delayChildren : 0),
+                    stagger:
+                        typeof delayChildren === "function"
+                            ? (index) => {
+                                  const stagger = delayChildren(
+                                      index,
+                                      index + 1
+                                  )
+                                  return stagger === delayChildren(index, 1e6)
+                                      ? stagger
+                                      : undefined
+                              }
+                            : (index) =>
+                                  staggerDirection === 1 || !staggerChildren
+                                      ? index * staggerChildren
+                                      : undefined,
+                    ids: new Map(),
+                    off:
+                        typeof ref_.current === "string"
+                            ? ref_.current
+                            : undefined,
+                }
+            }
         }
         const isOff = typeof ref_.current === "string"
         const appear = ref_.current as AppearAnimation | null
@@ -160,10 +296,19 @@ function withAppear(Component: any, isSVG: boolean) {
                 insertRules(isOff ? offRules : appear.rules)
         }, [])
 
-        if (!appear) return <Component {...props} ref={ref} />
+        const provide = (element: React.ReactElement) =>
+            children.current ? (
+                <OrchestrationContext.Provider value={children.current}>
+                    {element}
+                </OrchestrationContext.Provider>
+            ) : (
+                element
+            )
+
+        if (!appear) return provide(<Component {...props} ref={ref} />)
 
         if (isOff) {
-            return (
+            return provide(
                 <Fragment>
                     {hoist(offRules)}
                     <Component {...props} ref={ref} />
@@ -171,7 +316,7 @@ function withAppear(Component: any, isSVG: boolean) {
             )
         }
 
-        return (
+        return provide(
             <Fragment>
                 {hoist(appear.rules)}
                 <Component

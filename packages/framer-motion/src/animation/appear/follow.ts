@@ -230,8 +230,24 @@ function getUnit(
 
     const names = isTransform ? appear.transform : [name]
     const animations = animationsOf({ element, names })
+    const startTimes = animations.map(
+        (animation) =>
+            (animation.startTime as number | null) ??
+            (document.timeline.currentTime as number) -
+                (animation.currentTime as number)
+    )
 
-    if (!animations.length) {
+    /**
+     * A layout animation has them off the element while it measures.
+     */
+    if (appear.measuring) {
+        for (const name of names) {
+            const start = appear.starts![name]
+            start === undefined || startTimes.push(start)
+        }
+    }
+
+    if (!startTimes.length) {
         /**
          * The page turned its CSS enter animations off, so the element
          * has none to follow.
@@ -239,13 +255,6 @@ function getUnit(
         dropAppearAnimations(element, appear, names)
         return
     }
-
-    const startTimes = animations.map(
-        (animation) =>
-            (animation.startTime as number | null) ??
-            (document.timeline.currentTime as number) -
-                (animation.currentTime as number)
-    )
 
     const unit: Unit = (elementUnits[id] = {
         element,
@@ -265,6 +274,7 @@ function getUnit(
     const check = () => {
         if (
             unit.isOver ||
+            appear.measuring ||
             animationsOf(unit).some(
                 (animation) =>
                     appear.timings[nameOf(animation)] &&
@@ -286,6 +296,8 @@ function getUnit(
     element.addEventListener("animationend", check)
     queueMicrotask(check)
 
+    isTransform && appear.owned && takeOver(unit)
+
     return unit
 }
 
@@ -296,11 +308,23 @@ function getUnit(
  * the animation code arrived. It animates from what the element shows to
  * the value it has.
  */
-export function settleAppearAnimations(visualElement: VisualElement) {
+export function settleAppearAnimations(
+    visualElement: VisualElement,
+    isParent?: boolean
+) {
     const appear = appearElements.get(visualElement.current as object) as
         | AppearAnimation
         | undefined
-    if (!appear) return
+
+    /**
+     * A component that takes its parent's variants is started by its
+     * parent, so it settles after its parent has.
+     */
+    visualElement.variantChildren?.forEach((child) =>
+        settleAppearAnimations(child, true)
+    )
+
+    if (!appear || (appear.inherited && !isParent)) return
 
     for (const name in appear.timings) {
         for (const key of appear.timings[name].keys) {
@@ -362,6 +386,15 @@ export function takeOverHeld(visualElement: VisualElement) {
  * takes it over, from where it then is.
  */
 export function followAppearAnimations() {
+    appearHandoff.takeOver = (element) => {
+        const unit = units.get(element as HTMLElement)?.transform
+
+        if (unit && !unit.isOver) {
+            takeOver(unit)
+            return true
+        }
+    }
+
     appearHandoff.current = (visualElement, key, value, target, transition) => {
         const element = visualElement.current as HTMLElement
         /**
@@ -403,7 +436,15 @@ export function followAppearAnimations() {
                 key,
                 value,
                 appear.targets[key] as any,
-                { ...transition, startTime },
+                {
+                    ...transition,
+                    /**
+                     * A parent that waits for its own animation starts
+                     * this one late, so the delay is the one CSS has.
+                     */
+                    delay: appear.timings[name].transition.delay,
+                    startTime,
+                },
                 visualElement,
                 true
             )

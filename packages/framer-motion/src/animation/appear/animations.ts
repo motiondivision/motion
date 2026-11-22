@@ -31,7 +31,11 @@ class AppearAnimationFeature extends AnimationFeature {
         state.animateChanges = (type) => {
             const animation = animateChanges(type)
             state.animateChanges = animateChanges
-            settleAppearAnimations(node)
+            /**
+             * A component that waits for its own animation hasn't
+             * started its children yet.
+             */
+            animation.then(() => settleAppearAnimations(node))
             return animation
         }
 

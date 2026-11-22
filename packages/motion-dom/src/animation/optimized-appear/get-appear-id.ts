@@ -22,6 +22,12 @@ export const appearHandoff: {
         target: unknown,
         transition: any
     ) => StartAnimation | undefined
+    /**
+     * Hands an element's transform to the animation code, for a layout
+     * animation that is about to measure and move it. False when it
+     * couldn't.
+     */
+    takeOver?: (element: object) => boolean | undefined
 } = {}
 
 export function getOptimisedAppearId(

@@ -1,5 +1,6 @@
 import { version } from "react"
 import { renderToString } from "react-dom/server"
+import { stagger } from "motion-dom"
 import { motion } from "../../../appear"
 
 const linear = { duration: 2, ease: "linear" } as const
@@ -51,5 +52,82 @@ describe("appear motion components", () => {
         parseInt(version) > 18
             ? expect(html).toContain(rule)
             : expect(html).not.toContain(rule)
+    })
+
+    const list = (transition: any, child: any = {}) =>
+        renderToString(
+            <motion.ul
+                initial="hidden"
+                animate="visible"
+                variants={{
+                    hidden: { opacity: 0 },
+                    visible: { opacity: 1, transition },
+                }}
+            >
+                {[0, 1, 2].map((index) => (
+                    <motion.li
+                        key={index}
+                        variants={{
+                            hidden: { opacity: 0 },
+                            visible: {
+                                opacity: 1,
+                                transition: linear,
+                                ...child,
+                            },
+                        }}
+                    />
+                ))}
+            </motion.ul>
+        )
+
+    const delays = (html: string) =>
+        [
+            ...html.matchAll(
+                /<li style="[^"]*m-opacity 2s linear (\S+)s both/g
+            ),
+        ].map((match) => parseFloat(match[1]))
+
+    test("stagger children that take a parent's variants", () => {
+        expect(
+            delays(list({ ...linear, delayChildren: stagger(0.1) }))
+        ).toEqual([0, 0.1, 0.2])
+
+        expect(
+            delays(
+                list({
+                    ...linear,
+                    delayChildren: stagger(0.1, { startDelay: 1 }),
+                })
+            )
+        ).toEqual([1, 1.1, 1.2])
+
+        expect(delays(list({ ...linear, delayChildren: 0.5 }))).toEqual([
+            0.5, 0.5, 0.5,
+        ])
+
+        // After the parent's own animation
+        expect(
+            delays(
+                list({
+                    ...linear,
+                    when: "beforeChildren",
+                    delayChildren: stagger(0.1),
+                })
+            )
+        ).toEqual([2, 2.1, 2.2])
+    })
+
+    test("wait for the animation code when a stagger needs the number of children", () => {
+        for (const transition of [
+            { delayChildren: stagger(0.1, { from: "last" }) },
+            { delayChildren: stagger(0.1, { from: "center" }) },
+            { when: "afterChildren" },
+        ]) {
+            const html = list({ ...linear, ...transition })
+
+            // The children wait, and turn the parent's animation off
+            expect(html).not.toMatch(/<li style="[^"]*animation/)
+            parseInt(version) > 18 && expect(html).toContain(":root{--m:none}")
+        }
     })
 })

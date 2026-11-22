@@ -12,6 +12,7 @@ import {
     AnimatePresence,
     motion,
     Reorder,
+    stagger,
     useAnimate,
     useAnimationControls,
 } from "motion/react"
@@ -198,6 +199,20 @@ function Layout() {
                     animate={{ opacity: 1 }}
                     transition={linear}
                     style={{ ...box, width: isMoved ? 200 : 100 }}
+                />
+            </div>
+            <Label>
+                layout + x enter (x runs as CSS, and the animation code takes it
+                over when the layout animation starts)
+            </Label>
+            <div style={{ display: "flex", justifyContent: justify }}>
+                <motion.div
+                    id="layout-x"
+                    layout
+                    initial={{ opacity: 0, x: -200 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={linear}
+                    style={box}
                 />
             </div>
             <Label>layout parent, child with a CSS x and scale enter</Label>
@@ -438,7 +453,10 @@ function Stagger() {
                     hidden: { opacity: 0 },
                     visible: {
                         opacity: 1,
-                        transition: { staggerChildren: 0.2, duration: 1 },
+                        transition: {
+                            delayChildren: stagger(0.2),
+                            duration: 1,
+                        },
                     },
                 }}
                 initial="hidden"
@@ -451,7 +469,11 @@ function Stagger() {
                         id={"stagger-" + index}
                         variants={{
                             hidden: { opacity: 0, y: 60 },
-                            visible: { opacity: 1, y: 0 },
+                            visible: {
+                                opacity: 1,
+                                y: 0,
+                                transition: { duration: 1 },
+                            },
                         }}
                         style={box}
                     />
@@ -493,20 +515,6 @@ function Invalid() {
                 transition={linear}
                 style={box}
             />
-            <Label>
-                layout + x enter (layout owns the transform, so x waits for the
-                code)
-            </Label>
-            <div style={{ display: "flex", justifyContent: justify }}>
-                <motion.div
-                    id="layout-x"
-                    layout
-                    initial={{ opacity: 0, x: -200 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={linear}
-                    style={box}
-                />
-            </div>
         </>
     )
 }

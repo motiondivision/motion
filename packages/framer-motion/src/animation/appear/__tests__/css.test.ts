@@ -167,7 +167,7 @@ describe("createAppearAnimation", () => {
         expect(appear.timings["m-opacity"].keys).toEqual(["opacity"])
         expect(appear.timings["m-opacity"].transition).toEqual({
             ...linear,
-            delay: undefined,
+            delay: 0,
         })
     })
 
@@ -207,14 +207,14 @@ describe("createAppearAnimation", () => {
             make({ initial, animate, style: { opacity: motionValue(0) } })
         ).toBe("opacity")
 
-        // A transform that layout or drag also moves, or that has a unit
+        // A transform that has a unit
         expect(make({ initial: from, animate: to }).list).toBeTruthy()
-        expect(make({ initial: from, animate: to, layout: true })).toBe(
-            "x with layout or drag"
-        )
-        expect(make({ initial: from, animate: to, drag: "x" })).toBe(
-            "x with layout or drag"
-        )
+        expect(
+            make({ initial: from, animate: to, layout: true }).list
+        ).toBeTruthy()
+        expect(
+            make({ initial: from, animate: to, drag: "x" }).list
+        ).toBeTruthy()
         expect(make({ initial: from, animate: { x: "50%" } })).toBe("x")
         expect(make({ animate: { height: 100 } }, {})).toBe(
             "height without an initial value"
@@ -238,5 +238,34 @@ describe("createAppearAnimation", () => {
                 undefined
             )
         ).toBe(undefined)
+    })
+
+    test("takes a delay from the parent whose variants it follows", () => {
+        const props = {
+            initial: { opacity: 0 },
+            animate: { opacity: 1 },
+            transition: linear,
+        }
+        const delayed = createAppearAnimation(
+            props,
+            { opacity: 0 },
+            null,
+            undefined,
+            0.4
+        ) as any
+
+        expect(delayed.list).toEqual(["m-opacity 2s linear 0.4s both"])
+        expect(delayed.timings["m-opacity"].end).toBe(2.4)
+
+        // Its own delay comes first, as it does in the animation code
+        const own = createAppearAnimation(
+            { ...props, transition: { ...linear, delay: 1 } },
+            { opacity: 0 },
+            null,
+            undefined,
+            0.4
+        ) as any
+
+        expect(own.list).toEqual(["m-opacity 2s linear 1s both"])
     })
 })

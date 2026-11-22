@@ -1,4 +1,4 @@
-import { appearElements } from "motion-dom"
+import { appearElements, appearHandoff } from "motion-dom"
 import { appearStyle, type AppearAnimation } from "./css"
 
 /**
@@ -16,7 +16,7 @@ export function registerAppearElement(
      * to its items, has its CSS animations made again from their start.
      * They're given the start time they had.
      */
-    const starts: { [name: string]: number } = {}
+    const starts = (appear.starts = {} as { [name: string]: number })
     const keepTime = () => {
         for (const animation of element.getAnimations()) {
             const name = (animation as CSSAnimation).animationName
@@ -61,17 +61,41 @@ export function registerAppearElement(
     window.MotionHasOptimisedAnimation = (element) =>
         !!getAnimations(element).length
 
-    window.MotionCancelOptimisedAnimation = (element, _, frame) => {
+    window.MotionCancelOptimisedAnimation = (element, _, frame, canResume) => {
+        /**
+         * An element that animates its own layout is about to be moved
+         * with its transform, so its values go to the animation code.
+         */
+        if (!canResume && appearHandoff.takeOver?.(element as any)) return
+
         /**
          * Take the animations off for the measurement, then carry on
          * from where they were.
          */
+        const appear = appearElements.get(element as any) as AppearAnimation
+
+        /**
+         * The animation code isn't here to take the transform, so it
+         * does as it arrives.
+         */
+        appear.owned = !canResume
+
         getAnimations(element).forEach((animation) => {
             const { startTime } = animation
+            const name = (animation as CSSAnimation).animationName
+            appear.measuring = (appear.measuring || 0) + 1
             animation.cancel()
             frame?.render(() => {
-                animation.play()
-                animation.startTime = startTime
+                appear.measuring!--
+
+                /**
+                 * The animation code may have taken the animation over
+                 * since.
+                 */
+                if (appear.list.some((item) => item.split(" ")[0] === name)) {
+                    animation.play()
+                    animation.startTime = startTime
+                }
             })
         })
     }

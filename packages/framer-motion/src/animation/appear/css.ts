@@ -70,6 +70,22 @@ export interface AppearAnimation {
      * element shows in place of its animation of them.
      */
     held?: { [key: string]: unknown }
+    /**
+     * The component takes its parent's variants, so its parent starts
+     * its animations.
+     */
+    inherited?: boolean
+    /**
+     * When each animation started, by its name, and whether they're off
+     * the element while a layout animation measures it.
+     */
+    starts?: { [name: string]: number }
+    measuring?: number
+    /**
+     * A layout animation moves the element with its transform, so the
+     * transform's values belong to the animation code.
+     */
+    owned?: boolean
 }
 
 export interface AppearTiming {
@@ -81,6 +97,10 @@ export interface AppearTiming {
      * Its duration, easing and delay as CSS.
      */
     css: string
+    /**
+     * When it ends, in seconds.
+     */
+    end: number
     /**
      * The transition the animation was made from, and the numbers its
      * spring ran between.
@@ -190,9 +210,13 @@ function cssTiming(transition: any, key: string, from: unknown, to: unknown) {
 
     if (typeof ease !== "string") return
 
+    duration ??= 0.3
+    const delay = transition.delay || 0
+
     return [
-        `${duration ?? 0.3}s ${ease} ${transition.delay || 0}s both`,
+        `${duration}s ${ease} ${delay}s both`,
         transition,
+        duration + delay,
     ] as const
 }
 
@@ -229,7 +253,8 @@ export function createAppearAnimation(
     props: MotionProps,
     latestValues: ResolvedValues,
     presenceContext: PresenceContextProps | null,
-    defaultTransition: unknown
+    defaultTransition: unknown,
+    delay = 0
 ): AppearAnimation | string | undefined {
     const { animate, initial, style } = props
 
@@ -295,7 +320,7 @@ export function createAppearAnimation(
     const timingOf = (key: string, from: unknown, to: unknown) =>
         cssTiming(
             {
-                delay: (transition as any)?.delay,
+                delay: (transition as any)?.delay ?? delay,
                 ...getValueTransition(transition, key),
             },
             key,
@@ -316,6 +341,7 @@ export function createAppearAnimation(
             keys: [key],
             css: timing[0],
             transition: timing[1],
+            end: timing[2],
             from,
             to,
         }
@@ -348,7 +374,7 @@ export function createAppearAnimation(
          * Keyframes and motion values need the animation code, as do
          * values that aren't one CSS property. So does a value the
          * component was given as a motion value, as its readers expect
-         * every frame, and a transform that layout or drag also moves.
+         * every frame.
          */
         if (typeof to !== "number" && typeof to !== "string") {
             return "keyframes of " + key
@@ -359,15 +385,9 @@ export function createAppearAnimation(
             key.startsWith("origin") ||
             isMotionValue((style as any)?.[key]) ||
             (isTransform &&
-                (typeof to !== "number" ||
-                    typeof from !== "number" ||
-                    props.layout ||
-                    props.layoutId ||
-                    props.drag))
+                (typeof to !== "number" || typeof from !== "number"))
         ) {
-            return isTransform && (props.layout || props.layoutId || props.drag)
-                ? key + " with layout or drag"
-                : key
+            return key
         }
 
         appear.targets[key] = to
@@ -484,7 +504,8 @@ export function createAppearAnimation(
             { ...props, transformTemplate: sharedTransform } as any,
             latestValues,
             presenceContext,
-            defaultTransition
+            defaultTransition,
+            delay
         )
     }
 }

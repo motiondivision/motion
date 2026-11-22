@@ -55,6 +55,7 @@ const read = (page: Page, id: string) =>
             css,
             other: animations.length - css,
             inline: element.style.animation,
+            transform: getComputedStyle(element).transform,
         }
     }, id)
 
@@ -197,6 +198,85 @@ test.describe("async lab", () => {
         const end = (await read(page, "stagger"))!
         expect(end.css + end.other).toBe(0)
         expect(end.opacity).toBe(0)
+    })
+
+    test("children that take a parent's variants stagger as CSS", async ({
+        page,
+    }) => {
+        const warnings: string[] = []
+        page.on("console", (message) => warnings.push(message.text()))
+
+        const arrive = await open(page, "Staggered variants")
+        await page.waitForTimeout(450)
+
+        // 0.2 s apart: the last has yet to start
+        const first = (await read(page, "stagger-0"))!
+        const second = (await read(page, "stagger-1"))!
+        const last = (await read(page, "stagger-3"))!
+        expect(first.css).toBeGreaterThan(0)
+        expect(last.css).toBeGreaterThan(0)
+        expect(first.opacity).toBeGreaterThan(second.opacity)
+        expect(second.opacity).toBeGreaterThan(0)
+        expect(last.opacity).toBe(0)
+
+        // The animation code leaves them to run
+        await arrive()
+        for (const index of [0, 1, 2, 3]) {
+            const child = (await read(page, "stagger-" + index))!
+            expect(child.css).toBeGreaterThan(0)
+            expect(child.other).toBe(0)
+        }
+
+        await page.waitForTimeout(2500)
+        for (const index of [0, 1, 2, 3]) {
+            const child = (await read(page, "stagger-" + index))!
+            expect(child.css + child.other).toBe(0)
+            expect(child.inline).toBe("")
+            expect(child.opacity).toBe(1)
+            expect(child.transform).toBe("none")
+        }
+
+        expect(
+            warnings.filter((text) => text.includes("can't run as CSS"))
+        ).toEqual([])
+    })
+
+    test("the animation code takes a CSS transform over for a layout animation", async ({
+        page,
+    }) => {
+        const arrive = await open(page, "Layout animation interrupts enter")
+        await page.waitForTimeout(500)
+
+        // x is a CSS animation: translate, and a hold of transform
+        const before = (await read(page, "layout-x"))!
+        expect(before.css).toBe(3)
+        expect(before.x).toBeGreaterThan(-170)
+        expect(before.x).toBeLessThan(-100)
+
+        // Layout moves an element with its transform, so the animation
+        // code carries x on from where it was. Opacity stays as CSS.
+        await arrive()
+        const taken = (await read(page, "layout-x"))!
+        expect(taken.css).toBe(1)
+        expect(taken.x).toBeGreaterThan(before.x)
+        expect(taken.x).toBeLessThan(before.x + 60)
+
+        await interrupt(page)
+        await page.waitForTimeout(100)
+
+        // On its way to the new place, from where it was
+        const during = (await read(page, "layout-x"))!
+        expect(during.css).toBe(1)
+        expect(during.x).toBeGreaterThan(taken.x)
+        expect(during.x).toBeLessThan(taken.x + 150)
+        expect(during.opacity).toBeGreaterThan(before.opacity)
+
+        await page.waitForTimeout(3500)
+        const end = (await read(page, "layout-x"))!
+        expect(end.css + end.other).toBe(0)
+        expect(end.inline).toBe("")
+        expect(end.opacity).toBe(1)
+        expect(end.x).toBeGreaterThan(700)
     })
 
     test("a new target starts from what the element shows", async ({
