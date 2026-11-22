@@ -28,21 +28,31 @@ function box(left: number, width: number) {
 
 const frames = (count: number) => stepFrames((count * 1000) / 60)
 
-const transition = {
-    layout: { type: "tween" as const, ease: "linear" as const, duration: 1 },
-}
-
 let toggle: VoidFunction
+const toggles: Record<string, VoidFunction> = {}
 
-function Cards({ count, willChange }: { count: number; willChange?: string }) {
+function Cards({
+    count,
+    willChange,
+    name = "",
+    duration = 1,
+}: {
+    count: number
+    willChange?: string
+    name?: string
+    duration?: number
+}) {
     const [moved, setMoved] = useState(false)
-    toggle = () => setMoved((value) => !value)
+    toggle = toggles[name] = () => setMoved((value) => !value)
+    const transition = {
+        layout: { type: "tween" as const, ease: "linear" as const, duration },
+    }
     return (
         <>
             {Array.from({ length: count }, (_, i) => (
                 <motion.div
                     key={i}
-                    className="card"
+                    className={"card " + name}
                     layout
                     layoutDependency={moved}
                     transition={transition}
@@ -50,7 +60,7 @@ function Cards({ count, willChange }: { count: number; willChange?: string }) {
                     style={{ willChange }}
                 >
                     <motion.div
-                        className="child"
+                        className={"child " + name}
                         layout
                         layoutDependency={moved}
                         transition={transition}
@@ -128,6 +138,105 @@ describe("layer budget", () => {
             expect(style.transform).toContain("translate(")
             expect(style.transform).not.toContain("translate3d(")
         }
+    })
+
+    const willChanges = (name: string) =>
+        Array.from(
+            document.querySelectorAll<HTMLElement>("." + name),
+            ({ style }) => style.willChange
+        )
+
+    test("nodes that start without will-change don't get it when others finish first", async () => {
+        render(
+            <>
+                <Cards count={1} name="short" duration={0.1} />
+                <Cards count={200} name="long" />
+            </>
+        )
+        await frames(2)
+        await act(async () => {
+            toggles.short()
+            toggles.long()
+        })
+        await frames(3)
+        expect(new Set(willChanges("long"))).toEqual(new Set([""]))
+
+        // The short animation is over: 400 nodes still move
+        await frames(17)
+        expect(document.querySelector<HTMLElement>(".short")!.style.transform).toBe(
+            "none"
+        )
+        expect(new Set(willChanges("long"))).toEqual(new Set([""]))
+    })
+
+    test("nodes with will-change keep it when a few more take the count past the budget", async () => {
+        render(
+            <>
+                <Cards count={199} name="first" />
+                <Cards count={3} name="second" />
+            </>
+        )
+        await frames(2)
+        await act(async () => toggles.first())
+        await frames(10)
+        expect(new Set(willChanges("first"))).toEqual(new Set(["transform"]))
+
+        await act(async () => toggles.second())
+        await frames(10)
+        expect(new Set(willChanges("first"))).toEqual(new Set(["transform"]))
+        expect(new Set(willChanges("second"))).toEqual(new Set(["transform"]))
+    })
+
+    test("nodes with will-change lose it when the count passes twice the budget", async () => {
+        render(
+            <>
+                <Cards count={3} name="first" />
+                <Cards count={400} name="second" />
+            </>
+        )
+        await frames(2)
+        await act(async () => toggles.first())
+        await frames(10)
+        expect(new Set(willChanges("first"))).toEqual(new Set(["transform"]))
+
+        await act(async () => toggles.second())
+        await frames(10)
+        expect(new Set(willChanges("first"))).toEqual(new Set([""]))
+        expect(new Set(willChanges("second"))).toEqual(new Set([""]))
+    })
+
+    test("a small layout animation after one past the budget gets will-change", async () => {
+        render(
+            <>
+                <Cards count={201} name="first" duration={0.1} />
+                <Cards count={3} name="second" />
+            </>
+        )
+        await frames(2)
+        await act(async () => toggles.first())
+        await frames(30)
+        expect(new Set(willChanges("first"))).toEqual(new Set([""]))
+
+        await act(async () => toggles.second())
+        await frames(10)
+        expect(new Set(willChanges("second"))).toEqual(new Set(["transform"]))
+    })
+
+    test("a layoutRoot on the page doesn't hold the decision between animations", async () => {
+        render(
+            <motion.div layoutRoot>
+                <Cards count={201} name="first" duration={0.1} />
+                <Cards count={3} name="second" />
+            </motion.div>
+        )
+        await frames(2)
+        await act(async () => toggles.first())
+        await frames(30)
+        expect(new Set(willChanges("first"))).toEqual(new Set([""]))
+
+        await act(async () => toggles.second())
+        await frames(10)
+        expect(new Set(willChanges("second"))).toEqual(new Set(["transform"]))
     })
 
     test("a will-change set in style is left alone", async () => {

@@ -120,8 +120,13 @@ const animationTarget = 1000
 const layerBudget = 400
 
 let layers = 0
+let prevLayers = 0
+/**
+ * A layoutRoot always projects, so only count nodes with a target, for the
+ * count to return to zero between animations.
+ */
 const countLayer = (node: IProjectionNode) => {
-    node.isProjecting() && layers++
+    ;(node.relativeTarget || node.targetDelta) && node.layout && layers++
 }
 
 let id = 0
@@ -1035,9 +1040,19 @@ export function createProjectionNode<I>({
             this.nodes!.forEach(calcProjection)
             this.nodes!.forEach(cleanDirtyNodes)
 
+            /**
+             * Decide when the first node starts to project. Adding or
+             * removing every layer mid-animation costs a frame, so after
+             * that nodes never gain layers, and only lose them past twice
+             * the budget.
+             */
             layers = 0
             this.nodes!.forEach(countLayer)
-            this.overLayerBudget = layers + compositorLayers > layerBudget
+            this.overLayerBudget =
+                (prevLayers && this.overLayerBudget) ||
+                layers + compositorLayers >
+                    layerBudget * (prevLayers ? 2 : 1)
+            prevLayers = layers
 
             /**
              * Record this frame's debug counts, if recordStats() is running.
