@@ -1,24 +1,22 @@
 // Re-export everything from framer-motion.
 //
-// `motion` and `m` are aliased through local bindings so the module has
-// explicit named exports for IDE auto-import (see #3432). The previous
-// `export { motion, m } from "framer-motion"` line — sitting alongside
-// `export * from "framer-motion"` — was a duplicate-source re-export pattern
+// `m` is aliased through a local binding so the module has an explicit
+// named export for IDE auto-import (see #3432). An
+// `export { m } from "framer-motion"` line, next to
+// `export * from "framer-motion"`, is a duplicate-source re-export pattern
 // that caused Next.js Turbopack to OOM during module-graph analysis (#3741).
-// Local declarations shadow the wildcard re-export per the ES spec, so
-// `motion` and `m` come from the explicit bindings below and the rest from
-// `export *`.
+//
+// `motion`, `Reorder` and `preloadFeatures` come from another entry, so
+// they are plain re-exports. A local `const motion = ns.motion` here makes
+// webpack keep the whole namespace, drag code included, for every import
+// from this file. Named exports shadow the wildcard per the ES spec.
 import * as fm from "framer-motion"
-import * as asyncMotion from "framer-motion/async"
 
 /**
  * `motion` components have animations and gestures from the start, and
  * fetch their layout and drag code the first time a component needs it.
  */
-export const motion: typeof fm.motion = asyncMotion.motion
-export const Reorder: typeof fm.Reorder = asyncMotion.Reorder as any
-export const preloadFeatures: typeof asyncMotion.preloadFeatures =
-    asyncMotion.preloadFeatures
+export { motion, preloadFeatures, Reorder } from "framer-motion/async"
 export const m: typeof fm.m = fm.m
 
 export * from "framer-motion"

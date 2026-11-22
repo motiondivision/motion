@@ -26,7 +26,7 @@ import { percent, px } from "../../value/types/numbers/units"
 import { addValueToWillChange } from "../../value/will-change/add-will-change"
 import type { PanInfo } from "../pan/types"
 import { PanSession } from "../pan/PanSession"
-import { isElementTextInput } from "../press/utils/is-keyboard-accessible"
+import { isElementTextInput } from "../press/utils/is-text-input"
 import { setDragLock } from "./state/set-active"
 import type { DragPointConstraint, ResolvedConstraints } from "./types"
 import {

@@ -7,7 +7,7 @@ import {
     defaultTransformValue,
     readTransformValue,
 } from "../dom/parse-transform"
-import { measureViewportBox } from "../../projection/utils/measure"
+import { measureViewportBox } from "../../projection/utils/measure-viewport-box"
 import { DOMVisualElement } from "../dom/DOMVisualElement"
 import type { DOMVisualElementOptions } from "../dom/types"
 import type { MotionConfigContextProps, VisualElementOptions } from "../types"

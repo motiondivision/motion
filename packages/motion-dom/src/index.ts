@@ -105,6 +105,7 @@ export * from "./gestures/pinch"
 export * from "./gestures/press"
 export * from "./gestures/press/types"
 export * from "./gestures/press/utils/is-keyboard-accessible"
+export * from "./gestures/press/utils/is-text-input"
 export * from "./gestures/types"
 export * from "./gestures/utils/is-node-or-child"
 export * from "./gestures/utils/is-primary-pointer"
@@ -269,7 +270,8 @@ export {
     hasScale,
     hasTransform,
 } from "./projection/utils/has-transform"
-export { measurePageBox, measureViewportBox } from "./projection/utils/measure"
+export { measurePageBox } from "./projection/utils/measure"
+export { measureViewportBox } from "./projection/utils/measure-viewport-box"
 
 // Projection styles
 export {

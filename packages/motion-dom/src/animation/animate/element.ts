@@ -7,7 +7,7 @@ import {
 import { readSVGValue, svgSubjectEffect } from "../../effects/svg"
 import type { AnimateEffect } from "../../effects/utils/create-effect"
 import { releaseNode, type MotionNode } from "../../node/MotionNode"
-import { measureViewportBox } from "../../projection/utils/measure"
+import { measureViewportBox } from "../../projection/utils/measure-viewport-box"
 import { nodeStore } from "../../render/store"
 import { isSVGElement } from "../../utils/is-svg-element"
 import { activeScope } from "../../scope/active"

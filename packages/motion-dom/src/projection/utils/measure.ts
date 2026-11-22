@@ -1,18 +1,6 @@
 import { TransformPoint } from "motion-utils"
-import {
-    convertBoundingBoxToBox,
-    transformBoxPoints,
-} from "../geometry/conversion"
 import { translateAxis } from "../geometry/delta-apply"
-
-export function measureViewportBox(
-    instance: HTMLElement,
-    transformPoint?: TransformPoint
-) {
-    return convertBoundingBoxToBox(
-        transformBoxPoints(instance.getBoundingClientRect(), transformPoint)
-    )
-}
+import { measureViewportBox } from "./measure-viewport-box"
 
 export function measurePageBox(
     element: HTMLElement,

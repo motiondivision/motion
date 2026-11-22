@@ -3,7 +3,7 @@ import { addStyleValue, readStyleValue } from "../../effects/style"
 import { MotionNode } from "../../node/MotionNode"
 import type { MotionValue } from "../../value"
 import type { IProjectionNode } from "../../projection/node/types"
-import { measureViewportBox } from "../../projection/utils/measure"
+import { measureViewportBox } from "../../projection/utils/measure-viewport-box"
 import { defaultTransformValue } from "../dom/parse-transform"
 import { transformProps } from "../utils/keys-transform"
 import {
