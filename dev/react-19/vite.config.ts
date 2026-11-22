@@ -1,4 +1,6 @@
+import { AsyncLocalStorage } from "async_hooks"
 import { build } from "esbuild"
+import fs from "fs"
 import path from "path"
 import react from "@vitejs/plugin-react-swc"
 import { defineConfig } from "vite"
@@ -46,16 +48,21 @@ const delayCode = () => ({
  * URL, which the page's script gives it again to hydrate.
  */
 const renderOnServer = () => {
-    let cookies = ""
+    /**
+     * Each request's cookies, for the render that request starts.
+     */
+    const requestCookies = new AsyncLocalStorage<string>()
+
+    /**
+     * Each render has its own file, as two requests can render at once.
+     */
+    let renders = 0
 
     return {
         name: "render-on-server",
         configureServer(server: any) {
             server.middlewares.use((req: any, _res: any, next: () => void) => {
-                if (/\.html/.test(req.url || "")) {
-                    cookies = req.headers.cookie || ""
-                }
-                next()
+                requestCookies.run(req.headers.cookie || "", next)
             })
         },
         async transformIndexHtml(html: string, context: any) {
@@ -70,7 +77,7 @@ const renderOnServer = () => {
             const outfile = path.join(
                 __dirname,
                 "node_modules/.server-render",
-                path.basename(file) + ".mjs"
+                `${path.basename(file)}.${renders++}.mjs`
             )
             await build({
                 stdin: {
@@ -91,11 +98,16 @@ const renderOnServer = () => {
                 define: { "process.env.NODE_ENV": '"development"' },
                 logLevel: "error",
             })
-            const { render } = await import(outfile + "?" + Date.now())
+            const { render } = await import(outfile)
+            fs.unlink(outfile, () => {})
 
             return html.replace(
                 root,
-                root + render({ cookies, url: context.originalUrl })
+                root +
+                    render({
+                        cookies: requestCookies.getStore() || "",
+                        url: context.originalUrl,
+                    })
             )
         },
     }

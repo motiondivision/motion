@@ -577,6 +577,65 @@ const files = {
 }
 
 /**
+ * A light that is green until the interruption, and red from it. It
+ * changes in the same frame as the interruption, without an animation,
+ * and blinks at each one after the first.
+ */
+function Light() {
+    const [interrupts, setInterrupts] = useState<number[]>([])
+
+    useEffect(() => {
+        const mark = () =>
+            setInterrupts((times) => [...times, Math.round(performance.now())])
+        window.addEventListener("lab-interrupt", mark)
+        return () => window.removeEventListener("lab-interrupt", mark)
+    }, [])
+
+    const count = interrupts.length
+    const colour = count ? "#ff2b2b" : "#1fdd6a"
+
+    return (
+        <div
+            id="light"
+            data-interrupted={count}
+            style={{
+                position: "fixed",
+                bottom: 16,
+                right: 16,
+                zIndex: 10,
+                pointerEvents: "none",
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                padding: "10px 16px 10px 10px",
+                borderRadius: 40,
+                background: "#000",
+                border: `3px solid ${colour}`,
+                fontWeight: 600,
+            }}
+        >
+            <div
+                // A new element for each interruption, so the blink plays again
+                key={count}
+                style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: "50%",
+                    background: colour,
+                    boxShadow: `0 0 24px 6px ${colour}`,
+                    animation: count > 1 ? "lab-blink 0.25s" : undefined,
+                }}
+            />
+            <style>{"@keyframes lab-blink{from{opacity:0}}"}</style>
+            {count
+                ? `Interrupted at ${interrupts[count - 1]} ms` +
+                  (count > 1 ? ` (${count})` : "")
+                : "Not interrupted"}
+        </div>
+    )
+}
+
+/**
  * When the page hydrated, and when each feature file arrived, from the
  * browser's own record.
  */
@@ -738,6 +797,7 @@ export function App({ cookies }: PageProps) {
             <p style={{ opacity: 0.7 }}>
                 <Arrivals />
             </p>
+            <Light />
             <MotionConfig appear={isAppear ? appear : undefined}>
                 <Scenario />
             </MotionConfig>

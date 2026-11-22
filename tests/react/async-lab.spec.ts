@@ -132,7 +132,13 @@ test.describe("async lab", () => {
         expect(before.x).toBe(24)
 
         await arrive()
+        const light = page.locator("#light")
+        await expect(light).toHaveAttribute("data-interrupted", "0")
         await interrupt(page)
+
+        // The page's light turns red in the same frame
+        await expect(light).toHaveAttribute("data-interrupted", "1")
+        await expect(light).toHaveCSS("border-top-color", "rgb(255, 43, 43)")
         await page.waitForTimeout(500)
 
         const during = (await read(page, "layout-opacity"))!
