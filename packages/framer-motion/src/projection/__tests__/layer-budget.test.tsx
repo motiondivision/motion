@@ -336,6 +336,136 @@ describe("layer budget", () => {
         for (const { style } of cards) expect(style.willChange).toBe("transform")
     })
 
+    test("nodes get will-change on the first frame they move", async () => {
+        render(<Cards count={3} name="first" />)
+        await frames(2)
+        await act(async () => toggles.first())
+        await frames(1)
+        const first = document.querySelector<HTMLElement>(".first")!
+        expect(first.style.transform).toContain("translate(")
+        expect(new Set(willChanges("first"))).toEqual(new Set(["transform"]))
+    })
+
+    test("will-change is removed after an animation is reversed part way", async () => {
+        render(<Cards count={3} name="first" />)
+        await frames(2)
+        await act(async () => toggles.first())
+        await frames(20)
+        await act(async () => toggles.first())
+        await frames(10)
+        expect(new Set(willChanges("first"))).toEqual(new Set(["transform"]))
+        await frames(70)
+        expect(new Set(willChanges("first"))).toEqual(new Set([""]))
+    })
+
+    test("will-change is removed when a node stops being a layout node part way", async () => {
+        function Card() {
+            const [state, setState] = useState(0)
+            toggle = () => setState((value) => value + 1)
+            return (
+                <motion.div
+                    className="card first"
+                    layout={state < 2}
+                    layoutDependency={state}
+                    data-moved={state > 0}
+                    data-top={0}
+                    transition={{
+                        layout: { type: "tween", ease: "linear", duration: 1 },
+                    }}
+                />
+            )
+        }
+        render(<Card />)
+        await frames(2)
+        await act(async () => toggle())
+        await frames(10)
+        expect(willChanges("first")).toEqual(["transform"])
+        await act(async () => toggle())
+        await frames(70)
+        expect(willChanges("first")).toEqual([""])
+    })
+
+    test("will-change is removed from a node that another with its layoutId hides", async () => {
+        function Shared() {
+            const [state, setState] = useState(0)
+            toggle = () => setState((value) => value + 1)
+            const transition = {
+                layout: { type: "tween" as const, ease: "linear" as const, duration: 1 },
+            }
+            return (
+                <>
+                    <motion.div
+                        className="card first"
+                        layoutId="shared"
+                        layoutCrossfade={false}
+                        layoutDependency={state}
+                        data-moved={state > 0}
+                        data-top={0}
+                        transition={transition}
+                    />
+                    {state > 1 && (
+                        <motion.div
+                            className="card second"
+                            layoutId="shared"
+                            layoutCrossfade={false}
+                            data-moved="false"
+                            data-top={300}
+                            transition={transition}
+                        />
+                    )}
+                </>
+            )
+        }
+        render(<Shared />)
+        await frames(2)
+        await act(async () => toggle())
+        await frames(10)
+        expect(willChanges("first")).toEqual(["transform"])
+        await act(async () => toggle())
+        await frames(10)
+        const first = document.querySelector<HTMLElement>(".first")!
+        expect(first.style.visibility).toBe("hidden")
+        expect(first.style.willChange).toBe("")
+    })
+
+    test("finished nodes give their place in the budget back", async () => {
+        render(
+            <>
+                <Cards count={199} name="first" duration={0.1} />
+                <Cards count={3} name="second" />
+            </>
+        )
+        await frames(2)
+        await act(async () => toggles.first())
+        await frames(30)
+        expect(new Set(willChanges("first"))).toEqual(new Set([""]))
+
+        await act(async () => toggles.second())
+        await frames(10)
+        expect(new Set(willChanges("second"))).toEqual(new Set(["transform"]))
+    })
+
+    test("nodes that went without will-change decide again the next time they move", async () => {
+        render(
+            <>
+                <Cards count={3} name="first" duration={0.1} />
+                <Cards count={200} name="second" duration={0.1} />
+            </>
+        )
+        await frames(2)
+        await act(async () => {
+            toggles.first()
+            toggles.second()
+        })
+        await frames(3)
+        expect(new Set(willChanges("first"))).toEqual(new Set([""]))
+        await frames(30)
+
+        await act(async () => toggles.first())
+        await frames(3)
+        expect(new Set(willChanges("first"))).toEqual(new Set(["transform"]))
+    })
+
     test("a layoutRoot on the page doesn't hold the decision between animations", async () => {
         render(
             <motion.div layoutRoot>
