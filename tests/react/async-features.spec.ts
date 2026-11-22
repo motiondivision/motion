@@ -6,7 +6,11 @@ import { expect, Page, test } from "@playwright/test"
  * they arrive after the components have mounted.
  */
 
-const featureFile = /motion\/features\/(layout|drag)\.mjs/
+/**
+ * The dev server marks the files Motion fetches itself, as a page that
+ * imports all of Motion also loads them with the page.
+ */
+const featureFile = /motion\/features\/(layout|drag)\.mjs\?lazy/
 
 /**
  * Open a page with its feature files held until release() is called.
@@ -31,7 +35,7 @@ async function open(page: Page, query: string) {
          * Let the features load, and the components take them up.
          */
         arrive: async () => {
-            const loaded = page.waitForResponse(/features\/layout\/MeasureLayout/)
+            const loaded = page.waitForResponse(featureFile)
             release()
             await loaded
             await page.waitForTimeout(200)
@@ -54,7 +58,9 @@ const opacity = (page: Page, id: string) =>
     )
 
 for (const strict of ["", "&strict"]) {
-    test.describe(`async layout and drag features${strict && ", strict mode"}`, () => {
+    test.describe(`async layout and drag features${
+        strict && ", strict mode"
+    }`, () => {
         test.use({ viewport: { width: 1000, height: 800 } })
 
         test("a layout change after the feature arrives animates", async ({

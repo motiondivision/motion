@@ -500,10 +500,13 @@ const scenarios: { [name: string]: () => React.ReactNode } = {
     Reorder: ReorderList,
 }
 
+/**
+ * The dev server marks the files Motion fetches itself with ?lazy.
+ */
 const files = {
-    animation: /animation\/appear\/animations\.m?js/,
-    layout: /motion\/features\/layout\.m?js/,
-    drag: /motion\/features\/drag\.m?js/,
+    animation: /animation\/appear\/animations\.mjs\?lazy/,
+    layout: /motion\/features\/layout\.mjs\?lazy/,
+    drag: /motion\/features\/drag\.mjs\?lazy/,
 }
 
 /**
