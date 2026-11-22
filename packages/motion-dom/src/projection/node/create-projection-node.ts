@@ -127,49 +127,59 @@ let layers = 0
 const starting: IProjectionNode[] = []
 
 /**
- * A layoutRoot always projects, so a node moves while it has a target.
+ * A layoutRoot always projects, so a node moves while it has a target. One
+ * that keeps its place in its parent has no transform to write, so it
+ * doesn't start until it has one.
  */
 const countLayer = (node: IProjectionNode) => {
+    const { projectionDelta, treeScale } = node
     if (!((node.relativeTarget || node.targetDelta) && node.layout)) {
         node.hasLayer = undefined
     } else if (node.hasLayer) {
         layers++
-    } else if (node.hasLayer === undefined) {
+    } else if (
+        node.hasLayer === undefined &&
+        projectionDelta &&
+        (!isDeltaZero(projectionDelta) ||
+            treeScale!.x !== 1 ||
+            treeScale!.y !== 1)
+    ) {
         starting.push(node)
     }
 }
 
 /**
+ * Whether a node's boxes aren't where the page draws it: in a scrolling
+ * or fixed element, or moved by a transform.
+ */
+const hasOwnSpace = (node: IProjectionNode) =>
+    !!(
+        node.scroll?.wasRoot ||
+        node.options.layoutScroll ||
+        hasTransform(node.latestValues)
+    )
+
+/**
  * Whether the boxes a node moves between, its target as it starts and its
- * layout, come within a viewport of the viewport. Boxes inside a scrolling
- * or fixed ancestor aren't relative to the page, so those nodes count as
- * in view.
+ * layout, come within a viewport of the viewport. A node with boxes the
+ * page doesn't draw as they are counts as in view.
  */
 const isAxisInView = (from: Axis, to: Axis, scroll: number, size: number) =>
     Math.max(from.max, to.max) > scroll - size &&
     Math.min(from.min, to.min) < scroll + size * 2
 
 const isInView = (
-    { target, layout, path }: IProjectionNode,
-    root: IProjectionNode
+    node: IProjectionNode,
+    x: number,
+    y: number,
+    width: number,
+    height: number
 ) =>
-    !target ||
-    path.some(
-        (node) =>
-            node !== root && (node.scroll?.wasRoot || node.options.layoutScroll)
-    ) ||
-    (isAxisInView(
-        target.x,
-        layout!.layoutBox.x,
-        root.scroll?.offset.x || 0,
-        window.innerWidth
-    ) &&
-        isAxisInView(
-            target.y,
-            layout!.layoutBox.y,
-            root.scroll?.offset.y || 0,
-            window.innerHeight
-        ))
+    !node.target ||
+    hasOwnSpace(node) ||
+    node.path.some((ancestor, i) => !!i && hasOwnSpace(ancestor)) ||
+    (isAxisInView(node.target.x, node.layout!.layoutBox.x, x, width) &&
+        isAxisInView(node.target.y, node.layout!.layoutBox.y, y, height))
 
 let id = 0
 
@@ -1040,6 +1050,12 @@ export function createProjectionNode<I>({
         projectionUpdateScheduled = false
 
         declare hasLayer?: boolean
+
+        /**
+         * Whether this node's will-change is the one it wrote for its
+         * layer. Kept apart from `written`, which other writes clear.
+         */
+        declare wroteLayer?: boolean
         scheduleUpdateProjection() {
             if (!this.projectionUpdateScheduled) {
                 this.projectionUpdateScheduled = true
@@ -1089,8 +1105,17 @@ export function createProjectionNode<I>({
             layers = compositorLayers
             this.nodes!.forEach(countLayer)
             if (starting.length) {
+                const { x, y } = this.scroll?.offset || { x: 0, y: 0 }
+                const { innerWidth, innerHeight } = window
                 const inView = starting.filter(
-                    (node) => (node.hasLayer = isInView(node, this))
+                    (node) =>
+                        (node.hasLayer = isInView(
+                            node,
+                            x,
+                            y,
+                            innerWidth,
+                            innerHeight
+                        ))
                 )
                 layers + inView.length > layerBudget &&
                     inView.forEach((node) => (node.hasLayer = false))
@@ -2553,8 +2578,11 @@ export function createProjectionNode<I>({
                     resolveMotionValue(styleProp?.willChange) ||
                     this.latestValues.willChange ||
                     ""
-                ;(isLayer || written.willChange !== undefined) &&
-                    !`${own}`.includes("transform") &&
+                if (
+                    (isLayer || this.wroteLayer) &&
+                    !`${own}`.includes("transform")
+                ) {
+                    this.wroteLayer = isLayer
                     write(
                         "willChange",
                         isLayer
@@ -2562,6 +2590,7 @@ export function createProjectionNode<I>({
                                   "transform"
                             : own
                     )
+                }
             }
 
             if (this.needsReset) {

@@ -37,8 +37,18 @@ function Cards({
     name = "",
     duration = 1,
     top = 0,
+    still,
+    style,
+    opacity,
+    layoutScroll,
 }: {
-    top?: number
+    top?: number | string
+    /** The card only moves, and the child keeps its place in it. */
+    still?: boolean
+    style?: Record<string, string | number>
+    /** Animate opacity too, for this long. */
+    opacity?: number
+    layoutScroll?: boolean
     count: number
     willChange?: string
     name?: string
@@ -48,6 +58,7 @@ function Cards({
     toggle = toggles[name] = () => setMoved((value) => !value)
     const transition = {
         layout: { type: "tween" as const, ease: "linear" as const, duration },
+        opacity: { type: "tween" as const, duration: opacity },
     }
     return (
         <>
@@ -60,7 +71,10 @@ function Cards({
                     transition={transition}
                     data-moved={moved}
                     data-top={top}
-                    style={{ willChange }}
+                    data-plain={still}
+                    layoutScroll={layoutScroll}
+                    animate={opacity ? { opacity: moved ? 0.5 : 1 } : undefined}
+                    style={{ willChange, ...style }}
                 >
                     <motion.div
                         className={"child " + name}
@@ -69,6 +83,7 @@ function Cards({
                         transition={transition}
                         data-moved={moved}
                         data-top={top}
+                        data-still={still}
                         data-scale={moved}
                     />
                 </motion.div>
@@ -85,14 +100,28 @@ describe("layer budget", () => {
             HTMLElement.prototype,
             "getBoundingClientRect"
         ).mockImplementation(function (this: HTMLElement) {
-            const top = Number(this.dataset.top)
+            /**
+             * A card with a y of -5000 is laid out 5000px down the page,
+             * which is where it measures once its transform is reset.
+             */
+            const top =
+                this.dataset.top === "pulled"
+                    ? !this.style.transform || this.style.transform === "none"
+                        ? 5000
+                        : 0
+                    : Number(this.dataset.top)
+            if (this.dataset.still) {
+                return this.dataset.moved === "true"
+                    ? box(210, 20, top)
+                    : box(10, 20, top)
+            }
             if (this.dataset.scale !== undefined) {
                 return this.dataset.moved === "true"
                     ? box(260, 50, top)
                     : box(10, 20, top)
             }
             return this.dataset.moved === "true"
-                ? box(200, 200, top)
+                ? box(200, this.dataset.plain ? 100 : 200, top)
                 : box(0, 100, top)
         })
     })
@@ -252,6 +281,59 @@ describe("layer budget", () => {
         await act(async () => toggles.hidden())
         await frames(10)
         expect(new Set(willChanges("hidden"))).toEqual(new Set([""]))
+    })
+
+    test("nodes that keep their place in a parent don't use the budget", async () => {
+        render(<Cards count={201} name="first" still />)
+        await frames(2)
+        await act(async () => toggles.first())
+        await frames(10)
+        const cards = document.querySelectorAll<HTMLElement>(".card")
+        for (const { style } of cards) expect(style.willChange).toBe("transform")
+        for (const { style } of document.querySelectorAll<HTMLElement>(".child")) {
+            expect(style.willChange).toBe("")
+        }
+    })
+
+    test("will-change is removed when another value of the node animates for longer", async () => {
+        render(<Cards count={3} name="first" opacity={2} />)
+        await frames(2)
+        await act(async () => toggles.first())
+        await frames(10)
+        expect(new Set(willChanges("first"))).toEqual(new Set(["transform"]))
+        await frames(200)
+        expect(new Set(willChanges("first"))).toEqual(new Set([""]))
+    })
+
+    test("a node with a transform of its own counts as in view", async () => {
+        render(
+            <Cards count={3} name="first" top="pulled" style={{ y: -5000 }} />
+        )
+        await frames(2)
+        await act(async () => toggles.first())
+        await frames(10)
+        expect(new Set(willChanges("first"))).toEqual(new Set(["transform"]))
+    })
+
+    test("a fixed node counts as in view on a scrolled page", async () => {
+        Object.defineProperty(document.documentElement, "scrollTop", {
+            value: 5000,
+            configurable: true,
+        })
+        render(
+            <Cards
+                count={3}
+                name="first"
+                layoutScroll
+                style={{ position: "fixed" }}
+            />
+        )
+        await frames(2)
+        await act(async () => toggles.first())
+        await frames(10)
+        delete (document.documentElement as any).scrollTop
+        const cards = document.querySelectorAll<HTMLElement>(".card")
+        for (const { style } of cards) expect(style.willChange).toBe("transform")
     })
 
     test("a layoutRoot on the page doesn't hold the decision between animations", async () => {
