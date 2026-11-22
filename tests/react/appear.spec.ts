@@ -9,7 +9,7 @@ import { expect, Page, test } from "@playwright/test"
 
 const animationFile = /animation\/appear\/animations\.mjs/
 
-async function open(page: Page) {
+async function open(page: Page, url = "appear.html") {
     let release!: VoidFunction
     const held = new Promise<void>((resolve) => (release = resolve))
 
@@ -18,7 +18,7 @@ async function open(page: Page) {
         await route.continue()
     })
 
-    await page.goto("appear.html")
+    await page.goto(url)
     await page.waitForSelector("#tween")
 
     return async () => {
@@ -26,14 +26,9 @@ async function open(page: Page) {
         release()
         await loaded
 
-        /**
-         * The keyframes can't run as CSS, so they start when the
-         * animation code is in use.
-         */
+        // The page marks the first animation the animation code starts
         await page.waitForFunction(
-            () =>
-                getComputedStyle(document.getElementById("keyframes")!)
-                    .opacity !== "0",
+            () => document.body.dataset.code === "ready",
             null,
             { timeout: 3000 }
         )
@@ -92,11 +87,6 @@ test.describe("CSS appear animations", () => {
 
         // The default spring of x is done in under a second
         expect(Math.abs((await read(page, "spring")).x)).toBeLessThan(5)
-
-        // Keyframes wait for the animation code
-        const keyframes = await read(page, "keyframes")
-        expect(keyframes.css).toBe(0)
-        expect(keyframes.opacity).toBe(0)
     })
 
     test("keep running as CSS when the animation code arrives", async ({
@@ -128,7 +118,6 @@ test.describe("CSS appear animations", () => {
         const colour = await read(page, "colour")
         expect(colour.red).toBe(0)
         expect(colour.inline).toBe("")
-        expect((await read(page, "keyframes")).opacity).toBe(1)
     })
 
     test("hand a value to another animation from where it is", async ({
@@ -217,10 +206,7 @@ test.describe("CSS appear animations", () => {
 
         const hover = async () => {
             const box = (await page.locator("#hover").boundingBox())!
-            await page.mouse.move(
-                box.x + box.width / 2,
-                box.y + box.height / 2
-            )
+            await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
             await page.waitForTimeout(100)
         }
 
@@ -258,5 +244,50 @@ test.describe("CSS appear animations", () => {
         expect(end.x).toBe(0)
         expect(end.scale).toBe(1)
         expect(end.css).toBe(0)
+    })
+
+    test("all wait for the animation code when CSS can't run one of them", async ({
+        page,
+    }) => {
+        const warnings: string[] = []
+        page.on("console", (message) => {
+            message.type() === "warning" && warnings.push(message.text())
+        })
+
+        const arrive = await open(page, "appear.html?keyframes")
+        await page.waitForTimeout(1000)
+
+        // No element of the page has started, in CSS or otherwise
+        for (const id of ["tween", "independent", "spring", "hover"]) {
+            const { css, x } = await read(page, id)
+            expect(css).toBe(0)
+            expect(x).toBe(-400)
+        }
+        expect((await read(page, "tween")).opacity).toBe(0)
+        expect((await read(page, "colour")).red).toBe(255)
+        expect((await read(page, "keyframes")).opacity).toBe(0)
+
+        expect(warnings.join()).toContain(
+            "An enter animation of keyframes of opacity can't run as CSS"
+        )
+
+        // They all start together when it arrives
+        await arrive()
+        await page.waitForTimeout(1000)
+        const tween = await read(page, "tween")
+        const keyframes = await read(page, "keyframes")
+        expect(tween.css).toBe(0)
+        expect(tween.inline).toBe("")
+        expect(tween.opacity).toBeGreaterThan(0.15)
+        expect(tween.opacity).toBeLessThan(0.45)
+        // The keyframes are at the same point of the same time
+        expect(keyframes.opacity).toBeGreaterThan(tween.opacity - 0.03)
+        expect(keyframes.opacity).toBeLessThan(tween.opacity + 0.03)
+
+        await page.waitForTimeout(3500)
+        const end = await read(page, "tween")
+        expect(end.opacity).toBe(1)
+        expect(end.x).toBe(0)
+        expect((await read(page, "keyframes")).opacity).toBe(1)
     })
 })

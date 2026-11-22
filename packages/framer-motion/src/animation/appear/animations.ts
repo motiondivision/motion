@@ -2,12 +2,16 @@ import { variantPriorityOrder, type VisualElement } from "motion-dom"
 import { AnimationFeature } from "../../motion/features/animation"
 import type { FeaturePackages } from "../../motion/features/types"
 import type { EarlyState } from "./early"
-import { followAppearAnimations, takeOverHeld } from "./follow"
+import {
+    followAppearAnimations,
+    settleAppearAnimations,
+    takeOverHeld,
+} from "./follow"
 
 /**
  * The animation feature for components whose enter animations start as
  * CSS, and whose gestures work before this arrives. It carries on with
- * the gestures that are active.
+ * the gestures, and the exit, that are active.
  */
 class AppearAnimationFeature extends AnimationFeature {
     constructor(node: VisualElement) {
@@ -17,11 +21,29 @@ class AppearAnimationFeature extends AnimationFeature {
 
         super(node)
 
+        const state = node.animationState!
+        const { animateChanges } = state
+
+        /**
+         * The first time the component's animations are started is when
+         * its values have asked to follow their CSS animations.
+         */
+        state.animateChanges = (type) => {
+            const animation = animateChanges(type)
+            state.animateChanges = animateChanges
+            settleAppearAnimations(node)
+            return animation
+        }
+
         if (active) {
+            early!.unmount()
             takeOverHeld(node)
 
             for (const type of variantPriorityOrder) {
-                active[type] && node.animationState!.setActive(type, true)
+                if (!active[type]) continue
+
+                const animation = state.setActive(type, true)
+                type === "exit" && animation.then(early!.onExit)
             }
         }
     }

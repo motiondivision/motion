@@ -4,6 +4,7 @@ import {
     appearHandoff,
     createGeneratorEasing,
     frame,
+    getValueTransition,
     mixNumber,
     spring,
     transformProps,
@@ -12,11 +13,8 @@ import {
     type VisualElement,
 } from "motion-dom"
 import { clamp, easingDefinitionToFunction } from "motion-utils"
-import {
-    animationOf,
-    type AppearAnimation,
-    type AppearTiming,
-} from "./css"
+import { animationOf, type AppearAnimation, type AppearTiming } from "./css"
+import { dropAppearAnimations } from "./handoff"
 
 /**
  * A value that follows a CSS animation.
@@ -49,7 +47,11 @@ interface Unit {
     element: HTMLElement
     appear: AppearAnimation
     visualElement: VisualElement
-    animations: Animation[]
+    /**
+     * The names of its animations. The browser makes the animations
+     * themselves again when the element is moved in the document.
+     */
+    names: string[]
     startTime: number
     followers: Set<Follower>
     /**
@@ -97,8 +99,7 @@ function makeProgress({ transition, from, to }: AppearTiming) {
         ease = easingDefinitionToFunction(transition.ease ?? "easeOut")
     }
 
-    return (time: number) =>
-        ease(clamp(0, 1, (time / 1000 - delay) / duration))
+    return (time: number) => ease(clamp(0, 1, (time / 1000 - delay) / duration))
 }
 
 interface Playing {
@@ -147,31 +148,27 @@ function setLive(unit: Unit, value: MotionValue<any>, playing: Playing) {
         : value.set(latest)
 }
 
+const animationsOf = ({ element, names }: Pick<Unit, "element" | "names">) =>
+    element
+        .getAnimations()
+        .filter((animation) => names.includes(nameOf(animation)))
+
 /**
- * Take a unit's CSS animations off its element. The element's `animation`
- * style goes with its last, as an element that is hidden and shown again
- * would otherwise play them again.
+ * Take a unit's CSS animations off its element.
  */
 function remove(unit: Unit) {
-    const { element, appear } = unit
+    const { element, appear, names } = unit
     unit.isOver = true
-    unit.animations.forEach((animation) => animation.cancel())
+    dropAppearAnimations(element, appear, names)
 
-    if (appear.transform.includes(nameOf(unit.animations[0]))) {
+    if (appear.transform.includes(names[0])) {
         /**
          * Styles a gesture set before the animation code arrived.
          */
-        element.style.translate = element.style.scale = element.style.rotate =
-            ""
-    }
-
-    if (
-        !element
-            .getAnimations()
-            .some((animation) => nameOf(animation)?.startsWith("m-"))
-    ) {
-        element.style.animation = ""
-        appearElements.delete(element)
+        element.style.translate =
+            element.style.scale =
+            element.style.rotate =
+                ""
     }
 }
 
@@ -191,8 +188,7 @@ function takeOver(unit: Unit, interrupted?: Follower) {
      */
     const { appear, visualElement } = unit
     const time = now(unit)
-    unit.animations.forEach((animation) => {
-        const name = nameOf(animation)
+    unit.names.forEach((name) => {
         appear.timings[name]?.keys.forEach((key) => {
             /**
              * The value itself is where its animation started, as
@@ -233,10 +229,16 @@ function getUnit(
     if (elementUnits[id]) return elementUnits[id]
 
     const names = isTransform ? appear.transform : [name]
-    const animations = element
-        .getAnimations()
-        .filter((animation) => names.includes(nameOf(animation)))
-    if (!animations.length) return
+    const animations = animationsOf({ element, names })
+
+    if (!animations.length) {
+        /**
+         * The page turned its CSS enter animations off, so the element
+         * has none to follow.
+         */
+        dropAppearAnimations(element, appear, names)
+        return
+    }
 
     const startTimes = animations.map(
         (animation) =>
@@ -249,7 +251,7 @@ function getUnit(
         element,
         appear,
         visualElement,
-        animations,
+        names,
         startTime: Math.min(...startTimes),
         followers: new Set(),
         keys: new Set(),
@@ -260,18 +262,20 @@ function getUnit(
      * When the last animation of the unit ends, each value takes its
      * target. Once that has rendered, the CSS animations can go.
      */
-    const playing = animations.filter(
-        (animation) => appear.timings[nameOf(animation)]
-    )
     const check = () => {
         if (
             unit.isOver ||
-            playing.some((animation) => animation.playState !== "finished")
+            animationsOf(unit).some(
+                (animation) =>
+                    appear.timings[nameOf(animation)] &&
+                    animation.playState !== "finished"
+            )
         ) {
             return
         }
 
         unit.isOver = true
+        element.removeEventListener("animationend", check)
         unit.followers.forEach((follower) => {
             follower.end(true)
             follower.value.set(appear.targets[follower.key])
@@ -279,10 +283,58 @@ function getUnit(
         frame.postRender(() => frame.postRender(() => remove(unit)))
     }
 
-    playing.forEach((animation) => animation.addEventListener("finish", check))
+    element.addEventListener("animationend", check)
     queueMicrotask(check)
 
     return unit
+}
+
+/**
+ * Once the animation code has started the animations a component's props
+ * ask for, a value that CSS still animates is one the component no
+ * longer wants at that animation's target: its props changed back before
+ * the animation code arrived. It animates from what the element shows to
+ * the value it has.
+ */
+export function settleAppearAnimations(visualElement: VisualElement) {
+    const appear = appearElements.get(visualElement.current as object) as
+        | AppearAnimation
+        | undefined
+    if (!appear) return
+
+    for (const name in appear.timings) {
+        for (const key of appear.timings[name].keys) {
+            const unit = getUnit(visualElement, appear, name)
+
+            if (
+                !unit ||
+                unit.keys.has(key) ||
+                (unit.isOver && !unit.isTakenOver)
+            ) {
+                continue
+            }
+            unit.keys.add(key)
+
+            const value = visualElement.getValue(key, appear.from[key])!
+            const rest = value.get()
+
+            takeOver(unit)
+            setLive(unit, value, { key, name })
+            value.start(
+                animateMotionValue(
+                    key,
+                    value,
+                    rest,
+                    getValueTransition(
+                        visualElement.getProps().transition || {},
+                        key
+                    ),
+                    visualElement,
+                    false
+                )
+            )
+        }
+    }
 }
 
 /**
@@ -332,7 +384,11 @@ export function followAppearAnimations() {
              * they hand it back.
              */
             if (transformProps.has(key) && appear.transform[0]) {
-                const unit = getUnit(visualElement as any, appear, appear.transform[0])
+                const unit = getUnit(
+                    visualElement as any,
+                    appear,
+                    appear.transform[0]
+                )
                 unit && takeOver(unit)
             }
             return

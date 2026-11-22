@@ -1,5 +1,6 @@
 import {
     appearElements,
+    isAnimationControls,
     motionValue,
     resolveVariant,
     transformProps,
@@ -14,6 +15,7 @@ import {
     independentValue,
     type AppearAnimation,
 } from "./css"
+import { dropAppearAnimations } from "./handoff"
 
 const independentProperty = (key: string) =>
     key === "scale" || key === "rotate"
@@ -21,9 +23,6 @@ const independentProperty = (key: string) =>
         : key === "x" || key === "y" || key === "z"
         ? "translate"
         : undefined
-
-const nameOf = (animation: Animation) =>
-    (animation as CSSAnimation).animationName
 
 function setValue(visualElement: VisualElement, key: string, value: any) {
     visualElement.hasValue(key)
@@ -38,6 +37,16 @@ export interface EarlyState extends AnimationState {
      * with when it arrives.
      */
     active: { [type: string]: boolean }
+    /**
+     * Called when the component's element is in the document.
+     */
+    mount: VoidFunction
+    unmount: VoidFunction
+    /**
+     * Ends the wait of an exit that began before the animation code
+     * arrived, once that code has run it.
+     */
+    onExit: VoidFunction
 }
 
 /**
@@ -57,14 +66,6 @@ export function createEarlyState(visualElement: VisualElement): EarlyState {
     const element = () => visualElement.current as HTMLElement
     const getAppear = () =>
         appearElements.get(element()) as AppearAnimation | undefined
-
-    const cancel = (names: string[]) =>
-        element()
-            .getAnimations()
-            .forEach(
-                (animation) =>
-                    names.includes(nameOf(animation)) && animation.cancel()
-            )
 
     /**
      * Show a transform value in place of what the CSS animations play
@@ -158,7 +159,7 @@ export function createEarlyState(visualElement: VisualElement): EarlyState {
                  * `rotate` can't show. The enter animation of the
                  * transform ends here, at its targets.
                  */
-                cancel(appear.transform)
+                dropAppearAnimations(element(), appear, appear.transform)
                 for (const other in appear.targets) {
                     transformProps.has(other) &&
                         setValue(visualElement, other, appear.targets[other])
@@ -174,7 +175,16 @@ export function createEarlyState(visualElement: VisualElement): EarlyState {
         const next: { [key: string]: unknown } = {}
 
         for (const type of variantPriorityOrder) {
-            if (!active[type] || type === "animate" || type === "whileInView") {
+            /**
+             * Gestures change the component. Its other animations, and
+             * its exit, wait for the animation code.
+             */
+            if (
+                !active[type] ||
+                type === "animate" ||
+                type === "whileInView" ||
+                type === "exit"
+            ) {
                 continue
             }
 
@@ -207,13 +217,42 @@ export function createEarlyState(visualElement: VisualElement): EarlyState {
 
     const done = () => Promise.resolve()
 
+    /**
+     * Animation controls start their animations themselves, with code
+     * they bring. They're often started in an effect at mount, which is
+     * before the animation code can arrive, so they're given the
+     * component now.
+     */
+    let unsubscribe: VoidFunction | undefined
+    let endExit: VoidFunction | undefined
+
     return {
         active,
         setActive: (type, isActive) => {
             active[type] = isActive
             update()
-            return done()
+
+            if (type !== "exit") return done()
+
+            /**
+             * An exit waits for the animation code, which runs it from
+             * what the element then shows.
+             */
+            endExit?.()
+            endExit = undefined
+            return isActive
+                ? new Promise<void>((resolve) => (endExit = resolve))
+                : done()
         },
+        onExit: () => endExit?.(),
+        mount: () => {
+            const { animate } = visualElement.getProps()
+            unsubscribe?.()
+            unsubscribe = isAnimationControls(animate)
+                ? animate.subscribe(visualElement as any)
+                : undefined
+        },
+        unmount: () => unsubscribe?.(),
         animateChanges: done,
         setAnimateFunction: () => {},
         getState: () => ({}),

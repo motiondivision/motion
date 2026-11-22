@@ -59,12 +59,6 @@
             "import": "./dist/es/core.mjs",
             "default": "./dist/cjs/core.js"
         },
-        "./react-core": {
-            "types": "./dist/react-core.d.ts",
-            "require": "./dist/cjs/react-core.js",
-            "import": "./dist/es/react-core.mjs",
-            "default": "./dist/cjs/react-core.js"
-        },
         "./react-m": {
             "types": "./dist/react-m.d.ts",
             "require": "./dist/cjs/react-m.js",

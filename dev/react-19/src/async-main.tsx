@@ -3,7 +3,8 @@
  * as the main one imports every test page, and any page that makes a
  * `motion` component loads the layout and drag features for all of them.
  */
-import { AnimatePresence, motion as asyncMotion } from "framer-motion/core"
+import { AnimatePresence } from "framer-motion"
+import { motion as asyncMotion } from "framer-motion/appear"
 import * as React from "react"
 import { StrictMode, useState } from "react"
 import ReactDOMClient from "react-dom/client"

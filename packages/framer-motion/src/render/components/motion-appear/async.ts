@@ -1,5 +1,8 @@
 import { gestureAnimations } from "../../../motion/features/gestures"
-import { useAsyncFeatures } from "../../../motion/features/use-async-features"
+import {
+    preloadFeatures as preload,
+    useAsyncFeatures,
+} from "../../../motion/features/use-async-features"
 import { FeatureLoaders } from "../../../motion/features/types"
 import { MotionContextProps } from "../../../context/MotionContext"
 import { MotionProps } from "../../../motion/types"
@@ -37,9 +40,19 @@ export const motion = /*@__PURE__*/ createAppearProxy(
             const visualElement = createDomVisualElement(Component, options)
 
             if (!hasAnimationFeature()) {
-                visualElement.animationState = createEarlyState(
+                const early = (visualElement.animationState = createEarlyState(
                     visualElement as any
-                )
+                ))
+                const { mount, unmount } = visualElement
+
+                visualElement.mount = (instance: any) => {
+                    mount.call(visualElement, instance)
+                    visualElement.animationState === early && early.mount()
+                }
+                visualElement.unmount = () => {
+                    early.unmount()
+                    unmount.call(visualElement)
+                }
             }
 
             return visualElement
@@ -48,3 +61,10 @@ export const motion = /*@__PURE__*/ createAppearProxy(
             useAsyncFeatures(props, context, loaders)
     )
 )
+
+/**
+ * Fetch the animation, layout and drag code now, rather than when a
+ * component first needs it. Await it in a test's setup, or call it ahead
+ * of an interaction, so nothing waits on a fetch.
+ */
+export const preloadFeatures = () => preload(loaders)

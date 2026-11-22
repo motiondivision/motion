@@ -1,11 +1,11 @@
 "use client"
 
-import { motion } from "../../render/components/motion-async/proxy"
+import { motion } from "../../render/components/motion-appear/async"
 import { createReorderGroup } from "./Group"
 
 /**
- * A `Reorder.Group` that renders motion components that fetch layout and
- * drag, so its items join the same projection tree as the components
+ * A `Reorder.Group` that renders motion components that fetch their
+ * features, so its items join the same projection tree as the components
  * around them.
  */
 export const Group = /*@__PURE__*/ createReorderGroup(motion)

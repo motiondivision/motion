@@ -41,17 +41,17 @@
             "import": "./dist/es/dom-core.mjs",
             "default": "./dist/cjs/dom-core.js"
         },
-        "./core": {
-            "types": "./dist/core.d.ts",
-            "require": "./dist/cjs/core.js",
-            "import": "./dist/es/core.mjs",
-            "default": "./dist/cjs/core.js"
-        },
         "./appear": {
             "types": "./dist/appear.d.ts",
             "require": "./dist/cjs/appear.js",
             "import": "./dist/es/appear.mjs",
             "default": "./dist/cjs/appear.js"
+        },
+        "./appear-client": {
+            "types": "./dist/appear-client.d.ts",
+            "require": "./dist/cjs/appear-client.js",
+            "import": "./dist/es/appear-client.mjs",
+            "default": "./dist/cjs/appear-client.js"
         },
         "./m": {
             "types": "./dist/m.d.ts",

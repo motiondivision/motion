@@ -33,6 +33,11 @@ export interface AppearAnimation {
      */
     style: { [key: string]: string | number }
     /**
+     * Each animation in the `animation` shorthand. One is taken out when
+     * the animation code takes its values over.
+     */
+    list: string[]
+    /**
      * The @keyframes rule of each animation, by its name.
      */
     rules: { [name: string]: string }
@@ -199,32 +204,51 @@ export const hasAnimationFeature = () =>
     !!getFeatureDefinitions().animation?.Feature
 
 /**
+ * The `animation` style of a list of animations. A page with an enter
+ * animation that CSS can't run sets --m to none, which turns every one
+ * off, so they all start together when the animation code arrives.
+ */
+export const appearStyle = (list: string[]) =>
+    list.length ? `var(--m,${list.join(",")})` : ""
+
+/**
+ * The rule that turns every CSS enter animation off.
+ */
+export const appearOffName = "m-off"
+export const appearOffRule = ":root{--m:none}"
+
+/**
  * Make a component's enter animation, if it has one that CSS can run in
  * full. Otherwise its animation starts when Motion's animation code has
  * loaded, as it does without this.
+ *
+ * Returns the reason, if the component has an enter animation that CSS
+ * can't run.
  */
 export function createAppearAnimation(
     props: MotionProps,
     latestValues: ResolvedValues,
     presenceContext: PresenceContextProps | null,
     defaultTransition: unknown
-): AppearAnimation | undefined {
+): AppearAnimation | string | undefined {
     const { animate, initial, style } = props
 
     if (
         initial === false ||
         presenceContext?.initial === false ||
         !animate ||
-        isAnimationControls(animate) ||
-        (style as any)?.animation ||
-        /**
-         * A component that reports every frame needs the animation code
-         * to make them.
-         */
-        props.onUpdate
+        isAnimationControls(animate)
     ) {
         return
     }
+
+    if ((style as any)?.animation) return "an animation style"
+
+    /**
+     * A component that reports every frame needs the animation code
+     * to make them.
+     */
+    if (props.onUpdate) return "onUpdate"
 
     const resolved = resolveVariantFromProps(
         props as any,
@@ -244,6 +268,7 @@ export function createAppearAnimation(
 
     const appear: AppearAnimation = {
         style: {},
+        list: [],
         rules: {},
         values: {},
         timings: {},
@@ -252,7 +277,7 @@ export function createAppearAnimation(
         from: {},
         to: {},
     }
-    const animations: string[] = []
+    const animations = appear.list
 
     /**
      * Whether every transform value the element has is one that the
@@ -308,7 +333,9 @@ export function createAppearAnimation(
          * mid-animation by then, so it's given as a style.
          */
         if (from === undefined) {
-            if (!isTransform && key !== "opacity") return
+            if (!isTransform && key !== "opacity") {
+                return key + " without an initial value"
+            }
             from = appear.values[key] =
                 key === "opacity" || key.startsWith("scale") ? 1 : 0
         }
@@ -323,8 +350,11 @@ export function createAppearAnimation(
          * component was given as a motion value, as its readers expect
          * every frame, and a transform that layout or drag also moves.
          */
+        if (typeof to !== "number" && typeof to !== "string") {
+            return "keyframes of " + key
+        }
+
         if (
-            (typeof to !== "number" && typeof to !== "string") ||
             key.startsWith("--") ||
             key.startsWith("origin") ||
             isMotionValue((style as any)?.[key]) ||
@@ -335,7 +365,9 @@ export function createAppearAnimation(
                     props.layoutId ||
                     props.drag))
         ) {
-            return
+            return isTransform && (props.layout || props.layoutId || props.drag)
+                ? key + " with layout or drag"
+                : key
         }
 
         appear.targets[key] = to
@@ -350,7 +382,7 @@ export function createAppearAnimation(
         const existing = appear.timings[name]
         const timing = timingOf(key, from, to)
 
-        if (!timing) return
+        if (!timing) return "the transition of " + key
 
         if (existing) {
             /**
@@ -380,7 +412,9 @@ export function createAppearAnimation(
             appear.transform.push(name)
             add(
                 name,
-                isIndependent ? independentRule(property) : appearRule(property),
+                isIndependent
+                    ? independentRule(property)
+                    : appearRule(property),
                 key,
                 timing,
                 from,
@@ -390,7 +424,7 @@ export function createAppearAnimation(
                 (appear.style["--" + name] = targetStyle.transform || "none")
         } else {
             const value = targetStyle[key]
-            if (value === undefined) return
+            if (value === undefined) return key
 
             add(name, appearRule(property), key, timing, from, to)
             appear.style["--" + name] = value
@@ -413,7 +447,8 @@ export function createAppearAnimation(
             if (
                 !isAnimated &&
                 independent[property].every(
-                    (key) => (appear.to[key] ?? defaultOf(key)) === defaultOf(key)
+                    (key) =>
+                        (appear.to[key] ?? defaultOf(key)) === defaultOf(key)
                 )
             ) {
                 continue
@@ -437,14 +472,14 @@ export function createAppearAnimation(
         animations.push(holdName + " 1s both")
     }
 
-    appear.style.animation = animations.join(",")
+    appear.style.animation = appearStyle(animations)
 
     return appear
 
     /**
      * Start again with the transform as one animation.
      */
-    function createSharedTransform(): AppearAnimation | undefined {
+    function createSharedTransform() {
         return createAppearAnimation(
             { ...props, transformTemplate: sharedTransform } as any,
             latestValues,

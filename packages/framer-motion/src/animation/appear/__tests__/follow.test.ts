@@ -5,7 +5,7 @@ import {
     motionValue,
     type MotionValue,
 } from "motion-dom"
-import { createAppearAnimation } from "../css"
+import { createAppearAnimation, type AppearAnimation } from "../css"
 import { followAppearAnimations } from "../follow"
 
 const linear = { duration: 2, ease: "linear" } as const
@@ -23,9 +23,8 @@ function setup(initial: any, animate: any, currentTime: number) {
         { ...initial },
         null,
         undefined
-    )!
+    ) as AppearAnimation
     const element = document.createElement("div")
-    const listeners: { [name: string]: VoidFunction } = {}
     Object.defineProperty(document, "timeline", {
         value: { currentTime },
         configurable: true,
@@ -37,8 +36,6 @@ function setup(initial: any, animate: any, currentTime: number) {
         startTime: 0,
         playState: "running",
         cancel: jest.fn(),
-        addEventListener: (_: string, callback: VoidFunction) =>
-            (listeners[animationName] = callback),
     }))
     let running = animations
     ;(element as any).getAnimations = () => running
@@ -57,6 +54,7 @@ function setup(initial: any, animate: any, currentTime: number) {
         getValue: jest.fn(),
         setStaticValue: jest.fn(),
         render: jest.fn(),
+        getProps: () => ({}),
     }
 
     const follow = (key: string, target = animate[key]) => {
@@ -75,7 +73,6 @@ function setup(initial: any, animate: any, currentTime: number) {
     return {
         element,
         animations,
-        listeners,
         values,
         resumed,
         follow,
@@ -110,7 +107,7 @@ describe("followAppearAnimations", () => {
     })
 
     test("a value takes its target when the CSS animation ends", async () => {
-        const { values, follow, listeners, animations, element } = setup(
+        const { values, follow, animations, element } = setup(
             { opacity: 0 },
             { opacity: 1 },
             500
@@ -120,7 +117,7 @@ describe("followAppearAnimations", () => {
         values.opacity.on("animationComplete", onComplete)
 
         animations[0].playState = "finished"
-        listeners["m-opacity"]()
+        element.dispatchEvent(new Event("animationend"))
 
         expect(values.opacity.getCurrent()).toBe(1)
         expect(values.opacity.isAnimating()).toBe(false)
@@ -158,10 +155,7 @@ describe("followAppearAnimations", () => {
         // The element's styles show what the CSS animations did, before
         // they go
         expect(visualElement.setStaticValue).toHaveBeenCalledWith("x", -100)
-        expect(visualElement.setStaticValue).toHaveBeenCalledWith(
-            "scale",
-            0.75
-        )
+        expect(visualElement.setStaticValue).toHaveBeenCalledWith("scale", 0.75)
         expect(visualElement.render).toHaveBeenCalledTimes(1)
 
         // The other value of the transform carries on in an animation

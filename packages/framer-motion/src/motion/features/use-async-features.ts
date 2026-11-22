@@ -1,3 +1,5 @@
+"use client"
+
 import type { VisualElement } from "motion-dom"
 import { noop, warnOnce } from "motion-utils"
 import { useContext, useSyncExternalStore } from "react"

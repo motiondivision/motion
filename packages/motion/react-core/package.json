@@ -1,6 +1,0 @@
-{
-    "private": true,
-    "types": "../dist/react-core.d.ts",
-    "main": "../dist/cjs/react-core.js",
-    "module": "../dist/es/react-core.mjs"
-}

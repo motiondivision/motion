@@ -3,7 +3,7 @@ import { createAppearAnimation } from "../css"
 
 const linear = { duration: 2, ease: "linear" } as const
 const make = (props: any, latest: any = props.initial) =>
-    createAppearAnimation(props, { ...latest }, null, undefined)
+    createAppearAnimation(props, { ...latest }, null, undefined) as any
 
 describe("createAppearAnimation", () => {
     test("makes one CSS animation for each property", () => {
@@ -13,9 +13,11 @@ describe("createAppearAnimation", () => {
             transition: { ...linear, delay: 0.5 },
         })!
 
-        expect(appear.style.animation).toBe(
+        expect(appear.list.join(",")).toBe(
             "m-opacity 2s linear 0.5s both,m-translate 2s linear 0.5s both,m-background-color 2s linear 0.5s both,m-hold 1s both"
         )
+        // --m is how a page turns its CSS enter animations off
+        expect(appear.style.animation).toBe(`var(--m,${appear.list.join(",")})`)
         expect(appear.style["--m-opacity"]).toBe(1)
         expect(appear.style["--m-translate-from"]).toBe("-100px 0px 0px")
         expect(appear.style["--m-translate"]).toBe("0px 0px 0px")
@@ -47,7 +49,7 @@ describe("createAppearAnimation", () => {
 
         // A property that doesn't animate still shows its value, as the
         // transform style is held at none
-        expect(appear.style.animation).toBe(
+        expect(appear.list.join(",")).toBe(
             "m-translate 2s linear 0s both,m-scale 1s ease-in 0.2s both,m-rotate 1s both,m-hold 1s both"
         )
         expect(appear.style["--m-translate-from"]).toBe("-100px 20px 0px")
@@ -82,7 +84,7 @@ describe("createAppearAnimation", () => {
             transition: { x: linear, y: { duration: 1, ease: "linear" } },
         })!
 
-        expect(timings.style.animation).toBe("m-transform 2s linear 0s both")
+        expect(timings.list.join(",")).toBe("m-transform 2s linear 0s both")
         expect(timings.style["--m-transform"]).toBe("none")
         expect(timings.transform).toEqual(["m-transform"])
         expect(timings.timings["m-transform"].keys).toEqual(["x", "y"])
@@ -94,7 +96,7 @@ describe("createAppearAnimation", () => {
             transition: linear,
         })!
 
-        expect(skew.style.animation).toBe("m-transform 2s linear 0s both")
+        expect(skew.list.join(",")).toBe("m-transform 2s linear 0s both")
         expect(skew.style["--m-transform"]).toBe("translateX(50px)")
         expect(skew.rules["m-transform"]).toBe(
             "@keyframes m-transform{to{transform:var(--m-transform)}}"
@@ -113,7 +115,7 @@ describe("createAppearAnimation", () => {
     test("gives a spring as a linear() easing", () => {
         const appear = make({ initial: { x: -100 }, animate: { x: 0 } })!
 
-        expect(appear.style.animation).toMatch(
+        expect(appear.list.join(",")).toMatch(
             /^m-translate [\d.]+s linear\(0( 0%)?, .+\) 0s both,m-hold 1s both$/
         )
     })
@@ -129,7 +131,7 @@ describe("createAppearAnimation", () => {
             },
         })!
 
-        expect(appear.style.animation).toBe(
+        expect(appear.list.join(",")).toBe(
             "m-opacity 1s cubic-bezier(0.1, 0.2, 0.3, 0.4) 0s both,m-height 3s ease-in 0s both"
         )
         expect(appear.style["--m-height"]).toBe("100px")
@@ -148,7 +150,7 @@ describe("createAppearAnimation", () => {
             { opacity: 0 }
         )!
 
-        expect(appear.style.animation).toBe("m-opacity 2s linear 0s both")
+        expect(appear.list.join(",")).toBe("m-opacity 2s linear 0s both")
     })
 
     test("records what each animation plays, for the animation code", () => {
@@ -179,44 +181,55 @@ describe("createAppearAnimation", () => {
         expect(appear.style["--m-scale"]).toBe(2)
     })
 
-    test("leaves what CSS can't run in full to the animation code", () => {
+    test("says why CSS can't run an enter animation in full", () => {
         const initial = { opacity: 0 }
         const animate = { opacity: 1 }
+        const from = { x: -100 }
+        const to = { x: 0 }
 
         expect(make({ initial, animate: { opacity: [0, 0.5, 1] } })).toBe(
-            undefined
+            "keyframes of opacity"
         )
         expect(
             make({ initial, animate, transition: { repeat: Infinity } })
-        ).toBe(undefined)
+        ).toBe("the transition of opacity")
         expect(
             make({ initial, animate, transition: { ease: (v: number) => v } })
-        ).toBe(undefined)
+        ).toBe("the transition of opacity")
+
         expect(make({ initial, animate, transition: { duration: 0 } })).toBe(
-            undefined
+            "the transition of opacity"
         )
-        expect(make({ initial: false, animate }, {})).toBe(undefined)
 
         // Reports of every frame, and readers of a motion value
-        expect(make({ initial, animate, onUpdate: () => {} })).toBe(undefined)
+        expect(make({ initial, animate, onUpdate: () => {} })).toBe("onUpdate")
         expect(
             make({ initial, animate, style: { opacity: motionValue(0) } })
-        ).toBe(undefined)
+        ).toBe("opacity")
 
         // A transform that layout or drag also moves, or that has a unit
-        const from = { x: -100 }
-        const to = { x: 0 }
-        expect(make({ initial: from, animate: to })).toBeTruthy()
+        expect(make({ initial: from, animate: to }).list).toBeTruthy()
         expect(make({ initial: from, animate: to, layout: true })).toBe(
-            undefined
+            "x with layout or drag"
         )
-        expect(make({ initial: from, animate: to, drag: "x" })).toBe(undefined)
-        expect(make({ initial: from, animate: { x: "50%" } })).toBe(undefined)
-        expect(make({ initial }, initial)).toBe(undefined)
-        expect(make({ animate: { height: 100 } }, {})).toBe(undefined)
+        expect(make({ initial: from, animate: to, drag: "x" })).toBe(
+            "x with layout or drag"
+        )
+        expect(make({ initial: from, animate: { x: "50%" } })).toBe("x")
+        expect(make({ animate: { height: 100 } }, {})).toBe(
+            "height without an initial value"
+        )
         expect(
             make({ initial, animate, style: { animation: "spin 1s" } })
-        ).toBe(undefined)
+        ).toBe("an animation style")
+    })
+
+    test("makes nothing when there's no enter animation", () => {
+        const initial = { opacity: 0 }
+        const animate = { opacity: 1 }
+
+        expect(make({ initial: false, animate }, {})).toBe(undefined)
+        expect(make({ initial }, initial)).toBe(undefined)
         expect(
             createAppearAnimation(
                 { initial, animate },

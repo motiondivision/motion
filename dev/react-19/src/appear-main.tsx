@@ -2,12 +2,13 @@
  * Page for tests/react/appear.spec.ts. It has its own entry, as the main
  * one imports every test page and the animation features with them.
  */
-import { motion } from "framer-motion/appear"
+import { motion } from "motion/react"
 import { useEffect, useState } from "react"
 import ReactDOMClient from "react-dom/client"
 
 const linear = { type: "tween", ease: "linear", duration: 4 } as const
 const box = { width: 100, height: 100, background: "#f00" }
+const hasKeyframes = window.location.search.includes("keyframes")
 
 /**
  * Its target changes before the animation code can have arrived.
@@ -69,13 +70,25 @@ const App = () => (
             transition={linear}
             style={{ ...box, marginLeft: 500 }}
         />
+        {/* Tells the tests that the animation code is in use */}
         <motion.div
-            id="keyframes"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: [0, 0.5, 1] }}
-            transition={linear}
-            style={box}
+            initial={{ opacity: 0.99 }}
+            animate={{ opacity: 1 }}
+            onAnimationStart={() => (document.body.dataset.code = "ready")}
         />
+        {/*
+         * CSS can't run keyframes. One such enter animation turns the
+         * CSS enter animations of the whole page off.
+         */}
+        {hasKeyframes && (
+            <motion.div
+                id="keyframes"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: [0, 0.5, 1] }}
+                transition={linear}
+                style={box}
+            />
+        )}
     </>
 )
 

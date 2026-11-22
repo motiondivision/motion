@@ -1,5 +1,5 @@
 import { appearElements } from "motion-dom"
-import type { AppearAnimation } from "./css"
+import { appearStyle, type AppearAnimation } from "./css"
 
 /**
  * Tell the animation code that an element's enter animation is running
@@ -10,6 +10,30 @@ export function registerAppearElement(
     appear: AppearAnimation
 ) {
     appearElements.set(element, appear)
+
+    /**
+     * An element that is moved in the document, as a reordered list does
+     * to its items, has its CSS animations made again from their start.
+     * They're given the start time they had.
+     */
+    const starts: { [name: string]: number } = {}
+    const keepTime = () => {
+        for (const animation of element.getAnimations()) {
+            const name = (animation as CSSAnimation).animationName
+            const { startTime } = animation
+
+            if (!name?.startsWith("m-")) continue
+
+            if (starts[name] === undefined) {
+                startTime === null || (starts[name] = startTime as number)
+            } else if (startTime !== starts[name]) {
+                animation.startTime = starts[name]
+            }
+        }
+    }
+    keepTime()
+    element.addEventListener("animationstart", keepTime)
+    element.addEventListener("animationcancel", keepTime)
 
     if (window.MotionCancelOptimisedAnimation) return
 
@@ -51,4 +75,28 @@ export function registerAppearElement(
             })
         })
     }
+}
+
+/**
+ * Take animations off an element. They leave its `animation` style too,
+ * or an element that is moved or shown again would play them again.
+ */
+export function dropAppearAnimations(
+    element: HTMLElement,
+    appear: AppearAnimation,
+    names: string[]
+) {
+    element
+        .getAnimations()
+        .forEach(
+            (animation) =>
+                names.includes((animation as CSSAnimation).animationName) &&
+                animation.cancel()
+        )
+
+    appear.list = appear.list.filter(
+        (animation) => !names.includes(animation.split(" ")[0])
+    )
+    element.style.animation = appearStyle(appear.list)
+    appear.list.length || appearElements.delete(element)
 }

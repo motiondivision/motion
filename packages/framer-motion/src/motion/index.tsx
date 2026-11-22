@@ -221,7 +221,7 @@ export function createMotionComponent<
     return ForwardRefMotionComponent as MotionComponent<TagName, Props>
 }
 
-function useLayoutId({ layoutId }: MotionProps) {
+export function useLayoutId({ layoutId }: MotionProps) {
     const layoutGroupId = useContext(LayoutGroupContext).id
     return layoutGroupId && layoutId !== undefined
         ? layoutGroupId + "-" + layoutId

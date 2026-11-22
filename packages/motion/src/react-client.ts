@@ -1,1 +1,1 @@
-export * from "framer-motion/client"
+export * from "framer-motion/appear-client"
