@@ -68,7 +68,22 @@ export interface AccelerateConfig {
     bind?: (
         element: HTMLElement,
         name: string,
-        config: AccelerateConfig
+        config: AccelerateConfig,
+        node: any,
+        onDemote: VoidFunction
+    ) => VoidFunction
+    /**
+     * Plays a transform of an element, like `y`, from this config, as part
+     * of the element's transform animation, and returns its cleanup. It
+     * calls `onDemote` if that moves to the main thread, so the value is
+     * written from JS instead. Set it to `bindAccelerateTransform`.
+     */
+    bindTransform?: (
+        element: HTMLElement,
+        name: string,
+        config: AccelerateConfig,
+        node: any,
+        onDemote: VoidFunction
     ) => VoidFunction
     factory: (animation: AnimationPlaybackControlsWithThen) => VoidFunction
     times: number[]

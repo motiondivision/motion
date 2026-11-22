@@ -3,6 +3,7 @@
 import {
     AnimationPlaybackControls,
     bindAccelerate,
+    bindAccelerateTransform,
     cancelMicrotask,
     microtask,
     motionValue,
@@ -49,6 +50,7 @@ function makeAccelerateConfig(
 ) {
     return {
         bind: bindAccelerate,
+        bindTransform: bindAccelerateTransform,
         // Refs attach child-first; defer so target.current is populated
         // before scroll() reads it.
         factory: (animation: AnimationPlaybackControls) => {

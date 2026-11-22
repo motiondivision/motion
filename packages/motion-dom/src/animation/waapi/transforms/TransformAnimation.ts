@@ -206,6 +206,20 @@ const easingAsString = (ease: Easing, samples: number) =>
 
 const byTime = (a: number, b: number) => a - b
 
+/**
+ * Whether animations attached separately follow the same native timeline
+ * over its whole length, like transforms that each follow the page's
+ * scroll, so they can share a WAAPI animation. One attached with a range
+ * (onAttach) applies it to its own animation, so it can't.
+ */
+const isSameTimeline = (a?: TimelineWithFallback, b?: TimelineWithFallback) =>
+    !!a &&
+    !!b &&
+    !a.onAttach &&
+    !b.onAttach &&
+    !!a.timeline &&
+    a.timeline === b.timeline
+
 const getOwner = (options: ValueAnimationOptions<any>) =>
     options.motionValue!.owner as TransformOwner
 
@@ -1147,7 +1161,10 @@ function createGroup(owner: TransformOwner): TransformGroup {
             const { scrollTimeline } = track
             if (timeline === false) {
                 timeline = scrollTimeline
-            } else if (scrollTimeline !== timeline) {
+            } else if (
+                scrollTimeline !== timeline &&
+                !isSameTimeline(scrollTimeline, timeline)
+            ) {
                 return group.demote(true)
             }
         }

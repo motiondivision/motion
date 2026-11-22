@@ -6,7 +6,7 @@ import {
     warnOnce,
 } from "motion-utils"
 import type { KeyframeResolver } from "../animation/keyframes/KeyframesResolver"
-import { MotionNode } from "../node/MotionNode"
+import { MotionNode, type NodeBinding } from "../node/MotionNode"
 import type { AnyResolvedKeyframe } from "../animation/types"
 import { acceleratedValues } from "../animation/waapi/utils/accelerated-values"
 import { transformGroups } from "../animation/waapi/transforms/groups"
@@ -507,20 +507,31 @@ export abstract class VisualElement<
         this.enteringChildren?.delete(child)
     }
 
-    protected bindValue(key: string, value?: MotionValue) {
+    protected bindValue(key: string, value?: MotionValue, isJS?: boolean) {
         const accelerate = value?.accelerate
-        if (
-            accelerate?.bind &&
-            acceleratedValues.has(key) &&
-            this.current instanceof HTMLElement
-        ) {
+
+        /**
+         * A value that follows a timeline the browser can run, like a
+         * scroll timeline, is played on it instead of written from JS.
+         * Transforms join the element's transform animation, and are
+         * written from JS again if that moves to the main thread.
+         */
+        const bind =
+            !isJS &&
+            (acceleratedValues.has(key)
+                ? accelerate?.bind
+                : transformProps.has(key) && accelerate?.bindTransform)
+        if (bind && this.current instanceof HTMLElement) {
             this.unbind(key)
             this.values.set(key, value!)
             const latest = value!.get()
             if (latest !== undefined) this.latestValues[key] = latest
-            this.bindings[key] = {
-                stop: accelerate.bind(this.current, key, accelerate),
-            }
+            const binding: NodeBinding = {}
+            binding.stop = bind(this.current, key, accelerate!, this, () => {
+                this.bindings[key] === binding &&
+                    this.bindValue(key, value, true)
+            })
+            this.bindings[key] = binding
             return
         }
 
