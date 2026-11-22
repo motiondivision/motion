@@ -1,13 +1,22 @@
 import { version } from "react"
 import { renderToString } from "react-dom/server"
 import { stagger } from "motion-dom"
-import { motion } from "../../../appear"
+import { appear } from "../../../appear"
+import { motion } from "../../../async"
+import { MotionConfig } from "../../../components/MotionConfig"
+
+const render = (children: any, config: any = {}) =>
+    renderToString(
+        <MotionConfig appear={appear} {...config}>
+            {children}
+        </MotionConfig>
+    )
 
 const linear = { duration: 2, ease: "linear" } as const
 
 describe("appear motion components", () => {
     test("render their enter animation on the server", () => {
-        const html = renderToString(
+        const html = render(
             <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -32,13 +41,13 @@ describe("appear motion components", () => {
     })
 
     test("render as before when there is no enter animation", () => {
-        const html = renderToString(<motion.div animate={{ opacity: 1 }} />)
+        const html = render(<motion.div animate={{ opacity: 1 }} />)
 
         expect(html).toBe("<div></div>")
     })
 
     test("turn the page's CSS enter animations off when CSS can't run one", () => {
-        const html = renderToString(
+        const html = render(
             <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: [0, 0.5, 1] }}
@@ -55,7 +64,7 @@ describe("appear motion components", () => {
     })
 
     const list = (transition: any, child: any = {}) =>
-        renderToString(
+        render(
             <motion.ul
                 initial="hidden"
                 animate="visible"
@@ -129,5 +138,34 @@ describe("appear motion components", () => {
             expect(html).not.toMatch(/<li style="[^"]*animation/)
             parseInt(version) > 18 && expect(html).toContain(":root{--m:none}")
         }
+    })
+
+    const enter = (
+        <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={linear}
+        />
+    )
+
+    test("render as before without the config", () => {
+        expect(renderToString(enter)).toBe('<div style="opacity:0"></div>')
+    })
+
+    test("leave out CSS that the config's other options turn off", () => {
+        expect(render(enter, { skipAnimations: true })).not.toContain(
+            "animation:"
+        )
+        expect(render(enter, { reducedMotion: "always" })).not.toContain(
+            "animation:"
+        )
+
+        // The reader's own setting is known only to their browser
+        const html = render(enter, { reducedMotion: "user" })
+        expect(html).toContain("animation:")
+        parseInt(version) > 18 &&
+            expect(html).toContain(
+                "@media (prefers-reduced-motion:reduce){:root{--m:none}}"
+            )
     })
 })

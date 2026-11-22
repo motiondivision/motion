@@ -13,6 +13,7 @@ import {
     useRef,
 } from "react"
 import {
+    appearHandoff,
     isAnimationControls,
     isControllingVariants,
     resolveVariantFromProps,
@@ -23,15 +24,17 @@ import {
     appearOffName,
     appearOffRule,
     createAppearAnimation,
-    hasAnimationFeature,
     type AppearAnimation,
 } from "../../../animation/appear/css"
 import { MotionContext } from "../../../context/MotionContext"
 import { useLayoutId } from "../../../motion"
+import { followAppearAnimations } from "../../../animation/appear/follow"
 import { registerAppearElement } from "../../../animation/appear/handoff"
-import { MotionConfigContext } from "../../../context/MotionConfigContext"
+import {
+    MotionConfigContext,
+    type Appear,
+} from "../../../context/MotionConfigContext"
 import { PresenceContext } from "../../../context/PresenceContext"
-import { isSVGComponent } from "../../dom/utils/is-svg-component"
 import { useHTMLVisualState } from "../../html/use-html-visual-state"
 
 /**
@@ -60,6 +63,22 @@ function insertRules(rules: AppearAnimation["rules"]) {
 }
 
 const offRules = { [appearOffName]: appearOffRule }
+
+/**
+ * Someone who asks for less motion gets none of it as CSS. The animation
+ * code then starts the animations, without the ones they don't want.
+ */
+/**
+ * A browser without the properties and easing these animations are made
+ * of gets none of them, rather than the parts it knows.
+ */
+const supportRules = {
+    "m-supports": `@supports not ((translate:0) and (animation-timing-function:linear(0,1))){${appearOffRule}}`,
+}
+
+const reducedRules = {
+    "m-reduced": `@media (prefers-reduced-motion:reduce){${appearOffRule}}`,
+}
 
 /**
  * The timing a component gives the components below it that take its
@@ -100,16 +119,17 @@ const hoist = (rules: AppearAnimation["rules"]) =>
     )
 
 /**
- * Wrap a motion component that fetches its animation code, so its enter
- * animation runs as CSS until it arrives.
+ * Wrap a motion component so its enter animation runs as CSS. On a page
+ * rendered on a server, that starts it before Motion's code has loaded.
  *
  * If a component has an enter animation that CSS can't run, it would
  * start later than the rest. So it turns the CSS animations of the whole
- * page off, and they all start when the animation code arrives.
+ * page off, and they all start when the code has loaded.
  */
 function withAppear(Component: any, isSVG: boolean) {
     function AppearComponent(props: any, ref: React.Ref<unknown>) {
-        const { isStatic, transition } = useContext(MotionConfigContext)
+        const { isStatic, transition, reducedMotion, skipAnimations } =
+            useContext(MotionConfigContext)
         const presenceContext = useContext(PresenceContext)
         const parent = useContext(MotionContext)
         const layoutId = useLayoutId(props)
@@ -131,7 +151,6 @@ function withAppear(Component: any, isSVG: boolean) {
             let { animate, initial } = props
             let delay = 0
             let reason: string | undefined
-            let isInherited = false
 
             /**
              * A component that takes its parent's variants animates
@@ -160,7 +179,6 @@ function withAppear(Component: any, isSVG: boolean) {
                         (stagger === undefined
                             ? "a stagger that needs the number of children"
                             : undefined)
-                    isInherited = true
                 }
             }
 
@@ -195,7 +213,8 @@ function withAppear(Component: any, isSVG: boolean) {
 
             const isSkipped =
                 isStatic ||
-                hasAnimationFeature() ||
+                skipAnimations ||
+                reducedMotion === "always" ||
                 /**
                  * An element that takes over a layoutId has no enter
                  * animation.
@@ -220,7 +239,11 @@ function withAppear(Component: any, isSVG: boolean) {
 
             const made = ref_.current
             if (made && typeof made !== "string") {
-                made.inherited = isInherited
+                Object.assign(
+                    made.rules,
+                    supportRules,
+                    reducedMotion === "user" && reducedRules
+                )
 
                 /**
                  * Its parent's timing is one CSS can't follow, so its
@@ -241,11 +264,18 @@ function withAppear(Component: any, isSVG: boolean) {
                     stagger:
                         typeof delayChildren === "function"
                             ? (index) => {
-                                  const stagger = delayChildren(
-                                      index,
-                                      index + 1
-                                  )
-                                  return stagger === delayChildren(index, 1e6)
+                                  /**
+                                   * The same delay for two numbers of
+                                   * children is one that doesn't depend
+                                   * on the number. stagger() keeps what
+                                   * it works out for each number, so
+                                   * few are asked for.
+                                   */
+                                  const total =
+                                      2 ** Math.ceil(Math.log2(index + 2))
+                                  const stagger = delayChildren(index, total)
+                                  return stagger ===
+                                      delayChildren(index, total * 2)
                                       ? stagger
                                       : undefined
                               }
@@ -335,28 +365,16 @@ function withAppear(Component: any, isSVG: boolean) {
     return forwardRef(AppearComponent)
 }
 
-/**
- * Motion components whose enter animations start as CSS, from components
- * that get their animation code after they mount.
- */
-export function createAppearProxy<T extends object>(base: T): T {
-    const cache = new Map<string, any>()
-    const create = (Component: any, options?: any) =>
-        withAppear(
-            (base as any).create(Component, options),
-            options?.type ? options.type === "svg" : isSVGComponent(Component)
-        )
+const wrapped = new WeakMap<object, any>()
 
-    return new Proxy({} as T, {
-        get: (_, key: string) => {
-            if (key === "create") return create
-            if (!cache.has(key)) {
-                cache.set(
-                    key,
-                    withAppear((base as any)[key], isSVGComponent(key))
-                )
-            }
-            return cache.get(key)
-        },
-    })
+/**
+ * Pass to `MotionConfig` to run the enter animations of the motion
+ * components below it as CSS.
+ */
+export const appear: Appear = (Component, isSVG) => {
+    appearHandoff.current || followAppearAnimations()
+    wrapped.has(Component) ||
+        wrapped.set(Component, withAppear(Component, isSVG))
+
+    return wrapped.get(Component)
 }

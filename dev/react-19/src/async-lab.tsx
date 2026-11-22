@@ -1,39 +1,38 @@
 /**
- * A page to try `motion` from motion/react by hand: components that fetch
- * their animation, layout and drag code, with enter animations that run as
- * CSS until the animation code arrives.
+ * A page to try `motion` from motion/react by hand, under a MotionConfig
+ * with `appear`: enter animations run as CSS, so they start from the HTML
+ * the dev server renders, before the page's code has loaded.
  *
- * "Code delay" holds the feature files back in the dev server (see
- * vite.config.ts), so an enter animation can be interrupted before, as, or
- * after its code arrives. tests/react/async-lab.spec.ts drives the same
- * scenarios.
+ * "Code delay" holds the page's script back in the dev server, and
+ * "Layout and drag delay" the code Motion fetches (see vite.config.ts), so
+ * an enter animation can be interrupted before or after either arrives.
+ * tests/react/async-lab.spec.ts drives the same scenarios.
+ *
+ * The dev server renders `App`, and async-lab-main.tsx hydrates it.
  */
 import {
     AnimatePresence,
+    MotionConfig,
     motion,
     Reorder,
     stagger,
     useAnimate,
     useAnimationControls,
 } from "motion/react"
+import { appear } from "motion/react-appear"
 import { useEffect, useRef, useState } from "react"
-import ReactDOMClient from "react-dom/client"
+import type { PageProps } from "./page-props"
 
-const stored = (key: string, fallback: string) => {
-    try {
-        return localStorage.getItem(key) ?? fallback
-    } catch {
-        return fallback
-    }
+/**
+ * The page's settings are cookies, so the dev server renders the page
+ * they ask for.
+ */
+const read = (cookies: string, name: string, fallback: string) => {
+    const value = new RegExp(`(?:^|; )${name}=([^;]*)`).exec(cookies)?.[1]
+    return value === undefined ? fallback : decodeURIComponent(value)
 }
 
-const store = (key: string, value: string) => {
-    try {
-        localStorage.setItem(key, value)
-    } catch {}
-}
-
-const interruptAfter = parseInt(stored("lab-interrupt", "800"))
+let interruptAfter = 800
 
 const linear = { type: "tween", ease: "linear", duration: 3 } as const
 /**
@@ -202,8 +201,9 @@ function Layout() {
                 />
             </div>
             <Label>
-                layout + x enter (x runs as CSS, and the animation code takes it
-                over when the layout animation starts)
+                layout + x enter (x runs as CSS until the page hydrates. The
+                animation code then carries it on, as layout moves an element
+                with its transform)
             </Label>
             <div style={{ display: "flex", justifyContent: justify }}>
                 <motion.div
@@ -489,16 +489,11 @@ function Stagger() {
  * when the animation code arrives. Development builds log a warning.
  */
 function Invalid() {
-    const [isMoved, setMoved] = useState(false)
-    useInterrupt(() => setMoved((moved) => !moved))
-
-    const justify = isMoved ? "flex-end" : "flex-start"
-
     return (
         <>
             <Label>
-                A tween that CSS can run. It waits too, so it starts with the
-                others
+                A tween that CSS can run. It waits for the page's code too, so
+                it starts with the others
             </Label>
             <motion.div
                 id="invalid-tween"
@@ -577,20 +572,23 @@ const scenarios: { [name: string]: () => React.ReactNode } = {
  * The dev server marks the files Motion fetches itself with ?lazy.
  */
 const files = {
-    animation: /animation\/appear\/animations\.mjs\?lazy/,
     layout: /motion\/features\/layout\.mjs\?lazy/,
     drag: /motion\/features\/drag\.mjs\?lazy/,
 }
 
 /**
- * When each feature file arrived, from the browser's own record.
+ * When the page hydrated, and when each feature file arrived, from the
+ * browser's own record.
  */
 function Arrivals() {
     const [arrived, setArrived] = useState<{ [name: string]: number }>({})
 
     useEffect(() => {
+        const hydrated = Math.round(performance.now())
+        document.body.dataset.code = "ready"
+
         const read = () => {
-            const next: { [name: string]: number } = {}
+            const next: { [name: string]: number } = { hydrated }
             for (const entry of performance.getEntriesByType("resource")) {
                 for (const name in files) {
                     if (files[name as keyof typeof files].test(entry.name)) {
@@ -610,24 +608,27 @@ function Arrivals() {
 
     return (
         <span id="arrivals">
+            {arrived.hydrated
+                ? `Hydrated at ${arrived.hydrated} ms`
+                : "Server HTML, not hydrated"}
             {Object.keys(files)
                 .map((name) =>
                     arrived[name]
-                        ? `${name} at ${arrived[name]} ms`
-                        : `${name} not fetched`
+                        ? ` · ${name} code at ${arrived[name]} ms`
+                        : ` · ${name} code not fetched`
                 )
-                .join(" · ")}
+                .join("")}
         </span>
     )
 }
 
 function Select({
-    id,
+    name,
     label,
     value,
     options,
 }: {
-    id: string
+    name: string
     label: string
     value: string
     options: { [value: string]: string }
@@ -636,18 +637,12 @@ function Select({
         <label>
             {label}{" "}
             <select
-                id={id}
+                id={name}
                 value={value}
                 onChange={(event) => {
-                    store("lab-" + id, event.target.value)
-
-                    /**
-                     * The dev server reads the delay from a cookie.
-                     */
-                    if (id === "delay") {
-                        document.cookie = `motion-delay=${event.target.value};path=/`
-                    }
-
+                    document.cookie = `${name}=${encodeURIComponent(
+                        event.target.value
+                    )};path=/`
                     location.reload()
                 }}
             >
@@ -664,9 +659,15 @@ function Select({
 const times = (values: number[], none: string) =>
     Object.fromEntries(values.map((ms) => [String(ms), ms ? `${ms} ms` : none]))
 
-function App() {
-    const name = stored("lab-scenario", "Layout animation interrupts enter")
+export function App({ cookies }: PageProps) {
+    const name = read(
+        cookies,
+        "lab-scenario",
+        "Layout animation interrupts enter"
+    )
     const Scenario = scenarios[name] || Enter
+    const isAppear = read(cookies, "lab-appear", "on") === "on"
+    interruptAfter = parseInt(read(cookies, "lab-interrupt", "800"))
 
     return (
         <div
@@ -682,7 +683,7 @@ function App() {
         >
             <div style={{ ...row, flexWrap: "wrap", gap: 16 }}>
                 <Select
-                    id="scenario"
+                    name="lab-scenario"
                     label="Scenario"
                     value={name}
                     options={Object.fromEntries(
@@ -690,13 +691,25 @@ function App() {
                     )}
                 />
                 <Select
-                    id="delay"
+                    name="lab-appear"
+                    label="CSS appear"
+                    value={isAppear ? "on" : "off"}
+                    options={{ on: "on", off: "off" }}
+                />
+                <Select
+                    name="motion-hydrate"
                     label="Code delay"
-                    value={stored("lab-delay", "0")}
+                    value={read(cookies, "motion-hydrate", "1500")}
                     options={times([0, 500, 1500, 3000, 6000], "none")}
                 />
                 <Select
-                    id="interrupt"
+                    name="motion-delay"
+                    label="Layout and drag delay"
+                    value={read(cookies, "motion-delay", "0")}
+                    options={times([0, 500, 1500, 3000], "none")}
+                />
+                <Select
+                    name="lab-interrupt"
                     label="Interrupt after"
                     value={String(interruptAfter)}
                     options={times([0, 300, 800, 2000], "off")}
@@ -714,19 +727,20 @@ function App() {
                 </button>
             </div>
             <p style={{ opacity: 0.7 }}>
-                Each scenario has one interruption: a layout change, a new
-                target, an exit, a reorder. It runs once after the "Interrupt
-                after" time, and each time you press "Interrupt now". "Code
-                delay" holds back the animation, layout and drag code.
+                The server renders this page. "Code delay" holds its script
+                back, so with "CSS appear" on the enter animations run before
+                the page hydrates, and with it off they wait. Each scenario has
+                one interruption: a layout change, a new target, an exit, a
+                reorder. It runs once, "Interrupt after" the page hydrates, and
+                each time you press "Interrupt now". "Layout and drag delay"
+                holds back the code Motion fetches for those.
             </p>
             <p style={{ opacity: 0.7 }}>
                 <Arrivals />
             </p>
-            <Scenario />
+            <MotionConfig appear={isAppear ? appear : undefined}>
+                <Scenario />
+            </MotionConfig>
         </div>
     )
 }
-
-document.cookie = `motion-delay=${stored("lab-delay", "0")};path=/`
-
-ReactDOMClient.createRoot(document.getElementById("root")!).render(<App />)

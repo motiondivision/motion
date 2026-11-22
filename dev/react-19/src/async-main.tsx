@@ -4,7 +4,7 @@
  * `motion` component loads the layout and drag features for all of them.
  */
 import { AnimatePresence } from "framer-motion"
-import { motion as asyncMotion } from "framer-motion/appear"
+import { motion as asyncMotion } from "framer-motion/async"
 import * as React from "react"
 import { StrictMode, useState } from "react"
 import ReactDOMClient from "react-dom/client"
@@ -15,7 +15,7 @@ const params = new URLSearchParams(window.location.search)
 const testCase = params.get("case")
 
 const linear = (duration: number) =>
-    ({ type: "tween", ease: "linear", duration }) as const
+    ({ type: "tween", ease: "linear", duration } as const)
 
 const box = { height: 100, background: "red" }
 

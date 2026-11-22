@@ -4,7 +4,6 @@ import {
     appearHandoff,
     createGeneratorEasing,
     frame,
-    getValueTransition,
     mixNumber,
     spring,
     transformProps,
@@ -14,7 +13,7 @@ import {
 } from "motion-dom"
 import { clamp, easingDefinitionToFunction } from "motion-utils"
 import { animationOf, type AppearAnimation, type AppearTiming } from "./css"
-import { dropAppearAnimations } from "./handoff"
+import { animationsOn, dropAppearAnimations } from "./handoff"
 
 /**
  * A value that follows a CSS animation.
@@ -112,13 +111,10 @@ interface Playing {
  */
 function sample(unit: Unit, { key, name }: Playing, time: number) {
     const { appear, element } = unit
-    const held = appear.held?.[key]
     const from = appear.from[key]
     const target = appear.targets[key]
 
-    return held !== undefined
-        ? held
-        : typeof from === "number" && typeof target === "number"
+    return typeof from === "number" && typeof target === "number"
         ? mixNumber(
               from,
               target,
@@ -149,9 +145,9 @@ function setLive(unit: Unit, value: MotionValue<any>, playing: Playing) {
 }
 
 const animationsOf = ({ element, names }: Pick<Unit, "element" | "names">) =>
-    element
-        .getAnimations()
-        .filter((animation) => names.includes(nameOf(animation)))
+    animationsOn(element).filter((animation) =>
+        names.includes(nameOf(animation))
+    )
 
 /**
  * Take a unit's CSS animations off its element.
@@ -160,16 +156,6 @@ function remove(unit: Unit) {
     const { element, appear, names } = unit
     unit.isOver = true
     dropAppearAnimations(element, appear, names)
-
-    if (appear.transform.includes(names[0])) {
-        /**
-         * Styles a gesture set before the animation code arrived.
-         */
-        element.style.translate =
-            element.style.scale =
-            element.style.rotate =
-                ""
-    }
 }
 
 /**
@@ -195,8 +181,7 @@ function takeOver(unit: Unit, interrupted?: Follower) {
              * that's where the animation that carries it on plays
              * from.
              */
-            appear.held?.[key] === undefined &&
-                visualElement.getValue(key, appear.from[key])
+            visualElement.getValue(key, appear.from[key])
             visualElement.setStaticValue(
                 key,
                 sample(unit, { key, name }, time) as any
@@ -302,83 +287,6 @@ function getUnit(
 }
 
 /**
- * Once the animation code has started the animations a component's props
- * ask for, a value that CSS still animates is one the component no
- * longer wants at that animation's target: its props changed back before
- * the animation code arrived. It animates from what the element shows to
- * the value it has.
- */
-export function settleAppearAnimations(
-    visualElement: VisualElement,
-    isParent?: boolean
-) {
-    const appear = appearElements.get(visualElement.current as object) as
-        | AppearAnimation
-        | undefined
-
-    /**
-     * A component that takes its parent's variants is started by its
-     * parent, so it settles after its parent has.
-     */
-    visualElement.variantChildren?.forEach((child) =>
-        settleAppearAnimations(child, true)
-    )
-
-    if (!appear || (appear.inherited && !isParent)) return
-
-    for (const name in appear.timings) {
-        for (const key of appear.timings[name].keys) {
-            const unit = getUnit(visualElement, appear, name)
-
-            if (
-                !unit ||
-                unit.keys.has(key) ||
-                (unit.isOver && !unit.isTakenOver)
-            ) {
-                continue
-            }
-            unit.keys.add(key)
-
-            const value = visualElement.getValue(key, appear.from[key])!
-            const rest = value.get()
-
-            takeOver(unit)
-            setLive(unit, value, { key, name })
-            value.start(
-                animateMotionValue(
-                    key,
-                    value,
-                    rest,
-                    getValueTransition(
-                        visualElement.getProps().transition || {},
-                        key
-                    ),
-                    visualElement,
-                    false
-                )
-            )
-        }
-    }
-}
-
-/**
- * Values a gesture set before the animation code arrived are shown by
- * CSS animations that hold them. The animation code may have no reason
- * to animate them, so their animations are taken over as it arrives.
- */
-export function takeOverHeld(visualElement: VisualElement) {
-    const appear = appearElements.get(visualElement.current as object) as
-        | AppearAnimation
-        | undefined
-
-    for (const key in appear?.held) {
-        const name = animationOf(key, appear!) || appear!.transform[0]
-        const unit = name && getUnit(visualElement, appear!, name)
-        unit && takeOver(unit)
-    }
-}
-
-/**
  * Leave enter animations that are running as CSS to run. The browser
  * plays them off the main thread, so each value only follows its
  * animation: it reads as animating, gives its value when asked, and takes
@@ -452,14 +360,10 @@ export function followAppearAnimations() {
         const playing = { key, name }
 
         /**
-         * The value now has another target than the CSS animation, or
-         * a gesture has set it. Its animation starts from what the
-         * element shows.
+         * The value now has another target than the CSS animation. Its
+         * animation starts from what the element shows.
          */
-        if (
-            target !== appear.targets[key] ||
-            appear.held?.[key] !== undefined
-        ) {
+        if (target !== appear.targets[key]) {
             takeOver(unit)
             setLive(unit, value, playing)
             return

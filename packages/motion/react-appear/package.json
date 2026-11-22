@@ -1,0 +1,6 @@
+{
+    "private": true,
+    "types": "../dist/react-appear.d.ts",
+    "main": "../dist/cjs/react-appear.js",
+    "module": "../dist/es/react-appear.mjs"
+}

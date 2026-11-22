@@ -1,37 +1,43 @@
 import { expect, Page, test } from "@playwright/test"
 
 /**
- * Motion components from the appear entry start their enter animations as
- * CSS, and fetch their animation code. When it arrives it leaves the CSS
- * animations to run, and only takes a value over for another animation.
- * These hold the animation code back, so it arrives mid-animation.
+ * Under a MotionConfig with `appear`, motion components start their enter
+ * animations as CSS. The dev server renders the page, so they run before
+ * the page's code has loaded. When it has, it leaves the CSS animations
+ * to run, and only takes a value over for another animation. These hold
+ * the page's script back, so it hydrates mid-animation.
  */
 
-const animationFile = /animation\/appear\/animations\.mjs/
+const script = /appear-main\.tsx\?hydrate/
 
 async function open(page: Page, url = "appear.html") {
     let release!: VoidFunction
     const held = new Promise<void>((resolve) => (release = resolve))
 
-    await page.route(animationFile, async (route) => {
+    const errors: string[] = []
+    page.on("console", (message) => {
+        ;/hydrat/i.test(message.text()) && errors.push(message.text())
+    })
+    page.on("pageerror", (error) => errors.push(error.message))
+
+    await page.route(script, async (route) => {
         await held
         await route.continue()
     })
 
-    await page.goto(url)
+    await page.goto(url, { waitUntil: "commit" })
     await page.waitForSelector("#tween")
 
     return async () => {
-        const loaded = page.waitForResponse(animationFile)
         release()
-        await loaded
 
-        // The page marks the first animation the animation code starts
+        // The page marks when it has hydrated
         await page.waitForFunction(
             () => document.body.dataset.code === "ready",
             null,
-            { timeout: 3000 }
+            { timeout: 5000 }
         )
+        expect(errors).toEqual([])
     }
 }
 
@@ -62,7 +68,7 @@ const read = (page: Page, id: string) =>
     }, id)
 
 test.describe("CSS appear animations", () => {
-    test("run before the animation code has loaded", async ({ page }) => {
+    test("run before the page's code has loaded", async ({ page }) => {
         await open(page)
         await page.waitForTimeout(1000)
 
@@ -70,6 +76,11 @@ test.describe("CSS appear animations", () => {
         // transform style at none
         const tween = await read(page, "tween")
         expect(tween.css).toBe(3)
+
+        // A browser without the CSS these need gets none of them
+        expect(await page.content()).toContain(
+            "@supports not ((translate:0) and (animation-timing-function:linear(0,1))){:root{--m:none}}"
+        )
 
         // The elements carry no id attribute
         expect(await page.locator("[data-framer-appear-id]").count()).toBe(0)
@@ -89,9 +100,7 @@ test.describe("CSS appear animations", () => {
         expect(Math.abs((await read(page, "spring")).x)).toBeLessThan(5)
     })
 
-    test("keep running as CSS when the animation code arrives", async ({
-        page,
-    }) => {
+    test("keep running as CSS when the page hydrates", async ({ page }) => {
         const arrive = await open(page)
         await page.waitForTimeout(500)
 
@@ -156,9 +165,7 @@ test.describe("CSS appear animations", () => {
         expect((await read(page, "hover")).x).toBe(0)
     })
 
-    test("hold their targets when the animation code arrives late", async ({
-        page,
-    }) => {
+    test("hold their targets when the page hydrates late", async ({ page }) => {
         const arrive = await open(page)
         await page.waitForTimeout(4300)
 
@@ -185,68 +192,24 @@ test.describe("CSS appear animations", () => {
         expect(before.x).toBeGreaterThan(-350)
         expect(before.x).toBeLessThan(-150)
 
+        // Its target changes 300 ms after the page hydrates
         await arrive()
-        await page.waitForTimeout(100)
+        const hydrated = await read(page, "changing")
+        expect(hydrated.css).toBe(2)
+        expect(hydrated.x).toBeGreaterThan(before.x - 1)
+        await page.waitForTimeout(450)
 
         // The animation to the new target starts from there
         const after = await read(page, "changing")
         expect(after.css).toBe(0)
-        expect(after.x).toBeGreaterThan(before.x - 1)
-        expect(after.x).toBeLessThan(before.x + 80)
+        expect(after.x).toBeGreaterThan(hydrated.x - 1)
+        expect(after.x).toBeLessThan(hydrated.x + 80)
 
         await page.waitForTimeout(4500)
         expect((await read(page, "changing")).x).toBe(200)
     })
 
-    test("gestures change the element at once before the animation code", async ({
-        page,
-    }) => {
-        const arrive = await open(page)
-        await page.waitForTimeout(300)
-
-        const hover = async () => {
-            const box = (await page.locator("#hover").boundingBox())!
-            await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
-            await page.waitForTimeout(100)
-        }
-
-        const before = await read(page, "hover")
-        await hover()
-
-        // The gesture's value shows, and x carries on as CSS
-        const hovered = await read(page, "hover")
-        expect(hovered.scale).toBe(2)
-        expect(hovered.css).toBe(3)
-        expect(hovered.x).toBeGreaterThan(before.x)
-
-        // When the gesture ends the enter animation shows again
-        await page.mouse.move(0, 0)
-        await page.waitForTimeout(100)
-        const left = await read(page, "hover")
-        expect(left.scale).toBeGreaterThan(before.scale)
-        expect(left.scale).toBeLessThan(0.7)
-        expect(left.x).toBeGreaterThan(hovered.x)
-
-        // A gesture that is active when the animation code arrives
-        // stays, and x carries on from where it is
-        await hover()
-        const held = await read(page, "hover")
-        await arrive()
-        await page.waitForTimeout(100)
-        const after = await read(page, "hover")
-        expect(after.scale).toBe(2)
-        expect(after.x).toBeGreaterThan(held.x - 1)
-        expect(after.x).toBeLessThan(held.x + 80)
-
-        await page.mouse.move(0, 0)
-        await page.waitForTimeout(4500)
-        const end = await read(page, "hover")
-        expect(end.x).toBe(0)
-        expect(end.scale).toBe(1)
-        expect(end.css).toBe(0)
-    })
-
-    test("all wait for the animation code when CSS can't run one of them", async ({
+    test("all wait for the page's code when CSS can't run one of them", async ({
         page,
     }) => {
         const warnings: string[] = []
@@ -267,12 +230,11 @@ test.describe("CSS appear animations", () => {
         expect((await read(page, "colour")).red).toBe(255)
         expect((await read(page, "keyframes")).opacity).toBe(0)
 
+        // They all start together when it arrives
+        await arrive()
         expect(warnings.join()).toContain(
             "An enter animation of keyframes of opacity can't run as CSS"
         )
-
-        // They all start together when it arrives
-        await arrive()
         await page.waitForTimeout(1000)
         const tween = await read(page, "tween")
         const keyframes = await read(page, "keyframes")
@@ -289,5 +251,42 @@ test.describe("CSS appear animations", () => {
         expect(end.opacity).toBe(1)
         expect(end.x).toBe(0)
         expect((await read(page, "keyframes")).opacity).toBe(1)
+    })
+
+    test("are off for a reader who asks for less motion", async ({ page }) => {
+        await page.emulateMedia({ reducedMotion: "reduce" })
+        const arrive = await open(page, "appear.html?reduced")
+        await page.waitForTimeout(500)
+
+        // Nothing moves as CSS
+        const before = await read(page, "tween")
+        expect(before.css).toBe(0)
+        expect(before.x).toBe(-400)
+
+        // The animation code doesn't animate the transform
+        await arrive()
+        await page.waitForTimeout(300)
+        const after = await read(page, "tween")
+        expect(after.css).toBe(0)
+        expect(after.x).toBe(0)
+
+        await page.waitForTimeout(4500)
+        expect((await read(page, "tween")).opacity).toBe(1)
+    })
+
+    test("need the config", async ({ page }) => {
+        const arrive = await open(page, "appear.html?off")
+        await page.waitForTimeout(500)
+
+        const before = await read(page, "tween")
+        expect(before.css).toBe(0)
+        expect(before.inline).toBe("")
+        expect(before.x).toBe(-400)
+
+        await arrive()
+        await page.waitForTimeout(1000)
+        const after = await read(page, "tween")
+        expect(after.css).toBe(0)
+        expect(after.x).toBeGreaterThan(-350)
     })
 })

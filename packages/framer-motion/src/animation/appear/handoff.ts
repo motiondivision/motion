@@ -2,6 +2,13 @@ import { appearElements, appearHandoff } from "motion-dom"
 import { appearStyle, type AppearAnimation } from "./css"
 
 /**
+ * An element's animations. A browser too old to list them is also too
+ * old to run these, which the CSS itself checks.
+ */
+export const animationsOn = (element: HTMLElement): Animation[] =>
+    element.getAnimations ? element.getAnimations() : []
+
+/**
  * Tell the animation code that an element's enter animation is running
  * as CSS, and what it plays.
  */
@@ -18,7 +25,7 @@ export function registerAppearElement(
      */
     const starts = (appear.starts = {} as { [name: string]: number })
     const keepTime = () => {
-        for (const animation of element.getAnimations()) {
+        for (const animation of animationsOn(element)) {
             const name = (animation as CSSAnimation).animationName
             const { startTime } = animation
 
@@ -48,13 +55,11 @@ export function registerAppearElement(
             | undefined
 
         return appear
-            ? (element as HTMLElement)
-                  .getAnimations()
-                  .filter((animation) =>
-                      appear.transform.includes(
-                          (animation as CSSAnimation).animationName
-                      )
+            ? animationsOn(element as HTMLElement).filter((animation) =>
+                  appear.transform.includes(
+                      (animation as CSSAnimation).animationName
                   )
+              )
             : []
     }
 
@@ -110,13 +115,11 @@ export function dropAppearAnimations(
     appear: AppearAnimation,
     names: string[]
 ) {
-    element
-        .getAnimations()
-        .forEach(
-            (animation) =>
-                names.includes((animation as CSSAnimation).animationName) &&
-                animation.cancel()
-        )
+    animationsOn(element).forEach(
+        (animation) =>
+            names.includes((animation as CSSAnimation).animationName) &&
+            animation.cancel()
+    )
 
     appear.list = appear.list.filter(
         (animation) => !names.includes(animation.split(" ")[0])

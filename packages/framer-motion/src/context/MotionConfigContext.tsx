@@ -61,7 +61,21 @@ export interface MotionConfigContext {
      * @public
      */
     isValidProp?: IsValidProp
+
+    /**
+     * Runs enter animations as CSS, so they start before Motion's code has
+     * loaded. Pass `appear` from "motion/react-appear". It can't change
+     * once the components below have rendered.
+     *
+     * @public
+     */
+    appear?: Appear
 }
+
+/**
+ * Wraps a motion component in one that makes its enter animation as CSS.
+ */
+export type Appear = (Component: any, isSVG: boolean) => any
 
 /**
  * @public

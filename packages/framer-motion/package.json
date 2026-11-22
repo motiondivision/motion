@@ -47,11 +47,17 @@
             "import": "./dist/es/appear.mjs",
             "default": "./dist/cjs/appear.js"
         },
-        "./appear-client": {
-            "types": "./dist/appear-client.d.ts",
-            "require": "./dist/cjs/appear-client.js",
-            "import": "./dist/es/appear-client.mjs",
-            "default": "./dist/cjs/appear-client.js"
+        "./async": {
+            "types": "./dist/async.d.ts",
+            "require": "./dist/cjs/async.js",
+            "import": "./dist/es/async.mjs",
+            "default": "./dist/cjs/async.js"
+        },
+        "./async-client": {
+            "types": "./dist/async-client.d.ts",
+            "require": "./dist/cjs/async-client.js",
+            "import": "./dist/es/async-client.mjs",
+            "default": "./dist/cjs/async-client.js"
         },
         "./m": {
             "types": "./dist/m.d.ts",

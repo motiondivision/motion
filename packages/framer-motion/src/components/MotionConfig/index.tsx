@@ -57,6 +57,7 @@ export function MotionConfig({ children, ...config }: MotionConfigProps) {
             config.reducedMotion,
             config.skipAnimations,
             config.isValidProp,
+            config.appear,
         ]
     )
 

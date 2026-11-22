@@ -5,7 +5,6 @@ import {
     cubicBezierAsString,
     generateLinearEasing,
     getDefaultTransition,
-    getFeatureDefinitions,
     getStyleRender,
     getValueTransition,
     isAnimationControls,
@@ -23,8 +22,9 @@ import type { MotionProps } from "../../motion/types"
 
 /**
  * A component's enter animation as CSS. It starts as soon as the browser
- * has the element's styles, before any of Motion's animation code has
- * loaded. When that arrives it leaves the animation to run.
+ * has the element's styles, which for a page rendered on a server is
+ * before any of Motion's code has loaded. The animation code leaves the
+ * animation to run.
  */
 export interface AppearAnimation {
     /**
@@ -65,16 +65,6 @@ export interface AppearAnimation {
      */
     from: { [key: string]: any }
     to: { [key: string]: number }
-    /**
-     * Values a gesture set before the animation code arrived, which the
-     * element shows in place of its animation of them.
-     */
-    held?: { [key: string]: unknown }
-    /**
-     * The component takes its parent's variants, so its parent starts
-     * its animations.
-     */
-    inherited?: boolean
     /**
      * When each animation started, by its name, and whether they're off
      * the element while a layout animation measures it.
@@ -221,16 +211,9 @@ function cssTiming(transition: any, key: string, from: unknown, to: unknown) {
 }
 
 /**
- * Whether Motion's animation code is here, in which case it animates the
- * element itself.
- */
-export const hasAnimationFeature = () =>
-    !!getFeatureDefinitions().animation?.Feature
-
-/**
  * The `animation` style of a list of animations. A page with an enter
  * animation that CSS can't run sets --m to none, which turns every one
- * off, so they all start together when the animation code arrives.
+ * off, so they all start together when the page's code has loaded.
  */
 export const appearStyle = (list: string[]) =>
     list.length ? `var(--m,${list.join(",")})` : ""
@@ -243,8 +226,8 @@ export const appearOffRule = ":root{--m:none}"
 
 /**
  * Make a component's enter animation, if it has one that CSS can run in
- * full. Otherwise its animation starts when Motion's animation code has
- * loaded, as it does without this.
+ * full. Otherwise the animation code starts its animation, as it does
+ * without this.
  *
  * Returns the reason, if the component has an enter animation that CSS
  * can't run.

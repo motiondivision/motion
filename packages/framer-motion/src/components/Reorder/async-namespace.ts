@@ -1,6 +1,6 @@
 "use client"
 
-import { motion } from "../../render/components/motion-appear/async"
+import { motion } from "../../render/components/motion-async/proxy"
 import { createReorderGroup } from "./Group"
 
 /**

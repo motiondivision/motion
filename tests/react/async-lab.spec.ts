@@ -3,36 +3,56 @@ import { expect, Page, test } from "@playwright/test"
 /**
  * dev/react-19/async-lab.html is a page to watch, by eye, what happens
  * to enter animations that run as CSS when something interrupts them.
- * These run its scenarios with the animation code held back, so each
- * interruption comes before or after it arrives.
+ * The dev server renders it, so they start before the page's code has
+ * loaded. These run its scenarios with the page's script held back, so
+ * the page hydrates mid-animation, and each interruption comes after.
  */
 
-const animationFile = /animation\/appear\/animations\.mjs/
+const script = /async-lab-main\.tsx\?hydrate/
 
-async function open(page: Page, scenario: string, hold = true) {
+async function open(page: Page, scenario: string, appear = "on") {
     let release: VoidFunction = () => {}
+    const held = new Promise<void>((resolve) => (release = resolve))
 
-    if (hold) {
-        const held = new Promise<void>((resolve) => (release = resolve))
-        await page.route(animationFile, async (route) => {
-            await held
-            await route.continue()
-        })
-    }
+    const errors: string[] = []
+    page.on("console", (message) => {
+        ;/hydrat/i.test(message.text()) && errors.push(message.text())
+    })
+    page.on("pageerror", (error) => errors.push(error.message))
 
-    await page.addInitScript((scenario) => {
-        localStorage.setItem("lab-scenario", scenario)
-        localStorage.setItem("lab-delay", "0")
-        localStorage.setItem("lab-interrupt", "0")
-    }, scenario)
-    await page.goto("async-lab.html")
+    await page.route(script, async (route) => {
+        await held
+        await route.continue()
+    })
+
+    await page.context().addCookies(
+        Object.entries({
+            "lab-scenario": encodeURIComponent(scenario),
+            "lab-appear": appear,
+            "lab-interrupt": "0",
+            "motion-hydrate": "0",
+            "motion-delay": "0",
+        }).map(([name, value]) => ({
+            name,
+            value,
+            url: "http://localhost:9991",
+        }))
+    )
+    await page.goto("async-lab.html", { waitUntil: "commit" })
     await page.waitForSelector("#interrupt-now")
 
+    /**
+     * Let the page hydrate.
+     */
     return async () => {
-        const loaded = page.waitForResponse(animationFile)
         release()
-        await loaded
-        await page.waitForTimeout(200)
+        await page.waitForFunction(
+            () => document.body.dataset.code === "ready",
+            null,
+            { timeout: 5000 }
+        )
+        await page.waitForTimeout(100)
+        expect(errors).toEqual([])
     }
 }
 
@@ -60,6 +80,47 @@ const read = (page: Page, id: string) =>
     }, id)
 
 test.describe("async lab", () => {
+    test("enter animations run from the server's HTML", async ({ page }) => {
+        const arrive = await open(page, "Enter animations")
+        await page.waitForTimeout(500)
+
+        const before = (await read(page, "tween"))!
+        expect(before.css).toBe(3)
+        expect(before.opacity).toBeGreaterThan(0.1)
+
+        // The page's code leaves them to run
+        await arrive()
+        const after = (await read(page, "tween"))!
+        expect(after.css).toBe(3)
+        expect(after.other).toBe(0)
+        expect(after.opacity).toBeGreaterThan(before.opacity)
+
+        await page.waitForTimeout(3500)
+        const end = (await read(page, "tween"))!
+        expect(end.css + end.other).toBe(0)
+        expect(end.inline).toBe("")
+        expect(end.opacity).toBe(1)
+        expect(end.transform).toBe("none")
+    })
+
+    test("without the config they wait for the page's code", async ({
+        page,
+    }) => {
+        const arrive = await open(page, "Enter animations", "off")
+        await page.waitForTimeout(500)
+
+        const before = (await read(page, "tween"))!
+        expect(before.css).toBe(0)
+        expect(before.opacity).toBe(0)
+
+        await arrive()
+        await page.waitForTimeout(500)
+        const after = (await read(page, "tween"))!
+        expect(after.css).toBe(0)
+        expect(after.opacity).toBeGreaterThan(0.1)
+        expect(after.opacity).toBeLessThan(0.4)
+    })
+
     test("a layout animation runs beside a CSS enter animation", async ({
         page,
     }) => {
@@ -70,7 +131,7 @@ test.describe("async lab", () => {
         expect(before.css).toBe(1)
         expect(before.x).toBe(24)
 
-        // The layout code is there, the animation code isn't
+        await arrive()
         await interrupt(page)
         await page.waitForTimeout(500)
 
@@ -84,12 +145,6 @@ test.describe("async lab", () => {
         const child = (await read(page, "layout-child"))!
         expect(child.css).toBe(3)
 
-        await arrive()
-        const after = (await read(page, "layout-opacity"))!
-        expect(after.css).toBe(1)
-        expect(after.opacity).toBeGreaterThan(during.opacity)
-        expect(after.x).toBeGreaterThan(during.x)
-
         await page.waitForTimeout(3500)
         const end = (await read(page, "layout-opacity"))!
         expect(end.css + end.other).toBe(0)
@@ -102,6 +157,38 @@ test.describe("async lab", () => {
         expect(childEnd.width).toBe(60)
     })
 
+    test("the animation code takes a CSS transform over for a layout animation", async ({
+        page,
+    }) => {
+        const arrive = await open(page, "Layout animation interrupts enter")
+        await page.waitForTimeout(500)
+
+        // x is a CSS animation: translate, and a hold of transform
+        const before = (await read(page, "layout-x"))!
+        expect(before.css).toBe(3)
+        expect(before.x).toBeGreaterThan(-170)
+        expect(before.x).toBeLessThan(-100)
+
+        await arrive()
+        await interrupt(page)
+        await page.waitForTimeout(100)
+
+        // Layout moves an element with its transform, so the animation
+        // code carries x on from where it was. Opacity stays as CSS.
+        const during = (await read(page, "layout-x"))!
+        expect(during.css).toBe(1)
+        expect(during.x).toBeGreaterThan(before.x)
+        expect(during.x).toBeLessThan(before.x + 200)
+        expect(during.opacity).toBeGreaterThan(before.opacity)
+
+        await page.waitForTimeout(3500)
+        const end = (await read(page, "layout-x"))!
+        expect(end.css + end.other).toBe(0)
+        expect(end.inline).toBe("")
+        expect(end.opacity).toBe(1)
+        expect(end.x).toBeGreaterThan(700)
+    })
+
     test("an element that takes over a layoutId has no enter animation", async ({
         page,
     }) => {
@@ -109,6 +196,7 @@ test.describe("async lab", () => {
         await page.waitForTimeout(500)
         expect((await read(page, "layout-shared"))!.css).toBe(1)
 
+        await arrive()
         await interrupt(page)
         await page.waitForTimeout(300)
 
@@ -117,7 +205,6 @@ test.describe("async lab", () => {
         expect(shared.css).toBe(0)
         expect(shared.x).toBeLessThan(400)
 
-        await arrive()
         await page.waitForTimeout(3500)
         const end = (await read(page, "layout-shared"))!
         expect(end.css + end.other).toBe(0)
@@ -125,26 +212,21 @@ test.describe("async lab", () => {
         expect(end.x).toBeGreaterThan(700)
     })
 
-    test("an exit before the animation code waits for it", async ({ page }) => {
+    test("an exit starts from what the element shows", async ({ page }) => {
         const arrive = await open(page, "Exit during enter")
         await page.waitForTimeout(500)
+        await arrive()
+
         const before = (await read(page, "exit"))!
+        expect(before.css).toBe(3)
 
         await interrupt(page)
-        await page.waitForTimeout(500)
-
-        // The element stays, and its enter animation carries on
-        const waiting = (await read(page, "exit"))!
-        expect(waiting.css).toBe(3)
-        expect(waiting.opacity).toBeGreaterThan(before.opacity)
-
-        // The exit starts from what the element shows
-        await arrive()
+        await page.waitForTimeout(50)
         const exiting = (await read(page, "exit"))!
         expect(exiting.css).toBe(0)
-        expect(exiting.opacity).toBeGreaterThan(waiting.opacity - 0.15)
-        expect(exiting.opacity).toBeLessThan(waiting.opacity + 0.1)
-        expect(exiting.x).toBeGreaterThan(waiting.x - 1)
+        expect(exiting.opacity).toBeGreaterThan(before.opacity - 0.15)
+        expect(exiting.opacity).toBeLessThan(before.opacity + 0.1)
+        expect(exiting.x).toBeGreaterThan(before.x - 1)
 
         await page.waitForTimeout(500)
         const later = (await read(page, "exit"))!
@@ -155,11 +237,39 @@ test.describe("async lab", () => {
         expect(await read(page, "exit")).toBe(undefined)
     })
 
+    test("an element that mounts after the page hydrates enters as CSS", async ({
+        page,
+    }) => {
+        const arrive = await open(page, "Exit during enter")
+        await arrive()
+
+        // Out, and when that has finished, in again
+        await interrupt(page)
+        await page.waitForTimeout(3300)
+        expect(await read(page, "exit")).toBe(undefined)
+        await interrupt(page)
+        await page.waitForTimeout(500)
+
+        const entering = (await read(page, "exit"))!
+        expect(entering.css).toBe(3)
+        expect(entering.other).toBe(0)
+        expect(entering.opacity).toBeGreaterThan(0.05)
+        expect(entering.opacity).toBeLessThan(0.4)
+
+        await page.waitForTimeout(3000)
+        const end = (await read(page, "exit"))!
+        expect(end.css + end.other).toBe(0)
+        expect(end.inline).toBe("")
+        expect(end.opacity).toBe(1)
+        expect(end.transform).toBe("none")
+    })
+
     test("a reordered element keeps its place in its enter animation", async ({
         page,
     }) => {
         const arrive = await open(page, "Reorder")
-        await page.waitForTimeout(1000)
+        await page.waitForTimeout(700)
+        await arrive()
         const before = (await read(page, "reorder-One"))!
         expect(before.css).toBe(1)
 
@@ -169,35 +279,15 @@ test.describe("async lab", () => {
         const moved = (await read(page, "reorder-One"))!
         expect(moved.css).toBe(1)
         expect(moved.opacity).toBeGreaterThan(before.opacity + 0.05)
+        expect(moved.opacity).toBeLessThan(before.opacity + 0.25)
 
-        await arrive()
-        expect((await read(page, "reorder-One"))!.opacity).toBeGreaterThan(
-            moved.opacity
-        )
-
-        await page.waitForTimeout(2500)
+        await page.waitForTimeout(2800)
         for (const item of ["One", "Two", "Three", "Four"]) {
             const end = (await read(page, "reorder-" + item))!
             expect(end.css + end.other).toBe(0)
             expect(end.inline).toBe("")
             expect(end.opacity).toBe(1)
         }
-    })
-
-    test("a target that changes back before the animation code is honoured", async ({
-        page,
-    }) => {
-        const arrive = await open(page, "Staggered variants")
-        await page.waitForTimeout(300)
-
-        // Shown, then hidden again
-        await interrupt(page)
-        await arrive()
-        await page.waitForTimeout(1500)
-
-        const end = (await read(page, "stagger"))!
-        expect(end.css + end.other).toBe(0)
-        expect(end.opacity).toBe(0)
     })
 
     test("children that take a parent's variants stagger as CSS", async ({
@@ -219,12 +309,10 @@ test.describe("async lab", () => {
         expect(second.opacity).toBeGreaterThan(0)
         expect(last.opacity).toBe(0)
 
-        // The animation code leaves them to run
+        // The page's code leaves them to run
         await arrive()
         for (const index of [0, 1, 2, 3]) {
-            const child = (await read(page, "stagger-" + index))!
-            expect(child.css).toBeGreaterThan(0)
-            expect(child.other).toBe(0)
+            expect((await read(page, "stagger-" + index))!.other).toBe(0)
         }
 
         await page.waitForTimeout(2500)
@@ -241,57 +329,19 @@ test.describe("async lab", () => {
         ).toEqual([])
     })
 
-    test("the animation code takes a CSS transform over for a layout animation", async ({
-        page,
-    }) => {
-        const arrive = await open(page, "Layout animation interrupts enter")
-        await page.waitForTimeout(500)
-
-        // x is a CSS animation: translate, and a hold of transform
-        const before = (await read(page, "layout-x"))!
-        expect(before.css).toBe(3)
-        expect(before.x).toBeGreaterThan(-170)
-        expect(before.x).toBeLessThan(-100)
-
-        // Layout moves an element with its transform, so the animation
-        // code carries x on from where it was. Opacity stays as CSS.
-        await arrive()
-        const taken = (await read(page, "layout-x"))!
-        expect(taken.css).toBe(1)
-        expect(taken.x).toBeGreaterThan(before.x)
-        expect(taken.x).toBeLessThan(before.x + 60)
-
-        await interrupt(page)
-        await page.waitForTimeout(100)
-
-        // On its way to the new place, from where it was
-        const during = (await read(page, "layout-x"))!
-        expect(during.css).toBe(1)
-        expect(during.x).toBeGreaterThan(taken.x)
-        expect(during.x).toBeLessThan(taken.x + 150)
-        expect(during.opacity).toBeGreaterThan(before.opacity)
-
-        await page.waitForTimeout(3500)
-        const end = (await read(page, "layout-x"))!
-        expect(end.css + end.other).toBe(0)
-        expect(end.inline).toBe("")
-        expect(end.opacity).toBe(1)
-        expect(end.x).toBeGreaterThan(700)
-    })
-
     test("a new target starts from what the element shows", async ({
         page,
     }) => {
         const arrive = await open(page, "Target changes during enter")
         await page.waitForTimeout(500)
-        await interrupt(page)
-        await page.waitForTimeout(500)
+        await arrive()
 
-        // CSS still plays the animation it mounted with
+        // CSS plays the animation it mounted with
         const before = (await read(page, "target-variants"))!
         expect(before.css).toBe(3)
 
-        await arrive()
+        await interrupt(page)
+        await page.waitForTimeout(50)
         const after = (await read(page, "target-variants"))!
         expect(after.css).toBe(0)
         expect(after.x).toBeGreaterThan(before.x - 1)
@@ -305,18 +355,7 @@ test.describe("async lab", () => {
         expect((await read(page, "target-spring"))!.css).toBe(0)
     })
 
-    test("animation controls started at mount don't wait for the animation code", async ({
-        page,
-    }) => {
-        await open(page, "Controls and useAnimate")
-        await page.waitForTimeout(1000)
-
-        const controls = (await read(page, "controls"))!
-        expect(controls.opacity).toBeGreaterThan(0.2)
-        expect(controls.x).toBeGreaterThan(-250)
-    })
-
-    test("gestures and a drag work during and after an enter animation", async ({
+    test("gestures and a drag work during an enter animation", async ({
         page,
     }) => {
         const arrive = await open(page, "Gestures during enter")

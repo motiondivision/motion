@@ -163,7 +163,11 @@ export function animateTarget(
         if (isBrowser && window.MotionHandoffAnimation) {
             const appearId = getOptimisedAppearId(visualElement)
 
-            if (appearId) {
+            /**
+             * An element whose enter animation ran as CSS is its own id,
+             * and has no animation to hand off here.
+             */
+            if (typeof appearId === "string") {
                 const startTime = window.MotionHandoffAnimation(
                     appearId,
                     key,

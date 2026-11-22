@@ -189,22 +189,4 @@ describe("followAppearAnimations", () => {
         expect(follow("opacity")).toBeTruthy()
         expect(values.opacity.get()).toBeCloseTo(0.5)
     })
-
-    test("a value a gesture holds is taken over as the gesture set it", () => {
-        const { values, follow, appear } = setup(
-            { x: -200, scale: 0.5 },
-            { x: 0, scale: 1 },
-            1000
-        )
-        appear.held = { scale: 2 }
-        values.scale = motionValue(2)
-
-        expect(follow("scale", 2)).toBe(undefined)
-        expect(values.scale.getCurrent()).toBe(2)
-        expect(values.scale.getVelocity()).toBe(0)
-
-        // The rest of its transform carries on in the animation code
-        expect(follow("x")).toBeTruthy()
-        expect(values.x.isAnimating()).toBe(true)
-    })
 })

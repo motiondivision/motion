@@ -9,17 +9,16 @@
 // `motion` and `m` come from the explicit bindings below and the rest from
 // `export *`.
 import * as fm from "framer-motion"
-import * as appear from "framer-motion/appear"
+import * as asyncMotion from "framer-motion/async"
 
 /**
- * `motion` components have gestures from the start and fetch their
- * animation, layout and drag code. Enter animations run as CSS until the
- * animation code arrives.
+ * `motion` components have animations and gestures from the start, and
+ * fetch their layout and drag code the first time a component needs it.
  */
-export const motion: typeof fm.motion = appear.motion
-export const Reorder: typeof fm.Reorder = appear.Reorder as any
-export const preloadFeatures: typeof appear.preloadFeatures =
-    appear.preloadFeatures
+export const motion: typeof fm.motion = asyncMotion.motion
+export const Reorder: typeof fm.Reorder = asyncMotion.Reorder as any
+export const preloadFeatures: typeof asyncMotion.preloadFeatures =
+    asyncMotion.preloadFeatures
 export const m: typeof fm.m = fm.m
 
 export * from "framer-motion"

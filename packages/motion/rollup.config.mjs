@@ -38,7 +38,8 @@ const external = [
     "framer-motion",
     "framer-motion/dom",
     "framer-motion/appear",
-    "framer-motion/appear-client",
+    "framer-motion/async",
+    "framer-motion/async-client",
     "framer-motion/dom/core",
     "framer-motion/dom/mini",
     "framer-motion/client",
@@ -131,6 +132,7 @@ const cjsDebug = Object.assign({}, cjs, { input : "lib/debug.js" })
 const cjsReactMini = Object.assign({}, cjs, { input : "lib/react-mini.js" })
 const cjsClient = Object.assign({}, cjs, { input : "lib/react-client.js" })
 const cjsM = Object.assign({}, cjs, { input : "lib/react-m.js" })
+const cjsAppear = Object.assign({}, cjs, { input : "lib/react-appear.js" })
 const cjsDomCore = Object.assign({}, cjs, { input : "lib/core.js" })
 const cjsThree = Object.assign({}, cjs, { input : "lib/three.js" })
 const cjsVgpu = Object.assign({}, cjs, { input : "lib/vgpu.js" })
@@ -145,6 +147,7 @@ export const es = Object.assign({}, config, {
         "lib/react-mini.js",
         "lib/react-client.js",
         "lib/react-m.js",
+        "lib/react-appear.js",
         "lib/core.js",
         "lib/debug.js",
         "lib/three.js",
@@ -221,6 +224,15 @@ const mTypes = {
     plugins: typePlugins,
 }
 
+const appearTypes = {
+    input: "types/react-appear.d.ts",
+    output: {
+        format: "es",
+        file: "dist/react-appear.d.ts",
+    },
+    plugins: typePlugins,
+}
+
 const coreTypes = {
     input: "types/core.d.ts",
     output: {
@@ -286,6 +298,7 @@ export default [
     cjsMini,
     cjsReactMini,
     cjsM,
+    cjsAppear,
     cjsDomCore,
     cjsThree,
     cjsVgpu,
@@ -298,6 +311,7 @@ export default [
     reactMiniTypes,
     coreTypes,
     mTypes,
+    appearTypes,
     miniTypes,
     clientTypes,
     threeTypes,

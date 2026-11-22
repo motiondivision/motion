@@ -20,10 +20,7 @@ import { CreateVisualElement } from "../render/types"
 import { useConstant } from "../utils/use-constant"
 import { getInitializedFeatureDefinitions } from "./features/definitions"
 import { loadFeatures } from "./features/load-features"
-import {
-    FeatureBundle,
-    FeaturePackages,
-} from "./features/types"
+import { FeatureBundle, FeaturePackages } from "./features/types"
 import { MotionProps } from "./types"
 import { motionComponentSymbol } from "./utils/symbol"
 import { useMotionRef } from "./utils/use-motion-ref"
@@ -65,6 +62,15 @@ export interface MotionComponentOptions {
 }
 
 /**
+ * Makes the function a motion component renders with from the one it
+ * would have.
+ */
+export type WrapMotionComponent = (
+    render: (props: any, ref?: any) => React.ReactNode,
+    isSVG: boolean
+) => (props: any, ref?: any) => React.ReactNode
+
+/**
  * Create a `motion` component.
  *
  * This function accepts a Component argument, which can be either a string (ie "div"
@@ -81,7 +87,8 @@ export function createMotionComponent<
     { forwardMotionProps = false, type }: MotionComponentOptions = {},
     preloadedFeatures?: FeaturePackages,
     createVisualElement?: CreateVisualElement<Props, TagName>,
-    useFeatures?: (props: MotionProps, context: MotionContextProps) => void
+    useFeatures?: (props: MotionProps, context: MotionContextProps) => void,
+    wrap?: WrapMotionComponent
 ) {
     preloadedFeatures && loadFeatures(preloadedFeatures)
 
@@ -215,7 +222,9 @@ export function createMotionComponent<
             : `create(${Component.displayName ?? Component.name ?? ""})`
     }`
 
-    const ForwardRefMotionComponent = forwardRef(MotionDOMComponent as any)
+    const ForwardRefMotionComponent = forwardRef(
+        wrap ? wrap(MotionDOMComponent, isSVG) : (MotionDOMComponent as any)
+    )
     ;(ForwardRefMotionComponent as any)[motionComponentSymbol] = Component
 
     return ForwardRefMotionComponent as MotionComponent<TagName, Props>

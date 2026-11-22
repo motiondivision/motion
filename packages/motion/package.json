@@ -53,6 +53,12 @@
             "import": "./dist/es/react-client.mjs",
             "default": "./dist/cjs/react-client.js"
         },
+        "./react-appear": {
+            "types": "./dist/react-appear.d.ts",
+            "require": "./dist/cjs/react-appear.js",
+            "import": "./dist/es/react-appear.mjs",
+            "default": "./dist/cjs/react-appear.js"
+        },
         "./core": {
             "types": "./dist/core.d.ts",
             "require": "./dist/cjs/core.js",
