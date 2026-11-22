@@ -235,6 +235,7 @@ export function createProjectionNode<I>({
                 layoutCrossfade,
             } = props
 
+            const prevProjection = visualElement.projection
             const projection = (visualElement.projection = new this(
                 visualElement.latestValues,
                 props["data-framer-portal-id"]
@@ -262,6 +263,13 @@ export function createProjectionNode<I>({
                 layoutRoot,
                 layoutAnchor,
             })
+
+            if (prevProjection?.isMeasureOnly) {
+                prevProjection.upgrade?.(projection)
+            }
+            if (visualElement.current && !projection.instance) {
+                projection.mount(visualElement.current)
+            }
 
             /**
              * This node will take over from its layoutId's current lead, so snapshot

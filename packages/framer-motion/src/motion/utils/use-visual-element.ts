@@ -91,7 +91,7 @@ export function useVisualElement<
 
     if (
         visualElement &&
-        !visualElement.projection &&
+        (!visualElement.projection || visualElement.projection.isMeasureOnly) &&
         ProjectionNodeConstructor &&
         (visualElement.type === "html" || visualElement.type === "svg")
     ) {
