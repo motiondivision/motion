@@ -105,13 +105,17 @@ import {
 const animationTarget = 1000
 
 /**
- * The most compositor layers Motion makes at once before projecting nodes
- * stop getting one. The count is the projecting nodes, which each get a
- * layer through will-change: transform while they project, plus the
- * elements with a WAAPI animation (see compositorLayers). A layer is painted once and
- * then only moved, where a node without one repaints every frame. Each
- * layer also costs the main thread and the GPU a little, so past this
- * every node moves without one.
+ * The most compositor layers Motion makes at once. A node that starts to
+ * move in a layout animation gets a layer through will-change: transform
+ * while the layers there already are, the elements with a WAAPI animation
+ * (see compositorLayers) and the nodes that start with it fit this budget.
+ * A layer is painted once and then only moved, where a node without one
+ * repaints every frame. Each layer also costs the main thread and the GPU a
+ * little, so past this the nodes that start move without one.
+ *
+ * A node keeps what it starts with until it stops, as adding or removing
+ * layers mid-animation costs a frame. A node whose animation stays far
+ * outside the viewport never gets a layer, and doesn't use the budget.
  *
  * It's will-change rather than translate3d as Chrome paints a translate3d
  * layer again whenever its sub-pixel offset changes, and every node rather
@@ -120,14 +124,52 @@ const animationTarget = 1000
 const layerBudget = 400
 
 let layers = 0
-let prevLayers = 0
+const starting: IProjectionNode[] = []
+
 /**
- * A layoutRoot always projects, so only count nodes with a target, for the
- * count to return to zero between animations.
+ * A layoutRoot always projects, so a node moves while it has a target.
  */
 const countLayer = (node: IProjectionNode) => {
-    ;(node.relativeTarget || node.targetDelta) && node.layout && layers++
+    if (!((node.relativeTarget || node.targetDelta) && node.layout)) {
+        node.hasLayer = undefined
+    } else if (node.hasLayer) {
+        layers++
+    } else if (node.hasLayer === undefined) {
+        starting.push(node)
+    }
 }
+
+/**
+ * Whether the boxes a node moves between, its target as it starts and its
+ * layout, come within a viewport of the viewport. Boxes inside a scrolling
+ * or fixed ancestor aren't relative to the page, so those nodes count as
+ * in view.
+ */
+const isAxisInView = (from: Axis, to: Axis, scroll: number, size: number) =>
+    Math.max(from.max, to.max) > scroll - size &&
+    Math.min(from.min, to.min) < scroll + size * 2
+
+const isInView = (
+    { target, layout, path }: IProjectionNode,
+    root: IProjectionNode
+) =>
+    !target ||
+    path.some(
+        (node) =>
+            node !== root && (node.scroll?.wasRoot || node.options.layoutScroll)
+    ) ||
+    (isAxisInView(
+        target.x,
+        layout!.layoutBox.x,
+        root.scroll?.offset.x || 0,
+        window.innerWidth
+    ) &&
+        isAxisInView(
+            target.y,
+            layout!.layoutBox.y,
+            root.scroll?.offset.y || 0,
+            window.innerHeight
+        ))
 
 let id = 0
 
@@ -997,7 +1039,7 @@ export function createProjectionNode<I>({
 
         projectionUpdateScheduled = false
 
-        declare overLayerBudget?: boolean
+        declare hasLayer?: boolean
         scheduleUpdateProjection() {
             if (!this.projectionUpdateScheduled) {
                 this.projectionUpdateScheduled = true
@@ -1041,18 +1083,19 @@ export function createProjectionNode<I>({
             this.nodes!.forEach(cleanDirtyNodes)
 
             /**
-             * Decide when the first node starts to project. Adding or
-             * removing every layer mid-animation costs a frame, so after
-             * that nodes never gain layers, and only lose them past twice
-             * the budget.
+             * Give the nodes that start to move a layer each, if they fit
+             * the layer budget.
              */
-            layers = 0
+            layers = compositorLayers
             this.nodes!.forEach(countLayer)
-            this.overLayerBudget =
-                (prevLayers && this.overLayerBudget) ||
-                layers + compositorLayers >
-                    layerBudget * (prevLayers ? 2 : 1)
-            prevLayers = layers
+            if (starting.length) {
+                const inView = starting.filter(
+                    (node) => (node.hasLayer = isInView(node, this))
+                )
+                layers + inView.length > layerBudget &&
+                    inView.forEach((node) => (node.hasLayer = false))
+                starting.length = 0
+            }
 
             /**
              * Record this frame's debug counts, if recordStats() is running.
@@ -2501,14 +2544,25 @@ export function createProjectionNode<I>({
 
             /**
              * Give this element a layer while it has a projection
-             * transform (see layerBudget), and take it away after. An
-             * element with a will-change of its own keeps that.
+             * transform (see layerBudget), and take it away after. A
+             * will-change of the element's own gains transform, unless
+             * it has it, and is put back after.
              */
-            const setLayer = (isLayer?: boolean) =>
-                (isLayer || written.willChange) &&
-                !styleProp?.willChange &&
-                !this.latestValues.willChange &&
-                write("willChange", isLayer ? "transform" : "")
+            const setLayer = (isLayer?: boolean) => {
+                const own =
+                    resolveMotionValue(styleProp?.willChange) ||
+                    this.latestValues.willChange ||
+                    ""
+                ;(isLayer || written.willChange !== undefined) &&
+                    !`${own}`.includes("transform") &&
+                    write(
+                        "willChange",
+                        isLayer
+                            ? (own && own !== "auto" ? own + ", " : "") +
+                                  "transform"
+                            : own
+                    )
+            }
 
             if (this.needsReset) {
                 this.needsReset = false
@@ -2575,7 +2629,7 @@ export function createProjectionNode<I>({
                 valuesToRender
             )
 
-            setLayer(transform !== "none" && !this.root.overLayerBudget)
+            setLayer(transform !== "none" && this.hasLayer)
 
             if (transformTemplate) {
                 transform = transformTemplate(valuesToRender, transform)

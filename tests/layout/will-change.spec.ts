@@ -32,7 +32,7 @@ test.describe("layout animation layers", () => {
     test("past the layer budget, no element gets will-change", async ({
         page,
     }) => {
-        await page.goto("layout/will-change.html?count=201")
+        await page.goto("layout/will-change.html?count=201&small")
         await page.evaluate(() => {
             ;(window as any).run()
         })
@@ -43,6 +43,32 @@ test.describe("layout animation layers", () => {
         for (const [willChange, transform] of during) {
             expect(willChange).toBe("")
             expect(transform).toContain("translate(")
+        }
+    })
+
+    test("elements far outside the viewport get no will-change", async ({
+        page,
+    }) => {
+        await page.goto("layout/will-change.html?top=5000")
+        await page.evaluate(() => {
+            ;(window as any).run()
+        })
+        await page.waitForTimeout(200)
+        const offscreen = await page.evaluate(read)
+        expect(offscreen).toHaveLength(6)
+        for (const [willChange, transform] of offscreen) {
+            expect(willChange).toBe("")
+            expect(transform).toContain("translate(")
+        }
+
+        await page.waitForTimeout(600)
+        await page.evaluate(() => {
+            window.scrollTo(0, 5000)
+            ;(window as any).run()
+        })
+        await page.waitForTimeout(200)
+        for (const [willChange] of await page.evaluate(read)) {
+            expect(willChange).toBe("transform")
         }
     })
 

@@ -12,16 +12,16 @@ import { motion } from "../../render/components/motion"
  * JSDOM has no layout, so getBoundingClientRect is mocked from a data
  * attribute.
  */
-function box(left: number, width: number) {
+function box(left: number, width: number, top = 0) {
     return {
         x: left,
-        y: 0,
-        top: 0,
+        y: top,
+        top,
         left,
         width,
         height: 100,
         right: left + width,
-        bottom: 100,
+        bottom: top + 100,
         toJSON() {},
     } as DOMRect
 }
@@ -36,7 +36,9 @@ function Cards({
     willChange,
     name = "",
     duration = 1,
+    top = 0,
 }: {
+    top?: number
     count: number
     willChange?: string
     name?: string
@@ -57,6 +59,7 @@ function Cards({
                     layoutDependency={moved}
                     transition={transition}
                     data-moved={moved}
+                    data-top={top}
                     style={{ willChange }}
                 >
                     <motion.div
@@ -65,6 +68,7 @@ function Cards({
                         layoutDependency={moved}
                         transition={transition}
                         data-moved={moved}
+                        data-top={top}
                         data-scale={moved}
                     />
                 </motion.div>
@@ -81,12 +85,15 @@ describe("layer budget", () => {
             HTMLElement.prototype,
             "getBoundingClientRect"
         ).mockImplementation(function (this: HTMLElement) {
+            const top = Number(this.dataset.top)
             if (this.dataset.scale !== undefined) {
                 return this.dataset.moved === "true"
-                    ? box(260, 50)
-                    : box(10, 20)
+                    ? box(260, 50, top)
+                    : box(10, 20, top)
             }
-            return this.dataset.moved === "true" ? box(200, 200) : box(0, 100)
+            return this.dataset.moved === "true"
+                ? box(200, 200, top)
+                : box(0, 100, top)
         })
     })
 
@@ -169,7 +176,7 @@ describe("layer budget", () => {
         expect(new Set(willChanges("long"))).toEqual(new Set([""]))
     })
 
-    test("nodes with will-change keep it when a few more take the count past the budget", async () => {
+    test("nodes with will-change keep it when more start, and those past the budget get none", async () => {
         render(
             <>
                 <Cards count={199} name="first" />
@@ -184,25 +191,25 @@ describe("layer budget", () => {
         await act(async () => toggles.second())
         await frames(10)
         expect(new Set(willChanges("first"))).toEqual(new Set(["transform"]))
-        expect(new Set(willChanges("second"))).toEqual(new Set(["transform"]))
+        expect(new Set(willChanges("second"))).toEqual(new Set([""]))
     })
 
-    test("nodes with will-change lose it when the count passes twice the budget", async () => {
+    test("a small layout animation that starts while one past the budget still runs gets will-change", async () => {
         render(
             <>
-                <Cards count={3} name="first" />
-                <Cards count={400} name="second" />
+                <Cards count={201} name="first" duration={2} />
+                <Cards count={3} name="second" />
             </>
         )
         await frames(2)
         await act(async () => toggles.first())
         await frames(10)
-        expect(new Set(willChanges("first"))).toEqual(new Set(["transform"]))
+        expect(new Set(willChanges("first"))).toEqual(new Set([""]))
 
         await act(async () => toggles.second())
         await frames(10)
         expect(new Set(willChanges("first"))).toEqual(new Set([""]))
-        expect(new Set(willChanges("second"))).toEqual(new Set([""]))
+        expect(new Set(willChanges("second"))).toEqual(new Set(["transform"]))
     })
 
     test("a small layout animation after one past the budget gets will-change", async () => {
@@ -222,6 +229,31 @@ describe("layer budget", () => {
         expect(new Set(willChanges("second"))).toEqual(new Set(["transform"]))
     })
 
+    test("nodes that stay far outside the viewport get no will-change and don't use the budget", async () => {
+        render(
+            <>
+                <Cards count={3} name="visible" />
+                <Cards count={199} name="hidden" top={5000} />
+            </>
+        )
+        await frames(2)
+        await act(async () => {
+            toggles.visible()
+            toggles.hidden()
+        })
+        await frames(10)
+        expect(new Set(willChanges("visible"))).toEqual(new Set(["transform"]))
+        expect(new Set(willChanges("hidden"))).toEqual(new Set([""]))
+    })
+
+    test("a few nodes far outside the viewport get no will-change", async () => {
+        render(<Cards count={3} name="hidden" top={5000} />)
+        await frames(2)
+        await act(async () => toggles.hidden())
+        await frames(10)
+        expect(new Set(willChanges("hidden"))).toEqual(new Set([""]))
+    })
+
     test("a layoutRoot on the page doesn't hold the decision between animations", async () => {
         render(
             <motion.div layoutRoot>
@@ -239,11 +271,30 @@ describe("layer budget", () => {
         expect(new Set(willChanges("second"))).toEqual(new Set(["transform"]))
     })
 
-    test("a will-change set in style is left alone", async () => {
+    test("a will-change set in style gains transform while the node moves, and is restored", async () => {
         await animate(3, "opacity")
         const cards = document.querySelectorAll<HTMLElement>(".card")
-        for (const { style } of cards) expect(style.willChange).toBe("opacity")
+        for (const { style } of cards)
+            expect(style.willChange).toBe("opacity, transform")
         await frames(70)
         for (const { style } of cards) expect(style.willChange).toBe("opacity")
+    })
+
+    test("a will-change with transform set in style is left alone", async () => {
+        await animate(3, "transform, opacity")
+        const cards = document.querySelectorAll<HTMLElement>(".card")
+        for (const { style } of cards)
+            expect(style.willChange).toBe("transform, opacity")
+        await frames(70)
+        for (const { style } of cards)
+            expect(style.willChange).toBe("transform, opacity")
+    })
+
+    test("a will-change of auto set in style counts as none", async () => {
+        await animate(3, "auto")
+        const cards = document.querySelectorAll<HTMLElement>(".card")
+        for (const { style } of cards) expect(style.willChange).toBe("transform")
+        await frames(70)
+        for (const { style } of cards) expect(style.willChange).toBe("auto")
     })
 })
