@@ -914,6 +914,11 @@ export function createProjectionNode<I>({
         update() {
             this.updateScheduled = false
 
+            /**
+             * The snapshot pass is over, whichever way this update goes.
+             */
+            this.pageBoxes = undefined
+
             const updateWasBlocked = this.isUpdateBlocked()
 
             // When doing an instant transition, we skip the layout update,
