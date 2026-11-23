@@ -563,6 +563,13 @@ export function createProjectionNode<I>({
         isUpdating = false
 
         /**
+         * The page boxes of transformed ancestors, kept while the root
+         * measures its nodes before and after an update. Only the root
+         * sets it, so it's declared rather than made on every node.
+         */
+        declare pageBoxes?: Map<IProjectionNode, Box>
+
+        /**
          * If this is an SVG element we currently disable projection transforms
          */
         isSVG = false
@@ -892,6 +899,7 @@ export function createProjectionNode<I>({
             if (this.isUpdateBlocked()) return
 
             this.isUpdating = true
+            this.pageBoxes = new Map()
 
             this.nodes?.forEach(resetSkewAndRotation)
             this.animationId++
@@ -942,6 +950,12 @@ export function createProjectionNode<I>({
 
             !this.root.isUpdating && this.root.startUpdate(isUnmount)
 
+            /**
+             * An unmount updates while React is changing the DOM, so the
+             * ancestors measured before it may have moved.
+             */
+            if (isUnmount) this.root.pageBoxes = undefined
+
             if (this.isLayoutDirty) return
 
             /**
@@ -987,6 +1001,11 @@ export function createProjectionNode<I>({
 
         update() {
             this.updateScheduled = false
+
+            /**
+             * The snapshot pass is over, whichever way this update goes.
+             */
+            this.pageBoxes = undefined
 
             const updateWasBlocked = this.isUpdateBlocked()
 
@@ -1044,7 +1063,9 @@ export function createProjectionNode<I>({
                  * Read ==================
                  */
                 // Update layout measurements of updated children
+                this.pageBoxes = new Map()
                 this.nodes!.forEach(updateLayout)
+                this.pageBoxes = undefined
 
                 /**
                  * Write
@@ -1073,6 +1094,7 @@ export function createProjectionNode<I>({
         }
 
         clearAllSnapshots() {
+            this.pageBoxes = undefined
             this.nodes!.forEach(clearSnapshot)
 
             /**
@@ -1460,8 +1482,19 @@ export function createProjectionNode<I>({
 
                 if (node.instance) {
                     hasScale(node.latestValues) && node.updateSnapshot()
-                    sourceBox = createBox()
-                    copyBoxInto(sourceBox, node.measurePageBox())
+
+                    /**
+                     * In a measuring pass, nothing moves an ancestor
+                     * between its children's measurements, so it's
+                     * measured once for all of them.
+                     */
+                    const { pageBoxes } = this.root
+                    sourceBox = pageBoxes?.get(node)
+                    if (!sourceBox) {
+                        sourceBox = createBox()
+                        copyBoxInto(sourceBox, node.measurePageBox())
+                        pageBoxes?.set(node, sourceBox)
+                    }
                 }
 
                 removeBoxTransforms(
