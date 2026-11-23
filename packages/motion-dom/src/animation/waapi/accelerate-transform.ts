@@ -39,13 +39,31 @@ export function removeHeldOffsets(
  * transforms on the compositor. Set as the `bindTransform` of an
  * accelerate config, so only the code that makes those configs carries it.
  */
+/**
+ * How many elements can follow a timeline on the compositor. Each is a
+ * compositor animation the browser updates every frame. Past about this
+ * many, they cost the main and compositor threads more than writing their
+ * transforms from JS, so later ones are written from JS.
+ */
+export const scrollLayerBudget = 100
+
+/**
+ * The elements following a timeline on the compositor, with how many of
+ * their transforms do.
+ */
+const scrollLayers = new Map<Element, number>()
+
 export function bindAccelerateTransform(
-    _element: HTMLElement,
+    element: HTMLElement,
     name: string,
     config: AccelerateConfig,
     node: MotionNode,
     onDemote: VoidFunction
-): VoidFunction {
+): VoidFunction | undefined {
+    const count = scrollLayers.get(element) || 0
+    if (!count && scrollLayers.size >= scrollLayerBudget) return
+    scrollLayers.set(element, count + 1)
+
     supportTimelines()
 
     const { keyframes, times, ease } = removeHeldOffsets(
@@ -77,9 +95,16 @@ export function bindAccelerateTransform(
         frame.postRender(onDemote)
     })
 
+    let isStopped = false
     return () => {
+        if (isStopped) return
+        isStopped = true
         stopListening()
         cleanup()
         animation.stop()
+        const remaining = scrollLayers.get(element)! - 1
+        remaining
+            ? scrollLayers.set(element, remaining)
+            : scrollLayers.delete(element)
     }
 }

@@ -521,16 +521,24 @@ export abstract class VisualElement<
             (acceleratedValues.has(key)
                 ? accelerate?.bind
                 : transformProps.has(key) && accelerate?.bindTransform)
-        if (bind && this.current instanceof HTMLElement) {
+        const binding: NodeBinding = {}
+
+        /**
+         * A binder can decline, leaving the value to be written from JS.
+         */
+        const stop =
+            bind &&
+            this.current instanceof HTMLElement &&
+            bind(this.current, key, accelerate!, this, () => {
+                this.bindings[key] === binding &&
+                    this.bindValue(key, value, true)
+            })
+        if (stop) {
             this.unbind(key)
             this.values.set(key, value!)
             const latest = value!.get()
             if (latest !== undefined) this.latestValues[key] = latest
-            const binding: NodeBinding = {}
-            binding.stop = bind(this.current, key, accelerate!, this, () => {
-                this.bindings[key] === binding &&
-                    this.bindValue(key, value, true)
-            })
+            binding.stop = stop
             this.bindings[key] = binding
             return
         }

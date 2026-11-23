@@ -84,7 +84,7 @@ export interface AccelerateConfig {
         config: AccelerateConfig,
         node: any,
         onDemote: VoidFunction
-    ) => VoidFunction
+    ) => VoidFunction | undefined
     factory: (animation: AnimationPlaybackControlsWithThen) => VoidFunction
     times: number[]
     keyframes: any[]
