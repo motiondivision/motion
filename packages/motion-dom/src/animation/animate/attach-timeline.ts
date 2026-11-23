@@ -28,6 +28,8 @@ function attachTimeline(
      * and the rest, follow it on the shared clock. An easing that was
      * only a default is made linear, as a JSAnimation's is.
      */
+    let needsFollow = false
+
     for (const track of animation.tracks) {
         const { native, options } = track
         if (track.isStopped) continue
@@ -58,16 +60,14 @@ function attachTimeline(
                 : track.observe()
             track.group?.schedule(true)
         }
+
+        if (!track.isScrolling && !track.scrollTimeline) needsFollow = true
     }
+
     /**
      * Only values off the native timeline follow it from JS.
      */
-    for (const track of animation.tracks) {
-        track.isStopped ||
-            track.isScrolling ||
-            track.scrollTimeline ||
-            animation.follow(timeline)
-    }
+    needsFollow && animation.follow(timeline)
     return () => animation.unfollow?.()
 }
 

@@ -56,7 +56,11 @@ export * from "./animation/waapi/easing/map-easing"
 export * from "./animation/waapi/easing/supported"
 export * from "./animation/waapi/start-waapi-animation"
 export * from "./animation/waapi/supports/partial-keyframes"
-export * from "./animation/waapi/supports/waapi"
+export {
+    colorProperties,
+    supportsBrowserAnimation,
+    supportsWaapi,
+} from "./animation/waapi/supports/waapi"
 export * from "./animation/waapi/accelerate"
 export * from "./animation/waapi/utils/accelerated-values"
 export * from "./animation/waapi/utils/apply-generator"

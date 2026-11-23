@@ -22,7 +22,6 @@ import { supportsBrowserAnimation } from "../waapi/supports/waapi"
 import { supportsLinearEasing } from "../../utils/supports/linear-easing"
 import { isGenerator } from "../generators/utils/is-generator"
 import { replaceTransitionType } from "../utils/replace-transition-type"
-import { replaceStringEasing } from "../waapi/utils/unsupported-easing"
 import { mapEasingToNativeEasing } from "../waapi/easing/map-easing"
 import { keyframes as keyframesType } from "../generators/keyframes"
 import { spring } from "../generators/spring"
@@ -92,14 +91,12 @@ function isSameTransition(a: any, b: any) {
 /**
  * Sequences make new easing arrays for each value.
  */
-function isSame(a: any, b: any) {
-    if (a === b) return true
-    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) {
-        return false
-    }
-    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false
-    return true
-}
+const isSame = (a: any, b: any) =>
+    a === b ||
+    (Array.isArray(a) &&
+        Array.isArray(b) &&
+        a.length === b.length &&
+        a.every((v, i) => v === b[i]))
 
 function makePlan(
     name: string,
@@ -126,19 +123,15 @@ function makePlan(
     base.duration &&= secondsToMilliseconds(base.duration)
     base.repeatDelay &&= secondsToMilliseconds(base.repeatDelay)
 
-    let isInstant = false
-    if (base.type === false || (base.duration === 0 && !base.repeatDelay)) {
-        makeAnimationInstant(base)
-        isInstant = true
-    }
-
-    const isSkipped = !!(
+    const isInstant =
+        base.type === false || (base.duration === 0 && !base.repeatDelay)
+    const isSkipped = Boolean(
         MotionGlobalConfig.instantAnimations ||
-        MotionGlobalConfig.skipAnimations ||
-        element?.shouldSkipAnimations ||
-        transition.skipAnimations
+            MotionGlobalConfig.skipAnimations ||
+            element?.shouldSkipAnimations ||
+            transition.skipAnimations
     )
-    isSkipped && makeAnimationInstant(base)
+    ;(isInstant || isSkipped) && makeAnimationInstant(base)
 
     base.allowFlatten = !transition.type && !transition.ease
     fillAnimationDefaults(base)
@@ -159,10 +152,9 @@ function makePlan(
 function planEase(plan: ValuePlan) {
     if (!("ease" in plan)) {
         const { ease } = plan.base
-        plan.ease =
-            typeof ease === "function" || isEasingArray(ease)
-                ? ease
-                : easingDefinitionToFunction(ease as any)
+        plan.ease = isEasingArray(ease)
+            ? ease
+            : easingDefinitionToFunction(ease as any)
     }
     return plan.ease
 }
@@ -212,9 +204,12 @@ function waapiTiming(options: any, ease: any) {
         return false
     }
 
-    const transition = { ease }
-    replaceStringEasing(transition)
-    const easing = mapEasingToNativeEasing(transition.ease as any, duration)
+    const easing = mapEasingToNativeEasing(
+        ease === "anticipate" || ease === "backInOut" || ease === "circInOut"
+            ? easingDefinitionToFunction(ease)
+            : ease,
+        duration
+    )
     const isArray = Array.isArray(easing)
 
     return [
@@ -257,29 +252,19 @@ function resolveNow(target: any[], value: MotionValue) {
  * ones, which the browser parses slowly.
  */
 function shareSpring(options: any, springs: Record<string, object>) {
-    const {
-        keyframes,
-        stiffness,
-        damping,
-        mass,
-        duration,
-        bounce,
-        visualDuration,
-        restDelta,
-        restSpeed,
-    } = options
+    const { keyframes } = options
     const distance =
         Math.abs(parseFloat(keyframes[1]) - parseFloat(keyframes[0])) || 100
     const curve =
         [
-            stiffness,
-            damping,
-            mass,
-            duration,
-            bounce,
-            visualDuration,
-            restDelta,
-            restSpeed,
+            options.stiffness,
+            options.damping,
+            options.mass,
+            options.duration,
+            options.bounce,
+            options.visualDuration,
+            options.restDelta,
+            options.restSpeed,
         ] + ""
     const id = curve + distance
 
@@ -448,13 +433,11 @@ export const startValueAnimation =
          * Transforms and other compositor values on an HTML element join
          * its group, which plays them in one WAAPI animation.
          */
-        const isTransform = canGroupValue(
-            { name, motionValue: value } as any,
-            composes
-        )
+        const isTransform = canGroupValue(name, value, composes)
         const parent = (ref.animation ||= new MultiValueAnimation(base.driver))
-        if (base.autoplay === false) parent.options.autoplay = false
-        parent.options.startTime ??= base.startTime
+        const parentOptions = parent.options
+        if (base.autoplay === false) parentOptions.autoplay = false
+        parentOptions.startTime ??= base.startTime
 
         /**
          * Then, or if it must start now, its origin is its value's.

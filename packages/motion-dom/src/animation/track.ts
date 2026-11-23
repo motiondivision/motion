@@ -1,4 +1,4 @@
-import { clamp, invariant, pipe } from "motion-utils"
+import { clamp, invariant } from "motion-utils"
 import { mix } from "../utils/mix"
 import { Mixer } from "../utils/mix/types"
 import { keyframes as keyframesGenerator } from "./generators/keyframes"
@@ -36,15 +36,13 @@ export interface Track<T extends AnyResolvedKeyframe = any> {
     delayState?: AnimationState<T>
 }
 
-const percentToProgress = (percent: number) => percent / 100
-
 export function initTrack<T extends AnyResolvedKeyframe>(track: Track<T>) {
     const { options } = track
 
     replaceTransitionType(options)
 
     const {
-        type = keyframesGenerator,
+        type,
         repeat = 0,
         repeatDelay = 0,
         repeatType,
@@ -75,11 +73,10 @@ export function initTrack<T extends AnyResolvedKeyframe>(track: Track<T>) {
         generatorFactory !== keyframesGenerator &&
         typeof keyframes[0] !== "number"
     ) {
-        track.mixKeyframes = pipe(
-            percentToProgress,
+        const mixer =
             options.mixer?.(keyframes[0], keyframes[1]) ||
-                mix(keyframes[0], keyframes[1])
-        ) as (t: number) => T
+            mix(keyframes[0], keyframes[1])
+        track.mixKeyframes = (t: number) => mixer(t / 100) as T
 
         keyframes = [0 as T, 100 as T]
     }
@@ -132,6 +129,15 @@ export function generateTrack<T extends AnyResolvedKeyframe>(
     } = track
     const { keyframes, repeat, repeatType, repeatDelay } = track.options
 
+    if (isInDelayPhase) {
+        const state = (track.delayState ||= {
+            done: false,
+            value: undefined as unknown as T,
+        })
+        state.value = keyframes[0]
+        return state
+    }
+
     let elapsed = currentTime
     let frameGenerator = generator
 
@@ -171,22 +177,9 @@ export function generateTrack<T extends AnyResolvedKeyframe>(
         elapsed = clamp(0, 1, iterationProgress) * resolvedDuration
     }
 
-    /**
-     * In negative time the value is the initial keyframe, so delay: x,
-     * duration: 0 animations don't finish instantly.
-     */
-    let state: AnimationState<T>
-    if (isInDelayPhase) {
-        state = track.delayState ||= {
-            done: false,
-            value: undefined as unknown as T,
-        }
-        state.value = keyframes[0]
-    } else {
-        state = frameGenerator.next(elapsed)
-    }
+    const state = frameGenerator.next(elapsed)
 
-    if (mixKeyframes && !isInDelayPhase) {
+    if (mixKeyframes) {
         state.value = mixKeyframes(state.value as number)
     }
 
