@@ -87,6 +87,15 @@ const domMax = createCombinedSizeBundle(
     "dist/size-rollup-m-dom-max.js"
 )
 
+const domDrag = createCombinedSizeBundle(
+    [...lazyM, "lib/render/dom/features-drag.js"],
+    "dist/size-rollup-m-dom-drag.js"
+)
+const domLayout = createCombinedSizeBundle(
+    [...lazyM, "lib/render/dom/features-layout.js"],
+    "dist/size-rollup-m-dom-layout.js"
+)
+
 export default [
     motion,
     m,
@@ -94,6 +103,8 @@ export default [
     sizeScroll,
     domAnimation,
     domMax,
+    domDrag,
+    domLayout,
     sizeAnimateMini,
     sizeRemix,
 ]

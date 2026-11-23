@@ -29,28 +29,35 @@ export const supportsWaapi = () =>
     !MotionGlobalConfig.useManualTiming &&
     Object.hasOwnProperty.call(Element.prototype, "animate")
 
+export function canAccelerateOptions(
+    options: ValueAnimationOptionsWithRenderContext<any>,
+    checkTransformTemplate: boolean
+) {
+    const { onUpdate, transformTemplate } =
+        options.motionValue!.owner!.getProps()
+
+    return (
+        !onUpdate &&
+        !options.hasOnUpdate &&
+        (!checkTransformTemplate || !transformTemplate) &&
+        options.type !== "inertia" &&
+        !needsMixer(options)
+    )
+}
+
 export function supportsBrowserAnimation<T extends AnyResolvedKeyframe>(
     options: ValueAnimationOptionsWithRenderContext<T>
 ) {
-    const {
-        motionValue,
-        name,
-        repeatDelay,
-        repeatType,
-        damping,
-        type,
-        keyframes,
-        hasOnUpdate,
-    } = options
+    const { motionValue, name, repeatDelay, repeatType, damping, keyframes } =
+        options
+
+    const isAccelerated = Boolean(name && acceleratedValues.has(name))
 
     /**
      * Most values can't be accelerated at all, so check the name before
      * looking at the element or its props.
      */
-    if (
-        !name ||
-        !(acceleratedValues.has(name) || colorProperties.has(name))
-    ) {
+    if (!isAccelerated && !(name && colorProperties.has(name))) {
         return false
     }
 
@@ -63,14 +70,9 @@ export function supportsBrowserAnimation<T extends AnyResolvedKeyframe>(
      * these animations properly with those driven from the main window
      * frameloop.
      */
-    if (
-        !(subject instanceof HTMLElement) &&
-        !(subject instanceof SVGElement)
-    ) {
+    if (!(subject instanceof HTMLElement) && !(subject instanceof SVGElement)) {
         return false
     }
-
-    const { onUpdate, transformTemplate } = motionValue!.owner!.getProps()
 
     return (
         supportsWaapi() &&
@@ -78,21 +80,10 @@ export function supportsBrowserAnimation<T extends AnyResolvedKeyframe>(
          * Force WAAPI for color properties with browser-only color formats
          * (oklch, oklab, lab, lch, etc.) that the JS animation path can't parse.
          */
-        (acceleratedValues.has(name) ||
-            (colorProperties.has(name) &&
-                hasBrowserOnlyColors(keyframes))) &&
-        (name !== "transform" || !transformTemplate) &&
-        /**
-         * If we're outputting values to onUpdate (the onUpdate prop, or this
-         * value's transition) then we can't use WAAPI as there's no way to
-         * read the value from WAAPI every frame.
-         */
-        !onUpdate &&
-        !hasOnUpdate &&
+        (isAccelerated || hasBrowserOnlyColors(keyframes)) &&
         !repeatDelay &&
         repeatType !== "mirror" &&
         damping !== 0 &&
-        type !== "inertia" &&
-        !needsMixer(options)
+        canAccelerateOptions(options, name === "transform")
     )
 }

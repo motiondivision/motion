@@ -187,9 +187,20 @@ export class VisualElementDragControls {
 
             this.currentDirection = null
 
+            const { projection } = this.visualElement
+
+            /**
+             * A measure-only node (domDrag) isn't measured again when a
+             * render moves the element, so measure it now. This also
+             * measures ref constraints again, via its "measure" listener.
+             */
+            if (projection?.isMeasureOnly) {
+                measureScroll(projection)
+                projection.updateLayout()
+            }
+
             this.resolveConstraints()
 
-            const { projection } = this.visualElement
             if (projection) {
                 projection.isAnimationBlocked = true
                 projection.target = undefined

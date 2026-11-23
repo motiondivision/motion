@@ -56,7 +56,11 @@ export * from "./animation/waapi/easing/map-easing"
 export * from "./animation/waapi/easing/supported"
 export * from "./animation/waapi/start-waapi-animation"
 export * from "./animation/waapi/supports/partial-keyframes"
-export * from "./animation/waapi/supports/waapi"
+export {
+    colorProperties,
+    supportsBrowserAnimation,
+    supportsWaapi,
+} from "./animation/waapi/supports/waapi"
 export * from "./animation/waapi/accelerate"
 export * from "./animation/waapi/utils/accelerated-values"
 export * from "./animation/waapi/utils/apply-generator"
@@ -90,6 +94,7 @@ export {
     parseAnimateLayoutArgs,
 } from "./layout/LayoutAnimationBuilder"
 export * from "./gestures/drag"
+export { createDragMeasureNode } from "./gestures/drag/measure-node"
 export * from "./gestures/drag/state/is-active"
 export * from "./gestures/drag/state/set-active"
 export * from "./gestures/drag/types"

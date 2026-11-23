@@ -4,7 +4,7 @@
         "module": "esnext",
         "moduleResolution": "bundler",
         "isolatedModules": false,
-        "importHelpers": true,
+        "importHelpers": false,
         "jsx": "react-jsx",
         "esModuleInterop": true,
         "experimentalDecorators": true,

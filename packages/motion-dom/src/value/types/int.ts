@@ -1,6 +1,5 @@
-import { number } from "./numbers"
-
 export const int = {
-    ...number,
+    test: (v: any) => typeof v === "number",
+    parse: parseFloat,
     transform: Math.round,
 }

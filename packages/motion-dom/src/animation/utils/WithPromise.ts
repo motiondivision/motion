@@ -18,12 +18,14 @@ export class WithPromise {
               }))
     }
 
-    protected updateFinished() {
+    /** @internal */
+    updateFinished() {
         this._finished = this._resolve = undefined
         this.isResolved = false
     }
 
-    protected notifyFinished() {
+    /** @internal */
+    notifyFinished() {
         this.isResolved = true
         this._resolve?.()
     }

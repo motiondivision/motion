@@ -47,6 +47,16 @@ export type LayoutEvents =
     | "animationComplete"
 
 export interface IProjectionNode<I = unknown> {
+    /**
+     * Set on drag's measure-only nodes (domDrag and vanilla `drag()`),
+     * which measure layout but don't project or join the tree.
+     */
+    isMeasureOnly?: boolean
+    /**
+     * Measure-only nodes: hand active listeners to the full node that
+     * replaces this one.
+     */
+    upgrade?: (node: [IProjectionNode, VoidFunction?]) => void
     id: number
     animationId: number
     animationCommitId: number

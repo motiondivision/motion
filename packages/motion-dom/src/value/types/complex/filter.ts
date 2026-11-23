@@ -4,7 +4,12 @@ import { floatRegex } from "../utils/float-regex"
 /**
  * Properties that should default to 1 or 100%
  */
-const maxDefaults = new Set(["brightness", "contrast", "saturate", "opacity"])
+const maxDefaults = /* @__PURE__ */ new Set([
+    "brightness",
+    "contrast",
+    "saturate",
+    "opacity",
+])
 
 function applyDefaultFilter(v: string) {
     const [name, value] = v.slice(0, -1).split("(")
@@ -23,10 +28,9 @@ function applyDefaultFilter(v: string) {
 
 const functionRegex = /\b([a-z-]*)\(.*?\)/gu
 
-export const filter = {
-    ...complex,
+export const filter = /* @__PURE__ */ Object.assign({}, complex, {
     getAnimatableNone: (v: string) => {
         const functions = v.match(functionRegex)
         return functions ? functions.map(applyDefaultFilter).join(" ") : v
     },
-}
+})

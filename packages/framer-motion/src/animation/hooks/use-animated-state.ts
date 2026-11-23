@@ -44,7 +44,7 @@ class StateVisualElement extends VisualElement<
     }
 }
 
-const useVisualState = makeUseVisualState({
+const useVisualState = /* @__PURE__ */ makeUseVisualState({
     scrapeMotionValuesFromProps: createObject,
 })
 

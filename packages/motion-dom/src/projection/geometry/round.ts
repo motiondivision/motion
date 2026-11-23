@@ -11,18 +11,19 @@ const userAgentContains = (string: string) =>
  * left untouched in Chrome, otherwise non-integer layouts within scaled-up elements
  * can appear to jump.
  */
-const roundPoint =
-    userAgentContains("applewebkit/") && !userAgentContains("chrome/")
-        ? Math.round
-        : noop
+let roundPoint: ((v: number) => number) | undefined
 
-function roundAxis(axis: Axis): void {
+function roundAxis(axis: Axis, round: (v: number) => number): void {
     // Round to the nearest .5 pixels to support subpixel layouts
-    axis.min = roundPoint(axis.min)
-    axis.max = roundPoint(axis.max)
+    axis.min = round(axis.min)
+    axis.max = round(axis.max)
 }
 
 export function roundBox(box: Box): void {
-    roundAxis(box.x)
-    roundAxis(box.y)
+    roundPoint ??=
+        userAgentContains("applewebkit/") && !userAgentContains("chrome/")
+            ? Math.round
+            : noop
+    roundAxis(box.x, roundPoint)
+    roundAxis(box.y, roundPoint)
 }

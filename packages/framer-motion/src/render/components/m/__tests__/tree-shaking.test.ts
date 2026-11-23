@@ -34,11 +34,36 @@ describe("m tree-shaking", () => {
         expect(findCanaries(code)).toEqual([])
     })
 
+    test("domDrag excludes layout projection and scale correctors", () => {
+        const code = bundle(
+            `export { domDrag } from "../../../dom/features-drag"`
+        )
+
+        expect(code.includes("VisualElementDragControls")).toBe(true)
+        expect(code.includes("createProjectionNode")).toBe(false)
+        expect(code.includes("MeasureLayoutWithContext")).toBe(false)
+        expect(code.includes("correctBoxShadow")).toBe(false)
+        expect(code.includes("correctBorderRadius")).toBe(false)
+    })
+
+    test("domLayout includes layout projection and excludes drag and pan", () => {
+        const code = bundle(
+            `export { domLayout } from "../../../dom/features-layout"`
+        )
+
+        expect(code.includes("createProjectionNode")).toBe(true)
+        expect(findCanaries(code)).toEqual(layoutCorrectorCanaries)
+        expect(code.includes("VisualElementDragControls")).toBe(false)
+        expect(code.includes("PanSession")).toBe(false)
+    })
+
     test("domMax includes the layout scale correctors", () => {
         const code = bundle(
             `export { domMax } from "../../../dom/features-max"`
         )
 
         expect(findCanaries(code)).toEqual(layoutCorrectorCanaries)
+        expect(code.includes("VisualElementDragControls")).toBe(true)
+        expect(code.includes("createProjectionNode")).toBe(true)
     })
 })

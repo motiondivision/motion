@@ -9,7 +9,9 @@ type Utils = typeof import("./utils")
 function load(withLayout: boolean): DragModule & Utils {
     let modules!: DragModule & Utils
     jest.isolateModules(() => {
-        if (withLayout) require("../../../layout/LayoutAnimationBuilder")
+        if (withLayout) {
+            require("../../../layout/LayoutAnimationBuilder").registerLayoutProjection()
+        }
         modules = { ...require(".."), ...require("./utils") }
     })
     return modules

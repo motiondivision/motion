@@ -33,6 +33,8 @@ export { useUnmountEffect } from "./utils/use-unmount-effect"
  * Features
  */
 export { domAnimation } from "./render/dom/features-animation"
+export { domDrag } from "./render/dom/features-drag"
+export { domLayout } from "./render/dom/features-layout"
 export { domMax } from "./render/dom/features-max"
 export { domMin } from "./render/dom/features-min"
 export { pinchFeatures } from "./render/dom/features-pinch"
