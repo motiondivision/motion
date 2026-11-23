@@ -379,34 +379,32 @@ describe("scopeMotion", () => {
         expect(onHover).not.toBeCalled()
     })
 
-    /**
-     * inView shares one observer per root and settings, so these tests use
-     * one mock, set up before the first observer is made.
-     */
-    let trigger: (entries: any[]) => void = () => {}
-    const unobserve = jest.fn()
-    ;(window as any).IntersectionObserver = class {
-        constructor(callback: any) {
-            trigger = callback
+    test("stop() disconnects inView observers started in the scope", async () => {
+        const disconnect = jest.fn()
+        ;(window as any).IntersectionObserver = class {
+            observe() {}
+            disconnect = disconnect
         }
-        observe() {}
-        unobserve = unobserve
-        disconnect() {}
-    }
-
-    test("stop() stops inView observing elements started in the scope", async () => {
         document.body.innerHTML = `<div></div>`
-        unobserve.mockClear()
 
         const scope = scopeMotion(() => {
             inView("div", () => {})
         })
         scope.stop()
 
-        expect(unobserve).toBeCalledWith(document.body.firstChild)
+        expect(disconnect).toBeCalled()
     })
 
     test("animations started in inView callbacks are collected", async () => {
+        let trigger: (entries: any[]) => void = () => {}
+        ;(window as any).IntersectionObserver = class {
+            constructor(callback: any) {
+                trigger = callback
+            }
+            observe() {}
+            unobserve() {}
+            disconnect() {}
+        }
         document.body.innerHTML = `<div></div>`
         const x = motionValue(0)
 

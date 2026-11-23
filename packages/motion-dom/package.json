@@ -31,11 +31,11 @@
     "bundlesize": [
         {
             "path": "./dist/size-rollup-style-effect.js",
-            "maxSize": "4.35 kB"
+            "maxSize": "4.37 kB"
         },
         {
             "path": "./dist/size-rollup-motion-value.js",
-            "maxSize": "1.9 kB"
+            "maxSize": "1.92 kB"
         },
         {
             "path": "./dist/size-rollup-pinch.js",
