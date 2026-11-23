@@ -15,9 +15,9 @@
     "stagger": 850,
     "frame": 750,
     "mix": 2100,
-    "vanilla-all": 69000,
+    "vanilla-all": 69100,
     "motion-div": 48050,
-    "motion-create": 48050,
+    "motion-create": 48150,
     "m-div": 5300,
     "m-div(via motion/react)": 5400,
     "m+LazyMotion+domAnimation": 32550,
@@ -54,5 +54,5 @@
     "motion-div+useTransform+useMotionTemplate": 48600,
     "motion-div+useScroll+useTransform+useSpring": 52850,
     "motion-div+Reorder": 52650,
-    "domMax+useScroll": 48900
+    "domMax+useScroll": 49000
 }

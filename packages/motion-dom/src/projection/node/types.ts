@@ -56,7 +56,7 @@ export interface IProjectionNode<I = unknown> {
      * Measure-only nodes: hand active listeners to the full node that
      * replaces this one.
      */
-    upgrade?: (node: IProjectionNode) => void
+    upgrade?: (node: [IProjectionNode, VoidFunction?]) => void
     id: number
     animationId: number
     animationCommitId: number

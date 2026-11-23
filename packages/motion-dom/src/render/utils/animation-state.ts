@@ -43,7 +43,8 @@ export type AnimateFunction = (
     animations: DefinitionAndOptions[]
 ) => Promise<any>
 
-const reversePriorityOrder = [...variantPriorityOrder].reverse()
+const reversePriorityOrder = /* @__PURE__ */ (() =>
+    [...variantPriorityOrder].reverse())()
 
 /**
  * protectedKeys and prevResolvedValues are replaced, never changed, so

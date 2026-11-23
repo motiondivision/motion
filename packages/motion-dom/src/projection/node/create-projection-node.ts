@@ -277,7 +277,7 @@ export function createProjectionNode<I>({
             })
 
             if (prevProjection?.isMeasureOnly) {
-                prevProjection.upgrade?.(projection)
+                prevProjection.upgrade?.([projection])
             }
             if (visualElement.current && !projection.instance) {
                 projection.mount(visualElement.current)

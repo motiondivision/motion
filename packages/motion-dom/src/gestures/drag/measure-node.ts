@@ -20,19 +20,23 @@ const root: any = {
 /**
  * The part of a projection node that drag controls use: measuring the
  * element's page box, for its layout and constraints. It never projects
- * or joins a layout update.
+ * or joins a layout update until a full node replaces it, through
+ * `upgrade` (when domLayout or domMax loads after domDrag, or when
+ * animateLayout() first runs after drag()).
+ *
+ * Nodes made by drag() pass `pending`, the set animateLayout() upgrades.
  */
 export function createDragMeasureNode(
     visualElement: VisualElement<HTMLElement>,
-    element?: HTMLElement
+    element?: HTMLElement,
+    pending?: Set<IProjectionNode>
 ): [IProjectionNode, VoidFunction] {
-    const measureListeners = new SubscriptionManager()
+    const listeners = {
+        measure: new SubscriptionManager(),
+        didUpdate: new SubscriptionManager(),
+    }
     let upgraded: IProjectionNode | undefined
-    const activeListeners = new Set<{
-        name: string
-        handler: VoidFunction
-        remove: VoidFunction
-    }>()
+    let stopUpgraded: VoidFunction[] = []
 
     const node: any = {
         instance: element,
@@ -40,7 +44,10 @@ export function createDragMeasureNode(
         path: [root],
         options: {},
         isMeasureOnly: true,
-        setOptions: noop,
+        setOptions: (options: Record<string, any>) => {
+            node.options = { ...node.options, ...options }
+            upgraded?.setOptions(options)
+        },
         /**
          * Truthy like the full node's method, which HTMLVisualElement reads
          * (rather than calls) to default transform values.
@@ -74,48 +81,46 @@ export function createDragMeasureNode(
             style.transform = transform
             roundBox(layoutBox)
             node.layout = { layoutBox }
-            measureListeners.notify()
+            listeners.measure.notify()
         },
-        addEventListener: (name: string, handler: VoidFunction) => {
-            if (upgraded) {
-                return upgraded.addEventListener(name as any, handler as any)
-            }
-            const entry = {
-                name,
-                handler,
-                remove:
-                    name === "measure"
-                        ? measureListeners.add(handler)
-                        : (noop as VoidFunction),
-            }
-            activeListeners.add(entry)
-            return () => {
-                entry.remove()
-                activeListeners.delete(entry)
-            }
+        addEventListener: (name: "measure" | "didUpdate", handler: any) =>
+            upgraded
+                ? upgraded.addEventListener(name, handler)
+                : listeners[name]?.add(handler) || noop,
+        /**
+         * Hand over to a full node, and forward its events to listeners
+         * added to this one. `release` is for a node drag() then owns, and
+         * runs when this node is released.
+         */
+        upgrade: ([next, release]: [IProjectionNode, VoidFunction?]) => {
+            pending?.delete(node)
+            upgraded = next
+            next.setOptions(node.options)
+            if (node.isAnimationBlocked) next.isAnimationBlocked = true
+            stopUpgraded = (["measure", "didUpdate"] as const).map((name) =>
+                next.addEventListener(name, (...args: any[]) =>
+                    (listeners[name].notify as any)(...args)
+                )
+            )
+            release && stopUpgraded.push(release)
         },
         /**
-         * If a full layout projection node replaces this measurement-only node
-         * (e.g. domLayout or domMax loads after domDrag), transfer any active
-         * drag listeners onto the new node so layout compensation works.
+         * Keep the VisualElement's reference, so a remount (e.g. in
+         * StrictMode) mounts this node again.
          */
-        upgrade: (next: IProjectionNode) => {
-            upgraded = next
-            node.instance = undefined
-            activeListeners.forEach((entry) => {
-                entry.remove()
-                entry.remove = next.addEventListener(
-                    entry.name as any,
-                    entry.handler as any
-                )
-            })
-        },
         unmount: () => {
             node.instance = undefined
         },
     }
 
+    /**
+     * Detach from the VisualElement too, so it doesn't later remount (or a
+     * `motion` component's layout feature adopt) a node that can't do
+     * either.
+     */
     const release = () => {
+        pending?.delete(node)
+        stopUpgraded.forEach((stop) => stop())
         node.unmount()
         if (visualElement.projection === node) {
             visualElement.projection = undefined
@@ -123,6 +128,7 @@ export function createDragMeasureNode(
     }
 
     visualElement.projection = node
+    pending?.add(node)
 
     return [node, release]
 }

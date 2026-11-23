@@ -7,18 +7,24 @@ import { createDragMeasureNode } from "./measure-node"
 type CreateNode = (element: HTMLElement) => [IProjectionNode, VoidFunction]
 
 /**
- * animateLayout() registers a function here that creates nodes in the
- * layout projection tree. When it's in the bundle, drag() uses those, so
- * the two work together (e.g. a drag follows a layout change mid-gesture).
- * Otherwise drag() makes do with a node that only measures. Bundles that
- * don't tree-shake (dev pre-bundling, CDN builds) always register it, and
- * a drag() started before animateLayout() is lazy loaded keeps its node.
+ * animateLayout() registers a function here the first time it runs, so
+ * later drag() calls create their nodes in the shared layout projection
+ * tree. drag() calls made before then use a node that only measures, kept
+ * in `pending`. Registration upgrades each of these to a full node, so
+ * dragged elements join the tree (e.g. as the parent of a layout child).
  */
-export const layoutProjection: { create?: CreateNode } = {}
+export const layoutProjection: {
+    create?: CreateNode
+    pending: Set<any>
+} = { pending: /* @__PURE__ */ new Set() }
 
 const createMeasureNode: CreateNode = (element) => {
     const visualElement = resolveVisualElement(element)
-    const result = createDragMeasureNode(visualElement, element)
+    const result = createDragMeasureNode(
+        visualElement,
+        element,
+        layoutProjection.pending
+    )
     visualElement.current || visualElement.mount(element)
     return result
 }

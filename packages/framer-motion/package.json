@@ -100,8 +100,7 @@
     },
     "dependencies": {
         "motion-dom": "14.14.0",
-        "motion-utils": "14.7.0",
-        "tslib": "^2.4.0"
+        "motion-utils": "14.7.0"
     },
     "devDependencies": {
         "@radix-ui/react-dialog": "^1.1.15",
@@ -141,7 +140,7 @@
         },
         {
             "path": "./dist/size-rollup-m-dom-animation.js",
-            "maxSize": "31.57 kB"
+            "maxSize": "31.6 kB"
         },
         {
             "path": "./dist/size-rollup-m-dom-max.js",
@@ -149,7 +148,7 @@
         },
         {
             "path": "./dist/size-rollup-m-dom-drag.js",
-            "maxSize": "36.1 kB"
+            "maxSize": "36.2 kB"
         },
         {
             "path": "./dist/size-rollup-m-dom-layout.js",
@@ -169,7 +168,7 @@
         },
         {
             "path": "./dist/size-rollup-remix.js",
-            "maxSize": "52.5 kB"
+            "maxSize": "52.6 kB"
         }
     ],
     "gitHead": "78f3ff51b5508f7e8c1c283d8e80bcd26fec37d7"
